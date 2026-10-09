@@ -93,7 +93,7 @@ Switching changes **new turns only**:
 | A queued message | The account it was queued with |
 | An open Standalone CLI tab | Its own account until you switch that tab |
 
-Provider conversations belong to the account that started them. The **Session IDs** dialog of a task lists one provider session per account, named when it is not System default.
+Provider conversations belong to the account that started them. **Copy debug info** in a task tab's context menu lists one provider session per account, suffixed with the account id when it is not System default.
 
 ### Resume After A Usage Limit
 

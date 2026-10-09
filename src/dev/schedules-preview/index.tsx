@@ -1,10 +1,12 @@
 import { useLayoutEffect, useState } from "react";
+import { applyAppLocale } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AutomationRun, AutomationSpec } from "@/lib/automations";
 import type { WakeUp, WakeUpSummary } from "@/lib/supervision/wake-up-policy";
+import { DEFAULT_PULL_REQUEST_WATCH_PROMPT } from "@/lib/supervision/pull-request-watch";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
@@ -12,14 +14,16 @@ import { useScheduleRequestStore } from "@/store/schedule-request-store";
 
 /**
  * The Schedules surface on the dev preview (`?stavePreview=schedules`): one
- * start-a-task schedule that last failed, one paused, two check-backs (one on
- * a cadence, one when subagents finish), with stubbed bridge calls.
+ * start-a-task schedule that last failed, one paused, three check-backs (one on
+ * a cadence, one when subagents finish, one watching a pull request), with
+ * stubbed bridge calls.
  * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
  * `&select=check-back` selects the first check-back, `&new=1` opens the new
  * schedule sheet, `&checkback=1` opens it on an existing task (the task menu's
  * Check back… item), `&empty=1` shows the empty state, `&only=check-backs`
  * lists check-backs and no start-a-task schedules, `&fail=check-backs` makes
- * the check-back list fail, and `&slow=check-backs` answers it after 1.5s.
+ * the check-back list fail, `&slow=check-backs` answers it after 1.5s, and
+ * `&lang=ko` renders it in Korean.
  */
 const params = new URLSearchParams(window.location.search);
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -111,6 +115,24 @@ const WAKE_UPS = [
     lastOccurrenceAt: null,
     occurrenceCount: 0,
   }),
+  wakeUp({
+    id: "wake-pr",
+    taskId: "preview-task-4",
+    prompt: DEFAULT_PULL_REQUEST_WATCH_PROMPT,
+    trigger: { kind: "pull_request", events: ["checks_failed", "merge_conflict"] },
+    maxOccurrences: 10,
+    nextRunAt: null,
+    lastOccurrenceAt: ago(14),
+    occurrenceCount: 2,
+    pullRequestWatch: {
+      pullRequest: { number: 128, url: "https://github.com/acme/preview-repo/pull/128", title: "feat(uploads): resume interrupted uploads" },
+      lastCheckedAt: ago(1),
+      lastSeen: { state: "OPEN", failingChecks: 1, conflicting: false, reviewComments: 0, checksPending: false },
+      consecutiveReadFailures: 0,
+      lastReadError: null,
+      pendingSince: null,
+    },
+  }),
 ];
 
 const summaries = (): WakeUpSummary[] =>
@@ -164,6 +186,7 @@ export function SchedulesPreview() {
     applyCustomTheme({ theme: builtinTheme });
   }, [theme, builtinTheme]);
   useLayoutEffect(() => {
+    applyAppLocale(params.get("lang") ?? "en");
     installBridgeStubs();
     useAppStore.setState({
       repositoryPath: "/tmp/preview-repo",
@@ -174,6 +197,7 @@ export function SchedulesPreview() {
         { id: "preview-task", title: "Fix the flaky upload test", provider: "claude-code" },
         { id: "preview-task-2", title: "Audit the settings sidebar", provider: "claude-code" },
         { id: "preview-task-3", title: "Draft release notes", provider: "codex" },
+        { id: "preview-task-4", title: "Resume interrupted uploads", provider: "claude-code" },
       ],
     } as never);
     if (params.get("checkback") === "1") {

@@ -32,9 +32,9 @@ describe("app surface: agents", () => {
     expect(surface).toEqual({ kind: "usage", providerId: "codex", accountProfileId: "system-default" });
     store.actions.openUsage({ providerId: "codex", accountProfileId: "system-default" });
     expect(store.get().activeAppSurface).toBe(surface);
-    store.actions.openResults();
+    store.actions.openAgents();
     store.actions.closeUsage();
-    expect(store.get().activeAppSurface.kind).toBe("results");
+    expect(store.get().activeAppSurface.kind).toBe("agents");
     store.actions.openUsage();
     store.actions.closeUsage();
     expect(store.get().activeAppSurface.kind).toBe("workspace");
@@ -58,9 +58,9 @@ describe("app surface: agents", () => {
 
   test("closeAgents leaves another surface untouched", () => {
     const store = makeStore();
-    store.actions.openResults();
+    store.actions.openUsage();
     store.actions.closeAgents();
-    expect(store.get().activeAppSurface.kind).toBe("results");
+    expect(store.get().activeAppSurface.kind).toBe("usage");
   });
 
   test("persistence normalizes a stored agents surface to its singleton", () => {

@@ -181,7 +181,18 @@
     "selectATask": "작업 선택",
     "when": "시점",
     "onACadence": "주기적으로",
-    "whenSubagentsFinish": "하위 에이전트가 완료되면"
+    "whenSubagentsFinish": "하위 에이전트가 완료되면",
+    "whenPullRequestNeedsFixing": "PR 수정이 필요할 때",
+    "pullRequestEventsLabel": "작업을 깨우는 조건",
+    "pullRequestEventsDescription": "Stave가 작업 브랜치의 PR을 2분마다 확인하고, 새 실패마다 한 번씩 진행 중인 턴이 끝난 뒤 작업을 깨웁니다. PR이 병합되거나 닫히면 중지합니다.",
+    "eventChecksFailed": "체크 실패",
+    "eventChecksFailedDescription": "실패한 체크를 로그 링크와 함께 전달합니다.",
+    "eventMergeConflict": "브랜치가 기본 브랜치와 충돌",
+    "eventMergeConflictDescription": "에이전트에게 기본 브랜치로 병합하거나 리베이스한 뒤 푸시하도록 요청합니다.",
+    "eventReviewComments": "새 리뷰 코멘트 도착",
+    "eventReviewCommentsDescription": "해결되지 않은 리뷰 스레드의 코멘트입니다. Stave가 PR을 만들 때 추가하는 감시에서는 꺼져 있습니다.",
+    "pickAnEvent": "감시할 조건을 하나 이상 선택하세요.",
+    "pullRequestPromptDescription": "감시가 작업을 깨울 때마다 찾은 내용과 함께 보냅니다. 비워 두면 Stave의 기본 수정 후 푸시 지시를 사용합니다."
   },
   "scheduleKindSwitch": {
     "where": "위치",
@@ -345,5 +356,32 @@
     "message21": "후속 확인을 불러오지 못했습니다: {{value1}}",
     "message22": "후속 확인을 불러오지 못했습니다.",
     "message38": "대기 중"
+  },
+  "pullRequestWatch": {
+    "eventChecksFailed": "체크 실패",
+    "eventMergeConflict": "병합 충돌",
+    "eventReviewComments": "새 리뷰 코멘트",
+    "wakesOn": "{{events}} 시",
+    "kindLabel": "PR 감시",
+    "rowName": "{{task}} 작업의 PR 감시",
+    "waitingForPullRequest": "작업 브랜치의 PR 대기 중",
+    "target": "PR #{{number}} · {{title}}",
+    "targetNumber": "PR #{{number}}",
+    "notCheckedYet": "아직 확인 안 함",
+    "readFailed": "GitHub를 읽지 못함: {{error}}",
+    "noPullRequestYet": "아직 PR 없음",
+    "merged": "병합됨",
+    "closed": "닫힘",
+    "failingChecks_other": "실패한 체크 {{count}}개",
+    "conflicting": "기본 브랜치와 충돌",
+    "openComments_other": "열린 리뷰 코멘트 {{count}}개",
+    "checksRunning": "체크 실행 중",
+    "allClear": "고칠 것 없음",
+    "woke_other": "작업을 {{count}}회 깨움",
+    "wokeOfCap_other": "{{cap}}회 중 {{count}}회",
+    "factWatching": "감시 대상",
+    "factEvents": "깨우는 조건",
+    "factLastCheck": "마지막 확인",
+    "factWoke": "깨운 횟수"
   }
 }

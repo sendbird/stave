@@ -2,7 +2,7 @@ import { currentProviderAccountId } from "../../provider-accounts/runtime-scope"
 import { AdaptiveRunPolicySchema, type AdaptiveRunPolicy } from "../../../src/lib/agent-runs/resources";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { getModelCapability, getSdkModelOptions, inferProviderIdFromModel, listCodexReasoningEffortsForModel } from "../../../src/lib/providers/model-catalog";
-import { routeEffortOverrides } from "../../../src/lib/routing/auto-routing";
+import { resolveAutoRoutingProfile, routeEffortOverrides } from "../../../src/lib/routing/auto-routing";
 import type { AgentRouteSettings } from "../../../src/lib/routing/agent-run-route";
 import type { PromptDraftRuntimeOverrides } from "../../../src/types/chat";
 
@@ -28,7 +28,8 @@ export function freezeAdaptivePolicy(args: {
   const supported = providerId !== "codex" || !initialEffort || listCodexReasoningEffortsForModel({ model }).some((value) => value === initialEffort);
   if (effortLocked && (requestedEffort !== initialEffort || !supported)) throw new Error("The pinned effort is not supported by this adaptive model. Choose a supported effort before starting.");
   if (!supported) throw new Error("The adaptive model does not support its initial effort. Choose a supported effort before starting.");
-  const eligible = providerId === "codex" ? args.settings?.routing.autoRoutingEligibleCodexModels : args.settings?.routing.autoRoutingEligibleClaudeModels;
+  // The routing profile's eligible models; empty means the whole catalog.
+  const eligible = args.settings ? resolveAutoRoutingProfile(args.settings.routing).eligibleModelsByProvider[providerId] : undefined;
   const candidates = eligible?.length ? eligible : getSdkModelOptions({ providerId });
   return AdaptiveRunPolicySchema.parse({ version: 1, profile: "balanced", providerId,
     accountProfileId: (providerId === "codex" ? draft?.codexAccountProfileId : draft?.claudeAccountProfileId) ?? currentProviderAccountId(providerId),

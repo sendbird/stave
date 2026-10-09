@@ -1,3 +1,4 @@
+import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
@@ -216,6 +217,11 @@ import type {
   SecretMetadata,
   SecretUpsertInput,
 } from "../src/lib/secrets/secrets";
+import {
+  SECRET_REQUEST_IPC,
+  type SecretRequestsBridgeApi,
+  type SecretRequestsChangedEvent,
+} from "../src/lib/secrets/secret-request";
 import type { PersistenceBootstrapStatus } from "../src/lib/persistence/bootstrap-status";
 import { WORKSPACE_SCRIPTS_IPC } from "../src/lib/workspace-scripts/constants";
 import type {
@@ -813,6 +819,26 @@ const wakeUpsApi: WakeUpsBridgeApi = {
     wakeUpChangedSubscribers.add(listener);
     return () => {
       wakeUpChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const secretRequestChangedSubscribers = new Set<(payload: SecretRequestsChangedEvent) => void>();
+ipcRenderer.on(SECRET_REQUEST_IPC.changed, (_event, payload: SecretRequestsChangedEvent) => {
+  for (const subscriber of secretRequestChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+// Requests an agent made for a secret. `respond` carries the user's value to
+// main; nothing here reads a value back.
+const secretRequestsApi: SecretRequestsBridgeApi = {
+  list: () => ipcRenderer.invoke(SECRET_REQUEST_IPC.list),
+  respond: (args) => ipcRenderer.invoke(SECRET_REQUEST_IPC.respond, args),
+  subscribeChanged: (listener) => {
+    secretRequestChangedSubscribers.add(listener);
+    return () => {
+      secretRequestChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2745,6 +2771,36 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
+  mcpApp: {
+    describe: (args: { viewId: string }) =>
+      ipcRenderer.invoke("mcp-app:describe", args) as Promise<McpAppViewDescribeResponse>,
+    request: (args: McpAppViewRequestArgs) =>
+      ipcRenderer.invoke("mcp-app:request", args) as Promise<McpAppViewRequestResponse>,
+  },
+  inlineRender: {
+    describe: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:describe", args),
+    readSource: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:read-source", args),
+    saveAs: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:save-as", args),
+    setModelContext: (args: {
+      renderId: string;
+      context: { text: string | null; structured: unknown } | null;
+    }) => ipcRenderer.invoke("inline-render:set-model-context", args),
+    readModelContext: (args: { renderId: string }) =>
+      ipcRenderer.invoke("inline-render:read-model-context", args),
+    listTaskModelContexts: (args: { workspaceId: string | null; taskId: string }) =>
+      ipcRenderer.invoke("inline-render:list-task-model-contexts", args),
+    setPreviewContext: (args: {
+      networkPolicy: "open" | "cdn" | "blocked";
+      theme: { appearance: "light" | "dark"; variables: Record<string, string> } | null;
+    }) => ipcRenderer.invoke("inline-render:set-preview-context", args),
+  },
+  toolImages: {
+    read: (args: { imageId: string }) =>
+      ipcRenderer.invoke("tool-images:read", args),
+  },
   shell: {
     openExternal: (args: { url: string }) =>
       ipcRenderer.invoke("shell:open-external", args),
@@ -3458,6 +3514,7 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
+  secretRequests: secretRequestsApi,
   providerAccounts: providerAccountsApi,
   apiConnections: apiConnectionsApi,
 });

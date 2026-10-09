@@ -41,13 +41,13 @@ If you prefer, the task itself also shows a pending-approval card above the comp
 - Stave switches to the right repository, workspace, and task.
 - If the task was archived, Stave asks you to restore it before reopening.
 
-## Success Sound
+## Notification Sound
 
-You can play a short sound when a task turn finishes. This is useful when you have a long-running task in the background and want a quick audio cue.
+One short sound plays when a task turn finishes and when the AI is waiting on you (a question or an approval request). This is useful when you have a long-running task in the background and want a quick audio cue.
 
 1. Open `Settings > General`.
-2. Find `Task Completion Sound`.
-3. Enable it, choose a preset, and set the volume.
+2. Find `Notification Sound`.
+3. Enable it, choose a preset or upload your own audio, and set the volume.
 4. Click `Preview` to hear it.
 
 ## Run Sign-off Reminders
@@ -84,9 +84,9 @@ notification, not one per agent run.
 
 ### The Sound Does Not Play
 
-- Symptom: turns finish but no sound plays.
+- Symptom: turns finish, or the AI asks for input, but no sound plays.
 - Cause: the sound is disabled or the volume is set to zero.
-- Fix: open `Settings > General > Task Completion Sound`, enable it, raise the volume, and click `Preview`.
+- Fix: open `Settings > General > Notification Sound`, enable it, raise the volume, and click `Preview`.
 
 ## Related Docs
 

@@ -35,8 +35,9 @@ one-off prompt, use a macro.
 ## Quick Start
 
 Open the **Agents** surface from the sidebar, the command palette
-(`Open Agents`), or `Cmd/Ctrl+K` then `G`. It has two tabs: **Agents** and
-**My standards**.
+(`Open Agents`), or `Cmd/Ctrl+K` then `G`. It has three tabs: **Agents**,
+**My standards** and **Performance**, which compares ended agent runs across
+workspaces (see [Agent performance and task outputs](results.md)).
 
 1. Open **Agents** in the sidebar and stay on the **Agents** tab.
 2. Press **New agent** and say what it should do in one line, then **Draft

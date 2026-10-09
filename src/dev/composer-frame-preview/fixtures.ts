@@ -1,5 +1,6 @@
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector";
 import type { ChildPendingRequest } from "@/components/session/ChildRequestSlot";
+import type { PendingSecretRequest } from "@/lib/secrets/secret-request";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -171,4 +172,25 @@ export const PREVIEW_CHILD_APPROVAL: ChildPendingRequest = {
     description: "bun run check:design-system",
     state: "approval-requested",
   },
+};
+
+/** An agent's `stave_request_secret` card: `&secretRequest=new|existing|enter|full`. */
+export const PREVIEW_SECRET_REQUEST: PendingSecretRequest = {
+  id: "preview-secret-request",
+  taskId: "preview-task",
+  workspaceId: "preview-workspace",
+  turnId: "preview-turn",
+  providerId: "claude-code",
+  envVarName: "OPENAI_API_KEY",
+  reason: "The embedding script calls the OpenAI API to index the docs folder.",
+  label: "OpenAI API key",
+  existingSecret: null,
+  createdAt: "2026-10-09T12:00:00.000Z",
+  expiresAt: "2026-10-09T12:10:00.000Z",
+};
+
+export const PREVIEW_SECRET_REQUEST_EXISTING: PendingSecretRequest = {
+  ...PREVIEW_SECRET_REQUEST,
+  id: "preview-secret-request-existing",
+  existingSecret: { id: "preview-secret", name: "OpenAI (team)", valuePreview: "••••a9F2" },
 };

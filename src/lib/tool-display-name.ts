@@ -54,6 +54,8 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_replace_workspace_notes: "Replace workspace notes",
   stave_append_workspace_notes: "Add workspace note",
   stave_write_plan_file: "Write plan file",
+  stave_render_html: "Show HTML page",
+  stave_preview_html: "Preview HTML page",
   stave_clear_workspace_notes: "Clear workspace notes",
   stave_add_workspace_todo: "Add workspace todo",
   stave_update_workspace_todo: "Update workspace todo",
@@ -76,6 +78,7 @@ const FRIENDLY_TOOL_DISPLAY_NAMES: Record<string, string> = {
   stave_add_workspace_amplify_link: "Attach deployment link",
   stave_respond_approval: "Respond to approval",
   stave_respond_user_input: "Respond to question",
+  stave_request_secret: "Request secret",
 };
 
 const KNOWN_STAVE_TOOL_NAMES = new Set(Object.keys(FRIENDLY_TOOL_DISPLAY_NAMES));

@@ -72,8 +72,6 @@
     "presetShortcutSlots": "프리셋 단축키 슬롯",
     "theFirstNinePresetsInSettings": "설정 → 프리셋의 처음 9개 항목을 표시 순서대로 Ctrl+1..9로 실행합니다.",
     "disabledInSettingsCommandPalette": "{{value1}} 설정 → 명령 팔레트에서 비활성화되었습니다.",
-    "issues": "이슈",
-    "createConversationsAndMoveAroundTheCurrent": "대화를 만들고 현재 워크스페이스를 탐색합니다.",
     "selectWorkspace": "워크스페이스 선택",
     "jumpToTheFirstNineVisibleWorkspaces": "사이드바 위에서 아래로 처음 9개 워크스페이스로 이동합니다.",
     "newTask": "새 작업",
@@ -88,34 +86,14 @@
     "launchThePresetBarWithoutLeavingThe": "키보드로 프리셋 바를 실행합니다.",
     "panels": "패널",
     "controlTheShellLayoutWithoutLeavingThe": "키보드로 셸 레이아웃을 조절합니다.",
-    "toggleWorkspaceSidebar": "워크스페이스 사이드바 전환",
-    "collapseOrExpandTheLeftRepositoryAnd": "왼쪽 저장소 및 워크스페이스 목록을 접거나 펼칩니다.",
-    "sourceControlPanel": "소스 제어 패널",
-    "showOrHideTheSourceControlOverlay": "오른쪽 레일의 소스 제어 패널을 표시하거나 숨깁니다.",
-    "openExplorerPanel": "탐색기 패널 열기",
-    "openTheExplorerOverlayOnTheRight": "오른쪽 레일의 탐색기 패널을 엽니다.",
     "searchInFiles": "파일에서 검색",
     "openTheExplorerSearchUIAndSearch": "탐색기 검색을 열고 여러 줄 코드 블록을 포함한 파일 내용을 검색합니다.",
-    "toggleInformationPanel": "정보 패널 전환",
-    "showOrHideTheWorkspaceInformationPanel": "워크스페이스 정보 패널을 표시하거나 숨깁니다.",
-    "open": "{{value1}} 열기",
-    "openLongRunningProcessesOneShotCommandsLifecycleTriggers": "장기 실행 프로세스, 일회성 명령, 수명 주기 트리거 및 최근 실행을 엽니다.",
-    "openLensTab": "Lens 탭 열기",
-    "focusTheLatestEmbeddedBrowserTabOr": "최근 임베디드 브라우저 탭에 포커스하거나 새로 만듭니다.",
     "visualComment": "시각적 댓글",
     "toggleLensVisualCommentModeWhileThe": "Lens 패널을 사용할 수 있을 때 시각적 댓글 모드를 전환합니다.",
-    "focusEditor": "편집기 포커스",
-    "focusTheActiveEditorTab": "활성 편집기 탭에 포커스합니다.",
     "splitPaneRight": "오른쪽으로 패널 분할",
     "moveTheActiveTabIntoANew": "활성 탭을 오른쪽 새 패널로 옮깁니다.",
     "splitPaneDown": "아래로 패널 분할",
     "moveTheActiveTabIntoANew2": "활성 탭을 아래쪽 새 패널로 옮깁니다.",
-    "toggleTerminal": "터미널 전환",
-    "focusTheTerminalPaneOrReturnTo": "터미널 패널에 포커스하거나 이전 탭으로 돌아갑니다.",
-    "actions": "동작",
-    "commonTaskAndEditorCommands": "자주 쓰는 작업 및 편집기 명령.",
-    "goHome": "홈으로 이동",
-    "clearTheActiveTaskSelectionAndReturn": "활성 작업 선택을 해제하고 저장소 개요로 돌아갑니다.",
     "focusPromptComposer": "프롬프트 입력창 포커스",
     "moveFocusBackToTheChatPrompt": "입력창에 포커스가 없다면 채팅 입력창으로 돌아갑니다.",
     "openModelSelector": "모델 선택기 열기",
@@ -134,18 +112,15 @@
     "abortTheCurrentTaskRunWhileFocus": "작업 패널에 포커스한 상태에서 현재 작업 실행을 중단합니다.",
     "models": "모델",
     "jumpDirectlyToTheModelsYouMapped": "프롬프트 입력창에 지정한 모델로 바로 이동합니다.",
-    "help": "도움말",
-    "surfaceTheGuideItselfWhenYouNeed": "필요할 때 안내를 엽니다.",
     "openSettings": "설정 열기",
     "openTheMainStaveSettingsDialog": "Stave 설정 대화상자를 엽니다.",
     "openShortcutGuide": "단축키 안내 열기",
     "showThisPanelFromAnywhereOutsideText": "텍스트 입력란 밖 어디서든 이 패널을 표시합니다.",
-    "keyboardReference": "키보드 안내",
+    "keyboardReference": "키보드 단축키",
     "searchEveryActiveStaveShortcutAndCustom": "모든 활성 Stave 단축키와 사용자 지정 바인딩을 검색합니다.",
     "findAnActionOrKey": "동작 또는 키 검색…",
     "searchKeyboardShortcuts": "키보드 단축키 검색",
     "clearShortcutSearch": "단축키 검색 지우기",
-    "shown": "표시됨",
     "tryAnActionNamePanelOrKey": "동작 이름, 패널 또는 키 조합으로 검색하세요.",
     "close": "닫기",
     "disabled": "비활성화됨",
@@ -528,7 +503,7 @@
     "aiUsageDescription": "토큰, 보고된 비용, 계정 한도와 턴 기록을 확인합니다.",
     "openResults": "에이전트 성과 열기",
     "seeHowEndedAgentRunsAndRuns": "종료된 에이전트 실행의 완료율, 시간, 보고된 비용을 비교합니다.",
-    "outcomesTimeAndCostOfEndedAgent": "에이전트 완료율, 시간, 보고된 비용.",
+    "outcomesTimeAndCostOfEndedAgent": "에이전트의 성과 탭: 완료율, 시간, 보고된 비용.",
     "assignToAnAgent": "에이전트에 할당…",
     "chooseAnAgentInTheComposerOr": "작업이 열려 있으면 입력창에서, 없으면 킥오프에서 에이전트를 선택합니다.",
     "chooseTheAgentThatDoesThisTaskS": "이 작업을 수행할 에이전트를 선택합니다.",
@@ -809,5 +784,173 @@
   "topBarIssues.closeTasks": "작업 닫기",
   "topBarIssues.openTasks": "작업 열기",
   "topBarBranchDropdown.switchBranch": "브랜치 전환",
-  "workspaceAccountLimitIcon.limit": "{{provider}} 계정 한도에 도달함"
+  "workspaceAccountLimitIcon.limit": "{{provider}} 계정 한도에 도달함",
+  "keybindings": {
+    "sections": {
+      "navigation": {
+        "title": "탐색",
+        "description": "화면, 워크스페이스, 실행 창 사이를 이동합니다."
+      },
+      "tabs": {
+        "title": "작업과 탭",
+        "description": "워크스페이스 탭을 만들고, 닫고, 다시 열고, 분할합니다."
+      },
+      "composer": {
+        "title": "입력창",
+        "description": "활성 작업의 프롬프트 입력, 턴, 승인 요청을 다룹니다."
+      },
+      "editing": {
+        "title": "편집",
+        "description": "저장, 실행 취소, 확인."
+      },
+      "surfaces": {
+        "title": "화면별 단축키",
+        "description": "해당 화면이 열려 있거나 포커스되어 있을 때만 동작하는 키입니다."
+      },
+      "window": {
+        "title": "창과 도움말",
+        "description": "확대/축소, 개발자 도구, 그리고 이 목록."
+      }
+    },
+    "entries": {
+      "back": {
+        "title": "뒤로 가기",
+        "description": "워크스페이스를 넘나들며 직전에 보던 작업, 파일 또는 Lens 탭으로 돌아갑니다."
+      },
+      "forward": {
+        "title": "앞으로 가기",
+        "description": "뒤로 간 뒤 다시 앞으로 이동합니다."
+      },
+      "reopenClosedTab": {
+        "title": "닫은 탭 다시 열기",
+        "description": "이 워크스페이스에서 가장 최근에 닫은 작업, 파일 또는 Lens 탭을 다시 엽니다."
+      },
+      "approve": {
+        "title": "요청 승인",
+        "description": "입력란에 포커스가 없을 때 활성 작업의 대기 중인 요청을 승인합니다."
+      },
+      "approvalGuidance": {
+        "title": "안내와 함께 응답",
+        "description": "대기 중인 요청의 안내 입력란으로 이동합니다."
+      },
+      "undo": {
+        "title": "정리 또는 미루기 실행 취소",
+        "description": "실행 취소 알림이 아직 표시된 작업 대기열 변경을 되돌립니다. 텍스트 입력란은 자체 실행 취소를 유지합니다."
+      },
+      "fleetNext": {
+        "title": "나를 기다리는 다음 항목",
+        "description": "Fleet에서 나를 기다리는 다음 항목을 엽니다."
+      },
+      "fleetClose": {
+        "title": "Fleet 닫기",
+        "description": "필터를 지우거나, 필터가 비어 있으면 Fleet을 닫습니다."
+      },
+      "issuesNext": {
+        "title": "다음 이슈",
+        "description": "목록에서 다음 이슈를 선택합니다."
+      },
+      "issuesPrevious": {
+        "title": "이전 이슈",
+        "description": "목록에서 이전 이슈를 선택합니다."
+      },
+      "issuesKickoff": {
+        "title": "이슈로 시작",
+        "description": "선택한 이슈로 실행을 시작합니다."
+      },
+      "issuesOpenTicket": {
+        "title": "티켓 열기",
+        "description": "선택한 이슈를 트래커에서 엽니다."
+      },
+      "issuesRefresh": {
+        "title": "이슈 새로 고침",
+        "description": "할당된 이슈를 다시 불러옵니다."
+      },
+      "issuesSearch": {
+        "title": "이슈 검색",
+        "description": "이슈 검색 입력란으로 포커스를 옮깁니다."
+      },
+      "issuesClose": {
+        "title": "이슈 닫기",
+        "description": "선택을 해제하거나, 선택된 항목이 없으면 이슈 화면을 닫습니다."
+      },
+      "gitGraphSearch": {
+        "title": "커밋 그래프 검색",
+        "description": "커밋 그래프 검색 입력란에 포커스합니다."
+      },
+      "gitGraphReload": {
+        "title": "커밋 그래프 새로 고침",
+        "description": "커밋 기록을 다시 읽습니다."
+      },
+      "gitGraphHead": {
+        "title": "HEAD로 이동",
+        "description": "커밋 그래프를 현재 커밋 위치로 스크롤합니다."
+      },
+      "settingsSidebar": {
+        "title": "설정 사이드바 전환",
+        "description": "설정의 섹션 목록을 표시하거나 숨깁니다."
+      },
+      "paletteTogglePin": {
+        "title": "명령 고정 또는 해제",
+        "description": "선택한 명령을 명령 팔레트 맨 위에 고정하거나 고정을 해제합니다."
+      },
+      "zoomIn": {
+        "title": "확대",
+        "description": "창 전체를 크게 표시합니다."
+      },
+      "zoomOut": {
+        "title": "축소",
+        "description": "창 전체를 작게 표시합니다."
+      },
+      "zoomReset": {
+        "title": "확대/축소 초기화",
+        "description": "창을 기본 크기로 되돌립니다."
+      },
+      "devTools": {
+        "title": "개발자 도구 전환",
+        "description": "메인 창의 개발자 도구를 열거나 닫습니다."
+      },
+      "quit": {
+        "title": "Stave 종료",
+        "description": "앱을 종료합니다."
+      },
+      "schedulesClose": {
+        "title": "일정 닫기",
+        "description": "편집기가 열려 있지 않으면 일정 화면을 닫습니다."
+      },
+      "agentsClose": {
+        "title": "에이전트 닫기",
+        "description": "에이전트 화면을 닫고 워크스페이스로 돌아갑니다."
+      },
+      "usageClose": {
+        "title": "AI 사용량 닫기",
+        "description": "AI 사용량 화면을 닫고 워크스페이스로 돌아갑니다."
+      }
+    },
+    "ui": {
+      "notWhileTyping": "입력 중에는 동작 안 함",
+      "whileTyping": "입력 중에 동작",
+      "viewAll": "모든 단축키 보기",
+      "settingsCardTitle": "모든 키보드 단축키",
+      "settingsCardDescription": "모든 단축키를 한 목록에서 확인합니다. 목록은 읽기 전용이며, 아래의 Cmd/Ctrl+K 키는 직접 바꿀 수 있습니다.",
+      "scope": {
+        "workspace": "워크스페이스",
+        "fleet": "Fleet",
+        "issues": "이슈",
+        "schedules": "일정",
+        "agents": "에이전트",
+        "usage": "AI 사용량",
+        "settings": "설정",
+        "commandPalette": "명령 팔레트",
+        "dialog": "대화상자",
+        "sidebar": "사이드바",
+        "composer": "입력창",
+        "taskPane": "작업 패널",
+        "editor": "편집기",
+        "lens": "Lens",
+        "gitGraph": "커밋 그래프"
+      },
+      "or": "또는",
+      "then": "다음"
+    }
+  }
 }

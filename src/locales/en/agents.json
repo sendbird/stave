@@ -204,6 +204,7 @@
     "extraCopy31": "My standards",
     "extraCopy32": "Saved agents to assign work to. An agent with a workflow works in stages.",
     "extraCopy33": "Your own rules, added after every agent's instructions when on.",
+    "performanceTab": "Performance",
     "extraCopy327": "{{value1}} was edited after this task started. Later turns keep the version used; assign again to use the edit.",
     "close": "Close agents"
   },

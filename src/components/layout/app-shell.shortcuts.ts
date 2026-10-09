@@ -4,6 +4,7 @@ import {
   type AppShortcutCommandId,
   type AppShortcutKeys,
 } from "@/lib/app-shortcuts";
+import { matchesKeybinding } from "@/lib/keybindings/keybinding-registry";
 
 export const EDITABLE_SHORTCUT_SELECTOR =
   "input, textarea, select, [role='textbox'], [contenteditable='true']";
@@ -70,6 +71,40 @@ export function isEditableShortcutTarget(target: EventTarget | null) {
   );
 }
 
+/**
+ * Stricter than `isEditableShortcutTarget`: any editable field counts,
+ * including inputs inside the composer and the terminal. Shortcuts that must
+ * never take a key from text entry (undo, back/forward) use this.
+ */
+export function isTypingTarget(target: EventTarget | null) {
+  const candidate = target as ClosestCapableTarget | null;
+  if (!candidate) {
+    return false;
+  }
+  return Boolean(
+    candidate.isContentEditable ||
+    matchesClosest(target, EDITABLE_SHORTCUT_SELECTOR) ||
+    matchesClosest(target, TERMINAL_SURFACE_SELECTOR),
+  );
+}
+
+/**
+ * The app shell's long-standing typing guard: skip editable fields, except
+ * the terminal, where Cmd-based keys still work and Ctrl-only keys belong to
+ * the shell (xterm's internal textarea matches the editable selector).
+ */
+export function passesTerminalTypingGuard(event: {
+  target: EventTarget | null;
+  ctrlKey?: boolean;
+  metaKey?: boolean;
+}) {
+  const inTerminalSurface = isTerminalSurfaceTarget(event.target);
+  if (isEditableShortcutTarget(event.target) && !inTerminalSurface) {
+    return false;
+  }
+  return !(inTerminalSurface && event.ctrlKey && !event.metaKey);
+}
+
 export function resolvePaneSplitShortcut(args: {
   key: string;
   code?: string;
@@ -78,14 +113,10 @@ export function resolvePaneSplitShortcut(args: {
   altKey?: boolean;
   shiftKey?: boolean;
 }): "right" | "below" | null {
-  if (
-    !(args.ctrlKey || args.metaKey) ||
-    args.altKey ||
-    (args.code !== "Backslash" && args.key !== "\\")
-  ) {
-    return null;
+  if (matchesKeybinding("pane.split-down", args)) {
+    return "below";
   }
-  return args.shiftKey ? "below" : "right";
+  return matchesKeybinding("pane.split-right", args) ? "right" : null;
 }
 
 export function isClosePaneShortcut(args: {
@@ -95,12 +126,7 @@ export function isClosePaneShortcut(args: {
   altKey?: boolean;
   shiftKey?: boolean;
 }) {
-  return Boolean(
-    (args.ctrlKey || args.metaKey) &&
-      !args.altKey &&
-      !args.shiftKey &&
-      args.key.toLowerCase() === "w",
-  );
+  return matchesKeybinding("pane.close-tab", args);
 }
 
 export function resolveShortcutChord(args: {

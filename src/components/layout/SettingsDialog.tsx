@@ -29,7 +29,10 @@ import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 import { captureCurrentRepositoryState } from "@/store/repository.utils";
 import {
+  isSettingsSectionVisible,
+  listVisibleSettingsSections,
   matchesSettingsSection,
+  resolveVisibleSettingsSection,
   settingsSectionGroups,
   settingsSections,
   type SectionId,
@@ -37,6 +40,13 @@ import {
 import { resolveSettingsRepositorySelection } from "./settings-dialog.utils";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
 import { searchSettingsFields } from "./settings-dialog.registry";
+import { SettingsScopeProvider, SettingsScopeSectionFrame } from "./settings-scope";
+import {
+  matchesSettingsScopeSearch,
+  SETTINGS_SCOPE_PICKER_ID,
+  SETTINGS_SCOPE_SEARCH_ENTRY,
+  SettingsScopeBar,
+} from "./settings-scope-bar";
 import { settingsDialogStyles as styles } from "./SettingsDialog.styles";
 
 interface SettingsDialogProps {
@@ -58,8 +68,25 @@ const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 export function SettingsDialog(args: SettingsDialogProps) {
   const { initialRepositoryPath, initialSection, open, onOpenChange } = args;
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [activeSection, setActiveSection] = useState<SectionId>("general");
+  const [requestedSection, setActiveSection] = useState<SectionId>("general");
+  const developerModeEnabled = useAppStore(
+    (state) => state.settings.developerModeEnabled,
+  );
+  const sectionVisibility = useMemo(
+    () => ({ developerModeEnabled }),
+    [developerModeEnabled],
+  );
+  // Resolved on every render so a section that the profile stops showing
+  // (Developer mode switched off while it is open) falls back immediately.
+  const activeSection = resolveVisibleSettingsSection(
+    requestedSection,
+    sectionVisibility,
+  );
   const [selectedRepositoryPath, setSelectedRepositoryPath] = useState<string | null>(
+    null,
+  );
+  // Settings scope: null edits global values, a path edits that project.
+  const [scopeRepositoryPath, setScopeRepositoryPath] = useState<string | null>(
     null,
   );
   const [searchQuery, setSearchQuery] = useState("");
@@ -118,11 +145,27 @@ export function SettingsDialog(args: SettingsDialogProps) {
     ],
   );
 
+  const scopeRepository = scopeRepositoryPath
+    ? (repositories.find(
+        (repository) => repository.repositoryPath === scopeRepositoryPath,
+      ) ?? null)
+    : null;
+  const scopeValue = useMemo(
+    () => ({
+      // A removed project falls back to All projects.
+      repositoryPath: scopeRepository?.repositoryPath ?? null,
+      repositoryName: scopeRepository?.repositoryName ?? null,
+      setRepositoryPath: setScopeRepositoryPath,
+    }),
+    [scopeRepository?.repositoryName, scopeRepository?.repositoryPath],
+  );
+
   useEffect(() => {
     if (!open) {
       allowHighlightedOverrideRef.current = true;
       lastHighlightedRepositoryPathRef.current = null;
       setSelectedRepositoryPath(null);
+      setScopeRepositoryPath(null);
       setPendingFieldId(null);
       return;
     }
@@ -201,9 +244,13 @@ export function SettingsDialog(args: SettingsDialogProps) {
 
   const activeSectionData = sectionsById[activeSection];
   const normalizedSearchQuery = searchQuery.trim();
-  const matchingFields = searchSettingsFields(normalizedSearchQuery);
+  const availableSections = listVisibleSettingsSections(sectionVisibility);
+  const matchingFields = searchSettingsFields(normalizedSearchQuery).filter(
+    (field) => isSettingsSectionVisible(field.sectionId, sectionVisibility),
+  );
+  const scopeMatches = matchesSettingsScopeSearch(normalizedSearchQuery);
   const visibleSectionIds = new Set(
-    settingsSections
+    availableSections
       .filter((section) =>
         matchesSettingsSection(section, normalizedSearchQuery),
       )
@@ -292,13 +339,25 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     ) : null}
                   </div>
                 </div>
-                {matchingFields.length > 0 ? (
+                {matchingFields.length > 0 || scopeMatches ? (
                   <SidebarGroup>
                     <SidebarGroupLabel className={sx(styles.groupLabel)}>
                       {t("settings:dialog.search.results")}
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                       <SidebarMenu>
+                        {scopeMatches ? (
+                          <SidebarMenuItem key={SETTINGS_SCOPE_PICKER_ID}>
+                            <SidebarMenuButton
+                              size="sm"
+                              onClick={() => setPendingFieldId(SETTINGS_SCOPE_PICKER_ID)}
+                              className={sx(styles.menuButton)}
+                              icon={<Search />}
+                            >
+                              {t(SETTINGS_SCOPE_SEARCH_ENTRY.titleKey)}
+                            </SidebarMenuButton>
+                          </SidebarMenuItem>
+                        ) : null}
                         {matchingFields.map((field) => (
                           <SidebarMenuItem key={field.fieldId}>
                             <SidebarMenuButton
@@ -410,7 +469,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       </SidebarGroupContent>
                     </SidebarGroup>
                   ))
-                ) : matchingFields.length === 0 ? (
+                ) : matchingFields.length === 0 && !scopeMatches ? (
                   <div className={sx(styles.emptyResults)}>
                     {t("settings:dialog.search.noMatches", {
                       query: normalizedSearchQuery,
@@ -473,7 +532,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                         </SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {settingsSections.map((section) => (
+                        {availableSections.map((section) => (
                           <SelectItem key={section.id} value={section.id}>
                             {t(section.labelKey)}
                           </SelectItem>
@@ -507,17 +566,25 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 </div>
               </header>
 
-              <div className={sx(styles.body)}>
-                <div className={sx(styles.bodyInner)}>
-                  <SettingsDialogSectionContent
-                    sectionId={activeSection}
-                    currentRepositoryPath={repositoryPath}
-                    repositories={repositories}
-                    selectedRepositoryPath={selectedRepositoryPath}
-                    onNavigateSection={setActiveSection}
-                  />
+              <SettingsScopeProvider value={scopeValue}>
+                <SettingsScopeBar
+                  repositories={repositories}
+                  currentRepositoryPath={repositoryPath}
+                />
+                <div className={sx(styles.body)}>
+                  <div className={sx(styles.bodyInner)}>
+                    <SettingsScopeSectionFrame sectionId={activeSection}>
+                      <SettingsDialogSectionContent
+                        sectionId={activeSection}
+                        currentRepositoryPath={repositoryPath}
+                        repositories={repositories}
+                        selectedRepositoryPath={selectedRepositoryPath}
+                        onNavigateSection={setActiveSection}
+                      />
+                    </SettingsScopeSectionFrame>
+                  </div>
                 </div>
-              </div>
+              </SettingsScopeProvider>
             </main>
           </SidebarProvider>
         </DialogPrimitive.Popup>

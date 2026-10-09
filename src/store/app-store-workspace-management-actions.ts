@@ -283,6 +283,10 @@ export function createWorkspaceManagementActions(args: {
             nextState.turnIntentComplianceByWorkspace,
             [workspaceId],
           );
+          const nextWorkspaceSettlementById = removeRecordEntries(
+            nextState.workspaceSettlementById,
+            [workspaceId],
+          );
           return {
             workspaces: nextWorkspaces,
             workspaceBranchById: nextBranchById,
@@ -330,6 +334,9 @@ export function createWorkspaceManagementActions(args: {
                   turnIntentComplianceByWorkspace:
                     nextTurnIntentComplianceByWorkspace,
                 }
+              : {}),
+            ...(nextWorkspaceSettlementById
+              ? { workspaceSettlementById: nextWorkspaceSettlementById }
               : {}),
             ...workspaceState,
             layout: {

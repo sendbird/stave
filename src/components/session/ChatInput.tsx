@@ -81,6 +81,7 @@ import {
 import { useReviewTaskControls } from "@/components/session/use-review-task-controls";
 import { holdsComposerTurn, usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { useAppStore } from "@/store/app.store";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import {
   resolvePromptDraftModelForProvider,
@@ -236,21 +237,22 @@ function BaseChatInput() {
     modelShortcutEfforts,
     autoRoutingEnabled,
   ] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.settings.modelClaude,
-          state.settings.modelCodex,
-          state.settings.modelCursor,
-          state.settings.modelKiro,
-          state.settings.skillsEnabled,
-          state.settings.skillsAutoSuggest,
-          state.settings.providerTimeoutMs,
-          state.settings.modelShortcutKeys,
-          state.settings.modelShortcutEfforts,
-          state.settings.autoRoutingEnabled,
-        ] as const,
-    ),
+    useShallow((state) => {
+      // Settings scope: the open project's model defaults, when it has any.
+      const effective = selectEffectiveSettings(state);
+      return [
+        effective.modelClaude,
+        effective.modelCodex,
+        effective.modelCursor,
+        effective.modelKiro,
+        state.settings.skillsEnabled,
+        state.settings.skillsAutoSuggest,
+        state.settings.providerTimeoutMs,
+        state.settings.modelShortcutKeys,
+        state.settings.modelShortcutEfforts,
+        state.settings.autoRoutingEnabled,
+      ] as const;
+    }),
   );
   const autoRoutingStance = useAppStore(
     (state) => state.settings.autoRoutingProfile.stance,
@@ -280,27 +282,27 @@ function BaseChatInput() {
   const cursorApprovalMode = useAppStore((state) =>
     activeProvider === "cursor"
       ? applyModelRuntimePreference({
-          settings: state.settings,
+          settings: selectEffectiveSettings(state),
           providerId: activeProvider,
           model: activeModel,
         }).cursorApprovalMode
-      : state.settings.cursorApprovalMode,
+      : selectEffectiveSettings(state).cursorApprovalMode,
   );
   const kiroApprovalMode = useAppStore((state) =>
     activeProvider === "kiro"
       ? applyModelRuntimePreference({
-          settings: state.settings,
+          settings: selectEffectiveSettings(state),
           providerId: activeProvider,
           model: activeModel,
         }).kiroApprovalMode
-      : state.settings.kiroApprovalMode,
+      : selectEffectiveSettings(state).kiroApprovalMode,
   );
   const kiroEffort = useAppStore((state) => {
     if (activeProvider !== "kiro") {
       return "medium" as const;
     }
     return applyModelRuntimePreference({
-      settings: state.settings,
+      settings: selectEffectiveSettings(state),
       providerId: activeProvider,
       model: activeModel,
     }).kiroEffort;
@@ -322,7 +324,7 @@ function BaseChatInput() {
         return INACTIVE_CLAUDE_SETTINGS;
       }
       const settings = applyModelRuntimePreference({
-        settings: state.settings,
+        settings: selectEffectiveSettings(state),
         providerId: activeProvider,
         model: activeModel,
       });
@@ -357,7 +359,7 @@ function BaseChatInput() {
         return INACTIVE_CODEX_SETTINGS;
       }
       const settings = applyModelRuntimePreference({
-        settings: state.settings,
+        settings: selectEffectiveSettings(state),
         providerId: activeProvider,
         model: activeModel,
       });
@@ -996,7 +998,7 @@ function BaseChatInput() {
           patch: {
             runtimeOverrides: buildModelSelectionRuntimeOverrides({
               runtimeOverrides: promptDraftRuntimeOverrides,
-              settings: useAppStore.getState().settings,
+              settings: selectEffectiveSettings(useAppStore.getState()),
               providerId: selection.providerId,
               model: nextModel,
               effort: resolveModelShortcutEffort({

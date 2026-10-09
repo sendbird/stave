@@ -144,18 +144,25 @@ export function summarizeTrackerSource(
   };
 
   if (status.availability !== "ready") {
+    // Jira's on/off lives in Settings → Integrations (Issues only links there);
+    // Crane's source toggle is still in Settings → Issues.
+    const disabledInIntegrations =
+      status.availability === "disabled" && source === "jira";
     return {
       ...base,
       condition: "setup",
       headline: AVAILABILITY_HEADLINES[status.availability],
-      detail: TRACKER_AVAILABILITY_HINTS[status.availability],
+      detail: disabledInIntegrations
+        ? i18n.t("issues:sourceStatus.turnedOffInSettingsIntegrations")
+        : TRACKER_AVAILABILITY_HINTS[status.availability],
       retryable: false,
       // The keychain is an OS-level problem. A Tasks toggle that is off is
       // already the control; sending people to Integrations would look like
       // the connector itself is broken.
       fixInSettings:
-        status.availability !== "secure_storage_unavailable" &&
-        status.availability !== "disabled",
+        disabledInIntegrations ||
+        (status.availability !== "secure_storage_unavailable" &&
+          status.availability !== "disabled"),
     };
   }
 

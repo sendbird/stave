@@ -224,17 +224,6 @@
     "description2": "Stave가 프로바이더, 모델, 추론 수준을 선택합니다.",
     "extraCopy63": "런타임 지원이 확인되지 않았습니다. 이 모델을 선택할 수는 있습니다."
   },
-  "permissionModeSelector": {
-    "label": "기본값",
-    "label2": "편집 허용",
-    "label3": "권한 확인 생략",
-    "label5": "확인 안 함",
-    "label6": "자동",
-    "label7": "신뢰하지 않음",
-    "label8": "요청 시 확인",
-    "label9": "확인하지 않음",
-    "title": "권한 모드"
-  },
   "promptInputAgentControl": {
     "ariaLabel": "에이전트",
     "list": "검색과 일치하는 에이전트가 없습니다.",
@@ -721,5 +710,11 @@
         "description": "실제 실행 경로, 쿼리 증가, 렌더링과 리소스 누수를 확인합니다."
       }
     }
+  },
+  "mermaid": {
+    "drawing": "다이어그램을 그리는 중…",
+    "failed": "다이어그램을 그리지 못해 소스를 표시합니다.",
+    "showCode": "코드 보기",
+    "showDiagram": "다이어그램 보기"
   }
 }

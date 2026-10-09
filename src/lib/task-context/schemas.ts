@@ -1,3 +1,4 @@
+import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { AgentTurnProvenanceSchema } from "@/lib/agents/turn-provenance";
@@ -60,6 +61,7 @@ const ToolUsePartSchema = z.object({
   input: z.string(),
   output: z.string().optional(),
   exitCode: z.number().int().nullable().optional(),
+  mcpAppView: McpAppViewReferenceSchema.optional(),
   elapsedSeconds: z.number().optional(),
   progressMessages: z.array(z.string()).optional(),
   state: z.union([

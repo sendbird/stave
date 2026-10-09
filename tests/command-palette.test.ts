@@ -13,6 +13,9 @@ import {
   toggleCommandPalettePinnedAction,
   type CommandPaletteRuntimeContext,
 } from "@/components/layout/command-palette-registry";
+import { AGENTS_APP_SURFACE, WORKSPACE_APP_SURFACE } from "@/store/app-surface";
+import { useAppStore } from "@/store/app.store";
+import { useAgentsViewStore } from "@/store/agents-view-store";
 
 function createContext(
   overrides: Partial<CommandPaletteRuntimeContext> = {},
@@ -97,7 +100,7 @@ function createContext(
       openFleetView: () => {},
       openAutomationCenter: () => {},
       openAgents: () => {},
-      openResults: () => {},
+      openAgentPerformance: () => {},
       openUsage: () => {},
       openIssues: () => {},
       refreshTrackerIssues: async () => {},
@@ -139,6 +142,25 @@ describe("command palette registry", () => {
       const matches = searchCommandPaletteGroups({ groups, query });
       expect(matches.flatMap((group) => group.items).some((item) => item.id === "navigation.usage")).toBe(true);
     }
+  });
+
+  test("Open agent performance opens Agents on its Performance tab", () => {
+    useAppStore.setState({ activeAppSurface: WORKSPACE_APP_SURFACE });
+    useAgentsViewStore.setState({ activeTab: "standards" });
+    const context = createContext({ repositoryPath: null });
+    context.commands.openAgentPerformance = () => useAppStore.getState().openAgentPerformance();
+    const groups = buildCommandPaletteGroups(context);
+    const action = groups.flatMap((group) => group.items).find((item) => item.id === "navigation.results");
+    expect(action).toBeDefined();
+    action?.run();
+    expect(useAppStore.getState().activeAppSurface).toBe(AGENTS_APP_SURFACE);
+    expect(useAgentsViewStore.getState().activeTab).toBe("performance");
+    for (const query of ["agent performance", "performance", "outcomes"]) {
+      const matches = searchCommandPaletteGroups({ groups, query });
+      expect(matches.flatMap((group) => group.items).some((item) => item.id === "navigation.results")).toBe(true);
+    }
+    useAppStore.setState({ activeAppSurface: WORKSPACE_APP_SURFACE });
+    useAgentsViewStore.setState({ activeTab: "agents" });
   });
 
   test("exposes the Tasks commands without colliding with an existing binding", () => {

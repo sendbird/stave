@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n";
+import { recordClosedPaneTab } from "@/components/panes/closed-tab-history";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { buildPanePanelId } from "@/lib/panes/types";
@@ -113,6 +114,7 @@ export function closeEditorTabs(args: { tabIds: string[] }) {
     if (store.paneTabMeta[panelId]?.pinned) {
       continue;
     }
+    recordClosedPaneTab({ kind: "editor", editorTabId: tabId });
     store.closeEditorTab({ tabId });
   }
 }

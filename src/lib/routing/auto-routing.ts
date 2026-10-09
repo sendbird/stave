@@ -1,8 +1,9 @@
 import { boundRouteIntentInput, RouteIntentResultSchema, ROUTE_CLASSIFICATION_DEADLINE_MS, type RouteIntentResult } from "@/lib/providers/route-intent";
 import {
   type AutoRoutingProfile,
+  buildStarterProfile,
+  DEFAULT_AUTO_ROUTING_PROFILE_ID,
   listEligibleRouteModels,
-  migrateLegacyAutoSettings,
   resolveRoute,
   ROUTE_COMPLEXITY_LABELS,
   type ResolvedRoute,
@@ -192,13 +193,7 @@ const SKILL_TASK_CLASS: Readonly<Record<string, TaskClass>> = {
 
 export interface AutoRoutingSettings {
   autoRoutingEnabled: boolean;
-  autoRoutingUseClassifier: boolean;
-  autoRoutingObjective: number;
-  autoRoutingSafetyEscalation: boolean;
-  autoRoutingAllowProviderSwitch: boolean;
-  autoRoutingEligibleClaudeModels: readonly string[];
-  autoRoutingEligibleCodexModels: readonly string[];
-  /** v2 role table; absent falls back to a profile migrated from the v1 flags. */
+  /** Role table, stance, signals and eligible models; absent uses the default starter. */
   autoRoutingProfile?: AutoRoutingProfile;
 }
 
@@ -344,24 +339,6 @@ function clamp(value: number, min: number, max: number) {
     return min;
   }
   return Math.min(max, Math.max(min, value));
-}
-
-export function normalizeAutoRoutingObjective(value: number | undefined) {
-  return clamp(typeof value === "number" ? value : 0.5, 0, 1);
-}
-
-export function normalizeAutoRoutingEligibleModels(
-  value: readonly unknown[] | undefined,
-) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-  return value
-    .map((entry) => (typeof entry === "string" ? entry.trim() : ""))
-    .filter(
-      (entry, index, entries) =>
-        entry.length > 0 && entries.indexOf(entry) === index,
-    );
 }
 
 function countPromptTokens(prompt: string) {
@@ -763,7 +740,10 @@ export function resolveRoutingProviderAvailability(args: {
 export function resolveAutoRoutingProfile(
   settings: AutoRoutingSettings,
 ): AutoRoutingProfile {
-  return settings.autoRoutingProfile ?? migrateLegacyAutoSettings(settings);
+  return (
+    settings.autoRoutingProfile ??
+    buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID)
+  );
 }
 
 function toClaudeEffort(

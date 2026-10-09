@@ -2,6 +2,11 @@ import {
   classifyTaskStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
+import {
+  compareWorkAttention,
+  rankWorkAttention,
+  type WorkAttentionRank,
+} from "@/lib/fleet/work-attention-order";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { TaskAgent } from "@/store/agent-assignments-store";
 import type { ChatMessage, Task } from "@/types/chat";
@@ -12,9 +17,9 @@ export interface AgentWork {
   agentName: string;
   /** The agent's colour, so its avatar matches the Agents surface. */
   agentAppearance?: TaskAgent["agentAppearance"];
-  /** Tasks of this agent that are running or waiting for the user. */
+  /** Tasks of this agent that are running, waiting for the user, or failed. */
   count: number;
-  /** True when at least one of those tasks is waiting on the user. */
+  /** True when at least one of those tasks needs the user (waiting or failed). */
   needsYou: boolean;
 }
 
@@ -22,19 +27,15 @@ type WorkTask = Pick<Task, "id" | "archivedAt" | "updatedAt">;
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
-function isRunningOrWaiting(status: FleetTaskStatus): boolean {
-  return (
-    status === "running" ||
-    status === "waiting-input" ||
-    status === "waiting-approval"
-  );
-}
-
 /**
- * The agents whose tasks are running or waiting on the user right now, newest
- * task first, grouped by agent. Pure so the sidebar can memoize it outside a
- * zustand selector. Only tasks with loaded runtime state count; cold workspace
- * summaries have no messages or turn state, so they are simply absent.
+ * The agents whose tasks are at work or need the user right now, grouped by
+ * agent and ordered by each agent's most urgent task under the shared Work
+ * queue rule (`work-attention-order.ts`): an agent with a task in
+ * `action-required` (waiting on you, or failed) comes before one that is only
+ * running, and ties go to the most recently updated task. Pure so the sidebar
+ * can memoize it outside a zustand selector. Only tasks with loaded runtime
+ * state count; cold workspace summaries have no messages or turn state, so they
+ * are simply absent.
  */
 export function collectAgentsWithWork(args: {
   byTaskId: Record<string, TaskAgent>;
@@ -47,41 +48,46 @@ export function collectAgentsWithWork(args: {
   >;
   limit: number;
 }): { agents: AgentWork[]; total: number } {
-  const byAgent = new Map<string, AgentWork>();
-  const order: string[] = [];
+  const byAgent = new Map<string, { work: AgentWork; rank: WorkAttentionRank }>();
 
   for (const task of args.tasks) {
     const agent = args.byTaskId[task.id];
     if (!agent) {
       continue;
     }
-    const status = classifyTaskStatus({
+    const status: FleetTaskStatus = classifyTaskStatus({
       task,
       messages: args.messagesByTask[task.id] ?? EMPTY_MESSAGES,
       activeTurnId: args.activeTurnIdsByTask[task.id] ?? null,
       activity: args.providerTurnActivityByTask[task.id] ?? null,
     });
-    if (!isRunningOrWaiting(status)) {
+    const rank = rankWorkAttention({ status, activityAt: task.updatedAt });
+    // Idle and in-review work is nothing to do right now.
+    if (rank.lane !== "action-required" && rank.lane !== "in-progress") {
       continue;
     }
-    const needsYou =
-      status === "waiting-input" || status === "waiting-approval";
+    const needsYou = rank.lane === "action-required";
     const existing = byAgent.get(agent.agentConfigId);
     if (existing) {
-      existing.count += 1;
-      existing.needsYou = existing.needsYou || needsYou;
+      existing.work.count += 1;
+      existing.work.needsYou = existing.work.needsYou || needsYou;
+      if (compareWorkAttention(rank, existing.rank) < 0) existing.rank = rank;
     } else {
       byAgent.set(agent.agentConfigId, {
-        agentConfigId: agent.agentConfigId,
-        agentName: agent.agentName,
-        ...(agent.agentAppearance ? { agentAppearance: agent.agentAppearance } : {}),
-        count: 1,
-        needsYou,
+        work: {
+          agentConfigId: agent.agentConfigId,
+          agentName: agent.agentName,
+          ...(agent.agentAppearance ? { agentAppearance: agent.agentAppearance } : {}),
+          count: 1,
+          needsYou,
+        },
+        rank,
       });
-      order.push(agent.agentConfigId);
     }
   }
 
-  const all = order.map((id) => byAgent.get(id)!);
+  const all = [...byAgent.values()]
+    .sort((left, right) => compareWorkAttention(left.rank, right.rank))
+    .map((entry) => entry.work);
   return { agents: all.slice(0, args.limit), total: all.length };
 }

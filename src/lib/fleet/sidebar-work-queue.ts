@@ -1,8 +1,10 @@
 import { i18n } from "@/i18n/runtime";
-import type { FleetAttentionKind } from "./attention-projection";
-import { getFleetAttentionTier } from "./attention-projection";
-import type { FleetTaskStatus } from "./task-status";
-import { hasFleetTaskAttentionStatus } from "./task-status";
+import {
+  classifyWorkQueueLane,
+  WORK_QUEUE_LANE_ORDER,
+  type WorkQueueLane,
+  type WorkQueueSignals,
+} from "./work-attention-order";
 
 /**
  * Sidebar work queue: the lane model behind the left sidebar's `Work queue`
@@ -14,23 +16,16 @@ import { hasFleetTaskAttentionStatus } from "./task-status";
  * The sidebar's other view, the project tree, sorts workspaces by where they
  * live and so cannot say why one deserves attention before another — a stalled
  * agent and a workspace you merely visited yesterday look the same. Lanes name
- * the reason. This module is pure: it takes per-workspace signals that the
- * sidebar already computes and returns grouped entries, so it adds no store
- * subscription, no persistence, and no IPC.
+ * the reason. The lanes and the order inside them are the shared rule in
+ * `work-attention-order.ts`, which the Fleet board and the Agents surface use
+ * too; this module only adds the lane labels and the grouping. It is pure: it
+ * takes per-workspace signals that the sidebar already computes and returns
+ * grouped entries, so it adds no store subscription, no persistence, and no IPC.
  */
-export type SidebarWorkQueueLane =
-  | "action-required"
-  | "in-progress"
-  | "in-review"
-  | "idle";
+export type SidebarWorkQueueLane = WorkQueueLane;
 
 /** Fixed display order; also the classification priority order. */
-export const SIDEBAR_WORK_QUEUE_LANE_ORDER: readonly SidebarWorkQueueLane[] = [
-  "action-required",
-  "in-progress",
-  "in-review",
-  "idle",
-] as const;
+export const SIDEBAR_WORK_QUEUE_LANE_ORDER = WORK_QUEUE_LANE_ORDER;
 
 /**
  * The last lane is `idle`, not `done`. Lanes are derived from attention items
@@ -49,76 +44,11 @@ export const SIDEBAR_WORK_QUEUE_LANE_LABEL: Record<
   get idle() { return i18n.t("fleet:sidebarWorkQueue.idle"); },
 };
 
-/**
- * Per-workspace inputs. `attentionKind` is the workspace's highest-priority
- * Fleet attention item (it already folds PR state into attention kinds, which
- * is why this module never reads PR status directly). `status` is the
- * workspace's leading task status.
- */
-export interface SidebarWorkQueueSignals {
-  attentionKind?: FleetAttentionKind;
-  status?: FleetTaskStatus;
-  /**
-   * The lane the workspace's agent run asks for (`agentRunWorkQueueLane` in
-   * `src/lib/agent-runs/lanes.ts`). It competes with the other signals by
-   * priority rather than overriding them.
-   */
-  agentRunLane?: SidebarWorkQueueLane | null;
-}
+/** Per-workspace inputs; see `WorkQueueSignals`. */
+export type SidebarWorkQueueSignals = WorkQueueSignals;
 
-/**
- * Lane priority, highest first:
- *
- * 1. `action-required` — something is blocked on the user: a blocking
- *    attention item (a question, an approval, a failed run, a PR that cannot
- *    merge) or a live task sitting in a waiting/error state. The live status
- *    matters on its own because a user who already read the notification still
- *    has a stalled agent in front of them.
- * 2. `in-progress` — an agent is running. Checked before review because a
- *    running turn is the truthful present tense: a workspace with both a
- *    finished result and a new turn in flight is in progress, not waiting for
- *    review.
- * 3. `in-review` — finished work nobody has looked at (a completed run, a PR
- *    that is merely ready or behind base). Nothing is stalled.
- * 4. `idle` — nothing pending.
- *
- * An agent run lane competes with these: the higher-priority of the two wins.
- */
-export function classifySidebarWorkQueueLane(
-  signals: SidebarWorkQueueSignals,
-): SidebarWorkQueueLane {
-  const taskLane = classifyTaskSignals(signals);
-  const agentRunLane = signals.agentRunLane;
-  if (!agentRunLane) return taskLane;
-  return SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(agentRunLane) <
-    SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(taskLane)
-    ? agentRunLane
-    : taskLane;
-}
-
-function classifyTaskSignals(
-  signals: SidebarWorkQueueSignals,
-): SidebarWorkQueueLane {
-  const status = signals.status ?? "idle";
-  const attentionTier = signals.attentionKind
-    ? getFleetAttentionTier(signals.attentionKind)
-    : undefined;
-
-  if (
-    attentionTier === "blocking" ||
-    hasFleetTaskAttentionStatus(status) ||
-    status === "error"
-  ) {
-    return "action-required";
-  }
-  if (status === "running") {
-    return "in-progress";
-  }
-  if (attentionTier === "review") {
-    return "in-review";
-  }
-  return "idle";
-}
+/** See `classifyWorkQueueLane` for the lane priority. */
+export const classifySidebarWorkQueueLane = classifyWorkQueueLane;
 
 export interface SidebarWorkQueueGroup<T> {
   lane: SidebarWorkQueueLane;
@@ -165,4 +95,73 @@ export function buildSidebarWorkQueueLanes<T extends { workspaceId: string }>(ar
     }
     return [{ lane, label: SIDEBAR_WORK_QUEUE_LANE_LABEL[lane], entries }];
   });
+}
+
+/**
+ * The Work queue's sections: the four lanes, then two shelves for workspaces
+ * the user (or an automatic rule) set aside. Shelved workspaces still exist
+ * exactly as before; see `workspace-settlement.ts`.
+ */
+export type SidebarWorkQueueSection = SidebarWorkQueueLane | "snoozed" | "settled";
+
+export const SIDEBAR_WORK_QUEUE_SECTION_LABEL: Record<
+  "snoozed" | "settled",
+  string
+> = {
+  get snoozed() { return i18n.t("fleet:sidebarWorkQueue.snoozed"); },
+  get settled() { return i18n.t("fleet:sidebarWorkQueue.settled"); },
+};
+
+/**
+ * Sections that start folded: running agents need nothing from the user (the
+ * lane count still shows them), and the shelves exist to be out of the way.
+ */
+export const SIDEBAR_WORK_QUEUE_SECTIONS_COLLAPSED_BY_DEFAULT: ReadonlySet<SidebarWorkQueueSection> =
+  new Set<SidebarWorkQueueSection>(["in-progress", "snoozed", "settled"]);
+
+export interface SidebarWorkQueueSectionGroup<T> {
+  section: SidebarWorkQueueSection;
+  label: string;
+  entries: T[];
+}
+
+/**
+ * Moves shelved entries out of their lanes. A shelved entry keeps its rank
+ * order; snoozed entries sort by when they return, settled ones by newest
+ * first.
+ */
+export function buildSidebarWorkQueueSections<T extends { workspaceId: string }>(args: {
+  groups: readonly SidebarWorkQueueGroup<T>[];
+  shelfOf: (entry: T) => { section: "snoozed" | "settled"; at: string } | null;
+}): SidebarWorkQueueSectionGroup<T>[] {
+  const snoozed: Array<{ entry: T; at: string }> = [];
+  const settled: Array<{ entry: T; at: string }> = [];
+  const sections: SidebarWorkQueueSectionGroup<T>[] = [];
+  for (const group of args.groups) {
+    const kept: T[] = [];
+    for (const entry of group.entries) {
+      const shelf = args.shelfOf(entry);
+      if (shelf?.section === "snoozed") snoozed.push({ entry, at: shelf.at });
+      else if (shelf?.section === "settled") settled.push({ entry, at: shelf.at });
+      else kept.push(entry);
+    }
+    if (kept.length > 0) sections.push({ section: group.lane, label: group.label, entries: kept });
+  }
+  if (snoozed.length > 0) {
+    snoozed.sort((left, right) => left.at.localeCompare(right.at));
+    sections.push({
+      section: "snoozed",
+      label: SIDEBAR_WORK_QUEUE_SECTION_LABEL.snoozed,
+      entries: snoozed.map((item) => item.entry),
+    });
+  }
+  if (settled.length > 0) {
+    settled.sort((left, right) => right.at.localeCompare(left.at));
+    sections.push({
+      section: "settled",
+      label: SIDEBAR_WORK_QUEUE_SECTION_LABEL.settled,
+      entries: settled.map((item) => item.entry),
+    });
+  }
+  return sections;
 }

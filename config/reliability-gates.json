@@ -394,6 +394,22 @@
         "src/components/panes/surfaces/EditorSurfacePanel.tsx",
         "src/components/layout/editor-monaco-warmup.tsx"
       ]
+    },
+    {
+      "id": "secret-request-value-boundary",
+      "title": "An agent's secret request never carries the value",
+      "invariant": "stave_request_secret takes only a variable name, a reason and a label under a strict schema, refuses external callers, read-only tasks and reserved names, and resolves to status metadata. The value travels renderer to main only through secret-requests:respond, from a Stave window's main frame, straight into the encrypted vault; the tool result, published request views, IPC replies and the Local MCP request log never contain it, and only the secret id is bound to the task.",
+      "testFiles": [
+        "tests/secret-request.test.ts",
+        "tests/secret-request-binding.test.ts"
+      ],
+      "assertionRefs": [
+        "electron/main/browser/secret-request-broker.ts",
+        "electron/main/browser/secret-request-tool.ts",
+        "electron/main/ipc/secret-requests.ts",
+        "electron/main/stave-mcp-log-sanitizer.ts",
+        "src/lib/secrets/secret-request.ts"
+      ]
     }
   ]
 }

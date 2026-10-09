@@ -1,3 +1,5 @@
+import { buildToolImageReferenceText } from "../../../src/lib/tool-images/tool-images";
+import { getToolImageStore } from "../tool-images/tool-image-service";
 import { controlledLensTools } from "./browser-controlled-tools";
 import { assertLensAutomationAllowed } from "./browser-automation-control";
 // ---------------------------------------------------------------------------
@@ -529,12 +531,22 @@ export function registerBrowserTools(rawServer: McpServer): void {
         fullPage,
         clip,
       });
+      const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
+      // Kept so the conversation can show the screenshot: providers either
+      // drop image blocks or cut them short. The reference goes first, where
+      // truncation cannot reach it.
+      const reference = await getToolImageStore()
+        .save({ workspaceId, mimeType: "image/png", base64 })
+        .catch(() => null);
 
       return {
         content: [
+          ...(reference
+            ? [{ type: "text" as const, text: buildToolImageReferenceText(reference) }]
+            : []),
           {
             type: "image" as const,
-            data: dataUrl.replace(/^data:image\/png;base64,/, ""),
+            data: base64,
             mimeType: "image/png" as const,
           },
         ],

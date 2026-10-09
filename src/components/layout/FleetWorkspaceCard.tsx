@@ -32,11 +32,14 @@ import {
 import {
   getFleetAttentionTier,
   type FleetAttentionItem,
+  type FleetAttentionKind,
 } from "@/lib/fleet/attention-projection";
+import { orderByWorkAttention, rankWorkAttention } from "@/lib/fleet/work-attention-order";
 import {
   classifyTaskStatus,
   compareFleetTaskStatus,
   type FleetDisplayStatus,
+  type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import {
   classifyFleetWorkspaceActivity,
@@ -82,6 +85,12 @@ export type FleetWorkspaceCardVisibility = {
   isPhantom: boolean;
   activity: FleetWorkspaceActivity;
   activityAt: string | null;
+  /**
+   * The most urgent known status among the card's open tasks (null when none
+   * has runtime state yet). The board orders cards with it through the shared
+   * Work queue rule.
+   */
+  leadingStatus: FleetTaskStatus | null;
   taskKeys: string[];
 };
 
@@ -109,14 +118,6 @@ export function formatFleetWorkspaceName(name: string, branch?: string) {
     return branchLabel ? i18n.t("fleet:fleetWorkspaceCard.defaultValue", { branchLabel: branchLabel }) : i18n.t("fleet:fleetWorkspaceCard.default");
   }
   return name;
-}
-
-const FLEET_UNKNOWN_STATUS_PRIORITY = 5;
-
-function getStatusPriority(status: FleetDisplayStatus) {
-  return status === "unknown"
-    ? FLEET_UNKNOWN_STATUS_PRIORITY
-    : compareFleetTaskStatus(status, "waiting-input");
 }
 
 const FLEET_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
@@ -339,30 +340,33 @@ export function FleetWorkspaceCard(args: {
     [taskState, i18n.resolvedLanguage],
   );
 
-  const rows = useMemo(
-    () =>
-      openTasks
-        .map((task) => ({
-          task,
-          status: taskState.hasRuntimeState
-            ? classifyTaskStatus({
-                task,
-                messages: taskState.messagesByTask[task.id] ?? EMPTY_MESSAGES,
-                activeTurnId: taskState.activeTurnIdsByTask[task.id] ?? null,
-                activity: providerTurnActivityByTask[task.id] ?? null,
-              })
-            : ("unknown" as const),
-          updatedLabel: formatTaskUpdatedAt({ value: task.updatedAt }),
-        }))
-        .sort((left, right) => {
-          const order =
-            getStatusPriority(left.status) - getStatusPriority(right.status);
-          return order !== 0
-            ? order
-            : right.task.updatedAt.localeCompare(left.task.updatedAt);
-        }) satisfies FleetCardTaskView[],
-    [openTasks, providerTurnActivityByTask, taskState, i18n.resolvedLanguage],
-  );
+  // Task rows follow the shared Work queue rule (`work-attention-order.ts`),
+  // with each task's own most urgent attention item as its reason.
+  const rows = useMemo(() => {
+    const attentionKindByTaskId = new Map<string, FleetAttentionKind>();
+    for (const item of args.attentionItems) {
+      if (item.taskId && !attentionKindByTaskId.has(item.taskId)) attentionKindByTaskId.set(item.taskId, item.kind);
+    }
+    const views = openTasks.map((task) => ({
+      task,
+      status: taskState.hasRuntimeState
+        ? classifyTaskStatus({
+            task,
+            messages: taskState.messagesByTask[task.id] ?? EMPTY_MESSAGES,
+            activeTurnId: taskState.activeTurnIdsByTask[task.id] ?? null,
+            activity: providerTurnActivityByTask[task.id] ?? null,
+          })
+        : ("unknown" as const),
+      updatedLabel: formatTaskUpdatedAt({ value: task.updatedAt }),
+    })) satisfies FleetCardTaskView[];
+    return orderByWorkAttention(views, (row) =>
+      rankWorkAttention({
+        attentionKind: attentionKindByTaskId.get(row.task.id),
+        status: row.status === "unknown" ? undefined : row.status,
+        activityAt: row.task.updatedAt,
+      }),
+    );
+  }, [args.attentionItems, openTasks, providerTurnActivityByTask, taskState, i18n.resolvedLanguage]);
 
   // Counted across every task, archived included. This is evidence that real
   // work happened here, and a workspace whose tasks were all archived still has
@@ -480,6 +484,14 @@ export function FleetWorkspaceCard(args: {
     [args.repositoryPath, args.workspace.id, rows, visible, i18n.resolvedLanguage],
   );
 
+  const leadingStatus = rows.reduce<FleetTaskStatus | null>(
+    (best, row) =>
+      row.status !== "unknown" && (best === null || compareFleetTaskStatus(row.status, best) < 0)
+        ? row.status
+        : best,
+    null,
+  );
+
   const { onVisibilityChange, cardKey } = args;
   useEffect(() => {
     onVisibilityChange(cardKey, {
@@ -487,6 +499,7 @@ export function FleetWorkspaceCard(args: {
       isPhantom,
       activity,
       activityAt,
+      leadingStatus,
       taskKeys,
     });
   }, [
@@ -494,6 +507,7 @@ export function FleetWorkspaceCard(args: {
     activityAt,
     cardKey,
     isPhantom,
+    leadingStatus,
     onVisibilityChange,
     taskKeys,
     visible,

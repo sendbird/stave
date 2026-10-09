@@ -17,12 +17,6 @@ function settings(overrides: Partial<AgentRouteSettings["routing"]> = {}, classi
   return AgentRouteSettingsSchema.parse({
     routing: {
       autoRoutingEnabled: true,
-      autoRoutingUseClassifier: false,
-      autoRoutingObjective: 50,
-      autoRoutingSafetyEscalation: true,
-      autoRoutingAllowProviderSwitch: false,
-      autoRoutingEligibleClaudeModels: [],
-      autoRoutingEligibleCodexModels: [],
       autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
       ...overrides,
     },

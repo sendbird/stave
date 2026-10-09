@@ -177,15 +177,6 @@ export async function resolveAutoRoutingForSend(args: {
       classifierSignal: classifierController.signal,
       settings: {
         autoRoutingEnabled: state.settings.autoRoutingEnabled,
-        autoRoutingUseClassifier: state.settings.autoRoutingUseClassifier,
-        autoRoutingObjective: state.settings.autoRoutingObjective,
-        autoRoutingSafetyEscalation: state.settings.autoRoutingSafetyEscalation,
-        autoRoutingAllowProviderSwitch:
-          state.settings.autoRoutingAllowProviderSwitch,
-        autoRoutingEligibleClaudeModels:
-          state.settings.autoRoutingEligibleClaudeModels,
-        autoRoutingEligibleCodexModels:
-          state.settings.autoRoutingEligibleCodexModels,
         autoRoutingProfile: state.settings.autoRoutingProfile,
       },
       runtimeOverrides: promptDraft.runtimeOverrides,

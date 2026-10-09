@@ -151,6 +151,11 @@ Automatic presentation is limited to actions that are inherently visual or inter
 7. Close MCP-managed sessions with `stave_lens_close_session` when you no longer need them.
 8. Use the returned page data together with normal Stave task tools or your own external workflow.
 
+A screenshot an agent takes with `stave_lens_screenshot` also appears as a
+thumbnail in that step of the conversation. Stave keeps a copy under its user
+data folder in `tool-images/`, so the thumbnail works for every provider, and
+removes it when the workspace is archived.
+
 ## Files And Data
 
 - Lens source-mapping preferences are stored in app settings:

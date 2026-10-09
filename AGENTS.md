@@ -165,7 +165,8 @@ Required check files:
 - `electron/main/browser/secret-service.ts` (main-process `resolveBoundSecretEnv`)
 - `electron/providers/claude-sdk-runtime.ts` (`buildClaudeQueryOptions` `secretEnv`)
 - `electron/providers/codex-app-server-runtime.ts` + `codex-app-server-params.ts` (`shell_environment_policy.set.*`)
-- `tests/secrets.test.ts`, `tests/codex-app-server-secret-env.test.ts`
+- `electron/main/browser/secret-request-broker.ts` + `electron/main/ipc/secret-requests.ts` (`stave_request_secret` card answers)
+- `tests/secrets.test.ts`, `tests/codex-app-server-secret-env.test.ts`, `tests/secret-request.test.ts`
 
 Rules:
 
@@ -174,6 +175,7 @@ Rules:
 - Inject secrets for the **primary user turn only** — never for introspection, aux, or secondary read-only analysis queries.
 - Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects shell variables via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`. Secret-bound primary Codex turns use a disposable App Server process with the same environment so `bearer_token_env_var` MCP authentication works without exposing values to shared clients.
 - Never write a secret value to `console.*`, a `BridgeEvent`, a transcript, or the thread key. Log only counts, env-var names, and skip reasons.
+- An agent obtains a new secret only through `stave_request_secret`. Its value goes from the masked card to main over `secret-requests:respond` and straight into the vault; the tool's schema and result, the published request views and the Local MCP request log carry metadata only.
 - This is an _automatic-leak_ guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
 
 ## Terminal Surface Guardrails
@@ -190,6 +192,7 @@ Required check files:
 - `src/components/layout/terminal-surface-styles.ts`
 - `src/components/layout/CliSessionPanel.tsx`
 - `src/components/layout/app-shell.shortcuts.ts`
+- `src/components/layout/useAppKeybindings.ts`
 - `src/components/panes/WorkspacePaneHost.tsx`
 - `src/components/panes/surfaces/TerminalSurfacePanel.tsx`
 - `src/components/panes/terminal-pane-group.ts`

@@ -1,3 +1,4 @@
+import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
 import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveTurnGrants } from "./stave-turn-grants";
@@ -227,6 +228,8 @@ export type BridgeEvent =
       isError?: boolean;
       isPartial?: boolean;
       exitCode?: number | null;
+      /** The MCP App view this call produced; see `src/lib/mcp-app`. */
+      mcpAppView?: McpAppViewReference;
     }
   | {
       type: "diff";

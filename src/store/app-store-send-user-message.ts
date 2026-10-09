@@ -1,3 +1,4 @@
+import { noteWorkspaceMessage } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
@@ -5,9 +6,11 @@ import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/pr
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
+import { takeMcpAppModelContextParts } from "@/lib/mcp-app/mcp-app-model-context";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
 import { collectWorkspaceDocumentEditContextParts, syncWorkspaceDocumentsAtTurnEnd } from "@/store/workspace-documents-store";
+import { collectInlineRenderContextParts } from "@/store/inline-render-context-runtime";
 import {
   extractWorkspaceInformationReferencesFromText,
   formatWorkspaceInformationReferencesContext,
@@ -112,9 +115,11 @@ import {
 } from "@/store/workspace-session-state";
 import {
   resolveRepositoryBasePrompt,
+  resolveRepositoryForWorkspaceId,
   resolveWorkspaceName,
   resolveTaskWorkspaceContext,
 } from "@/store/repository.utils";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import {
   buildApprovalNotificationInputs,
   buildTaskTurnCompletedNotificationInput,
@@ -407,6 +412,12 @@ export function createSendUserMessageAction(args: {
         state,
         workspaceId: taskWorkspaceId,
       }) ?? runtimeTarget.session;
+    // Settings scope: model, effort and permission defaults come from the
+    // task's project when it overrides them; explicit draft choices still win.
+    const taskRepositoryPath =
+      resolveRepositoryForWorkspaceId({ state, workspaceId: taskWorkspaceId })
+        ?.repositoryPath ?? state.repositoryPath;
+    const turnSettings = selectEffectiveSettings(state, taskRepositoryPath);
     const runCommand = window.api?.terminal?.runCommand;
 
     if (!state.taskCheckpointById[resolvedTaskId] && runCommand) {
@@ -657,7 +668,7 @@ export function createSendUserMessageAction(args: {
       // "steer" (suggestion clicks, etc.).
       const queuedTurn = buildQueuedTurnFromDraft({
         draft: promptDraft,
-        settings: state.settings,
+        settings: turnSettings,
         sourceTurnId: activeTurnId,
         content: promptContent,
         ...(promptDraft.runtimeOverrides?.autoRouting === true
@@ -669,7 +680,7 @@ export function createSendUserMessageAction(args: {
               model: resolveTurnModelForSend({
                 providerId: provider,
                 runtimeOverrides: promptDraft.runtimeOverrides,
-                settings: state.settings,
+                settings: turnSettings,
               }),
             }),
       });
@@ -805,7 +816,7 @@ export function createSendUserMessageAction(args: {
           ? undefined
           : queuedTurnToSend?.model,
         runtimeOverrides: promptDraft.runtimeOverrides,
-        settings: state.settings,
+        settings: turnSettings,
       });
 
       const resolvedFileContexts = await getDraftFileContexts({
@@ -918,7 +929,7 @@ export function createSendUserMessageAction(args: {
         lane: resolveAuxLaneRuntime({
           lane: "taskName",
           policy: state.settings.auxiliaryInferencePolicy,
-          legacyProviderId: state.settings.utilityInferenceProvider,
+          shared: state.settings.auxiliaryInferenceDefault,
           activeProviderId: provider,
         }),
         context: buildUtilityInferenceContext({
@@ -1056,10 +1067,14 @@ export function createSendUserMessageAction(args: {
       })));
       // Edits to this task's documents since its last turn travel as a diff.
       retrievedContextParts.push(...(await collectWorkspaceDocumentEditContextParts({ workspaceId: taskWorkspaceId, rootPath: workspaceCwd ?? "", taskId: resolvedTaskId })));
+      // State this task's inline pages reported, labelled as untrusted page data.
+      retrievedContextParts.push(...(await collectInlineRenderContextParts({ workspaceId: taskWorkspaceId, taskId: resolvedTaskId })));
+      // What this task's MCP App views reported since its last turn, as untrusted data.
+      retrievedContextParts.push(...takeMcpAppModelContextParts(resolvedTaskId));
       // ──────────────────────────────────────────────────────────────────────
 
       const modelRuntimeSettings = applyModelRuntimePreference({
-        settings: get().settings,
+        settings: selectEffectiveSettings(get(), taskRepositoryPath),
         providerId: provider,
         model: activeModel,
       });
@@ -1117,6 +1132,15 @@ export function createSendUserMessageAction(args: {
       });
       const prompt = normalizedPrompt;
       submittedPromptDraft.commit();
+      // A message is real activity: it brings a settled workspace back, and
+      // the Work queue's merge rule only settles after a merge that follows it.
+      set((nextState) => ({
+        workspaceSettlementById: noteWorkspaceMessage(
+          nextState.workspaceSettlementById,
+          taskWorkspaceId,
+          new Date().toISOString(),
+        ),
+      }));
 
       if (taskWorkspaceId === get().activeWorkspaceId) {
         set((nextState) => {

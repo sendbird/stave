@@ -12,7 +12,6 @@ import {
   ListTodo,
   Lock,
   Palette,
-  Package2,
   Rocket,
   ScrollText,
   SearchCheck,
@@ -52,6 +51,9 @@ export const settingsSections = [
       "language",
       "locale",
       "언어",
+      "developer mode",
+      "diagnostics",
+      "개발자 모드",
     ],
   },
   {
@@ -127,6 +129,13 @@ export const settingsSections = [
       "conversation",
       "turn rail",
       "fast mode",
+      "inline html",
+      "render",
+      "chart",
+      "network access",
+      "cdn",
+      "mcp app",
+      "mcp apps",
     ],
   },
   {
@@ -137,6 +146,9 @@ export const settingsSections = [
     keywords: [
       "claude",
       "codex",
+      "plugins",
+      "marketplace",
+      "플러그인",
       "cursor",
       "kiro",
       "sandbox",
@@ -146,9 +158,15 @@ export const settingsSections = [
       "auto approve",
       "trust all tools",
       "auto review",
-      "model",
-      "effort",
       "fast",
+      "advanced",
+      "fallback model",
+      "resume",
+      "fork session",
+      "setting sources",
+      "strict mcp",
+      "plugin paths",
+      "main agent",
       "fable",
       "astra",
       "browser",
@@ -179,7 +197,12 @@ export const settingsSections = [
     keywords: [
       "claude",
       "codex",
+      "cursor",
+      "kiro",
+      "model",
+      "default model",
       "effort",
+      "reasoning",
       "routing",
       "thinking",
       "model visibility",
@@ -217,20 +240,6 @@ export const settingsSections = [
       "delegate",
       "price",
       "pricing",
-    ],
-  },
-  {
-    id: "codex",
-    labelKey: "settings:sections.codex.label",
-    icon: Package2,
-    descriptionKey: "settings:sections.codex.description",
-    keywords: [
-      "app server",
-      "plugins",
-      "threads",
-      "slash commands",
-      "json",
-      "config",
     ],
   },
   {
@@ -320,6 +329,11 @@ export const settingsSections = [
       "reviewer",
       "review skill",
       "second opinion",
+      "pull request",
+      "auto-merge",
+      "watch",
+      "ci",
+      "merge conflict",
     ],
   },
   {
@@ -363,7 +377,16 @@ export const settingsSections = [
     labelKey: "settings:sections.editor.label",
     icon: Code2,
     descriptionKey: "settings:sections.editor.description",
-    keywords: ["font", "lsp", "eslint", "line numbers", "word wrap"],
+    keywords: [
+      "font",
+      "lsp",
+      "eslint",
+      "line numbers",
+      "word wrap",
+      "ai completions",
+      "inline completion",
+      "ghost text",
+    ],
   },
   {
     id: "tooling",
@@ -418,6 +441,45 @@ export const settingsSections = [
 
 export type SectionId = (typeof settingsSections)[number]["id"];
 
+export type SettingsSection = (typeof settingsSections)[number];
+
+/** Sections that only show while Settings > General > Developer mode is on. */
+const DEVELOPER_MODE_SECTION_IDS: ReadonlySet<SectionId> = new Set<SectionId>([
+  "developer",
+]);
+
+export interface SettingsSectionVisibility {
+  developerModeEnabled: boolean;
+}
+
+export function isSettingsSectionVisible(
+  sectionId: SectionId,
+  visibility: SettingsSectionVisibility,
+) {
+  return (
+    visibility.developerModeEnabled || !DEVELOPER_MODE_SECTION_IDS.has(sectionId)
+  );
+}
+
+export function listVisibleSettingsSections(
+  visibility: SettingsSectionVisibility,
+): SettingsSection[] {
+  return settingsSections.filter((section) =>
+    isSettingsSectionVisible(section.id, visibility),
+  );
+}
+
+/**
+ * Deep links (`openSettings({ section })`, the open-settings event) may name a
+ * section the current profile hides; the dialog lands on General instead.
+ */
+export function resolveVisibleSettingsSection(
+  sectionId: SectionId,
+  visibility: SettingsSectionVisibility,
+): SectionId {
+  return isSettingsSectionVisible(sectionId, visibility) ? sectionId : "general";
+}
+
 export const settingsSectionGroups: Array<{
   labelKey: SettingsI18nKey;
   ids: SectionId[];
@@ -455,7 +517,7 @@ export const settingsSectionGroups: Array<{
   },
   {
     labelKey: "settings:sections.groups.systemAdvanced",
-    ids: ["tooling", "codex", "developer", "changelog"],
+    ids: ["tooling", "developer", "changelog"],
   },
 ];
 

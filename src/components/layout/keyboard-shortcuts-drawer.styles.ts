@@ -232,6 +232,14 @@ export const shortcutsDrawerStyles = stylex.create({
     rowGap: 6,
   },
   keysJoiner: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  /** Where the shortcut is live and how it treats typing, under the description. */
+  shortcutMeta: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-control"],
+    marginBlockEnd: 0,
+    marginBlockStart: vars["--ads-space-4"],
+  },
 
   emptyState: { gridColumn: "1 / -1", paddingBlock: 80, textAlign: "center" },
   emptyTitle: {

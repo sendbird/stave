@@ -14,6 +14,7 @@ import {
   type ReviewTaskProviderId,
 } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 import type { AppState } from "@/store/app-store.types";
 import {
   isReviewTaskDelegationAvailable,
@@ -49,8 +50,12 @@ export function useReviewTaskControls(args: {
   sendUserMessage: AppState["sendUserMessage"];
 }) {
   const { activeTaskId, sendUserMessage } = args;
-  const modelClaude = useAppStore((state) => state.settings.modelClaude);
-  const modelCodex = useAppStore((state) => state.settings.modelCodex);
+  const modelClaude = useAppStore(
+    (state) => selectEffectiveSettings(state).modelClaude,
+  );
+  const modelCodex = useAppStore(
+    (state) => selectEffectiveSettings(state).modelCodex,
+  );
   const reviewSettings = useAppStore((state) => state.settings.reviewTask);
   const lastAssistantProviderId = useAppStore((state) =>
     lastAssistantProvider(state.messagesByTask[activeTaskId] ?? NO_MESSAGES),

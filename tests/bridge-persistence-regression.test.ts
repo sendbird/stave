@@ -4944,7 +4944,6 @@ describe("workspace store hydration ordering", () => {
       settings: {
         ...initialState.settings,
         autoRoutingEnabled: true,
-        autoRoutingUseClassifier: true,
       },
       tasks: [
         {

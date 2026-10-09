@@ -9,6 +9,7 @@ import {
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
 } from "../../src/lib/task-context/current-task-awareness";
 import { STAVE_REPOSITORY_MEMORY_SOURCE_ID } from "../../src/lib/task-context/repository-memory";
+import { INLINE_RENDER_MODEL_CONTEXT_SOURCE_ID } from "../../src/lib/inline-render/inline-render-interaction";
 
 /**
  * Retrieved-context sources that are rebuilt from live state every turn and are
@@ -25,6 +26,9 @@ export const DEDUPABLE_RETRIEVED_CONTEXT_SOURCE_IDS = [
   STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
   STAVE_REPOSITORY_MEMORY_SOURCE_ID,
+  // Inline page state rides on every turn while a page holds some; unchanged
+  // since the last turn of the same session, it shrinks to a pointer.
+  INLINE_RENDER_MODEL_CONTEXT_SOURCE_ID,
 ] as const;
 
 /**

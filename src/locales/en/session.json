@@ -688,6 +688,59 @@
     "commandResult3": "Waiting for output…",
     "commandResult4": "No output."
   },
+  "inlineRender": {
+    "viewSource": "View source",
+    "hideSource": "Hide source",
+    "save": "Save as HTML file",
+    "saved": "Saved to {{path}}",
+    "saveFailed": "Could not save the page.",
+    "sourceUnavailable": "Could not read the page source.",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "copy": "Copy",
+    "copied": "Copied",
+    "loading": "Loading the page…",
+    "missing": "This page is no longer available.",
+    "unavailable": "Open this conversation in the Stave desktop app to view this page.",
+    "shownBelow": "Shown below the steps.",
+    "paused": "Paused while other pages are open.",
+    "resume": "Show page",
+    "contextShared": "Shared with agent",
+    "contextSharedHint": "This page shared its state with the agent. It goes with your next message, marked as page data rather than instructions. Click to clear it.",
+    "clearContext": "Shared with agent: clear what this page shared",
+    "messageConfirmTitle": "Send this message?",
+    "messageConfirmDescription": "The page “{{title}}” wants to send this message as you. If the agent is still working, it waits in the queue until the current turn ends.",
+    "messageConfirmTextLabel": "Message from the page",
+    "messageConfirmCancel": "Don't send",
+    "messageConfirmSend": "Send message"
+  },
+  "mcpAppView": {
+    "title": "{{tool}} on {{server}}",
+    "loading": "Loading the view…",
+    "missing": "This view is no longer available.",
+    "unavailable": "Open this conversation in the Stave desktop app to use this view.",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "messageConfirm": {
+      "title": "Send this message from the view?",
+      "description": "{{server}} wants to add this message to the conversation as yours. If the agent is still working, it waits in the queue.",
+      "confirm": "Send",
+      "contentLabel": "Message from the view"
+    },
+    "toolConfirm": {
+      "title": "Let the view run {{tool}}?",
+      "description": "This tool on {{server}} is not marked read-only, so it may change data. It runs with these arguments:",
+      "confirm": "Run tool",
+      "contentLabel": "Tool arguments"
+    },
+    "messageFailed": "Could not send the view's message."
+  },
+  "toolOutputImages": {
+    "label": "Image {{index}}",
+    "open": "Open {{label}} full size",
+    "loading": "Loading image…",
+    "missing": "This image is no longer available."
+  },
   "turnEventDecisions": {
     "title": "Steps",
     "label": "Arguments",
@@ -861,5 +914,31 @@
     "changes": "Changes",
     "changesLabel": "Compare {{value1}} with its previous revision",
     "couldNotLoad": "Could not load this revision."
+  },
+  "secretRequestCard": {
+    "ariaLabel": "Secret requested by the agent",
+    "title": "The agent is asking for a secret",
+    "queued_one": "+{{count}} more",
+    "queued_other": "+{{count}} more",
+    "valueLabel": "Value for {{envVar}}",
+    "valuePlaceholder": "Paste the value",
+    "save": "Save and bind",
+    "useExisting": "Use saved secret",
+    "enterNew": "Enter a new value",
+    "backToExisting": "Use saved secret instead",
+    "decline": "Decline",
+    "existing": "Already saved for this variable:",
+    "replaceNote": "Saving replaces the stored value of {{name}}, including for other tasks that use it.",
+    "availability": "Stave saves it in Settings → Secrets and binds it to this task without sending it to the agent. It works from your next message, because a turn that is already running cannot receive a new environment variable. A command that prints the variable can still show it.",
+    "waitingUntil": "The agent waits until {{time}}.",
+    "saving": "Saving…",
+    "bindingFull": "This task already has {{max}} secrets bound, the most it can use. Decline, unbind one from the composer's Secrets control, and ask again.",
+    "errorNotPending": "This request is no longer waiting. It was answered or it expired.",
+    "errorExistingMissing": "The saved secret was removed or changed. Enter a value instead.",
+    "errorInvalid": "Stave could not read this answer. Try again.",
+    "errorVault": "The secret could not be saved: {{detail}}",
+    "errorUnavailable": "Secret requests are not available in this window.",
+    "toastSaved": "{{envVar}} saved and bound to this task",
+    "toastSavedDescription": "It is available from your next message."
   }
 }

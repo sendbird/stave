@@ -41,12 +41,6 @@ export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettin
   return {
     routing: {
       autoRoutingEnabled: settings.autoRoutingEnabled,
-      autoRoutingUseClassifier: settings.autoRoutingUseClassifier,
-      autoRoutingObjective: settings.autoRoutingObjective,
-      autoRoutingSafetyEscalation: settings.autoRoutingSafetyEscalation,
-      autoRoutingAllowProviderSwitch: settings.autoRoutingAllowProviderSwitch,
-      autoRoutingEligibleClaudeModels: [...settings.autoRoutingEligibleClaudeModels],
-      autoRoutingEligibleCodexModels: [...settings.autoRoutingEligibleCodexModels],
       autoRoutingProfile: settings.autoRoutingProfile,
     },
     classifier: classifies ? { "claude-code": contextFor("claude-code"), codex: contextFor("codex") } : null,

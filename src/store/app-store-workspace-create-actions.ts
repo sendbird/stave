@@ -1,3 +1,4 @@
+import { continueWorkspaceOnNewBranch } from "@/store/workspace-continue-here";
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
@@ -752,7 +753,11 @@ export function createWorkspaceCreateActions(args: {
     continueWorkspaceFromSummary: async ({
       name,
       baseBranch: requestedBaseBranch,
+      target,
     }) => {
+      if (target === "here") {
+        return continueWorkspaceOnNewBranch({ get, set, name, baseBranch: requestedBaseBranch });
+      }
       const current = get();
       const sourceWorkspaceId = current.activeWorkspaceId;
       if (!sourceWorkspaceId) {

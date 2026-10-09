@@ -21,9 +21,15 @@ import {
   type WakeUp,
   type WakeUpTrigger,
 } from "@/lib/supervision/wake-up-policy";
+import {
+  AUTO_PULL_REQUEST_WATCH_EVENTS,
+  DEFAULT_PULL_REQUEST_WATCH_PROMPT,
+  type PullRequestWatchEvent,
+} from "@/lib/supervision/pull-request-watch";
 import { useAppStore } from "@/store/app.store";
 import { CadenceSection, FormLabel, SectionHeading } from "./AutomationEditor";
 import { editorStyles } from "./automation-editor.styles";
+import { PullRequestWatchEvents } from "./PullRequestWatchEvents";
 import { ScheduleKindSwitch } from "./ScheduleKindSwitch";
 
 const DEFAULT_SCHEDULE: AutomationSchedule = { every: 1, unit: "hours" };
@@ -34,12 +40,18 @@ const PROMPT_IDEAS = [
   "Look for new pull request feedback and address it.",
 ] as const;
 
-type When = "cadence" | "completion";
+type When = "cadence" | "completion" | "pull_request";
+
+function whenOf(trigger: WakeUpTrigger | undefined): When {
+  if (trigger?.kind === "completion") return "completion";
+  if (trigger?.kind === "pull_request") return "pull_request";
+  return "cadence";
+}
 
 /**
  * The create/edit sheet for "Check back on a task": What (prompt) · Where (an
- * existing task) · When (cadence, or when its subagents finish). It writes the
- * wake-up record underneath.
+ * existing task) · When (cadence, when its subagents finish, or when its pull
+ * request needs fixing). It writes the wake-up record underneath.
  */
 export function CheckBackEditor(props: {
   /** The check-back being edited; null when creating. */
@@ -61,7 +73,10 @@ export function CheckBackEditor(props: {
   );
   const [taskId, setTaskId] = useState(wakeUp?.taskId ?? props.taskId ?? "");
   const [prompt, setPrompt] = useState(wakeUp?.prompt ?? "");
-  const [when, setWhen] = useState<When>(wakeUp?.trigger.kind === "completion" ? "completion" : "cadence");
+  const [when, setWhen] = useState<When>(whenOf(wakeUp?.trigger));
+  const [events, setEvents] = useState<PullRequestWatchEvent[]>(
+    wakeUp?.trigger.kind === "pull_request" ? wakeUp.trigger.events : [...AUTO_PULL_REQUEST_WATCH_EVENTS],
+  );
   const [draft, setDraft] = useState({
     enabled: true,
     schedule: wakeUp?.trigger.kind === "schedule" ? wakeUp.trigger.schedule : DEFAULT_SCHEDULE,
@@ -70,12 +85,22 @@ export function CheckBackEditor(props: {
   const workspaceId = wakeUp?.workspaceId ?? activeWorkspaceId;
 
   async function save() {
+    if (when === "pull_request" && events.length === 0) {
+      toast.error(tI18n("automation:checkBackEditor.pickAnEvent"));
+      return;
+    }
     const trigger: WakeUpTrigger =
-      when === "completion" ? { kind: "completion" } : { kind: "schedule", schedule: draft.schedule };
+      when === "completion"
+        ? { kind: "completion" }
+        : when === "pull_request"
+          ? { kind: "pull_request", events }
+          : { kind: "schedule", schedule: draft.schedule };
     const parsed = WakeUpUpsertInputSchema.safeParse({
       workspaceId,
       taskId,
-      prompt,
+      // A watch sends what it found with every wake; without an instruction of
+      // its own it uses Stave's fix-and-push one.
+      prompt: when === "pull_request" && !prompt.trim() ? DEFAULT_PULL_REQUEST_WATCH_PROMPT : prompt,
       trigger,
       maxOccurrences: wakeUp?.maxOccurrences ?? null,
       expiresAt: wakeUp?.expiresAt ?? null,
@@ -128,15 +153,22 @@ export function CheckBackEditor(props: {
         <div className={sx(editorStyles.bodyColumn)}>
           <section className={sx(editorStyles.section)}>
             <SectionHeading title={tI18n("automation:checkBackEditor.what")} />
-            <FormLabel label={tI18n("automation:checkBackEditor.instructions")} description={tI18n("automation:checkBackEditor.sentToTheTaskEachTimeIt")}>
+            <FormLabel
+              label={tI18n("automation:checkBackEditor.instructions")}
+              description={
+                when === "pull_request"
+                  ? tI18n("automation:checkBackEditor.pullRequestPromptDescription")
+                  : tI18n("automation:checkBackEditor.sentToTheTaskEachTimeIt")
+              }
+            >
               <Textarea
                 value={prompt}
                 onChange={(event) => setPrompt(event.target.value)}
-                placeholder={PROMPT_IDEAS[0]}
+                placeholder={when === "pull_request" ? DEFAULT_PULL_REQUEST_WATCH_PROMPT : PROMPT_IDEAS[0]}
                 xstyle={editorStyles.promptControl}
               />
             </FormLabel>
-            {prompt.trim() ? null : (
+            {prompt.trim() || when === "pull_request" ? null : (
               <div className={sx(editorStyles.chipRow)}>
                 {PROMPT_IDEAS.map((idea) => (
                   <Button key={idea} type="button" size="sm" variant="ghost" xstyle={editorStyles.cadenceChip} onClick={() => setPrompt(idea)}>
@@ -174,12 +206,14 @@ export function CheckBackEditor(props: {
               options={[
                 { value: "cadence", label: tI18n("automation:checkBackEditor.onACadence") },
                 { value: "completion", label: tI18n("automation:checkBackEditor.whenSubagentsFinish") },
+                { value: "pull_request", label: tI18n("automation:checkBackEditor.whenPullRequestNeedsFixing") },
               ]}
               onChange={setWhen}
             />
             {when === "cadence" ? (
               <CadenceSection draft={draft} onDraftChange={setDraft} manual={false} heading={false} />
             ) : null}
+            {when === "pull_request" ? <PullRequestWatchEvents value={events} onChange={setEvents} /> : null}
           </section>
         </div>
       </div>

@@ -431,7 +431,7 @@ function queueWorkspaceSessionPersist(args: {
   return tracked;
 }
 
-async function loadNormalizedRepositories() {
+export async function loadNormalizedRepositories() {
   const store = ensureHostServicePersistenceReady();
   return {
     store,
@@ -457,7 +457,7 @@ function findRepositoryByPath(
   );
 }
 
-function findWorkspaceRegistration(args: {
+export function findWorkspaceRegistration(args: {
   repositories: RecentRepositoryState[];
   workspaceId: string;
 }) {
@@ -2336,16 +2336,15 @@ export async function notifySupervisorProblem(args: {
 export async function notifyWakeUpFailed(args: {
   workspaceId: string;
   taskId: string;
-  triggerKind: "schedule" | "completion";
+  triggerKind: "schedule" | "completion" | "pull_request";
   detail: string;
 }) {
   await notifySupervisorProblem({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
-    body:
-      args.triggerKind === "completion"
-        ? `A wake-up could not report finished delegated work: ${args.detail}`
-        : `A scheduled wake-up turn could not start: ${args.detail}`,
+    body: args.triggerKind === "completion"
+      ? `A wake-up could not report finished delegated work: ${args.detail}`
+      : `${args.triggerKind === "pull_request" ? "A pull request watch" : "A scheduled wake-up"} turn could not start: ${args.detail}`,
     payload: { source: "wake-up", triggerKind: args.triggerKind },
     dedupeKey: `wake-up.wake_failed:${args.taskId}:${args.detail}`,
   });

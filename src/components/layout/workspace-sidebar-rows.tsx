@@ -46,7 +46,6 @@ import {
 } from "@/hooks/use-sortable-list";
 import {
   Badge,
-  BorderBeam,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -507,57 +506,69 @@ export function WorkQueueRow(args: {
   entry: SidebarWorkQueueEntry;
   attentionKind?: FleetAttentionKind;
   onOpen: (target: { repositoryPath: string; workspaceId: string }) => void;
+  /** Replaces the repository name, e.g. why a shelved row is shelved. */
+  secondaryLabel?: string;
+  /** Revealed on hover over the row's trailing edge. */
+  actions?: ReactNode;
 }) {
   const { entry } = args;
 
   return (
     <div className={sx(repositorySidebarStyles.queueRow)}>
-      <WorkspaceHoverPreviewTooltip
-        workspaceId={entry.workspaceId}
-        workspaceName={entry.workspaceName}
-        branch={entry.branch}
-        repositoryName={entry.repositoryName}
-        side="right"
-      >
-        <AdsButton
-          layout="host"
-          type="button"
-          onClick={() =>
-            args.onOpen({
-              repositoryPath: entry.repositoryPath,
-              workspaceId: entry.workspaceId,
-            })
-          }
-          data-testid={`active-workspace-${entry.workspaceId}`}
-          aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.openWorkspace", { value1: entry.workspaceName })}
-          xstyle={[
-            repositorySidebarStyles.queueButton,
-            transition.colors,
-            entry.isActive
-              ? repositorySidebarStyles.queueButtonActive
-              : repositorySidebarStyles.queueButtonIdle,
-          ]}
+      <div className={sx(repositorySidebarStyles.queueItem)}>
+        <WorkspaceHoverPreviewTooltip
+          workspaceId={entry.workspaceId}
+          workspaceName={entry.workspaceName}
+          branch={entry.branch}
+          repositoryName={entry.repositoryName}
+          side="right"
         >
-          <WorkspaceLeadingStatusIcon
-            workspaceId={entry.workspaceId}
-            workspaceName={entry.workspaceName}
-            isDefault={entry.isDefault}
-            busy={false}
-            attentionKind={args.attentionKind}
-          />
-          <span className={sx(repositorySidebarStyles.queueLabel)}>
-            {formatWorkQueueWorkspaceLabel({
-              name: entry.workspaceName,
-              branch: entry.branch,
-              isDefault: entry.isDefault,
-            })}
-          </span>
-          <span className={sx(repositorySidebarStyles.queueRepository)}>
-            {entry.repositoryName}
-          </span>
-          <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
-        </AdsButton>
-      </WorkspaceHoverPreviewTooltip>
+          <AdsButton
+            layout="host"
+            type="button"
+            onClick={() =>
+              args.onOpen({
+                repositoryPath: entry.repositoryPath,
+                workspaceId: entry.workspaceId,
+              })
+            }
+            data-testid={`active-workspace-${entry.workspaceId}`}
+            aria-label={i18n.t("workspace:workspaceSidebarRows.accessibility.openWorkspace", { value1: entry.workspaceName })}
+            xstyle={[
+              repositorySidebarStyles.queueButton,
+              transition.colors,
+              entry.isActive
+                ? repositorySidebarStyles.queueButtonActive
+                : repositorySidebarStyles.queueButtonIdle,
+            ]}
+          >
+            <WorkspaceLeadingStatusIcon
+              workspaceId={entry.workspaceId}
+              workspaceName={entry.workspaceName}
+              isDefault={entry.isDefault}
+              busy={false}
+              attentionKind={args.attentionKind}
+            />
+            <span className={sx(repositorySidebarStyles.queueLabel)}>
+              {formatWorkQueueWorkspaceLabel({
+                name: entry.workspaceName,
+                branch: entry.branch,
+                isDefault: entry.isDefault,
+              })}
+            </span>
+            <span
+              className={sx(
+                repositorySidebarStyles.queueRepository,
+                args.actions ? repositorySidebarStyles.rowCountYields : null,
+              )}
+            >
+              {args.secondaryLabel ?? entry.repositoryName}
+            </span>
+            <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
+          </AdsButton>
+        </WorkspaceHoverPreviewTooltip>
+        {args.actions}
+      </div>
       <WorkspaceProgressTaskTree
         workspaceId={entry.workspaceId}
         repositoryPath={entry.repositoryPath}
@@ -846,39 +857,6 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
         ) : null}
       </span>
     </span>
-  );
-});
-
-export const WorkspaceBorderBeam = memo(function WorkspaceBorderBeam(args: {
-  workspaceId: string;
-  children: ReactNode;
-}) {
-  const { respondingTaskCount } = useWorkspaceSidebarActivityState(
-    args.workspaceId,
-  );
-  const borderBeamEnabled = useAppStore(
-    (state) => state.settings.borderBeamEnabled,
-  );
-  const borderBeamSize = useAppStore((state) => state.settings.borderBeamSize);
-  const borderBeamVariant = useAppStore(
-    (state) => state.settings.borderBeamVariant,
-  );
-  const borderBeamStrength = useAppStore(
-    (state) => state.settings.borderBeamStrength,
-  );
-
-  const active = borderBeamEnabled && respondingTaskCount > 0;
-
-  return (
-    <BorderBeam
-      active={active}
-      size={borderBeamSize}
-      colorVariant={borderBeamVariant}
-      strength={borderBeamStrength}
-      theme="auto"
-    >
-      {args.children}
-    </BorderBeam>
   );
 });
 

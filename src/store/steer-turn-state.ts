@@ -4,6 +4,8 @@ import type { AppState } from "@/store/app-store.types";
 import { buildSteeredUserMessageState } from "@/store/chat-state-helpers";
 import { applySteeredPromptDraft } from "@/store/prompt-draft-send";
 import { getConfiguredModelForProvider } from "@/store/prompt-draft-runtime";
+import { selectEffectiveSettings } from "@/store/project-settings-overrides";
+import { resolveRepositoryForWorkspaceId } from "@/store/repository.utils";
 import type { PromptDraft, PromptDraftQueuedTurn } from "@/types/chat";
 
 /**
@@ -57,7 +59,14 @@ export function applySteeredTurnState(args: {
     steeredIntoTurnId: turnId,
     clientMessageId: args.clientMessageId,
     provider: args.providerId,
-    activeModel: getConfiguredModelForProvider(args.providerId, state.settings),
+    activeModel: getConfiguredModelForProvider(
+      args.providerId,
+      selectEffectiveSettings(
+        state,
+        resolveRepositoryForWorkspaceId({ state, workspaceId: args.workspaceId })
+          ?.repositoryPath,
+      ),
+    ),
     turnStillActive,
   });
   const nextPromptDraftByTask = applySteeredPromptDraft({

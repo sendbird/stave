@@ -49,11 +49,14 @@ import {
   snoozeFleetAttention,
 } from "@/lib/fleet/attention-snooze-client";
 import {
-  compareFleetWorkspaceActivity,
   FLEET_BOARD_FILTER_OPTIONS,
   isFleetBoardFilterActive,
   type FleetBoardFilter,
 } from "@/lib/fleet/workspace-activity";
+import { type WorkQueueLane } from "@/lib/fleet/work-attention-order";
+import { orderFleetBoardWorkspaces } from "@/lib/fleet/fleet-board-order";
+import { agentRunLanesByWorkspace } from "@/lib/agent-runs/lanes";
+import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
@@ -150,35 +153,22 @@ function useFleetRepositories() {
     workspaces, i18n.resolvedLanguage]);
 }
 
-/**
- * Put live work first and dormant workspaces last, falling back to the stored
- * order for cards that have not reported yet so the board does not reshuffle
- * while it settles.
- */
 function orderRepositoryWorkspaces(
   repository: FleetRepositoryView,
   visibilityByCardKey: Record<string, FleetWorkspaceCardVisibility>,
+  context: {
+    activeWorkspaceId: string;
+    highestAttentionByWorkspaceId: Record<string, FleetAttentionItem | undefined>;
+    agentRunLaneByWorkspaceId: Record<string, WorkQueueLane | undefined>;
+  },
 ) {
-  return repository.workspaces
-    .map((workspace, index) => ({
-      workspace,
-      index,
-      reported:
-        visibilityByCardKey[
-          getFleetWorkspaceKey(repository.repositoryPath, workspace.id)
-        ],
-    }))
-    .sort((left, right) => {
-      if (!left.reported || !right.reported) {
-        return left.index - right.index;
-      }
-      const order = compareFleetWorkspaceActivity(
-        left.reported,
-        right.reported,
-      );
-      return order !== 0 ? order : left.index - right.index;
-    })
-    .map((entry) => entry.workspace);
+  return orderFleetBoardWorkspaces({
+    ...context,
+    workspaces: repository.workspaces,
+    isCurrentRepository: repository.isCurrent,
+    reportOf: (workspace) =>
+      visibilityByCardKey[getFleetWorkspaceKey(repository.repositoryPath, workspace.id)],
+  });
 }
 
 /** Re-render on a coarse clock so dormancy thresholds age without a reload. */
@@ -198,7 +188,7 @@ export function FleetView() {
   const [
     focusTaskAttention,
     closeFleetView,
-    openResults,
+    openAgentPerformance,
     openRepository,
     switchWorkspace,
     openNotificationContext,
@@ -209,7 +199,7 @@ export function FleetView() {
         [
           state.focusTaskAttention,
           state.closeFleetView,
-          state.openResults,
+          state.openAgentPerformance,
           state.openRepository,
           state.switchWorkspace,
           state.openNotificationContext,
@@ -222,6 +212,7 @@ export function FleetView() {
     blockingItems,
     snoozedItems,
     attentionItemsByWorkspaceId,
+    highestAttentionByWorkspaceId,
     resultReviewError,
     resultReviewTotal,
     resultReviewHasMore,
@@ -229,6 +220,16 @@ export function FleetView() {
   } = useFleetAttentionProjection();
 
   const nowMs = useCoarseClock();
+  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
+  const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
+  const boardOrderContext = useMemo(
+    () => ({
+      activeWorkspaceId,
+      highestAttentionByWorkspaceId,
+      agentRunLaneByWorkspaceId: agentRunLanesByWorkspace(Object.values(agentRunDetails)),
+    }),
+    [activeWorkspaceId, agentRunDetails, highestAttentionByWorkspaceId],
+  );
   const [visibilityByCardKey, setVisibilityByCardKey] =
     useState<Record<string, FleetWorkspaceCardVisibility>>(EMPTY_VISIBILITY);
   const [collapsedRepositories, setCollapsedRepositories] = useState<
@@ -289,6 +290,7 @@ export function FleetView() {
           existing.isPhantom === visibility.isPhantom &&
           existing.activity === visibility.activity &&
           existing.activityAt === visibility.activityAt &&
+          existing.leadingStatus === visibility.leadingStatus &&
           sameTasks
         ) {
           return current;
@@ -647,6 +649,8 @@ export function FleetView() {
         <div className={sx(styles.headerIdentity)}>
           <Radar className={sx(styles.headerIcon)} aria-hidden="true" />
           <h1 className={sx(styles.headerTitle)}>{tI18n("fleet:fleetView.fleetView")}</h1>
+          {/* Fleet View is the sidebar Work queue's full view: same rows, same order. */}
+          <span className={sx(styles.headerSummary)}>{tI18n("fleet:fleetView.fullWorkQueue")}</span>
           <span className={sx(styles.headerSummary)}>
             {liveCount > 0
               ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: liveCount })
@@ -685,7 +689,7 @@ export function FleetView() {
             variant="ghost"
             size="sm"
             xstyle={styles.headerAction}
-            onClick={openResults}
+            onClick={openAgentPerformance}
           >
             <ChartNoAxesColumn className={sx(styles.actionIcon)} aria-hidden="true" />
             {tI18n("fleet:fleetView.results")}</Button>
@@ -925,6 +929,7 @@ export function FleetView() {
                         {orderRepositoryWorkspaces(
                           repository,
                           visibilityByCardKey,
+                          boardOrderContext,
                         ).map((workspace) => {
                           const cardKey = getFleetWorkspaceKey(
                             repository.repositoryPath,

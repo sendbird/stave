@@ -12,7 +12,6 @@ const initial = useAppStore.getInitialState();
 const shortcuts = [
   "sidebarShowFleetView",
   "sidebarShowAgents",
-  "sidebarShowResults",
   "sidebarShowAiUsage",
 ] as const;
 
@@ -64,12 +63,12 @@ describe("localized sidebar shortcuts", () => {
     test(`settings and both navigation forms stay translated in ${locale}`, () => {
       applyAppLocale(locale);
       const settingsHtml = renderToStaticMarkup(createElement(SidebarSettingsCard));
-      for (const key of ["fleetView", "agents", "results", "aiUsage"]) {
+      for (const key of ["fleetView", "agents", "aiUsage"]) {
         expect(settingsHtml).toContain(i18n.t(`settings:themeSection.sidebar.${key}.title`));
       }
       for (const Component of [SidebarPrimaryNav, SidebarPrimaryNavCollapsed]) {
         const visible = renderToStaticMarkup(createElement(Component, { showFleetView: true }));
-        for (const key of ["agents", "results", "aIUsage"]) {
+        for (const key of ["agents", "aIUsage"]) {
           expect(visible).toContain(i18n.t(`shell:sidebarPrimaryNav.${key}`));
         }
 

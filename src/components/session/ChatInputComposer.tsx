@@ -116,6 +116,7 @@ import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
 import { AgentRunSignOffSlot } from "@/components/agent-runs/SignOffCard";
 import { DelegatedAgentReplySlot } from "@/components/agent-runs/DelegatedAgentReplySlot";
 import { ChildRequestSlot } from "./ChildRequestSlot";
+import { SecretRequestSlot } from "./SecretRequestSlot";
 import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
 import {
   resolveManagedTaskComposerAccess,
@@ -1392,6 +1393,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         ) : <AgentRunSignOffSlot />}
         <DelegatedAgentReplySlot />
         <ChildRequestSlot taskId={args.activeTaskId} />
+        <SecretRequestSlot taskId={args.activeTaskId} />
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}

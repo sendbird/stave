@@ -45,7 +45,8 @@ optional shortcuts on top of that.
 - Workspace sidebar: switch to `Work queue` to group every workspace into
   `Action required`, `In progress`, `In review`, or `Idle`. Blocking attention
   puts a workspace in `Action required`; an unreviewed result without a blocker
-  belongs in `In review`.
+  belongs in `In review`. The queue's expand button opens Fleet view, its full
+  view, and the board orders cards and their tasks by the same lanes.
 - Fleet view: `Action required` is a layout-level rail. It stays visible while
   board filters change; on narrow screens it becomes a compact top rail. The
   board itself uses workspace cards and activity filters (`Active`, `Running`,

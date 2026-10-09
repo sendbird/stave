@@ -206,7 +206,7 @@
     "pRStatusCouldNotBeRefreshed": "PR status could not be refreshed ({{value1}}). A pull request may already exist for this branch.",
     "createAPullRequestOnGitHub": "Create a pull request on GitHub",
     "pauseOrFinishTheRunningTaskBefore2": "Pause or finish the running task before continuing into a new workspace",
-    "createANewWorkspaceAndAttachA": "Create a new workspace and attach a continuation brief from this completed branch",
+    "createANewWorkspaceAndAttachA": "Continue this work on a new branch here, or in a new workspace.",
     "noPullRequestToAttachContextFrom": "No pull request to attach context from",
     "createAPullRequestForThisBranch": "Create a pull request for this branch first.",
     "createPRIsUnavailable": "Create PR is unavailable",
@@ -242,7 +242,8 @@
     "statusMenu": "Open PR status menu",
     "reviewingAndStagingExplicitlySelectedWorkspaceFile_one": "Reviewing and staging {{count}} explicitly selected workspace file for the commit.",
     "reviewingAndStagingExplicitlySelectedWorkspaceFile_other": "Reviewing and staging {{count}} explicitly selected workspace files for the commit.",
-    "branchDirection": "{{head}} → {{base}}"
+    "branchDirection": "{{head}} → {{base}}",
+    "unableToContinueHere": "Unable to continue on a new branch"
   },
   "createPullRequestDialog": {
     "createPullRequest": "Create Pull Request",
@@ -385,5 +386,13 @@
     "intentviolation": "intent violation",
     "scopedrift": "scope drift",
     "other": "other"
+  },
+  "pullRequestWatch": {
+    "createdTitle": "Watching the pull request",
+    "createdDescription": "Stave wakes {{task}} if its checks fail or the branch conflicts with the base. Manage it in Schedules.",
+    "taskHasScheduleTitle": "Pull request not watched",
+    "taskHasScheduleDescription": "{{task}} already has a check-back schedule. To have Stave wake it on failing checks, change that schedule to a pull request watch in Schedules.",
+    "failedTitle": "Couldn't watch the pull request",
+    "failedFallback": "Stave could not save the pull request watch."
   }
 }

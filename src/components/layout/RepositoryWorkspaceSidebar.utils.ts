@@ -13,6 +13,10 @@ import {
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import { selectFleetOpenTasks } from "@/lib/fleet/workspace-activity";
+import {
+  compareWithinWorkQueueLane,
+  getWorkQueueLeadingAttentionKind,
+} from "@/lib/fleet/work-attention-order";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
@@ -55,11 +59,8 @@ export const WORKSPACE_SHORTCUT_COUNT = 9;
 const WORKSPACE_HOVER_PREVIEW_TASK_LIMIT = 2;
 const UNTITLED_TASK_FALLBACK = "Untitled task";
 
-export function getWorkspaceLeadingAttentionKind(
-  attentionKind?: FleetAttentionKind,
-) {
-  return attentionKind === "result-ready" ? undefined : attentionKind;
-}
+/** The work queue's leading attention kind; see `work-attention-order.ts`. */
+export const getWorkspaceLeadingAttentionKind = getWorkQueueLeadingAttentionKind;
 
 /**
  * The repository row's attention alert. A collapsed repository hides its workspace
@@ -415,14 +416,6 @@ export interface SidebarWorkQueueEntry {
   status: FleetTaskStatus;
 }
 
-const SIDEBAR_WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
-  "waiting-input": 0,
-  "waiting-approval": 0,
-  error: 1,
-  running: 2,
-  idle: 3,
-};
-
 /**
  * Ranks every workspace for the sidebar Work queue view.
  *
@@ -471,26 +464,14 @@ export function buildSidebarWorkQueueEntries(args: {
     }
   }
 
-  entries.sort((left, right) => {
-    if (left.isActive !== right.isActive) {
-      return left.isActive ? -1 : 1;
-    }
-    // Compared, not subtracted: two workspaces with no attention item are both
-    // `Infinity`, and `Infinity - Infinity` is NaN — a NaN comparator result
-    // silently voids every tiebreak below it.
-    const leftAttention = left.attentionPriority ?? Number.POSITIVE_INFINITY;
-    const rightAttention = right.attentionPriority ?? Number.POSITIVE_INFINITY;
-    if (leftAttention !== rightAttention) {
-      return leftAttention < rightAttention ? -1 : 1;
-    }
-    const statusDelta =
-      SIDEBAR_WORK_QUEUE_STATUS_RANK[left.status] -
-      SIDEBAR_WORK_QUEUE_STATUS_RANK[right.status];
-    if (statusDelta !== 0) {
-      return statusDelta;
-    }
-    return right.lastOpenedAt.localeCompare(left.lastOpenedAt);
-  });
+  // The shared rule's order inside a lane (`work-attention-order.ts`); the lane
+  // itself is added by `buildSidebarWorkQueueLanes`.
+  entries.sort((left, right) =>
+    compareWithinWorkQueueLane(
+      { ...left, activityAt: left.lastOpenedAt },
+      { ...right, activityAt: right.lastOpenedAt },
+    ),
+  );
 
   return entries.map(
     ({

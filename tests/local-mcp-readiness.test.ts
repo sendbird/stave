@@ -103,7 +103,7 @@ describe("local MCP readiness", () => {
     expect(readiness.reason).toBe("server-disabled");
     expect(
       describeLocalMcpBlock({ readiness, capability: "Advisor consults" }),
-    ).toContain("Settings → Developer");
+    ).toContain("Settings → MCP");
   });
 
   test("an enabled but dead server is reported as stopped, not disabled", () => {

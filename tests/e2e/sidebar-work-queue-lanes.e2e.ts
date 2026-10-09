@@ -70,7 +70,7 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: repositoryPath,
+          repositoryPath,
           repositoryName: "stave-work-queue-lanes",
           workspaces: [
             {
@@ -118,17 +118,17 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
   // The sidebar opens on Projects, and the two views are exclusive: while the
   // tree is showing there is no lane header anywhere in the sidebar.
   await expect(
-    sidebar.getByLabel("toggle-project-/tmp/stave-work-queue-lanes"),
+    sidebar.getByTestId("toggle-project-/tmp/stave-work-queue-lanes"),
   ).toBeVisible();
   await expect(sidebar.getByText("Action required", { exact: true })).toHaveCount(
     0,
   );
 
-  await sidebar.getByLabel("sidebar-view-work-queue", { exact: true }).click();
+  await sidebar.getByTestId("sidebar-view-work-queue").click();
 
   // ...and the swap is total: the tree's project rows are gone, not pushed down.
   await expect(
-    sidebar.getByLabel("toggle-project-/tmp/stave-work-queue-lanes"),
+    sidebar.getByTestId("toggle-project-/tmp/stave-work-queue-lanes"),
   ).toHaveCount(0);
 
   const actionRequiredHeader = sidebar.getByText("Action required", {
@@ -145,12 +145,8 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
     sidebar.getByText("In review", { exact: true }),
   ).toHaveCount(0);
 
-  const blockedRow = sidebar.getByLabel("active-workspace-ws-blocked", {
-    exact: true,
-  });
-  const idleRow = sidebar.getByLabel("active-workspace-ws-idle", {
-    exact: true,
-  });
+  const blockedRow = sidebar.getByTestId("active-workspace-ws-blocked");
+  const idleRow = sidebar.getByTestId("active-workspace-ws-idle");
   await expect(blockedRow).toBeVisible();
   await expect(idleRow).toBeVisible();
 
@@ -166,17 +162,83 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
 
   // Collapsing a lane hides its rows but keeps the header, so a long Idle lane
   // can be folded away without losing the count that says how much is there.
-  await sidebar.getByLabel("work-queue-lane-idle", { exact: true }).click();
+  await sidebar.getByTestId("work-queue-lane-idle").click();
   await expect(idleRow).toHaveCount(0);
   await expect(idleHeader).toBeVisible();
   await expect(blockedRow).toBeVisible();
 
   // Back to the tree: every workspace the queue listed is reachable again.
-  await sidebar.getByLabel("sidebar-view-projects", { exact: true }).click();
+  await sidebar.getByTestId("sidebar-view-projects").click();
   await expect(
-    sidebar.getByLabel("toggle-project-/tmp/stave-work-queue-lanes"),
+    sidebar.getByTestId("toggle-project-/tmp/stave-work-queue-lanes"),
   ).toBeVisible();
   await expect(sidebar.getByText("Action required", { exact: true })).toHaveCount(
     0,
   );
+});
+
+/**
+ * Settling moves a workspace onto the Settled shelf without touching it, and
+ * every way out is one step: bring it back from the shelf, or undo a settle.
+ */
+test("a settled workspace waits on the Settled shelf until it is brought back", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const repositoryPath = "/tmp/stave-work-queue-settle";
+    const workspaceId = "ws-settle";
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath,
+          repositoryName: "stave-work-queue-settle",
+          workspaces: [{ id: workspaceId, name: "scratch", updatedAt: "2026-08-01T00:00:00.000Z" }],
+          activeWorkspaceId: "",
+          workspaceBranchById: { [workspaceId]: "main" },
+          workspacePathById: { [workspaceId]: repositoryPath },
+          workspaceDefaultById: { [workspaceId]: true },
+          workspaceSettlementById: {
+            [workspaceId]: { settledAt: "2026-08-01T02:00:00.000Z", settledReason: "manual" },
+          },
+          recentRepositories: [],
+          settings: { sidebarNavView: "work-queue" },
+        },
+        version: 0,
+      }),
+    );
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  const sidebar = page.getByTestId("project-workspace-sidebar");
+  await expect(sidebar).toBeVisible();
+  const row = sidebar.getByTestId("active-workspace-ws-settle");
+
+  // The shelf starts folded, and the workspace is in no lane.
+  const settledLane = sidebar.getByTestId("work-queue-lane-settled");
+  await expect(settledLane).toBeVisible();
+  await expect(settledLane).toHaveAttribute("aria-expanded", "false");
+  await expect(sidebar.getByText("Idle", { exact: true })).toHaveCount(0);
+  await expect(row).toHaveCount(0);
+
+  await settledLane.click();
+  await expect(row).toBeVisible();
+
+  // Bring it back: it returns to its lane and the empty shelf disappears.
+  await row.hover();
+  await sidebar.getByTestId("work-queue-actions-ws-settle").click();
+  await page.getByRole("menuitem", { name: "Bring back to the queue" }).click();
+  await expect(sidebar.getByText("Idle", { exact: true })).toBeVisible();
+  await expect(settledLane).toHaveCount(0);
+  await expect(row).toBeVisible();
+
+  // Settle it by hand, then undo from the toast.
+  await row.hover();
+  await sidebar.getByTestId("work-queue-actions-ws-settle").click();
+  await page.getByRole("menuitem", { name: "Settle", exact: true }).click();
+  await expect(sidebar.getByTestId("work-queue-lane-settled")).toBeVisible();
+  await page.getByRole("button", { name: "Undo" }).click();
+  await expect(sidebar.getByText("Idle", { exact: true })).toBeVisible();
+  await expect(row).toBeVisible();
 });

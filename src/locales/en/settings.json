@@ -14,11 +14,11 @@
     },
     "notificationSound": {
       "title": "Notification Sound",
-      "description": "Customize the success sound played when a task turn finishes.",
+      "description": "Customize the sound played when a task turn finishes or the AI is waiting on your input or approval.",
       "enableTitle": "Sound",
-      "enableDescription": "Enable or mute the task completion sound.",
-      "presetDescription": "Choose the synthesized tone used for task completion.",
-      "volumeDescription": "Adjust playback level for the task completion sound.",
+      "enableDescription": "Enable or mute the sound for finished turns and for questions or approval requests.",
+      "presetDescription": "Choose the synthesized tone used for notifications.",
+      "volumeDescription": "Adjust playback level for the notification sound.",
       "volumeAriaLabel": "Notification sound volume",
       "sourceTitle": "Source",
       "presetTitle": "Preset",
@@ -26,19 +26,11 @@
       "volumeTitle": "Volume",
       "previewTitle": "Preview"
     },
-    "attentionSound": {
-      "title": "Attention Sound",
-      "description": "Customize the sound played when the AI asks you a question or requests permission and is waiting on you.",
-      "enableTitle": "Attention chime",
-      "enableDescription": "Play a sound when the AI needs your input or approval.",
-      "presetDescription": "Choose the synthesized tone used when the AI needs you.",
-      "volumeDescription": "Adjust playback level for the attention sound.",
-      "volumeAriaLabel": "Attention sound volume",
-      "sourceTitle": "Attention chime origin",
-      "presetTitle": "Attention chime tone",
-      "customAudioTitle": "Attention chime upload",
-      "volumeTitle": "Attention chime level",
-      "previewTitle": "Attention chime test"
+    "developerMode": {
+      "title": "Developer Mode",
+      "description": "Shows diagnostic surfaces: the Developer section, Local MCP request log, resource dashboard and Claude runtime tools.",
+      "enableTitle": "Developer mode",
+      "enableDescription": "Turn on the diagnostic surfaces. Everyday work does not need them."
     },
     "soundControls": {
       "sourceDescription": "Use a built-in preset or upload your own audio file.",
@@ -124,10 +116,13 @@
     "behavior": {
       "title": "Behavior",
       "description": "Toggle chat features and display preferences.",
-      "streaming": "Streaming UI",
+      "streaming": {
+        "title": "Streaming UI",
+        "description": "Show the response and reasoning trace live while a turn runs. When off, the turn appears all at once when it finishes, and the reasoning trace no longer expands on its own."
+      },
       "reasoningExpansion": {
         "title": "Reasoning Expansion",
-        "description": "Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it.",
+        "description": "Auto expands the reasoning trace while a turn is streaming, then collapses it again. Manual keeps it collapsed until you open it. With Streaming UI off, Auto behaves like Manual.",
         "manual": "Manual"
       },
       "interimMessages": {
@@ -137,6 +132,30 @@
       "turnRail": {
         "title": "Show Conversation Turn Rail",
         "description": "Show the turn navigator on the right side of conversations with multiple eligible responses."
+      }
+    },
+    "inlineRenders": {
+      "title": "Inline HTML pages",
+      "description": "Charts, tables, and mockups an agent shows in the conversation run in an isolated frame that cannot reach Stave, your files, or the rest of the conversation.",
+      "network": {
+        "title": "Network access",
+        "description": "What these pages may load from the internet. Changing this reloads pages already shown.",
+        "open": {
+          "label": "Allow all",
+          "description": "Pages can load libraries and data from any site, and can also send data to any site."
+        },
+        "cdn": {
+          "label": "Common CDNs only",
+          "description": "Pages can load scripts, styles, and fonts from jsDelivr, unpkg, cdnjs, esm.sh, and Google Fonts. Every other request is blocked."
+        },
+        "blocked": {
+          "label": "Block all",
+          "description": "Pages cannot make any network request, so an agent has to put its libraries and data in the page itself."
+        }
+      },
+      "mcpAppViews": {
+        "title": "Show MCP App views",
+        "description": "A tool on a Codex or Claude MCP server can declare an interactive view. It runs in the same isolated frame, can reach only the sites its server declares, and asks you before it sends a message or runs a tool that can change data. Turning this off shows those tools as plain text and restarts the Codex App Server once its turns finish."
       }
     },
     "composerControls": {
@@ -189,50 +208,22 @@
         "title": "Agents Shortcut",
         "description": "Show Agents and its active agent rows in the sidebar header area."
       },
-      "results": {
-        "title": "Agent performance Shortcut",
-        "description": "Show Agent performance in the sidebar to compare completed runs, time, and reported costs."
-      },
       "aiUsage": {
         "title": "AI Usage Shortcut",
-        "description": "Show the AI usage entry in the sidebar header area."
-      }
-    },
-    "motion": {
-      "title": "Motion",
-      "description": "Opt-in animated accents. All motion honors your system Reduced Motion preference.",
-      "borderBeam": {
-        "title": "Border Beam",
-        "description": "Animate a soft highlight around the prompt input and the active workspace row while a task is streaming. Style presets come from the border-beam library."
+        "description": "Show the AI usage entry in the sidebar header area. Its Agent performance tab compares completed runs, time, and reported costs."
       },
-      "beamSize": {
-        "title": "Beam Size",
-        "description": "Library size preset. Choose between a full border glow, compact controls, or a bottom sweep.",
-        "rotate": {
-          "label": "Rotate",
-          "description": "Full border glow"
+      "settle": {
+        "onMerge": {
+          "title": "Settle after the PR merges",
+          "description": "Move a workspace to the Work queue's Settled section when its pull request merges after your last message there. Its worktree, branch, and conversation stay as they are, and a new message brings it back."
         },
-        "compact": {
-          "label": "Compact",
-          "description": "Small controls"
-        },
-        "line": {
-          "label": "Line",
-          "description": "Bottom sweep"
+        "afterDays": {
+          "title": "Settle when inactive",
+          "description": "Move a workspace to Settled after this long without a message, a turn, or a visit. Nothing is deleted.",
+          "off": "Off",
+          "days_one": "{{count}} day",
+          "days_other": "{{count}} days"
         }
-      },
-      "beamColors": {
-        "title": "Beam Colors",
-        "description": "Library color palette. `Colorful` is a full rainbow sweep; `Ocean` and `Sunset` are cool and warm variants; `Mono` is grayscale.",
-        "colorful": "Colorful",
-        "mono": "Mono",
-        "ocean": "Ocean",
-        "sunset": "Sunset"
-      },
-      "beamStrength": {
-        "title": "Beam Strength",
-        "description": "Controls the library `strength` prop without changing the wrapped content.",
-        "ariaLabel": "Border Beam strength"
       }
     },
     "presets": {
@@ -286,7 +277,12 @@
       "description": "Ghost-text code suggestions powered by Claude. Uses the Claude SDK with your local Claude auth when available, or falls back to the Anthropic API (requires ANTHROPIC_API_KEY).",
       "enable": {
         "title": "Enable AI Completions",
-        "description": "Shows AI-generated inline suggestions as you type. Press Tab to accept. Uses Claude Haiku for fast, low-cost completions."
+        "description": "Shows AI-generated inline suggestions as you type. Press Tab to accept. This is the only on/off switch for inline completion."
+      },
+      "modelLink": {
+        "title": "Completion model",
+        "description": "Choose the provider and model for inline completion in Settings → Background AI.",
+        "action": "Open Background AI"
       }
     },
     "languageServers": {
@@ -421,8 +417,8 @@
   },
   "modelsSection": {
     "routing": {
-      "title": "Model Routing",
-      "description": "Pick the default Claude and Codex models used for new turns. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable.",
+      "title": "Default Models and Effort",
+      "description": "New tasks start with these models and effort levels. Changing the model or effort in a task's composer applies to that task only, and presets keep their own saved choices. Stave falls back to its verified Codex baseline if the App Server catalog is unavailable.",
       "claudeModelAriaLabel": "Claude model: {{model}}",
       "codexModelAriaLabel": "Codex model: {{model}}",
       "claudeEffort": {
@@ -434,9 +430,21 @@
         "description": "Default reasoning effort applied to new Codex turns."
       },
       "utility": {
-        "title": "Utility AI",
-        "description": "Provider used for task names, route classification, commit messages, and prompt enhancement. Auto prefers Claude or Codex from the active task, then falls back through installed utility runners.",
-        "ariaLabel": "Utility AI provider"
+        "title": "Utility model",
+        "description": "Task names, route classification, commit messages, prompt enhancement, and every other background call use the utility model set in Background AI.",
+        "action": "Open Background AI"
+      },
+      "cursorModel": {
+        "ariaLabel": "Cursor default model"
+      },
+      "cursorEffort": {
+        "title": "Cursor Effort"
+      },
+      "kiroModel": {
+        "ariaLabel": "Kiro default model"
+      },
+      "kiroEffort": {
+        "title": "Kiro Effort"
       }
     }
   },
@@ -489,6 +497,10 @@
           "label": "Rebase",
           "description": "Rebase and merge without a merge commit."
         }
+      },
+      "watch": {
+        "title": "Watch pull requests Stave creates",
+        "description": "Wakes the task that created the pull request when its checks fail or its branch conflicts with the base, after any turn that is running. Edit or remove each watch in Schedules."
       }
     },
     "inlineCompletion": {
@@ -554,15 +566,10 @@
     "prePr": {
       "title": "Pre-PR Review",
       "description": "Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request.",
-      "enable": {
-        "title": "Review Before Opening PR",
-        "description": "Shows concrete findings in the PR dialog with options to stop and fix or proceed anyway. Model failures never block PR creation."
-      },
-      "provider": {
-        "title": "Review Provider",
-        "description": "Choose which provider runs the one-shot review. The provider uses its configured default model.",
-        "claudeDescription": "Uses the configured Claude model.",
-        "codexDescription": "Uses the configured Codex model."
+      "link": {
+        "title": "Moved to Background AI",
+        "description": "Turn pre-PR review on or off and choose its provider and model in Settings → Background AI.",
+        "action": "Open Background AI"
       }
     }
   },
@@ -1007,15 +1014,11 @@
     },
     "models": {
       "label": "Models",
-      "description": "Default model selection, visibility, and Utility AI provider."
+      "description": "Default model selection and visibility."
     },
     "autoRouting": {
       "label": "Auto (Model Router)",
       "description": "How Auto sizes each turn: a level picks the model, your preference sets the effort."
-    },
-    "codex": {
-      "label": "Codex Inspector",
-      "description": "Advanced App Server, plugin, thread, command, and config diagnostics."
     },
     "mcp": {
       "label": "MCP",
@@ -1104,7 +1107,11 @@
       },
       "auxiliaryInference": {
         "title": "Background AI",
-        "description": "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks."
+        "description": "Per-lane switch and provider or model overrides for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks."
+      },
+      "auxiliaryInferenceDefault": {
+        "title": "Utility model",
+        "description": "The provider and model every Background AI lane uses unless the lane overrides it."
       },
       "promptStyle": {
         "title": "Prompt style",
@@ -1217,7 +1224,9 @@
     "whenATicketStartsWork": "When a ticket starts work",
     "stagingLeavesTheGeneratedPromptIn": "Staging leaves the generated prompt in the composer so you can edit it before the first turn.",
     "sources": "Sources",
-    "chooseWhichTrackersIssuesReadsPairing": "Choose which trackers Issues reads. Pairing and credentials stay under Settings → Integrations. Jira is first in the list; Crane follows.",
+    "chooseWhichTrackersIssuesReadsPairing": "Choose which trackers Issues reads. Jira is turned on or off in Settings → Integrations; pairing and credentials stay there too. Jira is first in the list; Crane follows.",
+    "turnedOffInIntegrations": "Off. Turn Jira on in Settings → Integrations.",
+    "manageInIntegrations": "Manage in Integrations",
     "usedInTheIssuesList": "Used in the Issues list.",
     "hiddenFromIssuesPairingAndCredentials": "Hidden from Issues. Pairing and credentials are unchanged.",
     "setUp": "Set up",
@@ -1447,5 +1456,42 @@
   "settingsDialogModelsSection": {
     "claudeModel": "Claude model: {{value1}}",
     "codexModel": "Codex model: {{value1}}"
+  },
+  "scope": {
+    "bar": {
+      "sentence": "Applying settings to <picker/>",
+      "allProjects": "All projects",
+      "triggerAriaLabel": "Settings scope: {{scope}}",
+      "globalHint": "Changes apply to every project unless a project sets its own default model, effort or permission mode.",
+      "projectHint": "Only default models, effort and permission modes can differ per project. Everything else applies to all projects."
+    },
+    "picker": {
+      "searchPlaceholder": "Search projects",
+      "empty": "No projects match.",
+      "allDescription": "Global values every project uses",
+      "currentGroup": "Current project",
+      "otherGroup": "Other projects"
+    },
+    "notice": {
+      "scoped": {
+        "title": "Editing defaults for {{project}}",
+        "description": "Default models, effort and permission modes set here apply only to new tasks and turns in this project. Other settings in this section apply to all projects. A model, effort or mode chosen in the composer still wins."
+      },
+      "globalOnly": {
+        "title": "These settings apply to all projects",
+        "description": "{{project}} uses the same values as every other project here. Switch to All projects to change them.",
+        "action": "Edit for all projects"
+      }
+    },
+    "field": {
+      "global": "Global value",
+      "project": "Project value",
+      "useGlobal": "Use global value",
+      "useGlobalFor": "Use the global value for {{field}}"
+    },
+    "search": {
+      "title": "Settings scope",
+      "description": "Apply default models, effort and permission modes to all projects or to one project."
+    }
   }
 }

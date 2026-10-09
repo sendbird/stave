@@ -18,8 +18,8 @@
     "effectiveSandboxApprovalAndTimeoutValues": "Effective sandbox, approval, and timeout values."
   },
   "localMcpReadiness": {
-    "theLocalMcpServerIsTurnedOffInSettingsDeveloper": "The Local MCP server is turned off in Settings → Developer.",
-    "theLocalMcpServerIsEnabledButNotRunningRestartItInSettingsDeveloper": "The Local MCP server is enabled but not running; restart it in Settings → Developer.",
+    "theLocalMcpServerIsTurnedOffInSettingsDeveloper": "The Local MCP server is turned off in Settings → MCP.",
+    "theLocalMcpServerIsEnabledButNotRunningRestartItInSettingsDeveloper": "The Local MCP server is enabled but not running; restart it in Settings → MCP.",
     "capabilityBlock": "{{capability}} reach the model through the Local MCP server. {{detail}}"
   },
   "resourcePressure": {

@@ -6,19 +6,25 @@
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
 import { DEFAULT_APP_LOCALE, type AppLocale } from "@/i18n/locale";
-import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
   LensSessionScope,
 } from "@/lib/lens/lens.types";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
+import {
+  DEFAULT_INLINE_RENDER_NETWORK_POLICY,
+  type InlineRenderNetworkPolicy,
+} from "@/lib/inline-render/inline-render";
+import { DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS } from "@/lib/fleet/workspace-settlement";
 import type {
   ClaudePluginMode,
   ClaudeSettingSource,
   ProviderId,
 } from "@/lib/providers/provider.types";
 import {
+  DEFAULT_AUX_INFERENCE_DEFAULT,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  type AuxInferenceDefault,
   type AuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
 import type { PrMergeMethod } from "@/lib/pr-status";
@@ -56,10 +62,6 @@ import {
   DEFAULT_PROMPT_INLINE_COMPLETION,
   DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
 } from "@/lib/providers/prompt-defaults";
-import {
-  DEFAULT_PRE_PR_REVIEW_PROVIDER,
-  type PrePrReviewProviderId,
-} from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
 import type { UnreadableWorkflow } from "@/lib/workflows/normalize";
 import type { Workflow } from "@/lib/workflows/schema";
@@ -74,7 +76,6 @@ import {
   DEFAULT_TERMINAL_FONT_SIZE,
 } from "@/lib/terminal/defaults";
 import {
-  DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET,
   DEFAULT_NOTIFICATION_SOUND_PRESET,
   DEFAULT_NOTIFICATION_SOUND_MODE,
   DEFAULT_NOTIFICATION_SOUND_VOLUME,
@@ -86,7 +87,6 @@ import {
   listProviderIds,
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
-import type { UtilityInferenceProvider } from "@/lib/providers/utility-inference";
 import {
   buildStarterProfile,
   DEFAULT_AUTO_ROUTING_PROFILE_ID,
@@ -136,8 +136,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   sidebarShowFleetView: boolean;
   /** Show Agents and its active agent rows in the left sidebar. */
   sidebarShowAgents: boolean;
-  /** Show the Agent performance shortcut in the left sidebar. */
-  sidebarShowResults: boolean;
   /** Show the AI usage shortcut in the left sidebar. */
   sidebarShowAiUsage: boolean;
   /**
@@ -146,26 +144,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * value — the sidebar reopens in whatever you last switched to.
    */
   sidebarNavView: SidebarNavView;
-  /**
-   * When `true`, an animated "border beam" highlight travels around the
-   * prompt input and active-workspace rows while a task is streaming. Purely
-   * decorative — honors `prefers-reduced-motion`.
-   */
-  borderBeamEnabled: boolean;
-  /**
-   * Size preset passed to the `border-beam` library.
-   */
-  borderBeamSize: BorderBeamSize;
-  /**
-   * Color palette preset passed to the `border-beam` library. These are the
-   * library's own presets — do not remap onto our theme tokens.
-   */
-  borderBeamVariant: BorderBeamColorVariant;
-  /**
-   * Overall beam opacity/intensity. Passed through to the library's
-   * `strength` prop as a 0-1 value.
-   */
-  borderBeamStrength: number;
+  /** Work queue: settle a workspace once its PR merges after your last message. */
+  workQueueSettleOnMerge: boolean;
+  /** Work queue: settle after this many days without activity; `null` is off. */
+  workQueueSettleAfterDays: number | null;
   /** User-installed custom theme definitions (persisted in localStorage). */
   userCustomThemes: CustomThemeDefinition[];
   themeOverrides: Record<ThemeModeName, ThemeOverrideValues>;
@@ -180,6 +162,17 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Per-section visibility overrides for the workspace information panel. */
   infoPanelSectionVisibility: WorkspaceInformationSectionVisibility;
   reasoningExpansionMode: "auto" | "manual";
+  /**
+   * What an agent's inline HTML page (`stave_render_html`) may load from the
+   * network: anything, an allowlisted set of CDNs, or nothing.
+   */
+  inlineRenderNetworkPolicy: InlineRenderNetworkPolicy;
+  /**
+   * Show the interactive view a third-party MCP tool declares (MCP Apps UI
+   * extension) in its tool row. Off keeps those rows plain text and stops
+   * Codex from advertising the extension.
+   */
+  mcpAppViewsEnabled: boolean;
   showInterimMessages: boolean;
   /** Show the conversation turn rail beside eligible task histories. */
   showConversationTurnRail: boolean;
@@ -221,8 +214,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * so a provider shipping a new model needs no migration here.
    */
   modelVisibility: ModelVisibility;
-  /** Provider preference for isolated task-name, routing, and commit utilities. */
-  utilityInferenceProvider: UtilityInferenceProvider;
   /**
    * The user's own description of how they want prompts written (tone,
    * language, what to always include). Sent with every Enhance request when
@@ -234,16 +225,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Bounded memory of past rewrites and what the user did with them. */
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
-  autoRoutingUseClassifier: boolean;
-  autoRoutingObjective: number;
-  autoRoutingSafetyEscalation: boolean;
-  autoRoutingAllowProviderSwitch: boolean;
-  autoRoutingEligibleClaudeModels: string[];
-  autoRoutingEligibleCodexModels: string[];
-  /**
-   * v2 model router: role table × stance. Authoritative for routing; the v1
-   * flags above are kept for back-compat readers and migrated on load.
-   */
+  /** Model router: role table × stance, signals and eligible models. */
   autoRoutingProfile: AutoRoutingProfile;
   /**
    * User-configurable presets rendered in the preset bar between the task
@@ -296,7 +278,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   agentLearningDisabled: string[];
   /** Personal instructions added to every agent run; see `src/lib/agents/standards.ts`. */
   myStandards: MyStandards;
-  permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
   skillsAutoSuggest: boolean;
@@ -337,13 +318,17 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** When enabled, visual comment screenshots are included as provider image context. */
   lensVisualCommentScreenshotsAsImageContext: boolean;
   prePrReviewEnabled: boolean;
-  prePrReviewProvider: PrePrReviewProviderId;
   /** Composer reviews that run as a separate read-only task. */
   reviewTask: ReviewTaskSettings;
   /** Queue the created ready PR for automatic merging. */
   createPrAutoMergeEnabled: boolean;
   /** Merge strategy used when automatic merging is queued. */
   createPrMergeMethod: PrMergeMethod;
+  /**
+   * Watch every pull request the Create PR flow opens and wake the task that
+   * opened it when checks fail or the branch conflicts with its base.
+   */
+  createPrWatchEnabled: boolean;
   terminalFontSize: number;
   terminalFontFamily: string;
   terminalCursorStyle: "block" | "bar" | "underline";
@@ -370,6 +355,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * reminders off. The first request always notifies.
    */
   runSignOffReminderMinutes: number;
+  /**
+   * One sound for every audible cue: a task turn finishing, and the AI waiting
+   * on the user's input or approval. The notification kind decides when it
+   * plays; the sound itself is configured once.
+   */
   notificationSoundEnabled: boolean;
   notificationSoundVolume: number;
   notificationSoundPreset: NotificationSoundPreset;
@@ -379,19 +369,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Original file name of the uploaded custom audio, for display purposes. */
   notificationSoundCustomAudioName: string | null;
   /**
-   * Whether a sound plays when a task needs the user's attention — i.e. the AI
-   * asks a question / requests input (`task.user_input_requested`) or requests a
-   * tool permission/approval (`task.approval_requested`). Independent from the
-   * completion sound so the two can be distinguished by ear.
+   * Shows diagnostic surfaces that most users never need: the Developer
+   * settings section, the Local MCP request log, the status-bar resource
+   * dashboard and the Claude runtime tools card. Off by default.
    */
-  attentionNotificationSoundEnabled: boolean;
-  attentionNotificationSoundVolume: number;
-  attentionNotificationSoundPreset: NotificationSoundPreset;
-  attentionNotificationSoundMode: NotificationSoundMode;
-  /** Base64 data URL of the user-uploaded custom attention audio file. */
-  attentionNotificationSoundCustomAudioData: string | null;
-  /** Original file name of the uploaded custom attention audio, for display. */
-  attentionNotificationSoundCustomAudioName: string | null;
+  developerModeEnabled: boolean;
   providerDebugStream: boolean;
   providerTimeoutMs: number;
   claudeBinaryPath: string;
@@ -505,6 +487,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * without allocating a fallback object.
    */
   auxiliaryInferencePolicy: AuxiliaryInferencePolicy;
+  /**
+   * Background AI's shared "utility model": the provider and model every lane
+   * uses unless `auxiliaryInferencePolicy[lane]` overrides it.
+   */
+  auxiliaryInferenceDefault: AuxInferenceDefault;
 
   // -- Lens (built-in browser) --
   /** Heuristic search: AI uses class names, text, ID to grep source files. */
@@ -628,30 +615,6 @@ export function normalizeCursorEffort(
   return normalizeKiroEffort(value);
 }
 
-export function normalizeBorderBeamSize(
-  value: unknown,
-): AppSettings["borderBeamSize"] {
-  return value === "sm" || value === "md" || value === "line" ? value : "md";
-}
-
-export function normalizeBorderBeamVariant(
-  value: unknown,
-): AppSettings["borderBeamVariant"] {
-  return value === "colorful" ||
-    value === "mono" ||
-    value === "ocean" ||
-    value === "sunset"
-    ? value
-    : "colorful";
-}
-
-export function normalizeBorderBeamStrength(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    return defaultSettings.borderBeamStrength;
-  }
-  return Math.min(1, Math.max(0, value));
-}
-
 export function normalizeSidebarNavView(value: unknown): SidebarNavView {
   return value === "work-queue" ? "work-queue" : "projects";
 }
@@ -663,13 +626,10 @@ export const defaultSettings: AppSettings = {
   customThemeId: null,
   sidebarShowFleetView: true,
   sidebarShowAgents: true,
-  sidebarShowResults: true,
   sidebarShowAiUsage: true,
   sidebarNavView: "projects",
-  borderBeamEnabled: false,
-  borderBeamSize: "md",
-  borderBeamVariant: "colorful",
-  borderBeamStrength: 1,
+  workQueueSettleOnMerge: true,
+  workQueueSettleAfterDays: DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS,
   userCustomThemes: [],
   themeOverrides: {
     light: {},
@@ -684,6 +644,8 @@ export const defaultSettings: AppSettings = {
   infoPanelScale: 1,
   infoPanelSectionVisibility: {},
   reasoningExpansionMode: "manual",
+  inlineRenderNetworkPolicy: DEFAULT_INLINE_RENDER_NETWORK_POLICY,
+  mcpAppViewsEnabled: true,
   showInterimMessages: false,
   showConversationTurnRail: true,
   showTaskStartExamples: true,
@@ -697,17 +659,10 @@ export const defaultSettings: AppSettings = {
   modelKiro: getDefaultModelForProvider({ providerId: "kiro" }),
   modelRuntimePreferences: {},
   modelVisibility: {},
-  utilityInferenceProvider: "auto",
   promptEnhancementStyleProfile: "",
   promptEnhancementLearnFromEdits: true,
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
-  autoRoutingUseClassifier: true,
-  autoRoutingObjective: 0.5,
-  autoRoutingSafetyEscalation: true,
-  autoRoutingAllowProviderSwitch: false,
-  autoRoutingEligibleClaudeModels: [],
-  autoRoutingEligibleCodexModels: [],
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
@@ -722,7 +677,6 @@ export const defaultSettings: AppSettings = {
   agentSuggestions: {},
   agentLearningDisabled: [],
   myStandards: DEFAULT_MY_STANDARDS,
-  permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,
   skillsAutoSuggest: true,
@@ -743,10 +697,10 @@ export const defaultSettings: AppSettings = {
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
   prePrReviewEnabled: false,
-  prePrReviewProvider: DEFAULT_PRE_PR_REVIEW_PROVIDER,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
+  createPrWatchEnabled: true,
   terminalFontSize: DEFAULT_TERMINAL_FONT_SIZE,
   terminalFontFamily: DEFAULT_TERMINAL_FONT_FAMILY,
   terminalCursorStyle: "block",
@@ -774,14 +728,7 @@ export const defaultSettings: AppSettings = {
   notificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
   notificationSoundCustomAudioData: null,
   notificationSoundCustomAudioName: null,
-  attentionNotificationSoundEnabled: true,
-  attentionNotificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
-  // Default to a distinct preset from the completion sound (`chime`) so the
-  // "AI needs you" cue is audibly different out of the box.
-  attentionNotificationSoundPreset: DEFAULT_ATTENTION_NOTIFICATION_SOUND_PRESET,
-  attentionNotificationSoundMode: DEFAULT_NOTIFICATION_SOUND_MODE,
-  attentionNotificationSoundCustomAudioData: null,
-  attentionNotificationSoundCustomAudioName: null,
+  developerModeEnabled: false,
   providerDebugStream: false,
   providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
   claudeBinaryPath: "",
@@ -852,6 +799,7 @@ export const defaultSettings: AppSettings = {
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,
   workspaceTurnSummaryPrompt: DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY,
   auxiliaryInferencePolicy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  auxiliaryInferenceDefault: DEFAULT_AUX_INFERENCE_DEFAULT,
   ...DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
 
   // Lens

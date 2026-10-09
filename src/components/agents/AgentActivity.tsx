@@ -9,6 +9,7 @@ import {
   AGENT_ACTIVITY_FILTERS,
   AGENT_ACTIVITY_FILTER_LABELS,
   matchesAgentActivityFilter,
+  orderAgentActivityRows,
   summarizeAgentActivity,
   type AgentActivityFilter,
   type AgentActivitySummary,
@@ -141,8 +142,12 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
     [props.assignments, statusByTaskId],
   );
   const filtered = useMemo(
-    () => props.assignments.filter((row) => matchesAgentActivityFilter(row.state, filter)),
-    [props.assignments, filter],
+    () =>
+      orderAgentActivityRows(
+        props.assignments.filter((row) => matchesAgentActivityFilter(row.state, filter)),
+        statusByTaskId,
+      ),
+    [props.assignments, filter, statusByTaskId],
   );
 
   // An agent that was never assigned has no activity to show; the page starts at its settings.

@@ -1,3 +1,4 @@
+import type { McpAppBridgeApi } from "@/lib/mcp-app/mcp-app-bridge";
 import type { AppLocale } from "@/i18n/locale";
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-accounts";
@@ -5,6 +6,7 @@ import type { ApiConnectionsBridgeApi } from "@/lib/providers/api-connections";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
+import type { InlineRenderModelContextEntry as InlineRenderModelContextEntryPayload } from "@/lib/inline-render/inline-render-interaction";
 import type {
   RepositoryMemory,
   RepositoryMemoryDeleteArgs,
@@ -165,6 +167,7 @@ import type {
   LensCredentialUpsertInput,
 } from "@/lib/lens/lens-credentials";
 import type { SecretMetadata, SecretUpsertInput } from "@/lib/secrets/secrets";
+import type { SecretRequestsBridgeApi } from "@/lib/secrets/secret-request";
 import type {
   BrowserConsoleEntry as LensConsoleEntry,
   BrowserConsoleEntryDetail,
@@ -3036,6 +3039,7 @@ interface WindowApi {
   inlineCompletion?: WindowInlineCompletionApi;
   lens?: WindowLensApi;
   secrets?: WindowSecretsApi;
+  secretRequests?: SecretRequestsBridgeApi;
   window?: {
     minimize?: () => Promise<void>;
     toggleMaximize?: () => Promise<{ isMaximized: boolean }>;
@@ -3056,6 +3060,56 @@ interface WindowApi {
     ) => () => void;
     subscribeCloseShortcut?: (listener: () => void) => () => void;
     subscribeAppQuitRequested?: (listener: () => void) => () => void;
+  };
+  /** Third-party MCP App views captured from tool calls; see `src/lib/mcp-app`. */
+  mcpApp?: McpAppBridgeApi;
+  /** Pages agents publish with `stave_render_html`; see `src/lib/inline-render`. */
+  inlineRender?: {
+    describe: (args: { renderId: string }) => Promise<
+      | { ok: true; exists: true; title: string; height: number }
+      | { ok: true; exists: false }
+      | { ok: false; error: string }
+    >;
+    readSource: (args: { renderId: string }) => Promise<
+      { ok: true; html: string; title: string } | { ok: false; error: string }
+    >;
+    saveAs: (args: { renderId: string }) => Promise<
+      | { ok: true; filePath: string }
+      | { ok: false; canceled: true }
+      | { ok: false; error: string }
+    >;
+    /**
+     * Stores the state a page reported for the agent
+     * (`window.stave.updateModelContext`); `context: null` clears it. Main
+     * binds it to the page's own task. Optional: older builds lack it.
+     */
+    setModelContext?: (args: {
+      renderId: string;
+      context: { text: string | null; structured: unknown } | null;
+    }) => Promise<{ ok: true } | { ok: false; error: string }>;
+    readModelContext?: (args: { renderId: string }) => Promise<
+      | { ok: true; entry: InlineRenderModelContextEntryPayload | null }
+      | { ok: false; error: string }
+    >;
+    /** Every page context a task's pages reported, for the task's next turn. */
+    listTaskModelContexts?: (args: { workspaceId: string | null; taskId: string }) => Promise<
+      | { ok: true; entries: InlineRenderModelContextEntryPayload[] }
+      | { ok: false; error: string }
+    >;
+    /**
+     * Tells main the user's network setting and current theme, which
+     * `stave_preview_html` renders with. Sent at startup and on every change.
+     */
+    setPreviewContext?: (args: {
+      networkPolicy: "open" | "cdn" | "blocked";
+      theme: { appearance: "light" | "dark"; variables: Record<string, string> } | null;
+    }) => Promise<{ ok: true } | { ok: false; error: string }>;
+  };
+  /** Images Stave's tools returned; see `src/lib/tool-images`. */
+  toolImages?: {
+    read: (args: { imageId: string }) => Promise<
+      { ok: true; dataUrl: string } | { ok: false; error: string }
+    >;
   };
   shell?: {
     openExternal?: (args: {

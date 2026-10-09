@@ -6,6 +6,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { MyStandardsPanel } from "@/components/agents/MyStandardsPanel";
+import { ResultsView } from "@/components/results/ResultsView";
 import { useAppStore } from "@/store/app.store";
 import { useAgentsViewStore, type AgentsViewTab } from "@/store/agents-view-store";
 import { centerStyles } from "@/components/layout/automation-center/automation-center-view.styles";
@@ -13,22 +14,29 @@ import { centerStyles } from "@/components/layout/automation-center/automation-c
 const TABS: ReadonlyArray<readonly [AgentsViewTab, Extract<I18nKey, `${string}:${string}`>]> = [
   ["agents", "agents:agentsView.extraCopy30"],
   ["standards", "agents:agentsView.extraCopy31"],
+  ["performance", "agents:agentsView.performanceTab"],
 ];
 
 const TAB_NOTES: Record<AgentsViewTab, string> = {
   get agents() { return i18n.t("agents:agentsView.extraCopy32"); },
   get standards() { return i18n.t("agents:agentsView.extraCopy33"); },
+  get performance() { return i18n.t("compare:agentPerformance.purpose"); },
 };
 
 /**
- * The Agents surface: saved agents (with their workflows) and the standards
- * added to every agent. One of Fleet View, Automations, Issues, Projects and
- * Agents owns the main column at a time; the tab is held in
- * `useAgentsViewStore` so a deep link can open this surface on a given tab.
+ * The Agents surface: saved agents (with their workflows), the standards added
+ * to every agent, and how their ended runs went (Performance). One of Fleet
+ * View, Automations, Issues, Agents and AI usage owns the main column at a
+ * time; the tab is held in `useAgentsViewStore` so a deep link can open this
+ * surface on a given tab.
  */
-export function AgentsView() {
+export function AgentsView(props: {
+  /** Shows this tab instead of the stored one: server-rendered previews and tests. */
+  tab?: AgentsViewTab;
+} = {}) {
   useTranslation();
-  const activeTab = useAgentsViewStore((state) => state.activeTab);
+  const storedTab = useAgentsViewStore((state) => state.activeTab);
+  const activeTab = props.tab ?? storedTab;
   const setActiveTab = useAgentsViewStore((state) => state.setActiveTab);
   const closeAgents = useAppStore((state) => state.closeAgents);
 
@@ -93,8 +101,10 @@ export function AgentsView() {
 
       {activeTab === "agents" ? (
         <AgentsTab />
-      ) : (
+      ) : activeTab === "standards" ? (
         <MyStandardsPanel />
+      ) : (
+        <ResultsView embedded />
       )}
     </div>
   );

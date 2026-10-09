@@ -1006,11 +1006,14 @@ function McpServerConnectionsCard() {
 }
 
 export function McpSection() {
+  const developerModeEnabled = useAppStore(
+    (state) => state.settings.developerModeEnabled,
+  );
   return (
     <SectionStack>
       <McpServerConnectionsCard />
       <LocalMcpServerCard />
-      <LocalMcpRequestLogCard />
+      {developerModeEnabled ? <LocalMcpRequestLogCard /> : null}
     </SectionStack>
   );
 }

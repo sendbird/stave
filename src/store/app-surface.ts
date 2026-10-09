@@ -1,9 +1,13 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { useAgentsViewStore } from "@/store/agents-view-store";
 
 /**
  * App-level surfaces swap out the main content column while the sidebar, top
  * bar, and right rail stay mounted. Fleet View, Automations, Issues, Agents
- * and Results are peers here: exactly one of them can own the column at a time.
+ * and AI usage are peers here: exactly one of them can own the column at a time.
+ *
+ * Agent performance is the Agents surface's Performance tab, not a surface of
+ * its own: every entry point that opens it opens Agents on that tab.
  *
  * The retired Projects surface (`{ kind: "projects" }`) may still be persisted;
  * it has no entry below, so it normalizes to the workspace surface.
@@ -14,7 +18,6 @@ export type AppActiveSurface =
   | { kind: "automation-center" }
   | { kind: "issues" }
   | { kind: "agents" }
-  | { kind: "results" }
   | { kind: "usage"; providerId?: ProviderId; accountProfileId?: string };
 
 export type AppOverlaySurfaceKind = Exclude<
@@ -39,9 +42,6 @@ export const ISSUES_APP_SURFACE = {
 export const AGENTS_APP_SURFACE = {
   kind: "agents",
 } satisfies AppActiveSurface;
-export const RESULTS_APP_SURFACE = {
-  kind: "results",
-} satisfies AppActiveSurface;
 
 export const USAGE_APP_SURFACE = { kind: "usage" } satisfies AppActiveSurface;
 
@@ -50,7 +50,6 @@ const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
   issues: ISSUES_APP_SURFACE,
   agents: AGENTS_APP_SURFACE,
-  results: RESULTS_APP_SURFACE,
   usage: USAGE_APP_SURFACE,
 };
 
@@ -78,8 +77,8 @@ export interface AppSurfaceActions {
   openAgents: () => void;
   closeAgents: () => void;
   toggleAgents: () => void;
-  openResults: () => void;
-  closeResults: () => void;
+  /** Opens the Agents surface on its Performance tab. */
+  openAgentPerformance: () => void;
   openUsage: (scope?: { providerId: ProviderId; accountProfileId?: string }) => void;
   closeUsage: () => void;
 }
@@ -119,6 +118,7 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
           : APP_SURFACE_BY_KIND[kind],
     }));
   };
+  const openAgents = open("agents");
 
   return {
     openFleetView: open("fleet-view"),
@@ -130,11 +130,15 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     openIssues: open("issues"),
     closeIssues: close("issues"),
     toggleIssues: toggle("issues"),
-    openAgents: open("agents"),
+    openAgents,
     closeAgents: close("agents"),
     toggleAgents: toggle("agents"),
-    openResults: open("results"),
-    closeResults: close("results"),
+    openAgentPerformance: () => {
+      // The tab first, so the surface mounts on Performance rather than
+      // flashing whichever tab Agents showed last.
+      useAgentsViewStore.getState().setActiveTab("performance");
+      openAgents();
+    },
     openUsage: (scope) => {
       set((state) => {
         const previous = state.activeAppSurface;

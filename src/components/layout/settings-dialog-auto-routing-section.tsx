@@ -1,10 +1,10 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, ChevronDown, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { describeRuleConditions, RouteFlow } from "@/components/auto-routing";
-import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
+import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -60,7 +60,6 @@ import {
 } from "@/lib/routing/auto-routing";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
-import { transition } from "@/components/ads/recipes/transition";
 import {
   ChoiceButtons,
   DraftInput,
@@ -76,7 +75,6 @@ import type { UsageSample } from "@/lib/providers/auto-routing-wizard";
 
 export const AUTO_ROUTING_SETTING_FIELD_ID = "settings-field-auto-routing";
 
-const ADVANCED_SECTION_VALUE = "advanced";
 const ANY_VALUE = "__any__";
 const DEFAULT_VALUE = "__default__";
 const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: string }> = [
@@ -513,7 +511,6 @@ export function SettingsAutoRoutingSection(props: {
   wizardSamples?: UsageSample[];
 } = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const autoRoutingEnabled = useAppStore((state) => state.settings.autoRoutingEnabled);
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
   const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
@@ -659,34 +656,9 @@ export function SettingsAutoRoutingSection(props: {
         </div>
       </SettingsCard>
 
-      {/*
-        Controlled so the chevron can follow the open state from here. ADS's
-        shared rotation rule keys off `data-open` on the trigger, but Base UI
-        puts `data-open` on the header and gives the trigger `data-panel-open`,
-        so that rule never matches. Owning the state locally keeps the fix out
-        of the vendored ADS source.
-      */}
-      <Accordion
-        value={advancedOpen ? [ADVANCED_SECTION_VALUE] : []}
-        onValueChange={(value) =>
-          setAdvancedOpen(
-            (value as readonly unknown[]).includes(ADVANCED_SECTION_VALUE),
-          )
-        }
+      <SettingsAdvancedDisclosure
+        title={t("settingsConnections:settingsDialogAutoRoutingSection.advancedSettings")}
       >
-        <AccordionItem value={ADVANCED_SECTION_VALUE}>
-          <AccordionTrigger className={sx(styles.advancedTrigger)}>
-            <span className={sx(styles.advancedTitle)}>{t("settingsConnections:settingsDialogAutoRoutingSection.advancedSettings")}</span>
-            <ChevronDown
-              aria-hidden
-              className={sx(
-                styles.advancedChevron,
-                transition.transform,
-                advancedOpen && styles.advancedChevronOpen,
-              )}
-            />
-          </AccordionTrigger>
-          <AccordionContent className={sx(styles.advancedPanel)}>
             <SectionStack>
       <SettingsCard title={t("settingsConnections:settingsDialogAutoRoutingSection.classificationAndSignals")} description={t("settingsConnections:settingsDialogAutoRoutingSection.whatAutoMayReadBeforeIt")}>
         <div className={sx(styles.signalsList)}>
@@ -942,9 +914,7 @@ export function SettingsAutoRoutingSection(props: {
         ) : null}
       </SettingsCard>
             </SectionStack>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+      </SettingsAdvancedDisclosure>
     </SectionStack>
   );
 }

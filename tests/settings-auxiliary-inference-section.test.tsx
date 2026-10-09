@@ -48,6 +48,28 @@ describe("Settings → Background AI", () => {
     expect(html).not.toContain("claude-haiku-4-5");
   });
 
+  test("leads with one shared utility model, then lane switches, then collapsed overrides", () => {
+    const shared = html.indexOf("Utility model");
+    const firstLane = html.indexOf("Run intent guard");
+    const overrides = html.indexOf("Per-lane overrides");
+    expect(shared).toBeGreaterThanOrEqual(0);
+    expect(firstLane).toBeGreaterThan(shared);
+    expect(overrides).toBeGreaterThan(firstLane);
+    expect(html).toContain("Run background lanes on Codex.");
+    expect(html).toContain("Automatic: each provider&#x27;s lightest model.");
+    // A fresh profile overrides nothing.
+    expect(html).not.toContain("Overrides the utility model.");
+  });
+
+  test("registers the utility model as its own importable setting", () => {
+    const definition = settingDefinitions.find(
+      (candidate) => candidate.key === "auxiliaryInferenceDefault",
+    );
+    expect(definition?.sectionId).toBe("auxiliaryInference");
+    expect(definition?.importExport).toBe("include");
+    expect(definition?.keywords).toContain("utility model");
+  });
+
   test("is reachable from settings search and navigation", () => {
     const section = settingsSections.find(
       (candidate) => candidate.id === "auxiliaryInference",

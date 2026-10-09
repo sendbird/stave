@@ -45,6 +45,7 @@ import {
   updateCraneTeamRepositoryMapping,
 } from "@/lib/crane-connector/project-mapping";
 import { useAppStore } from "@/store/app.store";
+import { resolveEffectiveSettings } from "@/store/project-settings-overrides";
 
 export function CraneDispatchApprovalDialog() {
   const { t: tI18n } = useTranslation(["kickoff"]);
@@ -113,19 +114,24 @@ export function CraneDispatchApprovalDialog() {
       mappings,
     });
 
-    setRepositoryPath(
+    const nextRepositoryPath =
       mappedRepositoryPath ??
-        activeRegisteredRepositoryPath ??
-        registeredRepositories[0]?.repositoryPath ??
-        "",
-    );
+      activeRegisteredRepositoryPath ??
+      registeredRepositories[0]?.repositoryPath ??
+      "";
+    setRepositoryPath(nextRepositoryPath);
     setRememberTeamDefaults(Boolean(getCraneTeamKey(approval.job.issue.key)));
     setWorkspaceStrategy("new");
     setWorkspaceId("");
     setBranchName(buildCraneDispatchBranchName(approval.job));
     setWorkspaceLabel(proposeDispatchWorkspaceLabel(approval.job.issue.title));
     seed({
-      settings: currentSettings,
+      // The chosen repository's project defaults (model, effort, permissions).
+      settings: resolveEffectiveSettings({
+        settings: currentSettings,
+        recentRepositories: registeredRepositories,
+        repositoryPath: nextRepositoryPath,
+      }),
       draftProvider: store.draftProvider,
       memory: rememberedRuntime,
     });

@@ -47,6 +47,13 @@ import { sx } from "@/components/ads/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { isStaveToolName } from "@/lib/tool-display-name";
 import {
+  isInlineRenderToolName,
+  parseInlineRenderToolOutput,
+} from "@/lib/inline-render/inline-render";
+import { InlineHtmlRenderList } from "./inline-html-render";
+import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
+import { McpAppView } from "./mcp-app-view";
+import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,
 } from "@/lib/providers/provider-error-recovery";
@@ -68,6 +75,8 @@ import {
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
 import { CommandResult } from "./command-result";
+import { ToolOutputImages } from "./tool-output-images";
+import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
 import {
   planProgressCount,
   TraceApproval,
@@ -388,23 +397,37 @@ function AssistantTraceEntryView(args: {
 
     case "tool": {
       const normalized = normalizeTraceToolName(entry.part.toolName);
+      /*
+       * An inline HTML page is shown in full below the trace, so its row names
+       * the page and never unpacks the page's markup (up to half a megabyte)
+       * into the arguments panel or the header chip.
+       */
+      const inlineRender = isInlineRenderToolName(entry.part.toolName)
+        ? { reference: parseInlineRenderToolOutput(entry.part.output) }
+        : null;
       const toolSummary =
         normalized === "file_change"
           ? null
-          : deriveTraceToolSummary({
-              toolName: entry.part.toolName,
-              input: entry.part.input,
-            });
+          : inlineRender
+            ? inlineRender.reference
+              ? { kind: "text" as const, text: inlineRender.reference.title }
+              : null
+            : deriveTraceToolSummary({
+                toolName: entry.part.toolName,
+                input: entry.part.input,
+              });
       /*
        * The header already carries the command / file / pattern / URL in the
        * machine register, so the raw arguments panel appears only for the
        * arguments the header does not cover. Single-argument tools (Bash,
        * Read, Grep) therefore show their result and not the same string twice.
        */
-      const residualInput = getResidualToolInput({
-        input: entry.part.input,
-        summary: toolSummary,
-      });
+      const residualInput = inlineRender
+        ? null
+        : getResidualToolInput({
+            input: entry.part.input,
+            summary: toolSummary,
+          });
       const fileRows =
         normalized === "file_change"
           ? parseFileChangeToolInput(entry.part.input)
@@ -413,9 +436,17 @@ function AssistantTraceEntryView(args: {
       const isWeb = normalized === "websearch" || normalized === "webfetch";
       const isError = entry.part.state === "output-error";
       const streamingInput = entry.part.state === "input-streaming";
-      const output = entry.part.output?.trim() ?? "";
+      // Images come out of the text: a screenshot is a picture, not base64.
+      const toolOutput = parseToolOutputImages(entry.part.output);
+      const rawOutput = toolOutput.text.trim();
+      const output =
+        inlineRender?.reference && !isError
+          ? i18n.t("session:inlineRender.shownBelow")
+          : rawOutput;
       const command =
         toolSummary?.kind === "command" ? toolSummary.text : entry.part.input;
+      // A view the runtime captured for this call replaces its text output.
+      const mcpAppView = isError ? null : readMcpAppViewFromToolPart(entry.part);
 
       return (
         <StepRail.Step
@@ -426,6 +457,8 @@ function AssistantTraceEntryView(args: {
           xstyle={[styles.railStep, rowMotionStyle]}
         >
           <ToolRun
+            /* Remounts when a captured view arrives, so the row opens to show it. */
+            key={mcpAppView?.viewId ?? "text"}
             count={
               fileRows.length > 0
                 ? i18n.t("session:counts.files", { count: fileRows.length })
@@ -444,8 +477,11 @@ function AssistantTraceEntryView(args: {
             }
             icon={icon}
             input={residualInput || undefined}
+            defaultOpen={mcpAppView ? true : undefined}
             output={
-              !isError && !isCommand && output ? (
+              mcpAppView ? (
+                <McpAppView reference={mcpAppView} taskId={taskId} toolUseId={entry.part.toolUseId} />
+              ) : !isError && !isCommand && output ? (
                 <TraceOutput linkify={!streamingInput} text={output} />
               ) : undefined
             }
@@ -463,6 +499,9 @@ function AssistantTraceEntryView(args: {
             ) : null}
             {isWeb && !isError ? (
               <TraceCitations output={entry.part.output} />
+            ) : null}
+            {toolOutput.images.length > 0 ? (
+              <ToolOutputImages images={toolOutput.images} />
             ) : null}
           </ToolRun>
         </StepRail.Step>
@@ -820,6 +859,22 @@ export function AssistantMessageBody(args: {
       (row) => row.status !== "applied" || !diffPaths.has(row.filePath),
     );
   }, [allDiffParts, fileChangeSummaryRows]);
+  /*
+   * Pages an agent published this turn. They sit outside the collapsible
+   * trace, ahead of the reply that refers to them, so a collapsed trace never
+   * hides them. Matched by the result's shape, not the tool name.
+   */
+  const inlineRenders = useMemo(
+    () =>
+      trace.entries.flatMap((entry) => {
+        if (entry.kind !== "tool" || entry.part.state !== "output-available") return [];
+        const reference = parseInlineRenderToolOutput(entry.part.output);
+        return reference
+          ? [{ key: `${entry.id}-${reference.renderId}`, reference, toolInput: entry.part.input }]
+          : [];
+      }),
+    [trace.entries],
+  );
   const showDiffResults = allDiffParts.length > 0 && !isStreaming;
   const showFileChangeSummary =
     unresolvedFileChangeRows.length > 0 && !isStreaming;
@@ -912,11 +967,24 @@ export function AssistantMessageBody(args: {
         </div>
       ) : null}
 
+      {inlineRenders.length > 0 ? (
+        <InlineHtmlRenderList
+          renders={inlineRenders}
+          taskId={taskId}
+          xstyle={
+            (trace.entries.length > 0 ||
+              (showInterimMessages && trace.interimTextParts.length > 0)) &&
+            styles.spacedTop
+          }
+        />
+      ) : null}
+
       {trace.responseParts.length > 0 ? (
         <div
           className={sx(
             styles.block,
             (trace.entries.length > 0 ||
+              inlineRenders.length > 0 ||
               (showInterimMessages && trace.interimTextParts.length > 0)) &&
               styles.spacedTop,
           )}

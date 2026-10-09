@@ -1,4 +1,8 @@
-import { buildStarterProfile, migrateLegacyAutoSettings } from "../src/lib/providers/auto-routing-profile";
+import {
+  buildStarterProfile,
+  migrateLegacyAutoSettings,
+  type LegacyAutoRoutingSettings,
+} from "../src/lib/providers/auto-routing-profile";
 import { describe, expect, test } from "bun:test";
 import {
   CLAUDE_FABLE_MODEL,
@@ -18,7 +22,11 @@ import {
 } from "@/lib/routing/auto-routing";
 import { isAutoRoutingUnavailableForSend } from "@/store/auto-routing-dispatch";
 
-const AUTO_SETTINGS: AutoRoutingSettings = {
+// The v1 flags are no longer settings; they remain a compact way to build a
+// profile here through migrateLegacyAutoSettings.
+type TestAutoSettings = AutoRoutingSettings & LegacyAutoRoutingSettings;
+
+const AUTO_SETTINGS: TestAutoSettings = {
   autoRoutingEnabled: true,
   autoRoutingUseClassifier: false,
   autoRoutingObjective: 0.5,
@@ -59,7 +67,7 @@ describe("Auto routing send availability", () => {
 
 function resolveDecision(args: {
   prompt: string;
-  settings?: Partial<AutoRoutingSettings>;
+  settings?: Partial<TestAutoSettings>;
   currentProviderId?: ProviderId;
   currentModel?: string;
   history?: Parameters<typeof resolveAutoRoutingDecision>[0]["history"];
@@ -74,8 +82,7 @@ function resolveDecision(args: {
 }) {
   return resolveAutoRoutingDecision({
     settings: {
-      ...AUTO_SETTINGS,
-      ...(args.settings ?? {}),
+      autoRoutingEnabled: args.settings?.autoRoutingEnabled ?? AUTO_SETTINGS.autoRoutingEnabled,
       autoRoutingProfile: {
         ...migrateLegacyAutoSettings({ ...AUTO_SETTINGS, ...args.settings }),
         signals: { ...buildStarterProfile("starter-balanced").signals,

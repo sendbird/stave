@@ -1,5 +1,8 @@
 import { registerFilesystemHandlers } from "./filesystem";
 import { registerInlineCompletionHandlers } from "./inline-completion";
+import { registerInlineRenderHandlers } from "./inline-render";
+import { registerMcpAppHandlers } from "./mcp-app";
+import { registerToolImageHandlers } from "./tool-images";
 import { registerAtelierConnectorHandlers } from "./atelier-connector";
 import { registerBrowserHandlers } from "./browser";
 import { registerCraneConnectorHandlers } from "./crane-connector";
@@ -26,6 +29,7 @@ import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";
 import { registerScmHandlers } from "./scm";
 import { registerSecretHandlers } from "./secrets";
+import { registerSecretRequestHandlers } from "./secret-requests";
 import { registerSkillsHandlers } from "./skills";
 import { registerStorageHandlers } from "./storage";
 import { registerTerminalHandlers } from "./terminal";
@@ -61,6 +65,9 @@ export function registerHandlers() {
   registerLspHandlers();
   registerEslintHandlers();
   registerInlineCompletionHandlers();
+  registerInlineRenderHandlers();
+  registerMcpAppHandlers();
+  registerToolImageHandlers();
   registerMetricsHandlers();
   registerStorageHandlers();
   registerNotificationHandlers();
@@ -72,4 +79,5 @@ export function registerHandlers() {
   registerTrackerIssuesHandlers();
   registerBrowserHandlers();
   registerSecretHandlers();
+  registerSecretRequestHandlers();
 }

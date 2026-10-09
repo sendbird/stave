@@ -20,6 +20,7 @@ import {
   recordRendererUnresponsive,
 } from "./runtime-health-metrics";
 import { openExternalWithFallback } from "./utils/external-url";
+import { shouldBlockInlineRenderFrameNavigation } from "../../src/lib/inline-render/inline-render";
 import {
   resolveLensGuestPreloadScriptPath,
   resolvePreloadScriptPath,
@@ -186,6 +187,36 @@ export function createMainWindow() {
     }
     event.preventDefault();
     void openExternalWithFallback({ url });
+  });
+
+  // An inline render page may only be loaded by the app. A page that tries to
+  // navigate its own frame (to escape, or to reload under a wider network
+  // policy), a nested frame aimed at a render, and a form submission are all
+  // started by a subframe, and are cancelled here.
+  window.webContents.on("will-frame-navigate", (details) => {
+    if (details.isMainFrame) return;
+    let frameUrl: string | null = null;
+    let initiatedBySubframe = false;
+    try {
+      // A disposed WebFrameMain throws on access. Treat an unreadable
+      // initiator as a subframe so the guard fails closed.
+      frameUrl = details.frame?.url ?? null;
+      const initiator = details.initiator;
+      initiatedBySubframe = Boolean(initiator && initiator.parent);
+    } catch {
+      initiatedBySubframe = true;
+    }
+    if (
+      shouldBlockInlineRenderFrameNavigation({
+        isMainFrame: false,
+        isSameDocument: details.isSameDocument,
+        frameUrl,
+        targetUrl: details.url,
+        initiatedBySubframe,
+      })
+    ) {
+      details.preventDefault();
+    }
   });
 
   // A Lens guest is a `<webview>` in this window's document now, so a reload or

@@ -1,3 +1,4 @@
+import type { McpAppViewRequestArgs, McpAppViewRequestResponse } from "../../src/lib/mcp-app/mcp-app-bridge";
 import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../src/lib/agent-runs/delegated-run";
 import type { AgentRunDetail } from "../../src/lib/agent-runs/api";
@@ -758,6 +759,7 @@ export interface HostServiceRequestMap {
     timeoutSecs?: number;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.mcp-app-request": McpAppViewRequestArgs;
   "provider.read-codex-mcp-resource": {
     threadId: string;
     server: string;
@@ -1127,6 +1129,7 @@ export interface HostServiceResponseMap {
   "provider.start-codex-mcp-oauth-login": CodexMcpOauthLoginResponse;
   "provider.start-claude-mcp-oauth-login": ClaudeMcpOauthLoginResponse;
   "provider.read-codex-mcp-resource": CodexMcpResourceReadResponse;
+  "provider.mcp-app-request": McpAppViewRequestResponse;
   "provider.start-cursor-mcp-oauth-login": CursorMcpOauthLoginResponse;
   "provider.rename-codex-thread": CodexMutationResponse;
   "provider.read-agent-history": AgentHistoryResponse;
