@@ -171,7 +171,7 @@ export function codexConfigSafeToLink(text: string) {
       continue;
     }
     for (const match of line.matchAll(/(?:^|[{,]\s*)(["']?)([A-Za-z0-9_.-]+)\1\s*=/g)) {
-      const key = match[2].split(".").at(-1) ?? "";
+      const key = (match[2] ?? "").split(".").at(-1) ?? "";
       if (CODEX_ENV_NAME_KEY.test(key)) continue;
       if (CODEX_PRIVATE_KEY.test(key)) return false;
     }
