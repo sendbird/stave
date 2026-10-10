@@ -5,6 +5,7 @@ import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import {
   describeProviderAccountSetup,
+  type ProviderAccountSettingsSharingMode,
   type ProviderAccountSetupState,
 } from "@/lib/providers/provider-account-setup";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
@@ -39,9 +40,14 @@ export function ProviderAccountSetupSharing(props: {
     };
   }, [profile.providerId, profile.id]);
   if (!setup) return null;
-  const apply = (enabled: boolean) =>
+  const apply = (enabled: boolean, settingsMode?: ProviderAccountSettingsSharingMode) =>
     props.run(async () => {
-      const result = await window.api!.providerAccounts!.shareSetup({ providerId: profile.providerId, id: profile.id, enabled });
+      const result = await window.api!.providerAccounts!.shareSetup({
+        providerId: profile.providerId,
+        id: profile.id,
+        enabled,
+        ...(settingsMode ? { settingsMode } : {}),
+      });
       if (!result.ok) throw new Error(result.message);
       setSetup(result.setup);
     });
@@ -55,6 +61,15 @@ export function ProviderAccountSetupSharing(props: {
         disabled={props.busy}
         onCheckedChange={(checked) => apply(checked === true)}
       />
+      {setup.enabled && setup.settingsMode && (
+        <Checkbox
+          label={t("settingsConnections:providerAccountSetupSharing.linkSettings")}
+          description={t("settingsConnections:providerAccountSetupSharing.linkSettingsDescription")}
+          checked={setup.settingsMode === "link"}
+          disabled={props.busy}
+          onCheckedChange={(checked) => apply(true, checked === true ? "link" : "copy")}
+        />
+      )}
       {setup.enabled && copiesSettings && (
         <Tooltip>
           <TooltipTrigger

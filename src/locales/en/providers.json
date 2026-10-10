@@ -305,7 +305,7 @@
     "aLinkKeepsEveryAccountInVariantee083f15": "A link keeps every account in sync with your slash commands.",
     "aLinkKeepsInstalledPluginsAnd": "A link keeps installed plugins and their marketplaces in one place.",
     "youEditItByHandAnd": "You edit it by hand and it holds no login, so a link applies each edit everywhere.",
-    "itCanNameAPIKeysAnd": "It can name API keys and login rules, and the CLI rewrites it per account, so each account gets a filtered copy.",
+    "itCanNameAPIKeysAnd": "It can name API keys and login rules, so it is linked only while it holds none; otherwise, or when you choose a copy, each account gets a filtered copy.",
     "theLoginEveryAccountSignsIn": "The login. Every account signs in on its own.",
     "holdsWhoIsSignedInPer": "Holds who is signed in, per-project history and caches. MCP servers are not shared.",
     "conversationHistoryBelongsToTheAccount": "Conversation history belongs to the account that had it.",
@@ -313,7 +313,7 @@
     "sessionStateBelongsToTheAccount": "Session state belongs to the account that created it.",
     "featureFlagsAndCachesAreTied": "Feature flags and caches are tied to the signed-in account.",
     "aLinkKeepsEveryAccountInVariant40e8eda0": "A link keeps every account in sync with your custom prompts.",
-    "codexCanKeepEndpointLoginAnd": "Codex can keep endpoint, login and MCP credential settings here and rewrites the file itself, so it is not shared."
+    "codexCanKeepEndpointLoginAnd": "It holds model, approval, MCP and hook settings and can name a login or token, so it is linked only while it names none and is otherwise left to the account."
   },
   "threadActions": {
     "rollBackLaterCodexTurnAnd": "Roll back {{value1}} later Codex turn{{value2}} and remove all later task messages. Workspace files are not reverted.",
