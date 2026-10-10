@@ -6,7 +6,7 @@ import {
   displayUserInputOptionLabel,
   shouldShowUserInputRecommendedBadge,
 } from "@/lib/user-input-options";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
 import type { UserInputQuestion } from "@/types/chat";
@@ -15,9 +15,11 @@ import type { UserInputQuestion } from "@/types/chat";
  * `composer` replaces the prompt input and carries its own height cap;
  * `embedded` sits inside a host card that owns the frame and the cap (the
  * delegated-request slot), so it only lets the questions scroll; `inline` is a
- * bordered card in the transcript; `summary` is the read-only result.
+ * bordered card in the transcript; `summary` is compact while awaiting input.
+ * Answered requests retain the question layout as a read-only record.
  */
-export type UserInputCardPresentation = "composer" | "embedded" | "inline" | "summary";
+export type UserInputCardPresentation =
+  "composer" | "embedded" | "inline" | "summary";
 
 interface UserInputCardProps {
   toolName: string;
@@ -53,16 +55,20 @@ function parseAnswerValue(args: {
   if (!raw) {
     return { selected: [], custom: "" };
   }
-  const parts = args.multiSelect
-    ? raw
-        .split(",")
-        .map((part) => part.trim())
-        .filter(Boolean)
-    : [raw];
+  const separator = raw.includes("\n") ? "\n" : ",";
+  const parts =
+    args.multiSelect && !args.optionValues.includes(raw)
+      ? raw
+          .split(separator)
+          .map((part) => part.trim())
+          .filter(Boolean)
+      : [raw];
   const selected = parts.filter((part) => args.optionValues.includes(part));
-  const custom = parts
-    .filter((part) => !args.optionValues.includes(part))
-    .join(", ");
+  const custom = selected.length === 0
+    ? raw
+    : parts
+        .filter((part) => !args.optionValues.includes(part))
+        .join(separator === "\n" ? "\n" : ", ");
   return { selected, custom };
 }
 
@@ -97,7 +103,6 @@ function getRequestStateCopy(state: UserInputCardProps["state"]): {
 function UserInputSummary(args: {
   questions: UserInputQuestion[];
   state: UserInputCardProps["state"];
-  answers?: Record<string, string>;
 }) {
   useTranslation();
   const copy = getRequestStateCopy(args.state);
@@ -119,55 +124,18 @@ function UserInputSummary(args: {
         </span>
         <div className={sx(styles.summaryBody)}>
           <p className={sx(styles.summaryTitle)}>{copy.title}</p>
-          <p className={sx(styles.summaryDetail)}>
-            {copy.detail}
-          </p>
+          <p className={sx(styles.summaryDetail)}>{copy.detail}</p>
           {args.state === "input-requested" && firstQuestion ? (
             <p className={sx(styles.summaryFirstQuestion)}>
               {firstQuestion}
               {args.questions.length > 1 ? (
                 <span className={sx(styles.summaryMoreCount)}>
                   {" "}
-                  · +{args.questions.length - 1} {i18n.t("composer:userInputCard.userInputSummary")}</span>
+                  · +{args.questions.length - 1}{" "}
+                  {i18n.t("composer:userInputCard.userInputSummary")}
+                </span>
               ) : null}
             </p>
-          ) : null}
-          {args.state === "input-responded" ? (
-            <dl className={sx(styles.answerList)}>
-              {args.questions.map((question) => {
-                const answer =
-                  args.answers?.[getQuestionKey(question)] ??
-                  (question.inputType === "url_notice"
-                    ? i18n.t("composer:userInputCard.extraCopy73")
-                    : i18n.t("composer:userInputCard.extraCopy74"));
-                const displayAnswer = answer
-                  .split(",")
-                  .map((value) => value.trim())
-                  .map((value) => {
-                    const option = question.options.find(
-                      (candidate) =>
-                        (candidate.value ?? candidate.label) === value,
-                    );
-                    return option
-                      ? displayUserInputOptionLabel(option.label)
-                      : value;
-                  })
-                  .join(", ");
-                return (
-                  <div
-                    key={getQuestionKey(question)}
-                    className={sx(styles.answerRow)}
-                  >
-                    <dt className={sx(styles.answerTerm)}>
-                      {question.header}
-                    </dt>
-                    <dd className={sx(styles.answerValue)}>
-                      {displayAnswer}
-                    </dd>
-                  </div>
-                );
-              })}
-            </dl>
           ) : null}
         </div>
       </div>
@@ -187,13 +155,17 @@ export function UserInputCard(args: UserInputCardProps) {
     disabledReason,
     presentation = "inline",
   } = args;
+  const readOnly = state === "input-responded";
   const formId = useId();
   const initialSelectionByQuestion = useMemo(
     () =>
       Object.fromEntries(
         questions.map((question) => {
           const parsed = parseAnswerValue({
-            value: answers?.[getQuestionKey(question)] ?? question.defaultValue,
+            value:
+              answers?.[getQuestionKey(question)] ??
+              answers?.[question.header] ??
+              (readOnly ? undefined : question.defaultValue),
             multiSelect: question.multiSelect,
             optionValues: question.options.map(
               (option) => option.value ?? option.label,
@@ -202,7 +174,7 @@ export function UserInputCard(args: UserInputCardProps) {
           return [getQuestionKey(question), parsed];
         }),
       ) as Record<string, QuestionSelection>,
-    [answers, questions],
+    [answers, questions, readOnly],
   );
   const initialCustomOpenByQuestion = useMemo(
     () =>
@@ -265,21 +237,25 @@ export function UserInputCard(args: UserInputCardProps) {
     return Boolean(compiledAnswers[getQuestionKey(question)]?.trim());
   });
 
-  if (presentation === "summary" || state !== "input-requested") {
-    return (
-      <UserInputSummary questions={questions} state={state} answers={answers} />
-    );
+  if (
+    (!readOnly && presentation === "summary") ||
+    state === "input-denied" ||
+    state === "input-interrupted"
+  ) {
+    return <UserInputSummary questions={questions} state={state} />;
   }
 
   const questionCountLabel =
     questions.length === 1
       ? i18n.t("composer:userInputCard.questionCountLabel")
       : questions.length > 1
-        ? i18n.t("composer:userInputCard.questionCountLabel2", { value1: questions.length })
+        ? i18n.t("composer:userInputCard.questionCountLabel2", {
+            value1: questions.length,
+          })
         : i18n.t("composer:userInputCard.questionCountLabel3");
 
   const formPresentationStyle =
-    presentation === "inline"
+    readOnly || presentation === "inline"
       ? styles.formInline
       : presentation === "composer"
         ? styles.formComposer
@@ -287,33 +263,45 @@ export function UserInputCard(args: UserInputCardProps) {
           ? styles.formEmbedded
           : null;
   const questionsWrapComposerStyle =
-    presentation === "composer" || presentation === "embedded"
+    !readOnly && (presentation === "composer" || presentation === "embedded")
       ? styles.questionsWrapComposer
       : null;
+  const Container = readOnly ? "section" : "form";
+  const copy = getRequestStateCopy(state);
 
   return (
-    <form
+    <Container
       aria-labelledby={`${formId}-title`}
       className={sx(styles.formBase, formPresentationStyle)}
+      data-user-input-state={state}
       onSubmit={(event) => {
         event.preventDefault();
-        if (!disabled && isReady) {
+        if (!readOnly && !disabled && isReady) {
           onSubmit?.(compiledAnswers);
         }
       }}
     >
       <header className={sx(styles.header)}>
         <span className={sx(styles.headerBadge)}>
-          <CircleHelp className={sx(styles.iconMd)} aria-hidden />
+          {readOnly ? (
+            <Check className={sx(styles.iconMd)} aria-hidden />
+          ) : (
+            <CircleHelp className={sx(styles.iconMd)} aria-hidden />
+          )}
         </span>
-        <div className={sx(styles.headerBody)}>
-          <h3
-            id={`${formId}-title`}
-            className={sx(styles.headerTitle)}
-          >
-            {i18n.t("composer:userInputCard.userInputCard")}</h3>
+        <div
+          className={sx(styles.headerBody, readOnly && focusRing.ring)}
+          role={readOnly ? "status" : undefined}
+          aria-live={readOnly ? "polite" : undefined}
+          tabIndex={readOnly ? -1 : undefined}
+        >
+          <h3 id={`${formId}-title`} className={sx(styles.headerTitle)}>
+            {readOnly
+              ? copy.title
+              : i18n.t("composer:userInputCard.userInputCard")}
+          </h3>
           <p className={sx(styles.headerDetail)}>
-            {questionCountLabel}
+            {readOnly ? copy.detail : questionCountLabel}
           </p>
         </div>
       </header>
@@ -329,7 +317,10 @@ export function UserInputCard(args: UserInputCardProps) {
         >
           {questions.map((question, questionIndex) => {
             const questionKey = getQuestionKey(question);
-            const selection = selectionByQuestion[questionKey] ?? {
+            const selections = readOnly
+              ? initialSelectionByQuestion
+              : selectionByQuestion;
+            const selection = selections[questionKey] ?? {
               selected: [],
               custom: "",
             };
@@ -352,9 +343,7 @@ export function UserInputCard(args: UserInputCardProps) {
             return (
               <div
                 key={questionKey}
-                className={sx(
-                  questionIndex > 0 && styles.questionBlockDivided,
-                )}
+                className={sx(questionIndex > 0 && styles.questionBlockDivided)}
               >
                 <fieldset className={sx(styles.fieldset)}>
                   <legend className={sx(styles.legend)}>
@@ -362,7 +351,11 @@ export function UserInputCard(args: UserInputCardProps) {
                       <span className={sx(styles.legendHeader)}>
                         {question.header}
                       </span>
-                      <span className={sx(styles.legendHint)}>{selectionHint}</span>
+                      {readOnly ? null : (
+                        <span className={sx(styles.legendHint)}>
+                          {selectionHint}
+                        </span>
+                      )}
                     </span>
                     <span className={sx(styles.legendQuestion)}>
                       {question.question}
@@ -387,7 +380,8 @@ export function UserInputCard(args: UserInputCardProps) {
                               styles.option,
                               focusRing.ringWithin,
                               isSelected && styles.optionSelected,
-                              disabled && styles.optionDisabled,
+                              readOnly && styles.optionReadOnly,
+                              !readOnly && disabled && styles.optionDisabled,
                             )}
                           >
                             <input
@@ -396,7 +390,7 @@ export function UserInputCard(args: UserInputCardProps) {
                               name={`${formId}-question-${questionIndex}`}
                               value={optionValue}
                               checked={isSelected}
-                              disabled={disabled}
+                              disabled={readOnly || disabled}
                               onChange={() => {
                                 setSelectionByQuestion((current) => {
                                   const previous = current[questionKey] ?? {
@@ -458,7 +452,8 @@ export function UserInputCard(args: UserInputCardProps) {
                                     variant="secondary"
                                     className={sx(styles.recommendedBadge)}
                                   >
-                                    {i18n.t("composer:userInputCard.copy")}</Badge>
+                                    {i18n.t("composer:userInputCard.copy")}
+                                  </Badge>
                                 ) : null}
                               </span>
                               {option.description ? (
@@ -491,11 +486,23 @@ export function UserInputCard(args: UserInputCardProps) {
                         }
                       >
                         <ExternalLink className={sx(styles.iconSm)} />
-                        {i18n.t("composer:userInputCard.copy2")}</Button>
+                        {i18n.t("composer:userInputCard.copy2")}
+                      </Button>
                     </div>
                   ) : null}
 
-                  {supportsCustom && question.options.length > 0 ? (
+                  {readOnly &&
+                  inputType !== "url_notice" &&
+                  (selection.custom || selection.selected.length === 0) ? (
+                    <p className={sx(styles.recordedAnswer)}>
+                      {selection.custom ||
+                        i18n.t("composer:userInputCard.extraCopy74")}
+                    </p>
+                  ) : null}
+
+                  {!readOnly &&
+                  supportsCustom &&
+                  question.options.length > 0 ? (
                     <Button
                       type="button"
                       size="sm"
@@ -529,14 +536,17 @@ export function UserInputCard(args: UserInputCardProps) {
                     </Button>
                   ) : null}
 
-                  {supportsCustom && customOpen ? (
+                  {!readOnly && supportsCustom && customOpen ? (
                     <div className={sx(styles.customInputWrap)}>
                       {inputType === "number" || inputType === "integer" ? (
                         <Input
                           type="number"
                           value={selection.custom}
                           disabled={disabled}
-                          aria-label={i18n.t("composer:userInputCard.ariaLabel", { value1: question.question })}
+                          aria-label={i18n.t(
+                            "composer:userInputCard.ariaLabel",
+                            { value1: question.question },
+                          )}
                           onChange={(event) => {
                             const value = event.target.value;
                             setSelectionByQuestion((current) => ({
@@ -555,7 +565,10 @@ export function UserInputCard(args: UserInputCardProps) {
                         <Textarea
                           value={selection.custom}
                           disabled={disabled}
-                          aria-label={i18n.t("composer:userInputCard.ariaLabel2", { value1: question.question })}
+                          aria-label={i18n.t(
+                            "composer:userInputCard.ariaLabel2",
+                            { value1: question.question },
+                          )}
                           className={sx(styles.customTextarea)}
                           onChange={(event) => {
                             const value = event.target.value;
@@ -586,26 +599,27 @@ export function UserInputCard(args: UserInputCardProps) {
         </div>
       ) : null}
 
-      <div className={sx(styles.footer)}>
-        <Button type="submit" size="sm" disabled={disabled || !isReady}>
-          {i18n.t("composer:userInputCard.userInputCard2")}</Button>
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          disabled={disabled}
-          onClick={onDeny}
-        >
-          {i18n.t("composer:userInputCard.userInputCard3")}</Button>
-        {disabledReason ? (
-          <p
-            className={sx(styles.disabledReason)}
-            role="status"
+      {!readOnly ? (
+        <div className={sx(styles.footer)}>
+          <Button type="submit" size="sm" disabled={disabled || !isReady}>
+            {i18n.t("composer:userInputCard.userInputCard2")}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            disabled={disabled}
+            onClick={onDeny}
           >
-            {disabledReason}
-          </p>
-        ) : null}
-      </div>
-    </form>
+            {i18n.t("composer:userInputCard.userInputCard3")}
+          </Button>
+          {disabledReason ? (
+            <p className={sx(styles.disabledReason)} role="status">
+              {disabledReason}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </Container>
   );
 }

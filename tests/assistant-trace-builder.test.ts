@@ -11,6 +11,55 @@ function createAssistantMessage(args: Partial<Pick<ChatMessage, "content" | "par
 }
 
 describe("buildAssistantTrace", () => {
+  test("renders a structured question once and retains unmatched question tools", () => {
+    const trace = buildAssistantTrace({
+      message: createAssistantMessage({
+        parts: [
+          {
+            type: "tool_use",
+            toolUseId: "question-1",
+            toolName: "AskUserQuestion",
+            input: '{"questions":[]}',
+            output: '{"answers":{"scope":"Focused"}}',
+            state: "output-available",
+          },
+          {
+            type: "user_input",
+            requestId: "question-1",
+            toolName: "AskUserQuestion",
+            questions: [],
+            answers: { scope: "Focused" },
+            state: "input-responded",
+          },
+          {
+            type: "tool_use",
+            toolUseId: "question-2",
+            toolName: "AskUserQuestion",
+            input: '{"questions":[]}',
+            state: "output-error",
+          },
+          {
+            type: "tool_use",
+            toolUseId: "shell-1",
+            toolName: "Bash",
+            input: "bun run typecheck",
+            state: "output-available",
+          },
+        ],
+      }),
+    });
+    expect(trace.entries.map((entry) => entry.kind)).toEqual([
+      "user_input",
+      "tool",
+      "tool",
+    ]);
+    expect(
+      trace.entries[1]?.kind === "tool"
+        ? trace.entries[1].part.toolUseId
+        : undefined,
+    ).toBe("question-2");
+  });
+
   test("groups consecutive thinking into a single reasoning entry and keeps trailing text as response", () => {
     const trace = buildAssistantTrace({
       message: createAssistantMessage({
