@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { isLensGuestPointerTarget } from "@/lib/lens/lens-guest-interaction";
 import {
   acquireLensGuestPointerPassthrough,
+  setLensGuestCapturePaint,
+  resetLensGuestCapturePaint,
   ensureLensGuest,
   focusLensGuest,
   parkLensGuestsOutsideWorkspace,
@@ -112,6 +114,13 @@ export function useLensGuestHost(): void {
         });
       });
 
+    const unsubscribeCapturePaint = lens.subscribeCapturePaint?.((payload) => {
+      const ok = setLensGuestCapturePaint(payload);
+      // Style application is synchronous. Native capture waits for its own frame;
+      // a renderer rAF acknowledgement can itself stall in a minimized window.
+      if (payload.active) lens.reportCapturePaint?.({ requestId: payload.requestId, ok });
+    });
+
     const unsubscribeWorkspace = useAppStore.subscribe((state, previous) => {
       if (state.activeWorkspaceId === previous.activeWorkspaceId) {
         return;
@@ -145,6 +154,8 @@ export function useLensGuestHost(): void {
       unsubscribeFocusRequests?.();
       unsubscribeFocusRestoreRequests?.();
       unsubscribeWorkspace();
+      unsubscribeCapturePaint?.();
+      resetLensGuestCapturePaint();
       window.removeEventListener("pointerdown", onPointerDown, true);
       window.removeEventListener("pointerup", endPointerPassthrough, true);
       window.removeEventListener("pointercancel", endPointerPassthrough, true);

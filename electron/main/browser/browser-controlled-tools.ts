@@ -1,3 +1,4 @@
+import { captureLensPreview } from "./browser-capture-preview";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { bindLensAutomation, runLensAutomation } from "./browser-automation-control";
 import { resolvePreferredBrowserSession } from "./browser-manager";
@@ -21,17 +22,7 @@ export function controlledLensTools(server: McpServer): McpServer {
           }, async () => {
             if (!CAPTURE_TOOLS.has(name)) return;
             if (!session || session.webContents.isDestroyed()) return;
-            const documentId = session.documentId;
-            let timer: ReturnType<typeof setTimeout> | undefined;
-            const image = await Promise.race([
-              session.webContents.capturePage(),
-              new Promise<undefined>((resolve) => { timer = setTimeout(() => resolve(undefined), 1500); }),
-            ]).finally(() => clearTimeout(timer));
-            if (!image) return;
-            if (image.isEmpty() || session.documentId !== documentId) return;
-            const preview = image.resize({ width: Math.min(640, image.getSize().width) }).toJPEG(60);
-            if (preview.byteLength > 256_000) return;
-            return `data:image/jpeg;base64,${preview.toString("base64")}`;
+            return captureLensPreview(session);
           });
         };
         return Reflect.apply(target.registerTool, target, [name, config, wrapped]);
