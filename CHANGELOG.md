@@ -10,6 +10,8 @@ This minor release brings project-scoped defaults, resumable workspace cleanup a
 - Masked secret-request cards save directly to the vault and bind an environment variable for subsequent turns. PR watches can wake a task on CI failures or conflicts, with review comments available by opt-in.
 - Saved-Agent delegations continue under supervised completion. Opt-in Balanced resources bound parent/helper attempts and validate model/effort adjustments while preserving account, permission and model pins.
 - Structured asynchronous questions survive turn completion, replies reach the active stage, and recovery, cancellation and stale-execution fencing are more reliable.
+- Answered questions keep their original choices in conversation history: the completed card is read-only, marks the submitted answers (including multi-select and free text) and moves focus to the answered status.
+- Lens screenshots no longer leave pages shifted or clipped after overlapping captures, workspace switches or timeouts; element, area and full-page captures are cropped from viewport pixels and viewport recovery runs when returning to a tab or reloading.
 
 ### Upgrade Notes
 
@@ -24,7 +26,7 @@ This minor release brings project-scoped defaults, resumable workspace cleanup a
 
 ### References
 
-- [PR #702](https://github.com/sendbird/stave/pull/702), [PR #708](https://github.com/sendbird/stave/pull/708), [PR #715](https://github.com/sendbird/stave/pull/715)
+- [PR #702](https://github.com/sendbird/stave/pull/702), [PR #708](https://github.com/sendbird/stave/pull/708), [PR #715](https://github.com/sendbird/stave/pull/715), [PR #717](https://github.com/sendbird/stave/pull/717), [PR #718](https://github.com/sendbird/stave/pull/718)
 
 ## [0.25.2](https://github.com/sendbird/stave/compare/v0.25.1...v0.25.2) (2026-10-08)
 
