@@ -107,6 +107,10 @@ export function buildAssistantTrace(args: {
   const responseParts: TextPart[] = [];
   const fileContextParts: FileContextPart[] = [];
   const imageContextParts: ImageContextPart[] = [];
+  const userInputRequestIds = new Set<string>();
+  for (const part of renderableParts) {
+    if (part.type === "user_input") userInputRequestIds.add(part.requestId);
+  }
 
   renderableParts.forEach((part, index) => {
     switch (part.type) {
@@ -151,6 +155,11 @@ export function buildAssistantTrace(args: {
         return;
       }
       case "tool_use": {
+        // A structured question owns the same request's visible history.
+        // Keep the raw tool payload persisted without rendering a second row.
+        if (part.toolUseId && userInputRequestIds.has(part.toolUseId)) {
+          return;
+        }
         const id = `tool-${index}`;
         if (isTodoToolPart({ toolName: part.toolName })) {
           const owned = Boolean(part.ownerAgentId || part.parentToolUseId);

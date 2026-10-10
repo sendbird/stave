@@ -32,7 +32,10 @@ export const userInputCardStyles = stylex.create({
   },
   iconSm: { width: 14, height: 14 },
   summaryBody: { minWidth: 0, flex: 1 },
-  summaryTitle: { fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text"] },
+  summaryTitle: {
+    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--ads-color-text"],
+  },
   summaryDetail: {
     marginTop: vars["--ads-space-2"],
     fontSize: vars["--ads-font-size-caption"],
@@ -48,28 +51,6 @@ export const userInputCardStyles = stylex.create({
     overflow: "hidden",
   },
   summaryMoreCount: { color: vars["--ads-color-text-muted"] },
-  answerList: {
-    marginTop: vars["--ads-space-8"],
-    display: "flex",
-    flexDirection: "column",
-    gap: "0.375rem",
-  },
-  answerRow: {
-    display: "grid",
-    gridTemplateColumns: "minmax(0,0.45fr) minmax(0,1fr)",
-    gap: vars["--ads-space-12"],
-  },
-  answerTerm: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    color: vars["--ads-color-text-muted"],
-  },
-  answerValue: {
-    minWidth: 0,
-    color: vars["--ads-color-text"],
-    wordBreak: "break-word",
-  },
 
   // ── Form ─────────────────────────────────────────────────────
   formBase: { fontSize: vars["--ads-font-size-body"] },
@@ -220,6 +201,13 @@ export const userInputCardStyles = stylex.create({
     pointerEvents: "none",
     cursor: "not-allowed",
     opacity: 0.45,
+  },
+  optionReadOnly: { pointerEvents: "none", cursor: "default" },
+  recordedAnswer: {
+    marginTop: vars["--ads-space-12"],
+    color: vars["--ads-color-text"],
+    overflowWrap: "anywhere",
+    whiteSpace: "pre-wrap",
   },
   srOnly: {
     position: "absolute",

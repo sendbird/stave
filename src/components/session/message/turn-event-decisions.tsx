@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { Approval } from "@/components/ads/components/Approval";
 import type { ApprovalOutcome } from "@/components/ads/components/Approval";
@@ -15,6 +15,7 @@ import { RadioGroup } from "@/components/ads/components/RadioGroup";
 import { TextField } from "@/components/ads/components/TextField";
 import { sx } from "@/components/ads/utils/stylex";
 import { getTodoProgress, type TodoStatus } from "@/components/ai-elements/todo";
+import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { useAppStore } from "@/store/app.store";
 import type {
   ApprovalPart,
@@ -321,8 +322,19 @@ export function TraceClarification(args: {
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const focusWithinRef = useRef(false);
   const outcome = toClarificationOutcome(part);
   const open = part.state === "input-requested";
+
+  useLayoutEffect(() => {
+    if (part.state !== "input-responded" || !focusWithinRef.current) return;
+    // Preserve the decision surface's focus handoff when its form is replaced.
+    containerRef.current
+      ?.querySelector<HTMLElement>('[role="status"]')
+      ?.focus();
+    focusWithinRef.current = false;
+  }, [part.state]);
 
   const missingRequired = part.questions.some((question, index) => {
     if (question.required !== true) return false;
@@ -331,54 +343,85 @@ export function TraceClarification(args: {
   });
 
   return (
-    <Clarification
-      busy={busy}
-      continueLabel={i18n.t("session:turnEventDecisions.continueLabel")}
-      data-pending-interaction={open ? "true" : undefined}
-      data-pending-interaction-request-id={open ? part.requestId : undefined}
-      description={part.questions[0]?.question}
-      onContinue={
-        missingRequired
-          ? undefined
-          : () => {
-              setBusy(true);
-              resolveUserInput({
-                answers,
-                messageId,
-                requestId: part.requestId,
-                taskId,
-              });
-            }
-      }
-      onSkip={() => {
-        setBusy(true);
-        resolveUserInput({
-          denied: true,
-          messageId,
-          requestId: part.requestId,
-          taskId,
-        });
+    <div
+      ref={containerRef}
+      onFocusCapture={() => {
+        focusWithinRef.current = true;
       }}
-      outcome={outcome}
-      skipLabel={i18n.t("session:turnEventDecisions.skipLabel")}
-      tabIndex={open ? -1 : undefined}
-      title={getToolTitle(part.toolName)}
-      totalSteps={part.questions.length > 1 ? part.questions.length : undefined}
-    >
-      {part.questions.map((question, index) => {
-        const key = questionKey(question, index);
-        return (
-          <ClarificationField
-            disabled={busy}
-            key={key}
-            onChange={(value) =>
-              setAnswers((previous) => ({ ...previous, [key]: value }))
+      onBlurCapture={(event) => {
+        if (event.relatedTarget == null) {
+          queueMicrotask(() => {
+            if (!containerRef.current?.contains(document.activeElement)) {
+              focusWithinRef.current = false;
             }
-            question={question}
-            value={answers[key] ?? ""}
-          />
-        );
-      })}
-    </Clarification>
+          });
+        } else if (!event.currentTarget.contains(event.relatedTarget as Node)) {
+          focusWithinRef.current = false;
+        }
+      }}
+    >
+      {part.state === "input-responded" ? (
+        <UserInputCard
+          answers={part.answers}
+          questions={part.questions}
+          state={part.state}
+          toolName={part.toolName}
+        />
+      ) : (
+        <Clarification
+          busy={busy}
+          continueLabel={i18n.t("session:turnEventDecisions.continueLabel")}
+          data-pending-interaction={open ? "true" : undefined}
+          data-pending-interaction-request-id={
+            open ? part.requestId : undefined
+          }
+          description={part.questions[0]?.question}
+          onContinue={
+            missingRequired
+              ? undefined
+              : () => {
+                  setBusy(true);
+                  resolveUserInput({
+                    answers,
+                    messageId,
+                    requestId: part.requestId,
+                    taskId,
+                  });
+                }
+          }
+          onSkip={() => {
+            setBusy(true);
+            resolveUserInput({
+              denied: true,
+              messageId,
+              requestId: part.requestId,
+              taskId,
+            });
+          }}
+          outcome={outcome}
+          skipLabel={i18n.t("session:turnEventDecisions.skipLabel")}
+          tabIndex={open ? -1 : undefined}
+          title={getToolTitle(part.toolName)}
+          totalSteps={
+            part.questions.length > 1 ? part.questions.length : undefined
+          }
+        >
+          {part.questions.map((question, index) => {
+            const key = questionKey(question, index);
+            return (
+              <ClarificationField
+                disabled={busy}
+                key={key}
+                onChange={(value) =>
+                  setAnswers((previous) => ({ ...previous, [key]: value }))
+                }
+                question={question}
+                value={answers[key] ?? ""}
+              />
+            );
+          })}
+        </Clarification>
+      )}
+    </div>
   );
 }

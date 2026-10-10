@@ -327,9 +327,13 @@ describe("ADS turn-event components", () => {
       />,
     );
     expect(answered).toContain("Answered");
-    expect(answered).toContain("Recorded answer");
-    expect(answered).toContain("deploy: Staging");
+    expect(answered).toContain("Which environment should this deploy to?");
+    expect(answered).toContain("Production");
+    expect(answered).toContain("Safe");
+    expect(answered).toMatch(/<input[^>]*checked=""[^>]*value="Staging"/);
+    expect(answered).toMatch(/<input[^>]*disabled=""[^>]*value="Production"/);
     expect(answered).not.toContain("Submit");
+    expect(answered).not.toContain("Continue");
   });
 
   test("an interrupted clarification is withdrawn rather than skipped", () => {
