@@ -209,12 +209,10 @@ let lensCreationSequence = 0;
 /**
  * How many bound-but-hidden guests are kept alive at once.
  *
- * Every guest is a full renderer process, and Lens parks hidden ones with
- * `opacity: 0` rather than `visibility: hidden` precisely so they keep
- * compositing and can still answer a screenshot — which means a hidden guest
- * costs very nearly what a visible one costs. Nothing else bounds the count:
- * switching workspaces leaves every Lens tab's session open, so without a cap
- * an afternoon of normal use accumulates helper processes monotonically.
+ * Every guest is a full renderer process even when its opacity is zero.
+ * Capture leases temporarily enable hidden-page frame production; the count
+ * cap and idle sleep policy bound the cost of retained workspace sessions.
+ * Without a cap, workspace switching accumulates helper processes.
  *
  * Agent-driven sessions use a separate cap and a longer idle deadline so they
  * remain addressable without growing the renderer set without bound.
@@ -905,16 +903,8 @@ function wireBrowserSession(args: {
    */
   webContents.setAudioMuted(true);
 
-  /*
-   * Not a CPU control, despite how it reads.
-   *
-   * `backgroundThrottling` already defaults to `true`, and it only engages when
-   * Chromium considers the page backgrounded — which a Lens guest never is:
-   * parking is `opacity: 0` specifically so the compositor keeps producing
-   * frames and `Page.captureScreenshot` keeps working. The knob that actually
-   * bounds hidden-guest cost is `MAX_HIDDEN_LENS_GUESTS`. Kept explicit so a
-   * future default flip cannot silently change the guest's behaviour.
-   */
+  // Idle guests remain throttled. A capture lease temporarily disables
+  // throttling and restores this value after the native operation settles.
   webContents.setBackgroundThrottling(true);
 
   /*

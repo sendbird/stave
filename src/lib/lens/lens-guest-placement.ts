@@ -70,31 +70,10 @@ export function isLensGuestVisuallyPresented(
 /**
  * Resolve the style a guest element should carry.
  *
- * Three properties matter more than the arithmetic, and all three are about a
- * guest that is *not* on screen. An agent-driven session is opened with no
- * panel showing it and may never be shown at all, yet `stave_lens_screenshot`
- * has to answer for it — so "parked" must mean invisible, not uncomposited.
- *
- * 1. **Park with `opacity: 0`, never `visibility: hidden` or `display: none`.**
- *    Chromium produces no compositor frame for either of those, and with no
- *    frame there is no surface to capture: `Page.captureScreenshot` against a
- *    `visibility: hidden` guest fails outright with "Unable to capture
- *    screenshot", and a guest hidden *after* having been visible answers
- *    nothing at all until Lens's own 15s guard fires. `opacity: 0` keeps the
- *    guest compositing — measured live, a navigation still repaints 99.9% of
- *    the captured pixels — so the agent path keeps working while the guest
- *    stays invisible to the user.
- * 2. **`pointer-events: none` is what makes a parked guest untouchable**, not
- *    the lack of paint. An `opacity: 0` element is still hit-testable; without
- *    this, a parked guest would swallow clicks meant for the app. With it,
- *    `elementFromPoint` over the guest's rectangle returns the app's own
- *    chrome.
- * 3. **Parked guests keep their size and their place.** They are hidden, not
- *    moved offscreen. Chromium throttles frame production for content outside
- *    the viewport — and an offscreen guest fails a screenshot the same way a
- *    hidden one does, also measured. Staying put is what keeps it answerable.
- * 4. **Never reveal without a measured rectangle.** The default viewport is
- *    for layout and screenshots, not for showing a page at the window origin.
+ * Parked guests retain their last measured CSS rectangle and reject pointer
+ * input. Opacity zero permits idle compositor throttling; capture preparation
+ * temporarily uses a transparent filter so a hidden guest can produce frames.
+ * Never reveal a guest without a measured rectangle or move it offscreen.
  */
 export function resolveLensGuestStyle(
   placement: LensGuestPlacement,

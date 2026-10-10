@@ -190,6 +190,7 @@ export async function sendCdpCommand(
   webContentsId: number,
   method: string,
   params?: Record<string, unknown>,
+  beforeDispatch?: () => void,
 ): Promise<unknown> {
   assertLensAutomationAllowed();
   ensureCdpAttached(webContentsId);
@@ -199,6 +200,7 @@ export async function sendCdpCommand(
     if (controller.sleeping) await setCdpPageSleeping(webContentsId, false);
     await controller.lifecycleChange.catch(() => undefined);
     assertLensAutomationAllowed();
+    beforeDispatch?.();
     return await requireWebContents(webContentsId).debugger.sendCommand(
       method,
       params,

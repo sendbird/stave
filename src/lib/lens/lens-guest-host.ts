@@ -17,7 +17,7 @@ import {
   resolveLensGuestStyle,
   type LensGuestPlacement,
 } from "./lens-guest-placement";
-import type { LensBounds } from "./lens.types";
+import type { LensCapturePaintRequest, LensBounds } from "./lens.types";
 
 /**
  * The renderer's registry of Lens guest pages.
@@ -80,6 +80,7 @@ type GuestRecord = {
   chromeLayer: HTMLDivElement;
   /** Resolves with the guest's WebContents id once it has attached. */
   attached: Promise<number>;
+  captureRequests: Set<string>;
   placement: LensGuestPlacement;
   /** Last style object written, so unchanged layout writes nothing. */
   appliedStyle: ReturnType<typeof resolveLensGuestStyle> | null;
@@ -206,8 +207,8 @@ function createGuestElement(descriptor: LensGuestDescriptor): LensGuestElement {
   /*
    * Guests start parked: nothing has measured a rectangle for one yet, and a
    * session opened by an agent may never be shown at all. Parking is
-   * `opacity: 0` rather than `visibility: hidden` because a guest Chromium
-   * does not composite cannot answer a screenshot — see `resolveLensGuestStyle`.
+   * `opacity: 0`; a capture lease temporarily makes them paintable without
+   * presenting them — see `applyPlacement`.
    */
   element.style.opacity = "0";
   element.style.pointerEvents = "none";
@@ -322,6 +323,7 @@ export function ensureLensGuest(
     element,
     chromeLayer,
     attached,
+    captureRequests: new Set(),
     placement: { rect: null, presented: false },
     appliedStyle: null,
   });
@@ -378,6 +380,11 @@ function applyPlacement(key: string): void {
   const pointerEvents = isGuestPointerPassthroughActive
     ? "none"
     : style.pointerEvents;
+  // A filter keeps a hidden guest composited without making it visible or
+  // hit-testable. Placement remains authoritative across workspace switches.
+  const capturing = record.captureRequests.size > 0 && style.opacity === "0";
+  record.element.style.filter = capturing ? "opacity(0)" : "";
+  const guestOpacity = capturing ? "1" : style.opacity;
   const previous = record.appliedStyle;
   if (
     previous &&
@@ -386,6 +393,7 @@ function applyPlacement(key: string): void {
     previous.width === style.width &&
     previous.height === style.height &&
     previous.opacity === style.opacity &&
+    record.element.style.opacity === guestOpacity &&
     previous.pointerEvents === pointerEvents
   ) {
     return;
@@ -397,7 +405,7 @@ function applyPlacement(key: string): void {
   target.top = style.top;
   target.width = style.width;
   target.height = style.height;
-  target.opacity = style.opacity;
+  target.opacity = guestOpacity;
   target.pointerEvents = pointerEvents;
 
   // The chrome plane shares the guest's rectangle and its visibility, but never
@@ -563,4 +571,25 @@ export function restoreLensGuestFocus(borrowId: string): void {
   focusBorrow = state;
   restoreTarget?.focus({ preventScroll: true });
   blurTarget?.blur();
+}
+
+/** A release for an old guest or old capture must not park a newer one. */
+export function setLensGuestCapturePaint(request: LensCapturePaintRequest): boolean {
+  const key = lensGuestKey(request);
+  const record = guests.get(key);
+  if (!record) return false;
+  try {
+    if (record.element.getWebContentsId() !== request.webContentsId) return false;
+  } catch { return false; }
+  if (request.active) record.captureRequests.add(request.requestId);
+  else record.captureRequests.delete(request.requestId);
+  applyPlacement(key);
+  return true;
+}
+
+export function resetLensGuestCapturePaint(): void {
+  for (const [key, record] of guests) {
+    record.captureRequests.clear();
+    applyPlacement(key);
+  }
 }

@@ -271,6 +271,8 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - External agents need Local MCP because the Lens browser lives inside the desktop app. Without MCP, only the current renderer UI can access it.
 - Saved accounts match one exact hostname. Wildcards and parent-domain matching are intentionally unsupported. Multiple accounts can share a hostname, but only one account per hostname can be enabled for automatic fill; enabling another account switches the previous one to on-demand use.
 - `stave_lens_set_appearance` emulates `prefers-color-scheme` and `prefers-reduced-motion` so a dark theme or a reduced-motion layout can be checked without changing the user's machine settings. It is incremental, survives a reload, and is dropped when a session is rebuilt. Every snapshot reports the emulation in force, so a forced dark theme is never read as the page's real one.
+- Hidden pages temporarily remain paintable during screenshot and action-preview capture, without being presented or receiving pointer input. The paint lease and capture slot stay owned until native work settles, even if the caller times out. Idle throttling returns afterwards. Preview failures do not fail a completed action.
+- Screenshot requests and viewport recovery are serialized per page. A page takes one screenshot at a time; a later request waits for the earlier one to finish, and reports a timeout instead of starting beside it, because overlapping captures used to leave the page stuck at a stale size and offset that a reload did not clear. Element and area screenshots are cropped from a viewport capture, so they show what is on screen even when the page is scrolled; an area entirely outside the visible part of the page is refused. Full-page screenshots assemble viewport frames at CSS-pixel resolution and restore the original scroll position and temporary scroll styles. They are limited to 32 million pixels and 64 frames; a page that changes size during capture fails rather than returning a partial image. Lazy loading and scroll-triggered effects can run, and fixed or sticky content can appear in multiple frames. Requests check page identity and site access after waiting; expired preparation cannot start a capture. Element coordinates are measured after waiting, and a changed viewport or scroll position rejects the crop.
 - Viewport size cannot be emulated for a Lens page. Electron sizes a `<webview>` guest from its element and re-asserts that size over a CDP metrics override, so `Emulation.setDeviceMetricsOverride` reports success and changes nothing — measured against the product both plainly and with `dontSetVisibleSize`. Resize the Lens pane to check a responsive layout.
 - Automatic account use fills visible username and password fields but does not submit. JavaScript-heavy pages that render the form later can use `stave_lens_fill_saved_account` on demand.
 - Operational MCP tools acquire a session automatically. With no explicit id they prefer the visible/recent UI tab, then the hidden `default`; if none exists they create `default` hidden.
@@ -320,6 +322,12 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 - Symptom: Lens only provides selector and grep hints.
 - Cause: the target page is not running with React `_debugSource` metadata.
 - Fix: enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
+
+### A Lens page is drawn shifted or cut off inside its pane
+
+- Symptom: the page content sits up and to the left of the pane, or is clipped with a blank band at the bottom or right, and resizing does not fix it.
+- Cause: an interrupted screenshot left the page in the temporary viewport Chromium gives a capture. Captures are serialized to prevent overlapping viewport changes. Lens temporarily enables frame production for hidden-page captures; a frozen or unresponsive renderer can still stall.
+- Fix: reload the Lens page or switch away from its tab and back; both request a reset of a leftover capture viewport. If a native capture is still running, the reset waits for it to settle. Showing the tab can let it finish. Closing and reopening the Lens tab starts a fresh page but loses unsaved page state.
 
 ### Local MCP opens the wrong Lens page
 

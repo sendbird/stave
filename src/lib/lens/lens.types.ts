@@ -726,3 +726,16 @@ export interface LensCdpApprovalResponse {
   approved: boolean;
   remember?: boolean;
 }
+
+/** Main-owned, transient paint lease; never a request to present or focus a tab. */
+export interface LensCapturePaintRequest {
+  workspaceId: string;
+  lensSessionId: string;
+  webContentsId: number;
+  requestId: string;
+  active: boolean;
+}
+export interface LensCapturePaintResult {
+  requestId: string;
+  ok: boolean;
+}
