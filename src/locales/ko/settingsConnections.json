@@ -284,7 +284,7 @@
     "updateCopiedSettings": "복사한 설정 업데이트",
     "copiesYourSystemDefaultSettingsAgain": "시스템 기본 설정을 다시 복사합니다. 스킬, 에이전트, 명령, 플러그인, 지시는 연결되어 항상 최신 상태로 유지됩니다. 이 계정에서 변경한 설정 파일은 보존합니다.",
     "linkSettings": "설정을 System default와 링크",
-    "linkSettingsDescription": "이 계정이나 System default에서 바꾼 설정이 양쪽에 모두 적용됩니다. API 키나 로그인 규칙이 들어 있는 설정은 항상 필터링한 사본으로 복사합니다."
+    "linkSettingsDescription": "이 계정이나 System default에서 바꾼 설정이 양쪽에 모두 적용됩니다. API 키, 토큰, 로그인 규칙이 들어 있는 설정은 링크하지 않습니다. Claude는 필터링한 사본을 받고, Codex는 계정 자체 설정을 유지합니다."
   },
   "providerAccountsSettings": {
     "nameFor": "{{value1}} 이름",

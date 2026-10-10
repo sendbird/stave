@@ -15,6 +15,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   applySetupSharing,
+  codexConfigSafeToLink,
   filterClaudeSettings,
   readSetupSharing,
   removeSetupSharing,
@@ -120,13 +121,14 @@ describe("sharing plan", () => {
     expect(setupSharingPlan("claude-code").find((entry) => entry.name === "settings.json")?.filter).toBe("claude-settings");
   });
 
-  test("Codex links skills, prompts and instructions and skips config, login and history", () => {
+  test("Codex links skills, prompts, instructions and hooks, links config by mode, and skips login and history", () => {
     const actions = Object.fromEntries(setupSharingPlan("codex").map((entry) => [entry.name, entry.action]));
     expect(actions).toEqual({
       skills: "link",
       prompts: "link",
       "AGENTS.md": "link",
-      "config.toml": "skip",
+      "hooks.json": "link",
+      "config.toml": "link",
       "auth.json": "skip",
       "history.jsonl": "skip",
       sessions: "skip",
@@ -145,9 +147,9 @@ describe("sharing plan", () => {
 
   test("names what is shared in plain words", () => {
     expect(sharedSetupSummary("claude-code")).toBe("skills, agents, commands, plugins, instructions and settings");
-    expect(sharedSetupSummary("codex")).toBe("skills, prompts and instructions");
+    expect(sharedSetupSummary("codex")).toBe("skills, prompts, instructions, hooks and settings");
     expect(describeProviderAccountSetup("codex", null)).toBe(
-      "Shares your skills, prompts and instructions from System default with this account. Sign-in and conversation history are never shared.",
+      "Shares your skills, prompts, instructions, hooks and settings from System default with this account. Sign-in and conversation history are never shared.",
     );
   });
 });
@@ -476,12 +478,75 @@ describe("status and turning sharing off", () => {
   });
 });
 
+describe("codex config scan", () => {
+  test("allows env var names and plain preferences", () => {
+    expect(
+      codexConfigSafeToLink(
+        [
+          'model = "gpt-5"',
+          'approval_policy = "on-request"',
+          "model_auto_compact_token_limit = 1000",
+          '[projects."/Users/me/work"]',
+          'trust_level = "trusted"',
+          "[mcp_servers.crane]",
+          'url = "https://example.com/mcp"',
+          'bearer_token_env_var = "CRANE_TOKEN"',
+          "[mcp_servers.node.env]",
+          'NODE_PATH = "/opt"',
+          '# api_key = "commented out"',
+        ].join("\n"),
+      ),
+    ).toBe(true);
+  });
+
+  test("refuses tokens, headers, login rules and custom endpoints", () => {
+    for (const text of [
+      'experimental_bearer_token = "x"',
+      "[mcp_servers.a]\nbearer_token = \"x\"",
+      "[mcp_servers.a.env]\nGITHUB_TOKEN = \"x\"",
+      "[mcp_servers.a]\nhttp_headers = { Authorization = \"Bearer x\" }",
+      "[mcp_servers.a]\nheaders = { \"Authorization\" = \"Bearer x\" }",
+      'forced_login_method = "api"',
+      'model_provider = "proxy"',
+      '[model_providers.proxy]\nbase_url = "https://proxy"',
+      'openai_base_url = "https://proxy"',
+      "[shell_environment_policy.set]\nDB_PASSWORD = \"x\"",
+    ])
+      expect(codexConfigSafeToLink(text)).toBe(false);
+  });
+});
+
 describe("sharing into a managed Codex account", () => {
-  test("links skills, prompts and instructions and leaves config, login and history behind", () => {
+  test("links config and hooks by default when the config names no credential", () => {
+    const { sourceDir, profileDir } = folders();
+    write(path.join(sourceDir, "AGENTS.md"), "my instructions");
+    write(path.join(sourceDir, "hooks.json"), "{}");
+    write(path.join(sourceDir, "config.toml"), 'model = "gpt-5"\n');
+    const plan = target("codex", sourceDir, profileDir);
+    const setup = applySetupSharing(plan);
+    expect(setup.settingsMode).toBe("link");
+    expect(states(setup)).toEqual({ skills: "missing", prompts: "missing", "AGENTS.md": "shared", "hooks.json": "shared", "config.toml": "shared" });
+    for (const name of ["AGENTS.md", "hooks.json", "config.toml"])
+      expect(isLinkTo(path.join(profileDir, name), path.join(sourceDir, name))).toBe(true);
+
+    // Copy mode has no filtered Codex config, so the link Stave made is removed and nothing replaces it.
+    expect(states(applySetupSharing(plan, { settingsMode: "copy" }))["config.toml"]).toBe("not-shared");
+    expect(existsSync(path.join(profileDir, "config.toml"))).toBe(false);
+    expect(readFileSync(path.join(sourceDir, "config.toml"), "utf8")).toBe('model = "gpt-5"\n');
+    expect(isLinkTo(path.join(profileDir, "hooks.json"), path.join(sourceDir, "hooks.json"))).toBe(true);
+  });
+
+  test("leaves a config that names a credential, and the login and history, behind", () => {
     const { sourceDir, profileDir } = folders();
     codexSource(sourceDir);
     const setup = applySetupSharing(target("codex", sourceDir, profileDir));
-    expect(states(setup)).toEqual({ skills: "shared", prompts: "shared", "AGENTS.md": "shared" });
+    expect(states(setup)).toEqual({
+      skills: "shared",
+      prompts: "shared",
+      "AGENTS.md": "shared",
+      "hooks.json": "missing",
+      "config.toml": "not-shared",
+    });
     expect(setup.entries.every((entry) => entry.action === "link")).toBe(true);
     expect(readdirSync(profileDir).sort()).toEqual([".stave-shared-setup.json", "AGENTS.md", "prompts", "skills"]);
     expect(allText(profileDir)).not.toContain("SENTINEL");

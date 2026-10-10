@@ -313,7 +313,7 @@
     "sessionStateBelongsToTheAccount": "Session state belongs to the account that created it.",
     "featureFlagsAndCachesAreTied": "Feature flags and caches are tied to the signed-in account.",
     "aLinkKeepsEveryAccountInVariant40e8eda0": "A link keeps every account in sync with your custom prompts.",
-    "codexCanKeepEndpointLoginAnd": "Codex can keep endpoint, login and MCP credential settings here and rewrites the file itself, so it is not shared."
+    "codexCanKeepEndpointLoginAnd": "It holds model, approval, MCP and hook settings and can name a login or token, so it is linked only while it names none and is otherwise left to the account."
   },
   "threadActions": {
     "rollBackLaterCodexTurnAnd": "Roll back {{value1}} later Codex turn{{value2}} and remove all later task messages. Workspace files are not reverted.",

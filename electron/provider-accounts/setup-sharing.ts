@@ -20,7 +20,8 @@ import { sharedSetupEntries, type SetupSharingEntry } from "../../src/lib/provid
  * (the planner refuses one), and the only file whose contents are read is the
  * System default `settings.json`, which is filtered before it is written.
  * Settings are linked instead of copied when the account chose `link` and the
- * filter would remove nothing, so a link never exposes a credential.
+ * source names no credential, login rule or endpoint, so a link never exposes
+ * one. Codex `config.toml` has no filtered copy, so it is otherwise unshared.
  */
 
 const LEDGER_NAME = ".stave-shared-setup.json";
@@ -149,8 +150,41 @@ function parseSettings(source: string): Record<string, unknown> | null {
   }
 }
 
-/** True when the filter would remove nothing, so linking shares no credential or login rule. */
-function settingsSafeToLink(source: string) {
+/** Codex keys that carry a credential, a login rule or an endpoint choice. */
+const CODEX_PRIVATE_KEY =
+  /^(experimental_bearer_token|http_headers|env_http_headers|forced_login_method|forced_chatgpt_workspace_id|preferred_auth_method|cli_auth_credentials_store|chatgpt_base_url|openai_base_url|model_provider|authorization|.*(token|secret|password|credential|api_?key|bearer))$/i;
+/** Keys that name an environment variable rather than hold its value. */
+const CODEX_ENV_NAME_KEY = /(_env_var|^env_key)$/i;
+const CODEX_PRIVATE_TABLE = /^\[\[?\s*"?model_providers\b/;
+
+/**
+ * True when a Codex `config.toml` names no credential, login rule or custom
+ * endpoint. A line scan, not a TOML parser: it errs toward refusing, which
+ * only leaves the file unshared.
+ */
+export function codexConfigSafeToLink(text: string) {
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith("#")) continue;
+    if (line.startsWith("[")) {
+      if (CODEX_PRIVATE_TABLE.test(line)) return false;
+      continue;
+    }
+    for (const match of line.matchAll(/(?:^|[{,]\s*)(["']?)([A-Za-z0-9_.-]+)\1\s*=/g)) {
+      const key = match[2].split(".").at(-1) ?? "";
+      if (CODEX_ENV_NAME_KEY.test(key)) continue;
+      if (CODEX_PRIVATE_KEY.test(key)) return false;
+    }
+  }
+  return true;
+}
+
+/** True when linking `source` shares no credential, login rule or endpoint. */
+function safeToLink(entry: SetupSharingEntry, source: string) {
+  if (entry.linkCheck === "codex-config") {
+    const text = readTextOrNull(source);
+    return text !== null && codexConfigSafeToLink(text);
+  }
   const parsed = parseSettings(source);
   return parsed !== null && JSON.stringify(filterClaudeSettings(parsed)) === JSON.stringify(parsed);
 }
@@ -161,14 +195,17 @@ function ledgerSettingsMode(ledger: Ledger | null): ProviderAccountSettingsShari
   return ledger.settingsMode ?? "copy";
 }
 
+type EffectiveAction = "link" | "copy" | "unshared";
+
 /** How this entry reaches the account under `mode`, given the System default source. */
 function effectiveAction(
   entry: SetupSharingEntry,
   source: string | null,
   mode: ProviderAccountSettingsSharingMode,
-): "link" | "copy" {
-  if (entry.action === "link") return "link";
-  return entry.linkable && mode === "link" && source !== null && settingsSafeToLink(source) ? "link" : "copy";
+): EffectiveAction {
+  if (!entry.modal) return entry.action === "copy" ? "copy" : "link";
+  if (mode === "link" && source !== null && safeToLink(entry, source)) return "link";
+  return entry.filter ? "copy" : "unshared";
 }
 
 /** The System default entry, resolved to its real path, when it exists with the expected shape. */
@@ -239,9 +276,9 @@ function copySettingsEntry(source: string, target: string, entry: SetupSharingEn
  * there for the other mode. A link Stave made goes; a copy goes only while it
  * still matches what Stave wrote. Anything else is the account's and stays.
  */
-function releaseOtherMode(target: string, entry: SetupSharingEntry, action: "link" | "copy", ledger: Ledger) {
+function releaseOtherMode(target: string, entry: SetupSharingEntry, action: EffectiveAction, ledger: Ledger) {
   const existing = lstatOrNull(target);
-  if (action === "copy") {
+  if (action !== "link") {
     const linked = ledger.links[entry.name];
     if (linked !== undefined && existing?.isSymbolicLink() && fs.readlinkSync(target) === linked) fs.unlinkSync(target);
     delete ledger.links[entry.name];
@@ -260,9 +297,10 @@ function entryState(
   source: string | null,
   target: string,
   ledger: Ledger | null,
-  action: "link" | "copy",
+  action: EffectiveAction,
 ): ProviderAccountSetupEntryState {
   if (!source) return "missing";
+  if (action === "unshared") return "not-shared";
   const existing = lstatOrNull(target);
   if (!existing) return "not-shared";
   if (action === "link") return existing.isSymbolicLink() && realpathOrNull(target) === source ? "shared" : "kept";
@@ -282,14 +320,15 @@ function describe(
   const entries = sharedSetupEntries(providerId);
   return {
     enabled: ledger !== null,
-    ...(entries.some((entry) => entry.linkable) ? { settingsMode: mode } : {}),
+    ...(entries.some((entry) => entry.modal) ? { settingsMode: mode } : {}),
     entries: entries.map((entry) => {
       const source = resolveSource(sourceDir, entry);
       const action = effectiveAction(entry, source, mode);
       return {
         name: entry.name,
         label: entry.label,
-        action,
+        // An unshared entry would be linked if its source allowed it.
+        action: action === "copy" ? ("copy" as const) : ("link" as const),
         state: outcomes?.get(entry.name) ?? entryState(entry, source, path.join(profileDir, entry.name), ledger, action),
       };
     }),
@@ -340,12 +379,14 @@ export function applySetupSharing(
     const destination = path.join(target.profileDir, entry.name);
     try {
       const action = effectiveAction(entry, source, mode);
-      if (entry.linkable) releaseOtherMode(destination, entry, action, ledger);
+      if (entry.modal) releaseOtherMode(destination, entry, action, ledger);
       outcomes.set(
         entry.name,
         action === "link"
           ? linkEntry(source, destination, entry, ledger)
-          : copySettingsEntry(source, destination, entry, ledger),
+          : action === "copy"
+            ? copySettingsEntry(source, destination, entry, ledger)
+            : entryState(entry, source, destination, ledger, action),
       );
     } catch {
       outcomes.set(entry.name, "failed");
