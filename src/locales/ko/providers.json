@@ -305,7 +305,7 @@
     "aLinkKeepsEveryAccountInVariantee083f15": "링크를 사용하면 슬래시 명령을 모든 계정과 동기화합니다.",
     "aLinkKeepsInstalledPluginsAnd": "링크를 사용하면 설치한 플러그인과 마켓플레이스를 한곳에서 관리합니다.",
     "youEditItByHandAnd": "직접 편집하며 로그인 정보를 포함하지 않으므로 링크를 사용하여 모든 계정에 변경을 적용합니다.",
-    "itCanNameAPIKeysAnd": "API 키와 로그인 규칙을 포함할 수 있으며 CLI가 계정별로 다시 작성하므로 각 계정에 필터링한 사본을 제공합니다.",
+    "itCanNameAPIKeysAnd": "API 키와 로그인 규칙을 포함할 수 있으므로 그런 항목이 없을 때만 링크합니다. 그 외의 경우나 사본을 선택한 경우 각 계정에 필터링한 사본을 제공합니다.",
     "theLoginEveryAccountSignsIn": "로그인 정보입니다. 각 계정은 별도로 로그인합니다.",
     "holdsWhoIsSignedInPer": "로그인한 사용자, 프로젝트별 기록과 캐시를 보관합니다. MCP 서버는 공유하지 않습니다.",
     "conversationHistoryBelongsToTheAccount": "대화 기록은 해당 기록을 생성한 계정에 속합니다.",

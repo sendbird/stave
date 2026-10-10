@@ -282,7 +282,9 @@
   "providerAccountSetupSharing": {
     "useMySkillsAndInstructionsFrom": "Use my skills and instructions from System default",
     "updateCopiedSettings": "Update copied settings",
-    "copiesYourSystemDefaultSettingsAgain": "Copies your System default settings again. Skills, agents, commands, plugins and instructions are linked and always current. A settings file you changed in this account is kept."
+    "copiesYourSystemDefaultSettingsAgain": "Copies your System default settings again. Skills, agents, commands, plugins and instructions are linked and always current. A settings file you changed in this account is kept.",
+    "linkSettings": "Link settings to System default",
+    "linkSettingsDescription": "A setting changed in this account or in System default applies to both. Settings that name an API key or login rule are always copied through a filter instead."
   },
   "providerAccountsSettings": {
     "nameFor": "Name for {{value1}}",

@@ -2,9 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { ProviderAccountProviderId } from "../../src/lib/providers/provider-accounts";
-import type {
-  ProviderAccountSetupEntryState,
-  ProviderAccountSetupState,
+import {
+  DEFAULT_SETTINGS_SHARING_MODE,
+  type ProviderAccountSettingsSharingMode,
+  type ProviderAccountSetupEntryState,
+  type ProviderAccountSetupState,
 } from "../../src/lib/providers/provider-account-setup";
 import { sharedSetupEntries, type SetupSharingEntry } from "../../src/lib/providers/provider-account-setup-plan";
 
@@ -17,6 +19,8 @@ import { sharedSetupEntries, type SetupSharingEntry } from "../../src/lib/provid
  * It never opens a credential file. The plan names no login or history entry
  * (the planner refuses one), and the only file whose contents are read is the
  * System default `settings.json`, which is filtered before it is written.
+ * Settings are linked instead of copied when the account chose `link` and the
+ * filter would remove nothing, so a link never exposes a credential.
  */
 
 const LEDGER_NAME = ".stave-shared-setup.json";
@@ -28,6 +32,8 @@ interface Ledger {
   links: Record<string, string>;
   /** Entry name to the sha256 of the copy Stave last wrote. */
   copies: Record<string, string>;
+  /** Absent in a record written before the mode existed; such an account keeps its copy. */
+  settingsMode?: ProviderAccountSettingsSharingMode;
 }
 
 /** Top-level settings keys that name a credential or a login rule. */
@@ -112,6 +118,7 @@ function readLedger(profileDir: string): Ledger | null {
       sharedFrom: typeof parsed.sharedFrom === "string" ? parsed.sharedFrom : "",
       links: strings(parsed.links),
       copies: strings(parsed.copies),
+      ...(parsed.settingsMode === "link" || parsed.settingsMode === "copy" ? { settingsMode: parsed.settingsMode } : {}),
     };
   } catch {
     return null;
@@ -131,6 +138,37 @@ function writeFileAtomic(target: string, content: string) {
       /* A successful rename consumed the temporary file. */
     }
   }
+}
+
+function parseSettings(source: string): Record<string, unknown> | null {
+  try {
+    const parsed: unknown = JSON.parse(fs.readFileSync(source, "utf8"));
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** True when the filter would remove nothing, so linking shares no credential or login rule. */
+function settingsSafeToLink(source: string) {
+  const parsed = parseSettings(source);
+  return parsed !== null && JSON.stringify(filterClaudeSettings(parsed)) === JSON.stringify(parsed);
+}
+
+/** The mode a ledger stands for: its own, `copy` for a record from before modes, the default when none exists. */
+function ledgerSettingsMode(ledger: Ledger | null): ProviderAccountSettingsSharingMode {
+  if (!ledger) return DEFAULT_SETTINGS_SHARING_MODE;
+  return ledger.settingsMode ?? "copy";
+}
+
+/** How this entry reaches the account under `mode`, given the System default source. */
+function effectiveAction(
+  entry: SetupSharingEntry,
+  source: string | null,
+  mode: ProviderAccountSettingsSharingMode,
+): "link" | "copy" {
+  if (entry.action === "link") return "link";
+  return entry.linkable && mode === "link" && source !== null && settingsSafeToLink(source) ? "link" : "copy";
 }
 
 /** The System default entry, resolved to its real path, when it exists with the expected shape. */
@@ -174,13 +212,8 @@ function linkEntry(source: string, target: string, entry: SetupSharingEntry, led
 }
 
 function copySettingsEntry(source: string, target: string, entry: SetupSharingEntry, ledger: Ledger): ProviderAccountSetupEntryState {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(fs.readFileSync(source, "utf8"));
-  } catch {
-    return "failed";
-  }
-  if (!isRecord(parsed)) return "failed";
+  const parsed = parseSettings(source);
+  if (!parsed) return "failed";
   const content = `${JSON.stringify(filterClaudeSettings(parsed), null, 2)}\n`;
   const hash = sha256(content);
   const existing = lstatOrNull(target);
@@ -201,16 +234,38 @@ function copySettingsEntry(source: string, target: string, entry: SetupSharingEn
   return "shared";
 }
 
+/**
+ * Before a linkable entry changes between link and copy, remove what Stave put
+ * there for the other mode. A link Stave made goes; a copy goes only while it
+ * still matches what Stave wrote. Anything else is the account's and stays.
+ */
+function releaseOtherMode(target: string, entry: SetupSharingEntry, action: "link" | "copy", ledger: Ledger) {
+  const existing = lstatOrNull(target);
+  if (action === "copy") {
+    const linked = ledger.links[entry.name];
+    if (linked !== undefined && existing?.isSymbolicLink() && fs.readlinkSync(target) === linked) fs.unlinkSync(target);
+    delete ledger.links[entry.name];
+    return;
+  }
+  const copied = ledger.copies[entry.name];
+  if (copied !== undefined && existing?.isFile()) {
+    const current = readTextOrNull(target);
+    if (current !== null && sha256(current) === copied) fs.unlinkSync(target);
+  }
+  delete ledger.copies[entry.name];
+}
+
 function entryState(
   entry: SetupSharingEntry,
   source: string | null,
   target: string,
   ledger: Ledger | null,
+  action: "link" | "copy",
 ): ProviderAccountSetupEntryState {
   if (!source) return "missing";
   const existing = lstatOrNull(target);
   if (!existing) return "not-shared";
-  if (entry.action === "link") return existing.isSymbolicLink() && realpathOrNull(target) === source ? "shared" : "kept";
+  if (action === "link") return existing.isSymbolicLink() && realpathOrNull(target) === source ? "shared" : "kept";
   const recorded = ledger?.copies[entry.name];
   const current = existing.isFile() ? readTextOrNull(target) : null;
   return recorded !== undefined && current !== null && sha256(current) === recorded ? "shared" : "kept";
@@ -223,16 +278,21 @@ function describe(
   outcomes?: Map<string, ProviderAccountSetupEntryState>,
 ): ProviderAccountSetupState {
   const ledger = readLedger(profileDir);
+  const mode = ledgerSettingsMode(ledger);
+  const entries = sharedSetupEntries(providerId);
   return {
     enabled: ledger !== null,
-    entries: sharedSetupEntries(providerId).map((entry) => ({
-      name: entry.name,
-      label: entry.label,
-      action: entry.action as "link" | "copy",
-      state:
-        outcomes?.get(entry.name) ??
-        entryState(entry, resolveSource(sourceDir, entry), path.join(profileDir, entry.name), ledger),
-    })),
+    ...(entries.some((entry) => entry.linkable) ? { settingsMode: mode } : {}),
+    entries: entries.map((entry) => {
+      const source = resolveSource(sourceDir, entry);
+      const action = effectiveAction(entry, source, mode);
+      return {
+        name: entry.name,
+        label: entry.label,
+        action,
+        state: outcomes?.get(entry.name) ?? entryState(entry, source, path.join(profileDir, entry.name), ledger, action),
+      };
+    }),
   };
 }
 
@@ -252,16 +312,24 @@ export function readSetupSharing(target: SetupSharingTarget): ProviderAccountSet
 /**
  * Link or copy System default's setup into the account. Safe to repeat: an
  * entry the account already has stays as it is, and a copied settings file is
- * refreshed only while it still matches what Stave wrote.
+ * refreshed only while it still matches what Stave wrote. `settingsMode`
+ * switches settings between a link and a copy; omitted, the account keeps the
+ * mode it has (new sharing uses the default).
  */
-export function applySetupSharing(target: SetupSharingTarget): ProviderAccountSetupState {
+export function applySetupSharing(
+  target: SetupSharingTarget,
+  options: { settingsMode?: ProviderAccountSettingsSharingMode } = {},
+): ProviderAccountSetupState {
   assertSeparate(target.sourceDir, target.profileDir);
-  const ledger: Ledger = readLedger(target.profileDir) ?? {
+  const existingLedger = readLedger(target.profileDir);
+  const mode = options.settingsMode ?? ledgerSettingsMode(existingLedger);
+  const ledger: Ledger = existingLedger ?? {
     version: 1,
     sharedFrom: target.sourceDir,
     links: {},
     copies: {},
   };
+  ledger.settingsMode = mode;
   const outcomes = new Map<string, ProviderAccountSetupEntryState>();
   for (const entry of sharedSetupEntries(target.providerId)) {
     const source = resolveSource(target.sourceDir, entry);
@@ -271,9 +339,11 @@ export function applySetupSharing(target: SetupSharingTarget): ProviderAccountSe
     }
     const destination = path.join(target.profileDir, entry.name);
     try {
+      const action = effectiveAction(entry, source, mode);
+      if (entry.linkable) releaseOtherMode(destination, entry, action, ledger);
       outcomes.set(
         entry.name,
-        entry.action === "link"
+        action === "link"
           ? linkEntry(source, destination, entry, ledger)
           : copySettingsEntry(source, destination, entry, ledger),
       );

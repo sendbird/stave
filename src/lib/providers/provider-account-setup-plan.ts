@@ -29,6 +29,11 @@ export interface SetupSharingEntry {
   reason: string;
   /** `copy` entries only: how the profile's file is derived from the source. */
   filter?: "claude-settings";
+  /**
+   * `copy` entries only: the account may choose a live link instead. The link
+   * is used only while the source holds nothing the filter would remove.
+   */
+  linkable?: boolean;
 }
 
 const CLAUDE_PLAN: readonly SetupSharingEntry[] = [
@@ -37,7 +42,7 @@ const CLAUDE_PLAN: readonly SetupSharingEntry[] = [
   { name: "commands", action: "link", kind: "directory", label: "commands", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsEveryAccountInVariantee083f15"); } },
   { name: "plugins", action: "link", kind: "directory", label: "plugins", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsInstalledPluginsAnd"); } },
   { name: "CLAUDE.md", action: "link", kind: "file", label: "instructions", get reason() { return i18n.t("providers:providerAccountSetupPlan.youEditItByHandAnd"); } },
-  { name: "settings.json", action: "copy", kind: "file", label: "settings", filter: "claude-settings", get reason() { return i18n.t("providers:providerAccountSetupPlan.itCanNameAPIKeysAnd"); } },
+  { name: "settings.json", action: "copy", kind: "file", label: "settings", filter: "claude-settings", linkable: true, get reason() { return i18n.t("providers:providerAccountSetupPlan.itCanNameAPIKeysAnd"); } },
   { name: ".credentials.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.theLoginEveryAccountSignsIn"); } },
   { name: ".claude.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.holdsWhoIsSignedInPer"); } },
   { name: "projects", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.conversationHistoryBelongsToTheAccount"); } },

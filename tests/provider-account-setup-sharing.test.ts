@@ -247,7 +247,7 @@ describe("sharing into a managed Claude account", () => {
     const { sourceDir, profileDir } = folders();
     claudeSource(sourceDir);
     const plan = target("claude-code", sourceDir, profileDir);
-    applySetupSharing(plan);
+    applySetupSharing(plan, { settingsMode: "copy" });
     expect(states(applySetupSharing(plan))["settings.json"]).toBe("shared");
 
     write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "sonnet" }));
@@ -258,6 +258,79 @@ describe("sharing into a managed Claude account", () => {
     write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "haiku" }));
     expect(states(applySetupSharing(plan))["settings.json"]).toBe("kept");
     expect(JSON.parse(readFileSync(path.join(profileDir, "settings.json"), "utf8"))).toEqual({ model: "mine" });
+  });
+
+  test("links settings by default when they hold no credential, so a change applies to both", () => {
+    const { sourceDir, profileDir } = folders();
+    write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "opus", hooks: { Stop: [] } }));
+    const setup = applySetupSharing(target("claude-code", sourceDir, profileDir));
+    expect(setup.settingsMode).toBe("link");
+    expect(setup.entries.find((entry) => entry.name === "settings.json")).toMatchObject({ action: "link", state: "shared" });
+    expect(isLinkTo(path.join(profileDir, "settings.json"), path.join(sourceDir, "settings.json"))).toBe(true);
+    write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "sonnet" }));
+    expect(JSON.parse(readFileSync(path.join(profileDir, "settings.json"), "utf8"))).toEqual({ model: "sonnet" });
+    expect(readSetupSharing(target("claude-code", sourceDir, profileDir)).entries.at(-1)).toMatchObject({ action: "link", state: "shared" });
+  });
+
+  test("copies settings through the filter even in link mode while they name a credential", () => {
+    const { sourceDir, profileDir } = folders();
+    claudeSource(sourceDir);
+    const setup = applySetupSharing(target("claude-code", sourceDir, profileDir), { settingsMode: "link" });
+    expect(setup.settingsMode).toBe("link");
+    expect(setup.entries.find((entry) => entry.name === "settings.json")).toMatchObject({ action: "copy", state: "shared" });
+    expect(lstatSync(path.join(profileDir, "settings.json")).isSymbolicLink()).toBe(false);
+    expect(allText(profileDir)).not.toContain("SENTINEL");
+  });
+
+  test("switches settings between a link and a copy and keeps a copy the account edited", () => {
+    const { sourceDir, profileDir } = folders();
+    write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "opus" }));
+    const plan = target("claude-code", sourceDir, profileDir);
+    const settingsPath = path.join(profileDir, "settings.json");
+    applySetupSharing(plan, { settingsMode: "copy" });
+    expect(lstatSync(settingsPath).isSymbolicLink()).toBe(false);
+
+    // Repeating without a mode keeps the account's choice.
+    expect(applySetupSharing(plan).settingsMode).toBe("copy");
+    expect(lstatSync(settingsPath).isSymbolicLink()).toBe(false);
+
+    expect(states(applySetupSharing(plan, { settingsMode: "link" }))["settings.json"]).toBe("shared");
+    expect(isLinkTo(settingsPath, path.join(sourceDir, "settings.json"))).toBe(true);
+
+    expect(states(applySetupSharing(plan, { settingsMode: "copy" }))["settings.json"]).toBe("shared");
+    expect(lstatSync(settingsPath).isSymbolicLink()).toBe(false);
+    expect(readFileSync(path.join(sourceDir, "settings.json"), "utf8")).toBe(JSON.stringify({ model: "opus" }));
+
+    write(settingsPath, JSON.stringify({ model: "mine" }));
+    expect(states(applySetupSharing(plan, { settingsMode: "link" }))["settings.json"]).toBe("kept");
+    expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual({ model: "mine" });
+
+    removeSetupSharing(plan);
+    expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toEqual({ model: "mine" });
+  });
+
+  test("an account shared before settings modes existed keeps its copy", () => {
+    const { sourceDir, profileDir } = folders();
+    write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "opus" }));
+    const plan = target("claude-code", sourceDir, profileDir);
+    applySetupSharing(plan, { settingsMode: "copy" });
+    const ledgerPath = path.join(profileDir, ".stave-shared-setup.json");
+    const ledger = JSON.parse(readFileSync(ledgerPath, "utf8"));
+    delete ledger.settingsMode;
+    writeFileSync(ledgerPath, JSON.stringify(ledger));
+    expect(readSetupSharing(plan).settingsMode).toBe("copy");
+    expect(applySetupSharing(plan).settingsMode).toBe("copy");
+    expect(lstatSync(path.join(profileDir, "settings.json")).isSymbolicLink()).toBe(false);
+  });
+
+  test("removing sharing removes a settings link Stave made and leaves System default", () => {
+    const { sourceDir, profileDir } = folders();
+    write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "opus" }));
+    const plan = target("claude-code", sourceDir, profileDir);
+    applySetupSharing(plan);
+    removeSetupSharing(plan);
+    expect(existsSync(path.join(profileDir, "settings.json"))).toBe(false);
+    expect(readFileSync(path.join(sourceDir, "settings.json"), "utf8")).toBe(JSON.stringify({ model: "opus" }));
   });
 
   test("keeps what the account already owns and reports what System default lacks", () => {

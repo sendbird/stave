@@ -180,6 +180,7 @@ describe("provider account setup bridge", () => {
       ok: true,
       setup: {
         enabled: true,
+        settingsMode: "link",
         entries: [
           { name: "skills", label: "skills", action: "link", state: "shared" },
           { name: "agents", label: "agents", action: "link", state: "missing" },

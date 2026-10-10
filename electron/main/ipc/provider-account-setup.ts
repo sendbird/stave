@@ -51,7 +51,10 @@ export function registerProviderAccountSetupHandlers(resolveSystemDirectory: (pr
     try {
       const target = resolveTarget(parsed.data, resolveSystemDirectory);
       if (typeof target === "string") return fail(target);
-      return { ok: true, setup: parsed.data.enabled ? applySetupSharing(target) : removeSetupSharing(target) };
+      const setup = parsed.data.enabled
+        ? applySetupSharing(target, { settingsMode: parsed.data.settingsMode })
+        : removeSetupSharing(target);
+      return { ok: true, setup };
     } catch (error) {
       // The messages thrown by the sharing code are fixed text with no paths.
       return fail(error instanceof Error && /^(This account|The account folder)/.test(error.message) ? error.message : "Could not update the shared setup.");
