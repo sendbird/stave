@@ -3,20 +3,6 @@
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
   "migrations": [
     {
-      "id": "playbook-agents-auto-route",
-      "description": "Moves a custom agent that 0.23.0's playbook migration fixed to Claude with no model (a playbook that saved only a permission) to Stave Auto, once per profile (marker setting playbookAgentsAutoRouted). Only an agent whose content hash still equals what 0.23.0 wrote from its saved playbook, and that has no version history, is changed.",
-      "introducedAfter": "0.23.0",
-      "removeInVersion": "0.26.0",
-      "files": [
-        "src/lib/agents/playbook-agents-auto-route-migration.ts",
-        "src/store/app-settings.ts",
-        "src/store/app-store-persistence.ts"
-      ],
-      "tests": [
-        "tests/playbook-agents-auto-route-migration.test.ts"
-      ]
-    },
-    {
       "id": "project-memory-export",
       "description": "Projects were removed after 0.24.1. On host start, writes the memories (accepted decisions and notes, plus unaccepted candidates) of every project in the retained project_memories table to <user data>/exports/project-memory/<project id>.md, once per project: an existing file is never rewritten. The project tables themselves are left in place and are never read otherwise.",
       "introducedAfter": "0.24.1",

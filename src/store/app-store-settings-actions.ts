@@ -22,10 +22,6 @@ import {
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
-import {
-  normalizePersistedWorkflows,
-  warnWorkflowDiagnostics,
-} from "@/lib/workflows/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   applyCustomTheme,
@@ -78,12 +74,6 @@ function normalizeCustomAgentPatch(value: unknown) {
   const { agents, rejected } = normalizeCustomAgents(value);
   if (rejected.length > 0) console.warn("[agents] refused custom agents in a settings patch", rejected.map((entry) => entry.issues));
   return agents;
-}
-
-function normalizeWorkflowPatch(value: unknown) {
-  const { workflows, diagnostics } = normalizePersistedWorkflows(value);
-  warnWorkflowDiagnostics(diagnostics);
-  return workflows;
 }
 
 type SettingsActionKey =
@@ -548,9 +538,6 @@ export function createSettingsActions(args: {
           : {
               macros: normalizePersistedMacros(patch.macros),
             }),
-        ...(patch.playbooks === undefined
-          ? {}
-          : { playbooks: normalizeWorkflowPatch(patch.playbooks) }),
         ...(patch.customAgents === undefined
           ? {}
           : { customAgents: normalizeCustomAgentPatch(patch.customAgents) }),

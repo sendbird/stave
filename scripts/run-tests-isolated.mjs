@@ -11,6 +11,9 @@ const testFilePattern = /\.test\.(?:cjs|cts|js|jsx|mjs|mts|ts|tsx)$/;
 const moduleMockCall = /(?:^|[^\w.])mock\.module\s*\(\s*['"`]/;
 const persistRehydrationCall = /\.persist\.setOptions\s*\(/;
 const sharedNotificationStoreCall = /\blistNotifications\s*\(/;
+// Native synchronous subprocess fixtures need their own process: in the large
+// shared Bun suite their setup can time out while passing independently.
+const synchronousSubprocessCall = /\b(?:execFileSync|execSync|spawnSync)\s*\(/;
 
 export function usesProcessWideModuleMock(source) {
   return moduleMockCall.test(source);
@@ -20,7 +23,8 @@ export function needsProcessIsolation(source) {
   return (
     usesProcessWideModuleMock(source) ||
     persistRehydrationCall.test(source) ||
-    sharedNotificationStoreCall.test(source)
+    sharedNotificationStoreCall.test(source) ||
+    synchronousSubprocessCall.test(source)
   );
 }
 
