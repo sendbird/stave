@@ -3,9 +3,7 @@
 // Uses webContents.debugger for native Electron CDP access.
 // ---------------------------------------------------------------------------
 
-import { webContents } from "electron";
 import type {
-  BrowserScreenshotOptions,
   LensBoxModel,
   LensMeasurement,
   LensStyleEdit,
@@ -20,7 +18,8 @@ import {
   resolveLensRefToObjectId,
 } from "./browser-lens-snapshot";
 import { resolveLensTarget } from "../../../src/lib/lens/lens-snapshot";
-import { assertCdpAllowed } from "./browser-security";
+import { assertCdpAllowedForWebContentsId } from "./browser-cdp-access";
+export { assertCdpAllowedForWebContentsId } from "./browser-cdp-access";
 import { getLensBoxModelScript } from "./browser-style-capture";
 import {
   detachCdpController,
@@ -28,54 +27,6 @@ import {
   sendCdpCommand,
   sendCdpCommandIfAttached,
 } from "./browser-cdp-controller";
-import {
-  assertLensScreenshotRect,
-  withLensScreenshotTimeout,
-} from "./browser-screenshot-guard";
-
-export async function assertCdpAllowedForWebContentsId(
-  webContentsId: number,
-  reason: string,
-): Promise<void> {
-  const wc = webContents.fromId(webContentsId);
-  if (!wc || wc.isDestroyed()) {
-    throw new Error(`WebContents ${webContentsId} not found or destroyed`);
-  }
-
-  const identity = getSessionIdentityForWebContentsId(webContentsId);
-  if (!identity) {
-    throw new Error("No Lens browser session found for CDP access.");
-  }
-  const requestedUrl = wc.getURL();
-
-  await assertCdpAllowed({
-    workspaceId: identity.workspaceId,
-    lensSessionId: identity.lensSessionId,
-    url: requestedUrl,
-    reason,
-  });
-
-  const currentWebContents = webContents.fromId(webContentsId);
-  const currentIdentity = getSessionIdentityForWebContentsId(webContentsId);
-  if (
-    currentWebContents !== wc ||
-    !currentWebContents ||
-    currentWebContents.isDestroyed() ||
-    !currentIdentity ||
-    currentIdentity.workspaceId !== identity.workspaceId ||
-    currentIdentity.lensSessionId !== identity.lensSessionId
-  ) {
-    throw new Error(
-      "Lens browser session closed while CDP access was pending.",
-    );
-  }
-  if (currentWebContents.getURL() !== requestedUrl) {
-    throw new Error(
-      "Lens page changed while CDP access was pending; retry the action.",
-    );
-  }
-}
-
 /** Ensure the debugger is attached, attaching lazily if needed. */
 export function ensureDebuggerAttached(webContentsId: number): void {
   ensureCdpAttached(webContentsId);
@@ -120,86 +71,7 @@ async function releaseLensTargetObject(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Screenshot
-// ---------------------------------------------------------------------------
-
-export async function captureScreenshot(
-  webContentsId: number,
-  options?: BrowserScreenshotOptions,
-): Promise<string> {
-  await assertCdpAllowedForWebContentsId(webContentsId, "capture screenshot");
-
-  const params: Record<string, unknown> = { format: "png" };
-
-  if (options?.fullPage) {
-    // Get full-page metrics first
-    const metrics = (await withLensScreenshotTimeout(
-      sendCommand(webContentsId, "Page.getLayoutMetrics"),
-    )) as {
-      contentSize: { width: number; height: number };
-    };
-    assertLensScreenshotRect(
-      { x: 0, y: 0, ...metrics.contentSize },
-      "full-page",
-    );
-    params.clip = {
-      x: 0,
-      y: 0,
-      width: metrics.contentSize.width,
-      height: metrics.contentSize.height,
-      scale: 1,
-    };
-    params.captureBeyondViewport = true;
-  } else if (options?.clip) {
-    assertLensScreenshotRect(options.clip, "selected-area");
-    params.clip = { ...options.clip, scale: 1 };
-  }
-
-  try {
-    const result = (await withLensScreenshotTimeout(
-      sendCommand(webContentsId, "Page.captureScreenshot", params),
-    )) as { data: string };
-
-    return `data:image/png;base64,${result.data}`;
-  } finally {
-    if (params.captureBeyondViewport) {
-      await clearLensDeviceMetricsOverride(webContentsId);
-    }
-  }
-}
-
-/**
- * Undo the viewport a full-page capture temporarily gave the guest.
- *
- * `captureBeyondViewport` works by having Chromium apply a device-metrics
- * override the size of the whole document and restoring the original metrics
- * once the frame is captured. That restore rides on the capture completing: a
- * guest that produces no frame in time — Lens gives up after its own timeout
- * while the command stays in flight — or one that navigates mid-capture keeps
- * the oversized viewport. Emulation lives on the CDP session, so it survives
- * every later navigation and reload; only a fresh guest sheds it. The user sees
- * a page laid out wider than its pane and centred on it, both edges clipped,
- * that no resize can fix.
- *
- * Clearing is cheap and idempotent — a session with no override in force
- * answers success — so it runs after every full-page capture regardless of how
- * it ended. Best-effort via the already-attached path: the override can only
- * exist while the debugger is attached, and this must never revive a debugger
- * on a guest that is closing.
- */
-async function clearLensDeviceMetricsOverride(
-  webContentsId: number,
-): Promise<void> {
-  try {
-    await sendCdpCommandIfAttached(
-      webContentsId,
-      "Emulation.clearDeviceMetricsOverride",
-    );
-  } catch {
-    // The guest may have closed between the capture and its cleanup.
-  }
-}
+export { captureScreenshot, healLensViewportEmulation } from "./browser-screenshot";
 
 // ---------------------------------------------------------------------------
 // DOM queries (via Runtime.evaluate – avoids enabling the heavy DOM domain)

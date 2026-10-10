@@ -193,6 +193,8 @@ import type {
   LensCdpApprovalResponse,
   LensDownloadEntry,
   LensDownloadEventPayload,
+  LensCapturePaintRequest,
+  LensCapturePaintResult,
   LensGuestFocusRequestPayload,
   LensGuestFocusRestoreRequestPayload,
   LensGuestFocusRestoreResultPayload,
@@ -3062,6 +3064,14 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("lens:set-presented", args) as Promise<{
         ok: boolean;
       }>,
+    subscribeCapturePaint: (listener: (payload: LensCapturePaintRequest) => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, payload: LensCapturePaintRequest) => listener(payload);
+      ipcRenderer.on("lens:capture-paint", handler);
+      return () => { ipcRenderer.removeListener("lens:capture-paint", handler); };
+    },
+    reportCapturePaint: (payload: LensCapturePaintResult) => {
+      ipcRenderer.send("lens:capture-paint-result", payload);
+    },
     reportGuestFocus: (payload: LensGuestFocusResultPayload) => {
       ipcRenderer.send("lens:guest-focus-result", payload);
     },

@@ -1,3 +1,4 @@
+import { resolveLensCapturePaint } from "../browser/browser-capture-paint";
 import { registerLensReviewHandlers } from "./lens-review";
 import { readLensComponentContext } from "../browser/browser-component-context";
 import { setBrowserSessionSleeping } from "../browser/browser-manager";
@@ -56,6 +57,7 @@ import {
   ensureDebuggerAttached,
   getDocumentHTML,
   evaluateExpression,
+  healLensViewportEmulation,
   setElementStyle,
 } from "../browser/browser-cdp";
 import {
@@ -180,6 +182,10 @@ function handleLens(
 }
 
 export function registerBrowserHandlers() {
+  ipcMain.on("lens:capture-paint-result", (event, payload: unknown) => {
+    if (!isTrustedLensRenderer(event, getMainWindow()?.webContents)) return;
+    resolveLensCapturePaint(payload, event.sender.id);
+  });
   registerLensReviewHandlers();
   // ---- Saved accounts: secrets stay in the Electron main-process vault ----
   handleLens("lens:list-credentials", async () => {
@@ -390,6 +396,13 @@ export function registerBrowserHandlers() {
         args.presented === true,
         args.lensSessionId,
       );
+      if (args.presented === true) {
+        // A page coming back into view is when a viewport left behind by an
+        // interrupted capture would be seen. Not awaited: the report is
+        // already true, and the repair is best-effort.
+        const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
+        if (wc) void healLensViewportEmulation(wc.id);
+      }
       return { ok: true };
     },
   );
@@ -579,6 +592,11 @@ export function registerBrowserHandlers() {
     async (_event, args: { workspaceId: string; lensSessionId?: string }) => {
       const wc = resolveWebContents(args.workspaceId, args.lensSessionId);
       if (!wc) return { ok: false, message: "No browser session" };
+      // A page reload keeps the DevTools session's emulation, so reloading
+      // alone cannot repair a page stuck in a capture's viewport. Not awaited:
+      // a hung page is exactly the one a user reloads, and its renderer may
+      // never answer.
+      void healLensViewportEmulation(wc.id);
       wc.reload();
       return { ok: true };
     },
@@ -638,17 +656,23 @@ export function registerBrowserHandlers() {
     try {
       assertLensDocumentIdentity(session, args.options?.documentId);
       const captureDocumentId = session.documentId;
-      await executeInLensAnnotationWorld(
-        session.webContents,
-        `new Promise((resolve) => {
-              window.__staveSetAnnotationScreenshotCaptureActive?.(false);
-              requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
-            })`,
-      ).catch(() => false);
       const { documentId: _documentId, ...captureOptions } = args.options ?? {};
       const dataUrl = await captureScreenshot(
         session.webContents.id,
         captureOptions,
+        {
+          prepare: () => executeInLensAnnotationWorld(
+            session.webContents,
+            `new Promise((resolve) => {
+              window.__staveSetAnnotationScreenshotCaptureActive?.(false);
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve(true)));
+            })`,
+          ),
+          restore: () => executeInLensAnnotationWorld(
+            session.webContents,
+            "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
+          ),
+        },
       );
       assertLensDocumentIdentity(session, captureDocumentId);
       return { ok: true, dataUrl, documentId: captureDocumentId };
@@ -657,22 +681,6 @@ export function registerBrowserHandlers() {
         ok: false,
         message: err instanceof Error ? err.message : String(err),
       };
-    } finally {
-      /*
-       * Wrapped, not just `.catch`-ed. `executeInLensAnnotationWorld` reaches
-       * into `webContents` synchronously, so a guest destroyed mid-capture
-       * throws *before* there is a promise to reject — and a throw from a
-       * `finally` replaces the result the caller was about to get, turning a
-       * `{ ok: false, message }` into a rejected invoke.
-       */
-      try {
-        await executeInLensAnnotationWorld(
-          session.webContents,
-          "window.__staveSetAnnotationScreenshotCaptureActive?.(true) === true",
-        ).catch(() => false);
-      } catch {
-        // The page the overlay belonged to is already gone.
-      }
     }
   });
 

@@ -199,6 +199,8 @@ import type {
   GraphResult,
 } from "@/lib/git-graph/types";
 import type {
+  LensCapturePaintRequest,
+  LensCapturePaintResult,
   LensGuestFocusRequestPayload,
   LensGuestFocusRestoreRequestPayload,
   LensGuestFocusRestoreResultPayload,
@@ -2685,6 +2687,8 @@ interface WindowLensApi extends LensReviewApi {
     lensSessionId?: string;
     presented: boolean;
   }) => Promise<{ ok: boolean }>;
+  subscribeCapturePaint?: (listener: (payload: LensCapturePaintRequest) => void) => () => void;
+  reportCapturePaint?: (payload: LensCapturePaintResult) => void;
   reportGuestFocus?: (payload: LensGuestFocusResultPayload) => void;
   reportGuestFocusRestore?: (
     payload: LensGuestFocusRestoreResultPayload,

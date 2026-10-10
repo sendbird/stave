@@ -6,6 +6,12 @@ const webContents = {
   getURL: () => "https://lens.fixture.test/page",
 };
 
+const session = {
+  workspaceId: "workspace-fixture",
+  lensSessionId: "lens-fixture",
+  documentId: "document-1",
+};
+
 const commands: Array<{ method: string; params?: Record<string, unknown> }> =
   [];
 const cleanupCommands: Array<{
@@ -16,13 +22,39 @@ let callFailure: unknown = null;
 let boxFailure: unknown = null;
 let screenshotFailure: unknown = null;
 let attachedForCleanup = true;
+let pendingScreenshot: Promise<void> | null = null;
+const crops: Array<{ x: number; y: number; width: number; height: number }> =
+  [];
 
+mock.module("../electron/main/browser/browser-full-page-capture", () => ({
+  captureFullPage: async (
+    _id: number,
+    command: (method: string, params: unknown) => Promise<{ data: string }>,
+  ) => {
+    const result = await command("Page.captureScreenshot", { format: "png" });
+    return `data:image/png;base64,${result.data}`;
+  },
+}));
+mock.module("../electron/main/browser/browser-capture-paint", () => ({
+  acquireLensCapturePaint: async () => () => undefined,
+}));
 mock.module("electron", () => ({
   webContents: {
     fromId: (id: number) => (id === webContents.id ? webContents : null),
   },
+  nativeImage: {
+    createFromBuffer: () => ({
+      isEmpty: () => false,
+      getSize: () => ({ width: 1400, height: 1000 }),
+      crop: (rect: { x: number; y: number; width: number; height: number }) => {
+        crops.push(rect);
+        return { toPNG: () => Buffer.from("crop") };
+      },
+    }),
+  },
 }));
 mock.module("../electron/main/browser/browser-manager", () => ({
+  getBrowserSession: () => session,
   getSessionIdentityForWebContentsId: () => ({
     workspaceId: "workspace-fixture",
     lensSessionId: "lens-fixture",
@@ -47,7 +79,8 @@ mock.module("../electron/main/browser/browser-style-capture", () => ({
 }));
 mock.module("../electron/main/browser/browser-screenshot-guard", () => ({
   assertLensScreenshotRect: () => undefined,
-  withLensScreenshotTimeout: <T>(value: Promise<T>) => value,
+  assertLensScreenshotPng: () => undefined,
+  LENS_SCREENSHOT_COMMAND_TIMEOUT_MS: 10_000,
 }));
 mock.module("../electron/main/browser/browser-cdp-controller", () => ({
   detachCdpController: () => undefined,
@@ -57,6 +90,11 @@ mock.module("../electron/main/browser/browser-cdp-controller", () => ({
     method: string,
     params?: Record<string, unknown>,
   ) => {
+    if (
+      method === "Page.enable" ||
+      (method === "Runtime.evaluate" && params?.awaitPromise)
+    )
+      return {};
     commands.push({ method, params });
     if (method === "Runtime.callFunctionOn" && callFailure) {
       throw callFailure;
@@ -71,9 +109,30 @@ mock.module("../electron/main/browser/browser-cdp-controller", () => ({
       return { result: { value: true } };
     }
     if (method === "Page.getLayoutMetrics") {
-      return { contentSize: { width: 1400, height: 3200 } };
+      return { cssContentSize: { width: 1400, height: 3200 } };
+    }
+    if (
+      method === "Runtime.evaluate" &&
+      String(params?.expression).includes("visualViewport")
+    ) {
+      return {
+        result: {
+          value: {
+            viewport: {
+              width: 700,
+              height: 500,
+              offsetX: 0,
+              offsetY: 0,
+              scale: 1,
+            },
+            scrollX: 0,
+            scrollY: 0,
+          },
+        },
+      };
     }
     if (method === "Page.captureScreenshot") {
+      if (pendingScreenshot) await pendingScreenshot;
       if (screenshotFailure) throw screenshotFailure;
       return { data: "cGVuZw==" };
     }
@@ -98,6 +157,8 @@ beforeEach(() => {
   boxFailure = null;
   screenshotFailure = null;
   attachedForCleanup = true;
+  pendingScreenshot = null;
+  crops.length = 0;
 });
 
 afterEach(() => {
@@ -184,14 +245,14 @@ test("cleanup never reattaches a closing debugger", async () => {
   ).toBe(false);
 });
 
-test("full-page capture clears the viewport override it relied on", async () => {
+test("full-page capture cleans up without an oversized native surface", async () => {
   await expect(
     cdp.captureScreenshot(webContents.id, { fullPage: true }),
   ).resolves.toBe("data:image/png;base64,cGVuZw==");
 
   expect(
     commands.find(({ method }) => method === "Page.captureScreenshot")?.params,
-  ).toMatchObject({ captureBeyondViewport: true });
+  ).not.toHaveProperty("captureBeyondViewport");
   expect(cleanupCommands).toEqual([
     { method: "Emulation.clearDeviceMetricsOverride", params: undefined },
   ]);
@@ -215,4 +276,77 @@ test("viewport capture leaves emulation alone", async () => {
   );
 
   expect(cleanupCommands).toEqual([]);
+});
+
+test("selected-area capture crops a viewport capture instead of sending a CDP clip", async () => {
+  await expect(
+    cdp.captureScreenshot(webContents.id, {
+      clip: { x: 10, y: 20, width: 100, height: 40 },
+    }),
+  ).resolves.toBe(
+    `data:image/png;base64,${Buffer.from("crop").toString("base64")}`,
+  );
+
+  const captures = commands.filter(
+    ({ method }) => method === "Page.captureScreenshot",
+  );
+  expect(captures).toEqual([
+    { method: "Page.captureScreenshot", params: { format: "png" } },
+  ]);
+  // A 700x500 CSS viewport captured at 1400x1000 is 2 pixels per CSS pixel.
+  expect(crops).toEqual([{ x: 20, y: 40, width: 200, height: 80 }]);
+  expect(cleanupCommands).toEqual([]);
+});
+
+test("selected-area capture refuses an area outside the visible page", async () => {
+  await expect(
+    cdp.captureScreenshot(webContents.id, {
+      clip: { x: 0, y: 900, width: 100, height: 40 },
+    }),
+  ).rejects.toThrow("outside the visible part of the Lens page");
+});
+
+test("captures of one guest never overlap", async () => {
+  let finishFirst!: () => void;
+  pendingScreenshot = new Promise<void>((resolve) => {
+    finishFirst = resolve;
+  });
+
+  const fullPage = cdp.captureScreenshot(webContents.id, { fullPage: true });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  pendingScreenshot = null;
+  const viewport = cdp.captureScreenshot(webContents.id);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  expect(
+    commands.filter(({ method }) => method === "Page.captureScreenshot"),
+  ).toHaveLength(1);
+
+  finishFirst();
+  await expect(fullPage).resolves.toBe("data:image/png;base64,cGVuZw==");
+  await expect(viewport).resolves.toBe("data:image/png;base64,cGVuZw==");
+  expect(
+    commands.filter(({ method }) => method === "Page.captureScreenshot"),
+  ).toHaveLength(2);
+});
+
+test("healing waits out a running capture and clears a leftover override otherwise", async () => {
+  let finishCapture!: () => void;
+  pendingScreenshot = new Promise<void>((resolve) => {
+    finishCapture = resolve;
+  });
+  const capture = cdp.captureScreenshot(webContents.id);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  const heal = cdp.healLensViewportEmulation(webContents.id);
+  expect(cleanupCommands).toEqual([]);
+
+  finishCapture();
+  await capture;
+  await new Promise((resolve) => setTimeout(resolve, 0));
+
+  await heal;
+  expect(cleanupCommands).toEqual([
+    { method: "Emulation.clearDeviceMetricsOverride", params: undefined },
+  ]);
 });

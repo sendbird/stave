@@ -45,6 +45,7 @@ import {
   getDocumentHTML,
   getElementBoxModel,
   getTextContent,
+  healLensViewportEmulation,
   measureElements,
   setElementStyle,
   typeText,
@@ -510,26 +511,9 @@ export function registerBrowserTools(rawServer: McpServer): void {
         "stave_lens_screenshot",
       );
 
-      let clip:
-        { x: number; y: number; width: number; height: number } | undefined;
-      if (selector) {
-        const box = (await evaluateExpression(
-          session.webContents.id,
-          `
-          (() => {
-            const el = document.querySelector(${JSON.stringify(selector)});
-            if (!el) return null;
-            const r = el.getBoundingClientRect();
-            return { x: r.x, y: r.y, width: r.width, height: r.height };
-          })()
-        `,
-        )) as { x: number; y: number; width: number; height: number } | null;
-        if (box) clip = box;
-      }
-
       const dataUrl = await captureScreenshot(session.webContents.id, {
         fullPage,
-        clip,
+        selector,
       });
       const base64 = dataUrl.replace(/^data:image\/png;base64,/, "");
       // Kept so the conversation can show the screenshot: providers either
@@ -1161,6 +1145,8 @@ export function registerBrowserTools(rawServer: McpServer): void {
         undefined,
         async () => {
           assertLensAutomationAllowed();
+          // See `lens:reload`: a reload alone keeps a stuck capture viewport.
+          void healLensViewportEmulation(session.webContents.id);
           if (ignoreCache) {
             session.webContents.reloadIgnoringCache();
           } else {
