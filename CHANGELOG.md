@@ -1,3 +1,21 @@
+## [0.26.4](https://github.com/sendbird/stave/compare/v0.26.3...v0.26.4) (2026-10-11)
+
+This patch release shares System default's custom MCP servers with managed Claude accounts that use its setup.
+
+### Bug Fixes
+
+- Managed Claude accounts receive System default's user and local MCP servers in task sessions and CLI tabs without installing them again while setup sharing is enabled.
+- MCP sharing leaves account sign-in and history isolated, preserves server overrides at each scope and strict MCP mode, and excludes stale Stave server registrations.
+- Changes to the shared MCP configuration refresh stale sessions, and environment variables referenced by those servers are discovered from the shared file.
+
+### Known Limits
+
+- Live remote MCP tool execution and CLI tab launches have not been smoke-tested in the packaged desktop app. OAuth MCP servers may still need account-specific authentication.
+
+### References
+
+- [PR #729](https://github.com/sendbird/stave/pull/729)
+
 ## [0.26.3](https://github.com/sendbird/stave/compare/v0.26.2...v0.26.3) (2026-10-11)
 
 This patch release fixes answering Codex async questions and starting an Agent run when kickoff creates a new workspace.
