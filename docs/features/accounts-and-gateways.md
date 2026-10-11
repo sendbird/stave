@@ -90,8 +90,16 @@ Switching changes **new turns only**:
 |---|---|
 | A turn you send next | The new account |
 | A turn already running | The account it started with |
-| A queued message | The account it was queued with |
+| A queued message | The account it was queued with, unless a usage limit paused it |
+| A turn or queue a usage limit paused | The new account, when you resume it |
+| An Agent run | The account selected when it started, for every turn it starts itself. Your replies follow the first row |
+| A subagent an agent starts | The account of the turn that started it, follow-ups included |
+| A review, follow-up or retry you start | The new account |
 | An open Standalone CLI tab | Its own account until you switch that tab |
+
+An Agent run cannot use an API connection yet: its turns start without the
+connection's key, so Stave refuses the run when it would start. Choose a
+signed-in account for new turns before you send to an Agent.
 
 Provider conversations belong to the account that started them. **Copy debug info** in a task tab's context menu lists one provider session per account, suffixed with the account id when it is not System default.
 
@@ -103,10 +111,13 @@ reset** to reserve a retry one minute after the reported reset. Automatic
 resume checks usage again and waits for another exhausted window if needed.
 If no reset time is known, resume manually.
 
-Changing the account for new turns does not retarget messages already queued
-under another account. **Resume now** still passes through the usage guard;
-it does not override the exhausted account's limit. The reservation runs only
-while Stave is open and is not saved across restarts.
+Switching accounts is how you get past a limit: resuming the paused work, by
+hand or at the reserved reset, continues the stopped turn and sends the held
+queue on the account selected when it resumes. Messages queued behind a turn
+that is still running keep the account they were queued with. **Resume now**
+still passes through the usage guard; it does not override a limit on the
+account it resumes on. The reservation runs only while Stave is open and is
+not saved across restarts.
 
 See [When A Usage Limit Stops Work](turn-activity.md#when-a-usage-limit-stops-work)
 for continuation behavior, cancellation and restored queues.

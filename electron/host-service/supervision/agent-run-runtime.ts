@@ -21,6 +21,8 @@
  */
 import { readAdaptiveObservations } from "../../providers/adaptive-observations";
 import { resolveAccountUsageBlock } from "../../../src/lib/providers/account-usage-block";
+import { ProviderAccountSelectionSchema } from "../../../src/lib/providers/provider-accounts";
+import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, supportsAdaptiveEffort, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
 import { selectAdaptiveRoute } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
@@ -156,7 +158,9 @@ export interface AgentRunTurnRow {
 
 export interface AgentRunRuntimeDependencies {
   store: AgentRunStorePort;
-  freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent }) => AdaptiveRunPolicy;
+  freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection }) => AdaptiveRunPolicy;
+  /** Whether an account is an API connection, whose key a host-started turn cannot read. */
+  usesApiConnection?: (providerId: "claude-code" | "codex", accountProfileId: string) => boolean;
   stopResourceTask?: (args: { workspaceId: string; taskId: string }) => Promise<unknown>;
   resourceExecutionLive?: (childRunId: string, executionId: string) => boolean;
   delegatedAssignment?: (taskId: string) => AgentAssignment | null;
@@ -411,6 +415,31 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     if (!started || !("delegation" in started.detail)) return null;
     // Invalid persisted authority fails closed; it must not become primary user permissions.
     return DelegatedAgentRunAuthoritySchema.parse(started.detail.delegation);
+  }
+
+  /**
+   * The accounts a run's own turns use: those selected when it was asked for,
+   * with an adaptive policy's frozen account winning for its provider. Without
+   * them a host-started turn would fall back to System default.
+   */
+  function runAccountOptions(agentRun: AgentRun, resources: { policy: AdaptiveRunPolicy } | null | undefined): ProviderAccountSelection {
+    const started = store.listEventsByKind(agentRun.id, ["agent-run-started"])[0];
+    const recorded = ProviderAccountSelectionSchema.safeParse(started?.detail.accounts);
+    const accounts: ProviderAccountSelection = recorded.success ? { ...recorded.data } : {};
+    const frozen = resources?.policy.accountProfileId;
+    if (frozen) accounts[resources.policy.providerId === "codex" ? "codexAccountProfileId" : "claudeAccountProfileId"] = frozen;
+    return accounts;
+  }
+
+  /**
+   * A run's own turns start in the host, outside any request that carries an
+   * API connection's key, so they would fail on their first turn. Refuse at
+   * the start with the reason instead.
+   */
+  function refuseApiConnectionRun(providerId: "claude-code" | "codex", accounts: ProviderAccountSelection | undefined) {
+    const accountProfileId = providerId === "codex" ? accounts?.codexAccountProfileId : accounts?.claudeAccountProfileId;
+    if (accountProfileId && deps.usesApiConnection?.(providerId, accountProfileId))
+      refuse("An Agent run cannot use an API connection yet. Choose a signed-in account for new turns, then send again.");
   }
 
   function requireDelegatedAssignment(agentRun: Pick<AgentRun, "leadTaskId" | "workspaceId">, authority: DelegatedAgentRunAuthority) {
@@ -967,7 +996,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               : undefined,
           ),
           ...routed?.runtimeOptions,
-        }), ...(resources?.policy.accountProfileId ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: resources.policy.accountProfileId } : { claudeAccountProfileId: resources.policy.accountProfileId }) : {}) },
+        }), ...runAccountOptions(agentRun, resources) },
         retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [{ type: "retrieved_context" as const,
           sourceId: "stave:adaptive-resources", title: "Adaptive Balanced resources",
           content: JSON.stringify({ policy: resources.policy, budget: store.readResources?.(agentRun.id), currentTurnKey: turnKey,
@@ -1441,6 +1470,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           return detailOf(agentRunId);
         }
         if (store.getActiveAgentRunForTask(input.leadTaskId)) refuse("This delegated task already has an active run.");
+        refuseApiConnectionRun(authority.permissionPolicy.providerId, input.accounts);
         const snapshot = await deps.getTaskSupervisionSnapshot({ workspaceId: input.workspaceId, taskId: input.leadTaskId });
         if (!snapshot.exists || !snapshot.repositoryPath || snapshot.archived || snapshot.activeTurnId ||
             snapshot.providerId !== authority.permissionPolicy.providerId || snapshot.model !== model)
@@ -1455,7 +1485,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const change = createAgentRun({ id: agentRunId, input, repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: authority.permissionPolicy.providerId, model }, now: now() });
         change.agentRun = { ...change.agentRun, state: "paused", pauseReason: "paused-by-user" };
-        const memberResources = resourceLink ? constrainHelperResources(store.resourceConfig!(resourceLink.rootRunId)!.policy, AdaptiveRunPolicySchema.parse(deps.freezeResources?.({ run: change.agentRun, authority })), model) : null;
+        const memberResources = resourceLink ? constrainHelperResources(store.resourceConfig!(resourceLink.rootRunId)!.policy, AdaptiveRunPolicySchema.parse(deps.freezeResources?.({ run: change.agentRun, authority, accounts: input.accounts })), model) : null;
         if (memberResources) requireInitialEffortSupport(memberResources);
         change.events = change.events.map((event) => ({ ...event,
           idempotencyKey: `delegated:${authority.executionId}:prepared`, detail: { ...event.detail, delegation: authority, ...(memberResources ? { resources: memberResources, resourceLink } : {}) } }));
@@ -1500,6 +1530,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent?.modelProviderId && input.routingIntent.modelProviderId !== snapshot.providerId)
           refuse("The captured provider changed before Run admission. Restore it or submit a new assignment.");
+        refuseApiConnectionRun(snapshot.providerId as "claude-code" | "codex", input.accounts);
         if (!(await deps.isReportingAvailable({ fresh: true }))) {
           refuse(
             "Stave's local tools are off, so the agent could not report its stages. Turn on Local MCP in Settings, or send the assignment as a single turn.",
@@ -1522,7 +1553,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, routingIntent: input.routingIntent } }));
         if (input.adaptive) {
           if (input.origin !== "agent" || !store.consumeResourceTurn || !deps.freezeResources) refuse("Adaptive resources require an assigned Agent and a resource-aware host.");
-          const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run: change.agentRun, routingIntent: input.routingIntent }));
+          const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run: change.agentRun, routingIntent: input.routingIntent, accounts: input.accounts }));
           requireInitialEffortSupport(policy);
           change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
         }

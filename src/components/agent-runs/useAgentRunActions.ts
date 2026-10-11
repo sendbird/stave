@@ -8,6 +8,7 @@ import { toast } from "@/lib/notifications/toast";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { useAgentRunsStore } from "@/store/agent-runs-store";
+import { snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 
 /** What the user can do to an agent run from the bar, the result card and the panel. */
 export interface AgentRunActions {
@@ -82,6 +83,8 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
               assignment: agentRun.assignment,
               adaptive: Boolean(detail.resources),
               doneWhen,
+              // A new run: the accounts selected now, not the ones the last run kept.
+              accounts: snapshotProviderAccounts(useAppStore.getState().settings),
               now: new Date(),
             }),
           );

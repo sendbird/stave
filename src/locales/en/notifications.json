@@ -2,7 +2,7 @@
   "appStoreTaskPauseActions": {
     "pausedAccountIsUnknown": "Paused account is unknown",
     "resumeManuallyToUseYourCurrentlySelectedAccount": "Resume manually to use your currently selected account.",
-    "couldnTVerifyPausedAccountUsage": "Couldn't verify paused account usage",
+    "couldnTVerifyPausedAccountUsage": "Couldn't verify the selected account's usage",
     "theTaskStaysPausedResumeManuallyOrReserveAnotherResetTimeResume": "The task stays paused. Resume manually or reserve another reset-time resume.",
     "couldnTResumeTheTask": "Couldn't resume the task",
     "theTaskIsBusyOrWaitingOnAnotherActionItStaysPaused": "The task is busy or waiting on another action. It stays paused.",

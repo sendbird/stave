@@ -202,6 +202,15 @@ describe("runtime adapters", () => {
     expect(await resolveHostGatewayCredential({ providerId: "claude-code", runtimeOptions: { codexAccountProfileId: connection.id } }, resolve)).toBeUndefined();
   });
 
+  test("a subagent's run-task gets the key of the account it runs on; other Local MCP actions get none", async () => {
+    const connection = createVercel();
+    const resolve = async (id: string) => ({ id, value: "fixture-key" });
+    const runTask = (action: string) => resolveHostGatewayCredential({ action,
+      args: { provider: "codex", runtimeOptions: { claudeAccountProfileId: connection.id, codexAccountProfileId: connection.id } } }, resolve);
+    expect(await runTask("run-task")).toEqual({ codex: { profileId: connection.id, token: "fixture-key" } });
+    expect(await runTask("get-task-status")).toBeUndefined();
+  });
+
   test("Claude: gateway env, a Claude model for background work, and experimental models allowed", () => {
     const connection = createVercel();
     inConnection(connection.id, "fixture-key", () => {

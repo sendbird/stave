@@ -134,12 +134,32 @@ cache keys, and usage reads are separated by profile. Reusing a Codex client
 revalidates the registration; removing a profile prevents new requests without
 terminating a turn already running on it.
 
+Turns Stave starts on the user's behalf carry the selection of the request that
+asked for them, because a host-started turn has no request scope and would
+otherwise fall back to System default. An Agent run records both IDs as
+`accounts` on its `agent-run-started` event (from the composer send, including
+a queued send's captured IDs, or from the selection when it is run again) and
+adds them to every supervisor turn; an adaptive policy's frozen account wins
+for its provider. A Local MCP caller grant carries the calling turn's resolved
+IDs, so `stave_delegate_task`, its follow-ups, and `stave_run_task` start the
+child on them; inside a Stave turn, account IDs a model passes to
+`stave_run_task` are overridden. The renderer's own delegation controls
+(review, follow-up, retry) pass the current selection as a second IPC argument,
+`DelegatedTaskRequestContext`, kept out of the model-facing argument schemas.
+One-turn children reach the host as a Local MCP `run-task` with the IDs in
+runtime options, and main resolves an API connection's key from them. Agent
+run turns are started by the host outside any request, so a run whose provider
+account is an API connection is refused at admission instead of failing on its
+first turn.
+
 Native session cursors for custom profiles are stored under
 `providerSession.accounts[profileId][providerId]`; existing top-level entries
 remain System default. Session and terminal events carry their originating
 profile ID, including synthesized terminal failures. Queue entries capture both
 profile IDs, including explicit System default, so changing a selection does not
-retarget an already queued turn. Account selection changes invalidate that
+retarget an already queued turn, except that resuming a usage-limit pause
+retargets the turns it held, and a failed send's retry, to the current
+selection. Account selection changes invalidate that
 provider's displayed usage only (other providers keep their readings), and late
 usage responses cannot replace the new selection's readings.
 Custom Claude usage reads search only the selected configuration directory and

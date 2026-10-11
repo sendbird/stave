@@ -12,6 +12,7 @@ import {
   DelegatedTaskFollowUpArgsSchema,
   DelegatedTaskLinkArgsSchema,
   DelegatedTaskListArgsSchema,
+  DelegatedTaskRequestContextSchema,
   DelegatedTaskRetryArgsSchema,
   DelegatedTaskStopArgsSchema,
   describeDelegatedTaskRejection,
@@ -133,10 +134,13 @@ export function registerRunHandlers() {
     return invokeHostService("local-mcp.invoke", { action: "sync-delegation-permission-settings", args: args.data });
   });
 
-  ipcMain.handle("delegations:create", async (_event, rawArgs: unknown) => {
+  // The user's own controls send the accounts selected now as a second
+  // argument; an unreadable one is refused rather than run on System default.
+  ipcMain.handle("delegations:create", async (_event, rawArgs: unknown, rawContext?: unknown) => {
     const args = DelegateTaskArgsSchema.safeParse(rawArgs);
-    return args.success
-      ? await getDelegatedTaskCoordinator().delegate(args.data)
+    const context = DelegatedTaskRequestContextSchema.safeParse(rawContext ?? {});
+    return args.success && context.success
+      ? await getDelegatedTaskCoordinator().delegate(args.data, context.data)
       : invalidDelegatedTaskResponse();
   });
 
@@ -155,18 +159,20 @@ export function registerRunHandlers() {
   // replaced it.
   ipcMain.handle(
     "delegations:follow-up",
-    async (_event, rawArgs: unknown) => {
+    async (_event, rawArgs: unknown, rawContext?: unknown) => {
       const args = DelegatedTaskFollowUpArgsSchema.safeParse(rawArgs);
-      return args.success
-        ? await getDelegatedTaskCoordinator().followUp(args.data)
+      const context = DelegatedTaskRequestContextSchema.safeParse(rawContext ?? {});
+      return args.success && context.success
+        ? await getDelegatedTaskCoordinator().followUp(args.data, context.data)
         : invalidDelegatedTaskResponse();
     },
   );
 
-  ipcMain.handle("delegations:retry", async (_event, rawArgs: unknown) => {
+  ipcMain.handle("delegations:retry", async (_event, rawArgs: unknown, rawContext?: unknown) => {
     const args = DelegatedTaskRetryArgsSchema.safeParse(rawArgs);
-    return args.success
-      ? await getDelegatedTaskCoordinator().retry(args.data)
+    const context = DelegatedTaskRequestContextSchema.safeParse(rawContext ?? {});
+    return args.success && context.success
+      ? await getDelegatedTaskCoordinator().retry(args.data, context.data)
       : invalidDelegatedTaskResponse();
   });
 
