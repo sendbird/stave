@@ -1,3 +1,25 @@
+## [0.26.1](https://github.com/sendbird/stave/compare/v0.26.0...v0.26.1) (2026-10-11)
+
+This patch release makes account selection apply consistently to Agent runs and delegated work, and brings automatic model adjustment into the composer controls.
+
+### Features and Fixes
+
+- **Auto adjust** replaces the separate checkbox above the composer. The button lives in the right-side panel, with a toolbar fallback in compact and classic layouts. Its popover explains the next-run scope and limits; an active Run shows its actual policy and locks the toggle until it ends.
+- Agent runs retain the accounts selected when they start, and agent-started subagents inherit the calling turn's accounts. Reviews, follow-ups and retries started by the user use the current selection instead of silently falling back to System default.
+- Resuming work after a usage limit uses the account selected at resume time, including the queue held by that pause. Messages queued behind a still-running turn keep their queue-time accounts.
+- Managed Claude and Codex accounts can link eligible settings to System default so subsequent changes stay shared. New sharing defaults to linking; existing shared copies remain copies until switched. Credential-sensitive Claude settings use a filtered copy, and sensitive Codex configuration remains unshared.
+- Settings → Auto adds optional provider strengths by task class, and Auto-routing agents can prefer a provider. The strength table is off by default. Explicit and Fixed providers take precedence, and provider changes normally apply only at task boundaries.
+- Provider-only rules can follow the difficulty level's model rung. Fixed agents delegated across providers retain their model, and each provider's usage window is evaluated independently.
+
+### Known Limits
+
+- Agent runs on API connections are refused with an explanation until host-started turns can resolve their keys. Runs created before account capture was added retain their previous System default behavior.
+- Wake-ups and automations still start without captured account selections. Live provider sessions and the packaged desktop application were not exercised during release preparation.
+
+### References
+
+- [PR #719](https://github.com/sendbird/stave/pull/719), [PR #720](https://github.com/sendbird/stave/pull/720), [PR #721](https://github.com/sendbird/stave/pull/721), [PR #722](https://github.com/sendbird/stave/pull/722)
+
 ## [0.26.0](https://github.com/sendbird/stave/compare/v0.25.2...v0.26.0) (2026-10-09)
 
 This minor release brings project-scoped defaults, resumable workspace cleanup and interactive conversation results, alongside more reliable supervised Agent runs.
