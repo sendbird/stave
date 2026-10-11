@@ -18,10 +18,15 @@ import {
   PROVIDER_STRENGTH_PRESETS,
   readDelegationStrengths,
   readProviderStrengths,
+  STRENGTH_AREA_CONDITIONS,
+  STRENGTH_AREAS,
   STRENGTH_SOURCES,
-  STRENGTH_TASK_CLASSES,
+  strengthAreaLabel,
   writeProviderStrengths,
+  type StrengthArea,
 } from "@/lib/providers/provider-strength-presets";
+import { parseRouteIntent } from "@/lib/providers/route-intent";
+import { computeRouterSignals, detectPromptDomain } from "@/lib/routing/auto-routing";
 import {
   fallBackToParentProvider,
   resolveDelegationProvider,
@@ -174,9 +179,13 @@ describe("provider strength presets", () => {
     expect(ids[firstStrength - 1]).toBe("delegate-default");
     expect(ids.indexOf("extreme")).toBeGreaterThan(firstStrength);
     for (const rule of written.rules.filter(isStrengthRule)) {
+      const area = rule.id.slice("strength-".length) as StrengthArea;
       expect(rule.then.tier).toBe(FOLLOW_LEVEL_TIER);
-      expect(STRENGTH_TASK_CLASSES).toContain(rule.when.taskClass as never);
+      expect(STRENGTH_AREAS).toContain(area);
+      expect(rule.when).toEqual(STRENGTH_AREA_CONDITIONS[area]);
     }
+    // The two domain rows match before the generic implementation row.
+    expect(ids.indexOf("strength-ui")).toBeLessThan(ids.indexOf("strength-logic"));
     // Rewriting replaces rather than duplicates.
     const again = writeProviderStrengths(written, { map: { review: "codex" }, enabled: true });
     expect(again.rules.filter(isStrengthRule).map((rule) => rule.id)).toEqual(["strength-review"]);
@@ -229,6 +238,13 @@ describe("provider strength presets", () => {
     expect(evidence.map.implement).toBeUndefined();
     expect(evidence.map["ci-fix"]).toBeUndefined();
     expect(evidence.map.debug).toBeUndefined();
+    expect(evidence.map.docs).toBeUndefined();
+    // Interface work leans Claude and logic leans Codex, both with low confidence.
+    expect(evidence.map.ui).toBe("claude-code");
+    expect(evidence.map.logic).toBe("codex");
+    expect(evidence.evidence.ui!.confidence).toBe("low");
+    expect(evidence.evidence.logic!.confidence).toBe("low");
+    for (const area of STRENGTH_AREAS) expect(strengthAreaLabel(area).length).toBeGreaterThan(0);
   });
 
   test("strength rules survive validation", () => {
@@ -301,5 +317,79 @@ describe("delegation strengths from the host's Auto settings", () => {
     expect(readDelegationStrengths({ routing: { autoRoutingEnabled: true, autoRoutingProfile: base } })).toBeNull();
     expect(readDelegationStrengths({ routing: { autoRoutingEnabled: true } })).toBeNull();
     expect(readDelegationStrengths(null)).toBeNull();
+  });
+});
+
+describe("implementation splits by domain", () => {
+  const base = cloneProfileAsCustom(buildStarterProfile("starter-balanced"));
+  const profile = writeProviderStrengths(base, { map: { ui: "claude-code", logic: "codex" }, enabled: true });
+  const first = (overrides: Partial<RouterSignals>) =>
+    resolveRoute({ profile, role: "primary", signals: signals({ taskClass: "implement", boundary: true, ...overrides }) });
+
+  test("interface work starts on Claude, logic on Codex, an unclear domain stays", () => {
+    expect(first({ domain: "ui", currentProviderId: "codex" })).toMatchObject({ providerId: "claude-code", ruleId: "strength-ui" });
+    expect(first({ domain: "logic" })).toMatchObject({ providerId: "codex", ruleId: "strength-logic" });
+    expect(first({ currentProviderId: "codex" }).providerId).toBe("codex");
+    expect(first({ currentProviderId: "claude-code" }).providerId).toBe("claude-code");
+  });
+
+  test("the generic implementation row catches the rest", () => {
+    const withOther = writeProviderStrengths(base, { map: { ui: "claude-code", implement: "codex" }, enabled: true });
+    const route = (domain?: "ui" | "logic") => resolveRoute({
+      profile: withOther,
+      role: "primary",
+      signals: signals({ taskClass: "implement", boundary: true, ...(domain ? { domain } : {}) }),
+    });
+    expect(route("ui").providerId).toBe("claude-code");
+    expect(route("logic").providerId).toBe("codex");
+    expect(route().providerId).toBe("codex");
+  });
+
+  test("a domain condition survives validation", () => {
+    const validated = validateProfile(profile);
+    expect(validated.rules.find((rule) => rule.id === "strength-ui")?.when).toEqual({ taskClass: "implement", domain: "ui" });
+    expect(readProviderStrengths(validated).map).toEqual({ ui: "claude-code", logic: "codex" });
+  });
+});
+
+describe("domain signal", () => {
+  const classified = (domain?: "ui" | "logic" | "unknown") => ({
+    version: 2 as const,
+    intent: "implement" as const,
+    complexity: "medium" as const,
+    risk: "normal" as const,
+    continuity: "new" as const,
+    ...(domain ? { domain } : {}),
+    evidenceCodes: [],
+  });
+  const compute = (prompt: string, classifier: ReturnType<typeof classified> | null) =>
+    computeRouterSignals({
+      prompt,
+      fileContextCount: 0,
+      history: [],
+      currentProviderId: "claude-code",
+      profile: buildStarterProfile("starter-balanced"),
+      classifier,
+    }).signals.domain;
+
+  test("the classifier answer may carry a domain or leave it out", () => {
+    const base = '{"version":2,"intent":"implement","complexity":"medium","risk":"normal","continuity":"new","evidenceCodes":[]}';
+    expect(parseRouteIntent(base)?.domain).toBeUndefined();
+    expect(parseRouteIntent(base.replace('"evidenceCodes"', '"domain":"ui","evidenceCodes"'))?.domain).toBe("ui");
+    expect(parseRouteIntent(base.replace('"evidenceCodes"', '"domain":"backend","evidenceCodes"'))).toBeNull();
+  });
+
+  test("the classifier decides; a UI keyword fills in only when it says nothing", () => {
+    expect(compute("Wire the billing API", classified("logic"))).toBe("logic");
+    expect(compute("Fix the modal layout", classified("unknown"))).toBeUndefined();
+    expect(compute("Fix the modal layout", classified())).toBe("ui");
+    expect(compute("Fix the modal layout", null)).toBe("ui");
+    expect(compute("Add retry to the job queue", null)).toBeUndefined();
+  });
+
+  test("UI keywords in English and Korean", () => {
+    expect(detectPromptDomain("Polish the settings dialog CSS")).toBe("ui");
+    expect(detectPromptDomain("설정 화면 레이아웃을 다듬어줘")).toBe("ui");
+    expect(detectPromptDomain("Speed up the SQL query")).toBeUndefined();
   });
 });

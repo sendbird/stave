@@ -69,7 +69,9 @@
     "noRuleMatchedIsTheProvider": "일치하는 규칙이 없어 프로바이더 대체 모델인 {{value1}} 모델을 사용합니다.",
     "followsTheLevel": "모델은 레벨을 따름",
     "preferredProviderUnavailable": "에이전트가 선호하는 {{provider}}을(를) 지금 쓸 수 없습니다.",
-    "staysOnProviderInsideTask": "이 작업 안에서는 {{provider}}을(를) 유지합니다. {{other}}은(는) 다음 작업부터 적용됩니다."
+    "staysOnProviderInsideTask": "이 작업 안에서는 {{provider}}을(를) 유지합니다. {{other}}은(는) 다음 작업부터 적용됩니다.",
+    "domainUi": "UI 작업",
+    "domainLogic": "로직 작업"
   },
   "autoRoutingWizard": {
     "ofYourTurnsRanOnFrontier": "턴의 {{value1}}%를 최상위 또는 주력 모델로 실행했습니다.",
@@ -505,6 +507,11 @@
     "startsOn": "시작 프로바이더",
     "keep": "작업의 프로바이더 유지",
     "rowLabel": "{{task}}의 프로바이더",
+    "areas": {
+      "ui": "UI·프론트엔드",
+      "logic": "로직·백엔드",
+      "implementOther": "기타 구현"
+    },
     "confidence": {
       "low": "근거 약함",
       "medium": "근거 보통",
@@ -512,12 +519,14 @@
     },
     "rationale": {
       "plan": "실무자들은 대개 Claude로 계획하고 Codex로 계획을 검토합니다. 계획을 측정한 벤치마크는 없습니다.",
-      "implement": "일관된 승자가 없습니다. Claude가 WebDev와 Terminal-Bench 4.0에서 근소하게 앞서고, Codex는 DeepSWE에서 훨씬 적은 비용으로 비슷한 점수를 냅니다.",
+      "ui": "Claude Opus 5.5가 WebDev와 UI 컴포넌트 아레나에서 근소하게 앞서고, 실무자들은 Claude의 디자인 감각을 높이 평가합니다. 3D 디자인은 GPT-6.1 Sol이 앞섭니다.",
+      "logic": "긴 소프트웨어 작업에서 Codex가 훨씬 적은 비용으로 Claude와 비슷한 점수를 내고, 실무자들은 API 설계와 테스트를 Codex에 맡깁니다.",
+      "implement": "분야가 분명하지 않은 구현은 일관된 승자가 없습니다. Claude가 Terminal-Bench 4.0에서 근소하게 앞서고, Codex는 DeepSWE에서 훨씬 적은 비용으로 비슷한 점수를 냅니다.",
       "quickEdit": "같은 effort에서 Codex가 작업당 비슷한 비용으로 뚜렷하게 높은 점수를 냅니다.",
       "debug": "엇갈립니다. 같은 effort에서는 Codex가 심어 둔 버그를 더 많이, 훨씬 싸게 고치고, 최대 effort에서는 Sonnet 5.5가 가장 많이 고칩니다. 실무자들은 Claude를 선호합니다.",
       "review": "벤더가 직접 만든 리뷰 벤치마크 하나에서 Codex가 이전 세대 Claude 모델보다 앞서고, 실무자들도 Codex 리뷰를 선호합니다. 독립 벤치마크는 아직 없습니다.",
       "ciFix": "결과가 충돌합니다. Terminal-Bench 2.1은 Codex가 앞서고, 더 최근의 Terminal-Bench 4.0은 Claude가 훨씬 높은 비용으로 앞섭니다.",
-      "docs": "이전 세대 모델을 다룬 연구 하나에서 문서 작업이 Claude Code의 pull request 수락률이 가장 높은 범주였습니다.",
+      "docs": "엇갈립니다. 이전 세대 모델을 다룬 연구에서는 문서 작업이 Claude Code의 pull request 수락률이 가장 높은 범주였지만, 한 글쓰기 벤치마크에서는 현재 Claude가 GPT-6 Astra보다 뒤처집니다.",
       "research": "독립 비교 하나에서 Claude가 코드베이스 질문에 조금 더 잘 답하지만 비용은 더 높습니다."
     },
     "hypothesisNote": "{{date}} 기준 공개 벤치마크, GitHub, 블로그 비교를 참고한 값입니다. 일반적인 프로바이더 평가일 뿐 사용자의 작업을 측정한 값이 아니므로 자유롭게 바꾸세요.",

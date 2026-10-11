@@ -8,6 +8,7 @@ import {
   listEligibleRouteModels,
   resolveRouteTierForModel,
   ROUTE_COMPLEXITY_LABELS,
+  ROUTE_DOMAIN_LABELS,
   ROUTE_TIER_LABELS,
   ROUTE_TIERS,
   ROUTER_ROLE_LABELS,
@@ -88,6 +89,7 @@ export function describeRuleConditions(rule: RouteRule): string[] {
   const { when } = rule;
   const parts: string[] = [];
   if (when.taskClass) parts.push(TASK_CLASS_LABELS[when.taskClass].toLowerCase());
+  if (when.domain) parts.push(ROUTE_DOMAIN_LABELS[when.domain]);
   if (when.skill && when.skill.length > 0) {
     parts.push(when.skill.map((skill) => `/${skill}`).join(" "));
   }

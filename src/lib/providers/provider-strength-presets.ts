@@ -6,13 +6,13 @@ import {
   TASK_CLASS_LABELS,
   type AutoRoutingProfile,
   type RouteRule,
-  type TaskClass,
+  type RouteRuleWhen,
 } from "./auto-routing-profile";
 import { getProviderLabel } from "./model-catalog";
 
 /**
  * Provider strengths: which provider a task's first turn starts on, by the
- * kind of work. Stored as ordinary provider-only rules (`strength-<class>`)
+ * area of work. Stored as ordinary provider-only rules (`strength-<area>`)
  * whose model follows the level, so the level ladder still picks the rung and
  * a user can edit them like any other rule. There is no separate profile
  * layer. A strength moves the provider only at a task boundary (see
@@ -24,15 +24,20 @@ import { getProviderLabel } from "./model-catalog";
  */
 
 export type StrengthProviderId = "claude-code" | "codex";
-/** A class absent from the map keeps the task's provider. */
-export type ProviderStrengthMap = Partial<Record<StrengthTaskClass, StrengthProviderId>>;
+/** An area absent from the map keeps the task's provider. */
+export type ProviderStrengthMap = Partial<Record<StrengthArea, StrengthProviderId>>;
 
 /**
+ * The table's rows. Most are a task class. Implementation splits by domain:
+ * `ui` and `logic` are implementation whose domain is known, and `implement`
+ * is the rest, so the two domain rows come first and match first.
  * Safety-critical work is left out: it already has its own rule (flagship,
  * high effort), and no public evaluation separates the providers on it.
  */
-export const STRENGTH_TASK_CLASSES = [
+export const STRENGTH_AREAS = [
   "plan",
+  "ui",
+  "logic",
   "implement",
   "quick-edit",
   "debug",
@@ -40,8 +45,32 @@ export const STRENGTH_TASK_CLASSES = [
   "ci-fix",
   "docs",
   "research",
-] as const satisfies readonly TaskClass[];
-export type StrengthTaskClass = (typeof STRENGTH_TASK_CLASSES)[number];
+] as const;
+export type StrengthArea = (typeof STRENGTH_AREAS)[number];
+
+/** The rule condition behind each row. */
+export const STRENGTH_AREA_CONDITIONS: Readonly<Record<StrengthArea, Pick<RouteRuleWhen, "taskClass" | "domain">>> = {
+  plan: { taskClass: "plan" },
+  ui: { taskClass: "implement", domain: "ui" },
+  logic: { taskClass: "implement", domain: "logic" },
+  implement: { taskClass: "implement" },
+  "quick-edit": { taskClass: "quick-edit" },
+  debug: { taskClass: "debug" },
+  review: { taskClass: "review" },
+  "ci-fix": { taskClass: "ci-fix" },
+  docs: { taskClass: "docs" },
+  research: { taskClass: "research" },
+};
+
+/** Row label: the task class, or the implementation domain. */
+export function strengthAreaLabel(area: StrengthArea): string {
+  switch (area) {
+    case "ui": return i18n.t("providers:providerStrengths.areas.ui");
+    case "logic": return i18n.t("providers:providerStrengths.areas.logic");
+    case "implement": return i18n.t("providers:providerStrengths.areas.implementOther");
+    default: return TASK_CLASS_LABELS[area];
+  }
+}
 
 export { isStrengthRule, STRENGTH_RULE_ID_PREFIX };
 
@@ -72,8 +101,8 @@ export interface ProviderStrengthPreset {
   /** When the evidence was gathered; presets age as models change. */
   asOf: string;
   map: ProviderStrengthMap;
-  /** Evidence for every class, including those the preset leaves as "keep". */
-  evidence: Partial<Record<StrengthTaskClass, StrengthEvidence>>;
+  /** Evidence for every area, including those the preset leaves as "keep". */
+  evidence: Partial<Record<StrengthArea, StrengthEvidence>>;
 }
 
 /*
@@ -99,6 +128,10 @@ export const STRENGTH_SOURCES: readonly StrengthSource[] = [
     claim: "GPT-6 Astra #1 (1800) ahead of Fable 5.1 (1758), yet Fable 5.1 wins their head-to-head battles 43.5% to 29.0%." },
   { id: "arena-x-opus", title: "Opus 5.5 takes #1 in WebDev", publisher: "@arena on X", url: "https://x.com/arena/status/2103110782540255504", date: "2026-09-24", kind: "x",
     claim: "Claude Opus 5.5 (Max) #1 in Code Arena WebDev at a 60% lower price than GPT-6 Astra (Max)." },
+  { id: "design-arena", title: "Design Arena models", publisher: "Design Arena", url: "https://www.designarena.ai/models", date: "2026-10", kind: "benchmark",
+    claim: "Crowd-voted: Claude Opus 5.5 1400 and #1 in the UI Component arena; GPT-6.1 Sol 1484 and #1 in 3D Design; Sonnet 5.5 #2 in data visualization." },
+  { id: "danshipper-x", title: "Opus 5.5 first impressions", publisher: "Dan Shipper on X", url: "https://x.com/danshipper/status/2102435870309769352", date: "2026-09-22", kind: "x",
+    claim: "Every's testing: Opus 5.5 is excellent at end-to-end builds that match your taste, and still trails GPT-6 Astra on writing tasks." },
   { id: "twostraws-x", title: "Codex vs Claude for app development", publisher: "Paul Hudson on X", url: "https://x.com/twostraws/status/2101317950787432483", date: "2026-09-19", kind: "x",
     claim: "Practitioner: for finding bugs Opus (5) beats Astra; passkeys, unit tests and API design go to Codex; Fable has a flair for design." },
   { id: "macroscope-review", title: "AI Code Review Benchmark 2026", publisher: "Macroscope (vendor)", url: "https://macroscope.com/content/ai-code-review-benchmark-best-models", date: "2026-09-22", kind: "benchmark",
@@ -118,22 +151,25 @@ export const STRENGTH_SOURCES: readonly StrengthSource[] = [
 ];
 
 // Rationale getters, not strings: the row text is translated.
-const EVIDENCE_2026_10: Partial<Record<StrengthTaskClass, StrengthEvidence>> = {
+const EVIDENCE_2026_10: Partial<Record<StrengthArea, StrengthEvidence>> = {
   plan: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.plan"); }, sourceIds: ["catdoes", "codex-review-repo"] },
-  implement: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.implement"); }, sourceIds: ["arena-webdev", "arena-x-astra", "vals-tb4", "aa-agents"] },
+  ui: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.ui"); }, sourceIds: ["arena-webdev", "arena-x-opus", "design-arena", "danshipper-x", "twostraws-x"] },
+  logic: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.logic"); }, sourceIds: ["aa-agents", "twostraws-x"] },
+  implement: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.implement"); }, sourceIds: ["vals-tb4", "aa-agents", "arena-x-astra"] },
   "quick-edit": { confidence: "medium", get rationale() { return i18n.t("providers:providerStrengths.rationale.quickEdit"); }, sourceIds: ["aa-agents"] },
   debug: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.debug"); }, sourceIds: ["bug-hunt-bench", "twostraws-x", "composio"] },
   review: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.review"); }, sourceIds: ["macroscope-review", "composio", "formation", "codex-review-repo"] },
   "ci-fix": { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.ciFix"); }, sourceIds: ["tbench-2-1", "vals-tb4", "aa-agents"] },
-  docs: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.docs"); }, sourceIds: ["msr-pr-acceptance"] },
+  docs: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.docs"); }, sourceIds: ["msr-pr-acceptance", "danshipper-x"] },
   research: { confidence: "low", get rationale() { return i18n.t("providers:providerStrengths.rationale.research"); }, sourceIds: ["aa-agents", "catdoes"] },
 };
 
 /**
  * The presets, most cautious first. `confident` keeps only medium-or-better
- * evidence; `evidence-2026-10` follows every row the evidence leans on and
- * keeps the task's provider where it is mixed or conflicting;
- * `plan-build-review` is a common practitioner split, not a measurement.
+ * evidence; `evidence-2026-10` follows every row the evidence leans on,
+ * interface work on Claude and logic on Codex included, and keeps the task's
+ * provider where it is mixed or conflicting; `plan-build-review` is a common
+ * practitioner split, not a measurement.
  */
 export const PROVIDER_STRENGTH_PRESETS: readonly ProviderStrengthPreset[] = [
   {
@@ -147,9 +183,10 @@ export const PROVIDER_STRENGTH_PRESETS: readonly ProviderStrengthPreset[] = [
     asOf: "2026-10-11",
     map: {
       plan: "claude-code",
+      ui: "claude-code",
+      logic: "codex",
       "quick-edit": "codex",
       review: "codex",
-      docs: "claude-code",
       research: "claude-code",
     },
     evidence: EVIDENCE_2026_10,
@@ -157,7 +194,7 @@ export const PROVIDER_STRENGTH_PRESETS: readonly ProviderStrengthPreset[] = [
   {
     id: "plan-build-review",
     asOf: "2026-10-11",
-    map: { plan: "claude-code", implement: "claude-code", review: "codex" },
+    map: { plan: "claude-code", ui: "claude-code", logic: "claude-code", implement: "claude-code", review: "codex" },
     evidence: EVIDENCE_2026_10,
   },
 ];
@@ -174,12 +211,12 @@ export function getStrengthSources(ids: readonly string[]): StrengthSource[] {
     .filter((source): source is StrengthSource => Boolean(source));
 }
 
-function strengthRuleId(taskClass: StrengthTaskClass) {
-  return `${STRENGTH_RULE_ID_PREFIX}${taskClass}`;
+function strengthRuleId(area: StrengthArea) {
+  return `${STRENGTH_RULE_ID_PREFIX}${area}`;
 }
 
-function isStrengthTaskClass(value: unknown): value is StrengthTaskClass {
-  return STRENGTH_TASK_CLASSES.includes(value as StrengthTaskClass);
+function isStrengthArea(value: unknown): value is StrengthArea {
+  return STRENGTH_AREAS.includes(value as StrengthArea);
 }
 
 function isStrengthProvider(value: unknown): value is StrengthProviderId {
@@ -187,7 +224,7 @@ function isStrengthProvider(value: unknown): value is StrengthProviderId {
 }
 
 export interface ProviderStrengthState {
-  /** Classes with a strength rule, whether on or off. */
+  /** Areas with a strength rule, whether on or off. */
   map: ProviderStrengthMap;
   /** True when the profile holds strength rules and every one is on. */
   enabled: boolean;
@@ -200,9 +237,9 @@ export function readProviderStrengths(profile: Pick<AutoRoutingProfile, "rules">
   const map: ProviderStrengthMap = {};
   const rules = profile.rules.filter(isStrengthRule);
   for (const rule of rules) {
-    const taskClass = rule.when.taskClass;
-    if (isStrengthTaskClass(taskClass) && isStrengthProvider(rule.then.providerId)) {
-      map[taskClass] = rule.then.providerId;
+    const area = rule.id.slice(STRENGTH_RULE_ID_PREFIX.length);
+    if (isStrengthArea(area) && isStrengthProvider(rule.then.providerId)) {
+      map[area] = rule.then.providerId;
     }
   }
   return {
@@ -212,9 +249,9 @@ export function readProviderStrengths(profile: Pick<AutoRoutingProfile, "rules">
   };
 }
 
-function strengthReason(taskClass: StrengthTaskClass, providerId: StrengthProviderId) {
+function strengthReason(area: StrengthArea, providerId: StrengthProviderId) {
   return i18n.t("providers:providerStrengths.ruleReason", {
-    task: TASK_CLASS_LABELS[taskClass],
+    task: strengthAreaLabel(area),
     provider: getProviderLabel({ providerId }),
   });
 }
@@ -238,7 +275,7 @@ function isLevelOrCatchAllRule(rule: RouteRule) {
 
 /**
  * Writes the strength table into the profile's rules. Every strength rule is
- * replaced; a class missing from `map` gets no rule and keeps the task's
+ * replaced; an area missing from `map` gets no rule and keeps the task's
  * provider. The rules name a provider and follow the level for the model.
  */
 export function writeProviderStrengths(
@@ -246,14 +283,14 @@ export function writeProviderStrengths(
   args: { map: ProviderStrengthMap; enabled: boolean },
 ): AutoRoutingProfile {
   const rest = profile.rules.filter((rule) => !isStrengthRule(rule));
-  const strengthRules: RouteRule[] = STRENGTH_TASK_CLASSES.flatMap((taskClass) => {
-    const providerId = args.map[taskClass];
+  const strengthRules: RouteRule[] = STRENGTH_AREAS.flatMap((area) => {
+    const providerId = args.map[area];
     if (!providerId) return [];
     return [{
-      id: strengthRuleId(taskClass),
-      when: { taskClass },
+      id: strengthRuleId(area),
+      when: { ...STRENGTH_AREA_CONDITIONS[area] },
       then: { providerId, tier: FOLLOW_LEVEL_TIER },
-      reason: strengthReason(taskClass, providerId),
+      reason: strengthReason(area, providerId),
       enabled: args.enabled,
     }];
   });
@@ -269,7 +306,7 @@ export function writeProviderStrengths(
 export function matchStrengthPreset(map: ProviderStrengthMap): ProviderStrengthPreset | null {
   return (
     PROVIDER_STRENGTH_PRESETS.find((preset) =>
-      STRENGTH_TASK_CLASSES.every((taskClass) => preset.map[taskClass] === map[taskClass]),
+      STRENGTH_AREAS.every((area) => preset.map[area] === map[area]),
     ) ?? null
   );
 }
@@ -278,7 +315,8 @@ export function matchStrengthPreset(map: ProviderStrengthMap): ProviderStrengthP
  * The strength table a delegated task may follow, from the Stave Auto
  * settings the host keeps: null unless Auto is on and the table is stored and
  * switched on. Delegations follow it only for a saved agent's declared task
- * class, never a guess from the prompt.
+ * class, never a guess from the prompt; an agent declares no domain, so its
+ * implementation work reads the `implement` row.
  */
 export function readDelegationStrengths(
   settings: { routing: { autoRoutingEnabled: boolean; autoRoutingProfile?: Pick<AutoRoutingProfile, "rules"> } } | null | undefined,

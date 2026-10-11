@@ -15,12 +15,20 @@ export const ROUTE_INTENT_COMPLEXITIES = [
   "low", "medium", "high", "expert", "extreme", "unknown",
 ] as const;
 
+/**
+ * Where the work lives: the interface a person sees and touches, or the
+ * behavior behind it. Optional, so an answer without it (an older prompt, a
+ * cached result) still parses and reads as `unknown`.
+ */
+export const ROUTE_INTENT_DOMAINS = ["ui", "logic", "unknown"] as const;
+
 export const RouteIntentResultSchema = z.object({
   version: z.literal(ROUTE_INTENT_VERSION),
   intent: z.enum(ROUTE_INTENTS),
   complexity: z.enum(ROUTE_INTENT_COMPLEXITIES),
   risk: z.enum(["normal", "high", "unknown"]),
   continuity: z.enum(["continuing", "new", "unknown"]),
+  domain: z.enum(ROUTE_INTENT_DOMAINS).optional(),
   evidenceCodes: z.array(z.enum([
     "explicit_request", "prior_context", "multiple_steps", "sensitive_change",
     "bounded_edit", "missing_context",
@@ -77,6 +85,10 @@ Answer each field as its own bounded question:
   changes. Routine commits, pushes, pull requests and checklist releases are normal.
   Merely mentioning a sensitive topic does not make an action high risk.
 - continuity: continuing = continue/correct/answer the prior task; new = distinct task.
+- domain: ui = the interface people see and touch: layout, styling, components,
+  interaction, accessibility, visual polish; logic = behavior behind the
+  interface: business rules, data, APIs, algorithms, state, infrastructure.
+  Use unknown when the request spans both or names neither.
 Use unknown when evidence is missing. Short continuations inherit the prior task's
 complexity; short wording alone is not evidence of either easy or hard work.
 A leading /name or $name is a skill command: classify the work that skill performs.
@@ -86,7 +98,7 @@ evidenceCodes: up to four of explicit_request, prior_context, multiple_steps,
 sensitive_change, bounded_edit, missing_context. Do not invent confidence numbers.
 
 Schema:
-{"version":${ROUTE_INTENT_VERSION},"intent":"plan|implement|debug|review|explain|research|write|unknown","complexity":"low|medium|high|expert|extreme|unknown","risk":"normal|high|unknown","continuity":"continuing|new|unknown","evidenceCodes":[]}
+{"version":${ROUTE_INTENT_VERSION},"intent":"plan|implement|debug|review|explain|research|write|unknown","complexity":"low|medium|high|expert|extreme|unknown","risk":"normal|high|unknown","continuity":"continuing|new|unknown","domain":"ui|logic|unknown","evidenceCodes":[]}
 
 DATA
 ${JSON.stringify(boundRouteIntentInput(input))}`;

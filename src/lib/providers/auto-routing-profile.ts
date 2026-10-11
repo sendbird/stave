@@ -88,8 +88,18 @@ export type RouteProviderSelector =
   | "any-eligible"
   | "alternate-provider";
 
+/**
+ * Where the work lives: the interface people see (`ui`) or the behavior
+ * behind it (`logic`). From the classifier, or a UI keyword match when it
+ * does not answer; absent when unclear.
+ */
+export const ROUTE_DOMAINS = ["ui", "logic"] as const;
+export type RouteDomain = (typeof ROUTE_DOMAINS)[number];
+
 export interface RouteRuleWhen {
   taskClass?: TaskClass;
+  /** Matches only when the work's domain is known and equal. */
+  domain?: RouteDomain;
   /** Absent means the rule applies to the primary turn only. */
   role?: RouterRole;
   /** Slash command / skill names (without the leading slash). */
@@ -383,6 +393,11 @@ export const ROUTER_ROLE_LABELS: Readonly<Record<RouterRole, string>> = {
   get advisor() { return i18n.t("providers:autoRoutingProfile.advisor"); },
   get worker() { return i18n.t("providers:autoRoutingProfile.worker"); },
   get delegate() { return i18n.t("providers:autoRoutingProfile.delegate"); },
+};
+
+export const ROUTE_DOMAIN_LABELS: Readonly<Record<RouteDomain, string>> = {
+  get ui() { return i18n.t("providers:autoRoutingProfile.domainUi"); },
+  get logic() { return i18n.t("providers:autoRoutingProfile.domainLogic"); },
 };
 
 export const ROUTE_TIER_LABELS: Readonly<Record<RouteTier, string>> = {
@@ -704,6 +719,9 @@ function normalizeRule(value: unknown, index: number): RouteRule | null {
     ...(TASK_CLASSES.includes(when.taskClass as TaskClass)
       ? { taskClass: when.taskClass as TaskClass }
       : {}),
+    ...(ROUTE_DOMAINS.includes(when.domain as RouteDomain)
+      ? { domain: when.domain as RouteDomain }
+      : {}),
     ...(ROUTER_ROLES.includes(when.role as RouterRole)
       ? { role: when.role as RouterRole }
       : {}),
@@ -938,6 +956,8 @@ export interface RouterSignals {
   uncertain?: boolean;
   newTask?: boolean;
   taskClass: TaskClass;
+  /** See `RouteDomain`; absent when the work's domain is unclear. */
+  domain?: RouteDomain;
   complexity: RouteComplexity;
   sensitive: boolean;
   /** Slash command or skill name detected at the prompt start, without `/`. */
@@ -1150,6 +1170,9 @@ function ruleMatches(args: {
     return false;
   }
   if (when.taskClass && when.taskClass !== args.signals.taskClass) {
+    return false;
+  }
+  if (when.domain && when.domain !== args.signals.domain) {
     return false;
   }
   if (when.skill && when.skill.length > 0) {

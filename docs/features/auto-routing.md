@@ -60,9 +60,10 @@ model keeps its older meaning, the provider's default model.
 
 ## Provider strengths
 
-Settings → Auto → **Provider strengths** sets which provider each kind of work
-(plan, implement, quick edit, debug, review, CI fix, docs, research) starts on.
-Each row is a provider-only rule (`strength-<class>`) that follows the level,
+Settings → Auto → **Provider strengths** sets which provider each area of work
+(plan, UI & frontend, logic & backend, other implementation, quick edit,
+debug, review, CI fix, docs, research) starts on.
+Each row is a provider-only rule (`strength-<area>`) that follows the level,
 placed after the user's own task-, skill- and usage-specific rules and before
 the level rules. Safety-critical work keeps its own rule.
 
@@ -84,14 +85,23 @@ confidence and links its sources:
 
 - **Confident only**: quick edits on Codex, where Codex scores clearly higher
   at a similar cost; everything else keeps the task's provider.
-- **Public evaluations**: also plans, docs and research on Claude and reviews
-  on Codex. These rows have low confidence. Implementation, debugging and CI
-  fixes keep the task's provider because the evaluations disagree.
+- **Public evaluations**: also plans, UI work and research on Claude, and
+  logic work and reviews on Codex. These rows have low confidence. Other
+  implementation, debugging, CI fixes and docs keep the task's provider
+  because the evaluations disagree.
 - **Claude builds, Codex reviews**: a common practitioner split, not a
   measurement.
 
-No public evaluation separates interface work from logic for the same agents,
-so implementation is one row rather than two.
+Implementation is split by domain. **UI & frontend** is interface work people
+see and touch (layout, styling, components, interaction); **Logic & backend**
+is the behavior behind it (business rules, data, APIs, algorithms). The
+classifier answers the domain alongside the intent. When it does not answer,
+only UI is guessed from keywords such as `UI`, `CSS`, `layout` or `화면`, and
+implementation whose domain stays unclear uses **Other implementation**. The
+evidence for this split is thin: Claude leads interface arenas by small
+margins and Codex matches it on long software tasks for far less, so both
+rows have low confidence. A delegated agent declares a task class but no
+domain, so its implementation work reads **Other implementation**.
 
 These are claims about providers in general, not measurements of the user's
 work, and models change faster than the presets. Moving a task to the other
