@@ -188,6 +188,7 @@ describe("provider account setup bridge", () => {
           { name: "plugins", label: "plugins", action: "link", state: "missing" },
           { name: "CLAUDE.md", label: "instructions", action: "link", state: "shared" },
           { name: "settings.json", label: "settings", action: "copy", state: "shared" },
+          { name: "mcpServers", label: "MCP servers", action: "link", state: "missing" },
         ],
       },
     });

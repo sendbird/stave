@@ -9,6 +9,8 @@ import type { ProviderAccountProviderId } from "./provider-accounts";
  * - `copy`: a filtered copy written once and refreshed on request. Used where a
  *   link would be wrong (the file can name credentials, or the CLI rewrites it
  *   per account).
+ * - `runtime`: nothing is written into the account folder; Stave hands the
+ *   System default value to each session at launch while sharing is on.
  * - `skip`: never touched. Listed so the rule is visible and tested, not just
  *   implied by omission.
  *
@@ -19,7 +21,7 @@ import type { ProviderAccountProviderId } from "./provider-accounts";
  * The table is data on purpose: the renderer reads the labels, Electron main
  * executes the plan, and the tests assert it.
  */
-export type SetupSharingAction = "link" | "copy" | "skip";
+export type SetupSharingAction = "link" | "copy" | "runtime" | "skip";
 
 export interface SetupSharingEntry {
   /** Path inside the provider's configuration directory. */
@@ -46,6 +48,8 @@ const CLAUDE_PLAN: readonly SetupSharingEntry[] = [
   { name: "plugins", action: "link", kind: "directory", label: "plugins", get reason() { return i18n.t("providers:providerAccountSetupPlan.aLinkKeepsInstalledPluginsAnd"); } },
   { name: "CLAUDE.md", action: "link", kind: "file", label: "instructions", get reason() { return i18n.t("providers:providerAccountSetupPlan.youEditItByHandAnd"); } },
   { name: "settings.json", action: "copy", kind: "file", label: "settings", filter: "claude-settings", modal: true, linkCheck: "claude-settings", get reason() { return i18n.t("providers:providerAccountSetupPlan.itCanNameAPIKeysAnd"); } },
+  // i18n-ignore: entry nouns stay untranslated like "skills" and "plugins" above
+  { name: "mcpServers", action: "runtime", label: "MCP servers", get reason() { return i18n.t("providers:providerAccountSetupPlan.mcpServersReachEverySession"); } },
   { name: ".credentials.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.theLoginEveryAccountSignsIn"); } },
   { name: ".claude.json", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.holdsWhoIsSignedInPer"); } },
   { name: "projects", action: "skip", label: "", get reason() { return i18n.t("providers:providerAccountSetupPlan.conversationHistoryBelongsToTheAccount"); } },
@@ -97,7 +101,7 @@ export function sharedSetupEntries(providerId: ProviderAccountProviderId) {
   return setupSharingPlan(providerId).filter((entry) => entry.action !== "skip");
 }
 
-/** "skills, agents, commands, plugins, instructions and settings". */
+/** "skills, agents, commands, plugins, instructions, settings and MCP servers". */
 export function sharedSetupSummary(providerId: ProviderAccountProviderId) {
   const labels = [...new Set(sharedSetupEntries(providerId).map((entry) => entry.label))];
   return labels.length > 1 ? `${labels.slice(0, -1).join(", ")} and ${labels.at(-1)}` : (labels[0] ?? "");

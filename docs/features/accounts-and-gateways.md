@@ -76,7 +76,7 @@ Claude and Codex read skills, instructions, and settings from the account's own 
 | Settings | yes | no | Claude's `settings.json` is copied, not linked, and Stave leaves out keys that name an API key or a login rule and `env` entries that look like credentials. Codex's `config.toml` can hold endpoint and credential settings, so it is not shared. |
 | Sign-in | never | never | Every account signs in on its own. |
 | Conversation and prompt history | never | never | History stays with the account that made it. |
-| MCP servers | no | no | Not shared yet. |
+| MCP servers | yes | with `config.toml` | Claude: the user and local MCP servers in System default's `.claude.json` (for example ones added with `claude mcp add --scope user`) reach every task and CLI tab the account runs. Stave reads them at launch and never copies `.claude.json`, which also holds the sign-in. A server the account defines itself with the same name wins. Codex keeps MCP servers in `config.toml`, so they are shared only while that file is linked. |
 
 - If the account already has its own version of an entry, Stave keeps it and says so under the checkbox.
 - Use **Update copied settings** after you change System default's settings; the copy is replaced only while you have not edited it in the account.
@@ -175,7 +175,7 @@ A connection can pin any model the gateway offers, not only Claude and OpenAI on
 - **Check connection** does not run a turn, so it cannot confirm that tools and streaming work with a model. Send a short turn to confirm.
 - Claude's `claude auth status` fields for email and plan are observed rather than documented. If a future version drops them, the row shows **Signed in** without an email.
 - A Codex sign-in stored in the system keyring (not `auth.json`) shows **Signed in** without an email.
-- MCP servers are not shared between accounts, and Codex settings (`config.toml`) are not shared.
+- Claude MCP servers that sign in with OAuth (`/mcp` login) keep their sign-in per account, so authenticate them once in each account. Codex MCP servers are shared only while `config.toml` is linked.
 
 ## Troubleshooting
 

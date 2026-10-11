@@ -66,7 +66,13 @@ function claudeSource(sourceDir: string) {
     }),
   );
   write(path.join(sourceDir, ".credentials.json"), '{"claudeAiOauth":{"accessToken":"SENTINEL-ACCESS-TOKEN"}}');
-  write(path.join(sourceDir, ".claude.json"), '{"oauthAccount":{"emailAddress":"SENTINEL-IDENTITY"}}');
+  write(
+    path.join(sourceDir, ".claude.json"),
+    JSON.stringify({
+      oauthAccount: { emailAddress: "SENTINEL-IDENTITY" },
+      mcpServers: { crane: { type: "http", url: "https://crane.example.test/mcp" } },
+    }),
+  );
   write(path.join(sourceDir, "projects", "p", "session.jsonl"), "SENTINEL-HISTORY");
   write(path.join(sourceDir, "history.jsonl"), "SENTINEL-PROMPTS");
   write(path.join(sourceDir, "todos", "t.json"), "SENTINEL-TODO");
@@ -110,6 +116,7 @@ describe("sharing plan", () => {
       plugins: "link",
       "CLAUDE.md": "link",
       "settings.json": "copy",
+      mcpServers: "runtime",
       ".credentials.json": "skip",
       ".claude.json": "skip",
       projects: "skip",
@@ -146,7 +153,7 @@ describe("sharing plan", () => {
   });
 
   test("names what is shared in plain words", () => {
-    expect(sharedSetupSummary("claude-code")).toBe("skills, agents, commands, plugins, instructions and settings");
+    expect(sharedSetupSummary("claude-code")).toBe("skills, agents, commands, plugins, instructions, settings and MCP servers");
     expect(sharedSetupSummary("codex")).toBe("skills, prompts, instructions, hooks and settings");
     expect(describeProviderAccountSetup("codex", null)).toBe(
       "Shares your skills, prompts, instructions, hooks and settings from System default with this account. Sign-in and conversation history are never shared.",
@@ -208,7 +215,9 @@ describe("sharing into a managed Claude account", () => {
       plugins: "shared",
       "CLAUDE.md": "shared",
       "settings.json": "shared",
+      mcpServers: "shared",
     });
+    expect(lstatSync(path.join(profileDir, "mcpServers"), { throwIfNoEntry: false })).toBeUndefined();
     for (const name of ["skills", "agents", "commands", "plugins", "CLAUDE.md"])
       expect(isLinkTo(path.join(profileDir, name), path.join(sourceDir, name))).toBe(true);
 
@@ -271,7 +280,7 @@ describe("sharing into a managed Claude account", () => {
     expect(isLinkTo(path.join(profileDir, "settings.json"), path.join(sourceDir, "settings.json"))).toBe(true);
     write(path.join(sourceDir, "settings.json"), JSON.stringify({ model: "sonnet" }));
     expect(JSON.parse(readFileSync(path.join(profileDir, "settings.json"), "utf8"))).toEqual({ model: "sonnet" });
-    expect(readSetupSharing(target("claude-code", sourceDir, profileDir)).entries.at(-1)).toMatchObject({ action: "link", state: "shared" });
+    expect(readSetupSharing(target("claude-code", sourceDir, profileDir)).entries.find((entry) => entry.name === "settings.json")).toMatchObject({ action: "link", state: "shared" });
   });
 
   test("copies settings through the filter even in link mode while they name a credential", () => {
@@ -350,12 +359,13 @@ describe("sharing into a managed Claude account", () => {
       plugins: "missing",
       "CLAUDE.md": "kept",
       "settings.json": "shared",
+      mcpServers: "shared",
     });
     expect(readFileSync(path.join(profileDir, "CLAUDE.md"), "utf8")).toBe("account's own instructions");
     expect(readFileSync(path.join(profileDir, "agents", "own.md"), "utf8")).toBe("own agent");
     expect(isLinkTo(path.join(profileDir, "commands"), path.join(sourceDir, "commands"))).toBe(true);
     expect(describeProviderAccountSetup("claude-code", setup)).toBe(
-      "Sharing skills, commands, and settings from System default. Kept this account's own agents and instructions. Sign-in and conversation history are never shared.",
+      "Sharing skills, commands, settings, and MCP servers from System default. Kept this account's own agents and instructions. Sign-in and conversation history are never shared.",
     );
   });
 
@@ -413,6 +423,35 @@ describe("sharing into a managed Claude account", () => {
     expect(() => applySetupSharing(target("claude-code", sourceDir, sourceDir))).toThrow("System default folder");
     expect(() => removeSetupSharing(target("claude-code", sourceDir, sourceDir))).toThrow("System default folder");
     expect(readFileSync(path.join(sourceDir, "CLAUDE.md"), "utf8")).toBe("my instructions");
+  });
+});
+
+describe("System default MCP servers", () => {
+  test("are handed over at launch, so nothing is placed in the account folder", () => {
+    const { sourceDir, profileDir } = folders();
+    claudeSource(sourceDir);
+    const plan = target("claude-code", sourceDir, profileDir);
+    const on = applySetupSharing(plan);
+    expect(states(on).mcpServers).toBe("shared");
+    expect(existsSync(path.join(profileDir, ".claude.json"))).toBe(false);
+    expect(existsSync(path.join(profileDir, "mcpServers"))).toBe(false);
+    expect(allText(profileDir)).not.toContain("SENTINEL-IDENTITY");
+    expect(states(removeSetupSharing(plan)).mcpServers).toBe("not-shared");
+  });
+
+  test("report missing when System default names none besides Stave's own", () => {
+    const { sourceDir, profileDir } = folders();
+    claudeSource(sourceDir);
+    write(
+      path.join(sourceDir, ".claude.json"),
+      JSON.stringify({ mcpServers: { "stave-local-mcp": { type: "http", url: "http://127.0.0.1:1/mcp" } } }),
+    );
+    expect(states(applySetupSharing(target("claude-code", sourceDir, profileDir))).mcpServers).toBe("missing");
+    write(
+      path.join(sourceDir, ".claude.json"),
+      JSON.stringify({ projects: { "/repo": { mcpServers: { portal: { command: "portal" } } } } }),
+    );
+    expect(states(readSetupSharing(target("claude-code", sourceDir, profileDir))).mcpServers).toBe("shared");
   });
 });
 

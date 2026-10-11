@@ -109,6 +109,7 @@ shares before the sign-in terminal opens. The table in
 | `settings.json` | filtered copy | not applicable | It can name API keys and login rules (`apiKeyHelper`, `awsAuthRefresh`, `awsCredentialExport`, `otelHeadersHelper`, `forceLoginMethod`, `forceLoginOrgUUID`, and `env` entries that are `ANTHROPIC_*`, cloud logins or look like a key, token, secret or password), and the CLI rewrites it per account, so a link would either leak those or silently fork. |
 | `config.toml` | not applicable | skip | Codex can keep endpoint, login and MCP credential settings there and rewrites it itself. |
 | `.credentials.json`, `auth.json`, `.claude.json`, Keychain entries | skip | skip | The login and who is signed in. Each account signs in on its own. |
+| `mcpServers` (runtime) | System default's `.claude.json` user and local servers, read at launch | via `config.toml` only | Claude keeps MCP servers beside the sign-in, so the file is never linked or copied. `electron/provider-accounts/shared-mcp.ts` resolves System default's `.claude.json` while the account's `.stave-shared-setup.json` exists; `claude-mcp-config.ts` merges it below the account's own entry at each scope (shared user < user < project < shared local < local, then Stave's server), and CLI tabs receive only the shared servers the account does not define via `--mcp-config`. The file is also tracked for MCP refresh and env-reference discovery. |
 | `projects`, `sessions`, `history.jsonl`, `todos`, `shell-snapshots`, `statsig` | skip | skip | History and session state belong to the account that made them. |
 
 `NEVER_SHARED_NAMES` makes the planner throw if any of those logins or histories
@@ -117,7 +118,7 @@ something the account owns: a real file, a non-empty folder or a link aimed
 elsewhere is reported as `kept`, and the copied settings file is refreshed only
 while it still matches the hash Stave recorded in `.stave-shared-setup.json`
 inside the account folder. Turning sharing off removes the links recorded there
-and an unedited settings copy, then the record. MCP servers are not shared.
+and an unedited settings copy, then the record.
 
 Custom profile environments select their configuration directory before MCP
 environment discovery and reapply it after hydration. They omit inherited

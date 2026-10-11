@@ -90,13 +90,15 @@ file. `src/lib/providers/provider-account-identity.ts` and
 copy helpers; `provider-account-setup-plan.ts` is the table of what is linked,
 copied or skipped. `electron/provider-accounts/identity-parse.ts` holds the
 pure parsers (the only code that decodes a credential file's claims),
-`identity.ts` the probe and its cache, and `setup-sharing.ts` the link, copy and
-removal. `electron/main/ipc/provider-account-identity.ts` and
+`identity.ts` the probe and its cache, `setup-sharing.ts` the link, copy and
+removal, and `shared-mcp.ts` the System default `.claude.json` an account's
+Claude sessions read MCP servers from. `electron/main/ipc/provider-account-identity.ts` and
 `provider-account-setup.ts` register the handlers, and the renderer reads
 identity through `src/lib/providers/use-provider-account-identity.ts`. Focused
 checks are `tests/provider-account-identity-parse.test.ts`,
 `tests/provider-account-identity.test.ts`,
-`tests/provider-account-setup-sharing.test.ts`, and
+`tests/provider-account-setup-sharing.test.ts`,
+`tests/claude-shared-mcp.test.ts`, and
 `tests/provider-account-identity-ipc.test.ts`.
 
 | Domain | Owner and boundary | Focused tests to start with |

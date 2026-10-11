@@ -3,6 +3,7 @@ import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 import { resolveStaveLocalMcpManifestPath } from "../main/stave-local-mcp-manifest";
+import { resolveSharedClaudeMcpStateFile } from "../provider-accounts/shared-mcp";
 
 type McpConfigPathOptions = {
   cwd: string;
@@ -78,6 +79,9 @@ export function getStaveLocalMcpManifestPath() {
 }
 
 export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
+  const sharedStateFilePath = resolveSharedClaudeMcpStateFile({
+    claudeConfigDir: args.claudeConfigDir,
+  });
   const configDir = resolveHomeRelativePath({
     value: args.claudeConfigDir,
     fallback: path.join(homedir(), ".claude"),
@@ -92,6 +96,9 @@ export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
     path.join(args.cwd, ".claude", "settings.local.json"),
     path.join(args.cwd, ".mcp.json"),
     getStaveLocalMcpManifestPath(),
+    // A managed account that shares System default's setup also runs System
+    // default's MCP servers, so their edits and env references count too.
+    ...(sharedStateFilePath ? [sharedStateFilePath] : []),
   ];
 }
 
