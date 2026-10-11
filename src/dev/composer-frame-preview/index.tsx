@@ -18,6 +18,7 @@ import { CLAUDE_EFFORT_OPTIONS, findOptionLabel } from "@/lib/providers/runtime-
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
+import { useRunAutoTuning } from "@/components/session/use-run-auto-tuning";
 import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
 import {
   addTaskContextAttachment,
@@ -237,6 +238,7 @@ export function ComposerFramePreviewApp() {
     return route === "pinned" || route === "fixed" || !autoOn ? model : (modelOptions[0] ?? model);
   });
   const selectedModel = pickedModel.isAuto ? (modelOptions[0] ?? pickedModel) : pickedModel;
+  const runAutoTuning = useRunAutoTuning(PREVIEW_TASK_ID, selectedModel.providerId);
   const [effort, setEffort] = useState<ModelEffortValue | undefined>();
   const agentChoice = useTaskAgentChoice({
     taskId: PREVIEW_TASK_ID,
@@ -448,6 +450,7 @@ export function ComposerFramePreviewApp() {
                 <AgentAttachmentNotice taskId={PREVIEW_TASK_ID} providerId={selectedModel.providerId}
                   draft={{ text: draft, attachedFilePaths: [], attachments }} />
                 <PromptInput
+                  runAutoTuning={runAutoTuning}
                   framed={framed}
                   isTurnActive={turnActive}
                   submitMode={turnActive ? "steer-or-queue" : "send"}

@@ -95,6 +95,16 @@ describe("collectActiveComposerControls", () => {
 });
 
 describe("resolveComposerControlLayout", () => {
+  test("keeps enabled run auto-tuning visible in the right wing even when hidden", () => {
+    const layout = resolveComposerControlLayout({
+      placements: { runAutoTuning: "hidden" },
+      activeIds: collectActiveComposerControls({ runAutoTuningEnabled: true }),
+    });
+    expect(layout.toolbar).toContain("runAutoTuning");
+    expect(layout.forced).toEqual(["runAutoTuning"]);
+    expect(partitionComposerFrameToolbar(layout.toolbar).right).toContain("runAutoTuning");
+  });
+
   test("puts every available control on the toolbar by default", () => {
     const layout = resolveComposerControlLayout({ placements: {} });
     expect(layout.overflow).toEqual([]);

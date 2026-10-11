@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
-import { AdaptiveRunControl } from "./AdaptiveRunControl";
+import { useRunAutoTuning } from "./use-run-auto-tuning";
 import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
 import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
@@ -214,6 +214,7 @@ interface ChatInputComposerProps {
 }
 
 export function ChatInputComposer(args: ChatInputComposerProps) {
+  const runAutoTuning = useRunAutoTuning(args.activeTaskId, args.activeProvider);
   useTranslation();
   const [focusNonce, setFocusNonce] = useState(0);
   const [guidanceFocusNonce, setGuidanceFocusNonce] = useState(0);
@@ -1397,9 +1398,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}
-        <AdaptiveRunControl taskId={args.activeTaskId} providerId={args.activeProvider} />
         <AgentAttachmentNotice taskId={args.activeTaskId} providerId={args.activeProvider} draft={{ ...promptDraft, text: draftText }} />
         <PromptInput
+          runAutoTuning={runAutoTuning}
           attachmentScopeId={args.providerSelectionTarget}
           framed={useFramedComposer}
           frameTop={useFramedComposer ? composerShelf : undefined}
