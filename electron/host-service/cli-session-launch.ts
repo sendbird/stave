@@ -10,6 +10,8 @@ import {
   resolveClaudeCliExecutablePath,
   resolveCodexCliExecutablePath,
 } from "../providers/cli-path-env";
+import { resolveSharedOnlyClaudeMcpServersSync } from "../providers/claude-mcp-config";
+import { resolveSharedClaudeMcpStateFile } from "../provider-accounts/shared-mcp";
 import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
@@ -81,11 +83,22 @@ export function buildCliSessionLaunch(args: {
         requestedClaudePermissionMode === "auto" && !claudeAutoModeSupported
           ? "default"
           : requestedClaudePermissionMode;
+      const env = buildClaudeCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.claudeAccountProfileId });
+      // The CLI reads the account's own MCP files; servers the account takes
+      // from System default's `.claude.json` have to be handed over here.
+      const sharedMcpServers = resolveSharedOnlyClaudeMcpServersSync({
+        cwd,
+        claudeConfigDir: env.CLAUDE_CONFIG_DIR,
+        sharedStateFilePath: resolveSharedClaudeMcpStateFile({ claudeConfigDir: env.CLAUDE_CONFIG_DIR }),
+      });
       return {
         ok: true,
         executablePath,
         commandArgs: [
           ...(gatewayModel ? ["--model", gatewayModel, "--setting-sources", ""] : []),
+          ...(Object.keys(sharedMcpServers).length > 0
+            ? ["--mcp-config", JSON.stringify({ mcpServers: sharedMcpServers })]
+            : []),
           ...(claudeAutoModeSupported ? ["--enable-auto-mode"] : []),
           "--permission-mode",
           claudePermissionMode,
@@ -93,7 +106,7 @@ export function buildCliSessionLaunch(args: {
             ? ["--resume", nativeSessionId]
             : ["--session-id", nativeSessionId]),
         ],
-        env: buildClaudeCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.claudeAccountProfileId }),
+        env,
         nativeSessionId,
       };
     }

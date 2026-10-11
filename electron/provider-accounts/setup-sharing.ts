@@ -9,6 +9,7 @@ import {
   type ProviderAccountSetupState,
 } from "../../src/lib/providers/provider-account-setup";
 import { sharedSetupEntries, type SetupSharingEntry } from "../../src/lib/providers/provider-account-setup-plan";
+import { claudeMcpStateFileForSystemDir, hasShareableClaudeMcpServers, SETUP_SHARING_LEDGER_NAME } from "./shared-mcp";
 
 /**
  * Executes the sharing plan in `provider-account-setup-plan.ts` for one managed
@@ -22,9 +23,11 @@ import { sharedSetupEntries, type SetupSharingEntry } from "../../src/lib/provid
  * Settings are linked instead of copied when the account chose `link` and the
  * source names no credential, login rule or endpoint, so a link never exposes
  * one. Codex `config.toml` has no filtered copy, so it is otherwise unshared.
+ * Claude's MCP servers live in `.claude.json` beside the sign-in, so they are
+ * never placed here; the runtime reads them per launch (`shared-mcp.ts`).
  */
 
-const LEDGER_NAME = ".stave-shared-setup.json";
+const LEDGER_NAME = SETUP_SHARING_LEDGER_NAME;
 
 interface Ledger {
   version: 1;
@@ -220,6 +223,13 @@ function resolveSource(sourceDir: string, entry: SetupSharingEntry) {
   }
 }
 
+/** A `runtime` entry has a source when System default has something to hand over. */
+function resolveEntrySource(sourceDir: string, entry: SetupSharingEntry) {
+  if (entry.action !== "runtime") return resolveSource(sourceDir, entry);
+  const stateFile = claudeMcpStateFileForSystemDir(sourceDir);
+  return hasShareableClaudeMcpServers(stateFile) ? stateFile : null;
+}
+
 function assertSeparate(sourceDir: string, profileDir: string) {
   const canonical = (directory: string) => realpathOrNull(directory) ?? path.resolve(directory);
   if (canonical(sourceDir) === canonical(profileDir))
@@ -300,6 +310,7 @@ function entryState(
   action: EffectiveAction,
 ): ProviderAccountSetupEntryState {
   if (!source) return "missing";
+  if (entry.action === "runtime") return ledger ? "shared" : "not-shared";
   if (action === "unshared") return "not-shared";
   const existing = lstatOrNull(target);
   if (!existing) return "not-shared";
@@ -322,7 +333,7 @@ function describe(
     enabled: ledger !== null,
     ...(entries.some((entry) => entry.modal) ? { settingsMode: mode } : {}),
     entries: entries.map((entry) => {
-      const source = resolveSource(sourceDir, entry);
+      const source = resolveEntrySource(sourceDir, entry);
       const action = effectiveAction(entry, source, mode);
       return {
         name: entry.name,
@@ -371,6 +382,11 @@ export function applySetupSharing(
   ledger.settingsMode = mode;
   const outcomes = new Map<string, ProviderAccountSetupEntryState>();
   for (const entry of sharedSetupEntries(target.providerId)) {
+    // Read by the runtime at launch (see `shared-mcp.ts`); nothing to place.
+    if (entry.action === "runtime") {
+      outcomes.set(entry.name, resolveEntrySource(target.sourceDir, entry) ? "shared" : "missing");
+      continue;
+    }
     const source = resolveSource(target.sourceDir, entry);
     if (!source) {
       outcomes.set(entry.name, "missing");
@@ -407,6 +423,7 @@ export function removeSetupSharing(target: SetupSharingTarget): ProviderAccountS
   const ledger = readLedger(target.profileDir);
   if (ledger) {
     for (const entry of sharedSetupEntries(target.providerId)) {
+      if (entry.action === "runtime") continue;
       const destination = path.join(target.profileDir, entry.name);
       const stat = lstatOrNull(destination);
       if (!stat) continue;

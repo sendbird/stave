@@ -158,6 +158,7 @@ import {
   resolveClaudeMcpServers,
   type ClaudeMcpConfigDiagnostic,
 } from "./claude-mcp-config";
+import { resolveSharedClaudeMcpStateFile } from "../provider-accounts/shared-mcp";
 import {
   resolveClaudeInstalledPlugins,
   resolveClaudePluginEnablement,
@@ -466,6 +467,7 @@ async function resolveClaudeMcpServersForQuery(args: {
   const mcpServers = await resolveClaudeMcpServers({
     cwd: args.cwd,
     claudeConfigDir,
+    sharedStateFilePath: resolveSharedClaudeMcpStateFile({ claudeConfigDir }),
     staveServers,
     strict: args.runtimeOptions?.claudeStrictMcpConfig === true,
     onDiagnostic: logClaudeMcpConfigDiagnostic,

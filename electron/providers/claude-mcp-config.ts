@@ -1,9 +1,16 @@
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import type { McpServerConfig } from "@anthropic-ai/claude-agent-sdk";
 import { getClaudeStateFilePath } from "./mcp-config-refresh";
+import { NEVER_SHARED_MCP_SERVER_NAMES } from "../provider-accounts/shared-mcp";
 
-export type ClaudeMcpConfigSource = "user" | "project" | "local";
+/**
+ * `shared-user` and `shared-local` come from System default's `.claude.json`
+ * for a managed account that shares System default's setup.
+ */
+export type ClaudeMcpConfigSource = "shared-user" | "user" | "project" | "shared-local" | "local";
+
 
 export type ClaudeMcpConfigDiagnostic = {
   kind: "invalid-json" | "unreadable" | "invalid-server";
@@ -100,13 +107,18 @@ function toClaudeMcpServerConfig(value: unknown): McpServerConfig | null {
   return null;
 }
 
-async function readOptionalConfig(args: {
+type ReadConfigArgs = {
   filePath: string;
   source: ClaudeMcpConfigSource;
   onDiagnostic?: (diagnostic: ClaudeMcpConfigDiagnostic) => void;
-}): Promise<ConfigDocument | null> {
+};
+
+function parseOptionalConfig(
+  args: ReadConfigArgs,
+  read: () => string,
+): ConfigDocument | null {
   try {
-    const parsed = JSON.parse(await readFile(args.filePath, "utf8")) as unknown;
+    const parsed = JSON.parse(read()) as unknown;
     if (!asRecord(parsed)) {
       args.onDiagnostic?.({
         kind: "invalid-json",
@@ -125,6 +137,24 @@ async function readOptionalConfig(args: {
     });
     return null;
   }
+}
+
+async function readOptionalConfig(
+  args: ReadConfigArgs,
+): Promise<ConfigDocument | null> {
+  let raw: string;
+  try {
+    raw = await readFile(args.filePath, "utf8");
+  } catch (error) {
+    return parseOptionalConfig(args, () => {
+      throw error;
+    });
+  }
+  return parseOptionalConfig(args, () => raw);
+}
+
+function readOptionalConfigSync(args: ReadConfigArgs): ConfigDocument | null {
+  return parseOptionalConfig(args, () => readFileSync(args.filePath, "utf8"));
 }
 
 function getServerEntries(document: ConfigDocument | null) {
@@ -160,7 +190,9 @@ function mergeSource(args: {
   source: ClaudeMcpConfigSource;
   onDiagnostic?: (diagnostic: ClaudeMcpConfigDiagnostic) => void;
 }) {
+  const shared = args.source === "shared-user" || args.source === "shared-local";
   for (const [name, value] of getServerEntries(args.document)) {
+    if (shared && NEVER_SHARED_MCP_SERVER_NAMES.has(name)) continue;
     const config = toClaudeMcpServerConfig(value);
     if (!config) {
       args.onDiagnostic?.({
@@ -175,41 +207,68 @@ function mergeSource(args: {
   }
 }
 
-/**
- * Supplying any SDK `mcpServers` serializes them into `--mcp-config`. In SDK
- * mode that programmatic config can replace Claude Code's file-backed MCP
- * catalog, so merge the native scopes before adding Stave's own server.
- *
- * Native precedence is preserved: local > project > user. Stave wins last so
- * task-awareness always targets the current authenticated loopback manifest.
- */
-export async function resolveNativeClaudeMcpServers(args: {
+type NativeClaudeMcpArgs = {
   cwd: string;
   claudeConfigDir?: string;
+  sharedStateFilePath?: string | null;
   onDiagnostic?: (diagnostic: ClaudeMcpConfigDiagnostic) => void;
-}): Promise<{
+};
+
+type NativeClaudeMcpServers = {
   servers: Record<string, McpServerConfig>;
   sourcesByName: Map<string, ClaudeMcpConfigSource>;
-}> {
-  const stateDocument = await readOptionalConfig({
-    filePath: getClaudeStateFilePath({
-      claudeConfigDir: args.claudeConfigDir,
-    }),
-    source: "user",
-    onDiagnostic: args.onDiagnostic,
-  });
-  const projectDocument = await readOptionalConfig({
-    filePath: path.join(args.cwd, ".mcp.json"),
-    source: "project",
-    onDiagnostic: args.onDiagnostic,
-  });
+};
+
+function nativeClaudeMcpConfigReads(args: NativeClaudeMcpArgs) {
+  return {
+    state: {
+      filePath: getClaudeStateFilePath({
+        claudeConfigDir: args.claudeConfigDir,
+      }),
+      source: "user",
+      onDiagnostic: args.onDiagnostic,
+    },
+    project: {
+      filePath: path.join(args.cwd, ".mcp.json"),
+      source: "project",
+      onDiagnostic: args.onDiagnostic,
+    },
+    shared: args.sharedStateFilePath
+      ? {
+          filePath: args.sharedStateFilePath,
+          source: "shared-user",
+          onDiagnostic: args.onDiagnostic,
+        }
+      : null,
+  } satisfies Record<string, ReadConfigArgs | null>;
+}
+
+function mergeNativeClaudeMcpDocuments(args: {
+  cwd: string;
+  stateDocument: ConfigDocument | null;
+  projectDocument: ConfigDocument | null;
+  sharedStateDocument: ConfigDocument | null;
+  onDiagnostic?: (diagnostic: ClaudeMcpConfigDiagnostic) => void;
+}): NativeClaudeMcpServers {
+  const { stateDocument, projectDocument, sharedStateDocument } = args;
   const localDocument = getLocalProjectDocument({
     stateDocument,
+    cwd: args.cwd,
+  });
+  const sharedLocalDocument = getLocalProjectDocument({
+    stateDocument: sharedStateDocument,
     cwd: args.cwd,
   });
 
   const servers: Record<string, McpServerConfig> = {};
   const sourcesByName = new Map<string, ClaudeMcpConfigSource>();
+  mergeSource({
+    target: servers,
+    sourcesByName,
+    document: sharedStateDocument,
+    source: "shared-user",
+    onDiagnostic: args.onDiagnostic,
+  });
   mergeSource({
     target: servers,
     sourcesByName,
@@ -227,6 +286,13 @@ export async function resolveNativeClaudeMcpServers(args: {
   mergeSource({
     target: servers,
     sourcesByName,
+    document: sharedLocalDocument,
+    source: "shared-local",
+    onDiagnostic: args.onDiagnostic,
+  });
+  mergeSource({
+    target: servers,
+    sourcesByName,
     document: localDocument,
     source: "local",
     onDiagnostic: args.onDiagnostic,
@@ -234,9 +300,66 @@ export async function resolveNativeClaudeMcpServers(args: {
   return { servers, sourcesByName };
 }
 
+/**
+ * Supplying any SDK `mcpServers` serializes them into `--mcp-config`. In SDK
+ * mode that programmatic config can replace Claude Code's file-backed MCP
+ * catalog, so merge the native scopes before adding Stave's own server.
+ *
+ * Native precedence is preserved: local > project > user. Stave wins last so
+ * task-awareness always targets the current authenticated loopback manifest.
+ *
+ * `sharedStateFilePath` is System default's `.claude.json` for an account that
+ * shares System default's setup. Its servers sit just below the account's own
+ * entry at the same scope, so the account can still override one by name.
+ */
+export async function resolveNativeClaudeMcpServers(
+  args: NativeClaudeMcpArgs,
+): Promise<NativeClaudeMcpServers> {
+  const reads = nativeClaudeMcpConfigReads(args);
+  const [stateDocument, projectDocument, sharedStateDocument] =
+    await Promise.all([
+      readOptionalConfig(reads.state),
+      readOptionalConfig(reads.project),
+      reads.shared ? readOptionalConfig(reads.shared) : null,
+    ]);
+  return mergeNativeClaudeMcpDocuments({
+    cwd: args.cwd,
+    stateDocument,
+    projectDocument,
+    sharedStateDocument,
+    onDiagnostic: args.onDiagnostic,
+  });
+}
+
+/**
+ * The servers a managed account takes from System default and does not define
+ * itself, for launches that cannot wait on async reads (CLI terminal tabs).
+ * Empty when the account does not share System default's setup.
+ */
+export function resolveSharedOnlyClaudeMcpServersSync(
+  args: NativeClaudeMcpArgs,
+): Record<string, McpServerConfig> {
+  const reads = nativeClaudeMcpConfigReads(args);
+  if (!reads.shared) return {};
+  const { servers, sourcesByName } = mergeNativeClaudeMcpDocuments({
+    cwd: args.cwd,
+    stateDocument: readOptionalConfigSync(reads.state),
+    projectDocument: readOptionalConfigSync(reads.project),
+    sharedStateDocument: readOptionalConfigSync(reads.shared),
+    onDiagnostic: args.onDiagnostic,
+  });
+  return Object.fromEntries(
+    Object.entries(servers).filter(([name]) => {
+      const source = sourcesByName.get(name);
+      return source === "shared-user" || source === "shared-local";
+    }),
+  );
+}
+
 export async function resolveClaudeMcpServers(args: {
   cwd: string;
   claudeConfigDir?: string;
+  sharedStateFilePath?: string | null;
   staveServers?: Record<string, McpServerConfig>;
   strict?: boolean;
   onDiagnostic?: (diagnostic: ClaudeMcpConfigDiagnostic) => void;
@@ -245,20 +368,31 @@ export async function resolveClaudeMcpServers(args: {
     replacedSource: ClaudeMcpConfigSource;
   }) => void;
 }): Promise<Record<string, McpServerConfig> | undefined> {
-  if (!args.staveServers || Object.keys(args.staveServers).length === 0) {
-    return undefined;
-  }
+  const staveServers = args.staveServers ?? {};
+  const hasStaveServers = Object.keys(staveServers).length > 0;
   if (args.strict) {
-    return { ...args.staveServers };
+    return hasStaveServers ? { ...staveServers } : undefined;
+  }
+  // Without Stave's server or shared servers the CLI reads its own files, so
+  // there is nothing to restate.
+  if (!hasStaveServers && !args.sharedStateFilePath) {
+    return undefined;
   }
 
   const { servers, sourcesByName } = await resolveNativeClaudeMcpServers({
     cwd: args.cwd,
     claudeConfigDir: args.claudeConfigDir,
+    sharedStateFilePath: args.sharedStateFilePath,
     onDiagnostic: args.onDiagnostic,
   });
+  if (!hasStaveServers) {
+    const sharesAny = [...sourcesByName.values()].some(
+      (source) => source === "shared-user" || source === "shared-local",
+    );
+    return sharesAny ? servers : undefined;
+  }
 
-  for (const [serverName, config] of Object.entries(args.staveServers)) {
+  for (const [serverName, config] of Object.entries(staveServers)) {
     const replacedSource = sourcesByName.get(serverName);
     if (replacedSource) {
       args.onStaveOverride?.({
