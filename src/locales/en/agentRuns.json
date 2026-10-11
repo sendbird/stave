@@ -822,16 +822,24 @@
     "presentationCopy524": "Stage \"{{v1}}\" is a Stave action and has no prompt."
   },
   "adaptive": {
-    "enable": "Adaptive Balanced for the next Run",
-    "description": "30 shared turns · 2 concurrent / 4 total saved-Agent helpers · 1 parent turn reserved. Model and effort can change within the same provider; pins remain fixed.",
-    "title": "Adaptive resources",
+    "enable": "Enable automatic adjustment",
+    "description": "Limits: 30 shared turns · 2 concurrent / 4 total helper Agents · 1 final parent turn reserved.",
+    "title": "Automatic adjustment resources",
     "budget": "Shared turns: {{used}} / {{total}} admitted · {{reserved}} reserved · {{remaining}} available",
     "helpers": "Helpers: {{active}} / 2 active · {{launched}} / 4 launched",
     "boundary": "The budget includes parent and child turns and stage replies. Admission attempts count even when start fails. Reported billing is separate; missing cost stays unknown.",
     "files": "This Run inspects the attached file paths from disk under its existing permissions. Save editor changes first. Inline images and rich context attachments continue as a single turn.",
     "route": "Provider: {{provider}} · model: {{model}} · effort: {{effort}}. At most 2 changes, with 2 turns between changes.",
     "pinned": "pinned",
-    "eligible": "eligible for adaptation"
+    "eligible": "can adjust",
+    "label": "Auto adjust",
+    "summary": "Adjusts the model and reasoning effort to fit each step. Your chosen AI service and pinned settings stay the same.",
+    "on": "On",
+    "off": "Off",
+    "trigger": "Auto adjust: {{state}}",
+    "nextRun": "Applies to the next Agent run on this task.",
+    "locked": "This run keeps its starting settings. You can change this option after it ends.",
+    "controlTitle": "Adjust models automatically"
   },
   "pullRequestWatch": {
     "stopUnreadable_one": "GitHub could not be read {{count}} time in a row, so this watch stopped. Last error: {{error}}",

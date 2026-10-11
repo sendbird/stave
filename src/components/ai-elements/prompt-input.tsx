@@ -1,3 +1,4 @@
+import { PromptInputRunAutoTuningControl, type PromptInputRunAutoTuning } from "./prompt-input-run-auto-tuning";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
@@ -290,6 +291,7 @@ interface PromptInputProps {
   activeProviderModePresetId?: ProviderModePresetId | null;
   goalStatus?: PromptInputGoalStatus | null;
   contextMeter?: ReactNode;
+  runAutoTuning?: PromptInputRunAutoTuning | null;
   /**
    * Wrap the raised card in the four-bar composer frame and move toolbar
    * controls into the side wings when the viewport is wide enough.
@@ -849,6 +851,7 @@ export function PromptInput(args: PromptInputProps) {
     activeProviderModePresetId,
     goalStatus,
     contextMeter,
+    runAutoTuning,
     framed = false,
     frameTop,
     frameBottom,
@@ -2286,6 +2289,7 @@ export function PromptInput(args: PromptInputProps) {
   const unavailableComposerControls: ComposerControlId[] = [];
   if (!providerModeStatus) unavailableComposerControls.push("providerMode");
   if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
+  if (!runAutoTuning) unavailableComposerControls.push("runAutoTuning");
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
@@ -2297,6 +2301,7 @@ export function PromptInput(args: PromptInputProps) {
     activeIds: collectActiveComposerControls({
       thinkingMode,
       fastMode,
+      runAutoTuningEnabled: runAutoTuning?.enabled,
       runtimeTone: runtimeProfile.tone,
       boundSecretCount: secretsActive ? 1 : 0,
     }),
@@ -2304,6 +2309,7 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   const composerControlNodes: Partial<Record<ComposerControlId, ReactNode>> = {
+    runAutoTuning: runAutoTuning ? <PromptInputRunAutoTuningControl control={runAutoTuning} /> : null,
     providerMode: providerModeStatus ? (
       <PromptInputProviderModePill
         status={providerModeStatus}

@@ -413,11 +413,18 @@ Fleet's search finds its tasks.
   the delegating task's provider. The preference is not written to exported Markdown or TOML agent
   files and is listed among the fields left out.
 
-## Adaptive Run resources
+## Automatic model adjustment
 
-On an assigned Claude or Codex task, enable **Adaptive Balanced for the next
-Run** above the composer. This choice applies to the next Run only; existing
-Runs keep their policy. The host freezes the provider, account and eligible
+On an assigned Claude or Codex task, open **Auto adjust** in the composer's
+right-side panel, then check **Enable automatic adjustment** in its popover.
+In compact and classic layouts, the same button lives in the composer toolbar. The button shows On or
+Off in its label and accessible name; the side panel reveals labels on hover
+or focus. Its popover explains the Balanced limits below. Enabled automatic adjustment
+stays visible even if you move the control to overflow or hide it.
+
+This choice applies to the next Run only. While a Run is active, the button
+shows that Run's actual policy and its toggle is locked; existing Runs keep
+their policy. The host freezes the provider, account and eligible
 models at admission. Fixed Agent models and composer model/effort pins stay
 fixed. The Agent can propose a justified model or effort change for a later
 turn; at most two changes are accepted, separated by two supervised turns.
