@@ -871,16 +871,12 @@ export function KickoffDialog(props: {
                   onWhoChange={setWho}
                   onAgentChange={setAgentId}
                   disabled={busy}
-                  startNow={{
-                    canStart: source.trim().length > 0 && !busy && startBlocked === null,
-                    busy: creating,
-                    hint:
-                      startBlocked ??
-                      (agentRoute && selectedAgent
-                        ? tI18n("kickoff:kickoffDialog.valueValueValueValueNowWithoutThe", { value1: PROVIDER_LABELS[agentRoute.providerId] ?? agentRoute.providerId, value2: describeAssignRouteModel(agentRoute), value3: describeAgentPermissionForTask(selectedAgent.permission), value4: worksHere ? tI18n("kickoff:kickoffDialog.startInCurrentWorkspace") : tI18n("kickoff:kickoffDialog.startInNewWorkspace") })
-                        : null),
-                    onStart: () => void handleStartNow(),
-                  }}
+                  agentHint={
+                    startBlocked ??
+                    (agentRoute && selectedAgent
+                      ? tI18n("kickoff:kickoffDialog.valueValueValueValueNowWithoutThe", { value1: PROVIDER_LABELS[agentRoute.providerId] ?? agentRoute.providerId, value2: describeAssignRouteModel(agentRoute), value3: describeAgentPermissionForTask(selectedAgent.permission), value4: worksHere ? tI18n("kickoff:kickoffDialog.startInCurrentWorkspace") : tI18n("kickoff:kickoffDialog.startInNewWorkspace") })
+                      : null)
+                  }
                 >
                   <KickoffWorkspaceChoice
                     value={workspaceMode}
@@ -954,6 +950,15 @@ export function KickoffDialog(props: {
               >
                 <Sparkles className={sx(kickoffStyles.buttonIcon)} />
                 {tI18n("kickoff:kickoffDialog.resolveSource")}</Button>
+              {who === "agent" && selectedAgent ? (
+                <Button
+                  type="button"
+                  disabled={!source.trim() || startBlocked !== null}
+                  onClick={() => void handleStartNow()}
+                >
+                  <Rocket className={sx(kickoffStyles.buttonIcon)} />
+                  {tI18n("kickoff:kickoffSourceWho.assign")}</Button>
+              ) : null}
             </DialogFooter>
           </>
         ) : draft ? (
