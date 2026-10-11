@@ -50,17 +50,14 @@ describe("kickoff chooses who does the work", () => {
         agentId: "ui-maintainer",
         onWhoChange: () => {},
         onAgentChange: () => {},
-        startNow: {
-          canStart: true,
-          busy: false,
-          hint: "Claude · Stave Auto, each turn · Your permission settings — creates the worktree and starts now, without the review step.",
-          onStart: () => {},
-        },
+        agentHint: "Claude · Stave Auto, each turn · Your permission settings — creates the worktree and starts now, without the review step.",
       }),
     );
     expect(html).toContain("Who");
-    expect(html).toContain("Assign");
     expect(html).toContain("Your permission settings");
+    // Assign is a dialog footer action beside Resolve source, not part of the field.
+    expect(html).toContain("UI maintainer");
+    expect(html).not.toContain(">Assign<");
   });
 
   test("with Stave Auto, the first task stays on Auto and pins no model", () => {

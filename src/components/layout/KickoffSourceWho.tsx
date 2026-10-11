@@ -1,26 +1,15 @@
 import { useTranslation } from "@/i18n";
-import { Rocket } from "lucide-react";
-import { Button } from "@/components/ui";
 import { KickoffWhoPicker } from "./KickoffWhoPicker";
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { ReactNode } from "react";
 
-/** Assign on the source screen; the dialog owns the start itself. */
-export interface KickoffStartNowProps {
-  canStart: boolean;
-  busy: boolean;
-  /** Where and how it runs, or why it cannot start yet. */
-  hint: string | null;
-  onStart: () => void;
-}
-
 /**
  * "Who" on the source phase: run the work yourself, or assign it to a saved
- * agent. With an agent, "Assign" starts the work right away through the
- * same start as the review screen's Assign, next to the deliberate
- * "Resolve source" / "Skip AI" prepare step.
+ * agent. With an agent, the dialog footer's "Assign" starts the work right
+ * away, beside the "Resolve source" / "Skip AI" prepare step; this field says
+ * where and how that start runs, or why it cannot start yet.
  */
 export function KickoffSourceWho(props: {
   agents: readonly AgentConfig[];
@@ -28,7 +17,8 @@ export function KickoffSourceWho(props: {
   agentId: string | null;
   onWhoChange: (who: "me" | "agent") => void;
   onAgentChange: (agentId: string) => void;
-  startNow: KickoffStartNowProps;
+  /** Where and how Assign runs, or why it cannot start yet. */
+  agentHint: string | null;
   disabled?: boolean;
   children?: ReactNode;
 }) {
@@ -48,22 +38,7 @@ export function KickoffSourceWho(props: {
       />
       {props.children}
       {props.who === "agent" && agent ? (
-        <div className={sx(kickoffStyles.startNow)}>
-          <div className={sx(kickoffStyles.startNowRow)}>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={!props.startNow.canStart}
-              onClick={props.startNow.onStart}
-            >
-              <Rocket className={sx(kickoffStyles.buttonIcon)} />
-              {props.startNow.busy ? tI18n("kickoff:kickoffSourceWho.assigning") : tI18n("kickoff:kickoffSourceWho.assign")}
-            </Button>
-          </div>
-          {props.startNow.hint ? (
-            <p className={sx(kickoffStyles.hint)}>{props.startNow.hint}</p>
-          ) : null}
-        </div>
+        props.agentHint ? <p className={sx(kickoffStyles.hint)}>{props.agentHint}</p> : null
       ) : (
         <p className={sx(kickoffStyles.hint)}>
           {tI18n("kickoff:kickoffSourceWho.prepareTheWorkspaceAndItsFirstTask")}</p>

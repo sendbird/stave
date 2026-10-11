@@ -33,9 +33,9 @@ controls are hidden. Pick a model to pin one instead.
 
 **Who** can assign the first task to a saved [agent](agents.md) instead. Search
 by name, identifier, or description on either screen, or select **Me**. With
-an agent, **Assign** on the first screen starts the work right away through
-the same start as **Assign** on the review screen, from the source as Skip AI
-reads it. The agent's workflow decides the stages the run follows. A
+an agent, **Assign** sits beside **Skip AI** and **Resolve source** at the
+bottom of the first screen and starts the work right away through the same
+start as **Assign** on the review screen, from the source as Skip AI reads it. The agent's workflow decides the stages the run follows. A
 kickoff starts in a **New workspace** by default, including when Lead is
 selected. **Where** is independent of the agent's saved workspace preference:
 choose **Current workspace** to add a new task beside its existing tasks instead
@@ -45,7 +45,8 @@ permissions apply.
 
 When **Start now** is enabled, an assigned Lead on a supported task starts an
 Agent Run through the same path as the composer. Kickoff applies the recorded
-assignment before sending and waits for the new task's save acknowledgement.
+assignment before sending and waits until the new workspace's registration and
+the new task are saved, because the run looks up its lead task in saved state.
 If recording, saving, or starting the run fails, the task keeps its prompt for
 review and retry; it does not silently send that prompt as an ordinary turn.
 

@@ -61,8 +61,8 @@ workspaces (see [Agent performance and task outputs](results.md)).
   on **Agents** when a task is open, and Kickoff otherwise.
 
 All of these open **Kickoff** with **Who** set. On the first screen, choose
-**Me** or an agent; with an agent, **Assign** starts the work right away,
-from the source as **Skip AI** reads it. On the review screen, **Who** and
+**Me** or an agent; with an agent, **Assign** beside **Resolve source** starts
+the work right away, from the source as **Skip AI** reads it. On the review screen, **Who** and
 **Where** set the worker and the new worktree and its base; the agent's
 workflow decides the stages.
 

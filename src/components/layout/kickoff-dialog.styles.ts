@@ -517,21 +517,11 @@ export const kickoffStyles = stylex.create({
       "@media (min-width: 40rem)": "32rem",
     },
   },
-  startNow: {
-    display: "grid",
-    gap: vars["--ads-space-8"],
-  },
   whoOption: {
     display: "inline-flex",
     alignItems: "center",
     gap: vars["--ads-space-8"],
     minWidth: 0,
-  },
-  startNowRow: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: vars["--ads-space-8"],
   },
   whoBlock: {
     display: "grid",
