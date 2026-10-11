@@ -34,9 +34,14 @@ export function mapCodexUserInputQuestions(
       recommend: readQuestionRecommendPointer(question),
     });
     const defaultValue = recommendedOptionDefaultValue({ options });
+    // The App Server keys its response by question `id`; the card keys the
+    // answers it submits by `key`, so the two must be the same value.
+    const key = typeof question.id === "string" && question.id
+      ? question.id
+      : typeof question.key === "string" ? question.key : undefined;
     return {
       header: typeof question.header === "string" ? question.header : "",
-      key: typeof question.key === "string" ? question.key : undefined,
+      key,
       question: typeof question.question === "string" ? question.question : "",
       multiSelect: false,
       inputType: "text" as const,
