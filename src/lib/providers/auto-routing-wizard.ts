@@ -476,6 +476,7 @@ function isPrimaryClassRule(rule: RouteRule, taskClass: TaskClass) {
   const when = rule.when;
   return (
     when.taskClass === taskClass &&
+    when.domain === undefined &&
     !when.role &&
     !when.skill &&
     when.complexity === undefined &&

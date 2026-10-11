@@ -69,7 +69,9 @@
     "noRuleMatchedIsTheProvider": "No rule matched; {{value1}} is the provider fallback.",
     "followsTheLevel": "model follows the level",
     "preferredProviderUnavailable": "The agent prefers {{provider}}, which can't run this now.",
-    "staysOnProviderInsideTask": "Stays on {{provider}} inside this task; {{other}} applies from the next task."
+    "staysOnProviderInsideTask": "Stays on {{provider}} inside this task; {{other}} applies from the next task.",
+    "domainUi": "UI work",
+    "domainLogic": "Logic work"
   },
   "autoRoutingWizard": {
     "ofYourTurnsRanOnFrontier": "{{value1}}% of your turns ran on frontier or flagship models",
@@ -510,6 +512,11 @@
     "startsOn": "Starts on",
     "keep": "Keep the task's provider",
     "rowLabel": "Provider for {{task}}",
+    "areas": {
+      "ui": "UI & frontend",
+      "logic": "Logic & backend",
+      "implementOther": "Other implementation"
+    },
     "confidence": {
       "low": "Low confidence",
       "medium": "Medium confidence",
@@ -517,12 +524,14 @@
     },
     "rationale": {
       "plan": "Practitioners mostly plan with Claude and have Codex check the plan. No benchmark measures planning.",
-      "implement": "No consistent winner. Claude leads WebDev and Terminal-Bench 4.0 narrowly, and Codex matches it on DeepSWE at a fraction of the cost.",
+      "ui": "Claude Opus 5.5 leads WebDev and the UI component arena by small margins, and practitioners credit Claude's taste. GPT-6.1 Sol leads 3D design.",
+      "logic": "Codex matches Claude on long software tasks at a fraction of the cost, and practitioners send API design and tests to Codex.",
+      "implement": "When the area is unclear there is no consistent winner. Claude leads Terminal-Bench 4.0 narrowly, and Codex matches it on DeepSWE for far less.",
       "quickEdit": "At the same effort Codex scores clearly higher for a similar cost per task.",
       "debug": "Mixed. At matched effort Codex fixes more planted bugs for far less; at maximum effort Sonnet 5.5 fixes the most, and practitioners favour Claude.",
       "review": "Codex leads one vendor-run review benchmark against an older Claude model, and practitioners like its review. No independent benchmark yet.",
       "ciFix": "Conflicting. Codex leads Terminal-Bench 2.1; Claude leads the newer Terminal-Bench 4.0 at a much higher cost.",
-      "docs": "Documentation is Claude Code's best pull request category in one study of older models.",
+      "docs": "Mixed. Documentation is Claude Code's best pull request category in a study of older models, but current Claude trails GPT-6 Astra in one writing benchmark.",
       "research": "Claude answers codebase questions slightly better in one independent comparison, at a higher cost."
     },
     "hypothesisNote": "Seeded from public benchmarks, GitHub and blog comparisons as of {{date}}. These are claims about providers in general, not measurements of your work. Edit any row.",

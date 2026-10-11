@@ -34,6 +34,9 @@ describe("Provider strengths card", () => {
     // Row rationale is translated text, not a raw key.
     expect(html).toContain("At the same effort Codex scores clearly higher");
     expect(html).not.toContain("providers:providerStrengths.rationale");
+    expect(html).toContain("UI &amp; frontend");
+    expect(html).toContain("Logic &amp; backend");
+    expect(html).toContain("Other implementation");
   });
 
   test("a stored custom table reads as Custom and on", async () => {

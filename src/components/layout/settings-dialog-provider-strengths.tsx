@@ -9,7 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { sx } from "@/components/ads/utils/stylex";
-import { TASK_CLASS_LABELS, type AutoRoutingProfile } from "@/lib/providers/auto-routing-profile";
+import type { AutoRoutingProfile } from "@/lib/providers/auto-routing-profile";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
   DEFAULT_STRENGTH_PRESET_ID,
@@ -18,13 +18,14 @@ import {
   matchStrengthPreset,
   PROVIDER_STRENGTH_PRESETS,
   readProviderStrengths,
-  STRENGTH_TASK_CLASSES,
+  STRENGTH_AREAS,
+  strengthAreaLabel,
   writeProviderStrengths,
   type ProviderStrengthMap,
   type StrengthConfidence,
   type StrengthEvidence,
   type StrengthProviderId,
-  type StrengthTaskClass,
+  type StrengthArea,
 } from "@/lib/providers/provider-strength-presets";
 import { SettingsCard, SwitchField } from "./settings-dialog.shared";
 import { autoRoutingSectionStyles as styles } from "./settings-dialog-auto-routing-section.styles";
@@ -123,17 +124,17 @@ export function SettingsProviderStrengths(props: {
           </tr>
         </thead>
         <tbody>
-          {STRENGTH_TASK_CLASSES.map((taskClass) => (
+          {STRENGTH_AREAS.map((area) => (
             <StrengthRow
-              key={taskClass}
-              taskClass={taskClass}
-              value={map[taskClass] ?? KEEP_VALUE}
-              evidence={evidence[taskClass]}
+              key={area}
+              area={area}
+              value={map[area] ?? KEEP_VALUE}
+              evidence={evidence[area]}
               options={choiceOptions}
               onChange={(value) => {
                 const next = { ...map };
-                if (value === KEEP_VALUE) delete next[taskClass];
-                else next[taskClass] = value;
+                if (value === KEEP_VALUE) delete next[area];
+                else next[area] = value;
                 write({ map: next });
               }}
             />
@@ -148,7 +149,7 @@ export function SettingsProviderStrengths(props: {
 }
 
 function StrengthRow(args: {
-  taskClass: StrengthTaskClass;
+  area: StrengthArea;
   value: StrengthChoice;
   evidence?: StrengthEvidence;
   options: ReadonlyArray<{ value: StrengthChoice; label: string }>;
@@ -159,7 +160,7 @@ function StrengthRow(args: {
   return (
     <tr className={sx(styles.levelRow)}>
       <th scope="row" className={sx(styles.levelName)}>
-        <span className={sx(styles.levelLabel)}>{TASK_CLASS_LABELS[args.taskClass]}</span>
+        <span className={sx(styles.levelLabel)}>{strengthAreaLabel(args.area)}</span>
         {args.evidence ? (
           <span className={sx(styles.levelDescription)}>
             {CONFIDENCE_LABELS[args.evidence.confidence]} · {args.evidence.rationale}{" "}
@@ -176,7 +177,7 @@ function StrengthRow(args: {
         <Select value={args.value} onValueChange={(value) => args.onChange(value as StrengthChoice)}>
           <SelectTrigger
             className={sx(styles.ruleSelectTrigger)}
-            aria-label={t("providers:providerStrengths.rowLabel", { task: TASK_CLASS_LABELS[args.taskClass] })}
+            aria-label={t("providers:providerStrengths.rowLabel", { task: strengthAreaLabel(args.area) })}
           >
             <SelectValue />
           </SelectTrigger>

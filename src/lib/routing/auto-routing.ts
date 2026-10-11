@@ -8,6 +8,7 @@ import {
   ROUTE_COMPLEXITY_LABELS,
   type ResolvedRoute,
   type RouteComplexity,
+  type RouteDomain,
   type RouterRole,
   type RouterSignals,
   type Stance,
@@ -148,6 +149,36 @@ const IMPLEMENTATION_PATTERNS = [
   /추가/,
 ];
 
+/**
+ * Interface work, for when the classifier does not answer. Only UI is
+ * guessed: behavior behind the interface has no reliable keywords, so logic
+ * comes from the classifier alone.
+ */
+const UI_DOMAIN_PATTERNS = [
+  /\bui\b/i,
+  /\bux\b/i,
+  /\bcss\b/i,
+  /\bstyl(?:e|es|ing)\b/i,
+  /\blayout\b/i,
+  /\bfront-?end\b/i,
+  /\bresponsive\b/i,
+  /\banimation\b/i,
+  /\bdark mode\b/i,
+  /\bmodal\b/i,
+  /\bvisual polish\b/i,
+  /화면/,
+  /디자인/,
+  /스타일/,
+  /레이아웃/,
+  /프론트/,
+  /애니메이션/,
+];
+
+/** `ui` when the prompt reads as interface work; otherwise unknown. */
+export function detectPromptDomain(prompt: string): RouteDomain | undefined {
+  return matchesAny(prompt, UI_DOMAIN_PATTERNS) ? "ui" : undefined;
+}
+
 /** Build verbs strong enough to outrank the tiny-prompt shortcut. */
 const BUILD_VERB_PATTERNS = [
   /\bimplement\b/i,
@@ -216,6 +247,7 @@ export type AutoRoutingClassifierResult = RouteIntentResult;
 /** Compact, serialisable signal summary carried on every decision. */
 export interface AutoRoutingSignalSummary {
   taskClass: TaskClass;
+  domain?: RouteDomain;
   complexity: RouteComplexity;
   sensitive: boolean;
   skill?: string;
@@ -917,11 +949,21 @@ export function computeRouterSignals(args: {
     args.taskClassHint && !confidentlyClassified && derivedTaskClass !== "safety-critical",
   );
   const taskClass = usedTaskClassHint && args.taskClassHint ? args.taskClassHint : derivedTaskClass;
+  // The classifier's domain when it gave one; its explicit `unknown` stands.
+  // Without an answer, a UI keyword match is the only guess.
+  const classifiedDomain = classification?.domain;
+  const domain: RouteDomain | undefined =
+    classifiedDomain === "ui" || classifiedDomain === "logic"
+      ? classifiedDomain
+      : classifiedDomain === "unknown"
+        ? undefined
+        : detectPromptDomain(priorPrompt ?? args.prompt);
   return {
     heuristic,
     usedTaskClassHint,
     signals: {
       taskClass,
+      ...(domain ? { domain } : {}),
       complexity: classification
         ? classification.complexity === "unknown" ? "medium" : classification.complexity
         : heuristic.complexity,
@@ -956,6 +998,7 @@ export function summarizeRouterSignals(
 ): AutoRoutingSignalSummary {
   return {
     taskClass: signals.taskClass,
+    ...(signals.domain ? { domain: signals.domain } : {}),
     complexity: signals.complexity,
     sensitive: signals.sensitive,
     ...(signals.skill ? { skill: signals.skill } : {}),
@@ -973,6 +1016,9 @@ export function formatAutoRoutingSignalSummary(
   summary: AutoRoutingSignalSummary,
 ) {
   const parts: string[] = [summary.taskClass];
+  if (summary.domain) {
+    parts.push(summary.domain);
+  }
   if (summary.skill) {
     parts.push(`/${summary.skill}`);
   }
