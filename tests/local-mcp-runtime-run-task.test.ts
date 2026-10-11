@@ -46,6 +46,11 @@ const DEFAULT_WORKSPACE_ID = "ws-runtask-default";
 const RECONCILE_WORKSPACE_ID = "ws-runtask-reconcile";
 const RELEASE_WORKSPACE_ID = "ws-runtask-release";
 const RELEASE_TASK_ID = "task-runtask-release";
+// A renderer-owned task whose transcript the host has never loaded.
+const ASYNC_WORKSPACE_ID = "ws-runtask-async";
+const ASYNC_TASK_ID = "task-runtask-async";
+const ASYNC_REQUEST_ID = "codex-async:call_async_1";
+const ASYNC_WORKSPACE_PATH = "/tmp/stave-runtask-regression/async";
 const REPOSITORY_PATH = "/tmp/stave-runtask-regression/project";
 const WORKSPACE_PATH = "/tmp/stave-runtask-regression/worktree";
 const RECONCILE_WORKSPACE_PATH = "/tmp/stave-runtask-regression/reconcile";
@@ -115,6 +120,19 @@ const lastUpsertSnapshotByWorkspaceId = new Map<
 >();
 
 function loadFakeWorkspaceSnapshot(workspaceId: string) {
+  if (workspaceId === ASYNC_WORKSPACE_ID) {
+    return {
+      activeTaskId: ASYNC_TASK_ID,
+      tasks: [{ id: ASYNC_TASK_ID, title: "Codex task", provider: "codex", updatedAt: "2026-01-01T00:00:00.000Z", unread: false, archivedAt: null }],
+      messagesByTask: { [ASYNC_TASK_ID]: [{
+        id: `${ASYNC_TASK_ID}-m-1`, role: "assistant", model: "gpt-test", providerId: "codex", content: "", turnId: "turn-async-1",
+        parts: [{ type: "user_input", delivery: "async", requestId: ASYNC_REQUEST_ID, toolName: "request_user_input_async",
+          state: "input-requested", questions: [{ key: "question-0", question: "Which scope?", header: "", options: [] }] }],
+      }] },
+      activeTurnIdsByTask: {},
+      workspaceInformation: persistedWorkspaceInformationById.get(workspaceId),
+    };
+  }
   return workspaceId === RELEASE_WORKSPACE_ID
     ? {
         activeTaskId: rendererSelectedTaskByWorkspaceId.get(workspaceId) ?? RELEASE_TASK_ID,
@@ -173,18 +191,25 @@ const fakeStore = {
           name: "release",
           updatedAt: "2026-01-01T00:00:00.000Z",
         },
+        {
+          id: ASYNC_WORKSPACE_ID,
+          name: "async",
+          updatedAt: "2026-01-01T00:00:00.000Z",
+        },
       ],
       activeWorkspaceId: WORKSPACE_ID,
       workspaceBranchById: {
         [WORKSPACE_ID]: "feature",
         [RECONCILE_WORKSPACE_ID]: "reconcile",
         [RELEASE_WORKSPACE_ID]: "release",
+        [ASYNC_WORKSPACE_ID]: "async",
       },
       workspacePathById: {
         [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
         [WORKSPACE_ID]: WORKSPACE_PATH,
         [RECONCILE_WORKSPACE_ID]: RECONCILE_WORKSPACE_PATH,
         [RELEASE_WORKSPACE_ID]: RELEASE_WORKSPACE_PATH,
+        [ASYNC_WORKSPACE_ID]: ASYNC_WORKSPACE_PATH,
       },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     },
@@ -914,6 +939,46 @@ describe("local MCP runtime runTask", () => {
     expect(status.pendingUserInputs).toEqual([]);
     expect(status.pendingApprovals).toEqual([]);
     expect(status.latestAssistantText).toBe("Continued after approval.");
+  });
+
+  test("an async question answered over MCP is rejected instead of being dropped", async () => {
+    let providerCalls = 0;
+    providerRuntime.respondUserInput = (async () => {
+      providerCalls += 1;
+      return { ok: true, message: "ok" };
+    }) as typeof providerRuntime.respondUserInput;
+    await expect(runtime.respondUserInput({
+      workspaceId: ASYNC_WORKSPACE_ID,
+      taskId: ASYNC_TASK_ID,
+      requestId: ASYNC_REQUEST_ID,
+      answers: { "question-0": "Focused" },
+    })).rejects.toThrow(/did not pause the task/);
+    expect(providerCalls).toBe(0);
+    const status = await runtime.getTaskStatus({ workspaceId: ASYNC_WORKSPACE_ID, taskId: ASYNC_TASK_ID });
+    expect(status.pendingUserInputs.map((item) => item.requestId)).toEqual([ASYNC_REQUEST_ID]);
+  });
+
+  test("records a delivered async answer on a transcript the host has not loaded", async () => {
+    let providerCalls = 0;
+    providerRuntime.respondUserInput = (async () => {
+      providerCalls += 1;
+      return { ok: true, message: "ok" };
+    }) as typeof providerRuntime.respondUserInput;
+    await expect(runtime.respondUserInput({
+      workspaceId: ASYNC_WORKSPACE_ID,
+      taskId: ASYNC_TASK_ID,
+      requestId: ASYNC_REQUEST_ID,
+      answers: { "question-0": "Focused" },
+      answerDelivered: true,
+    })).resolves.toMatchObject({ ok: true, requestId: ASYNC_REQUEST_ID });
+    // No provider request exists for an async question.
+    expect(providerCalls).toBe(0);
+    let status = await runtime.getTaskStatus({ workspaceId: ASYNC_WORKSPACE_ID, taskId: ASYNC_TASK_ID });
+    for (let attempt = 0; attempt < 20 && status.pendingUserInputs.length > 0; attempt += 1) {
+      await Bun.sleep(0);
+      status = await runtime.getTaskStatus({ workspaceId: ASYNC_WORKSPACE_ID, taskId: ASYNC_TASK_ID });
+    }
+    expect(status.pendingUserInputs).toEqual([]);
   });
 
   test("publishes Stave-owned managed approval and user-input needs", async () => {

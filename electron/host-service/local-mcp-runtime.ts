@@ -97,8 +97,6 @@ import { trimPersistedMessageWindow } from "../../src/store/resident-message-bud
 import { captureResultEvidence } from "../../src/lib/reviews/result-evidence";
 import { applyProviderEventsToWorkspaceSession } from "../../src/store/workspace-turn-replay";
 import {
-  findLatestPendingApprovalPart,
-  findLatestPendingUserInputPart,
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
 } from "../../src/store/provider-message.utils";
@@ -2527,37 +2525,9 @@ export async function takeOverManagedTaskControl(args: {
   } finally { finish(); }
 }
 
-function findApprovalMessage(args: {
-  messages: ChatMessage[];
-  requestId: string;
-}) {
-  for (const message of args.messages) {
-    const approvalPart = findLatestPendingApprovalPart({ message });
-    if (approvalPart?.requestId === args.requestId) {
-      return {
-        messageId: message.id,
-        part: approvalPart,
-      };
-    }
-  }
-  return null;
-}
-
-function findUserInputMessage(args: {
-  messages: ChatMessage[];
-  requestId: string;
-}) {
-  for (const message of args.messages) {
-    const userInputPart = message.parts.find((part) =>
-      part.type === "user_input" && part.requestId === args.requestId && part.state === "input-requested");
-    if (userInputPart?.type === "user_input") {
-      return {
-        messageId: message.id,
-        part: userInputPart,
-      };
-    }
-  }
-  return null;
+/** The host session with the task's resident messages; a shell rebuild leaves them empty. */
+async function loadTaskInteractionSession(workspaceId: string, taskId: string) {
+  return ensureResidentTaskMessages({ workspaceId, taskId, session: await loadWorkspaceSession(workspaceId) });
 }
 
 export async function respondApproval(args: {
@@ -2576,14 +2546,14 @@ export async function respondApproval(args: {
   }
 
   return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
-    const session = await loadWorkspaceSession(args.workspaceId);
+    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId);
     const activeTurnId = session.activeTurnIdsByTask[args.taskId];
     if (!activeTurnId) {
       throw new Error(`No active turn found for task ${args.taskId}.`);
     }
 
     const messages = session.messagesByTask[args.taskId] ?? [];
-    const approval = findApprovalMessage({
+    const approval = findPendingApprovalMessageByRequestId({
       messages,
       requestId: args.requestId,
     });
@@ -2637,6 +2607,8 @@ export async function respondUserInput(args: {
   requestId: string;
   answers?: Record<string, string>;
   denied?: boolean;
+  /** Renderer only: the async answer was already sent as a user message. */
+  answerDelivered?: boolean;
 }) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
@@ -2648,11 +2620,11 @@ export async function respondUserInput(args: {
   }
 
   return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
-    const session = await loadWorkspaceSession(args.workspaceId);
+    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId);
     const activeTurnId = session.activeTurnIdsByTask[args.taskId];
 
     const messages = session.messagesByTask[args.taskId] ?? [];
-    const userInput = findUserInputMessage({
+    const userInput = findPendingUserInputMessageByRequestId({
       messages,
       requestId: args.requestId,
     });
@@ -2660,8 +2632,11 @@ export async function respondUserInput(args: {
       throw new Error(`Pending user input not found: ${args.requestId}`);
     }
 
-    // Async messages already returned to the provider. The renderer sends their
-    // answer as a normal persisted reply; this endpoint records its acceptance.
+    // An async question has no pending provider request; only a user message
+    // delivers its answer. Recording it without one would drop the answer.
+    if (userInput.part.delivery === "async" && !args.answerDelivered) {
+      throw new Error(`Question ${args.requestId} did not pause the task. Send the answer as a follow-up message to the task instead.`);
+    }
     if (userInput.part.delivery !== "async") {
       if (!activeTurnId) throw new Error(`No active turn found for task ${args.taskId}.`);
       const result = await providerRuntime.respondUserInput({

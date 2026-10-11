@@ -2820,6 +2820,8 @@ export async function streamCodexWithAppServer(
                 return;
               case "agentMessage": {
                 const question = mapCodexAsyncQuestions(item);
+                // The item's text (same segment id) still flows below: it is the
+                // turn's response for receipts and history; the trace hides it.
                 if (question) emitBridgeEvent(question);
                 const text =
                   typeof (item as { text?: unknown }).text === "string"

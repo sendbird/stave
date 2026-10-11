@@ -11,7 +11,9 @@ test("async messages become stable question cards that survive turn completion a
     questions: [{ title: "Which scope?", options: ["Focused", "Full"] }, { title: "Constraints?" }] };
   const event = NormalizedProviderEventSchema.parse(mapCodexAsyncQuestions(item));
   expect(event).toMatchObject({ type: "user_input", delivery: "async", requestId: "codex-async:message-1",
-    questions: [{ key: "question-0", question: "Which scope?", allowCustom: true, options: [{ label: "Focused" }, { label: "Full" }] }, { question: "Constraints?", options: [] }] });
+    questions: [{ key: "question-0", question: "Which scope?", allowCustom: true, defaultValue: "Focused", options: [{ label: "Focused" }, { label: "Full" }] }, { question: "Constraints?", options: [] }] });
+  // Codex lists the recommended option first and preselects it; a free-text question has no default.
+  expect(event.type === "user_input" ? event.questions[1]?.defaultValue : "missing").toBeUndefined();
   const message: ChatMessage = { id: "m1", role: "assistant", model: "auto", providerId: "codex", content: "", parts: [], isStreaming: true };
   const asked = appendProviderEventToAssistant({ message, event });
   const ended = appendProviderEventToAssistant({ message: asked, event: { type: "done", stop_reason: "end_turn" } });
@@ -29,4 +31,6 @@ test("async messages become stable question cards that survive turn completion a
 test("ordinary messages and malformed questions do not create empty cards", () => {
   expect(mapCodexAsyncQuestions({ type: "agentMessage", id: "1", text: "Hello" })).toBeNull();
   expect(mapCodexAsyncQuestions({ type: "agentMessage", delivery: "async", id: "1", questions: [null, {}, { title: "" }] })).toBeNull();
+  expect(mapCodexAsyncQuestions({ type: "agentMessage", delivery: "async", id: "1", questions: [{ title: "Pick", options: ["", " ", "Only"] }] }))
+    .toMatchObject({ questions: [{ options: [{ label: "Only" }], defaultValue: "Only" }] });
 });

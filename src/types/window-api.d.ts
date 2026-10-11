@@ -813,6 +813,8 @@ interface WindowLocalMcpApi {
     requestId: string;
     answers?: Record<string, string>;
     denied?: boolean;
+    /** The answer to an async question was already sent as a user message. */
+    answerDelivered?: boolean;
   }) => Promise<{
     ok: boolean;
     message?: string;

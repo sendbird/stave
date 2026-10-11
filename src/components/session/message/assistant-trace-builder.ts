@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { asyncQuestionTextSegmentId } from "@/lib/async-question-answer";
 import { resolveToolTitle } from "@/lib/providers/subagent-identity";
 import {
   getRenderableMessageParts,
@@ -94,12 +95,20 @@ export function buildAssistantTrace(args: {
     "content" | "parts" | "displayContent" | "displayParts" | "isStreaming"
   >;
 }): AssistantTraceData {
-  const renderableParts = getRenderableMessageParts({
+  const messageParts = getRenderableMessageParts({
     content: args.message.content,
     parts: args.message.parts,
     displayContent: args.message.displayContent,
     displayParts: args.message.displayParts,
   });
+  // An async question card replaces the text segment that repeats it.
+  const questionSegmentIds = new Set<string>();
+  for (const part of messageParts) {
+    const segmentId = part.type === "user_input" ? asyncQuestionTextSegmentId(part) : null;
+    if (segmentId) questionSegmentIds.add(segmentId);
+  }
+  const renderableParts = questionSegmentIds.size === 0 ? messageParts : messageParts.filter((part) =>
+    !(part.type === "text" && part.segmentId && questionSegmentIds.has(part.segmentId)));
   const responseStartIndex = getAssistantResponseTextStartIndex(renderableParts);
 
   const entries: AssistantTraceEntry[] = [];

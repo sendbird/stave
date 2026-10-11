@@ -7,6 +7,8 @@ import {
   markProviderTurnInteractionResolved,
   retainRetiredTurnActivity,
 } from "@/lib/providers/turn-status";
+import { i18n } from "@/i18n/runtime";
+import { formatAsyncQuestionAnswer } from "@/lib/async-question-answer";
 import { isTaskManaged } from "@/lib/tasks";
 import {
   approvalInteractionId,
@@ -679,29 +681,83 @@ export function createProviderInteractionActions(args: {
       };
 
       if (userInputPart?.delivery === "async") {
+        // An async question did not pause the provider and has no pending
+        // request to resolve. Its answer is an ordinary user message: steered
+        // into the running turn when there is one, otherwise sent (or queued)
+        // as the next turn.
+        if (isTaskManaged(task)) {
+          // Only the task's controller sends messages to a managed task.
+          appendUserInputFailure(i18n.t("notifications:asyncQuestionAnswer.managedTask"));
+          return;
+        }
         const key = `${taskId}:${userInputPart.requestId}`;
         if (pendingAsyncAnswers.has(key)) return;
-        // The stable marker lets restored cards recognize an already accepted reply.
-        const marker = `[Question response: ${userInputPart.requestId}]`;
-        const content = `${marker}\n${JSON.stringify({ denied: denied === true, questions: userInputPart.questions.map((question) => ({ question: question.question, answer: answers?.[question.key ?? question.question] ?? answers?.[question.question] ?? "" })) })}`;
-        const accepted = (targetSession?.messagesByTask[taskId] ?? []).some((row) => row.role === "user" && row.content.startsWith(marker)) ||
-          (targetSession?.promptDraftByTask[taskId]?.queuedTurns ?? []).some((row) => row.content.startsWith(marker));
-        const acknowledge = async () => {
-          const host = window.api?.localMcp?.respondUserInput;
-          if (workspaceId && host) {
-            const result = await host({ workspaceId, taskId, requestId: userInputPart.requestId, answers, denied });
-            if (!result.ok) throw new Error(result.message ?? "Could not record the question response.");
-          }
-          applyUserInputResponse(userInputPart.requestId);
-        };
-        if (accepted) { void acknowledge().catch((error) => appendUserInputFailure(String(error))); return; }
         pendingAsyncAnswers.add(key);
-        void get().sendUserMessage({ taskId, content, turnOrigin: "conversation", preservePromptDraft: true,
-          submitIntent: "queue",
-        }).then(async (result) => {
-          if (["started", "steered", "queued", "run-started"].includes(result.status)) await acknowledge();
-          else appendUserInputFailure("User input delivery failed: the answer was not accepted. Retry from this question card.");
-        }).catch((error) => appendUserInputFailure(`User input delivery failed: ${String(error)}`))
+        const asyncRequestId = userInputPart.requestId;
+        const content = formatAsyncQuestionAnswer({
+          questions: userInputPart.questions,
+          answers,
+          denied,
+        });
+        const send = (submitIntent: "steer" | "queue") =>
+          get().sendUserMessage({
+            taskId,
+            content,
+            turnOrigin: "conversation",
+            preservePromptDraft: true,
+            submitIntent,
+          });
+        const recordAnswer = async (hostOwned: boolean) => {
+          applyUserInputResponse(asyncRequestId);
+          // Only a host-owned transcript needs the host's copy updated; a
+          // renderer-owned one is persisted from the state applied above.
+          const host = window.api?.localMcp?.respondUserInput;
+          if (!hostOwned || !workspaceId || !host) return;
+          const result = await host({
+            workspaceId,
+            taskId,
+            requestId: asyncRequestId,
+            answers,
+            denied,
+            answerDelivered: true,
+          });
+          if (!result.ok) {
+            console.warn("[user-input] host did not record the async answer", {
+              taskId,
+              requestId: asyncRequestId,
+              message: result.message,
+            });
+          }
+        };
+        void (async () => {
+          let result = await send(activeTurnId ? "steer" : "queue");
+          // Steering is off or was refused: wait for the turn instead.
+          if (result.status === "steer-unavailable") result = await send("queue");
+          if (result.status === "steer-delivery-unknown") {
+            // The provider may still accept it; resending could answer twice.
+            await recordAnswer(respondThroughHost);
+            appendUserInputFailure(i18n.t("notifications:asyncQuestionAnswer.deliveryUnconfirmed"));
+            return;
+          }
+          if (
+            result.status === "started" ||
+            result.status === "steered" ||
+            result.status === "queued" ||
+            result.status === "run-started"
+          ) {
+            // An answer that starts an agent run hands the transcript to the host.
+            await recordAnswer(respondThroughHost || result.status === "run-started");
+            return;
+          }
+          appendUserInputFailure(
+            "message" in result && result.message
+              ? `User input delivery failed: ${result.message}`
+              : "User input delivery failed: the answer was not accepted. Retry from this question card.",
+          );
+        })()
+          .catch((error) =>
+            appendUserInputFailure(`User input delivery failed: ${String(error)}`),
+          )
           .finally(() => pendingAsyncAnswers.delete(key));
         return;
       }

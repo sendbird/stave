@@ -1923,7 +1923,7 @@ function createToolServer(options?: {
     "stave_respond_user_input",
     {
       description:
-        "Respond to a pending user-input request emitted by a running task.",
+        "Respond to a pending user-input request emitted by a running task. A question with toolName `request_user_input_async` did not pause the task; answer it with a follow-up message to the task instead.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         taskId: z.string().min(1).describe("Task id."),

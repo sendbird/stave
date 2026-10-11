@@ -60,6 +60,25 @@ describe("buildAssistantTrace", () => {
     ).toBe("question-2");
   });
 
+  test("an async question card replaces only the text segment that repeats it", () => {
+    const trace = buildAssistantTrace({
+      message: createAssistantMessage({
+        content: "Checked the API.Which scope?\n- Focused\n- Full",
+        parts: [
+          { type: "text", text: "Checked the API.", segmentId: "msg_1" },
+          {
+            type: "user_input", delivery: "async", requestId: "codex-async:call_1", toolName: "request_user_input_async",
+            state: "input-requested", questions: [{ key: "question-0", question: "Which scope?", header: "", options: [] }],
+          },
+          { type: "text", text: "Which scope?\n- Focused\n- Full", segmentId: "call_1" },
+        ],
+      }),
+    });
+    expect(trace.entries.map((entry) => entry.kind)).toContain("user_input");
+    const texts = [...trace.responseParts, ...trace.interimTextParts].map((part) => part.text);
+    expect(texts).toEqual(["Checked the API."]);
+  });
+
   test("groups consecutive thinking into a single reasoning entry and keeps trailing text as response", () => {
     const trace = buildAssistantTrace({
       message: createAssistantMessage({

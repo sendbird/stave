@@ -1920,6 +1920,7 @@ contextBridge.exposeInMainWorld("api", {
       requestId: string;
       answers?: Record<string, string>;
       denied?: boolean;
+      answerDelivered?: boolean;
     }) =>
       ipcRenderer.invoke("local-mcp:respond-user-input", args) as Promise<{
         ok: boolean;
