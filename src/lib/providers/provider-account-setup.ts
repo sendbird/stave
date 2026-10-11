@@ -17,8 +17,19 @@ export const PROVIDER_ACCOUNT_SETUP_IPC = {
 export const ProviderAccountSetupStatusArgsSchema = z
   .object({ providerId: ProviderAccountProviderIdSchema, id: z.uuid() })
   .strict();
+/**
+ * How a managed account receives System default's `settings.json`:
+ * - `link`: a live link, so a setting changed in either place applies to both.
+ * - `copy`: a filtered copy the account can change on its own.
+ */
+export const ProviderAccountSettingsSharingModeSchema = z.enum(["link", "copy"]);
+export type ProviderAccountSettingsSharingMode = z.infer<typeof ProviderAccountSettingsSharingModeSchema>;
+/** New sharing links settings. An account shared before the mode existed keeps its copy until changed. */
+export const DEFAULT_SETTINGS_SHARING_MODE: ProviderAccountSettingsSharingMode = "link";
+
 export const ProviderAccountShareSetupArgsSchema = ProviderAccountSetupStatusArgsSchema.extend({
   enabled: z.boolean(),
+  settingsMode: ProviderAccountSettingsSharingModeSchema.optional(),
 }).strict();
 
 export type ProviderAccountSetupStatusArgs = z.infer<typeof ProviderAccountSetupStatusArgsSchema>;
@@ -37,7 +48,11 @@ export interface ProviderAccountSetupEntry {
   name: string;
   /** Plain noun for the UI ("skills"). */
   label: string;
-  /** How a shared entry reaches the account: a live link or a filtered copy. */
+  /**
+   * How a shared entry reaches the account: a live link or a filtered copy.
+   * Settings follow the chosen mode, except that settings naming a credential
+   * are always copied through the filter.
+   */
   action: "link" | "copy";
   state: ProviderAccountSetupEntryState;
 }
@@ -45,6 +60,8 @@ export interface ProviderAccountSetupEntry {
 export interface ProviderAccountSetupState {
   /** True once sharing was turned on for this account and not turned off since. */
   enabled: boolean;
+  /** Present only when the provider shares a settings file (Claude). */
+  settingsMode?: ProviderAccountSettingsSharingMode;
   entries: ProviderAccountSetupEntry[];
 }
 
@@ -57,7 +74,8 @@ export interface ProviderAccountSetupBridgeApi {
   setupStatus: (args: ProviderAccountSetupStatusArgs) => Promise<ProviderAccountSetupResult>;
   /**
    * `enabled: true` links or copies System default's setup into the account and
-   * can be repeated to refresh the copied settings. `enabled: false` removes
+   * can be repeated to refresh the copied settings or to switch `settingsMode`.
+   * `enabled: false` removes
    * only what Stave added.
    */
   shareSetup: (args: ProviderAccountShareSetupArgs) => Promise<ProviderAccountSetupResult>;
