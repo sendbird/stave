@@ -1,3 +1,21 @@
+## [0.26.3](https://github.com/sendbird/stave/compare/v0.26.2...v0.26.3) (2026-10-11)
+
+This patch release fixes answering Codex async questions and starting an Agent run when kickoff creates a new workspace.
+
+### Bug Fixes
+
+- Answering a Codex async question card no longer fails with "Pending user input not found". The answer is steered into the running turn (falling back to the queue or the next turn) as readable quoted text, and the card closes so a retry cannot answer twice. For a managed task, take over the task before answering. Synchronous `request_user_input` answers are keyed by the App Server question id.
+- Kickoff with an Agent into a new workspace starts its run instead of failing with "The lead task was not found.": the workspace registry is saved before the run starts.
+- Assign now sits beside Resolve source in the kickoff footer when an Agent is selected.
+
+### Known Limits
+
+- Async questions in managed tasks still need a takeover before they can be answered. Neither fix was exercised end to end in the packaged desktop app.
+
+### References
+
+- [PR #726](https://github.com/sendbird/stave/pull/726), [PR #727](https://github.com/sendbird/stave/pull/727)
+
 ## [0.26.2](https://github.com/sendbird/stave/compare/v0.26.1...v0.26.2) (2026-10-11)
 
 This patch release lets provider strengths tell interface work from the logic behind it, and refreshes the strength presets against re-checked public evaluations.
