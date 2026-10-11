@@ -28,6 +28,16 @@ test("explicit model and effort pins are frozen without taking a caller authorit
     draft: { model: "gpt-6-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
   expect(p).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true, effortLocked: true, initialEffort: "high", teamTurns: 30 });
 });
+test("the account selected when the Run was asked for wins over a draft pin and the request scope", () => {
+  const selected = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+  const freeze = (accounts?: { claudeAccountProfileId?: string; codexAccountProfileId?: string }) =>
+    freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 30,
+      draft: { codexAccountProfileId: "draft-account" }, ...(accounts ? { accounts } : {}) });
+  expect(freeze({ claudeAccountProfileId: "other", codexAccountProfileId: selected }).accountProfileId).toBe(selected);
+  expect(freeze().accountProfileId).toBe("draft-account");
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 30 }).accountProfileId)
+    .toBe("system-default");
+});
 test("a change is rejected during cooldown, after two changes, or outside the cached eligible catalog", () => {
   const accepted = event(2, "resource-decision", { accepted: true, requestSequence: 2, turnCount: 1, model: "gpt-6-luna", effort: "medium" });
   const recent = selectAdaptiveRoute(policy, aggregate(2), [linked, accepted, request(3, "gpt-6.1-sol")]);

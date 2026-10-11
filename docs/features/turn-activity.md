@@ -151,12 +151,13 @@ it), only **Resume now** is offered.
 continuation cannot start, the task stays paused and the reason is shown.
 **Cancel** removes the reset-time reservation; it leaves the work paused.
 
-The pause retains the provider, model and account that stopped the work.
-Changing the composer or selecting another account does not retarget its
-automatic resume or continuation. If Stave cannot read that account's usage,
-the work stays paused and the reset-time reservation is cancelled with a
-notice. Older pauses without a recorded account need **Resume now**, which
-uses the currently selected account for the recorded provider.
+The pause retains the provider and model that stopped the work; changing the
+composer does not retarget the continuation. The account is the one selected
+when the work resumes, so switching accounts after a limit moves the
+continuation and the held queue to the new account. An automatic resume reads
+that account's usage first; if Stave cannot read it, the work stays paused and
+the reset-time reservation is cancelled with a notice. Older pauses without a
+recorded account need **Resume now**.
 
 The pause and reservation last only until Stave restarts. Keep Stave open for
 **Resume at reset** to run. After reopening, review the restored queue and

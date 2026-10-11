@@ -15,6 +15,7 @@ import { i18n } from "@/i18n/runtime";
  * Pure: no clock, no I/O. Callers pass `now` and ids.
  */
 import { AdaptiveRoutingIntentSchema } from "./resources";
+import { ProviderAccountSelectionSchema } from "@/lib/providers/provider-accounts";
 import { z } from "zod";
 import { ScriptVerificationSchema, WorkspaceRevisionSchema } from "./verification-contract";
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
@@ -548,6 +549,8 @@ export const AgentRunStartInputSchema = z
     origin: AgentRunOriginSchema,
     adaptive: z.boolean().optional(),
     routingIntent: AdaptiveRoutingIntentSchema.optional(),
+    /** The accounts selected when the run was asked for; its own turns keep them. */
+    accounts: ProviderAccountSelectionSchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -932,6 +935,7 @@ export function createAgentRun(args: {
           authorizedEffectStageIds: agentRun.consent.authorizedEffectStageIds,
           ...(input.startStageIndex > 0 ? { startStageId: startStage.id } : {}),
           ...(agentRun.origin ? { origin: agentRun.origin } : {}),
+          ...(input.accounts ? { accounts: input.accounts } : {}),
         },
       },
     ],

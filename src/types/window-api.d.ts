@@ -258,16 +258,20 @@ interface WindowRunsApi {
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
   syncDelegationPermissionSettings?: (args: import("@/lib/runs/delegation-policy").DelegationPermissionSettings) => Promise<{ ok: boolean }>;
+  /** `context` carries the accounts selected now; see `DelegatedTaskRequestContext`. */
   delegateTask?: (
     args: DelegateTaskInput,
+    context?: import("@/lib/runs/delegated-task").DelegatedTaskRequestContext,
   ) => Promise<DelegatedTaskActionResponse>;
   listDelegatedTasks?: (args: DelegatedTaskListArgs) => Promise<DelegatedTaskList>;
   getReviewRevision?: (args: import("@/lib/reviews/review-revision").ReviewRevisionArgs) => Promise<import("@/lib/reviews/review-revision").ReviewRevisionState | null>;
   followUpDelegatedTask?: (
     args: DelegatedTaskFollowUpArgs,
+    context?: import("@/lib/runs/delegated-task").DelegatedTaskRequestContext,
   ) => Promise<DelegatedTaskActionResponse>;
   retryDelegatedTask?: (
     args: DelegatedTaskRetryArgs,
+    context?: import("@/lib/runs/delegated-task").DelegatedTaskRequestContext,
   ) => Promise<DelegatedTaskActionResponse>;
   stopDelegatedTask?: (args: DelegatedTaskStopArgs) => Promise<DelegatedTaskActionResponse>;
   detachDelegatedTask?: (

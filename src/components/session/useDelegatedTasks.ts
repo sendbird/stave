@@ -9,6 +9,13 @@ import {
   resolveDelegatedTaskActionError,
   sortDelegatedTaskRows,
 } from "@/lib/runs/delegated-task-view";
+import { snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
+import { useAppStore } from "@/store/app.store";
+
+/** A follow-up or retry the user starts runs on the accounts selected now. */
+function selectedAccountsContext() {
+  return { accounts: snapshotProviderAccounts(useAppStore.getState().settings) };
+}
 
 /**
  * Reads the delegations a parent task owns and offers the controls the parent
@@ -185,7 +192,7 @@ export function useDelegatedTasks(args: {
                   prompt: input.prompt,
                   permissionProfile: "guided",
                   expected: input.expected,
-                })
+                }, selectedAccountsContext())
             : null,
         );
       },
@@ -211,7 +218,7 @@ export function useDelegatedTasks(args: {
                   // profile as an override and otherwise preserves the child's
                   // original one.
                   expected: input.expected,
-                })
+                }, selectedAccountsContext())
             : null,
         );
       },

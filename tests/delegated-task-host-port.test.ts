@@ -31,6 +31,7 @@ interface FakeTurn {
   turnId: string;
   completedAt: string | null;
   error: string | null;
+  runtimeOptions?: Record<string, unknown>;
 }
 
 /** A miniature host: tasks, turns, and the persisted turn-update feed. */
@@ -113,7 +114,7 @@ function createFakeTaskBackend() {
         latestTurnError: latest?.error ?? null,
       };
     },
-    startTaskTurn: async (args: { workspaceId: string; taskId: string }) => {
+    startTaskTurn: async (args: { workspaceId: string; taskId: string; runtimeOptions?: Record<string, unknown> }) => {
       if (activeTurn(args.taskId)) {
         throw new Error(`Task already has an active turn: ${args.taskId}`);
       }
@@ -125,6 +126,7 @@ function createFakeTaskBackend() {
         turnId: `turn-${turnCounter}`,
         completedAt: null,
         error: null,
+        runtimeOptions: args.runtimeOptions,
       };
       const turns = turnsByTask.get(args.taskId) ?? [];
       turns.push(turn);
@@ -227,6 +229,17 @@ async function getChild(
 }
 
 describe("delegated task host port", () => {
+  test("the child's turn carries the accounts of the request that asked for it", async () => {
+    const accounts = { claudeAccountProfileId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b", codexAccountProfileId: "system-default" as const };
+    const harness = createHarness();
+    expect((await harness.coordinator.delegate(delegateArgs(), { accounts })).accepted).toBe(true);
+    const turn = await harness.backend.waitForTurnStart(1);
+    // In runtime options, where main resolves an API connection's key.
+    expect(turn.runtimeOptions).toMatchObject(accounts);
+    harness.backend.endTurn(turn.turnId);
+    await harness.coordinator.waitForInFlight();
+  });
+
   test("a one-turn delegation settles only after the child's turn ends", async () => {
     const harness = createHarness();
     const response = await harness.coordinator.delegate(delegateArgs());

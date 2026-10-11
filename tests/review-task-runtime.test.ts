@@ -20,6 +20,7 @@ function createMemoryStorage() {
 }
 
 const delegated: DelegateTaskArgs[] = [];
+const delegatedContexts: unknown[] = [];
 const providerRequests: unknown[] = [];
 let delegateResponse: DelegatedTaskActionResponse;
 let delegatedChildren: DelegatedTaskSummary[] = [];
@@ -50,8 +51,9 @@ const REVIEW_CHILD: DelegatedTaskSummary = {
   clearTimeout: globalThis.clearTimeout.bind(globalThis),
   api: {
     runs: {
-      delegateTask: async (args: DelegateTaskArgs) => {
+      delegateTask: async (args: DelegateTaskArgs, context?: unknown) => {
         delegated.push(args);
+        delegatedContexts.push(context);
         return delegateResponse;
       },
       listDelegatedTasks: async () => delegatedChildren,
@@ -209,6 +211,18 @@ describe("starting a review task", () => {
       expect(delegated.at(-1)?.access).toBe("read-only");
     }
     expect(providerRequests).toHaveLength(0);
+  });
+
+  test("a review runs on the accounts selected when it was started", async () => {
+    seedStore();
+    const personal = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+    useAppStore.setState((state) => ({ settings: { ...state.settings, codexAccountProfileId: personal } }));
+    const result = await startReviewTask({ getState: useAppStore.getState, taskId: "task-main", request: {
+      reviewer: { providerId: "codex", model: "configured-model", label: "Reviewer" }, target: "working-tree", focuses: [],
+      promptSource: "custom", customPrompt: "Check the cache key.",
+    } });
+    expect(result.ok).toBe(true);
+    expect(delegatedContexts.at(-1)).toEqual({ accounts: { claudeAccountProfileId: "system-default", codexAccountProfileId: personal } });
   });
 
   test("empty custom, unavailable skills and empty skills fail before delegation", async () => {

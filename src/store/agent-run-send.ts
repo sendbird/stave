@@ -27,6 +27,7 @@ import {
 } from "@/store/pending-auto-routing-store";
 import { buildClearedPromptDraft, hasPromptDraftPayload } from "@/store/prompt-draft-state";
 import type { PromptDraft } from "@/types/chat";
+import type { ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
 import { toast } from "@/lib/notifications/toast";
 import { isTaskArchived } from "@/lib/tasks";
 
@@ -70,6 +71,8 @@ type AgentRunSendArgs = {
   queuedTurnId?: string;
   turnOrigin: "conversation" | "utility";
   preservePromptDraft?: boolean;
+  /** The accounts this send runs on (a queued send's are captured at enqueue). */
+  accounts?: ProviderAccountSelection;
   now?: Date;
 };
 
@@ -213,6 +216,7 @@ export function prepareAgentRunForSend(
             const { model, modelProviderId, autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId } = args.promptDraft.runtimeOverrides ?? {};
             return { model, modelProviderId: modelProviderId ?? (args.providerId === "codex" || args.providerId === "claude-code" ? args.providerId : undefined), autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId };
           })() } : {}),
+          ...(args.accounts ? { accounts: args.accounts } : {}),
           now: args.now ?? new Date(),
         }),
       )

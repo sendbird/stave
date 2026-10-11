@@ -13,16 +13,20 @@ const PROFILE_KEY = { "claude-code": "claudeAccountProfileId", codex: "codexAcco
  */
 export async function resolveHostGatewayCredential(params: unknown, resolveSecret = revealSecret): Promise<GatewayCredentials | undefined> {
   const record = params as { providerId?: string; runtimeOptions?: Options;
-    claudeAccountProfileId?: string; codexAccountProfileId?: string; input?: { providerId?: string; runtimeHints?: Options } } | null;
+    claudeAccountProfileId?: string; codexAccountProfileId?: string; input?: { providerId?: string; runtimeHints?: Options };
+    action?: string; args?: { provider?: string; runtimeOptions?: Options } } | null;
   if (!record || typeof record !== "object") return undefined;
-  const providerId = record.providerId ?? record.input?.providerId;
-  const options = record.runtimeOptions ?? record.input?.runtimeHints;
+  // A Local MCP run-task (a subagent's or spawned turn) nests its options under `args`.
+  const runTask = record.action === "run-task" && record.args && typeof record.args === "object" ? record.args : undefined;
+  const providerId = record.providerId ?? record.input?.providerId ?? runTask?.provider;
+  const options = record.runtimeOptions ?? record.input?.runtimeHints ?? runTask?.runtimeOptions;
   const advisorProviderId = options?.advisorTarget?.providerId;
   const credentials: GatewayCredentials = {};
   const tokens = new Map<string, Promise<string | undefined>>();
   for (const runtime of ["claude-code", "codex"] as const satisfies readonly ApiConnectionRuntime[]) {
     if (providerId && providerId !== runtime && advisorProviderId !== runtime) continue;
-    const profileId = record.runtimeOptions?.[PROFILE_KEY[runtime]] ?? record.input?.runtimeHints?.[PROFILE_KEY[runtime]] ?? record[PROFILE_KEY[runtime]];
+    const profileId = record.runtimeOptions?.[PROFILE_KEY[runtime]] ?? record.input?.runtimeHints?.[PROFILE_KEY[runtime]] ??
+      runTask?.runtimeOptions?.[PROFILE_KEY[runtime]] ?? record[PROFILE_KEY[runtime]];
     if (!profileId || profileId === "system-default") continue;
     const credential = await resolveRuntimeCredential(runtime, profileId, tokens, resolveSecret);
     if (credential) credentials[runtime] = credential;

@@ -41,6 +41,7 @@ import {
   validateDelegatedTaskIdentity,
   type DelegatedTaskActionResponse,
   type DelegateTaskArgs,
+  type DelegatedTaskRequestContext,
   type DelegatedTaskAccess,
   type DelegatedTaskEffort,
   type DelegatedTaskExpectedIdentity,
@@ -67,6 +68,7 @@ import type { AgentRunDetail } from "../../../src/lib/agent-runs/api";
 import type { DelegatedAgentRunStart, DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
 import { readDelegatedAgentCompletion } from "../../../src/lib/agent-runs/delegated-completion";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
+import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { formatAgentRunReportMarkdown } from "../../../src/lib/agent-runs/report-markdown";
 import { currentStageRecord } from "../../../src/lib/agent-runs/domain";
 
@@ -216,6 +218,8 @@ export interface DelegatedTaskHostPort {
      * ledger. The ledger remains the source of truth for the delegation itself.
      */
     parentTaskId: string;
+    /** The accounts of the request that asked for this turn. */
+    accounts?: ProviderAccountSelection;
     /** Persist the exact execution identity before waiting for completion. */
     onStarted?: (turnId: string) => void;
   }): Promise<{ turnId: string; responseText?: string }>;
@@ -678,6 +682,8 @@ export function createDelegatedTaskCoordinator(
       agentRunId?: string;
       maxTurns?: number;
       resourceRootRunId?: string;
+      /** The accounts of the request that asked for this turn; absent means System default. */
+      accounts?: ProviderAccountSelection;
     };
   }) => {
     args.target = { ...args.target, turnId: null };
@@ -713,6 +719,7 @@ export function createDelegatedTaskCoordinator(
               ...(args.turn.resourceRootRunId ? { resourceRootRunId: args.turn.resourceRootRunId } : {}),
               agentConfigId: args.agentAssignment.snapshot.agentConfigId, agentContentHash: args.agentAssignment.snapshot.contentHash,
               permissionPolicy: args.turn.permissionPolicy, modelPinned: Boolean(args.turn.model), effortPinned: args.turn.effortPinned === true, ...(args.turn.effort ? { effort: args.turn.effort } : {}) },
+            ...(args.turn.accounts ? { accounts: args.turn.accounts } : {}),
             onPrepared: async () => {
               const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
               return Boolean(current && current.step.executionId === args.executionId &&
@@ -733,6 +740,7 @@ export function createDelegatedTaskCoordinator(
           effort: args.turn.effort,
           permissionProfile: args.turn.permissionProfile,
           permissionPolicy: args.turn.permissionPolicy,
+          ...(args.turn.accounts ? { accounts: args.turn.accounts } : {}),
           onStarted: (turnId) => {
             const current = args.ledger.getRunAggregate({
               runId: args.runId,
@@ -1131,7 +1139,7 @@ export function createDelegatedTaskCoordinator(
 
   const delegateChild = async (
     rawArgs: unknown,
-    defaults: { inheritedEffort?: DelegatedTaskEffort } = {},
+    defaults: { inheritedEffort?: DelegatedTaskEffort; accounts?: ProviderAccountSelection } = {},
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskArgsSchema.safeParse(rawArgs);
     if (!parsed.success) {
@@ -1155,7 +1163,7 @@ export function createDelegatedTaskCoordinator(
       return rejected("agent-refused", null, "This adaptive Run admits only saved-Agent supervised helpers. Native, one-turn and detached helpers cannot share its turn budget.");
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId),
+      admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts),
     );
   };
 
@@ -1171,6 +1179,7 @@ export function createDelegatedTaskCoordinator(
     agentAssignment?: { snapshot: AgentSnapshot; standards?: string },
     effort: DelegatedTaskEffort | undefined = args.effort,
     expectedResourceRoot?: string | null,
+    accounts?: ProviderAccountSelection,
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -1381,6 +1390,7 @@ export function createDelegatedTaskCoordinator(
         lifecycle: args.lifecycle,
         ...(agentRunId ? { agentRunId, maxTurns: args.maxTurns ?? 30 } : {}),
         ...(resourceRootRunId ? { resourceRootRunId } : {}),
+        ...(accounts ? { accounts } : {}),
       },
     });
     notifyChanged(args.parentTaskId);
@@ -1412,7 +1422,7 @@ export function createDelegatedTaskCoordinator(
    */
   const delegateFromTool = async (
     rawInput: unknown,
-    caller?: { taskId: string; workspaceId: string | null },
+    caller?: { taskId: string; workspaceId: string | null; accounts?: ProviderAccountSelection },
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskToolInputSchema.safeParse(rawInput);
     if (!parsed.success) return rejected("invalid-request");
@@ -1518,7 +1528,11 @@ export function createDelegatedTaskCoordinator(
         ...(input.agentConfigId ? { agentConfigId: input.agentConfigId } : {}),
         retry: input.retry ?? false,
       },
-      { inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined },
+      {
+        inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined,
+        // The subagent runs on the calling turn's accounts, not System default.
+        ...(caller?.accounts ? { accounts: caller.accounts } : {}),
+      },
     );
     const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
     if (!waitSeconds || !response.accepted || !response.child) return response;
@@ -1585,7 +1599,7 @@ export function createDelegatedTaskCoordinator(
      * delegation rather than a new one borrowing its key — only the prompt is
      * expected to change.
      */
-    async retry(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
+    async retry(rawArgs: unknown, context: DelegatedTaskRequestContext = {}): Promise<DelegatedTaskActionResponse> {
       const parsed = DelegatedTaskRetryArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
         return rejected("invalid-request");
@@ -1638,7 +1652,7 @@ export function createDelegatedTaskCoordinator(
         // retries inside its original worktree and never cuts a second one.
         workspace: { mode: "same-workspace" },
         retry: true,
-      });
+      }, context.accounts ? { accounts: context.accounts } : {});
     },
 
     /**
@@ -1647,7 +1661,7 @@ export function createDelegatedTaskCoordinator(
      * lifecycle, and the child's own task surface is where its turn-by-turn
      * state lives.
      */
-    async followUp(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
+    async followUp(rawArgs: unknown, context: DelegatedTaskRequestContext = {}): Promise<DelegatedTaskActionResponse> {
       const parsed = DelegatedTaskFollowUpArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
         return rejected("invalid-request");
@@ -1709,6 +1723,7 @@ export function createDelegatedTaskCoordinator(
           permissionProfile: args.permissionProfile,
           permissionPolicy,
           lifecycle: resolved.child.lifecycle,
+          ...(context.accounts ? { accounts: context.accounts } : {}),
         },
       });
       return accepted({ duplicate: false, child: resolved.child });

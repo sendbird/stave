@@ -1,5 +1,6 @@
 import type { StoreApi } from "zustand";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 import {
   appendFailedOutgoingSend,
   buildFailedOutgoingSend,
@@ -11,6 +12,13 @@ import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 type FailedSendActionKey = "retryFailedSend" | "dismissFailedSend";
 
 type FailedSendActions = Pick<AppState, FailedSendActionKey>;
+
+/** A retry is a new send: it runs on the accounts selected now, not the failed attempt's. */
+function withoutAccountSelection(overrides: PromptDraftRuntimeOverrides | undefined) {
+  if (!overrides) return overrides;
+  const { claudeAccountProfileId: _claude, codexAccountProfileId: _codex, ...rest } = overrides;
+  return rest;
+}
 
 export function createFailedSendActions(args: {
   set: StoreApi<AppState>["setState"];
@@ -51,7 +59,7 @@ export function createFailedSendActions(args: {
           preservePromptDraft: true,
           attachedFilePaths: send.attachedFilePaths,
           attachments: send.attachments,
-          runtimeOverrides: send.runtimeOverrides,
+          runtimeOverrides: withoutAccountSelection(send.runtimeOverrides),
           turnOrigin: "conversation",
         });
         if (result.status === "blocked") {

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
-import type { AgentRunCommandResponse } from "../src/lib/agent-runs/api";
+import type { AgentRunCommandResponse, AgentRunStartArgs } from "../src/lib/agent-runs/api";
 import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
 import { registerAgentRunBridge } from "../src/store/agent-run-send";
 import { defaultSettings } from "../src/store/app-settings";
@@ -153,5 +153,26 @@ describe("a refused agent-run start", () => {
     expect(startedTurns).toBe(0);
     expect(useAppStore.getState().promptDraftByTask[TASK_ID]?.text).toBe(PROMPT);
     expect(useAppStore.getState().failedSendsByTask[TASK_ID]).toBeUndefined();
+  });
+});
+
+describe("the accounts an agent-run start carries", () => {
+  test("a composer send starts the run on the accounts selected now, not System default", async () => {
+    const personal = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+    const useAppStore = await seedStore();
+    const inputs: AgentRunStartArgs[] = [];
+    registerAgentRunBridge({
+      activeAgentRun: () => null,
+      start: async (input) => {
+        inputs.push(input);
+        return { ok: false, agentRun: null };
+      },
+      cancel: async () => ({ ok: true, agentRun: null }),
+      watchFirstPrompt: () => {},
+    });
+    useAppStore.setState({ settings: { ...useAppStore.getState().settings, claudeAccountProfileId: personal } });
+    await useAppStore.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" });
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]?.accounts).toEqual({ claudeAccountProfileId: personal, codexAccountProfileId: "system-default" });
   });
 });

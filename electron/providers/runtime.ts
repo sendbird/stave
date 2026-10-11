@@ -1,5 +1,5 @@
 import { providerAccountEventMapper } from "../provider-accounts/events";
-import { withProviderAccountScope, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
+import { currentProviderAccountId, withProviderAccountScope, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { delegatedReplyRuntimeOptions } from "../../src/lib/agent-runs/delegated-run";
 import {
@@ -1027,6 +1027,11 @@ async function runProviderTurnImpl(
         providerId: args.providerId,
         autonomy: args.turnPolicy?.autonomy ?? null,
         agentMode: args.turnPolicy?.agentMode ?? false,
+        // Resolved inside this turn's account scope.
+        accounts: {
+          claudeAccountProfileId: currentProviderAccountId("claude-code"),
+          codexAccountProfileId: currentProviderAccountId("codex"),
+        },
       })
     : null;
   if (callerGrantHandle) {

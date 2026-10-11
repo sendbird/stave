@@ -4,6 +4,7 @@ import {
   type LocalChangeReviewFocus,
 } from "@/lib/local-change-review";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { snapshotProviderAccounts, type ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
 import { REVIEW_CUSTOM_PROMPT_MAX_CHARS, type ReviewPromptSelection } from "@/lib/reviews/review-prompts";
 import {
   REVIEW_TASK_INSTRUCTIONS_MAX_CHARS,
@@ -161,6 +162,8 @@ export async function startReviewTask(args: {
     providerId,
     model: args.request.reviewer.model,
     effort: args.request.effort,
+    // A review the user starts runs on the accounts selected now.
+    accounts: snapshotProviderAccounts(state.settings),
     now: args.now,
     nonce: args.nonce,
   });
@@ -175,6 +178,7 @@ async function delegateReview(args: {
   providerId: "claude-code" | "codex";
   model: string;
   effort?: string | null;
+  accounts: ProviderAccountSelection;
   now?: Date;
   nonce?: string;
 }): Promise<StartReviewTaskResult> {
@@ -202,6 +206,7 @@ async function delegateReview(args: {
         model: args.model,
         effort: args.effort,
       }),
+      { accounts: args.accounts },
     );
     const refusal = resolveDelegatedTaskActionError(response);
     if (refusal) {
@@ -257,6 +262,7 @@ export async function rerunReviewTask(args: {
     providerId: args.review.providerId,
     model: args.review.requestedModel ?? "",
     effort: args.review.requestedEffort,
+    accounts: snapshotProviderAccounts(args.getState().settings),
     now: args.now,
     nonce: args.nonce,
   });

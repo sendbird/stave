@@ -1118,20 +1118,23 @@ contextBridge.exposeInMainWorld("api", {
     syncDelegationPermissionSettings: (args: import("../src/lib/runs/delegation-policy").DelegationPermissionSettings): Promise<{ ok: boolean }> => ipcRenderer.invoke("delegations:sync-permission-settings", args),
     delegateTask: (
       args: DelegateTaskInput,
+      context?: import("../src/lib/runs/delegated-task").DelegatedTaskRequestContext,
     ): Promise<DelegatedTaskActionResponse> =>
-      ipcRenderer.invoke("delegations:create", args),
+      ipcRenderer.invoke("delegations:create", args, context),
     listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>
       ipcRenderer.invoke("delegations:list", args),
     getReviewRevision: (args: import("../src/lib/reviews/review-revision").ReviewRevisionArgs): Promise<import("../src/lib/reviews/review-revision").ReviewRevisionState | null> =>
       ipcRenderer.invoke("delegations:review-revision", args),
     followUpDelegatedTask: (
       args: DelegatedTaskFollowUpArgs,
+      context?: import("../src/lib/runs/delegated-task").DelegatedTaskRequestContext,
     ): Promise<DelegatedTaskActionResponse> =>
-      ipcRenderer.invoke("delegations:follow-up", args),
+      ipcRenderer.invoke("delegations:follow-up", args, context),
     retryDelegatedTask: (
       args: DelegatedTaskRetryArgs,
+      context?: import("../src/lib/runs/delegated-task").DelegatedTaskRequestContext,
     ): Promise<DelegatedTaskActionResponse> =>
-      ipcRenderer.invoke("delegations:retry", args),
+      ipcRenderer.invoke("delegations:retry", args, context),
     stopDelegatedTask: (
       args: DelegatedTaskStopArgs,
     ): Promise<DelegatedTaskActionResponse> =>

@@ -262,6 +262,44 @@ async function startedAgentRun(
   return detail.agentRun.id;
 }
 
+describe("run runtime: accounts a turn runs on", () => {
+  const PERSONAL = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+  const WORK = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+
+  test("every turn the run starts keeps the accounts selected when it was asked for", async () => {
+    const harness = createHarness();
+    const id = await startedAgentRun(harness, startInput({ accounts: { claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" } }));
+    expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" });
+    await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+    harness.endTurn("turn-1");
+    await harness.tick();
+    expect(harness.current(id).stageId).toBe(POLISH.id);
+    expect(harness.runCalls[1]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" });
+  });
+
+  test("a run on an API connection is refused at the start, not on its first turn", async () => {
+    const harness = createHarness({ extra: { usesApiConnection: (_providerId, accountProfileId) => accountProfileId === WORK } });
+    await expect(harness.runtime.startAgentRun(startInput({ accounts: { claudeAccountProfileId: WORK, codexAccountProfileId: "system-default" } })))
+      .rejects.toThrow("cannot use an API connection");
+    expect(harness.store.listActiveAgentRuns()).toHaveLength(0);
+    // Only the run's own provider matters.
+    await startedAgentRun(harness, startInput({ accounts: { claudeAccountProfileId: PERSONAL, codexAccountProfileId: WORK } }));
+    expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL });
+  });
+
+  test("an adaptive policy's frozen account wins for its provider; the other provider keeps the selection", async () => {
+    const frozen = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const, allowedModels: ["sonnet"],
+      modelLocked: true, effortLocked: false, initialEffort: null, accountProfileId: WORK, teamTurns: 30,
+      concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+    const seen: unknown[] = [];
+    const harness = createHarness({ extra: { freezeResources: (args) => { seen.push(args.accounts); return frozen; } } });
+    const accounts = { claudeAccountProfileId: PERSONAL, codexAccountProfileId: PERSONAL };
+    await startedAgentRun(harness, startInput({ origin: "agent", adaptive: true, accounts }));
+    expect(seen).toEqual([accounts]);
+    expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: WORK, codexAccountProfileId: PERSONAL });
+  });
+});
+
 describe("run runtime: permissions a turn runs with", () => {
   const USER_SETTINGS = {
     "claude-code": { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false },

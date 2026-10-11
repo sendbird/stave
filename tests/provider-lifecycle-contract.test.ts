@@ -315,6 +315,18 @@ test("a task turn names itself to Local MCP only while it runs", async () => {
   await turn.done;
 });
 
+test("a task turn's grant carries the accounts it runs on, so a turn it starts keeps them", async () => {
+  const { resolveCallerGrant } = await import("../electron/providers/caller-grants");
+  const personal = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+  adapterState.scenario = "wait-for-abort";
+  const turn = runStream({ providerId: "codex", taskId: "caller-accounts-task", runtimeOptions: { codexAccountProfileId: personal } });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const callerKey = adapterState.lastArgs?.staveTurnGrants?.callerKey;
+  expect(resolveCallerGrant(callerKey!)?.accounts).toEqual({ claudeAccountProfileId: "system-default", codexAccountProfileId: personal });
+  expect(providerRuntime.abortTurn({ turnId: turn.turnId }).ok).toBe(true);
+  await turn.done;
+});
+
 test("in-turn subagents come only from the task's agent; a supplied list is dropped", async () => {
   adapterState.scenario = "duplicate-terminal";
   await runStream({

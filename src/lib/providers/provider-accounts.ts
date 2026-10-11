@@ -14,6 +14,17 @@ export const ProviderAccountProfileIdSchema = z.union([
   z.literal(SYSTEM_ACCOUNT_PROFILE_ID),
   z.uuid(),
 ]);
+/**
+ * The accounts a turn Stave starts on the user's behalf runs on: captured
+ * from the request that asked for it, so a later switch does not move it and
+ * a host-started turn never falls back to System default by omission.
+ */
+export const ProviderAccountSelectionSchema = z
+  .object({
+    claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+  })
+  .strict();
 
 const LabelSchema = z
   .string()

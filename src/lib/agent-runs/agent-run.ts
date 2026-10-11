@@ -93,6 +93,8 @@ export function buildAgentRunStartInput(args: {
   doneWhen?: string | null;
   adaptive?: boolean;
   routingIntent?: import("./resources").AdaptiveRoutingIntent;
+  /** The accounts selected for this send; the run's own turns keep them. */
+  accounts?: import("../providers/provider-account-selection").ProviderAccountSelection;
   now: Date;
 }): AgentRunStartInput {
   const workflow = buildAgentRunWorkflow({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
@@ -107,6 +109,7 @@ export function buildAgentRunStartInput(args: {
     origin: "agent",
     ...(args.adaptive ? { adaptive: true } : {}),
     ...(args.routingIntent ? { routingIntent: args.routingIntent } : {}),
+    ...(args.accounts ? { accounts: args.accounts } : {}),
   };
 }
 

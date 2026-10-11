@@ -10,6 +10,7 @@ type SendArgs = Parameters<AppState["sendUserMessage"]>[0];
 
 function buildHarness(args: {
   sendUserMessage: (sendArgs: SendArgs) => Promise<SendUserMessageResult>;
+  runtimeOverrides?: Record<string, unknown>;
 }) {
   const parked = buildFailedOutgoingSend({
     id: "failed-1",
@@ -19,7 +20,7 @@ function buildHarness(args: {
       text: "Fix the login form",
       attachedFilePaths: ["src/app.ts"],
       attachments: [{ kind: "file", filePath: "src/app.ts" }],
-      runtimeOverrides: { thinking: true },
+      runtimeOverrides: args.runtimeOverrides ?? { thinking: true },
     },
     error: new Error("provider unavailable"),
   });
@@ -48,6 +49,20 @@ function buildHarness(args: {
 }
 
 describe("retryFailedSend", () => {
+  test("a retry runs on the accounts selected now, not the failed attempt's", async () => {
+    const sent: SendArgs[] = [];
+    const { actions } = buildHarness({
+      runtimeOverrides: { thinking: true, autoRouting: true,
+        claudeAccountProfileId: "11111111-1111-4111-8111-111111111111", codexAccountProfileId: "system-default" },
+      sendUserMessage: async (sendArgs) => {
+        sent.push(sendArgs);
+        return { status: "started", taskId: "task-1", workspaceId: "ws-1", turnId: "turn-1" };
+      },
+    });
+    await actions.retryFailedSend({ taskId: "task-1", id: "failed-1" });
+    expect(sent[0]?.runtimeOverrides).toEqual({ thinking: true, autoRouting: true });
+  });
+
   test("resends the same text and attachments without touching the composer", async () => {
     const sent: SendArgs[] = [];
     const { actions, state } = buildHarness({

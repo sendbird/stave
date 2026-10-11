@@ -737,6 +737,9 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, prompt, taskId, title, provider, runtimeOptions }) => {
       const caller = await resolveStaveMcpCaller(turnGrants);
+      // A spawned turn runs on the calling turn's accounts; a model cannot pick another.
+      const callerAccounts = caller.kind === "turn" ? caller.grant.accounts : undefined;
+      const spawnedOptions = callerAccounts || runtimeOptions ? { ...runtimeOptions, ...callerAccounts } : undefined;
       return toStructuredResult({
         run: await runTask({
           workspaceId,
@@ -744,7 +747,7 @@ function createToolServer(options?: {
           taskId,
           title,
           provider,
-          ...(runtimeOptions ? { runtimeOptions } : {}),
+          ...(spawnedOptions ? { runtimeOptions: spawnedOptions } : {}),
           // A spawned turn never runs with more autonomy than the turn that started it.
           ...(caller.kind === "turn" ? { spawnedBy: { taskId: caller.grant.taskId, autonomy: caller.grant.autonomy, agentMode: caller.grant.agentMode === true } } : {}),
         }),
@@ -772,7 +775,8 @@ function createToolServer(options?: {
         delegation: await getDelegatedTaskCoordinator().delegateFromTool(
           input,
           caller.kind === "turn"
-            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId }
+            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId,
+                ...(caller.grant.accounts ? { accounts: caller.grant.accounts } : {}) }
             : undefined,
         ),
       });
@@ -832,12 +836,15 @@ function createToolServer(options?: {
       description: "Continue an open subagent with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
       inputSchema: { ...DelegatedTaskFollowUpArgsSchema.shape, parentTaskId: DelegatedTaskFollowUpArgsSchema.shape.parentTaskId.optional() },
     },
-    async (input) => toStructuredResult({
-      followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse({
-        ...input,
-        parentTaskId: callerTaskId(await resolveStaveMcpCaller(turnGrants), input.parentTaskId),
-      })),
-    }),
+    async (input) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      return toStructuredResult({
+        followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse({
+          ...input,
+          parentTaskId: callerTaskId(caller, input.parentTaskId),
+        }), caller.kind === "turn" && caller.grant.accounts ? { accounts: caller.grant.accounts } : {}),
+      });
+    },
   );
 
   server.registerTool(

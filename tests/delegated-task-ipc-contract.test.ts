@@ -8,6 +8,7 @@ import {
   DelegatedTaskLinkArgsSchema,
   DelegatedTaskListArgsSchema,
   DelegatedTaskRejectionReasonSchema,
+  DelegatedTaskRequestContextSchema,
   DelegatedTaskRetryArgsSchema,
   DelegatedTaskStopArgsSchema,
   describeDelegatedTaskRejection,
@@ -255,5 +256,24 @@ describe("delegated task IPC schemas", () => {
       child: null,
     });
     expect(parsed.message).toBeNull();
+  });
+});
+
+describe("delegated task request context", () => {
+  test("carries only account ids the account registry can name", () => {
+    const accounts = { claudeAccountProfileId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b", codexAccountProfileId: "system-default" };
+    expect(DelegatedTaskRequestContextSchema.parse({ accounts })).toEqual({ accounts });
+    expect(DelegatedTaskRequestContextSchema.parse({})).toEqual({});
+    expect(DelegatedTaskRequestContextSchema.safeParse({ accounts: { claudeAccountProfileId: "../other-home" } }).success).toBe(false);
+    // Nothing else rides along: no permissions, no unknown provider keys.
+    expect(DelegatedTaskRequestContextSchema.safeParse({ accounts, permissionProfile: "auto" }).success).toBe(false);
+    expect(DelegatedTaskRequestContextSchema.safeParse({ accounts: { ...accounts, cursorAccountProfileId: "system-default" } }).success).toBe(false);
+  });
+
+  test("the controls a user starts pass the context as a second argument", () => {
+    for (const channel of ["delegations:create", "delegations:follow-up", "delegations:retry"]) {
+      expect(mainSource).toMatch(new RegExp(`ipcMain\\.handle\\(\\s*"${channel}",\\s*async \\(_event, rawArgs: unknown, rawContext\\?: unknown\\)`));
+      expect(preloadSource).toContain(`ipcRenderer.invoke("${channel}", args, context)`);
+    }
   });
 });

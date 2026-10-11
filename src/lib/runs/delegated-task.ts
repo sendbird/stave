@@ -12,6 +12,7 @@ import {
   type RunStepRecord,
 } from "./run-domain";
 import { DelegationAccessSchema, type DelegationAccess } from "./delegation-policy";
+import { ProviderAccountSelectionSchema } from "../providers/provider-accounts";
 
 /**
  * Delegated tasks are the run ledger's second client. A delegation is one durable
@@ -318,6 +319,16 @@ export type DelegatedTaskStopArgs = z.infer<typeof DelegatedTaskStopArgsSchema>;
  * One more turn on a child that is still open. Omission reuses its recorded
  * policy; an explicit profile may narrow it.
  */
+/**
+ * Who asked for a delegated turn, beside its arguments: the accounts it runs
+ * on. Kept out of the argument schemas, which the model-facing tools share, so
+ * a model can never pick an account. Absent accounts mean System default.
+ */
+export const DelegatedTaskRequestContextSchema = z
+  .object({ accounts: ProviderAccountSelectionSchema.optional() })
+  .strict();
+export type DelegatedTaskRequestContext = z.infer<typeof DelegatedTaskRequestContextSchema>;
+
 export const DelegatedTaskFollowUpArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),

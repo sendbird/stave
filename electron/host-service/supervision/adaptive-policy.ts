@@ -5,12 +5,15 @@ import { getModelCapability, getSdkModelOptions, inferProviderIdFromModel, listC
 import { resolveAutoRoutingProfile, routeEffortOverrides } from "../../../src/lib/routing/auto-routing";
 import type { AgentRouteSettings } from "../../../src/lib/routing/agent-run-route";
 import type { PromptDraftRuntimeOverrides } from "../../../src/types/chat";
+import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 
 /** Capture intent once. A later settings or composer edit cannot widen a Run. */
 export function freezeAdaptivePolicy(args: {
   providerId: AdaptiveRunPolicy["providerId"]; model: string; agent: AgentConfig | null;
   draft?: PromptDraftRuntimeOverrides | null; settings: AgentRouteSettings | null; maxTurns: number;
   delegated?: boolean; effort?: string; modelPinned?: boolean; effortPinned?: boolean;
+  /** The accounts selected when the Run was asked for; they win over the draft and the request scope. */
+  accounts?: ProviderAccountSelection;
 }): AdaptiveRunPolicy {
   const { providerId, agent, draft } = args;
   const fixedModel = agent?.model.mode === "fixed" ? agent.model : null;
@@ -32,7 +35,7 @@ export function freezeAdaptivePolicy(args: {
   const eligible = args.settings ? resolveAutoRoutingProfile(args.settings.routing).eligibleModelsByProvider[providerId] : undefined;
   const candidates = eligible?.length ? eligible : getSdkModelOptions({ providerId });
   return AdaptiveRunPolicySchema.parse({ version: 1, profile: "balanced", providerId,
-    accountProfileId: (providerId === "codex" ? draft?.codexAccountProfileId : draft?.claudeAccountProfileId) ?? currentProviderAccountId(providerId),
+    accountProfileId: (providerId === "codex" ? args.accounts?.codexAccountProfileId ?? draft?.codexAccountProfileId : args.accounts?.claudeAccountProfileId ?? draft?.claudeAccountProfileId) ?? currentProviderAccountId(providerId),
     allowedModels: modelLocked ? [model] : [...new Set([model, ...candidates.filter((id) => getModelCapability({ model: id })?.providerId === providerId)])],
     modelLocked, effortLocked, initialEffort,
     teamTurns: Math.min(args.maxTurns, 30), concurrentHelpers: 2, totalHelpers: 4, parentReserve: 1,

@@ -58,17 +58,29 @@ function harness(read: () => Promise<RateLimitsSnapshotResponse> = async () => c
   return { get, set, actions, requests, sends, dispatches, pause };
 }
 
-describe("paused work keeps its execution account", () => {
-  test("A's reset releases its queue despite selected B being exhausted", async () => {
+describe("paused work resumes on the account selected when it resumes", () => {
+  test("an automatic resume checks the account selected now, not the one the limit stopped", async () => {
     const h = harness();
     h.pause();
     h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
     const selectedSnapshot = h.get().rateLimitsSnapshot;
     await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
-    expect(h.requests).toContainEqual(expect.objectContaining({ runtimeOptions: expect.objectContaining({ codexAccountProfileId: ACCOUNT_A }) }));
+    expect(h.requests).toContainEqual(expect.objectContaining({ runtimeOptions: expect.objectContaining({ codexAccountProfileId: ACCOUNT_B }) }));
     expect(h.dispatches).toEqual([{ workspaceId: "ws-main", taskId: "task-main" }]);
     expect(h.get().usageLimitPauseByTask["task-main"]).toBeUndefined();
     expect(h.get().rateLimitsSnapshot).toBe(selectedSnapshot);
+  });
+
+  test("the queue a limit held is released on the accounts selected now", async () => {
+    const h = harness();
+    const queued = (id: string) => ({ id, queuedAt: "2026-10-11T00:00:00.000Z", content: id, attachedFilePaths: [], attachments: [],
+      autoRouting: true, claudeAccountProfileId: ACCOUNT_A, codexAccountProfileId: ACCOUNT_A });
+    h.set({ promptDraftByTask: { "task-main": { ...h.get().promptDraftByTask["task-main"]!, queuedTurns: [queued("first"), queued("second")] } } });
+    h.pause();
+    await h.actions.resumePausedTaskWork({ taskId: "task-main" });
+    expect(h.dispatches).toEqual([{ workspaceId: "ws-main", taskId: "task-main" }]);
+    expect(h.get().promptDraftByTask["task-main"]?.queuedTurns?.map((turn) => [turn.claudeAccountProfileId, turn.codexAccountProfileId]))
+      .toEqual([["system-default", ACCOUNT_B], ["system-default", ACCOUNT_B]]);
   });
 
   test("a queued guard refusal records the queried account, not the current selection", async () => {
@@ -79,7 +91,7 @@ describe("paused work keeps its execution account", () => {
     expect(h.get().usageLimitPauseByTask["task-main"]).toMatchObject({ accountProfileId: ACCOUNT_A, stoppedTurn: false });
   });
 
-  test("an exhausted A moves its reservation to A's next window, not B's", async () => {
+  test("an exhausted selected account moves the reservation to its next window", async () => {
     const nextResetA = Math.floor((Date.now() + 3_600_000) / 1000) * 1000;
     const h = harness(async () => codexUsage(100, nextResetA));
     h.pause();
@@ -111,8 +123,9 @@ describe("paused work keeps its execution account", () => {
     expect(h.get().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBeUndefined();
   });
 
-  test("a stopped turn continues its recorded provider, model and account after composer changes", async () => {
+  test("a stopped turn continues its recorded provider and model on the account selected now", async () => {
     const h = harness();
+    h.set({ settings: { ...h.get().settings, claudeAccountProfileId: ACCOUNT_B } });
     h.set({ messagesByTask: { "task-main": [{
       id: "a-ended", role: "assistant", providerId: "claude-code", model: "claude-sonnet-4-5",
       nativeAccountProfileId: ACCOUNT_A, content: "", parts: [{ type: "system_event", content: "[error] You've reached your limit" }],
@@ -121,7 +134,7 @@ describe("paused work keeps its execution account", () => {
     expect(h.get().usageLimitPauseByTask["task-main"]).toMatchObject({ providerId: "claude-code", accountProfileId: ACCOUNT_A, model: "claude-sonnet-4-5" });
     await h.actions.resumePausedTaskWork({ taskId: "task-main" });
     expect(h.sends[0]).toMatchObject({ providerOverride: "claude-code", preservePromptDraft: true, runtimeOverrides: {
-      autoRouting: false, model: "claude-sonnet-4-5", modelProviderId: "claude-code", claudeAccountProfileId: ACCOUNT_A,
+      autoRouting: false, model: "claude-sonnet-4-5", modelProviderId: "claude-code", claudeAccountProfileId: ACCOUNT_B,
     } });
     expect(h.get().promptDraftByTask["task-main"]?.text).toBe("New draft");
   });
@@ -144,6 +157,7 @@ describe("paused work keeps its execution account", () => {
     const h = harness(async () => ({ ...emptyRateLimitsSnapshot(), claude: {
       source: "oauth", error: null, session: null, weekly: null, fableWeekly: null,
     } }));
+    h.set({ settings: { ...h.get().settings, claudeAccountProfileId: ACCOUNT_B } });
     h.actions.pauseTaskForUsageLimit({
       taskId: "task-main", workspaceId: "ws-main", providerId: "claude-code", accountProfileId: ACCOUNT_A,
       model: "claude-sonnet-4-5", stoppedTurn: true,
@@ -151,9 +165,9 @@ describe("paused work keeps its execution account", () => {
     });
     h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
     await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
-    expect(h.requests[0]).toMatchObject({ providers: ["claude-code"], runtimeOptions: { claudeAccountProfileId: ACCOUNT_A } });
+    expect(h.requests[0]).toMatchObject({ providers: ["claude-code"], runtimeOptions: { claudeAccountProfileId: ACCOUNT_B } });
     expect(h.sends[0]).toMatchObject({ providerOverride: "claude-code", runtimeOverrides: {
-      autoRouting: false, model: "claude-sonnet-4-5", modelProviderId: "claude-code", claudeAccountProfileId: ACCOUNT_A,
+      autoRouting: false, model: "claude-sonnet-4-5", modelProviderId: "claude-code", claudeAccountProfileId: ACCOUNT_B,
     } });
   });
 
