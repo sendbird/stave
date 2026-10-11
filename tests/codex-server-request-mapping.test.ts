@@ -110,6 +110,19 @@ describe("Codex server request presentation", () => {
     ).toMatchObject({ event: { questions: [] } });
   });
 
+  test("keys questions by the App Server question id so answers return under it", () => {
+    const mapped = mapCodexServerRequestPresentation({
+      method: "item/tool/requestUserInput",
+      requestId: "input-3",
+      params: {
+        threadId: "t1", turnId: "turn-1", itemId: "call_1", isBlocking: true, autoResolutionMs: null,
+        questions: [{ id: "scope_choice", header: "Scope", question: "Which scope?", isOther: true, isSecret: false,
+          options: [{ label: "Focused", description: "Narrow change" }] }],
+      },
+    });
+    expect(mapped).toMatchObject({ event: { questions: [{ key: "scope_choice", question: "Which scope?" }] } });
+  });
+
   test("maps MCP approval and rejects unrenderable elicitation", () => {
     expect(
       mapCodexServerRequestPresentation({

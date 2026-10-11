@@ -515,6 +515,8 @@ export async function respondUserInput(args: {
   requestId: string;
   answers?: Record<string, string>;
   denied?: boolean;
+  /** Renderer IPC only: the async answer was already sent as a user message. */
+  answerDelivered?: boolean;
 }) {
   return invokeLocalMcp<{
     ok: boolean;

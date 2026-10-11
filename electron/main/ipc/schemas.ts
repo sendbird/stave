@@ -885,22 +885,22 @@ export const GetLocalMcpRequestLogArgsSchema = z
   })
   .strict();
 
+const LocalMcpTaskRequestShape = {
+  workspaceId: z.string().min(1).max(200),
+  taskId: z.string().min(1).max(200),
+  requestId: z.string().min(1).max(200),
+};
+
 export const LocalMcpApprovalResponseArgsSchema = z
-  .object({
-    workspaceId: z.string().min(1).max(200),
-    taskId: z.string().min(1).max(200),
-    requestId: z.string().min(1).max(200),
-    approved: z.boolean(),
-  })
+  .object({ ...LocalMcpTaskRequestShape, approved: z.boolean() })
   .strict();
 
 export const LocalMcpUserInputResponseArgsSchema = z
   .object({
-    workspaceId: z.string().min(1).max(200),
-    taskId: z.string().min(1).max(200),
-    requestId: z.string().min(1).max(200),
+    ...LocalMcpTaskRequestShape,
     answers: z.record(z.string(), z.string()).optional(),
     denied: z.boolean().optional(),
+    answerDelivered: z.boolean().optional(),
   })
   .strict();
 

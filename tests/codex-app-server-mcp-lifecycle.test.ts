@@ -18,7 +18,7 @@ class FakeStream extends EventEmitter {
 }
 
 type FakeScenario =
-  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute" | "early-turn-notifications" | "delayed-abort-start" | "hung-abort-start" | "hung-postack-interrupt" | "hung-postack-interrupt-request";
+  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute" | "early-turn-notifications" | "delayed-abort-start" | "hung-abort-start" | "hung-postack-interrupt" | "hung-postack-interrupt-request" | "async-question";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
@@ -195,6 +195,20 @@ class FakeChild extends EventEmitter {
             }
             if (this.scenario === "command-streaming") {
               this.emitCommandStreamingLifecycle();
+              return;
+            }
+            if (this.scenario === "async-question") {
+              // request_user_input_async returns at once; the turn keeps going.
+              for (const item of [
+                { id: "call_async_1", type: "agentMessage", delivery: "async", text: "Which scope?\n- Focused\n- Full",
+                  questions: [{ title: "Which scope?", options: ["Focused", "Full"] }] },
+                { id: "message-after-question", type: "agentMessage", text: "Continuing meanwhile." },
+              ]) {
+                this.emitJson({ jsonrpc: "2.0", method: "item/completed", params: { threadId: "thread-1", turnId: "turn-1", item } });
+              }
+              this.emitJson({ jsonrpc: "2.0", method: "turn/completed", params: {
+                threadId: "thread-1", turn: { id: "turn-1", status: "completed" },
+              } });
               return;
             }
             if (this.scenario === "model-reroute") {
@@ -541,6 +555,22 @@ async function streamScenario(
 }
 
 describe("Codex App Server MCP lifecycle mapping", () => {
+  test("an async question becomes one preselected card and keeps its text as turn output", async () => {
+    const events = await streamScenario("async-question", {}, ["user_input", "text", "done"]);
+    expect(events.filter((event) => event.type === "user_input")).toEqual([{
+      type: "user_input", delivery: "async", requestId: "codex-async:call_async_1", toolName: "request_user_input_async",
+      questions: [{ key: "question-0", question: "Which scope?", header: "", allowCustom: true, defaultValue: "Focused",
+        options: [{ label: "Focused", description: "" }, { label: "Full", description: "" }] }],
+    }]);
+    // The text still counts as the turn's response (receipts, history); the
+    // trace hides the segment whose id matches the card.
+    expect(events.filter((event) => event.type === "text").map((event) => [event.text, event.segmentId])).toEqual([
+      ["Which scope?\n- Focused\n- Full", "call_async_1"],
+      ["Continuing meanwhile.", "message-after-question"],
+    ]);
+    expect(events.at(-1)).toMatchObject({ type: "done" });
+  });
+
   test("routes pre-ack text and completion to the acknowledged turn", async () => {
     nextScenario = "early-turn-notifications";
     const runtime = await import(

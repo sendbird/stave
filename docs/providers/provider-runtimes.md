@@ -672,12 +672,26 @@ Guardrails (Agent mode only, provider-specific enforcement):
   With network on, an autonomous Codex turn can push or publish. This is a
   known gap.
 
-Codex asynchronous question messages (`agentMessage` with `delivery: async`)
-render as structured question cards. They remain answerable after their turn
-ends and do not pause the provider watchdog or lock the composer. Answers use
-the persisted conversation queue; these messages have no pending App Server
-RPC to resolve. Synchronous `request_user_input` still uses the native response
-channel. An explicit stop interrupts unanswered cards.
+Codex asynchronous questions (`request_user_input_async`, emitted as an
+`agentMessage` with `delivery: async` whose id is the tool call id) render as
+structured question cards with the first option preselected. The item's text
+stays the turn's response text for receipts and history; the chat trace hides
+that segment because the card shows it. The tool returns immediately and the
+turn keeps running, so there is no pending App Server RPC to resolve: the cards
+do not pause the provider watchdog or lock the composer, and they remain
+answerable after their turn ends. An answer is an ordinary user message that
+quotes each question above its answer. It is steered into the running turn when
+there is one and otherwise starts (or queues for) the next turn. The renderer
+then marks the card answered and, only when the host owns the task's transcript
+(a host-owned turn, or an answer that started an agent run), records it through
+the host as well. A steer whose delivery cannot be confirmed still closes the
+card, with a notice, so a retry cannot answer twice. A managed task's card asks
+the user to take over first, because only the controller sends it messages.
+`stave_respond_user_input` rejects an async card instead of recording it,
+because it cannot deliver the answer to the provider; callers send a follow-up
+message to the task. Synchronous `request_user_input` still
+uses the native response channel, with answers keyed by each question's App
+Server `id`. An explicit stop interrupts unanswered cards.
 
 Primary chat replies in an active Agent's AI stage receive the current stage
 context and a host-owned reporting grant. This lets a clarification update the
