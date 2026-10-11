@@ -1,3 +1,23 @@
+## [0.26.2](https://github.com/sendbird/stave/compare/v0.26.1...v0.26.2) (2026-10-11)
+
+This patch release lets provider strengths tell interface work from the logic behind it, and refreshes the strength presets against re-checked public evaluations.
+
+### Features and Fixes
+
+- Settings → Auto → **Provider strengths** splits implementation into **UI & frontend**, **Logic & backend** and **Other implementation**, so interface work and the logic behind it can start on different providers. The table stays off by default.
+- The route classifier answers an optional domain next to the intent. When it does not answer, only UI is guessed from keywords such as `UI`, `CSS`, `layout` or `화면`; logic is never guessed, and unclear implementation uses **Other implementation**.
+- Rules can name a domain. Settings shows it in the rule's conditions, the usage wizard keeps domain rules separate from task-class rules, and the routing tooltip shows the domain, for example `implement · ui`.
+- The **Public evaluations** preset sends UI work to Claude and logic work to Codex, both marked low confidence, and now keeps docs on the task's provider after a current writing comparison contradicted the older documentation study. Design Arena and a practitioner report join the cited sources.
+
+### Known Limits
+
+- How accurately the live classifier answers the domain on real prompts was not measured. A delegated agent declares no domain, so its implementation work follows **Other implementation**.
+- The Strengths card was checked by render tests only; the packaged desktop application was not exercised during release preparation.
+
+### References
+
+- [PR #724](https://github.com/sendbird/stave/pull/724)
+
 ## [0.26.1](https://github.com/sendbird/stave/compare/v0.26.0...v0.26.1) (2026-10-11)
 
 This patch release makes account selection apply consistently to Agent runs and delegated work, and brings automatic model adjustment into the composer controls.
