@@ -9,6 +9,7 @@
  * - `stave_delegate_task` and the other subagent tools refuse a
  *   `parentTaskId` that is not the calling task.
  * - `stave_run_task` caps the spawned turn at the caller's autonomy.
+ * - A subagent or spawned turn runs on the calling turn's accounts.
  *
  * The key is derived from the task and a host secret, so a resumed Codex
  * thread, which keeps the headers it started with, still names its task after
@@ -20,6 +21,7 @@
 import { createHmac, randomBytes } from "node:crypto";
 import type { Autonomy } from "../../src/lib/policy/turn-policy";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
+import type { ProviderAccountSelection } from "../../src/lib/providers/provider-account-selection";
 
 export interface CallerGrant {
   taskId: string;
@@ -30,6 +32,8 @@ export interface CallerGrant {
   autonomy: Autonomy | null;
   /** Whether the calling turn ran in Agent mode, so a turn it starts keeps the guardrails. */
   agentMode?: boolean;
+  /** The calling turn's resolved accounts, so a turn it starts never falls back to System default. */
+  accounts?: ProviderAccountSelection;
 }
 
 const grantsByKey = new Map<string, CallerGrant>();

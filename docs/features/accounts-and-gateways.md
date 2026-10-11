@@ -91,7 +91,14 @@ Switching changes **new turns only**:
 | A turn you send next | The new account |
 | A turn already running | The account it started with |
 | A queued message | The account it was queued with |
+| An Agent run | The account selected when it started, for every turn it starts itself. Your replies follow the first row |
+| A subagent an agent starts | The account of the turn that started it, follow-ups included |
+| A review, follow-up or retry you start | The new account |
 | An open Standalone CLI tab | Its own account until you switch that tab |
+
+An Agent run cannot use an API connection yet: its turns start without the
+connection's key, so Stave refuses the run when it would start. Choose a
+signed-in account for new turns before you send to an Agent.
 
 Provider conversations belong to the account that started them. **Copy debug info** in a task tab's context menu lists one provider session per account, suffixed with the account id when it is not System default.
 

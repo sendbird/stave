@@ -208,6 +208,37 @@ function delegateArgs(
   };
 }
 
+describe("accounts a subagent runs on", () => {
+  const accounts = { claudeAccountProfileId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b", codexAccountProfileId: "system-default" as const };
+
+  test("a tool call starts the child on the calling turn's accounts; no caller accounts adds none", async () => {
+    const start = async (caller: { taskId: string; workspaceId: string; accounts?: typeof accounts }) => {
+      const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+      const response = await harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only", wait: false }, caller);
+      expect(response.accepted).toBe(true);
+      return harness.runTaskCalls[0]!;
+    };
+    expect((await start({ taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE, accounts })).accounts).toEqual(accounts);
+    expect("accounts" in (await start({ taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE }))).toBe(false);
+  });
+
+  test("a follow-up runs on the accounts its request carries, not the first turn's", async () => {
+    const later = { claudeAccountProfileId: "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", codexAccountProfileId: "system-default" as const };
+    let calls = 0;
+    const harness = createHarness({ realPolicy: true, runTask: async ({ onStarted }) => {
+      const turnId = `turn-${++calls}`; onStarted?.(turnId);
+      return { turnId };
+    } });
+    const child = await harness.coordinator.delegate(delegateArgs({ providerId: "claude-code", access: "read-only", lifecycle: "detached" }), { accounts });
+    await harness.coordinator.waitForInFlight();
+    const follow = await harness.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review-docs", prompt: "And the tests?", permissionProfile: "guided",
+      expected: { delegatedTaskId: child.child!.delegatedTaskId, delegatedWorkspaceId: child.child!.delegatedWorkspaceId, attempt: 1 } }, { accounts: later });
+    expect(follow.accepted).toBe(true);
+    await harness.coordinator.waitForInFlight();
+    expect(harness.runTaskCalls.map((call) => call.accounts)).toEqual([accounts, later]);
+  });
+});
+
 describe("writer isolation", () => {
   const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
 

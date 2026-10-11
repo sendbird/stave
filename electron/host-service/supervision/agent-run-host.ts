@@ -6,6 +6,7 @@
  */
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import { freezeAdaptivePolicy } from "./adaptive-policy";
+import { peekApiConnection } from "../../provider-accounts/gateway-runtime";
 import { hostAgents } from "./assign-host";
 import { createAgentRunRouter } from "./agent-run-route-host";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
@@ -114,7 +115,8 @@ export function createHostAgentRunRuntime(args: {
   });
   return createAgentRunRuntime({
     store: persistence.agentRuns,
-    freezeResources: ({ run, authority, routingIntent }) => {
+    usesApiConnection: (providerId, accountProfileId) => peekApiConnection(providerId, accountProfileId) !== undefined,
+    freezeResources: ({ run, authority, routingIntent, accounts }) => {
       if (run.fingerprint.providerId !== "codex" && run.fingerprint.providerId !== "claude-code") throw new Error("Adaptive resources require a supported provider.");
       return freezeAdaptivePolicy({
       providerId: run.fingerprint.providerId, model: run.fingerprint.model,
@@ -122,6 +124,7 @@ export function createHostAgentRunRuntime(args: {
       draft: authority ? null : routingIntent ?? persistence.loadWorkspaceShell({ workspaceId: run.workspaceId })?.promptDraftByTask?.[run.leadTaskId]?.runtimeOverrides,
       settings: persistence.delegationPolicies.loadRouteSettings(), maxTurns: 30,
       delegated: Boolean(authority), effort: authority?.effort, modelPinned: authority?.modelPinned, effortPinned: authority?.effortPinned,
+      ...(accounts ? { accounts } : {}),
     }); },
     stopResourceTask: localMcpRuntime.stopManagedTaskTurn,
     resourceExecutionLive: (childRunId, executionId) => {

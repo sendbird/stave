@@ -5,6 +5,7 @@ import { AGENT_RUN_LIMITS, type AgentRunStartInput } from "./domain";
 import type { AgentConfig } from "../agents/schema";
 import type { AgentRunDetail } from "./api";
 import type { ProviderRuntimeOptions } from "../providers/provider.types";
+import { ProviderAccountSelectionSchema } from "../providers/provider-accounts";
 export type DelegatedAgentRunDetail = AgentRunDetail & { delegationActivated?: boolean };
 export type DelegatedAgentRunRead = DelegatedAgentRunDetail | { missing: true };
 
@@ -39,6 +40,8 @@ export const DelegatedAgentRunStartSchema = z.object({
   model: z.string().trim().min(1).max(200),
   maxTurns: z.number().int().min(1).max(AGENT_RUN_LIMITS.defaultMaxTurns),
   authority: DelegatedAgentRunAuthoritySchema,
+  /** The accounts of the request that asked for the helper; not authority. */
+  accounts: ProviderAccountSelectionSchema.optional(),
 }).strict();
 export type DelegatedAgentRunStart = z.infer<typeof DelegatedAgentRunStartSchema>;
 
@@ -52,5 +55,6 @@ export function buildDelegatedAgentRunInput(args: {
     assignment: args.start.prompt, workflow: { ...workflow, team: "solo" },
     consent: { checkIns: workflow.checkIns, permissionMode: "manual", authorizedEffectStageIds: [] },
     maxTurns: args.start.maxTurns, origin: "agent",
+    ...(args.start.accounts ? { accounts: args.start.accounts } : {}),
   };
 }

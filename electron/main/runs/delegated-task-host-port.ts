@@ -281,6 +281,7 @@ export function createDelegatedTaskHostPort(
       permissionProfile,
       permissionPolicy,
       parentTaskId,
+      accounts,
       onStarted,
     }) {
       const started = await dependencies.startTaskTurn({
@@ -290,13 +291,17 @@ export function createDelegatedTaskHostPort(
         prompt,
         ...(title ? { title } : {}),
         provider: providerId,
-        runtimeOptions: buildDelegatedTaskRuntimeOptions({
-          providerId,
-          model,
-          effort,
-          permissionProfile,
-          permissionPolicy,
-        }),
+        runtimeOptions: {
+          ...buildDelegatedTaskRuntimeOptions({
+            providerId,
+            model,
+            effort,
+            permissionProfile,
+            permissionPolicy,
+          }),
+          // In runtime options, so main attaches an API connection's key too.
+          ...accounts,
+        },
       });
       onStarted?.(started.turnId);
       // The delegation settles on the turn's *end*, so resolve only then. A
