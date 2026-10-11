@@ -157,7 +157,9 @@ Native session cursors for custom profiles are stored under
 remain System default. Session and terminal events carry their originating
 profile ID, including synthesized terminal failures. Queue entries capture both
 profile IDs, including explicit System default, so changing a selection does not
-retarget an already queued turn. Account selection changes invalidate that
+retarget an already queued turn, except that resuming a usage-limit pause
+retargets the turns it held, and a failed send's retry, to the current
+selection. Account selection changes invalidate that
 provider's displayed usage only (other providers keep their readings), and late
 usage responses cannot replace the new selection's readings.
 Custom Claude usage reads search only the selected configuration directory and

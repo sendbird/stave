@@ -1,11 +1,12 @@
 import { i18n } from "@/i18n/runtime";
 import type { StoreApi } from "zustand";
 import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
-import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
+import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { RateLimitsSnapshotResponse } from "@/lib/providers/provider.types";
 import { toast } from "@/lib/notifications/toast";
 import { buildUsageLimitContinuationPrompt } from "@/lib/providers/usage-limit-stop";
 import type { AppState } from "@/store/app-store.types";
+import type { PromptDraft } from "@/types/chat";
 import { removeRecordEntries } from "@/store/task-turn-runtime-cleanup";
 import {
   resolveUsageLimitAutoResumeAt,
@@ -81,6 +82,36 @@ export function createTaskPauseActions(args: {
       }
       return {
         usageLimitPauseByTask: { ...state.usageLimitPauseByTask, [taskId]: next },
+      };
+    });
+  };
+
+  /**
+   * Work a usage limit held goes out on the accounts selected now: switching
+   * accounts is how the user unblocks it. Turns queued later, behind a turn
+   * that is still running, keep the accounts they were queued with.
+   */
+  const retargetHeldQueue = (workspaceId: string, taskId: string) => {
+    const accounts = snapshotProviderAccounts(get().settings);
+    const retarget = (draft: PromptDraft | undefined) =>
+      draft?.queuedTurns?.length
+        ? { ...draft, queuedTurns: draft.queuedTurns.map((turn) => ({ ...turn, ...accounts })) }
+        : draft;
+    set((state) => {
+      if (state.activeWorkspaceId === workspaceId) {
+        const draft = state.promptDraftByTask[taskId];
+        const next = retarget(draft);
+        return next === draft || !next ? state : {
+          promptDraftByTask: { ...state.promptDraftByTask, [taskId]: next },
+          workspaceSnapshotVersion: state.workspaceSnapshotVersion + 1,
+        };
+      }
+      const cached = state.workspaceRuntimeCacheById[workspaceId];
+      const draft = cached?.promptDraftByTask[taskId];
+      const next = retarget(draft);
+      return !cached || next === draft || !next ? state : {
+        workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById, [workspaceId]: {
+          ...cached, promptDraftByTask: { ...cached.promptDraftByTask, [taskId]: next } } },
       };
     });
   };
@@ -193,8 +224,9 @@ export function createTaskPauseActions(args: {
       }
       const expected = pause;
       // Read usage once more before sending: the reset can move, and another
-      // window (weekly after the 5-hour one) may still be out.
-      const snapshot = await readProviderAccountUsage(get, pause.providerId, pause.accountProfileId);
+      // window (weekly after the 5-hour one) may still be out. The resume runs
+      // on the account selected now, so that is the account read.
+      const snapshot = await readProviderAccountUsage(get, pause.providerId, selectedProviderAccount(pause.providerId, get().settings));
       // The user may have resumed, cancelled or dismissed during the read.
       pause = get().usageLimitPauseByTask[taskId];
       if (!pause || pause !== expected || pause.autoResumeAt == null) {
@@ -247,6 +279,7 @@ export function createTaskPauseActions(args: {
         : { ...current.restoredQueueReleasedByTask, [taskId]: true },
     }));
 
+    retargetHeldQueue(workspaceId, taskId);
     const session = getWorkspaceSessionForState({ state: get(), workspaceId });
     if (!session || session.activeTurnIdsByTask[taskId]) {
       // The running turn drains the released queue when it finishes.
@@ -257,12 +290,15 @@ export function createTaskPauseActions(args: {
       return;
     }
 
+    // The continuation runs on the account selected now, which may not be
+    // the one the limit stopped.
+    const resumeAccountProfileId = selectedProviderAccount(pause.providerId, get().settings);
     const repause = () =>
       get().pauseTaskForUsageLimit({
         taskId,
         workspaceId,
         providerId: pause.providerId,
-        accountProfileId: pause.accountProfileId,
+        accountProfileId: resumeAccountProfileId,
         model: pause.model,
         stoppedTurn: true,
       });
@@ -278,9 +314,9 @@ export function createTaskPauseActions(args: {
           model: pause.model,
           modelProviderId: pause.providerId,
           ...(pause.providerId === "codex"
-            ? { codexAccountProfileId: pause.accountProfileId ?? selectedProviderAccount(pause.providerId, get().settings) }
+            ? { codexAccountProfileId: resumeAccountProfileId }
             : pause.providerId === "claude-code"
-              ? { claudeAccountProfileId: pause.accountProfileId ?? selectedProviderAccount(pause.providerId, get().settings) }
+              ? { claudeAccountProfileId: resumeAccountProfileId }
               : {}),
         },
         turnOrigin: "conversation",
@@ -291,7 +327,7 @@ export function createTaskPauseActions(args: {
             taskId,
             workspaceId,
             providerId: result.usageLimit?.providerId ?? pause.providerId,
-            accountProfileId: result.usageLimit?.accountProfileId ?? pause.accountProfileId,
+            accountProfileId: result.usageLimit?.accountProfileId ?? resumeAccountProfileId,
             model: result.usageLimit?.model ?? pause.model,
             stoppedTurn: true,
             usageLimit: result.usageLimit,

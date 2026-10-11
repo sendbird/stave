@@ -2,7 +2,7 @@
   "appStoreTaskPauseActions": {
     "pausedAccountIsUnknown": "일시 중지된 계정을 알 수 없습니다",
     "resumeManuallyToUseYourCurrentlySelectedAccount": "현재 선택한 계정을 사용하려면 수동으로 재개합니다.",
-    "couldnTVerifyPausedAccountUsage": "일시 중지된 계정의 사용량을 확인하지 못했습니다",
+    "couldnTVerifyPausedAccountUsage": "선택한 계정의 사용량을 확인하지 못했습니다",
     "theTaskStaysPausedResumeManuallyOrReserveAnotherResetTimeResume": "작업은 일시 중지 상태를 유지합니다. 수동으로 재개하거나 다음 초기화 시간에 재개하도록 예약합니다.",
     "couldnTResumeTheTask": "작업을 재개하지 못했습니다",
     "theTaskIsBusyOrWaitingOnAnotherActionItStaysPaused": "작업이 실행 중이거나 다른 동작을 기다리고 있습니다. 일시 중지 상태를 유지합니다.",
