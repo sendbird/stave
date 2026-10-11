@@ -32,7 +32,7 @@ describe("Settings → Providers → Delegation", () => {
     // The defaults matter more than the names: an omitted effort or provider
     // is the case users hit without realising they made a choice.
     expect(html).toContain("Defaults to this task&#x27;s effort on the same provider, otherwise medium");
-    expect(html).toContain("Defaults to this task&#x27;s provider");
+    expect(html).toContain("Defaults to the agent&#x27;s fixed or preferred provider, else this task&#x27;s provider");
     expect(html).toContain("read-only for second opinions");
     expect(html).not.toContain("permissionProfile");
   });

@@ -139,12 +139,12 @@ is optional:
 | Field | Meaning |
 | --- | --- |
 | `access` | `inherit` (default) uses the effective same-provider parent policy, or the target provider's user settings when crossing providers. `read-only` is the [read-only posture](#read-only-consults). Bound secrets, sessions and browser authorization are never inherited. |
-| `provider` | `claude-code` or `codex`. Defaults to the parent task's provider; a parent on another provider must name one. |
+| `provider` | `claude-code` or `codex`. Defaults, in order, to the named agent's Fixed provider, its preferred provider (`The other provider` is the one the parent is not on), the [Provider strengths](auto-routing.md#provider-strengths) choice for the agent's task class when that table is on, then the parent task's provider; a parent on another provider must name one. A preferred or strength provider whose CLI Stave cannot find falls back to the parent's provider; a provider that is installed but not signed in still fails on its own. A `provider` that contradicts a Fixed agent is refused rather than silently running the agent without its model. |
 | `lifecycle` | A saved Agent (`agentConfigId`) defaults to `supervised`: its existing Run continues to accepted completion within its turn limit. Model-only work defaults to `one-turn`. Explicit `one-turn` ends after the first turn; `detached` stays open for parent follow-ups until stopped. |
 | `maxTurns` | Optional smaller cap for supervised work, 1..30; default 30 per assignment outside adaptive teams; an adaptive parent narrows it to an exact shared reservation. Neither cap guarantees money spend. |
 | `workspace` | `new-worktree` (default for a writer) with a name and optional base branch, or `same-workspace` (default for a read-only subagent or work pinned with `expectedHead`). A writer in the same workspace is refused while another writing subagent is live there. |
 | `wait` | `true` waits up to 120 seconds for the answer and returns it as `child.result`; a number waits that many seconds (max 180); `false` returns at once. Defaults to `true` for read-only and `false` otherwise. The subagent keeps running when the wait ends. |
-| `delegationKey` | Idempotency key, unique within the parent task. The same key always names the same child. Omitted, it is derived from the parent task, provider, model and prompt, so sending the same call again returns the same child. |
+| `delegationKey` | Idempotency key, unique within the parent task. The same key always names the same child. Omitted, it is derived from the parent task, the resolved provider, model, prompt and agent, so sending the same call again returns the same child. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
 
 `permissionProfile` is no longer offered to agents. A call from an older client

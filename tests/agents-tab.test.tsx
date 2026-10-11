@@ -8,7 +8,7 @@ import { getBuiltinAgent } from "@/lib/agents/starters";
 
 describe("agents view", () => {
   test("a built-in agent reads in product words", () => {
-    expect(describeAgent(getBuiltinAgent("reviewer")!)).toBe("Auto-routing · Current workspace · Read only");
+    expect(describeAgent(getBuiltinAgent("reviewer")!)).toBe("Auto-routing · prefers the other provider · Current workspace · Read only");
     expect(describeAgent(getBuiltinAgent("implementer")!)).toBe("Auto-routing · New worktree · Auto");
   });
 
@@ -118,7 +118,7 @@ describe("agent detail hierarchy", () => {
 
   test("the header says the model once and only flags Read only", async () => {
     const reviewer = getBuiltinAgent("reviewer")!;
-    expect(await chipsOf(reviewer)).toEqual(["Built-in", "Auto", "Read only"]);
+    expect(await chipsOf(reviewer)).toEqual(["Built-in", "Auto · prefers the other provider", "Read only"]);
     expect(await chipsOf(getBuiltinAgent("implementer")!)).toEqual(["Built-in", "Auto"]);
     const pinned = { ...reviewer, permission: "auto" as const, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-5" } };
     expect(await chipsOf(pinned)).toEqual(["Built-in", "gpt-5"]);

@@ -66,7 +66,10 @@
     "usageIsAtSoTheRoute": "Usage is at {{value1}}%, so the route favors lower cost within the task capability floor.",
     "hasNoAllowedModelForWork": "{{value1}} has no allowed model for {{value2}} work, so {{value3}} runs it.",
     "keptFromThePreviousTurnSo": "Kept {{value1}} from the previous turn so the conversation's prompt cache stays warm.",
-    "noRuleMatchedIsTheProvider": "No rule matched; {{value1}} is the provider fallback."
+    "noRuleMatchedIsTheProvider": "No rule matched; {{value1}} is the provider fallback.",
+    "followsTheLevel": "model follows the level",
+    "preferredProviderUnavailable": "The agent prefers {{provider}}, which can't run this now.",
+    "staysOnProviderInsideTask": "Stays on {{provider}} inside this task; {{other}} applies from the next task."
   },
   "autoRoutingWizard": {
     "ofYourTurnsRanOnFrontier": "{{value1}}% of your turns ran on frontier or flagship models",
@@ -490,5 +493,39 @@
     "approachingCreditsPercentExhausted": "Approaching your extra usage credit limit ({{percent}}% used). Consider pacing requests. Extra usage credits are exhausted.",
     "approachingCreditsPercentCovering": "Approaching your extra usage credit limit ({{percent}}% used). Consider pacing requests. Extra usage credits are covering the overflow.",
     "rateWindow": "rate limit"
+  },
+  "providerStrengths": {
+    "title": "Provider strengths",
+    "description": "Which provider a task starts on, by the kind of work. The level still picks the model. A task changes provider only on its first turn, so a review → fix → review loop stays put.",
+    "preset": "Preset",
+    "presets": {
+      "confident": "Confident only",
+      "publicEvaluations": "Public evaluations",
+      "planBuildReview": "Claude builds, Codex reviews"
+    },
+    "custom": "Custom",
+    "enable": "Use provider strengths",
+    "enableDescription": "Off by default. Switching provider sends at most 12,000 characters of the conversation to the other provider, and that provider's own skills, hooks and MCP servers apply.",
+    "work": "Work",
+    "startsOn": "Starts on",
+    "keep": "Keep the task's provider",
+    "rowLabel": "Provider for {{task}}",
+    "confidence": {
+      "low": "Low confidence",
+      "medium": "Medium confidence",
+      "high": "High confidence"
+    },
+    "rationale": {
+      "plan": "Practitioners mostly plan with Claude and have Codex check the plan. No benchmark measures planning.",
+      "implement": "No consistent winner. Claude leads WebDev and Terminal-Bench 4.0 narrowly, and Codex matches it on DeepSWE at a fraction of the cost.",
+      "quickEdit": "At the same effort Codex scores clearly higher for a similar cost per task.",
+      "debug": "Mixed. At matched effort Codex fixes more planted bugs for far less; at maximum effort Sonnet 5.5 fixes the most, and practitioners favour Claude.",
+      "review": "Codex leads one vendor-run review benchmark against an older Claude model, and practitioners like its review. No independent benchmark yet.",
+      "ciFix": "Conflicting. Codex leads Terminal-Bench 2.1; Claude leads the newer Terminal-Bench 4.0 at a much higher cost.",
+      "docs": "Documentation is Claude Code's best pull request category in one study of older models.",
+      "research": "Claude answers codebase questions slightly better in one independent comparison, at a higher cost."
+    },
+    "hypothesisNote": "Seeded from public benchmarks, GitHub and blog comparisons as of {{date}}. These are claims about providers in general, not measurements of your work. Edit any row.",
+    "ruleReason": "{{task}} starts on {{provider}} (provider strengths)."
   }
 }

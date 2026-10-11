@@ -116,6 +116,15 @@ export function getDelegatedTaskCoordinator() {
         return result.value.rootRunId;
       },
       host,
+      readAgentModel: (agentConfigId) => findAgent(agentConfigId)?.model ?? null,
+      resolveDelegationStrengths: () =>
+        invokeHostService("local-mcp.invoke", { action: "resolve-delegation-strengths", args: {} }) as Promise<
+          import("../../../src/lib/providers/provider-strength-presets").ProviderStrengthMap | null
+        >,
+      isProviderAvailable: async (providerId) => {
+        const result = await invokeHostService("provider.check-availability", { providerId });
+        return result.available;
+      },
       applyAgent,
       recordAgentAssignment: async ({ snapshot, standards, executionId, target, repositoryPath, prompt, model }) => {
         const result = await invokeHostService("agent.invoke", {

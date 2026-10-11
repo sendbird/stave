@@ -18,6 +18,7 @@ import {
   cloneProfileAsCustom,
   buildRoleTableGroups,
   buildStarterRules,
+  FOLLOW_LEVEL_TIER,
   formatResolvedRouteLabel,
   isStarterProfileId,
   listEligibleRouteModels,
@@ -39,8 +40,8 @@ import {
   type RouteComplexity,
   type RouteProviderSelector,
   type RouteRule,
+  type RouteRuleTier,
   type RouterRole,
-  type RouteTier,
   type Stance,
   type TaskClass,
 } from "@/lib/providers/auto-routing-profile";
@@ -71,6 +72,7 @@ import {
 } from "./settings-dialog.shared";
 import { autoRoutingSectionStyles as styles } from "./settings-dialog-auto-routing-section.styles";
 import { SettingsAutoRoutingWizard } from "./settings-dialog-auto-routing-wizard";
+import { SettingsProviderStrengths } from "./settings-dialog-provider-strengths";
 import type { UsageSample } from "@/lib/providers/auto-routing-wizard";
 
 export const AUTO_ROUTING_SETTING_FIELD_ID = "settings-field-auto-routing";
@@ -105,9 +107,11 @@ function describeRuleTarget(rule: RouteRule) {
     : PROVIDER_SELECTORS.find((entry) => entry.value === rule.then.providerId)?.label ?? rule.then.providerId;
   const target = rule.then.model
     ? toHumanModelName({ model: rule.then.model })
-    : rule.then.tier
-      ? ROUTE_TIER_LABELS[rule.then.tier]
-      : i18n.t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault");
+    : rule.then.tier === FOLLOW_LEVEL_TIER
+      ? i18n.t("settingsConnections:settingsDialogAutoRoutingSection.followLevel")
+      : rule.then.tier
+        ? ROUTE_TIER_LABELS[rule.then.tier]
+        : i18n.t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault");
   const effort = rule.then.effort
     ? i18n.t("settingsConnections:settingsDialogAutoRoutingSection.effort", { value1: rule.then.effort.slice(0, 1).toUpperCase(), value2: rule.then.effort.slice(1) })
     : null;
@@ -424,10 +428,11 @@ function RuleRow(args: {
               ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetTier")}
               value={rule.then.tier ?? DEFAULT_VALUE}
               onChange={(value) =>
-                patchThen({ tier: value === DEFAULT_VALUE ? undefined : (value as RouteTier) })
+                patchThen({ tier: value === DEFAULT_VALUE ? undefined : (value as RouteRuleTier) })
               }
               options={[
                 { value: DEFAULT_VALUE, label: rule.then.model ? t("settingsConnections:settingsDialogAutoRoutingSection.fromModel") : t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault") },
+                { value: FOLLOW_LEVEL_TIER, label: t("settingsConnections:settingsDialogAutoRoutingSection.followLevel") },
                 ...ROUTE_TIERS.map((entry) => ({
                   value: entry,
                   label: ROUTE_TIER_LABELS[entry],
@@ -748,6 +753,8 @@ export function SettingsAutoRoutingSection(props: {
 
       <SettingsAutoRoutingWizard samplesOverride={props.wizardSamples} />
 
+      <SettingsProviderStrengths profile={profile} edit={edit} />
+
       <SettingsCard
         title={t("settingsConnections:settingsDialogAutoRoutingSection.rules")}
         description={t("settingsConnections:settingsDialogAutoRoutingSection.theLevelsAboveAreTheseRules")}
@@ -783,7 +790,7 @@ export function SettingsAutoRoutingSection(props: {
                           {
                             id: nextRuleId(draft, role),
                             when: { role },
-                            then: { providerId: "any-eligible" },
+                            then: { providerId: "any-eligible", tier: FOLLOW_LEVEL_TIER },
                             reason: "",
                             enabled: true,
                           },

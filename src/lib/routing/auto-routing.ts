@@ -301,6 +301,12 @@ export interface ResolveAutoRoutingDecisionArgs {
    * of the keyword guess. A safety escalation always wins.
    */
   taskClassHint?: TaskClass;
+  /**
+   * The provider the agent asked to start on. Leads the provider order at a
+   * task boundary (the task's first turn); a rule that names a provider
+   * outranks it, and inside a task the pinned provider stays.
+   */
+  preferredProviderHint?: ProviderId | "alternate-provider";
   classifierTimeoutMs?: number;
   signal?: AbortSignal;
   /**
@@ -862,6 +868,8 @@ export function computeRouterSignals(args: {
   classifier?: AutoRoutingClassifierResult | null;
   /** See `ResolveAutoRoutingDecisionArgs.taskClassHint`. */
   taskClassHint?: TaskClass;
+  /** See `ResolveAutoRoutingDecisionArgs.preferredProviderHint`. */
+  preferredProviderHint?: ProviderId | "alternate-provider";
 }): { signals: RouterSignals; heuristic: HeuristicRoute; usedTaskClassHint: boolean } {
   const continuing = /^(?:계속(?:해|해줘|해봐|하자)?|진행(?:해|해줘|해봐)?|ㅇㅇ|응|네|continue|go ahead|proceed)[.!\s]*$/i.test(args.prompt.trim());
   const priorPrompt = continuing
@@ -932,6 +940,11 @@ export function computeRouterSignals(args: {
         : {}),
       lastAssistantProvider,
       lastAssistantModel: findLastAssistantModel(args.history),
+      // A task boundary is the first turn: no managed provider has answered yet.
+      boundary: lastAssistantProvider == null,
+      ...(args.preferredProviderHint
+        ? { preferredProvider: args.preferredProviderHint }
+        : {}),
       currentProviderId: args.currentProviderId,
       ...(args.currentModel ? { currentModel: args.currentModel } : {}),
     },
@@ -1072,6 +1085,9 @@ export async function resolveAutoRoutingDecision(
     runtimeModelsByProvider: args.runtimeModelsByProvider,
     classifier,
     ...(args.taskClassHint ? { taskClassHint: args.taskClassHint } : {}),
+    ...(args.preferredProviderHint
+      ? { preferredProviderHint: args.preferredProviderHint }
+      : {}),
   });
 
   // Stickiness still decides which provider "any-eligible" means: a classifier

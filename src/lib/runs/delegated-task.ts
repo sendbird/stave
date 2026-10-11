@@ -217,7 +217,7 @@ export const DelegateTaskToolInputSchema = z.object({
   provider: z
     .enum(["claude-code", "codex"])
     .optional()
-    .describe("Provider the child runs on. Defaults to this task's provider."),
+    .describe("Provider the child runs on. Defaults to the agent's fixed or preferred provider, else this task's provider. A provider that contradicts a Fixed agent is refused."),
   model: z.string().optional().describe("Optional model override for the child."),
   effort: DelegatedTaskEffortSchema.optional().describe(
     "Optional reasoning-effort tier. Defaults to this task's effort when the child runs on the same provider, otherwise the automation default (`medium`). Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`).",

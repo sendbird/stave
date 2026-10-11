@@ -10,7 +10,7 @@ import type { AgentConfig } from "./schema";
  * or skip approvals is ever written: an Auto agent is exported without a
  * permission, so the file never grants more than the provider's default.
  * Stave-only fields (report sections, where it works, usable as, can call,
- * workflow, check-ins) are left out
+ * workflow, check-ins, a preferred provider) are left out
  * and listed, the same way import lists what it drops.
  */
 
@@ -58,6 +58,7 @@ export function exportAgentFile(agent: AgentConfig, format: AgentExportFormat): 
     ...(agent.skills.length ? ["skills"] : []),
     ...(agent.workflow ? ["workflow"] : []),
     ...(agent.checkIns ? ["checkIns"] : []),
+    ...(agent.model.mode === "auto" && agent.model.preferredProvider ? ["preferredProvider"] : []),
   ];
   const fixed = agent.model.mode === "fixed" ? agent.model : null;
 

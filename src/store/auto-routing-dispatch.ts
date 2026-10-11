@@ -128,6 +128,9 @@ export async function resolveAutoRoutingForSend(args: {
     args.taskClassHint ??
     (args.taskId ? useAgentAssignmentsStore.getState().byTaskId[args.taskId]?.agentTaskClass : null) ??
     undefined;
+  const preferredProviderHint =
+    (args.taskId ? useAgentAssignmentsStore.getState().byTaskId[args.taskId]?.agentPreferredProvider : null) ??
+    undefined;
   if (
     !state.settings.autoRoutingEnabled ||
     promptDraft.runtimeOverrides?.autoRouting !== true
@@ -198,6 +201,7 @@ export async function resolveAutoRoutingForSend(args: {
       providerAvailability: state.providerAvailability,
       classifyRoute,
       ...(taskClassHint ? { taskClassHint } : {}),
+      ...(preferredProviderHint ? { preferredProviderHint } : {}),
     });
     if (controller.signal.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
     if (ownsPendingRow) {

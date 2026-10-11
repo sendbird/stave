@@ -183,7 +183,8 @@
     "fallbackNoRuleMatched": "Fallback (no rule matched)",
     "reason": "Reason",
     "eligible": "Eligible",
-    "effort": "{{value1}}{{value2}} effort"
+    "effort": "{{value1}}{{value2}} effort",
+    "followLevel": "Follows the level"
   },
   "routeFlow": {
     "taskClass": "task class",

@@ -9,6 +9,7 @@ import {
   isUsableAs,
   type AgentConfig,
   type AgentPermission,
+  type AgentPreferredProvider,
   type AgentRole,
   type AgentWorkspace,
 } from "./schema";
@@ -41,7 +42,7 @@ export interface AgentSnapshot {
 
 export type AgentModelResolution =
   | { source: "fixed"; model?: string; effort?: string }
-  | { source: "auto-routing"; taskClass?: TaskClass }
+  | { source: "auto-routing"; taskClass?: TaskClass; preferredProvider?: AgentPreferredProvider }
   | { source: "provider-mismatch"; requestedProviderId: ProviderId };
 
 /** UI: "What it received". */
@@ -155,7 +156,11 @@ export function snapshotAgent(agent: AgentConfig): AgentSnapshot {
 
 function resolveModel(agent: AgentConfig, providerId: ProviderId): AgentModelResolution {
   if (agent.model.mode === "auto") {
-    return { source: "auto-routing", taskClass: agent.model.taskClass };
+    return {
+      source: "auto-routing",
+      taskClass: agent.model.taskClass,
+      ...(agent.model.preferredProvider ? { preferredProvider: agent.model.preferredProvider } : {}),
+    };
   }
   if (agent.model.providerId !== providerId) {
     return { source: "provider-mismatch", requestedProviderId: agent.model.providerId };

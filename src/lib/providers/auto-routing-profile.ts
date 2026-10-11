@@ -100,11 +100,34 @@ export interface RouteRuleWhen {
   budgetUsedAtLeast?: number;
 }
 
+/**
+ * A rule tier that follows the level ladder (Simple on the light rung,
+ * Standard and Complex on the flagship, Expert and Extreme on the frontier)
+ * instead of naming one rung, so a rule can pick the provider while the
+ * level keeps picking the model.
+ */
+export const FOLLOW_LEVEL_TIER = "follow-level" as const;
+export type RouteRuleTier = RouteTier | typeof FOLLOW_LEVEL_TIER;
+
+/**
+ * Rules the Provider strengths table writes (`strength-<task class>`). They
+ * rank below an agent's preferred provider; see `provider-strength-presets.ts`.
+ */
+export const STRENGTH_RULE_ID_PREFIX = "strength-";
+
+export function isStrengthRule(rule: Pick<RouteRule, "id">) {
+  return rule.id.startsWith(STRENGTH_RULE_ID_PREFIX);
+}
+
 export interface RouteRuleThen {
   providerId: RouteProviderSelector;
   /** Exact model id; when set it wins over `tier`. */
   model?: string;
-  tier?: RouteTier;
+  /**
+   * One rung, or `follow-level` for the level's rung. Absent (and no
+   * `model`), the provider's fallback model decides the rung.
+   */
+  tier?: RouteRuleTier;
   /** Effort name on the provider's own scale; absent follows the model default. */
   effort?: string;
 }
@@ -637,6 +660,10 @@ function isProviderSelector(value: unknown): value is RouteProviderSelector {
   );
 }
 
+function isRouteRuleTier(value: unknown): value is RouteRuleTier {
+  return value === FOLLOW_LEVEL_TIER || ROUTE_TIERS.includes(value as RouteTier);
+}
+
 function normalizePercent(value: unknown, fallback: number) {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     return fallback;
@@ -695,9 +722,7 @@ function normalizeRule(value: unknown, index: number): RouteRule | null {
   const normalizedThen: RouteRuleThen = {
     providerId: then.providerId,
     ...(model ? { model: model.slice(0, 200) } : {}),
-    ...(ROUTE_TIERS.includes(then.tier as RouteTier)
-      ? { tier: then.tier as RouteTier }
-      : {}),
+    ...(isRouteRuleTier(then.tier) ? { tier: then.tier } : {}),
     ...(effort ? { effort: effort.slice(0, 20) } : {}),
   };
   const id =
@@ -931,6 +956,18 @@ export interface RouterSignals {
    * this model re-reads the whole conversation at the uncached rate.
    */
   lastAssistantModel?: string | null;
+  /**
+   * True when this route is a task boundary, where the provider may change:
+   * a task's first turn (no managed-provider assistant turn in its history)
+   * or any delegated role. Absent, the primary infers it from
+   * `lastAssistantProvider`.
+   */
+  boundary?: boolean;
+  /**
+   * The provider an agent asked to start on. Leads `any-eligible` at a task
+   * boundary; a rule that names a provider outranks it.
+   */
+  preferredProvider?: ProviderId | "alternate-provider";
   /** Provider the task (or the primary, for delegated roles) runs on. */
   currentProviderId: ProviderId;
   /** Model the primary is pinned to; lets the advisor avoid answering itself. */
@@ -1138,44 +1175,103 @@ function ruleMatches(args: {
   return true;
 }
 
+/**
+ * Provider the turn is pinned to: the one that answered last for the primary,
+ * the primary's own for delegated roles.
+ */
+function resolvePinnedProvider(signals: RouterSignals, role: RouterRole): ProviderId {
+  return role === "primary"
+    ? (signals.lastAssistantProvider ?? signals.currentProviderId)
+    : signals.currentProviderId;
+}
+
+interface ProviderCandidates {
+  candidates: ProviderId[];
+  /** Provider a rule asked for; the turn stays pinned until the next task. */
+  deferredProvider: ProviderId | null;
+  /** The agent's preferred provider, when it cannot run the turn. */
+  unavailablePreferred: ProviderId | null;
+}
+
+/**
+ * Providers to try, in order, for a rule's selector.
+ *
+ * A provider change is a task-boundary decision. A rule that names a concrete
+ * provider or `alternate-provider` moves the turn only at a boundary (a
+ * task's first turn, or any delegated role), when the profile's provider
+ * switch lets Auto change provider inside a task too, or when the pinned
+ * provider cannot run the turn. Otherwise the turn stays on the pinned
+ * provider and the rule's provider is reported as deferred to the next task.
+ * `any-eligible` stays on the pinned provider; an agent's preferred provider
+ * leads it under the same conditions, and a preferred provider that cannot
+ * run the turn is reported rather than followed. A rule that names a
+ * provider outranks the preference.
+ *
+ * Availability is not a preference: an uninstalled or usage-exhausted
+ * provider cannot run the turn, so Auto fails over to one that can rather
+ * than resolving to no candidate at all.
+ */
 function resolveProviderCandidates(args: {
   selector: RouteProviderSelector;
   signals: RouterSignals;
   role: RouterRole;
   providerSwitch: boolean;
-}): ProviderId[] {
+}): ProviderCandidates {
   const { signals } = args;
-  const pinned =
-    args.role === "primary"
-      ? (signals.lastAssistantProvider ?? signals.currentProviderId)
-      : signals.currentProviderId;
+  const pinned = resolvePinnedProvider(signals, args.role);
   const availability = signals.providerAvailability;
+  const boundary =
+    args.role !== "primary" || (signals.boundary ?? signals.lastAssistantProvider == null);
+  const mayChangeProvider =
+    boundary || args.providerSwitch || !isAvailable(pinned, availability);
   const ordered = (preferred: ProviderId[]) => {
     const rest = listProviderIds().filter((id) => !preferred.includes(id));
-    return [...preferred, ...rest].filter((id) => isAvailable(id, availability));
+    return [...new Set([...preferred, ...rest])].filter((id) => isAvailable(id, availability));
   };
-  if (args.selector === "alternate-provider") {
-    // Delegated roles only run on the two managed providers; the alternate of
-    // an unmanaged primary is whichever managed provider is available first.
-    const alternate =
-      pinned === "claude-code" || pinned === "codex"
-        ? otherProvider(pinned)
-        : "claude-code";
-    return ordered([alternate, otherProvider(alternate)]);
-  }
-  // Provider switching is a *preference* about discretionary routing, so with
-  // it off Auto stays on the pinned provider. Availability is not a preference:
-  // an uninstalled or usage-exhausted provider cannot run the turn, so Auto
-  // fails over to one that can rather than resolving to no candidate at all.
+  // Delegated roles only run on the two managed providers; the alternate of
+  // an unmanaged primary is whichever managed provider is available first.
+  const alternate =
+    pinned === "claude-code" || pinned === "codex"
+      ? otherProvider(pinned)
+      : "claude-code";
+  const result = (
+    candidates: ProviderId[],
+    extra: Partial<Omit<ProviderCandidates, "candidates">> = {},
+  ): ProviderCandidates => ({
+    candidates,
+    deferredProvider: null,
+    unavailablePreferred: null,
+    ...extra,
+  });
+
   if (args.selector === "any-eligible") {
-    return args.providerSwitch || !isAvailable(pinned, availability)
-      ? ordered([pinned])
-      : [pinned];
+    const stay =
+      args.providerSwitch || !isAvailable(pinned, availability)
+        ? ordered([pinned])
+        : [pinned];
+    const preferred =
+      signals.preferredProvider === "alternate-provider"
+        ? alternate
+        : (signals.preferredProvider ?? null);
+    if (!preferred || preferred === pinned || !(boundary || args.providerSwitch)) {
+      return result(stay);
+    }
+    return isAvailable(preferred, availability)
+      ? result(ordered([preferred, pinned]))
+      : result(stay, { unavailablePreferred: preferred });
   }
-  if (!isAvailable(args.selector, availability)) {
-    return ordered([pinned]);
+
+  const target = args.selector === "alternate-provider" ? alternate : args.selector;
+  if (!mayChangeProvider && target !== pinned) {
+    return result([pinned], { deferredProvider: target });
   }
-  return [args.selector];
+  if (args.selector === "alternate-provider") {
+    return result(ordered([alternate, otherProvider(alternate)]));
+  }
+  if (!isAvailable(target, availability)) {
+    return result(ordered([pinned]));
+  }
+  return result([target]);
 }
 
 function isManagedProvider(providerId: ProviderId) {
@@ -1243,8 +1339,6 @@ function noRouteMessage(complexity: RouteComplexity, floor: RouteTier) {
 export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   const { profile, signals, role } = args;
   const stance = applyStance(profile);
-  const budgetUsed = signals.budgetUsedPercent;
-  const guardOn = profile.signals.budgetGuard && typeof budgetUsed === "number";
   const complexity = resolveEffectiveComplexity({
     signals,
     role,
@@ -1253,15 +1347,33 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   const level = getRouteLevel(complexity);
   const minimumTier: RouteTier = role !== "primary" ? "light" : level.floor;
   const satisfiesFloor = (model: string) => routeTierIndex(resolveRouteTierForModel(model)) <= routeTierIndex(minimumTier);
-  const budgetShift: ResolvedRoute["budgetShift"] = !guardOn
-    ? 0
-    : budgetUsed >= profile.budgetGuard.cheapestAt
-      ? -2
-      : budgetUsed >= profile.budgetGuard.stepDownAt
-        ? -1
-        : 0;
+  // Each candidate is judged on its own usage window. `budgetUsedPercent`
+  // describes the pinned provider, so it only stands in for that one.
+  const pinnedProvider = resolvePinnedProvider(signals, role);
+  const resolveBudget = (
+    providerId: ProviderId,
+  ): { used: number | undefined; shift: ResolvedRoute["budgetShift"] } => {
+    const used =
+      signals.budgetUsedPercentByProvider?.[providerId] ??
+      (providerId === pinnedProvider ? signals.budgetUsedPercent : undefined);
+    if (!profile.signals.budgetGuard || typeof used !== "number") {
+      return { used, shift: 0 };
+    }
+    return {
+      used,
+      shift: used >= profile.budgetGuard.cheapestAt
+        ? -2
+        : used >= profile.budgetGuard.stepDownAt
+          ? -1
+          : 0,
+    };
+  };
 
+  // An agent's preferred provider outranks the global strength table, so a
+  // strength rule is passed over while the agent names one; the level rules
+  // behind it still pick the model and let the preference lead.
   const matched = profile.rules.find((entry) =>
+    !(signals.preferredProvider && isStrengthRule(entry)) &&
     ruleMatches({
       rule: entry,
       role,
@@ -1271,12 +1383,15 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   );
 
   const selector: RouteProviderSelector = matched?.then.providerId ?? "any-eligible";
-  const candidates = resolveProviderCandidates({
+  const providerCandidates = resolveProviderCandidates({
     selector,
     signals,
     role,
     providerSwitch: profile.signals.providerSwitch,
-  }).filter((providerId) => eligibleForRole(role, providerId));
+  });
+  const candidates = providerCandidates.candidates.filter((providerId) =>
+    eligibleForRole(role, providerId),
+  );
   // Capability failover: providers outside the preferred set, tried only when
   // none of the preferred ones has an allowed model that meets the floor.
   const failover = listProviderIds()
@@ -1293,10 +1408,18 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   if (role === "primary" && signals.sensitive && profile.signals.safetyEscalation && complexity !== signals.complexity) {
     reasonParts.push(i18n.t("providers:autoRoutingProfile.aSensitiveChangeRoutesAsComplex"));
   }
+  if (providerCandidates.unavailablePreferred) {
+    reasonParts.push(
+      i18n.t("providers:autoRoutingProfile.preferredProviderUnavailable", {
+        provider: getProviderLabel({ providerId: providerCandidates.unavailablePreferred }),
+      }),
+    );
+  }
   const baseReason = matched?.reason ?? "";
-  const preferredProvider = candidates[0] ?? signals.lastAssistantProvider ?? signals.currentProviderId;
+  const firstChoice = candidates[0] ?? signals.lastAssistantProvider ?? signals.currentProviderId;
 
   for (const providerId of [...candidates, ...failover]) {
+    const { used: budgetUsed, shift: budgetShift } = resolveBudget(providerId);
     const models = listEligibleRouteModels({
       profile,
       providerId,
@@ -1328,11 +1451,14 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         i18n.t("providers:autoRoutingProfile.usageIsAtSoTheLeast", { value1: Math.round(budgetUsed ?? 0) }),
       );
     } else {
-      const requestedTier =
-        matched?.then.tier ??
-        (matched?.then.model
-          ? resolveRouteTierForModel(matched.then.model)
-          : resolveRouteTierForModel(profile.fallbacks[providerId]?.model ?? models[0] ?? ""));
+      const ruleTier = matched?.then.tier;
+      const requestedTier: RouteTier =
+        ruleTier === FOLLOW_LEVEL_TIER
+          ? level.tier
+          : ruleTier ??
+            (matched?.then.model
+              ? resolveRouteTierForModel(matched.then.model)
+              : resolveRouteTierForModel(profile.fallbacks[providerId]?.model ?? models[0] ?? ""));
       const pickAt = (shift: number) => {
         const explicitModel =
           matched?.then.model && models.includes(matched.then.model) && shift === 0
@@ -1368,7 +1494,14 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     }
     if (failedOver) {
       reasonParts.push(
-        i18n.t("providers:autoRoutingProfile.hasNoAllowedModelForWork", { value1: getProviderLabel({ providerId: preferredProvider }), value2: ROUTE_COMPLEXITY_LABELS[complexity].toLowerCase(), value3: getProviderLabel({ providerId }) }),
+        i18n.t("providers:autoRoutingProfile.hasNoAllowedModelForWork", { value1: getProviderLabel({ providerId: firstChoice }), value2: ROUTE_COMPLEXITY_LABELS[complexity].toLowerCase(), value3: getProviderLabel({ providerId }) }),
+      );
+    } else if (providerCandidates.deferredProvider) {
+      reasonParts.push(
+        i18n.t("providers:autoRoutingProfile.staysOnProviderInsideTask", {
+          provider: getProviderLabel({ providerId }),
+          other: getProviderLabel({ providerId: providerCandidates.deferredProvider }),
+        }),
       );
     }
 

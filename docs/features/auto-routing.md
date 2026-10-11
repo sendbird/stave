@@ -43,9 +43,63 @@ decides, and the agent's class applies when the intent is unclear or when
 classification is unavailable (in place of local keyword matching). A safety
 escalation always wins.
 
-The current provider stays selected unless switching is enabled or a custom
-rule explicitly selects another provider. Reviews and skill commands (`/ship`
-or `$ship`) do not automatically change providers or force a light model.
+The current provider stays selected inside a task. A rule that names a
+provider, a [provider strength](#provider-strengths), or an agent's preferred
+provider moves a task only at a task boundary: its first turn, or a delegated
+task. Later turns stay on the provider that answered last, and the route line
+says the named provider applies from the next task, so a review → fix → review
+loop does not bounce between providers. With **Provider switch** on, a rule
+that names a provider may also move a task mid-way. Reviews and skill commands
+(`/ship` or `$ship`) do not automatically change providers or force a light
+model.
+
+A rule's **Model rung** can be **Follows the level**: the rule picks the
+provider and the level still picks the rung, so a Simple task runs on the
+light model and an Expert task on the frontier one. A rule with no rung and no
+model keeps its older meaning, the provider's default model.
+
+## Provider strengths
+
+Settings → Auto → **Provider strengths** sets which provider each kind of work
+(plan, implement, quick edit, debug, review, CI fix, docs, research) starts on.
+Each row is a provider-only rule (`strength-<class>`) that follows the level,
+placed after the user's own task-, skill- and usage-specific rules and before
+the level rules. Safety-critical work keeps its own rule.
+
+Precedence, highest first: an explicit provider (a composer pin or a
+delegation's `provider`), an agent's Fixed provider, the user's own rules that
+name a provider, an agent's preferred provider, then the strength table. A
+strength rule is passed over while the task's agent prefers a provider.
+
+Delegated tasks follow the table only when they name a saved agent whose
+model is Auto-routing with a task class and no preferred provider; the
+delegation prompt itself is never classified for this. A delegation never
+moves to a provider whose CLI Stave cannot find: it stays on the parent's provider.
+
+The table is off by default. Until the user turns it on or edits a row, it
+shows the **Confident only** preset as a suggestion and stores nothing. Three
+presets seed it from public benchmarks, GitHub repositories, blog comparisons
+and posts on X, gathered and re-checked on 2026-10-11. Each row shows its
+confidence and links its sources:
+
+- **Confident only**: quick edits on Codex, where Codex scores clearly higher
+  at a similar cost; everything else keeps the task's provider.
+- **Public evaluations**: also plans, docs and research on Claude and reviews
+  on Codex. These rows have low confidence. Implementation, debugging and CI
+  fixes keep the task's provider because the evaluations disagree.
+- **Claude builds, Codex reviews**: a common practitioner split, not a
+  measurement.
+
+No public evaluation separates interface work from logic for the same agents,
+so implementation is one row rather than two.
+
+These are claims about providers in general, not measurements of the user's
+work, and models change faster than the presets. Moving a task to the other
+provider sends at most 12,000 characters of the conversation there, and that
+provider's own skills, hooks and MCP servers apply.
+
+Each candidate provider is judged on its own usage window, so a nearly spent
+Claude window does not lower the model Codex runs.
 
 Cost-saver, Balanced, and Quality-first keep the level's model and pick the
 low end, the recommended point, or the high end of its effort range. Usage

@@ -12,6 +12,7 @@ import type { AgentConfig, AgentPermission } from "./schema";
  * - an allowed-agents list applies (a project's Agents) and the agent is not on it;
  * - the delegating task's own agent lists who it can call and the agent is not on it;
  * - the agent cannot be a delegated task on the requested provider;
+ * - the agent pins a model on a provider other than the one requested;
  * - no host delegation authority is supplied and the direct permission ceiling would be widened.
  *
  * Otherwise the narrower of the request and the agent wins: the permission
@@ -38,7 +39,7 @@ export type AgentDelegationResult =
   | { ok: true; args: DelegateTaskArgs; snapshot: AgentSnapshot }
   | {
       ok: false;
-      code: "not-allowed" | "not-a-delegate" | "widens-permission";
+      code: "not-allowed" | "not-a-delegate" | "provider-mismatch" | "widens-permission";
       message: string;
     };
 
@@ -79,6 +80,20 @@ export function applyAgentToDelegation(input: {
     };
   }
   const delegate = compiled.compiled;
+  // A pinned model runs on its own provider or not at all. The tool path
+  // resolves the provider from the agent first, so reaching this means a
+  // caller named the other one.
+  if (delegate.model.source === "provider-mismatch") {
+    return {
+      ok: false,
+      code: "provider-mismatch",
+      message: i18n.t("agents:delegate.providerMismatch", {
+        value1: agent.name,
+        value2: delegate.model.requestedProviderId,
+        value3: args.providerId,
+      }),
+    };
+  }
   const profile = narrower(
     args.permissionProfile === undefined || args.permissionProfile === "inherit"
       ? "auto"
