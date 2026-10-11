@@ -7,8 +7,9 @@ const task: Task = { id: taskId, title: "New goal", provider: "codex", updatedAt
 let tasks: Task[] = [];
 let model = "gpt-6-sol";
 let activeTurnId: string | null = null;
+let registered = true;
 const store = {
-  loadRepositoryRegistry: () => [{
+  loadRepositoryRegistry: () => !registered ? [] : [{
     repositoryPath: "/tmp/supervision/project", repositoryName: "Project", defaultBranch: "main",
     workspaces: [{ id: workspaceId, name: "Work", updatedAt: task.updatedAt }],
     activeWorkspaceId: workspaceId, workspaceDefaultById: {},
@@ -34,6 +35,17 @@ afterEach(async () => {
   tasks = [];
   model = "gpt-6-sol";
   activeTurnId = null;
+  registered = true;
+});
+
+test("supervision does not find a saved task until its workspace is in the saved registry", async () => {
+  // A just-created workspace whose snapshot is saved but whose registry save
+  // is still debounced: an agent run refuses "The lead task was not found."
+  registered = false;
+  tasks = [task];
+  expect(await snapshot()).toMatchObject({ exists: false, repositoryPath: null });
+  registered = true;
+  expect(await snapshot()).toMatchObject({ exists: true, repositoryPath: "/tmp/supervision/project" });
 });
 
 test("supervision finds a renderer-created task after an empty workspace was cached", async () => {

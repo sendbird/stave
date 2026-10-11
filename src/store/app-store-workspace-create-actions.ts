@@ -60,6 +60,21 @@ type WorkspaceCreateActions = Pick<AppState, WorkspaceCreateActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
 type StoreGet = StoreApi<AppState>["getState"];
 
+/**
+ * Saves the repository registry with a just-created workspace before creation
+ * resolves. App's registry autosave is debounced, and the host finds a
+ * workspace only through the saved registry (an agent run's lead-task check,
+ * Local MCP tools), so a first task started right away would not be found.
+ */
+async function registerCreatedWorkspace(get: StoreGet, workspaceId: string) {
+  try {
+    await get().flushRepositoryRegistry();
+  } catch (error) {
+    // The worktree and its snapshot exist; App's debounced autosave tries again.
+    console.error("[workspace-create] repository registry save failed", { workspaceId }, error);
+  }
+}
+
 export function createWorkspaceCreateActions(args: {
   set: StoreSet;
   get: StoreGet;
@@ -426,6 +441,7 @@ export function createWorkspaceCreateActions(args: {
           repositoryFiles: files,
         };
       });
+      await registerCreatedWorkspace(get, workspaceId);
       runScriptHookInBackground({
         workspaceId,
         trigger: "task.created",
@@ -733,6 +749,7 @@ export function createWorkspaceCreateActions(args: {
           repositoryFiles: files,
         };
       });
+      await registerCreatedWorkspace(get, workspaceId);
       runScriptHookInBackground({
         workspaceId,
         trigger: "task.created",

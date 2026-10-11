@@ -36,8 +36,9 @@ function seedWorkspace(workspaceId: string) {
   });
 }
 
-function install(options: { refuseRun?: boolean; refuseRecord?: boolean; failSave?: boolean } = {}) {
+function install(options: { refuseRun?: boolean; refuseRecord?: boolean; failSave?: boolean; realCreate?: boolean } = {}) {
   const order: string[] = [];
+  let registeredWorkspaceIds: string[] = [];
   const starts: AgentRunStartArgs[] = [];
   let plainTurns = 0;
   let listReads = 0;
@@ -69,13 +70,20 @@ function install(options: { refuseRun?: boolean; refuseRecord?: boolean; failSav
         saved = snapshot;
         return { ok: true };
       },
+      saveRepositoryRegistry: async ({ repositories }: { repositories: Array<{ workspaces: Array<{ id: string }> }> }) => {
+        registeredWorkspaceIds = repositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id));
+        return { ok: true };
+      },
     },
+    terminal: { runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }) },
     agentRuns: {
       start: async (input: AgentRunStartArgs) => {
         order.push("start-run");
         starts.push(input);
         expect(saved?.tasks.some((task) => task.id === input.leadTaskId)).toBe(true);
         expect(useAgentAssignmentsStore.getState().byTaskId[input.leadTaskId]?.agentConfigId).toBe("lead");
+        // The host finds the lead task only through the saved registry.
+        if (options.realCreate) expect(registeredWorkspaceIds).toContain(input.workspaceId);
         if (options.refuseRun) return { ok: false, agentRun: null, code: "refused", message: "Lead task unavailable" };
         const change = createAgentRun({ id: "kickoff-run", input, repositoryPath: "/tmp/kickoff",
           fingerprint: { providerId: "codex", model: "gpt-6.1-sol" }, now: new Date() });
@@ -93,9 +101,12 @@ function install(options: { refuseRun?: boolean; refuseRecord?: boolean; failSav
   useAppStore.setState({ ...useAppStore.getInitialState(), hasHydratedWorkspaces: true,
     repositoryPath: "/tmp/kickoff", draftProvider: "codex" });
   seedWorkspace("current");
+  if (options.realCreate) {
+    useAppStore.setState({ repositoryName: "kickoff", defaultBranch: "main", recentRepositories: [], workspaceDefaultById: {} });
+  }
   // Worktree creation is an IPC boundary; task creation, recording, sending,
   // snapshot validation and run dispatch below use their real implementations.
-  useAppStore.setState({ createWorkspace: async ({ initialTaskTitle, initialTaskProvider, initialPromptDraft }) => {
+  if (!options.realCreate) useAppStore.setState({ createWorkspace: async ({ initialTaskTitle, initialTaskProvider, initialPromptDraft }) => {
     createdWorkspaces++;
     seedWorkspace("new-workspace");
     useAppStore.getState().createTask({ title: initialTaskTitle });
@@ -157,6 +168,16 @@ test.each([false, true])(`kickoff starts a ${providerId} AgentRun after task cre
   expect(useAppStore.getState().tasks.find((task) => task.id === result.taskId)?.provider).toBe(providerId);
 });
 }
+
+test("a kickoff into a real new workspace registers it before the run checks the lead task", async () => {
+  const port = install({ realCreate: true });
+  const result = await kickoff(false);
+  expect(result).toMatchObject({ ok: true, startup: "started" });
+  expect(result.workspaceId).not.toBe("current");
+  expect(port.starts).toHaveLength(1);
+  expect(port.starts[0]).toMatchObject({ workspaceId: result.workspaceId, leadTaskId: result.taskId });
+  expect(port.plainTurns()).toBe(0);
+});
 
 test("a refused kickoff run preserves its prompt and never dispatches a plain turn", async () => {
   const port = install({ refuseRun: true });
