@@ -183,7 +183,8 @@
     "fallbackNoRuleMatched": "대체 선택 (일치하는 규칙 없음)",
     "reason": "이유",
     "eligible": "적용 가능",
-    "effort": "{{value1}}{{value2}} 추론 강도"
+    "effort": "{{value1}}{{value2}} 추론 강도",
+    "followLevel": "레벨을 따름"
   },
   "routeFlow": {
     "taskClass": "작업 유형",

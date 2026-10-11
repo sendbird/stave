@@ -1,5 +1,5 @@
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
-import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
+import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
 import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
@@ -685,6 +685,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return resolveHostDelegationPolicy(args as Parameters<typeof resolveHostDelegationPolicy>[0]);
     case "resolve-delegation-defaults":
       return resolveHostDelegationDefaults(args as Parameters<typeof resolveHostDelegationDefaults>[0]);
+    case "resolve-delegation-strengths":
+      return resolveHostDelegationStrengths();
     case "resolve-caller-grant":
       return resolveHostCallerGrant(args as Parameters<typeof resolveHostCallerGrant>[0]);
     case "run-task":

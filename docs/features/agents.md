@@ -120,9 +120,9 @@ the way:
 - **Profile**: name, colour and **Use when**.
 - **Instructions**: what the agent does on every task.
 - **Workflow**: the stages its runs follow (see below).
-- **How it runs**: the model (**Auto-routing** with an optional task class, or
-  a **Fixed** provider, pinned model and effort), the permission, and where it
-  works.
+- **How it runs**: the model (**Auto-routing** with an optional task class
+  and an optional preferred provider, or a **Fixed** provider, pinned model
+  and effort), the permission, and where it works.
 - **Advanced** (collapsed): **Don't use when**, skills, allowed and denied
   tools, max turns, concurrency, what it is usable as, and its report sections.
 
@@ -403,6 +403,15 @@ Fleet's search finds its tasks.
   When Auto routes the task, a confident classification decides the task
   class. The agent's task class fills in when the intent is unclear or
   classification is unavailable, and a safety escalation always wins.
+
+  An Auto-routing agent may **prefer** Claude, Codex, or **The other
+  provider** (the one the delegating task is not on). The preference leads
+  the provider order only at a task boundary, the task's first turn or a
+  delegation, and a rule that names a provider outranks it. The built-in
+  Reviewer prefers the other provider, the same default the Review button
+  offers; when that provider's CLI is not installed, the delegation stays on
+  the delegating task's provider. The preference is not written to exported Markdown or TOML agent
+  files and is listed among the fields left out.
 
 ## Adaptive Run resources
 

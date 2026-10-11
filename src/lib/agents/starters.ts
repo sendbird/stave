@@ -23,20 +23,24 @@ export const SHARED_STYLE =
 
 const READ_ONLY_DENY = ["Edit", "Write", "NotebookEdit"];
 
+type AutoAgentModel = Extract<AgentConfig["model"], { mode: "auto" }>;
+
 type GeneralAgentDraft = Pick<AgentConfig, "id" | "name" | "description" | "permission" | "workspace" | "report"> &
   Partial<Pick<AgentConfig, "avoidWhen" | "tools" | "canCall" | "usableAs">> & {
-    taskClass: NonNullable<Extract<AgentConfig["model"], { mode: "auto" }>["taskClass"]>;
+    taskClass: NonNullable<AutoAgentModel["taskClass"]>;
+    /** Where the agent would rather run; absent means the delegating task's provider. */
+    preferredProvider?: AutoAgentModel["preferredProvider"];
     /** The agent's own instructions, one paragraph per entry; the shared style is appended. */
     instructions: readonly string[];
   };
 
 function general(draft: GeneralAgentDraft): AgentConfig {
-  const { taskClass, instructions, ...rest } = draft;
+  const { taskClass, preferredProvider, instructions, ...rest } = draft;
   return {
     version: AGENT_CONFIG_VERSION,
     source: "builtin",
     skills: [],
-    model: { mode: "auto", taskClass },
+    model: { mode: "auto", taskClass, ...(preferredProvider ? { preferredProvider } : {}) },
     tools: {},
     usableAs: ["primary", "worker", "delegate"],
     concurrency: 2,
@@ -81,6 +85,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     instructions: [
       "You own a goal made of several parts. Plan it, hand parts to other agents, check what comes back, and report the outcome.",
       "Do tiny tasks yourself. Hand work over only when that is faster or keeps it isolated. Give each agent its scope, an acceptance check, and the commit to review.",
+      "Pick a delegate's provider by the kind of work and the agent's own preference. For a review, name the provider that did not write the diff. Subagents inside your turn run on your own provider, so use a delegated task to reach the other one.",
       "Check every report against the real diff and the real check results before you accept it. Do not stop at a plan or a partial result.",
       "Ask the user only about decisions that change scope, correctness or authority. Decide the rest and say what you decided.",
       "Report the outcome, the evidence for it, and the remaining risks.",
@@ -150,6 +155,9 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
       "State what you reviewed and what you did not check.",
     ],
     taskClass: "review",
+    // A review reads best from the provider that did not write the change,
+    // the same default the Review button offers.
+    preferredProvider: "alternate-provider",
     tools: { deny: READ_ONLY_DENY },
     permission: "read-only",
     workspace: "same-workspace",

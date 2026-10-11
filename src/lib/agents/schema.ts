@@ -165,6 +165,27 @@ export type AgentFileFormat = (typeof AGENT_FILE_FORMATS)[number];
 
 const PROVIDER_IDS = listProviderIds() as [ProviderId, ...ProviderId[]];
 
+/**
+ * Where an Auto agent would rather run: one of the two providers that run
+ * delegated tasks, or `alternate-provider`, the one the delegating task is
+ * not on. A preference, not a pin: an explicit provider on the request wins.
+ */
+export const AGENT_PREFERRED_PROVIDERS = ["claude-code", "codex", "alternate-provider"] as const;
+export type AgentPreferredProvider = (typeof AGENT_PREFERRED_PROVIDERS)[number];
+
+export const AGENT_PREFERRED_PROVIDER_LABELS: Readonly<Record<AgentPreferredProvider, string>> = {
+  "claude-code": "Claude",
+  codex: "Codex",
+  get "alternate-provider"() { return i18n.t("agents:schema.alternateProvider"); },
+};
+
+/** The preference inside a sentence: "prefers Codex", "prefers the other provider". */
+export function preferredProviderInlineLabel(preferred: AgentPreferredProvider): string {
+  return preferred === "alternate-provider"
+    ? i18n.t("agents:schema.alternateProviderInline")
+    : AGENT_PREFERRED_PROVIDER_LABELS[preferred];
+}
+
 /** Letters, digits, dot, underscore and hyphen — safe inside keys and paths. */
 export const AgentConfigIdSchema = z
   .string()
@@ -190,6 +211,8 @@ export const AgentModelSchema = z.discriminatedUnion("mode", [
       mode: z.literal("auto"),
       /** Routed through the user's auto-routing rules when set. */
       taskClass: z.enum(TASK_CLASSES).optional(),
+      /** Applied when a task starts as this agent or when it is delegated. */
+      preferredProvider: z.enum(AGENT_PREFERRED_PROVIDERS).optional(),
     })
     .strict(),
 ]);

@@ -179,6 +179,7 @@ export async function routeAgentRunTurn(args: {
   // 3. Stave Auto with the agent's task class, when the task is on Auto.
   if (draft.autoRouting === true && args.settings?.routing.autoRoutingEnabled) {
     const taskClassHint = args.agent?.model.mode === "auto" ? args.agent.model.taskClass : undefined;
+    const preferredProviderHint = args.agent?.model.mode === "auto" ? args.agent.model.preferredProvider : undefined;
     const decision = await resolveAutoRoutingDecision({
       settings: args.settings.routing,
       runtimeOverrides: draft,
@@ -189,6 +190,7 @@ export async function routeAgentRunTurn(args: {
       phase: "execute",
       signal: args.signal,
       ...(taskClassHint ? { taskClassHint } : {}),
+      ...(preferredProviderHint ? { preferredProviderHint } : {}),
       ...(args.classifyRoute ? { classifyRoute: args.classifyRoute } : {}),
     });
     return observed({

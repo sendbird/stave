@@ -4,6 +4,7 @@ import { useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   AGENT_PERMISSION_LABELS,
+  preferredProviderInlineLabel,
   AGENT_SOURCE_LABELS,
   type AgentConfig,
 } from "@/lib/agents/schema";
@@ -13,15 +14,19 @@ import { agentStyles } from "./agents.styles";
 
 /**
  * The profile head of an agent's detail: avatar, name, "Use when", and chips
- * for source, the model choice (once: "Auto" or the pinned model) and, when it
- * applies, "Read only". Permission and where it works are in Settings. Pure
+ * for source, the model choice (once: "Auto", "Auto · prefers Codex" or the
+ * pinned model) and, when it applies, "Read only". Permission and where it works are in Settings. Pure
  * presentation of one agent; the surrounding detail owns the actions.
  */
 export function AgentProfileHeader(props: { agent: AgentConfig; status?: AgentAvatarStatus }) {
   useTranslation();
   const { agent } = props;
   const model =
-    agent.model.mode === "fixed" ? (agent.model.model ?? agent.model.providerId) : i18n.t("agents:agentProfileHeader.extraCopy24");
+    agent.model.mode === "fixed"
+      ? (agent.model.model ?? agent.model.providerId)
+      : agent.model.preferredProvider
+        ? i18n.t("agents:agentProfileHeader.autoPrefers", { value1: preferredProviderInlineLabel(agent.model.preferredProvider) })
+        : i18n.t("agents:agentProfileHeader.extraCopy24");
   const chips = [
     AGENT_SOURCE_LABELS[agent.source],
     model,

@@ -12,6 +12,7 @@ import type { AgentsBridgeApi } from "@/lib/agents/api";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import { fixedModelOf, type FixedAgentModel } from "@/lib/agents/selector-choice";
 import type { TaskClass } from "@/lib/providers/auto-routing-profile";
+import type { AgentPreferredProvider } from "@/lib/agents/schema";
 
 export type TaskAgent = Pick<
   AgentAssignment,
@@ -36,6 +37,8 @@ export type TaskAgent = Pick<
   agentAppearance: AgentAssignment["agent"]["appearance"];
   /** The task class an auto-model agent routes as; Stave Auto uses it on every turn. */
   agentTaskClass: TaskClass | null;
+  /** Where an auto-model agent would rather start; Auto applies it at a task boundary. */
+  agentPreferredProvider: AgentPreferredProvider | null;
   /** The model a fixed-model agent declares; its default route and not a user pin. */
   agentFixedModel: FixedAgentModel | null;
   /** The recorded agent's workflow and check-ins, which its runs follow. */
@@ -78,6 +81,7 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentPermission: row.agent.permission,
       agentAppearance: row.agent.appearance,
       agentTaskClass: row.agent.model.mode === "auto" ? (row.agent.model.taskClass ?? null) : null,
+      agentPreferredProvider: row.agent.model.mode === "auto" ? (row.agent.model.preferredProvider ?? null) : null,
       agentFixedModel: fixedModelOf(row.agent),
       agentWorkflow: row.agent.workflow,
       agentCheckIns: row.agent.checkIns,

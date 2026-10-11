@@ -88,7 +88,9 @@
     "ariaLabel16": "Report",
     "agentEditor11": "Save",
     "agentEditor12": "Cancel",
-    "agentEditor13": "Discard"
+    "agentEditor13": "Discard",
+    "preferredProvider": "Prefers",
+    "preferredProviderNone": "No preference"
   },
   "agentHistory": {
     "revisionRow": "Same as now",
@@ -206,7 +208,8 @@
     "extraCopy33": "Your own rules, added after every agent's instructions when on.",
     "performanceTab": "Performance",
     "extraCopy327": "{{value1}} was edited after this task started. Later turns keep the version used; assign again to use the edit.",
-    "close": "Close agents"
+    "close": "Close agents",
+    "autoRoutingPrefers": "Auto-routing · prefers {{value1}}"
   },
   "deleteAgentDialog": {
     "workflowStage": "Workflow stage",
@@ -320,7 +323,8 @@
     "message": "This task's agent cannot call \"{{value1}}\". It can call: {{value2}}.",
     "message2": "This task's agent does not call other agents.",
     "message3": "\"{{value1}}\" did not compile as a delegated task.",
-    "message4": "This task runs within {{value1}}; \"{{value2}}\" would run with {{value3}}. Ask for a narrower profile."
+    "message4": "This task runs within {{value1}}; \"{{value2}}\" would run with {{value3}}. Ask for a narrower profile.",
+    "providerMismatch": "Agent {{value1}} is fixed to {{value2}}, so it can't run on {{value3}}."
   },
   "draftWithAi": {
     "message": "The draft came back without an agent. Try describing it again.",
@@ -465,10 +469,13 @@
     "message6": "A repository agent records the file it came from.",
     "message7": "A tool cannot be both allowed and denied: {{value1}}.",
     "message8": "Duplicate agent id \"{{value1}}\".",
-    "extraCopy400": "An agent id may only contain letters, digits, dot, underscore and hyphen."
+    "extraCopy400": "An agent id may only contain letters, digits, dot, underscore and hyphen.",
+    "alternateProvider": "The other provider",
+    "alternateProviderInline": "the other provider"
   },
   "agentProfileHeader": {
-    "extraCopy24": "Auto"
+    "extraCopy24": "Auto",
+    "autoPrefers": "Auto · prefers {{value1}}"
   },
   "useRepositoryAgents": {
     "extraCopy41": "Not read: {{value1}}",

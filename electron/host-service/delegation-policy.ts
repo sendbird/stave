@@ -7,6 +7,7 @@ import {
 } from "../../src/lib/runs/delegation-policy";
 import { autonomyOfOptions, isAgentModeOptions, resolveTurnPolicy } from "../../src/lib/policy/turn-policy";
 import { ensureHostServicePersistenceReady } from "./persistence";
+import { readDelegationStrengths } from "../../src/lib/providers/provider-strength-presets";
 import { setTaskPermissionObserver } from "../providers/runtime";
 import { randomBytes } from "node:crypto";
 import { resolveCallerGrant, setCallerGrantSecretSource, type CallerGrant } from "../providers/caller-grants";
@@ -106,6 +107,16 @@ function liftHelperAutonomy(
 export function resolveHostDelegationDefaults(args: { parentTaskId: string }) {
   return ensureHostServicePersistenceReady().delegationPolicies.loadParentTurnDefaults(
     args.parentTaskId,
+  );
+}
+
+/**
+ * The Provider strengths table a delegation may follow, from the Stave Auto
+ * settings the renderer syncs here; null unless Auto and the table are on.
+ */
+export function resolveHostDelegationStrengths() {
+  return readDelegationStrengths(
+    ensureHostServicePersistenceReady().delegationPolicies.loadRouteSettings(),
   );
 }
 

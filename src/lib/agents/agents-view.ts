@@ -1,7 +1,7 @@
 import { getAgentDisplayName, getAgentDisplayDescription } from "./display";
 import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { AGENT_PERMISSION_LABELS, AGENT_ROLE_LABELS, AGENT_SOURCE_LABELS, AGENT_WORKSPACE_LABELS, type AgentConfig, type AgentSource } from "./schema";
+import { AGENT_PERMISSION_LABELS, preferredProviderInlineLabel, AGENT_ROLE_LABELS, AGENT_SOURCE_LABELS, AGENT_WORKSPACE_LABELS, type AgentConfig, type AgentSource } from "./schema";
 import { compileAgent, snapshotAgent, type AgentReceivedInstruction, type AgentSupportEntry, type AgentSupportLevel } from "./compile";
 
 /**
@@ -15,9 +15,14 @@ export const SUPPORT_LEVEL_LABELS: Readonly<Record<AgentSupportLevel, string>> =
   get unavailable() { return i18n.t("agents:agentsView.unavailable"); },
 };
 
-/** "Auto-routing · Current workspace · Read only". */
+/** "Auto-routing · Current workspace · Read only", or "Auto-routing · prefers Codex · …". */
 export function describeAgent(agent: AgentConfig): string {
-  const model = agent.model.mode === "fixed" ? (agent.model.model ?? agent.model.providerId) : "Auto-routing";
+  const model =
+    agent.model.mode === "fixed"
+      ? (agent.model.model ?? agent.model.providerId)
+      : agent.model.preferredProvider
+        ? i18n.t("agents:agentsView.autoRoutingPrefers", { value1: preferredProviderInlineLabel(agent.model.preferredProvider) })
+        : "Auto-routing";
   return [model, AGENT_WORKSPACE_LABELS[agent.workspace], AGENT_PERMISSION_LABELS[agent.permission]].join(" · ");
 }
 

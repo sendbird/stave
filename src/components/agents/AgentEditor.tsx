@@ -17,6 +17,8 @@ import {
   AGENT_CONFIG_LIMITS,
   AGENT_PERMISSION_LABELS,
   AGENT_PERMISSIONS,
+  AGENT_PREFERRED_PROVIDER_LABELS,
+  AGENT_PREFERRED_PROVIDERS,
   AGENT_REPORT_SECTIONS,
   AGENT_EFFORT_ORDER,
   AGENT_ROLE_LABELS,
@@ -27,6 +29,7 @@ import {
   type AgentColor,
   type AgentConfig,
   type AgentModel,
+  type AgentPreferredProvider,
 } from "@/lib/agents/schema";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { CLAUDE_SDK_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, listProviderIds } from "@/lib/providers/model-catalog";
@@ -226,7 +229,32 @@ export function AgentEditor(props: {
                     ...TASK_CLASSES.map((value) => ({ value, label: value })),
                   ]}
                   onValueChange={(value) =>
-                    setModel({ mode: "auto", taskClass: value ? (String(value) as (typeof TASK_CLASSES)[number]) : undefined })
+                    setModel({
+                      mode: "auto",
+                      taskClass: value ? (String(value) as (typeof TASK_CLASSES)[number]) : undefined,
+                      ...(draft.model.mode === "auto" && draft.model.preferredProvider
+                        ? { preferredProvider: draft.model.preferredProvider }
+                        : {}),
+                    })
+                  }
+                />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.preferredProvider")}</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <Select
+                  size="sm"
+                  aria-label={i18n.t("agents:agentEditor.preferredProvider")}
+                  value={draft.model.preferredProvider ?? ""}
+                  options={[
+                    { value: "", label: i18n.t("agents:agentEditor.preferredProviderNone") },
+                    ...AGENT_PREFERRED_PROVIDERS.map((value) => ({ value, label: AGENT_PREFERRED_PROVIDER_LABELS[value] })),
+                  ]}
+                  onValueChange={(value) =>
+                    setModel({
+                      mode: "auto",
+                      ...(draft.model.mode === "auto" && draft.model.taskClass ? { taskClass: draft.model.taskClass } : {}),
+                      ...(value ? { preferredProvider: String(value) as AgentPreferredProvider } : {}),
+                    })
                   }
                 />
               </dd>

@@ -1,6 +1,12 @@
 import { isReadOnlyDelegationPolicy, type DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
 import type { AgentSnapshot } from "../../../src/lib/agents/compile";
-import type { AgentPermission } from "../../../src/lib/agents/schema";
+import type { AgentModel, AgentPermission } from "../../../src/lib/agents/schema";
+import {
+  fallBackToParentProvider,
+  resolveDelegationProvider,
+  shouldCheckDelegationProvider,
+} from "../../../src/lib/runs/delegation-provider";
+import type { ProviderStrengthMap } from "../../../src/lib/providers/provider-strength-presets";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -256,6 +262,24 @@ interface DelegatedTaskCoordinatorDependencies {
   }) => Promise<void>;
   readHead?: (workspacePath: string) => Promise<string | null>;
   readWorkspaceRevision?: (workspacePath: string) => Promise<WorkspaceRevision>;
+  /**
+   * The saved agent's model choice, read before the provider is decided so a
+   * Fixed agent runs on its own provider and an Auto agent's preferred
+   * provider is honoured. Null when there is no such active agent; absent,
+   * the provider is the request's or the parent's.
+   */
+  readAgentModel?: (agentConfigId: string) => AgentModel | null | Promise<AgentModel | null>;
+  /**
+   * The Provider strengths table when Stave Auto and the table are on, else
+   * null. A delegation follows it only for a saved agent's declared task class.
+   */
+  resolveDelegationStrengths?: () => Promise<ProviderStrengthMap | null>;
+  /**
+   * Whether a provider's CLI is installed here, so it can run a delegated task.
+   * Checked only for a preferred provider that differs from the parent's; a
+   * failed check counts as available, so the child reports its own error.
+   */
+  isProviderAvailable?: (providerId: "claude-code" | "codex") => Promise<boolean>;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
@@ -292,12 +316,21 @@ function hashDelegatedTaskInput(args: DelegateTaskArgs, agentContentHash?: strin
  */
 export function deriveDelegationKey(args: {
   parentTaskId: string;
+  /** The provider the delegation resolved to, not only the one the call named. */
   providerId: "claude-code" | "codex";
   model?: string;
   prompt: string;
+  /** Distinguishes the same prompt sent to two agents; absent keeps older keys. */
+  agentConfigId?: string;
 }) {
   const digest = createHash("sha256")
-    .update(JSON.stringify([args.parentTaskId, args.providerId, args.model ?? null, args.prompt]))
+    .update(JSON.stringify([
+      args.parentTaskId,
+      args.providerId,
+      args.model ?? null,
+      args.prompt,
+      ...(args.agentConfigId ? [args.agentConfigId] : []),
+    ]))
     .digest("hex");
   const slug = args.prompt
     .toLowerCase()
@@ -1405,16 +1438,60 @@ export function createDelegatedTaskCoordinator(
         ? null
         : await (dependencies.resolveParentDefaults?.({ parentTaskId }) ?? Promise.resolve(null))
             .catch(() => null);
-    const providerId = input.provider ?? parent?.providerId;
-    if (!providerId)
-      return rejected("invalid-request", null, "Name a provider: this task's provider could not be determined.");
+    // The agent is read before the provider is chosen: a Fixed agent's model
+    // only exists on its own provider, and an Auto agent may prefer one.
+    const agentModel = input.agentConfigId && dependencies.readAgentModel
+      ? await Promise.resolve(dependencies.readAgentModel(input.agentConfigId)).catch(() => null)
+      : null;
+    // Strengths rank below an agent's own preference and an explicit provider,
+    // and apply only to a saved agent that declares its task class.
+    const strengthTaskClass =
+      !input.provider && agentModel?.mode === "auto" && !agentModel.preferredProvider
+        ? agentModel.taskClass
+        : undefined;
+    const strengths = strengthTaskClass && dependencies.resolveDelegationStrengths
+      ? await dependencies.resolveDelegationStrengths().catch(() => null)
+      : null;
+    const strengthProviderId = strengthTaskClass
+      ? (strengths as Partial<Record<string, "claude-code" | "codex">> | null)?.[strengthTaskClass] ?? null
+      : null;
+    let providerResolution = resolveDelegationProvider({
+      ...(input.provider ? { explicit: input.provider } : {}),
+      agentModel,
+      ...(input.agentConfigId ? { agentConfigId: input.agentConfigId } : {}),
+      parentProviderId: parent?.providerId ?? null,
+      strengthProviderId,
+    });
+    // A preference is not a pin: a provider that cannot run here falls back
+    // to the parent's instead of creating a child that cannot start.
+    if (
+      providerResolution.ok &&
+      dependencies.isProviderAvailable &&
+      shouldCheckDelegationProvider(providerResolution, parent?.providerId) &&
+      !(await dependencies.isProviderAvailable(providerResolution.providerId).catch(() => true))
+    ) {
+      providerResolution = fallBackToParentProvider(providerResolution, parent?.providerId);
+    }
+    if (!providerResolution.ok)
+      return rejected(
+        providerResolution.code === "provider-conflict" ? "agent-refused" : "invalid-request",
+        null,
+        providerResolution.message,
+      );
+    const providerId = providerResolution.providerId;
     const prompt = input.prompt.trim();
     const model = input.model?.trim() || undefined;
     const legacyProfile = input.permissionProfile;
     if (input.delegationKey && isReservedDelegationKey(input.delegationKey))
       return rejected("invalid-request", null, "Delegation keys starting with \"stave-review-\" are reserved for reviews the user starts from the composer.");
     const delegationKey = input.delegationKey ??
-      deriveDelegationKey({ parentTaskId, providerId, model, prompt });
+      deriveDelegationKey({
+        parentTaskId,
+        providerId,
+        model,
+        prompt,
+        ...(input.agentConfigId ? { agentConfigId: input.agentConfigId } : {}),
+      });
     const response = await delegateChild(
       {
         repositoryPath,

@@ -144,6 +144,10 @@ function createHarness(
     readHead?: (workspacePath: string) => Promise<string | null>;
     readWorkspaceRevision?: (workspacePath: string) => Promise<import("../src/lib/agent-runs/verification-contract").WorkspaceRevision>;
     readResourceRoot?: (parentTaskId: string) => string | null;
+    readAgentModel?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readAgentModel"];
+    applyAgent?: Parameters<typeof createDelegatedTaskCoordinator>[0]["applyAgent"];
+    resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
+    isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -159,6 +163,10 @@ function createHarness(
       readHead: options.readHead,
       readWorkspaceRevision: options.readWorkspaceRevision,
       readResourceRoot: options.readResourceRoot,
+      ...(options.readAgentModel ? { readAgentModel: options.readAgentModel } : {}),
+      ...(options.applyAgent ? { applyAgent: options.applyAgent } : {}),
+      ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
+      ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -1395,5 +1403,138 @@ describe("review workspace provenance", () => {
     expect(await unavailable.coordinator.reviewRevision({ ...args, expected: {
       delegatedTaskId: oldChild.delegatedTaskId, delegatedWorkspaceId: oldChild.delegatedWorkspaceId, attempt: oldChild.attempt,
     } })).toMatchObject({ source: { status: "unknown" }, completed: { status: "unknown" }, current: { status: "unknown" } });
+  });
+});
+
+describe("delegation provider from the agent", () => {
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+  const applyAgent = async (args: DelegateTaskArgs) => ({ ok: true as const, args, agentContentHash: "agent-hash" });
+  const hold = () => new Promise<never>(() => {});
+
+  test("a Fixed agent runs on its own provider instead of the parent's", async () => {
+    const harness = createHarness({
+      parentDefaults: { providerId: "claude-code" },
+      readAgentModel: () => ({ mode: "fixed", providerId: "codex", model: "gpt-6.1-sol" }),
+      applyAgent,
+      runTask: hold,
+    });
+    const response = await harness.coordinator.delegateFromTool(
+      { prompt: "Fix the parser.", agentConfigId: "fixer", lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    expect(response.accepted).toBe(true);
+    expect(harness.runTaskCalls[0]!.providerId).toBe("codex");
+  });
+
+  test("a provider that contradicts a Fixed agent is refused", async () => {
+    const harness = createHarness({
+      parentDefaults: { providerId: "claude-code" },
+      readAgentModel: () => ({ mode: "fixed", providerId: "codex" }),
+      applyAgent,
+      runTask: hold,
+    });
+    const response = await harness.coordinator.delegateFromTool(
+      { prompt: "Fix the parser.", agentConfigId: "fixer", provider: "claude-code", lifecycle: "one-turn", wait: false },
+      caller,
+    );
+    expect(response).toMatchObject({ accepted: false, reason: "agent-refused" });
+    expect(response.message).toContain("fixed to codex");
+    expect(harness.runTaskCalls).toHaveLength(0);
+  });
+
+  test("an Auto agent preferring the other provider runs opposite the parent", async () => {
+    const harness = createHarness({
+      parentDefaults: { providerId: "codex" },
+      readAgentModel: () => ({ mode: "auto", taskClass: "review", preferredProvider: "alternate-provider" }),
+      applyAgent,
+      runTask: hold,
+    });
+    await harness.coordinator.delegateFromTool(
+      { prompt: "Review the diff.", agentConfigId: "reviewer", lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    expect(harness.runTaskCalls[0]!.providerId).toBe("claude-code");
+  });
+
+  test("a preferred provider that cannot run here falls back to the parent's", async () => {
+    const checked: string[] = [];
+    const harness = createHarness({
+      parentDefaults: { providerId: "claude-code" },
+      readAgentModel: () => ({ mode: "auto", taskClass: "review", preferredProvider: "alternate-provider" }),
+      isProviderAvailable: async (providerId) => { checked.push(providerId); return false; },
+      applyAgent,
+      runTask: hold,
+    });
+    await harness.coordinator.delegateFromTool(
+      { prompt: "Review the diff.", agentConfigId: "reviewer", lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    expect(checked).toEqual(["codex"]);
+    expect(harness.runTaskCalls[0]!.providerId).toBe("claude-code");
+  });
+
+  test("an explicit provider is not checked or swapped", async () => {
+    const checked: string[] = [];
+    const harness = createHarness({
+      parentDefaults: { providerId: "claude-code" },
+      isProviderAvailable: async (providerId) => { checked.push(providerId); return false; },
+      runTask: hold,
+    });
+    await harness.coordinator.delegateFromTool(
+      { prompt: "Check the parser.", provider: "codex", lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    expect(checked).toEqual([]);
+    expect(harness.runTaskCalls[0]!.providerId).toBe("codex");
+  });
+
+  test("an agent's task class follows the strength table when it has no preference", async () => {
+    const harness = createHarness({
+      parentDefaults: { providerId: "claude-code" },
+      readAgentModel: () => ({ mode: "auto", taskClass: "review" }),
+      resolveDelegationStrengths: async () => ({ review: "codex" }),
+      isProviderAvailable: async () => true,
+      applyAgent,
+      runTask: hold,
+    });
+    await harness.coordinator.delegateFromTool(
+      { prompt: "Review the diff.", agentConfigId: "reviewer", lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    expect(harness.runTaskCalls[0]!.providerId).toBe("codex");
+  });
+
+  test("a delegation without a saved agent ignores the strength table", async () => {
+    let asked = false;
+    const harness = createHarness({
+      parentDefaults: { providerId: "claude-code" },
+      resolveDelegationStrengths: async () => { asked = true; return { review: "codex" }; },
+      runTask: hold,
+    });
+    await harness.coordinator.delegateFromTool(
+      { prompt: "Review the diff.", lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    expect(asked).toBe(false);
+    expect(harness.runTaskCalls[0]!.providerId).toBe("claude-code");
+  });
+
+  test("the same call returns the same child, and two agents get two", async () => {
+    const harness = createHarness({
+      realPolicy: true,
+      parentDefaults: { providerId: "claude-code" },
+      readAgentModel: () => ({ mode: "auto", preferredProvider: "codex" }),
+      applyAgent,
+      runTask: hold,
+    });
+    const call = (agentConfigId: string) => harness.coordinator.delegateFromTool(
+      { prompt: "Review the diff.", agentConfigId, lifecycle: "one-turn", access: "read-only", wait: false },
+      caller,
+    );
+    const first = await call("reviewer");
+    const again = await call("reviewer");
+    const other = await call("auditor");
+    expect(again.child!.delegatedTaskId).toBe(first.child!.delegatedTaskId);
+    expect(other.child!.delegatedTaskId).not.toBe(first.child!.delegatedTaskId);
   });
 });

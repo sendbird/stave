@@ -3,6 +3,8 @@ import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/ads/utils/stylex";
 import {
+  FOLLOW_LEVEL_TIER,
+  getRouteLevel,
   listEligibleRouteModels,
   resolveRouteTierForModel,
   ROUTE_COMPLEXITY_LABELS,
@@ -230,9 +232,12 @@ function buildLadder(args: {
   }
 
   const fallbackModel = profile.fallbacks[route.providerId]?.model;
+  const ruleTier = matchedRule?.then.tier;
   const targetTier: RouteTier =
-    matchedRule?.then.tier ??
-    resolveRouteTierForModel(matchedRule?.then.model ?? fallbackModel ?? rungs[0]!.model);
+    ruleTier === FOLLOW_LEVEL_TIER
+      ? getRouteLevel(route.complexity).tier
+      : ruleTier ??
+        resolveRouteTierForModel(matchedRule?.then.model ?? fallbackModel ?? rungs[0]!.model);
   const targetIndex = matchedRule?.then.model
     ? Math.max(0, rungs.findIndex((rung) => rung.model === matchedRule.then.model))
     : pickRungForTier(rungs, targetTier);

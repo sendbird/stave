@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import {
   cloneProfileAsCustom,
+  FOLLOW_LEVEL_TIER,
   resolveRouteTierForModel,
   ROUTE_TIER_LABELS,
   STANCE_LABELS,
@@ -453,6 +454,8 @@ export function describeRuleThen(then: RouteRuleThen) {
   const parts: string[] = [];
   if (then.model) {
     parts.push(toHumanModelName({ model: then.model }));
+  } else if (then.tier === FOLLOW_LEVEL_TIER) {
+    parts.push(i18n.t("providers:autoRoutingProfile.followsTheLevel"));
   } else if (then.tier) {
     parts.push(i18n.t("providers:messages.modelTier", { tier: ROUTE_TIER_LABELS[then.tier] }));
   } else {

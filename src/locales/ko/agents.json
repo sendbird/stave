@@ -88,7 +88,9 @@
     "ariaLabel16": "보고서",
     "agentEditor11": "저장",
     "agentEditor12": "취소",
-    "agentEditor13": "취소"
+    "agentEditor13": "취소",
+    "preferredProvider": "선호 프로바이더",
+    "preferredProviderNone": "선호 없음"
   },
   "agentHistory": {
     "revisionRow": "현재와 동일함",
@@ -206,7 +208,8 @@
     "extraCopy33": "켜져 있으면 각 에이전트의 지침에 개인 규칙을 추가합니다.",
     "performanceTab": "성과",
     "extraCopy327": "작업 시작 후 {{value1}} 에이전트가 편집되었습니다. 이후 턴도 사용 중인 버전을 유지합니다. 편집한 버전을 사용하려면 다시 지정하세요.",
-    "close": "에이전트 닫기"
+    "close": "에이전트 닫기",
+    "autoRoutingPrefers": "자동 라우팅 · {{value1}} 선호"
   },
   "deleteAgentDialog": {
     "workflowStage": "워크플로 단계",
@@ -320,7 +323,8 @@
     "message": "이 작업의 에이전트는 “{{value1}}” 에이전트를 호출할 수 없습니다. 호출 가능: {{value2}}.",
     "message2": "이 작업의 에이전트는 다른 에이전트를 호출하지 않습니다.",
     "message3": "“{{value1}}” 에이전트를 위임 작업으로 구성하지 못했습니다.",
-    "message4": "이 작업은 {{value1}} 범위에서 실행하지만 “{{value2}}” 에이전트는 {{value3}} 권한으로 실행합니다. 더 제한적인 프로필을 요청하세요."
+    "message4": "이 작업은 {{value1}} 범위에서 실행하지만 “{{value2}}” 에이전트는 {{value3}} 권한으로 실행합니다. 더 제한적인 프로필을 요청하세요.",
+    "providerMismatch": "에이전트 {{value1}}은(는) {{value2}}에 고정되어 있어 {{value3}}에서 실행할 수 없습니다."
   },
   "draftWithAi": {
     "message": "초안에 에이전트가 없습니다. 다시 설명해 보세요.",
@@ -463,10 +467,13 @@
     "message6": "저장소 에이전트는 원본 파일을 기록합니다.",
     "message7": "하나의 도구를 동시에 허용하고 금지할 수 없습니다: {{value1}}.",
     "message8": "중복된 에이전트 ID “{{value1}}”.",
-    "extraCopy400": "에이전트 ID에는 문자, 숫자, 점, 밑줄 및 하이픈만 사용할 수 있습니다."
+    "extraCopy400": "에이전트 ID에는 문자, 숫자, 점, 밑줄 및 하이픈만 사용할 수 있습니다.",
+    "alternateProvider": "다른 프로바이더",
+    "alternateProviderInline": "다른 프로바이더"
   },
   "agentProfileHeader": {
-    "extraCopy24": "자동"
+    "extraCopy24": "자동",
+    "autoPrefers": "자동 · {{value1}} 선호"
   },
   "useRepositoryAgents": {
     "extraCopy41": "읽지 않음: {{value1}}",

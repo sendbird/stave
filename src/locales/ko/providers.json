@@ -66,7 +66,10 @@
     "usageIsAtSoTheRoute": "사용량이 {{value1}}%이므로 필요한 작업 능력을 충족하는 범위에서 비용을 낮추는 경로를 우선합니다.",
     "hasNoAllowedModelForWork": "{{value1}}에는 {{value2}} 작업을 위한 허용 모델이 없어 {{value3}} 프로바이더로 실행합니다.",
     "keptFromThePreviousTurnSo": "대화의 프롬프트 캐시를 유지하기 위해 이전 턴의 {{value1}} 모델을 유지했습니다.",
-    "noRuleMatchedIsTheProvider": "일치하는 규칙이 없어 프로바이더 대체 모델인 {{value1}} 모델을 사용합니다."
+    "noRuleMatchedIsTheProvider": "일치하는 규칙이 없어 프로바이더 대체 모델인 {{value1}} 모델을 사용합니다.",
+    "followsTheLevel": "모델은 레벨을 따름",
+    "preferredProviderUnavailable": "에이전트가 선호하는 {{provider}}을(를) 지금 쓸 수 없습니다.",
+    "staysOnProviderInsideTask": "이 작업 안에서는 {{provider}}을(를) 유지합니다. {{other}}은(는) 다음 작업부터 적용됩니다."
   },
   "autoRoutingWizard": {
     "ofYourTurnsRanOnFrontier": "턴의 {{value1}}%를 최상위 또는 주력 모델로 실행했습니다.",
@@ -485,5 +488,39 @@
     "approachingCreditsPercentExhausted": "추가 사용 크레딧 한도에 가까워지고 있습니다({{percent}}% 사용). 요청 간격을 늘려 주세요. 추가 사용 크레딧이 모두 소진되었습니다.",
     "approachingCreditsPercentCovering": "추가 사용 크레딧 한도에 가까워지고 있습니다({{percent}}% 사용). 요청 간격을 늘려 주세요. 초과 사용량은 추가 사용 크레딧으로 처리하고 있습니다.",
     "rateWindow": "요청 한도"
+  },
+  "providerStrengths": {
+    "title": "프로바이더 강점",
+    "description": "작업 종류별로 작업이 시작할 프로바이더를 정합니다. 모델은 계속 레벨이 고릅니다. 프로바이더는 작업의 첫 턴에서만 바뀌므로 리뷰 → 수정 → 리뷰가 오가지 않습니다.",
+    "preset": "프리셋",
+    "presets": {
+      "confident": "근거가 확실한 것만",
+      "publicEvaluations": "공개 평가 전체",
+      "planBuildReview": "Claude 작성, Codex 리뷰"
+    },
+    "custom": "사용자 지정",
+    "enable": "프로바이더 강점 사용",
+    "enableDescription": "기본은 꺼짐입니다. 프로바이더를 바꾸면 대화 중 최대 12,000자가 다른 프로바이더로 전달되고, 그 프로바이더의 skill·hook·MCP 서버 설정이 적용됩니다.",
+    "work": "작업",
+    "startsOn": "시작 프로바이더",
+    "keep": "작업의 프로바이더 유지",
+    "rowLabel": "{{task}}의 프로바이더",
+    "confidence": {
+      "low": "근거 약함",
+      "medium": "근거 보통",
+      "high": "근거 강함"
+    },
+    "rationale": {
+      "plan": "실무자들은 대개 Claude로 계획하고 Codex로 계획을 검토합니다. 계획을 측정한 벤치마크는 없습니다.",
+      "implement": "일관된 승자가 없습니다. Claude가 WebDev와 Terminal-Bench 4.0에서 근소하게 앞서고, Codex는 DeepSWE에서 훨씬 적은 비용으로 비슷한 점수를 냅니다.",
+      "quickEdit": "같은 effort에서 Codex가 작업당 비슷한 비용으로 뚜렷하게 높은 점수를 냅니다.",
+      "debug": "엇갈립니다. 같은 effort에서는 Codex가 심어 둔 버그를 더 많이, 훨씬 싸게 고치고, 최대 effort에서는 Sonnet 5.5가 가장 많이 고칩니다. 실무자들은 Claude를 선호합니다.",
+      "review": "벤더가 직접 만든 리뷰 벤치마크 하나에서 Codex가 이전 세대 Claude 모델보다 앞서고, 실무자들도 Codex 리뷰를 선호합니다. 독립 벤치마크는 아직 없습니다.",
+      "ciFix": "결과가 충돌합니다. Terminal-Bench 2.1은 Codex가 앞서고, 더 최근의 Terminal-Bench 4.0은 Claude가 훨씬 높은 비용으로 앞섭니다.",
+      "docs": "이전 세대 모델을 다룬 연구 하나에서 문서 작업이 Claude Code의 pull request 수락률이 가장 높은 범주였습니다.",
+      "research": "독립 비교 하나에서 Claude가 코드베이스 질문에 조금 더 잘 답하지만 비용은 더 높습니다."
+    },
+    "hypothesisNote": "{{date}} 기준 공개 벤치마크, GitHub, 블로그 비교를 참고한 값입니다. 일반적인 프로바이더 평가일 뿐 사용자의 작업을 측정한 값이 아니므로 자유롭게 바꾸세요.",
+    "ruleReason": "{{task}} 작업은 {{provider}}에서 시작합니다 (프로바이더 강점)."
   }
 }
