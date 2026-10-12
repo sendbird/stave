@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   Check,
   ClipboardList,
@@ -403,22 +404,23 @@ function SourceControlActionButton(args: {
   tone?: "default" | "destructive" | "success";
 }) {
   return (
-    <Button
-      type="button"
-      size="icon-xs"
-      variant="ghost"
-      aria-label={args.label}
-      title={args.label}
-      xstyle={[
-        changesStyles.rowActionButton,
-        transition.colors,
-        scmActionToneStyles[args.tone ?? "default"],
-      ]}
-      disabled={args.disabled}
-      onClick={args.onClick}
-    >
-      {args.icon}
-    </Button>
+    <Tooltip content={args.label}>
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        aria-label={args.label}
+        xstyle={[
+          changesStyles.rowActionButton,
+          transition.colors,
+          scmActionToneStyles[args.tone ?? "default"],
+        ]}
+        disabled={args.disabled}
+        onClick={args.onClick}
+      >
+        {args.icon}
+      </Button>
+    </Tooltip>
   );
 }
 
@@ -974,23 +976,24 @@ export function WorkspaceChangesPanel(props: {
               )
             ) : null}
             <div className={sx(changesStyles.toolbar)}>
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                aria-label={tI18n("workspace:workspaceChangesPanel.refreshSourceControl")}
-                title={tI18n("workspace:workspaceChangesPanel.refresh")}
-                xstyle={changesStyles.refreshButton}
-                disabled={props.isScmBusy}
-                onClick={() => void props.onRefresh()}
-              >
-                <RefreshCw
-                  className={sx(
-                    changesStyles.glyphSm,
-                    props.isScmBusy && changesStyles.spinning,
-                  )}
-                />
-              </Button>
+              <Tooltip content={tI18n("workspace:workspaceChangesPanel.refresh")}>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={tI18n("workspace:workspaceChangesPanel.refreshSourceControl")}
+                  xstyle={changesStyles.refreshButton}
+                  disabled={props.isScmBusy}
+                  onClick={() => void props.onRefresh()}
+                >
+                  <RefreshCw
+                    className={sx(
+                      changesStyles.glyphSm,
+                      props.isScmBusy && changesStyles.spinning,
+                    )}
+                  />
+                </Button>
+              </Tooltip>
               <DropdownMenu>
                 <DropdownMenuTrigger
                   render={

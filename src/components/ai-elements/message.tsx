@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 import type {
   ButtonHTMLAttributes,
   CSSProperties,
@@ -590,15 +591,17 @@ export function MessageAttachment({
         </div>
       )}
       {onRemove ? (
-        <AdsButton
-          layout="host"
-          type="button"
-          xstyle={styles.attachmentRemove}
-          onClick={onRemove}
-          aria-label={i18n.t("composer:message.removeAttachment")}
-        >
-          <X className={sx(styles.attachmentRemoveIcon)} />
-        </AdsButton>
+        <AdsTooltip content={i18n.t("composer:message.removeAttachment")}>
+          <AdsButton
+            layout="host"
+            type="button"
+            xstyle={styles.attachmentRemove}
+            onClick={onRemove}
+            aria-label={i18n.t("composer:message.removeAttachment")}
+          >
+            <X className={sx(styles.attachmentRemoveIcon)} />
+          </AdsButton>
+        </AdsTooltip>
       ) : null}
     </div>
   );

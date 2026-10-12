@@ -11,6 +11,7 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Button } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -205,51 +206,59 @@ export function MacrosSection() {
                       ) : null}
                     </div>
                     <div className={sx(styles.rowActions)}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        disabled={index === 0}
-                        aria-label={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: macro.label })}
-                        onClick={() => handleMoveMacro(macro.id, -1)}
-                      >
-                        <ChevronUp className={sx(styles.actionIcon)} />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        disabled={index === macros.length - 1}
-                        aria-label={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: macro.label })}
-                        onClick={() => handleMoveMacro(macro.id, 1)}
-                      >
-                        <ChevronDown className={sx(styles.actionIcon)} />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: macro.label })}
-                        onClick={() => {
-                          setEditorError(undefined);
-                          setEditorTarget({
-                            kind: "edit",
-                            macroId: macro.id,
-                          });
-                        }}
-                      >
-                        <Pencil className={sx(styles.actionIcon)} />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        xstyle={styles.deleteButton}
-                        aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: macro.label })}
-                        onClick={() => setDeletingId(macro.id)}
-                      >
-                        <Trash2 className={sx(styles.actionIcon)} />
-                      </Button>
+                      <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: macro.label })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          disabled={index === 0}
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: macro.label })}
+                          onClick={() => handleMoveMacro(macro.id, -1)}
+                        >
+                          <ChevronUp className={sx(styles.actionIcon)} />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: macro.label })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          disabled={index === macros.length - 1}
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: macro.label })}
+                          onClick={() => handleMoveMacro(macro.id, 1)}
+                        >
+                          <ChevronDown className={sx(styles.actionIcon)} />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: macro.label })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: macro.label })}
+                          onClick={() => {
+                            setEditorError(undefined);
+                            setEditorTarget({
+                              kind: "edit",
+                              macroId: macro.id,
+                            });
+                          }}
+                        >
+                          <Pencil className={sx(styles.actionIcon)} />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: macro.label })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          xstyle={styles.deleteButton}
+                          aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: macro.label })}
+                          onClick={() => setDeletingId(macro.id)}
+                        >
+                          <Trash2 className={sx(styles.actionIcon)} />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </div>
                   {isEditing ? (

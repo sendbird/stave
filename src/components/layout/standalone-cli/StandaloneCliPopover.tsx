@@ -3,6 +3,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
 import { X } from "lucide-react";
 import { Button, PopoverContent } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { StandaloneCliTabBar } from "@/components/layout/standalone-cli/StandaloneCliTabBar";
 import { StandaloneCliTerminal } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
 import { useStandaloneCliInstalledTabIds } from "@/components/layout/standalone-cli/useStandaloneCliInstalledTabIds";
@@ -72,16 +73,18 @@ export function StandaloneCliPanel(props: {
             {folderLabel}
           </span>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          aria-label={t("standaloneCli.closePanel")}
-          xstyle={styles.closeButton}
-          onClick={onClose}
-        >
-          <X />
-        </Button>
+        <Tooltip content={t("standaloneCli.closePanel")}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            aria-label={t("standaloneCli.closePanel")}
+            xstyle={styles.closeButton}
+            onClick={onClose}
+          >
+            <X />
+          </Button>
+        </Tooltip>
       </header>
       {emptyStateText === null ? (
         // The panel stays mounted through a close, so the terminal is told to

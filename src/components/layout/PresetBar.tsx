@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { useCallback, useState } from "react";
 import { Cog, Ellipsis, SquareTerminal } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
@@ -127,16 +128,18 @@ export function PresetBar() {
       </div>
 
       <div className={sx(styles.trailing)}>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          xstyle={styles.manage}
-          aria-label={t("presetBar.manage")}
-          onClick={handleOpenPresetSettings}
-        >
-          <Cog />
-        </Button>
+        <Tooltip content={t("presetBar.manage")}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            xstyle={styles.manage}
+            aria-label={t("presetBar.manage")}
+            onClick={handleOpenPresetSettings}
+          >
+            <Cog />
+          </Button>
+        </Tooltip>
       </div>
     </div>
   );
@@ -203,19 +206,21 @@ function PresetChip(props: PresetChipProps) {
           ) : null}
         </AdsButton>
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                xstyle={[styles.chipActions, transition.fade]}
-                aria-label={t("presetBar.chipActions")}
-              />
-            }
-          >
-            <Ellipsis />
-          </DropdownMenuTrigger>
+          <Tooltip content={t("presetBar.chipActions")}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  xstyle={[styles.chipActions, transition.fade]}
+                  aria-label={t("presetBar.chipActions")}
+                />
+              }
+            >
+              <Ellipsis />
+            </DropdownMenuTrigger>
+          </Tooltip>
           <DropdownMenuContent
             align="end"
             xstyle={styles.chipMenu}

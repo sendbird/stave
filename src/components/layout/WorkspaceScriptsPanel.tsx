@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { toolStyles } from "./workspace-tools.styles";
 import { sx } from "../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { WorkspaceToolQuickAdd } from "./WorkspaceToolQuickAdd";
 import { SectionTabs } from "@/components/system/SectionTabs";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -330,26 +331,28 @@ function ScriptEntryRow(props: {
         <div className={sx(toolStyles.actions)}>
           {state?.orbitUrl ? (
             <>
-              <Button
-                size="icon"
-                variant="ghost"
-                xstyle={toolStyles.iconButton}
-                onClick={() => openExternalUrl(state.orbitUrl ?? "")}
-                title={tI18n("scripts:workspaceScriptsPanel.openInBrowser")}
-                aria-label={tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInBrowser")}
-              >
-                <ExternalLink className={sx(toolStyles.icon)} />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                xstyle={toolStyles.iconButton}
-                onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
-                title={tI18n("scripts:workspaceScriptsPanel.copyUrl")}
-                aria-label={tI18n("scripts:workspaceScriptsPanel.copyOrbitUrl")}
-              >
-                <Copy className={sx(toolStyles.icon)} />
-              </Button>
+              <Tooltip content={tI18n("scripts:workspaceScriptsPanel.openInBrowser")}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  xstyle={toolStyles.iconButton}
+                  onClick={() => openExternalUrl(state.orbitUrl ?? "")}
+                  aria-label={tI18n("scripts:workspaceScriptsPanel.openOrbitUrlInBrowser")}
+                >
+                  <ExternalLink className={sx(toolStyles.icon)} />
+                </Button>
+              </Tooltip>
+              <Tooltip content={tI18n("scripts:workspaceScriptsPanel.copyUrl")}>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  xstyle={toolStyles.iconButton}
+                  onClick={() => void copyTextToClipboard(state.orbitUrl ?? "")}
+                  aria-label={tI18n("scripts:workspaceScriptsPanel.copyOrbitUrl")}
+                >
+                  <Copy className={sx(toolStyles.icon)} />
+                </Button>
+              </Tooltip>
             </>
           ) : null}
           <Button
@@ -874,8 +877,12 @@ export function WorkspaceScriptsPanel(props: {
           <div className={sx(toolStyles.headerActions)}>
             {runningCount > 0 ? <StatusBadge tone="active">{tI18n("scripts:workspaceScriptsPanel.runningCount", { count: runningCount })}</StatusBadge> : null}
             {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title={tI18n("scripts:workspaceScriptsPanel.stopAllRunningProcesses")}><Square />{tI18n("scripts:workspaceScriptsPanel.stopAll")}</ActionButton> : null}
-            <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")} title={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
-            <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")} title={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}><Settings2 /></AdsButton>
+            <Tooltip content={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}>
+              <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
+            </Tooltip>
+            <Tooltip content={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}>
+              <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label={tI18n("scripts:workspaceScriptsPanel.openWorkspaceToolsSettings")}><Settings2 /></AdsButton>
+            </Tooltip>
           </div>
         </div>
         <p className={sx(toolStyles.description)}>{WORKSPACE_TOOLS_VIEWS.find((view) => view.id === activeView)?.description}</p>
@@ -911,7 +918,9 @@ export function WorkspaceScriptsPanel(props: {
       {selectedEntry ? <section aria-label={tI18n("scripts:workspaceScriptsPanel.outputValue", { value1: selectedEntry.label })} className={sx(toolStyles.output)}>
         <div className={sx(toolStyles.outputHeader)}>
           <h3 className={sx(toolStyles.outputTitle)}>{selectedEntry.label}</h3>
-          <Button variant="ghost" size="icon-xs" aria-label={tI18n("scripts:workspaceScriptsPanel.closeOutput")} onClick={() => setSelection(null)}><X /></Button>
+          <Tooltip content={tI18n("scripts:workspaceScriptsPanel.closeOutput")}>
+            <Button variant="ghost" size="icon-xs" aria-label={tI18n("scripts:workspaceScriptsPanel.closeOutput")} onClick={() => setSelection(null)}><X /></Button>
+          </Tooltip>
         </div>
         {selectedState?.log || selectedState?.error ? <ScriptLogView log={selectedState.log ?? ""} running={selectedState.running} error={selectedState.error} exitCode={selectedState.exitCode} startedAt={selectedState.startedAt} endedAt={selectedState.endedAt} onClear={() => clearLog({ scriptId: selectedEntry.id, scriptKind: selectedEntry.kind })} expandable={false} /> : <p role="status" className={sx(toolStyles.noOutput)}>{selectedState?.running ? tI18n("scripts:workspaceScriptsPanel.waitingForOutput") : tI18n("scripts:workspaceScriptsPanel.runThisToolToSeeItsOutput")}</p>}
       </section> : null}

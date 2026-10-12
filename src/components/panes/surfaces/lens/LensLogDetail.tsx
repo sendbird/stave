@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
 import { sx } from "../../../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   useCallback,
   useState,
@@ -114,23 +115,25 @@ export function ConsoleInspectableRow(props: {
     >
       <div className={sx(d.objectRow)}>
         {canExpand ? (
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            xstyle={d.toggle}
-            onClick={() => void toggleExpanded()}
-            aria-label={`${expanded ? i18n.t("lens:lensLogDetail.collapse") : i18n.t("lens:lensLogDetail.expand")} ${label}`}
-            aria-expanded={expanded}
-          >
-            {loading ? (
-              <Loader size="xs" variant="scan" />
-            ) : (
-              <ChevronRight
-                className={sx(d.chevron, expanded && d.expanded)}
-              />
-            )}
-          </Button>
+          <Tooltip content={expanded ? i18n.t("lens:lensLogDetail.collapse") : i18n.t("lens:lensLogDetail.expand")}>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              xstyle={d.toggle}
+              onClick={() => void toggleExpanded()}
+              aria-label={`${expanded ? i18n.t("lens:lensLogDetail.collapse") : i18n.t("lens:lensLogDetail.expand")} ${label}`}
+              aria-expanded={expanded}
+            >
+              {loading ? (
+                <Loader size="xs" variant="scan" />
+              ) : (
+                <ChevronRight
+                  className={sx(d.chevron, expanded && d.expanded)}
+                />
+              )}
+            </Button>
+          </Tooltip>
         ) : (
           <span className={sx(d.spacer)} aria-hidden />
         )}
@@ -551,24 +554,28 @@ export function LensLogEntryDetail(props: {
             {i18n.t("lens:lensLogDetail.entryDetails")}
           </span>
           <div className={sx(d.actions)}>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              onClick={onCopy}
-              aria-label={i18n.t("lens:lensLogDetail.copy", { value1: ariaLabel.toLowerCase() })}
-            >
-              <Copy className={sx(d.icon)} />
-            </Button>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              onClick={onClose}
-              aria-label={i18n.t("lens:lensLogDetail.close", { value1: ariaLabel.toLowerCase() })}
-            >
-              <X className={sx(d.icon)} />
-            </Button>
+            <Tooltip content={i18n.t("lens:lensLogDetail.copy", { value1: ariaLabel.toLowerCase() })}>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                onClick={onCopy}
+                aria-label={i18n.t("lens:lensLogDetail.copy", { value1: ariaLabel.toLowerCase() })}
+              >
+                <Copy className={sx(d.icon)} />
+              </Button>
+            </Tooltip>
+            <Tooltip content={i18n.t("lens:lensLogDetail.close", { value1: ariaLabel.toLowerCase() })}>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                onClick={onClose}
+                aria-label={i18n.t("lens:lensLogDetail.close", { value1: ariaLabel.toLowerCase() })}
+              >
+                <X className={sx(d.icon)} />
+              </Button>
+            </Tooltip>
           </div>
         </div>
         <div

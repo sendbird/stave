@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { ScriptEnvEditor } from "./ScriptEnvEditor";
 import {
@@ -130,21 +131,18 @@ export function ScriptTargetsTab(props: {
                         {tI18n("scripts:scriptTargetsTab.unused")}</Badge>
                     )}
                   </div>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    xstyle={targetsTabStyles.deleteButton}
-                    onClick={() => props.onRemove(index)}
-                    aria-label={tI18n("scripts:scriptTargetsTab.deleteTarget")}
-                    title={
-                      usage > 0
-                        ? tI18n("scripts:scriptTargetsTab.referencedByValueCommandSOrProcess", { usage: usage })
-                        : tI18n("scripts:scriptTargetsTab.deleteEnvironment")
-                    }
-                  >
-                    <Trash2 className={sx(targetsTabStyles.buttonIcon)} />
-                  </Button>
+                  <Tooltip content={usage > 0 ? tI18n("scripts:scriptTargetsTab.referencedByValueCommandSOrProcess", { usage: usage }) : tI18n("scripts:scriptTargetsTab.deleteEnvironment")}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      xstyle={targetsTabStyles.deleteButton}
+                      onClick={() => props.onRemove(index)}
+                      aria-label={tI18n("scripts:scriptTargetsTab.deleteTarget")}
+                    >
+                      <Trash2 className={sx(targetsTabStyles.buttonIcon)} />
+                    </Button>
+                  </Tooltip>
                 </div>
 
                 <div className={sx(targetsTabStyles.fieldGrid)}>

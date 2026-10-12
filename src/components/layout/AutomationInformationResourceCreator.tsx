@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import {
@@ -556,17 +557,19 @@ export function AutomationInformationResourceCreator(props: {
         <DialogHeader className={sx(resourceCreatorStyles.header)}>
           <div className={sx(resourceCreatorStyles.headerRow)}>
             {kind ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                xstyle={resourceCreatorStyles.backButton}
-                onClick={clearKind}
-                aria-label={tI18n("workspace:automationInformationResourceCreator.chooseAnotherResourceType")}
-                disabled={creating}
-              >
-                <ArrowLeft className={sx(resourceCreatorStyles.backIcon)} />
-              </Button>
+              <Tooltip content={tI18n("workspace:automationInformationResourceCreator.chooseAnotherResourceType")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  xstyle={resourceCreatorStyles.backButton}
+                  onClick={clearKind}
+                  aria-label={tI18n("workspace:automationInformationResourceCreator.chooseAnotherResourceType")}
+                  disabled={creating}
+                >
+                  <ArrowLeft className={sx(resourceCreatorStyles.backIcon)} />
+                </Button>
+              </Tooltip>
             ) : null}
             <div className={sx(resourceCreatorStyles.headerText)}>
               <DialogTitle>

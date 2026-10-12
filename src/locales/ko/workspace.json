@@ -744,6 +744,7 @@
     "failedToLoadFolder": "폴더를 불러오지 못했습니다.",
     "empty": "비어 있음",
     "searchInFiles": "파일에서 검색",
+    "clearSearch": "검색 지우기",
     "addFile": "파일 추가",
     "addFolder": "폴더 추가",
     "collapseAll": "모두 접기",

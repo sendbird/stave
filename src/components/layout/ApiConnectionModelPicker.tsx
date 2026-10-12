@@ -2,6 +2,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useId, useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { Input } from "@/components/ui";
 import {
@@ -91,10 +92,12 @@ export function ApiConnectionModelPicker(props: {
         ? <p className={sx(accountStyles.muted)}>{t(discover ? "settingsConnections:messages.pinModelsDiscovery" : "settingsConnections:messages.pinModelsManual")}</p>
         : <ul className={sx(styles.modelList)} aria-label={t("settingsConnections:apiConnectionModelPicker.pinnedModelsVariant12aa6b92")}>
           {props.value.map((model) => <ModelLine key={model.id} model={model} servesClaude={props.servesClaude} action={
-            <Button size="xs" variant="quiet" iconOnly aria-label={i18n.t("settingsConnections:apiConnectionModelPicker.unpin", { value1: model.name ?? model.id })}
-              onClick={() => props.onChange(props.value.filter((candidate) => candidate.id !== model.id))}>
-              <X aria-hidden />
-            </Button>} />)}
+            <Tooltip content={i18n.t("settingsConnections:apiConnectionModelPicker.unpin", { value1: model.name ?? model.id })}>
+              <Button size="xs" variant="quiet" iconOnly aria-label={i18n.t("settingsConnections:apiConnectionModelPicker.unpin", { value1: model.name ?? model.id })}
+                onClick={() => props.onChange(props.value.filter((candidate) => candidate.id !== model.id))}>
+                <X aria-hidden />
+              </Button>
+            </Tooltip>} />)}
         </ul>}
       {props.servesClaude && <p className={sx(accountStyles.muted)}>{t("settingsConnections:messages.experimentalExplanation", { reason: i18n.t(CLAUDE_CODE_EXPERIMENTAL_MODEL_REASON_KEY) })}</p>}
     </div>

@@ -170,7 +170,7 @@ describe("DiffReviewHoverMenu", () => {
     expect(html).toContain(
       'aria-label="Add review comment on modified line 8"',
     );
-    expect(html).toContain('title="Add review comment on modified line 8"');
+    expect(html).not.toContain("title=");
   });
 
   test("labels an existing thread as an additional comment", () => {

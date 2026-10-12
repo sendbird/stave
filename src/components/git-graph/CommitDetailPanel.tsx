@@ -1,6 +1,7 @@
 import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { useMemo, useState } from "react";
 import {
   Calendar,
@@ -266,16 +267,18 @@ export function CommitDetailPanel({
                 </AdsButton>
               ) : null}
             </div>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              xstyle={styles.closeButton}
-              onClick={onClose}
-              aria-label={i18n.t("gitGraph:commitDetailPanel.closeDetails")}
-            >
-              <X className={sx(styles.closeIcon)} />
-            </Button>
+            <Tooltip content={i18n.t("gitGraph:commitDetailPanel.closeDetails")}>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                xstyle={styles.closeButton}
+                onClick={onClose}
+                aria-label={i18n.t("gitGraph:commitDetailPanel.closeDetails")}
+              >
+                <X className={sx(styles.closeIcon)} />
+              </Button>
+            </Tooltip>
           </div>
 
           {isWorkingTree ? (

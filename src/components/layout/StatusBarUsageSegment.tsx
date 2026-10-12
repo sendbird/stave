@@ -9,6 +9,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { StatusBarAccountSection } from "@/components/layout/StatusBarAccountSection";
 import {
   AccountDetail,
@@ -188,27 +189,31 @@ export function StatusBarUsageSegment({
       >
         <div className={sx(statusBarUsageStyles.popoverHeader)}>
           <span className={sx(statusBarUsageStyles.popoverTitle)}>{i18n.t("shell:statusBarUsageSegment.providerUsage", { provider: providerName })}</span>
-          {gateway ? null : <Button
-            variant="ghost"
-            size="sm"
-            xstyle={statusBarUsageStyles.refreshButton}
-            aria-label={i18n.t("shell:statusBarUsageSegment.refreshUsage")}
-            disabled={stale}
-            onClick={() =>
-              void refreshRateLimits({
-                providers: [providerId],
-                force: true,
-                reason: "manual",
-              })
-            }
-          >
-            <RefreshCw
-              className={sx(
-                statusBarUsageStyles.refreshIcon,
-                reading && statusBarUsageStyles.refreshIconSpinning,
-              )}
-            />
-          </Button>}
+          {gateway ? null : (
+            <Tooltip content={i18n.t("shell:statusBarUsageSegment.refreshUsage")}>
+              <Button
+                variant="ghost"
+                size="sm"
+                xstyle={statusBarUsageStyles.refreshButton}
+                aria-label={i18n.t("shell:statusBarUsageSegment.refreshUsage")}
+                disabled={stale}
+                onClick={() =>
+                  void refreshRateLimits({
+                    providers: [providerId],
+                    force: true,
+                    reason: "manual",
+                  })
+                }
+              >
+                <RefreshCw
+                  className={sx(
+                    statusBarUsageStyles.refreshIcon,
+                    reading && statusBarUsageStyles.refreshIconSpinning,
+                  )}
+                />
+              </Button>
+            </Tooltip>
+          )}
         </div>
         <div className={sx(statusBarUsageStyles.popoverBody)}>
           {gateway ? (

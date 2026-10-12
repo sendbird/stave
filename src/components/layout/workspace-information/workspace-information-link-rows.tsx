@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 import {
   ExternalLink,
   GitMerge,
@@ -422,6 +423,17 @@ export function CreateTaskActionButton(props: {
   );
 }
 
+/** Icon-only row action with the shared styled tooltip; the label doubles as its accessible name. */
+function RowIconButton(props: { label: string; xstyle: StyleXValue; onClick: () => void; children: ReactNode }) {
+  return (
+    <AdsTooltip content={props.label}>
+      <AdsButton layout="host" type="button" xstyle={props.xstyle} onClick={props.onClick} aria-label={props.label}>
+        {props.children}
+      </AdsButton>
+    </AdsTooltip>
+  );
+}
+
 export function InlineUrlInput(props: {
   value: string;
   onChange: (value: string) => void;
@@ -440,19 +452,13 @@ export function InlineUrlInput(props: {
         xstyle={styles.bareInput}
         autoFocus
       />
-      <AdsButton
-        layout="host"
-        type="button"
-        xstyle={[
-          styles.iconButton,
-          styles.iconButtonShrink0,
-          styles.iconButtonDanger,
-        ]}
+      <RowIconButton
+        label={tI18n("workspace:workspaceInformationLinkRows.remove")}
+        xstyle={[styles.iconButton, styles.iconButtonShrink0, styles.iconButtonDanger]}
         onClick={props.onRemove}
-        aria-label={tI18n("workspace:workspaceInformationLinkRows.remove")}
       >
         <X className={sx(styles.glyphSm)} />
-      </AdsButton>
+      </RowIconButton>
     </div>
   );
 }
@@ -532,39 +538,29 @@ export function GitHubPrRow(props: {
       <div className={sx(informationRow.trail)}>
         {props.actions}
         {props.onRefresh ? (
-          <AdsButton
-            layout="host"
-            type="button"
-            xstyle={[
-              styles.iconButton,
-              styles.iconButtonHoverSurface,
-              props.loading && styles.glyphSpinning,
-            ]}
+          <RowIconButton
+            label={tI18n("workspace:workspaceInformationLinkRows.refresh")}
+            xstyle={[styles.iconButton, styles.iconButtonHoverSurface, props.loading && styles.glyphSpinning]}
             onClick={props.onRefresh}
-            aria-label={tI18n("workspace:workspaceInformationLinkRows.refresh")}
           >
             <RefreshCcw className={sx(styles.glyphSm)} />
-          </AdsButton>
+          </RowIconButton>
         ) : null}
-        <AdsButton
-          layout="host"
-          type="button"
+        <RowIconButton
+          label={tI18n("workspace:workspaceInformationLinkRows.openOnGithub")}
           xstyle={[styles.iconButton, styles.iconButtonHoverSurface]}
           onClick={() => openExternalUrl(props.url)}
-          aria-label={tI18n("workspace:workspaceInformationLinkRows.openOnGithub")}
         >
           <ExternalLink className={sx(styles.glyphSm)} />
-        </AdsButton>
+        </RowIconButton>
         {props.onRemove ? (
-          <AdsButton
-            layout="host"
-            type="button"
+          <RowIconButton
+            label={tI18n("workspace:workspaceInformationLinkRows.remove")}
             xstyle={[styles.iconButton, styles.iconButtonDanger]}
             onClick={props.onRemove}
-            aria-label={tI18n("workspace:workspaceInformationLinkRows.remove")}
           >
             <X className={sx(styles.glyphSm)} />
-          </AdsButton>
+          </RowIconButton>
         ) : null}
       </div>
     </div>

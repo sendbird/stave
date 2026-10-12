@@ -15,6 +15,7 @@ import {
   Textarea,
   toast,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   DEFAULT_JIRA_JQL,
@@ -449,21 +450,23 @@ export function JiraConnectorSettingsSection() {
                   {mapping.runtime.provider} · {mapping.runtime.model}
                 </Badge>
               ) : null}
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                aria-label={i18n.t("settingsConnections:settingsDialogJiraConnector.removeTheProjectMapping", { value1: mapping.jiraProjectKey })}
-                onClick={() =>
-                  save({
-                    repositoryMappings: connector.repositoryMappings.filter(
-                      (_, position) => position !== index,
-                    ),
-                  })
-                }
-              >
-                <Trash2 className={sx(styles.actionIcon)} aria-hidden="true" />
-              </Button>
+              <Tooltip content={i18n.t("settingsConnections:settingsDialogJiraConnector.removeTheProjectMapping", { value1: mapping.jiraProjectKey })}>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label={i18n.t("settingsConnections:settingsDialogJiraConnector.removeTheProjectMapping", { value1: mapping.jiraProjectKey })}
+                  onClick={() =>
+                    save({
+                      repositoryMappings: connector.repositoryMappings.filter(
+                        (_, position) => position !== index,
+                      ),
+                    })
+                  }
+                >
+                  <Trash2 className={sx(styles.actionIcon)} aria-hidden="true" />
+                </Button>
+              </Tooltip>
             </div>
           ))}
 

@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { AlarmClock, Gauge, Play, X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import type { TaskUsageLimitPause } from "@/store/task-work-pause";
@@ -86,17 +87,18 @@ export const ShelfUsageLimit = memo(function ShelfUsageLimit(props: ShelfUsageLi
           <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfUsageLimit.shelfUsageLimit3")}</span>
         </Button>
         {line.canDismiss ? (
-          <Button
-            variant="quiet"
-            size="xs"
-            iconOnly
-            aria-label={i18n.t("composer:shelfUsageLimit.ariaLabel2")}
-            title={i18n.t("composer:shelfUsageLimit.title4")}
-            onClick={props.onDismiss}
-            xstyle={styles.quiet}
-          >
-            <X aria-hidden />
-          </Button>
+          <Tooltip content={i18n.t("composer:shelfUsageLimit.title4")}>
+            <Button
+              variant="quiet"
+              size="xs"
+              iconOnly
+              aria-label={i18n.t("composer:shelfUsageLimit.ariaLabel2")}
+              onClick={props.onDismiss}
+              xstyle={styles.quiet}
+            >
+              <X aria-hidden />
+            </Button>
+          </Tooltip>
         ) : null}
       </span>
     </div>

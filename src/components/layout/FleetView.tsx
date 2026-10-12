@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   ArrowRight,
   ChartNoAxesColumn,
@@ -693,18 +694,19 @@ export function FleetView() {
           >
             <ChartNoAxesColumn className={sx(styles.actionIcon)} aria-hidden="true" />
             {tI18n("fleet:fleetView.results")}</Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            xstyle={styles.headerIconAction}
-            data-testid="close-fleet-view"
-            aria-label={i18n.t("fleet:fleetView.accessibility.closeFleetView")}
-            title={tI18n("fleet:fleetView.closeFleetView")}
-            onClick={closeFleetView}
-          >
-            <X className={sx(styles.closeIcon)} />
-          </Button>
+          <Tooltip content={tI18n("fleet:fleetView.closeFleetView")}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              xstyle={styles.headerIconAction}
+              data-testid="close-fleet-view"
+              aria-label={i18n.t("fleet:fleetView.accessibility.closeFleetView")}
+              onClick={closeFleetView}
+            >
+              <X className={sx(styles.closeIcon)} />
+            </Button>
+          </Tooltip>
         </div>
       </header>
 
@@ -789,17 +791,18 @@ export function FleetView() {
                 xstyle={styles.searchInput}
               />
               {searchQuery ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  xstyle={styles.searchClear}
-                  aria-label={tI18n("fleet:fleetView.clearSearch")}
-                  title={tI18n("fleet:fleetView.clearSearch")}
-                  onClick={() => setSearchQuery("")}
-                >
-                  <X className={sx(styles.actionIcon)} />
-                </Button>
+                <Tooltip content={tI18n("fleet:fleetView.clearSearch")}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    xstyle={styles.searchClear}
+                    aria-label={tI18n("fleet:fleetView.clearSearch")}
+                    onClick={() => setSearchQuery("")}
+                  >
+                    <X className={sx(styles.actionIcon)} />
+                  </Button>
+                </Tooltip>
               ) : null}
             </div>
             {isFilterActive ? (

@@ -22,6 +22,7 @@ import {
   Loader,
   toast,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   setCraneConnectorClientStatus,
@@ -216,21 +217,23 @@ export function CraneConnectorSettingsSection() {
               <BookOpen className={sx(styles.guideIcon)} />
               {t("settingsConnections:settingsDialogCraneConnector.readSetupGuide")}</Button>
           </div>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("settingsConnections:settingsDialogCraneConnector.refreshCraneConnectorStatus")}
-            disabled={busy !== null}
-            onClick={() => void refreshStatus()}
-          >
-            <RefreshCw
-              className={sx(
-                styles.refreshIcon,
-                busy === "refresh" && styles.refreshIconSpinning,
-              )}
-            />
-          </Button>
+          <Tooltip content={t("settingsConnections:settingsDialogCraneConnector.refreshCraneConnectorStatus")}>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={t("settingsConnections:settingsDialogCraneConnector.refreshCraneConnectorStatus")}
+              disabled={busy !== null}
+              onClick={() => void refreshStatus()}
+            >
+              <RefreshCw
+                className={sx(
+                  styles.refreshIcon,
+                  busy === "refresh" && styles.refreshIconSpinning,
+                )}
+              />
+            </Button>
+          </Tooltip>
         </div>
 
         <div className={sx(styles.body)}>
@@ -459,24 +462,26 @@ export function CraneConnectorSettingsSection() {
                           {mapping.staveProjectPath}
                         </p>
                       </div>
-                      <Button
-                        type="button"
-                        size="icon-sm"
-                        variant="ghost"
-                        aria-label={i18n.t("settingsConnections:settingsDialogCraneConnector.removeRepositoryMapping", { value1: routeLabel })}
-                        onClick={() =>
-                          saveConnector({
-                            repositoryMappings: connector.repositoryMappings.filter(
-                              (_, mappingIndex) => mappingIndex !== index,
-                            ),
-                          })
-                        }
-                      >
-                        <Trash2
-                          className={sx(styles.actionIcon)}
-                          aria-hidden="true"
-                        />
-                      </Button>
+                      <Tooltip content={i18n.t("settingsConnections:settingsDialogCraneConnector.removeRepositoryMapping", { value1: routeLabel })}>
+                        <Button
+                          type="button"
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={i18n.t("settingsConnections:settingsDialogCraneConnector.removeRepositoryMapping", { value1: routeLabel })}
+                          onClick={() =>
+                            saveConnector({
+                              repositoryMappings: connector.repositoryMappings.filter(
+                                (_, mappingIndex) => mappingIndex !== index,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2
+                            className={sx(styles.actionIcon)}
+                            aria-hidden="true"
+                          />
+                        </Button>
+                      </Tooltip>
                     </div>
                   );
                 })}

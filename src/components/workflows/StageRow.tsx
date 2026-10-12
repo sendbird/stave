@@ -17,6 +17,7 @@ import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { TextField } from "@/components/ads/components/TextField";
 import { Textarea } from "@/components/ads/components/Textarea";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Tooltip as UiTooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   AI_STAGE_ROLES,
@@ -121,32 +122,34 @@ export function StageRow(props: StageRowProps) {
       aria-label={i18n.t("agentRuns:stageRow.ariaLabel", { value1: index + 1, value2: stage.title })}
     >
       <div className={sx(styles.stageHead)}>
-        <Button
-          variant="quiet"
-          size="iconSm"
-          iconOnly
-          press="none"
-          aria-label={i18n.t("agentRuns:stageRow.ariaLabel2", { value1: stage.title })}
-          xstyle={styles.handle}
-          draggable
-          onDragStart={props.dragHandlers.onDragStart}
-          onDragEnd={props.dragHandlers.onDragEnd}
-          onKeyDown={(event) => {
-            if (!event.altKey) return;
-            const to = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : null;
-            if (to === null || to < 0 || to > count - 1) return;
-            event.preventDefault();
-            // Reordering moves this row's element, which drops focus; keep it
-            // on the handle so the next Alt+arrow keeps moving the same stage.
-            const handle = event.currentTarget;
-            props.onMove(to);
-            requestAnimationFrame(() => {
-              if (handle.isConnected && document.activeElement !== handle) handle.focus();
-            });
-          }}
-        >
-          <GripVertical aria-hidden />
-        </Button>
+        <Tooltip content={i18n.t("agentRuns:stageRow.ariaLabel2", { value1: stage.title })}>
+          <Button
+            variant="quiet"
+            size="iconSm"
+            iconOnly
+            press="none"
+            aria-label={i18n.t("agentRuns:stageRow.ariaLabel2", { value1: stage.title })}
+            xstyle={styles.handle}
+            draggable
+            onDragStart={props.dragHandlers.onDragStart}
+            onDragEnd={props.dragHandlers.onDragEnd}
+            onKeyDown={(event) => {
+              if (!event.altKey) return;
+              const to = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : null;
+              if (to === null || to < 0 || to > count - 1) return;
+              event.preventDefault();
+              // Reordering moves this row's element, which drops focus; keep it
+              // on the handle so the next Alt+arrow keeps moving the same stage.
+              const handle = event.currentTarget;
+              props.onMove(to);
+              requestAnimationFrame(() => {
+                if (handle.isConnected && document.activeElement !== handle) handle.focus();
+              });
+            }}
+          >
+            <GripVertical aria-hidden />
+          </Button>
+        </Tooltip>
         <span className={sx(styles.number)} aria-hidden>
           {index + 1}
         </span>
@@ -188,52 +191,61 @@ export function StageRow(props: StageRowProps) {
               <Hand aria-hidden />
             </Button>
           </Tooltip>
-          <Button
-            variant="quiet"
-            size="iconSm"
-            iconOnly
-            press="none"
-            aria-label={props.expanded ? i18n.t("agentRuns:stageRow.ariaLabel6", { value1: stage.title }) : i18n.t("agentRuns:stageRow.ariaLabel7", { value1: stage.title })}
-            aria-expanded={props.expanded}
-            aria-controls={bodyId}
-            onClick={props.onToggleExpanded}
-          >
-            <ChevronRight aria-hidden className={sx(styles.chevron, props.expanded && styles.chevronOpen)} />
-          </Button>
-          <DropdownMenu
-            placement="bottom-end"
-            triggerAsChild
-            trigger={
-              <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:stageRow.ariaLabel8", { value1: stage.title })}>
-                <Ellipsis aria-hidden />
-              </Button>
-            }
-            groups={[
-              {
-                items: [
-                  { label: i18n.t("agentRuns:stageRow.label4"), icon: <ArrowUp />, disabled: index === 0, onSelect: () => props.onMove(index - 1) },
-                  {
-                    label: i18n.t("agentRuns:stageRow.label5"),
-                    icon: <ArrowDown />,
-                    disabled: index === count - 1,
-                    onSelect: () => props.onMove(index + 1),
-                  },
-                  ...(stage.kind === "ai" ? [{ label: i18n.t("agentRuns:stageRow.label6"), icon: <Copy />, onSelect: props.onDuplicate }] : []),
-                ],
-              },
-              {
-                items: [
-                  {
-                    label: i18n.t("agentRuns:stageRow.label7"),
-                    icon: <Trash2 />,
-                    tone: "danger" as const,
-                    disabled: count === 1,
-                    onSelect: props.onRemove,
-                  },
-                ],
-              },
-            ]}
-          />
+          <Tooltip content={props.expanded ? i18n.t("agentRuns:stageRow.ariaLabel6", { value1: stage.title }) : i18n.t("agentRuns:stageRow.ariaLabel7", { value1: stage.title })}>
+            <Button
+              variant="quiet"
+              size="iconSm"
+              iconOnly
+              press="none"
+              aria-label={props.expanded ? i18n.t("agentRuns:stageRow.ariaLabel6", { value1: stage.title }) : i18n.t("agentRuns:stageRow.ariaLabel7", { value1: stage.title })}
+              aria-expanded={props.expanded}
+              aria-controls={bodyId}
+              onClick={props.onToggleExpanded}
+            >
+              <ChevronRight aria-hidden className={sx(styles.chevron, props.expanded && styles.chevronOpen)} />
+            </Button>
+          </Tooltip>
+          <UiTooltip>
+            <DropdownMenu
+              placement="bottom-end"
+              triggerAsChild
+              trigger={
+                <TooltipTrigger
+                  render={
+                    <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:stageRow.ariaLabel8", { value1: stage.title })}>
+                      <Ellipsis aria-hidden />
+                    </Button>
+                  }
+                />
+              }
+              groups={[
+                {
+                  items: [
+                    { label: i18n.t("agentRuns:stageRow.label4"), icon: <ArrowUp />, disabled: index === 0, onSelect: () => props.onMove(index - 1) },
+                    {
+                      label: i18n.t("agentRuns:stageRow.label5"),
+                      icon: <ArrowDown />,
+                      disabled: index === count - 1,
+                      onSelect: () => props.onMove(index + 1),
+                    },
+                    ...(stage.kind === "ai" ? [{ label: i18n.t("agentRuns:stageRow.label6"), icon: <Copy />, onSelect: props.onDuplicate }] : []),
+                  ],
+                },
+                {
+                  items: [
+                    {
+                      label: i18n.t("agentRuns:stageRow.label7"),
+                      icon: <Trash2 />,
+                      tone: "danger" as const,
+                      disabled: count === 1,
+                      onSelect: props.onRemove,
+                    },
+                  ],
+                },
+              ]}
+            />
+            <TooltipContent>{i18n.t("agentRuns:stageRow.ariaLabel8", { value1: stage.title })}</TooltipContent>
+          </UiTooltip>
         </div>
       </div>
       {props.expanded ? (

@@ -1517,28 +1517,37 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                 </Tooltip>
 
                 <DropdownMenu>
-                  <DropdownMenuTrigger
-                    render={
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className={cx(
-                          COMPOSER_CONTROL_BUTTON,
-                          COMPOSER_CONTROL_GROUP_MENU,
-                          sx(chatInputStyles.compareControlMenuTrigger),
-                        )}
-                        aria-label={i18n.t("session:chatInputComposer.ariaLabel2")}
-                        {...composerControlAttributes}
-                        disabled={
-                          recentCompareRuns.length === 0 &&
-                          (isInputBlocked || draftText.trim().length === 0)
-                        }
-                      >
-                        <ChevronDown size={14} />
-                      </Button>
-                    }
-                  />
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className={cx(
+                                COMPOSER_CONTROL_BUTTON,
+                                COMPOSER_CONTROL_GROUP_MENU,
+                                sx(chatInputStyles.compareControlMenuTrigger),
+                              )}
+                              aria-label={i18n.t("session:chatInputComposer.ariaLabel2")}
+                              {...composerControlAttributes}
+                              disabled={
+                                recentCompareRuns.length === 0 &&
+                                (isInputBlocked || draftText.trim().length === 0)
+                              }
+                            >
+                              <ChevronDown size={14} />
+                            </Button>
+                          }
+                        />
+                      }
+                    />
+                    <TooltipContent side="top" className={sx(chatInputStyles.tooltipContent)}>
+                      {i18n.t("session:chatInputComposer.ariaLabel2")}
+                    </TooltipContent>
+                  </Tooltip>
 
                   <DropdownMenuContent
                     align="start"

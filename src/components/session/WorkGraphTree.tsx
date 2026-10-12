@@ -3,6 +3,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { transition } from "@/components/ads/recipes/transition";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { memo, useId, useMemo, useState } from "react";
 import {
   ChevronDown,
@@ -394,17 +395,17 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           {controls.available.map((control) => {
             const Icon = WORK_GRAPH_CONTROL_ICONS[control];
             return (
-              <Button
-                key={control}
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                title={WORK_GRAPH_CONTROL_LABELS[control]}
-                aria-label={i18n.t("session:workGraphTree.controlAgent", { control: WORK_GRAPH_CONTROL_LABELS[control], agent: displayLabel })}
-                onClick={() => onControl?.({ control, node })}
-              >
-                <Icon className={sx(styles.controlIcon)} aria-hidden="true" />
-              </Button>
+              <Tooltip key={control} content={WORK_GRAPH_CONTROL_LABELS[control]}>
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  aria-label={i18n.t("session:workGraphTree.controlAgent", { control: WORK_GRAPH_CONTROL_LABELS[control], agent: displayLabel })}
+                  onClick={() => onControl?.({ control, node })}
+                >
+                  <Icon className={sx(styles.controlIcon)} aria-hidden="true" />
+                </Button>
+              </Tooltip>
             );
           })}
         </span>
