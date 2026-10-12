@@ -24,7 +24,6 @@ const runActions = {
   onStop: () => {},
   onTakeControl: () => {},
   onRetry: () => {},
-  onAskForChanges: () => {},
   onOpenPullRequest: () => {},
 };
 

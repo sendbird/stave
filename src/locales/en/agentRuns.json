@@ -118,7 +118,6 @@
   },
   "agentRunResultCard": {
     "agentRunOutcome": "PR #",
-    "agentRunOutcome2": "Ask for changes",
     "agentRunOutcome3": "Open PR",
     "agentRunResultCardView": "Done when",
     "agentRunResultCardView2": "Retry",

@@ -19,8 +19,6 @@ export interface AgentRunActions {
   onTakeControl?: () => void;
   /** Asks a stuck stage again, or starts a new run from the same assignment. */
   onRetry?: () => void;
-  /** Focuses the composer; the agent stays assigned, so the next send starts a run. */
-  onAskForChanges?: () => void;
   onOpenPullRequest?: (url: string) => void;
 }
 
@@ -91,7 +89,6 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
           if (!started.ok) toast.error(i18n.t("agentRuns:useAgentRunActions.copy3"), { description: started.message });
         })();
       },
-      onAskForChanges: () => useAppStore.setState((state) => ({ promptFocusNonce: state.promptFocusNonce + 1 })),
       onOpenPullRequest: (url) => void openExternalUrl({ url }),
     };
   }, [busy, detail]);

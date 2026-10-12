@@ -118,7 +118,6 @@
   },
   "agentRunResultCard": {
     "agentRunOutcome": "PR 번호",
-    "agentRunOutcome2": "변경 요청",
     "agentRunOutcome3": "PR 열기",
     "agentRunResultCardView": "완료 조건",
     "agentRunResultCardView2": "다시 시도",
