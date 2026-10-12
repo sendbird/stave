@@ -23,6 +23,8 @@ import {
   selectReviewShelfItems,
   splitTaskIds,
   toDelegatedTaskEffort,
+  buildDocumentReviewCriteria,
+  REVIEW_TASK_CRITERIA_MAX_CHARS,
 } from "../src/lib/reviews/review-task";
 import { normalizeReviewCommitRef } from "../src/lib/local-change-review";
 import {
@@ -409,5 +411,25 @@ describe("commit target, criteria and cross-check", () => {
     expect(normalizeReviewTaskSettings({}).crossCheck).toBe(false);
     expect(normalizeReviewTaskSettings({ crossCheck: "yes" }).crossCheck).toBe(false);
     expect(normalizeReviewTaskSettings({ crossCheck: true }).crossCheck).toBe(true);
+  });
+});
+
+describe("buildDocumentReviewCriteria", () => {
+  test("names the document and keeps its text", () => {
+    expect(
+      buildDocumentReviewCriteria({
+        filePath: ".stave/context/plans/retry.md",
+        content: "\n# Retry\n\n- cap at 3\n",
+      }),
+    ).toBe("Workspace document `.stave/context/plans/retry.md`:\n\n# Retry\n\n- cap at 3");
+  });
+
+  test("fits the criteria cap and says where it was cut", () => {
+    const criteria = buildDocumentReviewCriteria({
+      filePath: ".stave/context/plans/big.md",
+      content: "x".repeat(REVIEW_TASK_CRITERIA_MAX_CHARS * 2),
+    });
+    expect(criteria.length).toBeLessThanOrEqual(REVIEW_TASK_CRITERIA_MAX_CHARS);
+    expect(criteria.endsWith("(cut here; read the file for the rest)")).toBe(true);
   });
 });

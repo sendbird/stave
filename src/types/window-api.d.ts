@@ -2068,6 +2068,12 @@ interface WindowPersistenceApi {
   }) => Promise<
     { ok: boolean } & import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentActivity
   >;
+  workspaceDocumentCatalog?: (
+    args: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentCatalogArgs,
+  ) => Promise<{
+    ok: boolean;
+    entries: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentCatalogEntry[];
+  }>;
   workspaceDocumentRevisions?: (
     args: import("@/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionsArgs,
   ) => Promise<{

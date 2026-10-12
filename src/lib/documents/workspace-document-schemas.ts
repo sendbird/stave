@@ -19,6 +19,10 @@ export const MAX_WORKSPACE_DOCUMENTS_PER_SYNC = 100;
 export const MAX_WORKSPACE_DOCUMENT_REVISIONS = 50;
 /** Turn-to-revision links returned for the conversation cards. */
 export const MAX_WORKSPACE_DOCUMENT_TURN_LINKS = 500;
+/** Documents kept, newest revision only, across all deleted workspaces. */
+export const MAX_ARCHIVED_WORKSPACE_DOCUMENTS = 200;
+/** Documents from other workspaces offered for attaching. */
+export const MAX_WORKSPACE_DOCUMENT_CATALOG_ENTRIES = 200;
 
 /**
  * Who produced a revision. `agent`: the file changed during a turn of the task
@@ -141,3 +145,20 @@ export const WorkspaceDocumentRevisionArgsSchema = z
 export type WorkspaceDocumentRevisionArgs = z.infer<
   typeof WorkspaceDocumentRevisionArgsSchema
 >;
+
+export const WorkspaceDocumentCatalogArgsSchema = z
+  .object({ excludeWorkspaceId: WorkspaceIdSchema.optional() })
+  .strict();
+export type WorkspaceDocumentCatalogArgs = z.infer<
+  typeof WorkspaceDocumentCatalogArgsSchema
+>;
+
+/** The newest revision of a document in another workspace, live or deleted. */
+export interface WorkspaceDocumentCatalogEntry {
+  workspaceId: string;
+  workspaceName: string;
+  workspaceDeleted: boolean;
+  filePath: string;
+  revision: number;
+  updatedAt: string;
+}

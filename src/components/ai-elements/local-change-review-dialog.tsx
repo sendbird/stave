@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { useId, useMemo, useRef, useState } from "react";
 import { ReviewPromptPicker } from "./review-prompt-picker";
+import { ReviewDocumentPicker } from "./review-document-picker";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   COMPOSER_CONTROL_BUTTON,
@@ -678,11 +679,15 @@ export function LocalChangeReviewDialog(args: LocalChangeReviewDialogProps) {
 
           <section className={sx(styles.section)}>
             <div className={sx(styles.labelStack)}>
-              <label htmlFor={`${idPrefix}-criteria`} className={sx(styles.instructionsLabel)}>
+              <label id={`${idPrefix}-criteria-label`} htmlFor={`${idPrefix}-criteria`} className={sx(styles.instructionsLabel)}>
                 {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog27")}</label>
               <p className={sx(styles.focusDescription)}>
                 {i18n.t("composer:localChangeReviewDialog.localChangeReviewDialog28")}</p>
             </div>
+            <ReviewDocumentPicker
+              aria-labelledby={`${idPrefix}-criteria-label`}
+              onLoad={setCriteria}
+            />
             <Textarea
               id={`${idPrefix}-criteria`}
               value={criteria}

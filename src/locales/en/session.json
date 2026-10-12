@@ -515,7 +515,8 @@
     "title7": "Image context",
     "title8": "Workspace context",
     "text": "Workspace information was attached to this turn.",
-    "title9": "Task context"
+    "title9": "Task context",
+    "documentContext": "Attached document"
   },
   "assignPaletteEntry": {
     "label": "Assign to an agent…",
@@ -825,6 +826,11 @@
     "copy2": "Task already attached",
     "copy3": "Too many attached tasks",
     "description2": "Attach up to {{value1}} tasks to one message."
+  },
+  "useDocumentContextMentions": {
+    "limitReached": "Too many attached documents",
+    "limitDescription_one": "Attach up to {{count}} document to one message.",
+    "limitDescription_other": "Attach up to {{count}} documents to one message."
   },
   "useDelegatedTasks": {
     "describeThrown": "The delegated task action could not be delivered.",

@@ -2,6 +2,7 @@ import { ipcMain } from "electron";
 import { WorkspaceDirectionDraftScopeSchema, SaveWorkspaceDirectionDraftSchema } from "../../../src/lib/workspace-resume-brief";
 import {
   RecordWorkspaceDocumentsArgsSchema,
+  WorkspaceDocumentCatalogArgsSchema,
   WorkspaceDocumentRevisionArgsSchema,
   WorkspaceDocumentRevisionsArgsSchema,
   WorkspaceDocumentScopeSchema,
@@ -59,6 +60,12 @@ export function registerPersistenceHandlers() {
     if (!parsed.success) return { ok: false, documents: [], turnLinks: [] };
     const store = await ensurePersistenceReady();
     return { ok: true, ...store.documents.activity(parsed.data.workspaceId) };
+  });
+  ipcMain.handle("persistence:workspace-document-catalog", async (_event, args: unknown) => {
+    const parsed = WorkspaceDocumentCatalogArgsSchema.safeParse(args ?? {});
+    if (!parsed.success) return { ok: false, entries: [] };
+    const store = await ensurePersistenceReady();
+    return { ok: true, entries: store.documents.catalog(parsed.data.excludeWorkspaceId) };
   });
   ipcMain.handle("persistence:workspace-document-revisions", async (_event, args: unknown) => {
     const parsed = WorkspaceDocumentRevisionsArgsSchema.safeParse(args);

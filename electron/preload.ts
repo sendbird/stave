@@ -1683,6 +1683,9 @@ contextBridge.exposeInMainWorld("api", {
     ) => ipcRenderer.invoke("persistence:record-workspace-documents", args),
     workspaceDocumentActivity: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("persistence:workspace-document-activity", args),
+    workspaceDocumentCatalog: (
+      args: import("../src/lib/documents/workspace-document-schemas").WorkspaceDocumentCatalogArgs,
+    ) => ipcRenderer.invoke("persistence:workspace-document-catalog", args),
     workspaceDocumentRevisions: (
       args: import("../src/lib/documents/workspace-document-schemas").WorkspaceDocumentRevisionsArgs,
     ) => ipcRenderer.invoke("persistence:workspace-document-revisions", args),

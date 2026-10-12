@@ -126,7 +126,7 @@
     "localChangeReviewDialog24": "Additional instructions",
     "placeholder2": "For example: verify the task-switching regression and make sure draft state is preserved.",
     "localChangeReviewDialog27": "Check against a plan or acceptance criteria",
-    "localChangeReviewDialog28": "Optional. Paste the plan or the criteria the work must meet; each one that is not met becomes a finding.",
+    "localChangeReviewDialog28": "Optional. Paste the plan or the criteria the work must meet, or load a workspace document; each one that is not met becomes a finding.",
     "placeholder3": "For example: a dismissed review stays dismissed after a restart.",
     "localChangeReviewDialog29": "Read-only task · runs beside this one",
     "localChangeReviewDialog30": "Read-only review · no PR lookup",
@@ -139,6 +139,14 @@
     "sentence27": "Add product intent, risk areas, or files that deserve special attention. {{value1}}",
     "sentence24_one": "{{value1}} changed file ",
     "sentence24_other": "{{value1}} changed file s"
+  },
+  "reviewDocumentPicker": {
+    "trigger": "Load from a document",
+    "triggerAria": "Load criteria from a workspace document",
+    "search": "Search documents…",
+    "searchAria": "Search workspace documents",
+    "empty": "No documents found.",
+    "couldNotRead": "Could not read the document."
   },
   "messageMarkdown": {
     "tooltipLabel": "Open {{value1}} on {{value2}}",
@@ -362,7 +370,7 @@
     "copy11": "Provider",
     "composerCard13": "Enter or Tab attaches the highlighted task as context.",
     "composerCard14": "Enter or Tab inserts the highlighted Information reference.",
-    "composerCard15": "Type `@` to search Information and tasks. A task attaches below the prompt; you can also drag one in from the sidebar. Information selection inserts `@info:section` for a full section or `@info:section/item` for one item. `@lens` references the current Lens browser page; `@web` connects the active provider to its native browser extension.",
+    "composerCard15": "Type `@` to search Information, tasks, and documents from other workspaces. A task or document attaches below the prompt; you can also drag a task in from the sidebar. Information selection inserts `@info:section` for a full section or `@info:section/item` for one item. `@lens` references the current Lens browser page; `@web` connects the active provider to its native browser extension.",
     "composerCard16": "Enter or Tab inserts the highlighted skill token. Selected skills are normalized on send.",
     "composerCard17": "`$skill` activates Stave skill instructions for both `Claude` and `Codex` via prompt context. Use `/` commands only for provider-native commands.",
     "composerCard18": "Enter or Tab expands the highlighted macro into the draft.",
@@ -411,7 +419,11 @@
     "sentence32_one": "{{value1}} item will send as one prompt",
     "sentence32_other": "{{value1}} items will send as one prompt",
     "title4_one": "{{value1}} attachment",
-    "title4_other": "{{value1}} attachments"
+    "title4_other": "{{value1}} attachments",
+    "documentsHeading": "Documents from other workspaces",
+    "documentFromWorkspace": "Workspace {{workspace}}",
+    "documentFromDeletedWorkspace": "Deleted workspace {{workspace}}",
+    "documentPaletteHint": "Enter or Tab attaches the highlighted document as context."
   },
   "promptLexicalEditor": {
     "ariaLabel": "Prompt"

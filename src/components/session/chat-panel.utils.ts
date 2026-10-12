@@ -358,6 +358,8 @@ function getMessagePartScrollFingerprint(part: MessagePart): string {
       return `workspace-information:${part.reference.token}:${part.reference.label}`;
     case "task_context":
       return `task-context:${part.taskId}:${part.scope}:${part.title}`;
+    case "document_context":
+      return `document-context:${part.workspaceId}:${part.filePath}:${part.revision}`;
     case "approval":
       return `approval:${part.toolName}:${part.state}:${part.description.length}`;
     case "user_input":

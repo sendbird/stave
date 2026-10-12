@@ -90,6 +90,8 @@ function describePart(part: MessagePart, role: ChatMessage["role"]) {
       };
     case "task_context":
       return { title: i18n.t("session:activityDetailUtils.title9"), text: part.title };
+    case "document_context":
+      return { title: i18n.t("session:activityDetailUtils.documentContext"), text: part.filePath };
   }
 }
 

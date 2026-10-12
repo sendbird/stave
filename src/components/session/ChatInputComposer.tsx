@@ -85,6 +85,7 @@ import {
 import { chatInputStyles } from "./chat-input.styles";
 import { resolveQueuePause } from "@/store/task-work-pause";
 import { useTaskContextMentions } from "./use-task-context-mentions";
+import { useDocumentContextMentions } from "./use-document-context-mentions";
 import { useAppStore } from "@/store/app.store";
 import { getImageAttachmentMimeType } from "@/store/prompt-draft-message-content";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
@@ -498,6 +499,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     [workspaceInformation],
   );
   const taskMentions = useTaskContextMentions({ taskId: args.activeTaskId, attachments: promptDraft.attachments, onAttachmentsChange: (attachments) => updateNonTextPromptDraft({ attachments }) });
+  const documentMentions = useDocumentContextMentions({ taskId: args.activeTaskId, attachments: promptDraft.attachments, onAttachmentsChange: (attachments) => updateNonTextPromptDraft({ attachments }) });
   const [draftText, setDraftText] = useState(promptDraft.text);
   const [comparePrepareOpen, setComparePrepareOpen] = useState(false);
   const [compareHistoryOpen, setCompareHistoryOpen] = useState(false);
@@ -1647,6 +1649,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
           taskMentionOptions={taskMentions.options}
           onAttachTask={taskMentions.attach}
+          documentMentionOptions={documentMentions.options}
+          onAttachDocument={documentMentions.attach}
           onValueChange={(value) => {
             draftTextRef.current = value;
             setDraftText(value);

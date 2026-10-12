@@ -33,6 +33,7 @@ import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
 import { TaskContextChip } from "@/components/task-context-chip";
+import { DocumentContextChip, openAttachedDocument } from "@/components/document-context-chip";
 import { openAttachedTask } from "@/components/open-attached-task";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import { chatPanelMessagePartsStyles } from "./chat-panel-message-parts.styles";
@@ -178,6 +179,15 @@ export function MessagePartRenderer(args: {
           scope={part.scope}
           findingCount={part.findingIds?.length}
           onOpen={() => void openAttachedTask({ taskId: part.taskId, workspaceId: part.workspaceId })}
+        />
+      );
+    case "document_context":
+      return (
+        <DocumentContextChip
+          title={part.title}
+          workspaceName={part.workspaceName}
+          revision={part.revision}
+          onOpen={() => openAttachedDocument(part)}
         />
       );
     // Approvals and user-input requests render in the assistant trace

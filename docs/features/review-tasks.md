@@ -70,7 +70,7 @@ writer when another model should change files.
 | Review skill | The reviewer follows the skill's instructions. Only skills the chosen reviewer can load are offered. |
 | Also review with | Starts a second, independent read-only review on the other provider at the same time, with that provider's review model. Each review gets its own line. The default follows **Cross-check With Both Providers** in Settings. |
 | Additional instructions | Added to this review only, after your saved review instructions. |
-| Check against a plan or acceptance criteria | Optional. The reviewer reports unmet criteria supported by concrete evidence and calibrates severity by their actual impact. |
+| Check against a plan or acceptance criteria | Optional. The reviewer reports unmet criteria supported by concrete evidence and calibrates severity by their actual impact. **Load from a document** fills the field with one of the workspace's [documents](workspace-documents.md); edit the text before starting if needed. |
 
 The line above the composer:
 
@@ -197,6 +197,15 @@ for the method, preset selection and evaluation limits.
 3. Start the review. Confirmed unmet criteria come back as findings named after
    the criterion. Unverified criteria appear in the limitations; severity follows
    the impact of the unmet behavior.
+
+### Check the work against an agreed plan document
+
+1. Select **Review** and pick the target, such as **Uncommitted changes**.
+2. Under **Check against a plan or acceptance criteria**, select
+   **Load from a document** and pick the plan.
+3. Start the review. Steps of the plan that the work does not meet come back
+   as findings. A document longer than 8,000 characters is cut, and the
+   reviewer is told to read the file for the rest.
 
 ### Apply a team checklist to every review
 

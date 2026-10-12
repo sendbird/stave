@@ -34,6 +34,7 @@ import {
   type TaskReviewDraftState,
 } from "@/components/layout/editor-diff-review";
 import { EditorImagePreviewOverlay } from "@/components/layout/editor-image-preview-overlay";
+import { registerQuoteSelectionInChatAction } from "@/components/layout/editor-selection-quote";
 import {
   attachInlineCompletionInteractionTracking,
   configureInlineCompletions,
@@ -448,6 +449,8 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   }, [ensureTabActive]);
   const performSaveRef = useRef(performSave);
   performSaveRef.current = performSave;
+  const tabFilePathRef = useRef<string | null>(tab?.filePath ?? null);
+  tabFilePathRef.current = tab?.filePath ?? null;
 
   function handleToggleDiffMode() {
     const nextDiffMode = !diffMode;
@@ -1077,6 +1080,10 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
                   lastFocusedCodeEditor = editor;
                 });
                 attachInlineCompletionInteractionTracking(editor);
+                registerQuoteSelectionInChatAction({
+                  editor,
+                  getFilePath: () => tabFilePathRef.current,
+                });
                 editor.addCommand(
                   monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
                   () => {

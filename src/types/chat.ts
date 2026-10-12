@@ -22,6 +22,7 @@ export type MessagePartType =
   | "image_context"
   | "workspace_information_context"
   | "task_context"
+  | "document_context"
   | "approval"
   | "user_input"
   | "system_event";
@@ -56,6 +57,20 @@ export type Attachment =
       findingIds?: string[];
       /** The review reply `findingIds` were read from. */
       findingsReplyId?: string;
+    }
+  | {
+      /**
+       * A recorded revision of another workspace's document, sent as context
+       * with this prompt. The workspace may have been deleted since.
+       */
+      kind: "document-context";
+      id: string;
+      workspaceId: string;
+      /** The workspace's name when attached, so the chip reads after it is deleted. */
+      workspaceName: string;
+      filePath: string;
+      revision: number;
+      title: string;
     }
   | {
       kind: "lens-annotations";
@@ -315,6 +330,16 @@ export interface TaskContextPart extends MessagePartBase {
   findingIds?: string[];
 }
 
+/** Another workspace's document attached as context, shown on the user message that carried it. */
+export interface DocumentContextPart extends MessagePartBase {
+  type: "document_context";
+  workspaceId: string;
+  workspaceName: string;
+  filePath: string;
+  revision: number;
+  title: string;
+}
+
 export interface SystemEventPart extends MessagePartBase {
   type: "system_event";
   content: string;
@@ -333,6 +358,7 @@ export type MessagePart =
   | ImageContextPart
   | WorkspaceInformationContextPart
   | TaskContextPart
+  | DocumentContextPart
   | ApprovalPart
   | UserInputPart
   | SystemEventPart;

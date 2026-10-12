@@ -1316,5 +1316,15 @@
     "reasonMerged": "PR merged",
     "reasonInactive": "No recent activity",
     "until": "Until {{time}}"
+  },
+  "documentContext": {
+    "chip": {
+      "source": "{{workspace}} · v{{revision}}",
+      "openAriaLabel": "Open attached document {{title}}",
+      "openTitle": "Open {{title}}",
+      "removeAriaLabel": "Remove attached document {{title}}",
+      "removeTitle": "Remove document",
+      "couldNotOpen": "Could not open the attached document."
+    }
   }
 }

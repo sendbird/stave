@@ -120,6 +120,7 @@ import {
   userSettingsPermissionOptions,
 } from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
+import { recordTurnWorkspaceDocuments } from "./turn-workspace-documents";
 import {
   RepositoryMemoryContentSchema,
   RepositoryMemoryKindSchema,
@@ -2004,6 +2005,8 @@ async function runTaskImpl(args: {
   });
 
   taskControlGate.assertCurrent(task.id, controlGeneration);
+  // Edits made since the last turn are not this turn's work.
+  await recordTurnWorkspaceDocuments({ workspaceId: args.workspaceId, workspacePath, author: "external" });
   const started = providerRuntime.startTurnStream(
     {
       turnId,
@@ -2050,6 +2053,15 @@ async function runTaskImpl(args: {
               sequence: eventSequence,
               event,
             });
+            if (event.type === "done") {
+              // Before the done update, so the renderer's refresh sees the revisions.
+              await recordTurnWorkspaceDocuments({
+                workspaceId: args.workspaceId,
+                workspacePath,
+                taskId: task.id,
+                turnId,
+              });
+            }
             emitTaskTurnUpdate({
               workspaceId: args.workspaceId,
               taskId: task.id,
