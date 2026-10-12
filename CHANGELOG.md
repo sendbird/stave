@@ -1,3 +1,28 @@
+## [0.26.5](https://github.com/sendbird/stave/compare/v0.26.4...v0.26.5) (2026-10-12)
+
+This patch release adds customizable routing levels, document attribution, quoting and attachment, and a native Chrome retry for blocked Lens reads, and fixes quota state, run context and Compare baselines.
+
+### Features and Fixes
+
+- Routing levels are customizable per Auto profile: choose each level's model tier and the effort each preference (Cost-saver, Balanced, Quality-first) runs in Settings → Auto → Routing levels, with a **Custom** marker and **Reset level**. The Extreme level now defaults to a medium-high effort range, so Quality-first runs at high instead of xhigh. Expert and Complex are unchanged.
+- Workspace documents record edits correctly for turns the host runs (Local MCP, agent runs, automations, wake-ups, Crane), so they are no longer reported back as your own edits. **Quote Selection in Chat** sends selected editor lines to the composer, reviews can **Load from a document**, and `@` attaches documents, including the newest revision kept from deleted workspaces, as pinned context.
+- Automatic browser fallback is on by default (saved opt-outs are kept): a blocked Lens read gets one `@web` follow-up through the provider's signed-in Chrome session. Native browser permissions stay provider-owned.
+- Icon-only buttons across the app show styled tooltips instead of relying on the native `title`.
+- A zero Codex credit budget no longer shows 100% consumed or blocks included allowance. Partial quota updates keep untouched windows, and older reads cannot overwrite newer pushes. Agent classification and readiness checks keep the account they started with.
+- Supervised Runs keep inline images and attached task or Information panel context through retries, continuations and restart. Outputs default to all saved outputs and describe inbox state as read/unread. Compare candidates and the judge share one starting commit resolved once from the selected branch.
+
+### Upgrade Notes
+
+- Auto routing profiles move to version 6. The temporary migration `auto-routing-profile-v6` rewrites only unchanged starter level rules in custom tables and is scheduled for removal in 0.28.0.
+
+### Known Limits
+
+- Live external Chrome connectivity, actual provider billing, an installed-app account switch and paid live provider sessions were not exercised for these changes. The editor Quote Selection action and the review document picker were not checked in the desktop app.
+
+### References
+
+- [PR #731](https://github.com/sendbird/stave/pull/731), [PR #732](https://github.com/sendbird/stave/pull/732), [PR #733](https://github.com/sendbird/stave/pull/733), [PR #734](https://github.com/sendbird/stave/pull/734), [PR #735](https://github.com/sendbird/stave/pull/735), [PR #736](https://github.com/sendbird/stave/pull/736)
+
 ## [0.26.4](https://github.com/sendbird/stave/compare/v0.26.3...v0.26.4) (2026-10-11)
 
 This patch release shares System default's custom MCP servers with managed Claude accounts that use its setup.
