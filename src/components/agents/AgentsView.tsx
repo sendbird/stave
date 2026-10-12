@@ -2,6 +2,7 @@ import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { useEffect } from "react";
 import { Bot, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { AgentsTab } from "@/components/agents/AgentsTab";
@@ -69,16 +70,17 @@ export function AgentsView(props: {
             {i18n.t("agents:agentsView.agentsView2")}</p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
-          <Button
-            variant="ghost"
-            size="sm"
-            xstyle={centerStyles.iconButton}
-            aria-label={i18n.t("agents:agentsView.close")}
-            title={i18n.t("agents:agentsView.title")}
-            onClick={closeAgents}
-          >
-            <X className={sx(centerStyles.actionIcon)} />
-          </Button>
+          <Tooltip content={i18n.t("agents:agentsView.title")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={centerStyles.iconButton}
+              aria-label={i18n.t("agents:agentsView.close")}
+              onClick={closeAgents}
+            >
+              <X className={sx(centerStyles.actionIcon)} />
+            </Button>
+          </Tooltip>
         </div>
       </header>
 

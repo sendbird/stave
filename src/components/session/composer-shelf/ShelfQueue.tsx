@@ -12,6 +12,7 @@ import {
   Zap,
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { describeQueuedTurnDispatch } from "@/components/ai-elements/prompt-input-queued-turn";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
@@ -155,23 +156,24 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
               <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfQueue.shelfQueue4")}</span>
             </Button>
           ) : null}
-          <Button
-            variant="quiet"
-            size="xs"
-            iconOnly
-            aria-label={expanded ? i18n.t("composer:shelfQueue.ariaLabel4") : i18n.t("composer:shelfQueue.ariaLabel5")}
-            title={expanded ? i18n.t("composer:shelfQueue.title3") : i18n.t("composer:shelfQueue.title4")}
-            aria-expanded={expanded}
-            onClick={() => {
-              if (expanded) {
-                setEditingId(null);
-              }
-              setOpen(!expanded);
-            }}
-            xstyle={styles.quiet}
-          >
-            {expanded ? <ChevronDown aria-hidden /> : <ChevronUp aria-hidden />}
-          </Button>
+          <Tooltip content={expanded ? i18n.t("composer:shelfQueue.title3") : i18n.t("composer:shelfQueue.title4")}>
+            <Button
+              variant="quiet"
+              size="xs"
+              iconOnly
+              aria-label={expanded ? i18n.t("composer:shelfQueue.ariaLabel4") : i18n.t("composer:shelfQueue.ariaLabel5")}
+              aria-expanded={expanded}
+              onClick={() => {
+                if (expanded) {
+                  setEditingId(null);
+                }
+                setOpen(!expanded);
+              }}
+              xstyle={styles.quiet}
+            >
+              {expanded ? <ChevronDown aria-hidden /> : <ChevronUp aria-hidden />}
+            </Button>
+          </Tooltip>
         </span>
       </div>
       {expanded ? (
@@ -340,53 +342,57 @@ function QueueItem(
       {attachments ? <span className={sx(styles.itemMeta)}>{attachments}</span> : null}
       <span className={sx(styles.itemActions)}>
         {props.actions.canSteer && canSteerQueuedTurnItem(item) ? (
-          <Button
-            variant="quiet"
-            size="xs"
-            iconOnly
-            aria-label={i18n.t("composer:shelfQueue.ariaLabel9", { value1: position })}
-            title={i18n.t("composer:shelfQueue.title7")}
-            onClick={() => props.onSteer(item.id)}
-            xstyle={styles.itemAccent}
-          >
-            <Zap aria-hidden />
-          </Button>
+          <Tooltip content={i18n.t("composer:shelfQueue.title7")}>
+            <Button
+              variant="quiet"
+              size="xs"
+              iconOnly
+              aria-label={i18n.t("composer:shelfQueue.ariaLabel9", { value1: position })}
+              onClick={() => props.onSteer(item.id)}
+              xstyle={styles.itemAccent}
+            >
+              <Zap aria-hidden />
+            </Button>
+          </Tooltip>
         ) : null}
         {props.actions.canSend ? (
+          <Tooltip content={i18n.t("composer:shelfQueue.title8")}>
+            <Button
+              variant="quiet"
+              size="xs"
+              iconOnly
+              aria-label={i18n.t("composer:shelfQueue.ariaLabel10", { value1: position })}
+              onClick={() => props.onSend(item.id)}
+              xstyle={styles.itemAccent}
+            >
+              <Send aria-hidden />
+            </Button>
+          </Tooltip>
+        ) : null}
+        <Tooltip content={i18n.t("composer:shelfQueue.title9")}>
           <Button
             variant="quiet"
             size="xs"
             iconOnly
-            aria-label={i18n.t("composer:shelfQueue.ariaLabel10", { value1: position })}
-            title={i18n.t("composer:shelfQueue.title8")}
-            onClick={() => props.onSend(item.id)}
-            xstyle={styles.itemAccent}
+            aria-label={i18n.t("composer:shelfQueue.ariaLabel11", { value1: position })}
+            onClick={() => props.onStartEdit(item)}
+            xstyle={styles.quiet}
           >
-            <Send aria-hidden />
+            <Pencil aria-hidden />
           </Button>
-        ) : null}
-        <Button
-          variant="quiet"
-          size="xs"
-          iconOnly
-          aria-label={i18n.t("composer:shelfQueue.ariaLabel11", { value1: position })}
-          title={i18n.t("composer:shelfQueue.title9")}
-          onClick={() => props.onStartEdit(item)}
-          xstyle={styles.quiet}
-        >
-          <Pencil aria-hidden />
-        </Button>
-        <Button
-          variant="quiet"
-          size="xs"
-          iconOnly
-          aria-label={i18n.t("composer:shelfQueue.ariaLabel12", { value1: position })}
-          title={i18n.t("composer:shelfQueue.title10")}
-          onClick={() => props.onRemove(item.id)}
-          xstyle={styles.itemDanger}
-        >
-          <Trash2 aria-hidden />
-        </Button>
+        </Tooltip>
+        <Tooltip content={i18n.t("composer:shelfQueue.title10")}>
+          <Button
+            variant="quiet"
+            size="xs"
+            iconOnly
+            aria-label={i18n.t("composer:shelfQueue.ariaLabel12", { value1: position })}
+            onClick={() => props.onRemove(item.id)}
+            xstyle={styles.itemDanger}
+          >
+            <Trash2 aria-hidden />
+          </Button>
+        </Tooltip>
       </span>
       {closestEdge ? <SortableDropIndicator edge={closestEdge} /> : null}
     </li>

@@ -8,6 +8,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Badge, Button, Input, Loader, toast } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   type AtelierConnectorPublicStatus,
@@ -271,21 +272,23 @@ export function MartinSyncSettingsSection() {
                 : t("settingsConnections:settingsDialogMartinSync.pairThisInstallationWithAShort")}
             </p>
           </div>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={t("settingsConnections:settingsDialogMartinSync.refreshMartinSyncStatus")}
-            disabled={busy !== null}
-            onClick={() => void refreshStatus()}
-          >
-            <RefreshCw
-              className={sx(
-                styles.refreshIcon,
-                busy === "refresh" && styles.refreshIconSpinning,
-              )}
-            />
-          </Button>
+          <Tooltip content={t("settingsConnections:settingsDialogMartinSync.refreshMartinSyncStatus")}>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={t("settingsConnections:settingsDialogMartinSync.refreshMartinSyncStatus")}
+              disabled={busy !== null}
+              onClick={() => void refreshStatus()}
+            >
+              <RefreshCw
+                className={sx(
+                  styles.refreshIcon,
+                  busy === "refresh" && styles.refreshIconSpinning,
+                )}
+              />
+            </Button>
+          </Tooltip>
         </div>
 
         <div className={sx(styles.panelBody)}>

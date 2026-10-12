@@ -1182,15 +1182,13 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
     </Button>
   );
 
-  if (!tooltip) {
-    return button;
-  }
-
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger render={button}></TooltipTrigger>
-        <TooltipContent side="top">{tooltip}</TooltipContent>
+        <TooltipContent side="top">
+          {tooltip || i18n.t("composer:conversation.ariaLabel")}
+        </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );

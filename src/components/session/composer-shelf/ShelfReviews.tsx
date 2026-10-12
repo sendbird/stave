@@ -12,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
@@ -306,29 +307,31 @@ function ReviewLine(props: {
           <span className={sx(styles.actionWord)}>{i18n.t("composer:shelfReviews.reviewLine3")}</span>
         </Button>
         {item.status === "running" ? (
-          <Button
-            variant="quiet"
-            size="xs"
-            iconOnly
-            aria-label={i18n.t("composer:shelfReviews.ariaLabel2")}
-            title={i18n.t("composer:shelfReviews.title7")}
-            onClick={() => actions.stop(item)}
-            xstyle={styles.quiet}
-          >
-            <Square aria-hidden />
-          </Button>
+          <Tooltip content={i18n.t("composer:shelfReviews.title7")}>
+            <Button
+              variant="quiet"
+              size="xs"
+              iconOnly
+              aria-label={i18n.t("composer:shelfReviews.ariaLabel2")}
+              onClick={() => actions.stop(item)}
+              xstyle={styles.quiet}
+            >
+              <Square aria-hidden />
+            </Button>
+          </Tooltip>
         ) : (
-          <Button
-            variant="quiet"
-            size="xs"
-            iconOnly
-            aria-label={i18n.t("composer:shelfReviews.ariaLabel3")}
-            title={i18n.t("composer:shelfReviews.title8")}
-            onClick={() => actions.dismiss(item)}
-            xstyle={styles.quiet}
-          >
-            <X aria-hidden />
-          </Button>
+          <Tooltip content={i18n.t("composer:shelfReviews.title8")}>
+            <Button
+              variant="quiet"
+              size="xs"
+              iconOnly
+              aria-label={i18n.t("composer:shelfReviews.ariaLabel3")}
+              onClick={() => actions.dismiss(item)}
+              xstyle={styles.quiet}
+            >
+              <X aria-hidden />
+            </Button>
+          </Tooltip>
         )}
       </span>
     </div>

@@ -10,6 +10,7 @@ import {
 } from "react";
 import { AlertCircle, GitGraph, X } from "lucide-react";
 import { Button, Loader, toast } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   COMMIT_GRAPH_WORKING_TREE_REVISION,
@@ -671,16 +672,18 @@ export function GitGraphView({ workspaceCwd }: GitGraphViewProps) {
         <div className={sx(styles.errorBar)}>
           <AlertCircle className={sx(styles.errorIcon)} />
           <p className={sx(styles.errorText)}>{error}</p>
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            className={sx(styles.errorDismiss)}
-            onClick={() => setError("")}
-            aria-label={i18n.t("gitGraph:gitGraphView.dismissCommitGraphError")}
-          >
-            <X className={sx(styles.errorDismissIcon)} />
-          </Button>
+          <Tooltip content={i18n.t("gitGraph:gitGraphView.dismissCommitGraphError")}>
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              className={sx(styles.errorDismiss)}
+              onClick={() => setError("")}
+              aria-label={i18n.t("gitGraph:gitGraphView.dismissCommitGraphError")}
+            >
+              <X className={sx(styles.errorDismissIcon)} />
+            </Button>
+          </Tooltip>
         </div>
       ) : null}
 

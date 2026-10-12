@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { FolderSymlink, GitBranch, X } from "lucide-react";
 import {
   useEffect,
@@ -345,15 +346,18 @@ export function CreateWorkspaceDialog({
             <h3 id={titleId} className={sx(createWorkspaceStyles.title)}>
               {t("createDialog.title")}
             </h3>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={creatingWorkspace}
-              onClick={closeDialog}
-            >
-              <X className={sx(createWorkspaceStyles.closeIcon)} />
-            </Button>
+            <Tooltip content={t("common:actions.close")}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={creatingWorkspace}
+                onClick={closeDialog}
+                aria-label={t("common:actions.close")}
+              >
+                <X className={sx(createWorkspaceStyles.closeIcon)} />
+              </Button>
+            </Tooltip>
           </div>
           <p className={sx(createWorkspaceStyles.lead)}>
             {t("createDialog.lead")}

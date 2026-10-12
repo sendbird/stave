@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Input as AdsInput } from "@/components/ui/input";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import type { IDockviewPanelHeaderProps } from "dockview-react";
 import {
   FileCode2,
@@ -409,27 +410,29 @@ export const PaneTabChip = memo(function PaneTabChip(
       {pinned ? (
         <Pin className={sx(c.pinIcon)} />
       ) : (
-        <AdsButton
-          layout="host"
-          type="button"
-          xstyle={[
-            c.closeButton,
-            focusRing.ring,
-            transition.control,
-            transition.motionDurationQuick,
-            isActive ? c.closeVisible : c.closeHidden,
-          ]}
-          aria-label={i18n.t("panes:paneTabChip.closeNamed", { title })}
-          data-testid={`close-pane-${panelId}`}
-          onMouseDown={(event) => event.stopPropagation()}
-          onClick={(event) => {
-            event.preventDefault();
-            event.stopPropagation();
-            closePaneSurface(surface);
-          }}
-        >
-          <X className={sx(c.closeIcon)} />
-        </AdsButton>
+        <Tooltip content={i18n.t("panes:paneTabChip.closeNamed", { title })}>
+          <AdsButton
+            layout="host"
+            type="button"
+            xstyle={[
+              c.closeButton,
+              focusRing.ring,
+              transition.control,
+              transition.motionDurationQuick,
+              isActive ? c.closeVisible : c.closeHidden,
+            ]}
+            aria-label={i18n.t("panes:paneTabChip.closeNamed", { title })}
+            data-testid={`close-pane-${panelId}`}
+            onMouseDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+              closePaneSurface(surface);
+            }}
+          >
+            <X className={sx(c.closeIcon)} />
+          </AdsButton>
+        </Tooltip>
       )}
     </div>
   );

@@ -1,6 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IDockviewHeaderActionsProps } from "dockview-react";
 import { Ellipsis, Globe, Plus, SquareTerminal } from "lucide-react";
@@ -95,19 +97,23 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
   return (
     <div className={sx(styles.root)}>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={sx(styles.trigger)}
-              aria-label={i18n.t("panes:paneHeaderActions.createNewPaneTab")}
-            />
-          }
-        >
-          <Plus className={sx(styles.icon)} />
-        </DropdownMenuTrigger>
+        <Tooltip content={i18n.t("panes:paneHeaderActions.createNewPaneTab")}>
+          <span className={sx(layoutShellStyles.inlineFlex)}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={sx(styles.trigger)}
+                  aria-label={i18n.t("panes:paneHeaderActions.createNewPaneTab")}
+                />
+              }
+            >
+              <Plus className={sx(styles.icon)} />
+            </DropdownMenuTrigger>
+          </span>
+        </Tooltip>
         <DropdownMenuContent align="end" xstyle={styles.menu}>
           <DropdownMenuItem onSelect={createTaskInGroup}>
             <Plus className={sx(styles.icon)} />
@@ -194,19 +200,23 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         </DropdownMenuContent>
       </DropdownMenu>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={sx(styles.trigger)}
-              aria-label={i18n.t("panes:paneHeaderActions.paneOptions")}
-            />
-          }
-        >
-          <Ellipsis className={sx(styles.icon)} />
-        </DropdownMenuTrigger>
+        <Tooltip content={i18n.t("panes:paneHeaderActions.paneOptions")}>
+          <span className={sx(layoutShellStyles.inlineFlex)}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className={sx(styles.trigger)}
+                  aria-label={i18n.t("panes:paneHeaderActions.paneOptions")}
+                />
+              }
+            >
+              <Ellipsis className={sx(styles.icon)} />
+            </DropdownMenuTrigger>
+          </span>
+        </Tooltip>
         <DropdownMenuContent align="end" xstyle={styles.options}>
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>
             {i18n.t("panes:paneHeaderActions.taskHistory")}

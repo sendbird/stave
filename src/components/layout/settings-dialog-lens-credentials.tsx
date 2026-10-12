@@ -2,6 +2,7 @@ import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SettingsCard } from "./settings-dialog.shared";
@@ -249,17 +250,19 @@ export function LensCredentialsSettingsCard() {
                           updateHostRow(index, event.target.value)
                         }
                       />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-xs"
-                        className={sx(styles.removeHost)}
-                        aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.removeHost", { value1: index + 1 })}
-                        disabled={hostRows.length <= 1 && host.length === 0}
-                        onClick={() => removeHostRow(index)}
-                      >
-                        <X className={sx(styles.removeHostIcon)} />
-                      </Button>
+                      <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.removeHost", { value1: index + 1 })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-xs"
+                          className={sx(styles.removeHost)}
+                          aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.removeHost", { value1: index + 1 })}
+                          disabled={hostRows.length <= 1 && host.length === 0}
+                          onClick={() => removeHostRow(index)}
+                        >
+                          <X className={sx(styles.removeHostIcon)} />
+                        </Button>
+                      </Tooltip>
                     </div>
                   ))}
                 </div>
@@ -360,24 +363,28 @@ export function LensCredentialsSettingsCard() {
                     {credential.username}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
-                  onClick={() => openEditEditor(credential)}
-                >
-                  <Pencil className={sx(styles.actionIcon)} />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
-                  onClick={() => setDeletingId(credential.id)}
-                >
-                  <Trash2 className={sx(styles.actionIcon)} />
-                </Button>
+                <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
+                    onClick={() => openEditEditor(credential)}
+                  >
+                    <Pencil className={sx(styles.actionIcon)} />
+                  </Button>
+                </Tooltip>
+                <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
+                    onClick={() => setDeletingId(credential.id)}
+                  >
+                    <Trash2 className={sx(styles.actionIcon)} />
+                  </Button>
+                </Tooltip>
               </div>
             ))}
           </div>

@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import { Badge, Button } from "@/components/ui";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { ScriptEntryFormFields } from "./ScriptEntryFormFields";
 import { targetLabel } from "./scripts-manager-state";
@@ -129,51 +130,55 @@ export function ScriptEntryCard(props: {
             onClick={props.onOpenInRail}
           >
             {tI18n("scripts:scriptEntryCard.openInRail")}</Button>
-          <Button
-            variant="outline"
-            size="icon"
-            xstyle={entryCardStyles.iconButton}
-            disabled={moveUpDisabled}
-            onClick={props.onMove.bind(null, -1)}
-            aria-label={tI18n("scripts:scriptEntryCard.moveUp")}
-            title={tI18n("scripts:scriptEntryCard.moveUp")}
-          >
-            <ChevronDown className={sx(entryCardStyles.iconFlipped)} />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            xstyle={entryCardStyles.iconButton}
-            disabled={moveDownDisabled}
-            onClick={props.onMove.bind(null, 1)}
-            aria-label={tI18n("scripts:scriptEntryCard.moveDown")}
-            title={tI18n("scripts:scriptEntryCard.moveDown")}
-          >
-            <ChevronDown className={sx(entryCardStyles.icon)} />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            xstyle={entryCardStyles.iconButton}
-            onClick={props.onDuplicate}
-            aria-label={tI18n("scripts:scriptEntryCard.duplicateValue", { kindLabel: kindLabel })}
-            title={tI18n("scripts:scriptEntryCard.duplicateValue", { kindLabel: kindLabel })}
-          >
-            <Copy className={sx(entryCardStyles.icon)} />
-          </Button>
+          <Tooltip content={tI18n("scripts:scriptEntryCard.moveUp")}>
+            <Button
+              variant="outline"
+              size="icon"
+              xstyle={entryCardStyles.iconButton}
+              disabled={moveUpDisabled}
+              onClick={props.onMove.bind(null, -1)}
+              aria-label={tI18n("scripts:scriptEntryCard.moveUp")}
+            >
+              <ChevronDown className={sx(entryCardStyles.iconFlipped)} />
+            </Button>
+          </Tooltip>
+          <Tooltip content={tI18n("scripts:scriptEntryCard.moveDown")}>
+            <Button
+              variant="outline"
+              size="icon"
+              xstyle={entryCardStyles.iconButton}
+              disabled={moveDownDisabled}
+              onClick={props.onMove.bind(null, 1)}
+              aria-label={tI18n("scripts:scriptEntryCard.moveDown")}
+            >
+              <ChevronDown className={sx(entryCardStyles.icon)} />
+            </Button>
+          </Tooltip>
+          <Tooltip content={tI18n("scripts:scriptEntryCard.duplicateValue", { kindLabel: kindLabel })}>
+            <Button
+              variant="outline"
+              size="icon"
+              xstyle={entryCardStyles.iconButton}
+              onClick={props.onDuplicate}
+              aria-label={tI18n("scripts:scriptEntryCard.duplicateValue", { kindLabel: kindLabel })}
+            >
+              <Copy className={sx(entryCardStyles.icon)} />
+            </Button>
+          </Tooltip>
           <Button variant="outline" size="sm" onClick={props.onToggleExpand}>
             {props.expanded ? tI18n("scripts:scriptEntryCard.done") : tI18n("scripts:scriptEntryCard.edit")}
           </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            xstyle={entryCardStyles.destructiveButton}
-            onClick={props.onRemove}
-            aria-label={tI18n("scripts:scriptEntryCard.deleteValue", { kindLabel: kindLabel })}
-            title={tI18n("scripts:scriptEntryCard.deleteValue", { kindLabel: kindLabel })}
-          >
-            <Trash2 className={sx(entryCardStyles.icon)} />
-          </Button>
+          <Tooltip content={tI18n("scripts:scriptEntryCard.deleteValue", { kindLabel: kindLabel })}>
+            <Button
+              variant="outline"
+              size="icon"
+              xstyle={entryCardStyles.destructiveButton}
+              onClick={props.onRemove}
+              aria-label={tI18n("scripts:scriptEntryCard.deleteValue", { kindLabel: kindLabel })}
+            >
+              <Trash2 className={sx(entryCardStyles.icon)} />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 

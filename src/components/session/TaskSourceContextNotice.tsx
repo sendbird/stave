@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { AlertTriangle, ChevronDown, FileText, X } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import { taskSourceContextNoticeStyles as styles } from "./task-source-context-notice.styles";
@@ -143,15 +144,17 @@ export function TaskSourceContextNotice(props: {
                     ) : null}
                   </p>
                   {props.onRemove ? (
-                    <AdsButton
-                      layout="host"
-                      type="button"
-                      aria-label={i18n.t("session:taskSourceContextNotice.ariaLabel2", { value1: part.title ?? part.sourceId })}
-                      xstyle={styles.removeButton}
-                      onClick={() => props.onRemove?.(part.sourceId)}
-                    >
-                      <X className={sx(styles.removeIcon)} aria-hidden="true" />
-                    </AdsButton>
+                    <Tooltip content={i18n.t("session:taskSourceContextNotice.ariaLabel2", { value1: part.title ?? part.sourceId })}>
+                      <AdsButton
+                        layout="host"
+                        type="button"
+                        aria-label={i18n.t("session:taskSourceContextNotice.ariaLabel2", { value1: part.title ?? part.sourceId })}
+                        xstyle={styles.removeButton}
+                        onClick={() => props.onRemove?.(part.sourceId)}
+                      >
+                        <X className={sx(styles.removeIcon)} aria-hidden="true" />
+                      </AdsButton>
+                    </Tooltip>
                   ) : null}
                 </div>
               ) : null}

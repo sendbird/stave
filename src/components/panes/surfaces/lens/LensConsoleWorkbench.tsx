@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -107,21 +108,23 @@ export function LensConsoleWorkbench(props: {
           }
           onChange={(enabled) => void setDiagnosticsCapture(enabled)}
         />
-        <Button
-          type="button"
-          size="icon-xs"
-          variant={consolePaused ? "secondary" : "ghost"}
-          onClick={toggleConsolePaused}
-          aria-label={
-            consolePaused ? i18n.t("lens:lensConsoleWorkbench.resumeConsoleLog") : i18n.t("lens:lensConsoleWorkbench.pauseConsoleLog")
-          }
-        >
-          {consolePaused ? (
-            <Play {...stylex.props(w.icon)} />
-          ) : (
-            <Pause {...stylex.props(w.icon)} />
-          )}
-        </Button>
+        <Tooltip content={consolePaused ? i18n.t("lens:lensConsoleWorkbench.resumeConsoleLog") : i18n.t("lens:lensConsoleWorkbench.pauseConsoleLog")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant={consolePaused ? "secondary" : "ghost"}
+            onClick={toggleConsolePaused}
+            aria-label={
+              consolePaused ? i18n.t("lens:lensConsoleWorkbench.resumeConsoleLog") : i18n.t("lens:lensConsoleWorkbench.pauseConsoleLog")
+            }
+          >
+            {consolePaused ? (
+              <Play {...stylex.props(w.icon)} />
+            ) : (
+              <Pause {...stylex.props(w.icon)} />
+            )}
+          </Button>
+        </Tooltip>
         {consolePaused ? (
           <Badge role="status" tone="warning">
             {consoleBufferedCount > 0
@@ -129,15 +132,17 @@ export function LensConsoleWorkbench(props: {
               : i18n.t("lens:lensConsoleWorkbench.paused")}
           </Badge>
         ) : null}
-        <Button
-          type="button"
-          size="icon-xs"
-          variant={autoScrollLogs ? "secondary" : "ghost"}
-          onClick={() => setAutoScrollLogs((current) => !current)}
-          aria-label={i18n.t("lens:lensConsoleWorkbench.toggleLogAutoscroll")}
-        >
-          <ArrowDownToLine {...stylex.props(w.icon)} />
-        </Button>
+        <Tooltip content={i18n.t("lens:lensConsoleWorkbench.toggleLogAutoscroll")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant={autoScrollLogs ? "secondary" : "ghost"}
+            onClick={() => setAutoScrollLogs((current) => !current)}
+            aria-label={i18n.t("lens:lensConsoleWorkbench.toggleLogAutoscroll")}
+          >
+            <ArrowDownToLine {...stylex.props(w.icon)} />
+          </Button>
+        </Tooltip>
         <AdsButton
           type="button"
           size="xs"
@@ -154,26 +159,30 @@ export function LensConsoleWorkbench(props: {
           <PanelRightOpen {...stylex.props(w.icon)} />
           {i18n.t("lens:lensConsoleWorkbench.details")}
         </AdsButton>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={filteredConsoleEntries.length === 0}
-          onClick={copyConsoleLog}
-          aria-label={i18n.t("lens:lensConsoleWorkbench.copyConsoleLog")}
-        >
-          <Copy {...stylex.props(w.icon)} />
-        </Button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={consoleEntries.length === 0 && consoleBufferedCount === 0}
-          onClick={clearConsoleLog}
-          aria-label={i18n.t("lens:lensConsoleWorkbench.clearConsoleLog")}
-        >
-          <Trash2 {...stylex.props(w.icon)} />
-        </Button>
+        <Tooltip content={i18n.t("lens:lensConsoleWorkbench.copyConsoleLog")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={filteredConsoleEntries.length === 0}
+            onClick={copyConsoleLog}
+            aria-label={i18n.t("lens:lensConsoleWorkbench.copyConsoleLog")}
+          >
+            <Copy {...stylex.props(w.icon)} />
+          </Button>
+        </Tooltip>
+        <Tooltip content={i18n.t("lens:lensConsoleWorkbench.clearConsoleLog")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={consoleEntries.length === 0 && consoleBufferedCount === 0}
+            onClick={clearConsoleLog}
+            aria-label={i18n.t("lens:lensConsoleWorkbench.clearConsoleLog")}
+          >
+            <Trash2 {...stylex.props(w.icon)} />
+          </Button>
+        </Tooltip>
       </div>
       <div
         data-testid="lens-console-log-workbench"

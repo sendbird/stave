@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 import { ArrowLeft, Folder, Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { Input } from "@/components/ui";
@@ -38,6 +39,7 @@ import {
   type SectionId,
 } from "./settings-dialog.schema";
 import { resolveSettingsRepositorySelection } from "./settings-dialog.utils";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
 import { searchSettingsFields } from "./settings-dialog.registry";
 import { SettingsScopeProvider, SettingsScopeSectionFrame } from "./settings-scope";
@@ -325,17 +327,19 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       xstyle={styles.searchInput}
                     />
                     {searchQuery ? (
-                      <Button
-                        type="button"
-                        variant="quiet"
-                        size="xs"
-                        iconOnly
-                        xstyle={styles.searchClear}
-                        aria-label={t("settings:dialog.search.clear")}
-                        onClick={() => setSearchQuery("")}
-                      >
-                        <X className={sx(styles.icon)} />
-                      </Button>
+                      <Tooltip content={t("settings:dialog.search.clear")}>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          size="xs"
+                          iconOnly
+                          xstyle={styles.searchClear}
+                          aria-label={t("settings:dialog.search.clear")}
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <X className={sx(styles.icon)} />
+                        </Button>
+                      </Tooltip>
                     ) : null}
                   </div>
                 </div>
@@ -504,19 +508,23 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 </div>
                 <div className={sx(styles.headerMobile)}>
                   <div className={sx(styles.headerMobileRow)}>
-                    <DialogPrimitive.Close
-                      render={
-                        <Button
-                          variant="quiet"
-                          size="md"
-                          iconOnly
-                          xstyle={styles.mobileBack}
-                          aria-label={t("settings:dialog.backToApp")}
-                        />
-                      }
-                    >
-                      <ArrowLeft className={sx(styles.icon)} />
-                    </DialogPrimitive.Close>
+                    <Tooltip content={t("settings:dialog.backToApp")}>
+                      <span className={sx(layoutShellStyles.inlineFlex)}>
+                        <DialogPrimitive.Close
+                          render={
+                            <Button
+                              variant="quiet"
+                              size="md"
+                              iconOnly
+                              xstyle={styles.mobileBack}
+                              aria-label={t("settings:dialog.backToApp")}
+                            />
+                          }
+                        >
+                          <ArrowLeft className={sx(styles.icon)} />
+                        </DialogPrimitive.Close>
+                      </span>
+                    </Tooltip>
                     <Select
                       value={activeSection}
                       onValueChange={(value) =>
@@ -550,17 +558,19 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       xstyle={styles.mobileSearchInput}
                     />
                     {searchQuery ? (
-                      <Button
-                        type="button"
-                        variant="quiet"
-                        size="xs"
-                        iconOnly
-                        xstyle={styles.mobileSearchClear}
-                        aria-label={t("settings:dialog.search.clear")}
-                        onClick={() => setSearchQuery("")}
-                      >
-                        <X className={sx(styles.icon)} />
-                      </Button>
+                      <Tooltip content={t("settings:dialog.search.clear")}>
+                        <Button
+                          type="button"
+                          variant="quiet"
+                          size="xs"
+                          iconOnly
+                          xstyle={styles.mobileSearchClear}
+                          aria-label={t("settings:dialog.search.clear")}
+                          onClick={() => setSearchQuery("")}
+                        >
+                          <X className={sx(styles.icon)} />
+                        </Button>
+                      </Tooltip>
                     ) : null}
                   </div>
                 </div>

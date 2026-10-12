@@ -49,6 +49,8 @@ import { ResourceDashboard } from "./ResourceDashboard";
 import { ResourceManagerOverview } from "./ResourceManagerOverview";
 import { WorkspaceCleanupDialog } from "./WorkspaceCleanupDialog";
 import { managerStyles } from "./resource-manager.styles";
+import { layoutShellStyles } from "./layout-shell.styles";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 
 interface ProcessMetric {
   pid: number;
@@ -466,34 +468,40 @@ export function MemoryUsagePopover({
                 {tI18n("workspace:resourcesPopover.resourceManager")}</DialogTitle>
             </div>
             <div className={sx(managerStyles.actions)}>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                data-testid="refresh-metrics"
-                aria-label={i18n.t("workspace:resourcesPopover.accessibility.refreshMetrics")}
-                onClick={() => {
-                  setLoading(true);
-                  fetchMetrics();
-                }}
-              >
-                <RefreshCw
-                  className={sx(
-                    resourceStyles.refreshIcon,
-                    loading && resourceStyles.refreshIconSpinning,
-                  )}
-                />
-              </Button>
-              <DialogClose
-                render={
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label={tI18n("workspace:resourcesPopover.closeResourceManager")}
+              <AdsTooltip content={i18n.t("workspace:resourcesPopover.accessibility.refreshMetrics")}>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  data-testid="refresh-metrics"
+                  aria-label={i18n.t("workspace:resourcesPopover.accessibility.refreshMetrics")}
+                  onClick={() => {
+                    setLoading(true);
+                    fetchMetrics();
+                  }}
+                >
+                  <RefreshCw
+                    className={sx(
+                      resourceStyles.refreshIcon,
+                      loading && resourceStyles.refreshIconSpinning,
+                    )}
                   />
-                }
-              >
-                <X className={sx(resourceStyles.refreshIcon)} />
-              </DialogClose>
+                </Button>
+              </AdsTooltip>
+              <AdsTooltip content={tI18n("workspace:resourcesPopover.closeResourceManager")}>
+                <span className={sx(layoutShellStyles.inlineFlex)}>
+                  <DialogClose
+                    render={
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={tI18n("workspace:resourcesPopover.closeResourceManager")}
+                      />
+                    }
+                  >
+                    <X className={sx(resourceStyles.refreshIcon)} />
+                  </DialogClose>
+                </span>
+              </AdsTooltip>
             </div>
           </div>
 

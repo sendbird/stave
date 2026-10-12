@@ -756,6 +756,7 @@
     "failedToLoadFolder": "Failed to load folder.",
     "empty": "Empty",
     "searchInFiles": "Search in files",
+    "clearSearch": "Clear search",
     "addFile": "Add file",
     "addFolder": "Add folder",
     "collapseAll": "Collapse all",

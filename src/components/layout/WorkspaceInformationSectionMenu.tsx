@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   WORKSPACE_INFORMATION_SECTION_IDS,
@@ -21,6 +22,7 @@ import {
   workspaceInformationSectionHasContent,
 } from "@/lib/workspace-information-sections";
 import { useAppStore } from "@/store/app.store";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { workspaceInformationSectionMenuStyles as styles } from "./workspace-information-section-menu.styles";
 
 export function WorkspaceInformationSectionMenu() {
@@ -50,18 +52,22 @@ export function WorkspaceInformationSectionMenu() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            variant="ghost"
-            size="icon"
-            xstyle={styles.trigger}
-            aria-label={tI18n("workspace:workspaceInformationSectionMenu.configureInformationPanelSections")}
-          />
-        }
-      >
-        <Settings2 className={sx(styles.triggerIcon)} />
-      </DropdownMenuTrigger>
+      <Tooltip content={tI18n("workspace:workspaceInformationSectionMenu.configureInformationPanelSections")}>
+        <span className={sx(layoutShellStyles.inlineFlex)}>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="icon"
+                xstyle={styles.trigger}
+                aria-label={tI18n("workspace:workspaceInformationSectionMenu.configureInformationPanelSections")}
+              />
+            }
+          >
+            <Settings2 className={sx(styles.triggerIcon)} />
+          </DropdownMenuTrigger>
+        </span>
+      </Tooltip>
       <DropdownMenuContent align="end" xstyle={styles.content}>
         <DropdownMenuLabel>{tI18n("workspace:workspaceInformationSectionMenu.visibleSections")}</DropdownMenuLabel>
         {WORKSPACE_INFORMATION_SECTION_IDS.filter(

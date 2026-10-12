@@ -2,6 +2,7 @@ import { getWorkGraphFallbackLabel } from "@/lib/work-graph/work-graph-tree";
 import { i18n, useTranslation } from "@/i18n";
 import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   memo,
   useCallback,
@@ -1329,22 +1330,24 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             </span>
           ) : null}
           {canExpand && variant !== "panel" ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              aria-expanded={expanded}
-              aria-label={
-                expanded ? i18n.t("session:turnActivity.ariaLabel4") : i18n.t("session:turnActivity.ariaLabel5")
-              }
-              onClick={() => setExpandedOverride(!expanded)}
-            >
-              {expanded ? (
-                <ChevronDown className={sx(styles.chevron)} />
-              ) : (
-                <ChevronUp className={sx(styles.chevron)} />
-              )}
-            </Button>
+            <Tooltip content={expanded ? i18n.t("session:turnActivity.ariaLabel4") : i18n.t("session:turnActivity.ariaLabel5")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-expanded={expanded}
+                aria-label={
+                  expanded ? i18n.t("session:turnActivity.ariaLabel4") : i18n.t("session:turnActivity.ariaLabel5")
+                }
+                onClick={() => setExpandedOverride(!expanded)}
+              >
+                {expanded ? (
+                  <ChevronDown className={sx(styles.chevron)} />
+                ) : (
+                  <ChevronUp className={sx(styles.chevron)} />
+                )}
+              </Button>
+            </Tooltip>
           ) : null}
         </div>
         )}
@@ -1478,17 +1481,18 @@ function TurnActivityFloatingGrip(props: {
       <GripHorizontal aria-hidden className={sx(styles.floatingGripIcon)} />
       <h2 className={sx(styles.floatingGripTitle)}>{i18n.t("session:turnActivity.turnActivityFloatingGrip")}</h2>
       {props.onClose ? (
-        <AdsButton
-          variant="quiet"
-          size="xs"
-          iconOnly
-          aria-label={i18n.t("session:turnActivity.ariaLabel6")}
-          title={i18n.t("session:turnActivity.title2")}
-          onClick={props.onClose}
-          xstyle={styles.floatingGripClose}
-        >
-          <X aria-hidden />
-        </AdsButton>
+        <Tooltip content={i18n.t("session:turnActivity.title2")}>
+          <AdsButton
+            variant="quiet"
+            size="xs"
+            iconOnly
+            aria-label={i18n.t("session:turnActivity.ariaLabel6")}
+            onClick={props.onClose}
+            xstyle={styles.floatingGripClose}
+          >
+            <X aria-hidden />
+          </AdsButton>
+        </Tooltip>
       ) : null}
     </div>
   );

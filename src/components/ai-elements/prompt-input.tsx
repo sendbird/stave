@@ -1,6 +1,7 @@
 import { PromptInputRunAutoTuningControl, type PromptInputRunAutoTuning } from "./prompt-input-run-auto-tuning";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 import {
   Brain,
   Ellipsis,
@@ -666,19 +667,21 @@ function LensAnnotationStylePopover(args: {
 
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            disabled={disabled || !annotation.selector}
-            aria-label={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}
-          />
-        }
-      >
-        <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
-      </PopoverTrigger>
+      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={disabled || !annotation.selector}
+              aria-label={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}
+            />
+          }
+        >
+          <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
+        </PopoverTrigger>
+      </AdsTooltip>
       <PopoverContent align="end" xstyle={promptInputStyles.lensPopover72}>
         <div>
           <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationStylePopover")}</PopoverTitle>
@@ -745,19 +748,21 @@ function LensAnnotationFeedbackPopover(args: {
 
   return (
     <Popover>
-      <PopoverTrigger
-        render={
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            disabled={disabled}
-            aria-label={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}
-          />
-        }
-      >
-        <Pencil className={sx(promptInputStyles.icon3)} />
-      </PopoverTrigger>
+      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}>
+        <PopoverTrigger
+          render={
+            <Button
+              type="button"
+              size="icon-xs"
+              variant="ghost"
+              disabled={disabled}
+              aria-label={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}
+            />
+          }
+        >
+          <Pencil className={sx(promptInputStyles.icon3)} />
+        </PopoverTrigger>
+      </AdsTooltip>
       <PopoverContent align="end" xstyle={promptInputStyles.lensPopover64}>
         <div>
           <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover")}</PopoverTitle>
@@ -2561,25 +2566,26 @@ export function PromptInput(args: PromptInputProps) {
   const composerOverflowTray =
     overflowMenuItems.length > 0 ? (
       <Popover open={composerTrayOpen} onOpenChange={setComposerTrayOpen}>
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              // Sized for the row it stands in rather than by a lane rule:
-              // an ADS icon size owns both axes, and a glyph-only button has
-              // to stay square in each of them.
-              size={composerIconButtonSize}
-              disabled={interactionsDisabled}
-              className={PROMPT_TOOLBAR_ICON_BUTTON}
-              aria-label={i18n.t("composer:promptInput.ariaLabel10", { value1: overflowMenuItems.length })}
-              title={i18n.t("composer:promptInput.title3")}
-              data-composer-tray-trigger="true"
-            />
-          }
-        >
-          <Ellipsis className={sx(promptInputStyles.icon4)} />
-        </PopoverTrigger>
+        <AdsTooltip content={i18n.t("composer:promptInput.title3")}>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant="ghost"
+                // Sized for the row it stands in rather than by a lane rule:
+                // an ADS icon size owns both axes, and a glyph-only button has
+                // to stay square in each of them.
+                size={composerIconButtonSize}
+                disabled={interactionsDisabled}
+                className={PROMPT_TOOLBAR_ICON_BUTTON}
+                aria-label={i18n.t("composer:promptInput.ariaLabel10", { value1: overflowMenuItems.length })}
+                data-composer-tray-trigger="true"
+              />
+            }
+          >
+            <Ellipsis className={sx(promptInputStyles.icon4)} />
+          </PopoverTrigger>
+        </AdsTooltip>
         <PopoverContent
           align={useComposerWings ? "end" : "start"}
           side="top"
@@ -3823,17 +3829,19 @@ export function PromptInput(args: PromptInputProps) {
                           {attachmentCount}
                         </span>
                       ) : null}
-                      <AdsButton layout="host"
-                        type="button"
-                        disabled={interactionsDisabled}
-                        onClick={() =>
-                          onRemovePromptBatchItem?.({ itemId: item.id })
-                        }
-                        xstyle={promptInputStyles.chipRemove}
-                        aria-label={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}
-                      >
-                        <X className={sx(promptInputStyles.icon3)} />
-                      </AdsButton>
+                      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}>
+                        <AdsButton layout="host"
+                          type="button"
+                          disabled={interactionsDisabled}
+                          onClick={() =>
+                            onRemovePromptBatchItem?.({ itemId: item.id })
+                          }
+                          xstyle={promptInputStyles.chipRemove}
+                          aria-label={i18n.t("composer:promptInput.ariaLabel12", { value1: index + 1 })}
+                        >
+                          <X className={sx(promptInputStyles.icon3)} />
+                        </AdsButton>
+                      </AdsTooltip>
                     </div>
                   );
                 })}
@@ -3888,25 +3896,27 @@ export function PromptInput(args: PromptInputProps) {
                             </pre>
                           </PopoverContent>
                         </Popover>
-                        <AdsButton layout="host"
-                          type="button"
-                          disabled={interactionsDisabled}
-                          onClick={() =>
-                            onAttachmentsChange?.({
-                              attachments: (attachments ?? []).filter(
-                                (candidate) =>
-                                  !(
-                                    candidate.kind === "lens-annotations" &&
-                                    candidate.id === attachment.id
-                                  ),
-                              ),
-                            })
-                          }
-                          xstyle={promptInputStyles.lensChipRemove}
-                          aria-label={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}
-                        >
-                          <X className={sx(promptInputStyles.icon3)} />
-                        </AdsButton>
+                        <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}>
+                          <AdsButton layout="host"
+                            type="button"
+                            disabled={interactionsDisabled}
+                            onClick={() =>
+                              onAttachmentsChange?.({
+                                attachments: (attachments ?? []).filter(
+                                  (candidate) =>
+                                    !(
+                                      candidate.kind === "lens-annotations" &&
+                                      candidate.id === attachment.id
+                                    ),
+                                ),
+                              })
+                            }
+                            xstyle={promptInputStyles.lensChipRemove}
+                            aria-label={i18n.t("composer:promptInput.ariaLabel13", { value1: attachment.label })}
+                          >
+                            <X className={sx(promptInputStyles.icon3)} />
+                          </AdsButton>
+                        </AdsTooltip>
                       </div>
                     );
                   }
@@ -4016,18 +4026,20 @@ export function PromptInput(args: PromptInputProps) {
                             )
                           }
                         />
-                        <Button
-                          type="button"
-                          size="icon-xs"
-                          variant="ghost"
-                          disabled={interactionsDisabled}
-                          aria-label={i18n.t("composer:promptInput.ariaLabel14", { value1: annotation.pin })}
-                          onClick={() => {
-                            void removeLensAnnotation(attachment, annotation);
-                          }}
-                        >
-                          <Trash2 className={sx(promptInputStyles.icon3)} />
-                        </Button>
+                        <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel14", { value1: annotation.pin })}>
+                          <Button
+                            type="button"
+                            size="icon-xs"
+                            variant="ghost"
+                            disabled={interactionsDisabled}
+                            aria-label={i18n.t("composer:promptInput.ariaLabel14", { value1: annotation.pin })}
+                            onClick={() => {
+                              void removeLensAnnotation(attachment, annotation);
+                            }}
+                          >
+                            <Trash2 className={sx(promptInputStyles.icon3)} />
+                          </Button>
+                        </AdsTooltip>
                       </div>
                     );
                   });
@@ -4126,25 +4138,26 @@ export function PromptInput(args: PromptInputProps) {
                     />
                     <span className={sx(promptInputStyles.truncMedium)}>{filePath}</span>
                   </Button>
-                  <Button
-                    type="button"
-                    size="xs"
-                    iconOnly
-                    variant="ghost"
-                    disabled={interactionsDisabled}
-                    aria-label={i18n.t("composer:promptInput.ariaLabel17", { value1: filePath })}
-                    title={i18n.t("composer:promptInput.title7")}
-                    onClick={() =>
-                      onAttachFilesChange({
-                        filePaths: attachedFilePaths.filter(
-                          (p) => p !== filePath,
-                        ),
-                      })
-                    }
-                    xstyle={promptInputStyles.fileRemoveButton}
-                  >
-                    <X />
-                  </Button>
+                  <AdsTooltip content={i18n.t("composer:promptInput.title7")}>
+                    <Button
+                      type="button"
+                      size="xs"
+                      iconOnly
+                      variant="ghost"
+                      disabled={interactionsDisabled}
+                      aria-label={i18n.t("composer:promptInput.ariaLabel17", { value1: filePath })}
+                      onClick={() =>
+                        onAttachFilesChange({
+                          filePaths: attachedFilePaths.filter(
+                            (p) => p !== filePath,
+                          ),
+                        })
+                      }
+                      xstyle={promptInputStyles.fileRemoveButton}
+                    >
+                      <X />
+                    </Button>
+                  </AdsTooltip>
                 </div>
               ))}
               {standaloneImageAttachments.map((img) => (
@@ -4176,25 +4189,26 @@ export function PromptInput(args: PromptInputProps) {
                       className={sx(promptInputStyles.imagePreview)}
                     />
                   </AdsButton>
-                  <Button
-                    type="button"
-                    size="xs"
-                    iconOnly
-                    variant="floating"
-                    disabled={interactionsDisabled}
-                    aria-label={i18n.t("composer:promptInput.ariaLabel19", { value1: img.label })}
-                    title={i18n.t("composer:promptInput.title9")}
-                    onClick={() =>
-                      onAttachmentsChange?.({
-                        attachments: (attachments ?? []).filter(
-                          (a) => !(a.kind === "image" && a.id === img.id),
-                        ),
-                      })
-                    }
-                    xstyle={promptInputStyles.imageRemoveButton}
-                  >
-                    <X />
-                  </Button>
+                  <AdsTooltip content={i18n.t("composer:promptInput.title9")}>
+                    <Button
+                      type="button"
+                      size="xs"
+                      iconOnly
+                      variant="floating"
+                      disabled={interactionsDisabled}
+                      aria-label={i18n.t("composer:promptInput.ariaLabel19", { value1: img.label })}
+                      onClick={() =>
+                        onAttachmentsChange?.({
+                          attachments: (attachments ?? []).filter(
+                            (a) => !(a.kind === "image" && a.id === img.id),
+                          ),
+                        })
+                      }
+                      xstyle={promptInputStyles.imageRemoveButton}
+                    >
+                      <X />
+                    </Button>
+                  </AdsTooltip>
                 </div>
               ))}
             </div>

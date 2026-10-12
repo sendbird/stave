@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ClipboardCheck,
@@ -393,50 +394,53 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 </div>
                 <div className={sx(informationRow.trail)}>
                   {summary && summary.latestRevision > 1 ? (
-                    <AdsButton
-                      layout="host"
-                      type="button"
-                      onClick={() => void compareWithPreviousRevision(summary)}
-                      xstyle={planStyles.rowAction}
-                      title={tI18n("workspace:workspacePlansSection.compareWithPreviousRevision")}
-                      aria-label={tI18n("workspace:workspacePlansSection.compareValueWithPreviousRevision", { value1: entry.label })}
-                    >
-                      <GitCompare
-                        className={sx(planStyles.rowActionIcon)}
-                        aria-hidden="true"
-                      />
-                    </AdsButton>
+                    <Tooltip content={tI18n("workspace:workspacePlansSection.compareWithPreviousRevision")}>
+                      <AdsButton
+                        layout="host"
+                        type="button"
+                        onClick={() => void compareWithPreviousRevision(summary)}
+                        xstyle={planStyles.rowAction}
+                        aria-label={tI18n("workspace:workspacePlansSection.compareValueWithPreviousRevision", { value1: entry.label })}
+                      >
+                        <GitCompare
+                          className={sx(planStyles.rowActionIcon)}
+                          aria-hidden="true"
+                        />
+                      </AdsButton>
+                    </Tooltip>
                   ) : null}
                   {onImportTodos ? (
+                    <Tooltip content={tI18n("workspace:workspacePlansSection.importChecklistItemsAsTodos")}>
+                      <AdsButton
+                        layout="host"
+                        type="button"
+                        onClick={() =>
+                          void onImportTodos({ filePath: entry.filePath })
+                        }
+                        xstyle={planStyles.rowAction}
+                        aria-label={tI18n("workspace:workspacePlansSection.importChecklistItemsFromValueAsTodos", { value1: entry.label })}
+                      >
+                        <ListPlus
+                          className={sx(planStyles.rowActionIcon)}
+                          aria-hidden="true"
+                        />
+                      </AdsButton>
+                    </Tooltip>
+                  ) : null}
+                  <Tooltip content={tI18n("workspace:workspacePlansSection.deleteSavedPlan")}>
                     <AdsButton
                       layout="host"
                       type="button"
-                      onClick={() =>
-                        void onImportTodos({ filePath: entry.filePath })
-                      }
-                      xstyle={planStyles.rowAction}
-                      title={tI18n("workspace:workspacePlansSection.importChecklistItemsAsTodos")}
-                      aria-label={tI18n("workspace:workspacePlansSection.importChecklistItemsFromValueAsTodos", { value1: entry.label })}
+                      onClick={() => setDeleteTarget(entry)}
+                      xstyle={[planStyles.rowAction, planStyles.rowActionDanger]}
+                      aria-label={tI18n("workspace:workspacePlansSection.deletePlanValue", { value1: entry.label })}
                     >
-                      <ListPlus
+                      <Trash2
                         className={sx(planStyles.rowActionIcon)}
                         aria-hidden="true"
                       />
                     </AdsButton>
-                  ) : null}
-                  <AdsButton
-                    layout="host"
-                    type="button"
-                    onClick={() => setDeleteTarget(entry)}
-                    xstyle={[planStyles.rowAction, planStyles.rowActionDanger]}
-                    title={tI18n("workspace:workspacePlansSection.deleteSavedPlan")}
-                    aria-label={tI18n("workspace:workspacePlansSection.deletePlanValue", { value1: entry.label })}
-                  >
-                    <Trash2
-                      className={sx(planStyles.rowActionIcon)}
-                      aria-hidden="true"
-                    />
-                  </AdsButton>
+                  </Tooltip>
                 </div>
               </div>
               );

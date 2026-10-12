@@ -3,6 +3,7 @@ import { Fragment, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Search, X } from "lucide-react";
 import { Kbd } from "@/components/ads/components/Kbd";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import {
@@ -170,16 +171,18 @@ export function KeyboardShortcutsDrawer({
                     xstyle={shortcutsDrawerStyles.searchInput}
                   />
                   {searchQuery ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      xstyle={shortcutsDrawerStyles.clearButton}
-                      aria-label={i18n.t("shell:keyboardShortcutsDrawer.clearShortcutSearch")}
-                      onClick={() => setSearchQuery("")}
-                    >
-                      <X className={sx(shortcutsDrawerStyles.clearIcon)} />
-                    </Button>
+                    <Tooltip content={i18n.t("shell:keyboardShortcutsDrawer.clearShortcutSearch")}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        xstyle={shortcutsDrawerStyles.clearButton}
+                        aria-label={i18n.t("shell:keyboardShortcutsDrawer.clearShortcutSearch")}
+                        onClick={() => setSearchQuery("")}
+                      >
+                        <X className={sx(shortcutsDrawerStyles.clearIcon)} />
+                      </Button>
+                    </Tooltip>
                   ) : null}
                 </div>
                 <span className={sx(shortcutsDrawerStyles.shownCount)}>{i18n.t("shell:keyboardShortcutsDrawer.shownCount", { count: visibleShortcutCount })}</span>

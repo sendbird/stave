@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { Ellipsis } from "lucide-react";
@@ -220,21 +221,22 @@ export function ComposerStatusTray(props: {
     >
       {collapsed ? (
         <Popover open={open} onOpenChange={setOpen}>
-          <PopoverTrigger
-            render={
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                disabled={props.disabled}
-                className={sx(statusTrayStyles.trigger, statusTrayStyles.triggerHover)}
-                aria-label={i18n.t("composer:composerStatusTray.ariaLabel", { value1: props.items.length + overflowItems.length })}
-                title={i18n.t("composer:composerStatusTray.title")}
-              />
-            }
-          >
-            <Ellipsis className={sx(statusTrayStyles.icon)} />
-          </PopoverTrigger>
+          <Tooltip content={i18n.t("composer:composerStatusTray.title")}>
+            <PopoverTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  disabled={props.disabled}
+                  className={sx(statusTrayStyles.trigger, statusTrayStyles.triggerHover)}
+                  aria-label={i18n.t("composer:composerStatusTray.ariaLabel", { value1: props.items.length + overflowItems.length })}
+                />
+              }
+            >
+              <Ellipsis className={sx(statusTrayStyles.icon)} />
+            </PopoverTrigger>
+          </Tooltip>
           <PopoverContent
             align="end"
             side="top"

@@ -2,6 +2,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useEffect, useState } from "react";
 import { ChartNoAxesColumn, RefreshCw, X } from "lucide-react";
 import { Button } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Dialog } from "@/components/ads/components/Dialog";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
@@ -203,9 +204,11 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
     </span>
   );
   const refresh = (
-    <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:agentPerformance.refresh")} title={t("compare:agentPerformance.refresh")} disabled={reading} onClick={() => setAttempt((count) => count + 1)}>
-      <RefreshCw className={sx(centerStyles.actionIcon)} />
-    </Button>
+    <Tooltip content={t("compare:agentPerformance.refresh")}>
+      <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:agentPerformance.refresh")} disabled={reading} onClick={() => setAttempt((count) => count + 1)}>
+        <RefreshCw className={sx(centerStyles.actionIcon)} />
+      </Button>
+    </Tooltip>
   );
 
   return (
@@ -222,9 +225,11 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
           <div className={sx(centerStyles.headerActions)}>
             {periodControl}
             {refresh}
-            <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:resultsView.closeResults")} title={t("compare:resultsView.closeResults")} onClick={close}>
-              <X className={sx(centerStyles.actionIcon)} />
-            </Button>
+            <Tooltip content={t("compare:resultsView.closeResults")}>
+              <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label={t("compare:resultsView.closeResults")} onClick={close}>
+                <X className={sx(centerStyles.actionIcon)} />
+              </Button>
+            </Tooltip>
           </div>
         </header>
       )}

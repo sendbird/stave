@@ -12,6 +12,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { Button, Input, Loader, Textarea, toast } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
@@ -285,20 +286,22 @@ export function SecretsSettingsCard() {
                   className={sx(styles.fieldControlMono)}
                   onChange={(event) => setValue(event.target.value)}
                 />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className={sx(styles.iconAction)}
-                  aria-label={showValue ? t("settingsConnections:settingsDialogSecrets.hideValue") : t("settingsConnections:settingsDialogSecrets.showValue")}
-                  onClick={() => setShowValue((current) => !current)}
-                >
-                  {showValue ? (
-                    <EyeOff className={sx(styles.actionIcon)} />
-                  ) : (
-                    <Eye className={sx(styles.actionIcon)} />
-                  )}
-                </Button>
+                <Tooltip content={showValue ? t("settingsConnections:settingsDialogSecrets.hideValue") : t("settingsConnections:settingsDialogSecrets.showValue")}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-xs"
+                    className={sx(styles.iconAction)}
+                    aria-label={showValue ? t("settingsConnections:settingsDialogSecrets.hideValue") : t("settingsConnections:settingsDialogSecrets.showValue")}
+                    onClick={() => setShowValue((current) => !current)}
+                  >
+                    {showValue ? (
+                      <EyeOff className={sx(styles.actionIcon)} />
+                    ) : (
+                      <Eye className={sx(styles.actionIcon)} />
+                    )}
+                  </Button>
+                </Tooltip>
               </div>
             </label>
             <label className={sx(styles.fieldLabel)}>
@@ -385,52 +388,60 @@ export function SecretsSettingsCard() {
                       </p>
                     ) : null}
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={
-                      revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })
-                    }
-                    onClick={() => void toggleReveal(secret)}
-                  >
-                    {revealed ? (
-                      <EyeOff className={sx(styles.actionIcon)} />
-                    ) : (
-                      <Eye className={sx(styles.actionIcon)} />
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}
-                    onClick={() => void copySecret(secret)}
-                  >
-                    {copiedId === secret.id ? (
-                      <Check className={sx(styles.copiedIcon)} />
-                    ) : (
-                      <Copy className={sx(styles.actionIcon)} />
-                    )}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}
-                    onClick={() => openEditEditor(secret)}
-                  >
-                    <Pencil className={sx(styles.actionIcon)} />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}
-                    onClick={() => setDeletingId(secret.id)}
-                  >
-                    <Trash2 className={sx(styles.actionIcon)} />
-                  </Button>
+                  <Tooltip content={revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={
+                        revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })
+                      }
+                      onClick={() => void toggleReveal(secret)}
+                    >
+                      {revealed ? (
+                        <EyeOff className={sx(styles.actionIcon)} />
+                      ) : (
+                        <Eye className={sx(styles.actionIcon)} />
+                      )}
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}
+                      onClick={() => void copySecret(secret)}
+                    >
+                      {copiedId === secret.id ? (
+                        <Check className={sx(styles.copiedIcon)} />
+                      ) : (
+                        <Copy className={sx(styles.actionIcon)} />
+                      )}
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}
+                      onClick={() => openEditEditor(secret)}
+                    >
+                      <Pencil className={sx(styles.actionIcon)} />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}
+                      onClick={() => setDeletingId(secret.id)}
+                    >
+                      <Trash2 className={sx(styles.actionIcon)} />
+                    </Button>
+                  </Tooltip>
                 </div>
               );
             })}

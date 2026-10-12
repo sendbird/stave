@@ -21,6 +21,7 @@ import {
 } from "@/lib/tracker-issues/peek-size";
 import { sx } from "@/components/ads/utils/stylex";
 import { taskLayoutStyles } from "./issues-layout.stylex";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 
 export type IssuesPeekDock = "split" | "parent";
 
@@ -188,26 +189,30 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
       <header className={sx(taskLayoutStyles.peekHeader)}>
         {props.onNavigate ? (
           <div className={sx(taskLayoutStyles.peekNavigation)}>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              aria-label={tI18n("issues:issuesPeekPanel.previousTicket")}
-              disabled={prevDisabled}
-              onClick={() => props.onNavigate?.("prev")}
-            >
-              <ChevronUp aria-hidden />
-            </Button>
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              aria-label={tI18n("issues:issuesPeekPanel.nextTicket")}
-              disabled={nextDisabled}
-              onClick={() => props.onNavigate?.("next")}
-            >
-              <ChevronDown aria-hidden />
-            </Button>
+            <Tooltip content={tI18n("issues:issuesPeekPanel.previousTicket")}>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label={tI18n("issues:issuesPeekPanel.previousTicket")}
+                disabled={prevDisabled}
+                onClick={() => props.onNavigate?.("prev")}
+              >
+                <ChevronUp aria-hidden />
+              </Button>
+            </Tooltip>
+            <Tooltip content={tI18n("issues:issuesPeekPanel.nextTicket")}>
+              <Button
+                type="button"
+                size="icon-xs"
+                variant="ghost"
+                aria-label={tI18n("issues:issuesPeekPanel.nextTicket")}
+                disabled={nextDisabled}
+                onClick={() => props.onNavigate?.("next")}
+              >
+                <ChevronDown aria-hidden />
+              </Button>
+            </Tooltip>
           </div>
         ) : null}
         <h2
@@ -220,25 +225,29 @@ export function IssuesPeekPanel(props: IssuesPeekPanelProps) {
         <div className={sx(taskLayoutStyles.peekActions)}>
           {props.headerActions}
           {props.onExpand ? (
+            <Tooltip content={tI18n("issues:issuesPeekPanel.openInBrowser")}>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label={tI18n("issues:issuesPeekPanel.openInBrowser")}
+                onClick={props.onExpand}
+              >
+                <Maximize2 aria-hidden className={sx(trackerVisualStyles.icon)} />
+              </Button>
+            </Tooltip>
+          ) : null}
+          <Tooltip content={closeLabel}>
             <Button
               type="button"
               size="icon-sm"
               variant="ghost"
-              aria-label={tI18n("issues:issuesPeekPanel.openInBrowser")}
-              onClick={props.onExpand}
+              aria-label={closeLabel}
+              onClick={props.onClose}
             >
-              <Maximize2 aria-hidden className={sx(trackerVisualStyles.icon)} />
+              <X aria-hidden className={sx(trackerVisualStyles.icon)} />
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={closeLabel}
-            onClick={props.onClose}
-          >
-            <X aria-hidden className={sx(trackerVisualStyles.icon)} />
-          </Button>
+          </Tooltip>
         </div>
       </header>
       <div className={sx(taskLayoutStyles.peekBody)}>{props.children}</div>

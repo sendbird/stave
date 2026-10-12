@@ -28,6 +28,7 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { DEFAULT_PROMPT_WORKSPACE_KICKOFF } from "@/lib/providers/prompt-defaults";
@@ -370,30 +371,34 @@ export function KickoffSection() {
                       </span>
                     </AdsButton>
                     <div className={sx(kickoffSectionStyles.moveButtons)}>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={index === 0}
-                        aria-label={i18n.t("settings:settingsDialogKickoffSection.moveEarlier", { value1: config.label })}
-                        onClick={() => moveConfig(index, -1)}
-                      >
-                        <ArrowUp
-                          className={sx(kickoffSectionStyles.moveIcon)}
-                        />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        disabled={index === sourceConfigs.length - 1}
-                        aria-label={i18n.t("settings:settingsDialogKickoffSection.moveLater", { value1: config.label })}
-                        onClick={() => moveConfig(index, 1)}
-                      >
-                        <ArrowDown
-                          className={sx(kickoffSectionStyles.moveIcon)}
-                        />
-                      </Button>
+                      <Tooltip content={i18n.t("settings:settingsDialogKickoffSection.moveEarlier", { value1: config.label })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={index === 0}
+                          aria-label={i18n.t("settings:settingsDialogKickoffSection.moveEarlier", { value1: config.label })}
+                          onClick={() => moveConfig(index, -1)}
+                        >
+                          <ArrowUp
+                            className={sx(kickoffSectionStyles.moveIcon)}
+                          />
+                        </Button>
+                      </Tooltip>
+                      <Tooltip content={i18n.t("settings:settingsDialogKickoffSection.moveLater", { value1: config.label })}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          disabled={index === sourceConfigs.length - 1}
+                          aria-label={i18n.t("settings:settingsDialogKickoffSection.moveLater", { value1: config.label })}
+                          onClick={() => moveConfig(index, 1)}
+                        >
+                          <ArrowDown
+                            className={sx(kickoffSectionStyles.moveIcon)}
+                          />
+                        </Button>
+                      </Tooltip>
                     </div>
                     <div className={sx(kickoffSectionStyles.serverBadges)}>
                       {config.mcpServers.map((server) => {

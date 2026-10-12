@@ -92,6 +92,7 @@ import {
 import { WORKSPACE_INFORMATION_SECTION_LABELS } from "@/lib/workspace-information-sections";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { sanitizeBranchName } from "@/store/repository.utils";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import { useAppStore, type AppSettings } from "@/store/app.store";
@@ -1129,23 +1130,25 @@ export function KickoffDialog(props: {
                                   </span>
                                 </span>
                               </AccordionTrigger>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                xstyle={kickoffStyles.entryRemove}
-                                aria-label={tI18n("kickoff:kickoffDialog.removeValueItem", { value1: panelTargetLabel(entry.target) })}
-                                onClick={() =>
-                                  setDraft({
-                                    ...draft,
-                                    panelEntries: draft.panelEntries.filter(
-                                      (_, entryIndex) => entryIndex !== index,
-                                    ),
-                                  })
-                                }
-                              >
-                                <Trash2 className={sx(kickoffStyles.smallIcon)} />
-                              </Button>
+                              <Tooltip content={tI18n("kickoff:kickoffDialog.removeValueItem", { value1: panelTargetLabel(entry.target) })}>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  xstyle={kickoffStyles.entryRemove}
+                                  aria-label={tI18n("kickoff:kickoffDialog.removeValueItem", { value1: panelTargetLabel(entry.target) })}
+                                  onClick={() =>
+                                    setDraft({
+                                      ...draft,
+                                      panelEntries: draft.panelEntries.filter(
+                                        (_, entryIndex) => entryIndex !== index,
+                                      ),
+                                    })
+                                  }
+                                >
+                                  <Trash2 className={sx(kickoffStyles.smallIcon)} />
+                                </Button>
+                              </Tooltip>
                             </div>
                             <AccordionContent
                               className={sx(kickoffStyles.entryPanel)}
@@ -1267,22 +1270,24 @@ export function KickoffDialog(props: {
                                     })
                                   }
                                 />
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon-sm"
-                                  aria-label={tI18n("kickoff:kickoffDialog.removeTodoValue", { value1: index + 1 })}
-                                  onClick={() =>
-                                    setDraft({
-                                      ...draft,
-                                      todos: draft.todos.filter(
-                                        (_, itemIndex) => itemIndex !== index,
-                                      ),
-                                    })
-                                  }
-                                >
-                                  <Trash2 className={sx(kickoffStyles.smallIcon)} />
-                                </Button>
+                                <Tooltip content={tI18n("kickoff:kickoffDialog.removeTodoValue", { value1: index + 1 })}>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    aria-label={tI18n("kickoff:kickoffDialog.removeTodoValue", { value1: index + 1 })}
+                                    onClick={() =>
+                                      setDraft({
+                                        ...draft,
+                                        todos: draft.todos.filter(
+                                          (_, itemIndex) => itemIndex !== index,
+                                        ),
+                                      })
+                                    }
+                                  >
+                                    <Trash2 className={sx(kickoffStyles.smallIcon)} />
+                                  </Button>
+                                </Tooltip>
                               </div>
                             ))}
                           </div>

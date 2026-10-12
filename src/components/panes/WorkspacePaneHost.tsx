@@ -3,6 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { transition } from "@/components/ads/recipes/transition";
 import {
   DockviewReact,
@@ -107,29 +108,30 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
   return (
     <div className={sx(styles.picker)}>
       <span className={sx(styles.label)}>{i18n.t("panes:workspacePaneHost.icon")}</span>
-      <AdsButton layout="host"
-        type="button"
-        xstyle={[styles.reset, transition.colors]}
-        aria-label={i18n.t("panes:workspacePaneHost.useDefaultTabIcon")}
-        title={i18n.t("panes:workspacePaneHost.default")}
-        onClick={() => setIcon(undefined)}
-      >
-        ×
-      </AdsButton>
+      <Tooltip content={i18n.t("panes:workspacePaneHost.default")}>
+        <AdsButton layout="host"
+          type="button"
+          xstyle={[styles.reset, transition.colors]}
+          aria-label={i18n.t("panes:workspacePaneHost.useDefaultTabIcon")}
+          onClick={() => setIcon(undefined)}
+        >
+          ×
+        </AdsButton>
+      </Tooltip>
       {PANE_CUSTOM_ICON_OPTIONS.map((option) => {
         const Icon = option.icon;
         const selected = options?.selectedIcon === option.id;
         return (
-          <AdsButton layout="host"
-            key={option.id}
-            type="button"
-            xstyle={[styles.choice, selected && styles.selected, transition.colors]}
-            aria-label={i18n.t("panes:workspacePaneHost.useTabIcon", { value1: option.label })}
-            title={option.label}
-            onClick={() => setIcon(option.id)}
-          >
-            <Icon className={sx(styles.icon)} />
-          </AdsButton>
+          <Tooltip key={option.id} content={option.label}>
+            <AdsButton layout="host"
+              type="button"
+              xstyle={[styles.choice, selected && styles.selected, transition.colors]}
+              aria-label={i18n.t("panes:workspacePaneHost.useTabIcon", { value1: option.label })}
+              onClick={() => setIcon(option.id)}
+            >
+              <Icon className={sx(styles.icon)} />
+            </AdsButton>
+          </Tooltip>
         );
       })}
     </div>

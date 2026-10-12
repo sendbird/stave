@@ -18,6 +18,7 @@ import {
 } from "@/components/session/DelegatedTaskRows";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import { Button, Loader, Textarea } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   resolveFleetCurrentTaskControlState,
   validateFleetInteractionAction,
@@ -480,16 +481,18 @@ export function FleetTaskControlPanel(args: {
           >
             {tI18n("fleet:fleetTaskControlPanel.openTask")}<ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
           </Button> : null}
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            xstyle={styles.closeAction}
-            aria-label={args.interactionOnly ? tI18n("fleet:fleetTaskControlPanel.closeRequest") : tI18n("fleet:fleetTaskControlPanel.closeTaskControls")}
-            onClick={closePanel}
-          >
-            <X className={sx(styles.closeIcon)} aria-hidden="true" />
-          </Button>
+          <Tooltip content={args.interactionOnly ? tI18n("fleet:fleetTaskControlPanel.closeRequest") : tI18n("fleet:fleetTaskControlPanel.closeTaskControls")}>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              xstyle={styles.closeAction}
+              aria-label={args.interactionOnly ? tI18n("fleet:fleetTaskControlPanel.closeRequest") : tI18n("fleet:fleetTaskControlPanel.closeTaskControls")}
+              onClick={closePanel}
+            >
+              <X className={sx(styles.closeIcon)} aria-hidden="true" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 

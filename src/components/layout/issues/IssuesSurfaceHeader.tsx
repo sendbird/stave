@@ -10,6 +10,7 @@ import type { TrackerSourceSummary } from "@/lib/tracker-issues/source-status";
 import type { TrackerSourceSyncStatus } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
 import { taskLayoutStyles } from "./issues-layout.stylex";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 
 export interface IssuesSurfaceHeaderProps {
   summaries: readonly TrackerSourceSummary[];
@@ -93,32 +94,34 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
         </p>
       </div>
       <div className={sx(taskLayoutStyles.headerActions)}>
-        <Button
-          variant="ghost"
-          size="sm"
-          xstyle={taskLayoutStyles.headerAction}
-          onClick={props.onRefresh}
-          aria-label={tI18n("issues:issuesSurfaceHeader.refreshTrackerTickets")}
-          title={tI18n("issues:issuesSurfaceHeader.refresh")}
-        >
-          <RefreshCw
-            className={sx(
-              taskLayoutStyles.icon16,
-              (props.refreshing || syncing) && taskLayoutStyles.spinner,
-            )}
-          />
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          xstyle={taskLayoutStyles.headerAction}
-          data-testid="close-tasks"
-          aria-label={i18n.t("issues:issuesSurfaceHeader.accessibility.closeTasks")}
-          title={tI18n("issues:issuesSurfaceHeader.closeIssues")}
-          onClick={props.onClose}
-        >
-          <X className={sx(taskLayoutStyles.icon16)} />
-        </Button>
+        <Tooltip content={tI18n("issues:issuesSurfaceHeader.refresh")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            xstyle={taskLayoutStyles.headerAction}
+            onClick={props.onRefresh}
+            aria-label={tI18n("issues:issuesSurfaceHeader.refreshTrackerTickets")}
+          >
+            <RefreshCw
+              className={sx(
+                taskLayoutStyles.icon16,
+                (props.refreshing || syncing) && taskLayoutStyles.spinner,
+              )}
+            />
+          </Button>
+        </Tooltip>
+        <Tooltip content={tI18n("issues:issuesSurfaceHeader.closeIssues")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            xstyle={taskLayoutStyles.headerAction}
+            data-testid="close-tasks"
+            aria-label={i18n.t("issues:issuesSurfaceHeader.accessibility.closeTasks")}
+            onClick={props.onClose}
+          >
+            <X className={sx(taskLayoutStyles.icon16)} />
+          </Button>
+        </Tooltip>
       </div>
     </header>
   );

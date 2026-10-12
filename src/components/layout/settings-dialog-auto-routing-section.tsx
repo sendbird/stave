@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { describeRuleConditions, RouteFlow } from "@/components/auto-routing";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
 import { Switch } from "@/components/ui/switch";
@@ -282,45 +283,53 @@ function RuleRow(args: {
           </span>
         </div>
         <div className={sx(styles.ruleActions)}>
-          <Button
-            type="button"
-            variant="quiet"
-            size="sm"
-            aria-label={expanded ? t("settingsConnections:settingsDialogAutoRoutingSection.closeRule", { value1: rule.id }) : t("settingsConnections:settingsDialogAutoRoutingSection.editRule", { value1: rule.id })}
-            aria-expanded={expanded}
-            onClick={() => setExpanded((open) => !open)}
-          >
-            <Pencil className={sx(styles.icon)} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="quiet"
-            size="sm"
-            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleUp")}
-            disabled={args.index === 0}
-            onClick={() => args.onMove(-1)}
-          >
-            <ArrowUp className={sx(styles.icon)} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="quiet"
-            size="sm"
-            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleDown")}
-            disabled={args.index >= args.count - 1}
-            onClick={() => args.onMove(1)}
-          >
-            <ArrowDown className={sx(styles.icon)} aria-hidden="true" />
-          </Button>
-          <Button
-            type="button"
-            variant="quiet"
-            size="sm"
-            aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRule")}
-            onClick={args.onDelete}
-          >
-            <Trash2 className={sx(styles.icon)} aria-hidden="true" />
-          </Button>
+          <Tooltip content={expanded ? t("settingsConnections:settingsDialogAutoRoutingSection.closeRule", { value1: rule.id }) : t("settingsConnections:settingsDialogAutoRoutingSection.editRule", { value1: rule.id })}>
+            <Button
+              type="button"
+              variant="quiet"
+              size="sm"
+              aria-label={expanded ? t("settingsConnections:settingsDialogAutoRoutingSection.closeRule", { value1: rule.id }) : t("settingsConnections:settingsDialogAutoRoutingSection.editRule", { value1: rule.id })}
+              aria-expanded={expanded}
+              onClick={() => setExpanded((open) => !open)}
+            >
+              <Pencil className={sx(styles.icon)} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+          <Tooltip content={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleUp")}>
+            <Button
+              type="button"
+              variant="quiet"
+              size="sm"
+              aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleUp")}
+              disabled={args.index === 0}
+              onClick={() => args.onMove(-1)}
+            >
+              <ArrowUp className={sx(styles.icon)} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+          <Tooltip content={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleDown")}>
+            <Button
+              type="button"
+              variant="quiet"
+              size="sm"
+              aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.moveRuleDown")}
+              disabled={args.index >= args.count - 1}
+              onClick={() => args.onMove(1)}
+            >
+              <ArrowDown className={sx(styles.icon)} aria-hidden="true" />
+            </Button>
+          </Tooltip>
+          <Tooltip content={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRule")}>
+            <Button
+              type="button"
+              variant="quiet"
+              size="sm"
+              aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRule")}
+              onClick={args.onDelete}
+            >
+              <Trash2 className={sx(styles.icon)} aria-hidden="true" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
       {expanded ? (
@@ -493,9 +502,11 @@ function LegacyRuleRow(args: { rule: RouteRule; onDelete: () => void }) {
           </span>
         </div>
         <div className={sx(styles.ruleActions)}>
-          <Button type="button" variant="quiet" size="sm" aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRuleVariant72daa72f", { value1: args.rule.id })} onClick={args.onDelete}>
-            <Trash2 className={sx(styles.icon)} aria-hidden="true" />
-          </Button>
+          <Tooltip content={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRule")}>
+            <Button type="button" variant="quiet" size="sm" aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.deleteRuleVariant72daa72f", { value1: args.rule.id })} onClick={args.onDelete}>
+              <Trash2 className={sx(styles.icon)} aria-hidden="true" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
       <p className={sx(styles.legacyRuleSummary)}>{describeLegacyRule(args.rule)}</p>
