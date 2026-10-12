@@ -70,6 +70,7 @@ import { endUsageLimitPauseOnTurnStart, settleTaskQueueAfterTurn } from "@/store
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
 import { toast } from "@/lib/notifications/toast";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
+import { resolveAgentRunInitialContext } from "@/store/agent-run-initial-context";
 import { prepareAgentRunForSend } from "@/store/agent-run-send";
 import {
   createWebFetchAuthWallTracker,
@@ -513,7 +514,11 @@ export function createSendUserMessageAction(args: {
       taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
     // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
     const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
-      providerId: provider, prompt: promptContent, promptDraft, extraContextCount: (fileContexts?.length ?? 0) + (imageContexts?.length ?? 0),
+      resolveInitialContext: () => resolveAgentRunInitialContext({ getState: get, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+        prompt: promptContent, promptDraft, session: taskWorkspaceSession, fileContexts, imageContexts,
+        includeLensCommentImages: state.settings.lensVisualCommentScreenshotsAsImageContext,
+        informationContext: (lensState) => buildWorkspaceInformationReferencesRetrievedContext({ promptDraft, workspaceInformation: taskWorkspaceSession.workspaceInformation, lensState }) }),
+      providerId: provider, prompt: promptContent, promptDraft,
       turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft, queuedTurnId: queuedTurnToSend?.id, accounts: turnAccounts });
     if (agentRunStart) return await agentRunStart();
     // A "stalled" turn is one whose provider stream has gone silent past the

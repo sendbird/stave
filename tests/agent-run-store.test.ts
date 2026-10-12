@@ -61,6 +61,25 @@ describe("run store", () => {
     expect(store.listAgentRunsForWorkspace("ws-1").map((agentRun) => agentRun.id)).toEqual(["agent-run-1"]);
   });
 
+  test("adds the snapshot column to an existing database and preserves it through a restart and transition", () => {
+    database.exec("ALTER TABLE agent_runs DROP COLUMN initial_context_json");
+    store = new AgentRunStore(database);
+    const change = startChange();
+    change.agentRun.initialContext = {
+      imageContexts: [{ dataUrl: "data:image/png;base64,AA==", label: "mock", mimeType: "image/png" }],
+      fileContexts: [{ filePath: "brief.md", content: "Original brief", language: "markdown" }],
+      retrievedContextParts: [{ type: "retrieved_context", sourceId: "task:source", content: "Original answer" }],
+    };
+    store.create(change, AGENT_RUN_NOW);
+    const original = structuredClone(change.agentRun.initialContext);
+    change.agentRun.initialContext.retrievedContextParts![0]!.content = "Source changed";
+    const restarted = new AgentRunStore(database);
+    const aggregate = restarted.getAggregate("agent-run-1")!;
+    expect(aggregate.agentRun.initialContext).toEqual(original);
+    restarted.apply(cancelAgentRun({ aggregate, now: AGENT_RUN_NOW }), AGENT_RUN_NOW);
+    expect(restarted.getAgentRun("agent-run-1")?.initialContext).toEqual(original);
+  });
+
   test("refuses a second active run on the same lead task until the first ends", () => {
     store.create(startChange("agent-run-1"), AGENT_RUN_NOW);
     expect(store.create(startChange("agent-run-2"), AGENT_RUN_NOW)).toEqual({

@@ -176,3 +176,36 @@ describe("the accounts an agent-run start carries", () => {
     expect(inputs[0]?.accounts).toEqual({ claudeAccountProfileId: personal, codexAccountProfileId: "system-default" });
   });
 });
+
+for (const provider of ["codex", "claude-code"] as const) {
+  test(`a ${provider} composer keeps inline images and staged task context on the run`, async () => {
+    const useAppStore = await seedStore();
+    const inputs: AgentRunStartArgs[] = [];
+    registerAgentRunBridge({
+      activeAgentRun: () => null,
+      start: async (input) => {
+        inputs.push(input);
+        return { ok: true, agentRun: { agentRun: { id: "run-context" } } as never };
+      },
+      cancel: async () => ({ ok: true, agentRun: null }),
+      watchFirstPrompt: () => {},
+    });
+    const image = { kind: "image" as const, id: "img", label: "Screen", mimeType: "image/png", dataUrl: "data:image/png;base64,aA==" };
+    useAppStore.setState((state) => ({
+      tasks: [...state.tasks.map((task) => ({ ...task, provider })), { ...state.tasks[0]!, id: "research", title: "Research" }],
+      messagesByTask: { ...state.messagesByTask, research: [{ id: "answer", role: "assistant", content: "Fix the redirect guard.", timestamp: "2026-10-12T00:00:00Z" }] },
+      promptDraftByTask: { [TASK_ID]: { text: PROMPT, attachedFilePaths: [], attachments: [image], promptBatch: [{
+        id: "batch", createdAt: "2026-10-12T00:00:00Z", content: "Use the attached review", attachments: [{
+          kind: "task-context", id: "task-ref", taskId: "research", workspaceId: "ws-agent", title: "Research", scope: "latest-reply",
+        }],
+      }] } },
+    }));
+    const result = await useAppStore.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" });
+    expect(result.status).toBe("run-started");
+    expect(inputs).toHaveLength(1);
+    expect(inputs[0]?.initialContext?.imageContexts).toEqual([{ dataUrl: image.dataUrl, label: image.label, mimeType: image.mimeType }]);
+    expect(inputs[0]?.initialContext?.retrievedContextParts?.map((part) => part.content).join("\n")).toContain("Fix the redirect guard.");
+    expect(inputs[0]?.assignment).toContain("Use the attached review");
+    expect(startedTurns).toBe(0);
+  });
+}

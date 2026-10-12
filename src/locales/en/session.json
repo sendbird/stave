@@ -47,7 +47,7 @@
     "extraCopy82": "Agent history is unavailable in this runtime."
   },
   "agentAttachmentNotice": {
-    "agentAttachmentNotice": "This message will run as a single turn because it includes attachments. Automatic agent execution will not start."
+    "agentAttachmentNotice": "The Run keeps attached images and context through retries and continuations."
   },
   "autoRouteLine": {
     "autoRouteLine": "Auto →",

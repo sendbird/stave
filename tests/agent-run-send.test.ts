@@ -59,7 +59,6 @@ function sendArgs(overrides: Partial<Parameters<typeof startAgentRunForSend>[0]>
       providerId: "claude-code",
       prompt: "Add CSV export.",
       promptDraft: { attachedFilePaths: [], attachments: [] },
-      extraContextCount: 0,
       turnActive: false,
       queued: false,
       turnOrigin: "conversation" as const,
@@ -117,20 +116,45 @@ describe("agent run send path", () => {
     expect(bridge.started).toEqual([]);
   });
 
-  test("attachments and extra context use the single-turn path, including attachments staged in the batch", async () => {
+  test("attachments start a run with frozen resolved context, including staged task references", async () => {
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
     const bridge = fakeBridge();
-    const taskAttachment = { kind: "task-context" as const, id: "context-1", taskId: "source", workspaceId: "ws-1", title: "Research", scope: "latest-reply" as const };
-    const drafts = [
+    const context = {
+      imageContexts: [{ dataUrl: "data:image/png;base64,aGVsbG8=", mimeType: "image/png", label: "Design" }],
+      retrievedContextParts: [{ type: "retrieved_context" as const, sourceId: "task:source", title: "Research", content: "Verified result" }],
+    };
+    const attachment = { kind: "task-context" as const, id: "context-1", taskId: "source", workspaceId: "ws-1", title: "Research", scope: "latest-reply" as const };
+    const { args } = sendArgs({
+      promptDraft: { attachedFilePaths: [], attachments: [], promptBatch: [{ id: "batch-1", createdAt: "now", content: "Use research", attachments: [attachment] }] },
+      resolveInitialContext: async () => structuredClone(context),
+    });
+    expect((await startAgentRunForSend(args))?.status).toBe("run-started");
+    context.retrievedContextParts[0].content = "Later source reply";
+    expect(bridge.started[0]?.initialContext?.retrievedContextParts?.[0]?.content).toBe("Verified result");
+    expect(bridge.started[0]?.initialContext?.imageContexts).toEqual(context.imageContexts);
+  });
 
-      { attachedFilePaths: [], attachments: [taskAttachment] },
-      { attachedFilePaths: [], attachments: [], promptBatch: [{ id: "batch-1", createdAt: "now", content: "Use research", attachments: [taskAttachment] }] },
-    ];
-    for (const promptDraft of drafts) {
-      expect(await startAgentRunForSend(sendArgs({ promptDraft }).args)).toBeNull();
-    }
-    expect(await startAgentRunForSend(sendArgs({ extraContextCount: 1 }).args)).toBeNull();
+  test("context resolution failure starts no run and restores the submitted attachments", async () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    const bridge = fakeBridge();
+    const { args, state } = sendArgs({ resolveInitialContext: async () => { throw new Error("Context unavailable"); } });
+    const attachment = { kind: "image" as const, id: "image", label: "Design", dataUrl: "data:image/png;base64,aA==" };
+    args.set((current) => ({ promptDraftByTask: { ...current.promptDraftByTask,
+      "task-1": { ...current.promptDraftByTask["task-1"], attachments: [attachment] } } }));
+    expect(await startAgentRunForSend(args)).toEqual({ status: "blocked", message: "Context unavailable" });
     expect(bridge.started).toEqual([]);
+    expect(state().promptDraftByTask["task-1"]?.attachments).toEqual([attachment]);
+    expect(pendingRow()).toBeUndefined();
+  });
+
+  test("a failed retry retains attachments even when it preserves the current composer", async () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    fakeBridge({ refuse: "Unavailable" });
+    const attachment = { kind: "image" as const, id: "image", label: "Design", dataUrl: "data:image/png;base64,aA==" };
+    const { args, state } = sendArgs({ preservePromptDraft: true, promptDraft: { attachedFilePaths: ["design.png"], attachments: [attachment] } });
+    expect((await startAgentRunForSend(args))?.status).toBe("blocked");
+    expect(state().failedSendsByTask["task-1"]?.[0]).toMatchObject({ attachedFilePaths: ["design.png"], attachments: [attachment] });
+    expect(state().promptDraftByTask["task-1"]?.text).toBe("Add CSV export.");
   });
 
   test("a refused run start blocks the send and restores its prompt", async () => {
@@ -238,10 +262,9 @@ describe("unsent agent run prompt recovery", () => {
     expect(recover(closed, draft)).toEqual({});
   });
 
-  test("attachments and a running turn keep the plain paths", async () => {
+  test("a running turn keeps the plain path", async () => {
     useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
     const bridge = fakeBridge();
-    expect(await startAgentRunForSend(sendArgs({ extraContextCount: 1 }).args)).toBeNull();
     expect(await startAgentRunForSend(sendArgs({ turnActive: true }).args)).toBeNull();
     expect(bridge.started).toEqual([]);
   });

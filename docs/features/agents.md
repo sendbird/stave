@@ -444,7 +444,9 @@ results and reports acceptance; an earlier parent report is insufficient.
 
 Saved file paths can accompany a supervised assignment, including image
 paths. Save editor changes first: the Run reads the on-disk files. Inline image
-payloads and rich context attachments still show the single-turn exception.
+payloads and explicitly attached task or Information panel context are captured
+once when the Run starts and retained through retries, continuations, and app
+restarts. Later changes to an attached task do not replace that captured context.
 An idle queued assignment starts supervision with its captured routing intent.
 No live cost or quality improvement is guaranteed by these containment limits.
 

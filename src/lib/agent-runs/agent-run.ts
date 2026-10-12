@@ -91,6 +91,7 @@ export function buildAgentRunStartInput(args: {
   agent: RunAgent;
   assignment: string;
   doneWhen?: string | null;
+  initialContext?: import("./initial-context").AgentRunInitialContext;
   adaptive?: boolean;
   routingIntent?: import("./resources").AdaptiveRoutingIntent;
   /** The accounts selected for this send; the run's own turns keep them. */
@@ -105,6 +106,7 @@ export function buildAgentRunStartInput(args: {
     leadTaskId: args.taskId,
     workflow,
     assignment: args.assignment.trim(),
+    ...(args.initialContext ? { initialContext: args.initialContext } : {}),
     consent: { checkIns: workflow.checkIns, permissionMode: "manual", authorizedEffectStageIds },
     origin: "agent",
     ...(args.adaptive ? { adaptive: true } : {}),
@@ -123,16 +125,14 @@ export type AgentPromptSendPlan =
   | { kind: "start-run" }
   | {
       kind: "plain-turn";
-      reason: "chat" | "run-active" | "turn-active" | "not-a-prompt" | "attachments" | "too-long" | "provider";
+      reason: "chat" | "run-active" | "turn-active" | "not-a-prompt" | "too-long" | "provider";
     };
 
 /** The composer and send path count the same payload, including staged items. */
 export function hasAgentPromptAttachments(
   draft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch">,
-  extraContextCount = 0,
 ): boolean {
-  return extraContextCount > 0 ||
-    draft.attachments.some((attachment) => attachment.kind !== "lens-annotations") ||
+  return draft.attachments.some((attachment) => attachment.kind !== "lens-annotations") ||
     (draft.promptBatch ?? []).some((item) => item.attachments?.some((attachment) => attachment.kind !== "lens-annotations"));
 }
 
@@ -154,7 +154,6 @@ export function planAgentPromptSend(args: {
   turnOrigin: "conversation" | "utility";
   providerId: string;
   prompt: string;
-  hasAttachments: boolean;
 }): AgentPromptSendPlan {
   if (!args.taskRunsAsAgent) return { kind: "plain-turn", reason: "chat" };
   if (args.runActive) return { kind: "plain-turn", reason: "run-active" };
@@ -166,8 +165,6 @@ export function planAgentPromptSend(args: {
   if (args.providerId !== "claude-code" && args.providerId !== "codex") {
     return { kind: "plain-turn", reason: "provider" };
   }
-  // The assignment is text; images and attached files go with a plain turn.
-  if (args.hasAttachments) return { kind: "plain-turn", reason: "attachments" };
   if (args.prompt.trim().length > AGENT_RUN_LIMITS.maxAssignmentChars) return { kind: "plain-turn", reason: "too-long" };
   return { kind: "start-run" };
 }

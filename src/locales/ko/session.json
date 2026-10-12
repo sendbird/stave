@@ -47,7 +47,7 @@
     "extraCopy82": "이 런타임에서는 에이전트 기록을 사용할 수 없습니다."
   },
   "agentAttachmentNotice": {
-    "agentAttachmentNotice": "첨부 파일이 있어 이 메시지는 하나의 턴으로 실행합니다. 자동 에이전트 실행은 시작하지 않습니다."
+    "agentAttachmentNotice": "첨부한 이미지와 맥락을 유지하며 에이전트 실행을 시작합니다. 재시도와 이어지는 실행에도 같은 자료를 사용합니다."
   },
   "autoRouteLine": {
     "autoRouteLine": "자동 →",

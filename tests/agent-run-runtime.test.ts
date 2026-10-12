@@ -674,7 +674,14 @@ describe("run runtime: failures and restarts", () => {
     const store = new AgentRunStore(new Database(":memory:"));
     const turns: AgentRunTurnRow[] = [];
     const first = createHarness({ store, turns });
-    const agentRunId = await startedAgentRun(first);
+    const initialContext = {
+      imageContexts: [{ dataUrl: "data:image/png;base64,AA==", label: "mock", mimeType: "image/png" }],
+      retrievedContextParts: [{ type: "retrieved_context" as const, sourceId: "task:source", content: "Frozen reply" }],
+    };
+    const original = structuredClone(initialContext);
+    const agentRunId = await startedAgentRun(first, startInput({ initialContext }));
+    expect(first.runCalls[0]?.initialContext).toEqual(original);
+    initialContext.retrievedContextParts[0]!.content = "Later reply";
 
     const restarted = createHarness({ store, turns, turnPrefix: "resumed" });
     restarted.runtime.start();
@@ -695,6 +702,7 @@ describe("run runtime: failures and restarts", () => {
     await restarted.tick();
     expect(restarted.runCalls).toHaveLength(2);
     expect(restarted.runCalls[1]!.prompt).toContain('without reporting the stage "Draft"');
+    expect(restarted.runCalls.map((call) => call.initialContext)).toEqual([original, original]);
     expect(restarted.current(agentRunId)).toMatchObject({ status: "running", nudged: true });
   });
 
