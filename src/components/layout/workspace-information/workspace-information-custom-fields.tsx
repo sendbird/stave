@@ -1,6 +1,7 @@
 import { formatDate } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { CalendarIcon, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -51,11 +52,7 @@ function CustomFieldDatePicker(props: {
       >
         <CalendarIcon className={sx(styles.datePickerIcon)} />
         {isValid
-          ? formatDate(selected, {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-            })
+          ? formatDate(selected, { year: "numeric", month: "short", day: "numeric" })
           : tI18n("workspace:workspaceInformationCustomFields.pickADate")}
       </PopoverTrigger>
       <PopoverContent xstyle={styles.datePickerPopover} align="start">
@@ -208,15 +205,17 @@ export function renderCustomFieldInput(args: {
             placeholder="https://..."
           />
           {isWorkspaceInfoUrl(field.value) ? (
-            <AdsButton
-              layout="host"
-              type="button"
-              xstyle={styles.urlFieldOpen}
-              onClick={() => openExternalUrl(field.value)}
-              aria-label={i18n.t("workspace:workspaceInformationCustomFields.openLink")}
-            >
-              <ExternalLink className={sx(styles.glyphMd)} />
-            </AdsButton>
+            <Tooltip content={i18n.t("workspace:workspaceInformationCustomFields.openLink")}>
+              <AdsButton
+                layout="host"
+                type="button"
+                xstyle={styles.urlFieldOpen}
+                onClick={() => openExternalUrl(field.value)}
+                aria-label={i18n.t("workspace:workspaceInformationCustomFields.openLink")}
+              >
+                <ExternalLink className={sx(styles.glyphMd)} />
+              </AdsButton>
+            </Tooltip>
           ) : null}
         </div>
       );

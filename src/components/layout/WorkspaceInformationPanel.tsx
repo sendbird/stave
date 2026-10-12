@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   BookOpen,
   Brain,
@@ -351,18 +352,29 @@ function SectionHeader(props: {
 // Add button — compact ghost + icon
 // ---------------------------------------------------------------------------
 
+function HeaderIconButton(props: { label: string; onClick: () => void; children: ReactNode }) {
+  return (
+    <Tooltip content={props.label}>
+      <AdsButton
+        layout="host"
+        type="button"
+        xstyle={[styles.iconButtonQuiet, styles.iconButtonHoverSurface]}
+        onClick={props.onClick}
+        aria-label={props.label}
+      >
+        {props.children}
+      </AdsButton>
+    </Tooltip>
+  );
+}
+
 function AddButton(props: { onClick: () => void; label?: string }) {
   const { t: tI18n } = useTranslation(["workspace"]);
+  const label = props.label ?? tI18n("workspace:workspaceInformationPanel.add");
   return (
-    <AdsButton
-      layout="host"
-      type="button"
-      xstyle={[styles.iconButtonQuiet, styles.iconButtonHoverSurface]}
-      onClick={props.onClick}
-      aria-label={props.label ?? tI18n("workspace:workspaceInformationPanel.add")}
-    >
+    <HeaderIconButton label={label} onClick={props.onClick}>
       <Plus className={sx(styles.glyphMd)} />
-    </AdsButton>
+    </HeaderIconButton>
   );
 }
 
@@ -889,44 +901,46 @@ export function WorkspaceInformationPanel() {
                         key={todo.id}
                         className={sx(styles.todoRow)}
                       >
-                        <AdsButton
-                          layout="host"
-                          type="button"
-                          xstyle={[
-                            styles.todoStatus,
-                            resolveWorkspaceTodoStatus(todo) === "pending"
-                              ? styles.todoStatusPending
-                              : styles.todoStatusActive,
-                          ]}
-                          onClick={() =>
-                            patchWorkspaceInformation((current) => ({
-                              ...current,
-                              todos: updateItemById(
-                                current.todos,
-                                todo.id,
-                                (item) =>
-                                  applyWorkspaceTodoStatus(
-                                    item,
-                                    cycleWorkspaceTodoStatus(
-                                      resolveWorkspaceTodoStatus(item),
+                        <Tooltip content={tI18n("workspace:workspaceInformationPanel.todoStatusValueClickToAdvance", { value1: resolveWorkspaceTodoStatus(todo) })}>
+                          <AdsButton
+                            layout="host"
+                            type="button"
+                            xstyle={[
+                              styles.todoStatus,
+                              resolveWorkspaceTodoStatus(todo) === "pending"
+                                ? styles.todoStatusPending
+                                : styles.todoStatusActive,
+                            ]}
+                            onClick={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                todos: updateItemById(
+                                  current.todos,
+                                  todo.id,
+                                  (item) =>
+                                    applyWorkspaceTodoStatus(
+                                      item,
+                                      cycleWorkspaceTodoStatus(
+                                        resolveWorkspaceTodoStatus(item),
+                                      ),
                                     ),
-                                  ),
-                              ),
-                            }))
-                          }
-                          aria-label={tI18n("workspace:workspaceInformationPanel.todoStatusValueClickToAdvance", { value1: resolveWorkspaceTodoStatus(
-                            todo,
-                          ) })}
-                        >
-                          {resolveWorkspaceTodoStatus(todo) === "completed" ? (
-                            <CheckCircle2 className={sx(styles.glyphMd)} />
-                          ) : resolveWorkspaceTodoStatus(todo) ===
-                            "in_progress" ? (
-                            <CircleDot className={sx(styles.glyphMd)} />
-                          ) : (
-                            <Circle className={sx(styles.glyphMd)} />
-                          )}
-                        </AdsButton>
+                                ),
+                              }))
+                            }
+                            aria-label={tI18n("workspace:workspaceInformationPanel.todoStatusValueClickToAdvance", { value1: resolveWorkspaceTodoStatus(
+                              todo,
+                            ) })}
+                          >
+                            {resolveWorkspaceTodoStatus(todo) === "completed" ? (
+                              <CheckCircle2 className={sx(styles.glyphMd)} />
+                            ) : resolveWorkspaceTodoStatus(todo) ===
+                              "in_progress" ? (
+                              <CircleDot className={sx(styles.glyphMd)} />
+                            ) : (
+                              <Circle className={sx(styles.glyphMd)} />
+                            )}
+                          </AdsButton>
+                        </Tooltip>
                         <Input
                           value={todo.text}
                           onChange={(event) =>
@@ -949,20 +963,22 @@ export function WorkspaceInformationPanel() {
                               styles.bareInputDone,
                           ]}
                         />
-                        <AdsButton
-                          layout="host"
-                          type="button"
-                          xstyle={[styles.rowRemove, styles.rowRemoveSm]}
-                          onClick={() =>
-                            patchWorkspaceInformation((current) => ({
-                              ...current,
-                              todos: removeItemById(current.todos, todo.id),
-                            }))
-                          }
-                          aria-label={tI18n("workspace:workspaceInformationPanel.removeTodo")}
-                        >
-                          <X className={sx(styles.glyphSm)} />
-                        </AdsButton>
+                        <Tooltip content={tI18n("workspace:workspaceInformationPanel.removeTodo")}>
+                          <AdsButton
+                            layout="host"
+                            type="button"
+                            xstyle={[styles.rowRemove, styles.rowRemoveSm]}
+                            onClick={() =>
+                              patchWorkspaceInformation((current) => ({
+                                ...current,
+                                todos: removeItemById(current.todos, todo.id),
+                              }))
+                            }
+                            aria-label={tI18n("workspace:workspaceInformationPanel.removeTodo")}
+                          >
+                            <X className={sx(styles.glyphSm)} />
+                          </AdsButton>
+                        </Tooltip>
                       </div>
                     ))}
                   </div>
@@ -994,17 +1010,11 @@ export function WorkspaceInformationPanel() {
                   icon={<Brain className={sx(styles.glyphMd)} />}
                   count={memoryHeader.count}
                   action={
-                    <AdsButton
-                      layout="host"
-                      type="button"
-                      xstyle={[
-                        styles.iconButtonQuiet,
-                        styles.iconButtonHoverSurface,
-                      ]}
+                    <HeaderIconButton
+                      label={tI18n("workspace:workspaceInformationPanel.refreshMemory")}
                       onClick={() =>
                         setMemoryRefreshNonce((nonce) => nonce + 1)
                       }
-                      aria-label={tI18n("workspace:workspaceInformationPanel.refreshMemory")}
                     >
                       <RefreshCcw
                         className={sx(
@@ -1012,7 +1022,7 @@ export function WorkspaceInformationPanel() {
                           memoryHeader.loading && styles.glyphSpinning,
                         )}
                       />
-                    </AdsButton>
+                    </HeaderIconButton>
                   }
                 >
                   <WorkspaceMemorySection
@@ -1029,15 +1039,9 @@ export function WorkspaceInformationPanel() {
                   icon={<ClipboardCheck className={sx(styles.glyphMd)} />}
                   count={plansHeader.count}
                   action={
-                    <AdsButton
-                      layout="host"
-                      type="button"
-                      xstyle={[
-                        styles.iconButtonQuiet,
-                        styles.iconButtonHoverSurface,
-                      ]}
+                    <HeaderIconButton
+                      label={tI18n("workspace:workspaceInformationPanel.refreshPlans")}
                       onClick={() => notifyWorkspacePlansChanged()}
-                      aria-label={tI18n("workspace:workspaceInformationPanel.refreshPlans")}
                     >
                       <RefreshCcw
                         className={sx(
@@ -1045,7 +1049,7 @@ export function WorkspaceInformationPanel() {
                           plansHeader.loading && styles.glyphSpinning,
                         )}
                       />
-                    </AdsButton>
+                    </HeaderIconButton>
                   }
                 >
                   <WorkspacePlansSection
@@ -1122,22 +1126,16 @@ export function WorkspaceInformationPanel() {
                   action={
                     <div className={sx(styles.sectionActionGroup)}>
                       {!isDefaultWorkspace ? (
-                        <AdsButton
-                          layout="host"
-                          type="button"
-                          xstyle={[
-                            styles.iconButtonQuiet,
-                            styles.iconButtonHoverSurface,
-                          ]}
+                        <HeaderIconButton
+                          label={tI18n("workspace:workspaceInformationPanel.refresh")}
                           onClick={() =>
                             void fetchWorkspacePrStatus({
                               workspaceId: activeWorkspaceId,
                             })
                           }
-                          aria-label={tI18n("workspace:workspaceInformationPanel.refresh")}
                         >
                           <RefreshCcw className={sx(styles.glyphMd)} />
-                        </AdsButton>
+                        </HeaderIconButton>
                       ) : null}
                       <AddButton
                         onClick={() =>
@@ -2152,23 +2150,25 @@ export function WorkspaceInformationPanel() {
                               ))}
                             </SelectContent>
                           </Select>
-                          <AdsButton
-                            layout="host"
-                            type="button"
-                            xstyle={styles.rowRemove}
-                            onClick={() =>
-                              patchWorkspaceInformation((current) => ({
-                                ...current,
-                                customFields: removeItemById(
-                                  current.customFields,
-                                  field.id,
-                                ),
-                              }))
-                            }
-                            aria-label={tI18n("workspace:workspaceInformationPanel.removeField")}
-                          >
-                            <X className={sx(styles.glyphSm)} />
-                          </AdsButton>
+                          <Tooltip content={tI18n("workspace:workspaceInformationPanel.removeField")}>
+                            <AdsButton
+                              layout="host"
+                              type="button"
+                              xstyle={styles.rowRemove}
+                              onClick={() =>
+                                patchWorkspaceInformation((current) => ({
+                                  ...current,
+                                  customFields: removeItemById(
+                                    current.customFields,
+                                    field.id,
+                                  ),
+                                }))
+                              }
+                              aria-label={tI18n("workspace:workspaceInformationPanel.removeField")}
+                            >
+                              <X className={sx(styles.glyphSm)} />
+                            </AdsButton>
+                          </Tooltip>
                         </div>
                         {renderCustomFieldInput({
                           field,

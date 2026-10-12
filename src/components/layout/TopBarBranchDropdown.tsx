@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -793,23 +794,24 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   onPaste={(event) => event.stopPropagation()}
                 />
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                // `icon-sm` is 32px; every other control in this popup — the
-                // search field beside it, Fetch, Pull, Create — is on the 36px
-                // rung, so the refresh trigger was the one control in the row
-                // that did not line up with its own neighbour.
-                size="icon"
-                title={i18n.t("shell:topBarBranchDropdown.refreshBranches")}
-                aria-label={i18n.t("shell:topBarBranchDropdown.refreshBranches")}
-                disabled={isBusy}
-                onClick={() => void loadBranches({ refreshRemote: true })}
-              >
-                <RefreshCw
-                  {...stylex.props(isBusy && branchDropdownStyles.spinning)}
-                />
-              </Button>
+              <AdsTooltip content={i18n.t("shell:topBarBranchDropdown.refreshBranches")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  // `icon-sm` is 32px; every other control in this popup — the
+                  // search field beside it, Fetch, Pull, Create — is on the 36px
+                  // rung, so the refresh trigger was the one control in the row
+                  // that did not line up with its own neighbour.
+                  size="icon"
+                  aria-label={i18n.t("shell:topBarBranchDropdown.refreshBranches")}
+                  disabled={isBusy}
+                  onClick={() => void loadBranches({ refreshRemote: true })}
+                >
+                  <RefreshCw
+                    {...stylex.props(isBusy && branchDropdownStyles.spinning)}
+                  />
+                </Button>
+              </AdsTooltip>
             </div>
 
             {branchDrift ? (

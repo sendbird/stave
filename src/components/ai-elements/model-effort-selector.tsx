@@ -1,6 +1,7 @@
 import { getAgentDisplayName } from "@/lib/agents/display";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { AlertCircle, Bot, ChevronDown, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
   type KeyboardEvent,
@@ -1107,38 +1108,40 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       (args.value.providerId === "codex" ||
         (args.value.providerId === "cursor" && cursorParameterized)) &&
       args.showFastMode !== false ? (
-        <AdsButton
-          layout="host"
-          type="button"
-          aria-label={i18n.t("composer:modelEffortSelector.ariaLabel14", { value1: cursorComposerControls.fastMode ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}
-          aria-pressed={cursorComposerControls.fastMode ?? false}
-          disabled={args.disabled}
-          onClick={() => {
-            const enabled = !(cursorComposerControls.fastMode ?? false);
-            if (args.value.providerId === "cursor") {
-              updateModelRuntimePreference({
-                providerId: "cursor",
-                model: args.value.model,
-                patch: { fastMode: enabled },
-              });
-            }
-            args.onFastModeChange?.(enabled);
-          }}
-          xstyle={[
-            styles.capabilityToggle,
-            styles.capabilityToggleIconOnly,
-            cursorComposerControls.fastMode &&
-              styles.capabilityToggleFastActive,
-          ]}
-        >
-          <Zap
-            className={sx(
-              styles.toggleIcon,
-              cursorComposerControls.fastMode && styles.toggleIconFilled,
-            )}
-            aria-hidden="true"
-          />
-        </AdsButton>
+        <Tooltip content={i18n.t("composer:modelEffortSelector.ariaLabel14", { value1: cursorComposerControls.fastMode ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}>
+          <AdsButton
+            layout="host"
+            type="button"
+            aria-label={i18n.t("composer:modelEffortSelector.ariaLabel14", { value1: cursorComposerControls.fastMode ? i18n.t("composer:modelEffortSelector.extraCopy60") : i18n.t("composer:modelEffortSelector.extraCopy61") })}
+            aria-pressed={cursorComposerControls.fastMode ?? false}
+            disabled={args.disabled}
+            onClick={() => {
+              const enabled = !(cursorComposerControls.fastMode ?? false);
+              if (args.value.providerId === "cursor") {
+                updateModelRuntimePreference({
+                  providerId: "cursor",
+                  model: args.value.model,
+                  patch: { fastMode: enabled },
+                });
+              }
+              args.onFastModeChange?.(enabled);
+            }}
+            xstyle={[
+              styles.capabilityToggle,
+              styles.capabilityToggleIconOnly,
+              cursorComposerControls.fastMode &&
+                styles.capabilityToggleFastActive,
+            ]}
+          >
+            <Zap
+              className={sx(
+                styles.toggleIcon,
+                cursorComposerControls.fastMode && styles.toggleIconFilled,
+              )}
+              aria-hidden="true"
+            />
+          </AdsButton>
+        </Tooltip>
       ) : null}
 
       {supportsContext1M ? (

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { StepRail } from "@/components/ads/components/StepRail";
@@ -162,27 +163,34 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   <Play aria-hidden />
                   {i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView3")}</Button>
               ) : null}
-              <DropdownMenu
-                placement="bottom-end"
-                triggerAsChild
-                trigger={
-                  <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")}>
-                    <Ellipsis aria-hidden />
-                  </Button>
-                }
-                groups={[
-                  {
-                    items: [
-                      {
-                        label: i18n.t("agentRuns:agentRunPanel.label4"),
-                        tone: "danger",
-                        disabled: props.busy,
-                        onSelect: () => void onCommand("cancel", { agentRunId: agentRun.id }),
-                      },
-                    ],
-                  },
-                ]}
-              />
+              <Tooltip>
+                <DropdownMenu
+                  placement="bottom-end"
+                  triggerAsChild
+                  trigger={
+                    <TooltipTrigger
+                      render={
+                        <Button variant="quiet" size="iconSm" iconOnly aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel2")}>
+                          <Ellipsis aria-hidden />
+                        </Button>
+                      }
+                    />
+                  }
+                  groups={[
+                    {
+                      items: [
+                        {
+                          label: i18n.t("agentRuns:agentRunPanel.label4"),
+                          tone: "danger",
+                          disabled: props.busy,
+                          onSelect: () => void onCommand("cancel", { agentRunId: agentRun.id }),
+                        },
+                      ],
+                    },
+                  ]}
+                />
+                <TooltipContent>{i18n.t("agentRuns:agentRunPanel.ariaLabel2")}</TooltipContent>
+              </Tooltip>
             </div>
           ) : null}
         </div>

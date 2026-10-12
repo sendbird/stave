@@ -11,6 +11,7 @@ import {
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { formatRelativeTime } from "./automation-center.utils";
 import { centerStyles } from "./automation-center-view.styles";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 
 /** Detail for a "Check back on a task" schedule: what it says, when, and why it stopped. */
 export function CheckBackDetail(props: {
@@ -32,16 +33,17 @@ export function CheckBackDetail(props: {
           <p className={sx(centerStyles.detailPrompt)}>{wakeUp.prompt}</p>
         </div>
         <div className={sx(centerStyles.detailActions)}>
-          <Button
-            variant="ghost"
-            size="sm"
-            xstyle={centerStyles.iconButton}
-            onClick={props.onEdit}
-            aria-label={tI18n("automation:checkBackDetail.editSchedule")}
-            title={tI18n("automation:checkBackDetail.edit")}
-          >
-            <Pencil className={sx(centerStyles.buttonIcon)} />
-          </Button>
+          <Tooltip content={tI18n("automation:checkBackDetail.edit")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={centerStyles.iconButton}
+              onClick={props.onEdit}
+              aria-label={tI18n("automation:checkBackDetail.editSchedule")}
+            >
+              <Pencil className={sx(centerStyles.buttonIcon)} />
+            </Button>
+          </Tooltip>
         </div>
       </div>
       <dl className={sx(centerStyles.facts)}>

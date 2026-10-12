@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 import { getReorderDestinationIndex } from "@atlaskit/pragmatic-drag-and-drop-hitbox/util/get-reorder-destination-index";
 import {
   ChevronRight,
@@ -981,17 +982,19 @@ export function RepositoryWorkspaceSidebar(args: {
                   aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.searchWorkspaces")}
                 />
                 {workspaceSearchQuery.trim() ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    xstyle={repositorySidebarStyles.searchClear}
-                    onClick={() => setWorkspaceSearchQuery("")}
-                    data-testid="clear-workspace-search"
-                    aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.clearWorkspaceSearch")}
-                  >
-                    <X className={sx(repositorySidebarStyles.iconSm)} />
-                  </Button>
+                  <AdsTooltip content={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.clearWorkspaceSearch")}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      xstyle={repositorySidebarStyles.searchClear}
+                      onClick={() => setWorkspaceSearchQuery("")}
+                      data-testid="clear-workspace-search"
+                      aria-label={i18n.t("workspace:repositoryWorkspaceSidebar.accessibility.clearWorkspaceSearch")}
+                    >
+                      <X className={sx(repositorySidebarStyles.iconSm)} />
+                    </Button>
+                  </AdsTooltip>
                 ) : null}
               </div>
               {repositories.length === 0 ? (

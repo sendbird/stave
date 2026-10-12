@@ -308,39 +308,60 @@ export function GitGraphToolbar({
               {matchCount > 0 ? `${matchPosition}/${matchCount}` : i18n.t("gitGraph:gitGraphToolbar.noMatches")}
             </span>
           ) : null}
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            xstyle={styles.iconButtonSm}
-            disabled={matchCount === 0}
-            onClick={onPreviousMatch}
-            aria-label={i18n.t("gitGraph:gitGraphToolbar.previousSearchMatch")}
-          >
-            <ChevronUp className={sx(styles.iconGlyphSm)} />
-          </Button>
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            xstyle={styles.iconButtonSm}
-            disabled={matchCount === 0}
-            onClick={onNextMatch}
-            aria-label={i18n.t("gitGraph:gitGraphToolbar.nextSearchMatch")}
-          >
-            <ChevronDown className={sx(styles.iconGlyphSm)} />
-          </Button>
-          {searchQuery ? (
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              xstyle={styles.iconButtonSm}
-              onClick={() => onSearchQueryChange("")}
-              aria-label={i18n.t("gitGraph:gitGraphToolbar.clearCommitSearch")}
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  xstyle={styles.iconButtonSm}
+                  disabled={matchCount === 0}
+                  onClick={onPreviousMatch}
+                  aria-label={i18n.t("gitGraph:gitGraphToolbar.previousSearchMatch")}
+                />
+              }
             >
-              <X className={sx(styles.iconGlyphSm)} />
-            </Button>
+              <ChevronUp className={sx(styles.iconGlyphSm)} />
+            </TooltipTrigger>
+            <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.previousSearchMatch")}</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  type="button"
+                  size="icon-xs"
+                  variant="ghost"
+                  xstyle={styles.iconButtonSm}
+                  disabled={matchCount === 0}
+                  onClick={onNextMatch}
+                  aria-label={i18n.t("gitGraph:gitGraphToolbar.nextSearchMatch")}
+                />
+              }
+            >
+              <ChevronDown className={sx(styles.iconGlyphSm)} />
+            </TooltipTrigger>
+            <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.nextSearchMatch")}</TooltipContent>
+          </Tooltip>
+          {searchQuery ? (
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost"
+                    xstyle={styles.iconButtonSm}
+                    onClick={() => onSearchQueryChange("")}
+                    aria-label={i18n.t("gitGraph:gitGraphToolbar.clearCommitSearch")}
+                  />
+                }
+              >
+                <X className={sx(styles.iconGlyphSm)} />
+              </TooltipTrigger>
+              <TooltipContent>{i18n.t("gitGraph:gitGraphToolbar.clearCommitSearch")}</TooltipContent>
+            </Tooltip>
           ) : null}
         </div>
       </div>

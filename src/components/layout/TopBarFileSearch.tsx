@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { FileCode2, Search } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -259,19 +260,21 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
         closeSearch();
       }}
     >
-      <AdsButton
-        layout="host"
-        type="submit"
-        xstyle={[
-          fileSearchStyles.compactTrigger,
-          isMobileExpanded && fileSearchStyles.compactTriggerHidden,
-        ]}
-        onClick={handleCompactButtonClick}
-        aria-label={i18n.t("shell:topBarFileSearch.goToFile")}
-        style={noDragStyle}
-      >
-        <Search />
-      </AdsButton>
+      <Tooltip content={i18n.t("shell:topBarFileSearch.goToFile")}>
+        <AdsButton
+          layout="host"
+          type="submit"
+          xstyle={[
+            fileSearchStyles.compactTrigger,
+            isMobileExpanded && fileSearchStyles.compactTriggerHidden,
+          ]}
+          onClick={handleCompactButtonClick}
+          aria-label={i18n.t("shell:topBarFileSearch.goToFile")}
+          style={noDragStyle}
+        >
+          <Search />
+        </AdsButton>
+      </Tooltip>
 
       <div
         className={sx(

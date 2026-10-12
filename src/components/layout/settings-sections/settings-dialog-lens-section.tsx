@@ -4,6 +4,7 @@ import { Loader2, Plus, Trash2 } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Badge, Input, toast } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import {
@@ -346,24 +347,26 @@ export function LensSection() {
                   className={sx(styles.cdpHostBadge)}
                 >
                   <span className={sx(styles.cdpHostText)}>{host}</span>
-                  <Button
-                    type="button"
-                    size="xs"
-                    iconOnly
-                    variant="quiet"
-                    aria-label={i18n.t("settings:settingsDialogLensSection.remove", { value1: host })}
-                    onClick={() =>
-                      updateSettings({
-                        patch: {
-                          lensCdpApprovedHosts: cdpApprovedHosts.filter(
-                            (entry) => entry !== host,
-                          ),
-                        },
-                      })
-                    }
-                  >
-                    <Trash2 className={sx(styles.iconXs)} />
-                  </Button>
+                  <Tooltip content={i18n.t("settings:settingsDialogLensSection.remove", { value1: host })}>
+                    <Button
+                      type="button"
+                      size="xs"
+                      iconOnly
+                      variant="quiet"
+                      aria-label={i18n.t("settings:settingsDialogLensSection.remove", { value1: host })}
+                      onClick={() =>
+                        updateSettings({
+                          patch: {
+                            lensCdpApprovedHosts: cdpApprovedHosts.filter(
+                              (entry) => entry !== host,
+                            ),
+                          },
+                        })
+                      }
+                    >
+                      <Trash2 className={sx(styles.iconXs)} />
+                    </Button>
+                  </Tooltip>
                 </Badge>
               ))}
             </div>

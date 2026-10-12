@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Brain, Inbox, Pencil, Pin, Sparkles, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
@@ -391,46 +392,49 @@ export function MemoryRow(props: {
         </div>
         <div className={sx(informationRow.trail)}>
           {memory.recallMode === "candidate" ? (
+            <Tooltip content={t("memory.row.promoteTitle")}>
+              <AdsButton
+                layout="host"
+                type="button"
+                disabled={busy}
+                onClick={() => void promote()}
+                xstyle={styles.rowAction}
+                aria-label={t("memory.row.promoteAriaLabel", { content: memory.content })}
+              >
+                <Sparkles className={sx(styles.rowActionIcon)} aria-hidden />
+              </AdsButton>
+            </Tooltip>
+          ) : null}
+          <Tooltip content={t("memory.row.editTitle")}>
+            <AdsButton
+              ref={editButton}
+              layout="host"
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                setDraft(memory.content);
+                setKind(memory.kind);
+                setMode(memory.recallMode);
+                setEditing(true);
+              }}
+              xstyle={styles.rowAction}
+              aria-label={t("memory.row.editAriaLabel", { content: memory.content })}
+            >
+              <Pencil className={sx(styles.rowActionIcon)} aria-hidden />
+            </AdsButton>
+          </Tooltip>
+          <Tooltip content={t("memory.row.forgetTitle")}>
             <AdsButton
               layout="host"
               type="button"
               disabled={busy}
-              onClick={() => void promote()}
-              xstyle={styles.rowAction}
-              title={t("memory.row.promoteTitle")}
-              aria-label={t("memory.row.promoteAriaLabel", { content: memory.content })}
+              onClick={() => setConfirmingForget(true)}
+              xstyle={[styles.rowAction, styles.rowActionDanger]}
+              aria-label={t("memory.row.forgetAriaLabel", { content: memory.content })}
             >
-              <Sparkles className={sx(styles.rowActionIcon)} aria-hidden />
+              <Trash2 className={sx(styles.rowActionIcon)} aria-hidden />
             </AdsButton>
-          ) : null}
-          <AdsButton
-            ref={editButton}
-            layout="host"
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setDraft(memory.content);
-              setKind(memory.kind);
-              setMode(memory.recallMode);
-              setEditing(true);
-            }}
-            xstyle={styles.rowAction}
-            title={t("memory.row.editTitle")}
-            aria-label={t("memory.row.editAriaLabel", { content: memory.content })}
-          >
-            <Pencil className={sx(styles.rowActionIcon)} aria-hidden />
-          </AdsButton>
-          <AdsButton
-            layout="host"
-            type="button"
-            disabled={busy}
-            onClick={() => setConfirmingForget(true)}
-            xstyle={[styles.rowAction, styles.rowActionDanger]}
-            title={t("memory.row.forgetTitle")}
-            aria-label={t("memory.row.forgetAriaLabel", { content: memory.content })}
-          >
-            <Trash2 className={sx(styles.rowActionIcon)} aria-hidden />
-          </AdsButton>
+          </Tooltip>
         </div>
       </article>
       {/* Forgetting is not undoable and the row it removes is one line of text,

@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { diffReviewHoverMenuStyles as styles } from "@/components/layout/editor-diff-review-hover-menu.styles";
 import type { editor as MonacoEditorApi } from "monaco-editor";
@@ -33,19 +34,20 @@ export function DiffReviewHoverMenu(args: {
   };
 
   return (
-    <AdsButton layout="host"
-      type="button"
-      data-testid="diff-review-hover-menu"
-      data-review-line={args.line}
-      data-review-side="modified"
-      aria-label={ariaLabel}
-      title={ariaLabel}
-      xstyle={styles.trigger}
-      onMouseDown={stopEditorMouseDown}
-      onClick={args.onAddComment}
-    >
-      <Plus className={sx(styles.glyph)} />
-    </AdsButton>
+    <Tooltip content={ariaLabel}>
+      <AdsButton layout="host"
+        type="button"
+        data-testid="diff-review-hover-menu"
+        data-review-line={args.line}
+        data-review-side="modified"
+        aria-label={ariaLabel}
+        xstyle={styles.trigger}
+        onMouseDown={stopEditorMouseDown}
+        onClick={args.onAddComment}
+      >
+        <Plus className={sx(styles.glyph)} />
+      </AdsButton>
+    </Tooltip>
   );
 }
 

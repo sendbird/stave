@@ -10,6 +10,7 @@ import { useTerminalSessionManager } from "@/components/layout/useTerminalSessio
 import { useTerminalTabManager } from "@/components/layout/useTerminalTabManager";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button, Loader } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { terminalSurfacePanelStyles } from "./terminal-surface-panel.styles";
 import { parsePanePanelId } from "@/lib/panes/types";
 import {
@@ -271,17 +272,19 @@ function TerminalSurfacePanelContent(props: {
             {i18n.t("panes:terminalSurfacePanel.live")}
           </span>
         ) : null}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          xstyle={terminalSurfacePanelStyles.clearButton}
-          onClick={clearActiveTranscript}
-          aria-label={i18n.t("panes:terminalSurfacePanel.clear")}
-          data-testid={`clear-terminal-${props.terminalTabId}`}
-          disabled={!tab}
-        >
-          <Eraser aria-hidden size={12} />
-        </Button>
+        <Tooltip content={i18n.t("panes:terminalSurfacePanel.clear")}>
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            xstyle={terminalSurfacePanelStyles.clearButton}
+            onClick={clearActiveTranscript}
+            aria-label={i18n.t("panes:terminalSurfacePanel.clear")}
+            data-testid={`clear-terminal-${props.terminalTabId}`}
+            disabled={!tab}
+          >
+            <Eraser aria-hidden size={12} />
+          </Button>
+        </Tooltip>
       </div>
       <div className={sx(terminalSurfaceStyles.panel)}>
         <div className={sx(terminalSurfaceStyles.viewport)}>

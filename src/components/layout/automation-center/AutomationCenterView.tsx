@@ -78,6 +78,7 @@ import {
   type AutomationRunFilter,
 } from "./automation-center.utils";
 import { centerStyles } from "./automation-center-view.styles";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 
 const ALL_AUTOMATIONS = "all";
 
@@ -775,45 +776,48 @@ export function AutomationCenterView() {
               <Plus className={sx(centerStyles.buttonIcon)} />
               {tI18n("automation:automationCenterView.newSchedule")}</Button>
           )}
-          <Button
-            variant="ghost"
-            size="sm"
-            xstyle={centerStyles.iconButton}
-            onClick={openCommandsAndProcesses}
-            aria-label={tI18n("automation:automationCenterView.openValue", { WORKSPACE_TOOLS_LABEL: tI18n(WORKSPACE_TOOLS_LABEL_KEY) })}
-            title={tI18n(WORKSPACE_TOOLS_LABEL_KEY)}
-          >
-            <SquareTerminal className={sx(centerStyles.actionIcon)} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            xstyle={centerStyles.iconButton}
-            onClick={() => {
-              void loadSnapshot();
-              void checkBacks.reload();
-            }}
-            aria-label={tI18n("automation:automationCenterView.refreshSchedules")}
-            title={tI18n("automation:automationCenterView.refresh")}
-          >
-            <RefreshCw
-              className={sx(
-                centerStyles.actionIcon,
-                loading && centerStyles.actionIconSpinning,
-              )}
-            />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            xstyle={centerStyles.iconButton}
-            data-testid="close-schedules"
-            aria-label={i18n.t("automation:automationCenterView.accessibility.closeSchedules")}
-            title={tI18n("automation:automationCenterView.closeSchedules")}
-            onClick={closeAutomationCenter}
-          >
-            <X className={sx(centerStyles.actionIcon)} />
-          </Button>
+          <Tooltip content={tI18n(WORKSPACE_TOOLS_LABEL_KEY)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={centerStyles.iconButton}
+              onClick={openCommandsAndProcesses}
+              aria-label={tI18n("automation:automationCenterView.openValue", { WORKSPACE_TOOLS_LABEL: tI18n(WORKSPACE_TOOLS_LABEL_KEY) })}
+            >
+              <SquareTerminal className={sx(centerStyles.actionIcon)} />
+            </Button>
+          </Tooltip>
+          <Tooltip content={tI18n("automation:automationCenterView.refresh")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={centerStyles.iconButton}
+              onClick={() => {
+                void loadSnapshot();
+                void checkBacks.reload();
+              }}
+              aria-label={tI18n("automation:automationCenterView.refreshSchedules")}
+            >
+              <RefreshCw
+                className={sx(
+                  centerStyles.actionIcon,
+                  loading && centerStyles.actionIconSpinning,
+                )}
+              />
+            </Button>
+          </Tooltip>
+          <Tooltip content={tI18n("automation:automationCenterView.closeSchedules")}>
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={centerStyles.iconButton}
+              data-testid="close-schedules"
+              aria-label={i18n.t("automation:automationCenterView.accessibility.closeSchedules")}
+              onClick={closeAutomationCenter}
+            >
+              <X className={sx(centerStyles.actionIcon)} />
+            </Button>
+          </Tooltip>
         </div>
       </header>
 
@@ -1015,16 +1019,17 @@ export function AutomationCenterView() {
                       >
                         <Play className={sx(centerStyles.buttonIcon)} />
                         {tI18n("automation:automationCenterView.runNow")}</Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        xstyle={centerStyles.iconButton}
-                        onClick={() => startEdit(selectedAutomation)}
-                        aria-label={tI18n("automation:automationCenterView.editSchedule")}
-                        title={tI18n("automation:automationCenterView.edit")}
-                      >
-                        <Pencil className={sx(centerStyles.buttonIcon)} />
-                      </Button>
+                      <Tooltip content={tI18n("automation:automationCenterView.edit")}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          xstyle={centerStyles.iconButton}
+                          onClick={() => startEdit(selectedAutomation)}
+                          aria-label={tI18n("automation:automationCenterView.editSchedule")}
+                        >
+                          <Pencil className={sx(centerStyles.buttonIcon)} />
+                        </Button>
+                      </Tooltip>
                     </div>
                   </div>
 

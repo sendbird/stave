@@ -15,6 +15,7 @@ import {
 } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { getHookBlocking, isHookLinked } from "./scripts-manager-state";
 import {
   SCRIPT_TRIGGER_METADATA,
@@ -107,17 +108,19 @@ function HookTriggerCard(props: {
                   <span className={sx(hooksTabStyles.blockingLabel)}>
                     {tI18n("scripts:scriptHooksTab.blocking")}</span>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon-xs"
-                  xstyle={hooksTabStyles.removeButton}
-                  onClick={() =>
-                    props.onToggleLink(props.trigger, candidate, false)
-                  }
-                  aria-label={tI18n("scripts:scriptHooksTab.removeAssignment")}
-                >
-                  <X className={sx(hooksTabStyles.icon)} />
-                </Button>
+                <Tooltip content={tI18n("scripts:scriptHooksTab.removeAssignment")}>
+                  <Button
+                    variant="ghost"
+                    size="icon-xs"
+                    xstyle={hooksTabStyles.removeButton}
+                    onClick={() =>
+                      props.onToggleLink(props.trigger, candidate, false)
+                    }
+                    aria-label={tI18n("scripts:scriptHooksTab.removeAssignment")}
+                  >
+                    <X className={sx(hooksTabStyles.icon)} />
+                  </Button>
+                </Tooltip>
               </div>
             );
           })}

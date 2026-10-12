@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, Check, Copy, Maximize2, Minimize2, Trash2 } from "lucide-react";
 import { Button, toast } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { cx, sx } from "../ads/utils/stylex";
 import { logMarker, logStyles } from "./script-log.stylex";
@@ -111,42 +112,45 @@ export function ScriptLogView(props: ScriptLogViewProps) {
         {hasLog ? (
           <>
             <div className={sx(logStyles.actions)}>
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                xstyle={logStyles.action}
-                onClick={() => void handleCopy()}
-                title={tI18n("scripts:scriptLogView.copyLog")}
-                aria-label={tI18n("scripts:scriptLogView.copyLog")}
-              >
-                {copied ? <Check className={sx(logStyles.icon, logStyles.success)} /> : <Copy className={sx(logStyles.icon)} />}
-              </Button>
-              {onClear ? (
+              <Tooltip content={tI18n("scripts:scriptLogView.copyLog")}>
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
                   xstyle={logStyles.action}
-                  onClick={onClear}
-                  title={tI18n("scripts:scriptLogView.clearLog")}
-                  aria-label={tI18n("scripts:scriptLogView.clearLog")}
+                  onClick={() => void handleCopy()}
+                  aria-label={tI18n("scripts:scriptLogView.copyLog")}
                 >
-                  <Trash2 className={sx(logStyles.icon)} />
+                  {copied ? <Check className={sx(logStyles.icon, logStyles.success)} /> : <Copy className={sx(logStyles.icon)} />}
                 </Button>
+              </Tooltip>
+              {onClear ? (
+                <Tooltip content={tI18n("scripts:scriptLogView.clearLog")}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    xstyle={logStyles.action}
+                    onClick={onClear}
+                    aria-label={tI18n("scripts:scriptLogView.clearLog")}
+                  >
+                    <Trash2 className={sx(logStyles.icon)} />
+                  </Button>
+                </Tooltip>
               ) : null}
               {expandable ? (
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  xstyle={logStyles.action}
-                  onClick={() => setExpanded((value) => !value)}
-                  title={expanded ? tI18n("scripts:scriptLogView.collapseLog") : tI18n("scripts:scriptLogView.expandLog")}
-                  aria-label={expanded ? tI18n("scripts:scriptLogView.collapseLog") : tI18n("scripts:scriptLogView.expandLog")}
-                >
-                  {expanded ? <Minimize2 className={sx(logStyles.icon)} /> : <Maximize2 className={sx(logStyles.icon)} />}
-                </Button>
+                <Tooltip content={expanded ? tI18n("scripts:scriptLogView.collapseLog") : tI18n("scripts:scriptLogView.expandLog")}>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    xstyle={logStyles.action}
+                    onClick={() => setExpanded((value) => !value)}
+                    aria-label={expanded ? tI18n("scripts:scriptLogView.collapseLog") : tI18n("scripts:scriptLogView.expandLog")}
+                  >
+                    {expanded ? <Minimize2 className={sx(logStyles.icon)} /> : <Maximize2 className={sx(logStyles.icon)} />}
+                  </Button>
+                </Tooltip>
               ) : null}
             </div>
             <pre

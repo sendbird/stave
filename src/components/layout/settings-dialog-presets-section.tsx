@@ -27,6 +27,8 @@ import {
   type TaskPreset,
 } from "@/lib/task-presets";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 import {
   SectionStack,
@@ -238,58 +240,64 @@ export function PresetsSection() {
                       </div>
 
                       <div className={sx(styles.rowActions)}>
-                        <AdsButton
-                          variant="quiet"
-                          size="xs"
-                          iconOnly
-                          aria-label={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: preset.label })}
-                          title={i18n.t("settings:settingsDialogPresetsSection.moveUp")}
-                          disabled={moveUpDisabled}
-                          onClick={() => handleMovePreset(preset.id, -1)}
-                        >
-                          <ChevronUp />
-                        </AdsButton>
-                        <AdsButton
-                          variant="quiet"
-                          size="xs"
-                          iconOnly
-                          aria-label={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: preset.label })}
-                          title={i18n.t("settings:settingsDialogPresetsSection.moveDown")}
-                          disabled={moveDownDisabled}
-                          onClick={() => handleMovePreset(preset.id, 1)}
-                        >
-                          <ChevronDown />
-                        </AdsButton>
-                        <PopoverTrigger
-                          render={
-                            <AdsButton
-                              variant="quiet"
-                              size="xs"
-                              iconOnly
-                              aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: preset.label })}
-                              title={i18n.t("settings:settingsDialogPresetsSection.editPreset")}
-                              onClick={() =>
-                                setEditorTarget({
-                                  kind: "edit",
-                                  presetId: preset.id,
-                                })
+                        <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.moveUp")}>
+                          <AdsButton
+                            variant="quiet"
+                            size="xs"
+                            iconOnly
+                            aria-label={i18n.t("settings:settingsDialogMacrosSection.moveUp", { value1: preset.label })}
+                            disabled={moveUpDisabled}
+                            onClick={() => handleMovePreset(preset.id, -1)}
+                          >
+                            <ChevronUp />
+                          </AdsButton>
+                        </Tooltip>
+                        <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.moveDown")}>
+                          <AdsButton
+                            variant="quiet"
+                            size="xs"
+                            iconOnly
+                            aria-label={i18n.t("settings:settingsDialogMacrosSection.moveDown", { value1: preset.label })}
+                            disabled={moveDownDisabled}
+                            onClick={() => handleMovePreset(preset.id, 1)}
+                          >
+                            <ChevronDown />
+                          </AdsButton>
+                        </Tooltip>
+                        <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.editPreset")}>
+                          <span className={sx(layoutShellStyles.inlineFlex)}>
+                            <PopoverTrigger
+                              render={
+                                <AdsButton
+                                  variant="quiet"
+                                  size="xs"
+                                  iconOnly
+                                  aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: preset.label })}
+                                  onClick={() =>
+                                    setEditorTarget({
+                                      kind: "edit",
+                                      presetId: preset.id,
+                                    })
+                                  }
+                                />
                               }
-                            />
-                          }
-                        >
-                          <Pencil />
-                        </PopoverTrigger>
-                        <AdsButton
-                          variant="quiet"
-                          size="xs"
-                          iconOnly
-                          xstyle={styles.deleteButton}
-                          aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: preset.label })}
-                          title={i18n.t("settings:settingsDialogPresetsSection.deletePreset")}
-                          onClick={() => handleDeletePreset(preset.id)}
-                        >
-                          <Trash2 />
-                        </AdsButton>
+                            >
+                              <Pencil />
+                            </PopoverTrigger>
+                          </span>
+                        </Tooltip>
+                        <Tooltip content={i18n.t("settings:settingsDialogPresetsSection.deletePreset")}>
+                          <AdsButton
+                            variant="quiet"
+                            size="xs"
+                            iconOnly
+                            xstyle={styles.deleteButton}
+                            aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: preset.label })}
+                            onClick={() => handleDeletePreset(preset.id)}
+                          >
+                            <Trash2 />
+                          </AdsButton>
+                        </Tooltip>
                       </div>
                     </div>
                     <PopoverContent

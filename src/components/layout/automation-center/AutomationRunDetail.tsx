@@ -21,6 +21,7 @@ import {
   getRunStatusPresentation,
 } from "./automation-center.utils";
 import { runDetailStyles } from "./automation-run-detail.styles";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 
 export function AutomationRunRow(props: {
   run: AutomationRun;
@@ -190,15 +191,16 @@ export function AutomationRunDetail(props: {
             <span className={sx(runDetailStyles.executionId)}>
               {props.run.id}
             </span>
-            <Button
-              variant="ghost"
-              size="icon-xs"
-              aria-label={tI18n("automation:automationRunDetail.copyExecutionId")}
-              title={tI18n("automation:automationRunDetail.copyExecutionId")}
-              onClick={() => void copyTextToClipboard(props.run.id)}
-            >
-              <Copy className={sx(runDetailStyles.buttonIcon)} />
-            </Button>
+            <Tooltip content={tI18n("automation:automationRunDetail.copyExecutionId")}>
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label={tI18n("automation:automationRunDetail.copyExecutionId")}
+                onClick={() => void copyTextToClipboard(props.run.id)}
+              >
+                <Copy className={sx(runDetailStyles.buttonIcon)} />
+              </Button>
+            </Tooltip>
           </div>
 
           {props.run.error ? (

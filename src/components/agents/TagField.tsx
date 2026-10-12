@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { TextField } from "@/components/ads/components/TextField";
 import { sx } from "@/components/ads/utils/stylex";
 import { agentStyles } from "./agents.styles";
@@ -31,16 +32,18 @@ export function TagField(props: {
       {props.values.map((value) => (
         <span key={value} className={sx(agentStyles.tag)}>
           {value}
-          <Button
-            size="sm"
-            variant="quiet"
-            iconOnly
-            aria-label={i18n.t("agents:tagField.ariaLabel", { value1: value })}
-            xstyle={agentStyles.tagRemove}
-            onClick={() => props.onChange(props.values.filter((candidate) => candidate !== value))}
-          >
-            <X aria-hidden />
-          </Button>
+          <Tooltip content={i18n.t("agents:tagField.ariaLabel", { value1: value })}>
+            <Button
+              size="sm"
+              variant="quiet"
+              iconOnly
+              aria-label={i18n.t("agents:tagField.ariaLabel", { value1: value })}
+              xstyle={agentStyles.tagRemove}
+              onClick={() => props.onChange(props.values.filter((candidate) => candidate !== value))}
+            >
+              <X aria-hidden />
+            </Button>
+          </Tooltip>
         </span>
       ))}
       <span className={sx(agentStyles.tagInput)}>

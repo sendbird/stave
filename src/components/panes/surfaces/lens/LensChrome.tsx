@@ -3,6 +3,7 @@ import { chromeStyles } from "./lens-chrome.styles";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "../../../ads/utils/stylex";
 import { CountBadge } from "@/components/system/CountBadge";
+import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import {
   ArrowLeft,
   ArrowRight,
@@ -264,13 +265,20 @@ export function LensChrome(props: {
                 align="inline-end"
                 xstyle={chromeStyles.addressEnd}
               >
-                <InputGroupButton
-                  size="icon-sm"
-                  aria-label={i18n.t("lens:lensChrome.clearAddress")}
-                  onClick={() => setInputUrl("")}
-                >
-                  <X className={sx(chromeStyles.compactIcon)} />
-                </InputGroupButton>
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <InputGroupButton
+                        size="icon-sm"
+                        aria-label={i18n.t("lens:lensChrome.clearAddress")}
+                        onClick={() => setInputUrl("")}
+                      />
+                    }
+                  >
+                    <X className={sx(chromeStyles.compactIcon)} />
+                  </TooltipTrigger>
+                  <TooltipContent>{i18n.t("lens:lensChrome.clearAddress")}</TooltipContent>
+                </Tooltip>
               </InputGroupAddon>
             ) : null}
           </InputGroup>
@@ -409,19 +417,26 @@ export function LensChrome(props: {
           <TooltipContent>{i18n.t("lens:lensChrome.developerTools")}</TooltipContent>
         </Tooltip>
         <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                disabled={!hasLensApi}
-                aria-label={i18n.t("lens:lensChrome.moreBrowserTools")}
-              />
-            }
-          >
-            <MoreHorizontal className={LENS_TOOL_ICON_CLASS} />
-          </DropdownMenuTrigger>
+          <Tooltip>
+            <TooltipTrigger
+              render={<span className={sx(layoutShellStyles.inlineFlex)} />}
+            >
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    type="button"
+                    size="icon-sm"
+                    variant="ghost"
+                    disabled={!hasLensApi}
+                    aria-label={i18n.t("lens:lensChrome.moreBrowserTools")}
+                  />
+                }
+              >
+                <MoreHorizontal className={LENS_TOOL_ICON_CLASS} />
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>{i18n.t("lens:lensChrome.moreBrowserTools")}</TooltipContent>
+          </Tooltip>
           <DropdownMenuContent align="end" xstyle={chromeStyles.downloadsMenu}>
             <DropdownMenuItem
               disabled={lensPageActionDisabled}

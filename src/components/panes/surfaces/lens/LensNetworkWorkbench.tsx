@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Badge } from "@/components/ads/components/Badge";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -102,21 +103,23 @@ export function LensNetworkWorkbench(props: {
           }
           onChange={(enabled) => void setDiagnosticsCapture(enabled)}
         />
-        <Button
-          type="button"
-          size="icon-xs"
-          variant={networkPaused ? "secondary" : "ghost"}
-          onClick={toggleNetworkPaused}
-          aria-label={
-            networkPaused ? i18n.t("lens:lensNetworkWorkbench.resumeNetworkLog") : i18n.t("lens:lensNetworkWorkbench.pauseNetworkLog")
-          }
-        >
-          {networkPaused ? (
-            <Play {...stylex.props(w.icon)} />
-          ) : (
-            <Pause {...stylex.props(w.icon)} />
-          )}
-        </Button>
+        <Tooltip content={networkPaused ? i18n.t("lens:lensNetworkWorkbench.resumeNetworkLog") : i18n.t("lens:lensNetworkWorkbench.pauseNetworkLog")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant={networkPaused ? "secondary" : "ghost"}
+            onClick={toggleNetworkPaused}
+            aria-label={
+              networkPaused ? i18n.t("lens:lensNetworkWorkbench.resumeNetworkLog") : i18n.t("lens:lensNetworkWorkbench.pauseNetworkLog")
+            }
+          >
+            {networkPaused ? (
+              <Play {...stylex.props(w.icon)} />
+            ) : (
+              <Pause {...stylex.props(w.icon)} />
+            )}
+          </Button>
+        </Tooltip>
         {networkPaused ? (
           <Badge role="status" tone="warning">
             {networkBufferedCount > 0
@@ -124,15 +127,17 @@ export function LensNetworkWorkbench(props: {
               : i18n.t("lens:lensNetworkWorkbench.paused")}
           </Badge>
         ) : null}
-        <Button
-          type="button"
-          size="icon-xs"
-          variant={autoScrollLogs ? "secondary" : "ghost"}
-          onClick={() => setAutoScrollLogs((current) => !current)}
-          aria-label={i18n.t("lens:lensNetworkWorkbench.toggleLogAutoscroll")}
-        >
-          <ArrowDownToLine {...stylex.props(w.icon)} />
-        </Button>
+        <Tooltip content={i18n.t("lens:lensNetworkWorkbench.toggleLogAutoscroll")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant={autoScrollLogs ? "secondary" : "ghost"}
+            onClick={() => setAutoScrollLogs((current) => !current)}
+            aria-label={i18n.t("lens:lensNetworkWorkbench.toggleLogAutoscroll")}
+          >
+            <ArrowDownToLine {...stylex.props(w.icon)} />
+          </Button>
+        </Tooltip>
         <Button
           type="button"
           size="xs"
@@ -149,26 +154,30 @@ export function LensNetworkWorkbench(props: {
           <PanelRightOpen {...stylex.props(w.icon)} />
           {i18n.t("lens:lensNetworkWorkbench.details")}
         </Button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={filteredNetworkEntries.length === 0}
-          onClick={copyNetworkLog}
-          aria-label={i18n.t("lens:lensNetworkWorkbench.copyNetworkLog")}
-        >
-          <Copy {...stylex.props(w.icon)} />
-        </Button>
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={networkEntries.length === 0 && networkBufferedCount === 0}
-          onClick={clearNetworkLog}
-          aria-label={i18n.t("lens:lensNetworkWorkbench.clearNetworkLog")}
-        >
-          <Trash2 {...stylex.props(w.icon)} />
-        </Button>
+        <Tooltip content={i18n.t("lens:lensNetworkWorkbench.copyNetworkLog")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={filteredNetworkEntries.length === 0}
+            onClick={copyNetworkLog}
+            aria-label={i18n.t("lens:lensNetworkWorkbench.copyNetworkLog")}
+          >
+            <Copy {...stylex.props(w.icon)} />
+          </Button>
+        </Tooltip>
+        <Tooltip content={i18n.t("lens:lensNetworkWorkbench.clearNetworkLog")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={networkEntries.length === 0 && networkBufferedCount === 0}
+            onClick={clearNetworkLog}
+            aria-label={i18n.t("lens:lensNetworkWorkbench.clearNetworkLog")}
+          >
+            <Trash2 {...stylex.props(w.icon)} />
+          </Button>
+        </Tooltip>
       </div>
       <div
         data-testid="lens-network-log-workbench"

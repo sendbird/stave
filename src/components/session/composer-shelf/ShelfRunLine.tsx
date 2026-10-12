@@ -241,17 +241,18 @@ function ShelfDetailButton(props: ShelfRunDetailToggle) {
   }
   const label = props.open ? i18n.t("composer:shelfRunLine.label3") : i18n.t("composer:shelfRunLine.label4");
   return (
-    <Button
-      variant="quiet"
-      size="xs"
-      iconOnly
-      aria-label={label}
-      title={label}
-      aria-expanded={props.open}
-      onClick={props.onToggle}
-      xstyle={styles.quiet}
-    >
-      {props.open ? <ChevronDown aria-hidden /> : <ChevronUp aria-hidden />}
-    </Button>
+    <Tooltip content={label}>
+      <Button
+        variant="quiet"
+        size="xs"
+        iconOnly
+        aria-label={label}
+        aria-expanded={props.open}
+        onClick={props.onToggle}
+        xstyle={styles.quiet}
+      >
+        {props.open ? <ChevronDown aria-hidden /> : <ChevronUp aria-hidden />}
+      </Button>
+    </Tooltip>
   );
 }

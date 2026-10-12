@@ -4,6 +4,7 @@ import type { KeyboardEvent, MouseEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { editorReviewPanelStyles as styles } from "@/components/layout/editor-review-panel.styles";
 import { Button, Kbd, Textarea } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 
 function stopEditorMouseEvent(event: MouseEvent<HTMLElement>) {
@@ -62,16 +63,18 @@ export function EditorReviewPanel(args: {
             <span className={sx(styles.lineRef)}>R{args.line}</span>
           </span>
           {!args.draft ? (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              xstyle={styles.addButton}
-              onClick={args.onStartDraft}
-              aria-label={i18n.t("editor:editorReviewPanel.addAnotherCommentOnModifiedLine", { value1: args.line })}
-            >
-              <MessageSquarePlus />
-            </Button>
+            <Tooltip content={i18n.t("editor:editorReviewPanel.addAnotherCommentOnModifiedLine", { value1: args.line })}>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                xstyle={styles.addButton}
+                onClick={args.onStartDraft}
+                aria-label={i18n.t("editor:editorReviewPanel.addAnotherCommentOnModifiedLine", { value1: args.line })}
+              >
+                <MessageSquarePlus />
+              </Button>
+            </Tooltip>
           ) : null}
         </div>
       </div>
@@ -81,16 +84,18 @@ export function EditorReviewPanel(args: {
           {args.comments.map((comment) => (
             <div key={comment.id} className={sx(styles.commentRow)}>
               <p className={sx(styles.commentBody)}>{comment.body}</p>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                xstyle={styles.removeButton}
-                onClick={() => args.onRemoveComment(comment.id)}
-                aria-label={i18n.t("editor:editorReviewPanel.removeCommentFromLine", { value1: args.line })}
-              >
-                <Trash2 />
-              </Button>
+              <Tooltip content={i18n.t("editor:editorReviewPanel.removeCommentFromLine", { value1: args.line })}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  xstyle={styles.removeButton}
+                  onClick={() => args.onRemoveComment(comment.id)}
+                  aria-label={i18n.t("editor:editorReviewPanel.removeCommentFromLine", { value1: args.line })}
+                >
+                  <Trash2 />
+                </Button>
+              </Tooltip>
             </div>
           ))}
         </div>
@@ -119,16 +124,18 @@ export function EditorReviewPanel(args: {
               {i18n.t("editor:editorReviewPanel.toSave")}
             </span>
             <div className={sx(styles.draftActions)}>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                xstyle={styles.cancelButton}
-                onClick={args.onCancelDraft}
-                aria-label={i18n.t("editor:editorReviewPanel.cancelReviewComment")}
-              >
-                <X />
-              </Button>
+              <Tooltip content={i18n.t("editor:editorReviewPanel.cancelReviewComment")}>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  xstyle={styles.cancelButton}
+                  onClick={args.onCancelDraft}
+                  aria-label={i18n.t("editor:editorReviewPanel.cancelReviewComment")}
+                >
+                  <X />
+                </Button>
+              </Tooltip>
               <Button
                 type="button"
                 size="sm"

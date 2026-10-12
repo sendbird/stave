@@ -4,6 +4,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Archive, ArchiveRestore, Copy, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Dialog } from "@/components/ads/components/Dialog";
 import { Select } from "@/components/ads/components/Select";
 import { Tabs } from "@/components/ads/components/Tabs";
@@ -473,20 +474,23 @@ export function AgentsTab() {
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
-          <Button size="sm" variant="quiet" iconOnly aria-label={i18n.t("agents:agentsTab.ariaLabel5")} title={i18n.t("agents:agentsTab.title")} onClick={() => setNewOpen(true)}>
-            <Plus aria-hidden />
-          </Button>
-          <Button
-            size="sm"
-            variant="quiet"
-            iconOnly
-            aria-label={i18n.t("agents:agentsTab.ariaLabel6")}
-            title={i18n.t("agents:agentsTab.title2")}
-            disabled={!rootPath || repository.loading}
-            onClick={repository.reload}
-          >
-            <RefreshCw aria-hidden />
-          </Button>
+          <Tooltip content={i18n.t("agents:agentsTab.title")}>
+            <Button size="sm" variant="quiet" iconOnly aria-label={i18n.t("agents:agentsTab.ariaLabel5")} onClick={() => setNewOpen(true)}>
+              <Plus aria-hidden />
+            </Button>
+          </Tooltip>
+          <Tooltip content={i18n.t("agents:agentsTab.title2")}>
+            <Button
+              size="sm"
+              variant="quiet"
+              iconOnly
+              aria-label={i18n.t("agents:agentsTab.ariaLabel6")}
+              disabled={!rootPath || repository.loading}
+              onClick={repository.reload}
+            >
+              <RefreshCw aria-hidden />
+            </Button>
+          </Tooltip>
         </div>
         {groups.map((group) => (
           <div key={group.source}>
@@ -543,20 +547,23 @@ export function AgentsTab() {
               options={agents.map((agent) => ({ value: agent.id, label: getAgentDisplayName(agent) }))}
               onValueChange={(value) => setSelectedId(String(value))}
             />
-            <Button size="sm" variant="quiet" iconOnly aria-label={i18n.t("agents:agentsTab.ariaLabel8")} title={i18n.t("agents:agentsTab.title3")} onClick={() => setNewOpen(true)}>
-              <Plus aria-hidden />
-            </Button>
-            <Button
-              size="sm"
-              variant="quiet"
-              iconOnly
-              aria-label={i18n.t("agents:agentsTab.ariaLabel9")}
-              title={i18n.t("agents:agentsTab.title4")}
-              disabled={!rootPath || repository.loading}
-              onClick={repository.reload}
-            >
-              <RefreshCw aria-hidden />
-            </Button>
+            <Tooltip content={i18n.t("agents:agentsTab.title3")}>
+              <Button size="sm" variant="quiet" iconOnly aria-label={i18n.t("agents:agentsTab.ariaLabel8")} onClick={() => setNewOpen(true)}>
+                <Plus aria-hidden />
+              </Button>
+            </Tooltip>
+            <Tooltip content={i18n.t("agents:agentsTab.title4")}>
+              <Button
+                size="sm"
+                variant="quiet"
+                iconOnly
+                aria-label={i18n.t("agents:agentsTab.ariaLabel9")}
+                disabled={!rootPath || repository.loading}
+                onClick={repository.reload}
+              >
+                <RefreshCw aria-hidden />
+              </Button>
+            </Tooltip>
           </div>
           <div className={sx(styles.compactPicker)}>
             <UnusedFiles problems={problems} />

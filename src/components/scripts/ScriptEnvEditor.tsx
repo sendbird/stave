@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Plus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import type { ScriptEditorEnvRow } from "@/lib/workspace-scripts/editor";
 import { envEditorStyles } from "./script-env-editor.styles";
@@ -48,16 +49,18 @@ export function ScriptEnvEditor(props: {
                 placeholder={tI18n("scripts:scriptEnvEditor.value")}
                 xstyle={envEditorStyles.input}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                xstyle={envEditorStyles.removeButton}
-                onClick={() => remove(index)}
-                aria-label={tI18n("scripts:scriptEnvEditor.removeVariable")}
-              >
-                <X className={sx(envEditorStyles.icon)} />
-              </Button>
+              <Tooltip content={tI18n("scripts:scriptEnvEditor.removeVariable")}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  xstyle={envEditorStyles.removeButton}
+                  onClick={() => remove(index)}
+                  aria-label={tI18n("scripts:scriptEnvEditor.removeVariable")}
+                >
+                  <X className={sx(envEditorStyles.icon)} />
+                </Button>
+              </Tooltip>
             </div>
           ))}
         </div>

@@ -1,5 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
+import { layoutShellStyles } from "./layout-shell.styles";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -442,29 +444,35 @@ export function SkillDetail(props: {
     <div className={sx(skillStyles.detail)}>
       {/* Detail header */}
       <div className={sx(skillStyles.detailHeader)}>
-        <Button
-          size="icon"
-          variant="ghost"
-          xstyle={skillStyles.iconButtonMd}
-          aria-label={tI18n("workspace:workspaceSkillsPanel.backToSkills")}
-          onClick={props.onBack}
-        >
-          <ArrowLeft className={sx(skillStyles.glyphSm)} />
-        </Button>
+        <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.backToSkills")}>
+          <Button
+            size="icon"
+            variant="ghost"
+            xstyle={skillStyles.iconButtonMd}
+            aria-label={tI18n("workspace:workspaceSkillsPanel.backToSkills")}
+            onClick={props.onBack}
+          >
+            <ArrowLeft className={sx(skillStyles.glyphSm)} />
+          </Button>
+        </AdsTooltip>
         <span className={sx(skillStyles.detailTitle)}>{skill.name}</span>
         <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button
-                size="icon"
-                variant="ghost"
-                xstyle={skillStyles.iconButtonMd}
-                aria-label={tI18n("workspace:workspaceSkillsPanel.moreSkillActions")}
-              />
-            }
-          >
-            <MoreHorizontal className={sx(skillStyles.glyphSm)} />
-          </DropdownMenuTrigger>
+          <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.moreSkillActions")}>
+            <span className={sx(layoutShellStyles.inlineFlex)}>
+              <DropdownMenuTrigger
+                render={
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    xstyle={skillStyles.iconButtonMd}
+                    aria-label={tI18n("workspace:workspaceSkillsPanel.moreSkillActions")}
+                  />
+                }
+              >
+                <MoreHorizontal className={sx(skillStyles.glyphSm)} />
+              </DropdownMenuTrigger>
+            </span>
+          </AdsTooltip>
           <DropdownMenuContent align="end" xstyle={skillStyles.detailMenu}>
             <DropdownMenuItem onSelect={handleCopyInvocationToken}>
               <Copy className={sx(skillStyles.glyphMd)} />
@@ -804,35 +812,37 @@ export function WorkspaceSkillsPanel(props: {
           </div>
           <div className={sx(skillStyles.panelActions)}>
             {props.onOpenSettings ? (
+              <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.skillsSettings")}>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  xstyle={skillStyles.iconButtonMd}
+                  onClick={openSkillSettings}
+                  aria-label={tI18n("workspace:workspaceSkillsPanel.openSkillsSettings2")}
+                >
+                  <Settings2 className={sx(skillStyles.glyphSm)} />
+                </Button>
+              </AdsTooltip>
+            ) : null}
+            <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.refresh")}>
               <Button
                 type="button"
                 size="icon"
                 variant="ghost"
                 xstyle={skillStyles.iconButtonMd}
-                onClick={openSkillSettings}
-                title={tI18n("workspace:workspaceSkillsPanel.skillsSettings")}
-                aria-label={tI18n("workspace:workspaceSkillsPanel.openSkillsSettings2")}
+                onClick={() => void refreshSkillCatalog({ workspacePath })}
+                disabled={skillCatalog.status === "loading"}
+                aria-label={tI18n("workspace:workspaceSkillsPanel.refreshSkills")}
               >
-                <Settings2 className={sx(skillStyles.glyphSm)} />
+                <RefreshCcw
+                  className={sx(
+                    skillStyles.glyphSm,
+                    skillCatalog.status === "loading" && skillStyles.spinning,
+                  )}
+                />
               </Button>
-            ) : null}
-            <Button
-              type="button"
-              size="icon"
-              variant="ghost"
-              xstyle={skillStyles.iconButtonMd}
-              onClick={() => void refreshSkillCatalog({ workspacePath })}
-              disabled={skillCatalog.status === "loading"}
-              title={tI18n("workspace:workspaceSkillsPanel.refresh")}
-              aria-label={tI18n("workspace:workspaceSkillsPanel.refreshSkills")}
-            >
-              <RefreshCcw
-                className={sx(
-                  skillStyles.glyphSm,
-                  skillCatalog.status === "loading" && skillStyles.spinning,
-                )}
-              />
-            </Button>
+            </AdsTooltip>
           </div>
         </div>
 
@@ -848,15 +858,17 @@ export function WorkspaceSkillsPanel(props: {
               aria-label={tI18n("workspace:workspaceSkillsPanel.searchSkills")}
             />
             {searchQuery ? (
-              <AdsButton
-                layout="host"
-                type="button"
-                xstyle={skillStyles.searchClear}
-                onClick={() => setSearchQuery("")}
-                aria-label={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}
-              >
-                <X className={sx(skillStyles.glyphSm)} />
-              </AdsButton>
+              <AdsTooltip content={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}>
+                <AdsButton
+                  layout="host"
+                  type="button"
+                  xstyle={skillStyles.searchClear}
+                  onClick={() => setSearchQuery("")}
+                  aria-label={tI18n("workspace:workspaceSkillsPanel.clearSkillSearch")}
+                >
+                  <X className={sx(skillStyles.glyphSm)} />
+                </AdsButton>
+              </AdsTooltip>
             ) : null}
           </div>
         </div>

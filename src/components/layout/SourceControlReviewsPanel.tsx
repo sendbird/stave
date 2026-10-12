@@ -1,6 +1,7 @@
 import { formatRelativeTime as formatRelativeAge, formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -511,16 +512,17 @@ export function SourceControlReviewsPanel(props: {
     return (
       <div className={sx(reviewsStyles.shell)}>
         <div className={sx(reviewsStyles.detailHeader)}>
-          <Button
-            type="button"
-            size="icon-sm"
-            variant="ghost"
-            aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.backToReviewInbox")}
-            title={i18n.t("sourceControl:sourceControlReviewsPanel.backToReviewInbox")}
-            onClick={returnToInbox}
-          >
-            <ArrowLeft className={sx(reviewsStyles.iconMd)} />
-          </Button>
+          <Tooltip content={i18n.t("sourceControl:sourceControlReviewsPanel.backToReviewInbox")}>
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.backToReviewInbox")}
+              onClick={returnToInbox}
+            >
+              <ArrowLeft className={sx(reviewsStyles.iconMd)} />
+            </Button>
+          </Tooltip>
           <div className={sx(reviewsStyles.detailHeaderText)}>
             <p className={sx(reviewsStyles.breadcrumb)}>
               {i18n.t("sourceControl:sourceControlReviewsPanel.reviews")}
@@ -535,18 +537,19 @@ export function SourceControlReviewsPanel(props: {
             ) : null}
           </div>
           {detail ? (
-            <Button
-              type="button"
-              size="icon-sm"
-              variant="ghost"
-              aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.openPullRequestOnGitHub")}
-              title={i18n.t("sourceControl:sourceControlReviewsPanel.openOnGitHub")}
-              onClick={() =>
-                void window.api?.shell?.openExternal?.({ url: detail.url })
-              }
-            >
-              <ExternalLink className={sx(reviewsStyles.iconSm)} />
-            </Button>
+            <Tooltip content={i18n.t("sourceControl:sourceControlReviewsPanel.openOnGitHub")}>
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.openPullRequestOnGitHub")}
+                onClick={() =>
+                  void window.api?.shell?.openExternal?.({ url: detail.url })
+                }
+              >
+                <ExternalLink className={sx(reviewsStyles.iconSm)} />
+              </Button>
+            </Tooltip>
           ) : null}
         </div>
 
@@ -674,22 +677,23 @@ export function SourceControlReviewsPanel(props: {
           <TabsTrigger value="review-requested">{i18n.t("sourceControl:sourceControlReviewsPanel.toReview")}</TabsTrigger>
           <TabsTrigger value="authored">{i18n.t("sourceControl:sourceControlReviewsPanel.myPRs")}</TabsTrigger>
         </TabsList>
-        <Button
-          type="button"
-          size="icon-sm"
-          variant="ghost"
-          aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.refreshPullRequestInbox")}
-          title={i18n.t("sourceControl:sourceControlReviewsPanel.refresh")}
-          disabled={isLoadingInbox}
-          onClick={() => void loadInbox()}
-        >
-          <RefreshCw
-            className={sx(
-              reviewsStyles.iconSm,
-              isLoadingInbox && reviewsStyles.spinning,
-            )}
-          />
-        </Button>
+        <Tooltip content={i18n.t("sourceControl:sourceControlReviewsPanel.refresh")}>
+          <Button
+            type="button"
+            size="icon-sm"
+            variant="ghost"
+            aria-label={i18n.t("sourceControl:sourceControlReviewsPanel.refreshPullRequestInbox")}
+            disabled={isLoadingInbox}
+            onClick={() => void loadInbox()}
+          >
+            <RefreshCw
+              className={sx(
+                reviewsStyles.iconSm,
+                isLoadingInbox && reviewsStyles.spinning,
+              )}
+            />
+          </Button>
+        </Tooltip>
       </div>
       <TabsContent
         value="review-requested"

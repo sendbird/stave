@@ -4,6 +4,7 @@ import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { Button } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { useTranslation, type I18nKey } from "@/i18n";
 import { TASK_CONTEXT_SCOPE_LABEL_KEYS } from "@/lib/task-context/attached-task-context";
 import type { TaskContextScope } from "@/types/chat";
@@ -94,18 +95,19 @@ export function TaskContextChip(args: {
         </span>
       ) : null}
       {args.onRemove ? (
-        <Button
-          type="button"
-          size="icon-xs"
-          variant="ghost"
-          disabled={args.disabled}
-          aria-label={t("taskContext.chip.removeAriaLabel", { title: args.title })}
-          title={t("taskContext.chip.removeTitle")}
-          onClick={args.onRemove}
-          className={sx(styles.remove, transition.colors)}
-        >
-          <X aria-hidden className={sx(styles.removeIcon)} />
-        </Button>
+        <Tooltip content={t("taskContext.chip.removeTitle")}>
+          <Button
+            type="button"
+            size="icon-xs"
+            variant="ghost"
+            disabled={args.disabled}
+            aria-label={t("taskContext.chip.removeAriaLabel", { title: args.title })}
+            onClick={args.onRemove}
+            className={sx(styles.remove, transition.colors)}
+          >
+            <X aria-hidden className={sx(styles.removeIcon)} />
+          </Button>
+        </Tooltip>
       ) : null}
     </span>
   );

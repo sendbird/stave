@@ -1,6 +1,7 @@
 import { formatNumber } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
 import {
   ChevronDown,
   ChevronRight,
@@ -299,15 +300,18 @@ function ExplorerSearchPanel(props: {
             autoFocus
           />
           {query ? (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={handleClear}
-              xstyle={explorerStyles.searchClear}
-            >
-              <X className={sx(explorerStyles.searchClearIcon)} />
-            </Button>
+            <AdsTooltip content={tI18n("workspace:workspaceExplorerPanel.clearSearch")}>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                aria-label={tI18n("workspace:workspaceExplorerPanel.clearSearch")}
+                onClick={handleClear}
+                xstyle={explorerStyles.searchClear}
+              >
+                <X className={sx(explorerStyles.searchClearIcon)} />
+              </Button>
+            </AdsTooltip>
           ) : null}
         </div>
         <p className={sx(explorerStyles.searchHint)}>

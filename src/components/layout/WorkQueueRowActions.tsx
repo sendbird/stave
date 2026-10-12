@@ -2,6 +2,8 @@ import { useState } from "react";
 import { MoreVertical } from "lucide-react";
 import { i18n, useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import {
   Button,
@@ -90,20 +92,24 @@ export function WorkQueueRowActions(props: {
       )}
     >
       <DropdownMenu open={open} onOpenChange={setOpen}>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              xstyle={repositorySidebarStyles.rowActionsTrigger}
-              data-testid={`work-queue-actions-${props.workspaceId}`}
-              aria-label={i18n.t("workspace:workQueueSettlement.actions", { name: props.workspaceName })}
-            />
-          }
-        >
-          <MoreVertical className={sx(repositorySidebarStyles.rowActionsIcon)} />
-        </DropdownMenuTrigger>
+        <Tooltip content={i18n.t("workspace:workQueueSettlement.actions", { name: props.workspaceName })}>
+          <span className={sx(layoutShellStyles.inlineFlex)}>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  xstyle={repositorySidebarStyles.rowActionsTrigger}
+                  data-testid={`work-queue-actions-${props.workspaceId}`}
+                  aria-label={i18n.t("workspace:workQueueSettlement.actions", { name: props.workspaceName })}
+                />
+              }
+            >
+              <MoreVertical className={sx(repositorySidebarStyles.rowActionsIcon)} />
+            </DropdownMenuTrigger>
+          </span>
+        </Tooltip>
         <DropdownMenuContent align="end">
           {props.view.state === "active" ? (
             <>
