@@ -28,14 +28,14 @@ const bar = (detail: AgentRunDetail, nowPhrase: string | null = null) =>
   );
 const panel = (detail: AgentRunDetail) =>
   renderToStaticMarkup(
-    createElement(AgentRunDetailView, { detail, now: NOW, onCommand: noop, agentActions: { onStop: () => {}, onTakeControl: () => {}, onRetry: () => {}, onAskForChanges: () => {}, onOpenPullRequest: () => {} } }),
+    createElement(AgentRunDetailView, { detail, now: NOW, onCommand: noop, agentActions: { onStop: () => {}, onTakeControl: () => {}, onRetry: () => {}, onOpenPullRequest: () => {} } }),
   );
 const card = (detail: AgentRunDetail, now = NOW) =>
   renderToStaticMarkup(
     createElement(AgentRunResultCardView, {
       detail,
       now,
-      actions: { onAskForChanges: () => {}, onOpenPullRequest: () => {}, onRetry: () => {}, onTakeControl: () => {} },
+      actions: { onOpenPullRequest: () => {}, onRetry: () => {}, onTakeControl: () => {} },
     }),
   );
 
@@ -112,7 +112,7 @@ describe("agent run result card", () => {
     expect(html).toContain("7 files");
     expect(html).toContain("PR #612");
     expect(html).toContain("scroll container");
-    expect(html).toContain("Ask for changes");
+    expect(html).not.toContain("Ask for changes");
     expect(html).toContain("Open PR");
   });
 
@@ -125,7 +125,7 @@ describe("agent run result card", () => {
       ),
     };
     const html = card(withoutPullRequest);
-    expect(html).toContain("Ask for changes");
+    expect(html).not.toContain("Ask for changes");
     expect(html).not.toContain("Open PR");
   });
 
@@ -165,7 +165,7 @@ describe("agent run in the Progress tab", () => {
     expect(html).toContain("Checked by Stave");
     expect(html).toContain("Run report");
     expect(html).toContain("Run figures");
-    expect(html).toContain("Ask for changes");
+    expect(html).not.toContain("Ask for changes");
     expect(html).not.toContain("Stages");
     expect(html).not.toContain("Save as workflow");
     expect(html).not.toContain("Stop run");

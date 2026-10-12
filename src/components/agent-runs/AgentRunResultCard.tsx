@@ -41,17 +41,13 @@ export function AgentRunOutcome(props: { result: AgentRunResult; actions?: Agent
         </p>
       ) : null}
       {result.summary ? <p className={sx(styles.summary)}>{result.summary}</p> : null}
-      <div className={sx(styles.actions)}>
-        {actions.onAskForChanges ? (
-          <Button size="xs" variant="secondary" onClick={actions.onAskForChanges}>
-            {i18n.t("agentRuns:agentRunResultCard.agentRunOutcome2")}</Button>
-        ) : null}
-        {result.pullRequest && actions.onOpenPullRequest ? (
+      {result.pullRequest && actions.onOpenPullRequest ? (
+        <div className={sx(styles.actions)}>
           <Button size="xs" variant="secondary" onClick={() => actions.onOpenPullRequest!(result.pullRequest!.url)}>
             {i18n.t("agentRuns:agentRunResultCard.agentRunOutcome3")}<ArrowUpRight aria-hidden />
           </Button>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
     </>
   );
 }
