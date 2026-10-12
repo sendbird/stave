@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
+import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
 import { Button } from "@/components/ads/components/Button";
 import { Dialog } from "@/components/ads/components/Dialog";
 import { sx } from "@/components/ads/utils/stylex";
@@ -189,12 +190,13 @@ export function RunTurnTranscript(props: {
   turnId: string;
 }) {
   useTranslation();
+  const messages = useMemo(() => visibleSteerMessageSegments(props.messages), [props.messages]);
   const showInterimMessages = useAppStore(
     (state) => state.settings.showInterimMessages,
   );
   return (
     <ol aria-label={i18n.t("session:runTurnDialog.ariaLabel")} className={sx(styles.transcript)}>
-      {props.messages.map((message, index) => (
+      {messages.map((message, index) => (
         <RunTurnMessageRow
           key={message.id}
           message={message}

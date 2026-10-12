@@ -1760,7 +1760,7 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "provider.steer-turn":
       await respond(
         request.id,
-        await providerRuntime.steerTurn(request.params),
+        await localMcpRuntime.steerTaskTurn(request.params),
       );
       return;
     case "provider.check-availability":

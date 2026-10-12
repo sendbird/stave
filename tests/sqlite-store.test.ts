@@ -1679,6 +1679,30 @@ describe("SqliteStore", () => {
     },
   );
 
+  nativeSqliteTest("accepted steer segments keep their IDs and tool events after reopening SQLite", async () => {
+    const SqliteStore = await loadSqliteStore();
+    const { buildSteeredUserMessageState } = await import("../src/store/chat-state-helpers");
+    const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
+    const { ChatMessageSchema } = await import("../src/lib/task-context/schemas");
+    const store = new SqliteStore({ dbPath });
+    store.upsertWorkspace({ id: "ws-steer", name: "Steer", snapshot: createSnapshot() });
+    const initial = ChatMessageSchema.parse({ id: "steer-before", role: "assistant", providerId: "codex", model: "gpt-test", turnId: "turn-steer", isStreaming: true, content: "Before", parts: [{ type: "text", text: "Before" }] });
+    const split = buildSteeredUserMessageState({ messagesByTask: { "task-1": [initial] }, messageCountByTask: { "task-1": 2 }, taskId: "task-1", content: "Include tests", steeredIntoTurnId: "turn-steer", clientMessageId: "steer-client", provider: "codex", activeModel: "gpt-test", turnStillActive: true });
+    const rows = replayProviderEventsToTaskState({ taskId: "task-1", turnId: "turn-steer", messages: split.messagesByTask["task-1"]!, provider: "codex", model: "gpt-test", events: [{ type: "tool", toolUseId: "steer-tool", toolName: "Bash", input: "bun test", state: "input-available" }] }).messages;
+    expect(store.persistTaskTurnDelta({ workspaceId: "ws-steer", taskId: "task-1", messages: rows })).toMatchObject({ ok: true });
+    // Renderer acknowledgement writes the same rows: the store must upsert them.
+    store.persistTaskTurnDelta({ workspaceId: "ws-steer", taskId: "task-1", messages: rows });
+    store.close();
+    const reopened = new SqliteStore({ dbPath });
+    try {
+      const page = reopened.loadTaskMessagesPage({ workspaceId: "ws-steer", taskId: "task-1", limit: 120 })!;
+      expect(page.totalCount).toBe(4);
+      const restored = page.messages.map((message) => ChatMessageSchema.parse(message));
+      expect(restored.filter((message) => message.id === "steer-client")).toHaveLength(1);
+      expect(restored.at(-1)).toMatchObject({ id: "steer-client-assistant", turnId: "turn-steer", isStreaming: true, parts: [expect.objectContaining({ type: "tool_use", toolUseId: "steer-tool" })] });
+    } finally { reopened.close(); }
+  });
+
   nativeSqliteTest(
     "persistTaskTurnDelta declines a legacy inline-message payload",
     async () => {

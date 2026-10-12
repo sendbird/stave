@@ -81,6 +81,7 @@ import {
   findActiveConversationTurnMessageId,
 } from "./conversation-turn-rail.utils";
 import { AssistantMessageBody } from "./message/assistant-trace";
+import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
 import { TaskStartGuide } from "./TaskStartGuide";
 import { SessionLoadingState } from "./SessionLoadingState";
 import {
@@ -733,7 +734,7 @@ function ChatPanelMessageList(props: {
   const suppressAnchorUntilRef = useRef(0);
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
 
-  const visibleMessages = messages;
+  const visibleMessages = useMemo(() => visibleSteerMessageSegments(messages), [messages]);
   const threadActionStateByMessageId = useMemo(
     () =>
       buildConversationTurnActionStateByMessageId({

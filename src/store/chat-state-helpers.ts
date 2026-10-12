@@ -435,10 +435,13 @@ export function buildSteeredUserMessageState(args: {
   turnStillActive: boolean;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
-  const baseMessageCount = Math.max(
-    current.length,
-    args.messageCountByTask[args.taskId] ?? 0,
-  );
+  // Host persistence can reach the renderer before its steer acknowledgement.
+  if (current.some((message) => message.id === args.clientMessageId)) {
+    return {
+      messagesByTask: args.messagesByTask,
+      messageCountByTask: args.messageCountByTask,
+    };
+  }
   const timestamp = buildRecentTimestamp();
   const latestMessage = current.at(-1);
   const segmentedCurrent =
@@ -451,6 +454,9 @@ export function buildSteeredUserMessageState(args: {
             ...latestMessage,
             isStreaming: false,
             completedAt: latestMessage.completedAt ?? timestamp,
+            parts: latestMessage.parts.map((part) => part.type === "thinking" && part.isStreaming
+              ? { ...part, isStreaming: false, completedAt: part.completedAt ?? timestamp }
+              : part),
           },
         ]
       : current;
@@ -467,11 +473,9 @@ export function buildSteeredUserMessageState(args: {
   };
   const assistantMessage: ChatMessage | null = args.turnStillActive
     ? {
-        id: buildMessageId({
-          taskId: args.taskId,
-          count: baseMessageCount + 1,
-        }),
+        id: `${args.clientMessageId}-assistant`,
         role: "assistant",
+        turnId: args.steeredIntoTurnId,
         model:
           latestMessage?.role === "assistant"
             ? latestMessage.model
@@ -483,6 +487,17 @@ export function buildSteeredUserMessageState(args: {
             : args.provider,
         ...(latestMessage?.role === "assistant" && latestMessage.modelInfo
           ? { modelInfo: latestMessage.modelInfo }
+          : {}),
+        ...(latestMessage?.role === "assistant"
+          ? {
+              nativeAccountProfileId: latestMessage.nativeAccountProfileId,
+              nativeProviderSessionId: latestMessage.nativeProviderSessionId,
+              nativeProviderTurnId: latestMessage.nativeProviderTurnId,
+              terminalReceipt: latestMessage.terminalReceipt,
+              agentProvenance: latestMessage.agentProvenance,
+              modelExecution: latestMessage.modelExecution,
+              modelResolution: latestMessage.modelResolution,
+            }
           : {}),
         content: "",
         startedAt: timestamp,
