@@ -301,6 +301,28 @@ function buildReplyReviewPrompt(args: {
 }
 
 /** The reviewer's prompt: target, rubric, focus, saved and per-run instructions. */
+/**
+ * Review criteria loaded from a workspace document: its path, so the reviewer
+ * can read the file, then its text. Text past the criteria cap is cut with a
+ * note, since the prompt keeps only that many characters.
+ */
+export function buildDocumentReviewCriteria(args: {
+  filePath: string;
+  content: string;
+}): string {
+  // i18n-ignore: model-facing review criteria
+  const header = `Workspace document \`${args.filePath}\`:`;
+  // i18n-ignore: model-facing review criteria
+  const cutNote = "\n… (cut here; read the file for the rest)";
+  const budget = REVIEW_TASK_CRITERIA_MAX_CHARS - header.length - 2;
+  const content = args.content.trim();
+  const body =
+    content.length <= budget
+      ? content
+      : `${content.slice(0, budget - cutNote.length).trimEnd()}${cutNote}`;
+  return `${header}\n\n${body}`;
+}
+
 export function buildReviewTaskPrompt(args: {
   target: ReviewTarget;
   focuses: readonly LocalChangeReviewFocus[];

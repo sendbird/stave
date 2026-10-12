@@ -3,6 +3,7 @@ import {
   getLensCommentImageId,
   shouldIncludeImageAttachmentAsProviderContext,
 } from "@/lib/lens/lens-annotation-attachment";
+import { toDocumentContextPart } from "@/lib/documents/attached-document-context";
 import type { Attachment, MessagePart, PromptDraft } from "@/types/chat";
 
 export function getImageAttachmentMimeType(
@@ -77,6 +78,10 @@ export function buildPromptDraftDisplayPartsForSend(
         parts.push(toTaskContextPart(attachment));
         continue;
       }
+      if (attachment.kind === "document-context") {
+        parts.push(toDocumentContextPart(attachment));
+        continue;
+      }
       if (shouldIncludeImageAttachmentAsProviderContext(attachment, true)) {
         parts.push({
           type: "image_context",
@@ -104,6 +109,12 @@ export function buildPromptDraftDisplayPartsForSend(
     if (attachment.kind !== "task-context") continue;
     hasWorkspaceInformationReference = true;
     parts.push(toTaskContextPart(attachment));
+  }
+
+  for (const attachment of draft.attachments) {
+    if (attachment.kind !== "document-context") continue;
+    hasWorkspaceInformationReference = true;
+    parts.push(toDocumentContextPart(attachment));
   }
 
   const imageAttachmentsById = new Map(

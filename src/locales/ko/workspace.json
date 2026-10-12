@@ -1297,5 +1297,15 @@
     "reasonMerged": "PR 머지됨",
     "reasonInactive": "최근 활동 없음",
     "until": "{{time}}까지"
+  },
+  "documentContext": {
+    "chip": {
+      "source": "{{workspace}} · v{{revision}}",
+      "openAriaLabel": "첨부한 문서 {{title}} 열기",
+      "openTitle": "{{title}} 열기",
+      "removeAriaLabel": "첨부한 문서 {{title}} 제거",
+      "removeTitle": "문서 제거",
+      "couldNotOpen": "첨부한 문서를 열 수 없습니다."
+    }
   }
 }

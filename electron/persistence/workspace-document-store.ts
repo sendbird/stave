@@ -1,9 +1,12 @@
 import { createHash } from "node:crypto";
 import {
+  MAX_ARCHIVED_WORKSPACE_DOCUMENTS,
+  MAX_WORKSPACE_DOCUMENT_CATALOG_ENTRIES,
   MAX_WORKSPACE_DOCUMENT_REVISIONS,
   MAX_WORKSPACE_DOCUMENT_TURN_LINKS,
   type RecordWorkspaceDocumentsArgs,
   type WorkspaceDocumentActivity,
+  type WorkspaceDocumentCatalogEntry,
   type WorkspaceDocumentChange,
   type WorkspaceDocumentRevisionAuthor,
   type WorkspaceDocumentRevisionMeta,
@@ -24,6 +27,9 @@ interface LatestRevisionRow {
   content: string;
 }
 
+/** Present only in the current delete trigger; an older one lacks it. */
+const ARCHIVE_TRIGGER_MARKER = "workspace_document_archived_workspaces";
+
 function hashContent(content: string) {
   return createHash("sha256").update(content).digest("hex");
 }
@@ -31,8 +37,11 @@ function hashContent(content: string) {
 /**
  * Revision history for workspace documents. The Markdown file stays the
  * working copy; each sync stores a new revision only when a document's content
- * differs from the newest one already recorded. Rows are removed with their
- * workspace.
+ * differs from the newest one already recorded. When a workspace is deleted,
+ * only the newest revision of each of its documents is kept, with the
+ * workspace's name, so other tasks can still read and attach it; at most
+ * `MAX_ARCHIVED_WORKSPACE_DOCUMENTS` such documents are kept across all deleted
+ * workspaces.
  */
 export class WorkspaceDocumentStore {
   constructor(private readonly db: DocumentDatabase) {
@@ -51,10 +60,64 @@ export class WorkspaceDocumentStore {
     );
     CREATE INDEX IF NOT EXISTS idx_workspace_document_revisions_turn
       ON workspace_document_revisions(workspace_id, turn_id);
-    CREATE TRIGGER IF NOT EXISTS clear_workspace_document_revisions
+    CREATE TABLE IF NOT EXISTS workspace_document_archived_workspaces (
+      workspace_id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      deleted_at TEXT NOT NULL
+    );`);
+    this.ensureDeleteTrigger();
+  }
+
+  /**
+   * Replaces the workspace-delete trigger when the stored one predates the
+   * current definition (an older one deleted every revision). Runs in a
+   * savepoint so no delete can slip between the drop and the create.
+   */
+  private ensureDeleteTrigger() {
+    const existing = this.db
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'trigger' AND name = 'clear_workspace_document_revisions'",
+      )
+      .get() as { sql: string } | undefined;
+    if (existing?.sql.includes(ARCHIVE_TRIGGER_MARKER)) {
+      return;
+    }
+    this.db.exec("SAVEPOINT workspace_document_delete_trigger");
+    try {
+      this.db.exec(`DROP TRIGGER IF EXISTS clear_workspace_document_revisions;
+    CREATE TRIGGER clear_workspace_document_revisions
     AFTER DELETE ON workspace_meta BEGIN
-      DELETE FROM workspace_document_revisions WHERE workspace_id = OLD.id;
+      INSERT OR REPLACE INTO workspace_document_archived_workspaces (workspace_id, name, deleted_at)
+        SELECT OLD.id, OLD.name, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+        WHERE EXISTS (
+          SELECT 1 FROM workspace_document_revisions WHERE workspace_id = OLD.id
+        );
+      DELETE FROM workspace_document_revisions
+        WHERE workspace_id = OLD.id
+          AND revision < (
+            SELECT MAX(latest.revision) FROM workspace_document_revisions latest
+            WHERE latest.workspace_id = OLD.id
+              AND latest.file_path = workspace_document_revisions.file_path
+          );
+      DELETE FROM workspace_document_revisions
+        WHERE workspace_id IN (SELECT workspace_id FROM workspace_document_archived_workspaces)
+          AND id NOT IN (
+            SELECT id FROM workspace_document_revisions
+            WHERE workspace_id IN (SELECT workspace_id FROM workspace_document_archived_workspaces)
+            ORDER BY created_at DESC, id DESC
+            LIMIT ${MAX_ARCHIVED_WORKSPACE_DOCUMENTS}
+          );
+      DELETE FROM workspace_document_archived_workspaces
+        WHERE workspace_id NOT IN (
+          SELECT DISTINCT workspace_id FROM workspace_document_revisions
+        );
     END;`);
+      this.db.exec("RELEASE workspace_document_delete_trigger");
+    } catch (error) {
+      this.db.exec("ROLLBACK TO workspace_document_delete_trigger");
+      this.db.exec("RELEASE workspace_document_delete_trigger");
+      throw error;
+    }
   }
 
   /**
@@ -70,6 +133,10 @@ export class WorkspaceDocumentStore {
     ) {
       return [];
     }
+    // A deleted workspace id that is in use again is live, not archived.
+    this.db
+      .prepare("DELETE FROM workspace_document_archived_workspaces WHERE workspace_id = ?")
+      .run(args.workspaceId);
     const latest = this.db.prepare(
       `SELECT revision, content_hash, content FROM workspace_document_revisions
        WHERE workspace_id = ? AND file_path = ?
@@ -190,6 +257,51 @@ export class WorkspaceDocumentStore {
       revision: row.revision,
     }));
     return { documents, turnLinks };
+  }
+
+  /**
+   * The newest revision of every document outside `excludeWorkspaceId`, most
+   * recent first, from live and deleted workspaces. Content is read separately.
+   */
+  catalog(excludeWorkspaceId?: string): WorkspaceDocumentCatalogEntry[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT r.workspace_id, r.file_path, r.revision, r.created_at,
+             COALESCE(meta.name, archived.name) AS workspace_name,
+             archived.workspace_id IS NOT NULL AS deleted
+           FROM workspace_document_revisions r
+           JOIN (
+             SELECT workspace_id, file_path, MAX(revision) AS latest
+             FROM workspace_document_revisions
+             GROUP BY workspace_id, file_path
+           ) newest ON newest.workspace_id = r.workspace_id
+             AND newest.file_path = r.file_path
+             AND newest.latest = r.revision
+           LEFT JOIN workspace_meta meta ON meta.id = r.workspace_id
+           LEFT JOIN workspace_document_archived_workspaces archived
+             ON archived.workspace_id = r.workspace_id
+           WHERE r.workspace_id != ?
+             AND (meta.id IS NOT NULL OR archived.workspace_id IS NOT NULL)
+           ORDER BY r.created_at DESC, r.id DESC
+           LIMIT ?`,
+        )
+        .all(excludeWorkspaceId ?? "", MAX_WORKSPACE_DOCUMENT_CATALOG_ENTRIES) as {
+        workspace_id: string;
+        file_path: string;
+        revision: number;
+        created_at: string;
+        workspace_name: string;
+        deleted: number;
+      }[]
+    ).map((row) => ({
+      workspaceId: row.workspace_id,
+      workspaceName: row.workspace_name,
+      workspaceDeleted: Boolean(row.deleted),
+      filePath: row.file_path,
+      revision: row.revision,
+      updatedAt: row.created_at,
+    }));
   }
 
   revisions(workspaceId: string, filePath: string): WorkspaceDocumentRevisionMeta[] {

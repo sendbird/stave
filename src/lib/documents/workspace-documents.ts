@@ -30,6 +30,38 @@ export interface WorkspaceDocumentFile {
   content: string;
 }
 
+/** Paths of the Markdown documents in the workspace's document directories, sorted. */
+export async function listWorkspaceDocumentPaths(
+  rootPath: string,
+): Promise<string[]> {
+  const fsApi = window.api?.fs;
+  if (!fsApi?.listDirectory || !rootPath) {
+    return [];
+  }
+  const listings = await Promise.all(
+    WORKSPACE_DOCUMENT_DIRECTORIES.map((directoryPath) =>
+      fsApi.listDirectory?.({ rootPath, directoryPath }).catch(() => null),
+    ),
+  );
+  return listings
+    .flatMap((listing) => (listing?.ok ? listing.entries : []))
+    .filter((entry) => entry.type === "file" && entry.path.endsWith(".md"))
+    .map((entry) => entry.path)
+    .sort()
+    .slice(0, MAX_WORKSPACE_DOCUMENTS_PER_SYNC);
+}
+
+/** One workspace document's current text, or null when it cannot be read. */
+export async function readWorkspaceDocument(args: {
+  rootPath: string;
+  filePath: string;
+}): Promise<string | null> {
+  const result = await window.api?.fs
+    ?.readFile?.({ rootPath: args.rootPath, filePath: args.filePath })
+    .catch(() => null);
+  return result?.ok && !result.tooLarge ? result.content : null;
+}
+
 /**
  * Reads every Markdown document in the workspace's document directories. Files
  * over the size cap, unreadable files and missing directories are skipped.
@@ -38,20 +70,10 @@ export async function readWorkspaceDocuments(
   rootPath: string,
 ): Promise<WorkspaceDocumentFile[]> {
   const fsApi = window.api?.fs;
-  if (!fsApi?.listDirectory || !fsApi.readFile) {
+  if (!fsApi?.readFile) {
     return [];
   }
-  const listings = await Promise.all(
-    WORKSPACE_DOCUMENT_DIRECTORIES.map((directoryPath) =>
-      fsApi.listDirectory?.({ rootPath, directoryPath }).catch(() => null),
-    ),
-  );
-  const filePaths = listings
-    .flatMap((listing) => (listing?.ok ? listing.entries : []))
-    .filter((entry) => entry.type === "file" && entry.path.endsWith(".md"))
-    .map((entry) => entry.path)
-    .sort()
-    .slice(0, MAX_WORKSPACE_DOCUMENTS_PER_SYNC);
+  const filePaths = await listWorkspaceDocumentPaths(rootPath);
   const files = await Promise.all(
     filePaths.map(async (filePath) => {
       const result = await fsApi

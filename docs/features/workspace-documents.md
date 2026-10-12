@@ -17,6 +17,8 @@ when you edited one of its documents between turns.
   has moved on.
 - You prefer editing the text yourself: change the file in the editor, and the
   agent works from your edit in its next turn.
+- You want to check finished work against the plan, or reuse a document from
+  another workspace, even one you have deleted.
 
 For a quick answer that does not need revising, ask in the chat as usual.
 
@@ -47,6 +49,9 @@ For a quick answer that does not need revising, ask in the chat as usual.
   wrote, with its revision number.
 - **Information panel → Documents**: every document in the workspace, the most
   recently updated first.
+- **`@` in the composer**: documents from your other workspaces, including
+  deleted ones, under **Documents from other workspaces**.
+- **Review → Load from a document**: a document as the review's criteria.
 
 ### Key Controls
 
@@ -59,6 +64,9 @@ For a quick answer that does not need revising, ask in the chat as usual.
 - **New plan** creates a plan document from a short template.
 - The checklist icon turns the document's checklist items into workspace
   todos.
+- **Quote Selection in Chat** (editor context menu): select lines in an open
+  document and choose it. The lines are added to the chat input as a quote with
+  the file path and line numbers; write your comment under the quote.
 
 ## Common Workflows
 
@@ -71,6 +79,29 @@ For a quick answer that does not need revising, ask in the chat as usual.
    a diff, so the agent keeps it instead of writing over it.
 4. Ask for the implementation. The agent works from the latest version of the
    document.
+
+### Comment On Part Of A Document
+
+1. Open the document and select the lines you want to change.
+2. Right-click and choose **Quote Selection in Chat**. Repeat for other parts.
+3. Write a comment under each quote and send. The agent edits the same file.
+
+### Check The Implementation Against The Plan
+
+1. After the implementation, select **Review** in the composer.
+2. Under **Check against a plan or acceptance criteria**, select
+   **Load from a document** and pick the plan.
+3. Start the review. Unmet steps come back as findings you can attach to the
+   task. See [Review Tasks](review-tasks.md).
+
+### Reuse A Document From Another Workspace
+
+1. Type `@` in the composer, then part of the document's name or its
+   workspace's name.
+2. Pick it under **Documents from other workspaces**. A chip shows the title,
+   the workspace and the revision.
+3. Send the message. The agent receives that revision's text as reference
+   material. Select the chip's title to read it.
 
 ### See What A Turn Changed In A Document
 
@@ -85,9 +116,14 @@ For a quick answer that does not need revising, ask in the chat as usual.
 - Each version is also stored as a revision in Stave's local database, up to
   the 50 newest per document. A revision is recorded when a turn ends and
   before each message you send, only when the content changed.
-- A revision written during a turn is linked to that turn. A change made
-  between turns, by you or another tool, is recorded as an edit outside a turn.
-- Revisions are removed with their workspace.
+- A revision written during a turn is linked to that turn, whether you sent
+  the message or the turn was started by an agent run, an automation, a
+  scheduled check or the Stave Local MCP. A change made between turns, by you
+  or another tool, is recorded as an edit outside a turn.
+- When a workspace is deleted, Stave keeps only the newest revision of each of
+  its documents, together with the workspace's name, so you can still attach
+  it with `@`. Across all deleted workspaces, the 200 most recently updated
+  documents are kept.
 
 ## Limitations And Advanced Options
 
@@ -95,8 +131,10 @@ For a quick answer that does not need revising, ask in the chat as usual.
 - Files larger than 256 KB are not recorded.
 - Stave tells an agent about edits only to documents that its own task wrote
   earlier.
-- Changes made by a turn Stave did not observe, such as one started from the
-  Stave Local MCP, are recorded as edits outside a turn.
+- When two turns run in the same workspace at once, the turn that ends first
+  records every document changed so far.
+- An attached document from another workspace is sent as the revision you
+  picked, up to 12,000 characters, not the file as it is now.
 - Stave has no separate plan mode. To keep a turn from editing anything, ask
   for a document only, or use a read-only setup such as Codex `read-only` file
   access or the read-only Researcher agent. See

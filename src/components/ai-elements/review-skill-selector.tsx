@@ -23,11 +23,22 @@ export interface ReviewSkillOption {
   keywords?: string[];
 }
 
+/** Copy for a selector that picks something other than a review skill. */
+export interface ReviewOptionSelectorCopy {
+  trigger: string;
+  triggerAria: string;
+  search: string;
+  searchAria: string;
+  empty: string;
+}
+
 export function ReviewSkillSelector(args: {
   "aria-labelledby"?: string;
   value: string;
   options: readonly ReviewSkillOption[];
   onValueChange: (value: string) => void;
+  /** Replaces the review-skill copy; translated by the caller. */
+  copy?: ReviewOptionSelectorCopy;
 }) {
   useTranslation();
   const [open, setOpen] = useState(false);
@@ -41,13 +52,13 @@ export function ReviewSkillSelector(args: {
             variant="outline"
             size="sm"
             fullWidth
-            aria-label={args["aria-labelledby"] ? undefined : i18n.t("ui:reviewSkillSelector.reviewSkill")}
+            aria-label={args["aria-labelledby"] ? undefined : (args.copy?.triggerAria ?? i18n.t("ui:reviewSkillSelector.reviewSkill"))}
             aria-labelledby={args["aria-labelledby"]}
             xstyle={styles.trigger}
           />
         }
       >
-        <span className={sx(styles.label)}>{selected?.label ?? i18n.t("ui:reviewSkillSelector.noSkill")}</span>
+        <span className={sx(styles.label)}>{selected?.label ?? args.copy?.trigger ?? i18n.t("ui:reviewSkillSelector.noSkill")}</span>
         <ChevronDown aria-hidden="true" className={sx(styles.chevron)} />
       </PopoverTrigger>
       <PopoverContent align="start" density="flush" xstyle={styles.popup}>
@@ -55,11 +66,11 @@ export function ReviewSkillSelector(args: {
           <Command>
             <CommandInput
               autoFocus
-              aria-label={i18n.t("ui:reviewSkillSelector.searchReviewSkills")}
-              placeholder={i18n.t("ui:reviewSkillSelector.searchSkills")}
+              aria-label={args.copy?.searchAria ?? i18n.t("ui:reviewSkillSelector.searchReviewSkills")}
+              placeholder={args.copy?.search ?? i18n.t("ui:reviewSkillSelector.searchSkills")}
             />
             <CommandList className={sx(styles.list)}>
-              <CommandEmpty>{i18n.t("ui:reviewSkillSelector.noSkillsFound")}</CommandEmpty>
+              <CommandEmpty>{args.copy?.empty ?? i18n.t("ui:reviewSkillSelector.noSkillsFound")}</CommandEmpty>
               {args.options.map((option) => (
                 <CommandItem
                   key={option.value}

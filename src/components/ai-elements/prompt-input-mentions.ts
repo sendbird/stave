@@ -5,6 +5,10 @@ import {
   type TaskMentionOption,
 } from "@/lib/task-context/attached-task-context";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
+import {
+  filterDocumentMentionOptions,
+  type DocumentMentionOption,
+} from "@/lib/documents/attached-document-context";
 
 /**
  * One entry of the `@` palette. Information references insert a token in the
@@ -12,18 +16,20 @@ import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-inform
  */
 export type MentionPaletteItem =
   | { kind: "information"; key: string; option: WorkspaceInformationReferenceOption }
-  | { kind: "task"; key: string; option: TaskMentionOption };
+  | { kind: "task"; key: string; option: TaskMentionOption }
+  | { kind: "document"; key: string; option: DocumentMentionOption };
 
 /**
  * The `@` palette in the order it renders, which is the order the arrow keys
- * walk: Information sections, then tasks, then Information items. Tasks sit
- * above the items so a handful of recent tasks is not buried under a long
- * to-do list.
+ * walk: Information sections, then tasks, then documents from other
+ * workspaces, then Information items. Tasks and documents sit above the items
+ * so a handful of recent ones is not buried under a long to-do list.
  */
 export function buildMentionPaletteItems(args: {
   query: string;
   informationOptions: readonly WorkspaceInformationReferenceOption[];
   taskOptions: readonly TaskMentionOption[];
+  documentOptions?: readonly DocumentMentionOption[];
 }): MentionPaletteItem[] {
   const query = args.query.trim().toLowerCase();
   const information = query
@@ -43,6 +49,16 @@ export function buildMentionPaletteItems(args: {
         option,
       }),
     ),
+    ...filterDocumentMentionOptions({
+      options: args.documentOptions ?? [],
+      query,
+    }).map(
+      (option): MentionPaletteItem => ({
+        kind: "document",
+        key: documentMentionKey(option),
+        option,
+      }),
+    ),
     ...information.filter((option) => option.kind === "item").map(toInformation),
   ];
 }
@@ -55,4 +71,9 @@ export function readDroppedTask(
     return null;
   }
   return decodeTaskDragPayload(dataTransfer.getData(TASK_DRAG_MIME));
+}
+
+/** The palette value of a document entry; unique across workspaces. */
+export function documentMentionKey(option: Pick<DocumentMentionOption, "workspaceId" | "filePath">) {
+  return `@document:${option.workspaceId}:${option.filePath}`;
 }

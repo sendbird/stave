@@ -205,6 +205,15 @@ const TaskContextPartSchema = z.object({
   findingIds: TaskFindingIdsSchema,
 });
 
+const DocumentContextPartSchema = z.object({
+  type: z.literal("document_context"),
+  workspaceId: z.string(),
+  workspaceName: z.string(),
+  filePath: z.string(),
+  revision: z.number().int().min(1),
+  title: z.string(),
+});
+
 const SystemEventPartSchema = z.object({
   type: z.literal("system_event"),
   content: z.string(),
@@ -225,6 +234,7 @@ const MessagePartSchema = z.discriminatedUnion("type", [
   ImageContextPartSchema,
   WorkspaceInformationContextPartSchema,
   TaskContextPartSchema,
+  DocumentContextPartSchema,
   ApprovalPartSchema,
   UserInputPartSchema,
   SystemEventPartSchema,
@@ -253,6 +263,15 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
     scope: TaskContextScopeSchema,
     findingIds: TaskFindingIdsSchema,
     findingsReplyId: z.string().max(200).optional().catch(undefined),
+  }),
+  z.object({
+    kind: z.literal("document-context"),
+    id: z.string(),
+    workspaceId: z.string(),
+    workspaceName: z.string(),
+    filePath: z.string(),
+    revision: z.number().int().min(1),
+    title: z.string(),
   }),
   z.object({
     kind: z.literal("lens-annotations"),

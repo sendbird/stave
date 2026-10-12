@@ -3,7 +3,13 @@ import {
   buildWorkspaceDocumentEditContextPart,
   readWorkspaceDocuments,
 } from "@/lib/documents/workspace-documents";
+import {
+  buildAttachedDocumentRetrievedContext,
+  MAX_ATTACHED_DOCUMENTS,
+  type DocumentContextAttachment,
+} from "@/lib/documents/attached-document-context";
 import type {
+  WorkspaceDocumentCatalogEntry,
   WorkspaceDocumentChange,
   WorkspaceDocumentRevisionAuthor,
   WorkspaceDocumentSummary,
@@ -11,6 +17,8 @@ import type {
 } from "@/lib/documents/workspace-document-schemas";
 import { documentRevisionDiffTabId } from "@/lib/editor/snapshot-diff-tabs";
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
+import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
+import type { PromptDraft } from "@/types/chat";
 
 /**
  * Revision activity of each workspace's documents, read from the main-process
@@ -162,6 +170,8 @@ export async function openWorkspaceDocumentRevisionDiff(args: {
   workspaceId: string;
   filePath: string;
   revision: number;
+  /** Set when the document belongs to a workspace other than the open one. */
+  foreign?: boolean;
   openDiffInEditor: (args: {
     editorTabId: string;
     filePath: string;
@@ -195,10 +205,69 @@ export async function openWorkspaceDocumentRevisionDiff(args: {
       filePath: args.filePath,
       fromRevision: Math.max(0, args.revision - 1),
       toRevision: args.revision,
+      ...(args.foreign ? { foreignWorkspaceId: args.workspaceId } : {}),
     }),
     filePath: args.filePath,
     oldContent: previous?.ok ? (previous.content ?? "") : "",
     newContent: current.content,
   });
   return true;
+}
+
+/**
+ * Retrieved context for the documents from other workspaces a prompt has
+ * attached: each one's pinned revision, read from the revision history so a
+ * deleted workspace's document still arrives.
+ */
+export async function collectAttachedDocumentContextParts(args: {
+  promptDraft: PromptDraft;
+}): Promise<CanonicalRetrievedContextPart[]> {
+  const attached = getPromptDraftAttachments(args.promptDraft)
+    .filter(
+      (attachment): attachment is DocumentContextAttachment =>
+        attachment.kind === "document-context",
+    )
+    .filter(
+      (attachment, index, all) =>
+        all.findIndex((other) => other.id === attachment.id) === index,
+    )
+    .slice(0, MAX_ATTACHED_DOCUMENTS);
+  if (attached.length === 0) {
+    return [];
+  }
+  const readRevision = window.api?.persistence?.workspaceDocumentRevision;
+  const results = await Promise.all(
+    attached.map(async (attachment) => {
+      const response = await readRevision?.({
+        workspaceId: attachment.workspaceId,
+        filePath: attachment.filePath,
+        revision: attachment.revision,
+      }).catch(() => null);
+      return {
+        attachment,
+        content: response?.ok ? response.content : null,
+      };
+    }),
+  );
+  const part = buildAttachedDocumentRetrievedContext({
+    documents: results.flatMap(({ attachment, content }) =>
+      content === null ? [] : [{ attachment, content }],
+    ),
+    missing: results.flatMap(({ attachment, content }) =>
+      content === null ? [attachment] : [],
+    ),
+  });
+  return part ? [part] : [];
+}
+
+/** Documents in other workspaces, newest first, for the `@` palette. */
+export async function loadWorkspaceDocumentCatalog(args: {
+  excludeWorkspaceId: string;
+}): Promise<WorkspaceDocumentCatalogEntry[]> {
+  const response = await window.api?.persistence
+    ?.workspaceDocumentCatalog?.(
+      args.excludeWorkspaceId ? { excludeWorkspaceId: args.excludeWorkspaceId } : {},
+    )
+    .catch(() => null);
+  return response?.ok ? response.entries : [];
 }

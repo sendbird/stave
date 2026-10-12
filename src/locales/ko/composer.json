@@ -126,7 +126,7 @@
     "localChangeReviewDialog24": "추가 지침",
     "placeholder2": "예: 작업 전환 회귀를 검증하고 초안 상태가 유지되는지 확인하세요.",
     "localChangeReviewDialog27": "계획 또는 완료 기준과 비교",
-    "localChangeReviewDialog28": "선택 사항입니다. 작업이 충족해야 할 계획이나 기준을 붙여넣으세요. 미충족 항목마다 발견 사항으로 보고합니다.",
+    "localChangeReviewDialog28": "선택 사항입니다. 작업이 충족해야 할 계획이나 기준을 붙여넣거나 워크스페이스 문서에서 불러오세요. 미충족 항목마다 발견 사항으로 보고합니다.",
     "placeholder3": "예: 닫은 리뷰는 재시작 후에도 닫힌 상태를 유지합니다.",
     "localChangeReviewDialog29": "읽기 전용 작업 · 현재 작업과 함께 실행",
     "localChangeReviewDialog30": "읽기 전용 리뷰 · PR 조회 없음",
@@ -138,6 +138,14 @@
     "sentence26": "스테이징됨 {{value1}}개 · 스테이징 안 됨 {{value2}}{{value3}}개 · 추적 안 됨 {{value4}}개 {{value5}}",
     "sentence27": "제품 의도, 위험 영역 또는 특별히 살펴볼 파일을 추가하세요. {{value1}}",
     "sentence24_other": "변경된 파일 {{value1}}개"
+  },
+  "reviewDocumentPicker": {
+    "trigger": "문서에서 불러오기",
+    "triggerAria": "워크스페이스 문서에서 기준 불러오기",
+    "search": "문서 검색…",
+    "searchAria": "워크스페이스 문서 검색",
+    "empty": "문서가 없습니다.",
+    "couldNotRead": "문서를 읽을 수 없습니다."
   },
   "messageMarkdown": {
     "tooltipLabel": "{{value2}}에서 {{value1}} 열기",
@@ -361,7 +369,7 @@
     "copy11": "프로바이더",
     "composerCard13": "Enter 또는 Tab으로 선택한 작업을 컨텍스트로 첨부합니다.",
     "composerCard14": "Enter 또는 Tab으로 선택한 정보 참조를 삽입합니다.",
-    "composerCard15": "`@`를 입력하여 정보와 작업을 검색하세요. 작업은 프롬프트 아래에 첨부되며 사이드바에서 끌어올 수도 있습니다. 정보 선택은 전체 섹션의 경우 `@info:section`, 개별 항목의 경우 `@info:section/item`을 삽입합니다. `@lens`는 현재 Lens 브라우저 페이지를 참조하고 `@web`은 활성 프로바이더의 기본 브라우저 확장에 연결합니다.",
+    "composerCard15": "`@`를 입력하여 정보, 작업, 다른 워크스페이스의 문서를 검색하세요. 작업과 문서는 프롬프트 아래에 첨부되며 작업은 사이드바에서 끌어올 수도 있습니다. 정보 선택은 전체 섹션의 경우 `@info:section`, 개별 항목의 경우 `@info:section/item`을 삽입합니다. `@lens`는 현재 Lens 브라우저 페이지를 참조하고 `@web`은 활성 프로바이더의 기본 브라우저 확장에 연결합니다.",
     "composerCard16": "Enter 또는 Tab으로 선택한 스킬 토큰을 삽입합니다. 선택한 스킬은 전송 시 정규화됩니다.",
     "composerCard17": "`$skill`은 프롬프트 컨텍스트를 통해 `Claude`와 `Codex`의 Stave 스킬 지침을 활성화합니다. 프로바이더 기본 명령에만 `/`를 사용하세요.",
     "composerCard18": "Enter 또는 Tab으로 선택한 매크로를 초안에 펼칩니다.",
@@ -407,7 +415,11 @@
     "sentence31": "{{value1}} 다음 턴에 적용할 값을 아래에 표시합니다.",
     "description3_other": "속성 {{value1}}개 변경됨.",
     "sentence32_other": "항목 {{value1}}개를 하나의 프롬프트로 전송합니다",
-    "title4_other": "첨부 파일 {{value1}}개"
+    "title4_other": "첨부 파일 {{value1}}개",
+    "documentsHeading": "다른 워크스페이스의 문서",
+    "documentFromWorkspace": "{{workspace}} 워크스페이스",
+    "documentFromDeletedWorkspace": "삭제된 워크스페이스 {{workspace}}",
+    "documentPaletteHint": "Enter 또는 Tab을 누르면 강조된 문서를 컨텍스트로 첨부합니다."
   },
   "promptLexicalEditor": {
     "ariaLabel": "프롬프트"

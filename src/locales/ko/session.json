@@ -513,7 +513,8 @@
     "title7": "이미지 컨텍스트",
     "title8": "워크스페이스 컨텍스트",
     "text": "워크스페이스 정보를 이 턴에 첨부했습니다.",
-    "title9": "작업 컨텍스트"
+    "title9": "작업 컨텍스트",
+    "documentContext": "첨부한 문서"
   },
   "assignPaletteEntry": {
     "label": "에이전트에 지정…",
@@ -820,6 +821,10 @@
     "copy2": "작업이 이미 첨부됨",
     "copy3": "첨부된 작업이 너무 많음",
     "description2": "메시지 하나에 작업을 최대 {{value1}}개 첨부할 수 있습니다."
+  },
+  "useDocumentContextMentions": {
+    "limitReached": "첨부한 문서가 너무 많습니다",
+    "limitDescription_other": "메시지 하나에 문서를 {{count}}개까지 첨부할 수 있습니다."
   },
   "useDelegatedTasks": {
     "describeThrown": "위임 작업 동작을 전달하지 못했습니다.",

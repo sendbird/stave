@@ -10,14 +10,18 @@ const DOCUMENT_REVISION_DIFF_TAB_PREFIX = "document-revision-diff:";
 
 /**
  * Deterministic editor-tab id for comparing two recorded revisions of a
- * workspace document. Both sides come from Stave's revision history.
+ * workspace document. Both sides come from Stave's revision history. A
+ * document from another workspace carries that workspace's id, so it never
+ * shares a tab with a same-named document here.
  */
 export function documentRevisionDiffTabId(args: {
   filePath: string;
   fromRevision: number;
   toRevision: number;
+  foreignWorkspaceId?: string;
 }): string {
-  return `${DOCUMENT_REVISION_DIFF_TAB_PREFIX}${args.fromRevision}..${args.toRevision}:${args.filePath}`;
+  const scope = args.foreignWorkspaceId ? `${args.foreignWorkspaceId}/` : "";
+  return `${DOCUMENT_REVISION_DIFF_TAB_PREFIX}${scope}${args.fromRevision}..${args.toRevision}:${args.filePath}`;
 }
 
 /**

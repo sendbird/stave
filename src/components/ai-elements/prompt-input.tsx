@@ -210,7 +210,16 @@ import {
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import { TaskContextDraftChip } from "@/components/task-context-draft-chip";
 import {
+  DocumentContextChip,
+  openAttachedDocument,
+} from "@/components/document-context-chip";
+import type {
+  DocumentContextAttachment,
+  DocumentMentionOption,
+} from "@/lib/documents/attached-document-context";
+import {
   buildMentionPaletteItems,
+  documentMentionKey,
   readDroppedTask,
   type MentionPaletteItem,
 } from "./prompt-input-mentions";
@@ -316,6 +325,9 @@ interface PromptInputProps {
   taskMentionOptions?: readonly TaskMentionOption[];
   /** Attach a task picked with `@` or dropped on the composer. */
   onAttachTask?: (task: { taskId: string; workspaceId: string; title: string }) => void;
+  /** Documents from other workspaces `@` can attach as context, most recent first. */
+  documentMentionOptions?: readonly DocumentMentionOption[];
+  onAttachDocument?: (document: DocumentMentionOption) => void;
   onValueChange: (value: string) => void;
   onEnhancePrompt?: () => void | Promise<void>;
   promptEnhancementPending?: boolean;
@@ -866,6 +878,8 @@ export function PromptInput(args: PromptInputProps) {
     workspaceInformationReferenceOptions,
     taskMentionOptions,
     onAttachTask,
+    documentMentionOptions,
+    onAttachDocument,
     onValueChange,
     onEnhancePrompt,
     promptEnhancementPending = false,
@@ -983,9 +997,21 @@ export function PromptInput(args: PromptInputProps) {
       ),
     [attachments],
   );
+  const documentContextAttachments = useMemo(
+    () =>
+      (attachments ?? []).filter(
+        (attachment): attachment is DocumentContextAttachment =>
+          attachment.kind === "document-context",
+      ),
+    [attachments],
+  );
   const referenceAttachments = useMemo(
-    () => [...workspaceInformationAttachments, ...taskContextAttachments],
-    [taskContextAttachments, workspaceInformationAttachments],
+    () => [
+      ...workspaceInformationAttachments,
+      ...taskContextAttachments,
+      ...documentContextAttachments,
+    ],
+    [documentContextAttachments, taskContextAttachments, workspaceInformationAttachments],
   );
   const [taskDropActive, setTaskDropActive] = useState(false);
   const currentAttachmentCount =
@@ -1203,9 +1229,11 @@ export function PromptInput(args: PromptInputProps) {
         query: deferredWorkspaceInformationQuery,
         informationOptions: workspaceInformationReferenceOptions ?? [],
         taskOptions: taskMentionOptions ?? [],
+        documentOptions: documentMentionOptions ?? [],
       }),
     [
       deferredWorkspaceInformationQuery,
+      documentMentionOptions,
       taskMentionOptions,
       workspaceInformationReferenceOptions,
     ],
@@ -1262,6 +1290,13 @@ export function PromptInput(args: PromptInputProps) {
     () =>
       indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
         item.kind === "task" ? [{ item: item.option, index }] : [],
+      ),
+    [indexedWorkspaceInformationItems],
+  );
+  const documentMentionItems = useMemo(
+    () =>
+      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
+        item.kind === "document" ? [{ item: item.option, index }] : [],
       ),
     [indexedWorkspaceInformationItems],
   );
@@ -2160,7 +2195,7 @@ export function PromptInput(args: PromptInputProps) {
     if (!match) {
       return;
     }
-    // The task becomes a chip under the prompt, so the typed `@query` goes.
+    // The task or document becomes a chip under the prompt, so the typed `@query` goes.
     const currentValue = valueRef.current;
     const nextValue = `${currentValue.slice(0, match.start)}${currentValue
       .slice(match.end)
@@ -2170,7 +2205,11 @@ export function PromptInput(args: PromptInputProps) {
     setSuppressedAutocompleteValue({ palette: "info", value: nextValue });
     setDismissedWorkspaceInformationToken(null);
     setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
-    onAttachTask?.(item.option);
+    if (item.kind === "document") {
+      onAttachDocument?.(item.option);
+    } else {
+      onAttachTask?.(item.option);
+    }
     restoreComposerSelection(match.start);
   }
 
@@ -3454,6 +3493,49 @@ export function PromptInput(args: PromptInputProps) {
                         </CommandGroup>
                       ) : null}
                       {activePalette === "info" &&
+                      documentMentionItems.length > 0 ? (
+                        <CommandGroup heading={i18n.t("composer:promptInput.documentsHeading")}>
+                          {documentMentionItems.map(({ item, index }) => (
+                            <CommandItem
+                              key={documentMentionKey(item)}
+                              value={documentMentionKey(item)}
+                              className={sx(promptInputStyles.itemStandard)}
+                              data-palette-index={index}
+                              onMouseEnter={() =>
+                                setSelectedWorkspaceInformationIndex(index)
+                              }
+                              onMouseDown={(event) => {
+                                event.preventDefault();
+                                rememberActivePaletteTokenSelection();
+                              }}
+                              onSelect={() =>
+                                applyMentionSelection({
+                                  kind: "document",
+                                  key: documentMentionKey(item),
+                                  option: item,
+                                })
+                              }
+                            >
+                              <div className={sx(promptInputStyles.iconWrapPrimary)}>
+                                <FileText className={sx(promptInputStyles.icon4)} />
+                              </div>
+                              <div className={sx(promptInputStyles.flex1Min)}>
+                                <div className={sx(promptInputStyles.rowCenter)}>
+                                  <span className={sx(promptInputStyles.fontMedium)}>
+                                    {item.title}
+                                  </span>
+                                </div>
+                                <p className={sx(promptInputStyles.itemDesc)}>
+                                  {item.workspaceDeleted
+                                    ? i18n.t("composer:promptInput.documentFromDeletedWorkspace", { workspace: item.workspaceName })
+                                    : i18n.t("composer:promptInput.documentFromWorkspace", { workspace: item.workspaceName })}
+                                </p>
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      ) : null}
+                      {activePalette === "info" &&
                       workspaceInformationEntryItems.length > 0 ? (
                         <CommandGroup heading={i18n.t("composer:promptInput.heading3")}>
                           {workspaceInformationEntryItems.map(
@@ -3744,7 +3826,11 @@ export function PromptInput(args: PromptInputProps) {
                         selectedWorkspaceInformationIndex
                       ]?.kind === "task"
                         ? i18n.t("composer:promptInput.composerCard13")
-                        : i18n.t("composer:promptInput.composerCard14")}
+                        : filteredWorkspaceInformationItems[
+                              selectedWorkspaceInformationIndex
+                            ]?.kind === "document"
+                          ? i18n.t("composer:promptInput.documentPaletteHint")
+                          : i18n.t("composer:promptInput.composerCard14")}
                     </p>
                     <p className={sx(promptInputStyles.mt2)}>
                       {i18n.t("composer:promptInput.composerCard15")}</p>
@@ -4093,6 +4179,28 @@ export function PromptInput(args: PromptInputProps) {
                         (candidate) =>
                           !(
                             candidate.kind === "task-context" &&
+                            candidate.id === attachment.id
+                          ),
+                      ),
+                    })
+                  }
+                />
+              ))}
+              {documentContextAttachments.map((attachment) => (
+                <DocumentContextChip
+                  key={attachment.id}
+                  title={attachment.title}
+                  workspaceName={attachment.workspaceName}
+                  revision={attachment.revision}
+                  disabled={interactionsDisabled}
+                  compact={minimal}
+                  onOpen={() => openAttachedDocument(attachment)}
+                  onRemove={() =>
+                    onAttachmentsChange?.({
+                      attachments: (attachments ?? []).filter(
+                        (candidate) =>
+                          !(
+                            candidate.kind === "document-context" &&
                             candidate.id === attachment.id
                           ),
                       ),

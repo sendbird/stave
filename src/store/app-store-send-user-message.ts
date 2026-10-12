@@ -9,7 +9,7 @@ import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory
 import { takeMcpAppModelContextParts } from "@/lib/mcp-app/mcp-app-model-context";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { collectTaskReferenceContextParts } from "@/store/attached-task-context-runtime";
-import { collectWorkspaceDocumentEditContextParts, syncWorkspaceDocumentsAtTurnEnd } from "@/store/workspace-documents-store";
+import { collectAttachedDocumentContextParts, collectWorkspaceDocumentEditContextParts, syncWorkspaceDocumentsAtTurnEnd } from "@/store/workspace-documents-store";
 import { collectInlineRenderContextParts } from "@/store/inline-render-context-runtime";
 import {
   extractWorkspaceInformationReferencesFromText,
@@ -1065,6 +1065,8 @@ export function createSendUserMessageAction(args: {
         currentTaskId: resolvedTaskId, tasks: taskWorkspaceTasks,
         messagesByTask: latestWorkspaceSession.messagesByTask,
       })));
+      // Documents attached from other workspaces travel as their pinned revision.
+      retrievedContextParts.push(...(await collectAttachedDocumentContextParts({ promptDraft })));
       // Edits to this task's documents since its last turn travel as a diff.
       retrievedContextParts.push(...(await collectWorkspaceDocumentEditContextParts({ workspaceId: taskWorkspaceId, rootPath: workspaceCwd ?? "", taskId: resolvedTaskId })));
       // State this task's inline pages reported, labelled as untrusted page data.

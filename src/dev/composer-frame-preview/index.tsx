@@ -25,7 +25,33 @@ import {
   buildTaskMentionOptions,
   createTaskContextAttachment,
 } from "@/lib/task-context/attached-task-context";
+import {
+  addDocumentContextAttachment,
+  buildDocumentMentionOptions,
+  createDocumentContextAttachment,
+} from "@/lib/documents/attached-document-context";
+import type { WorkspaceDocumentCatalogEntry } from "@/lib/documents/workspace-document-schemas";
 import type { Attachment, Task } from "@/types/chat";
+
+/** Documents from other workspaces the `@` palette offers in the preview. */
+const PREVIEW_DOCUMENT_CATALOG: readonly WorkspaceDocumentCatalogEntry[] = [
+  {
+    workspaceId: "preview-ws-retry",
+    workspaceName: "feature/retry-policy",
+    workspaceDeleted: true,
+    filePath: ".stave/context/plans/retry-design.md",
+    revision: 4,
+    updatedAt: "2026-10-01T09:00:00.000Z",
+  },
+  {
+    workspaceId: "preview-ws-billing",
+    workspaceName: "feat/billing-export",
+    workspaceDeleted: false,
+    filePath: ".stave/context/plans/export-spec.md",
+    revision: 2,
+    updatedAt: "2026-09-28T09:00:00.000Z",
+  },
+];
 import { PromptInputContextMeter } from "@/components/ai-elements/prompt-input-context-meter";
 import { TooltipProvider } from "@/components/ui";
 import { ChildRequestView, type ChildPendingRequest } from "@/components/session/ChildRequestSlot";
@@ -474,6 +500,18 @@ export function ComposerFramePreviewApp() {
                   attachments={attachments}
                   onAttachmentsChange={({ attachments: next }) => setAttachments(next)}
                   taskMentionOptions={PREVIEW_TASK_MENTIONS}
+                  documentMentionOptions={buildDocumentMentionOptions({
+                    entries: PREVIEW_DOCUMENT_CATALOG,
+                    attachments,
+                  })}
+                  onAttachDocument={(document) =>
+                    setAttachments((current) => [
+                      ...addDocumentContextAttachment({
+                        attachments: current,
+                        attachment: createDocumentContextAttachment(document),
+                      }),
+                    ])
+                  }
                   onAttachTask={(task) =>
                     setAttachments((current) => [
                       ...addTaskContextAttachment({

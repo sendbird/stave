@@ -184,6 +184,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
     }
     case "workspace_information_context":
     case "task_context":
+    case "document_context":
       return part;
     case "system_event": {
       const content = sanitizeTextField({

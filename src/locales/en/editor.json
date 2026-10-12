@@ -67,6 +67,10 @@
   "editorDiffReview": {
     "addReviewComment": "Add Review Comment"
   },
+  "editorSelectionQuote": {
+    "quoteInChat": "Quote Selection in Chat",
+    "quoted": "Quoted in the chat input. Write your comment under it."
+  },
   "editorMarkdownPreview": {
     "text": "text"
   },
