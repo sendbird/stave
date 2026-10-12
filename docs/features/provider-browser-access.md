@@ -11,13 +11,13 @@ copy browser credentials into Stave.
   (`mcp__claude-in-chrome__*`). The Claude browser extension decides which
   existing Chrome tabs are available and keeps its own site-access and
   sensitive-action confirmations. Stave explicitly disables the integration
-  (`--no-chrome`) on turns without interactive `@web`, including every
-  utility and analysis query.
+  (`--no-chrome`) on turns without interactive `@web` or automatic activation,
+  including every analysis query.
 - Codex uses `cua_repl` and selects only its external Chrome surface. The same
   tool can expose an in-app browser and desktop UI control, but those surfaces
   do not satisfy `@web`. Stave disables the Chrome plugin for turns without
-  interactive `@web`, and does not force-enable a plugin that the user
-  disabled. The shared `unified-computer-use` plugin is also disabled on turns
+  interactive `@web` or automatic activation, and does not force-enable a
+  plugin that the user disabled. The shared `unified-computer-use` plugin is also disabled on turns
   without browser access; disabling only the Chrome skill would leave its MCP
   tools available. On a browser turn, Stave checks that both plugins are installed
   and enabled by the user before explicitly restoring both turn overrides.
@@ -31,8 +31,8 @@ the current turn.
 
 Both providers also receive an injected browser-policy block stating what
 `@web` means, that Chrome access exists only for an interactive primary `@web`
-turn, and that neither an in-app browser nor desktop UI control substitutes
-for the requested Chrome connection. The tool names in each block differ
+turn or automatic activation, and that neither an in-app browser nor desktop
+UI control substitutes for the requested Chrome connection. The tool names in each block differ
 because the provider contracts differ; the policy does not.
 
 ## Using `@web`
@@ -48,9 +48,9 @@ inspection.
 
 ## Automatic fallback
 
-`Settings > Providers > Browser access > Automatic browser fallback` is off by
-default. Turning it on lets Stave arm the provider browser for an interactive
-turn that did not say `@web`, in two places:
+`Settings > Providers > Browser access > Automatic browser fallback` is on by
+default. An explicitly saved off selection is preserved. While it is on, Stave
+can arm the provider browser for an interactive turn that did not say `@web`, in two places:
 
 - **Up front**, when the prompt contains a URL on a host that a token-less
   fetch cannot read. Stave ships with `claude.ai` and `claudeusercontent.com`;
@@ -60,7 +60,14 @@ turn that did not say `@web`, in two places:
   content response identifies it as blocked.
 - **After a failure**, when a `WebFetch` during the turn comes back as a login
   wall or a bot check (401/403, a Cloudflare interstitial, an explicit sign-in
-  demand). Stave then sends one follow-up turn whose prompt contains `@web`.
+  demand), or a Lens page read encounters a login screen, missing saved account,
+  navigation timeout, or browser connection failure. Stave then sends one
+  follow-up turn whose prompt contains `@web`, carrying the blocked page URL
+  when it is available. It retries the read using an existing signed-in Chrome
+  session; it never transfers Lens credentials or replays writes. Ref/selector
+  mistakes, denied approvals, site-policy blocks, and user-paused Lens automation
+  do not trigger a browser fallback. A later control block also cancels a
+  fallback detected earlier in that turn.
 
 The follow-up is capped at one attempt by construction rather than by a
 counter: its own prompt contains `@web`, and a turn that already asked for the
@@ -94,8 +101,8 @@ install it, enable it, or grant site access from Settings.
   a provider browser tool can still become part of the task transcript like any
   other tool result.
 - The integration is opt-in per interactive prompt through `@web`. Automatic
-  fallback widens that to a per-host and post-failure opt-in, and is itself
-  off by default and configured only in Settings.
+  fallback additionally allows per-host activation and a post-failure retry.
+  It is on by default, can be disabled in Settings, and preserves a saved opt-out.
 - Stave does not expose a separate browser-control IPC or Local MCP tool.
 
 ## Initialization troubleshooting

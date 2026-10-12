@@ -73,7 +73,7 @@ import { applySteeredTurnState } from "@/store/steer-turn-state";
 import { resolveAgentRunInitialContext } from "@/store/agent-run-initial-context";
 import { prepareAgentRunForSend } from "@/store/agent-run-send";
 import {
-  createWebFetchAuthWallTracker,
+  createProviderBrowserFallbackTracker,
   maybeStartProviderBrowserFallbackTurn,
 } from "@/store/provider-browser-auto-fallback";
 import { buildFailedSteerResult } from "@/store/steer-submit";
@@ -1312,8 +1312,9 @@ export function createSendUserMessageAction(args: {
         lastEventAt: turnActivityStartedAt,
       });
 
-      const webFetchAuthWallTracker = createWebFetchAuthWallTracker({
+      const providerBrowserFallbackTracker = createProviderBrowserFallbackTracker({
         prompt,
+        providerId: provider,
         turnOrigin,
         runtimeOptions: providerRuntimeOptions,
         runtimeOverrides: promptDraft.runtimeOverrides,
@@ -1331,7 +1332,7 @@ export function createSendUserMessageAction(args: {
           });
         },
         flushEvents: (pendingEvents) => {
-          webFetchAuthWallTracker.observe(pendingEvents);
+          providerBrowserFallbackTracker.observe(pendingEvents);
           if (eventsIndicateFileEdits(pendingEvents)) {
             recordTurnFileEdits(turnId);
           }
@@ -1570,7 +1571,7 @@ export function createSendUserMessageAction(args: {
             maybeStartProviderBrowserFallbackTurn(get, {
               taskId: resolvedTaskId,
               events: pendingEvents,
-              tracker: webFetchAuthWallTracker,
+              tracker: providerBrowserFallbackTracker,
               session: latestWorkspaceSession,
             });
             const completedTask =
