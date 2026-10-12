@@ -423,6 +423,7 @@ const originalAbortTurn = providerRuntime.abortTurn;
 const originalCleanupTask = providerRuntime.cleanupTask;
 const originalRespondApproval = providerRuntime.respondApproval;
 const originalRespondUserInput = providerRuntime.respondUserInput;
+const originalSteerTurn = providerRuntime.steerTurn;
 
 beforeAll(() => {
   providerRuntime.startTurnStream = ((
@@ -445,6 +446,7 @@ afterAll(() => {
   providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
   providerRuntime.respondUserInput = originalRespondUserInput;
+  providerRuntime.steerTurn = originalSteerTurn;
 });
 
 afterEach(() => {
@@ -454,6 +456,7 @@ afterEach(() => {
   providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
   providerRuntime.respondUserInput = originalRespondUserInput;
+  providerRuntime.steerTurn = originalSteerTurn;
 });
 
 describe("local MCP runtime runTask", () => {
@@ -468,6 +471,42 @@ describe("local MCP runtime runTask", () => {
     expect(result.turnId).toBeTruthy();
     expect(startTurnStreamCalls).toHaveLength(1);
   });
+
+  test("an accepted host steer persists the split before events emitted during acknowledgement", async () => {
+    const result = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Inspect the workspace", provider: "codex" });
+    const handler = startTurnStreamHandlers.at(-1);
+    let textPersisted: () => void = () => {};
+    let donePersisted: () => void = () => {};
+    const textReady = new Promise<void>((resolve) => { textPersisted = resolve; });
+    const doneReady = new Promise<void>((resolve) => { donePersisted = resolve; });
+    runtime.setLocalMcpEventListener((event) => {
+      if (event.type !== "task-turn-updated" || event.payload.turnId !== result.turnId) return;
+      if (event.payload.eventType === "text") textPersisted();
+      if (event.payload.done) donePersisted();
+    });
+    providerRuntime.steerTurn = async () => {
+      handler?.onEvent?.({ type: "tool", toolName: "Bash", toolUseId: "steer-tool", input: "bun test", state: "input-available" });
+      handler?.onEvent?.({ type: "text", text: "Steered work", segmentId: "steer-after" });
+      return { ok: true, delivery: "accepted" };
+    };
+    const request = { turnId: result.turnId, text: "Include the tests", enabled: true, clientMessageId: "host-steer-client" };
+    expect(await runtime.steerTaskTurn(request)).toMatchObject({ ok: true, delivery: "accepted" });
+    await textReady;
+    const rows = lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[result.taskId];
+    expect(rows?.at(-1)).toMatchObject({ id: "host-steer-client-assistant", turnId: result.turnId, content: "Steered work", parts: expect.arrayContaining([expect.objectContaining({ type: "tool_use", toolUseId: "steer-tool" })]) });
+    const beforeDuplicate = rows;
+    await runtime.steerTaskTurn(request);
+    expect(lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[result.taskId]).toBe(beforeDuplicate);
+    handler?.onEvent?.({ type: "done", stop_reason: "end_turn" });
+    await doneReady;
+    runtime.setLocalMcpEventListener(null);
+    const { ChatMessageSchema } = await import("../src/lib/task-context/schemas");
+    for (const row of lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[result.taskId] ?? []) {
+      expect(ChatMessageSchema.safeParse(row).success).toBe(true);
+    }
+    expect((await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt).toBeTruthy();
+    expect(lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[result.taskId]?.at(-1)).toMatchObject({ id: "host-steer-client-assistant", isStreaming: false, content: "Steered work" });
+  }, 5000);
 
   test("delegated creation, start and completion preserve the parent's selected task", async () => {
     const result = await runtime.runTask({ workspaceId: RELEASE_WORKSPACE_ID, parentTaskId: RELEASE_TASK_ID,

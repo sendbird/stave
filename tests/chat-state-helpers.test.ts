@@ -316,6 +316,9 @@ describe("buildSteeredUserMessageState", () => {
         role: "assistant",
         model: "gpt-5.4",
         providerId: "codex",
+        turnId: "turn-1",
+        nativeProviderSessionId: "native-session-1",
+        nativeProviderTurnId: "native-turn-1",
         content: "Working",
         isStreaming: true,
         parts: [{ type: "text", text: "Working" }],
@@ -355,10 +358,26 @@ describe("buildSteeredUserMessageState", () => {
       role: "assistant",
       model: "gpt-5.4",
       providerId: "codex",
+      turnId: "turn-1",
+      nativeProviderSessionId: "native-session-1",
+      nativeProviderTurnId: "native-turn-1",
       content: "",
       isStreaming: true,
     });
     expect(next.messageCountByTask[taskId]).toBe(4);
+
+    const repeated = buildSteeredUserMessageState({
+      ...next,
+      taskId,
+      content: "Also update the tests",
+      steeredIntoTurnId: "turn-1",
+      clientMessageId: "client-steer-1",
+      provider: "codex",
+      activeModel: "gpt-5.4",
+      turnStillActive: true,
+    });
+    expect(repeated.messagesByTask).toBe(next.messagesByTask);
+    expect(repeated.messageCountByTask).toBe(next.messageCountByTask);
   });
 
   test("records a late accepted steer without creating a stale assistant", () => {

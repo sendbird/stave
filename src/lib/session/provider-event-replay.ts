@@ -1042,6 +1042,21 @@ export function replayProviderEventsToTaskState(args: {
       continue;
     }
 
+    // A tool started before a steer still owns its later updates and result.
+    const toolUseId = event.type === "tool_result" ? event.tool_use_id
+      : event.type === "tool_progress" || event.type === "tool" || event.type === "subagent_progress" ? event.toolUseId : undefined;
+    const ownerIndex = toolUseId ? current.findLastIndex((message) =>
+      message.role === "assistant" && (!args.turnId || message.turnId === args.turnId) &&
+      message.parts.some((part) => part.type === "tool_use" && part.toolUseId === toolUseId),
+    ) : -1;
+    if (ownerIndex >= 0 && ownerIndex < current.length - 1) {
+      const owner = current[ownerIndex]!;
+      const updated = appendProviderEventToAssistant({ message: owner, event });
+      current = current.map((message, index) => index === ownerIndex ? { ...updated, isStreaming: owner.isStreaming } : message);
+      changed = true;
+      continue;
+    }
+
     let target = current[current.length - 1];
     if (
       !target ||

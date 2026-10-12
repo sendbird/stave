@@ -97,6 +97,7 @@ import {
 import { trimPersistedMessageWindow } from "../../src/store/resident-message-budget";
 import { captureResultEvidence } from "../../src/lib/reviews/result-evidence";
 import { applyProviderEventsToWorkspaceSession } from "../../src/store/workspace-turn-replay";
+import { collectChangedMessages, createHostTaskSteerCoordinator } from "./host-task-steer";
 import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
@@ -225,6 +226,18 @@ export interface TaskSupervisionSnapshot {
 const workspaceSessionCacheById = new Map<string, WorkspaceSessionState>();
 const workspacePersistChainById = new Map<string, Promise<void>>();
 const workspaceProviderEventQueue = createKeyedAsyncQueue<string>();
+const hostTaskSteers = createHostTaskSteerCoordinator({
+  send: (request) => providerRuntime.steerTurn(request),
+  serialize: (workspaceId, operation) => workspaceProviderEventQueue.enqueue(workspaceId, operation),
+  loadSession: async ({ workspaceId, taskId }) => ensureResidentTaskMessages({
+    workspaceId, taskId, session: await loadWorkspaceSession(workspaceId),
+  }),
+  persist: ({ workspaceId, workspaceName, taskId }, session, changed) => queueWorkspaceSessionPersist({
+    workspaceId, workspaceName, taskId, session: cacheWorkspaceSession(workspaceId, session),
+    changedMessagesByTask: { [taskId]: changed }, rejectOnError: true,
+  }),
+});
+export const steerTaskTurn = hostTaskSteers.steer;
 const terminalTurnErrorById = new Map<string, string>();
 /**
  * Last `usage` event seen per turn. The agent-driven path handles events one at
@@ -410,6 +423,7 @@ function queueWorkspaceSessionPersist(args: {
   session: WorkspaceSessionState;
   taskId?: string;
   changedMessagesByTask?: Record<string, ChatMessage[]>;
+  rejectOnError?: boolean;
 }) {
   const previous =
     workspacePersistChainById.get(args.workspaceId) ?? Promise.resolve();
@@ -421,6 +435,7 @@ function queueWorkspaceSessionPersist(args: {
       console.error("[stave-mcp] failed to persist workspace session", error, {
         workspaceId: args.workspaceId,
       });
+      if (args.rejectOnError) throw error;
     })
     .finally(() => {
       if (workspacePersistChainById.get(args.workspaceId) === tracked) {
@@ -669,21 +684,6 @@ function ensureResidentTaskMessages(args: {
   });
 }
 
-/**
- * Message ids whose object identity changed between two resident windows.
- *
- * Drives delta persistence: `upsertWorkspace` treats `messagesByTask`
- * additively, so handing it only the changed rows writes the same result as a
- * full-window rewrite without serializing hundreds of untouched messages.
- */
-function collectChangedMessages(args: {
-  before: ChatMessage[];
-  after: ChatMessage[];
-}) {
-  const beforeById = new Map(args.before.map((item) => [item.id, item]));
-  return args.after.filter((message) => beforeById.get(message.id) !== message);
-}
-
 /** Bound a task's resident window after new messages were applied. */
 function trimResidentTaskMessages(args: {
   workspaceId: string;
@@ -756,6 +756,7 @@ export async function cleanupLocalMcpRuntime() {
   // write to SQLite.  If we close persistence before the queue drains,
   // those writes either crash or silently lose data.
   await workspaceProviderEventQueue.drain();
+  hostTaskSteers.clear();
   localMcpTurnJournal.flushAll();
   const pendingPersists = [...workspacePersistChainById.values()];
   workspacePersistChainById.clear();
@@ -2014,6 +2015,7 @@ async function runTaskImpl(args: {
   taskControlGate.assertCurrent(task.id, controlGeneration);
   // Edits made since the last turn are not this turn's work.
   await recordTurnWorkspaceDocuments({ workspaceId: args.workspaceId, workspacePath, author: "external" });
+  hostTaskSteers.register({ turnId, workspaceId: args.workspaceId, workspaceName, taskId: task.id, provider, model });
   const started = providerRuntime.startTurnStream(
     {
       turnId,
@@ -2061,6 +2063,7 @@ async function runTaskImpl(args: {
               event,
             });
             if (event.type === "done") {
+              hostTaskSteers.unregister(turnId);
               // Before the done update, so the renderer's refresh sees the revisions.
               await recordTurnWorkspaceDocuments({
                 workspaceId: args.workspaceId,
@@ -2097,6 +2100,7 @@ async function runTaskImpl(args: {
   );
 
   if (!started.ok) {
+    hostTaskSteers.unregister(turnId);
     throw new Error("Failed to start provider turn.");
   }
 
