@@ -69,6 +69,7 @@ function buildSecondaryAggregate(args: {
 
 const originalWindow = (globalThis as { window?: unknown }).window;
 let useAppStore: UseAppStore;
+const BASE_COMMIT = "a".repeat(40);
 
 function createMemoryStorage(): StorageLike {
   const values = new Map<string, string>();
@@ -106,7 +107,7 @@ function buildTask(args: {
 beforeEach(async () => {
   (globalThis as { window?: unknown }).window = {
     localStorage: createMemoryStorage(),
-    api: {},
+    api: { terminal: { runCommand: async () => ({ ok: true, code: 0, stdout: `${BASE_COMMIT}\n`, stderr: "" }) } },
   };
   ({ useAppStore } = await import("../src/store/app.store"));
   const initial = useAppStore.getInitialState();
@@ -277,8 +278,8 @@ describe("compare run store actions", () => {
       "branch",
     ]);
     expect(createdWorkspaces.map((workspace) => workspace.fromBranch)).toEqual([
-      "main",
-      "main",
+      BASE_COMMIT,
+      BASE_COMMIT,
     ]);
     expect(providerCalls).toEqual([
       { taskId: "task-1", provider: "claude-code" },
@@ -301,6 +302,8 @@ describe("compare run store actions", () => {
       kind: "compare-run",
       compareRunId,
     });
+    expect(run?.baseCommit).toBe(BASE_COMMIT);
+    expect(run?.baseBranch).toBe("main");
     expect(run?.status).toBe("running");
     expect(run?.variants.map((variant) => variant.status)).toEqual([
       "running",
@@ -310,6 +313,70 @@ describe("compare run store actions", () => {
       "workspace-1",
       "workspace-2",
     ]);
+  });
+
+  test("resolves the base only once even if its branch moves between candidates", async () => {
+    let branchCommit = BASE_COMMIT;
+    const resolutions: unknown[] = [];
+    const starts: string[] = [];
+    window.api!.terminal!.runCommand = async (args) => {
+      resolutions.push(args);
+      return { ok: true, code: 0, stdout: `${branchCommit}\n`, stderr: "" };
+    };
+    useAppStore.setState({
+      workspaceBranchById: { base: "feature/$(literal)'branch" },
+      createWorkspace: async (args) => {
+        starts.push(args.fromBranch!);
+        branchCommit = "b".repeat(40);
+        useAppStore.setState({
+          activeWorkspaceId: `candidate-${starts.length}`,
+          activeTaskId: `task-${starts.length}`,
+        });
+        return { ok: true };
+      },
+      setTaskProvider: () => {},
+      updatePromptDraft: () => {},
+      sendUserMessage: async (args) => ({ status: "started", taskId: args.taskId, workspaceId: "candidate", turnId: "turn" }),
+    });
+
+    const result = await useAppStore.getState().startCompareRun({ seedPrompt: "Use the same starting code" });
+
+    expect(result.ok).toBe(true);
+    expect(resolutions).toEqual([{
+      cwd: "/tmp/stave",
+      command: `git rev-parse --verify --end-of-options 'feature/$(literal)'"'"'branch^{commit}'`,
+    }]);
+    expect(starts).toEqual([BASE_COMMIT, BASE_COMMIT]);
+    expect(useAppStore.getState().compareRunsById[result.compareRunId!]?.baseCommit).toBe(BASE_COMMIT);
+  });
+
+  test("does not create candidates in a workspace selected during resolution", async () => {
+    let creations = 0;
+    window.api!.terminal!.runCommand = async () => {
+      useAppStore.setState({ activeWorkspaceId: "another-workspace" });
+      return { ok: true, code: 0, stdout: BASE_COMMIT, stderr: "" };
+    };
+    useAppStore.setState({ createWorkspace: async () => { creations += 1; return { ok: true }; } });
+    const result = await useAppStore.getState().startCompareRun({ seedPrompt: "Stay in the intended workspace" });
+    expect(result.ok).toBe(false);
+    expect(creations).toBe(0);
+    expect(useAppStore.getState().compareRunsById).toEqual({});
+  });
+
+  test.each(["failed", "throws", "malformed", "unavailable"])("creates no workspaces when commit resolution is %s", async (failure) => {
+    let creations = 0;
+    window.api!.terminal!.runCommand = failure === "unavailable" ? undefined : async () => {
+      if (failure === "throws") throw new Error("git unavailable");
+      return { ok: failure !== "failed", code: failure === "failed" ? 1 : 0, stdout: "main", stderr: "" };
+    };
+    useAppStore.setState({ createWorkspace: async () => { creations += 1; return { ok: true }; } });
+
+    const result = await useAppStore.getState().startCompareRun({ seedPrompt: "Do not start without a commit" });
+
+    expect(result.ok).toBe(false);
+    expect(creations).toBe(0);
+    expect(useAppStore.getState().compareRunsById).toEqual({});
+    expect(useAppStore.getState().activeWorkspaceId).toBe("base");
   });
 
   test("carries each candidate effort into its task runtime overrides", async () => {
@@ -846,6 +913,7 @@ describe("compare run store actions", () => {
   test("keeps provider and model identity out of the anonymous judge prompt", () => {
     const prompt = buildCompareJudgePrompt({
       id: "run-anonymous",
+      baseCommit: BASE_COMMIT,
       seedPrompt: "Choose the safer implementation",
       baseWorkspaceId: "base",
       baseBranch: "main",
@@ -872,6 +940,7 @@ describe("compare run store actions", () => {
       ],
     });
 
+    expect(prompt).toContain(`"baseCommit": "${BASE_COMMIT}"`);
     expect(prompt).toContain('"candidateId": "A"');
     expect(prompt).toContain('"candidateId": "B"');
     expect(prompt).toContain('"rubricVersion": "1"');

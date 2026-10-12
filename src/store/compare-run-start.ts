@@ -26,7 +26,7 @@ interface CandidateLaunchResult {
 export async function launchCompareRunVariants(args: {
   compareRun: Pick<CompareRun, "id" | "variants">;
   seedPrompt: string;
-  baseBranch: string;
+  baseCommit: string;
   updateVariant: (
     variantId: string,
     patch: Partial<CompareRunVariant>,
@@ -67,7 +67,7 @@ export async function launchCompareRunVariants(args: {
       const createResult = await args.createWorkspace({
         name: workspaceName,
         mode: "branch",
-        fromBranch: args.baseBranch,
+        fromBranch: args.baseCommit,
         initialTaskTitle: variant.label?.trim() || i18n.t("compare:compareRunStart.compare", { value1: index + 1 }),
       });
       if (!createResult.ok) {

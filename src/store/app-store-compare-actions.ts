@@ -15,6 +15,7 @@ import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { cancelCompareJudgeSecondaryRun } from "@/store/compare-run-judge";
 import { launchCompareRunVariants } from "@/store/compare-run-start";
 import type { PromptDraft } from "@/types/chat";
+import { quoteWorkspaceShellArgument } from "@/store/workspace-archive-cleanup";
 import { selectEffectiveSettings } from "@/store/project-settings-overrides";
 
 type CompareActionKey =
@@ -123,12 +124,47 @@ export function createCompareActions(args: {
         stateBefore.workspaceBranchById[baseWorkspaceId] ??
         stateBefore.defaultBranch ??
         "main";
+      let baseCommit: string;
+      try {
+        const resolution = await window.api?.terminal?.runCommand?.({
+          cwd:
+            stateBefore.workspacePathById[baseWorkspaceId] ??
+            stateBefore.repositoryPath,
+          command: `git rev-parse --verify --end-of-options ${quoteWorkspaceShellArgument(`${baseBranch}^{commit}`)}`,
+        });
+        const resolvedCommit = resolution?.stdout.trim() ?? "";
+        if (
+          !resolution?.ok ||
+          !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(resolvedCommit)
+        ) {
+          return {
+            ok: false,
+            message: i18n.t("compare:compareRunStart.couldNotResolveStartingCommit"),
+          };
+        }
+        baseCommit = resolvedCommit;
+      } catch {
+        return {
+          ok: false,
+          message: i18n.t("compare:compareRunStart.couldNotResolveStartingCommit"),
+        };
+      }
+      if (
+        get().repositoryPath !== stateBefore.repositoryPath ||
+        get().activeWorkspaceId !== baseWorkspaceId
+      ) {
+        return {
+          ok: false,
+          message: i18n.t("compare:compareRunStart.startingWorkspaceChanged"),
+        };
+      }
       const compareRun = buildInitialCompareRun({
         id: compareRunId,
         seedPrompt: normalizedSeedPrompt,
         baseWorkspaceId,
         baseTaskId: stateBefore.activeTaskId ?? undefined,
         baseBranch,
+        baseCommit,
         variants: normalizedVariants,
         reviewCriteria: normalizeCompareReviewCriteria(reviewCriteria),
         judge,
@@ -165,7 +201,7 @@ export function createCompareActions(args: {
       await launchCompareRunVariants({
         compareRun,
         seedPrompt: normalizedSeedPrompt,
-        baseBranch,
+        baseCommit,
         updateVariant,
         createWorkspace: (input) => get().createWorkspace(input),
         readCreatedCandidate: (fallbackWorkspaceName) => {
