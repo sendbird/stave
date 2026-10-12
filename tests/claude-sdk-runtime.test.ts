@@ -1414,7 +1414,7 @@ describe("buildClaudeSystemPrompt", () => {
       hasStaveLocalMcp: true,
     }).join("\n\n");
     expect(joined).toContain(
-      "Never substitute provider-native external Chrome, a desktop in-app browser, or desktop UI control for Lens.",
+      "Keep rendered project UI verification in Lens.",
     );
     expect(joined).toContain(
       "a change to the current project requires visual inspection",

@@ -99,7 +99,7 @@ export function promptRequestsProviderBrowser(prompt: string) {
  * Decides whether this turn starts with the provider's native browser attached.
  *
  * Explicit `@web` is still the primary path. `autoFallbackEnabled` is the
- * opt-in setting that additionally arms the browser when the prompt points at a
+ * setting that additionally arms the browser when the prompt points at a
  * host known to be unreadable without a signed-in session, so the turn does not
  * have to fail once before the user can get an answer. The two hard blocks
  * come first and are never overridden: unattended and secondary read-only
@@ -227,6 +227,7 @@ export function resolveWebFetchToolUrl(input: string): string | null {
  */
 export function buildProviderBrowserFallbackPrompt(args: {
   urls: readonly string[];
+  source?: "lens" | "fetch";
 }) {
   const unique = Array.from(
     new Set(args.urls.map((url) => url.trim()).filter(Boolean)),
@@ -235,11 +236,13 @@ export function buildProviderBrowserFallbackPrompt(args: {
     unique.length > 0
       ? `\n\nBlocked while fetching:\n${unique.map((url) => `- ${url}`).join("\n")}`
       : "";
+  const blocked = args.source === "lens"
+    ? "Lens page access was blocked by a login screen, missing saved credentials, or a browser connection failure. "
+    : "The previous turn's plain web fetch was blocked by a login wall or a bot check, so the page body never arrived. ";
   return (
-    "@web The previous turn's plain web fetch was blocked by a login wall or a " +
-    "bot check, so the page body never arrived. Retry that read through the " +
+    "@web " + blocked + "Retry only that page read through the " +
     "provider-native browser using the already signed-in session, then continue " +
-    "the work the previous turn was doing. If the browser cannot reach it " +
+    "the work the previous turn was doing. Do not replay form submissions or other writes, and do not inspect or copy credentials. If the browser cannot reach it " +
     "either, say so plainly and stop — do not fall back to plain fetching again." +
     target
   );

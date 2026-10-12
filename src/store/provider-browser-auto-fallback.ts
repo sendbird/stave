@@ -1,6 +1,7 @@
 import type {
   NormalizedProviderEvent,
   ProviderRuntimeOptions,
+  ProviderId,
 } from "../lib/providers/provider.types";
 import type { AppSettings } from "./app-settings";
 import type { WorkspaceSessionState } from "./workspace-session-state";
@@ -9,35 +10,43 @@ import {
   buildProviderBrowserFallbackPrompt,
   isPlainWebFetchToolName,
   isProviderBrowserAuthWallOutput,
-  promptRequestsProviderBrowser,
+  parseProviderBrowserDomains,
+  shouldActivateProviderBrowser,
   resolveWebFetchToolUrl,
 } from "../lib/provider-browser";
+import {
+  isLensBrowserToolName,
+  isProviderBrowserFallbackLensTool,
+  isLensProviderBrowserFallbackOutput,
+  isLensFallbackControlBlock,
+  parseLensFallbackOutput,
+  lensFallbackOutputUrl,
+} from "../lib/provider-browser-lens-fallback";
 
-/**
- * Watches a turn's event stream for a plain web fetch that came back as a login
- * wall or a bot check.
- *
- * It has to be a tracker rather than a pure scan of the final batch because a
- * turn's events reach the store in rAF-throttled batches: the blocked fetch is
- * usually flushed long before the `done` that ends the turn, so by the time the
- * completion branch runs, the evidence is several batches in the past. One
- * tracker per turn accumulates across every flush.
- *
- * Correlating the URL costs a map because the two halves arrive apart — the
- * `tool` event carries the input (and therefore the URL) while the `tool_result`
- * carries the body that reveals the wall. Providers that deliver both on the
- * `tool` event itself are handled too, so this works for Codex as well as Claude.
- */
-export function createWebFetchAuthWallTracker(context: {
+interface BrowserFallbackCall {
+  lens: boolean;
+  read: boolean;
+  toolName: string;
+  url: string | null;
+  sessionKey: string;
+}
+
+/** Accumulates blocked page reads across the turn's throttled event batches. */
+export function createProviderBrowserFallbackTracker(context: {
   /** The completed turn's own prompt — the loop breaker reads it. */
   prompt: string;
+  providerId: ProviderId;
   turnOrigin: "conversation" | "utility";
   runtimeOptions: ProviderRuntimeOptions;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
 }) {
-  const urlByToolUseId = new Map<string, string | null>();
+  const calls = new Map<string, BrowserFallbackCall>();
+  const lensUrls = new Map<string, string>();
   const blockedUrls = new Set<string>();
   let detected = false;
+  let controlBlocked = false;
+  let fallbackStarted = false;
+  const blockedLensUrls = new Map<string, string | null>();
 
   const record = (url: string | null | undefined) => {
     detected = true;
@@ -48,49 +57,81 @@ export function createWebFetchAuthWallTracker(context: {
 
   return {
     observe(events: readonly NormalizedProviderEvent[]) {
+      const observeResult = (call: BrowserFallbackCall, output: string, isError: boolean) => {
+        if (!call.lens) {
+          if (isProviderBrowserAuthWallOutput(output)) record(call.url);
+          return;
+        }
+        if (isLensFallbackControlBlock(output)) {
+          controlBlocked = true;
+          return;
+        }
+        if (!call.read) return;
+        const result = parseLensFallbackOutput(output);
+        const outputUrl = lensFallbackOutputUrl(result);
+        const url = call.url ?? lensUrls.get(call.sessionKey) ?? outputUrl;
+        if (url) lensUrls.set(call.sessionKey, url);
+        if (isLensProviderBrowserFallbackOutput({ output, isError })) {
+          blockedLensUrls.set(call.sessionKey, url);
+        } else if (
+          !isError && result.ok === true &&
+          call.toolName.endsWith("stave_lens_snapshot") &&
+          typeof result.snapshot === "string" && result.snapshot.trim()
+        ) {
+          // A readable snapshot after sign-in proves this session recovered.
+          blockedLensUrls.delete(call.sessionKey);
+        }
+      };
       for (const event of events) {
         if (event.type === "tool") {
-          if (!isPlainWebFetchToolName(event.toolName)) {
-            continue;
-          }
-          const url = resolveWebFetchToolUrl(event.input);
-          if (event.toolUseId) {
-            // A tool event can repeat as its state advances; the later one has
-            // the fuller input, so overwrite rather than keeping the first.
-            urlByToolUseId.set(event.toolUseId, url);
-          }
-          if (event.output && isProviderBrowserAuthWallOutput(event.output)) {
-            record(url);
-          }
-          continue;
-        }
-        if (event.type === "tool_result") {
-          if (!urlByToolUseId.has(event.tool_use_id)) {
-            continue;
-          }
-          if (!isProviderBrowserAuthWallOutput(event.output)) {
-            continue;
-          }
-          record(urlByToolUseId.get(event.tool_use_id));
+          // A child agent's tool result must not restart the parent's turn.
+          if (event.ownerAgentId || event.parentToolUseId) continue;
+          const lens = isLensBrowserToolName(event.toolName);
+          const read = isProviderBrowserFallbackLensTool(event.toolName);
+          if (!lens && !isPlainWebFetchToolName(event.toolName)) continue;
+          const input = lens ? parseLensFallbackOutput(event.input) : {};
+          const sessionKey = JSON.stringify([input.workspaceId, input.lensSessionId]);
+          const url = lens ? lensFallbackOutputUrl(input) : resolveWebFetchToolUrl(event.input);
+          const call = {
+            lens, read, toolName: event.toolName, sessionKey,
+            url: url ?? (lens ? lensUrls.get(sessionKey) ?? null : null),
+          };
+          if (lens && url) lensUrls.set(sessionKey, url);
+          if (event.toolUseId) calls.set(event.toolUseId, call);
+          if (event.output) observeResult(call, event.output, event.state === "output-error");
+        } else if (event.type === "tool_result" && !event.isPartial) {
+          const call = calls.get(event.tool_use_id);
+          if (call) observeResult(call, event.output, event.isError === true);
         }
       }
     },
     get detected() {
-      return detected;
+      return (detected || blockedLensUrls.size > 0) && !controlBlocked;
+    },
+    get lensBlocked() {
+      return blockedLensUrls.size > 0;
+    },
+    claimFallback() {
+      if (fallbackStarted) return false;
+      fallbackStarted = true;
+      return true;
     },
     blockedUrls() {
-      return Array.from(blockedUrls);
+      return Array.from(new Set(
+        [...blockedUrls, ...blockedLensUrls.values()]
+          .filter((url): url is string => Boolean(url)),
+      ));
     },
     context,
   };
 }
 
-export type WebFetchAuthWallTracker = ReturnType<
-  typeof createWebFetchAuthWallTracker
+export type ProviderBrowserFallbackTracker = ReturnType<
+  typeof createProviderBrowserFallbackTracker
 >;
 
 /**
- * Guards the one automatic `@web` retry Stave will spend on a blocked fetch.
+ * Guards the one automatic `@web` retry Stave will spend on blocked page access.
  *
  * The loop breaker is deliberately not a counter: the retry prompt itself
  * contains `@web`, so `originalPromptRequestedBrowser` is true on the retry's
@@ -142,7 +183,7 @@ export function maybeStartProviderBrowserFallbackTurn<
   args: {
     taskId: string;
     events: readonly NormalizedProviderEvent[];
-    tracker: WebFetchAuthWallTracker;
+    tracker: ProviderBrowserFallbackTracker;
     session: WorkspaceSessionState | null | undefined;
   },
 ) {
@@ -151,10 +192,15 @@ export function maybeStartProviderBrowserFallbackTurn<
   const start = shouldStartProviderBrowserFallbackTurn({
     detected: args.tracker.detected,
     autoFallbackEnabled: state.settings.providerBrowserAutoFallback,
-    originalPromptRequestedBrowser: promptRequestsProviderBrowser(
-      context.prompt,
-    ),
-    conversationTurn: context.turnOrigin === "conversation",
+    originalPromptRequestedBrowser: shouldActivateProviderBrowser({
+      prompt: context.prompt,
+      secondaryReadOnly: false,
+      unattendedAutomation: false,
+      autoFallbackEnabled: context.runtimeOptions.providerBrowserAutoFallback,
+      autoFallbackDomains: parseProviderBrowserDomains(context.runtimeOptions.providerBrowserAutoFallbackDomains),
+    }),
+    conversationTurn: context.turnOrigin === "conversation" &&
+      (context.providerId === "claude-code" || context.providerId === "codex"),
     turnAborted: args.events.some(
       (event) => event.type === "done" && event.stop_reason === "aborted",
     ),
@@ -162,7 +208,7 @@ export function maybeStartProviderBrowserFallbackTurn<
       (args.session?.promptDraftByTask[args.taskId]?.queuedTurns ?? []).length >
       0,
   });
-  if (!start) {
+  if (!start || !args.tracker.claimFallback()) {
     return;
   }
   // "utility": Stave authored this, not the user, so it must not re-run the
@@ -171,6 +217,7 @@ export function maybeStartProviderBrowserFallbackTurn<
     taskId: args.taskId,
     content: buildProviderBrowserFallbackPrompt({
       urls: args.tracker.blockedUrls(),
+      source: args.tracker.lensBlocked ? "lens" : "fetch",
     }),
     turnOrigin: "utility",
     preservePromptDraft: true,

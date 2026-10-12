@@ -10,6 +10,8 @@ import {
   normalizeCodexApprovalPolicy,
 } from "@/store/provider-runtime-options";
 
+import { defaultSettings } from "@/store/app-settings";
+
 const settings = {
   chatStreamingEnabled: true,
   providerDebugStream: false,
@@ -370,6 +372,11 @@ describe("buildProviderRuntimeOptions", () => {
 });
 
 describe("provider browser automatic fallback runtime options", () => {
+  test("enables fallback for fresh settings on both providers", () => {
+    for (const provider of ["claude-code", "codex"] as const) {
+      expect(buildProviderRuntimeOptions({ provider, model: "default", settings: defaultSettings })).toMatchObject({ providerBrowserAutoFallback: true });
+    }
+  });
   test("forwards the fallback setting and host list to both providers", () => {
     for (const provider of ["claude-code", "codex"] as const) {
       expect(
@@ -389,7 +396,7 @@ describe("provider browser automatic fallback runtime options", () => {
     }
   });
 
-  test("leaves the fallback off by default", () => {
+  test("preserves an explicitly disabled fallback", () => {
     expect(
       buildProviderRuntimeOptions({
         provider: "claude-code",

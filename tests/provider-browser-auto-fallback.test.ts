@@ -1,13 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
 import {
-  createWebFetchAuthWallTracker,
+  createProviderBrowserFallbackTracker,
   maybeStartProviderBrowserFallbackTurn,
   shouldStartProviderBrowserFallbackTurn,
 } from "@/store/provider-browser-auto-fallback";
 
 const trackerContext = {
   prompt: "Summarize https://claude.ai/code/artifact/abc",
+  providerId: "codex",
   turnOrigin: "conversation",
   runtimeOptions: {},
 } as const;
@@ -31,7 +32,7 @@ const fetchResult = (
 
 describe("web fetch auth wall tracker", () => {
   test("correlates a blocked result flushed in a later batch", () => {
-    const tracker = createWebFetchAuthWallTracker(trackerContext);
+    const tracker = createProviderBrowserFallbackTracker(trackerContext);
     tracker.observe([fetchCall("t1", "https://claude.ai/code/artifact/abc")]);
     expect(tracker.detected).toBe(false);
     tracker.observe([fetchResult("t1", "Request failed with status code 403")]);
@@ -42,7 +43,7 @@ describe("web fetch auth wall tracker", () => {
   });
 
   test("ignores results from tools that are not plain fetches", () => {
-    const tracker = createWebFetchAuthWallTracker(trackerContext);
+    const tracker = createProviderBrowserFallbackTracker(trackerContext);
     tracker.observe([
       {
         type: "tool",
@@ -57,7 +58,7 @@ describe("web fetch auth wall tracker", () => {
   });
 
   test("ignores a fetch that merely failed for another reason", () => {
-    const tracker = createWebFetchAuthWallTracker(trackerContext);
+    const tracker = createProviderBrowserFallbackTracker(trackerContext);
     tracker.observe([
       fetchCall("t1", "https://example.test/a"),
       fetchResult("t1", "404 Not Found"),
@@ -67,7 +68,7 @@ describe("web fetch auth wall tracker", () => {
   });
 
   test("reads a provider that carries the result on the tool event", () => {
-    const tracker = createWebFetchAuthWallTracker(trackerContext);
+    const tracker = createProviderBrowserFallbackTracker(trackerContext);
     tracker.observe([
       {
         type: "tool",
@@ -83,7 +84,7 @@ describe("web fetch auth wall tracker", () => {
   });
 
   test("dedupes repeated blocks on one URL", () => {
-    const tracker = createWebFetchAuthWallTracker(trackerContext);
+    const tracker = createProviderBrowserFallbackTracker(trackerContext);
     tracker.observe([
       fetchCall("t1", "https://claude.ai/a"),
       fetchResult("t1", "HTTP 403 Forbidden"),
@@ -135,9 +136,9 @@ describe("provider browser fallback turn guard", () => {
 
 describe("maybeStartProviderBrowserFallbackTurn", () => {
   const blockedTracker = (
-    context: Partial<Parameters<typeof createWebFetchAuthWallTracker>[0]> = {},
+    context: Partial<Parameters<typeof createProviderBrowserFallbackTracker>[0]> = {},
   ) => {
-    const tracker = createWebFetchAuthWallTracker({
+    const tracker = createProviderBrowserFallbackTracker({
       ...trackerContext,
       ...context,
     });
@@ -195,6 +196,41 @@ describe("maybeStartProviderBrowserFallbackTurn", () => {
       session: null,
     });
     expect(store.sent[0]?.runtimeOverrides).toEqual({ autoRouting: true });
+  });
+
+  test("sends only one retry if turn completion is delivered twice", () => {
+    const store = stubStore(true);
+    const args = {
+      taskId: "task-1",
+      events: [{ type: "done", stop_reason: "end_turn" }] as const,
+      tracker: blockedTracker(),
+      session: null,
+    };
+    maybeStartProviderBrowserFallbackTurn(store.getState, args);
+    maybeStartProviderBrowserFallbackTurn(store.getState, args);
+    expect(store.sent).toHaveLength(1);
+  });
+
+  test("does not retry when the browser was already activated for a host", () => {
+    const store = stubStore(true);
+    maybeStartProviderBrowserFallbackTurn(store.getState, {
+      taskId: "task-1",
+      events: [{ type: "done", stop_reason: "end_turn" }],
+      tracker: blockedTracker({ runtimeOptions: { providerBrowserAutoFallback: true } }),
+      session: null,
+    });
+    expect(store.sent).toHaveLength(0);
+  });
+
+  test("does not retry providers without a native browser integration", () => {
+    for (const providerId of ["cursor", "kiro"] as const) {
+      const store = stubStore(true);
+      maybeStartProviderBrowserFallbackTurn(store.getState, {
+        taskId: "task-1", events: [{ type: "done", stop_reason: "end_turn" }],
+        tracker: blockedTracker({ providerId }), session: null,
+      });
+      expect(store.sent).toHaveLength(0);
+    }
   });
 
   test("stays silent when the setting is off", () => {
