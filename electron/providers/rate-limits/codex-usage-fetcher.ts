@@ -2,7 +2,7 @@ import { withProviderAccountScope } from "../../provider-accounts/runtime-scope"
 import type { CodexUsageSnapshot } from "../../../src/lib/providers/provider.types";
 import { getCodexAppServerClientFromRuntimeOptions } from "../codex-app-server-runtime";
 import {
-  requestCodexRateLimitBuckets,
+  requestCodexRateLimits,
   resolveCodexRateLimitReading,
 } from "../codex-rate-limits-cache";
 import type { StreamTurnArgs } from "../types";
@@ -33,11 +33,11 @@ export async function fetchCodexUsageSnapshot(args: {
     const reading = await resolveCodexRateLimitReading({
       force: args.force,
       request: () =>
-        requestCodexRateLimitBuckets(
+        requestCodexRateLimits(
           getCodexAppServerClientFromRuntimeOptions(args),
         ),
     });
-    const snapshot: CodexUsageSnapshot = { source: "rpc", buckets: reading.entry.buckets, error: null };
+    const snapshot: CodexUsageSnapshot = { source: "rpc", buckets: reading.entry.buckets, ordinaryUsageAllowed: reading.entry.ordinaryUsageAllowed, error: null };
     observations.set(snapshot, { fresh: reading.fresh, observedAt: reading.entry.updatedAt });
     return snapshot;
   } catch (error) {

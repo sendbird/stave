@@ -103,7 +103,7 @@ describe("Codex rate-limit cache", () => {
     };
     await resolveCodexRateLimitBuckets({ now: 10, request });
     expect(requests).toBe(1);
-    recordCodexRateLimits({ buckets: [], source: "notification", now: 20 });
+    recordCodexRateLimits({ buckets: [], source: "rpc", now: 20 });
     await resolveCodexRateLimitBuckets({ now: 30, request });
     expect(requests).toBe(2);
   });
@@ -130,11 +130,11 @@ describe("Codex rate-limit cache", () => {
       const reading = await resolveCodexRateLimitReading({
         request: async () => {
           now += 2000;
-          return [bucket(31)];
+          return { buckets: [bucket(31)] };
         },
       });
       expect(reading).toMatchObject({ fresh: true, entry: { updatedAt: 1_002_000, source: "rpc" } });
-      const cached = await resolveCodexRateLimitReading({ request: async () => [bucket(99)] });
+      const cached = await resolveCodexRateLimitReading({ request: async () => ({ buckets: [bucket(99)] }) });
       expect(cached).toMatchObject({ fresh: false, entry: { updatedAt: 1_002_000 } });
     } finally {
       clock.mockRestore();

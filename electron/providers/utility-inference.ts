@@ -1,3 +1,4 @@
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { ROUTE_CLASSIFICATION_DEADLINE_MS } from "../../src/lib/providers/route-intent";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -144,6 +145,7 @@ function utilityReadinessKey(args: {
   const options = args.runtimeOptions;
   return JSON.stringify([
     args.providerId,
+    args.providerId === "codex" || args.providerId === "claude-code" ? currentProviderAccountId(args.providerId) : null,
     options?.claudeBinaryPath,
     options?.codexBinaryPath,
     options?.cursorBinaryPath,

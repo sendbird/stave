@@ -35,6 +35,10 @@ export class UsageStatisticsStore {
         PRIMARY KEY (provider_id, account_profile_id, window_id, minute)
       );
       CREATE INDEX IF NOT EXISTS idx_usage_quota_period ON usage_quota_observations (observed_at);
+      CREATE TABLE IF NOT EXISTS usage_quota_snapshots (
+        provider_id TEXT NOT NULL, account_profile_id TEXT NOT NULL, observed_at TEXT NOT NULL,
+        PRIMARY KEY (provider_id, account_profile_id)
+      );
       CREATE TABLE IF NOT EXISTS usage_statistics_meta (key TEXT PRIMARY KEY);
     `);
     // Existing turn rows have no execution-account evidence. Keep them explicitly
@@ -80,7 +84,7 @@ export class UsageStatisticsStore {
   }
 
   /** Existing reads supply observations; storing them creates no provider traffic. */
-  recordQuota(snapshot: RateLimitsSnapshotResponse, options?: { claudeAccountProfileId?: string; codexAccountProfileId?: string; source?: string },
+  recordQuota(snapshot: RateLimitsSnapshotResponse, options?: { claudeAccountProfileId?: string; codexAccountProfileId?: string; source?: string; observedWindowIds?: string[] },
     observedAt = new Date().toISOString()) {
     const insert = this.db.prepare(`INSERT INTO usage_quota_observations
       (provider_id, account_profile_id, window_id, minute, observed_at, label, used_percent, resets_at, source)
@@ -89,12 +93,26 @@ export class UsageStatisticsStore {
         observed_at = excluded.observed_at, label = excluded.label, used_percent = excluded.used_percent,
         resets_at = excluded.resets_at, source = excluded.source
       WHERE excluded.observed_at > observed_at`);
-    for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
-      for (const sample of quotaObservations(snapshot, providerId, selectedProviderAccount(providerId, options), observedAt)) {
-        insert.run(providerId, sample.accountProfileId, sample.windowId, observedAt.slice(0, 16), observedAt,
-          sample.label, sample.usedPercent, sample.resetsAt, options?.source ?? sample.source);
+    // Persist the successful snapshot boundary even when it has no windows.
+    // Otherwise an absent credit window stays at its last historical value.
+    const markSnapshot = this.db.prepare(`INSERT INTO usage_quota_snapshots
+      (provider_id, account_profile_id, observed_at) VALUES (?, ?, ?)
+      ON CONFLICT(provider_id, account_profile_id) DO UPDATE SET observed_at = excluded.observed_at
+      WHERE excluded.observed_at > observed_at`);
+    this.db.transaction(() => {
+      for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
+        const provider = snapshot[providerId === "claude-code" ? "claude" : providerId];
+        if (provider.source === "unavailable" || provider.error) continue;
+        const accountId = selectedProviderAccount(providerId, options);
+        // SDK and rolling Codex notifications are partial observations.
+        if (options?.source !== "sdk" && options?.source !== "notification") markSnapshot.run(providerId, accountId, observedAt);
+        for (const sample of quotaObservations(snapshot, providerId, accountId, observedAt)) {
+          if (options?.observedWindowIds && !options.observedWindowIds.includes(sample.windowId)) continue;
+          insert.run(providerId, sample.accountProfileId, sample.windowId, observedAt.slice(0, 16), observedAt,
+            sample.label, sample.usedPercent, sample.resetsAt, options?.source ?? sample.source);
+        }
       }
-    }
+    })();
     // A year's minute-grained observations is bounded independently of turn history.
     const before = new Date(Date.parse(observedAt) - 366 * 86_400_000).toISOString();
     this.db.prepare("DELETE FROM usage_quota_observations WHERE observed_at < ?").run(before);
@@ -146,8 +164,12 @@ export class UsageStatisticsStore {
       ORDER BY observed_at DESC, provider_id, account_profile_id, window_id LIMIT 2001`).all(...params) as QuotaObservation[];
     const latestQuota = this.db.prepare(`SELECT provider_id AS providerId, account_profile_id AS accountProfileId,
       window_id AS windowId, observed_at AS observedAt, label, used_percent AS usedPercent, resets_at AS resetsAt, source
-      FROM (SELECT *, ROW_NUMBER() OVER (PARTITION BY provider_id, account_profile_id, window_id ORDER BY observed_at DESC) AS rank
-        FROM usage_quota_observations WHERE (? IS NULL OR provider_id = ?) AND (? IS NULL OR account_profile_id = ?))
+      FROM (SELECT q.*, ROW_NUMBER() OVER (
+        PARTITION BY q.provider_id, q.account_profile_id, q.window_id ORDER BY q.observed_at DESC) AS rank
+        FROM usage_quota_observations q LEFT JOIN usage_quota_snapshots s
+          USING (provider_id, account_profile_id)
+        WHERE (? IS NULL OR q.provider_id = ?) AND (? IS NULL OR q.account_profile_id = ?)
+          AND (s.observed_at IS NULL OR q.observed_at >= s.observed_at))
       WHERE rank = 1 ORDER BY provider_id, account_profile_id, window_id`)
       .all(args.providerId ?? null, args.providerId ?? null, args.accountProfileId ?? null, args.accountProfileId ?? null) as QuotaObservation[];
     return { totals, series: [...buckets].map(([at, metrics]) => ({ at, ...metrics })), accounts, models, knownAccounts, latestQuota,

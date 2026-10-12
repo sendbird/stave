@@ -1,5 +1,7 @@
 {
   "accountUsageBlock": {
+    "includedUsage": "포함 사용량",
+    "ordinaryUsageUnavailable": "Codex에서 이 계정의 포함 사용량을 사용할 수 없다고 안내했습니다. 사용량을 새로고침하여 다시 사용할 수 있는지 확인하십시오.",
     "session": "세션",
     "weekly": "주간",
     "modelWeekly": "모델 주간",

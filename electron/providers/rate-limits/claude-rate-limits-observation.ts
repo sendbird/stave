@@ -58,8 +58,8 @@ export function resolveClaudeObservedWindow(
 }
 
 /**
- * Apply an observation to a snapshot, returning `null` when nothing changed so
- * a no-op event never counts as a refresh.
+ * Apply a valid observation, returning `null` only when it carries no usable window.
+ * Repeated values still confirm freshness and supersede a pending older read.
  */
 export function applyClaudeRateLimitObservation(args: {
   snapshot: ClaudeUsageSnapshot;
@@ -94,7 +94,7 @@ export function applyClaudeRateLimitObservation(args: {
     previous.usedPercent === window.usedPercent &&
     previous.resetsAt === window.resetsAt
   ) {
-    return null;
+    return args.snapshot;
   }
   return { ...args.snapshot, [key]: window };
 }
@@ -126,11 +126,8 @@ export function recordClaudeRateLimitObservation(args: {
     const snapshot: ClaudeUsageSnapshot = observedSnapshot;
     publishQuotaObservation({
       ...emptyRateLimitsSnapshot(),
-      claude: {
-        ...snapshot, session: null, weekly: null, fableWeekly: null,
-        [window]: snapshot[window],
-      },
-    }, now, "sdk", "claude-code");
+      claude: snapshot,
+    }, now, "sdk", "claude-code", [window]);
   }
   return recorded;
 }

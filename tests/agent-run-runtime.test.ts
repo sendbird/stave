@@ -1,3 +1,4 @@
+import { currentProviderAccountId, withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
@@ -266,15 +267,27 @@ describe("run runtime: accounts a turn runs on", () => {
   const PERSONAL = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
   const WORK = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
 
-  test("every turn the run starts keeps the accounts selected when it was asked for", async () => {
-    const harness = createHarness();
-    const id = await startedAgentRun(harness, startInput({ accounts: { claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" } }));
+  test("primary turns and host routing keep captured accounts across continuation and restart", async () => {
+    const seen: string[][] = [];
+    const routeAgentTurn = async () => {
+      await Promise.resolve();
+      seen.push([currentProviderAccountId("claude-code"), currentProviderAccountId("codex")]);
+      return null;
+    };
+    const harness = createHarness({ extra: { routeAgentTurn } });
+    const id = await withProviderAccountScope({ claudeAccountProfileId: WORK, codexAccountProfileId: WORK }, () =>
+      startedAgentRun(harness, startInput({ origin: "agent", accounts: { claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" } })));
     expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" });
     await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
     harness.endTurn("turn-1");
     await harness.tick();
     expect(harness.current(id).stageId).toBe(POLISH.id);
     expect(harness.runCalls[1]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL, codexAccountProfileId: "system-default" });
+    harness.endTurn("turn-2");
+    const restored = createHarness({ store: harness.store, turns: harness.turns, turnPrefix: "restored", extra: { routeAgentTurn } });
+    await restored.tick();
+    expect(seen).toEqual(Array.from({ length: 3 }, () => [PERSONAL, "system-default"]));
+    expect(currentProviderAccountId("claude-code")).toBe("system-default");
   });
 
   test("a run on an API connection is refused at the start, not on its first turn", async () => {
