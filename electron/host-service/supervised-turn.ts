@@ -1,3 +1,4 @@
+import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-context";
 /**
  * The one path a supervisor uses to add a turn to a task the user already
  * owns. Identical to a user turn except that it always targets an existing
@@ -50,6 +51,7 @@ export async function runSupervisedTurn(args: {
   /** Extra provider options, such as the permissions an agent run's consent sets. */
   runtimeOptions?: ProviderRuntimeOptions;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
+  initialContext?: AgentRunInitialContext;
   /** The stage attempt an agent run turn reports for; mints its agent run grant. */
   agentRunStage?: AgentRunStageIdentity;
   /** On an agent run's turn: the run and the assignment, recorded on the user row. */
@@ -59,6 +61,7 @@ export async function runSupervisedTurn(args: {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
+    initialContext: args.initialContext,
     controlMode: args.parentTaskId ? "managed" : "interactive",
     controlOwner: args.parentTaskId ? "external" : "stave",
     ...(args.parentTaskId ? { parentTaskId: args.parentTaskId } : {}),

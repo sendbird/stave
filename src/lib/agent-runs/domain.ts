@@ -1,3 +1,4 @@
+import { AgentRunInitialContextSchema } from "./initial-context";
 import { i18n } from "@/i18n/runtime";
 /**
  * Agent run domain: the records an agent run is made of.
@@ -534,6 +535,7 @@ export const AgentRunStartInputSchema = z
     workflow: WorkflowSchema,
     assignment: z.string().trim().min(1).max(AGENT_RUN_LIMITS.maxAssignmentChars),
     consent: AgentRunConsentSchema,
+    initialContext: AgentRunInitialContextSchema.optional(),
     maxTurns: z
       .number()
       .int()
@@ -590,6 +592,7 @@ export const AgentRunSchema = z
     workflow: WorkflowSchema,
     assignment: z.string().min(1).max(AGENT_RUN_LIMITS.maxAssignmentChars),
     consent: AgentRunConsentSchema,
+    initialContext: AgentRunInitialContextSchema.optional(),
     fingerprint: AgentRunFingerprintSchema,
     state: z.enum(AGENT_RUN_STATES),
     pauseReason: z.enum(AGENT_RUN_PAUSE_REASONS).nullable(),
@@ -884,6 +887,7 @@ export function createAgentRun(args: {
     projectId: null,
     workflow: input.workflow,
     assignment: input.assignment,
+    ...(input.initialContext ? { initialContext: input.initialContext } : {}),
     consent: input.consent,
     fingerprint: args.fingerprint,
     state: "running",

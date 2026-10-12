@@ -66,6 +66,7 @@ interface AgentRunRow {
   created_at: string;
   updated_at: string;
   origin: string | null;
+  initial_context_json: string | null;
 }
 
 interface AgentRunStageRow {
@@ -114,6 +115,7 @@ function parseAgentRunRow(row: AgentRunRow): AgentRun {
     projectId: row.project_id,
     workflow: JSON.parse(row.workflow_json),
     assignment: row.assignment,
+    ...(row.initial_context_json ? { initialContext: JSON.parse(row.initial_context_json) } : {}),
     consent: JSON.parse(row.consent_json),
     fingerprint: JSON.parse(row.fingerprint_json),
     state: row.state,
@@ -212,7 +214,8 @@ export class AgentRunStore {
         expires_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
-        origin TEXT
+        origin TEXT,
+        initial_context_json TEXT
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_active_lead
         ON agent_runs (lead_task_id) WHERE state IN ${ACTIVE_STATES_SQL};
@@ -248,6 +251,9 @@ export class AgentRunStore {
     `);
     // Additive: databases from before agent runs gain the nullable column.
     const columns = this.db.prepare("PRAGMA table_info(agent_runs)").all() as { name: string }[];
+    if (!columns.some((column) => column.name === "initial_context_json")) {
+      this.db.exec("ALTER TABLE agent_runs ADD COLUMN initial_context_json TEXT");
+    }
     if (!columns.some((column) => column.name === "origin")) {
       this.db.exec("ALTER TABLE agent_runs ADD COLUMN origin TEXT");
     }
@@ -287,6 +293,7 @@ export class AgentRunStore {
       agentRun.createdAt,
       agentRun.updatedAt,
       agentRun.origin ?? null,
+      agentRun.initialContext ? JSON.stringify(agentRun.initialContext) : null,
     ];
     if (insert) {
       this.db
@@ -295,8 +302,8 @@ export class AgentRunStore {
              repository_path, workspace_id, lead_task_id, project_id,
              workflow_json, assignment, consent_json, fingerprint_json, state,
              pause_reason, stop_reason, reason_detail, current_stage_index,
-             turn_count, max_turns, expires_at, created_at, updated_at, origin, id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             turn_count, max_turns, expires_at, created_at, updated_at, origin, initial_context_json, id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(...values, agentRun.id);
       return;
@@ -309,7 +316,7 @@ export class AgentRunStore {
            fingerprint_json = ?, state = ?, pause_reason = ?, stop_reason = ?,
            reason_detail = ?, current_stage_index = ?, turn_count = ?,
            max_turns = ?, expires_at = ?, created_at = ?, updated_at = ?,
-           origin = ?
+           origin = ?, initial_context_json = ?
          WHERE id = ?`,
       )
       .run(...values, agentRun.id);

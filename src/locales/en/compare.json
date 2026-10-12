@@ -154,6 +154,8 @@
     "candidatesCompleted": "{{value1}}/{{value2}} candidates completed"
   },
   "compareRunStart": {
+    "startingWorkspaceChanged": "The active workspace changed. Start the comparison again from the intended workspace.",
+    "couldNotResolveStartingCommit": "Could not resolve the starting commit. Check that the base branch exists and try again.",
     "compare": "Compare {{value1}}",
     "workspaceCreationFailed": "Workspace creation failed.",
     "workspaceCreationDidNotReturnA": "Workspace creation did not return a candidate task.",

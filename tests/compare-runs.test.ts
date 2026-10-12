@@ -110,6 +110,7 @@ describe("compare run helpers", () => {
       seedPrompt: "Ship it",
       baseWorkspaceId: "base",
       baseBranch: "main",
+      baseCommit: "a".repeat(40),
       variants: [
         { provider: "claude-code", label: "Claude" },
         { provider: "codex", label: "Codex" },
@@ -117,6 +118,8 @@ describe("compare run helpers", () => {
       now: "2026-06-18T00:00:00.000Z",
     });
 
+    expect(run.baseCommit).toBe("a".repeat(40));
+    expect(normalizePersistedCompareRuns({ runsById: { [run.id]: run }, now: run.updatedAt })[run.id]?.baseCommit).toBe(run.baseCommit);
     expect(run.status).toBe("starting");
     expect(run.variants.map((variant) => variant.status)).toEqual([
       "pending",

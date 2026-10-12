@@ -6,7 +6,7 @@ test(`an attached streaming reply stays partial until completion, with a pre-sen
   await page.goto(`/?stavePreview=composer-frame&case=idle&agent=implementer&partial=1&theme=${theme}&w=420`, { waitUntil: "domcontentloaded" });
   const prompt = page.getByRole("textbox", { name: "Prompt" });
   const notice = page.getByTestId("agent-attachment-notice");
-  await expect(notice).toContainText("single turn because it includes attachments");
+  await expect(notice).toContainText("The Run keeps attached images and context");
   await expect(page.getByText("Partial reply", { exact: false })).toBeVisible();
   const chipSize = await page.locator("[data-task-context-chip]").evaluate((chip) => ({ width: chip.clientWidth, content: chip.scrollWidth }));
   expect(chipSize.content).toBeLessThanOrEqual(chipSize.width);

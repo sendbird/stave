@@ -1,7 +1,7 @@
 {
   "fleetAttentionInbox": {
     "valueForValueInValue": "{{value2}}의 {{title}} 작업: {{value1}}",
-    "markReviewed": "확인 표시",
+    "markReviewed": "읽음 표시",
     "markRead": "읽음 표시",
     "dismissValueForValueInValue": "{{value2}}의 {{title}} 작업에서 {{value1}} 닫기",
     "dismiss": "닫기",
@@ -69,7 +69,7 @@
     "activeTurn": "<turn>{{id}}</turn> 턴이 활성 상태입니다."
   },
   "fleetView": {
-    "reviewWasNotSavedRetry": "검토를 저장하지 못했습니다. 다시 시도합니다.",
+    "reviewWasNotSavedRetry": "읽음 상태를 저장하지 못했습니다. 다시 시도하세요.",
     "snoozeWasNotSavedRetry": "알림 미루기를 저장하지 못했습니다. 다시 시도합니다.",
     "snoozedItemsWereNotRestoredRetry": "미룬 항목을 복원하지 못했습니다. 다시 시도합니다.",
     "cleared1Item": "항목 1개를 지웠습니다.",
@@ -102,7 +102,7 @@
     "valueWorkspacevalueInFlight_other": "워크스페이스 {{count}}개 실행 중",
     "valueDormantWorkspacevalueHidden_other": "비활성 워크스페이스 {{count}}개를 숨겼습니다.",
     "unusedDefaultsHidden_other": "미사용 기본 워크스페이스 {{count}}개 제외됨",
-    "pendingResultsLimit": "대기 중인 결과 {{count}}개 중 최신 200개를 표시합니다. 전체 결과 기록을 검토하려면 작업을 엽니다.",
+    "pendingResultsLimit": "안 읽은 결과 {{count}}개 중 최신 200개를 표시합니다. 전체 결과 기록을 보려면 작업을 여세요.",
     "accessibility": {
       "closeFleetView": "Fleet 보기 닫기"
     }

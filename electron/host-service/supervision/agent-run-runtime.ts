@@ -1,3 +1,4 @@
+import type { AgentRunInitialContext } from "../../../src/lib/agent-runs/initial-context";
 /**
  * Supervisor: runs agent runs. Each tick it reads the lead task, asks the pure
  * policy (`src/lib/agent-runs/policy.ts`) what to do, records the result, and
@@ -185,6 +186,7 @@ export interface AgentRunRuntimeDependencies {
     fingerprint: AgentRunFingerprint;
     runtimeOptions: ProviderRuntimeOptions;
     retrievedContextParts: CanonicalRetrievedContextPart[];
+    initialContext?: AgentRunInitialContext;
     /** Absent for a turn a Stave action asked for: it reports no stage. */
     agentRunStage?: AgentRunStageRef;
     /** On every turn of an agent run: marks the user row so it renders as the assignment. */
@@ -983,6 +985,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
         prompt,
+        initialContext: agentRun.initialContext,
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions: { ...(delegation ? buildDelegatedTaskRuntimeOptions({
           providerId: agentRun.fingerprint.providerId, model: routed?.fingerprint.model ?? agentRun.fingerprint.model,

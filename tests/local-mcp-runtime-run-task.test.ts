@@ -505,6 +505,46 @@ describe("local MCP runtime runTask", () => {
 
 
 
+  test("supervised turns send frozen attachments and record them without persisting run context on the task", async () => {
+    const { runSupervisedTurn } = await import("../electron/host-service/supervised-turn");
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const initialContext = {
+        fileContexts: [{ filePath: "brief.md", content: "Original brief", language: "markdown" }],
+        imageContexts: [{ dataUrl: "data:image/png;base64,AA==", label: "mock", mimeType: "image/png" }],
+        retrievedContextParts: [{ type: "retrieved_context" as const, sourceId: "task:frozen-reference", content: "Original answer" }],
+      };
+      const created = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Create task", provider: providerId });
+      startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "text", text: "Completed." });
+      startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" });
+      for (let i = 0; i < 20 && !persistedTurnsById.get(created.turnId)?.completedAt; i += 1) await Bun.sleep(0);
+      expect((await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: created.taskId })).latestTurnCompletedAt).toBeTruthy();
+      const result = await runSupervisedTurn({
+        workspaceId: WORKSPACE_ID,
+        taskId: created.taskId,
+        prompt: "Implement the attached brief",
+        fingerprint: { providerId, model: providerId === "codex" ? "gpt-5" : "sonnet" },
+        initialContext,
+      });
+      const call = startTurnStreamCalls.at(-1) as { conversation: import("../src/lib/providers/provider.types").CanonicalConversationRequest };
+      expect(call.conversation.contextParts).toContainEqual(initialContext.retrievedContextParts[0]);
+      expect(call.conversation.contextParts).toContainEqual({ type: "image_context", ...initialContext.imageContexts[0] });
+      expect(call.conversation.contextParts).toContainEqual({ type: "file_context", ...initialContext.fileContexts[0] });
+      const snapshot = lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID);
+      const row = snapshot?.messagesByTask?.[result.taskId]?.findLast((message) => message.role === "user");
+      const parsedRow = (await import("../src/lib/task-context/schemas")).ChatMessageSchema.safeParse(row);
+      expect(parsedRow.success).toBe(true);
+      expect(row).toMatchObject({ parts: expect.arrayContaining([
+        { type: "image_context", ...initialContext.imageContexts[0] },
+        { type: "file_context", ...initialContext.fileContexts[0] },
+      ]) });
+      expect(snapshot?.tasks?.find((task) => task.id === result.taskId)).not.toHaveProperty("sourceContexts");
+      startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "text", text: "Completed." });
+      startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" });
+      for (let i = 0; i < 20 && !persistedTurnsById.get(result.turnId)?.completedAt; i += 1) await Bun.sleep(0);
+      expect((await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt).toBeTruthy();
+    }
+  });
+
   test("records effort, Fast, and 1M on the pending assistant message", async () => {
     const result = await runtime.runTask({
       workspaceId: WORKSPACE_ID,

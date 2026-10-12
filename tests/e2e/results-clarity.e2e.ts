@@ -25,12 +25,12 @@ for (const lang of ["en", "ko"] as const) {
   });
 
   for (const theme of ["light", "dark"] as const) {
-    test(`task outputs: check, undo and draft-only follow-up (${lang}, ${theme}, 320px)`, async ({ page }, testInfo) => {
+    test(`task outputs: read, undo and draft-only follow-up (${lang}, ${theme}, 320px)`, async ({ page }, testInfo) => {
       await page.goto(`/?stavePreview=task-panel&tab=results&panelWidth=320&lang=${lang}&theme=${theme}`);
       const outputs = page.getByRole("region", { name: ko ? "작업 산출물" : "Task outputs" });
       await expect(page.getByRole("tab", { name: ko ? /^산출물/ : /^Outputs/ })).toHaveAttribute("aria-selected", "true");
-      await expect(outputs.getByRole("button", { name: ko ? "미확인" : "Unchecked", exact: true })).toHaveAttribute("aria-pressed", "true");
-      const check = outputs.getByRole("button", { name: ko ? "확인 표시" : "Mark checked", exact: true });
+      await expect(outputs.getByRole("button", { name: ko ? "전체 산출물" : "All outputs", exact: true })).toHaveAttribute("aria-pressed", "true");
+      const check = outputs.getByRole("button", { name: ko ? "읽음 표시" : "Mark read", exact: true });
       await expect(check).toBeHidden();
       await outputs.getByText(summary, { exact: true }).click();
       await expect(outputs.getByRole("button", { name: ko ? "실행 과정 보기" : "View execution", exact: true })).toBeVisible();
@@ -54,10 +54,12 @@ for (const lang of ["en", "ko"] as const) {
       await expect(outputs.getByRole("status")).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`task-outputs-${lang}-${theme}.png`), fullPage: true, animations: "disabled" });
       await check.click();
+      await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
+      await outputs.getByRole("button", { name: ko ? "안 읽음" : "Unread", exact: true }).click();
       await expect(outputs.getByText(summary, { exact: true })).toHaveCount(0);
       await outputs.getByRole("button", { name: ko ? "전체 산출물" : "All outputs", exact: true }).click();
       await outputs.getByText(summary, { exact: true }).click();
-      await outputs.getByRole("button", { name: ko ? "미확인 표시" : "Mark unchecked", exact: true }).click();
+      await outputs.getByRole("button", { name: ko ? "안 읽음 표시" : "Mark unread", exact: true }).click();
       await expect(check).toBeVisible();
       const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("stave:result-reviews:v1") ?? "[]"));
       expect(saved.find((row: { summary: string }) => row.summary === summary).reviewedAt).toBeNull();
@@ -66,6 +68,36 @@ for (const lang of ["en", "ko"] as const) {
     });
   }
 }
+
+test("auto-read outputs remain discoverable in the default history", async ({ page }) => {
+  await page.goto("/?stavePreview=task-panel&tab=results&panelWidth=320");
+  const outputs = page.getByRole("region", { name: "Task outputs" });
+  await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
+  const marked = await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { selectAutoReviewableResults, FLEET_RESULT_AUTO_REVIEW_DWELL_MS } = await import("/src/lib/fleet/result-auto-review.ts");
+    const { listResultReviews, setResultsReviewed } = await import("/src/lib/reviews/result-review-client.ts");
+    const state = useAppStore.getState();
+    const page = await listResultReviews({ workspaceId: state.activeWorkspaceId!, taskId: state.activeTaskId! });
+    const nowMs = Date.now() + FLEET_RESULT_AUTO_REVIEW_DWELL_MS;
+    const read = selectAutoReviewableResults({
+      results: page.results,
+      surface: { activeWorkspaceId: state.activeWorkspaceId!, visibleTaskId: state.activeTaskId!, windowFocused: true },
+      dwellStartedAtMs: nowMs - FLEET_RESULT_AUTO_REVIEW_DWELL_MS,
+      nowMs,
+    });
+    return setResultsReviewed({
+      scopes: read.map(({ repositoryPath, workspaceId, taskId, turnId }) => ({ repositoryPath, workspaceId, taskId, turnId })),
+      reviewed: true,
+    });
+  });
+  expect(marked).toBeGreaterThan(0);
+  await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
+  await outputs.getByRole("button", { name: "Unread", exact: true }).click();
+  await expect(outputs.getByText(summary, { exact: true })).toHaveCount(0);
+  await outputs.getByRole("button", { name: "All outputs", exact: true }).click();
+  await expect(outputs.getByText(summary, { exact: true })).toBeVisible();
+});
 
 test("overview empty and failure states explain the next action", async ({ page }) => {
   await page.goto("/?stavePreview=results&state=empty");

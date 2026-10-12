@@ -99,6 +99,8 @@ export interface CompareRun {
   baseWorkspaceId: string;
   baseTaskId?: string;
   baseBranch?: string;
+  /** Immutable starting commit; absent on previously saved comparisons. */
+  baseCommit?: string;
   createdAt: string;
   updatedAt: string;
   status: CompareRunStatus;
@@ -785,6 +787,7 @@ export function buildInitialCompareRun(args: {
   baseWorkspaceId: string;
   baseTaskId?: string;
   baseBranch?: string;
+  baseCommit?: string;
   variants: CompareRunVariantConfig[];
   reviewCriteria?: readonly string[];
   judge?: CompareRunJudgeConfig;
@@ -797,6 +800,7 @@ export function buildInitialCompareRun(args: {
     baseWorkspaceId: args.baseWorkspaceId,
     ...(args.baseTaskId ? { baseTaskId: args.baseTaskId } : {}),
     baseBranch: args.baseBranch,
+    baseCommit: args.baseCommit,
     createdAt: args.now,
     updatedAt: args.now,
     status: "starting",

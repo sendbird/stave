@@ -11,7 +11,7 @@ import { usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { buildPromptDraftContentForSend } from "@/store/prompt-draft-message-content";
 import type { PromptDraft } from "@/types/chat";
 
-/** Explain the same attachment fallback that the send path will choose. */
+/** Explain how the selected Run keeps its attached context. */
 export function AgentAttachmentNotice(props: { taskId: string; providerId: string; draft: PromptDraft }) {
   useTranslation();
   const { taskId } = props;
@@ -29,11 +29,11 @@ export function AgentAttachmentNotice(props: { taskId: string; providerId: strin
   const plan = planAgentPromptSend({
     taskRunsAsAgent, runActive: runActive || runPending, turnActive, queued: false,
     turnOrigin: "conversation", providerId: props.providerId,
-    prompt: buildAgentRunAssignment(buildPromptDraftContentForSend(props.draft), props.draft), hasAttachments: hasAgentPromptAttachments(props.draft),
+    prompt: buildAgentRunAssignment(buildPromptDraftContentForSend(props.draft), props.draft),
   });
   if (plan.kind === "start-run" && (props.draft.attachedFilePaths.length || props.draft.promptBatch?.some((item) => item.attachedFilePaths?.length)))
     return <p role="status" className={sx(styles.notice)}>{i18n.t("agentRuns:adaptive.files")}</p>;
-  if (plan.kind !== "plain-turn" || plan.reason !== "attachments") return null;
+  if (plan.kind !== "start-run" || !hasAgentPromptAttachments(props.draft)) return null;
   return <p role="status" className={sx(styles.notice)} data-testid="agent-attachment-notice">
     {i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")}</p>;
 }

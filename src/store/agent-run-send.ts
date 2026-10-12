@@ -14,7 +14,7 @@ import { i18n } from "@/i18n/runtime";
  * action never import it (it imports the app store).
  */
 import type { AgentRunCommandResponse, AgentRunStartArgs } from "@/lib/agent-runs/api";
-import { buildAgentRunAssignment, buildAgentRunStartInput, hasAgentPromptAttachments, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
+import { buildAgentRunAssignment, buildAgentRunStartInput, planAgentPromptSend } from "@/lib/agent-runs/agent-run";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { buildOutgoingUserMessage, buildRecentTimestamp } from "@/store/chat-state-helpers";
@@ -65,7 +65,7 @@ type AgentRunSendArgs = {
   providerId: string;
   prompt: string;
   promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch" | "runtimeOverrides">;
-  extraContextCount: number;
+  resolveInitialContext?: () => Promise<import("@/lib/agent-runs/initial-context").AgentRunInitialContext>;
   turnActive: boolean;
   queued: boolean;
   queuedTurnId?: string;
@@ -115,6 +115,7 @@ export function recoverUnsentAgentRunPrompt(
     prompt: string;
     /** The composer draft the send cleared; undefined when the send kept it. */
     submittedDraft: PromptDraft | undefined;
+    recoveryDraft?: PromptDraft;
     reason: string | null;
   },
 ): Partial<AppState> {
@@ -133,10 +134,12 @@ export function recoverUnsentAgentRunPrompt(
           text: args.submittedDraft.text,
           attachedFilePaths: args.submittedDraft.attachedFilePaths,
           attachments: args.submittedDraft.attachments,
+          promptBatch: args.submittedDraft.promptBatch,
         },
       },
     };
   }
+  const recoveryDraft = args.recoveryDraft ?? args.submittedDraft;
   return {
     failedSendsByTask: appendFailedOutgoingSend(
       state.failedSendsByTask,
@@ -146,9 +149,9 @@ export function recoverUnsentAgentRunPrompt(
         failedAt: buildRecentTimestamp(),
         draft: {
           text: args.prompt,
-          attachedFilePaths: [],
-          attachments: args.submittedDraft?.attachments ?? [],
-          ...(args.submittedDraft?.runtimeOverrides ? { runtimeOverrides: args.submittedDraft.runtimeOverrides } : {}),
+          attachedFilePaths: [...(recoveryDraft?.attachedFilePaths ?? []), ...(recoveryDraft?.promptBatch ?? []).flatMap((item) => item.attachedFilePaths ?? [])],
+          attachments: [...(recoveryDraft?.attachments ?? []), ...(recoveryDraft?.promptBatch ?? []).flatMap((item) => item.attachments ?? [])],
+          ...(recoveryDraft?.runtimeOverrides ? { runtimeOverrides: recoveryDraft.runtimeOverrides } : {}),
         },
         error: args.reason ?? i18n.t(UNSENT_RUN_REASON),
       }),
@@ -180,9 +183,9 @@ export function prepareAgentRunForSend(
     turnOrigin: args.turnOrigin,
     providerId: args.providerId,
     prompt: buildAgentRunAssignment(args.prompt, args.promptDraft),
-    hasAttachments: hasAgentPromptAttachments(args.promptDraft, args.extraContextCount),
   });
   if (plan.kind !== "start-run" || !agent || !activeBridge) return null;
+  const recoveryDraft: PromptDraft = structuredClone({ ...args.promptDraft, text: args.prompt });
   let submittedDraft: PromptDraft | undefined;
   if (!args.preservePromptDraft && !args.queued) {
     args.set((state) => {
@@ -204,13 +207,13 @@ export function prepareAgentRunForSend(
     userMessage: buildOutgoingUserMessage({ id: `pending-${pendingId}`, content: args.prompt.trim() }),
   });
   return async () => {
-    const response = await activeBridge
-      .start(
+    const response = await Promise.resolve().then(async () => activeBridge.start(
         buildAgentRunStartInput({
           workspaceId: args.workspaceId,
           taskId: args.taskId,
           agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns },
           assignment: buildAgentRunAssignment(args.prompt, args.promptDraft),
+          ...(args.resolveInitialContext ? { initialContext: await args.resolveInitialContext() } : {}),
           adaptive: args.promptDraft.runtimeOverrides?.agentRunAdaptive,
           ...((args.queued || args.promptDraft.runtimeOverrides?.agentRunAdaptive) ? { routingIntent: (() => {
             const { model, modelProviderId, autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId } = args.promptDraft.runtimeOverrides ?? {};
@@ -219,14 +222,14 @@ export function prepareAgentRunForSend(
           ...(args.accounts ? { accounts: args.accounts } : {}),
           now: args.now ?? new Date(),
         }),
-      )
-      .catch((): AgentRunCommandResponse => ({ ok: false, agentRun: null }));
+      ))
+      .catch((error): AgentRunCommandResponse => ({ ok: false, agentRun: null, ...(error instanceof Error ? { message: error.message } : {}) }));
     if (!response.ok || !response.agentRun) {
       if (ownsRow) endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
       const message = response.message ?? i18n.t("agentRuns:agentRunSend.unsentReason");
       args.set((state) => recoverUnsentAgentRunPrompt(state, {
         workspaceId: args.workspaceId, taskId: args.taskId, prompt: args.prompt,
-        submittedDraft, reason: message,
+        submittedDraft, recoveryDraft, reason: message,
       }));
       toast.warning(i18n.t("agentRuns:agentRunSend.copy"), { description: message });
       return { status: "blocked", message };
@@ -251,6 +254,7 @@ export function prepareAgentRunForSend(
             taskId: args.taskId,
             prompt: args.prompt,
             submittedDraft,
+            recoveryDraft,
             reason: end.reason,
           }),
         );

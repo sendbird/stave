@@ -1,7 +1,7 @@
 {
   "fleetAttentionInbox": {
     "valueForValueInValue": "{{value1}} for {{title}} in {{value2}}",
-    "markReviewed": "Mark checked",
+    "markReviewed": "Mark read",
     "markRead": "Mark read",
     "dismissValueForValueInValue": "Dismiss {{value1}} for {{title}} in {{value2}}",
     "dismiss": "Dismiss",
@@ -69,7 +69,7 @@
     "activeTurn": "Turn <turn>{{id}}</turn> is active."
   },
   "fleetView": {
-    "reviewWasNotSavedRetry": "Review was not saved. Retry.",
+    "reviewWasNotSavedRetry": "Read status was not saved. Retry.",
     "snoozeWasNotSavedRetry": "Snooze was not saved. Retry.",
     "snoozedItemsWereNotRestoredRetry": "Snoozed items were not restored. Retry.",
     "cleared1Item": "Cleared 1 item.",
@@ -105,7 +105,7 @@
     "valueDormantWorkspacevalueHidden_other": "{{count}} dormant workspaces hidden.",
     "unusedDefaultsHidden_one": "{{count}} unused default suppressed",
     "unusedDefaultsHidden_other": "{{count}} unused defaults suppressed",
-    "pendingResultsLimit": "Showing the latest 200 of {{count}} pending results. Open a task to review its full result history.",
+    "pendingResultsLimit": "Showing the latest 200 of {{count}} unread results. Open a task to see its full result history.",
     "accessibility": {
       "closeFleetView": "Close Fleet view"
     }

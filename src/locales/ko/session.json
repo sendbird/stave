@@ -47,7 +47,7 @@
     "extraCopy82": "이 런타임에서는 에이전트 기록을 사용할 수 없습니다."
   },
   "agentAttachmentNotice": {
-    "agentAttachmentNotice": "첨부 파일이 있어 이 메시지는 하나의 턴으로 실행합니다. 자동 에이전트 실행은 시작하지 않습니다."
+    "agentAttachmentNotice": "첨부한 이미지와 맥락을 유지하며 에이전트 실행을 시작합니다. 재시도와 이어지는 실행에도 같은 자료를 사용합니다."
   },
   "autoRouteLine": {
     "autoRouteLine": "자동 →",
@@ -373,30 +373,30 @@
     "summary": "이 실행에 기록된 요약이 없습니다.",
     "runHistoryRow": "실패함",
     "runHistoryRow2": "완료됨",
-    "runHistoryRow3": "확인함",
-    "runHistoryRow4": "미확인",
-    "title": "이 산출물을 미확인으로 표시",
-    "title2": "이 산출물을 확인한 것으로 표시",
-    "runHistoryRow5": "미확인 표시",
-    "runHistoryRow6": "확인 표시",
+    "runHistoryRow3": "읽음",
+    "runHistoryRow4": "안 읽음",
+    "title": "이 산출물을 안 읽음으로 표시",
+    "title2": "이 산출물을 읽음으로 표시",
+    "runHistoryRow5": "안 읽음 표시",
+    "runHistoryRow6": "읽음 표시",
     "runHistoryRow7": "후속 요청 초안",
-    "runHistoryRow8": "확인 표시는 개인 확인용입니다. 후속 요청은 초안에 추가되며, 수정 후 직접 보내야 합니다.",
+    "runHistoryRow8": "읽음 표시는 개인 기록용입니다. 후속 요청은 초안에 추가되며, 수정 후 직접 보내야 합니다.",
     "ariaLabel": "작업 산출물",
     "taskResultReviews": "저장된 산출물",
     "taskResultReviews2": "이 작업의 저장된 답변과 보고된 파일 변경입니다. 항목을 펼쳐 내용을 읽고 다음 행동을 선택하세요.",
     "ariaLabel2": "산출물 필터",
-    "taskResultReviews3": "미확인",
+    "taskResultReviews3": "안 읽음",
     "taskResultReviews4": "전체 산출물",
     "taskResultReviews5": "불러오는 중…",
-    "taskResultReviews6": "미확인 항목 없음",
+    "taskResultReviews6": "안 읽은 항목 없음",
     "taskResultReviews7": "산출물 없음",
     "taskResultReviews8": "{{value3}}개 중 {{value1}}–{{value2}}",
     "taskResultReviews9": "다시 시도",
-    "taskResultReviews10": "미확인 산출물이 없습니다. 전체 산출물에서 저장된 답변을 다시 볼 수 있습니다.",
+    "taskResultReviews10": "안 읽은 산출물이 없습니다. 전체 산출물에서 저장된 답변을 다시 볼 수 있습니다.",
     "taskResultReviews11": "실행이 끝나면 답변이 여기에 표시됩니다. 실패한 실행도 포함되며, 알림을 지워도 기록은 유지됩니다.",
     "taskResultReviews12": "최근",
     "taskResultReviews14": "이전",
-    "extraCopy116": "확인 표시를 저장하지 못했습니다. 다시 시도하세요.",
+    "extraCopy116": "읽음 상태를 저장하지 못했습니다. 다시 시도하세요.",
     "extraCopy119": "초안에 추가했습니다. 보내기 전에 변경 사항을 설명하세요.",
     "runCount_other": "산출물 {{count}}개",
     "agentRunReport": "에이전트 실행 보고서와 후속 작업"
@@ -757,7 +757,7 @@
     "label": "승인 필요",
     "label2": "입력 필요",
     "label3": "실행 중",
-    "label4": "미확인 {{value1}}개"
+    "label4": "안 읽음 {{value1}}개"
   },
   "turnActivityStatusIcon": {
     "getTurnActivityStatusLabel": "완료됨",

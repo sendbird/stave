@@ -1,3 +1,4 @@
+import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-context";
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { capSpawnedTurnOptions } from "../../src/lib/policy/turn-policy";
 import { taskControlGate } from "./task-control-gate";
@@ -1711,6 +1712,7 @@ async function runTaskImpl(args: {
   controlMode?: TaskControlMode;
   controlOwner?: TaskControlOwner;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
+  initialContext?: AgentRunInitialContext;
   /** Set only by the agent run supervisor; the provider runtime mints the grant. */
   agentRunStage?: import("../../src/lib/agent-runs/domain").AgentRunStageIdentity;
   agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // agent run supervisor only: marks the user row
@@ -1914,6 +1916,8 @@ async function runTaskImpl(args: {
     model,
     history: existingHistory,
     userInput: args.prompt,
+    fileContexts: args.initialContext?.fileContexts,
+    imageContexts: args.initialContext?.imageContexts,
     mode: "chat",
     nativeSessionId: providerSessionCursor?.nativeSessionId ?? null,
     syncedThroughMessageId:
@@ -1934,6 +1938,7 @@ async function runTaskImpl(args: {
       ...(delegatedTaskReceiptsPart ? [delegatedTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
+      ...(args.initialContext?.retrievedContextParts ?? []),
     ],
   });
   const pendingState = buildPendingProviderTurnState({
@@ -1956,6 +1961,8 @@ async function runTaskImpl(args: {
       ? { modelInfo: resolveTurnModelInfo({ providerId: provider, runtimeOptions: args.runtimeOptions }) }
       : {}),
     content: args.prompt,
+    fileContexts: args.initialContext?.fileContexts,
+    imageContexts: args.initialContext?.imageContexts,
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
   });
   session = cacheWorkspaceSession(args.workspaceId, {

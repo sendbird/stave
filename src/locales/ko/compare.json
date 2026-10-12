@@ -154,6 +154,8 @@
     "candidatesCompleted": "후보 {{value2}}개 중 {{value1}}개 완료됨"
   },
   "compareRunStart": {
+    "startingWorkspaceChanged": "활성 워크스페이스가 바뀌었습니다. 비교할 워크스페이스에서 다시 시작해 주세요.",
+    "couldNotResolveStartingCommit": "시작 커밋을 확인하지 못했습니다. 기준 브랜치가 있는지 확인한 뒤 다시 시도해 주세요.",
     "compare": "비교 {{value1}}",
     "workspaceCreationFailed": "워크스페이스 생성에 실패했습니다.",
     "workspaceCreationDidNotReturnA": "워크스페이스 생성 결과에 후보 작업이 없습니다.",
