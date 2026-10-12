@@ -82,8 +82,52 @@ export const autoRoutingSectionStyles = stylex.create({
   },
   levelLabel: {
     color: vars["--ads-color-text"],
-    display: "block",
     fontWeight: vars["--ads-font-weight-medium"],
+  },
+  levelLabelLine: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+  },
+  levelRowOpen: {
+    borderBottomWidth: 0,
+  },
+  levelActionHead: {
+    inlineSize: vars["--ads-control-height-lg"],
+    paddingInlineEnd: 0,
+  },
+  levelActionCell: {
+    paddingBlock: vars["--ads-space-8"],
+    textAlign: "end",
+    verticalAlign: "top",
+  },
+  levelEditorCell: {
+    paddingBlockEnd: vars["--ads-space-12"],
+  },
+  levelEditor: {
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
+    borderStyle: "solid",
+    borderWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-12"],
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
+  },
+  levelEditorFooter: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars["--ads-space-12"],
+    justifyContent: "space-between",
+  },
+  levelEditorHint: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    margin: 0,
   },
   levelDescription: {
     color: vars["--ads-color-text-muted"],

@@ -1,9 +1,10 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { describeRuleConditions, RouteFlow } from "@/components/auto-routing";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
 import { Switch } from "@/components/ui/switch";
@@ -21,12 +22,15 @@ import {
   buildStarterRules,
   FOLLOW_LEVEL_TIER,
   formatResolvedRouteLabel,
+  getProfileRouteLevel,
+  isRouteLevelCustomized,
   isStarterProfileId,
   listEligibleRouteModels,
   previewRouteLevels,
   resolveRoute,
   ROUTE_COMPLEXITIES,
   ROUTE_COMPLEXITY_LABELS,
+  ROUTE_LEVEL_EFFORTS,
   ROUTE_TIER_LABELS,
   ROUTE_TIERS,
   ROUTER_ROLE_LABELS,
@@ -36,9 +40,14 @@ import {
   STANCES,
   TASK_CLASS_LABELS,
   TASK_CLASSES,
+  withRouteLevel,
   withStance,
   type AutoRoutingProfile,
   type RouteComplexity,
+  type RouteLevel,
+  type RouteLevelEffort,
+  type RouteLevelSetting,
+  type RouteTier,
   type RouteProviderSelector,
   type RouteRule,
   type RouteRuleTier,
@@ -133,16 +142,105 @@ function modelLabel(model: string) {
 
 const MANAGED_PROVIDERS = ["claude-code", "codex"] as const;
 
+const LEVEL_TIER_OPTIONS = ROUTE_TIERS.map((tier) => ({ value: tier, get label() { return ROUTE_TIER_LABELS[tier]; } }));
+const LEVEL_EFFORT_OPTIONS = ROUTE_LEVEL_EFFORTS.map((effort) => ({
+  value: effort,
+  label: `${effort.slice(0, 1).toUpperCase()}${effort.slice(1)}`,
+}));
+
+function levelEffortIndex(effort: RouteLevelEffort) {
+  return ROUTE_LEVEL_EFFORTS.indexOf(effort);
+}
+
+/**
+ * The level with one preference's effort changed. The other two move only as
+ * far as needed to keep Cost-saver ≤ Balanced ≤ Quality-first.
+ */
+function withLevelEffort(level: RouteLevel, stance: Stance, effort: RouteLevelEffort): RouteLevelSetting {
+  let [low, high] = level.effortRange;
+  let balanced = level.effort;
+  const index = levelEffortIndex(effort);
+  if (stance === "cost-saver") {
+    low = effort;
+    if (levelEffortIndex(balanced) < index) balanced = effort;
+    if (levelEffortIndex(high) < index) high = effort;
+  } else if (stance === "balanced") {
+    balanced = effort;
+    if (levelEffortIndex(low) > index) low = effort;
+    if (levelEffortIndex(high) < index) high = effort;
+  } else {
+    high = effort;
+    if (levelEffortIndex(balanced) > index) balanced = effort;
+    if (levelEffortIndex(low) > index) low = effort;
+  }
+  return { tier: level.tier, effort: balanced, effortRange: [low, high] };
+}
+
+function stanceEffort(level: RouteLevel, stance: Stance): RouteLevelEffort {
+  return stance === "cost-saver" ? level.effortRange[0] : stance === "balanced" ? level.effort : level.effortRange[1];
+}
+
+/** The model tier and the effort each preference runs, for one level. */
+function RoutingLevelEditor(args: {
+  level: RouteLevel;
+  customized: boolean;
+  onChange: (setting: RouteLevelSetting | null) => void;
+}) {
+  const { t } = useTranslation(["settingsConnections"]);
+  const { level } = args;
+  const levelLabel = ROUTE_COMPLEXITY_LABELS[level.complexity];
+  return (
+    <div className={sx(styles.levelEditor)} data-testid={`auto-routing-level-editor-${level.complexity}`}>
+      <div className={sx(styles.ruleGrid)}>
+        <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.levelTier")}>
+          <RuleSelect
+            ariaLabel={`${levelLabel} · ${t("settingsConnections:settingsDialogAutoRoutingSection.levelTier")}`}
+            value={level.tier}
+            onChange={(tier: RouteTier) =>
+              args.onChange({ tier, effort: level.effort, effortRange: level.effortRange })
+            }
+            options={LEVEL_TIER_OPTIONS}
+          />
+        </RuleField>
+        {STANCES.map((stance) => {
+          const label = t("settingsConnections:settingsDialogAutoRoutingSection.stanceEffort", { stance: STANCE_LABELS[stance] });
+          return (
+            <RuleField key={stance} label={label}>
+              <RuleSelect
+                ariaLabel={`${levelLabel} · ${label}`}
+                value={stanceEffort(level, stance)}
+                onChange={(effort: RouteLevelEffort) => args.onChange(withLevelEffort(level, stance, effort))}
+                options={LEVEL_EFFORT_OPTIONS}
+              />
+            </RuleField>
+          );
+        })}
+      </div>
+      <div className={sx(styles.levelEditorFooter)}>
+        <p className={sx(styles.levelEditorHint)}>
+          {t("settingsConnections:settingsDialogAutoRoutingSection.levelEditorHint")}
+        </p>
+        <Button type="button" variant="quiet" size="sm" disabled={!args.customized} onClick={() => args.onChange(null)}>
+          {t("settingsConnections:settingsDialogAutoRoutingSection.resetLevel")}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 /**
  * What each level runs on under the current preference and allowed models,
  * per provider. Recomputed from the same resolver the composer uses, so the
- * table is the routing policy rather than a description of it.
+ * table is the routing policy rather than a description of it. Each level
+ * opens an editor for its model tier and per-preference effort.
  */
-function RoutingLevelsTable(args: {
+export function RoutingLevelsTable(args: {
   profile: AutoRoutingProfile;
   modelsByProvider: Partial<Record<ProviderId, readonly string[]>>;
+  onLevelChange: (complexity: RouteComplexity, setting: RouteLevelSetting | null) => void;
 }) {
   const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
+  const [editing, setEditing] = useState<RouteComplexity | null>(null);
   const previews = useMemo(
     () =>
       MANAGED_PROVIDERS.map((providerId) => ({
@@ -155,6 +253,7 @@ function RoutingLevelsTable(args: {
       })),
     [args.modelsByProvider, args.profile],
   );
+  const columnCount = previews.length + 2;
   return (
     <table className={sx(styles.levelTable)} data-testid="auto-routing-levels">
       <thead>
@@ -165,31 +264,72 @@ function RoutingLevelsTable(args: {
               {getProviderLabel({ providerId })}
             </th>
           ))}
+          <th scope="col" className={sx(styles.levelHead, styles.levelActionHead)}>
+            <VisuallyHidden>{t("common:actions.edit")}</VisuallyHidden>
+          </th>
         </tr>
       </thead>
       <tbody>
-        {ROUTE_COMPLEXITIES.map((complexity, rowIndex) => {
-          const level = previews[0]?.levels[rowIndex]?.level;
+        {ROUTE_COMPLEXITIES.map((complexity) => {
+          const level = getProfileRouteLevel(args.profile, complexity);
+          const customized = isRouteLevelCustomized(args.profile, complexity);
+          const open = editing === complexity;
+          const levelLabel = ROUTE_COMPLEXITY_LABELS[complexity];
+          const editLabel = open
+            ? t("settingsConnections:settingsDialogAutoRoutingSection.closeLevel", { level: levelLabel })
+            : t("settingsConnections:settingsDialogAutoRoutingSection.editLevel", { level: levelLabel });
           return (
-            <tr key={complexity} className={sx(styles.levelRow)}>
-              <th scope="row" className={sx(styles.levelName)}>
-                <span className={sx(styles.levelLabel)}>{ROUTE_COMPLEXITY_LABELS[complexity]}</span>
-                <span className={sx(styles.levelDescription)}>{level?.description}</span>
-              </th>
-              {previews.map(({ providerId, levels }) => {
-                const entry = levels[rowIndex];
-                return (
-                  <td key={providerId} className={sx(styles.levelCell)}>
-                    {entry?.route ? (
-                      <span className={sx(styles.levelRoute)}>{formatResolvedRouteLabel(entry.route)}</span>
-                    ) : (
-                      <span className={sx(styles.levelMissing)} title={entry?.error ?? undefined}>
-                        {i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noAllowedModel")}</span>
-                    )}
+            <Fragment key={complexity}>
+              <tr className={sx(styles.levelRow, open && styles.levelRowOpen)}>
+                <th scope="row" className={sx(styles.levelName)}>
+                  <span className={sx(styles.levelLabelLine)}>
+                    <span className={sx(styles.levelLabel)}>{levelLabel}</span>
+                    {customized ? (
+                      <Badge variant="outline">{t("settingsConnections:settingsDialogAutoRoutingSection.levelCustomized")}</Badge>
+                    ) : null}
+                  </span>
+                  <span className={sx(styles.levelDescription)}>{level.description}</span>
+                </th>
+                {previews.map(({ providerId, levels }) => {
+                  const entry = levels.find((candidate) => candidate.level.complexity === complexity);
+                  return (
+                    <td key={providerId} className={sx(styles.levelCell)}>
+                      {entry?.route ? (
+                        <span className={sx(styles.levelRoute)}>{formatResolvedRouteLabel(entry.route)}</span>
+                      ) : (
+                        <span className={sx(styles.levelMissing)} title={entry?.error ?? undefined}>
+                          {i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noAllowedModel")}</span>
+                      )}
+                    </td>
+                  );
+                })}
+                <td className={sx(styles.levelActionCell)}>
+                  <Tooltip content={editLabel}>
+                    <Button
+                      type="button"
+                      variant="quiet"
+                      size="sm"
+                      aria-label={editLabel}
+                      aria-expanded={open}
+                      onClick={() => setEditing(open ? null : complexity)}
+                    >
+                      <Pencil className={sx(styles.icon)} aria-hidden="true" />
+                    </Button>
+                  </Tooltip>
+                </td>
+              </tr>
+              {open ? (
+                <tr className={sx(styles.levelRow)}>
+                  <td colSpan={columnCount} className={sx(styles.levelEditorCell)}>
+                    <RoutingLevelEditor
+                      level={level}
+                      customized={customized}
+                      onChange={(setting) => args.onLevelChange(complexity, setting)}
+                    />
                   </td>
-                );
-              })}
-            </tr>
+                </tr>
+              ) : null}
+            </Fragment>
           );
         })}
       </tbody>
@@ -624,7 +764,11 @@ export function SettingsAutoRoutingSection(props: {
         title={t("settingsConnections:settingsDialogAutoRoutingSection.routingLevels")}
         description={t("settingsConnections:settingsDialogAutoRoutingSection.mostWorkIsStandardExpertAnd")}
       >
-        <RoutingLevelsTable profile={profile} modelsByProvider={modelsByProvider} />
+        <RoutingLevelsTable
+          profile={profile}
+          modelsByProvider={modelsByProvider}
+          onLevelChange={(complexity, setting) => edit((draft) => withRouteLevel(draft, complexity, setting))}
+        />
       </SettingsCard>
       <SettingsCard
         title={t("settingsConnections:settingsDialogAutoRoutingSection.allowedModels")}

@@ -4,7 +4,7 @@ import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   FOLLOW_LEVEL_TIER,
-  getRouteLevel,
+  getProfileRouteLevel,
   listEligibleRouteModels,
   resolveRouteTierForModel,
   ROUTE_COMPLEXITY_LABELS,
@@ -237,7 +237,7 @@ function buildLadder(args: {
   const ruleTier = matchedRule?.then.tier;
   const targetTier: RouteTier =
     ruleTier === FOLLOW_LEVEL_TIER
-      ? getRouteLevel(route.complexity).tier
+      ? getProfileRouteLevel(profile, route.complexity).tier
       : ruleTier ??
         resolveRouteTierForModel(matchedRule?.then.model ?? fallbackModel ?? rungs[0]!.model);
   const targetIndex = matchedRule?.then.model
