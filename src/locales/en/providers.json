@@ -1,5 +1,7 @@
 {
   "accountUsageBlock": {
+    "includedUsage": "Included usage",
+    "ordinaryUsageUnavailable": "Codex reports that included usage is unavailable for this account. Refresh usage to check whether access has returned.",
     "session": "Session",
     "weekly": "Weekly",
     "modelWeekly": "Model weekly",

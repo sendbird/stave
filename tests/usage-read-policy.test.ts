@@ -303,3 +303,23 @@ describe("provider usage read policy", () => {
     expect(calls).toBe(2);
   });
 });
+
+describe("pushed readings during an in-flight read", () => {
+  test.each(["ok", "unavailable", "throw"])("a newer push wins over an older %s response and does not publish it", async (outcome) => {
+    const { recordPushedUsageReading } = await import("../electron/providers/rate-limits/usage-read-policy");
+    clearUsageReadState();
+    await readProviderUsage({ key: "p", now: NOW, request: async () => ok("initial"), classify });
+    let finish!: (value: Snapshot) => void, reject!: (error: Error) => void;
+    const observed: Snapshot[] = [];
+    const delayed = readProviderUsage({ key: "p", now: NOW + 200_000, request: () => new Promise<Snapshot>((yes, no) => { finish = yes; reject = no; }),
+      classify, onFreshValue: (value) => observed.push(value) });
+    recordPushedUsageReading<Snapshot>({ key: "p", now: NOW + 200_100, update: () => ok("pushed") });
+    if (outcome === "throw") reject(new Error("old request failed"));
+    else finish(outcome === "ok" ? ok("old") : failed("old"));
+    expect(await delayed).toEqual(ok("pushed"));
+    expect(observed).toEqual([]);
+    expect(readUsageReadState("p")).toMatchObject({ updatedAt: NOW + 200_100, consecutiveFailures: 0 });
+    // A subsequent completed read can report a legitimate reset/lower usage.
+    expect(await readProviderUsage({ key: "p", now: NOW + 400_000, request: async () => ok("reset"), classify })).toEqual(ok("reset"));
+  });
+});

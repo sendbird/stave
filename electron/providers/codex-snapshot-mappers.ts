@@ -556,9 +556,9 @@ function toFiniteNumber(value: unknown): number | null {
 
 /**
  * Newer Codex plans (e.g. business) report a credit-style `individualLimit`
- * (used/limit as numeric strings + `remainingPercent`) instead of the
- * primary/secondary windows — with those set to null. Normalize it so the
- * status bar has a usable used-percent either way.
+ * (used/limit as numeric strings + `remainingPercent`), sometimes alongside
+ * subscription windows. A zero spending budget is not 100% consumed usage:
+ * ordinary subscription usage may still be allowed.
  */
 function mapCodexIndividualLimit(raw: any) {
   if (!raw || typeof raw !== "object") {
@@ -567,13 +567,19 @@ function mapCodexIndividualLimit(raw: any) {
   const used = toFiniteNumber(raw.used);
   const limit = toFiniteNumber(raw.limit);
   const remainingPercent = toFiniteNumber(raw.remainingPercent);
+  if (raw.limit != null && (limit === null || limit <= 0)) {
+    return null;
+  }
+  if (raw.used != null && (used === null || used < 0)) {
+    return null;
+  }
   let usedPercent: number | null = null;
   if (used !== null && limit !== null && limit > 0) {
     usedPercent = (used / limit) * 100;
-  } else if (remainingPercent !== null) {
+  } else if (remainingPercent !== null && remainingPercent >= 0 && remainingPercent <= 100) {
     usedPercent = 100 - remainingPercent;
   }
-  if (usedPercent === null) {
+  if (usedPercent === null || !Number.isFinite(usedPercent)) {
     return null;
   }
   return {
@@ -595,6 +601,7 @@ export function mapCodexRateLimitBuckets(
         ? [response.rateLimits]
         : [];
   return buckets.map((bucket: any) => ({
+    spendControlReached: typeof bucket?.spendControlReached === "boolean" ? bucket.spendControlReached : null,
     limitId: typeof bucket?.limitId === "string" ? bucket.limitId : null,
     limitName: typeof bucket?.limitName === "string" ? bucket.limitName : null,
     planType: typeof bucket?.planType === "string" ? bucket.planType : null,

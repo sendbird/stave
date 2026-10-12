@@ -22,6 +22,7 @@ import type { AgentRunInitialContext } from "../../../src/lib/agent-runs/initial
  */
 import { readAdaptiveObservations } from "../../providers/adaptive-observations";
 import { resolveAccountUsageBlock } from "../../../src/lib/providers/account-usage-block";
+import { withRequestAccountScope } from "../../provider-accounts/runtime-scope";
 import { ProviderAccountSelectionSchema } from "../../../src/lib/providers/provider-accounts";
 import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, supportsAdaptiveEffort, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
@@ -894,7 +895,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           selected: { providerId: resources!.policy.providerId, model: adaptive.model }, requestedEffort: adaptive.effort,
           effortSource: "adaptive", inputs: { quota: observed?.quota ? "cached" : "not-provided", catalog: catalogModels ? "cached" : "frozen", availability: observed?.quota || observed?.catalog ? "cached" : "not-provided" } },
       } : await prepareRunTurn(controller.signal, () => !delegation && hasAgentOrigin(agentRun)
-        ? routeAgentTurn(agentRun, controller.signal) : Promise.resolve(null));
+        ? withRequestAccountScope(runAccountOptions(agentRun, resources), () => routeAgentTurn(agentRun, controller.signal)) : Promise.resolve(null));
       if (!startHeadSha) startHeadSha = await prepareRunTurn(controller.signal, async () => {
         const cwd = await deps.resolveWorkspacePath(agentRun.workspaceId);
         return cwd ? deps.readHeadSha(cwd).catch(() => null) : null;

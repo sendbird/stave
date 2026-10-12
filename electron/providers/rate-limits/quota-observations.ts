@@ -3,6 +3,8 @@ import type { RateLimitsSnapshotResponse } from "../../../src/lib/providers/prov
 
 export interface QuotaObservationMetadata {
   observedAt: string;
+  /** Restrict persistence to windows actually carried by a partial push. */
+  observedWindowIds?: string[];
   providerId?: "claude-code" | "codex" | "cursor" | "kiro";
   accountProfileId?: string;
   claudeAccountProfileId: string;
@@ -28,9 +30,11 @@ export function publishQuotaObservation(
   now = Date.now(),
   source?: QuotaObservationMetadata["source"],
   providerId?: QuotaObservationMetadata["providerId"],
+  observedWindowIds?: string[],
 ): QuotaObservationMetadata {
   const metadata: QuotaObservationMetadata = {
     observedAt: new Date(now).toISOString(),
+    ...(observedWindowIds ? { observedWindowIds } : {}),
     ...(providerId ? { providerId, ...(providerId === "codex" || providerId === "claude-code" ? { accountProfileId: currentProviderAccountId(providerId) } : {}) } : {}),
     claudeAccountProfileId: currentProviderAccountId("claude-code"),
     codexAccountProfileId: currentProviderAccountId("codex"),

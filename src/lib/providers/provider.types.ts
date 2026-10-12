@@ -556,8 +556,8 @@ export interface CodexRateLimitWindowSnapshot {
 
 /**
  * Credit-style usage limit reported by newer Codex plans (e.g. business):
- * `account/rateLimits/read` returns `primary`/`secondary` as null and puts
- * the real numbers in `individualLimit` (used/limit credits + reset time).
+ * May coexist with subscription windows. A zero spending budget has no usage
+ * percentage and is normalized to a null individualLimit, not 100% usage.
  */
 export interface CodexIndividualLimitSnapshot {
   usedPercent: number;
@@ -567,6 +567,8 @@ export interface CodexIndividualLimitSnapshot {
 }
 
 export interface CodexRateLimitSnapshot {
+  /** Spending control is distinct from permission to consume included usage. */
+  spendControlReached?: boolean | null;
   limitId: string | null;
   limitName: string | null;
   planType: string | null;
@@ -600,6 +602,8 @@ export interface ClaudeUsageSnapshot {
 export type CodexUsageSource = "rpc" | "unavailable";
 
 export interface CodexUsageSnapshot {
+  /** Authoritative included-use permission from a full read; null/absent means unknown. */
+  ordinaryUsageAllowed?: boolean | null;
   source: CodexUsageSource;
   buckets: CodexRateLimitSnapshot[];
   error: string | null;

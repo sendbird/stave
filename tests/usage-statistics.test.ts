@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { UsageStatisticsStore } from "../electron/persistence/usage-statistics-store";
 import { TurnSpendStore } from "../electron/persistence/turn-spend-store";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
+import { mapCodexRateLimitBuckets } from "../electron/providers/codex-snapshot-mappers";
 import { addUsageMetrics, emptyUsageMetrics, usageBucketKey, UsageStatisticsArgsSchema, UNATTRIBUTED_ACCOUNT_ID, type UsageStatisticsArgs } from "../src/lib/providers/usage-statistics";
 import { usageRange } from "../src/components/usage/usage-view.utils";
 
@@ -165,6 +166,56 @@ describe("account usage query", () => {
 });
 
 describe("quota observations", () => {
+  test("a fresh Codex snapshot retires an absent credit window without erasing history or another account", () => {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.codex = { source: "rpc", error: null, buckets: mapCodexRateLimitBuckets({ rateLimits: {
+      limitId: "codex", primary: { usedPercent: 20, windowDurationMins: 10_080 },
+      individualLimit: { limit: "100", used: "100", remainingPercent: 0 },
+    } }) };
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, "2026-10-01T12:00:01.000Z");
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_B }, "2026-10-01T12:00:01.000Z");
+    snapshot.codex.buckets = mapCodexRateLimitBuckets({ rateLimits: {
+      limitId: "codex", primary: { usedPercent: 20, windowDurationMins: 10_080 },
+      individualLimit: { limit: "0", used: "0.0", remainingPercent: 0 },
+    } });
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, "2026-10-01T12:00:30.000Z");
+    // An older read finishing later must not resurrect the retired window.
+    snapshot.codex.buckets[0]!.individualLimit = { usedPercent: 100, used: 100, limit: 100, resetsAt: null };
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, "2026-10-01T12:00:10.000Z");
+    const report = store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_A }));
+    expect(report.latestQuota.map((row) => row.windowId)).toEqual(["codex:primary"]);
+    expect(report.quota.some((row) => row.windowId === "codex:individualLimit")).toBe(true);
+    expect(store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_B })).latestQuota).toHaveLength(2);
+    snapshot.codex.buckets[0]!.individualLimit = { usedPercent: 25, used: 25, limit: 100, resetsAt: null };
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, "2026-10-01T12:01:00.000Z");
+    expect(store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_A })).latestQuota
+      .find((row) => row.windowId === "codex:individualLimit")?.usedPercent).toBe(25);
+    snapshot.codex.error = "read failed";
+    snapshot.codex.buckets = [];
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, "2026-10-01T12:01:30.000Z");
+    expect(store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_A })).latestQuota).toHaveLength(2);
+    snapshot.codex.error = null;
+    snapshot.codex.buckets = [];
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, "2026-10-01T12:02:00.000Z");
+    store = new UsageStatisticsStore(db);
+    expect(store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_A })).latestQuota).toEqual([]);
+    expect(store.read(filters({ providerId: "codex", accountProfileId: ACCOUNT_B })).latestQuota).toHaveLength(2);
+  });
+
+  test("pre-existing quota history remains readable before the first successful refresh", () => {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.codex = { source: "rpc", error: null, buckets: mapCodexRateLimitBuckets({ rateLimits: {
+      limitId: "codex", primary: { usedPercent: 20, windowDurationMins: 10_080 },
+      individualLimit: { limit: "100", used: "25" },
+    } }) };
+    store.recordQuota(snapshot, { codexAccountProfileId: ACCOUNT_A }, FROM);
+    const before = store.read(filters()).latestQuota;
+    // Simulate a database created before snapshot boundaries were persisted.
+    db.exec("DROP TABLE usage_quota_snapshots");
+    store = new UsageStatisticsStore(db);
+    expect(store.read(filters()).latestQuota).toEqual(before);
+  });
+
   test("records each account and window independently, deduplicates a minute, and never stores unavailable as zero", () => {
     const snapshot = emptyRateLimitsSnapshot();
     snapshot.claude = { source: "oauth", session: { usedPercent: 25, resetsAt: 2000000000 }, weekly: { usedPercent: 50, resetsAt: 2001000000 }, fableWeekly: null, error: null };

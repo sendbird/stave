@@ -82,6 +82,19 @@ by `QuotaReadFeedbackSchema` in the usage page. It does not expose native cache
 provenance, credentials or runtime options, and is never a persisted quota
 observation. Older hosts without feedback leave the read outcome unknown.
 
+Codex usage retains optional `ordinaryUsageAllowed` from the full account read.
+An explicit permission controls admission independently of displayed percentages;
+an unavailable permission keeps the percentage fallback. Credit spend controls
+and included-use permission are distinct. Sparse notifications preserve the last
+known permission and merge available bucket fields, rather than clearing absent
+buckets or nullable metadata. Zero credit budgets have no usage percentage.
+
+Quota observers receive the merged current account snapshot. Host-only
+`observedWindowIds` limits persistence to the windows actually reported by a
+push; only successful complete reads retire absent windows. A read superseded
+by a push must not replace the cache or publish a new full observation, including
+when the older read fails. Native cache hits are not new observations.
+
 ## Provider Model Catalog Contract
 
 Runtime model catalogs cross the same process seam as provider turns:
@@ -142,6 +155,11 @@ Only detail/report reads load terminal events for routing observations; usage
 aggregation and Insights do not. Missing terminal events remain unknown through
 a separate observation reader; the supervisor's existing stop fallback is unchanged.
 No additional inference or provider reads run to fill those fields.
+
+Host-started route classification enters the run's captured account scope before
+utility inference, including continuation and restart. Sanitizing utility runtime
+options does not remove that scope. Readiness caches and in-flight checks use the
+effective provider account as part of their identity.
 
 Role coverage is a separate lifecycle contract:
 

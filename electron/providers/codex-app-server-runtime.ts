@@ -1,3 +1,4 @@
+import { mapCodexRateLimitUpdates } from "./codex-rate-limit-updates";
 import { mapCodexAsyncQuestions } from "./codex-async-questions";
 import { getProviderAccountRegistry } from "../provider-accounts/registry";
 import { currentProviderAccountId, providerAccountKey, withProviderAccountScope } from "../provider-accounts/runtime-scope";
@@ -126,7 +127,6 @@ import {
 import { recordCodexRateLimits } from "./codex-rate-limits-cache";
 import {
   mapCodexPluginDetail,
-  mapCodexRateLimitBuckets,
   mapCodexThreadSnapshot,
 } from "./codex-snapshot-mappers";
 import {
@@ -2757,7 +2757,7 @@ export async function streamCodexWithAppServer(
             // the status bar read fresh limits without an active
             // `account/rateLimits/read` while the user is working.
             recordCodexRateLimits({
-              buckets: mapCodexRateLimitBuckets(params),
+              buckets: mapCodexRateLimitUpdates(params),
               source: "notification",
             });
             return;

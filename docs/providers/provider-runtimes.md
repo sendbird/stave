@@ -1345,7 +1345,9 @@ already paid for, which is strictly better than any poll: newer, authoritative,
 and free.
 
 - **Codex.** The App Server pushes `account/rateLimits/updated` on every model
-  response, recorded in `electron/providers/codex-rate-limits-cache.ts`.
+  response, recorded in `electron/providers/codex-rate-limits-cache.ts`. These
+  sparse updates merge into the account's existing buckets. Missing fields do
+  not mean that another window or spending control has recovered.
 - **Claude.** The SDK emits `rate_limit_event` carrying the utilization and
   reset time of the currently binding window — the same numbers Anthropic
   returns in its `anthropic-ratelimit-unified-*` response headers.
@@ -1359,6 +1361,21 @@ and only for windows it can name unambiguously. Model-scoped weekly limits and
 the extra-usage credit budget are skipped rather than guessed into
 `fableWeekly`. The event reports a 0-1 fraction while the snapshot is on the
 0-100 scale, and that conversion lives in one place for the same reason.
+
+An older in-flight read cannot overwrite a newer push or record it as a new
+full snapshot. A repeated valid observation still confirms freshness. Usage
+history records only the windows carried by the push; a successful full read
+can retire windows no longer reported by the provider.
+
+When a Codex full read includes `ordinaryUsageAllowed`, Stave uses that explicit
+permission for new-work admission. Included allowance and individual credit
+spending limits remain separate: a zero credit budget has no consumed percentage,
+and a credit percentage does not override permission to use included allowance.
+An explicit denial requires a subsequent provider permission read to recover;
+low percentages or an elapsed reset time alone do not prove recovery. The
+optional permission and sparse-update semantics were verified against the local
+Codex CLI 0.162.1 generated protocol. Older responses without permission retain
+the usage-window fallback; this does not change the supported runtime baseline.
 
 Cursor and Kiro have no push path, so for them every reading costs a request and
 the cadence above is the only thing bounding it.

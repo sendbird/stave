@@ -92,6 +92,7 @@ function collectClaudeWindows(
 function collectCodexWindows(
   buckets: readonly CodexRateLimitSnapshot[],
   model?: string,
+  ordinaryUsageAllowed?: boolean | null,
 ): AccountUsageLimitWindow[] {
   const windows: AccountUsageLimitWindow[] = [];
   for (const bucket of buckets) {
@@ -123,7 +124,7 @@ function collectCodexWindows(
         resetsAt: bucket.secondary.resetsAt,
       });
     }
-    if (bucket.individualLimit) {
+    if (bucket.individualLimit && ordinaryUsageAllowed !== true) {
       windows.push({
         label,
         usedPercent: bucket.individualLimit.usedPercent,
@@ -177,7 +178,7 @@ export function collectProviderAccountUsageWindows(args: {
   if (args.providerId === "codex") {
     return snapshot.codex.source === "unavailable"
       ? null
-      : collectCodexWindows(snapshot.codex.buckets, args.model);
+      : collectCodexWindows(snapshot.codex.buckets, args.model, snapshot.codex.ordinaryUsageAllowed);
   }
   if (args.providerId === "cursor") {
     if (!snapshot.cursor || snapshot.cursor.source === "unavailable") {
@@ -285,9 +286,19 @@ export function resolveAccountUsageBlock(args: {
   now?: number;
 }): AccountUsageBlock | null {
   const now = args.now ?? Date.now();
+  const codex = args.providerId === "codex" ? args.snapshot?.codex : undefined;
+  if (codex?.source !== "unavailable" && codex?.ordinaryUsageAllowed === true) return null;
   const windows = collectProviderAccountUsageWindows(args);
   if (!windows) {
     return null;
+  }
+  if (codex?.ordinaryUsageAllowed === false) {
+    return { providerId: "codex", providerLabel: "Codex",
+      windowLabel: i18n.t("providers:accountUsageBlock.includedUsage"),
+      usedPercent: [...windows].sort(compareUsageWindows)[0]?.usedPercent ?? 0,
+      resetsAt: null,
+      message: i18n.t("providers:accountUsageBlock.ordinaryUsageUnavailable"),
+    };
   }
   const exhausted = windows
     .filter((window) =>

@@ -72,7 +72,7 @@ describe("claude turn-time rate-limit observations", () => {
     ).toEqual({ usedPercent: 20, resetsAt: 12_345 });
   });
 
-  test("nothing to apply reports no change rather than a fake refresh", () => {
+  test("unusable observations are ignored but repeated values confirm freshness", () => {
     expect(
       applyClaudeRateLimitObservation({
         snapshot: snapshot(),
@@ -84,7 +84,7 @@ describe("claude turn-time rate-limit observations", () => {
         snapshot: snapshot(),
         observation: { rateLimitType: "five_hour", utilization: 0.4 },
       }),
-    ).toBeNull();
+    ).toEqual(snapshot());
     expect(
       applyClaudeRateLimitObservation({
         snapshot: snapshot({ source: "unavailable" }),

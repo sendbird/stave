@@ -150,8 +150,8 @@ export async function getRateLimitsSnapshot(args: {
       forceFloorMs,
       classify: classifySnapshot,
       onResult: (feedback) => { reads[providerId] = feedback; },
-      request: async () => {
-        const fresh = await request();
+      request,
+      onFreshValue: (fresh) => {
         const provenance = key === "codex"
           ? readCodexUsageObservation(fresh as RateLimitsSnapshotResponse["codex"])
           : undefined;
@@ -162,7 +162,6 @@ export async function getRateLimitsSnapshot(args: {
           const metadata = publishQuotaObservation(snapshot, provenance?.observedAt, undefined, providerId);
           args.onObservation?.(snapshot, metadata);
         }
-        return fresh;
       },
     }).catch(() => empty[key]);
     if (isOptionalProvider(providerId) && readKey !== (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)) {

@@ -115,10 +115,10 @@ test("native Claude observations save only the observed account window during ma
     expect(samples().find(s => s.accountProfileId === "account-b" && s.windowId === "session"))
       .toMatchObject({ usedPercent: 25, observedAt: "2026-10-01T12:00:00.000Z", source: "oauth" });
     now += 10_000;
-    push("five_hour", 0.6); // No change is not a new observation.
+    push("five_hour", 0.6); // Repeated values confirm freshness; the minute sample is updated.
     push("seven_day_opus", 0.9); // A model-specific window cannot be attributed to Fable.
     expect(samples().find(s => s.accountProfileId === "account-a" && s.windowId === "session")?.observedAt)
-      .toBe("2026-10-01T12:00:30.000Z");
+      .toBe("2026-10-01T12:00:41.000Z");
     expect(fixture.store.read(fixture.filters).quota).toHaveLength(6);
   } finally {
     clock.mockRestore();
@@ -197,4 +197,30 @@ test("Codex native cache reads preserve push time and account without adding obs
     clock.mockRestore();
     fixture.close();
   }
+});
+
+test("a repeated Claude push supersedes a pending read without losing other windows or persisting the old response", async () => {
+  const { recordClaudeRateLimitObservation } = await import("../electron/providers/rate-limits/claude-rate-limits-observation");
+  const fixture = quotaFixture();
+  let now = Date.parse("2026-10-01T12:00:00Z");
+  const clock = spyOn(Date, "now").mockImplementation(() => now);
+  const current = { source: "oauth" as const, error: null, session: { usedPercent: 100, resetsAt: 2_000_000_000 },
+    weekly: { usedPercent: 30, resetsAt: 2_000_000_000 }, fableWeekly: null };
+  let request = async () => current;
+  const read = () => getRateLimitsSnapshot({ providers: ["claude-code"], force: true, reason: "dispatch-guard", fetchers: { claude: () => request() } });
+  try {
+    await read();
+    now += 60_000;
+    let finish!: (value: typeof current) => void;
+    request = () => new Promise((resolve) => { finish = resolve; });
+    const pending = read();
+    now += 1000;
+    recordClaudeRateLimitObservation({ observation: { rateLimitType: "five_hour", utilization: 1 } });
+    finish({ ...current, session: { ...current.session, usedPercent: 20 } });
+    expect((await pending).claude).toEqual(current);
+    const rows = fixture.store.read(fixture.filters).latestQuota;
+    expect(rows.find((row) => row.windowId === "session")).toMatchObject({ usedPercent: 100, observedAt: new Date(now).toISOString() });
+    expect(rows.find((row) => row.windowId === "weekly")?.observedAt).toBe("2026-10-01T12:00:00.000Z");
+    expect(fixture.store.read(fixture.filters).quota).toHaveLength(3);
+  } finally { clock.mockRestore(); fixture.close(); }
 });

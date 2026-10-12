@@ -159,6 +159,8 @@ export async function readProviderUsage<T>(args: {
   ttlMs?: number;
   forceFloorMs?: number;
   onResult?: (feedback: QuotaReadFeedback) => void;
+  /** Called once for an accepted network response, never for a superseded or cached value. */
+  onFreshValue?: (value: T) => void;
 }): Promise<T> {
   const now = args.now ?? Date.now();
   const ttlMs = args.ttlMs ?? USAGE_READ_TTL_MS;
@@ -203,9 +205,9 @@ export async function readProviderUsage<T>(args: {
   const pending = inFlight.get(args.key);
   if (pending) {
     try {
-      const value = await pending as T;
-      report("in-flight", value);
-      return value;
+      const result = await pending as { value: T; fresh: boolean };
+      report(result.fresh ? "in-flight" : "provider-cache", result.value);
+      return result.value;
     } catch (error) {
       report("in-flight");
       throw error;
@@ -215,6 +217,9 @@ export async function readProviderUsage<T>(args: {
   const request = (async () => {
     try {
       const value = await args.request();
+      const current = entries.get(args.key);
+      if (current && current !== entry && current.hasValue) return { value: current.value as T, fresh: false };
+      const completedAt = args.now ?? Date.now();
       const failed = args.classify(value) === "failed";
       const consecutiveFailures = failed
         ? (entries.get(args.key)?.consecutiveFailures ?? 0) + 1
@@ -225,12 +230,15 @@ export async function readProviderUsage<T>(args: {
         lastOk: failed ? previous?.lastOk : value,
         hasValue: true,
         error: undefined,
-        updatedAt: now,
+        updatedAt: completedAt,
         consecutiveFailures,
-        nextAttemptAt: now + usageReadBackoffMs(consecutiveFailures),
+        nextAttemptAt: completedAt + usageReadBackoffMs(consecutiveFailures),
       });
-      return value;
+      args.onFreshValue?.(value);
+      return { value, fresh: true };
     } catch (error) {
+      const current = entries.get(args.key);
+      if (current && current !== entry && current.hasValue) return { value: current.value as T, fresh: false };
       // A fetcher that throws is still a failed read and must not escape the
       // backoff accounting, or a throwing provider would retry every tick.
       // A first-ever read that throws still has to start the backoff, or a
@@ -255,9 +263,9 @@ export async function readProviderUsage<T>(args: {
 
   inFlight.set(args.key, request);
   try {
-    const value = await request;
-    report("request", value);
-    return value;
+    const result = await request;
+    report(result.fresh ? "request" : "provider-cache", result.value);
+    return result.value;
   } catch (error) {
     report("request");
     throw error;
