@@ -21,12 +21,12 @@ test("run history opens as a filterable list with its purpose stated up front", 
   expect(html).toContain("Saved outputs");
   expect(html).toContain("Saved answers and reported file changes");
   expect(html).toContain("All outputs");
-  expect(html).toContain("Unchecked");
-  expect(html).toMatch(/aria-pressed="true"[^>]*><span[^>]*>Unchecked/);
-  expect(html).toMatch(/aria-pressed="false"[^>]*><span[^>]*>All outputs/);
-  expect(html.indexOf("Unchecked")).toBeLessThan(html.indexOf("All outputs"));
+  expect(html).toContain("Unread");
+  expect(html).toMatch(/aria-pressed="false"[^>]*><span[^>]*>Unread/);
+  expect(html).toMatch(/aria-pressed="true"[^>]*><span[^>]*>All outputs/);
+  expect(html.indexOf("Unread")).toBeLessThan(html.indexOf("All outputs"));
   expect(html).not.toContain("Current changes");
-  expect(html).not.toContain("Mark checked");
+  expect(html).not.toContain("Mark read");
 });
 
 test("run history rows lead with the result before review metadata", () => {
@@ -61,7 +61,7 @@ test("run history rows lead with the result before review metadata", () => {
 
   expect(html.indexOf(result.summary)).toBeLessThan(html.indexOf("Finished"));
   expect(html.indexOf(result.summary)).toBeLessThan(
-    html.indexOf("Unchecked"),
+    html.indexOf("Unread"),
   );
 });
 

@@ -121,7 +121,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       stave.page.getByRole("navigation", { name: "Task activity shortcuts" }),
     ).toHaveCount(0);
     await openTaskTab(/^Outputs/);
-    await expect(results.getByRole("button", { name: "Unchecked" })).toHaveAttribute("aria-pressed", "true");
+    await expect(results.getByRole("button", { name: "All outputs" })).toHaveAttribute("aria-pressed", "true");
     await expect(
       stave.page.getByRole("tablist", { name: "Task inspection" }),
     ).toHaveCount(0);
@@ -137,7 +137,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       "Added to your draft",
     );
     await expect(
-      results.getByRole("button", { name: /^The saved result survives/ }).getByText("Unchecked", { exact: true }),
+      results.getByRole("button", { name: /^The saved result survives/ }).getByText("Unread", { exact: true }),
     ).toBeVisible();
     await expect(
       results.getByText("The saved result survives notification cleanup."),
@@ -171,13 +171,15 @@ test("result review survives notification cleanup and renderer restart, with exp
       "Changed after review",
     );
     await results
-      .getByRole("button", { name: "Mark checked", exact: true })
+      .getByRole("button", { name: "Mark read", exact: true })
       .click();
-    await expect(results.getByText("No unchecked outputs. Open All outputs to revisit saved answers.")).toBeVisible();
+    await expect(results.getByText("The saved result survives notification cleanup.")).toBeVisible();
+    await results.getByRole("button", { name: "Unread", exact: true }).click();
+    await expect(results.getByText("No unread outputs. Open All outputs to revisit saved answers.")).toBeVisible();
     await results.getByRole("button", { name: "All outputs" }).click();
     await results.getByText("The saved result survives notification cleanup.").click();
     await expect(
-      results.getByRole("button", { name: "Mark unchecked", exact: true }),
+      results.getByRole("button", { name: "Mark unread", exact: true }),
     ).toBeVisible();
     await stave.page.reload();
     // Wait for the restored task before inspecting its persisted panel layout.
@@ -187,17 +189,17 @@ test("result review survives notification cleanup and renderer restart, with exp
       stave.page.getByRole("heading", { name: "Task", exact: true }),
     ).toBeVisible();
     await openTaskTab(/^Outputs/);
-    await expect(results.getByRole("button", { name: "Unchecked" })).toHaveAttribute("aria-pressed", "true");
+    await expect(results.getByRole("button", { name: "All outputs" })).toHaveAttribute("aria-pressed", "true");
     await results.getByRole("button", { name: "All outputs" }).click();
     await results.getByText("The saved result survives notification cleanup.").click();
     await expect(
-      results.getByRole("button", { name: "Mark unchecked", exact: true }),
+      results.getByRole("button", { name: "Mark unread", exact: true }),
     ).toBeVisible();
     await results
-      .getByRole("button", { name: "Mark unchecked", exact: true })
+      .getByRole("button", { name: "Mark unread", exact: true })
       .click();
     await expect(
-      results.getByRole("button", { name: "Mark checked", exact: true }),
+      results.getByRole("button", { name: "Mark read", exact: true }),
     ).toBeVisible();
     await expect(
       results.getByText("The captured answer remains attached to this run.", {
