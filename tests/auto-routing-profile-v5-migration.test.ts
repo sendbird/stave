@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  AUTO_ROUTING_PROFILE_VERSION,
   buildStarterProfile,
   buildStarterRules,
   cloneProfileAsCustom,
@@ -24,7 +25,7 @@ describe("auto routing profile version 5 upgrade", () => {
       signals: { classifier: false, skillRouting: true, budgetGuard: true, safetyEscalation: true, providerSwitch: true },
     };
     const upgraded = validateProfile(stored);
-    expect(upgraded.version).toBe(5);
+    expect(upgraded.version).toBe(AUTO_ROUTING_PROFILE_VERSION);
     expect(upgraded.rules).toEqual(buildStarterRules());
     expect(upgraded.stance).toBe("cost-saver");
     expect(upgraded.eligibleModelsByProvider).toEqual({ codex: ["gpt-6.1-sol", "gpt-6-luna"] });
@@ -38,7 +39,7 @@ describe("auto routing profile version 5 upgrade", () => {
     expect(validateProfile(custom).rules.map((rule) => rule.id)).toEqual(V4_STARTER_RULES.map((rule) => rule.id));
   });
 
-  test("a version 5 starter keeps its saved rules", () => {
+  test("a current starter keeps its saved rules", () => {
     const starter = buildStarterProfile("starter-balanced");
     const edited = { ...starter, rules: starter.rules.slice(1) };
     expect(validateProfile(edited).rules).toEqual(starter.rules.slice(1));

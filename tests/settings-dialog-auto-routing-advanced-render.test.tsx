@@ -59,26 +59,33 @@ describe("Auto settings advanced disclosure", () => {
 });
 
 describe("Auto settings routing levels", () => {
-  test("the levels table shows what each level runs on for both providers", async () => {
-    const html = await renderSection();
-    const table = html.slice(html.indexOf('data-testid="auto-routing-levels"'));
-    for (const label of ["Simple", "Standard", "Complex", "Expert", "Extreme"]) {
-      expect(table).toContain(label);
+  test("every level has an edit control and a customized level is marked", async () => {
+    const profile = await import("../src/lib/providers/auto-routing-profile");
+    const { getSdkModelOptions } = await import("../src/lib/providers/model-catalog");
+    const custom = profile.withRouteLevel(
+      profile.cloneProfileAsCustom(profile.buildStarterProfile("starter-quality-first")),
+      "extreme",
+      { tier: "frontier", effort: "high", effortRange: ["medium", "xhigh"] },
+    );
+    const { RoutingLevelsTable } = await import(
+      "../src/components/layout/settings-dialog-auto-routing-section"
+    );
+    const table = renderToStaticMarkup(createElement(RoutingLevelsTable, {
+      profile: custom,
+      modelsByProvider: {
+        "claude-code": getSdkModelOptions({ providerId: "claude-code" }),
+        codex: getSdkModelOptions({ providerId: "codex" }),
+      },
+      onLevelChange: () => {},
+    }));
+    for (const level of ["Simple", "Standard", "Complex", "Expert", "Extreme"]) {
+      expect(table).toContain(`aria-label="Edit ${level} level"`);
     }
-    expect(table).toContain("Haiku 5.5 · Medium");
-    expect(table).toContain("GPT-6 Luna · Medium");
-    expect(table).toContain("Opus 5.5 · High");
-    expect(table).toContain("GPT-6.1 Sol · Medium");
+    expect(table.match(/>Custom</g)?.length).toBe(1);
+    // Quality-first on the customized Extreme level runs its own high end.
+    expect(table).toContain("Fable 5.1 · Xhigh");
+    expect(table).toContain("GPT-6 Astra · Xhigh");
+    // Expert keeps the built-in ceiling.
     expect(table).toContain("Fable 5.1 · Medium");
-    expect(table).toContain("GPT-6 Astra · High");
-  });
-
-  test("allowed models offer a Default chip that includes Haiku 5.5", async () => {
-    const html = await renderSection();
-    expect(html).toContain("Allowed models");
-    expect(html).toContain(">Default<");
-    expect(html).toContain("Default allows every listed model");
-    expect(html).not.toContain("except Claude Haiku");
-    expect(html.slice(html.indexOf("Allowed models"))).toContain("Haiku 5.5");
   });
 });

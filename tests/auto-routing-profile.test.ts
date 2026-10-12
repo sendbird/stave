@@ -363,7 +363,7 @@ describe("validation and migration", () => {
       autoRoutingEligibleCodexModels: [],
     });
     expect(profile).toMatchObject({
-      version: 5,
+      version: 6,
       id: "starter-cost-saver",
       stance: "cost-saver",
       budgetGuard: { stepDownAt: 60, cheapestAt: 90 },

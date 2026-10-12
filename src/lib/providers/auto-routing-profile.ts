@@ -26,7 +26,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 /* Schema                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export const AUTO_ROUTING_PROFILE_VERSION = 5 as const;
+export const AUTO_ROUTING_PROFILE_VERSION = 6 as const;
 
 export const TASK_CLASSES = [
   "plan",
@@ -171,6 +171,18 @@ export interface RouterSignalToggles {
   providerSwitch: boolean;
 }
 
+/**
+ * A user's setting for one level: the rung its model comes from and its
+ * effort range. Absent fields of a level keep `ROUTE_LEVELS`.
+ */
+export interface RouteLevelSetting {
+  tier: RouteTier;
+  /** Balanced-stance effort, inside `effortRange`. */
+  effort: RouteLevelEffort;
+  /** [cost-saver end, quality-first end], lowest first. */
+  effortRange: readonly [RouteLevelEffort, RouteLevelEffort];
+}
+
 export interface AutoRoutingProfile {
   version: typeof AUTO_ROUTING_PROFILE_VERSION;
   id: string;
@@ -182,6 +194,8 @@ export interface AutoRoutingProfile {
   eligibleModelsByProvider: Partial<Record<ProviderId, string[]>>;
   budgetGuard: BudgetGuard;
   signals: RouterSignalToggles;
+  /** Customized levels; a level that is absent runs on `ROUTE_LEVELS`. */
+  levels: Partial<Record<RouteComplexity, RouteLevelSetting>>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -250,6 +264,12 @@ const CACHE_PRESERVING_EFFORT_MODELS: ReadonlySet<string> = new Set([
 ]);
 
 const CLAUDE_EFFORT_SCALE = ["low", "medium", "high", "xhigh", "max"] as const;
+/**
+ * Efforts a level may name. One scale for both providers, so it stops at the
+ * top Claude effort; a rule can still ask Codex for `ultra`.
+ */
+export const ROUTE_LEVEL_EFFORTS = CLAUDE_EFFORT_SCALE;
+export type RouteLevelEffort = (typeof ROUTE_LEVEL_EFFORTS)[number];
 const CODEX_EFFORT_SCALE = [
   "low",
   "medium",
@@ -428,14 +448,14 @@ export interface RouteLevel {
   complexity: RouteComplexity;
   /** Plain-language description of the work this level covers. */
   description: string;
-  /** Rung the level's default rule asks for. */
+  /** Rung the level's model comes from. */
   tier: RouteTier;
   /** Weakest rung the level may land on, under budget pressure included. */
   floor: RouteTier;
   /** Balanced-stance effort. */
-  effort: string;
+  effort: RouteLevelEffort;
   /** Effort range a stance may move within: [cost-saver end, quality-first end]. */
-  effortRange: readonly [string, string];
+  effortRange: readonly [RouteLevelEffort, RouteLevelEffort];
 }
 
 /**
@@ -446,10 +466,12 @@ export interface RouteLevel {
  *   Standard  flagship (Opus 5.5 / GPT-6.1 Sol)          medium – high
  *   Complex   flagship                                   high – xhigh
  *   Expert    frontier (Fable 5.1 / GPT-6 Astra)         low – medium
- *   Extreme   frontier                                   high – xhigh
+ *   Extreme   frontier                                   medium – high
  *
  * Most work is Standard. The frontier rungs need explicit evidence from the
- * classifier; local rules never infer them.
+ * classifier; local rules never infer them. The frontier models stop at high
+ * effort by default: their xhigh costs far more than it adds for most work, so
+ * reaching it is a level setting the user chooses (`profile.levels`).
  */
 export const ROUTE_LEVELS: readonly RouteLevel[] = [
   {
@@ -490,12 +512,104 @@ export const ROUTE_LEVELS: readonly RouteLevel[] = [
     tier: "frontier",
     floor: "frontier",
     effort: "high",
-    effortRange: ["high", "xhigh"],
+    effortRange: ["medium", "high"],
   },
 ];
 
+/** The built-in level, ignoring any user setting. */
 export function getRouteLevel(complexity: RouteComplexity): RouteLevel {
   return ROUTE_LEVELS.find((level) => level.complexity === complexity) ?? ROUTE_LEVELS[1]!;
+}
+
+function levelEffortIndex(effort: string) {
+  return (ROUTE_LEVEL_EFFORTS as readonly string[]).indexOf(effort);
+}
+
+/**
+ * The level as this profile runs it: the user's setting over the built-in
+ * one. The floor never sits above the chosen rung, so lowering a level's rung
+ * also lowers how far the budget guard may step it down to.
+ */
+export function getProfileRouteLevel(
+  profile: Pick<AutoRoutingProfile, "levels">,
+  complexity: RouteComplexity,
+): RouteLevel {
+  const base = getRouteLevel(complexity);
+  const setting = profile.levels?.[complexity];
+  if (!setting) {
+    return base;
+  }
+  return {
+    complexity: base.complexity,
+    get description() { return base.description; },
+    tier: setting.tier,
+    floor: ROUTE_TIERS[Math.max(routeTierIndex(base.floor), routeTierIndex(setting.tier))] ?? base.floor,
+    effort: setting.effort,
+    effortRange: setting.effortRange,
+  };
+}
+
+/** Every level as this profile runs it, lowest first. */
+export function listProfileRouteLevels(profile: Pick<AutoRoutingProfile, "levels">): RouteLevel[] {
+  return ROUTE_COMPLEXITIES.map((complexity) => getProfileRouteLevel(profile, complexity));
+}
+
+/** True when the profile carries its own setting for the level. */
+export function isRouteLevelCustomized(
+  profile: Pick<AutoRoutingProfile, "levels">,
+  complexity: RouteComplexity,
+): boolean {
+  return Boolean(profile.levels?.[complexity]);
+}
+
+/**
+ * Coerces a stored or edited level setting: a known rung, a range ordered
+ * lowest first, and an effort inside that range. `null` when the value is not
+ * a level setting, or it equals the built-in level (nothing to store).
+ */
+export function normalizeRouteLevelSetting(
+  complexity: RouteComplexity,
+  value: unknown,
+): RouteLevelSetting | null {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+  const base = getRouteLevel(complexity);
+  const candidate = value as { tier?: unknown; effort?: unknown; effortRange?: unknown };
+  const tier = ROUTE_TIERS.includes(candidate.tier as RouteTier) ? (candidate.tier as RouteTier) : base.tier;
+  const rawRange = Array.isArray(candidate.effortRange) ? candidate.effortRange : [];
+  const bound = (entry: unknown, fallback: RouteLevelEffort) =>
+    levelEffortIndex(entry as string) >= 0 ? (entry as RouteLevelEffort) : fallback;
+  const first = bound(rawRange[0], base.effortRange[0]);
+  const second = bound(rawRange[1], base.effortRange[1]);
+  const [low, high] = levelEffortIndex(first) <= levelEffortIndex(second) ? [first, second] : [second, first];
+  const requested = bound(candidate.effort, base.effort);
+  const effort = ROUTE_LEVEL_EFFORTS[
+    clampIndex(levelEffortIndex(requested), levelEffortIndex(low), levelEffortIndex(high))
+  ] ?? low;
+  if (
+    tier === base.tier
+    && effort === base.effort
+    && low === base.effortRange[0]
+    && high === base.effortRange[1]
+  ) {
+    return null;
+  }
+  return { tier, effort, effortRange: [low, high] };
+}
+
+/**
+ * The profile with one level set, or reset to the built-in level when the
+ * setting is `null` or matches it.
+ */
+export function withRouteLevel(
+  profile: AutoRoutingProfile,
+  complexity: RouteComplexity,
+  setting: RouteLevelSetting | null,
+): AutoRoutingProfile {
+  const { [complexity]: _previous, ...rest } = profile.levels ?? {};
+  const normalized = setting ? normalizeRouteLevelSetting(complexity, setting) : null;
+  return { ...profile, levels: normalized ? { ...rest, [complexity]: normalized } : rest };
 }
 
 function complexityIndex(complexity: RouteComplexity) {
@@ -508,26 +622,35 @@ export function maxComplexity(left: RouteComplexity, right: RouteComplexity): Ro
 }
 
 const LEVEL_RULE_REASONS: Readonly<Record<RouteComplexity, string>> = {
-  get low() { return i18n.t("providers:autoRoutingProfile.aClearlyBoundedTaskRunsOn"); },
-  get medium() { return i18n.t("providers:autoRoutingProfile.ordinaryWorkRunsOnTheFlagship"); },
-  get high() { return i18n.t("providers:autoRoutingProfile.complexWorkRunsOnTheFlagship"); },
-  get expert() { return i18n.t("providers:autoRoutingProfile.expertDesignOrVerificationWorkRuns"); },
-  get extreme() { return i18n.t("providers:autoRoutingProfile.exceptionalReasoningRunsOnTheFrontier"); },
+  get low() { return i18n.t("providers:autoRoutingProfile.levelRuleSimple"); },
+  get medium() { return i18n.t("providers:autoRoutingProfile.levelRuleStandard"); },
+  get high() { return i18n.t("providers:autoRoutingProfile.levelRuleComplex"); },
+  get expert() { return i18n.t("providers:autoRoutingProfile.levelRuleExpert"); },
+  get extreme() { return i18n.t("providers:autoRoutingProfile.levelRuleExtreme"); },
+};
+
+/** Rule id of each level's starter rule. */
+export const LEVEL_RULE_IDS: Readonly<Record<RouteComplexity, string>> = {
+  low: "bounded",
+  medium: "standard",
+  high: "complex",
+  expert: "expert",
+  extreme: "extreme",
 };
 
 /**
  * One shared role table; the three starters differ only by stance. The two
  * frontier levels come first so a sensitive expert task keeps its rung; a
- * sensitive task otherwise runs at least as Complex work.
+ * sensitive task otherwise runs at least as Complex work. A level rule names
+ * no rung or effort of its own: it follows the level, so editing a level in
+ * Settings changes what its rule runs.
  */
 export function buildStarterRules(): RouteRule[] {
-  const levelRule = (complexity: RouteComplexity) => {
-    const level = getRouteLevel(complexity);
-    return rule(complexity === "low" ? "bounded" : complexity === "medium" ? "standard" : complexity === "high" ? "complex" : complexity,
+  const levelRule = (complexity: RouteComplexity) =>
+    rule(LEVEL_RULE_IDS[complexity],
       { complexity },
-      { providerId: "any-eligible", tier: level.tier, effort: level.effort },
+      { providerId: "any-eligible", tier: FOLLOW_LEVEL_TIER },
       LEVEL_RULE_REASONS[complexity]);
-  };
   return [
     rule("delegate-default", { role: "delegate" },
       { providerId: "any-eligible", tier: "flagship", effort: "medium" },
@@ -589,6 +712,7 @@ export function buildStarterProfile(id: StarterProfileId): AutoRoutingProfile {
     eligibleModelsByProvider: {},
     budgetGuard: { ...STANCE_BUDGET_GUARD[stance] },
     signals: buildDefaultSignalToggles(),
+    levels: {},
   };
 }
 
@@ -654,6 +778,12 @@ function structuredCloneProfile(profile: AutoRoutingProfile): AutoRoutingProfile
     ),
     budgetGuard: { ...profile.budgetGuard },
     signals: { ...profile.signals },
+    levels: Object.fromEntries(
+      Object.entries(profile.levels ?? {}).map(([key, value]) => [
+        key,
+        { ...value, effortRange: [...value.effortRange] as RouteLevelSetting["effortRange"] },
+      ]),
+    ),
   };
 }
 
@@ -775,6 +905,7 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     eligibleModelsByProvider?: unknown;
     budgetGuard?: unknown;
     signals?: unknown;
+    levels?: unknown;
   };
   const stance = STANCES.includes(candidate.stance as Stance)
     ? (candidate.stance as Stance)
@@ -788,11 +919,20 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     (typeof candidate.version !== "number" || candidate.version < AUTO_ROUTING_PROFILE_VERSION)
     && isStarterProfileId(rawId);
   // end temporary-migration: auto-routing-profile-v5
-  const rules = Array.isArray(candidate.rules) && !staleStarterTable
+  const storedRules = Array.isArray(candidate.rules) && !staleStarterTable
     ? candidate.rules
         .map((entry, index) => normalizeRule(entry, index))
         .filter((entry): entry is RouteRule => entry !== null)
     : starter.rules;
+  // temporary-migration: auto-routing-profile-v6
+  // Version 6 made levels editable. A level rule a custom table copied from
+  // the version 5 starter named its level's rung and effort outright, which
+  // would hide a level edit; it now follows the level. Remove in 0.28.0
+  // (registered in config/temporary-migrations.json).
+  const rules = typeof candidate.version !== "number" || candidate.version < AUTO_ROUTING_PROFILE_VERSION
+    ? storedRules.map(followLevelIfV5StarterRule)
+    : storedRules;
+  // end temporary-migration: auto-routing-profile-v6
   const seenRuleIds = new Set<string>();
   const dedupedRules = rules.map((entry) => {
     let id = entry.id;
@@ -874,6 +1014,19 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
         : defaults.providerSwitch,
   };
 
+  const levels: Partial<Record<RouteComplexity, RouteLevelSetting>> = {};
+  if (candidate.levels && typeof candidate.levels === "object") {
+    for (const complexity of ROUTE_COMPLEXITIES) {
+      const setting = normalizeRouteLevelSetting(
+        complexity,
+        (candidate.levels as Record<string, unknown>)[complexity],
+      );
+      if (setting) {
+        levels[complexity] = setting;
+      }
+    }
+  }
+
   const id = rawId ? rawId.slice(0, 80) : starter.id;
   return {
     version: AUTO_ROUTING_PROFILE_VERSION,
@@ -890,8 +1043,39 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     eligibleModelsByProvider,
     budgetGuard: { stepDownAt, cheapestAt },
     signals,
+    levels,
   };
 }
+
+// temporary-migration: auto-routing-profile-v6
+/** Rung and effort each level rule of the version 5 starter named. */
+const V5_LEVEL_RULE_TARGETS: Readonly<Record<RouteComplexity, { tier: RouteTier; effort: string }>> = {
+  low: { tier: "light", effort: "medium" },
+  medium: { tier: "flagship", effort: "medium" },
+  high: { tier: "flagship", effort: "high" },
+  expert: { tier: "frontier", effort: "medium" },
+  extreme: { tier: "frontier", effort: "high" },
+};
+
+/** A version 5 starter level rule, unchanged by the user, now follows its level. */
+function followLevelIfV5StarterRule(entry: RouteRule): RouteRule {
+  const complexity = entry.when.complexity;
+  if (!complexity || Object.keys(entry.when).length !== 1 || entry.id !== LEVEL_RULE_IDS[complexity]) {
+    return entry;
+  }
+  const target = V5_LEVEL_RULE_TARGETS[complexity];
+  const { then } = entry;
+  if (
+    then.providerId !== "any-eligible"
+    || then.model
+    || then.tier !== target.tier
+    || then.effort !== target.effort
+  ) {
+    return entry;
+  }
+  return { ...entry, then: { providerId: "any-eligible", tier: FOLLOW_LEVEL_TIER } };
+}
+// end temporary-migration: auto-routing-profile-v6
 
 export interface LegacyAutoRoutingSettings {
   autoRoutingUseClassifier?: unknown;
@@ -1367,7 +1551,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     role,
     safetyEscalation: profile.signals.safetyEscalation,
   });
-  const level = getRouteLevel(complexity);
+  const level = getProfileRouteLevel(profile, complexity);
   const minimumTier: RouteTier = role !== "primary" ? "light" : level.floor;
   const satisfiesFloor = (model: string) => routeTierIndex(resolveRouteTierForModel(model)) <= routeTierIndex(minimumTier);
   // Each candidate is judged on its own usage window. `budgetUsedPercent`
@@ -1557,15 +1741,26 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     }
 
     const requestedEffort = matched?.then.effort ?? (matched ? undefined : profile.fallbacks[providerId]?.effort);
-    const levelEffort = requestedEffort ?? (role === "primary" ? level.effort : undefined);
+    // A primary turn whose rule names no effort takes the level's own effort
+    // for the preference: the low end for Cost-saver, the recommended effort
+    // for Balanced, the high end for Quality-first. The hard budget ceiling
+    // ignores the preference and runs the recommended effort.
+    const levelOwnsEffort = role === "primary" && requestedEffort === undefined;
+    const levelEffort = levelOwnsEffort
+      ? budgetShift === -2 || stance.shift === 0
+        ? level.effort
+        : level.effortRange[stance.shift < 0 ? 0 : 1]
+      : requestedEffort;
     let effort = resolveEffort({
       providerId,
       model,
       requested: levelEffort,
       tier,
-      shift: budgetShift === -2 ? 0 : stance.shift + (budgetHeldModel ? -1 : 0),
+      shift: budgetShift === -2
+        ? 0
+        : (levelOwnsEffort ? 0 : stance.shift) + (budgetHeldModel ? -1 : 0),
     });
-    if (effort && role === "primary" && budgetShift === 0 && stance.shift !== 0) {
+    if (effort && !levelOwnsEffort && role === "primary" && budgetShift === 0 && stance.shift !== 0) {
       effort = clampEffortToRange({
         providerId,
         effort,
@@ -1613,7 +1808,7 @@ export function previewRouteLevels(args: {
   const availability = Object.fromEntries(
     listProviderIds().map((providerId) => [providerId, providerId === args.providerId]),
   ) as Partial<Record<ProviderId, boolean>>;
-  return ROUTE_LEVELS.map((level) => {
+  return listProfileRouteLevels(args.profile).map((level) => {
     try {
       const route = resolveRoute({
         profile: { ...args.profile, signals: { ...args.profile.signals, budgetGuard: false } },

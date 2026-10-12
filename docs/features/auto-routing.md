@@ -16,7 +16,11 @@ Deterministic rules then map each level to one model rung and an effort range:
 | Standard | Ordinary connected work, including routine workflows such as shipping a PR | Opus 5.5 | GPT-6.1 Sol | Medium – High |
 | Complex | Cross-module changes, non-obvious bugs, migrations, sensitive changes | Opus 5.5 | GPT-6.1 Sol | High – Extra high |
 | Expert | Architecture design and its verification, ambiguous cross-system failures | Fable 5.1 | GPT-6 Astra | Low – Medium |
-| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.1 | GPT-6 Astra | High – Extra high |
+| Extreme | Exceptional, research-grade reasoning; rare by design | Fable 5.1 | GPT-6 Astra | Medium – High |
+
+The frontier levels stop at high effort by default: Fable and Astra at extra
+high cost far more than they add for most work. Each level is editable (see
+Settings below), so a user who wants that ceiling can raise it.
 
 Most work is Standard. The classifier is asked for the lowest level a
 competent senior engineer would assign; Expert and Extreme need explicit
@@ -112,7 +116,8 @@ Each candidate provider is judged on its own usage window, so a nearly spent
 Claude window does not lower the model Codex runs.
 
 Cost-saver, Balanced, and Quality-first keep the level's model and pick the
-low end, the recommended point, or the high end of its effort range. Usage
+low end, the recommended point, or the high end of its effort range. A rule
+that names its own effort keeps it, moved one step by the preference. Usage
 thresholds can lower effort or the model, but never below the level's
 minimum rung: Simple may use a light model, Standard a balanced one (Sonnet
 5.5 or GPT-5.6 Terra), Complex and Expert the flagship, Extreme only the
@@ -198,7 +203,9 @@ Auto chooses the effort on every turn.
 Settings → Auto shows, in order: the enable switch and preference; **Routing
 levels**, a live table of what each level runs on for Claude and Codex under
 the current preference and allowed models (a level with no allowed model reads
-"No allowed model"); and **Allowed models**, where **Default** allows every
+"No allowed model"); each level's edit button opens its model tier and the
+effort each preference runs, and a changed level is marked **Custom** until
+**Reset level**; and **Allowed models**, where **Default** allows every
 listed catalog model. Advanced settings holds classification
 and signal switches, the usage budget, the usage wizard, the rules, and a local
 rule preview. Each rule is one summary line (`complex level → Flagship · High
@@ -212,7 +219,8 @@ table while preserving other settings.
 
 The table has one rule per level, ordered Extreme, Expert, sensitive, Complex,
 Standard, Simple, plus a delegated-task default (the flagship at medium
-effort). Custom rules can still match task class, skill, role, level,
+effort). A level rule follows its level, so a level edit changes what that
+rule runs. Custom rules can still match task class, skill, role, level,
 sensitivity, and usage. Their primary routes obey eligibility and capability
 requirements.
 
@@ -238,6 +246,9 @@ older profiles, while retaining saved custom tables and model eligibility. An
 explicit classification opt-out saved in version 4 or later is respected.
 Profile version 5 introduced the level ladder: a starter profile saved earlier
 takes the current rule table once, while custom tables, preference, allowed
-models, and signals are kept. Auto itself
+models, and signals are kept. Profile version 6 made levels editable
+(`levels` on the profile): a level rule a custom table copied unchanged from
+the version 5 starter now follows its level, and a level rule the user had
+edited keeps its own model tier and effort. Auto itself
 remains off unless the user enables it. Model prices, where
 available, are used for display and ordering rather than promised savings.

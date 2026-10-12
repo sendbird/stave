@@ -92,6 +92,18 @@
       ]
     },
     {
+      "id": "auto-routing-profile-v6",
+      "description": "Stave Auto profile version 6 made routing levels editable. A level rule that a custom table copied unchanged from the version 5 starter named its level's tier and effort outright, which would hide a level edit; profile validation rewrites it once to follow its level. Level rules the user changed are kept.",
+      "introducedAfter": "0.26.4",
+      "removeInVersion": "0.28.0",
+      "files": [
+        "src/lib/providers/auto-routing-profile.ts"
+      ],
+      "tests": [
+        "tests/auto-routing-profile-v6-migration.test.ts"
+      ]
+    },
+    {
       "id": "usage-statistics-legacy-provider",
       "description": "During the one-time account usage history import, maps the retired turn provider identity to the current Claude provider. Remove only the legacy CASE and filter entry at expiry; imports of current provider identities remain supported.",
       "introducedAfter": "0.24.2",
