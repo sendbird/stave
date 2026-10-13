@@ -269,6 +269,7 @@ export function SettingsModelVisibilitySection() {
     cwd: workspaceCwd,
     runtimeOptions: catalogRuntimeOptions,
   });
+  const providerAvailability = useAppStore((state) => state.providerAvailability);
   const optionsByProvider = useMemo(() => {
     const enrichmentByModel = new Map<string, ModelEnrichment>();
     for (const providerId of PROVIDER_IDS) {
@@ -289,6 +290,7 @@ export function SettingsModelVisibilitySection() {
     }
     const options = buildModelSelectorOptions({
       providerIds: PROVIDER_IDS,
+      availabilityByProvider: providerAvailability,
       modelsByProvider: Object.fromEntries(
         PROVIDER_IDS.map((providerId) => [
           providerId,
@@ -303,7 +305,7 @@ export function SettingsModelVisibilitySection() {
         options.filter((option) => option.providerId === providerId),
       ]),
     );
-  }, [modelCatalogs.catalogs]);
+  }, [modelCatalogs.catalogs, providerAvailability]);
 
   return (
     <SettingsCard

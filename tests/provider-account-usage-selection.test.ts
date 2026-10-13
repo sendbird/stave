@@ -18,6 +18,7 @@ test("a usage response from the previous account cannot replace current readings
   });
   let state = {
     settings: { codexAccountProfileId: "11111111-1111-4111-8111-111111111111" },
+    providerAvailability: { "claude-code": false, codex: true, cursor: false, kiro: false },
     rateLimitsSnapshot: emptyRateLimitsSnapshot(),
     rateLimitsUpdatedAtByProvider: {},
   } as AppState;

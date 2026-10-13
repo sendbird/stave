@@ -12,7 +12,7 @@ import {
   publishProviderTooling,
 } from "@/lib/providers/provider-readiness-store";
 import { createEmptyProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
-import { adjustRateLimitsInFlight } from "./rate-limits-account-reset";
+import { adjustRateLimitsInFlight, resetRateLimitsForProviders } from "./rate-limits-account-reset";
 
 export function createProviderSupportActions(args: {
   set: StoreApi<AppState>["setState"];
@@ -36,7 +36,7 @@ export function createProviderSupportActions(args: {
       };
       const requestedProviders = (
         args?.providers?.length ? args.providers : listProviderIds()
-      ).filter((id) => providerReadsAllowed(id, runtimeOptions));
+      ).filter((id) => get().providerAvailability[id] && providerReadsAllowed(id, runtimeOptions));
       if (requestedProviders.length === 0) return;
       const generations = new Map(
         requestedProviders.map((id) => [
@@ -63,6 +63,7 @@ export function createProviderSupportActions(args: {
           const providers = requestedProviders.filter(
             (providerId) =>
               selectedProviderAccount(providerId, state.settings) === selectedProviderAccount(providerId, runtimeOptions) &&
+              state.providerAvailability[providerId] &&
               providerReadsAllowed(providerId, runtimeOptions) &&
               generations.get(providerId) ===
                 providerReadiness(providerId, runtimeOptions)?.generation &&
@@ -137,9 +138,9 @@ export function createProviderSupportActions(args: {
               providerId,
               runtimeOptions,
             });
-            if (!result.ok || !settingsAreCurrent()) return;
+            if (!settingsAreCurrent()) return;
+            if (!result.ok) throw new Error(result.detail);
             if (
-              isOptionalProvider(providerId) &&
               result.toolingStatus &&
               (providerReadiness(providerId, runtimeOptions)?.checkedAt ?? 0) >
                 Date.parse(result.toolingStatus.checkedAt ?? "")
@@ -152,6 +153,7 @@ export function createProviderSupportActions(args: {
             // A slow or unavailable sibling must not hold back ready models.
             // Keep the user's selected model and update only this provider.
             set((state) => ({
+              ...(!result.available ? resetRateLimitsForProviders(state, [providerId]) : {}),
               providerAvailability: {
                 ...state.providerAvailability,
                 [providerId]: isOptionalProvider(providerId)
@@ -184,14 +186,19 @@ export function createProviderSupportActions(args: {
                   runtimeOptions,
                 );
               set((state) => ({
+                ...resetRateLimitsForProviders(state, [providerId]),
                 providerAvailability: {
                   ...state.providerAvailability,
                   [providerId]: false,
                 },
               }));
+            } else if (settingsAreCurrent()) {
+              set((state) => ({
+                ...resetRateLimitsForProviders(state, [providerId]),
+                providerAvailability: { ...state.providerAvailability, [providerId]: false },
+              }));
             }
-            // A failed read cannot establish that a provider was uninstalled.
-            // Preserve its last known state until discovery succeeds.
+            // A failed check cannot establish authenticated readiness.
           }
         }),
       )

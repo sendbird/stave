@@ -67,6 +67,7 @@ async function seedStore() {
   const profile = buildStarterProfile("starter-balanced");
   useAppStore.setState({
     ...useAppStore.getInitialState(),
+    providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
     hasHydratedWorkspaces: true,
     workspaces: [
       { id: "ws-auto", name: "Auto", updatedAt: "2026-09-01T00:00:00.000Z" },

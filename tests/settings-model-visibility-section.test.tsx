@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
 const originalWindow = globalThis.window;
+let restoreInitialAvailability: (() => void) | null = null;
 
 function createMemoryStorage() {
   const values = new Map<string, string>();
@@ -29,6 +30,8 @@ function setWindowContext() {
 }
 
 afterEach(() => {
+  restoreInitialAvailability?.();
+  restoreInitialAvailability = null;
   (globalThis as { window?: unknown }).window = originalWindow;
 });
 
@@ -53,6 +56,12 @@ describe("Settings → Models → Selector Models", () => {
 
   test("lists one switchable row per Claude selector row, not per context variant", async () => {
     setWindowContext();
+    const { useAppStore } = await import("@/store/app.store");
+    // Server rendering reads the initial snapshot rather than current state.
+    const initialState = useAppStore.getInitialState();
+    const previous = initialState.providerAvailability;
+    initialState.providerAvailability = { ...previous, "claude-code": true };
+    restoreInitialAvailability = () => { initialState.providerAvailability = previous; };
     const { SettingsModelVisibilitySection } =
       await import("@/components/layout/settings-dialog-model-visibility");
     const html = renderToStaticMarkup(

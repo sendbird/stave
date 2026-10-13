@@ -165,7 +165,9 @@ export function buildModelSelectorOptions(args: {
   modelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   enrichmentByModel?: Map<string, ModelEnrichment>;
 }): ModelSelectorOption[] {
-  return args.providerIds.flatMap((providerId) =>
+  return args.providerIds.filter((providerId) =>
+    !args.availabilityByProvider || args.availabilityByProvider[providerId] === true,
+  ).flatMap((providerId) =>
     (
       args.modelsByProvider?.[providerId] ?? getSdkModelOptions({ providerId })
     ).map((model) => {

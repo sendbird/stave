@@ -74,6 +74,16 @@ describe("switching an account in the store", () => {
       clearTimeout: globalThis.clearTimeout.bind(globalThis),
       api: {
         provider: {
+          checkAvailability: async ({ providerId }: { providerId: string }) => ({
+            ok: true, available: true, detail: "Verified login",
+            toolingStatus: {
+              id: providerId === "claude-code" ? "claude" : providerId,
+              state: "ready", available: true, authState: "authenticated",
+              label: providerId, summary: "Ready", detail: "Ready",
+              version: "1.0.0", executablePath: "/tmp/provider-cli", authDetail: null,
+              checkedAt: new Date().toISOString(),
+            },
+          }),
           getRateLimitsSnapshot: (args: { providers?: string[] }) => {
             requests.push(args);
             return new Promise<RateLimitsSnapshotResponse>((resolve) => {
@@ -99,9 +109,13 @@ describe("switching an account in the store", () => {
     expect(during.rateLimitsSnapshot?.cursor).toBe(before.cursor);
     expect(during.rateLimitsSnapshot?.kiro).toBe(before.kiro);
     expect(during.rateLimitsUpdatedAtByProvider).toEqual({ codex: 2, cursor: 3, kiro: 4 });
+    expect(during.providerAvailability["claude-code"]).toBe(false);
+    expect(requests).toHaveLength(0);
+    await useAppStore.getState().refreshProviderAvailability();
+    await Promise.resolve();
     expect(requests).toHaveLength(1);
     expect(requests[0]?.providers).toEqual(["claude-code"]);
-    expect(isRateLimitsReadPending(during, "claude-code")).toBe(true);
+    expect(isRateLimitsReadPending(useAppStore.getState(), "claude-code")).toBe(true);
     expect(isRateLimitsReadPending(during, "codex")).toBe(false);
 
     const fresh = readings();

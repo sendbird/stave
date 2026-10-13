@@ -182,6 +182,8 @@ export function parseCursorAuthState(args: {
   const combined = `${args.stderr}\n${args.stdout}`.toLowerCase();
   if (
     combined.includes("not logged in") ||
+    combined.includes("not authenticated") ||
+    combined.includes("logged out") ||
     combined.includes("agent login") ||
     combined.includes("authentication failed") ||
     combined.includes("unauthorized")
@@ -211,6 +213,8 @@ export function parseKiroAuthState(args: {
   const combined = `${args.stderr}\n${args.stdout}`.toLowerCase();
   if (
     combined.includes("not logged in") ||
+    combined.includes("not authenticated") ||
+    combined.includes("logged out") ||
     combined.includes("kiro-cli login") ||
     combined.includes("authentication failed") ||
     combined.includes("unauthorized")
@@ -220,7 +224,7 @@ export function parseKiroAuthState(args: {
       authDetail: "Kiro CLI login is required.",
     };
   }
-  if (args.ok) {
+  if (args.ok && args.stdout.trim()) {
     return {
       authState: "authenticated",
       authDetail: "Kiro CLI is authenticated.",

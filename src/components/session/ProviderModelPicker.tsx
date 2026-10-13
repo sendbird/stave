@@ -61,6 +61,7 @@ export function pickDefaultModelForProvider(providerId: ProviderId): string {
 export function ProviderModelPicker(args: ProviderModelPickerProps) {
   useTranslation();
   const readiness = useProviderReadinessStore((state) => state.providers);
+  const availability = useAppStore((state) => state.providerAvailability);
   const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
   const runtimeOptions = useMemo(
@@ -69,7 +70,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
   );
   const { catalogs } = useProviderModelCatalogs({ enabled: true, runtimeOptions });
   const providerIds = listProviderIds().filter(
-    (id) => id === args.selectedProvider || providerSurfaceVisible(id, runtimeOptions),
+    (id) => availability[id] && providerSurfaceVisible(id, runtimeOptions),
   );
   const providerModels = useMemo(
     () =>
@@ -81,7 +82,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
       ].filter(Boolean),
     [args.selectedModel, args.selectedProvider, catalogs, readiness],
   );
-  const providerAvailable = args.providerAvailable !== false &&
+  const providerAvailable = args.providerAvailable !== false && availability[args.selectedProvider] &&
     providerReadsAllowed(args.selectedProvider, runtimeOptions);
   return (
     <div
@@ -104,7 +105,12 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
             args.providerSelectClassName,
           )}
         >
-          <SelectValue />
+          <SelectValue>
+            <span className={sx(styles.itemInner)}>
+              <ModelIcon providerId={args.selectedProvider} className={sx(styles.icon)} />
+              {getProviderLabel({ providerId: args.selectedProvider, variant: "full" })}
+            </span>
+          </SelectValue>
         </SelectTrigger>
         <SelectContent>
           {providerIds.map((providerId) => (

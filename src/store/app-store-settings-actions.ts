@@ -649,6 +649,11 @@ export function createSettingsActions(args: {
         const switched = providersWithChangedAccount(state.settings, nextSettings);
         const nextState: Partial<AppState> = {
           settings: nextSettings,
+          providerAvailability: {
+            ...state.providerAvailability,
+            ...(switched.includes("claude-code") || state.settings.claudeBinaryPath !== nextSettings.claudeBinaryPath ? { "claude-code": false } : {}),
+            ...(switched.includes("codex") || state.settings.codexBinaryPath !== nextSettings.codexBinaryPath ? { codex: false } : {}),
+          },
           ...(switched.length > 0
             ? { ...resetRateLimitsForProviders(state, switched), rateLimitsError: null } : {}),
         };
@@ -672,10 +677,11 @@ export function createSettingsActions(args: {
       if (normalizedPatch.claudeAccountProfileId !== undefined || normalizedPatch.codexAccountProfileId !== undefined) {
         const providers = (["claude-code", "codex"] as const).filter((providerId) =>
           providerId === "codex" ? normalizedPatch.codexAccountProfileId !== undefined : normalizedPatch.claudeAccountProfileId !== undefined);
-        void get().refreshRateLimits({ providers: [...providers] });
-        void get().refreshProviderAvailability();
+        void get().refreshProviderAvailability().then(() =>
+          get().refreshRateLimits({ providers: [...providers] }),
+        );
       }
-      if (normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined) {
+      if (normalizedPatch.claudeBinaryPath !== undefined || normalizedPatch.codexBinaryPath !== undefined || normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined) {
         set(providerToolingStatePatch(get()));
         void get().refreshProviderAvailability();
       }

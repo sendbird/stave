@@ -26,6 +26,7 @@ export const PROMPT_MODEL_PROVIDER_IDS = ["claude-code", "codex"] as const;
 export function useSettingsModelSelectorOptions(args: {
   providerIds: readonly ProviderId[];
 }) {
+  const providerAvailability = useAppStore((state) => state.providerAvailability);
   const [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, workspaceCwd] =
     useAppStore(
       useShallow(
@@ -91,6 +92,7 @@ export function useSettingsModelSelectorOptions(args: {
     () =>
       buildModelSelectorOptions({
         providerIds: args.providerIds,
+        availabilityByProvider: providerAvailability,
         modelsByProvider: Object.fromEntries(
           args.providerIds.map((providerId) => [
             providerId,
@@ -99,7 +101,7 @@ export function useSettingsModelSelectorOptions(args: {
         ),
         enrichmentByModel: modelEnrichmentForPrompt,
       }),
-    [args.providerIds, modelCatalogs.catalogs, modelEnrichmentForPrompt],
+    [args.providerIds, modelCatalogs.catalogs, modelEnrichmentForPrompt, providerAvailability],
   );
   const promptRecommendedModelOptions = useMemo(
     () => buildRecommendedModelSelectorOptions({ options: promptModelOptions }),

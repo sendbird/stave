@@ -1,18 +1,15 @@
+import { describeNativeProviderAvailability } from "./provider-availability";
 import { providerAccountEventMapper } from "../provider-accounts/events";
 import { currentProviderAccountId, withProviderAccountScope, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { delegatedReplyRuntimeOptions } from "../../src/lib/agent-runs/delegated-run";
 import {
-  buildClaudeEnv,
   cleanupClaudeMcpOauthFlows,
   cleanupClaudeTask,
   getClaudeCommandCatalog,
-  resolveClaudeExecutablePath,
   streamClaudeWithSdk,
 } from "./claude-sdk-runtime";
-import { buildCodexCliEnv } from "./cli-path-env";
 import {
-  resolveCodexExecutablePath,
   cleanupCodexAppServerTask,
   disposeAllCodexAppServerClients,
   streamCodexWithAppServer,
@@ -43,11 +40,8 @@ import {
 } from "../../src/lib/providers/codex-command-catalog";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
-import { runExecutableProbe } from "./runtime-shared";
 import {
   createEmptyProviderRuntimeCapabilities,
-  extractRuntimeVersion,
-  resolveProviderRuntimeCapabilities,
 } from "../../src/lib/providers/runtime-capabilities";
 import {
   PROVIDER_STEER_ACK_TIMEOUT_MS,
@@ -436,96 +430,6 @@ function clearActiveTaskSessions(args: { taskId: string }) {
     session.abort?.();
     activeSessions.delete(turnId);
   }
-}
-
-async function describeClaudeAvailability(
-  args: { runtimeOptions?: StreamTurnArgs["runtimeOptions"] } = {},
-) {
-  const executablePath = resolveClaudeExecutablePath({
-    explicitPath: args.runtimeOptions?.claudeBinaryPath,
-  });
-  if (!executablePath) {
-    return {
-      available: false,
-      detail:
-        "Claude CLI not found from runtime override, STAVE_CLAUDE_CLI_PATH, CLAUDE_CODE_PATH, login-shell PATH, or home-bin candidates.",
-      capabilities: createEmptyProviderRuntimeCapabilities(),
-    };
-  }
-
-  const versionProbe = await runExecutableProbe({
-    executablePath,
-    commandArgs: ["--version"],
-    timeoutMs: 2_000,
-    maxBytes: 64 * 1024,
-    env: buildClaudeEnv({ executablePath }),
-  });
-  const available = versionProbe.status === 0;
-  const version = extractRuntimeVersion(versionProbe.text);
-  const detail = available
-    ? `Resolved Claude CLI: ${executablePath}`
-    : [
-        `Claude executable probe failed: ${executablePath}`,
-        versionProbe.stderr,
-        versionProbe.error,
-      ]
-        .filter(Boolean)
-        .join("\n");
-  return {
-    available,
-    detail,
-    ...(version ? { version } : {}),
-    capabilities: resolveProviderRuntimeCapabilities({
-      providerId: "claude-code",
-      versionText: versionProbe.text,
-      available,
-    }),
-  };
-}
-
-async function describeCodexAvailability(
-  args: { runtimeOptions?: StreamTurnArgs["runtimeOptions"] } = {},
-) {
-  const executablePath = resolveCodexExecutablePath({
-    explicitPath: args.runtimeOptions?.codexBinaryPath,
-  });
-  if (!executablePath) {
-    return {
-      available: false,
-      detail:
-        "Codex executable not found from runtime override, env vars, login-shell PATH, or home-bin candidates.",
-      capabilities: createEmptyProviderRuntimeCapabilities(),
-    };
-  }
-
-  const versionProbe = await runExecutableProbe({
-    executablePath,
-    commandArgs: ["--version"],
-    timeoutMs: 2_000,
-    maxBytes: 64 * 1024,
-    env: buildCodexCliEnv({ executablePath }),
-  });
-  const available = versionProbe.status === 0;
-  const version = extractRuntimeVersion(versionProbe.text);
-  const detail = available
-    ? `Resolved Codex executable: ${executablePath}`
-    : [
-        `Codex executable probe failed: ${executablePath}`,
-        versionProbe.stderr,
-        versionProbe.error,
-      ]
-        .filter(Boolean)
-        .join("\n");
-  return {
-    available,
-    detail,
-    ...(version ? { version } : {}),
-    capabilities: resolveProviderRuntimeCapabilities({
-      providerId: "codex",
-      versionText: versionProbe.text,
-      available,
-    }),
-  };
 }
 
 /**
@@ -1481,12 +1385,10 @@ export const providerRuntime: ProviderRuntime = {
   },
   checkAvailability: async ({ providerId, runtimeOptions }) => {
     if (providerId === "claude-code") {
-      const result = await describeClaudeAvailability({ runtimeOptions });
-      return { ok: true, ...result };
+      return describeNativeProviderAvailability({ providerId, runtimeOptions });
     }
     if (providerId === "codex") {
-      const result = await describeCodexAvailability({ runtimeOptions });
-      return { ok: true, ...result };
+      return describeNativeProviderAvailability({ providerId, runtimeOptions });
     }
     if (providerId === "cursor") {
       const result = await describeCursorAvailability({ runtimeOptions });

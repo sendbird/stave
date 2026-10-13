@@ -212,15 +212,13 @@ export const STATUS_BAR_USAGE_PROVIDER_NAMES: Record<StatusBarUsageProvider, str
 };
 
 /**
- * Only engines whose CLI is connected get a usage meter. Availability starts
- * optimistic (`true`) and is lowered once discovery reports a missing CLI, so
- * an unknown provider stays visible rather than flickering in after boot.
+ * Only providers whose installation and authentication are verified get a meter.
  */
 export function listCliConnectedUsageProviders(
   availability: Partial<Record<string, boolean>>,
 ): StatusBarUsageProvider[] {
   return STATUS_BAR_USAGE_PROVIDERS.filter(
-    ({ providerId }) => availability[providerId] !== false,
+    ({ providerId }) => availability[providerId] === true,
   ).map(({ provider }) => provider);
 }
 

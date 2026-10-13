@@ -158,6 +158,16 @@ describe("tooling status helpers", () => {
     });
   });
 
+  test("a successful empty identity response cannot confirm authentication", () => {
+    expect(parseKiroAuthState({ ok: true, stdout: "", stderr: "" }).authState).toBe("unknown");
+  });
+
+  test("explicit unauthenticated output wins over successful exit codes", () => {
+    for (const parse of [parseCursorAuthState, parseKiroAuthState]) {
+      expect(parse({ ok: true, stdout: "Not authenticated", stderr: "" }).authState).toBe("unauthenticated");
+    }
+  });
+
   test("parses Codex MCP JSON output with warning preamble", () => {
     expect(parseCodexMcpServerList({
       stdout: "",

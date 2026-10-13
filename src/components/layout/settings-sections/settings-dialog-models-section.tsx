@@ -48,6 +48,7 @@ export function ModelsSection(args: {
   const { t } = useTranslation(I18N_NAMESPACES);
   // Settings scope: these rows edit the selected project's defaults when a
   // project is selected, and the global defaults otherwise.
+  const providerAvailability = useAppStore((state) => state.providerAvailability);
   const modelClaude = useScopedSetting("modelClaude").value;
   const modelCodex = useScopedSetting("modelCodex").value;
   const claudeEffort = useScopedSetting("claudeEffort").value;
@@ -80,12 +81,13 @@ export function ModelsSection(args: {
     () =>
       buildModelSelectorOptions({
         providerIds: ["claude-code", "codex"],
+        availabilityByProvider: providerAvailability,
         modelsByProvider: {
           codex: codexModelCatalog.models,
         },
         enrichmentByModel: codexModelEnrichment,
       }),
-    [codexModelCatalog.models, codexModelEnrichment],
+    [codexModelCatalog.models, codexModelEnrichment, providerAvailability],
   );
   const recommendedModelOptions = useMemo(
     () => buildRecommendedModelSelectorOptions({ options: modelOptions }),
