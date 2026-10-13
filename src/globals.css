@@ -662,6 +662,12 @@
   --dv-tab-group-line-opacity: 0.6;
 }
 
+/* Group gaps paint the divider outside the Lens guest bounds; avoid a second
+ * line over the content from Dockview's default separator pseudo-element. */
+.dockview-theme-stave .dv-split-view-container.dv-separator-border .dv-view::before {
+  content: none;
+}
+
 /*
  * Keep the task rail itself borderless and attach the primary indicator to the
  * selected tab. The inset line follows the tab bounds without drawing a
