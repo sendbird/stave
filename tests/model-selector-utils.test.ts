@@ -10,6 +10,14 @@ import {
 const CLAUDE_FABLE_MODEL_ID = "claude-fable-5-1";
 
 describe("model selector utils", () => {
+  test("only authenticated providers contribute options, including static fallbacks", () => {
+    const options = buildModelSelectorOptions({
+      providerIds: ["claude-code", "codex", "cursor", "kiro"],
+      availabilityByProvider: { "claude-code": true, codex: false, cursor: false },
+    });
+    expect(new Set(options.map((option) => option.providerId))).toEqual(new Set(["claude-code"]));
+    expect(buildModelSelectorOptions({ providerIds: ["cursor", "kiro"], availabilityByProvider: {} })).toEqual([]);
+  });
   test("can build prompt-input options across all providers", () => {
     const options = buildModelSelectorOptions({
       providerIds: ["claude-code", "codex", "cursor"],

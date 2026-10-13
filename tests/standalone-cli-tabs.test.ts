@@ -11,7 +11,7 @@ import {
 import { createDefaultProviderAvailability } from "@/store/app-settings";
 
 function readiness(
-  id: "cursor" | "kiro",
+  id: "claude" | "codex" | "cursor" | "kiro",
   overrides: Partial<ToolingStatusEntry> = {},
   configurationKey = "",
 ): ProviderReadiness {
@@ -118,9 +118,22 @@ describe("listInstalledStandaloneCliTabIds", () => {
     expect(
       listInstalledStandaloneCliTabIds({
         providerAvailability: { "claude-code": false, codex: true },
-        optionalProviders: {},
+        optionalProviders: {
+          "claude-code": readiness("claude", { executablePath: null }, '["system-default",""]'),
+          codex: readiness("codex", {}, '["system-default",""]'),
+        },
       }),
     ).toEqual(["codex"]);
+  });
+
+  test("keeps installed native CLIs reachable for login", () => {
+    expect(listInstalledStandaloneCliTabIds({
+      providerAvailability: { "claude-code": false, codex: false },
+      optionalProviders: {
+        "claude-code": readiness("claude", { authState: "unauthenticated", state: "warning" }, '["system-default",""]'),
+        codex: readiness("codex", { authState: "unknown", state: "warning" }, '["system-default",""]'),
+      },
+    })).toEqual(["claude-code", "codex"]);
   });
 
   test("shows Cursor and Kiro once their executable resolves, signed in or not", () => {
@@ -165,14 +178,14 @@ describe("listInstalledStandaloneCliTabIds", () => {
         optionalProviders,
         runtimeOptions: { cursorBinaryPath: "/opt/new/agent" },
       }),
-    ).toEqual([]);
+    ).toEqual(["claude-code", "codex"]);
     expect(
       listInstalledStandaloneCliTabIds({
         providerAvailability: { "claude-code": false, codex: false },
         optionalProviders,
         runtimeOptions: { cursorBinaryPath: " /opt/old/agent " },
       }),
-    ).toEqual(["cursor"]);
+    ).toEqual(["claude-code", "codex", "cursor"]);
   });
 });
 

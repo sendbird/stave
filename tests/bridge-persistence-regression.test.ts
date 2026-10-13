@@ -4920,6 +4920,7 @@ describe("workspace store hydration ordering", () => {
     };
     useAppStore.setState({
       ...initialState,
+      providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
       hasHydratedWorkspaces: true,
       workspaces: [
         { id: "ws-main", name: "Main", updatedAt: "2026-04-09T00:00:00.000Z" },

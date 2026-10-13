@@ -70,7 +70,7 @@ test("ready providers become usable before a slow sibling and concurrent refresh
   await Promise.all([first, second]);
 });
 
-test("failed discovery preserves last known availability and capabilities", async () => {
+test("failed discovery hides unverified providers and preserves capabilities", async () => {
   const { store, requests } = await fixture();
   store.setState({
     providerAvailability: {
@@ -83,10 +83,19 @@ test("failed discovery preserves last known availability and capabilities", asyn
   const pending = store.getState().refreshProviderAvailability();
   for (const request of requests) request.reject(new Error("Host unavailable"));
   await pending;
-  expect(store.getState().providerAvailability.codex).toBe(true);
+  expect(store.getState().providerAvailability.codex).toBe(false);
   expect(store.getState().providerRuntimeCapabilities.codex).toBe(
     previousCapabilities,
   );
+});
+
+test("an unsuccessful status response cannot retain authenticated availability", async () => {
+  const { store, requests } = await fixture();
+  store.setState({ providerAvailability: { ...store.getState().providerAvailability, codex: true } });
+  const pending = store.getState().refreshProviderAvailability();
+  for (const request of requests) request.resolve({ ...available(request.providerId), ok: false });
+  await pending;
+  expect(store.getState().providerAvailability.codex).toBe(false);
 });
 
 test("changing binary settings discards stale responses and discovers the latest configuration", async () => {

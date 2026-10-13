@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, realpathSync, rmSync } from "node:fs";
+import { mkdtempSync, realpathSync, rmSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
@@ -30,6 +30,7 @@ import { buildCodexCliEnv } from "../electron/providers/cli-path-env";
 import { getProviderModelCatalog } from "../electron/providers/provider-model-catalog";
 import { getRateLimitsSnapshot } from "../electron/providers/rate-limits/rate-limits-snapshot";
 import { buildCliSessionLaunch } from "../electron/host-service/cli-session-launch";
+import { describeNativeProviderAvailability } from "../electron/providers/provider-availability";
 import {
   ApiConnectionCreateArgsSchema,
   ApiConnectionModelIdSchema,
@@ -190,6 +191,26 @@ describe("selection: one connection is an account under each runtime", () => {
 });
 
 describe("runtime adapters", () => {
+  test.skipIf(process.platform === "win32")("configured keys keep native models available without CLI sign-in", async () => {
+    const connection = createVercel();
+    const executable = path.join(root, "provider-cli");
+    const calls = path.join(root, "calls");
+    writeFileSync(executable, `#!/usr/bin/env node
+require("node:fs").appendFileSync(${JSON.stringify(calls)}, process.argv[2] + "\\n");
+if (process.argv[2] === "--version") console.log("2.1.284");
+else { console.error("Not logged in"); process.exitCode = 1; }
+`, { mode: 0o755 });
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const runtimeOptions = { claudeAccountProfileId: connection.id, codexAccountProfileId: connection.id, claudeBinaryPath: executable, codexBinaryPath: executable };
+      const ready = await inConnection(connection.id, "fixture-key", () => describeNativeProviderAvailability({ providerId, runtimeOptions }));
+      expect(ready.available).toBe(true);
+      expect(ready.version).toBe("2.1.284");
+      if (providerId === "claude-code") expect(ready.capabilities.history.rewind.files).toBe(true);
+      const missing = await inConnection(connection.id, undefined, () => describeNativeProviderAvailability({ providerId, runtimeOptions }));
+      expect(missing.available).toBe(false);
+    }
+    expect(readFileSync(calls, "utf8").trim().split("\n")).toEqual(["--version", "--version"]);
+  });
   test("main resolves one key for both runtimes of a shared connection", async () => {
     const connection = createVercel();
     let reveals = 0;

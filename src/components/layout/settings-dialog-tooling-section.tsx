@@ -321,8 +321,9 @@ export function ToolingSection() {
         if (cancelled) {
           return;
         }
-        const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
+        const runtimeOptions = { ...accountOptions, claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath };
         for (const tool of snapshot.tools) publishProviderTooling(tool, runtimeOptions);
+        void useAppStore.getState().refreshProviderAvailability();
         useAppStore.setState(providerToolingStatePatch(useAppStore.getState()));
         setViewState({
           status: "ready",

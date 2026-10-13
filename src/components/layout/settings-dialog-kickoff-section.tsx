@@ -108,9 +108,10 @@ function KickoffModelField(props: {
   value: string;
   onSelect: (model: string) => void;
 }) {
+  const providerAvailability = useAppStore((state) => state.providerAvailability);
   const options = useMemo(
-    () => buildModelSelectorOptions({ providerIds: KICKOFF_MODEL_PROVIDERS }),
-    [],
+    () => buildModelSelectorOptions({ providerIds: KICKOFF_MODEL_PROVIDERS, availabilityByProvider: providerAvailability }),
+    [providerAvailability],
   );
   const recommendedOptions = useMemo(
     () => buildRecommendedModelSelectorOptions({ options }),

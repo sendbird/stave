@@ -683,6 +683,18 @@ async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
   });
 }
 
+/** Reuse the same installation and sign-in probes for runtime availability. */
+export async function inspectNativeProviderTooling(args: {
+  providerId: "claude-code" | "codex";
+  claudeBinaryPath?: string;
+  codexBinaryPath?: string;
+}): Promise<ToolingStatusEntry> {
+  const tool = args.providerId === "claude-code"
+    ? await inspectClaudeStatus(args)
+    : await inspectCodexStatus(args);
+  return { ...tool, checkedAt: new Date().toISOString() };
+}
+
 export async function getCodexMcpStatus(args: {
   codexBinaryPath?: string;
 }): Promise<CodexMcpStatusResponse> {

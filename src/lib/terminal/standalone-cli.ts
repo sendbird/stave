@@ -2,7 +2,6 @@ import { selectedProviderAccount, type ProviderAccountSelection } from "@/lib/pr
 import {
   isOptionalProvider,
   providerConfigurationKey,
-  type OptionalProviderId,
 } from "@/lib/providers/provider-readiness";
 import type { ProviderReadiness } from "@/lib/providers/provider-readiness-store";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
@@ -146,26 +145,17 @@ export function buildStandaloneCliTabs(args: {
 }
 
 /**
- * Only a CLI that is actually on this machine gets a tab. Claude Code and
- * Codex report through `providerAvailability`, which starts optimistic so the
- * common tabs do not flicker away before the first probe. Cursor and Kiro
- * start hidden and appear once their tooling probe has resolved an executable
- * for the configured binary path; a missing login does not hide them, because
- * the CLI itself is where the user signs in.
+ * Installed CLIs remain reachable for sign-in even when authentication fails.
+ * The built-in tabs remain available until their installation probe completes.
  */
 export function listInstalledStandaloneCliTabIds(args: {
   providerAvailability: Partial<Record<ProviderId, boolean>>;
-  optionalProviders: Partial<Record<OptionalProviderId, ProviderReadiness>>;
-  runtimeOptions?: Pick<
-    ProviderRuntimeOptions,
-    "cursorBinaryPath" | "kiroBinaryPath"
-  >;
+  optionalProviders: Partial<Record<ProviderId, ProviderReadiness>>;
+  runtimeOptions?: ProviderRuntimeOptions;
 }): StandaloneCliTabId[] {
   return STANDALONE_CLI_TAB_IDS.filter((tabId) => {
-    if (!isOptionalProvider(tabId)) {
-      return args.providerAvailability[tabId] !== false;
-    }
     const readiness = args.optionalProviders[tabId];
+    if (!readiness && !isOptionalProvider(tabId)) return true;
     return Boolean(
       readiness &&
         readiness.configurationKey ===

@@ -18,13 +18,8 @@ describe("listCliConnectedUsageProviders", () => {
     ).toEqual(["claude", "kiro"]);
   });
 
-  test("keeps engines with unknown availability visible", () => {
-    expect(listCliConnectedUsageProviders({})).toEqual([
-      "claude",
-      "codex",
-      "cursor",
-      "kiro",
-    ]);
+  test("hides engines until authentication is verified", () => {
+    expect(listCliConnectedUsageProviders({})).toEqual([]);
   });
 });
 

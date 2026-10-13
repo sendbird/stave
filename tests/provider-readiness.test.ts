@@ -43,6 +43,16 @@ afterEach(() => {
 });
 
 describe("optional provider readiness", () => {
+  test("both optional providers require an authenticated probe and recover after login", () => {
+    for (const id of ["cursor", "kiro"] as const) {
+      publishProviderTooling(tool({ id, state: "warning", authState: "unauthenticated" }));
+      expect(providerSurfaceVisible(id)).toBe(false);
+      publishProviderTooling(tool({ id }));
+      expect(providerSurfaceVisible(id)).toBe(true);
+      publishProviderTooling(tool({ id, state: "warning", authState: "unknown" }));
+      expect(providerSurfaceVisible(id)).toBe(false);
+    }
+  });
   test("startup, login, logout, and a changed binary gate reads without changing saved selections", () => {
     const options = { cursorBinaryPath: "/tmp/provider-cli" };
     expect(providerReadsAllowed("cursor", options)).toBe(false);
@@ -75,7 +85,7 @@ describe("optional provider readiness", () => {
     expect(providerReadsAllowed("cursor", options)).toBe(true);
   });
 
-  test("initial unknown stays hidden; a transient failure after ready retains a stale surface", () => {
+  test("unverified authentication hides a previously ready provider", () => {
     publishProviderTooling(
       tool({ state: "unknown", authState: "unknown", available: false }),
     );
@@ -84,7 +94,7 @@ describe("optional provider readiness", () => {
     publishProviderTooling(
       tool({ state: "unknown", authState: "unknown", available: false }),
     );
-    expect(providerSurfaceVisible("cursor")).toBe(true);
+    expect(providerSurfaceVisible("cursor")).toBe(false);
     expect(providerReadsAllowed("cursor")).toBe(false);
     expect(providerReadiness("cursor")?.stale).toBe(true);
     publishProviderTooling(tool({ state: "error", available: false }));
@@ -142,9 +152,7 @@ describe("optional provider readiness", () => {
       tool({ state: "unknown", authState: "unknown" }),
       args.runtimeOptions,
     );
-    expect((await loadProviderModelCatalog(args)).models).toContain(
-      "dynamic-test-model",
-    );
+    expect((await loadProviderModelCatalog(args)).models).toEqual([]);
     expect(calls).toBe(1);
     publishProviderTooling(
       tool({ state: "warning", authState: "unauthenticated" }),
@@ -253,6 +261,7 @@ describe("optional provider readiness", () => {
     await actions.refreshRateLimits({ providers: ["cursor"], force: true });
     expect(calls).toBe(0);
     publishProviderTooling(tool());
+    state = { ...state, ...providerToolingStatePatch(state) };
     const request = actions.refreshRateLimits({ providers: ["cursor"] });
     publishProviderTooling(
       tool({ authState: "unauthenticated", state: "warning" }),
