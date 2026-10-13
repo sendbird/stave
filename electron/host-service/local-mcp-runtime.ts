@@ -115,6 +115,7 @@ import {
   isTaskManaged,
   MANAGED_TASK_STOP_NOTICE,
   reconcileTasksWithPersistedArchival,
+  reconcileTasksWithPersistedTitles,
 } from "../../src/lib/tasks";
 import {
   MANAGED_TASK_APPROVAL_TIMEOUT_MS,
@@ -385,22 +386,24 @@ async function persistWorkspaceSession(args: {
     // yet): fall through to the whole-snapshot write, which migrates it.
   }
 
-  // Archival belongs to the renderer's durable tasks table. Re-read it before
-  // writing, since stale host metadata could otherwise restore a task the user
-  // already archived.
+  // Re-read renderer-owned metadata before writing the host's cached session.
   const reconciledTasks = reconcileTasksWithPersistedArchival({
     tasks: args.session.tasks,
     persistedTasks: store.listWorkspaceTasks({ workspaceId: args.workspaceId }),
   });
+  const persistedShell = store.loadWorkspaceShell({ workspaceId: args.workspaceId });
   const delegatedShell = args.taskId && args.session.tasks.find(task => task.id === args.taskId)?.parentTaskId
-    ? store.loadWorkspaceShell({ workspaceId: args.workspaceId }) : null;
+    ? persistedShell : null;
   store.upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
     snapshot: createWorkspaceSnapshot({
       // Delegated progress never owns foreground selection, including legacy fallback writes.
       activeTaskId: delegatedShell ? delegatedShell.activeTaskId : args.session.activeTaskId,
-      tasks: reconciledTasks,
+      tasks: reconcileTasksWithPersistedTitles({
+        tasks: reconciledTasks,
+        persistedTasks: persistedShell?.tasks ?? [],
+      }),
       messagesByTask: args.changedMessagesByTask ?? args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
       workspaceInformation: args.session.workspaceInformation,

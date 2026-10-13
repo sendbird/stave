@@ -1,5 +1,6 @@
 import { getProviderSessionCursor, setProviderSessionEntry } from "../src/lib/providers/provider-sessions";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { flushPendingSnapshotPersists } from "../src/store/workspace-session-state";
 
 interface StorageLike {
   getItem: (key: string) => string | null;
@@ -27,6 +28,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  await flushPendingSnapshotPersists();
   const { useAppStore } = await import("../src/store/app.store");
   useAppStore.setState(useAppStore.getInitialState());
   (globalThis as { window?: unknown }).window = originalWindow;

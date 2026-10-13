@@ -78,6 +78,14 @@ const RENDERER_OWNED_FIELDS = [
 ] as const;
 
 describe("mergeTaskTurnDeltaPayload", () => {
+  test("keeps renamed title fields while stale host progress continues", () => {
+    const payload = createPayload();
+    const staleTask = { ...payload.tasks[0]!, title: "New task" };
+    payload.tasks = [{ ...staleTask, title: "My chosen name", titleManuallySet: true }];
+    const next = mergeTaskTurnDeltaPayload({ payload, taskId: staleTask.id, task: { ...staleTask, updatedAt: "2026-01-02T00:00:00.000Z", unread: true }, messageCount: 12 });
+    expect(next.tasks[0]).toMatchObject({ title: "My chosen name", titleManuallySet: true, unread: true });
+  });
+
   test("leaves every renderer-owned field byte-identical", () => {
     const payload = createPayload();
     const next = mergeTaskTurnDeltaPayload({
@@ -123,7 +131,7 @@ describe("mergeTaskTurnDeltaPayload", () => {
     });
 
     expect(next.tasks[0]).toMatchObject({
-      title: "Renamed by the host",
+      title: "Task One",
       provider: "codex",
       unread: true,
     });

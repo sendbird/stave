@@ -6,6 +6,7 @@ import { registerAgentRunBridge } from "../src/store/agent-run-send";
 import { defaultSettings } from "../src/store/app-settings";
 import { cancelPendingAutoRouting } from "../src/store/auto-routing-dispatch";
 import { usePendingAutoRoutingStore } from "../src/store/pending-auto-routing-store";
+import { flushPendingSnapshotPersists } from "../src/store/workspace-session-state";
 
 // #646: the composer is cleared on send, then the agent-run start is awaited.
 // A refused run blocks the send without starting a plain turn or classifier.
@@ -127,7 +128,8 @@ beforeEach(() => {
   usePendingAutoRoutingStore.setState({ byTaskId: {} });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await flushPendingSnapshotPersists();
   cancelPendingAutoRouting(TASK_ID);
   registerAgentRunBridge(null);
   useAgentAssignmentsStore.setState({ byTaskId: {} });
@@ -178,6 +180,25 @@ describe("the accounts an agent-run start carries", () => {
 });
 
 for (const provider of ["codex", "claude-code"] as const) {
+  test(`a ${provider} agent-run send names an untitled task from the user assignment`, async () => {
+    const useAppStore = await seedStore();
+    const prompts: string[] = [];
+    (window.api.provider as unknown as Record<string, unknown>).suggestTaskName = async (input: { prompt: string }) => {
+      prompts.push(input.prompt);
+      return { ok: true, title: "Add report CSV export", utility: { degraded: false } };
+    };
+    registerAgentRunBridge({
+      activeAgentRun: () => null,
+      start: async () => ({ ok: true, agentRun: { agentRun: { id: "run-title" } } as never }),
+      cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+    });
+    useAppStore.setState((state) => ({ tasks: state.tasks.map((task) => ({ ...task, title: "New task", provider })) }));
+    expect((await useAppStore.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" })).status).toBe("run-started");
+    await Promise.resolve();
+    expect(prompts).toEqual([PROMPT]);
+    expect(useAppStore.getState().tasks[0]?.title).toBe("Add report CSV export");
+  });
+
   test(`a ${provider} composer keeps inline images and staged task context on the run`, async () => {
     const useAppStore = await seedStore();
     const inputs: AgentRunStartArgs[] = [];

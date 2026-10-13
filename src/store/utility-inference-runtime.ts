@@ -2,6 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import { boundRouteIntentInput, ROUTE_INTENT_VERSION, RouteIntentResultSchema } from "@/lib/providers/route-intent";
 import {
   buildSuggestTaskNamePayload,
+  buildInitialTaskTitle,
   normalizeSuggestedTaskTitle,
   shouldSuggestTaskName,
 } from "@/lib/tasks";
@@ -20,6 +21,7 @@ import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import { useAppStore } from "@/store/app.store";
 
 const routeCache = new Map<string, { result: AutoRoutingClassifierResult; expiresAt: number }>();
+const latestTaskNameRequests = new Map<string, symbol>();
 
 export function createUtilityRouteClassifier(args: {
   cacheScope?: string;
@@ -97,6 +99,8 @@ export function maybeSuggestUtilityTaskName(args: {
   lane?: AuxLaneRuntime;
   onTitle: (title: string) => void;
 }) {
+  const initialTitle = buildInitialTaskTitle({ task: args.task, prompt: args.prompt });
+  if (initialTitle) args.onTitle(initialTitle);
   if (args.lane && !args.lane.enabled) {
     return;
   }
@@ -131,6 +135,9 @@ export function maybeSuggestUtilityTaskName(args: {
     return;
   }
 
+  const taskId = args.task?.id;
+  const request = Symbol();
+  if (taskId) latestTaskNameRequests.set(taskId, request);
   void suggestTaskName({
     ...args.context,
     ...buildSuggestTaskNamePayload({
@@ -139,6 +146,7 @@ export function maybeSuggestUtilityTaskName(args: {
     }),
   })
     .then((result) => {
+      if (taskId && latestTaskNameRequests.get(taskId) !== request) return;
       reportUtilityInferenceOutcome({
         feature: "task-name",
         ok: result.ok,
@@ -154,5 +162,8 @@ export function maybeSuggestUtilityTaskName(args: {
     })
     .catch((error) => {
       reportUtilityInferenceError({ feature: "task-name", error });
+    })
+    .finally(() => {
+      if (taskId && latestTaskNameRequests.get(taskId) === request) latestTaskNameRequests.delete(taskId);
     });
 }

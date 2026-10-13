@@ -5,12 +5,13 @@ import {
   loadAllTaskMessages,
   loadWorkspaceShellForRestore,
 } from "@/lib/db/workspaces.db";
-import { getProviderSessionId, listProviderSessions, removeProviderSessionEntry } from "@/lib/providers/provider-sessions";
+import { getProviderSessionId, removeProviderSessionEntry } from "@/lib/providers/provider-sessions";
 import {
   collectMartinTriggerContext,
   notifyMartinInformationEdited,
 } from "@/lib/martin-sync/renderer-triggers";
-import { toProviderSessionTitle } from "@/lib/providers/thread-actions";
+import { createTaskRenameAction } from "@/store/task-title-actions";
+import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import {
   isTaskArchived,
   isTaskManaged,
@@ -61,6 +62,7 @@ type StoreGet = StoreApi<AppState>["getState"];
 export function createTaskCoreActions(args: {
   set: StoreSet;
   get: StoreGet;
+  persistWorkspaceSessionInBackground: (args: { workspaceId: string; session: WorkspaceSessionState }) => void;
   runScriptHookInBackground: (args: {
     workspaceId: string;
     trigger: ScriptTrigger;
@@ -152,7 +154,9 @@ export function createTaskCoreActions(args: {
             }
             const nextTasks = state.tasks.some((task) => task.id === taskId)
               ? state.tasks.map((task) =>
-                  task.id === taskId ? persistedTask : task,
+                  task.id === taskId
+                    ? { ...persistedTask, title: task.title, titleManuallySet: task.titleManuallySet }
+                    : task,
                 )
               : [persistedTask, ...state.tasks];
             const persistedDraft = shell?.promptDraftByTask[taskId];
@@ -611,88 +615,12 @@ export function createTaskCoreActions(args: {
         taskTitle: nextTask.title,
       });
     },
-    renameTask: ({ taskId, title, source = "manual" }) => {
-      const nextTitle = title.trim();
-      if (!nextTitle) {
-        return;
-      }
-      const stateBefore = get();
-      const targetBefore = findTaskById(stateBefore, taskId);
-      if (
-        isTaskManaged(targetBefore) ||
-        (source === "auto" && targetBefore?.titleManuallySet)
-      ) {
-        return;
-      }
-      set((state) => {
-        if (isTaskManaged(findTaskById(state, taskId))) {
-          return state;
-        }
-        const target = state.tasks.find((task) => task.id === taskId);
-        // A manual rename is a deliberate user choice — never let an
-        // automatic suggestion overwrite it afterwards.
-        if (source === "auto" && target?.titleManuallySet) {
-          return state;
-        }
-        const markManual = source === "manual";
-        return {
-          tasks: state.tasks.map((task) =>
-            task.id === taskId
-              ? {
-                  ...task,
-                  title: nextTitle,
-                  updatedAt: buildRecentTimestamp(),
-                  ...(markManual ? { titleManuallySet: true } : {}),
-                }
-              : task,
-          ),
-          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
-        };
-      });
-      if (source !== "manual") {
-        return;
-      }
-
-      const providerSession = stateBefore.providerSessionByTask[taskId];
-      const nativeSessionTitle = toProviderSessionTitle(nextTitle);
-      const workspaceId =
-        stateBefore.taskWorkspaceIdById[taskId] ??
-        stateBefore.activeWorkspaceId;
-      const cwd =
-        stateBefore.workspacePathById[workspaceId] ??
-        stateBefore.repositoryPath ??
-        undefined;
-      const renameRequests: Array<Promise<{ ok: boolean; detail: string }>> =
-        [];
-      for (const session of listProviderSessions({ sessions: providerSession })) {
-        const runtimeOptions = { claudeAccountProfileId: session.accountProfileId, codexAccountProfileId: session.accountProfileId,
-          claudeBinaryPath: stateBefore.settings.claudeBinaryPath || undefined, codexBinaryPath: stateBefore.settings.codexBinaryPath || undefined };
-        if (session.providerId === "claude-code" && window.api?.provider?.renameClaudeSession) {
-          renameRequests.push(window.api.provider.renameClaudeSession({ sessionId: session.nativeSessionId, title: nativeSessionTitle, cwd, runtimeOptions }));
-        } else if (session.providerId === "codex" && window.api?.provider?.renameCodexThread) {
-          renameRequests.push(window.api.provider.renameCodexThread({ threadId: session.nativeSessionId, name: nativeSessionTitle, runtimeOptions }));
-        }
-      }
-      if (renameRequests.length > 0) {
-        void Promise.all(renameRequests)
-          .then((results) => {
-            for (const result of results) {
-              if (!result.ok) {
-                console.warn("[task-rename] Native session rename failed", {
-                  taskId,
-                  detail: result.detail,
-                });
-              }
-            }
-          })
-          .catch((error) => {
-            console.warn("[task-rename] Native session rename failed", {
-              taskId,
-              detail: error instanceof Error ? error.message : String(error),
-            });
-          });
-      }
-    },
+    renameTask: createTaskRenameAction({
+      set,
+      get,
+      persistWorkspaceSessionInBackground: args.persistWorkspaceSessionInBackground,
+      incrementWorkspaceSnapshotVersion,
+    }),
     attachTaskSourceContext: ({ taskId, sourceContext }) => {
       set((state) => {
         const target = state.tasks.find((task) => task.id === taskId);

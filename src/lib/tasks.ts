@@ -126,6 +126,19 @@ export function reconcileTasksWithPersistedArchival(args: {
   return changed ? reconciled : args.tasks;
 }
 
+/** Host snapshots carry turn progress but cannot rename existing tasks. */
+export function reconcileTasksWithPersistedTitles<
+  T extends Pick<Task, "id" | "title" | "titleManuallySet">,
+>(args: { tasks: T[]; persistedTasks: Array<Pick<Task, "id" | "title" | "titleManuallySet">> }): T[] {
+  const persistedById = new Map(args.persistedTasks.map((task) => [task.id, task]));
+  return args.tasks.map((task) => {
+    const persisted = persistedById.get(task.id);
+    return persisted
+      ? { ...task, title: persisted.title, titleManuallySet: persisted.titleManuallySet }
+      : task;
+  });
+}
+
 export function getTaskControlMode(
   task: Pick<Task, "controlMode"> | null | undefined,
 ): TaskControlMode {
@@ -356,6 +369,20 @@ export function normalizeSuggestedTaskTitle(args: { title: string }) {
   }
 
   return normalized;
+}
+
+/** A prompt-derived name remains useful when optional AI naming is unavailable. */
+export function buildInitialTaskTitle(args: {
+  task: Pick<Task, "title" | "titleManuallySet"> | undefined;
+  prompt: string;
+}) {
+  if (!args.task || args.task.titleManuallySet) return null;
+  const title = args.task.title.trim().toLowerCase();
+  const isUntitled = !title || ["en", "ko"].some((language) =>
+    title === i18n.getFixedT(language, "notifications")("appStoreTaskCoreActions.newTask").toLowerCase(),
+  );
+  if (!isUntitled) return null;
+  return args.prompt.trim().split(/\r?\n/)[0]?.trim().slice(0, 48) || null;
 }
 
 /**

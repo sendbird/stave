@@ -1597,6 +1597,27 @@ describe("SqliteStore", () => {
     store.close();
   });
 
+  nativeSqliteTest("keeps a renderer rename through stale host writes and a SQLite restart", async () => {
+    const SqliteStore = await loadSqliteStore();
+    let store = new SqliteStore({ dbPath });
+    for (const titleManuallySet of [false, true]) {
+      const workspaceId = titleManuallySet ? "ws-title-manual" : "ws-title-auto";
+      const snapshot = createSnapshot();
+      const staleTask = { ...snapshot.tasks[0]!, title: "New Task" };
+      snapshot.tasks[0] = staleTask;
+      store.upsertWorkspace({ id: workspaceId, name: workspaceId, snapshot });
+      snapshot.tasks[0] = { ...staleTask, title: "Fix title persistence", titleManuallySet };
+      store.upsertWorkspace({ id: workspaceId, name: workspaceId, snapshot });
+      expect(store.persistTaskTurnDelta({ workspaceId, taskId: staleTask.id, task: { ...staleTask, unread: true } }).ok).toBe(true);
+      store.close();
+      store = new SqliteStore({ dbPath });
+      expect(store.listWorkspaceTasks({ workspaceId }).find((task) => task.id === staleTask.id)?.title).toBe("Fix title persistence");
+      expect(store.loadWorkspaceShell({ workspaceId })?.tasks.find((task) => task.id === staleTask.id)).toMatchObject({ title: "Fix title persistence", titleManuallySet, unread: true });
+      expect(store.loadWorkspaceShellLite({ workspaceId })?.tasks.find((task) => task.id === staleTask.id)?.title).toBe("Fix title persistence");
+    }
+    store.close();
+  });
+
   nativeSqliteTest(
     "persistTaskTurnDelta writes a turn without touching renderer-owned state",
     async () => {
@@ -1639,10 +1660,11 @@ describe("SqliteStore", () => {
 
       // Host-owned fields moved.
       expect(after.tasks.find((task) => task.id === "task-1")).toMatchObject({
-        title: "Renamed by the host",
+        title: "Task One",
         provider: "codex",
         unread: true,
       });
+      expect(store.listWorkspaceTasks({ workspaceId: "ws-1" }).find((task) => task.id === "task-1")?.title).toBe("Task One");
       expect(after.messageCountByTask["task-1"]).toBe(
         result.messageCount,
       );

@@ -90,6 +90,18 @@ function buildUpdate(args: { workspaceId?: string; taskId: string }) {
 }
 
 describe("applyHostTaskTurnSync", () => {
+  test.each([true, false])("preserves a renderer rename during an older host read (active: %s)", (active) => {
+    const task = buildTask({ id: "task-renamed", title: "My chosen name", titleManuallySet: true, controlMode: "interactive", controlOwner: "stave" });
+    const session = emptySession({ tasks: [task] });
+    const workspaceId = active ? "ws-active" : "ws-background";
+    const result = applyHostTaskTurnSync({
+      state: buildState({ session: active ? session : emptySession(), cache: { [workspaceId]: session } }),
+      loaded: { persistedSession: emptySession({ tasks: [{ ...task, title: "New task", titleManuallySet: undefined, unread: true }] }), persistedActiveTurnId: "turn-1", messages: [], messageCount: 1 },
+      update: buildUpdate({ workspaceId, taskId: task.id }),
+    });
+    expect(result.syncedSession.tasks[0]).toMatchObject({ title: "My chosen name", titleManuallySet: true, unread: true });
+  });
+
   test("restored delegation identity keeps host progress from changing renderer selection", () => {
     const parent = buildTask({ id: "task-parent", controlMode: "interactive", controlOwner: "stave" });
     const child = buildTask({ id: "task-child", parentTaskId: parent.id });
