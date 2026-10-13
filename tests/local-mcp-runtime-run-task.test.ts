@@ -60,6 +60,7 @@ const USER_DATA_PATH = "/tmp/stave-runtask-regression/user-data";
 type PersistedTaskRow = {
   id: string;
   title: string;
+  titleManuallySet?: boolean;
   provider: string;
   updatedAt: string;
   unread: boolean;
@@ -1672,6 +1673,19 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
 });
 
 describe("local MCP runtime archived-task persistence", () => {
+  test("a host snapshot write keeps a renderer rename and manual-name protection", async () => {
+    const created = await runtime.runTask({ workspaceId: RECONCILE_WORKSPACE_ID, prompt: "Investigate task naming", title: "New Task" });
+    const persisted = lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)!;
+    lastUpsertSnapshotByWorkspaceId.set(RECONCILE_WORKSPACE_ID, {
+      ...persisted,
+      tasks: persisted.tasks?.map((task) => task.id === created.taskId
+        ? { ...task, title: "My chosen name", titleManuallySet: true }
+        : task),
+    });
+    await runtime.replaceWorkspaceNotes({ workspaceId: RECONCILE_WORKSPACE_ID, notes: "A later host write" });
+    expect(lastUpsertSnapshotByWorkspaceId.get(RECONCILE_WORKSPACE_ID)?.tasks?.find((task) => task.id === created.taskId)).toMatchObject({ title: "My chosen name", titleManuallySet: true });
+  });
+
   test("host persist does not revive a task the renderer archived", async () => {
     // 1. The host creates + caches a live task and persists it.
     const created = await runtime.runTask({

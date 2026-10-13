@@ -164,7 +164,9 @@ function mergePersistedTaskIntoSession(args: {
         (task) => task.id === args.update.taskId,
       )
         ? args.currentSession.tasks.map((task) =>
-            task.id === args.update.taskId ? persistedTask : task,
+            task.id === args.update.taskId
+              ? { ...persistedTask, title: task.title, titleManuallySet: task.titleManuallySet }
+              : task,
           )
         : [persistedTask, ...args.currentSession.tasks],
       ...(openedHostCreatedTaskTab

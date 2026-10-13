@@ -81,7 +81,7 @@ import {
   applyPendingProviderEventsToStoreState,
   getWorkspaceSessionForState,
 } from "@/store/workspace-runtime-state";
-import type { Attachment, PromptDraft, Task } from "@/types/chat";
+import type { Attachment, ChatMessage, PromptDraft, Task } from "@/types/chat";
 import {
   buildCodexGoalQueuedTurns,
   buildQueuedTurnFromDraft,
@@ -512,6 +512,23 @@ export function createSendUserMessageAction(args: {
     const promptDisplayParts = buildPromptDraftDisplayPartsForSend(promptDraft);
     const activeTurnId =
       taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
+    const suggestTitle = (session: WorkspaceSessionState, history: ChatMessage[], model: string) => {
+      const normalizedPrompt = resolveSkillSelections({
+        text: promptContent, skills: state.skillCatalog.skills, providerId: provider,
+      }).normalizedText;
+      maybeSuggestUtilityTaskName({
+        task: session.tasks.find((candidate) => candidate.id === resolvedTaskId),
+        priorUserTurnCount: history.filter((message) => message.role === "user").length,
+        prompt: normalizedPrompt || promptContent,
+        history,
+        lane: resolveAuxLaneRuntime({
+          lane: "taskName", policy: turnSettings.auxiliaryInferencePolicy,
+          shared: turnSettings.auxiliaryInferenceDefault, activeProviderId: provider,
+        }),
+        context: buildUtilityInferenceContext({ cwd: workspaceCwd, provider, model, settings: turnSettings, lane: "taskName" }),
+        onTitle: (title) => get().renameTask({ taskId: resolvedTaskId, title, source: "auto" }),
+      });
+    };
     // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
     const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
       resolveInitialContext: () => resolveAgentRunInitialContext({ getState: get, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
@@ -520,7 +537,16 @@ export function createSendUserMessageAction(args: {
         informationContext: (lensState) => buildWorkspaceInformationReferencesRetrievedContext({ promptDraft, workspaceInformation: taskWorkspaceSession.workspaceInformation, lensState }) }),
       providerId: provider, prompt: promptContent, promptDraft,
       turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft, queuedTurnId: queuedTurnToSend?.id, accounts: turnAccounts });
-    if (agentRunStart) return await agentRunStart();
+    if (agentRunStart) {
+      const result = await agentRunStart();
+      if (result.status === "run-started") {
+        const session = getWorkspaceSessionForState({ state: get(), workspaceId: taskWorkspaceId });
+        if (session) suggestTitle(session, existingHistory, resolveTurnModelForSend({
+          providerId: provider, runtimeOverrides: promptDraft.runtimeOverrides, settings: turnSettings,
+        }));
+      }
+      return result;
+    }
     // A "stalled" turn is one whose provider stream has gone silent past the
     // stall threshold with no pending approval/user_input interaction — e.g. a
     // background task that never emitted `done`, or one whose runtime died. In
@@ -922,35 +948,7 @@ export function createSendUserMessageAction(args: {
       });
       const normalizedPrompt = skillSelection.normalizedText;
 
-      maybeSuggestUtilityTaskName({
-        task: latestWorkspaceSession.tasks.find(
-          (candidate) => candidate.id === resolvedTaskId,
-        ),
-        priorUserTurnCount: latestHistory.filter(
-          (message) => message.role === "user",
-        ).length,
-        prompt: normalizedPrompt || promptContent,
-        history: latestHistory,
-        lane: resolveAuxLaneRuntime({
-          lane: "taskName",
-          policy: state.settings.auxiliaryInferencePolicy,
-          shared: state.settings.auxiliaryInferenceDefault,
-          activeProviderId: provider,
-        }),
-        context: buildUtilityInferenceContext({
-          cwd: workspaceCwd,
-          provider,
-          model: activeModel,
-          settings: state.settings,
-          lane: "taskName",
-        }),
-        onTitle: (title) =>
-          get().renameTask({
-            taskId: resolvedTaskId,
-            title,
-            source: "auto",
-          }),
-      });
+      suggestTitle(latestWorkspaceSession, latestHistory, activeModel);
 
       const providerSession =
         latestWorkspaceSession.providerSessionByTask[resolvedTaskId];

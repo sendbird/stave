@@ -29,7 +29,7 @@ export type PersistenceTaskRow = PersistenceWorkspaceSnapshot["tasks"][number];
  * top-level task is the one exception: its id is appended to `openTaskTabIds`
  * so the pane shows a tab instead of stranding the row in Task History.
  *
- * `archivedAt` is deliberately taken from the *persisted* task row rather than
+ * Title fields and `archivedAt` are taken from the *persisted* task row rather than
  * the caller's copy: task archival is renderer-owned, and the host's cached
  * session can be stale enough to revive a task the user just archived.
  */
@@ -53,6 +53,9 @@ export function mergeTaskTurnDeltaPayload(args: {
             ? {
                 ...task,
                 ...args.task!,
+                // Names belong to the renderer; turn progress cannot rename an existing task.
+                title: task.title,
+                titleManuallySet: task.titleManuallySet,
                 // Renderer-owned lifecycle wins over the host's cached copy.
                 archivedAt: task.archivedAt ?? args.task!.archivedAt ?? null,
               }

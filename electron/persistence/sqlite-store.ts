@@ -2023,7 +2023,7 @@ export class SqliteStore {
     workspaceId: string;
     workspaceName?: string;
     taskId: string;
-    /** Host-owned task row. `archivedAt` is always taken from disk. */
+    /** Turn progress; existing names and `archivedAt` are taken from disk. */
     task?: PersistenceWorkspaceSnapshot["tasks"][number];
     /** Only the messages that changed. */
     messages?: PersistenceWorkspaceSnapshot["messagesByTask"][string];
@@ -2070,7 +2070,6 @@ export class SqliteStore {
           INSERT INTO tasks (id, workspace_id, title, provider, updated_at, unread, archived_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
-            title = excluded.title,
             provider = excluded.provider,
             updated_at = excluded.updated_at,
             unread = excluded.unread,

@@ -1079,6 +1079,7 @@ export const useAppStore = create<AppState>()(
     const taskCoreActions = createTaskCoreActions({
       set,
       get,
+      persistWorkspaceSessionInBackground,
       runScriptHookInBackground,
       attentionSync,
       loadTaskMessagesIntoSession,
