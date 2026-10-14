@@ -373,14 +373,15 @@ Fleet's search finds its tasks.
   stay as you set them. Claude's native Auto classifier can hand an action
   to you when it cannot decide or Auto is unavailable; the Agent Run waits
   for that approval. Saved **Manual** and **Guided** agents now run like
-  **Auto**; only **Read only** limits a turn. This holds in agent runs too: a
-  Codex agent run with Auto permission keeps auto-review whatever the saved
-  agent's permission, unless it is **Read only**.
+  **Auto**; only **Read only** limits a turn. This holds in agent runs too: an
+  **Auto** agent's runs use the provider's classifier (Claude auto mode, Codex
+  auto-review when available); every other permission runs on your own
+  provider settings, and **Read only** stays read only.
 
   | Agent | Claude | Codex | Cursor | Kiro |
   | --- | --- | --- | --- | --- |
   | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
-  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an agent run with Auto permission, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an Auto agent's run, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
 
   The only interrupts left are the Agent-mode guardrails (all on by default;
   turn each off in Settings) — a write outside the task's repository, a protected credential path or variable, an irreversible

@@ -76,8 +76,12 @@ stages:
   machine asks first.
 - **Every stage**: before each stage after the first.
 
-A run records its permission choice at start; a saved agent never grants
-permissions. **Auto** on Claude uses Claude's native permission classifier,
+A run records its permission at start, from the agent that was assigned: an
+**Auto** agent's runs use the provider's classifier (Claude auto mode, Codex
+auto-review when available); every other permission runs on your own provider
+settings, and a read-only agent stays read only. In every mode your sandbox,
+deny lists, credential protection, file access and network setting stay as you
+set them. **Auto** on Claude uses Claude's native permission classifier,
 without bypassing permission checks. When the classifier cannot decide or Auto
 is unavailable for the model or account, Claude hands the call to Stave. A
 trusted tool, a read or edit inside the repository, or a Stave tool that needs

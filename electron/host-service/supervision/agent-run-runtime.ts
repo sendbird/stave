@@ -545,6 +545,15 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     return accounts;
   }
 
+  /**
+   * The permissions every turn of a run starts from: the user's own provider
+   * settings, with the run's recorded consent replacing only the approval
+   * method. Stage turns and the user's replies in a stage share this.
+   */
+  function runPermissionOptions(agentRun: AgentRun, providerId: AgentRunFingerprint["providerId"]): ProviderRuntimeOptions {
+    return agentRunPermissionRuntimeOptions(providerId, agentRun.consent.permissionMode, deps.userPermissionOptions?.(providerId));
+  }
+
   function subscriptionAccountIds(providerId: AgentRunFingerprint["providerId"]) {
     return deps.listSubscriptionAccounts?.(providerId).map((account) => account.id);
   }
@@ -1229,13 +1238,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           providerId: agentRun.fingerprint.providerId, model: routed?.fingerprint.model ?? agentRun.fingerprint.model,
           effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? resumedDelegatedEffort ?? delegation.effort), permissionPolicy: delegation.permissionPolicy,
         }) : {
-          ...agentRunPermissionRuntimeOptions(
-            routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId,
-            agentRun.consent.permissionMode,
-            agentRun.consent.permissionMode === "manual"
-              ? deps.userPermissionOptions?.(routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId)
-              : undefined,
-          ),
+          ...runPermissionOptions(agentRun, routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId),
           ...routed?.runtimeOptions,
         }), ...runAccountOptions(agentRun, resources), ...(resetContinuation ? usageLimitAccounts(resetContinuation.fingerprint, resetContinuation.accountProfileId, {}) : {}) };
       const turn = await deps.runSupervisedTurn({
@@ -1757,7 +1760,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const accountOptions = resources?.policy.accountProfileId ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: resources.policy.accountProfileId } : { claudeAccountProfileId: resources.policy.accountProfileId }) : {};
       return { agentRunStage, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
-      }) } } : adaptive ? { runtimeOptions: { ...accountOptions, model: adaptive.model, ...adaptive.runtimeOptions } } : {}), context: {
+      }) } } : { runtimeOptions: { ...accountOptions,
+        // The reply is a turn of the run: the run's consent, not the composer's settings alone.
+        ...runPermissionOptions(run, providerId === "codex" || providerId === "claude-code" ? providerId : run.fingerprint.providerId),
+        ...(adaptive ? { model: adaptive.model, ...adaptive.runtimeOptions } : {}) } }), context: {
         type: "retrieved_context", sourceId: AGENT_RUN_CONTEXT_SOURCE_ID, title: "Agent stage reply",
         content: `${describeAgentRunExecutionContext(aggregate)}\n${endedWait ? `Your wait for ${endedWait.kind}${endedWait.target ? ` on ${endedWait.target}` : ""} ended without the event, and the user's reply continues the run.\n` : ""}This is the user's reply in the current stage. Handle it once and report the stage using the reporting tools. If it is only a clarification, answer it and keep the stage blocked on the missing decision. Do not restart or repeat the original assignment.`,
       } };

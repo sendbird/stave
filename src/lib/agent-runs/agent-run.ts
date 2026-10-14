@@ -16,11 +16,24 @@
  * Pure: no clock, no I/O. Callers pass `now`.
  */
 import { DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
+import type { AutomationPermissionMode } from "@/lib/automations";
 import { WORKFLOW_LIMITS, WORKFLOW_VERSION, type Workflow } from "@/lib/workflows/schema";
 import { AGENT_RUN_LIMITS, stageHasExternalEffect, type AgentRun, type AgentRunStartInput } from "./domain";
 import type { PromptDraft } from "@/types/chat";
 
-type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns">;
+type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns"> & Partial<Pick<AgentConfig, "permission">>;
+
+/**
+ * The permission a run starts with is the agent's: an Auto agent runs on the
+ * provider's own classifier (Claude auto mode, Codex auto-review when
+ * available); every other permission, or none, runs on the user's own
+ * provider settings (`manual`), where a saved Manual or Guided agent runs
+ * like Auto and only Read only limits a turn (`turn-policy.ts`). The host
+ * applies a read-only agent's posture on top. Guardrails apply in every mode.
+ */
+export function agentRunPermissionMode(permission: AgentConfig["permission"] | undefined): AutomationPermissionMode {
+  return permission === "auto" ? "auto" : "manual";
+}
 
 export const AGENT_RUN_WORKFLOW_ID = "agent-run";
 export const AGENT_RUN_STAGE_ID = "work";
@@ -109,7 +122,7 @@ export function buildAgentRunStartInput(args: {
     workflow,
     assignment: args.assignment.trim(),
     ...(args.initialContext ? { initialContext: args.initialContext } : {}),
-    consent: { checkIns: workflow.checkIns, permissionMode: "manual", authorizedEffectStageIds },
+    consent: { checkIns: workflow.checkIns, permissionMode: agentRunPermissionMode(args.agent.permission), authorizedEffectStageIds },
     origin: "agent",
     ...(args.adaptive ? { adaptive: true } : {}),
     ...(args.routingIntent ? { routingIntent: args.routingIntent } : {}),

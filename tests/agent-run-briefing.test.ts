@@ -99,18 +99,25 @@ describe("run briefing", () => {
     expect(agentRunPermissionRuntimeOptions("claude-code", "manual")).toEqual({});
   });
 
-  test("Your settings (manual) runs with the user's provider settings, and only manual does", () => {
-    const claudeSettings = { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false };
+  test("every mode starts from the user's provider settings; Auto and Guided replace only the approval method", () => {
+    const claudeSettings = { claudePermissionMode: "bypassPermissions" as const, claudeAllowDangerouslySkipPermissions: true,
+      claudeSandboxEnabled: false, claudeDisallowedTools: ["WebFetch"], claudeSandboxCredentialFiles: ["~/.netrc"] };
     expect(agentRunPermissionRuntimeOptions("claude-code", "manual", claudeSettings)).toEqual(claudeSettings);
-    const codexSettings = { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const };
+    const codexSettings = { codexApprovalPolicy: "never" as const, codexApprovalsReviewer: "auto_review" as const,
+      codexFileAccess: "danger-full-access" as const, codexNetworkAccess: true };
     expect(agentRunPermissionRuntimeOptions("codex", "manual", codexSettings)).toEqual(codexSettings);
-    // Auto and Guided keep their explicit consent; user settings never widen them.
-    expect(agentRunPermissionRuntimeOptions("codex", "guided", codexSettings)).toEqual({
-      codexApprovalPolicy: "untrusted",
+    // The user's protection settings survive; the consent never widens them.
+    expect(agentRunPermissionRuntimeOptions("claude-code", "auto", claudeSettings)).toEqual({
+      ...claudeSettings, claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false,
     });
     expect(agentRunPermissionRuntimeOptions("claude-code", "guided", claudeSettings)).toEqual({
-      claudePermissionMode: "default",
-      claudeAllowDangerouslySkipPermissions: false,
+      ...claudeSettings, claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false,
+    });
+    expect(agentRunPermissionRuntimeOptions("codex", "auto", codexSettings)).toEqual({
+      ...codexSettings, codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review",
+    });
+    expect(agentRunPermissionRuntimeOptions("codex", "guided", codexSettings)).toEqual({
+      ...codexSettings, codexApprovalPolicy: "untrusted", codexApprovalsReviewer: "user",
     });
   });
 });

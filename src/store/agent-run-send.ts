@@ -247,7 +247,7 @@ export function prepareAgentRunForSend(
         buildAgentRunStartInput({
           workspaceId: args.workspaceId,
           taskId: args.taskId,
-          agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns },
+          agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns, permission: agent.agentPermission },
           assignment: buildAgentRunAssignment(args.prompt, args.promptDraft),
           ...(args.resolveInitialContext ? { initialContext: await args.resolveInitialContext() } : {}),
           adaptive: args.promptDraft.runtimeOverrides?.agentRunAdaptive,

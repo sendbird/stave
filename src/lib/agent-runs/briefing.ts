@@ -312,7 +312,10 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
  * auto-review, gated by the selected executable before dispatch;
  * "Your settings" (stored as `manual`) runs with the user's own provider
  * permission settings, as the host read them (`userSettingsPermissionOptions`),
- * never the runtime's fallbacks.
+ * never the runtime's fallbacks. Every mode starts from those settings: Auto
+ * and Guided replace only the approval method (Claude's permission mode,
+ * Codex's approval policy and reviewer), so the user's sandbox, deny lists,
+ * credential protection, file access and network setting stay as set.
  */
 export function agentRunPermissionRuntimeOptions(
   providerId: ProviderId,
@@ -321,11 +324,16 @@ export function agentRunPermissionRuntimeOptions(
 ): ProviderRuntimeOptions {
   if (permissionMode === "manual") return { ...userPermissionOptions };
   if (providerId === "codex") {
-    return permissionMode === "auto"
-      ? { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }
-      : { codexApprovalPolicy: "untrusted" };
+    return {
+      ...userPermissionOptions,
+      ...(permissionMode === "auto"
+        ? { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }
+        : { codexApprovalPolicy: "untrusted", ...(userPermissionOptions?.codexApprovalsReviewer ? { codexApprovalsReviewer: "user" as const } : {}) }),
+    };
   }
-  return permissionMode === "auto"
-    ? { claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
-    : { claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false };
+  return {
+    ...userPermissionOptions,
+    claudePermissionMode: permissionMode === "auto" ? "auto" : "default",
+    claudeAllowDangerouslySkipPermissions: false,
+  };
 }

@@ -313,8 +313,9 @@ describe("run runtime: accounts a turn runs on", () => {
 
 describe("run runtime: permissions a turn runs with", () => {
   const USER_SETTINGS = {
-    "claude-code": { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false },
-    codex: { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const },
+    "claude-code": { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false, claudeDisallowedTools: ["WebFetch"],
+      claudeSandboxCredentialFiles: ["~/.netrc"] },
+    codex: { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const, codexNetworkAccess: true },
   };
   const userPermissionOptions = (providerId: string) =>
     USER_SETTINGS[providerId as keyof typeof USER_SETTINGS];
@@ -334,16 +335,20 @@ describe("run runtime: permissions a turn runs with", () => {
     expect(harness.runCalls[0]?.runtimeOptions).toEqual(USER_SETTINGS.codex);
   });
 
-  test("Auto and Guided keep their explicit consent over the user's settings", async () => {
+  test("Auto and Guided replace only the approval method; the user's protection settings survive", async () => {
     const guided = createHarness({ userPermissionOptions });
     await startedAgentRun(guided);
     expect(guided.runCalls[0]?.runtimeOptions).toEqual({
+      ...USER_SETTINGS["claude-code"],
       claudePermissionMode: "default",
       claudeAllowDangerouslySkipPermissions: false,
     });
     const claudeAuto = createHarness({ userPermissionOptions });
     const id = await startedAgentRun(claudeAuto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
-    expect(claudeAuto.runCalls[0]?.runtimeOptions).toEqual({ claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false });
+    // The deny list, sandbox and credential protection from the user's settings stay on an Auto run.
+    expect(claudeAuto.runCalls[0]?.runtimeOptions).toEqual({
+      ...USER_SETTINGS["claude-code"], claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false,
+    });
     claudeAuto.setSnapshot({ pendingApprovalCount: 1 });
     await claudeAuto.tick();
     expect(claudeAuto.runCalls).toHaveLength(1);
@@ -352,7 +357,28 @@ describe("run runtime: permissions a turn runs with", () => {
     const auto = createHarness({ userPermissionOptions });
     auto.setSnapshot({ providerId: "codex", model: "gpt-5" });
     await startedAgentRun(auto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
-    expect(auto.runCalls[0]?.runtimeOptions).toEqual({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" });
+    expect(auto.runCalls[0]?.runtimeOptions).toEqual({
+      ...USER_SETTINGS.codex, codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review",
+    });
+  });
+
+  test("the user's reply in a stage carries the run's permission, on both providers", async () => {
+    const auto = { ...manual, permissionMode: "auto" as const };
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const h = createHarness({ userPermissionOptions, extra: { taskRunsAsAgent: () => true } });
+      h.setSnapshot({ providerId, model: providerId === "codex" ? "gpt-5" : "sonnet" });
+      const id = await startedAgentRun(h, startInput({ origin: "agent", consent: auto }));
+      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
+      h.endTurn("turn-1");
+      await h.tick();
+      h.userTurn("reply-1");
+      const reply = h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "reply-1", providerId });
+      expect(reply?.agentRunStage).toMatchObject({ agentRunId: id, stageId: "draft", attempt: 1 });
+      expect(reply?.runtimeOptionsMode).toBe("routing");
+      expect(reply?.runtimeOptions).toEqual(providerId === "codex"
+        ? { ...USER_SETTINGS.codex, codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }
+        : { ...USER_SETTINGS["claude-code"], claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false });
+    }
   });
 });
 

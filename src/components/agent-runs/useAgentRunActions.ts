@@ -86,6 +86,8 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 name: agentRun.workflow.name,
                 workflow: single ? undefined : stages,
                 checkIns: agentRun.consent.checkIns,
+                // The new run keeps the permission the last run recorded.
+                permission: agentRun.consent.permissionMode === "auto" ? "auto" : "manual",
               },
               assignment: agentRun.assignment,
               adaptive: Boolean(detail.resources),
