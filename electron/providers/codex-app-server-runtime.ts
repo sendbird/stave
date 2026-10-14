@@ -156,6 +156,7 @@ import { parsePositiveIntEnv } from "./runtime-shared";
 import { createCodexMcpManagement } from "./codex-mcp-management";
 import {
   downgradeUnsupportedCodexRuntimeOptions,
+  buildCodexAutoReviewUnavailableNotice,
   getCodexVersionCapabilities,
 } from "./codex-runtime-capabilities";
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
@@ -1972,6 +1973,10 @@ export async function streamCodexWithAppServer(
         return events;
       };
 
+      const autoReviewNotice = buildCodexAutoReviewUnavailableNotice({
+        capabilities: codexCapabilities, runtimeOptions: requestedRuntimeOptions,
+      });
+      if (autoReviewNotice) emitBridgeEvent(autoReviewNotice);
       const modelResolution = createCodexModelResolutionTracker(requestedModel);
       emitBridgeEvents(
         modelResolution.resolve(
@@ -2454,7 +2459,8 @@ export async function streamCodexWithAppServer(
               ...presentation.pending,
             });
             void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({
+            // Run handoffs wait for a person, including reviewer escalations.
+            if (!args.agentRunStage) scheduleApprovalAutoDecline({
               requestId,
               toolName: presentation.event.toolName,
             });

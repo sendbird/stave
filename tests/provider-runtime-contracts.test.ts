@@ -95,3 +95,9 @@ describe("provider runtime contracts", () => {
     ).toBe(true);
   });
 });
+
+test("validates the Codex reviewer at the IPC boundary", () => {
+  expect(RuntimeOptionsObjectSchema.safeParse({ codexApprovalsReviewer: "auto_review" }).success).toBe(true);
+  expect(RuntimeOptionsObjectSchema.safeParse({ codexApprovalsReviewer: "user" }).success).toBe(true);
+  expect(RuntimeOptionsObjectSchema.safeParse({ codexApprovalsReviewer: "approve_all" }).success).toBe(false);
+});

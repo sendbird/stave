@@ -22,6 +22,12 @@ export function resolveEffectiveCodexApprovalPolicy(args: {
   return args.fallback ?? "untrusted";
 }
 
+export function resolveCodexApprovalsReviewer(
+  reviewer?: string,
+): ProviderRuntimeOptions["codexApprovalsReviewer"] {
+  return reviewer === "user" || reviewer === "auto_review" ? reviewer : undefined;
+}
+
 export function resolveEffectiveCodexFileAccessMode(args: {
   fileAccessMode?: ProviderRuntimeOptions["codexFileAccess"];
   fallback?: CodexFileAccessMode;

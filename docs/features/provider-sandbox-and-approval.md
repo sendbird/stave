@@ -165,6 +165,16 @@ Use Codex controls when you want to decide:
 - whether network access should remain off
 - whether the turn should stay in planning mode
 
+Codex Agent Run **Auto** uses `approval_policy = "on-request"` and
+`approvals_reviewer = "auto_review"` when the selected executable supports it.
+Stave forwards the reviewer as `approvalsReviewer` on thread start, resume and
+turn start and trusts its decision. Any approval handed to Stave waits for
+your decision. Auto-review does not change sandbox, file access or network
+settings, and read-only or stricter Agent definitions retain their limits.
+Stave conservatively enables this for CLI/App Server 0.162.1 and newer, the
+verified baseline. Older or unknown versions use `never` and show a notice.
+Ordinary composer turns keep their existing behavior.
+
 ### Cursor
 
 Cursor exposes approval autonomy as a single Approval Preset, because its CLI

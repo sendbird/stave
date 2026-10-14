@@ -51,6 +51,7 @@ const DelegationPermissionOptionsObjectSchema = z.object({
   codexApprovalPolicy: z
     .enum(["never", "on-request", "on-failure", "untrusted"])
     .optional(),
+  codexApprovalsReviewer: z.enum(["user", "auto_review"]).optional(),
   codexNetworkAccess: z.boolean().optional(),
   codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
   codexAgentTurn: z.boolean().optional(),
@@ -294,6 +295,8 @@ export function restrictPermissionOptions(
     codexFileAccess: ["read-only", "workspace-write", "danger-full-access"],
     codexApprovalPolicy: ["untrusted", "on-request", "on-failure", "never"],
   } as const;
+  if (options.codexApprovalsReviewer === "auto_review" &&
+      current.codexApprovalsReviewer !== "auto_review") options.codexApprovalsReviewer = "user";
   const previousMode = options.claudePermissionMode ?? "default";
   const currentMode = current.claudePermissionMode ?? "default";
   const hasClaudePolicy = Object.keys({ ...recorded, ...current }).some((key) =>

@@ -130,7 +130,7 @@ describe("Codex MCP runtime status", () => {
 
 // Stave's allowed request subset, validated against
 // `codex app-server generate-json-schema --experimental --out <dir>` for
-// Codex CLI/App Server 0.145.0.
+// Codex CLI/App Server 0.145.0; reviewer enum and fields rechecked on 0.162.1.
 const GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS: Set<string> =
   new Set([
     "approvalPolicy",
@@ -2036,4 +2036,56 @@ test("Codex usage-limit completion preserves its structured cause without confus
   expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: false, errorInfo: "contextWindowExceeded", errorMessage: "usage limit reached" })).toBe("failed");
   expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: true, errorInfo: "usageLimitExceeded" })).toBe("user_abort");
   expect(buildCodexTerminalFailureEvents({ message: "usage_limit_reached" })[1]).toMatchObject({ type: "done", stop_reason: "usage_limit" });
+});
+
+describe("Codex Run auto-review", () => {
+  const requested = { codexApprovalPolicy: "on-request" as const,
+    codexApprovalsReviewer: "auto_review" as const, codexFileAccess: "workspace-write" as const,
+    codexNetworkAccess: false };
+  const capabilities = (versionText?: string) => resolveProviderRuntimeCapabilities({ providerId: "codex", versionText });
+
+  test("passes the reviewer and raisable policy through thread start, resume and turn start", () => {
+    const runtimeOptions = applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("codex-cli 0.162.1"), runtimeOptions: requested });
+    const start = buildCodexThreadStartParams({ cwd: "/tmp/repo", runtimeOptions });
+    const resume = buildCodexThreadResumeParams({ threadId: "thread-1", cwd: "/tmp/repo", runtimeOptions });
+    const turn = buildCodexTurnStartParams({ threadId: "thread-1", prompt: "Work", cwd: "/tmp/repo", runtimeOptions });
+    expectGeneratedThreadStartParamKeys(start);
+    expectGeneratedThreadResumeParamKeys(resume);
+    expectGeneratedTurnStartParamKeys(turn);
+    for (const params of [start, resume, turn]) {
+      expect(params).toMatchObject({ approvalPolicy: "on-request", approvalsReviewer: "auto_review" });
+    }
+    expect(turn.sandboxPolicy).toMatchObject({ type: "workspaceWrite", networkAccess: false, writableRoots: ["/tmp/repo"] });
+  });
+
+  test("older, unknown and unavailable runtimes fall back without sending unsupported fields", async () => {
+    const { buildCodexAutoReviewUnavailableNotice } = await import("../electron/providers/codex-runtime-capabilities");
+    for (const cap of [capabilities("0.162.0"), capabilities(), resolveProviderRuntimeCapabilities({ providerId: "codex", versionText: "0.162.1", available: false })]) {
+      const runtimeOptions = applyCodexRuntimeCapabilityDowngrades({ capabilities: cap, runtimeOptions: requested });
+      expect(runtimeOptions).toMatchObject({ codexApprovalPolicy: "never", codexFileAccess: "workspace-write", codexNetworkAccess: false });
+      const params = buildCodexTurnStartParams({ threadId: "t", prompt: "Work", cwd: "/tmp/repo", runtimeOptions });
+      expect(params).not.toHaveProperty("approvalsReviewer");
+      expect(buildCodexAutoReviewUnavailableNotice({ capabilities: cap, runtimeOptions: requested })).toMatchObject({ type: "system", content: expect.stringContaining("auto-review") });
+    }
+    expect(buildCodexAutoReviewUnavailableNotice({ capabilities: capabilities("0.162.1"), runtimeOptions: requested })).toBeNull();
+    expect(buildCodexAutoReviewUnavailableNotice({ capabilities: capabilities(), runtimeOptions: { codexApprovalPolicy: "untrusted" } })).toBeNull();
+  });
+
+  test("returning to ordinary turns resets a resumed thread to the user reviewer", () => {
+    const runtimeOptions = applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.162.1"), runtimeOptions: { codexApprovalPolicy: "untrusted" } });
+    expect(buildCodexThreadResumeParams({ threadId: "t", cwd: "/tmp/repo", runtimeOptions })).toMatchObject({ approvalPolicy: "untrusted", approvalsReviewer: "user" });
+    expect(applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.162.1") }))
+      .toEqual({ codexApprovalsReviewer: "user" });
+    expect(applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.145.0") })).toBeUndefined();
+    const old = applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.145.0"), runtimeOptions: { codexApprovalPolicy: "untrusted", codexApprovalsReviewer: "user" } });
+    expect(old?.codexApprovalPolicy).toBe("untrusted");
+    expect(old?.codexApprovalsReviewer).toBeUndefined();
+  });
+
+  test("secondary read-only execution cannot inherit auto-review", async () => {
+    const { resolveCodexSecondaryRuntimeOptions } = await import("../electron/providers/codex-app-server-params");
+    const runtimeOptions = resolveCodexSecondaryRuntimeOptions({ enabled: true, runtimeOptions: requested });
+    expect(runtimeOptions).toMatchObject({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user", codexFileAccess: "read-only", codexNetworkAccess: false });
+    expect(buildCodexThreadStartParams({ cwd: "/tmp/repo", runtimeOptions: requested, isolated: true }).approvalsReviewer).toBe("user");
+  });
 });

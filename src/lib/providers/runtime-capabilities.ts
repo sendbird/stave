@@ -162,7 +162,8 @@ export function resolveProviderRuntimeCapabilities(args: {
       appToolModes: hasH1AppControls
         ? ["auto", "prompt", "writes", "approve"]
         : [],
-      autoClassifierPolicy: false,
+      // Conservative floor verified with this binary's generated protocol schema.
+      autoClassifierPolicy: isAtLeast(version, { major: 0, minor: 162, patch: 1 }),
       permissionProfiles: false,
     },
     history: {

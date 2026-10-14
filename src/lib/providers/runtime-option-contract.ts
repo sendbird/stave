@@ -227,6 +227,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "codexFileAccess",
   "codexNetworkAccess",
   "codexApprovalPolicy",
+  "codexApprovalsReviewer",
   "codexAutoApproveStaveLocalMcpTools",
   "codexBinaryPath",
   "codexReasoningEffort",

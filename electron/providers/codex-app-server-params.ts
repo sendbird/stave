@@ -3,6 +3,7 @@ import type { StreamTurnArgs } from "./types";
 import { codexNativePlanConfig } from "./native-plan-options";
 import {
   resolveCodexAppServerReasoningEffort,
+  resolveCodexApprovalsReviewer,
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "../../src/lib/providers/codex-runtime-options";
@@ -219,6 +220,8 @@ export function buildCodexTurnStartParams(args: {
     ],
     cwd: args.cwd,
     ...(approvalPolicy ? { approvalPolicy } : {}),
+    ...(resolveCodexApprovalsReviewer(args.runtimeOptions?.codexApprovalsReviewer)
+      ? { approvalsReviewer: args.runtimeOptions?.codexApprovalsReviewer } : {}),
     sandboxPolicy: buildSandboxPolicy({
       cwd: args.cwd,
       runtimeOptions: args.runtimeOptions,
@@ -262,7 +265,12 @@ export function buildCodexThreadStartParams(args: {
   return applyCodexApiConnectionThread({
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     cwd: args.cwd,
-    ...(args.approvalPolicy ? { approvalPolicy: args.approvalPolicy } : {}),
+    ...(args.approvalPolicy ? { approvalPolicy: args.approvalPolicy } :
+      args.runtimeOptions?.codexApprovalsReviewer && args.runtimeOptions.codexApprovalPolicy
+        ? { approvalPolicy: args.runtimeOptions.codexApprovalPolicy } : {}),
+    ...(args.runtimeOptions?.codexApprovalsReviewer
+      ? { approvalsReviewer: args.isolated || args.secondaryReadOnly
+          ? "user" : resolveCodexApprovalsReviewer(args.runtimeOptions.codexApprovalsReviewer) } : {}),
     ...(args.sandbox ? { sandbox: args.sandbox } : {}),
     ...(config ? { config } : {}),
     ...(args.ephemeral !== undefined ? { ephemeral: args.ephemeral } : {}),
@@ -325,6 +333,11 @@ export function buildCodexThreadResumeParams(args: {
 
   return applyCodexApiConnectionThread({
     threadId: args.threadId,
+    ...(args.runtimeOptions?.codexApprovalsReviewer
+      ? { approvalsReviewer: args.secondaryReadOnly ? "user"
+          : resolveCodexApprovalsReviewer(args.runtimeOptions.codexApprovalsReviewer),
+          ...(args.runtimeOptions.codexApprovalPolicy
+            ? { approvalPolicy: args.runtimeOptions.codexApprovalPolicy } : {}) } : {}),
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     cwd: args.cwd,
     ...(config ? { config } : {}),
@@ -441,6 +454,7 @@ export function resolveCodexSecondaryRuntimeOptions(args: {
         codexResumeThreadId: undefined,
         codexAutoApproveStaveLocalMcpTools: undefined,
         codexApprovalPolicy: "never",
+        ...(args.runtimeOptions?.codexApprovalsReviewer ? { codexApprovalsReviewer: "user" as const } : {}),
         codexFileAccess: "read-only",
         codexNetworkAccess: false,
         codexWebSearch: "disabled",

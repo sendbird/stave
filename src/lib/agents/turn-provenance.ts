@@ -23,6 +23,7 @@ export const AgentTurnProvenanceSchema = z.object({
       claudeDisallowedTools: z.array(z.string().max(80)).max(128).optional(),
       codexFileAccess: z.string().max(80).optional(),
       codexApprovalPolicy: z.string().max(80).optional(),
+      codexApprovalsReviewer: z.enum(["user", "auto_review"]).optional(),
       codexNetworkAccess: z.boolean().optional(),
       cursorMode: z.string().max(80).optional(),
       cursorApprovalMode: z.string().max(80).optional(),

@@ -1,3 +1,4 @@
+import { agentPermissionOverrides } from "../../src/lib/agents/permission";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
 import { agentRuntimeOptions, compileTaskAgentRole } from "../../src/lib/agents/runtime-options";
 import { compileNativeSubagents } from "../../src/lib/agents/native-subagents";
@@ -35,9 +36,15 @@ export function prepareTaskAgentTurn(args: {
       compiled.agentConfigId !== assignment.agentConfigId || assignment.agent.name !== assignment.agentName) {
     throw new Error("The task's saved Agent identity is inconsistent.");
   }
-  const base = turn.runtimeOptions ?? {};
+  const requested = turn.runtimeOptions ?? {};
+  const base = turn.agentRunStage && compiled.role === "primary" &&
+    requested.codexApprovalsReviewer === "auto_review"
+    ? { ...requested, ...agentPermissionOverrides({ permission: compiled.permission,
+        providerId: turn.providerId, options: requested }) }
+    : requested;
   // A main Agent runs autonomously unless it is read only (`turn-policy.ts`);
-  // its saved permission is no longer a ceiling. Delegation policy has already
+  // Run reviewer requests retain the saved permission ceiling above. Other turns
+  // keep their existing autonomy. Delegation policy has already
   // been resolved by its host authority, so a delegate only adds instructions.
   const instructions = compiled.role === "primary" ? agentRuntimeOptions(compiled, base) : {};
   const turnPolicy = compiled.role === "primary" ? resolveTurnPolicy({
@@ -65,7 +72,7 @@ export function prepareTaskAgentTurn(args: {
   const applied: AgentTurnProvenance["permission"]["applied"] = {};
   const providerKeys = {
     "claude-code": ["claudePermissionMode", "claudeAllowDangerouslySkipPermissions", "claudeDisallowedTools"],
-    codex: ["codexFileAccess", "codexApprovalPolicy", "codexNetworkAccess"],
+    codex: ["codexFileAccess", "codexApprovalPolicy", "codexApprovalsReviewer", "codexNetworkAccess"],
     cursor: ["cursorMode", "cursorApprovalMode"],
     kiro: ["kiroApprovalMode"],
   } as const;

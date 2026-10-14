@@ -150,3 +150,21 @@ test("Agent evidence survives production SQL compaction and reopening, without r
   h.db.close();
   rmSync(directory, { recursive: true, force: true });
 });
+
+test("Codex Run reviewer respects the saved Agent definition before native dispatch", () => {
+  const h = harness();
+  for (const permission of ["auto", "guided", "manual", "read-only"] as const) {
+    h.record({ ...getBuiltinAgent(permission === "read-only" ? "researcher" : "implementer")!, permission });
+    const turn = h.runtime.prepareTurn({
+      turnId: `reviewer-${permission}`, taskId: "task", providerId: "codex", cwd: "/tmp/repo", prompt: "Work",
+      agentRunStage: { agentRunId: "run", stageId: "work", attempt: 1 },
+      runtimeOptions: { codexApprovalsReviewer: "auto_review", codexApprovalPolicy: "on-request",
+        codexFileAccess: "workspace-write", codexNetworkAccess: false },
+    })!;
+    expect(turn.runtimeOptions.codexApprovalsReviewer).toBe(permission === "auto" ? "auto_review" : "user");
+    expect(turn.runtimeOptions.codexApprovalPolicy).toBe(permission === "auto" ? "on-request" : permission === "read-only" ? "never" : "untrusted");
+    expect(turn.runtimeOptions.codexFileAccess).toBe(permission === "read-only" ? "read-only" : "workspace-write");
+    expect(turn.runtimeOptions.codexNetworkAccess).toBe(false);
+  }
+  h.db.close();
+});

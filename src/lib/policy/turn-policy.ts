@@ -89,6 +89,7 @@ export function autonomyOfOptions(
       : "ask";
   }
   if (providerId === "codex") {
+    if (value.codexApprovalsReviewer === "auto_review" && value.codexApprovalPolicy === "on-request") return "autonomous";
     if (value.codexApprovalPolicy !== "never") return "ask";
     return value.codexFileAccess === "read-only" ? "read-only" : "autonomous";
   }
@@ -119,7 +120,8 @@ function readOnlyOptions(providerId: ProviderId, options: ProviderRuntimeOptions
           claudeSandboxCredentialEnvVars: options.claudeSandboxCredentialEnvVars,
         });
   }
-  if (providerId === "codex") return codexReadOnlyDelegationOptions();
+  if (providerId === "codex") return { ...codexReadOnlyDelegationOptions(),
+    ...(options.codexApprovalsReviewer ? { codexApprovalsReviewer: "user" as const } : {}) };
   return agentPermissionOverrides({ permission: "read-only", providerId, options });
 }
 
@@ -141,6 +143,12 @@ function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptio
     return { claudePermissionMode: "auto" };
   }
   if (providerId === "codex") {
+    if (options.codexApprovalsReviewer) return {
+      codexApprovalsReviewer: options.codexApprovalsReviewer,
+      codexApprovalPolicy: options.codexApprovalPolicy ?? "on-request",
+      // A reviewer handoff must reach the Run approval path, even for Stave tools.
+      codexAutoApproveStaveLocalMcpTools: false,
+    };
     return {
       codexApprovalPolicy: "never",
       codexFileAccess: options.codexFileAccess === "danger-full-access" ? "danger-full-access" : "workspace-write",
@@ -158,7 +166,8 @@ function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptio
 function askOptions(providerId: ProviderId, options: ProviderRuntimeOptions): Partial<ProviderRuntimeOptions> {
   if (autonomyOfOptions(providerId, options) !== "autonomous") return {};
   if (providerId === "claude-code") return { claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false };
-  if (providerId === "codex") return { codexApprovalPolicy: "on-request", codexAutoApproveStaveLocalMcpTools: false };
+  if (providerId === "codex") return { codexApprovalPolicy: "on-request", codexAutoApproveStaveLocalMcpTools: false,
+    ...(options.codexApprovalsReviewer ? { codexApprovalsReviewer: "user" as const } : {}) };
   return {};
 }
 
@@ -259,6 +268,7 @@ export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "codexFileAccess",
   "codexNetworkAccess",
   "codexApprovalPolicy",
+  "codexApprovalsReviewer",
   "codexAutoApproveStaveLocalMcpTools",
   "codexAppToolApprovalMode",
   "codexBinaryPath",

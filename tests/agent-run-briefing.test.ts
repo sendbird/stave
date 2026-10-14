@@ -88,7 +88,7 @@ describe("run briefing", () => {
   });
 
   test("permission modes map onto each runtime", () => {
-    expect(agentRunPermissionRuntimeOptions("codex", "auto")).toEqual({ codexApprovalPolicy: "never" });
+    expect(agentRunPermissionRuntimeOptions("codex", "auto")).toEqual({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" });
     expect(agentRunPermissionRuntimeOptions("codex", "guided")).toEqual({
       codexApprovalPolicy: "untrusted",
     });

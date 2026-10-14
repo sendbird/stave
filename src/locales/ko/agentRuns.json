@@ -437,7 +437,7 @@
     "hours": "{{value}}시간",
     "days": "{{value}}일",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고 필요하면 승인을 요청합니다. Codex는 승인을 요청하지 않습니다."
+    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고 Codex는 지원되는 경우 auto-review를 사용합니다. 사람의 검토가 필요하면 승인을 기다립니다."
   },
   "checks": {
     "detail": "{{value1}} 검사가 {{value2}}분 동안 대기 중입니다.",
@@ -835,5 +835,8 @@
     "waitingUntil": "{{time}} 사용량 초기화를 기다립니다. 이 계정의 사용량을 확인한 뒤 재개합니다.",
     "waitingUnknown": "사용량 초기화를 기다립니다. 초기화 시각을 알 수 없으므로 사용량이 확보되면 재개하세요.",
     "resumeNow": "지금 재개"
+  },
+  "permissions": {
+    "codexAutoReviewUnavailable": "이 런타임에서는 Codex auto-review를 사용할 수 없습니다. Auto는 기존 never 승인 정책과 샌드박스 설정을 유지합니다. Stave에 도착한 승인 요청은 사용자의 결정을 기다립니다."
   }
 }

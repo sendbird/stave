@@ -11,7 +11,10 @@ piece of its work, inside its turn or as a delegated task.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start. A task that runs as an Agent runs **autonomously**: no routine
-approval prompts. Claude asks when its native Auto classifier hands an action
+approval prompts. Codex Runs use native auto-review when supported and wait
+for human review when a request reaches Stave. Unsupported runtimes retain
+their existing approval policy and show a notice. Claude asks when its native
+Auto classifier hands an action
 to you or is unavailable. Guardrails (all on by default, each one can be turned
 off) also ask. A read-only Agent stays read only. Delegated Agents use the delegation policy resolved by the host and never
 get more autonomy than the task that delegated them.

@@ -1,3 +1,4 @@
+import { i18n } from "../../src/i18n/runtime";
 import type {
   ProviderRuntimeCapabilities,
   ProviderRuntimeOptions,
@@ -32,7 +33,9 @@ export function applyCodexRuntimeCapabilityDowngrades(args: {
   runtimeOptions?: ProviderRuntimeOptions;
 }): ProviderRuntimeOptions | undefined {
   if (!args.runtimeOptions) {
-    return undefined;
+    return args.capabilities.approval.autoClassifierPolicy
+      ? { codexApprovalsReviewer: "user" }
+      : undefined;
   }
   const supportsAppToolApproval =
     args.capabilities.approval.appToolModes.length > 0;
@@ -40,6 +43,13 @@ export function applyCodexRuntimeCapabilityDowngrades(args: {
     args.capabilities.webSearchModes.includes("indexed");
   return {
     ...args.runtimeOptions,
+    ...(args.capabilities.approval.autoClassifierPolicy
+      // Reset a resumed Run thread before ordinary turns can inherit its reviewer.
+      ? { codexApprovalsReviewer: args.runtimeOptions.codexApprovalsReviewer ?? "user" }
+      : { codexApprovalsReviewer: undefined,
+          ...(args.runtimeOptions.codexApprovalsReviewer === "auto_review" &&
+              args.runtimeOptions.codexApprovalPolicy === "on-request"
+            ? { codexApprovalPolicy: "never" as const } : {}) }),
     ...(!supportsAppToolApproval
       ? { codexAppToolApprovalMode: undefined }
       : {}),
@@ -48,6 +58,16 @@ export function applyCodexRuntimeCapabilityDowngrades(args: {
       ? { codexWebSearch: "cached" as const }
       : {}),
   };
+}
+
+export function buildCodexAutoReviewUnavailableNotice(args: {
+  capabilities: ProviderRuntimeCapabilities;
+  runtimeOptions?: ProviderRuntimeOptions;
+}) {
+  return args.runtimeOptions?.codexApprovalsReviewer === "auto_review" &&
+    !args.capabilities.approval.autoClassifierPolicy
+    ? { type: "system" as const, content: i18n.t("agentRuns:permissions.codexAutoReviewUnavailable") }
+    : null;
 }
 
 export function downgradeUnsupportedCodexRuntimeOptions(args: {

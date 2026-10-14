@@ -350,7 +350,7 @@ describe("run runtime: permissions a turn runs with", () => {
     const auto = createHarness({ userPermissionOptions });
     auto.setSnapshot({ providerId: "codex", model: "gpt-5" });
     await startedAgentRun(auto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
-    expect(auto.runCalls[0]?.runtimeOptions).toEqual({ codexApprovalPolicy: "never" });
+    expect(auto.runCalls[0]?.runtimeOptions).toEqual({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" });
   });
 });
 

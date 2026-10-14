@@ -80,7 +80,11 @@ A run records its permission choice at start; a saved agent never grants
 permissions. **Auto** on Claude uses Claude's native permission classifier,
 without bypassing permission checks. When the classifier cannot decide or Auto
 is unavailable for the model or account, Claude asks and the Run waits for that
-approval. Codex Auto keeps its `never` approval policy. **Guided** and **Your
+approval. Codex Auto uses native auto-review when available: `on-request`
+approvals with the `auto_review` reviewer. Stave trusts the provider's decision;
+requests that reach Stave wait for your approval. Older or unknown runtimes
+keep `never` and show an unavailability notice. Sandbox, file access and network
+settings stay as set, within the Agent's definition. **Guided** and **Your
 settings** keep their existing mapping.
 
 ### Agent run line

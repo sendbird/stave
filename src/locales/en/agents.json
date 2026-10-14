@@ -91,7 +91,7 @@
     "agentEditor13": "Discard",
     "preferredProvider": "Prefers",
     "preferredProviderNone": "No preference",
-    "autoPermissionHint": "Claude uses its Auto classifier and asks when it cannot decide or Auto is unavailable. Codex keeps approvals off."
+    "autoPermissionHint": "Claude uses its Auto classifier. Codex uses auto-review when available. Both ask when human review is needed; unavailable Codex auto-review keeps approvals off and shows a notice."
   },
   "agentHistory": {
     "revisionRow": "Same as now",

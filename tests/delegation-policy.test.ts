@@ -429,3 +429,16 @@ test("removing previously saved approval-skip tools tightens a subsequent attemp
     }).options.claudeAllowedTools,
   ).toEqual([]);
 });
+
+test("delegations inherit native auto-review only within the parent permission", () => {
+  const options = { codexApprovalsReviewer: "auto_review" as const, codexApprovalPolicy: "on-request" as const,
+    codexFileAccess: "workspace-write" as const, codexNetworkAccess: false };
+  const parent = { providerId: "codex" as const, options };
+  expect(resolveDelegationPermissionPolicy({ providerId: "codex", parent }).options).toMatchObject(options);
+  for (const permissionProfile of ["manual", "guided"] as const) {
+    expect(resolveDelegationPermissionPolicy({ providerId: "codex", parent, permissionProfile }).options)
+      .toMatchObject({ codexApprovalsReviewer: "user", codexApprovalPolicy: "untrusted" });
+  }
+  expect(restrictPermissionOptions(options, { codexApprovalPolicy: "untrusted" }))
+    .toMatchObject({ codexApprovalsReviewer: "user", codexApprovalPolicy: "untrusted" });
+});

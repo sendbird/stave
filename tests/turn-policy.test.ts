@@ -503,3 +503,17 @@ describe("helper autonomy across providers", () => {
     expect(helperAutonomyPolicy("claude-code", codexParent, "inherit", reader)).toBe(reader);
   });
 });
+
+test("Run auto-review survives policy resolution while file and network settings stay fixed", () => {
+  const options = { codexApprovalPolicy: "on-request" as const, codexApprovalsReviewer: "auto_review" as const,
+    codexFileAccess: "workspace-write" as const, codexNetworkAccess: false };
+  for (const actor of [chat, agent]) {
+    const policy = resolve("codex", actor, options);
+    expect(policy.autonomy).toBe("autonomous");
+    expect({ ...options, ...policy.options }).toMatchObject(options);
+  }
+  const narrowed = resolve("codex", { kind: "spawned", caller: "ask" }, options);
+  expect(narrowed.options).toMatchObject({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "user" });
+  expect(resolve("codex", readOnlyAgent, options).options).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" });
+  expect(omitPermissionRuntimeOptions(options)).not.toHaveProperty("codexApprovalsReviewer");
+});

@@ -1642,3 +1642,17 @@ Local tests cover the current schema and registry, request isolation, missing
 credentials, both adapters' environment and config overrides, exclusive
 catalogs, discovery filtering, and error mapping. Live gateway turns and
 multi-account acceptance remain a separate verification step.
+
+### Codex Run approval reviewer
+
+Run Auto requests `approvals_reviewer = "auto_review"`, delivered through
+`approvalsReviewer` on `thread/start`, `thread/resume`, and `turn/start`, with
+`approvalPolicy: "on-request"`. The verified support floor is CLI/App Server
+0.162.1; this is a conservative adoption boundary, not a claim about the first
+upstream release. Stave probes the selected executable with `--version` and
+fails closed to `never` with a visible notice for older or unknown versions.
+The 0.162.1 generated JSON schema confirms the `auto_review` enum and all three
+parameter fields; upstream protocol revision `c22a06c1` documents the same shape.
+Sandbox and file-access settings are independent. A supported resumed thread
+explicitly returns to reviewer `user` for turns without a reviewer option, so a
+completed Run cannot leave automatic review enabled in an ordinary turn.

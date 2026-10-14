@@ -267,7 +267,8 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
  * The provider permissions an agent run turn runs with, from the permission mode
  * the user chose at start. Guided asks before sensitive actions, and the
  * agent run waits on the approval in the task. Claude Auto uses its native
- * classifier and waits on approvals it hands over; Codex Auto keeps `never`;
+ * classifier and waits on approvals it hands over; Codex requests native
+ * auto-review, gated by the selected executable before dispatch;
  * "Your settings" (stored as `manual`) runs with the user's own provider
  * permission settings, as the host read them (`userSettingsPermissionOptions`),
  * never the runtime's fallbacks.
@@ -279,7 +280,9 @@ export function agentRunPermissionRuntimeOptions(
 ): ProviderRuntimeOptions {
   if (permissionMode === "manual") return { ...userPermissionOptions };
   if (providerId === "codex") {
-    return { codexApprovalPolicy: permissionMode === "auto" ? "never" : "untrusted" };
+    return permissionMode === "auto"
+      ? { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }
+      : { codexApprovalPolicy: "untrusted" };
   }
   return permissionMode === "auto"
     ? { claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }

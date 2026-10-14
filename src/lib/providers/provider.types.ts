@@ -1185,6 +1185,8 @@ export interface ProviderRuntimeOptions {
   codexFileAccess?: "read-only" | "workspace-write" | "danger-full-access";
   codexNetworkAccess?: boolean;
   codexApprovalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+  /** Native approval reviewer; omitted outside Runs to keep existing behavior. */
+  codexApprovalsReviewer?: "user" | "auto_review";
   /**
    * Stave-hosted unattended runs may approve only the managed `stave-local`
    * MCP server without widening Codex's filesystem sandbox.
