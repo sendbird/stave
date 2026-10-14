@@ -3501,8 +3501,10 @@ export async function streamClaudeWithSdk(
             });
           }
 
+          const nativeAuto = !args.unattendedAutomation && claudePermissionMode === "auto" && (Boolean(args.agentRunStage) || args.turnPolicy?.agentMode === true);
           const modeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
+            classifierHandoff: nativeAuto,
             toolName,
             ...(claudePermissionMode === "auto"
               ? {
@@ -3600,7 +3602,7 @@ export async function streamClaudeWithSdk(
             });
           }
 
-          if (!guardrail && shouldAllowClaudeAutonomousCall({ policy: args.turnPolicy, toolName, matchedAskRule: options.matchedAskRule })) {
+          if (!guardrail && shouldAllowClaudeAutonomousCall({ policy: args.turnPolicy, toolName, matchedAskRule: options.matchedAskRule, nativeAuto })) {
             return buildClaudeApprovalPermissionResult({ approved: true, normalizedInput, denialMessage: `Stave autonomy allowed ${toolName}.` });
           }
           const trustedApprovalInput = resolveTrustedApprovalInput({
@@ -3608,7 +3610,7 @@ export async function streamClaudeWithSdk(
             input: normalizedInput,
           });
           if (
-            !guardrail && isTrustedApproval({
+            !guardrail && !nativeAuto && isTrustedApproval({
               trustedTools: args.runtimeOptions?.trustedTools,
               toolName,
               input: trustedApprovalInput,

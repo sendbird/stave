@@ -366,6 +366,15 @@ describe("Claude guardrails", () => {
     expect(resolveClaudeTurnGuardrail({ policy: autonomous, toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })?.id).toBe("G1");
     expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", readOnlyAgent), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
     expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "Bash" })).toBe(true);
+    // A callback in native Auto is the classifier's handoff; Stave must not widen it.
+    for (const toolName of ["Bash", "Edit", "Read", "mcp__stave-local-mcp__stave_run_task"]) {
+      expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName, classifierHandoff: true })).toBe("prompt");
+    }
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "mcp__stave-local-mcp__stave_report_stage", classifierHandoff: true })).toBe("allow");
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "Bash" })).toBe("prompt");
+    expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "Bash", nativeAuto: true })).toBe(false);
+    // Unattended callers that did not select native Auto keep their existing behavior.
+    expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "Bash", nativeAuto: false })).toBe(true);
     expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "mcp__stave-local-mcp__stave_run_task" })).toBe(true);
     expect(shouldAllowClaudeAutonomousCall({ policy: resolve("claude-code", chat), toolName: "Bash" })).toBe(false);
     expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "AskUserQuestion" })).toBe(false);

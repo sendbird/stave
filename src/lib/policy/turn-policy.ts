@@ -17,8 +17,9 @@ import {
  *
  * - `ask`: the user's settings exactly as set, with whatever prompts they bring.
  * - `autonomous`: no routine prompts. Only the agent's own questions and, in
- *   Agent mode, the guardrails (writes outside the repository, credential
- *   paths, irreversible remote effects) reach the user.
+ *   Agent mode, Claude native Auto classifier handoffs and the guardrails
+ *   (writes outside the repository, credential paths, irreversible remote
+ *   effects) reach the user.
  * - `read-only`: the read-only posture; never writes and never asks.
  *
  * Autonomy only removes prompts. It never loosens the user's sandbox, deny
@@ -128,7 +129,7 @@ function readOnlyOptions(providerId: ProviderId, options: ProviderRuntimeOptions
  * - Claude: Bypass stays Bypass (the guardrail hook still runs before it);
  *   Plan and Don't Ask stay as chosen, because widening them would loosen
  *   what the user denied; everything else becomes native `auto`. Stave's own
- *   permission callback answers whatever the CLI still hands over.
+ *   permission callback asks for approval when native Auto hands a call over.
  * - Codex: approvals `never`, file access at least `workspace-write` (rooted at
  *   the workspace by the runtime) or the user's full access, network as set.
  * - Cursor and Kiro keep the user's settings.

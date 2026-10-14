@@ -439,7 +439,8 @@
     "minutes": "{{value}}m",
     "hours": "{{value}}h",
     "days": "{{value}}d",
-    "stageOutcome": "{{stage}} {{status}}"
+    "stageOutcome": "{{stage}} {{status}}",
+    "autoPermissionDescription": "Auto permissions: Claude classifies actions and asks when needed; Codex does not ask."
   },
   "checks": {
     "detail": "{{value1}} has been pending for {{value2}} minutes.",

@@ -299,6 +299,8 @@ export function resolveClaudePermissionModeDecision(args: {
   permissionMode: ClaudePermissionMode;
   toolName: string;
   keepReadOnlyPrompt?: boolean; // auto only: see `claude-auto-mode.ts`
+  /** Native Auto handed this Run action to the user; do not apply Stave fast paths. */
+  classifierHandoff?: boolean;
 }) {
   const normalizedToolName = args.toolName.trim().toLowerCase();
   // AskUserQuestion requests information, not permission to perform an action.
@@ -309,6 +311,7 @@ export function resolveClaudePermissionModeDecision(args: {
   if (isAlwaysAllowedStaveLocalMcpTool(normalizedToolName)) {
     return "allow" as const;
   }
+  if (args.permissionMode === "auto" && args.classifierHandoff) return "prompt" as const;
   if ((args.permissionMode === "auto" || args.permissionMode === "dontAsk") && normalizedToolName.startsWith(STAVE_LOCAL_MCP_TOOL_PREFIX) &&
     isPromptFreeStaveLocalMcpTool(normalizedToolName, args.permissionMode)) {
     return "allow" as const;

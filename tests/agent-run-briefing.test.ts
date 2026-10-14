@@ -93,8 +93,8 @@ describe("run briefing", () => {
       codexApprovalPolicy: "untrusted",
     });
     expect(agentRunPermissionRuntimeOptions("claude-code", "auto")).toEqual({
-      claudePermissionMode: "bypassPermissions",
-      claudeAllowDangerouslySkipPermissions: true,
+      claudePermissionMode: "auto",
+      claudeAllowDangerouslySkipPermissions: false,
     });
     expect(agentRunPermissionRuntimeOptions("claude-code", "manual")).toEqual({});
   });

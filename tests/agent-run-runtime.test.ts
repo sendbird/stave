@@ -339,6 +339,14 @@ describe("run runtime: permissions a turn runs with", () => {
       claudePermissionMode: "default",
       claudeAllowDangerouslySkipPermissions: false,
     });
+    const claudeAuto = createHarness({ userPermissionOptions });
+    const id = await startedAgentRun(claudeAuto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
+    expect(claudeAuto.runCalls[0]?.runtimeOptions).toEqual({ claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false });
+    claudeAuto.setSnapshot({ pendingApprovalCount: 1 });
+    await claudeAuto.tick();
+    expect(claudeAuto.runCalls).toHaveLength(1);
+    expect(claudeAuto.aggregate(id).agentRun.state).toBe("running");
+    expect(claudeAuto.current(id).nudged).toBe(false);
     const auto = createHarness({ userPermissionOptions });
     auto.setSnapshot({ providerId: "codex", model: "gpt-5" });
     await startedAgentRun(auto, startInput({ consent: { ...manual, permissionMode: "auto" } }));

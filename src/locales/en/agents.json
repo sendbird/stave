@@ -90,7 +90,8 @@
     "agentEditor12": "Cancel",
     "agentEditor13": "Discard",
     "preferredProvider": "Prefers",
-    "preferredProviderNone": "No preference"
+    "preferredProviderNone": "No preference",
+    "autoPermissionHint": "Claude uses its Auto classifier and asks when it cannot decide or Auto is unavailable. Codex keeps approvals off."
   },
   "agentHistory": {
     "revisionRow": "Same as now",

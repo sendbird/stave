@@ -436,7 +436,8 @@
     "minutes": "{{value}}분",
     "hours": "{{value}}시간",
     "days": "{{value}}일",
-    "stageOutcome": "{{stage}} {{status}}"
+    "stageOutcome": "{{stage}} {{status}}",
+    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고 필요하면 승인을 요청합니다. Codex는 승인을 요청하지 않습니다."
   },
   "checks": {
     "detail": "{{value1}} 검사가 {{value2}}분 동안 대기 중입니다.",

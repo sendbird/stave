@@ -562,8 +562,11 @@ export function shouldAllowClaudeAutonomousCall(args: {
   policy: TurnPolicy | undefined;
   toolName: string;
   matchedAskRule?: unknown;
+  /** A native Auto classifier handoff belongs to the user, including unavailable-mode fallback. */
+  nativeAuto?: boolean;
 }) {
   return (
+    !args.nativeAuto &&
     args.policy?.autonomy === "autonomous" &&
     !args.matchedAskRule &&
     args.toolName.trim().toLowerCase() !== "askuserquestion" &&

@@ -76,8 +76,12 @@ stages:
   machine asks first.
 - **Every stage**: before each stage after the first.
 
-A run records your own permission settings for its turns; a saved agent never
-grants permissions.
+A run records its permission choice at start; a saved agent never grants
+permissions. **Auto** on Claude uses Claude's native permission classifier,
+without bypassing permission checks. When the classifier cannot decide or Auto
+is unavailable for the model or account, Claude asks and the Run waits for that
+approval. Codex Auto keeps its `never` approval policy. **Guided** and **Your
+settings** keep their existing mapping.
 
 ### Agent run line
 

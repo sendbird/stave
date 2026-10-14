@@ -299,6 +299,7 @@ export const AGENT_RUN_PERMISSION_LABELS: Record<AgentRun["consent"]["permission
 
 /** The permissions line of an agent run summary. */
 export function describeAgentRunPermissions(permissionMode: AgentRun["consent"]["permissionMode"]): string {
+  if (permissionMode === "auto") return i18n.t("agentRuns:agentRunView.autoPermissionDescription");
   return permissionMode === "manual"
     ? i18n.t("agentRuns:agentRunView.describeAgentRunPermissions")
     : i18n.t("agentRuns:remaining.presentationCopy416", { v1: AGENT_RUN_PERMISSION_LABELS[permissionMode] });
