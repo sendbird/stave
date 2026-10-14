@@ -603,6 +603,35 @@ describe("cache hold through the decision path", () => {
     expect(decision).toMatchObject({ source: "manual", model: DEFAULT_CLAUDE_SONNET_MODEL });
   });
 
+  test("a classifier fallback with an unknown previous model does not block a step-up", async () => {
+    const decision = await resolveDecision({
+      prompt: "Now design the sync architecture across services.",
+      settings: { autoRoutingUseClassifier: true },
+      history: lightTurn({ model: undefined }),
+      currentModel: DEFAULT_CLAUDE_HAIKU_MODEL,
+      classifyRoute: async () => {
+        throw new Error("classifier unavailable");
+      },
+      now: NOW,
+    });
+    expect(decision.source).toBe("classifier_fallback");
+    expect(decision.model).not.toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(decision.ruleReason ?? "").not.toContain("deferred");
+  });
+
+  test("a compaction before the turn's last output leaves that turn warm", () => {
+    const compaction = { type: "system_event", content: "Context compacted (auto).", compactBoundary: { trigger: "auto" } };
+    const text = { type: "text", text: "Done." };
+    expect(toRoutingHistory([
+      { role: "assistant", content: "A", providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10), parts: [compaction, text] },
+    ])).toEqual([
+      { role: "assistant", content: "A", providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10) },
+    ]);
+    expect(toRoutingHistory([
+      { role: "assistant", content: "A", providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10), parts: [text, compaction] },
+    ])[0]?.compactedAfter).toBe(true);
+  });
+
   test("routing history carries finish times and marks turns a compaction followed", () => {
     const compaction = { type: "system_event", content: "Context compacted (manual).", compactBoundary: { trigger: "manual" } };
     const checkpoint = { type: "system_event", content: "Checkpoint", compactBoundary: { trigger: "turn_start" } };

@@ -235,26 +235,38 @@ export interface AutoRoutingHistoryMessage {
   model?: string;
   /** ISO time the turn finished; the last assistant turn's feeds the cache-warm check. */
   completedAt?: string;
-  /** True when the conversation was compacted during this turn or after it. */
+  /** True when the conversation was compacted after this turn's last output. */
   compactedAfter?: boolean;
 }
 
-/** A provider-reported context compaction; a Codex `turn_start` checkpoint is not one. */
-function hasContextCompaction(parts: unknown): boolean {
-  return (
-    Array.isArray(parts) &&
-    parts.some((part) => {
-      if (!part || typeof part !== "object") return false;
-      const { type, compactBoundary } = part as { type?: unknown; compactBoundary?: { trigger?: unknown } | null };
-      return type === "system_event" && compactBoundary != null && compactBoundary.trigger !== "turn_start";
-    })
-  );
+function isContextCompaction(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const { type, compactBoundary } = part as { type?: unknown; compactBoundary?: { trigger?: unknown } | null };
+  return type === "system_event" && compactBoundary != null && compactBoundary.trigger !== "turn_start";
+}
+
+/**
+ * Where a message's provider-reported context compactions fall (a Codex
+ * `turn_start` checkpoint is not one). A compaction before the turn's last
+ * output was summarized into the prefix that output then extended, so the
+ * cache is warm again; only one after the last output leaves it cold.
+ */
+function readContextCompaction(parts: unknown): { any: boolean; afterLastOutput: boolean } {
+  if (!Array.isArray(parts)) return { any: false, afterLastOutput: false };
+  let lastCompaction = -1;
+  let lastOutput = -1;
+  parts.forEach((part, index) => {
+    if (isContextCompaction(part)) lastCompaction = index;
+    else if ((part as { type?: unknown } | null)?.type !== "system_event") lastOutput = index;
+  });
+  return { any: lastCompaction >= 0, afterLastOutput: lastCompaction > lastOutput };
 }
 
 /**
  * The routing history of a task's messages (live `ChatMessage`s or saved
  * rows), newest last; unreadable entries are skipped. Each message carries
- * its finish time and whether a compaction happened during or after it.
+ * its finish time and whether a compaction followed its last output, in the
+ * message itself or in a later one.
  */
 export function toRoutingHistory(messages: readonly unknown[]): AutoRoutingHistoryMessage[] {
   let compactedLater = false;
@@ -263,7 +275,9 @@ export function toRoutingHistory(messages: readonly unknown[]): AutoRoutingHisto
     const message = messages[index];
     if (!message || typeof message !== "object") continue;
     const { role, content, providerId, model, completedAt, parts } = message as Record<string, unknown>;
-    compactedLater = compactedLater || hasContextCompaction(parts);
+    const compaction = readContextCompaction(parts);
+    const compactedAfter = compactedLater || compaction.afterLastOutput;
+    compactedLater = compactedLater || compaction.any;
     if ((role !== "user" && role !== "assistant") || typeof content !== "string") continue;
     history.push({
       role,
@@ -271,7 +285,7 @@ export function toRoutingHistory(messages: readonly unknown[]): AutoRoutingHisto
       ...(providerId === "claude-code" || providerId === "codex" ? { providerId } : {}),
       ...(typeof model === "string" && model ? { model } : {}),
       ...(typeof completedAt === "string" && completedAt ? { completedAt } : {}),
-      ...(compactedLater ? { compactedAfter: true } : {}),
+      ...(compactedAfter ? { compactedAfter: true } : {}),
     });
   }
   return history.reverse();
@@ -1212,6 +1226,11 @@ export async function resolveAutoRoutingDecision(
     allowProviderSwitch: profile.signals.providerSwitch,
     classifierStick,
   });
+  // Without a classifier verdict the task's current model stands in for an
+  // unknown previous one. It is a guess, not the model whose cache is warm,
+  // so the route marks it and never holds it.
+  const inferredLastModel =
+    signals.lastAssistantModel == null && source === "classifier_fallback" ? args.currentModel : undefined;
 
   const route = resolveRoute({
     profile,
@@ -1219,7 +1238,8 @@ export async function resolveAutoRoutingDecision(
     signals: {
       ...signals,
       uncertain: signals.uncertain || source === "classifier_fallback",
-      lastAssistantModel: signals.lastAssistantModel ?? (source === "classifier_fallback" ? args.currentModel : undefined),
+      lastAssistantModel: signals.lastAssistantModel ?? inferredLastModel,
+      ...(inferredLastModel ? { lastAssistantModelInferred: true } : {}),
       lastAssistantProvider: pinnedProvider,
     },
     runtimeModelsByProvider: args.runtimeModelsByProvider,

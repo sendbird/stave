@@ -1203,6 +1203,12 @@ export interface RouterSignals {
    * mid-task re-reads the whole conversation at the uncached rate.
    */
   lastAssistantModel?: string | null;
+  /**
+   * True when `lastAssistantModel` was not read from the history but assumed
+   * from the task's current model (classifier fallback). Its cache is not
+   * known to be warm, so it never holds the model.
+   */
+  lastAssistantModelInferred?: boolean;
   /** Epoch ms the most recent assistant turn finished; absent when unknown. */
   lastAssistantCompletedAt?: number | null;
   /** True when the conversation was compacted during or after that turn. */
@@ -1771,6 +1777,20 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       routeTierIndex(tier) < routeTierIndex(lastTier) &&
       signals.sensitive &&
       profile.signals.safetyEscalation;
+    // An inferred previous model (classifier fallback) is a guess, not the
+    // model whose cache is warm, so it never holds; an unknown previous model
+    // is a boundary. The uncertain floor in the complexity still keeps the
+    // route from dropping to a light model.
+    const holdQualifies =
+      !signals.lastAssistantModelInferred &&
+      Boolean(lastModel && allowedModels.includes(lastModel)) &&
+      !safetyStepUp &&
+      isPromptCacheWarm({
+        providerId,
+        lastCompletedAt: signals.lastAssistantCompletedAt,
+        compactedSince: signals.compactedSinceLastAssistant,
+        now: args.now ?? Date.now(),
+      });
     const cacheHeldModel = Boolean(
       role === "primary" &&
       !signals.newTask &&
@@ -1778,23 +1798,23 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       lastTier &&
       lastModel !== model &&
       signals.lastAssistantProvider === providerId &&
-      allowedModels.includes(lastModel) &&
-      !safetyStepUp &&
-      isPromptCacheWarm({
-        providerId,
-        lastCompletedAt: signals.lastAssistantCompletedAt,
-        compactedSince: signals.compactedSinceLastAssistant,
-        now: args.now ?? Date.now(),
-      }),
+      holdQualifies,
     );
     if (cacheHeldModel && lastModel && lastTier) {
       const target = toHumanModelName({ model });
       const kept = toHumanModelName({ model: lastModel });
       model = lastModel;
       tier = lastTier;
-      // The budget guard's model change is the one deferred; its effort step
-      // on a cache-preserving model stays and keeps its own reason.
-      if (budgetReason && !budgetHeldModel) {
+      // Only the budget guard's model change waits. Whether its effort step
+      // still applies depends on the model actually kept: one that keeps its
+      // cache across effort changes steps effort down now.
+      budgetHeldModel = budgetShift < 0 && CACHE_PRESERVING_EFFORT_MODELS.has(lastModel);
+      if (budgetReason && budgetHeldModel) {
+        reasonParts.push(
+          i18n.t("providers:autoRoutingProfile.usageIsAtSoEffortStepped", { value1: Math.round(budgetUsed ?? 0) }),
+          i18n.t("providers:autoRoutingProfile.cacheHoldDeferredSwitch", { kept, target }),
+        );
+      } else if (budgetReason) {
         reasonParts.push(
           i18n.t("providers:autoRoutingProfile.cacheHoldDeferredBudget", {
             usage: Math.round(budgetUsed ?? 0),
@@ -1803,7 +1823,6 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
           }),
         );
       } else {
-        if (budgetReason) reasonParts.push(budgetReason);
         reasonParts.push(i18n.t("providers:autoRoutingProfile.cacheHoldDeferredSwitch", { kept, target }));
       }
     } else if (budgetReason) {
@@ -1834,10 +1853,10 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         ? level.effort
         : level.effortRange[stance.shift < 0 ? 0 : 1]
       : requestedEffort;
-    // Budget pressure on a held model that keeps its cache across effort
-    // changes still lowers effort; only the model change waits.
-    const budgetEffortStep =
-      budgetHeldModel || (cacheHeldModel && budgetShift < 0 && CACHE_PRESERVING_EFFORT_MODELS.has(model)) ? -1 : 0;
+    // Budget pressure lowers effort instead of the model on a model that keeps
+    // its cache across effort changes, held or picked; only the model change
+    // waits.
+    const budgetEffortStep = budgetHeldModel ? -1 : 0;
     let effort = resolveEffort({
       providerId,
       model,

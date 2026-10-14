@@ -68,7 +68,7 @@
     "usageIsAtSoTheRoute": "Usage is at {{value1}}%, so the route favors lower cost within the task capability floor.",
     "hasNoAllowedModelForWork": "{{value1}} has no allowed model for {{value2}} work, so {{value3}} runs it.",
     "cacheHoldDeferredSwitch": "Kept {{kept}} while its prompt cache is warm; the switch to {{target}} is deferred until the cache cools or a new task starts.",
-    "cacheHoldDeferredBudget": "Usage is at {{usage}}%, but {{kept}} stays while its prompt cache is warm; the cheaper {{target}} is deferred until the cache cools or a new task starts.",
+    "cacheHoldDeferredBudget": "Usage is at {{usage}}%, but {{kept}} stays while its prompt cache is warm; the switch to {{target}} is deferred until the cache cools or a new task starts.",
     "noRuleMatchedIsTheProvider": "No rule matched; {{value1}} is the provider fallback.",
     "followsTheLevel": "model follows the level",
     "preferredProviderUnavailable": "The agent prefers {{provider}}, which can't run this now.",

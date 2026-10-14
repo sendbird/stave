@@ -517,6 +517,38 @@ describe("cache hold: model changes wait for a boundary", () => {
     expect(cold.effort).toBe("medium");
   });
 
+  test("an inferred previous model never holds, even while a turn's cache is warm", () => {
+    const work = { taskClass: "plan" as const, complexity: "high" as const };
+    const stepUp = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantModelInferred: true, uncertain: true }));
+    expect(stepUp).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
+
+    const stepDown = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, {
+      taskClass: "docs", complexity: "low", lastAssistantModelInferred: true,
+    }));
+    expect(stepDown.cacheHeldModel).toBe(false);
+    expect(stepDown.model).not.toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+
+    const ceiling = route(continuing(CLAUDE_FABLE_MODEL, {
+      taskClass: "implement", budgetUsedPercent: 98, lastAssistantModelInferred: true, uncertain: true,
+    }));
+    expect(ceiling).toMatchObject({ budgetShift: -2, cacheHeldModel: false });
+    expect(ceiling.model).not.toBe(CLAUDE_FABLE_MODEL);
+  });
+
+  test("a held model that loses its cache on effort changes keeps its effort under budget pressure", () => {
+    const held = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, {
+      taskClass: "plan", complexity: "high", budgetUsedPercent: 85,
+    }));
+    expect(held).toMatchObject({
+      model: DEFAULT_CLAUDE_HAIKU_MODEL, budgetShift: -1, budgetHeldModel: false, cacheHeldModel: true,
+    });
+    const unpressured = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { taskClass: "plan", complexity: "high" }));
+    expect(held.effort).toBe(unpressured.effort);
+    expect(held.reason).toContain("Usage is at 85%");
+    expect(held.reason).toContain("deferred");
+    expect(held.reason).not.toContain("cheaper");
+  });
+
   test("an effort-only budget step on a cache-preserving model still applies", () => {
     const relaxed = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL));
     const pressured = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, { budgetUsedPercent: 85 }));
