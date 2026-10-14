@@ -2969,6 +2969,7 @@ describe("Claude auto-mode availability notice", () => {
 test("a rejected usage window becomes a terminal usage limit; a successful result clears the warning", () => {
   const rejected = resolveClaudeTurnStopReason({ message: { type: "rate_limit_event", rate_limit_info: { status: "rejected", resetsAt: 1790400000 } } as never });
   expect(rejected).toBe("usage_limit");
+  expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true, stop_reason: "max_tokens", errors: ["Usage limit reached"] } as never, currentStopReason: rejected })).toBe("max_tokens");
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true } as never, currentStopReason: rejected })).toBe("usage_limit");
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: false, stop_reason: "end_turn" } as never, currentStopReason: rejected })).toBe("end_turn");
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: false } as never, currentStopReason: rejected })).toBeUndefined();

@@ -1136,11 +1136,27 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const limited = observation.lastEndedTurn?.usageLimited;
       const due = aggregate.agentRun.state === "paused" && aggregate.agentRun.pauseReason === "usage-limit" &&
         waiting?.resumeAt && Date.parse(waiting.resumeAt) <= now().getTime();
-      if (deps.readAccountUsage && !observation.leadTask.activeTurn && !observation.leadTask.pendingApprovalCount && !observation.leadTask.pendingUserInputCount && (due || (limited && waiting?.turnId !== observation.lastEndedTurn?.turnId))) {
+      if (deps.readAccountUsage && observation.leadTask.workspaceAvailable && observation.leadTask.identity.ok &&
+          !observation.leadTask.activeTurn && !observation.leadTask.pendingApprovalCount && !observation.leadTask.pendingUserInputCount &&
+          (due || (aggregate.agentRun.state === "running" && limited && waiting?.turnId !== observation.lastEndedTurn?.turnId))) {
         const runtime = due ? waiting! : limited!;
         const accounts = usageLimitAccounts(runtime.fingerprint, runtime.accountProfileId,
           runAccountOptions(aggregate.agentRun, store.resourceConfig?.(agentRunId)));
-        const quota = observeUsageLimitQuota(runtime.fingerprint, await deps.readAccountUsage({ fingerprint: runtime.fingerprint, accounts, workspaceId: aggregate.agentRun.workspaceId }).catch(() => null), now());
+        const workspaceId = aggregate.agentRun.workspaceId;
+        const controller = new AbortController();
+        preparationControllers.set(agentRunId, controller);
+        let snapshot: RateLimitsSnapshotResponse | null;
+        try {
+          snapshot = await prepareRunTurn(controller.signal, () => deps.readAccountUsage!({ fingerprint: runtime.fingerprint,
+            accounts, workspaceId }).catch(() => null));
+          controller.signal.throwIfAborted();
+        } catch (error) {
+          if (controller.signal.aborted) return;
+          throw error;
+        } finally {
+          if (preparationControllers.get(agentRunId) === controller) preparationControllers.delete(agentRunId);
+        }
+        const quota = observeUsageLimitQuota(runtime.fingerprint, snapshot, now());
         if (due) observation.usageLimitResume = quota;
         else if (limited && quota.resetsAt) limited.resetsAt = quota.resetsAt;
       }

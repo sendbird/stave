@@ -1824,3 +1824,28 @@ describe("run runtime: persisted usage-limit reservation", () => {
     db.close();
   });
 });
+
+
+test("cancellation during the due account read wins over automatic dispatch", async () => {
+  const reset = "2026-09-26T11:00:00.000Z";
+  const snapshot = emptyRateLimitsSnapshot();
+  snapshot.claude = { source: "oauth", session: { usedPercent: 100, resetsAt: Date.parse(reset) / 1000 }, weekly: null, fableWeekly: null, error: null };
+  let announceRead!: () => void, finishRead!: (value: typeof snapshot) => void;
+  const reading = new Promise<void>((resolve) => { announceRead = resolve; });
+  let reads = 0;
+  const h = createHarness({ extra: {
+    readUsageLimitStop: () => ({ resetsAt: reset }),
+    readAccountUsage: async () => {
+      if (++reads === 1) return snapshot;
+      announceRead();
+      return await new Promise<typeof snapshot>((resolve) => { finishRead = resolve; });
+    },
+  } });
+  const id = await startedAgentRun(h); h.endTurn("turn-1"); await h.tick(); h.advance(61 * 60_000);
+  const tick = h.tick(); await reading;
+  const cancelled = h.runtime.cancel({ agentRunId: id });
+  const headroom = structuredClone(snapshot); headroom.claude.session!.usedPercent = 0;
+  finishRead(headroom); await tick; await cancelled; await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+  expect(h.aggregate(id).agentRun.state).toBe("cancelled");
+});

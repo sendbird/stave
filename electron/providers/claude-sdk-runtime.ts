@@ -1786,6 +1786,7 @@ export function resolveClaudeTurnStopReason(args: {
   if (args.message.type === "rate_limit_event" && args.message.rate_limit_info?.status === "rejected") return "usage_limit";
   if (args.message.type === "result") {
     const result = args.message as SDKResultMessage;
+    if (result.stop_reason && !["failed", "runtime_failure", "error"].includes(result.stop_reason)) return result.stop_reason;
     if (result.is_error && (args.currentStopReason === "usage_limit" ||
         isUsageLimitErrorText(JSON.stringify((result as { errors?: string[]; result?: string }).errors ?? (result as { result?: string }).result ?? "")))) return "usage_limit";
     return (
