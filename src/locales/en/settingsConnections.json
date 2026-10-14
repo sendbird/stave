@@ -159,7 +159,7 @@
     "classificationAndSignals": "Classification and signals",
     "whatAutoMayReadBeforeIt": "What Auto may read before it picks a route.",
     "modelClassification": "Model classification",
-    "theUtilityModelRatesIntentLevel": "The Utility model rates intent, level, and risk (up to 30 seconds). Off, or on failure, Auto uses local keyword rules, which never pick Expert or Extreme.",
+    "theUtilityModelRatesIntentLevel": "The Routing decision model rates intent, level, and risk (up to 30 seconds). Off, or on failure, Auto uses local keyword rules, which never pick Expert or Extreme.",
     "safetyEscalation": "Safety escalation",
     "changesToAuthSecretsPaymentsOr": "Changes to auth, secrets, payments, or production data route as Complex work or higher.",
     "skillRouting": "Skill routing",

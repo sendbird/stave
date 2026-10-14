@@ -6,6 +6,7 @@ import type { AgentConfig } from "../agents/schema";
 import type { AgentRunDetail } from "./api";
 import type { ProviderRuntimeOptions } from "../providers/provider.types";
 import { ProviderAccountSelectionSchema } from "../providers/provider-accounts";
+import { RoutingDecisionObservationSchema } from "../providers/routing-decision";
 export type DelegatedAgentRunDetail = AgentRunDetail & { delegationActivated?: boolean };
 export type DelegatedAgentRunRead = DelegatedAgentRunDetail | { missing: true };
 
@@ -19,6 +20,8 @@ export function delegatedReplyRuntimeOptions(caller: ProviderRuntimeOptions | un
 
 // Internal main -> host authority. Public AgentRun start schemas do not accept it.
 export const DelegatedAgentRunAuthoritySchema = z.object({
+  initialDecision: RoutingDecisionObservationSchema.optional(),
+  allowedModels: z.array(z.string().min(1).max(200)).min(1).max(64).optional(),
   modelPinned: z.boolean().optional(),
   effortPinned: z.boolean().optional(),
   resourceRootRunId: z.string().trim().min(1).max(256).optional(),

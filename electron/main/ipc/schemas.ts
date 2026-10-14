@@ -1,4 +1,5 @@
 import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
+export { ClassifyRouteArgsSchema } from "./provider-route-classification-schema";
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
 export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
@@ -404,34 +405,6 @@ export const SuggestTaskNameArgsSchema = z
       )
       .max(20)
       .optional(),
-  })
-  .strict();
-
-export const ClassifyRouteArgsSchema = z
-  .object({
-    requestId: z.string().uuid().optional(),
-    phase: z.enum(["plan", "execute"]).optional(),
-    cwd: z.string().max(4096).optional(),
-    utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
-    activeProviderId: ProviderIdSchema.optional(),
-    utilityModel: z.string().max(200).optional(),
-    utilityMaxProviderAttempts: z.number().int().min(1).max(4).optional(),
-    runtimeOptions: z.lazy(() => RuntimeOptionsSchema).optional(),
-    prompt: z.string().max(8000),
-    history: z
-      .array(
-        z
-          .object({
-            role: z.union([z.literal("user"), z.literal("assistant")]),
-            content: z.string().max(4000),
-            providerId: ProviderIdSchema.optional(),
-            model: z.string().max(200).optional(),
-          })
-          .strict(),
-      )
-      .max(20)
-      .optional(),
-    fileContextCount: z.number().int().min(0).max(200).optional(),
   })
   .strict();
 

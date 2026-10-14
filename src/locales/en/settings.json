@@ -431,7 +431,7 @@
       },
       "utility": {
         "title": "Utility model",
-        "description": "Task names, route classification, commit messages, prompt enhancement, and every other background call use the utility model set in Background AI.",
+        "description": "Task names, commit messages and prompt enhancement use the utility model set in Background AI. Auto and Agents use the separate Routing decision model in Auto settings.",
         "action": "Open Background AI"
       },
       "cursorModel": {
@@ -1160,6 +1160,10 @@
       "reviewTask": {
         "title": "Review Tasks",
         "description": "Default review rubric, preset, installed skill, custom prompt, models and follow-up instructions."
+      },
+      "routingDecision": {
+        "title": "Routing decision model",
+        "description": "Choose the model that classifies work for Auto and Agents. This does not change the model that performs the task."
       }
     }
   },

@@ -1,4 +1,6 @@
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
+import { runRoutingDecisionClassification } from "./routing-decision-classification";
+import { cancelConstrainedRouting } from "./constrained-routing-cancellation";
 import { ROUTE_CLASSIFICATION_DEADLINE_MS } from "../../src/lib/providers/route-intent";
 import fs from "node:fs/promises";
 import path from "node:path";
@@ -396,6 +398,7 @@ export async function suggestUtilityTaskName(
 const routeClassificationControllers = new Map<string, AbortController>();
 
 export function cancelUtilityRouteClassification(requestId: string) {
+  cancelConstrainedRouting(requestId);
   routeClassificationControllers.get(requestId)?.abort();
 }
 
@@ -403,8 +406,12 @@ export async function classifyUtilityRoute(
   args: RouteClassificationRequest,
   runners?: UtilityInferenceRunners,
   authGate?: UtilityInferenceAuthGate,
+  signal?: AbortSignal,
 ): Promise<{ ok: boolean; classification?: RouteClassification; utility: UtilityInferenceMetadata }> {
+  if (signal?.aborted) return { ok: false, utility: createUnavailableUtilityInferenceMetadata("Route classification was cancelled.") };
   const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener("abort", abort, { once: true });
   if (args.requestId) {
     routeClassificationControllers.get(args.requestId)?.abort();
     routeClassificationControllers.set(args.requestId, controller);
@@ -423,7 +430,15 @@ export async function classifyUtilityRoute(
     const options = args.runtimeOptions;
     const target = resolveRouteClassificationTarget(args);
     const result = await Promise.race([
-      executeUtilityInference({
+      args.routingDecision ? runRoutingDecisionClassification({
+        request: args, signal: controller.signal,
+        native: (providerId, model, signal) => executeUtilityInference({
+          context: { cwd: args.cwd, utilityProviderId: providerId, utilityModel: model, utilityMaxProviderAttempts: 1,
+            runtimeOptions: { claudeBinaryPath: options?.claudeBinaryPath, codexBinaryPath: options?.codexBinaryPath } },
+          prompt: buildRouteClassificationPrompt(args), parse: parseRouteClassification,
+          routeClassification: true, runners, authGate, signal,
+        }),
+      }) : executeUtilityInference({
         context: {
           ...args,
           utilityProviderId: target.providerId,
@@ -445,6 +460,7 @@ export async function classifyUtilityRoute(
     ]);
     return { ok: result.value !== null, classification: result.value ?? undefined, utility: result.utility };
   } finally {
+    signal?.removeEventListener("abort", abort);
     clearTimeout(timeout);
     if (args.requestId && routeClassificationControllers.get(args.requestId) === controller) {
       routeClassificationControllers.delete(args.requestId);

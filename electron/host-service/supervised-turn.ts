@@ -19,6 +19,10 @@ import type {
 import type { AgentRunPromptProvenance } from "../../src/types/chat";
 import { runTask } from "./local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
+import { requestHostGatewayCredentials } from "../provider-accounts/host-gateway-credentials";
+import { withGatewayCredential } from "../provider-accounts/gateway-runtime";
+import { withProviderAccountScope } from "../provider-accounts/runtime-scope";
+import { resolveSupervisedTurnAccounts } from "./supervised-turn-accounts";
 
 /**
  * The permissions a supervised turn runs with when no consent sets them (a
@@ -36,6 +40,8 @@ export function loadUserPermissionOptions(
 }
 
 export async function runSupervisedTurn(args: {
+  /** Prepared in the cancellable host phase, never persisted or exposed through IPC. */
+  gatewayCredentials?: import("../provider-accounts/gateway-runtime").GatewayCredentials;
   workspaceId: string;
   taskId: string;
   /** A supervised delegate retains managed control and its frozen parent link. */
@@ -57,7 +63,11 @@ export async function runSupervisedTurn(args: {
   /** On an agent run's turn: the run and the assignment, recorded on the user row. */
   agentRunPrompt?: AgentRunPromptProvenance;
 }) {
-  return runTask({
+  const store = ensureHostServicePersistenceReady();
+  const saved = store.delegationPolicies.loadTaskAccounts(args.taskId) ?? store.loadWorkspaceShell({ workspaceId: args.workspaceId })?.promptDraftByTask?.[args.taskId]?.runtimeOverrides;
+  const accounts = resolveSupervisedTurnAccounts(args.runtimeOptions, saved);
+  const credentials = args.gatewayCredentials ?? (await requestHostGatewayCredentials(accounts))?.credentials;
+  return withGatewayCredential(credentials, () => withProviderAccountScope(accounts, () => runTask({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
@@ -70,16 +80,17 @@ export async function runSupervisedTurn(args: {
           provider: args.fingerprint.providerId,
           runtimeOptions: {
             ...args.runtimeOptions,
+            ...accounts,
             model: args.fingerprint.model,
           },
         }
       : args.runtimeOptions
-        ? { runtimeOptions: args.runtimeOptions }
-        : {}),
+        ? { runtimeOptions: { ...args.runtimeOptions, ...accounts } }
+        : { runtimeOptions: accounts }),
     ...(args.retrievedContextParts
       ? { retrievedContextParts: args.retrievedContextParts }
       : {}),
     ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
-  });
+  })));
 }

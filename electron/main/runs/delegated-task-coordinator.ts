@@ -10,6 +10,7 @@ import type { ProviderStrengthMap } from "../../../src/lib/providers/provider-st
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
+import type { RoutingDecisionObservation } from "../../../src/lib/providers/routing-decision";
 import {
   buildDelegatedTaskArtifactRef,
   buildDelegatedTaskPolicy,
@@ -237,6 +238,8 @@ export interface DelegatedTaskHostPort {
 }
 
 interface DelegatedTaskCoordinatorDependencies {
+  cancelTurnRoute?: (requestId: string) => Promise<unknown>;
+  resolveTurnRoute?: (input: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput) => Promise<import("../../../src/lib/routing/constrained-route").ConstrainedRouteResult>;
   getLedger: (() => DelegatedTaskLedgerPort) | (() => Promise<DelegatedTaskLedgerPort>);
   host: DelegatedTaskHostPort;
   concurrencyLimit: number;
@@ -555,6 +558,7 @@ export function createDelegatedTaskCoordinator(
     permissionPolicy?: DelegationPermissionPolicy;
     /** The turn's final answer, recorded bounded so the caller gets it back. */
     responseText?: string | null;
+    routingDecision?: RoutingDecisionObservation;
     reviewCompletedRevision?: WorkspaceRevision;
   }) => {
     const timestamp = now();
@@ -579,7 +583,7 @@ export function createDelegatedTaskCoordinator(
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}) },
+        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}), ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}) },
         reenter: true,
         now: timestamp,
       });
@@ -595,6 +599,7 @@ export function createDelegatedTaskCoordinator(
         turnId: args.turnId,
       }),
       detail: { code: "child-turn-completed", providerId: args.providerId,
+        ...(args.routingDecision ? { routingDecision: args.routingDecision } : {}),
         ...(responseText ? { responseText } : {}),
         ...(args.reviewCompletedRevision ? { reviewCompletedRevision: args.reviewCompletedRevision } : {}) },
       now: timestamp,
@@ -659,6 +664,7 @@ export function createDelegatedTaskCoordinator(
    * delegation and a later follow-up turn differ only in which execution owns
    * the step, so both go through here and settle the same way.
    */
+  const routingRequests = new Map<string, string>();
   const runChildTurn = (args: {
     ledger: DelegatedTaskLedgerPort;
     runId: string;
@@ -695,6 +701,7 @@ export function createDelegatedTaskCoordinator(
       expectedTurnExecutionId: args.target.turnExecutionId,
     });
     const started = (async () => {
+      let routingDecision: RoutingDecisionObservation | undefined;
       try {
         // The claim is durable before this host read. Root admission sees it,
         // or this read sees a root created before the claim reached persistence.
@@ -707,18 +714,28 @@ export function createDelegatedTaskCoordinator(
             prompt: args.turn.prompt, model: args.turn.model,
           });
         }
+        const requestId = crypto.randomUUID();
+        if (dependencies.resolveTurnRoute) routingRequests.set(args.executionId, requestId);
+        const routed = await dependencies.resolveTurnRoute?.({ requestId, workspaceId: args.target.workspaceId, taskId: args.target.taskId, parentTaskId: args.parentTaskId,
+          providerId: args.target.providerId, prompt: args.turn.prompt, model: args.turn.model, effort: args.turn.effort,
+          modelPinned: Boolean(args.turn.model), effortPinned: args.turn.effortPinned, accounts: args.turn.accounts }).finally(() => { routingRequests.delete(args.executionId); });
+        routingDecision = routed?.decision?.routing;
+        const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
+        if (!current || current.step.executionId !== args.executionId || (!isActiveDelegatedTaskPhase(current.step.status) && current.step.error !== DELEGATED_TASK_DETACHED_REASON)) return;
+        const model = routed?.fingerprint.model ?? args.turn.model;
+        const effort = (routed?.runtimeOptions.codexReasoningEffort ?? routed?.runtimeOptions.claudeEffort ?? args.turn.effort) as DelegateTaskArgs["effort"];
         if (args.turn.lifecycle === "supervised") {
           if (!args.turn.agentRunId || !args.agentAssignment || !args.turn.permissionPolicy || !dependencies.host.runAgentRun)
             throw new Error("Supervised delegated Agent execution is unavailable.");
           const detail = await dependencies.host.runAgentRun({
             agentRunId: args.turn.agentRunId, workspaceId: args.target.workspaceId, taskId: args.target.taskId,
             title: args.turn.title ?? args.agentAssignment.snapshot.agent.name, prompt: args.turn.prompt,
-            model: buildDelegatedTaskRuntimeOptions({ providerId: args.target.providerId, model: args.turn.model }).model!,
+            model: buildDelegatedTaskRuntimeOptions({ providerId: args.target.providerId, model }).model!,
             maxTurns: args.turn.maxTurns ?? 30,
             authority: { parentTaskId: args.parentTaskId, executionId: args.executionId,
               ...(args.turn.resourceRootRunId ? { resourceRootRunId: args.turn.resourceRootRunId } : {}),
               agentConfigId: args.agentAssignment.snapshot.agentConfigId, agentContentHash: args.agentAssignment.snapshot.contentHash,
-              permissionPolicy: args.turn.permissionPolicy, modelPinned: Boolean(args.turn.model), effortPinned: args.turn.effortPinned === true, ...(args.turn.effort ? { effort: args.turn.effort } : {}) },
+              permissionPolicy: args.turn.permissionPolicy, modelPinned: Boolean(args.turn.model), effortPinned: args.turn.effortPinned === true, ...(effort ? { effort } : {}), ...(routed ? { allowedModels: routed.allowedModels } : {}), ...(routed?.decision?.routing ? { initialDecision: routed.decision.routing } : {}) },
             ...(args.turn.accounts ? { accounts: args.turn.accounts } : {}),
             onPrepared: async () => {
               const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
@@ -736,8 +753,8 @@ export function createDelegatedTaskCoordinator(
           title: args.turn.title,
           prompt: args.turn.prompt,
           providerId: args.target.providerId,
-          model: args.turn.model,
-          effort: args.turn.effort,
+          model,
+          effort,
           permissionProfile: args.turn.permissionProfile,
           permissionPolicy: args.turn.permissionPolicy,
           ...(args.turn.accounts ? { accounts: args.turn.accounts } : {}),
@@ -761,6 +778,8 @@ export function createDelegatedTaskCoordinator(
             });
             if (current.step.status === "cancelled" && current.step.error !== DELEGATED_TASK_DETACHED_REASON)
               void dependencies.host.stopTask({ workspaceId: args.target.workspaceId, taskId: args.target.taskId }).catch((error) => reportError(error, { scope: "cancel-started-child", runId: args.runId }));
+            if (current.step.status === "cancelled" && current.step.error === DELEGATED_TASK_DETACHED_REASON)
+              void dependencies.host.releaseTaskParent({ workspaceId: args.target.workspaceId, taskId: args.target.taskId }).catch((error) => reportError(error, { scope: "detach-started-child", runId: args.runId }));
           },
         });
         const currentRun = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
@@ -778,6 +797,7 @@ export function createDelegatedTaskCoordinator(
           providerId: args.target.providerId,
           permissionPolicy: args.turn.permissionPolicy,
           responseText: result.responseText,
+          routingDecision,
           reviewCompletedRevision,
         });
       } catch (error) {
@@ -821,6 +841,7 @@ export function createDelegatedTaskCoordinator(
           detail: {
             code: "delegated-task-failure",
             providerId: args.target.providerId,
+            ...(routingDecision ? { routingDecision } : {}),
           },
           now: now(),
         });
@@ -1822,6 +1843,7 @@ export function createDelegatedTaskCoordinator(
         return resolved.rejection;
       }
       const { ledger, runId, stepId } = resolved;
+      const requestId = resolved.step.executionId ? routingRequests.get(resolved.step.executionId) : undefined;
       const target = resolved.step.target;
       const transition = ledger.cancelRunStep({
         runId,
@@ -1842,6 +1864,7 @@ export function createDelegatedTaskCoordinator(
         );
       }
       if (!transition.duplicate && target) {
+        if (requestId) void dependencies.cancelTurnRoute?.(requestId).catch(() => {});
         // Cancelling the ledger row is the durable half; asking the delegated task
         // to stop is best effort, because a child that already ended is a
         // successful stop.

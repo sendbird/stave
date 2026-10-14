@@ -4,6 +4,7 @@ import {
 } from "./delegation-policy";
 import { z } from "zod";
 import { WorkspaceRevisionSchema } from "../agent-runs/verification-contract";
+import { RoutingDecisionObservationSchema } from "../providers/routing-decision";
 
 export const RunIdSchema = z.string().trim().min(1).max(300);
 const TimestampSchema = z.string().datetime();
@@ -166,6 +167,7 @@ export const RunReceiptDetailSchema = z
     message: z.string().max(1_000).optional(),
     providerId: z.enum(["claude-code", "codex"]).optional(),
     model: z.string().max(200).optional(),
+    routingDecision: RoutingDecisionObservationSchema.optional(),
     attempt: z.number().int().min(0).max(10).optional(),
     /**
      * The posture and workspace strategy a delegated-task delegation was claimed
@@ -324,6 +326,7 @@ export function sanitizeRunReceiptDetail(
   const responseText = boundResponseText(candidate.responseText);
   const reviewSourceRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewSourceRevision);
   const reviewCompletedRevision = WorkspaceRevisionSchema.safeParse(candidate.reviewCompletedRevision);
+  const routingDecision = RoutingDecisionObservationSchema.safeParse(candidate.routingDecision);
   const detail = {
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
@@ -344,6 +347,7 @@ export function sanitizeRunReceiptDetail(
     ...(responseText ? { responseText } : {}),
     ...(reviewSourceRevision.success ? { reviewSourceRevision: reviewSourceRevision.data } : {}),
     ...(reviewCompletedRevision.success ? { reviewCompletedRevision: reviewCompletedRevision.data } : {}),
+    ...(routingDecision.success ? { routingDecision: routingDecision.data } : {}),
   };
   return Object.keys(detail).length > 0
     ? RunReceiptDetailSchema.parse(detail)

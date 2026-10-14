@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatRoutingDecision } from "../providers/routing-decision-label";
 /**
  * An Agent run report as Markdown, for Copy Markdown and, later, for adding it
  * to a pull request description.
@@ -88,6 +89,8 @@ export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
   if (report.metrics) {
     lines.push("", `_${describeAgentRunMetrics(report.metrics)}_`);
   }
+  const decisions = report.routing?.flatMap((row) => row.decision ? [formatRoutingDecision(row.decision)] : []) ?? [];
+  if (decisions.length) lines.push("", `### ${i18n.t("session:routingDecision.heading")}`, ...decisions.map((line) => `- ${line}`));
   return `${lines.join("\n")}\n`;
 }
 

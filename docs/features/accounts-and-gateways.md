@@ -97,9 +97,23 @@ Switching changes **new turns only**:
 | A review, follow-up or retry you start | The new account |
 | An open Standalone CLI tab | Its own account until you switch that tab |
 
-An Agent run cannot use an API connection yet: its turns start without the
-connection's key, so Stave refuses the run when it would start. Choose a
-signed-in account for new turns before you send to an Agent.
+Agent runs can use API connections. Each automatically started turn resolves
+the key in the main process using the account captured when the run started,
+including after an app restart or key replacement. Keys are not saved in the
+run, sent to the renderer, or included in the Agent's prompt.
+
+Delegated turns with no explicit model resolve a model from the captured
+connection. Wake-ups and report follow-ups reuse the task's captured accounts
+and resolve a fresh key for every new turn.
+
+Auto uses only the models pinned on the selected connection, intersected with
+your allowed-model settings. The Agent editor's fixed-model picker and Auto
+settings use the same account catalogs as the composer.
+
+A Gateway decision model such as Jev can classify work while Claude or Codex
+executes it on a subscription account. Choose it under Settings → Auto →
+Routing decision model; the Agent editor can inherit or override that choice.
+The default remains available Luna first, then Haiku. See [Auto routing](auto-routing.md).
 
 Provider conversations belong to the account that started them. **Copy debug info** in a task tab's context menu lists one provider session per account, suffixed with the account id when it is not System default.
 

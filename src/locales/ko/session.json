@@ -935,5 +935,25 @@
     "errorUnavailable": "이 창에서는 시크릿 요청을 사용할 수 없습니다.",
     "toastSaved": "{{envVar}} 변수를 저장하고 이 작업에 연결했습니다",
     "toastSavedDescription": "다음 메시지부터 사용할 수 있습니다."
+  },
+  "routingDecision": {
+    "description": "판단: {{model}} · {{status}} · {{elapsed}}초 · 사유: {{failure}} · Gateway 보고 비용: {{cost}}",
+    "local": "로컬 규칙",
+    "cached": "캐시된 결과",
+    "fallback": "fallback 사용",
+    "primary": "우선 모델 사용",
+    "none": "없음",
+    "unknownCost": "알 수 없음",
+    "failures": {
+      "auth": "인증 거부",
+      "budget": "예산 소진",
+      "timeout": "시간 초과",
+      "network": "네트워크 오류",
+      "unavailable": "사용 불가",
+      "missingKey": "키 없음",
+      "rateLimit": "호출 제한",
+      "invalidResponse": "잘못된 응답"
+    },
+    "heading": "라우팅 판단 기록"
   }
 }

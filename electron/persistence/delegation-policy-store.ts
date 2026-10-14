@@ -10,6 +10,8 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
+import { ProviderAccountSelectionSchema } from "../../src/lib/providers/provider-accounts";
+import { snapshotProviderAccounts, type ProviderAccountSelection } from "../../src/lib/providers/provider-account-selection";
 import {
   AgentRouteSettingsSchema,
   type AgentRouteSettings,
@@ -76,6 +78,13 @@ export class DelegationPolicyStore {
   loadEffective(taskId: string) {
     const raw = this.read(`delegation.effective-policy:${taskId}`);
     return raw === null ? null : DelegationPermissionPolicySchema.parse(raw);
+  }
+  loadTaskAccounts(taskId: string): ProviderAccountSelection | undefined {
+    const value = ProviderAccountSelectionSchema.safeParse(this.read(`routing.task-accounts:${taskId}`));
+    return value.success ? value.data : undefined;
+  }
+  saveTaskAccounts(taskId: string, accounts: ProviderAccountSelection) {
+    this.write(`routing.task-accounts:${taskId}`, snapshotProviderAccounts(accounts));
   }
   saveEffective(
     taskId: string,

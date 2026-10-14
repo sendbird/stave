@@ -6,9 +6,13 @@
  */
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import { freezeAdaptivePolicy } from "./adaptive-policy";
-import { peekApiConnection } from "../../provider-accounts/gateway-runtime";
+import { getProviderAccountRegistry } from "../../provider-accounts/registry";
+import { currentProviderAccountId } from "../../provider-accounts/runtime-scope";
+import { exclusiveGatewayModels } from "../../../src/lib/providers/api-connection-routing";
+import { requestHostGatewayCredentials } from "../../provider-accounts/host-gateway-credentials";
 import { hostAgents } from "./assign-host";
 import { createAgentRunRouter } from "./agent-run-route-host";
+import { createConstrainedHostRouter } from "./constrained-route-host";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { classifyUtilityRoute } from "../../providers/utility-inference";
 import { readWorkspaceRevision } from "./workspace-revision";
@@ -77,7 +81,7 @@ async function runAgentRunScript(args: { workspaceId: string; scriptId: string; 
   return { ok: false, detail: "The workspace could not be found." };
 }
 
-async function resolveWorkspacePath(workspaceId: string) {
+export async function resolveWorkspacePath(workspaceId: string) {
   const repositories = await localMcpRuntime.listKnownRepositories();
   for (const repository of repositories) {
     const workspace = repository.workspaces.find((candidate) => candidate.id === workspaceId);
@@ -94,6 +98,10 @@ export function createHostAgentRunRuntime(args: {
 }) {
   const persistence = ensureHostServicePersistenceReady();
   const readTurnEnding = (turnId: string) => classifyAgentRunTurnEnding(persistence.getStreamEvents({ turnId }));
+  const constrained = createConstrainedHostRouter({ assignment: (taskId) => persistence.agentAssignments.getByTaskId(taskId),
+    settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list(),
+    history: ({ workspaceId, taskId }) => persistence.loadTaskMessagesPage({ workspaceId, taskId, limit: 12 })?.messages ?? [],
+    cwd: resolveWorkspacePath, classify: (request, signal) => classifyUtilityRoute(request, undefined, undefined, signal) });
   const routeAgentRun = createAgentRunRouter({
     readTask: localMcpRuntime.getTaskSupervisionSnapshot,
     readDraft: ({ workspaceId, taskId }) =>
@@ -101,7 +109,10 @@ export function createHostAgentRunRuntime(args: {
     readMessages: (messageArgs) => persistence.loadTaskMessagesPage(messageArgs)?.messages ?? [],
     readSettings: () => persistence.delegationPolicies.loadRouteSettings(),
     resolveWorkspacePath,
-    classify: (request) => classifyUtilityRoute(request),
+    classify: (request, signal) => classifyUtilityRoute(request, undefined, undefined, signal),
+    exclusiveModels: () => exclusiveGatewayModels(getProviderAccountRegistry().list(), {
+      claudeAccountProfileId: currentProviderAccountId("claude-code"), codexAccountProfileId: currentProviderAccountId("codex"),
+    }),
   });
   const reachability = createLocalMcpReachabilityProbe({
     readManifest: readStaveLocalMcpManifest,
@@ -115,7 +126,8 @@ export function createHostAgentRunRuntime(args: {
   });
   return createAgentRunRuntime({
     store: persistence.agentRuns,
-    usesApiConnection: (providerId, accountProfileId) => peekApiConnection(providerId, accountProfileId) !== undefined,
+    prepareGatewayCredentials: async ({ accounts, signal }) => (await requestHostGatewayCredentials(accounts, undefined, signal))?.credentials,
+    routeConstrainedTurn: constrained,
     freezeResources: ({ run, authority, routingIntent, accounts }) => {
       if (run.fingerprint.providerId !== "codex" && run.fingerprint.providerId !== "claude-code") throw new Error("Adaptive resources require a supported provider.");
       return freezeAdaptivePolicy({
@@ -123,6 +135,9 @@ export function createHostAgentRunRuntime(args: {
       agent: args.taskAgent?.(run.leadTaskId) ?? null,
       draft: authority ? null : routingIntent ?? persistence.loadWorkspaceShell({ workspaceId: run.workspaceId })?.promptDraftByTask?.[run.leadTaskId]?.runtimeOverrides,
       settings: persistence.delegationPolicies.loadRouteSettings(), maxTurns: 30,
+      exclusiveModels: exclusiveGatewayModels(getProviderAccountRegistry().list(), accounts ?? {
+        claudeAccountProfileId: currentProviderAccountId("claude-code"), codexAccountProfileId: currentProviderAccountId("codex"),
+      })[run.fingerprint.providerId],
       delegated: Boolean(authority), effort: authority?.effort, modelPinned: authority?.modelPinned, effortPinned: authority?.effortPinned,
       ...(accounts ? { accounts } : {}),
     }); },

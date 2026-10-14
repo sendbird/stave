@@ -258,6 +258,7 @@ export interface AutoRoutingSignalSummary {
 }
 
 export interface AutoRoutingDecision {
+  routingDecision?: import("../providers/routing-decision").RoutingDecisionObservation;
   providerId: ProviderId;
   model: string;
   role: RouterRole;
@@ -326,6 +327,7 @@ export interface ResolveAutoRoutingDecisionArgs {
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   /**
    * The task class of the agent the task runs as, when it names one. A
    * confident classification wins; the agent's class is used when the intent
@@ -730,6 +732,7 @@ export function resolveRoutingProviderAvailability(args: {
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   now?: number;
 }): Partial<Record<ProviderId, boolean>> | undefined {
   const base = args.providerAvailability;
@@ -743,6 +746,7 @@ export function resolveRoutingProviderAvailability(args: {
       profile: args.profile,
       providerId,
       runtimeModels: args.runtimeModelsByProvider?.[providerId],
+      exclusiveModels: args.exclusiveModelsByProvider?.[providerId],
     });
     const blocked = (model?: string) =>
       resolveAccountUsageBlock({
@@ -897,6 +901,7 @@ export function computeRouterSignals(args: {
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   classifier?: AutoRoutingClassifierResult | null;
   /** See `ResolveAutoRoutingDecisionArgs.taskClassHint`. */
   taskClassHint?: TaskClass;
@@ -918,6 +923,7 @@ export function computeRouterSignals(args: {
   );
   const routingAvailability = resolveRoutingProviderAvailability({
     profile: args.profile,
+    exclusiveModelsByProvider: args.exclusiveModelsByProvider,
     ...(args.providerAvailability
       ? { providerAvailability: args.providerAvailability }
       : {}),
@@ -1129,6 +1135,7 @@ export async function resolveAutoRoutingDecision(
     rateLimitsSnapshot: args.rateLimitsSnapshot,
     providerAvailability: args.providerAvailability,
     runtimeModelsByProvider: args.runtimeModelsByProvider,
+    exclusiveModelsByProvider: args.exclusiveModelsByProvider,
     classifier,
     ...(args.taskClassHint ? { taskClassHint: args.taskClassHint } : {}),
     ...(args.preferredProviderHint
@@ -1156,6 +1163,7 @@ export async function resolveAutoRoutingDecision(
       lastAssistantProvider: pinnedProvider,
     },
     runtimeModelsByProvider: args.runtimeModelsByProvider,
+    exclusiveModelsByProvider: args.exclusiveModelsByProvider,
   });
 
   const confidence = null;

@@ -10,6 +10,7 @@ import { ensureHostServicePersistenceReady } from "./persistence";
 import { readDelegationStrengths } from "../../src/lib/providers/provider-strength-presets";
 import { setTaskPermissionObserver } from "../providers/runtime";
 import { randomBytes } from "node:crypto";
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { resolveCallerGrant, setCallerGrantSecretSource, type CallerGrant } from "../providers/caller-grants";
 
 export function registerDelegationPolicyObserver() {
@@ -18,13 +19,11 @@ export function registerDelegationPolicyObserver() {
       () => randomBytes(32).toString("hex"),
     ),
   );
-  setTaskPermissionObserver(({ taskId, providerId, options }) =>
-    ensureHostServicePersistenceReady().delegationPolicies.saveEffective(
-      taskId,
-      providerId,
-      options,
-    ),
-  );
+  setTaskPermissionObserver(({ taskId, providerId, options }) => {
+    const store = ensureHostServicePersistenceReady().delegationPolicies;
+    store.saveEffective(taskId, providerId, options);
+    store.saveTaskAccounts(taskId, { claudeAccountProfileId: options.claudeAccountProfileId ?? currentProviderAccountId("claude-code"), codexAccountProfileId: options.codexAccountProfileId ?? currentProviderAccountId("codex") });
+  });
 }
 export function syncDelegationPermissionSettings(raw: unknown) {
   ensureHostServicePersistenceReady().delegationPolicies.saveSettings(

@@ -608,7 +608,7 @@
       "utility": {
         "title": "Utility inference",
         "switchTitle": "Run utility inference",
-        "description": "Mechanical helper calls: route classification, commit messages, and prompt enhancement.",
+        "description": "Mechanical text helper calls: commit messages and prompt enhancement. Auto and Agent classification use the Routing decision model in Settings > Auto.",
         "modelDescription": "Model used for mechanical utility calls."
       },
       "prDescription": {
@@ -1102,5 +1102,23 @@
     "hiddenValues_other": "{{count}} protected values hidden",
     "mcpApplyUnavailable": "MCP configuration apply API is unavailable.",
     "writesTrustNote": "`writes` trusts each tool's read-only annotation; it is not a security boundary."
+  },
+  "routingDecision": {
+    "title": "Routing decision model",
+    "description": "Choose the model that classifies work for Auto and Agents. This does not change the model that performs the task.",
+    "inherit": "Use global default",
+    "automatic": "Automatic · Luna, then Haiku",
+    "fallback": "Uses available, signed-in models. Automatic tries Luna first, then Haiku. Gateway failures use the same fallback order; if neither works, local routing continues.",
+    "noConnections": "Add a Vercel AI Gateway API connection in Settings > Tooling first.",
+    "searchConnections": "Search API connections",
+    "connection": "API connection",
+    "searchModels": "Search decision models",
+    "model": "Decision model",
+    "modelPlaceholder": "Search by name or ID, for example Jev",
+    "loading": "Loading decision models…",
+    "noMatches": "No matching options.",
+    "missingConnection": "This connection is no longer available. Choose another one; native fallback remains available.",
+    "loadFailed": "Could not load decision models. Your saved selection is kept.",
+    "retry": "Try again"
   }
 }

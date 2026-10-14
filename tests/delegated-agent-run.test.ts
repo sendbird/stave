@@ -23,6 +23,9 @@ import { freezeAdaptivePolicy } from "../electron/host-service/supervision/adapt
 import { addIdleTask } from "../electron/host-service/idle-task";
 import { createEmptyWorkspaceState } from "../src/store/workspace-session-state";
 import { rememberAdaptiveCatalog } from "../electron/providers/adaptive-observations";
+import { createConstrainedHostRouter } from "../electron/host-service/supervision/constrained-route-host";
+import { buildAgentRouteSettings } from "../src/store/agent-route-settings-sync";
+import { defaultSettings } from "../src/store/app-settings";
 
 const idle = { ok: true as const, activeTurnId: null, latestTurnId: null, latestTurnCompletedAt: null, latestTurnError: null };
 const agent = { ...getBuiltinAgent("reviewer")!, workflow: undefined };
@@ -30,7 +33,7 @@ const request = (patch = {}) => ({ repositoryPath: "/tmp/stave", parentWorkspace
   delegationKey: "assignment", prompt: "Review and verify the change.", providerId: "codex", agentConfigId: agent.id,
   workspace: { mode: "same-workspace" }, access: "read-only", ...patch });
 
-function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; beforeTaskCreated?: () => Promise<void> } = {}) {
+function harness(providerId: "claude-code" | "codex" = "codex", options: { agent?: AgentConfig; adaptive?: boolean; accountProfileId?: string; routing?: boolean; decisionMetadata?: boolean; beforeTaskCreated?: () => Promise<void> } = {}) {
   const savedAgent = options.agent ?? agent;
   const db = new Database(":memory:");
   const runs = new AgentRunStore(db), assignments = createAssignRuntime({ store: new AgentAssignmentStore(db), allowNativeSubagents: taskId => !runs.resourceConfig(runs.getActiveAgentRunForTask(taskId)?.id ?? "") });
@@ -59,8 +62,15 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
   let singleTurns = 0, stops = 0, hostActions = 0;
   let observedModel: string | undefined;
   const policy = resolveDelegationPermissionPolicy({ providerId, access: "read-only" });
+  let classified = 0;
+  const constrained = createConstrainedHostRouter({ assignment: assignments.assignmentForTask,
+    settings: () => buildAgentRouteSettings({ ...defaultSettings, autoRoutingEnabled: true }), profiles: () => [], history: () => [], cwd: async () => "/tmp/stave",
+    classify: async () => { classified++; return { ok: true, classification: { version: 2, intent: "review", complexity: "low", risk: "normal", continuity: "new", domain: "logic", evidenceCodes: [] },
+      ...(options.decisionMetadata ? { utility: { providerId: null, model: "moonshotai/jev", selectionReason: "explicit" as const, degraded: false, attempts: [],
+        routing: { providerId: "gateway" as const, model: "moonshotai/jev", preferred: { mode: "gateway" as const, connectionId: "11111111-1111-4111-8111-111111111111", model: "moonshotai/jev" }, fallback: false, elapsedMs: 24, reportedCostUsd: 0.001 } } } : {}) }; } });
   const createRuntime = () => createAgentRunRuntime({
     store: runs, delegatedAssignment: assignments.assignmentForTask,
+    ...(options.routing ? { routeConstrainedTurn: constrained } : {}),
     freezeResources: ({ run, authority }) => freezeAdaptivePolicy({ providerId, model: run.fingerprint.model, agent: savedAgent,
       delegated: true, effort: authority?.effort, modelPinned: authority?.modelPinned, effortPinned: authority?.effortPinned,
       settings: null, maxTurns: 30 }),
@@ -114,6 +124,7 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
     runAgentRun: port.run, readAgentRun: port.read, stopAgentRun: port.stop,
   };
   const createCoordinator = () => createDelegatedTaskCoordinator({
+    ...(options.routing ? { resolveTurnRoute: constrained } : {}),
     host, readResourceRoot: taskId => runtime.resourceRootForTask(taskId), concurrencyLimit: 3, getLedger: () => ({
       getRunAggregate: a => ledger.getAggregate(a), claimRunStep: a => ledger.claimStep(a),
       markRunStepWaiting: a => ledger.markStepWaiting(a), resumeRunStep: a => ledger.resumeStep(a),
@@ -143,10 +154,34 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
   return { db, runs, assignments, ledger, get runtime() { return runtime; }, coordinator, createCoordinator, host, calls, policy, start, end, report, port,
     restartRuntime: () => { runtime.stop(); runtime = createRuntime(); }, setObservedModel: (model: string) => { observedModel = model; },
     get tasks() { return session.tasks; },
+    get classified() { return classified; },
     get singleTurns() { return singleTurns; }, get stops() { return stops; }, get hostActions() { return hostActions; } };
 }
 
 describe("supervised saved-Agent delegations", () => {
+  test("admission Decision is billed once for the first turn, persisted, and refreshed only on continuation", async () => {
+    const h = harness("codex", { routing: true, decisionMetadata: true });
+    const child = await h.start();
+    expect(h.classified).toBe(1);
+    const started = h.runs.listEventsByKind(child.agentRunId!, ["turn-started"])[0];
+    expect(started?.detail?.routingDecision).toMatchObject({ providerId: "gateway", model: "moonshotai/jev", reportedCostUsd: 0.001 });
+    h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
+    expect(h.calls).toHaveLength(2); expect(h.classified).toBe(2);
+    expect(h.calls[1]!.runtimeOptions.codexFileAccess).toBe("read-only");
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
+  test("Decision routes a saved Auto delegate on admission and continuation while its persisted read-only authority survives restart", async () => {
+    const h = harness("codex", { routing: true });
+    const child = await h.start();
+    expect(h.classified).toBeGreaterThan(0);
+    expect(h.calls[0]!.runtimeOptions.codexFileAccess).toBe("read-only");
+    expect(h.calls[0]!.runtimeOptions.model).toBe("gpt-6-luna");
+    h.end("turn-1"); h.restartRuntime(); await h.runtime.requestTick();
+    expect(h.calls).toHaveLength(2);
+    expect(h.classified).toBeGreaterThan(2);
+    expect(h.calls[1]!.runtimeOptions.codexFileAccess).toBe("read-only");
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
   test("omission selects supervision only for saved Agents, and explicit lifecycles and historical limits remain distinct", () => {
     expect(DelegateTaskArgsSchema.parse(request()).lifecycle).toBe("supervised");
     expect(DelegateTaskArgsSchema.parse(request({ agentConfigId: undefined })).lifecycle).toBe("one-turn");

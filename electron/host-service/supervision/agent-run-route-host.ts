@@ -6,6 +6,7 @@
  * Used by: `electron/host-service/supervision/agent-run-host.ts`.
  */
 import type { AgentConfig } from "../../../src/lib/agents/schema";
+import { DEFAULT_ROUTING_DECISION } from "../../../src/lib/providers/routing-decision";
 import type { AgentRun } from "../../../src/lib/agent-runs/domain";
 import {
   createAgentRouteClassifier,
@@ -27,7 +28,8 @@ export interface AgentRunRouteHostDeps {
   readMessages: (args: { workspaceId: string; taskId: string; limit: number }) => readonly unknown[];
   readSettings: () => AgentRouteSettings | null;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
-  classify: (request: RouteClassificationRequest) => Promise<{ ok: boolean; classification?: unknown }>;
+  classify: (request: RouteClassificationRequest, signal?: AbortSignal) => Promise<{ ok: boolean; classification?: unknown }>;
+  exclusiveModels?: () => Partial<Record<ProviderId, readonly string[]>>;
 }
 
 export function createAgentRunRouter(deps: AgentRunRouteHostDeps) {
@@ -39,19 +41,21 @@ export function createAgentRunRouter(deps: AgentRunRouteHostDeps) {
     const settings = deps.readSettings();
     const context = settings?.classifier?.[providerId];
     const cwd = context ? await deps.resolveWorkspacePath(ids.workspaceId) : null;
+    let decision: import("../../../src/lib/providers/utility-inference").UtilityInferenceMetadata | undefined;
     const route = await routeAgentRunTurn({
       agent: args.agent,
       signal: args.signal,
       draft: args.draftOverride ?? deps.readDraft(ids),
       current: { providerId, model: task.model },
       settings,
+      exclusiveModelsByProvider: deps.exclusiveModels?.(),
       prompt: args.prompt,
       history: toRoutingHistory(deps.readMessages({ ...ids, limit: ROUTE_HISTORY_LIMIT })),
       ...(context
         ? {
             classifyRoute: createAgentRouteClassifier({
-              context: { ...context, activeProviderId: providerId, ...(cwd ? { cwd } : {}) },
-              classify: deps.classify,
+              context: { ...context, routingDecision: (args.agent?.model.mode === "auto" ? args.agent.model.decision : undefined) ?? context.routingDecision ?? DEFAULT_ROUTING_DECISION, activeProviderId: providerId, ...(cwd ? { cwd } : {}) },
+              classify: async (request, signal) => { const result = await deps.classify(request, signal); decision = (result as { utility?: typeof decision }).utility; return result; },
             }),
           }
         : {}),
@@ -59,6 +63,7 @@ export function createAgentRunRouter(deps: AgentRunRouteHostDeps) {
     // Agent runs run on Claude and Codex; any other route keeps the task's own runtime.
     if (route.providerId !== "claude-code" && route.providerId !== "codex") return null;
     return {
+      ...(decision ? { decision } : {}),
       fingerprint: { providerId: route.providerId, model: route.model },
       runtimeOptions: route.runtimeOptions,
       route: route.route,

@@ -5,6 +5,7 @@
  * max-lines ratchet. `app.store` re-exports the public names.
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
+import { DEFAULT_ROUTING_DECISION, type RoutingDecisionConfig } from "@/lib/providers/routing-decision";
 import { DEFAULT_APP_LOCALE, type AppLocale } from "@/i18n/locale";
 import type {
   LensAgentPresentationMode,
@@ -223,6 +224,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   /** Bounded memory of past rewrites and what the user did with them. */
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
+  routingDecision: RoutingDecisionConfig;
   /** Model router: role table × stance, signals and eligible models. */
   autoRoutingProfile: AutoRoutingProfile;
   /**
@@ -644,6 +646,7 @@ export const defaultSettings: AppSettings = {
   promptEnhancementLearnFromEdits: true,
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
+  routingDecision: DEFAULT_ROUTING_DECISION,
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],

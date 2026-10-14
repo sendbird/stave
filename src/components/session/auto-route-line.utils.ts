@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatRoutingDecision } from "@/lib/providers/routing-decision-label";
 import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-profile";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
@@ -86,6 +87,7 @@ export function buildAutoRouteLineView(args: {
     `${lead}: ${modelLabel}`,
     taskLabel ? i18n.t("session:remaining.presentationCopy300", { v1: taskLabel }) : null,
     ranLabel ? i18n.t("session:autoRouteLineUtils.extraCopy138", { value1: ranLabel }) : null,
+    resolution.routingDecision ? formatRoutingDecision(resolution.routingDecision) : null,
   ]
     .filter(Boolean)
     .join(", ");

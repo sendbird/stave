@@ -6,7 +6,7 @@ installation. Auto itself remains opt-in.
 
 ## Default behavior
 
-Model classification is on by default. The Utility model reads the bounded
+Model classification is on by default. The Routing decision model reads the bounded
 request and recent conversation and rates the work on one ordered scale.
 Deterministic rules then map each level to one model rung and an effort range:
 
@@ -151,19 +151,42 @@ failing to produce a route at all.
 
 ## Model intent classification
 
-Auto uses the configured Utility model for intent classification by default.
-Advanced settings can explicitly disable it for local-only routing. If no
-model or provider is configured, it uses Codex's existing Utility default
-(Luna). The classifier answers bounded questions — intent, level
+Settings → Auto → **Routing decision model** controls classification for both
+Auto sends and Agent runs. The default is **Automatic**: try available,
+signed-in Luna first, then Haiku. This setting is independent of Background
+AI's text utility model. Advanced settings can disable classification for
+local-only routing.
+
+To use Jev, save a Vercel AI Gateway key in Secrets, add an API connection in
+Settings → Tooling, enable Auto, then choose that connection and Jev under Routing decision
+model. Decision models have their own searchable list, separate from the coding
+models pinned on the connection. Jev is opt-in; adding a connection does not
+change the default. An Agent's Auto-routing settings can override the global
+Decision model, or inherit it. Saved Agent snapshots keep their overrides.
+Fixed or composer-pinned models bypass classification. Saved-Agent delegates and
+Adaptive Balanced use the same Decision setting within their admitted provider
+and model catalog. Adaptive recommendations still obey model/effort pins, the
+two-change limit, two-turn cooldown and shared turn budget. Explicit resource
+requests take priority over automatic recommendations. A classification that
+requires a model outside the allowed catalog cannot widen that catalog.
+
+Gateway classification uses the Decision HTTP API without a coding CLI or
+tools. A missing key, rejected request, exhausted budget, invalid response or
+timeout falls back to Luna, then Haiku. Native classifiers use selected
+sign-in accounts; when the task account is a Gateway connection, they use
+System default. If neither native classifier works, local routing continues.
+
+The classifier answers bounded questions — intent, level
 (`low`, `medium`, `high`, `expert`, `extreme`, or `unknown`), risk,
 continuity, and evidence codes — each with a concrete anchor, and the result
 is strictly validated against schema version 2. It never chooses a model or
 effort, and never selects tools, permissions, approval policy, or execution
 mode. A leading `/name` or `$name` is read as a skill command.
 
-Each request has a 30-second deadline including readiness checks, one selected
-provider, and at most one model execution. Unavailable authentication, invalid
-JSON, timeout, or failure produces a conservative local route. Cancellation
+Each request has a 30-second deadline including readiness checks and fallbacks.
+Each attempt has a nine-second ceiling so a failed preferred model leaves time
+for the remaining models. Failure after native fallback produces a conservative
+local route. Cancellation
 interrupts classification and prevents the primary turn from starting.
 Classification adds latency; the deadline is not a model speed guarantee.
 Successful classifications determine the route even when they take several
@@ -179,8 +202,10 @@ composer.
 
 Only bounded context is sent: up to 4,000 prompt characters and the last six
 messages with up to 500 characters each. Successful results are cached for
-60 seconds for the exact bounded input, selected model, workspace, and task;
-failures are not cached. The cache holds at most 64 entries. Readiness checks
+60 seconds for the exact bounded input, Decision configuration, workspace, and task;
+failures are not cached. The route records the Decision model, fallback category,
+elapsed time and Gateway-reported cost; missing cost stays unknown. A cache hit
+does not add the original call's cost again. The cache holds at most 64 entries. Readiness checks
 share concurrent requests and cache positive results for 30 seconds, with
 invalidation after runner failures.
 
@@ -252,3 +277,24 @@ the version 5 starter now follows its level, and a level rule the user had
 edited keeps its own model tier and effort. Auto itself
 remains off unless the user enables it. Model prices, where
 available, are used for display and ordering rather than promised savings.
+
+## Connection catalogs and automatic follow-ups
+
+Renderer Auto sends wait for the selected accounts' catalog before routing.
+Cancellation stops that wait; a missing account never becomes an unrestricted
+native catalog. Settings' level table, dry run and candidate explanation use
+the same connection pins and allowed-model intersection as execution.
+
+An omitted delegated execution model is resolved against the captured connection
+before dispatch. The admission result is reused for the first supervised turn;
+it does not trigger a second Decision call for the same input. Saved-Agent overrides apply on admission and supervised
+continuations; the delegate stays on its admitted provider and frozen catalog.
+Stopping during classification cancels the read after the durable stop and
+prevents a late result from dispatching.
+
+Wake-ups and report follow-ups use the task's captured account IDs to resolve
+fresh keys. Explicit turn selections win. Decision diagnostics are retained
+in routing history and copied Agent reports, and in the Auto route tooltip.
+One-turn and detached delegate completion receipts retain the same diagnostics.
+Gateway-reported Decision cost is separate from the primary turn's usage; it
+is not a complete Gateway invoice or an estimated cost for native classifiers.

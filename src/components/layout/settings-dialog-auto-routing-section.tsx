@@ -64,6 +64,8 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { exclusiveGatewayModels } from "@/lib/providers/api-connection-routing";
 import {
   computeRouterSignals,
   formatAutoRoutingSignalSummary,
@@ -83,9 +85,17 @@ import {
 import { autoRoutingSectionStyles as styles } from "./settings-dialog-auto-routing-section.styles";
 import { SettingsAutoRoutingWizard } from "./settings-dialog-auto-routing-wizard";
 import { SettingsProviderStrengths } from "./settings-dialog-provider-strengths";
+import { RoutingDecisionField } from "./RoutingDecisionField";
 import type { UsageSample } from "@/lib/providers/auto-routing-wizard";
 
 export const AUTO_ROUTING_SETTING_FIELD_ID = "settings-field-auto-routing";
+export const ROUTING_DECISION_SETTING_FIELD_ID = "settings-field-routing-decision";
+
+function GlobalRoutingDecisionField() {
+  const value = useAppStore((state) => state.settings.routingDecision);
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  return <RoutingDecisionField value={value} onChange={(routingDecision) => { if (routingDecision) updateSettings({ patch: { routingDecision } }); }} />;
+}
 
 const ANY_VALUE = "__any__";
 const DEFAULT_VALUE = "__default__";
@@ -237,6 +247,7 @@ function RoutingLevelEditor(args: {
 export function RoutingLevelsTable(args: {
   profile: AutoRoutingProfile;
   modelsByProvider: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   onLevelChange: (complexity: RouteComplexity, setting: RouteLevelSetting | null) => void;
 }) {
   const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
@@ -249,9 +260,10 @@ export function RoutingLevelsTable(args: {
           profile: args.profile,
           providerId,
           runtimeModels: args.modelsByProvider[providerId],
+          exclusiveModels: args.exclusiveModelsByProvider?.[providerId],
         }),
       })),
-    [args.modelsByProvider, args.profile],
+    [args.modelsByProvider, args.exclusiveModelsByProvider, args.profile],
   );
   const columnCount = previews.length + 2;
   return (
@@ -678,10 +690,14 @@ export function SettingsAutoRoutingSection(props: {
   const catalogOptions = useMemo(() => ({ codexBinaryPath, cursorBinaryPath, kiroBinaryPath }), [codexBinaryPath, cursorBinaryPath, kiroBinaryPath]);
   const { catalogs } = useProviderModelCatalogs({ enabled: true, runtimeOptions: catalogOptions });
   const codexModelCatalog = catalogs.codex;
+  const profiles = useProviderAccounts((state) => state.profiles);
+  const claudeAccountProfileId = useAppStore((state) => state.settings.claudeAccountProfileId);
+  const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
+  const exclusiveModelsByProvider = useMemo(() => exclusiveGatewayModels(profiles, { claudeAccountProfileId, codexAccountProfileId }), [profiles, claudeAccountProfileId, codexAccountProfileId]);
 
   const modelsByProvider = useMemo<Partial<Record<ProviderId, readonly string[]>>>(
     () => ({
-      "claude-code": getSdkModelOptions({ providerId: "claude-code" }),
+      "claude-code": catalogs["claude-code"].models,
       codex:
         codexModelCatalog.models.length > 0
           ? codexModelCatalog.models
@@ -689,7 +705,7 @@ export function SettingsAutoRoutingSection(props: {
       cursor: catalogs.cursor.models,
       kiro: catalogs.kiro.models,
     }),
-    [codexModelCatalog.models, catalogs.cursor.models, catalogs.kiro.models],
+    [catalogs["claude-code"].models, codexModelCatalog.models, catalogs.cursor.models, catalogs.kiro.models],
   );
 
   const commit = (next: AutoRoutingProfile) =>
@@ -714,15 +730,16 @@ export function SettingsAutoRoutingSection(props: {
       profile,
       rateLimitsSnapshot,
       providerAvailability,
+      exclusiveModelsByProvider,
     });
     try {
-      const route = resolveRoute({ profile, role: testRole, signals });
+      const route = resolveRoute({ profile, role: testRole, signals, exclusiveModelsByProvider });
       return { route, signals, summary: summarizeRouterSignals(signals), error: null };
     } catch (error) {
       return { route: null, signals, summary: summarizeRouterSignals(signals),
         error: error instanceof Error ? error.message : i18n.t("settingsConnections:settingsDialogAutoRoutingSection.noEligibleRouteIsAvailable") };
     }
-  }, [profile, providerAvailability, rateLimitsSnapshot, testPrompt, testProvider, testRole]);
+  }, [profile, providerAvailability, rateLimitsSnapshot, testPrompt, testProvider, testRole, exclusiveModelsByProvider]);
 
 
   return (
@@ -767,8 +784,12 @@ export function SettingsAutoRoutingSection(props: {
         <RoutingLevelsTable
           profile={profile}
           modelsByProvider={modelsByProvider}
+          exclusiveModelsByProvider={exclusiveModelsByProvider}
           onLevelChange={(complexity, setting) => edit((draft) => withRouteLevel(draft, complexity, setting))}
         />
+      </SettingsCard>
+      <SettingsCard id={ROUTING_DECISION_SETTING_FIELD_ID} title={t("settingsProviders:routingDecision.title")} description={t("settingsProviders:routingDecision.description")}>
+        <GlobalRoutingDecisionField />
       </SettingsCard>
       <SettingsCard
         title={t("settingsConnections:settingsDialogAutoRoutingSection.allowedModels")}
@@ -1056,7 +1077,7 @@ export function SettingsAutoRoutingSection(props: {
             </dd>
             <dt className={sx(styles.testerKey)}>{t("settingsConnections:settingsDialogAutoRoutingSection.eligible")}</dt>
             <dd className={sx(styles.testerValue)}>
-              {listEligibleRouteModels({ profile, providerId: dryRun.route.providerId })
+              {listEligibleRouteModels({ profile, providerId: dryRun.route.providerId, exclusiveModels: exclusiveModelsByProvider[dryRun.route.providerId] })
                 .map((model) => toHumanModelName({ model }))
                 .join(", ")}
             </dd>
@@ -1070,6 +1091,7 @@ export function SettingsAutoRoutingSection(props: {
             summary={dryRun.summary}
             prompt={testPrompt}
             role={testRole}
+            exclusiveModelsByProvider={exclusiveModelsByProvider}
             compact
             data-testid="auto-routing-dry-run-flow"
           />

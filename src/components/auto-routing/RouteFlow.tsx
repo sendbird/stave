@@ -214,12 +214,14 @@ function buildLadder(args: {
   route: ResolvedRoute;
   matchedRule: RouteRule | null;
   runtimeModels?: readonly string[];
+  exclusiveModels?: readonly string[];
 }): LadderRung[] {
   const { profile, route, matchedRule } = args;
   const models = listEligibleRouteModels({
     profile,
     providerId: route.providerId,
     runtimeModels: args.runtimeModels,
+    exclusiveModels: args.exclusiveModels,
   });
   if (!models.includes(route.model)) {
     models.push(route.model);
@@ -380,6 +382,7 @@ export interface RouteFlowProps {
   prompt?: string;
   role: RouterRole;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   /** Tighter padding; hides the per-rule miss notes. */
   compact?: boolean;
   "data-testid"?: string;
@@ -410,6 +413,7 @@ export function RouteFlow(props: RouteFlowProps) {
     route,
     matchedRule,
     runtimeModels: props.runtimeModelsByProvider?.[route.providerId],
+    exclusiveModels: props.exclusiveModelsByProvider?.[route.providerId],
   });
   const modelLabel = toHumanModelName({ model: route.model });
   const hiddenSummary = t(route.ruleId ? "settingsConnections:flow.summaryRule" : "settingsConnections:flow.summaryFallback", { taskClass: TASK_CLASS_LABELS[route.taskClass], rule: route.ruleId, model: modelLabel, effort: route.effort ? ` · ${route.effort}` : "", reason: route.reason });

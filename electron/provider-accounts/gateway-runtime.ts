@@ -5,6 +5,7 @@ import { normalizeClaudeModelId } from "../../src/lib/providers/claude-model-req
 import {
   apiConnectionDefaultModel,
   apiConnectionRoutingModelId,
+  canonicalApiConnectionModelId,
   type ApiConnectionRuntime,
 } from "../../src/lib/providers/api-connections";
 
@@ -45,7 +46,9 @@ export const API_CONNECTION_KEY_UNAVAILABLE =
 
 /** A native model ID as the runtime names it, without the gateway's creator prefix. */
 function nativeApiConnectionModelId(runtime: ApiConnectionRuntime, id: string) {
-  return runtime === "claude-code" ? normalizeClaudeModelId(id) : id.trim().replace(/^openai\//, "");
+  if (runtime === "codex") return id.trim().replace(/^openai\//, "");
+  const native = normalizeClaudeModelId(id);
+  return native.startsWith("claude-") ? canonicalApiConnectionModelId(native) : native;
 }
 
 /**

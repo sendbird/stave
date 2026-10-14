@@ -1,6 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { getAppLocale } from "../../src/i18n/runtime";
 import { resolveHostGatewayCredential } from "./provider-gateway-credential";
+import { resolveHostGatewayCredentialRequest } from "./host-gateway-credentials";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -254,6 +255,15 @@ class HostServiceClient {
     }
     if (message.type === "response") {
       this.handleResponse(message);
+      return;
+    }
+    if (message.type === "gateway-credential-request") {
+      const child = this.child;
+      void resolveHostGatewayCredentialRequest(message).then((response) => {
+        if (response && child && this.child === child && !child.stdin.destroyed) {
+          child.stdin.write(serializeJsonFramedMessage(response).serialized, () => {});
+        }
+      }).catch(() => { /* The host's bounded wait handles a missing credential response. */ });
       return;
     }
     if (message.type === "event") {

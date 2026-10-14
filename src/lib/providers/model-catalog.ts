@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { canonicalApiConnectionModelId } from "./api-connections";
 import type {
   ManagedExecutionProviderId,
   ProviderId,
@@ -736,7 +737,7 @@ function getTierIndex(tier: ModelTier) {
 export function getModelCapability(args: {
   model: string;
 }): ModelCapability | null {
-  return MODEL_CAPABILITIES[args.model.trim()] ?? null;
+  return MODEL_CAPABILITIES[canonicalApiConnectionModelId(args.model)] ?? null;
 }
 
 export function listModelCapabilities(args?: {

@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { canonicalApiConnectionModelId } from "./api-connections";
 import {
   CLAUDE_FABLE_MODEL,
   clampCodexEffortToModel,
@@ -1213,6 +1214,7 @@ export interface ResolveRouteArgs {
   role: RouterRole;
   /** Runtime-advertised models for providers whose catalog is not static. */
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
 }
 
 function providerCatalog(
@@ -1231,10 +1233,14 @@ export function listEligibleRouteModels(args: {
   profile: AutoRoutingProfile;
   providerId: ProviderId;
   runtimeModels?: readonly string[];
+  exclusiveModels?: readonly string[];
 }) {
   const configured = args.profile.eligibleModelsByProvider[args.providerId] ?? [];
   const catalog = providerCatalog(args.providerId, args.runtimeModels);
-  const candidates = configured.length > 0
+  const normalize = canonicalApiConnectionModelId;
+  const candidates = args.exclusiveModels !== undefined
+    ? args.exclusiveModels.filter((model) => configured.length === 0 || configured.some((allowed) => normalize(allowed) === normalize(model)))
+    : configured.length > 0
     ? configured
     : catalog.filter((model) => !AUTO_ROUTING_OPT_IN_MODELS.has(model));
   return [...candidates].sort(
@@ -1631,6 +1637,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       profile,
       providerId,
       runtimeModels: args.runtimeModelsByProvider?.[providerId],
+      exclusiveModels: args.exclusiveModelsByProvider?.[providerId],
     }).filter(satisfiesFloor);
     if (models.length === 0) {
       continue;
@@ -1803,6 +1810,7 @@ export function previewRouteLevels(args: {
   profile: AutoRoutingProfile;
   providerId: ProviderId;
   runtimeModels?: readonly string[];
+  exclusiveModels?: readonly string[];
 }): Array<{ level: RouteLevel; route: ResolvedRoute | null; error: string | null }> {
   // Preview only the provider's own models: no failover, no history.
   const availability = Object.fromEntries(
@@ -1822,6 +1830,7 @@ export function previewRouteLevels(args: {
           providerAvailability: availability,
         },
         ...(args.runtimeModels ? { runtimeModelsByProvider: { [args.providerId]: args.runtimeModels } } : {}),
+        ...(args.exclusiveModels ? { exclusiveModelsByProvider: { [args.providerId]: args.exclusiveModels } } : {}),
       });
       return { level, route, error: null };
     } catch (error) {

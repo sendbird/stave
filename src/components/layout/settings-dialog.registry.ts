@@ -23,7 +23,8 @@ import {
   MartinSyncSettingsSchema,
 } from "@/lib/martin-sync/types";
 import { STANDALONE_CLI_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-standalone-cli-card";
-import { AUTO_ROUTING_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
+import { AUTO_ROUTING_SETTING_FIELD_ID, ROUTING_DECISION_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
+import { DEFAULT_ROUTING_DECISION, RoutingDecisionConfigSchema } from "@/lib/providers/routing-decision";
 import {
   buildStarterProfile,
   DEFAULT_AUTO_ROUTING_PROFILE_ID,
@@ -120,6 +121,13 @@ export const settingDefinitions = [
     applyMode: "next-turn",
     importExport: "include",
   } satisfies SettingDefinition<"autoRoutingProfile">,
+  {
+    key: "routingDecision", sectionId: "autoRouting", fieldId: ROUTING_DECISION_SETTING_FIELD_ID,
+    titleKey: "settings:sections.fields.routingDecision.title", descriptionKey: "settings:sections.fields.routingDecision.description",
+    keywords: ["decision", "routing", "router", "classifier", "jev", "luna", "haiku", "gateway"],
+    schema: RoutingDecisionConfigSchema, defaultValue: DEFAULT_ROUTING_DECISION,
+    scope: "app", sensitivity: "plain", applyMode: "next-turn", importExport: "exclude",
+  } satisfies SettingDefinition<"routingDecision">,
   {
     key: "blockTurnsWhenAccountLimitReached",
     sectionId: "providers",

@@ -27,15 +27,16 @@ const CatalogSchema = z.object({ data: z.array(z.unknown()).max(10_000) });
  * model without any tags is kept, since the filter can only read tags that
  * exist. Deprecated models are dropped once their date has passed.
  */
-export function filterApiConnectionCatalog(payload: unknown, now = Date.now()): ApiConnectionCatalogModel[] {
+export function filterApiConnectionCatalog(payload: unknown, now = Date.now(), purpose: "coding" | "decision" = "coding"): ApiConnectionCatalogModel[] {
   const catalog = CatalogSchema.safeParse(payload);
   if (!catalog.success) throw new Error(i18n.t("providers:apiConnectionCatalog.theGatewayDidNotReturnA"));
   const models: ApiConnectionCatalogModel[] = [];
   for (const raw of catalog.data.data) {
     const entry = CatalogEntrySchema.safeParse(raw);
-    if (!entry.success || entry.data.type !== "language") continue;
+    if (!entry.success) continue;
+    if (purpose === "decision" ? !["evaluation", "decision"].includes(entry.data.type ?? "") : entry.data.type !== "language") continue;
     const tags = entry.data.tags ?? [];
-    if (tags.length > 0 && !tags.includes("tool-use")) continue;
+    if (purpose === "coding" && tags.length > 0 && !tags.includes("tool-use")) continue;
     if (entry.data.deprecated_at !== undefined && entry.data.deprecated_at <= now) continue;
     if (!ApiConnectionModelIdSchema.safeParse(entry.data.id).success) continue;
     const model = ApiConnectionModelSchema.safeParse({
