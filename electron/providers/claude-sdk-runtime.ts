@@ -1,3 +1,4 @@
+import { runQuestionRequestId, RUN_QUESTION_WAIT_STOP_REASON } from "../../src/lib/agent-runs/persistent-question";
 import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
 import { createClaudeModelResolutionTracker } from "./claude-model-resolution";
@@ -3093,6 +3094,7 @@ export async function streamClaudeWithSdk(
   >();
   type ClaudeUserInputDecision = { answers?: Record<string, string>; denied?: boolean };
   const pendingUserInputResolvers = new Map<string, (response: ClaudeUserInputDecision) => void>();
+  let awaitingQuestion = false;
   let stream: Query | null = null;
   let inputQueue: SteerableUserMessageQueue | null = null;
   try {
@@ -3468,7 +3470,7 @@ export async function streamClaudeWithSdk(
         },
         canUseTool: async (toolName, input, options) => {
           const normalizedInput = normalizeClaudeToolInput(input);
-          const requestId = options.toolUseID;
+          let requestId = options.toolUseID;
           // Hard guardrails (G1-G3) skip every automatic answer below and reach the user.
           const guardrail = resolveClaudeTurnGuardrail({ policy: args.turnPolicy, toolName, input: normalizedInput, cwd: runtimeCwd, decisionReason: options.decisionReason });
           const redirectedSkillSlug = shouldRedirectClaudePreloadedSkillToolUse(
@@ -3547,6 +3549,7 @@ export async function streamClaudeWithSdk(
           }
 
           if (handoff.action === "question") {
+            requestId = runQuestionRequestId(args.agentRunStage, requestId, args.turnId);
             const questions = parseClaudeQuestionList({
               input: normalizedInput,
             });
@@ -3592,6 +3595,12 @@ export async function streamClaudeWithSdk(
               });
             } catch (error) {
               if (error instanceof ClaudeToolDecisionTimeoutError) {
+                if (args.agentRunStage) {
+                  const pending: BridgeEvent = { ...userInputEvent, delivery: "async" };
+                  eventCollector.append(pending); args.onEvent?.(pending);
+                  awaitingQuestion = true; abortRequested = true; inputQueue?.close(); stream?.close();
+                  return buildClaudeDenyPermissionResult({ message: "The question is saved. Wait for the user's reply in the next turn.", context: "user-input:pending" });
+                }
                 emitClaudeApprovalTimeoutBridgeEvent({
                   eventCollector,
                   onEvent: args.onEvent,
@@ -3985,7 +3994,7 @@ export async function streamClaudeWithSdk(
       abortRequested,
       currentStopReason: finalStopReason,
     });
-    const done: BridgeEvent = terminalStopReason
+    const done: BridgeEvent = awaitingQuestion ? { type: "done", stop_reason: RUN_QUESTION_WAIT_STOP_REASON } : terminalStopReason
       ? { type: "done", stop_reason: terminalStopReason, ...(terminalStopReason === "usage_limit" && usageLimitResetsAt ? { usageLimitResetsAt } : {}) }
       : { type: "done" };
     if (eventCollector.overflowed) {
@@ -4009,7 +4018,7 @@ export async function streamClaudeWithSdk(
         taskId: args.taskId,
       });
       const abortEvents: BridgeEvent[] = [
-        { type: "done", stop_reason: "user_abort" },
+        { type: "done", stop_reason: awaitingQuestion ? RUN_QUESTION_WAIT_STOP_REASON : "user_abort" },
       ];
       abortEvents.forEach((event) => args.onEvent?.(event));
       return abortEvents;

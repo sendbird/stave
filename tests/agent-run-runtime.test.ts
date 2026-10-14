@@ -2096,3 +2096,75 @@ test("turn cap persists a pause; Extend keeps the task session, fingerprint and 
   await harness.tick();
   expect(harness.aggregate(id).agentRun.state).toBe("completed");
 });
+
+for (const delivery of ["async", undefined] as const) {
+  test(`a persisted ${delivery ?? "native"} Run question survives SQLite reload and answers once`, async () => {
+    const { runQuestionRequestId } = await import("../src/lib/agent-runs/persistent-question");
+    const { interruptPendingToolInteractionsInMessages } = await import("../src/store/provider-message.utils");
+    const { buildWorkspaceSessionState } = await import("../src/store/workspace-session-state");
+    const { respondHostUserInput } = await import("../electron/host-service/host-user-input");
+    const { setRunQuestionAnswerer } = await import("../electron/host-service/run-question-answer");
+    const { agentRunDecisionOfMessages, describeAgentRunStatus } = await import("../src/lib/agent-runs/agent-run-status");
+    const { applyUserInputState } = await import("../src/store/editor.utils");
+    const directory = mkdtempSync(join(tmpdir(), "stave-run-question-restart-"));
+    const databasePath = join(directory, "state.sqlite");
+    let db = new Database(databasePath);
+    try {
+      const first = createHarness({ store: new AgentRunStore(db) });
+      const id = await startedAgentRun(first, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+      const stage = { agentRunId: id, stageId: DRAFT.id, attempt: 1 };
+      const requestId = runQuestionRequestId(stage, "native-question");
+      // This is the persisted message shape; no provider callback survives this close.
+      db.exec("CREATE TABLE question_test_snapshot (payload TEXT NOT NULL)");
+      db.query("INSERT INTO question_test_snapshot VALUES (?)").run(JSON.stringify({
+        tasks: [{ id: "task-1", title: "Task", provider: "claude-code", unread: false, updatedAt: START }],
+        activeTaskId: "task-1", messagesByTask: { "task-1": [{ id: "question-message", role: "assistant", model: "sonnet", providerId: "claude-code", turnId: "turn-1", content: "", parts: [{
+          type: "user_input", requestId, toolName: "AskUserQuestion", state: "input-requested", ...(delivery ? { delivery } : {}),
+          questions: [{ key: "file", question: "Which filename?", header: "File", options: [] }],
+        }] }] },
+      }));
+      first.endTurn("turn-1"); first.runtime.stop(); db.close();
+      db = new Database(databasePath);
+      const loadSession = () => {
+        const row = db.query("SELECT payload FROM question_test_snapshot").get() as { payload: string };
+        const session = buildWorkspaceSessionState({ snapshot: JSON.parse(row.payload) });
+        session.messagesByTask["task-1"] = interruptPendingToolInteractionsInMessages({ messages: session.messagesByTask["task-1"]! });
+        return session;
+      };
+      let session = loadSession();
+      expect(session.messagesByTask["task-1"]![0]!.parts[0]).toMatchObject({ state: "input-requested", delivery: "async" });
+      const restored = createHarness({ store: new AgentRunStore(db), turns: first.turns, extra: {
+        runSupervisedTurn: async args => {
+          const pending = session.messagesByTask["task-1"]![0]!;
+          session = { ...session, ...applyUserInputState({ messagesByTask: session.messagesByTask, workspaceSnapshotVersion: 0,
+            taskId: "task-1", messageId: pending.id, ...args.questionAnswer! }) };
+          session.messagesByTask["task-1"]!.push({ id: "reply-message", turnId: "reply-1", role: "user", providerId: "user", model: "user", content: args.prompt, parts: [{ type: "text", text: args.prompt }] });
+          db.query("UPDATE question_test_snapshot SET payload = ?").run(JSON.stringify(session));
+          restored.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "reply-1", providerId: "claude-code" });
+          return { turnId: "reply-1" };
+        },
+      } });
+      restored.setSnapshot({ pendingUserInputCount: 1 });
+      restored.runtime.start(); await restored.tick(); await restored.tick();
+      const detail = await restored.runtime.get({ agentRunId: id });
+      expect(describeAgentRunStatus(detail, agentRunDecisionOfMessages(session.messagesByTask["task-1"])).badge).toBe("needs-answer");
+      expect(restored.current(id)).toMatchObject({ status: "running", nudged: false });
+      expect(restored.runCalls).toHaveLength(0);
+      setRunQuestionAnswerer(args => restored.runtime.answerQuestion(args));
+      let chain = Promise.resolve();
+      const ports = { workspaceName: "Test", load: async () => session,
+        enqueue: <T>(_key: string, operation: () => Promise<T>) => { const next = chain.then(operation); chain = next.then(() => {}, () => {}); return next; },
+        respond: async () => { throw new Error("The expired native callback must not receive the answer"); },
+        cache: (_key: string, value: typeof session) => value, persist: async () => {} };
+      const answer = { workspaceId: "ws-1", taskId: "task-1", requestId, answers: { file: "B.md" } };
+      const responses = await Promise.allSettled([respondHostUserInput(answer, ports), respondHostUserInput(answer, ports)]);
+      expect(responses.map(response => response.status)).toEqual(["fulfilled", "rejected"]);
+      session = loadSession();
+      expect(session.messagesByTask["task-1"]!.filter(message => message.role === "user").map(message => message.content)).toEqual(["> Which filename?\n\nB.md"]);
+      expect(restored.store.listEventsByKind(id, ["user-turn"])).toHaveLength(1);
+      expect(restored.store.listEventsByKind(id, ["turn-linked"]).at(-1)?.detail).toMatchObject({ ...stage, turnId: "reply-1", reason: "user-reply" });
+      await expect(respondHostUserInput(answer, ports)).rejects.toThrow("Pending user input not found");
+      restored.runtime.stop();
+    } finally { setRunQuestionAnswerer(null); db.close(); rmSync(directory, { recursive: true, force: true }); }
+  });
+}

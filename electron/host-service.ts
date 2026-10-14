@@ -1,3 +1,4 @@
+import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { applyRuntimeLocale } from "../src/i18n/runtime";
@@ -597,6 +598,7 @@ const agentRunRuntime = createHostAgentRunRuntime({
   },
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
+setRunQuestionAnswerer((args) => agentRunRuntime.answerQuestion(args));
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),
   // An agent run ends with the agent it ran as (released or replaced), now,

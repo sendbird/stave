@@ -1,3 +1,6 @@
+import { i18n } from "../../src/i18n/runtime";
+import { respondHostUserInput, type HostUserInputArgs } from "./host-user-input";
+import type { RunQuestionAnswer } from "./run-question-answer";
 import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-context";
 import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { capSpawnedTurnOptions } from "../../src/lib/policy/turn-policy";
@@ -1721,6 +1724,7 @@ async function runTaskImpl(args: {
   agentRunStage?: import("../../src/lib/agent-runs/domain").AgentRunStageIdentity;
   agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // agent run supervisor only: marks the user row
   spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean }; // the calling turn caps this one
+  questionAnswer?: RunQuestionAnswer; // host-owned Run reply only
   freshSession?: boolean; // agent run supervisor only: an account-pool switch starts a new conversation on that account
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
@@ -1945,6 +1949,12 @@ async function runTaskImpl(args: {
       ...(args.initialContext?.retrievedContextParts ?? []),
     ],
   });
+  if (args.questionAnswer) {
+    const pending = findPendingUserInputMessageByRequestId({ messages: session.messagesByTask[task.id] ?? [], requestId: args.questionAnswer.requestId });
+    if (!pending) throw new Error(i18n.t("agentRuns:persistentQuestion.alreadyAnswered"));
+    session = { ...session, ...applyUserInputState({ messagesByTask: session.messagesByTask, workspaceSnapshotVersion: 0,
+      taskId: task.id, messageId: pending.messageId, ...args.questionAnswer }) };
+  }
   const pendingState = buildPendingProviderTurnState({
     tasks: session.tasks,
     messagesByTask: session.messagesByTask,
@@ -2627,77 +2637,15 @@ export async function respondApproval(args: {
   });
 }
 
-export async function respondUserInput(args: {
-  workspaceId: string;
-  taskId: string;
-  requestId: string;
-  answers?: Record<string, string>;
-  denied?: boolean;
-  /** Renderer only: the async answer was already sent as a user message. */
-  answerDelivered?: boolean;
-}) {
+export async function respondUserInput(args: HostUserInputArgs) {
   const { repositories } = await loadNormalizedRepositories();
-  const registration = findWorkspaceRegistration({
-    repositories,
-    workspaceId: args.workspaceId,
-  });
-  if (!registration) {
-    throw new Error(`Workspace not found: ${args.workspaceId}`);
-  }
-
-  return workspaceProviderEventQueue.enqueue(args.workspaceId, async () => {
-    const session = await loadTaskInteractionSession(args.workspaceId, args.taskId);
-    const activeTurnId = session.activeTurnIdsByTask[args.taskId];
-
-    const messages = session.messagesByTask[args.taskId] ?? [];
-    const userInput = findPendingUserInputMessageByRequestId({
-      messages,
-      requestId: args.requestId,
-    });
-    if (!userInput) {
-      throw new Error(`Pending user input not found: ${args.requestId}`);
-    }
-
-    // An async question has no pending provider request; only a user message
-    // delivers its answer. Recording it without one would drop the answer.
-    if (userInput.part.delivery === "async" && !args.answerDelivered) {
-      throw new Error(`Question ${args.requestId} did not pause the task. Send the answer as a follow-up message to the task instead.`);
-    }
-    if (userInput.part.delivery !== "async") {
-      if (!activeTurnId) throw new Error(`No active turn found for task ${args.taskId}.`);
-      const result = await providerRuntime.respondUserInput({
-        turnId: activeTurnId,
-        requestId: args.requestId,
-        answers: args.answers,
-        denied: args.denied,
-      });
-      if (!result.ok) throw new Error(result.message);
-    }
-    const nextMessagesState = applyUserInputState({
-      messagesByTask: session.messagesByTask,
-      workspaceSnapshotVersion: 0,
-      taskId: args.taskId,
-      messageId: userInput.messageId,
-      requestId: args.requestId,
-      answers: args.answers,
-      denied: args.denied,
-    });
-    const nextSession = cacheWorkspaceSession(args.workspaceId, {
-      ...session,
-      messagesByTask: nextMessagesState.messagesByTask,
-    });
-    await queueWorkspaceSessionPersist({
-      workspaceId: args.workspaceId,
-      workspaceName: registration.workspace.name,
-      session: nextSession,
-    });
-    return {
-      ok: true,
-      workspaceId: args.workspaceId,
-      taskId: args.taskId,
-      requestId: args.requestId,
-      denied: args.denied === true,
-    };
+  const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
+  if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);
+  return respondHostUserInput(args, {
+    workspaceName: registration.workspace.name,
+    enqueue: (key, operation) => workspaceProviderEventQueue.enqueue(key, operation),
+    load: loadTaskInteractionSession, respond: providerRuntime.respondUserInput,
+    cache: cacheWorkspaceSession, persist: queueWorkspaceSessionPersist,
   });
 }
 

@@ -1,15 +1,16 @@
 import { afterAll, afterEach, beforeEach, expect, mock, test } from "bun:test";
+import { classifyAgentRunTurnEnding } from "../electron/host-service/supervision/agent-run-actions";
 import type { BridgeEvent } from "../electron/providers/types";
 
-// Native provider callbacks are synchronous requests: when Claude's native
-// Auto hands a call to Stave in an agent run and nobody answers, the request is
-// denied after the decision timeout exactly as in any other turn.
+// Approvals retain their timeout in native Auto and ordinary turns. Native
+// Run questions instead survive as async cards when their callback ends.
 type CanUseTool = (
   toolName: string,
   input: Record<string, unknown>,
   options: { signal: AbortSignal; suggestions: unknown[]; toolUseID: string },
 ) => Promise<{ behavior: string; message?: string }>;
 
+let questionMode = false;
 const decisions: Array<{ behavior: string; message?: string }> = [];
 const actualCliPathEnv = await import("../electron/providers/cli-path-env");
 const actualStaveLocalMcpManifest = await import("../electron/main/stave-local-mcp-manifest");
@@ -18,7 +19,9 @@ mock.module("@anthropic-ai/claude-agent-sdk", () => ({
   query: (args: { options: { canUseTool: CanUseTool } }) => ({
     async *[Symbol.asyncIterator]() {
       yield { type: "system", subtype: "init", session_id: "session-1", permissionMode: "auto", tools: [], mcp_servers: [] };
-      decisions.push(await args.options.canUseTool("Bash", { command: "rm -rf build" }, {
+      decisions.push(await args.options.canUseTool(questionMode ? "AskUserQuestion" : "Bash", questionMode
+        ? { questions: [{ question: "Which filename?", header: "File", options: [{ label: "A.md", description: "First" }, { label: "B.md", description: "Second" }] }] }
+        : { command: "rm -rf build" }, {
         signal: new AbortController().signal, suggestions: [], toolUseID: "tool-1",
       }));
       yield { type: "result", subtype: "success", is_error: false, result: "", session_id: "session-1",
@@ -42,7 +45,7 @@ const { streamClaudeWithSdk } = await import("../electron/providers/claude-sdk-r
 const originalTimeout = process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS;
 beforeEach(() => { process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS = "25"; });
 afterEach(() => {
-  decisions.length = 0;
+  decisions.length = 0; questionMode = false;
   if (originalTimeout === undefined) delete process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS;
   else process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS = originalTimeout;
 });
@@ -63,3 +66,40 @@ for (const agentRunStage of [{ agentRunId: "run", stageId: "work", attempt: 1 },
     expect(events.some((event) => event.type === "error" && event.message.includes("did not receive"))).toBe(true);
   }, 10_000);
 }
+
+for (const agentRunStage of [{ agentRunId: "question-run", stageId: "work", attempt: 1 }, undefined]) {
+  test(`${agentRunStage ? "Run" : "ordinary"} Claude question survives only in a Run after timeout`, async () => {
+    questionMode = true;
+    const events: BridgeEvent[] = [];
+    await streamClaudeWithSdk({ providerId: "claude-code", turnId: "native-question-turn", cwd: process.cwd(), taskId: `question-${!!agentRunStage}`, prompt: "Work",
+      runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude", claudePermissionMode: "default" }, agentRunStage,
+      onEvent: event => { events.push(event); } });
+    const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
+    const replayed = replayProviderEventsToTaskState({ taskId: "task", provider: "claude-code", model: "sonnet", turnId: "turn", events, messages: [] });
+    const parts = replayed.messages.flatMap(message => message.parts).filter(part => part.type === "user_input");
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject(agentRunStage ? { delivery: "async", state: "input-requested" } : { state: "input-interrupted" });
+    expect(events.some(event => event.type === "done")).toBe(true);
+    expect(events.some(event => event.type === "error")).toBe(!agentRunStage);
+    if (agentRunStage) expect(classifyAgentRunTurnEnding(events.map(event => ({ event })) as never)).toBe("completed");
+  }, 10_000);
+}
+
+test("a Run question answered before timeout still reaches Claude's native callback once", async () => {
+  questionMode = true;
+  let respond: ((args: { requestId: string; answers?: Record<string, string> }) => { ok: boolean }) | undefined;
+  let deliveries = 0;
+  await streamClaudeWithSdk({ providerId: "claude-code", turnId: "native-in-time-turn", cwd: process.cwd(), taskId: "question-in-time", prompt: "Work",
+    runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude", claudePermissionMode: "default" },
+    agentRunStage: { agentRunId: "in-time-run", stageId: "work", attempt: 1 },
+    registerUserInputResponder: responder => { respond = responder; },
+    onEvent: event => {
+      if (event.type !== "user_input") return;
+      expect(respond!({ requestId: event.requestId, answers: { "Which filename?": "B.md" } }).ok).toBe(true);
+      deliveries += 1;
+      expect(respond!({ requestId: event.requestId, answers: { "Which filename?": "B.md" } }).ok).toBe(false);
+    },
+  });
+  expect(deliveries).toBe(1);
+  expect(decisions).toEqual([expect.objectContaining({ behavior: "allow", updatedInput: expect.objectContaining({ answers: { "Which filename?": "B.md" } }) })]);
+});

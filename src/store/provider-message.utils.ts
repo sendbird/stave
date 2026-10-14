@@ -1,3 +1,4 @@
+import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { truncateUtf8Middle } from "@/lib/providers/transport-bounds";
 import type {
   ApprovalPart,
@@ -327,7 +328,7 @@ export function resolvePendingToolInteractionPartsByRequestId(args: {
       };
     }
 
-    if (part.type === "user_input" && part.requestId === requestId && part.state === "input-requested") {
+    if (part.type === "user_input" && part.requestId === requestId && part.state === "input-requested" && part.delivery !== "async") {
       changed = true;
       return {
         ...part,
@@ -355,6 +356,11 @@ export function interruptPendingToolInteractionParts(args: {
       };
     }
 
+    if (part.type === "user_input" && part.state === "input-requested" && runQuestionStage(part.requestId)) {
+      if (part.delivery === "async") return part;
+      changed = true;
+      return { ...part, delivery: "async" as const };
+    }
     if (part.type === "user_input" && part.state === "input-requested" && (!args.preserveAsync || part.delivery !== "async")) {
       changed = true;
       return {

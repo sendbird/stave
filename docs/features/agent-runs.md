@@ -98,11 +98,19 @@ stays as set; and Stave's own tools run without asking. A saved agent's
 a **Read only** agent stays read only. **Guided** and **Your settings** keep
 their existing mapping.
 
-An approval or question that reaches you in a run has the same time limit as
-in any other turn, on both providers: if nobody answers within 45 minutes,
-Stave declines it, shows an error and the turn continues, so a lost request
-cannot hold the run. In a [delegated task](./delegated-tasks.md) the host
-declines an unanswered approval after a few minutes.
+Approval cards keep their time limit: after 45 minutes Stave declines an
+unanswered approval and the turn continues. In a
+[delegated task](./delegated-tasks.md) the host declines it after a few minutes.
+
+A native question in a Run stays on the task until you answer it, including
+after its 45-minute callback timeout, a turn ending, or an app restart. The
+Run shows **Needs your answer · Question** (**답변 필요 · 질문**) and waits
+without nudging or declaring the stage stuck. After the callback timeout the
+native turn ends; your answer starts one reply turn in that Run's current
+stage. Answering the card again does not send another reply. Before the
+callback ends, an answer goes directly to the waiting provider. This applies
+to Claude's question tool and Codex's native user-input request; approval
+cards and questions outside a Run keep their existing behavior.
 
 ### Run states
 

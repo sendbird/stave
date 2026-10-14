@@ -1,3 +1,5 @@
+import { i18n } from "../../../src/i18n/runtime";
+import type { RunQuestionAnswer } from "../run-question-answer";
 import { usageLimitedTurnRuntime, usageLimitedTurnEffort, usageLimitAccounts, observeUsageLimitQuota, turnEffortOf } from "./agent-run-usage-limit";
 import { accountPoolReadOrder, agentRunPoolAccount, normalizeAgentRunAccountPool, type PoolAccountUsage } from "../../../src/lib/agent-runs/account-pool";
 import { selectedProviderAccount } from "../../../src/lib/providers/provider-account-selection";
@@ -232,6 +234,8 @@ export interface AgentRunRuntimeDependencies {
     agentRunStage?: AgentRunStageRef;
     /** On every turn of an agent run: marks the user row so it renders as the assignment. */
     agentRunPrompt?: AgentRunPromptProvenance;
+    /** Persisted with the reply message before native provider dispatch. */
+    questionAnswer?: RunQuestionAnswer;
     /** The turn after an account-pool switch: a new conversation on that account, never a stored or cached one. */
     freshSession?: boolean;
   }) => Promise<{ turnId: string }>;
@@ -367,6 +371,7 @@ export interface AgentRunRuntime {
   whenIdle: () => Promise<void>;
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
+  answerQuestion: (args: { workspaceId: string; taskId: string; stage: AgentRunStageIdentity; prompt: string; questionAnswer: RunQuestionAnswer }) => Promise<void>;
   prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: AgentRunStageIdentity; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation" } | null;
   resourceRootForTask: (taskId: string) => string | null;
   getActiveAgentRunForTask: (taskId: string) => AgentRun | null;
@@ -1719,6 +1724,24 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     notifyTaskTurnFinished: ({ taskId }) => {
       if (store.getActiveAgentRunForTask(taskId)) void requestTick();
     },
+    answerQuestion: (args) => enqueue(async () => {
+      const aggregate = requireAggregate(args.stage.agentRunId);
+      const run = aggregate.agentRun, record = currentStageRecord(aggregate);
+      if (run.workspaceId !== args.workspaceId || run.leadTaskId !== args.taskId || run.state !== "running" ||
+          record.stageId !== args.stage.stageId || record.attempt !== args.stage.attempt ||
+          !["running", "blocked", "stuck"].includes(record.status) || workflowStageAt(run, run.currentStageIndex).kind !== "ai")
+        refuse(i18n.t("agentRuns:persistentQuestion.stageChanged"));
+      const snapshot = await readSnapshot(run);
+      if (!snapshot.exists || snapshot.archived || snapshot.activeTurnId || snapshot.pendingApprovalCount || !snapshot.providerId || !snapshot.model)
+        refuse(i18n.t("agentRuns:persistentQuestion.waitForRequest"));
+      if (!(await deps.isReportingAvailable({ fresh: true }))) refuse(i18n.t("agentRuns:persistentQuestion.reportingUnavailable"));
+      await deps.runSupervisedTurn({ workspaceId: args.workspaceId, taskId: args.taskId,
+        ...(delegatedAuthority(run) ? { parentTaskId: delegatedAuthority(run)!.parentTaskId } : {}),
+        prompt: args.prompt, questionAnswer: args.questionAnswer, fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
+        runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
+      // The normal provider admission calls prepareUserTurn: the reply is a
+      // user turn of this stage, not another automatic stage-start or nudge.
+    }),
     prepareUserTurn: ({ taskId, workspaceId, turnId, providerId }) => {
       let run = store.getActiveAgentRunForTask(taskId);
       if (!run || !hasAgentOrigin(run) || (workspaceId && run.workspaceId !== workspaceId)) return null;

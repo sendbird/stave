@@ -789,7 +789,11 @@ function appendProviderEventContentToAssistant(args: {
     return message;
   }
 
-  if (part.type === "user_input" && message.parts.some((existing) => existing.type === "user_input" && existing.requestId === part.requestId)) return message;
+  if (part.type === "user_input") {
+    const existing = message.parts.find((item) => item.type === "user_input" && item.requestId === part.requestId);
+    if (existing) return part.delivery === "async" && existing.type === "user_input" && existing.state === "input-requested"
+      ? { ...message, parts: message.parts.map(item => item === existing ? { ...existing, delivery: "async" as const } : item) } : message;
+  }
   const nextParts = [...message.parts];
   const lastPart = nextParts.at(-1);
 

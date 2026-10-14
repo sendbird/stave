@@ -1,3 +1,4 @@
+import { runQuestionRequestId, RUN_QUESTION_WAIT_STOP_REASON } from "../../src/lib/agent-runs/persistent-question";
 import { mapCodexRateLimitUpdates } from "./codex-rate-limit-updates";
 import { mapCodexAsyncQuestions } from "./codex-async-questions";
 import { getProviderAccountRegistry } from "../provider-accounts/registry";
@@ -1976,9 +1977,10 @@ export async function streamCodexWithAppServer(
         reserveTailBytes: CODEX_APP_SERVER_OVERFLOW_TAIL_BYTES,
       });
       const events: BridgeEvent[] = eventCollector.events;
-      let hasEmittedDone = false;
+      let hasEmittedDone = false, awaitingQuestion = false;
       const emitBridgeEvent = (event: BridgeEvent) => {
         if (event.type === "done") {
+          if (awaitingQuestion) event = { ...event, stop_reason: RUN_QUESTION_WAIT_STOP_REASON };
           hasEmittedDone = true;
         }
         eventCollector.append(event);
@@ -2196,32 +2198,31 @@ export async function streamCodexWithAppServer(
         }, codexApprovalDecisionTimeoutMs);
         pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
       };
+      const runStage = args.agentRunStage;
       const scheduleUserInputAutoDecline = (args: {
-        requestId: string;
-        toolName: string;
+        event: Extract<BridgeEvent, { type: "user_input" }>;
       }) => {
         const handle = setTimeout(() => {
-          pendingApprovalAutoDeclineHandles.delete(args.requestId);
-          const pending = pendingUserInputRequests.get(args.requestId);
+          pendingApprovalAutoDeclineHandles.delete(args.event.requestId);
+          const pending = pendingUserInputRequests.get(args.event.requestId);
           if (!pending || completed) {
             return;
           }
-          pendingUserInputRequests.delete(args.requestId);
+          pendingUserInputRequests.delete(args.event.requestId);
           console.warn(
             "[provider-runtime] Codex user-input request auto-declined after timeout",
             {
               threadId,
-              requestId: args.requestId,
+              requestId: args.event.requestId,
               timeoutMs: codexApprovalDecisionTimeoutMs,
             },
           );
-          emitBridgeEvent(
-            buildApprovalAutoDeclineTimeoutEvent({
-              kind: "user_input",
-              toolName: args.toolName,
-              requestId: args.requestId,
-            }),
-          );
+          if (runStage) {
+            emitBridgeEvent({ ...args.event, delivery: "async" });
+            awaitingQuestion = true; interruptTurn();
+            return;
+          }
+          emitBridgeEvent(buildApprovalAutoDeclineTimeoutEvent({ kind: "user_input", toolName: args.event.toolName, requestId: args.event.requestId }));
           void client
             .respond(
               pending.serverRequestId,
@@ -2230,9 +2231,9 @@ export async function streamCodexWithAppServer(
                 : { answers: {} },
             )
             .catch(() => {})
-            .finally(() => elicitationPauseController.end(args.requestId));
+            .finally(() => elicitationPauseController.end(args.event.requestId));
         }, codexApprovalDecisionTimeoutMs);
-        pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+        pendingApprovalAutoDeclineHandles.set(args.event.requestId, handle);
       };
 
       const clearInterruptFallback = () => {
@@ -2506,16 +2507,14 @@ export async function streamCodexWithAppServer(
             return;
           }
           if (presentation?.kind === "user_input") {
-            pendingUserInputRequests.set(requestId, {
+            const scopedId = runQuestionRequestId(args.agentRunStage, requestId, args.turnId);
+            pendingUserInputRequests.set(scopedId, {
               serverRequestId: message.id as JsonRpcId,
               ...presentation.pending,
             });
-            void elicitationPauseController.begin(requestId);
-            scheduleUserInputAutoDecline({
-              requestId,
-              toolName: presentation.event.toolName,
-            });
-            emitBridgeEvent(presentation.event);
+            void elicitationPauseController.begin(scopedId);
+            scheduleUserInputAutoDecline({ event: { ...presentation.event, requestId: scopedId } });
+            emitBridgeEvent({ ...presentation.event, requestId: scopedId });
             return;
           }
           if (presentation?.kind === "unrenderable") {
@@ -3153,7 +3152,7 @@ export async function streamCodexWithAppServer(
 
       // ── Register abort BEFORE turn/start so the user can cancel at any
       // point, including while the turn/start request is still in flight. ──
-      args.registerAbort?.(() => {
+      const interruptTurn = () => {
         if (completed || abortRequested) return;
         abortRequested = true;
         interruptedCleanup.finish ??= beginCodexInterruptedThreadCleanup(threadId);
@@ -3194,7 +3193,8 @@ export async function streamCodexWithAppServer(
               },
             );
           });
-      });
+      };
+      args.registerAbort?.(interruptTurn);
       try {
         if (abortRequested) {
           interruptedCleanup.finish?.(true);

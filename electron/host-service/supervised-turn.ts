@@ -1,3 +1,4 @@
+import type { RunQuestionAnswer } from "./run-question-answer";
 import type { AgentRunInitialContext } from "../../src/lib/agent-runs/initial-context";
 /**
  * The one path a supervisor uses to add a turn to a task the user already
@@ -62,6 +63,8 @@ export async function runSupervisedTurn(args: {
   agentRunStage?: AgentRunStageIdentity;
   /** On an agent run's turn: the run and the assignment, recorded on the user row. */
   agentRunPrompt?: AgentRunPromptProvenance;
+  /** Persisted with the reply message before native provider dispatch. */
+  questionAnswer?: RunQuestionAnswer;
   /** After an account-pool switch: a new provider conversation on the account switched to. */
   freshSession?: boolean;
 }) {
@@ -73,6 +76,7 @@ export async function runSupervisedTurn(args: {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
     prompt: args.prompt,
+    questionAnswer: args.questionAnswer,
     initialContext: args.initialContext,
     controlMode: args.parentTaskId ? "managed" : "interactive",
     controlOwner: args.parentTaskId ? "external" : "stave",
