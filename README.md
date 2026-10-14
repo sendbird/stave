@@ -4,7 +4,7 @@
 
 # Stave
 
-Stave is a desktop AI coding workspace for Claude, Codex, Cursor Agent, and Kiro CLI. It combines task-oriented chat, repo-aware context, an editor and terminal, workspace memory, and local automation in one app.
+Stave is a desktop AI coding workspace for Claude, Codex, Cursor Agent, Kiro CLI, and OpenCode. It combines task-oriented chat, repo-aware context, an editor and terminal, workspace memory, and local automation in one app.
 
 ![Stave](docs/screenshots/stave-app.png)
 
@@ -59,6 +59,7 @@ claude auth login
 codex login
 agent login
 kiro-cli login
+opencode auth login
 ```
 
 Recommended next steps:
@@ -70,7 +71,7 @@ Recommended next steps:
 ## Features
 
 - English (default) and Korean throughout the app; switch in Settings or the home menu, with the choice saved across restarts
-- task-based Claude, Codex, Cursor Agent, and Kiro CLI chats with approvals, diffs, and queued follow-ups
+- task-based Claude, Codex, Cursor Agent, Kiro CLI, and OpenCode chats with approvals, diffs, and queued follow-ups
 - usage-limit pauses with manual or reset-time resume, and restored queues that wait for you after a restart
 - other tasks attached as context through title search or a sidebar drag, with a choice of the latest reply or recent conversation
 - Monaco editor, docked terminal, quick open, command palette, and source control actions

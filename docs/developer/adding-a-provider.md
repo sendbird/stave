@@ -60,7 +60,7 @@ the launch spec:
 | Can a session id be chosen _before_ launch?   | a `--session-id`-style flag                               |
 | If not, how is the id learned _after_ launch? | local session files, or a `--list-sessions`-style command |
 
-The four current providers cover every shape this has taken so far:
+The five current providers cover every shape this has taken so far:
 
 | Provider      | New session           | Resume                  | Id source                                                                   |
 | ------------- | --------------------- | ----------------------- | --------------------------------------------------------------------------- |
@@ -68,6 +68,7 @@ The four current providers cover every shape this has taken so far:
 | `codex`       | no arguments          | `resume <id>`           | post-launch scan of `~/.agents/codex/sessions`                              |
 | `kiro`        | `chat`                | `chat --resume-id <id>` | post-launch poll of `kiro-cli chat --list-sessions --format json`           |
 | `cursor`      | no arguments          | `--resume <chatId>`     | pre-launch `agent create-chat` (server-side history, nothing local to scan) |
+| `opencode`    | no arguments          | `--session <id>`        | post-launch poll of `opencode session list --format json` (1.x takes no new-session id) |
 
 Then make these changes:
 
@@ -82,7 +83,8 @@ Then make these changes:
 3. If the id is only knowable after launch, add a discovery routine in
    [`terminal-runtime.ts`](../../electron/host-service/terminal-runtime.ts)
    alongside `startCodexNativeSessionDiscovery` /
-   `startKiroNativeSessionDiscovery`: bounded polling, a claim map so two PTYs
+   `startKiroNativeSessionDiscovery` / `startOpenCodeNativeSessionDiscovery`
+   (the last two share `startListedNativeSessionDiscovery`): bounded polling, a claim map so two PTYs
    in one folder cannot adopt the same id, and cleanup through
    `disposeNativeSessionDiscovery`.
 4. If the id must be issued _before_ launch by an async call, follow the Cursor

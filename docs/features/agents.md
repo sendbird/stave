@@ -28,7 +28,7 @@ references it; that label does not count completed turns.
 
 - You keep explaining the same role to a model: "review this commit, change
   nothing", "implement in a fresh worktree and verify".
-- You want the same role on Claude, Codex, Cursor or Kiro without rewriting it.
+- You want the same role on Claude, Codex, Cursor, Kiro or OpenCode without rewriting it.
 - Your repository already has agent files for a coding agent and you want to
   use them from Stave.
 
@@ -215,7 +215,7 @@ What you pick decides how the task runs:
   as it always did. If an agent was running the task, picking a model ends it
   and its run. Later turns tell the model the agent was released and its role
   and limits no longer apply (Claude's system prompt, Codex's developer
-  instructions, once per session in the prompt on Cursor and Kiro), because a
+  instructions, once per session in the prompt on Cursor, Kiro and OpenCode), because a
   resumed session still remembers the agent's instructions.
 - **An agent is Agent mode.** The agent runs the task from the next turn and
   picks its own model: Stave Auto routes every turn, using the agent's task
@@ -363,7 +363,7 @@ Fleet's search finds its tasks.
 - Assignments from earlier versions that were cut off while preparing show
   **Interrupted** with what they had made. They are never started again on
   their own.
-- Cursor and Kiro receive the agent's instructions at the top of the first
+- Cursor, Kiro and OpenCode receive the agent's instructions at the top of the first
   message — or of the next message after the task starts as, or switches to,
   an agent from Kickoff, an agent run or the composer. Claude and Codex receive
   them on their instruction channel with every turn.
@@ -378,10 +378,10 @@ Fleet's search finds its tasks.
   auto-review when available); every other permission runs on your own
   provider settings, and **Read only** stays read only.
 
-  | Agent | Claude | Codex | Cursor | Kiro |
-  | --- | --- | --- | --- | --- |
-  | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
-  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an Auto agent's run, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
+  | Agent | Claude | Codex | Cursor | Kiro | OpenCode |
+  | --- | --- | --- | --- | --- | --- |
+  | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit | Manual, edit tools off |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an Auto agent's run, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings | Your settings |
 
   The only interrupts left are the Agent-mode guardrails (all on by default;
   turn each off in Settings) — a write outside the task's repository, a protected credential path or variable, an irreversible
@@ -391,7 +391,9 @@ Fleet's search finds its tasks.
   [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-guardrails).
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in
-  instructions**.
+  instructions**. OpenCode removes its file edit tools for a read-only agent
+  (an `edit: deny` permission rule) and asks before every other tool, so the
+  limit is enforced; a shell command you approve can still write.
   Read only covers the repository, not Stave's own records of the work: a
   read-only agent can still add workspace notes, todos, links and custom
   fields, write a plan file with `stave_write_plan_file`, and report or block

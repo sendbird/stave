@@ -2,12 +2,13 @@
 
 For a task-oriented guide to choosing Claude and Codex sandbox, approval, and plan settings in the UI, see [Provider Sandbox And Approval Guide](../features/provider-sandbox-and-approval.md).
 
-Stave supports four task providers directly:
+Stave supports five task providers directly:
 
 - `claude-code` for Claude Code SDK turns.
 - `codex` for Codex App Server turns.
 - `cursor` for interactive Cursor Agent ACP turns.
 - `kiro` for interactive Kiro CLI ACP turns.
+- `opencode` for interactive OpenCode ACP turns.
 
 Upgrade reviews use
 [Claude Agent SDK Upgrade Checklist](./claude-sdk-upgrade-checklist.md) and
@@ -20,7 +21,7 @@ The renderer submits a selected provider and model with each turn. `electron/mai
 
 ### Optional provider discovery
 
-Cursor and Kiro model options and account usage meters follow the native status
+Cursor, Kiro and OpenCode model options and account usage meters follow the native status
 shown in Settings > Tooling. Discovery checks the executable, ACP support, and
 native login together, sharing a bounded probe and a one-minute cache. Missing,
 unsupported, logged-out, and initially unverified providers have no new model
@@ -448,6 +449,91 @@ upgrades should recheck ACP initialization, session create/load, prompt,
 model-catalog shape against the installed CLI before broadening this
 capability boundary.
 
+## OpenCode ACP runtime
+
+OpenCode is available for interactive primary task turns. It runs models from
+any provider OpenCode is signed in to, for example Vercel AI Gateway's GLM,
+DeepSeek and Gemini, with OpenCode's own per-model tool handling. Stave starts
+`opencode acp` as a disposable ACP v1 process per turn and creates or loads the
+task's native session (`ses_…`); `session/load` replay is discarded like the
+other ACP providers, and `session/cancel` stops a turn.
+
+Supported versions are verified, not assumed: OpenCode 1.19.0 or newer in the
+1.x line (`opencode-ai`) and 2.0.29 or newer in the 2.x line (`@opencode/cli`).
+Both lines install the same `opencode` binary and speak the same ACP shapes.
+Any other version, including one Stave cannot read from `opencode --version`, is
+refused before a turn starts with a message naming the supported versions. The
+executable is resolved from Settings, then `STAVE_OPENCODE_CLI_PATH` /
+`STAVE_OPENCODE_CLI_CMD`, the login shell, `~/.opencode/bin` and `~/.local/bin`.
+
+OpenCode owns authentication. Stave never reads, stores or moves OpenCode
+credentials, so Settings > Tooling reports OpenCode's auth as managed in the
+CLI. A turn whose model needs a missing sign-in fails with OpenCode's
+`Authentication required` error plus the commands that fix it
+(`opencode auth login`, or `npx vercel ai-gateway setup --agent opencode`).
+
+OpenCode reports options through ACP `configOptions`, not ACP modes:
+
+- `model`: `provider/model` ids. Stave sets the selected model with
+  `session/set_config_option`; `auto` keeps the model OpenCode would pick.
+- `effort` (category `thought_level`): present only for a model with variants,
+  with that model's levels plus `default`. Stave sets the requested level after
+  the model, and only when the model advertises it. The composer offers only the
+  levels the catalog lists for the model.
+- `mode`: OpenCode's `build` and `plan` agents. Stave always selects `build`
+  before the model.
+
+The model catalog is read with `opencode models` instead of an ACP session,
+because `session/new` stores an empty session in the user's OpenCode history on
+every read. 1.x is read with `--verbose`, whose per-model JSON gives the name,
+context window and variants (effort levels). 2.x has no `--verbose` and is read
+with `--standalone`, which keeps it from leaving OpenCode's background service
+running; its catalog has ids only, so 2.x models show no effort control and use
+their default. Entries are grouped by the provider prefix, sorted, and capped at
+2,000. The read has a 30-second limit. An empty catalog explains how to connect a
+provider.
+
+Approval presets, verified against both versions (`opencode acp` has no
+approval flag):
+
+- `Manual`: Stave sets `OPENCODE_CONFIG_CONTENT` for the turn with an ask rule
+  for every tool (`"*": "ask"`) on the global rules and on the built-in
+  `build`, `plan`, `general` and `explore` agents, merged after any inherited
+  value. OpenCode evaluates rules last match wins and applies this inline config
+  over the global and project config, so every tool raises
+  `session/request_permission` (`once`, `always`, `reject`) even when a project
+  `opencode.json` allows it.
+- `Auto`: the user's config is untouched and Stave answers every permission
+  request with allow once, except Stave tools that answer another task's
+  prompt.
+- Read-only agent: `Manual` plus `edit: deny`, which removes OpenCode's file
+  edit tools. OpenCode's `plan` mode is not used, because a shell command still
+  writes in it.
+
+Stave Local MCP is passed in `mcpServers`, and OpenCode names its tools
+`stave-local-mcp_<tool>`; the read-only Stave tools are approved without
+asking. Stave does not copy Claude or Codex MCP servers into OpenCode: OpenCode
+connects the servers in its own `mcp` config, and Stave has no editor for that
+config. OpenCode 2.x does not accept SSE MCP servers over ACP, and MCP OAuth
+sign-in is not available through ACP.
+
+Usage follows the shared mapper: `usage_update` becomes `context_usage` with the
+reported cost, and the `session/prompt` result's camelCase token counts become
+`usage`. Nothing is filled in when OpenCode omits a value, as it does on some
+cancelled turns. OpenCode has no quota window, so there is no status-bar meter.
+
+Agent instructions go at the top of the first prompt, as for Cursor and Kiro.
+OpenCode also reads `AGENTS.md` and Claude-compatible instruction and skill
+files on its own. Steering is not supported (ACP v1 has no method for it).
+OpenCode is excluded from subagents, secondary and unattended runs,
+automations, utility inference (each run would add a session to the user's
+OpenCode history) and native thread actions. Its Standalone CLI tab runs the
+`opencode` TUI over a PTY. Runtime upgrades should recheck initialization, the
+`configOptions` shape, `set_config_option`, permission requests under
+`OPENCODE_CONFIG_CONTENT`, prompt streaming, `session/load`, cancellation and
+the `opencode models` output against the installed version before moving the
+supported floors.
+
 ## Subagents
 
 A subagent is any agent a task calls. Stave has two kinds, and both read as a
@@ -462,7 +548,7 @@ Subagent in the Task panel:
   per-agent definitions over the App Server, so the developer instructions
   list them and the lead starts them with `spawn_agent`, at most four at once
   and one level deep (`agents.max_depth = 1`); they run on Codex's default
-  subagent model. Cursor and Kiro have none.
+  subagent model. Cursor, Kiro and OpenCode have none.
 - **Durable subagents.** `stave_delegate_task` starts a real Stave task,
   optionally on the other provider, recorded on the run ledger
   (`electron/main/runs/delegated-task-coordinator.ts`). A read-only subagent

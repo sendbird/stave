@@ -33,10 +33,10 @@ You can also confirm the effective state from the runtime chips near the compose
 Settings normally apply to every project. A few defaults can differ for one
 project:
 
-- the default model and effort for Claude, Codex, Cursor and Kiro (`Models`);
+- the default model and effort for Claude, Codex, Cursor, Kiro and OpenCode (`Models`);
 - the permission posture for each provider (`Providers`): Claude's permission
   mode and sandbox switches, Codex's file access, network access and approvals,
-  and the Cursor and Kiro approval presets.
+  and the Cursor, Kiro and OpenCode approval presets.
 
 Nothing else can be overridden per project.
 
@@ -135,7 +135,7 @@ How firmly each provider holds them:
   per-turn hook, so G2 reads and G3 are not stopped by Stave: with network on, a
   Codex turn that never asks can push or publish. Keep network off, or use
   Codex's own approvals, when that matters.
-- **Cursor and Kiro** keep your settings; only a read-only agent changes them.
+- **Cursor, Kiro and OpenCode** keep your settings; only a read-only agent changes them.
 
 ## Provider Differences
 
@@ -210,6 +210,29 @@ Kiro exposes the same Approval Preset with two tiers.
 There is no partial-trust tier: Kiro's CLI accepts unknown tool names for a
 partial grant without reporting an error, so Stave does not offer a setting it
 cannot verify.
+
+### OpenCode
+
+OpenCode exposes the same Approval Preset with two tiers. `opencode acp` has no
+approval flag, so Stave delivers each tier per turn.
+
+- `Manual`: OpenCode asks before every tool call, reads included. Stave adds an
+  ask rule for every tool to OpenCode's inline config (`OPENCODE_CONFIG_CONTENT`)
+  for the turn, on the global rules and on OpenCode's built-in `build`, `plan`,
+  `general` and `explore` agents, so it holds even when your global or project
+  `opencode.json` allows a tool. A permission rule you set on a custom agent of
+  your own still applies to that agent.
+- `Auto`: Stave leaves OpenCode's permission config as you set it and answers
+  every request OpenCode sends with allow once. Rules you set to `deny` still
+  apply, because OpenCode never asks for them. OpenCode's own default allows
+  most tools without asking.
+
+A read-only agent on OpenCode runs in `Manual` and also removes OpenCode's file
+edit tools (an `edit: deny` rule). A shell command you approve can still write.
+OpenCode's `plan` mode is not used for this, because it does not stop shell
+writes. Stave always runs OpenCode's `build` agent.
+
+Stave tools that answer another task's prompt always reach you, even in `Auto`.
 
 ## Quick Start
 
