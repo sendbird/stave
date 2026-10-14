@@ -33,6 +33,7 @@ export const AGENT_RUN_IPC = Object.freeze({
   retryStage: "agent-runs:retry-stage",
   pause: "agent-runs:pause",
   resume: "agent-runs:resume",
+  extend: "agent-runs:extend",
   takeOver: "agent-runs:take-over",
   acceptRuntime: "agent-runs:accept-runtime",
   noteUserTurn: "agent-runs:note-user-turn",
@@ -55,6 +56,10 @@ export interface AgentRunStageRef {
 
 export interface AgentRunIdArgs {
   agentRunId: string;
+}
+
+export interface AgentRunExtendArgs extends AgentRunIdArgs {
+  additionalTurns?: number;
 }
 
 export interface AgentRunListArgs {
@@ -162,6 +167,7 @@ export interface AgentRunsBridgeApi {
   retryStage: (args: AgentRunStageRef) => Promise<AgentRunCommandResponse>;
   pause: (args: AgentRunIdArgs) => Promise<AgentRunCommandResponse>;
   resume: (args: AgentRunIdArgs) => Promise<AgentRunCommandResponse>;
+  extend: (args: AgentRunExtendArgs) => Promise<AgentRunCommandResponse>;
   takeOver: (args: AgentRunIdArgs) => Promise<AgentRunCommandResponse>;
   acceptRuntime: (args: AgentRunIdArgs) => Promise<AgentRunCommandResponse>;
   noteUserTurn: (args: AgentRunNoteUserTurnArgs) => Promise<AgentRunCommandResponse>;

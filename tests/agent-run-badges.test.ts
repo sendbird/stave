@@ -23,7 +23,7 @@ import koUi from "../src/locales/ko/ui.json";
 const runs = buildAgentRunFixtures(new Date("2026-10-01T09:00:00.000Z"));
 
 /** A paused run of the working fixture, for the reasons the fixtures leave out. */
-function pausedFor(pauseReason: "runtime-changed"): AgentRunDetail {
+function pausedFor(pauseReason: "runtime-changed" | "limit-reached"): AgentRunDetail {
   return { ...runs.working, agentRun: { ...runs.working.agentRun, state: "paused", pauseReason, reasonDetail: "The runtime changed." } };
 }
 
@@ -48,6 +48,7 @@ const stopped = { badge: "stopped", tone: "neutral", mark: { state: "stopped", t
 
 /** Spec 7.1 and A.2: every stored state, as the six badges read it. */
 const ROWS: Row[] = [
+  { name: "paused at turn cap", detail: pausedFor("limit-reached"), expected: { ...halted, recovery: "extend" }, en: ["Halted", "Limit reached"], ko: ["멈춤", "한도 도달"] },
   { name: "completed", detail: runs.ready, expected: { badge: "completed", tone: "success", mark: { state: "ready", tone: "done" }, waiting: false, recovery: null }, en: ["Completed", null], ko: ["완료", null] },
   { name: "cancelled by the user", detail: runs.stopped, expected: stopped, en: ["Stopped", null], ko: ["중지됨", null] },
   { name: "stopped by Stave at its turn limit", detail: runs.failed, expected: { ...stopped, recovery: "new-run" }, en: ["Stopped", null], ko: ["중지됨", null] },

@@ -46,6 +46,7 @@ export type TaskAgent = Pick<
   /** The recorded agent's workflow and check-ins, which its runs follow. */
   agentWorkflow: AgentAssignment["agent"]["workflow"];
   agentCheckIns: AgentAssignment["agent"]["checkIns"];
+  agentTools?: AgentAssignment["agent"]["tools"];
 };
 
 interface AgentAssignmentsState {
@@ -88,6 +89,7 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentFixedModel: fixedModelOf(row.agent),
       agentWorkflow: row.agent.workflow,
       agentCheckIns: row.agent.checkIns,
+      agentTools: row.agent.tools,
       agentContentHash: row.agentContentHash,
       received: row.received,
       support: row.support,

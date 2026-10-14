@@ -2059,3 +2059,40 @@ describe("run runtime: opt-in account pool", () => {
     }
   });
 });
+
+
+test("turn cap persists a pause; Extend keeps the task session, fingerprint and usage", async () => {
+  const harness = createHarness({ extra: { readTurnUsage: () => ({ completed: true, usage: { inputTokens: 12, outputTokens: 8, totalCostUsd: 0.2 } }) } });
+  const id = await startedAgentRun(harness, startInput({ origin: "agent", maxTurns: 1 }));
+  await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  harness.endTurn("turn-1");
+  await harness.tick();
+  const paused = await harness.runtime.get({ agentRunId: id });
+  expect(paused.agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 });
+  expect(harness.store.getAggregate(id)?.agentRun.pauseReason).toBe("limit-reached");
+  expect(paused.report).toBeNull();
+  const context = { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null };
+  const notices = new Set([describeAgentRunNotification(paused, context)?.dedupeKey]);
+  await harness.tick();
+  notices.add(describeAgentRunNotification(await harness.runtime.get({ agentRunId: id }), context)?.dedupeKey);
+  expect(notices.size).toBe(1);
+  expect(describeAgentRunNotification(paused, context)?.title).toBe("Halted · Limit reached · Runtime workflow");
+  expect(harness.runCalls).toHaveLength(1);
+  expect(paused.events.filter(event => event.kind === "paused")).toHaveLength(1);
+  const resumed = await invokeAgentRunRuntime(harness.runtime, "extend", { agentRunId: id });
+  expect(resumed).toMatchObject({ ok: true });
+  if (!resumed.ok) throw new Error(resumed.message);
+  expect((resumed.value as import("../src/lib/agent-runs/api").AgentRunDetail).usage).toEqual(paused.usage);
+  await harness.tick();
+  expect(harness.runCalls).toHaveLength(2);
+  expect(harness.runCalls[1]?.taskId).toBe(harness.runCalls[0]?.taskId);
+  expect(harness.runCalls[1]?.fingerprint).toEqual(harness.runCalls[0]?.fingerprint);
+  expect(harness.runCalls[1]?.freshSession).toBeUndefined();
+  const continued = await harness.runtime.get({ agentRunId: id });
+  expect(continued.agentRun).toMatchObject({ state: "running", pauseReason: null, turnCount: 2, maxTurns: 11 });
+  expect(continued.usage?.inputTokens).toBeGreaterThanOrEqual(paused.usage!.inputTokens);
+  await harness.runtime.reportStage({ agentRunKey: "key-turn-2", report: COMPLETE });
+  harness.endTurn("turn-2");
+  await harness.tick();
+  expect(harness.aggregate(id).agentRun.state).toBe("completed");
+});

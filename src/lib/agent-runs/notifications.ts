@@ -93,6 +93,7 @@ function usageLimitNotification(
  */
 function pauseKey(detail: AgentRunDetail, attemptKey: string): string {
   const { agentRun } = detail;
+  if (agentRun.pauseReason === "limit-reached") return `paused:limit-reached:${agentRun.maxTurns}`;
   return agentRun.pauseReason === "wait-expired" && agentRun.eventWait
     ? `paused:wait-expired:${agentRun.eventWait.id}`
     : `paused:${agentRun.pauseReason}:${attemptKey}`;
@@ -156,6 +157,13 @@ export function describeAgentRunNotification(
   context: AgentRunNotificationContext,
 ): AppNotificationCreateInput | null {
   const { agentRun } = detail;
+  if (agentRun.state === "paused" && agentRun.pauseReason === "limit-reached") {
+    return draft(detail, context, {
+      kind: "agent_run.blocked",
+      title: i18n.t("agentRuns:limit.notification", { agent: agentRun.workflow.name }),
+      detail: agentRun.reasonDetail, key: pauseKey(detail, ""),
+    });
+  }
   if (hasAgentOrigin(agentRun)) return describeAgentOriginNotification(detail, context);
   const record = currentStageRecord(detail);
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;

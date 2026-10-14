@@ -44,6 +44,7 @@ type CommandName =
   | "retryStage"
   | "pause"
   | "resume"
+  | "extend"
   | "takeOver"
   | "acceptRuntime"
   | "cancel";

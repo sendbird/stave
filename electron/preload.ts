@@ -790,6 +790,7 @@ const agentRunsApi: AgentRunsBridgeApi = {
   retryStage: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.retryStage, args),
   pause: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.pause, args),
   resume: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.resume, args),
+  extend: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.extend, args),
   takeOver: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.takeOver, args),
   acceptRuntime: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.acceptRuntime, args),
   noteUserTurn: (args) => ipcRenderer.invoke(AGENT_RUN_IPC.noteUserTurn, args),

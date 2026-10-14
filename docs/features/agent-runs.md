@@ -115,9 +115,9 @@ that says what it stands on. Every word is in English and Korean.
 | **Running** | 실행 중 | A turn runs or is about to, or the Run waits between turns for an outside event or a usage reset | none; **Waiting · PR checks** (any event); **Waiting · Usage limit (resumes 3:05 PM)** |
 | **Needs your answer** | 답변 필요 | A question or an approval card is open, a stage sign-off included | **Question**, **Approval** |
 | **Paused** | 일시정지 | You paused the Run or took over; it has not ended | none; **Taken over** |
-| **Halted** | 멈춤 | Nothing continues on its own until you act; it has not ended | **Blocked** (a blocked or stuck stage), **Recovery needed** (the task or its runtime changed), **Wait expired**, **Usage limit** (no reset time) |
+| **Halted** | 멈춤 | Nothing continues on its own until you act; it has not ended | **Blocked** (a blocked or stuck stage), **Recovery needed** (the task or its runtime changed), **Wait expired**, **Usage limit** (no reset time), **Limit reached** |
 | **Completed** | 완료 | The Run finished | none |
-| **Stopped** | 중지됨 | The Run ended before finishing: you stopped it, or Stave did at a limit (the reason card says which) | none |
+| **Stopped** | 중지됨 | The Run ended before finishing: you stopped it, or Stave did because its deadline passed or the task became unavailable (the reason card says which) | none |
 
 Running and its waits wear the progress and neutral tones, Needs your answer
 and Halted the warning tone, each with its own glyph. A question or approval
@@ -182,7 +182,7 @@ agent run (a task without one shows its flow there):
   and **Stop run** in the **⋯** menu.
 - **Run**: who runs the agent run — the provider's mark, the model by name and
   the permissions — above its figures: **Turns** against the budget (the bar
-  turns amber close to the limit, where the agent run stops), **Spent** (the
+  turns amber close to the limit, where the agent run halts), **Spent** (the
   cost and tokens the provider reported; tokens alone for a provider that
   reports no cost), and how long it has been running. A note says when a
   turn reported no usage.
@@ -313,6 +313,12 @@ sample limits and examples of when each screen helps.
   pull request lacks them.
 - If Stave quits while a stage's turn runs, the stage continues with a new turn
   after the restart; that turn does not use up the stage's one reminder.
+- The turn limit comes from the agent's `tools.maxTurns`, or defaults to 30,
+  capped at 100. At the cap, unfinished work shows **Halted · Limit reached**
+  (**멈춤 · 한도 도달**). **Extend (+10 turns)** adds up to ten turns (at most
+  100 total) and continues the same session with its accumulated usage. A Run
+  that finishes on its last allowed turn still completes. At 100, Extend is
+  refused with an explanation.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache

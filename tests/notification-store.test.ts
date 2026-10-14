@@ -1,3 +1,5 @@
+import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
+import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import type NativeDatabase from "better-sqlite3";
@@ -122,4 +124,18 @@ describe("NotificationStore SQL boundary", () => {
       "row-owned",
     ]);
   });
+});
+
+
+test("a repeated limit pause inserts one notification, and a later cap can notify again", () => {
+  const base = buildAgentRunFixtures(new Date("2026-10-01T09:00:00.000Z")).working;
+  const detail = { ...base, agentRun: { ...base.agentRun, state: "paused" as const, pauseReason: "limit-reached" as const, turnCount: 1, maxTurns: 1 } };
+  const context = { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null };
+  const first = describeAgentRunNotification(detail, context)!;
+  expect(store.createNotification({ notification: first }).inserted).toBe(true);
+  expect(store.createNotification({ notification: describeAgentRunNotification(detail, context)! }).inserted).toBe(false);
+  expect(store.listNotifications()).toHaveLength(1);
+  const later = describeAgentRunNotification({ ...detail, agentRun: { ...detail.agentRun, turnCount: 11, maxTurns: 11 } }, context)!;
+  expect(store.createNotification({ notification: later }).inserted).toBe(true);
+  expect(store.listNotifications()).toHaveLength(2);
 });

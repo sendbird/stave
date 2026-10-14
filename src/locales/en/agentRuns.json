@@ -1,4 +1,12 @@
 {
+  "limit": {
+    "reached": "Limit reached",
+    "extend": "Extend (+10 turns)",
+    "extendOnly": "Only a run halted at its turn limit can be extended.",
+    "ceiling": "The run already has the maximum of {{count}} turns.",
+    "invalidTurns": "Add a positive whole number of turns.",
+    "notification": "Halted · Limit reached · {{agent}}"
+  },
   "delegatedReply": {
     "label": "Reply to the delegated Agent",
     "hint": "Answer the blocked stage here. The Agent continues with its admitted permissions and turn limit, without taking over the task.",
@@ -137,7 +145,7 @@
     "label5": "Running for",
     "label6": "Ran for",
     "ariaLabel": "Run figures",
-    "extraCopy9": "Close to its {{value1}}-turn budget; the run stops there.",
+    "extraCopy9": "Close to its {{value1}}-turn budget; the run halts there until you extend it.",
     "extraCopy10_one": "{{value1}} turn reported no usage, so the total may be low.",
     "extraCopy10_other": "{{value1}} turns reported no usage, so the total may be low.",
     "startedAt": "since {{time}}",

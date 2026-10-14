@@ -512,6 +512,7 @@ export type HostAgentRunAction =
   | "retry-stage"
   | "pause"
   | "resume"
+  | "extend"
   | "take-over"
   | "accept-runtime"
   | "note-user-turn"

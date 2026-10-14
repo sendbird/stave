@@ -262,3 +262,16 @@ describe("one badge on every surface", () => {
     expect(html).not.toContain(formatAgentRunBadge(describeAgentRunStatus(detail, null)));
   });
 });
+
+
+for (const locale of ["en", "ko"] as const) {
+  test(`${locale}: limit pause wears Halted on every surface and offers Extend`, () => {
+    applyRuntimeLocale(locale);
+    const detail: AgentRunDetail = { ...runs.working, agentRun: { ...runs.working.agentRun, state: "paused", pauseReason: "limit-reached", maxTurns: 1, turnCount: 1 } };
+    const status = describeAgentRunStatus(detail);
+    expect(formatAgentRunBadge(status)).toBe(locale === "en" ? "Halted · Limit reached" : "멈춤 · 한도 도달");
+    const surfaces = renderSurfaces(detail, []);
+    expectOneBadge(surfaces, status);
+    for (const html of [surfaces.bar, surfaces.taskPanel]) expect(html).toContain(locale === "en" ? "Extend (+10 turns)" : "연장 (+10턴)");
+  });
+}

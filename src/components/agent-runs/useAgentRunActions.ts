@@ -16,6 +16,7 @@ export interface AgentRunActions {
   busy?: boolean;
   /** Resumes a usage-limit wait without changing account or model. */
   onResume?: () => void;
+  onExtend?: () => void;
   /** Ends the run and stops its turn. */
   onStop?: () => void;
   /** Ends the run and leaves the task in Chat, on the model the agent last used. */
@@ -41,6 +42,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
     return {
       busy,
       onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
+      onExtend: () => void useAgentRunsStore.getState().runCommand("extend", { agentRunId: agentRun.id }),
       onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId }),
       onTakeControl: () => {
         void (async () => {
@@ -86,6 +88,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 name: agentRun.workflow.name,
                 workflow: single ? undefined : stages,
                 checkIns: agentRun.consent.checkIns,
+                tools: { maxTurns: agentRun.maxTurns },
                 // The new run keeps the permission the last run recorded.
                 permission: agentRun.consent.permissionMode === "auto" ? "auto" : "manual",
               },

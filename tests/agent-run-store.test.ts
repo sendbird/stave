@@ -197,3 +197,15 @@ test("old rows gain the nullable usage reservation and still parse", () => {
   restarted.apply(change, AGENT_RUN_NOW);
   expect(new AgentRunStore(database).getAgentRun("agent-run-1")).toEqual(change.agentRun);
 });
+
+
+test("old terminal turn-cap rows still load alongside the new persisted pause reason", () => {
+  const legacy = startChange("legacy", "legacy-task");
+  legacy.agentRun = { ...legacy.agentRun, state: "stopped", stopReason: "turn-cap-reached" };
+  expect(store.create(legacy, AGENT_RUN_NOW).ok).toBe(true);
+  expect(new AgentRunStore(database).getAgentRun("legacy")?.stopReason).toBe("turn-cap-reached");
+  const paused = startChange("limited", "limited-task");
+  paused.agentRun = { ...paused.agentRun, state: "paused", pauseReason: "limit-reached" };
+  expect(store.create(paused, AGENT_RUN_NOW).ok).toBe(true);
+  expect(new AgentRunStore(database).getAgentRun("limited")?.pauseReason).toBe("limit-reached");
+});

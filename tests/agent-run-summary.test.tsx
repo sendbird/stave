@@ -49,7 +49,7 @@ test("a run on the user's own settings says so instead of Manual", () => {
   expect(html).not.toContain("Manual");
 });
 
-test("a provider that reports tokens only shows tokens, and a near budget says where it stops", () => {
+test("a provider that reports tokens only shows tokens, and a near budget explains the halt", () => {
   const html = render(
     { fingerprint: { providerId: "codex", model: "gpt-6-sol" } as never, turnCount: 25 },
     { usage: { turns: 25, measuredTurns: 25, inputTokens: 160_000, outputTokens: 9_400, costUsd: null } },
@@ -58,7 +58,7 @@ test("a provider that reports tokens only shows tokens, and a near budget says w
   expect(html).toContain("Codex");
   expect(html).toContain("Tokens");
   expect(html).toContain("No cost reported");
-  expect(html).toContain("Close to its 30-turn budget; the run stops there.");
+  expect(html).toContain("Close to its 30-turn budget; the run halts there until you extend it.");
 });
 
 test("an ended run counts its time to its end, and aliases name their provider", () => {

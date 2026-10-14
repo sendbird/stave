@@ -267,11 +267,11 @@ function isReplyAfterStuck(last: ObservedTurn, stuckAt: string | null | undefine
   return Date.parse(last.endedAt ?? last.startedAt) > Date.parse(stuckAt);
 }
 
-function turnCapStop(agentRun: AgentRun): AgentRunDecision | null {
+function turnCapPause(agentRun: AgentRun): AgentRunDecision | null {
   if (agentRun.turnCount < agentRun.maxTurns) return null;
   return {
-    action: "stop",
-    reason: "turn-cap-reached",
+    action: "pause",
+    reason: "limit-reached",
     detail: i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns }),
   };
 }
@@ -293,7 +293,7 @@ function startTurn(args: {
             i18n.t("agentRuns:policy.detail2"),
         };
   }
-  const capped = turnCapStop(agentRun);
+  const capped = turnCapPause(agentRun);
   if (capped) return capped;
   return {
     action: "start-stage-turn",
@@ -411,7 +411,7 @@ function decideAiStage(
     return startTurn({ agentRun, record, observation, reason: "stage-start" });
   }
   if (!record.nudged) {
-    return turnCapStop(agentRun) ?? { action: "nudge" };
+    return turnCapPause(agentRun) ?? { action: "nudge" };
   }
   return {
     action: "mark-stuck",
@@ -439,7 +439,7 @@ function decideActionStage(
       return { action: "mark-stuck", detail: clampReason(outcome.detail) };
     case "needs-turn":
       return (
-        turnCapStop(agentRun) ?? {
+        turnCapPause(agentRun) ?? {
           action: "start-action-turn",
           stageIndex: agentRun.currentStageIndex,
           attempt: record.attempt,

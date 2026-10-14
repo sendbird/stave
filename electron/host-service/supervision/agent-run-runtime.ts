@@ -42,6 +42,7 @@ import type {
   AgentRunChangedEvent,
   AgentRunDetail,
   AgentRunIdArgs,
+  AgentRunExtendArgs,
   AgentRunInvokeResult,
   AgentRunListArgs,
   AgentRunNoteUserTurnArgs,
@@ -84,6 +85,7 @@ import {
   recordStageReport,
   requestStageChanges,
   resumeAgentRun,
+  extendAgentRun,
   retryStage,
   signOffStage,
   skipStage,
@@ -392,6 +394,7 @@ export interface AgentRunRuntime {
   retryStage: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
   pause: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   resume: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
+  extend: (args: AgentRunExtendArgs) => Promise<AgentRunDetail>;
   takeOver: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   acceptRuntime: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   noteUserTurn: (args: AgentRunNoteUserTurnArgs) => Promise<AgentRunDetail>;
@@ -2035,6 +2038,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           refuse("Delegation admission did not finish. Stop or retry it from the parent task.");
         return resumeAgentRun({ aggregate, now: now() });
       }),
+    extend: ({ agentRunId, additionalTurns }) =>
+      command(agentRunId, (aggregate) => extendAgentRun({ aggregate, additionalTurns, now: now() })),
     takeOver: ({ agentRunId }) => {
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
@@ -2224,6 +2229,8 @@ function dispatch(runtime: AgentRunRuntime, action: HostAgentRunAction, args: un
       return runtime.pause(args as AgentRunIdArgs);
     case "resume":
       return runtime.resume(args as AgentRunIdArgs);
+    case "extend":
+      return runtime.extend(args as AgentRunExtendArgs);
     case "take-over":
       return runtime.takeOver(args as AgentRunIdArgs);
     case "accept-runtime":
