@@ -41,6 +41,7 @@ async function fixture() {
       codex: false,
       cursor: false,
       kiro: false,
+      opencode: false,
     },
   });
   return { store, requests };
@@ -58,7 +59,7 @@ test("ready providers become usable before a slow sibling and concurrent refresh
   const { store, requests } = await fixture();
   const first = store.getState().refreshProviderAvailability();
   const second = store.getState().refreshProviderAvailability();
-  expect(requests).toHaveLength(4);
+  expect(requests).toHaveLength(5);
   requests
     .find((request) => request.providerId === "codex")!
     .resolve(available("codex"));
@@ -111,9 +112,9 @@ test("changing binary settings discards stale responses and discovers the latest
     request.resolve(available(request.providerId));
   await new Promise((resolve) => setTimeout(resolve, 0));
   expect(store.getState().providerAvailability.codex).toBe(false);
-  expect(requests).toHaveLength(8);
-  expect(requests[4]?.runtimeOptions?.codexBinaryPath).toBe("/tmp/new-runtime");
-  for (const request of requests.slice(4))
+  expect(requests).toHaveLength(10);
+  expect(requests[5]?.runtimeOptions?.codexBinaryPath).toBe("/tmp/new-runtime");
+  for (const request of requests.slice(5))
     request.resolve(available(request.providerId));
   await pending;
   expect(store.getState().providerAvailability.codex).toBe(true);

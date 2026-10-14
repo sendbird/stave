@@ -533,7 +533,8 @@ describe("model catalog", () => {
     expect(getNextProviderId({ providerId: "claude-code" })).toBe("codex");
     expect(getNextProviderId({ providerId: "codex" })).toBe("cursor");
     expect(getNextProviderId({ providerId: "cursor" })).toBe("kiro");
-    expect(getNextProviderId({ providerId: "kiro" })).toBe("claude-code");
+    expect(getNextProviderId({ providerId: "kiro" })).toBe("opencode");
+    expect(getNextProviderId({ providerId: "opencode" })).toBe("claude-code");
   });
 
   // ── Dynamic display-name registry ─────────────────────────────────────────

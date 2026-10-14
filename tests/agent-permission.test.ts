@@ -15,6 +15,7 @@ const WIDE: ProviderRuntimeOptions = {
   cursorMode: "agent",
   cursorApprovalMode: "auto",
   kiroApprovalMode: "auto",
+  opencodeApprovalMode: "auto",
 };
 
 const NARROW: ProviderRuntimeOptions = {
@@ -25,6 +26,8 @@ const NARROW: ProviderRuntimeOptions = {
   cursorMode: "ask",
   cursorApprovalMode: "manual",
   kiroApprovalMode: "manual",
+  opencodeApprovalMode: "manual",
+  opencodeDenyEdits: true,
 };
 
 describe("agent permission ceiling", () => {
@@ -39,6 +42,17 @@ describe("agent permission ceiling", () => {
     expect(at("codex")).toEqual({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request" });
     expect(at("cursor")).toEqual({ cursorApprovalMode: "manual", cursorMode: "ask" });
     expect(at("kiro")).toEqual({ kiroApprovalMode: "manual" });
+    // OpenCode removes its edit tools and asks before every other tool.
+    expect(at("opencode")).toEqual({ opencodeApprovalMode: "manual", opencodeDenyEdits: true });
+  });
+
+  test("OpenCode manual and guided ceilings ask without removing edit tools", () => {
+    for (const permission of ["manual", "guided"] as const) {
+      expect(agentPermissionOverrides({ permission, providerId: "opencode", options: WIDE })).toEqual({
+        opencodeApprovalMode: "manual",
+      });
+    }
+    expect(agentPermissionOverrides({ permission: "auto", providerId: "opencode", options: WIDE })).toEqual({});
   });
 
   test("unset settings count as the provider default, so Codex's default writes are capped too", () => {

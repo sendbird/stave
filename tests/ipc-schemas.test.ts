@@ -39,7 +39,7 @@ import { parseWorkspaceSnapshot } from "@/lib/task-context/schemas";
 
 describe("provider IPC schemas", () => {
   test("rejects unsupported explicit utility and review providers without restricting the active task provider", () => {
-    for (const providerId of ["cursor", "kiro"]) {
+    for (const providerId of ["cursor", "kiro", "opencode"]) {
       expect(
         ReviewDiffArgsSchema.safeParse({ providerId, runtimeOptions: {} })
           .success,
@@ -316,6 +316,32 @@ describe("provider IPC schemas", () => {
   });
 
 
+
+  test("accepts OpenCode turns and their runtime options", () => {
+    const parsed = StreamTurnArgsSchema.safeParse({
+      providerId: "opencode",
+      prompt: "continue",
+      runtimeOptions: {
+        model: "vercel/zai/glm-5.3",
+        opencodeBinaryPath: "/tmp/opencode",
+        opencodeEffort: "minimal",
+        opencodeApprovalMode: "manual",
+        opencodeDenyEdits: true,
+        opencodeResumeSessionId: "ses_fixture",
+      },
+    });
+    expect(parsed.success).toBe(true);
+    for (const runtimeOptions of [
+      { opencodeEffort: "ultra" },
+      { opencodeApprovalMode: "guided" },
+      { opencodeDenyEdits: "yes" },
+    ]) {
+      expect(
+        StreamTurnArgsSchema.safeParse({ providerId: "opencode", prompt: "x", runtimeOptions })
+          .success,
+      ).toBe(false);
+    }
+  });
 
   test("accepts Claude xhigh effort in runtime options", () => {
     const parsed = StreamTurnArgsSchema.safeParse({
@@ -712,6 +738,22 @@ describe("provider IPC schemas", () => {
         cwd: "/tmp/project",
         runtimeOptions: {
           kiroBinaryPath: "/tmp/kiro-cli",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      CliSessionCreateSessionArgsSchema.safeParse({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/project",
+        cliSessionTabId: "cli-4",
+        providerId: "opencode",
+        contextMode: "workspace",
+        nativeSessionId: "ses_fixture",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/project",
+        runtimeOptions: {
+          opencodeBinaryPath: "/tmp/opencode",
         },
       }).success,
     ).toBe(true);

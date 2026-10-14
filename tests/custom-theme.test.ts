@@ -225,6 +225,7 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
         "provider-codex",
         "provider-cursor",
         "provider-kiro",
+        "provider-opencode",
       ]),
     );
   });
@@ -235,6 +236,7 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
       expect(theme.tokens["provider-codex"]?.trim()).toBeTruthy();
       expect(theme.tokens["provider-cursor"]?.trim()).toBeTruthy();
       expect(theme.tokens["provider-kiro"]?.trim()).toBeTruthy();
+      expect(theme.tokens["provider-opencode"]?.trim()).toBeTruthy();
     }
   });
 
