@@ -176,3 +176,19 @@ test("copied report headings and statuses follow Korean while preserving user te
     applyRuntimeLocale("en");
   }
 });
+
+test("account-pool switches read as one line each in the report and its Markdown, in both languages", () => {
+  const report: AgentRunReport = { ...REPORT, accountSwitches: [
+    { from: "Work", to: "Personal", reason: "usage-limit", at: "2026-09-26T10:20:00.000Z" }] };
+  const html = renderToStaticMarkup(createElement(AgentRunReportView, { report }));
+  expect(html).toContain("Account switches");
+  expect(html).toContain("Account switched · Work → Personal · usage limit");
+  expect(formatAgentRunReportMarkdown(report)).toContain("### Account switches\n- Account switched · Work → Personal · usage limit");
+  expect(renderToStaticMarkup(createElement(AgentRunReportView, { report: REPORT }))).not.toContain("Account switches");
+  try {
+    applyRuntimeLocale("ko");
+    expect(formatAgentRunReportMarkdown(report)).toContain("- 계정 전환 · Work → Personal · 사용량 한도");
+  } finally {
+    applyRuntimeLocale("en");
+  }
+});

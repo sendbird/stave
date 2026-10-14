@@ -10,7 +10,7 @@ import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTi
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState, latestStageRecord } from "@/lib/agent-runs/domain";
-import { describeAgentRunResult } from "@/lib/agent-runs/agent-run-status";
+import { describeAgentRunResult, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
 import { describeRunPlan } from "@/lib/agent-runs/progress";
 import { useAgentRunProgress } from "./useAgentRunProgress";
 import type { StagePlan } from "@/lib/agent-runs/domain";
@@ -51,16 +51,23 @@ export function AgentRunOverview(props: {
   onCommand?: (command: "retryStage" | "skipStage", identity: { agentRunId: string; stageId: string; attempt: number }) => unknown;
   /** Jumps from a stage's evidence to its tool call in the transcript. */
   onShowTool?: (toolCallId: string) => void;
+  /** The question or approval card the lead task holds open. */
+  decision?: AgentRunDecision | null;
 }) {
   useTranslation();
   const { detail, now, actions = {}, onCommand } = props;
   const { agentRun } = detail;
-  const result = describeAgentRunResult(detail, now);
+  const result = describeAgentRunResult(detail, now, props.decision ?? null);
   const { status } = result;
   const active = isActiveAgentRunState(agentRun.state);
   const met = result.doneWhen.filter((line) => line.status.startsWith("met")).length;
-  // The badge names the state; the line beside it says why, or how long.
-  const statusText = status.reason ?? (active ? i18n.t("agentRuns:agentRunOverview.statusText", { value1: result.duration }) : result.duration);
+  // The badge names the state; its subtitle and the line beside it say why, or how long.
+  const statusText = [
+    status.subtitle,
+    status.reason ?? (active ? i18n.t("agentRuns:agentRunOverview.statusText", { value1: result.duration }) : result.duration),
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const staged = agentRun.workflow.stages.length > 1;
   const rows = useMemo(() => (staged ? projectAgentRunStages(detail, new Date(now)) : null), [detail, now, staged, i18n.language]);
   const observedPlan = useAgentRunProgress(detail);
@@ -69,7 +76,7 @@ export function AgentRunOverview(props: {
   // The run follows the agent's workflow: say which, so its stages are never a surprise.
   const workflowTitle = staged ? agentRun.workflow.stages.map((stage) => getStageDisplayTitle(stage)).join(" → ") : null;
   return (
-    <section className={sx(styles.panel)} aria-label={`${status.agentName}: ${status.label}`} data-testid="agent-run-panel">
+    <section className={sx(styles.panel)} aria-label={`${status.agentName}: ${formatAgentRunBadge(status)}`} data-badge={status.badge} data-testid="agent-run-panel">
       <header className={sx(styles.head)}>
         <div className={sx(styles.headRow)}>
           <IconTile size="sm" tone={status.tone}>
@@ -158,7 +165,7 @@ export function AgentRunOverview(props: {
         </section>
       ) : null}
 
-      {status.state === "ready" ? (
+      {status.badge === "completed" ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel4")}>
           <div className={sx(agentRunResultStyles.group)}>
             <AgentRunOutcome result={result} actions={actions} />

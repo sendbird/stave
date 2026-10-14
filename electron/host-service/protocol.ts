@@ -522,6 +522,7 @@ export type HostAgentRunAction =
   | "report-stage"
   | "block-stage"
   | "request-resources"
+  | "wait-for-event"
   | "resources-for-task";
 
 export type HostAutomationAction =

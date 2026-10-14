@@ -69,6 +69,8 @@ export const READ_ONLY_STAVE_METADATA_TOOLS = [
   "stave_block_stage",
   // Records a bounded proposal; only the supervisor may admit a later turn.
   "stave_request_agent_resources",
+  // Records the run's wait; the turn it later starts runs under the same read-only policy.
+  "stave_wait_for_event",
 ] as const;
 
 /**

@@ -1938,6 +1938,7 @@ export async function streamCodexWithAppServer(
           conversation: args.conversation,
           runtimeOptions,
           ephemeral: secondaryReadOnly,
+          ...(args.freshSession ? { fresh: true } : {}),
           configOverrides: mergedConfigOverrides,
           boundSecretFingerprint,
           secondaryReadOnly,

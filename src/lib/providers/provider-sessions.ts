@@ -62,6 +62,23 @@ export function getProviderSessionCursor(args: {
   return normalizeProviderSessionEntry(getProviderSessionEntry(args));
 }
 
+/**
+ * The conversation a turn resumes: the one its own account started for the
+ * task, or none. A turn on another account never resumes it; the turn's
+ * account is the one it selected, else `fallbackAccountId` (the account scope
+ * a host-started turn runs in).
+ */
+export function getTurnProviderSessionCursor(args: {
+  sessions?: TaskProviderSessionState;
+  providerId: ProviderId;
+  runtimeOptions?: { claudeAccountProfileId?: string; codexAccountProfileId?: string };
+  fallbackAccountId?: string;
+}): ProviderSessionCursor | null {
+  const selected = args.providerId === "codex" ? args.runtimeOptions?.codexAccountProfileId
+    : args.providerId === "claude-code" ? args.runtimeOptions?.claudeAccountProfileId : undefined;
+  return getProviderSessionCursor({ sessions: args.sessions, providerId: args.providerId, accountProfileId: selected ?? args.fallbackAccountId });
+}
+
 export function rememberProviderSession(args: {
   current?: TaskProviderSessionEntry;
   nativeSessionId: string;

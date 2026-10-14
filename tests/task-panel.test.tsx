@@ -147,11 +147,12 @@ test("Progress marks a run that needs the user", () => {
       ? { ...stage, status: "awaiting-sign-off" }
       : stage,
   );
+  // A sign-off is the approval card of a stage that asks first.
   expect(render({ tab: "activity", agentRun: needsYou })).toContain(
-    'aria-label="Needs you"',
+    'aria-label="Needs your answer · Approval"',
   );
   expect(render({ tab: "activity", agentRun: agentRun() })).not.toContain(
-    'aria-label="Needs you"',
+    'aria-label="Needs your answer',
   );
 });
 

@@ -7,7 +7,12 @@ import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { AGENT_RUN_VIEW_STATE_TONES, agentRunDuration, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
+import {
+  agentRunDuration,
+  describeAgentRunStatus,
+  formatAgentRunBadge,
+  type AgentRunDecision,
+} from "@/lib/agent-runs/agent-run-status";
 import { projectAgentRunStages } from "@/lib/agent-runs/agent-run-view";
 import type { ShelfTodoProgress, ShelfTurnAlert } from "@/components/session/composer-shelf/composer-shelf.utils";
 import { shelfStyles } from "@/components/session/composer-shelf/composer-shelf.styles";
@@ -29,8 +34,8 @@ import type { StagePlan } from "@/lib/agent-runs/domain";
 export const TAKE_CONTROL_HINT = "agentRuns:agentRunLine.tAKECONTROLHINT";
 
 /**
- * An agent run's line in the composer shelf: the agent, where it stands
- * (`Working`, or `Needs you` with what it waits on), how long it has run,
+ * An agent run's line in the composer shelf: the agent, its badge (`Running`,
+ * or `Halted · Blocked` with what it waits on), how long it has run,
  * Stop and Take control, and Retry while the run is stuck. While the run is
  * active this line is the one place its state and actions show; the
  * transcript card waits for the run to end. A run of an agent with a workflow
@@ -57,13 +62,22 @@ export function AgentRunLineView(props: {
   reasonShownElsewhere?: boolean;
   /** The turn's stall, steer, retry or failure, said instead of the run's state. */
   turnAlert?: ShelfTurnAlert | null;
+  /** The question or approval card the lead task holds open. */
+  decision?: AgentRunDecision | null;
 }) {
   useTranslation();
   const { detail, actions = {} } = props;
-  const status = describeAgentRunStatus(detail);
+  const status = describeAgentRunStatus(detail, props.decision ?? null);
+  const badgeText = formatAgentRunBadge(status);
+  // A usage-limit pause resumes by hand whether or not its reset time is known.
+  const usagePaused = detail.agentRun.state === "paused" && detail.agentRun.pauseReason === "usage-limit";
+  // The event it waited for never came: Continue tells the agent and goes on.
+  const waitExpired = detail.agentRun.state === "paused" && detail.agentRun.pauseReason === "wait-expired";
   const alert = detail.agentRun.pauseReason === "usage-limit" ? null : props.turnAlert ?? null;
-  const showNow = !alert && status.state === "working" && props.nowPhrase !== null;
-  const reason = (status.state === "needs-you" || status.state === "waiting") && !props.reasonShownElsewhere && !alert ? status.reason : null;
+  // A turn is doing the work: no wait, no pause, nothing for the user to answer.
+  const progressing = status.badge === "running" && !status.waiting;
+  const showNow = !alert && progressing && props.nowPhrase !== null;
+  const reason = !progressing && !props.reasonShownElsewhere && !alert ? status.reason : null;
   const elapsed = agentRunDuration(detail, props.now);
   const staged = detail.agentRun.workflow.stages.length > 1;
   const plan = props.plan ?? agentRunStoredPlan(detail);
@@ -74,31 +88,32 @@ export function AgentRunLineView(props: {
   );
   const current = rows?.[detail.agentRun.currentStageIndex] ?? null;
   const paused = detail.agentRun.state === "paused";
-  const waiting = status.state === "needs-you" || status.state === "waiting";
+  // Needs your answer and Halted wait on the user, in the warning ink.
+  const attention = status.badge === "needs-answer" || status.badge === "halted";
   const stageWords = current && rows ? `${getStageDisplayTitle(current.stage)} ${current.index + 1}/${rows.length}` : null;
   return (
     <>
       <ShelfRunLine
         testId="agent-run-bar"
-        dataState={status.state}
-        ariaLabel={`${status.agentName}: ${status.label}`}
-        announcement={`${status.agentName}: ${alert ? alert.label : status.label}${current ? i18n.t("agentRuns:agentRunLine.extraCopy2", { value1: current.index + 1, value2: rows!.length, value3: getStageDisplayTitle(current.stage) }) : planText ? `, ${planText}` : ""}`}
+        dataState={status.badge}
+        ariaLabel={`${status.agentName}: ${badgeText}`}
+        announcement={`${status.agentName}: ${alert ? alert.label : badgeText}${current ? i18n.t("agentRuns:agentRunLine.extraCopy2", { value1: current.index + 1, value2: rows!.length, value3: getStageDisplayTitle(current.stage) }) : planText ? `, ${planText}` : ""}`}
         mark={
           <StageStatusIcon
-            tone={AGENT_RUN_VIEW_STATE_TONES[status.state]}
-            state={status.state}
+            tone={status.mark.tone}
+            state={status.mark.state}
             xstyle={shelfStyles.markIcon}
           />
         }
         text={
           <ShelfRunText
-            label={status.state === "waiting" ? status.label : status.agentName}
+            label={status.waiting ? badgeText : status.agentName}
             title={[
               status.agentName,
               stageWords,
               planText,
               props.subagents,
-              alert ? describeShelfTurnAlert(alert) : status.label,
+              alert ? describeShelfTurnAlert(alert) : badgeText,
               showNow ? props.nowPhrase : reason,
               detail.agentRun.assignment.split("\n")[0],
             ]
@@ -109,11 +124,11 @@ export function AgentRunLineView(props: {
               alert
                 ? shelfTurnAlertParts(alert)
                 : [
-                    status.state !== "waiting" && (!planText || waiting) ? <span className={sx(waiting ? shelfStyles.labelWaiting : shelfStyles.strong)}>{status.label}</span> : null,
+                    !status.waiting && (!planText || !progressing) ? <span className={sx(attention ? shelfStyles.labelWaiting : shelfStyles.strong)}>{badgeText}</span> : null,
                     reason ?? planText ?? (showNow ? (
                       <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
                     ) : (
-                      status.state === "working" && !staged ? i18n.t("agentRuns:agentRunLine.extraCopy3") : reason
+                      progressing && !staged ? i18n.t("agentRuns:agentRunLine.extraCopy3") : reason
                     )),
                   ]
             }
@@ -128,19 +143,24 @@ export function AgentRunLineView(props: {
             <ShelfTodoProgressView progress={props.todo} />
           ) : null
         }
-        meta={status.state === "waiting" ? null : <span title={i18n.t("agentRuns:agentRunLine.title")}>{elapsed}</span>}
+        meta={status.waiting ? null : <span title={i18n.t("agentRuns:agentRunLine.title")}>{elapsed}</span>}
         actions={
           <>
             {status.recovery === "retry-stage" && actions.onRetry ? (
               <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
                 {i18n.t("agentRuns:agentRunLine.actions")}</Button>
             ) : null}
-            {status.state === "waiting" && actions.onResume ? (
+            {usagePaused && actions.onResume ? (
               <Tooltip content={i18n.t("agentRuns:usageLimit.resumeNow")}>
                 <Button variant="secondary" size="xs" aria-label={i18n.t("agentRuns:usageLimit.resumeNow")} disabled={actions.busy} onClick={actions.onResume}>
                   <Play aria-hidden />
                 </Button>
               </Tooltip>
+            ) : null}
+            {waitExpired && actions.onResume ? (
+              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
+                {i18n.t("agentRuns:eventWait.resume")}
+              </Button>
             ) : null}
             {actions.onStop ? (
               <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={shelfStyles.quiet}>
@@ -153,7 +173,7 @@ export function AgentRunLineView(props: {
                   size="xs"
                   disabled={actions.busy}
                   onClick={actions.onTakeControl}
-                  xstyle={[shelfStyles.quiet, status.state === "waiting" && shelfStyles.wideOnly]}
+                  xstyle={[shelfStyles.quiet, status.waiting && shelfStyles.wideOnly]}
                 >
                   {i18n.t("agentRuns:agentRunLine.actions3")}</Button>
               </Tooltip>

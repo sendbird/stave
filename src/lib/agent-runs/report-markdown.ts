@@ -7,6 +7,7 @@ import { formatRoutingDecision } from "../providers/routing-decision-label";
  * Pure. Used by `src/components/agent-runs/AgentRunReportView.tsx`.
  */
 import { formatAge } from "./agent-run-view";
+import { describeAgentRunAccountSwitch } from "./account-pool";
 import { EVIDENCE_SOURCE_LABELS, evidenceSourceLabel } from "./evidence";
 import type { AgentRunMetrics, AgentRunReport } from "./report";
 
@@ -85,6 +86,14 @@ export function formatAgentRunReportMarkdown(report: AgentRunReport): string {
   if (report.leftBehind.length > 0) {
     lines.push("", `### ${i18n.t("agentRuns:reportMarkdown.leftBehindHeading")}`);
     for (const item of report.leftBehind) lines.push(`- ${item}`);
+  }
+  if (report.accountSwitches?.length) {
+    lines.push("", `### ${i18n.t("agentRuns:accountPool.reportHeading")}`);
+    for (const change of report.accountSwitches) lines.push(`- ${describeAgentRunAccountSwitch(change)}`);
+  }
+  if (report.eventWaits?.length) {
+    lines.push("", `### ${i18n.t("agentRuns:eventWait.reportHeading")}`);
+    for (const line of report.eventWaits) lines.push(`- ${line.text}`);
   }
   if (report.metrics) {
     lines.push("", `_${describeAgentRunMetrics(report.metrics)}_`);

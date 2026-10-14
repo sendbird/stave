@@ -206,7 +206,6 @@ describe("run view", () => {
     expect(withAction({ type: "run-script", scriptId: "preview" })).toMatchObject({
       title: "Act",
       detail: "Stave is running the “preview” script",
-      tone: "active",
     });
     expect(withAction({ type: "open-draft-pr" }).detail).toBe("Stave is opening the draft PR");
     expect(withAction({ type: "mark-pr-ready" }).detail).toBe("Stave is marking the PR ready for review");

@@ -2969,7 +2969,13 @@ describe("Claude auto-mode availability notice", () => {
 test("a rejected usage window becomes a terminal usage limit; a successful result clears the warning", () => {
   const rejected = resolveClaudeTurnStopReason({ message: { type: "rate_limit_event", rate_limit_info: { status: "rejected", resetsAt: 1790400000 } } as never });
   expect(rejected).toBe("usage_limit");
-  expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true, stop_reason: "max_tokens", errors: ["Usage limit reached"] } as never, currentStopReason: rejected })).toBe("max_tokens");
+  // An error result copies the synthetic message's stop_reason; the usage limit still wins.
+  expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true, stop_reason: "stop_sequence" } as never, currentStopReason: rejected })).toBe("usage_limit");
+  expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true, stop_reason: "max_tokens", errors: ["Usage limit reached"] } as never, currentStopReason: rejected })).toBe("usage_limit");
+  // A cancellation is never reinterpreted as a usage limit.
+  expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true, stop_reason: "user_abort" } as never, currentStopReason: rejected })).toBe("user_abort");
+  // A successful result keeps its own stop reason.
+  expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: false, stop_reason: "max_tokens" } as never, currentStopReason: rejected })).toBe("max_tokens");
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: true } as never, currentStopReason: rejected })).toBe("usage_limit");
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: false, stop_reason: "end_turn" } as never, currentStopReason: rejected })).toBe("end_turn");
   expect(resolveClaudeTurnStopReason({ message: { type: "result", is_error: false } as never, currentStopReason: rejected })).toBeUndefined();

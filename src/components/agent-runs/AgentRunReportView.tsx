@@ -22,6 +22,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunReport } from "@/lib/agent-runs/report";
 import { describeAgentRunMetrics, formatAgentRunReportMarkdown } from "@/lib/agent-runs/report-markdown";
 import { formatAge } from "@/lib/agent-runs/agent-run-view";
+import { describeAgentRunAccountSwitch } from "@/lib/agent-runs/account-pool";
 import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
 import { EvidenceList } from "./EvidenceList";
 import type { AgentRunReportActions } from "./useAgentRunReportActions";
@@ -211,6 +212,32 @@ export function AgentRunReportView({
         <div className={sx(styles.stageGroup)}>
           <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:agentRunReportView.agentRunReportView6")}</p>
           <EvidenceList evidence={verifiedFirst} />
+        </div>
+      ) : null}
+      {report.accountSwitches?.length ? (
+        <div className={sx(styles.stageGroup)} data-testid="agent-run-account-switches">
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:accountPool.reportHeading")}</p>
+          <ul className={sx(styles.itemList)}>
+            {report.accountSwitches.map((change) => (
+              <li key={`${change.at}:${change.to}`} className={sx(styles.bulletItem)}>
+                <span aria-hidden className={sx(styles.bullet)} />
+                <span className={sx(styles.bulletText)}>{describeAgentRunAccountSwitch(change)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {report.eventWaits?.length ? (
+        <div className={sx(styles.stageGroup)} data-testid="agent-run-event-waits">
+          <p className={sx(styles.groupLabel)}>{i18n.t("agentRuns:eventWait.reportHeading")}</p>
+          <ul className={sx(styles.itemList)}>
+            {report.eventWaits.map((line, index) => (
+              <li key={`${line.at}:${index}`} className={sx(styles.bulletItem)}>
+                <span aria-hidden className={sx(styles.bullet)} />
+                <span className={sx(styles.bulletText)}>{line.text}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       ) : null}
       {report.metrics ? (

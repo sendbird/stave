@@ -28,7 +28,7 @@ import {
   type StageCompleteReportInput,
   type StageStatus,
 } from "./domain";
-import { advanceAgentRun } from "./policy";
+import { advanceAgentRun, eventWaitExpiredEvent } from "./policy";
 
 /** The stage attempt a control was rendered against. */
 export interface StageIdentity {
@@ -257,20 +257,30 @@ export function resumeAgentRun(args: {
   requireActive(args.aggregate);
   const { agentRun } = args.aggregate;
   if (agentRun.state === "running") return { agentRun, upserts: [], events: [] };
-  if (agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over" && agentRun.pauseReason !== "usage-limit") {
+  if (agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over" &&
+      agentRun.pauseReason !== "usage-limit" && agentRun.pauseReason !== "wait-expired") {
     throw new AgentRunCommandError(
       "invalid-state",
       agentRun.reasonDetail ?? i18n.t("agentRuns:commands.extraCopy245"),
     );
   }
+  // A wait that ran out while the run was paused ends now: the run continues
+  // by telling the agent, not by pausing again on the same expiry.
+  const wait = agentRun.eventWait;
+  const lapsed = wait?.status === "waiting" && Date.parse(wait.expiresAt) <= args.now.getTime()
+    ? { ...wait, status: "expired" as const, endReason: "expired" as const, endedAt: args.now.toISOString() }
+    : null;
   return {
     agentRun: touch(
       agentRun,
-      { state: "running", pauseReason: null, reasonDetail: null },
+      { state: "running", pauseReason: null, reasonDetail: null, ...(lapsed ? { eventWait: lapsed } : {}) },
       args.now,
     ),
     upserts: [],
-    events: [{ kind: "resumed", idempotencyKey: null, detail: {} }],
+    events: [
+      ...(lapsed ? [eventWaitExpiredEvent(agentRun.id, lapsed)] : []),
+      { kind: "resumed", idempotencyKey: null, detail: {} },
+    ],
   };
 }
 

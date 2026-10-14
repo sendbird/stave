@@ -153,9 +153,9 @@ test("release notices and delegated instructions alone do not opt into native pl
   }
 });
 
-test("a plan-less run keeps its working label and actual activity, with Planning as the idle fallback", () => {
+test("a plan-less run keeps its Running label and actual activity, with Planning as the idle fallback", () => {
   const activity = renderToStaticMarkup(createElement(AgentRunLineView, { detail, now: now.getTime(), nowPhrase: "Editing progress.ts", reducedMotion: true }));
-  expect(activity).toContain("Working");
+  expect(activity).toContain("Running");
   expect(activity).toContain("Editing progress.ts");
   expect(activity).not.toContain("Planning…");
   const idle = renderToStaticMarkup(createElement(AgentRunLineView, { detail, now: now.getTime(), nowPhrase: null, reducedMotion: true }));

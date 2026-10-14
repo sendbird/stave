@@ -11,9 +11,8 @@ import { AgentRunPanel } from "@/components/agent-runs/AgentRunPanel";
 import { WakeUpSection } from "@/components/agent-runs/WakeUpSection";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
-import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
-import { describeAgentRunBadge } from "@/lib/agent-runs/agent-run-view";
+import { useAgentRunDecision } from "@/components/agent-runs/useAgentRun";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import {
   isTaskPanelTab,
@@ -200,9 +199,10 @@ function ActivityMark(props: { taskId: string }) {
 function ProgressMark(props: { agentRun: AgentRunDetail | undefined }) {
   useTranslation();
   const { agentRun } = props;
-  if (!agentRun || !isActiveAgentRunState(agentRun.agentRun.state)) return null;
-  const badge = hasAgentOrigin(agentRun.agentRun) ? describeAgentRunStatus(agentRun) : describeAgentRunBadge(agentRun);
-  return <Mark mark={resolveProgressTabMark(badge)} />;
+  const active = Boolean(agentRun && isActiveAgentRunState(agentRun.agentRun.state));
+  const decision = useAgentRunDecision(active ? agentRun?.agentRun.leadTaskId : null);
+  if (!agentRun || !active) return null;
+  return <Mark mark={resolveProgressTabMark(describeAgentRunStatus(agentRun, decision))} />;
 }
 
 function SubagentsMark(props: { taskId: string }) {

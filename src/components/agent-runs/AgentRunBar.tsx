@@ -1,7 +1,6 @@
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { CirclePause } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -14,6 +13,7 @@ import {
   projectAgentRunStages,
   type AgentRunStageRow,
 } from "@/lib/agent-runs/agent-run-view";
+import { describeAgentRunStatus, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
 import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS, type NowLineState } from "@/lib/agent-runs/now-line";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
@@ -24,7 +24,7 @@ import { AgentRunLineView } from "./AgentRunLine";
 import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
-import { useNow, usePrefersReducedMotion, useScopedTaskAgentRun } from "./useAgentRun";
+import { useAgentRunDecision, useNow, usePrefersReducedMotion, useScopedTaskAgentRun } from "./useAgentRun";
 import {
   resolveShelfTurnAlert,
   type ShelfTodoProgress,
@@ -104,10 +104,12 @@ export interface AgentRunLineShelfProps {
   reasonShownElsewhere?: boolean;
   /** The turn's stall, steer, retry or failure, said in place of the run's state. */
   turnAlert?: ShelfTurnAlert | null;
+  /** The question or approval card the lead task holds open. */
+  decision?: AgentRunDecision | null;
 }
 
 /** The shelf hands the agent run line its turn; the line works out what of it to say. */
-export type AgentRunBarProps = Omit<AgentRunLineShelfProps, "turnAlert"> & {
+export type AgentRunBarProps = Omit<AgentRunLineShelfProps, "turnAlert" | "decision"> & {
   /** The turn the run is in right now, if any. */
   turnActivity?: ProviderTurnActivitySnapshot | null;
   /** A steer was sent and the provider has not taken it yet. */
@@ -141,6 +143,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
   const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now, i18n.language]);
   const current = rows[agentRun.currentStageIndex]!;
   const line = describeAgentRunStatusLine(detail);
+  const status = describeAgentRunStatus(detail, props.decision ?? null);
 
   // The completed stage holds for a moment before the next takes over.
   const [held, setHeld] = useState<AgentRunStageRow | null>(null);
@@ -169,29 +172,25 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
 
   const showNow = !held && !alert && line.live && props.nowPhrase !== null;
   const title = held ? i18n.t("agentRuns:agentRunBar.stageDone", { stage: getStageDisplayTitle(held.stage) }) : line.title;
-  const state = held ? null : line.state;
+  // The run's badge, once it is more than plain progress: `Halted · Blocked`.
+  const state = held || (status.badge === "running" && !status.waiting) ? null : formatAgentRunBadge(status);
   const detailText = held ? describeCompletedChange(held) : showNow ? props.nowPhrase : line.detail;
   const age = held || showNow ? null : formatAge(now - Date.parse(line.since));
   const paused = agentRun.state === "paused";
-  const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit");
+  const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired");
   const elapsed = formatAge(now - Date.parse(agentRun.createdAt));
-  const stateInk =
-    line.tone === "attention"
-      ? shelfStyles.labelDanger
-      : line.tone === "waiting"
-        ? shelfStyles.labelWaiting
-        : shelfStyles.strong;
+  const stateInk = status.badge === "needs-answer" || status.badge === "halted" ? shelfStyles.labelWaiting : shelfStyles.strong;
 
   return (
     <ShelfRunLine
       testId="agent-run-bar"
-      dataState={held ? "done" : line.tone}
+      dataState={held ? "done" : status.badge}
       ariaLabel={i18n.t("agentRuns:agentRunBar.ariaLabel", { value1: agentRun.workflow.name })}
       announcement={announcement}
       mark={
         <StageStatusIcon
-          tone={held ? "done" : line.tone}
-          icon={paused && !held ? CirclePause : undefined}
+          tone={held ? "done" : status.mark.tone}
+          state={held ? undefined : status.mark.state}
           xstyle={shelfStyles.markIcon}
         />
       }
@@ -285,11 +284,13 @@ export function AgentRunBar(props: AgentRunBarProps) {
   const busy = useAgentRunsStore((state) => Boolean(state.pendingByAgentRun[agentRunId]));
   const setLayout = useAppStore((state) => state.setLayout);
   const agentActions = useAgentRunActions(detail);
+  const decision = useAgentRunDecision(active ? detail?.agentRun.leadTaskId : null);
   if (!detail || !active) return null;
   return (
     <AgentRunBarView
       {...shelf}
       turnAlert={turnAlert}
+      decision={decision}
       detail={detail}
       nowPhrase={shownPhrase}
       now={now}

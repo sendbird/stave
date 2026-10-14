@@ -117,6 +117,7 @@ const lastUpsertSnapshotByWorkspaceId = new Map<
         modelInfo?: { effort: string; fastMode?: boolean };
       }>
     >;
+    providerSessionByTask?: Record<string, import("@/lib/db/workspaces.db").TaskProviderSessionState>;
   }
 >();
 
@@ -238,7 +239,8 @@ const fakeStore = {
         archivedAt: persistedTasksByWorkspaceId.get(workspaceId)?.find((row) => row.id === task.id)?.archivedAt ?? task.archivedAt,
       })),
       promptDraftByTask: {},
-      providerSessionByTask: {},
+      // What the last write stored, as the real store reloads it.
+      providerSessionByTask: lastUpsertSnapshotByWorkspaceId.get(workspaceId)?.providerSessionByTask ?? {},
       messageCountByTask: Object.fromEntries(
         Object.entries(snapshot.messagesByTask).map(([taskId, messages]) => [
           taskId,
@@ -1777,5 +1779,50 @@ describe("local MCP project memory curation", () => {
     } finally {
       for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
     }
+  });
+});
+
+describe("local MCP runtime runTask: an Agent run's account-pool switch", () => {
+  test("starts a new conversation on the account switched to; that account's ordinary turns resume its stored one", async () => {
+    const { runSupervisedTurn } = await import("../electron/host-service/supervised-turn");
+    const ACCOUNT = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+    const lastCall = () => startTurnStreamCalls.at(-1) as {
+      freshSession?: boolean;
+      conversation: import("../src/lib/providers/provider.types").CanonicalConversationRequest;
+    };
+    const finish = async (turnId: string, nativeSessionId?: string) => {
+      const handler = startTurnStreamHandlers.at(-1);
+      if (nativeSessionId) handler?.onEvent?.({ type: "provider_session", providerId: "claude-code", accountProfileId: ACCOUNT, nativeSessionId });
+      handler?.onEvent?.({ type: "done" });
+      for (let i = 0; i < 20 && !persistedTurnsById.get(turnId)?.completedAt; i += 1) await Bun.sleep(0);
+      expect(persistedTurnsById.get(turnId)?.completedAt).toBeTruthy();
+    };
+    // The account's first turn on the task stores that account's conversation.
+    const created = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Start the export", provider: "claude-code",
+      runtimeOptions: { claudeAccountProfileId: ACCOUNT } });
+    expect(lastCall().conversation.resume).toBeUndefined();
+    await finish(created.turnId, "session-account-old");
+    const turn = (freshSession?: boolean) => runSupervisedTurn({ workspaceId: WORKSPACE_ID, taskId: created.taskId, prompt: "Continue the export",
+      fingerprint: { providerId: "claude-code", model: "sonnet" }, runtimeOptions: { claudeAccountProfileId: ACCOUNT },
+      ...(freshSession ? { freshSession } : {}) });
+
+    // An ordinary turn on that account resumes the stored conversation.
+    const ordinary = await turn();
+    expect(lastCall().conversation.resume?.nativeSessionId).toBe("session-account-old");
+    expect(lastCall().freshSession).toBeUndefined();
+    await finish(ordinary.turnId);
+
+    // The switch turn: the slot is still stored, yet nothing is resumed and the
+    // provider is told to start fresh instead of using its cached session.
+    const switched = await turn(true);
+    expect(lastCall().conversation.resume).toBeUndefined();
+    expect(lastCall().freshSession).toBe(true);
+    await finish(switched.turnId, "session-account-new");
+
+    // The new conversation is stored for the account as usual and resumed next.
+    const next = await turn();
+    expect(lastCall().conversation.resume?.nativeSessionId).toBe("session-account-new");
+    expect(lastCall().freshSession).toBeUndefined();
+    await finish(next.turnId);
   });
 });

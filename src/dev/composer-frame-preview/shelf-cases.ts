@@ -158,7 +158,7 @@ function agentRunFor(caseId: ShelfCaseId): AgentRunDetail | null {
     case "agent-staged":
       return runs.workflow;
     case "agent-needs":
-      return runs.needsYou;
+      return runs.blocked;
     default:
       return null;
   }

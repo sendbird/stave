@@ -1103,6 +1103,17 @@ export function replayProviderEventsToTaskState(args: {
     current = [...current.slice(0, -1), updated];
     changed = true;
 
+    // A steer seals the turn's earlier answer while its prompts may still be
+    // open; they end with the turn too, as the final answer's do above.
+    if (event.type === "done" && args.turnId) {
+      const preserveAsync = !["cancelled", "aborted"].includes(event.stop_reason ?? "");
+      current = current.map((message, index) => {
+        if (index === current.length - 1 || message.role !== "assistant" || message.turnId !== args.turnId) return message;
+        const parts = interruptPendingToolInteractionParts({ preserveAsync, parts: message.parts });
+        return parts === message.parts ? message : { ...message, parts };
+      });
+    }
+
     if (
       event.type !== "system" &&
       event.type !== "error" &&

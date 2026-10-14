@@ -16,7 +16,12 @@ import { i18n } from "@/i18n/runtime";
  * Pure: no clock, no I/O. Callers pass `now` and ids.
  */
 import { AdaptiveRoutingIntentSchema } from "./resources";
-import { ProviderAccountSelectionSchema } from "@/lib/providers/provider-accounts";
+import { AgentRunEventWaitSchema } from "./event-wait";
+import {
+  MAX_PROVIDER_ACCOUNT_PROFILES,
+  ProviderAccountProfileIdSchema,
+  ProviderAccountSelectionSchema,
+} from "@/lib/providers/provider-accounts";
 import { z } from "zod";
 import { ScriptVerificationSchema, WorkspaceRevisionSchema } from "./verification-contract";
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
@@ -108,6 +113,22 @@ export const AgentRunConsentSchema = z
   .strict();
 export type AgentRunConsent = z.infer<typeof AgentRunConsentSchema>;
 
+/**
+ * The user's own subscription accounts a run may continue on after a usage
+ * limit, opted into at start: the run's account first, then Settings order.
+ * Frozen for the run; never an API connection (`account-pool.ts`).
+ */
+export const AgentRunAccountPoolSchema = z
+  .object({
+    accountIds: z
+      .array(ProviderAccountProfileIdSchema)
+      .min(2)
+      .max(MAX_PROVIDER_ACCOUNT_PROFILES + 1)
+      .refine((ids) => new Set(ids).size === ids.length),
+  })
+  .strict();
+export type AgentRunAccountPool = z.infer<typeof AgentRunAccountPoolSchema>;
+
 /** Publish stages and Stave actions write outside the workspace. */
 export function stageHasExternalEffect(stage: WorkflowStage): boolean {
   return stage.kind === "action" || stage.role === "publish";
@@ -149,7 +170,8 @@ export function isActiveAgentRunState(state: AgentRunState) {
 }
 
 /**
- * `paused-by-user` and `taken-over` are cleared by Resume. The other reasons
+ * `paused-by-user`, `taken-over` and `wait-expired` are cleared by Resume (a
+ * reply in the task also continues a `wait-expired` run). The other reasons
  * describe a condition the supervisor watches and clears on its own.
  */
 export const AGENT_RUN_PAUSE_REASONS = [
@@ -158,6 +180,8 @@ export const AGENT_RUN_PAUSE_REASONS = [
   "task-identity-changed",
   "runtime-changed",
   "usage-limit",
+  /** The event the run waited for did not come before its wait ended (`event-wait.ts`). */
+  "wait-expired",
 ] as const;
 export type AgentRunPauseReason = (typeof AGENT_RUN_PAUSE_REASONS)[number];
 
@@ -554,6 +578,8 @@ export const AgentRunStartInputSchema = z
     routingIntent: AdaptiveRoutingIntentSchema.optional(),
     /** The accounts selected when the run was asked for; its own turns keep them. */
     accounts: ProviderAccountSelectionSchema.optional(),
+    /** Opt-in: the subscription accounts a usage limit may move the run to. */
+    accountPool: AgentRunAccountPoolSchema.optional(),
   })
   .strict()
   .superRefine((input, context) => {
@@ -607,6 +633,10 @@ export const AgentRunSchema = z
       accountProfileId: IdSchema,
       fingerprint: AgentRunFingerprintSchema,
     }).strict().optional(),
+    /** The account pool frozen at start. Absent: pool off, and on rows from before it existed. */
+    accountPool: AgentRunAccountPoolSchema.optional(),
+    /** The one outside event the run waits for (`event-wait.ts`). Absent: none, and on older rows. */
+    eventWait: AgentRunEventWaitSchema.optional(),
     currentStageIndex: z.number().int().min(0),
     turnCount: z.number().int().min(0),
     maxTurns: z.number().int().min(1).max(AGENT_RUN_LIMITS.maxTurnsCeiling),
@@ -673,6 +703,14 @@ export const AGENT_RUN_EVENT_KINDS = [
   "paused",
   "resumed",
   "runtime-accepted",
+  /** A usage limit moved the run to another account of its pool. */
+  "account-switched",
+  /** The agent asked to wait for an outside event (`stave_wait_for_event`). */
+  "wait-registered",
+  /** The event came and started the run's next turn. */
+  "wait-woke",
+  /** The wait ended without its event; the run paused with `wait-expired`. */
+  "wait-expired",
   "agent-run-ended",
   /** The user shared the ended agent run's report to a Slack thread. */
   "report-shared",
@@ -899,6 +937,7 @@ export function createAgentRun(args: {
     ...(input.initialContext ? { initialContext: input.initialContext } : {}),
     consent: input.consent,
     fingerprint: args.fingerprint,
+    ...(input.accountPool ? { accountPool: input.accountPool } : {}),
     state: "running",
     pauseReason: null,
     stopReason: null,

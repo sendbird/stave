@@ -380,13 +380,13 @@ Fleet's search finds its tasks.
   | Agent | Claude | Codex | Cursor | Kiro |
   | --- | --- | --- | --- | --- |
   | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
-  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Classifier handoffs wait for your approval | Never asks, or in an agent run with Auto permission, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an agent run with Auto permission, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
 
-  Agent-mode guardrails (all on by default; turn each off in Settings) also
-  interrupt work: a write outside the task's repository, a protected credential path or variable, an irreversible
+  The only interrupts left are the Agent-mode guardrails (all on by default;
+  turn each off in Settings) — a write outside the task's repository, a protected credential path or variable, an irreversible
   remote action (force-pushing a default or protected branch, deleting remote
   branches, tags, releases or repositories, publishing, `sudo`) — and the
-  agent's own questions require your response. See
+  agent's own questions. See
   [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-guardrails).
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in

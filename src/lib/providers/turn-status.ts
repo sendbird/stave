@@ -377,6 +377,12 @@ export function markProviderTurnInteractionResolved(args: {
    * Omitted, no graph block is lifted — the caller could not say which.
    */
   interactionId?: string;
+  /**
+   * The prompt the task's messages still hold unanswered after this answer
+   * (`findTaskPendingDecision`). Answering one of two approvals leaves the
+   * other open, so the hint keeps it instead of reading as running.
+   */
+  remaining?: ProviderTurnPendingInteraction | null;
 }) {
   const current = args.activityByTask[args.taskId];
   if (!current || current.turnId !== args.turnId) {
@@ -390,7 +396,7 @@ export function markProviderTurnInteractionResolved(args: {
       ...current,
       lastEventAt: now,
       stalledAt: null,
-      pendingInteraction: null,
+      pendingInteraction: args.remaining ?? null,
       // The graph learns that a prompt was answered from the same place the
       // shelf does. No provider event reports it — the runtime just carries on
       // — so without this the node that raised it stays badged "Needs you"

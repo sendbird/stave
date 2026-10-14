@@ -1,4 +1,11 @@
-import { describeAgentRunUsageLimit } from "./usage-limit";
+import { awaitsUsageReset, describeAgentRunUsageLimit } from "./usage-limit";
+import { toAgentRunAccountSwitch } from "./account-pool";
+import {
+  activeEventWait,
+  describeEventWaitDetail,
+  describeEventWaitFact,
+  EventWaitFactSchema,
+} from "./event-wait";
 import { getStageDisplayTitle } from "./stage-display";
 import { i18n } from "@/i18n/runtime";
 /**
@@ -118,6 +125,11 @@ function describeChecks(detail: AgentRunDetail, record: AgentRunStageRecord): st
   return i18n.t("agentRuns:agentRunView.describeChecks2", { value1: passing, value2: checks.length });
 }
 
+/** A usage-limit pause that resumes on its own at a known time, so it waits instead of needing the user. */
+function awaitsUsageResetPause(agentRun: AgentRun): boolean {
+  return agentRun.pauseReason === "usage-limit" && awaitsUsageReset(agentRun);
+}
+
 /** The one line that says where the agent run is, named and aged. */
 export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadline {
   const { agentRun } = detail;
@@ -136,7 +148,7 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
     case "paused":
       return {
         text: agentRun.pauseReason === "usage-limit" ? describeAgentRunUsageLimit(agentRun) : agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunView.text4"),
-        tone: agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit" ? "waiting" : "attention",
+        tone: agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || awaitsUsageResetPause(agentRun) ? "waiting" : "attention",
         since,
       };
     case "running":
@@ -144,6 +156,8 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
   }
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
   const record = latestStageRecord(detail.stages, stage.id);
+  const wait = activeEventWait(agentRun, record);
+  if (wait) return { text: describeEventWaitDetail(wait), tone: "waiting", since: wait.waitingSince ?? since };
   switch (record?.status ?? "pending") {
     case "awaiting-sign-off":
       return { text: i18n.t("agentRuns:agentRunView.text5"), tone: "waiting", since };
@@ -171,14 +185,15 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
   }
 }
 
+/**
+ * Where a legacy run's line stands. Its state words, tone and glyph are the
+ * run's badge (`describeAgentRunStatus`), which every surface shares.
+ */
 export interface AgentRunStatusLine {
-  /** The lead words: the current stage, or "Paused". */
+  /** The lead words: the current stage, or how the run ended. */
   title: string;
-  /** The state word when it is not plain progress: "Blocked", "Waiting for your sign-off". */
-  state: string | null;
   /** What the stage is doing, or why it waits. */
   detail: string | null;
-  tone: StageTone;
   /** When the state this line names began, for the age. */
   since: string;
   /** A turn does the work now, so the Now phrase may replace the detail. */
@@ -200,95 +215,59 @@ function describeRunningAction(action: StaveAction, watchingChecks: string): str
 }
 
 /**
- * The agent run's line: the stage in view, its state and why, for example
- * `Verify` · `Blocked` · `Which breakpoint…`. The Agent run bar shows it in
- * full; the panel shows the state as a badge and the rest beside it.
+ * A legacy run's line: the stage in view and why it stands there, for example
+ * `Verify` · `Which breakpoint…`. The bar puts the run's badge between them;
+ * the panel shows the badge and the rest beside it.
  */
 export function describeAgentRunStatusLine(detail: AgentRunDetail): AgentRunStatusLine {
   const { agentRun } = detail;
   const headline = describeAgentRunHeadline(detail);
   const since = headline.since;
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
-  const line = (patch: Partial<AgentRunStatusLine> & Pick<AgentRunStatusLine, "tone">): AgentRunStatusLine => ({
+  const line = (patch: Partial<AgentRunStatusLine> = {}): AgentRunStatusLine => ({
     title: getStageDisplayTitle(stage),
-    state: null,
     detail: null,
     since,
     live: false,
     ...patch,
   });
   if (agentRun.state === "paused") {
-    const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over";
     return line({
-      title: i18n.t("agentRuns:agentRunView.title"),
       detail:
         agentRun.pauseReason === "taken-over"
           ? i18n.t("agentRuns:agentRunView.detail")
           : agentRun.pauseReason === "paused-by-user"
             ? i18n.t("agentRuns:agentRunView.detail2", { value1: getStageDisplayTitle(stage) })
             : headline.text,
-      tone: userPause || agentRun.pauseReason === "usage-limit" ? "waiting" : "attention",
     });
   }
-  if (agentRun.state !== "running") {
-    return line({ title: headline.text, tone: headline.tone === "done" ? "done" : "skipped" });
-  }
+  if (agentRun.state !== "running") return line({ title: headline.text });
   const record = latestStageRecord(detail.stages, stage.id);
+  if (activeEventWait(agentRun, record)) return line({ detail: headline.text });
   switch (record?.status ?? "pending") {
     case "awaiting-sign-off":
-      return line({ state: i18n.t("agentRuns:agentRunView.extraCopy221"), tone: "waiting" });
+      return line();
     case "blocked":
-      return record?.blockReason === "reporting-unavailable"
-        ? line({ state: i18n.t("agentRuns:agentRunView.extraCopy222"), detail: i18n.t("agentRuns:agentRunView.detail3"), tone: "attention" })
-        : line({ state: i18n.t("agentRuns:agentRunView.extraCopy223"), detail: record?.detail ?? i18n.t("agentRuns:agentRunView.detail4"), tone: "attention" });
+      return line({
+        detail: record?.blockReason === "reporting-unavailable"
+          ? i18n.t("agentRuns:agentRunView.detail3")
+          : (record?.detail ?? i18n.t("agentRuns:agentRunView.detail4")),
+      });
     case "stuck":
-      return line({ state: i18n.t("agentRuns:agentRunView.extraCopy224"), detail: record?.detail ?? i18n.t("agentRuns:agentRunView.detail5"), tone: "attention" });
+      return line({ detail: record?.detail ?? i18n.t("agentRuns:agentRunView.detail5") });
     case "running": {
-      if (stage.kind === "ai") return line({ detail: i18n.t("agentRuns:agentRunView.detail6"), tone: "active", live: true });
-      return line({ detail: describeRunningAction(stage.action, headline.text), tone: "active" });
+      if (stage.kind === "ai") return line({ detail: i18n.t("agentRuns:agentRunView.detail6"), live: true });
+      return line({ detail: describeRunningAction(stage.action, headline.text) });
     }
     case "pending":
     case "completed":
     case "skipped":
     case "cancelled":
-      return line({ detail: i18n.t("agentRuns:agentRunView.detail7"), tone: "active" });
+      return line({ detail: i18n.t("agentRuns:agentRunView.detail7") });
   }
 }
 
 export type AgentRunBadgeTone = "accent" | "warning" | "danger" | "success" | "neutral";
-
-/** The one-word state an agent run wears: Running, Needs you, Blocked, Paused… */
-export function describeAgentRunBadge(detail: AgentRunDetail): { label: string; tone: AgentRunBadgeTone } {
-  const { agentRun } = detail;
-  switch (agentRun.state) {
-    case "completed":
-      return { label: i18n.t("agentRuns:agentRunView.label9"), tone: "success" };
-    case "cancelled":
-      return { label: i18n.t("agentRuns:agentRunView.label10"), tone: "neutral" };
-    case "stopped":
-      return { label: i18n.t("agentRuns:agentRunView.label11"), tone: "danger" };
-    case "paused":
-      if (agentRun.pauseReason === "usage-limit") return { label: i18n.t("agentRuns:usageLimit.waiting"), tone: "neutral" };
-      return { label: i18n.t("agentRuns:agentRunView.label12"), tone: "warning" };
-    case "running":
-      break;
-  }
-  const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
-  switch (latestStageRecord(detail.stages, stage.id)?.status ?? "pending") {
-    case "awaiting-sign-off":
-      return { label: i18n.t("agentRuns:agentRunView.label13"), tone: "warning" };
-    case "blocked":
-      return { label: i18n.t("agentRuns:agentRunView.label14"), tone: "danger" };
-    case "stuck":
-      return { label: i18n.t("agentRuns:agentRunView.label15"), tone: "danger" };
-    case "running":
-    case "pending":
-    case "completed":
-    case "skipped":
-    case "cancelled":
-      return { label: i18n.t("agentRuns:agentRunView.label16"), tone: "accent" };
-  }
-}
 
 /** `manual` is stored as is; people see it as "Your settings". */
 export const AGENT_RUN_PERMISSION_LABELS: Record<AgentRun["consent"]["permissionMode"], string> = {
@@ -418,6 +397,19 @@ function describeTurnStart(args: {
   if (reason === "continue-after-user") return i18n.t("agentRuns:agentRunView.describeTurnStart3", { value1: name });
   if (reason === "reporting-restored") return i18n.t("agentRuns:agentRunView.describeTurnStart4", { value1: name });
   if (reason === "resume-after-restart") return i18n.t("agentRuns:agentRunView.describeTurnStart5", { value1: name });
+  if (reason === "resume-after-account-switch") {
+    for (let index = args.position - 1; index >= 0; index -= 1) {
+      const change = toAgentRunAccountSwitch(args.events[index]!);
+      if (change) return i18n.t("agentRuns:accountPool.switchedTurn", { name, from: change.from, to: change.to });
+    }
+  }
+  if (reason === "resume-after-event") {
+    // The wake is recorded with the turn's start, just before it.
+    const woke = args.events[args.position - 1];
+    const fact = woke?.kind === "wait-woke" ? EventWaitFactSchema.safeParse(woke.detail.fact) : null;
+    if (fact?.success) return i18n.t("agentRuns:eventWait.wokeTurn", { name, fact: describeEventWaitFact(fact.data) });
+  }
+  if (reason === "resume-after-wait-expired") return i18n.t("agentRuns:eventWait.expiredTurn", { name });
   // What happened just before this stage started.
   for (let index = args.position - 1; index >= 0; index -= 1) {
     const event = args.events[index]!;

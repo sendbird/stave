@@ -1,8 +1,31 @@
 import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "../../../src/lib/providers/account-usage-block";
 import { selectedProviderAccount, type ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
-import type { RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
+import type { ProviderRuntimeOptions, RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
+import type { z } from "zod";
 import { AgentRunFingerprintSchema, type AgentRunAggregate, type AgentRunEvent, type AgentRunFingerprint } from "../../../src/lib/agent-runs/domain";
+import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import type { AgentRunObservation } from "../../../src/lib/agent-runs/policy";
+
+const TurnEffortSchema = AdaptiveRoutingIntentSchema.pick({ claudeEffort: true, codexReasoningEffort: true });
+export type AgentRunTurnEffort = z.infer<typeof TurnEffortSchema>;
+
+/** The effort a run turn passed to its provider, as its `turn-linked` event records it; empty when it set none. */
+export function turnEffortOf(runtimeOptions: ProviderRuntimeOptions): AgentRunTurnEffort {
+  return {
+    ...(runtimeOptions.claudeEffort ? { claudeEffort: runtimeOptions.claudeEffort } : {}),
+    ...(runtimeOptions.codexReasoningEffort ? { codexReasoningEffort: runtimeOptions.codexReasoningEffort } : {}),
+  };
+}
+
+/**
+ * The effort the usage-limited turn ran with. A turn linked before effort was
+ * recorded, or one the user started, reads as empty: the task's own effort applies.
+ */
+export function usageLimitedTurnEffort(events: AgentRunEvent[], turnId: string): AgentRunTurnEffort {
+  const linked = [...events].reverse().find((event) => event.kind === "turn-linked" && event.detail.turnId === turnId);
+  const stored = TurnEffortSchema.safeParse(linked?.detail.effort);
+  return stored.success ? stored.data : {};
+}
 
 export function usageLimitedTurnRuntime(args: {
   aggregate: AgentRunAggregate; events: AgentRunEvent[]; turnId: string;

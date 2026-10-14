@@ -204,9 +204,6 @@
     "copy": ", asks you first"
   },
   "taskSupervisionMarks": {
-    "agentRunLabel": "Run waits for your sign-off",
-    "agentRunLabel2": "Run paused",
-    "agentRunLabel3": "Running",
     "ariaLabel": "Schedule on",
     "taskSupervisionMarks": "Schedule on",
     "ariaLabel2": "Schedule paused",
@@ -389,7 +386,6 @@
     "describeRunningAction": "Stave is opening the draft PR",
     "describeRunningAction2": "Stave is marking the PR ready for review",
     "describeRunningAction3": "Stave is running the “{{value1}}” script",
-    "title": "Paused",
     "detail": "You took over · replies are yours until you resume",
     "detail2": "Paused by you before {{value1}}",
     "detail3": "Stave's local tools are unreachable",
@@ -397,14 +393,6 @@
     "detail5": "the stage stopped moving",
     "detail6": "Working",
     "detail7": "Starting",
-    "label9": "Completed",
-    "label10": "Cancelled",
-    "label11": "Stopped",
-    "label12": "Paused",
-    "label13": "Needs you",
-    "label14": "Blocked",
-    "label15": "Stuck",
-    "label16": "Running",
     "auto": "Auto",
     "guided": "Guided",
     "manual": "Your settings",
@@ -426,10 +414,6 @@
     "describeTurnStart9": "{{value1}} — run started",
     "extraCopy219": "waiting for you",
     "extraCopy220": "the stage stopped moving",
-    "extraCopy221": "Waiting for your sign-off",
-    "extraCopy222": "Reporting unavailable",
-    "extraCopy223": "Blocked",
-    "extraCopy224": "Stuck",
     "extraCopy225": "{{value1}} verified by Stave",
     "extraCopy226": "Stage {{value1}} · {{value2}}{{value3}}",
     "extraCopy227": "reported done",
@@ -850,10 +834,93 @@
     "deferred": "The task is mid-turn; the watch wakes it once that turn finishes."
   },
   "usageLimit": {
-    "waiting": "Waiting for usage reset",
     "waitingUntil": "Waiting for usage reset at {{time}}. Stave resumes after checking this account.",
-    "waitingUnknown": "Waiting for usage reset. The reset time is unknown; resume when usage is available.",
-    "resumeNow": "Resume now"
+    "unknownReset": "Usage limit reached. The reset time is unknown, so the run waits for you; resume it when usage is available.",
+    "resumeNow": "Resume now",
+    "waitingUntilPool": "Every account in this run's pool is at its usage limit. The first reset is at {{time}}; Stave then resumes on the first account with usage left."
+  },
+  "accountPool": {
+    "title": "Account pool",
+    "enable": "Continue on my other accounts at a usage limit",
+    "description": "When a usage limit stops the run, it continues on the first account below that has usage left, in this order. API connections are never used.",
+    "accountsLabel": "Accounts in the pool",
+    "current": "Current account",
+    "notice": "Automatic account switching may be limited by each provider's terms.",
+    "switched": "Account switched · {{from}} → {{to}} · usage limit",
+    "switchedTurn": "{{name}} — Account switched · {{from}} → {{to}} · usage limit",
+    "reportHeading": "Account switches",
+    "searchLabel": "Search accounts",
+    "searchPlaceholder": "Search by name or ID",
+    "noMatches": "No accounts match “{{query}}”."
+  },
+  "eventWait": {
+    "waitingOn": "Waiting · {{event}}",
+    "resume": "Continue",
+    "kind": {
+      "pullRequestChecks": "PR checks",
+      "pullRequestReview": "PR review",
+      "time": "Scheduled time",
+      "delegatedCompletion": "Delegated work"
+    },
+    "target": {
+      "pullRequest": "PR #{{number}}",
+      "branchPullRequest": "this branch's PR",
+      "delegatedTask": "delegated task {{target}}",
+      "anyDelegated": "this task's delegated work"
+    },
+    "detail": {
+      "pullRequestChecks": "Waiting for the checks on {{target}} to finish. Stops waiting at {{expires}}.",
+      "pullRequestReview": "Waiting for a review on {{target}}. Stops waiting at {{expires}}.",
+      "time": "Waiting until {{at}}.",
+      "delegatedCompletion": "Waiting for {{target}} to finish. Stops waiting at {{expires}}."
+    },
+    "ended": {
+      "expired": "The event it waited for did not come: no {{event}} by {{time}}.",
+      "wakeLimit_one": "The event it waited for did not settle: {{event}} woke the run once, its limit.",
+      "wakeLimit_other": "The event it waited for did not settle: {{event}} woke the run {{count}} times, its limit.",
+      "unreadable": "The event it waited for could not be read: {{event}}. {{error}}"
+    },
+    "fact": {
+      "checksFailed_one": "1 failing check",
+      "checksFailed_other": "{{count}} failing checks",
+      "checksPassed": "checks passed",
+      "reviewComments_one": "1 new review comment",
+      "reviewComments_other": "{{count}} new review comments",
+      "reviewApproved": "an approval",
+      "reviewChangesRequested": "a request for changes",
+      "pullRequestMerged": "PR #{{number}} merged",
+      "pullRequestClosed": "PR #{{number}} closed",
+      "delegatedFinished_one": "delegated work finished",
+      "delegatedFinished_other": "{{count}} delegated tasks finished",
+      "timeReached": "the scheduled time"
+    },
+    "timeline": {
+      "registered": "Started waiting for {{event}}",
+      "registeredTarget": "Started waiting for {{event}} on {{target}}",
+      "woke": "Woke on {{fact}} · wake {{wake}} of {{max}}",
+      "endedExpired": "Stopped waiting for {{event}}: it did not come in time",
+      "endedWakeLimit": "Stopped waiting for {{event}}: the wake limit was reached",
+      "endedUnreadable": "Stopped waiting for {{event}}: the PR could not be read"
+    },
+    "wokeTurn": "{{name}} — woke on {{fact}}",
+    "expiredTurn": "{{name}} — continued after the wait ended",
+    "reportHeading": "Event waits"
+  },
+  "badge": {
+    "running": "Running",
+    "needsAnswer": "Needs your answer",
+    "paused": "Paused",
+    "halted": "Halted",
+    "completed": "Completed",
+    "stopped": "Stopped",
+    "question": "Question",
+    "approval": "Approval",
+    "takenOver": "Taken over",
+    "blocked": "Blocked",
+    "recoveryNeeded": "Recovery needed",
+    "waitExpired": "Wait expired",
+    "usageLimit": "Usage limit",
+    "usageWait": "Waiting · Usage limit (resumes {{time}})"
   },
   "permissions": {
     "codexAutoReviewUnavailable": "Codex auto-review is not available with this Codex version, account or managed policy, so this agent run uses Auto as before: Codex does not ask for approvals and writes within the workspace, or with the full access you set."

@@ -99,6 +99,11 @@ export async function ensureCodexThread(args: {
   conversation?: StreamTurnArgs["conversation"];
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   ephemeral?: boolean;
+  /**
+   * Start a new thread: neither the conversation's stored thread nor this
+   * account's cached one is resumed; the new thread replaces the cached one.
+   */
+  fresh?: boolean;
   configOverrides?: CodexConfigOverrides;
   boundSecretFingerprint?: string;
   /**
@@ -125,7 +130,7 @@ export async function ensureCodexThread(args: {
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   };
   const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
-  let resumeThreadId = resolveCodexThreadSession({
+  let resumeThreadId = args.fresh ? undefined : resolveCodexThreadSession({
     threadKey,
     executablePath: providerAccountKey("codex", args.executablePath),
     ephemeral: args.ephemeral,

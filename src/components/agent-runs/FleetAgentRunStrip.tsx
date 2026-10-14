@@ -1,7 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { CirclePause } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
@@ -9,11 +8,11 @@ import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import {
-  AGENT_RUN_VIEW_STATE_LABELS,
-  AGENT_RUN_VIEW_STATE_TONES,
   agentRunDuration,
-  agentRunFleetState,
   describeAgentRunStatus,
+  formatAgentRunBadge,
+  type AgentRunDecision,
+  type AgentRunStatus,
 } from "@/lib/agent-runs/agent-run-status";
 import { describeAgentRunStatusLine, projectAgentRunStages, type AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
 import { describeUsageShort } from "@/lib/agent-runs/usage";
@@ -39,28 +38,44 @@ export function useFleetActiveAgentRun(workspaceId: string): AgentRunDetail | un
   return useFleetAgentRunsStore((state) => pickActiveAgentRun(state.details, workspaceId));
 }
 
+/** Needs your answer and Halted wait on the user, in the warning ink. */
+function badgeInk(status: AgentRunStatus) {
+  return status.badge === "needs-answer" || status.badge === "halted" ? styles.waiting : styles.muted;
+}
+
 /**
- * A Fleet card's agent run line: the stage track and where it stands, so a board
- * of workspaces shows which agent runs wait for you without opening any. For an
- * agent run it names the agent and the state for the lead task, whose row
- * then shows neither.
+ * A Fleet card's agent run line: the stage track and the run's badge, so a
+ * board of workspaces shows which agent runs wait for you without opening
+ * any. For an agent run it names the agent and the badge for the lead task,
+ * whose row then shows neither.
  */
 export function FleetAgentRunStrip(props: {
   workspaceId: string;
   onOpen: (taskId: string) => void;
-  /** The lead task waits on the user (a question or an approval in its turn). */
-  leadTaskWaiting?: boolean;
+  /** The question or approval card the lead task holds open. */
+  leadTaskDecision?: AgentRunDecision | null;
 }) {
   useTranslation();
   const detail = useFleetActiveAgentRun(props.workspaceId);
-  const rows = useMemo(() => (detail ? projectAgentRunStages(detail, new Date(detail.agentRun.updatedAt)) : []), [detail, i18n.language]);
   if (!detail) return null;
+  return <FleetAgentRunStripView detail={detail} onOpen={props.onOpen} leadTaskDecision={props.leadTaskDecision} />;
+}
+
+/** The strip for one stored run, free of the store so a test can render it. */
+export function FleetAgentRunStripView(props: {
+  detail: AgentRunDetail;
+  onOpen: (taskId: string) => void;
+  leadTaskDecision?: AgentRunDecision | null;
+}) {
+  useTranslation();
+  const { detail } = props;
+  const rows = useMemo(() => projectAgentRunStages(detail, new Date(detail.agentRun.updatedAt)), [detail, i18n.language]);
+  const status = describeAgentRunStatus(detail, props.leadTaskDecision ?? null);
   if (hasAgentOrigin(detail.agentRun)) {
-    return (
-      <FleetAgentRunLine detail={detail} rows={rows} onOpen={props.onOpen} leadTaskWaiting={props.leadTaskWaiting ?? false} />
-    );
+    return <FleetAgentRunLine detail={detail} rows={rows} onOpen={props.onOpen} status={status} />;
   }
   const line = describeAgentRunStatusLine(detail);
+  const badgeText = formatAgentRunBadge(status);
   const paused = detail.agentRun.state === "paused";
   const spent = describeUsageShort(detail.usage);
   return (
@@ -69,19 +84,18 @@ export function FleetAgentRunStrip(props: {
       variant="quiet"
       press="none"
       xstyle={styles.strip}
-      aria-label={i18n.t("agentRuns:fleetAgentRunStrip.ariaLabel", { value1: detail.agentRun.workflow.name, value2: line.title, value3: line.state ? `, ${line.state}` : "" })}
+      aria-label={i18n.t("agentRuns:fleetAgentRunStrip.ariaLabel", { value1: detail.agentRun.workflow.name, value2: line.title, value3: `, ${badgeText}` })}
+      data-badge={status.badge}
       onClick={() => props.onOpen(detail.agentRun.leadTaskId)}
     >
       <span className={sx(styles.head)}>
-        <StageStatusIcon tone={line.tone} icon={paused ? CirclePause : undefined} />
+        <StageStatusIcon tone={status.mark.tone} state={status.mark.state} />
         <span className={sx(styles.text)}>
           <span className={sx(styles.title)}>{line.title}</span>
-          {line.state ?? line.detail ? (
-            <span className={sx(line.tone === "attention" ? styles.attention : line.tone === "waiting" ? styles.waiting : styles.muted)}>
-              {" · "}
-              {line.state ?? line.detail}
-            </span>
-          ) : null}
+          <span className={sx(badgeInk(status))}>
+            {" · "}
+            {badgeText}
+          </span>
         </span>
         {spent ? <span className={sx(styles.position)}>{spent}</span> : null}
       </span>
@@ -90,18 +104,16 @@ export function FleetAgentRunStrip(props: {
   );
 }
 
-/** A Fleet card's line for an agent run: the agent and its state, and its stage track when it has stages. */
+/** A Fleet card's line for an agent run: the agent and its badge, and its stage track when it has stages. */
 function FleetAgentRunLine(props: {
   detail: AgentRunDetail;
   rows: readonly AgentRunStageRow[];
   onOpen: (taskId: string) => void;
-  leadTaskWaiting: boolean;
+  status: AgentRunStatus;
 }) {
   useTranslation();
-  const { detail, rows } = props;
-  const status = describeAgentRunStatus(detail);
-  const state = agentRunFleetState(status.state, props.leadTaskWaiting);
-  const label = AGENT_RUN_VIEW_STATE_LABELS[state];
+  const { detail, rows, status } = props;
+  const label = formatAgentRunBadge(status);
   const spent = describeUsageShort(detail.usage);
   const now = useNow(isActiveAgentRunState(detail.agentRun.state));
   const elapsed = agentRunDuration(detail, now);
@@ -115,13 +127,14 @@ function FleetAgentRunLine(props: {
       press="none"
       xstyle={styles.strip}
       aria-label={i18n.t("agentRuns:fleetAgentRunStrip.ariaLabel2", { value1: status.agentName, value2: label })}
+      data-badge={status.badge}
       onClick={() => props.onOpen(detail.agentRun.leadTaskId)}
     >
       <span className={sx(styles.head)}>
-        <StageStatusIcon tone={AGENT_RUN_VIEW_STATE_TONES[state]} state={state} />
+        <StageStatusIcon tone={status.mark.tone} state={status.mark.state} />
         <span className={sx(styles.text)} title={progress ?? undefined}>
           <span className={sx(styles.title)}>{status.agentName}</span>
-          <span className={sx(state === "needs-you" ? styles.waiting : styles.muted)}>
+          <span className={sx(badgeInk(status))}>
             {" · "}
             {label}
             {progress ? ` · ${progress}` : ""}
@@ -170,7 +183,6 @@ const styles = stylex.create({
   title: { fontWeight: vars["--ads-font-weight-medium"] },
   muted: { color: vars["--ads-color-text-muted"] },
   waiting: { color: vars["--ads-color-warning-text"] },
-  attention: { color: vars["--ads-color-danger-text"] },
   position: {
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-caption"],

@@ -13,12 +13,14 @@ import {
   StageBlockInputSchema,
   StageCompleteReportInputSchema,
 } from "../../src/lib/agent-runs/domain";
+import { EventWaitInputSchema } from "../../src/lib/agent-runs/event-wait";
 import type { StaveTurnGrants } from "../providers/stave-turn-grants";
 import type {
   blockAgentRunStage,
   requestAgentRunResources,
   getAgentRunForGrant,
   reportAgentRunStage,
+  waitForAgentRunEvent,
 } from "./agent-runs-service";
 
 export function registerAgentRunTools(
@@ -29,6 +31,7 @@ export function registerAgentRunTools(
     reportAgentRunStage: typeof reportAgentRunStage;
     blockAgentRunStage: typeof blockAgentRunStage;
     requestAgentRunResources: typeof requestAgentRunResources;
+    waitForAgentRunEvent: typeof waitForAgentRunEvent;
   },
 ) {
   const { agentRunKey } = grants;
@@ -79,6 +82,19 @@ export function registerAgentRunTools(
     async (block) =>
       toStructuredResult({
         block: await handlers.blockAgentRunStage({ agentRunKey, block }),
+      }),
+  );
+
+  server.registerTool(
+    AGENT_RUN_TOOL_NAMES.wait,
+    {
+      description:
+        "Wait inside this run for one outside event instead of ending the stage: a pull request's checks finishing (pull_request_checks), new review comments, approvals or change requests (pull_request_review), a time (time, with `at`), or delegated work of this task finishing (delegated_completion). Call it, then end this turn. The run stays running and spends no turns while it waits; when the event comes, Stave starts the next turn of this stage with what happened (failing checks with links, new comments, the finished work, or the time), and that turn counts against the run's turn limit. A merged or closed pull request ends the wait as its event. One wait per run: a new call replaces the earlier one. It expires after 24 hours by default (`expiresAt`, at most 7 days) and wakes the run at most `maxWakes` times (default 5); after that the run pauses for the user. Do not use it to poll, and do not wait when you can finish the stage now. Stave knows which run and stage this turn belongs to; do not pass ids.",
+      inputSchema: EventWaitInputSchema.shape,
+    },
+    async (request) =>
+      toStructuredResult({
+        ...(await handlers.waitForAgentRunEvent({ agentRunKey, request })),
       }),
   );
 }

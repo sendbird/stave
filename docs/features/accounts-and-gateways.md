@@ -92,7 +92,7 @@ Switching changes **new turns only**:
 | A turn already running | The account it started with |
 | A queued message | The account it was queued with, unless a usage limit paused it |
 | A turn or queue a usage limit paused | The new account, when you resume it |
-| An Agent run | The account selected when it started, for every turn it starts itself. Your replies follow the first row |
+| An Agent run | The account selected when it started, for every turn it starts itself, until a usage limit moves it within its account pool (only when you turned the pool on). Your replies follow the first row |
 | A subagent an agent starts | The account of the turn that started it, follow-ups included |
 | A review, follow-up or retry you start | The new account |
 | An open Standalone CLI tab | Its own account until you switch that tab |
@@ -135,6 +135,29 @@ not saved across restarts.
 
 See [When A Usage Limit Stops Work](turn-activity.md#when-a-usage-limit-stops-work)
 for continuation behavior, cancellation and restored queues.
+
+### Let An Agent Run Continue On Your Other Accounts
+
+An Agent run can move to another of your own subscription accounts when a
+usage limit stops it, but only if you turn on its **Account pool** before it
+starts (in the composer's **Auto adjust** popover). It is off by default.
+
+- The pool holds the provider's subscription accounts whose sign-in check
+  confirms a sign-in: the account the run starts on, then the others in the
+  order they appear in Settings. Signed-out accounts and accounts whose check
+  failed stay out.
+  You can leave accounts out; to change the order, reorder them in Settings.
+  API connections are never part of a pool, so a run never falls back to
+  per-token billing, and Stave never adds an account.
+- At a limit, Stave checks the other accounts' usage in that order and
+  continues on the first with usage left, in a new provider conversation on
+  that account with the run's briefing. If none has usage left, the run waits
+  for the earliest reset among them.
+- Each switch shows as **Account switched · <from> → <to> · usage limit** in
+  the transcript and the run report, without a notification.
+- Automatic account switching may be limited by each provider's terms.
+
+See [Agent Runs: Continue on another account](agent-runs.md#continue-on-another-account-account-pool).
 
 ### Reuse A Folder You Already Use
 

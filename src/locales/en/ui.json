@@ -60,7 +60,9 @@
     "idle": "Idle",
     "skipped": "Skipped",
     "unknown": "Unknown",
-    "waiting": "Waiting"
+    "waiting": "Waiting",
+    "paused": "Paused",
+    "halted": "Halted"
   },
   "command": {
     "noMatchingCommands": "No matching commands.",
