@@ -99,6 +99,13 @@ describe("run attention in Fleet", () => {
     ).toEqual({ "ws-1": "action-required", "ws-2": "in-progress" });
   });
 
+  test("a run halted at its turn limit asks for the user, like a stopped run did", () => {
+    const halted = atBuild("running", "m-limit");
+    expect(agentRunLanesByWorkspace([
+      { ...halted, agentRun: { ...halted.agentRun, state: "paused", pauseReason: "limit-reached" } },
+    ])).toEqual({ "ws-1": "action-required" });
+  });
+
   test("a stopped run holds its workspace in Action required only until a newer run starts there", () => {
     const stopped = (id: string, createdAt: string) => {
       const detail = atBuild("running", id);

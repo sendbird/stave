@@ -835,6 +835,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
             : 0,
         },
         reportingAvailable: await deps.isReportingAvailable(),
+        delegated: delegatedAuthority(agentRun) !== null,
         lastEndedTurn: endedRow
           ? {
               ...toObserved(endedRow),

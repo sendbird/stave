@@ -368,6 +368,8 @@ describe("Stave action stages", () => {
 
     const capped = { ...executing, agentRun: { ...executing.agentRun, turnCount: executing.agentRun.maxTurns } };
     expect(decide(capped, observe(needsTurn))).toMatchObject({ action: "pause", reason: "limit-reached" });
+    // A delegated run ends at its cap, as before: its parent reads a finished child, not a paused one.
+    expect(decide(capped, { ...observe(needsTurn), delegated: true })).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
     // A running repair turn keeps the action idle.
     expect(
       decide(executing, observe({ ...needsTurn, leadTask: { activeTurn: turn({ turnId: "repair-1" }) } })),

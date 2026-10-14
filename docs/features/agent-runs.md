@@ -318,7 +318,8 @@ sample limits and examples of when each screen helps.
   (**멈춤 · 한도 도달**). **Extend (+10 turns)** adds up to ten turns (at most
   100 total) and continues the same session with its accumulated usage. A Run
   that finishes on its last allowed turn still completes. At 100, Extend is
-  refused with an explanation.
+  refused with an explanation. A [delegated](./delegated-tasks.md) Run still
+  ends at its cap: its parent reads a finished child, not a halted one.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache

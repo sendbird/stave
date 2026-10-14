@@ -48,8 +48,8 @@ export function agentRunWorkQueueLane(input: AgentRunLaneInput): SidebarWorkQueu
       if (input.pauseReason === "usage-limit") {
         return awaitsUsageReset({ usageLimit: input.usageLimit ?? undefined }) ? "in-progress" : "action-required";
       }
-      // The event it waited for never came: the user decides how it goes on.
-      if (input.pauseReason === "wait-expired") return "action-required";
+      // The event it waited for never came, or its turns ran out: the user decides how it goes on.
+      if (input.pauseReason === "wait-expired" || input.pauseReason === "limit-reached") return "action-required";
       return input.pauseReason && isAutomaticAgentRunPause(input.pauseReason)
         ? "action-required"
         : null;
