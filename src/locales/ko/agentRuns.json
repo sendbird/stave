@@ -437,7 +437,7 @@
     "hours": "{{value}}시간",
     "days": "{{value}}일",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고 Codex는 지원되는 경우 auto-review를 사용합니다. 사람의 검토가 필요하면 승인을 기다립니다."
+    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고, Codex는 사용할 수 있으면 auto-review를 사용하며 그렇지 않으면 승인을 요청하지 않습니다. 사용자에게 온 승인 요청에 제때 응답하지 않으면 거부됩니다."
   },
   "checks": {
     "detail": "{{value1}} 검사가 {{value2}}분 동안 대기 중입니다.",
@@ -837,6 +837,6 @@
     "resumeNow": "지금 재개"
   },
   "permissions": {
-    "codexAutoReviewUnavailable": "이 런타임에서는 Codex auto-review를 사용할 수 없습니다. Auto는 기존 never 승인 정책과 샌드박스 설정을 유지합니다. Stave에 도착한 승인 요청은 사용자의 결정을 기다립니다."
+    "codexAutoReviewUnavailable": "이 Codex 버전, 계정 또는 관리 정책에서는 Codex auto-review를 사용할 수 없어 이 에이전트 실행은 이전 Auto 방식으로 진행합니다. Codex는 승인을 요청하지 않으며 워크스페이스 안에서, 또는 설정한 전체 권한으로 파일을 씁니다."
   }
 }

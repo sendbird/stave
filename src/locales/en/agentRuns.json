@@ -440,7 +440,7 @@
     "hours": "{{value}}h",
     "days": "{{value}}d",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto permissions: Claude classifies actions; Codex uses auto-review when available. Human review waits for approval."
+    "autoPermissionDescription": "Auto permissions: Claude classifies actions; Codex uses auto-review when available and otherwise does not ask. Approvals that reach you are declined if nobody answers in time."
   },
   "checks": {
     "detail": "{{value1}} has been pending for {{value2}} minutes.",
@@ -856,6 +856,6 @@
     "resumeNow": "Resume now"
   },
   "permissions": {
-    "codexAutoReviewUnavailable": "Codex auto-review is unavailable for this runtime. Auto keeps the current never approval policy and sandbox settings. Any approval request that reaches Stave waits for your decision."
+    "codexAutoReviewUnavailable": "Codex auto-review is not available with this Codex version, account or managed policy, so this agent run uses Auto as before: Codex does not ask for approvals and writes within the workspace, or with the full access you set."
   }
 }

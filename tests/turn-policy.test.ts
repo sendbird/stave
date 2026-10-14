@@ -517,3 +517,17 @@ test("Run auto-review survives policy resolution while file and network settings
   expect(resolve("codex", readOnlyAgent, options).options).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" });
   expect(omitPermissionRuntimeOptions(options)).not.toHaveProperty("codexApprovalsReviewer");
 });
+
+test("Run auto-review gets the posture of Codex Auto: same floor, same Stave tools, same read-only rule", () => {
+  const auto = { codexApprovalPolicy: "on-request" as const, codexApprovalsReviewer: "auto_review" as const };
+  for (const actor of [chat, agent]) {
+    expect(resolve("codex", actor, auto).options).toMatchObject({
+      codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review",
+      codexFileAccess: "workspace-write", codexAutoApproveStaveLocalMcpTools: true,
+    });
+    expect(resolve("codex", actor, { ...auto, codexFileAccess: "danger-full-access" }).options.codexFileAccess).toBe("danger-full-access");
+  }
+  // As with `never`, a read-only file setting makes it the read-only posture.
+  expect(autonomyOfOptions("codex", { ...auto, codexFileAccess: "read-only" })).toBe("read-only");
+  expect(autonomyOfOptions("codex", { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "user" })).toBe("ask");
+});

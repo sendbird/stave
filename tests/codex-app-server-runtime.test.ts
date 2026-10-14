@@ -35,6 +35,7 @@ import {
   resolveCodexMcpOauthAuthorizationUrl,
 } from "../electron/providers/codex-mcp-management";
 import { resolveProviderRuntimeCapabilities } from "../src/lib/providers/runtime-capabilities";
+import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
 import { buildCodexTurnSteerParams } from "../electron/providers/codex-app-server-steer";
 import { mapCodexThreadForkResponse } from "../electron/providers/codex-thread-actions";
 import {
@@ -2058,17 +2059,83 @@ describe("Codex Run auto-review", () => {
     expect(turn.sandboxPolicy).toMatchObject({ type: "workspaceWrite", networkAccess: false, writableRoots: ["/tmp/repo"] });
   });
 
-  test("older, unknown and unavailable runtimes fall back without sending unsupported fields", async () => {
-    const { buildCodexAutoReviewUnavailableNotice } = await import("../electron/providers/codex-runtime-capabilities");
-    for (const cap of [capabilities("0.162.0"), capabilities(), resolveProviderRuntimeCapabilities({ providerId: "codex", versionText: "0.162.1", available: false })]) {
+  test("older, prerelease, unknown and unavailable runtimes fall back without sending unsupported fields", async () => {
+    const { takeCodexAutoReviewFallbackNotice } = await import("../electron/providers/codex-runtime-capabilities");
+    for (const cap of [capabilities("0.162.0"), capabilities("codex-cli 0.162.1-alpha.3"), capabilities(),
+      resolveProviderRuntimeCapabilities({ providerId: "codex", versionText: "0.162.1", available: false })]) {
       const runtimeOptions = applyCodexRuntimeCapabilityDowngrades({ capabilities: cap, runtimeOptions: requested });
       expect(runtimeOptions).toMatchObject({ codexApprovalPolicy: "never", codexFileAccess: "workspace-write", codexNetworkAccess: false });
       const params = buildCodexTurnStartParams({ threadId: "t", prompt: "Work", cwd: "/tmp/repo", runtimeOptions });
       expect(params).not.toHaveProperty("approvalsReviewer");
-      expect(buildCodexAutoReviewUnavailableNotice({ capabilities: cap, runtimeOptions: requested })).toMatchObject({ type: "system", content: expect.stringContaining("auto-review") });
+      expect(takeCodexAutoReviewFallbackNotice({ requested, effective: runtimeOptions }))
+        .toMatchObject({ type: "system", content: expect.stringContaining("auto-review is not available") });
     }
-    expect(buildCodexAutoReviewUnavailableNotice({ capabilities: capabilities("0.162.1"), runtimeOptions: requested })).toBeNull();
-    expect(buildCodexAutoReviewUnavailableNotice({ capabilities: capabilities(), runtimeOptions: { codexApprovalPolicy: "untrusted" } })).toBeNull();
+    const supported = applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.162.1"), runtimeOptions: requested });
+    expect(takeCodexAutoReviewFallbackNotice({ requested, effective: supported })).toBeNull();
+    expect(takeCodexAutoReviewFallbackNotice({ requested: { codexApprovalPolicy: "untrusted" }, effective: {} })).toBeNull();
+  });
+
+  test("the version floor follows semver: prereleases of 0.162.1 are below it", () => {
+    expect(capabilities("codex-cli 0.162.1").approval.autoClassifierPolicy).toBe(true);
+    expect(capabilities("codex-cli 0.162.1-alpha.3").approval.autoClassifierPolicy).toBe(false);
+    expect(capabilities("codex-cli 0.162.1-rc.1").approval.autoClassifierPolicy).toBe(false);
+    expect(capabilities("codex-cli 0.162.2-alpha.1").approval.autoClassifierPolicy).toBe(true);
+    expect(capabilities("codex-cli 0.163.0").approval.autoClassifierPolicy).toBe(true);
+    // Other gates keep their release-only comparison.
+    expect(capabilities("codex-cli 0.142.0-alpha.1").approval.appToolModes).not.toHaveLength(0);
+  });
+
+  test("without the reviewer, agent run Auto is exactly the Auto from before auto-review", async () => {
+    const { resolveTurnPolicy } = await import("../src/lib/policy/turn-policy");
+    for (const actor of [{ kind: "chat" as const }, { kind: "agent" as const, access: "full" as const }]) {
+      for (const user of [{}, { codexFileAccess: "danger-full-access" as const }, { codexFileAccess: "workspace-write" as const, codexNetworkAccess: true }]) {
+        const resolve = (options: ProviderRuntimeOptions) => {
+          const policy = resolveTurnPolicy({ providerId: "codex", actor, options, root: "/tmp/repo" });
+          return { ...options, ...policy.options };
+        };
+        const before = resolve({ ...user, codexApprovalPolicy: "never" });
+        const now = resolve({ ...user, codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" });
+        expect(now).toMatchObject({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review", codexAutoApproveStaveLocalMcpTools: true });
+        const fallback = applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.162.0"), runtimeOptions: now })!;
+        const { codexApprovalsReviewer, ...fallbackWithoutReviewer } = fallback;
+        expect(codexApprovalsReviewer).toBeUndefined();
+        expect(fallbackWithoutReviewer).toEqual(applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.162.0"), runtimeOptions: before })!);
+        const params = (runtimeOptions: ProviderRuntimeOptions) => ({
+          start: buildCodexThreadStartParams({ cwd: "/tmp/repo", runtimeOptions }),
+          resume: buildCodexThreadResumeParams({ threadId: "t", cwd: "/tmp/repo", runtimeOptions }),
+          turn: buildCodexTurnStartParams({ threadId: "t", prompt: "Work", cwd: "/tmp/repo", runtimeOptions }),
+        });
+        expect(params(fallback)).toEqual(params(applyCodexRuntimeCapabilityDowngrades({ capabilities: capabilities("0.162.0"), runtimeOptions: before })!));
+      }
+    }
+  });
+
+  test("a runtime that refuses the reviewer falls back to never and resets the thread reviewer", async () => {
+    const { codexRequirementsAllowAutoReview, isCodexAutoReviewInEffect, withoutCodexAutoReview } =
+      await import("../electron/providers/codex-runtime-capabilities");
+    expect(codexRequirementsAllowAutoReview({ requirements: null })).toBe(true);
+    expect(codexRequirementsAllowAutoReview({})).toBe(true);
+    expect(codexRequirementsAllowAutoReview({ requirements: { allowedApprovalsReviewers: null } })).toBe(true);
+    expect(codexRequirementsAllowAutoReview({ requirements: { allowedApprovalsReviewers: ["user", "auto_review"] } })).toBe(true);
+    expect(codexRequirementsAllowAutoReview({ requirements: { allowedApprovalsReviewers: ["user"] } })).toBe(false);
+    expect(codexRequirementsAllowAutoReview({ requirements: { allowedApprovalsReviewers: ["guardian_subagent"] } })).toBe(false);
+    expect(codexRequirementsAllowAutoReview({ requirements: { allowedApprovalPolicies: ["never", "untrusted"] } })).toBe(false);
+    expect(isCodexAutoReviewInEffect(undefined)).toBe(true);
+    expect(isCodexAutoReviewInEffect("auto_review")).toBe(true);
+    expect(isCodexAutoReviewInEffect("guardian_subagent")).toBe(true);
+    expect(isCodexAutoReviewInEffect("user")).toBe(false);
+    const runtimeOptions = withoutCodexAutoReview({ ...requested, codexAutoApproveStaveLocalMcpTools: true }, true);
+    expect(runtimeOptions).toEqual({ ...requested, codexApprovalPolicy: "never", codexApprovalsReviewer: "user", codexAutoApproveStaveLocalMcpTools: true });
+    expect(buildCodexTurnStartParams({ threadId: "t", prompt: "Work", cwd: "/tmp/repo", runtimeOptions }))
+      .toMatchObject({ approvalPolicy: "never", approvalsReviewer: "user" });
+  });
+
+  test("the fallback notice is announced once per key", async () => {
+    const { takeCodexAutoReviewFallbackNotice } = await import("../electron/providers/codex-runtime-capabilities");
+    const effective = { ...requested, codexApprovalPolicy: "never" as const, codexApprovalsReviewer: undefined };
+    expect(takeCodexAutoReviewFallbackNotice({ requested, effective, key: "notice-run-1" })).not.toBeNull();
+    expect(takeCodexAutoReviewFallbackNotice({ requested, effective, key: "notice-run-1" })).toBeNull();
+    expect(takeCodexAutoReviewFallbackNotice({ requested, effective, key: "notice-run-2" })).not.toBeNull();
   });
 
   test("returning to ordinary turns resets a resumed thread to the user reviewer", () => {

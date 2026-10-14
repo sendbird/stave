@@ -91,7 +91,7 @@
     "agentEditor13": "취소",
     "preferredProvider": "선호 프로바이더",
     "preferredProviderNone": "선호 없음",
-    "autoPermissionHint": "Claude는 Auto 분류기를, Codex는 지원되는 경우 auto-review를 사용합니다. 사람이 검토해야 할 때 승인을 요청합니다. Codex auto-review를 사용할 수 없으면 승인 요청을 끄고 안내를 표시합니다."
+    "autoPermissionHint": "Claude는 Auto 분류기를 사용하며, 판단하지 못하거나 Auto를 사용할 수 없으면 승인을 요청합니다. Codex는 승인 요청을 끄며, Auto 권한으로 시작한 에이전트 실행에서는 사용할 수 있으면 Codex auto-review를 대신 사용합니다."
   },
   "agentHistory": {
     "revisionRow": "현재와 동일함",

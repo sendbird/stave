@@ -1,4 +1,3 @@
-import { agentPermissionOverrides } from "../../src/lib/agents/permission";
 import type { AgentAssignment } from "../../src/lib/agents/assign";
 import { agentRuntimeOptions, compileTaskAgentRole } from "../../src/lib/agents/runtime-options";
 import { compileNativeSubagents } from "../../src/lib/agents/native-subagents";
@@ -36,15 +35,11 @@ export function prepareTaskAgentTurn(args: {
       compiled.agentConfigId !== assignment.agentConfigId || assignment.agent.name !== assignment.agentName) {
     throw new Error("The task's saved Agent identity is inconsistent.");
   }
-  const requested = turn.runtimeOptions ?? {};
-  const base = turn.agentRunStage && compiled.role === "primary" &&
-    requested.codexApprovalsReviewer === "auto_review"
-    ? { ...requested, ...agentPermissionOverrides({ permission: compiled.permission,
-        providerId: turn.providerId, options: requested }) }
-    : requested;
+  const base = turn.runtimeOptions ?? {};
   // A main Agent runs autonomously unless it is read only (`turn-policy.ts`);
-  // Run reviewer requests retain the saved permission ceiling above. Other turns
-  // keep their existing autonomy. Delegation policy has already
+  // its saved permission is no longer a ceiling, in an agent run as anywhere
+  // else, so a Codex agent run's Auto keeps its native reviewer here exactly
+  // as Claude keeps native Auto. Delegation policy has already
   // been resolved by its host authority, so a delegate only adds instructions.
   const instructions = compiled.role === "primary" ? agentRuntimeOptions(compiled, base) : {};
   const turnPolicy = compiled.role === "primary" ? resolveTurnPolicy({

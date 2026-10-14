@@ -10,6 +10,17 @@ import { CODEX_MODEL_UPDATE_GUIDANCE } from "../../src/lib/providers/codex-model
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 import type { BridgeEvent } from "./types";
 
+/**
+ * A JSON-RPC error response: App Server received the request and refused it.
+ * Transport failures, request timeouts and cancellation are plain errors.
+ */
+export class CodexAppServerRpcError extends Error {
+  constructor(message: string, readonly code?: number) {
+    super(message);
+    this.name = "CodexAppServerRpcError";
+  }
+}
+
 export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }

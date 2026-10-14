@@ -11,11 +11,10 @@ piece of its work, inside its turn or as a delegated task.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start. A task that runs as an Agent runs **autonomously**: no routine
-approval prompts. Codex Runs use native auto-review when supported and wait
-for human review when a request reaches Stave. Unsupported runtimes retain
-their existing approval policy and show a notice. Claude asks when its native
-Auto classifier hands an action
-to you or is unavailable. Guardrails (all on by default, each one can be turned
+approval prompts. Claude asks when its native Auto classifier hands an action
+to you or is unavailable. In an agent run with Auto permission, Codex hands
+approvals to its native auto-review when the runtime supports it, and
+otherwise never asks, as before. Guardrails (all on by default, each one can be turned
 off) also ask. A read-only Agent stays read only. Delegated Agents use the delegation policy resolved by the host and never
 get more autonomy than the task that delegated them.
 
@@ -374,12 +373,14 @@ Fleet's search finds its tasks.
   stay as you set them. Claude's native Auto classifier can hand an action
   to you when it cannot decide or Auto is unavailable; the Agent Run waits
   for that approval. Saved **Manual** and **Guided** agents now run like
-  **Auto**; only **Read only** limits a turn.
+  **Auto**; only **Read only** limits a turn. This holds in agent runs too: a
+  Codex agent run with Auto permission keeps auto-review whatever the saved
+  agent's permission, unless it is **Read only**.
 
   | Agent | Claude | Codex | Cursor | Kiro |
   | --- | --- | --- | --- | --- |
   | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
-  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Classifier handoffs wait for your approval | Never asks; at least workspace files, or your full access | Your settings | Your settings |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Classifier handoffs wait for your approval | Never asks, or in an agent run with Auto permission, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
 
   Agent-mode guardrails (all on by default; turn each off in Settings) also
   interrupt work: a write outside the task's repository, a protected credential path or variable, an irreversible

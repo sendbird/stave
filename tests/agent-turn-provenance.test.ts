@@ -151,20 +151,40 @@ test("Agent evidence survives production SQL compaction and reopening, without r
   rmSync(directory, { recursive: true, force: true });
 });
 
-test("Codex Run reviewer respects the saved Agent definition before native dispatch", () => {
+// A saved permission is not a ceiling for a main Agent (docs/features/agents.md):
+// Manual and Guided run like Auto and only Read only limits a turn. A Codex
+// agent run's Auto therefore keeps the native reviewer for all three, just as
+// Claude keeps native Auto, and a read-only Agent drops it for the read-only posture.
+test("Codex agent run Auto keeps the native reviewer for every saved permission but Read only", () => {
   const h = harness();
   for (const permission of ["auto", "guided", "manual", "read-only"] as const) {
     h.record({ ...getBuiltinAgent(permission === "read-only" ? "researcher" : "implementer")!, permission });
     const turn = h.runtime.prepareTurn({
       turnId: `reviewer-${permission}`, taskId: "task", providerId: "codex", cwd: "/tmp/repo", prompt: "Work",
       agentRunStage: { agentRunId: "run", stageId: "work", attempt: 1 },
-      runtimeOptions: { codexApprovalsReviewer: "auto_review", codexApprovalPolicy: "on-request",
-        codexFileAccess: "workspace-write", codexNetworkAccess: false },
+      runtimeOptions: { codexApprovalsReviewer: "auto_review", codexApprovalPolicy: "on-request", codexNetworkAccess: false },
     })!;
-    expect(turn.runtimeOptions.codexApprovalsReviewer).toBe(permission === "auto" ? "auto_review" : "user");
-    expect(turn.runtimeOptions.codexApprovalPolicy).toBe(permission === "auto" ? "on-request" : permission === "read-only" ? "never" : "untrusted");
-    expect(turn.runtimeOptions.codexFileAccess).toBe(permission === "read-only" ? "read-only" : "workspace-write");
+    const readOnly = permission === "read-only";
+    expect(turn.turnPolicy?.autonomy).toBe(readOnly ? "read-only" : "autonomous");
+    expect(turn.runtimeOptions).toMatchObject(readOnly
+      ? { codexApprovalsReviewer: "user", codexApprovalPolicy: "never", codexFileAccess: "read-only", codexAutoApproveStaveLocalMcpTools: false }
+      : { codexApprovalsReviewer: "auto_review", codexApprovalPolicy: "on-request", codexFileAccess: "workspace-write", codexAutoApproveStaveLocalMcpTools: true });
     expect(turn.runtimeOptions.codexNetworkAccess).toBe(false);
+    expect(turn.provenance.permission.applied.codexApprovalsReviewer).toBe(readOnly ? "user" : "auto_review");
+  }
+  h.db.close();
+});
+
+test("a Claude agent run's Auto stays native Auto for every saved permission but Read only", () => {
+  const h = harness();
+  for (const permission of ["auto", "guided", "manual"] as const) {
+    h.record({ ...getBuiltinAgent("implementer")!, permission });
+    const turn = h.runtime.prepareTurn({
+      turnId: `claude-${permission}`, taskId: "task", providerId: "claude-code", cwd: "/tmp/repo", prompt: "Work",
+      agentRunStage: { agentRunId: "run", stageId: "work", attempt: 1 },
+      runtimeOptions: { claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false },
+    })!;
+    expect(turn.runtimeOptions.claudePermissionMode).toBe("auto");
   }
   h.db.close();
 });

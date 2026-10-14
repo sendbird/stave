@@ -12,6 +12,7 @@ import {
   toErrorMessage,
 } from "./codex-app-server-errors";
 import { canResumeCodexThreadAfterInterrupt } from "./codex-orphan-turn-cleanup";
+import { codexAutoReviewRetryOptions } from "./codex-runtime-capabilities";
 import {
   buildCodexDeveloperInstructions,
   buildCodexInstructionProfileKey,
@@ -52,7 +53,13 @@ export type CodexEnsuredThread = {
   releaseThread: () => void;
   instructionRefresh: string | null;
   fallbackModel: string | undefined;
+  /** The reviewer the thread response reports; absent on servers without it. */
+  approvalsReviewer?: unknown;
+  /** Set when App Server refused auto-review and the thread started without it. */
+  autoReviewRejected?: true;
 };
+
+type CodexThreadResponse = { thread: { id: string }; model?: string; approvalsReviewer?: unknown };
 
 function resolveCodexResumeThreadFallback(args: {
   conversation?: StreamTurnArgs["conversation"];
@@ -164,7 +171,7 @@ export async function ensureCodexThread(args: {
     : undefined;
   try {
     const response = resumeThreadId
-      ? await args.client.request<{ thread: { id: string }; model?: string }>("thread/resume", {
+      ? await args.client.request<CodexThreadResponse>("thread/resume", {
           ...buildCodexThreadResumeParams({
             threadId: resumeThreadId,
             cwd: args.cwd,
@@ -177,7 +184,7 @@ export async function ensureCodexThread(args: {
             ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
           }),
         })
-      : await args.client.request<{ thread: { id: string }; model?: string }>(
+      : await args.client.request<CodexThreadResponse>(
           "thread/start",
           buildCodexThreadStartParams({
             cwd: args.cwd,
@@ -228,6 +235,9 @@ export async function ensureCodexThread(args: {
       fallbackModel: args.modelFallbackAttempted
         ? args.runtimeOptions?.model
         : undefined,
+      ...(response.approvalsReviewer !== undefined
+        ? { approvalsReviewer: response.approvalsReviewer }
+        : {}),
     };
   } catch (error) {
     releaseThread?.();
@@ -246,6 +256,12 @@ export async function ensureCodexThread(args: {
         modelFallbackAttempted: true,
       });
       return { ...started, fallbackModel };
+    }
+    // One retry as Auto was before auto-review; the retry no longer asks for it.
+    const autoReviewRetry = codexAutoReviewRetryOptions(args.runtimeOptions, error);
+    if (autoReviewRetry) {
+      const started = await ensureCodexThread({ ...args, runtimeOptions: autoReviewRetry });
+      return { ...started, autoReviewRejected: true };
     }
     throw error;
   }

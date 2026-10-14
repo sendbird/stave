@@ -81,11 +81,22 @@ permissions. **Auto** on Claude uses Claude's native permission classifier,
 without bypassing permission checks. When the classifier cannot decide or Auto
 is unavailable for the model or account, Claude asks and the Run waits for that
 approval. Codex Auto uses native auto-review when available: `on-request`
-approvals with the `auto_review` reviewer. Stave trusts the provider's decision;
-requests that reach Stave wait for your approval. Older or unknown runtimes
-keep `never` and show an unavailability notice. Sandbox, file access and network
-settings stay as set, within the Agent's definition. **Guided** and **Your
-settings** keep their existing mapping.
+approvals with the `auto_review` reviewer, and Stave trusts its decision. When
+auto-review is not available (an older or prerelease Codex, a managed policy
+that does not allow it, a Codex that refuses the request, or a thread that
+reports another reviewer), the turn runs as Codex Auto did before: approvals
+`never`, and the run says so once.
+Either way file access is at least the workspace, or your full access; network
+stays as set; and Stave's own tools run without asking. A saved agent's
+**Manual** or **Guided** permission does not change Auto on either provider;
+a **Read only** agent stays read only. **Guided** and **Your settings** keep
+their existing mapping.
+
+An approval or question that reaches you in a run has the same time limit as
+in any other turn, on both providers: if nobody answers within 45 minutes,
+Stave declines it, shows an error and the turn continues, so a lost request
+cannot hold the run. In a [delegated task](./delegated-tasks.md) the host
+declines an unanswered approval after a few minutes.
 
 ### Agent run line
 
