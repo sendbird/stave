@@ -248,7 +248,8 @@ function buildLadder(args: {
   const targetNote = matchedRule ? i18n.t("settingsConnections:flow.ruleTarget") : i18n.t("settingsConnections:flow.fallbackTarget");
   rungs[targetIndex]?.notes.push(targetNote);
 
-  if (route.budgetShift === -2) {
+  // A held model deferred the ceiling's switch; the cache note below covers it.
+  if (route.budgetShift === -2 && !route.cacheHeldModel) {
     const cheapest = pickRungForTier(rungs, "light");
     if (cheapest !== targetIndex) {
       rungs[cheapest]?.notes.push(i18n.t("settingsConnections:flow.budgetCheapest"));
@@ -275,7 +276,7 @@ function buildLadder(args: {
     }
   }
   if (route.cacheHeldModel) {
-    // The step-down was undone to keep the previous turn's prompt cache.
+    // The model change was deferred to keep the previous turn's prompt cache.
     const held = pickRungForTier(rungs, route.tier);
     if (held !== cursorIndex) {
       rungs[held]?.notes.push(i18n.t("settingsConnections:flow.keptForCache"));

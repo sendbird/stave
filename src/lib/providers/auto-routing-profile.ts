@@ -264,6 +264,48 @@ const CACHE_PRESERVING_EFFORT_MODELS: ReadonlySet<string> = new Set([
   DEFAULT_CLAUDE_OPUS_1M_MODEL,
 ]);
 
+/**
+ * How long after a turn finishes its model's prompt cache is treated as warm.
+ * Each model has its own cache, so a model change inside that window re-reads
+ * the whole conversation at the cache-write rate (1.25-2x input price) instead
+ * of the cache-read rate (0.05-0.1x); Auto holds the model until then.
+ *
+ * - Claude: 60 minutes. Claude Code's main conversation on a subscription
+ *   writes its cache with the one-hour TTL.
+ * - Codex: 30 minutes. OpenAI keeps cached prefixes from minutes up to about
+ *   an hour of inactivity; half an hour sits inside that range.
+ * - Any other provider: 5 minutes, the default ephemeral cache TTL.
+ */
+export const CLAUDE_PROMPT_CACHE_WARM_MS = 60 * 60_000;
+export const CODEX_PROMPT_CACHE_WARM_MS = 30 * 60_000;
+export const DEFAULT_PROMPT_CACHE_WARM_MS = 5 * 60_000;
+
+export function promptCacheWarmWindowMs(providerId: ProviderId): number {
+  return providerId === "claude-code"
+    ? CLAUDE_PROMPT_CACHE_WARM_MS
+    : providerId === "codex"
+      ? CODEX_PROMPT_CACHE_WARM_MS
+      : DEFAULT_PROMPT_CACHE_WARM_MS;
+}
+
+/**
+ * True while the previous turn's prompt cache is still warm: the turn has a
+ * known finish time inside the provider's window and no compaction followed
+ * it. A compaction replaces the conversation with a summary, so a model change
+ * after it re-reads little.
+ */
+export function isPromptCacheWarm(args: {
+  providerId: ProviderId;
+  lastCompletedAt: number | null | undefined;
+  compactedSince?: boolean;
+  now: number;
+}): boolean {
+  if (args.compactedSince || typeof args.lastCompletedAt !== "number" || !Number.isFinite(args.lastCompletedAt)) {
+    return false;
+  }
+  return args.now - args.lastCompletedAt <= promptCacheWarmWindowMs(args.providerId);
+}
+
 const CLAUDE_EFFORT_SCALE = ["low", "medium", "high", "xhigh", "max"] as const;
 /**
  * Efforts a level may name. One scale for both providers, so it stops at the
@@ -1157,10 +1199,14 @@ export interface RouterSignals {
   lastAssistantProvider?: ProviderId | null;
   /**
    * Model that produced the most recent assistant turn, when any. Prompt
-   * caches are model-scoped, so a primary route that merely steps down from
-   * this model re-reads the whole conversation at the uncached rate.
+   * caches are model-scoped, so a primary route that changes this model
+   * mid-task re-reads the whole conversation at the uncached rate.
    */
   lastAssistantModel?: string | null;
+  /** Epoch ms the most recent assistant turn finished; absent when unknown. */
+  lastAssistantCompletedAt?: number | null;
+  /** True when the conversation was compacted during or after that turn. */
+  compactedSinceLastAssistant?: boolean;
   /**
    * True when this route is a task boundary, where the provider may change:
    * a task's first turn (no managed-provider assistant turn in its history)
@@ -1202,8 +1248,9 @@ export interface ResolvedRoute {
   budgetHeldModel: boolean;
   /**
    * True when the primary kept the previous turn's model instead of the
-   * cheaper pick, because switching would have re-read the whole conversation
-   * uncached. Escalations to a stronger model are never held.
+   * level's or the budget guard's pick, because the previous model's prompt
+   * cache is still warm. The switch waits for the next boundary: a new task,
+   * a compaction, or the cache cooling.
    */
   cacheHeldModel: boolean;
 }
@@ -1212,6 +1259,8 @@ export interface ResolveRouteArgs {
   profile: AutoRoutingProfile;
   signals: RouterSignals;
   role: RouterRole;
+  /** Clock for the prompt-cache warm check; defaults to `Date.now()`. */
+  now?: number;
   /** Runtime-advertised models for providers whose catalog is not static. */
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
@@ -1633,12 +1682,13 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
 
   for (const providerId of [...candidates, ...failover]) {
     const { used: budgetUsed, shift: budgetShift } = resolveBudget(providerId);
-    const models = listEligibleRouteModels({
+    const allowedModels = listEligibleRouteModels({
       profile,
       providerId,
       runtimeModels: args.runtimeModelsByProvider?.[providerId],
       exclusiveModels: args.exclusiveModelsByProvider?.[providerId],
-    }).filter(satisfiesFloor);
+    });
+    const models = allowedModels.filter(satisfiesFloor);
     if (models.length === 0) {
       continue;
     }
@@ -1654,6 +1704,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     let tier: RouteTier;
     let model: string;
     let budgetHeldModel = false;
+    let budgetReason: string | null = null;
     if (budgetShift === -2) {
       const cheapest = pickModelForTier({ models, tier: "light" });
       if (!cheapest) {
@@ -1661,9 +1712,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       }
       tier = cheapest.tier;
       model = cheapest.model;
-      reasonParts.push(
-        i18n.t("providers:autoRoutingProfile.usageIsAtSoTheLeast", { value1: Math.round(budgetUsed ?? 0) }),
-      );
+      budgetReason = i18n.t("providers:autoRoutingProfile.usageIsAtSoTheLeast", { value1: Math.round(budgetUsed ?? 0) });
     } else {
       const ruleTier = matched?.then.tier;
       const requestedTier: RouteTier =
@@ -1699,13 +1748,68 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       model = picked.model;
       tier = picked.tier;
       if (budgetShift === -1) {
-        reasonParts.push(
-          budgetHeldModel
-            ? i18n.t("providers:autoRoutingProfile.usageIsAtSoEffortStepped", { value1: Math.round(budgetUsed ?? 0) })
-            : i18n.t("providers:autoRoutingProfile.usageIsAtSoTheRoute", { value1: Math.round(budgetUsed ?? 0) }),
-        );
+        budgetReason = budgetHeldModel
+          ? i18n.t("providers:autoRoutingProfile.usageIsAtSoEffortStepped", { value1: Math.round(budgetUsed ?? 0) })
+          : i18n.t("providers:autoRoutingProfile.usageIsAtSoTheRoute", { value1: Math.round(budgetUsed ?? 0) });
       }
     }
+
+    // Cache hold. Each model has its own prompt cache, so a model change
+    // mid-task re-reads the whole conversation at the cache-write rate, which
+    // for a long task outweighs what a better or cheaper model saves on one
+    // turn. While the previous turn's cache is warm the primary keeps its
+    // model, whether the pick steps down, steps up or follows the budget
+    // guard (the -2 ceiling included); the switch waits for the next
+    // boundary: a new task, a compaction, or the cache cooling. Still
+    // immediate: a provider change (availability or capability failover), a
+    // previous model no longer allowed, a safety escalation that needs a
+    // stronger model, and pins, which never reach Auto.
+    const lastModel = signals.lastAssistantModel?.trim();
+    const lastTier = lastModel ? resolveRouteTierForModel(lastModel) : null;
+    const safetyStepUp =
+      lastTier !== null &&
+      routeTierIndex(tier) < routeTierIndex(lastTier) &&
+      signals.sensitive &&
+      profile.signals.safetyEscalation;
+    const cacheHeldModel = Boolean(
+      role === "primary" &&
+      !signals.newTask &&
+      lastModel &&
+      lastTier &&
+      lastModel !== model &&
+      signals.lastAssistantProvider === providerId &&
+      allowedModels.includes(lastModel) &&
+      !safetyStepUp &&
+      isPromptCacheWarm({
+        providerId,
+        lastCompletedAt: signals.lastAssistantCompletedAt,
+        compactedSince: signals.compactedSinceLastAssistant,
+        now: args.now ?? Date.now(),
+      }),
+    );
+    if (cacheHeldModel && lastModel && lastTier) {
+      const target = toHumanModelName({ model });
+      const kept = toHumanModelName({ model: lastModel });
+      model = lastModel;
+      tier = lastTier;
+      // The budget guard's model change is the one deferred; its effort step
+      // on a cache-preserving model stays and keeps its own reason.
+      if (budgetReason && !budgetHeldModel) {
+        reasonParts.push(
+          i18n.t("providers:autoRoutingProfile.cacheHoldDeferredBudget", {
+            usage: Math.round(budgetUsed ?? 0),
+            kept,
+            target,
+          }),
+        );
+      } else {
+        if (budgetReason) reasonParts.push(budgetReason);
+        reasonParts.push(i18n.t("providers:autoRoutingProfile.cacheHoldDeferredSwitch", { kept, target }));
+      }
+    } else if (budgetReason) {
+      reasonParts.push(budgetReason);
+    }
+
     if (failedOver) {
       reasonParts.push(
         i18n.t("providers:autoRoutingProfile.hasNoAllowedModelForWork", { value1: getProviderLabel({ providerId: firstChoice }), value2: ROUTE_COMPLEXITY_LABELS[complexity].toLowerCase(), value3: getProviderLabel({ providerId }) }),
@@ -1719,34 +1823,6 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       );
     }
 
-    // Cache stickiness. A model switch mid-task re-reads the whole
-    // conversation at the uncached rate, which for a long task dwarfs the
-    // per-turn saving of a cheaper model. Keep the previous turn's model when
-    // the pick is merely a step down to a weaker rung on the same provider;
-    // stepping *up* is a quality decision and always goes through, and the
-    // hard budget ceiling (−2) still forces the cheapest model.
-    let cacheHeldModel = false;
-    const lastModel = signals.lastAssistantModel?.trim();
-    if (
-      role === "primary" &&
-      (budgetShift !== -2 || signals.uncertain) &&
-      !signals.newTask &&
-      lastModel &&
-      lastModel !== model &&
-      signals.lastAssistantProvider === providerId &&
-      models.includes(lastModel)
-    ) {
-      const lastTier = resolveRouteTierForModel(lastModel);
-      if (routeTierIndex(lastTier) <= routeTierIndex(tier)) {
-        model = lastModel;
-        tier = lastTier;
-        cacheHeldModel = true;
-        reasonParts.push(
-          i18n.t("providers:autoRoutingProfile.keptFromThePreviousTurnSo", { value1: toHumanModelName({ model: lastModel }) }),
-        );
-      }
-    }
-
     const requestedEffort = matched?.then.effort ?? (matched ? undefined : profile.fallbacks[providerId]?.effort);
     // A primary turn whose rule names no effort takes the level's own effort
     // for the preference: the low end for Cost-saver, the recommended effort
@@ -1758,14 +1834,18 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         ? level.effort
         : level.effortRange[stance.shift < 0 ? 0 : 1]
       : requestedEffort;
+    // Budget pressure on a held model that keeps its cache across effort
+    // changes still lowers effort; only the model change waits.
+    const budgetEffortStep =
+      budgetHeldModel || (cacheHeldModel && budgetShift < 0 && CACHE_PRESERVING_EFFORT_MODELS.has(model)) ? -1 : 0;
     let effort = resolveEffort({
       providerId,
       model,
       requested: levelEffort,
       tier,
       shift: budgetShift === -2
-        ? 0
-        : (levelOwnsEffort ? 0 : stance.shift) + (budgetHeldModel ? -1 : 0),
+        ? budgetEffortStep
+        : (levelOwnsEffort ? 0 : stance.shift) + budgetEffortStep,
     });
     if (effort && !levelOwnsEffort && role === "primary" && budgetShift === 0 && stance.shift !== 0) {
       effort = clampEffortToRange({

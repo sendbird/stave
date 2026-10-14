@@ -233,6 +233,48 @@ export interface AutoRoutingHistoryMessage {
   content: string;
   providerId?: ProviderId | "user";
   model?: string;
+  /** ISO time the turn finished; the last assistant turn's feeds the cache-warm check. */
+  completedAt?: string;
+  /** True when the conversation was compacted during this turn or after it. */
+  compactedAfter?: boolean;
+}
+
+/** A provider-reported context compaction; a Codex `turn_start` checkpoint is not one. */
+function hasContextCompaction(parts: unknown): boolean {
+  return (
+    Array.isArray(parts) &&
+    parts.some((part) => {
+      if (!part || typeof part !== "object") return false;
+      const { type, compactBoundary } = part as { type?: unknown; compactBoundary?: { trigger?: unknown } | null };
+      return type === "system_event" && compactBoundary != null && compactBoundary.trigger !== "turn_start";
+    })
+  );
+}
+
+/**
+ * The routing history of a task's messages (live `ChatMessage`s or saved
+ * rows), newest last; unreadable entries are skipped. Each message carries
+ * its finish time and whether a compaction happened during or after it.
+ */
+export function toRoutingHistory(messages: readonly unknown[]): AutoRoutingHistoryMessage[] {
+  let compactedLater = false;
+  const history: AutoRoutingHistoryMessage[] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || typeof message !== "object") continue;
+    const { role, content, providerId, model, completedAt, parts } = message as Record<string, unknown>;
+    compactedLater = compactedLater || hasContextCompaction(parts);
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string") continue;
+    history.push({
+      role,
+      content,
+      ...(providerId === "claude-code" || providerId === "codex" ? { providerId } : {}),
+      ...(typeof model === "string" && model ? { model } : {}),
+      ...(typeof completedAt === "string" && completedAt ? { completedAt } : {}),
+      ...(compactedLater ? { compactedAfter: true } : {}),
+    });
+  }
+  return history.reverse();
 }
 
 export interface AutoRoutingClassifierRequest {
@@ -350,6 +392,8 @@ export interface ResolveAutoRoutingDecisionArgs {
    */
   classifierSignal?: AbortSignal;
   classifyRoute?: RouteClassifier;
+  /** Clock for the prompt-cache warm check; defaults to `Date.now()`. */
+  now?: number;
 }
 
 /**
@@ -642,21 +686,35 @@ export function findLastAssistantProvider(
   return null;
 }
 
-/** Concrete model behind the most recent managed-provider assistant turn. */
-export function findLastAssistantModel(
+function findLastAssistantTurn(
   history: readonly AutoRoutingHistoryMessage[],
-): string | null {
+): AutoRoutingHistoryMessage | null {
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const message = history[index];
     if (
       message?.role === "assistant" &&
       (message.providerId === "claude-code" || message.providerId === "codex")
     ) {
-      const model = message.model?.trim();
-      return model && !isAutoModelId({ model }) ? model : null;
+      return message;
     }
   }
   return null;
+}
+
+/** Concrete model behind the most recent managed-provider assistant turn. */
+export function findLastAssistantModel(
+  history: readonly AutoRoutingHistoryMessage[],
+): string | null {
+  const model = findLastAssistantTurn(history)?.model?.trim();
+  return model && !isAutoModelId({ model }) ? model : null;
+}
+
+function lastAssistantCompletedAt(
+  history: readonly AutoRoutingHistoryMessage[],
+): number | null {
+  const completedAt = findLastAssistantTurn(history)?.completedAt;
+  const time = completedAt ? Date.parse(completedAt) : Number.NaN;
+  return Number.isFinite(time) ? time : null;
 }
 
 function countAssistantProviderTurns(
@@ -988,6 +1046,8 @@ export function computeRouterSignals(args: {
         : {}),
       lastAssistantProvider,
       lastAssistantModel: findLastAssistantModel(args.history),
+      lastAssistantCompletedAt: lastAssistantCompletedAt(args.history),
+      compactedSinceLastAssistant: findLastAssistantTurn(args.history)?.compactedAfter === true,
       // A task boundary is the first turn: no managed provider has answered yet.
       boundary: lastAssistantProvider == null,
       ...(args.preferredProviderHint
@@ -1164,6 +1224,7 @@ export async function resolveAutoRoutingDecision(
     },
     runtimeModelsByProvider: args.runtimeModelsByProvider,
     exclusiveModelsByProvider: args.exclusiveModelsByProvider,
+    ...(args.now != null ? { now: args.now } : {}),
   });
 
   const confidence = null;

@@ -208,6 +208,50 @@ describe("agent run routing: host ports", () => {
     ]);
   });
 
+  /** Local rules only, so a bounded prompt routes to the light model unless the cache holds it. */
+  const localRules = () => {
+    const profile = buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID);
+    return settings({ autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: false } } });
+  };
+
+  test("Stave Auto holds the warm model on an agent run turn until a boundary", async () => {
+    const now = Date.parse("2026-10-14T12:00:00Z");
+    const saved = (parts: unknown[], minutesAgo = 5) => toRoutingHistory([
+      { role: "user", content: "Add export.", parts: [] },
+      { role: "assistant", content: "Done.", providerId: "claude-code", model: "claude-opus-5-5",
+        completedAt: new Date(now - minutesAgo * 60_000).toISOString(), parts },
+    ]);
+    const turn = (history: ReturnType<typeof saved>) => routeAgentRunTurn({
+      agent: null, draft: { autoRouting: true }, current: { providerId: "claude-code", model: "claude-opus-5-5" },
+      settings: localRules(), prompt: "fix typo", history, now,
+    });
+    expect(await turn(saved([]))).toMatchObject({ route: "auto", model: "claude-opus-5-5" });
+    expect((await turn(saved([], 90))).model).toBe("claude-haiku-5-5");
+    expect((await turn(saved([
+      { type: "system_event", content: "Context compacted (manual).", compactBoundary: { trigger: "manual" } },
+    ]))).model).toBe("claude-haiku-5-5");
+  });
+
+  test("the host router passes saved finish times through, so a warm model is held", async () => {
+    const route = createAgentRunRouter({
+      readTask: async () => ({ providerId: "claude-code", model: "claude-opus-5-5" }),
+      readDraft: () => ({ autoRouting: true }),
+      readMessages: () => [
+        { role: "user", content: "Add export.", parts: [] },
+        { role: "assistant", content: "Done.", providerId: "claude-code", model: "claude-opus-5-5",
+          completedAt: new Date(Date.now() - 60_000).toISOString(), parts: [] },
+      ],
+      readSettings: () => localRules(),
+      resolveWorkspacePath: async () => null,
+      classify: async () => ({ ok: false }),
+    });
+    const agentRun = { workspaceId: "ws-1", leadTaskId: "task-1" } as AgentRun;
+    expect(await route({ agentRun, prompt: "fix typo", agent: null })).toMatchObject({
+      fingerprint: { providerId: "claude-code", model: "claude-opus-5-5" },
+      route: "auto",
+    });
+  });
+
   test("the host router reads the task's draft and runtime and returns a run route", async () => {
     const route = createAgentRunRouter({
       readTask: async () => ({ providerId: "claude-code", model: "sonnet" }),
