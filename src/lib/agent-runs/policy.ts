@@ -1,3 +1,4 @@
+import { resolveAgentRunUsageLimitResumeAt } from "./usage-limit";
 import { i18n } from "@/i18n/runtime";
 /**
  * Agent run supervisor policy: the pure half of an agent run.
@@ -49,6 +50,7 @@ export interface ObservedTurn {
   endedAt?: string | null;
   /** True when Stave stopped in the middle of this turn and closed it at boot. */
   interrupted?: boolean;
+  usageLimited?: { resetsAt?: string; accountProfileId: string; fingerprint: AgentRunFingerprint };
 }
 
 /** What the runtime read about the lead task this tick. */
@@ -94,6 +96,7 @@ export interface AgentRunObservation {
   actionOutcome: ActionOutcome | null;
   /** When the current attempt was last marked stuck, if it is stuck. */
   stageStuckAt?: string | null;
+  usageLimitResume?: { status: "headroom" | "exhausted" | "unavailable"; resetsAt?: string };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -104,13 +107,14 @@ export type StageTurnReason =
   | "stage-start"
   | "continue-after-user"
   | "reporting-restored"
-  | "resume-after-restart";
+  | "resume-after-restart"
+  | "resume-after-usage-limit";
 
 export type AgentRunDecision =
   | { action: "idle" }
   | { action: "wait"; reason: "awaiting-approval" | "awaiting-user-input" }
   | { action: "stop"; reason: AgentRunStopReason; detail: string }
-  | { action: "pause"; reason: AgentRunPauseReason; detail: string }
+  | { action: "pause"; reason: AgentRunPauseReason; detail: string; usageLimit?: AgentRun["usageLimit"] }
   | { action: "resume" }
   | { action: "block"; reason: StageBlockReason; detail: string }
   | { action: "request-sign-off" }
@@ -305,6 +309,9 @@ function decideAiStage(
     // The user's reply is guidance for this stage; the agent run picks it up.
     return startTurn({ agentRun, record, observation, reason: "continue-after-user" });
   }
+  if (record.status !== "stuck" && last.usageLimited && agentRun.usageLimit?.turnId === last.turnId) {
+    return startTurn({ agentRun, record, observation, reason: "resume-after-usage-limit" });
+  }
   // The agent run's own turn ended without a report.
   if (record.status === "stuck") return { action: "idle" };
   if (last.interrupted) {
@@ -389,7 +396,7 @@ export function decideAgentRunAction(args: {
 
   // 1. Stop. Trusted only when the workspace actually loaded.
   if (!lead.workspaceAvailable) {
-    return manuallyPaused
+    return manuallyPaused || agentRun.pauseReason === "usage-limit"
       ? { action: "idle" }
       : pauseFor(agentRun, "task-identity-changed", i18n.t("agentRuns:policy.extraCopy308"));
   }
@@ -409,6 +416,10 @@ export function decideAgentRunAction(args: {
 
   // A pause the user chose outranks every automatic one.
   if (manuallyPaused) return { action: "idle" };
+
+  // Keep a usage reservation while identity/runtime drift prevents dispatch.
+  if (agentRun.pauseReason === "usage-limit" && (!lead.identity.ok ||
+      (agentRun.origin !== "agent" && lead.fingerprint && !agentRunFingerprintsMatch(agentRun.fingerprint, lead.fingerprint)))) return { action: "idle" };
 
   // 2. Pause.
   if (!lead.identity.ok) {
@@ -430,6 +441,17 @@ export function decideAgentRunAction(args: {
       detail: i18n.t("agentRuns:policy.detail7"),
     };
   }
+  if (agentRun.state === "paused" && agentRun.pauseReason === "usage-limit") {
+    const waiting = agentRun.usageLimit;
+    if (!waiting?.resumeAt || Date.parse(waiting.resumeAt) > now.getTime() || lead.activeTurn ||
+        lead.pendingApprovalCount || lead.pendingUserInputCount) return { action: "idle" };
+    const quota = observation.usageLimitResume;
+    if (!quota) return { action: "idle" };
+    if (quota.status === "headroom") return { action: "resume" };
+    const resetsAt = quota.status === "unavailable" ? waiting.resetsAt : quota.resetsAt ?? null;
+    return { action: "pause", reason: "usage-limit", detail: "",
+      usageLimit: { ...waiting, resetsAt, resumeAt: resolveAgentRunUsageLimitResumeAt(resetsAt, now) } };
+  }
   if (agentRun.state === "paused") return { action: "resume" };
 
   // 4. Wait on the user.
@@ -438,6 +460,15 @@ export function decideAgentRunAction(args: {
 
   // 5. A turn is running.
   if (lead.activeTurn) return { action: "idle" };
+
+  const last = observation.lastEndedTurn;
+  if (last?.usageLimited && agentRun.usageLimit?.turnId !== last.turnId) {
+    const resetsAt = last.usageLimited.resetsAt ?? null;
+    return { action: "pause", reason: "usage-limit", detail: "", usageLimit: {
+      turnId: last.turnId, resetsAt, resumeAt: resolveAgentRunUsageLimitResumeAt(resetsAt, now),
+      accountProfileId: last.usageLimited.accountProfileId, fingerprint: last.usageLimited.fingerprint,
+    } };
+  }
 
   // 6-9. The current stage.
   const record = currentStageRecord(aggregate);
@@ -547,6 +578,7 @@ export function applyAgentRunDecision(args: {
           {
             state: "paused",
             pauseReason: decision.reason,
+            ...(decision.usageLimit ? { usageLimit: decision.usageLimit } : {}),
             stopReason: null,
             reasonDetail: clampReason(decision.detail),
           },

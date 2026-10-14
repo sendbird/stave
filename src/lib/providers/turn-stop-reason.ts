@@ -5,6 +5,11 @@ const PROVIDER_TURN_FAILURE_STOP_REASONS = new Set([
   "max_tokens",
   "output_overflow",
   "runtime_failure",
+  "usage_limit",
+  "usage-limit",
+  "usage_limit_reached",
+  "usage_limit_exceeded",
+  "usagelimitexceeded",
 ]);
 
 const PROVIDER_TURN_CANCEL_STOP_REASONS = new Set([

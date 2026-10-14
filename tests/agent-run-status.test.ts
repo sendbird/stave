@@ -1,3 +1,7 @@
+import { i18n } from "../src/i18n/runtime";
+import { formatDateTime } from "../src/i18n/format";
+import { describeAgentRunHeadline, describeAgentRunBadge } from "../src/lib/agent-runs/agent-run-view";
+import { agentRunWorkQueueLane } from "../src/lib/agent-runs/lanes";
 import { describe, expect, test } from "bun:test";
 import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import {
@@ -231,4 +235,25 @@ describe("agent run plan and progress", () => {
     const stages = runs.workflow.agentRun.workflow.stages;
     expect(describeAgentRunProgress(runs.workflow)).toBe(`${stages[1]!.title} 2/${stages.length}`);
   });
+});
+
+
+test("usage wait is localized with its reset time, without Needs you or a blocked notification", async () => {
+  const previous = i18n.language;
+  try {
+    for (const language of ["en", "ko"]) {
+      await i18n.changeLanguage(language);
+      const status = describeAgentRunStatus(runs.waiting);
+      expect(status).toMatchObject({ state: "waiting", tone: "neutral", recovery: null });
+      expect(status.label).toBe(language === "en" ? "Waiting for usage reset" : "사용량 초기화 대기");
+      expect(status.reason).toContain(formatDateTime(runs.waiting.agentRun.usageLimit!.resetsAt!));
+      expect(describeAgentRunHeadline(runs.waiting)).toMatchObject({ tone: "waiting", text: status.reason });
+      expect(describeAgentRunBadge(runs.waiting).label).toBe(status.label);
+      expect(agentRunFleetState("waiting", true)).toBe("waiting");
+      expect(agentRunWorkQueueLane({ state: "paused", pauseReason: "usage-limit", currentStageStatus: "running", hasOpenPullRequestAwaitingReview: false })).toBe("in-progress");
+      const unknown = structuredClone(runs.waiting); unknown.agentRun.usageLimit!.resetsAt = null;
+      expect(describeAgentRunStatus(unknown).reason).toBe(i18n.t("agentRuns:usageLimit.waitingUnknown"));
+      expect(describeAgentRunNotification(runs.waiting, { workspaceName: "Billing", taskTitle: "CSV export" })).toBeNull();
+    }
+  } finally { await i18n.changeLanguage(previous); }
 });

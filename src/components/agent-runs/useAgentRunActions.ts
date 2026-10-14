@@ -13,6 +13,8 @@ import { snapshotProviderAccounts } from "@/lib/providers/provider-account-selec
 /** What the user can do to an agent run from the bar, the result card and the panel. */
 export interface AgentRunActions {
   busy?: boolean;
+  /** Resumes a usage-limit wait without changing account or model. */
+  onResume?: () => void;
   /** Ends the run and stops its turn. */
   onStop?: () => void;
   /** Ends the run and leaves the task in Chat, on the model the agent last used. */
@@ -37,6 +39,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
     const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
     return {
       busy,
+      onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
       onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId }),
       onTakeControl: () => {
         void (async () => {

@@ -40,6 +40,7 @@ export function agentRunWorkQueueLane(input: AgentRunLaneInput): SidebarWorkQueu
         ? "action-required"
         : "in-progress";
     case "paused":
+      if (input.pauseReason === "usage-limit") return "in-progress";
       return input.pauseReason && isAutomaticAgentRunPause(input.pauseReason)
         ? "action-required"
         : null;

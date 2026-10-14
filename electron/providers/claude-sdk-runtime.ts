@@ -20,6 +20,7 @@ export {
   shouldDenyClaudeToolInSecondaryReadOnly,
 } from "./claude-permission-policy";
 import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
+import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { resolveClaudeTurnGuardrail, shouldAllowClaudeAutonomousCall, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
 export {
   describeClaudeAutoModeFallback,
@@ -1782,11 +1783,14 @@ export function resolveClaudeTurnStopReason(args: {
   message: ClaudeIncomingMessage;
   currentStopReason?: string;
 }): string | undefined {
+  if (args.message.type === "rate_limit_event" && args.message.rate_limit_info?.status === "rejected") return "usage_limit";
   if (args.message.type === "result") {
     const result = args.message as SDKResultMessage;
+    if (result.is_error && (args.currentStopReason === "usage_limit" ||
+        isUsageLimitErrorText(JSON.stringify((result as { errors?: string[]; result?: string }).errors ?? (result as { result?: string }).result ?? "")))) return "usage_limit";
     return (
       result.stop_reason ??
-      (result.is_error ? "runtime_failure" : args.currentStopReason)
+      (result.is_error ? "runtime_failure" : args.currentStopReason === "usage_limit" ? undefined : args.currentStopReason)
     );
   }
 
@@ -3769,6 +3773,7 @@ export async function streamClaudeWithSdk(
     let hasStreamedThinking = false;
     const emittedToolUseIds = new Set<string>();
     let finalStopReason: string | undefined;
+    let usageLimitResetsAt: string | undefined;
     const claudeDebugStream =
       args.runtimeOptions?.debug ?? process.env.STAVE_CLAUDE_DEBUG === "1";
     const subagentTracker = new SubagentProgressTracker();
@@ -3902,6 +3907,11 @@ export async function streamClaudeWithSdk(
           hasStreamedThinking = true;
         }
       }
+      if (message.type === "rate_limit_event" && message.rate_limit_info?.status === "rejected") {
+        const info = message.rate_limit_info;
+        const reset = info.rateLimitType === "overage" ? info.overageResetsAt ?? info.resetsAt : info.resetsAt;
+        usageLimitResetsAt = typeof reset === "number" && Number.isFinite(reset) ? new Date(reset * 1000).toISOString() : undefined;
+      }
       finalStopReason = resolveClaudeTurnStopReason({
         message,
         currentStopReason: finalStopReason,
@@ -3976,7 +3986,7 @@ export async function streamClaudeWithSdk(
       currentStopReason: finalStopReason,
     });
     const done: BridgeEvent = terminalStopReason
-      ? { type: "done", stop_reason: terminalStopReason }
+      ? { type: "done", stop_reason: terminalStopReason, ...(terminalStopReason === "usage_limit" && usageLimitResetsAt ? { usageLimitResetsAt } : {}) }
       : { type: "done" };
     if (eventCollector.overflowed) {
       for (const overflowEvent of CLAUDE_OVERFLOW_TAIL_EVENTS) {

@@ -257,7 +257,7 @@ export function resumeAgentRun(args: {
   requireActive(args.aggregate);
   const { agentRun } = args.aggregate;
   if (agentRun.state === "running") return { agentRun, upserts: [], events: [] };
-  if (agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over") {
+  if (agentRun.pauseReason !== "paused-by-user" && agentRun.pauseReason !== "taken-over" && agentRun.pauseReason !== "usage-limit") {
     throw new AgentRunCommandError(
       "invalid-state",
       agentRun.reasonDetail ?? i18n.t("agentRuns:commands.extraCopy245"),

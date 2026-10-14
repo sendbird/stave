@@ -161,7 +161,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
   }, [held]);
 
   // Announce stage changes and sign-off requests only.
-  const alert = held ? null : (props.turnAlert ?? null);
+  const alert = held || agentRun.pauseReason === "usage-limit" ? null : (props.turnAlert ?? null);
   const announcement =
     current.status === "awaiting-sign-off"
       ? i18n.t("agentRuns:agentRunBar.extraCopy0", { value1: getStageDisplayTitle(current.stage) })
@@ -173,7 +173,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
   const detailText = held ? describeCompletedChange(held) : showNow ? props.nowPhrase : line.detail;
   const age = held || showNow ? null : formatAge(now - Date.parse(line.since));
   const paused = agentRun.state === "paused";
-  const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over");
+  const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit");
   const elapsed = formatAge(now - Date.parse(agentRun.createdAt));
   const stateInk =
     line.tone === "attention"

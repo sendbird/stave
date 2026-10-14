@@ -53,6 +53,8 @@ const TURN_REASON_LINES: Record<AgentRunTurnReason, string> = {
     "The user replied during this stage. Treat their latest message as guidance and continue the stage.",
   "reporting-restored":
     "Stave's local tools are reachable again, so this turn resumes the stage.",
+  "resume-after-usage-limit":
+    "Continue after the usage reset. Inspect the workspace and conversation, keep completed work, and finish only the remaining assignment without repeating completed side effects.",
   "resume-after-restart":
     "Stave stopped while the previous turn of this stage ran, so this turn resumes the stage. Check what that turn already did before you continue.",
   nudge: "The previous turn ended without a stage report.",

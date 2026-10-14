@@ -1,3 +1,4 @@
+import { describeAgentRunUsageLimit } from "./usage-limit";
 import { getStageDisplayTitle } from "./stage-display";
 import { i18n } from "@/i18n/runtime";
 /**
@@ -134,8 +135,8 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
       };
     case "paused":
       return {
-        text: agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunView.text4"),
-        tone: agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" ? "waiting" : "attention",
+        text: agentRun.pauseReason === "usage-limit" ? describeAgentRunUsageLimit(agentRun) : agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunView.text4"),
+        tone: agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit" ? "waiting" : "attention",
         since,
       };
     case "running":
@@ -226,7 +227,7 @@ export function describeAgentRunStatusLine(detail: AgentRunDetail): AgentRunStat
           : agentRun.pauseReason === "paused-by-user"
             ? i18n.t("agentRuns:agentRunView.detail2", { value1: getStageDisplayTitle(stage) })
             : headline.text,
-      tone: userPause ? "waiting" : "attention",
+      tone: userPause || agentRun.pauseReason === "usage-limit" ? "waiting" : "attention",
     });
   }
   if (agentRun.state !== "running") {
@@ -267,6 +268,7 @@ export function describeAgentRunBadge(detail: AgentRunDetail): { label: string; 
     case "stopped":
       return { label: i18n.t("agentRuns:agentRunView.label11"), tone: "danger" };
     case "paused":
+      if (agentRun.pauseReason === "usage-limit") return { label: i18n.t("agentRuns:usageLimit.waiting"), tone: "neutral" };
       return { label: i18n.t("agentRuns:agentRunView.label12"), tone: "warning" };
     case "running":
       break;

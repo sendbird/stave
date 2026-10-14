@@ -1,3 +1,6 @@
+import { usageLimitedTurnRuntime, usageLimitAccounts, observeUsageLimitQuota } from "./agent-run-usage-limit";
+import type { RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
+import { selectedProviderAccount } from "../../../src/lib/providers/provider-account-selection";
 import type { AgentRunInitialContext } from "../../../src/lib/agent-runs/initial-context";
 /**
  * Supervisor: runs agent runs. Each tick it reads the lead task, asks the pure
@@ -254,6 +257,8 @@ export interface AgentRunRuntimeDependencies {
   /** How a turn ended. An agent run ends when the user stopped its turn. Absent: never read. */
   readTurnEnding?: (turnId: string) => "completed" | "stopped" | "failed";
   /** Persisted terminal evidence only; absent events stay unknown without affecting supervision. */
+  readUsageLimitStop?: (turnId: string) => { accountProfileId?: string; resetsAt?: string } | null;
+  readAccountUsage?: (args: { fingerprint: AgentRunFingerprint; accounts: ProviderAccountSelection; workspaceId: string }) => Promise<RateLimitsSnapshotResponse | null>;
   readObservedTurnEnding?: (turnId: string) => AgentRunRouteTurnFacts["ending"];
   emitChanged?: (event: AgentRunChangedEvent) => void;
   now?: () => Date;
@@ -681,6 +686,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         : turns.find(
             (row) => row.completedAt && Date.parse(row.createdAt) >= attemptStartedAt,
           );
+    const stop = endedRow ? deps.readUsageLimitStop?.(endedRow.id) : null;
+    const usageLimited = stop && endedRow ? { ...stop, ...usageLimitedTurnRuntime({ aggregate,
+      events: store.listEventsByKind(agentRun.id, ["turn-started", "turn-linked"]), turnId: endedRow.id,
+      accounts: runAccountOptions(agentRun, store.resourceConfig?.(agentRun.id)), accountProfileId: stop.accountProfileId }) } : null;
     const stage = workflowStageAt(agentRun, agentRun.currentStageIndex);
     return {
       turns,
@@ -706,6 +715,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           ? {
               ...toObserved(endedRow),
               endedAt: endedRow.completedAt,
+              ...(usageLimited ? { usageLimited } : {}),
               ...(interrupted.has(endedRow.id) ? { interrupted: true } : {}),
             }
           : null,
@@ -873,16 +883,18 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
     const remainingBudget = resources ? store.readResources?.(agentRun.id) : null;
     if (remainingBudget && !resources?.link && remainingBudget.activeHelpers > 0 && remainingBudget.remaining <= remainingBudget.policy.parentReserve) return;
-    const observed = resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
+    const resetContinuation = agentRun.usageLimit && agentRun.pauseReason === null &&
+      store.listEventsByKind(agentRun.id, ["turn-linked"]).at(-1)?.detail.turnId === agentRun.usageLimit.turnId ? agentRun.usageLimit : null;
+    const observed = !resetContinuation && resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
     const catalogModels = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models : null;
     // A cached catalog can reject a proposal; it never silently replaces a pinned/current model.
-    let adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
+    let adaptive = !resetContinuation && resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
     preparationControllers.set(agentRun.id, controller);
     let routed: AgentRunTurnRoute | null, startHeadSha = before.startHeadSha;
     let gatewayCredentials: import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined;
     try {
       const initialDecision = !actionPrompt && !agentRun.turnCount ? delegation?.initialDecision : undefined;
-      const constrained = !initialDecision && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
+      const constrained = !resetContinuation && !initialDecision && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
         workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId, providerId: agentRun.fingerprint.providerId as "codex" | "claude-code",
         prompt: actionPrompt ?? agentRun.assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
         effort: adaptive?.effort ?? delegation?.effort, modelPinned: resources?.policy.modelLocked ?? delegation?.modelPinned,
@@ -892,7 +904,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       if (adaptive && constrained?.route === "auto" && resources) adaptive = selectAdaptiveRoute(resources.policy, aggregate,
         store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels,
         { model: constrained.fingerprint.model, effort: constrained.runtimeOptions.codexReasoningEffort ?? constrained.runtimeOptions.claudeEffort, rationale: constrained.rationale });
-      routed = adaptive ? {
+      routed = resetContinuation ? { fingerprint: resetContinuation.fingerprint, runtimeOptions: {}, route: "agent-model", rationale: "Resume on the usage-limited turn's account and model.", selection: null } : adaptive ? {
         fingerprint: { providerId: resources!.policy.providerId, model: adaptive.model }, runtimeOptions: adaptive.runtimeOptions,
         route: "adaptive", rationale: String(adaptive.decision?.reason ?? "Frozen Balanced route; no unsupported escalation."),
         selection: { version: 1, source: "adaptive", previous: agentRun.fingerprint,
@@ -902,7 +914,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         ? withRequestAccountScope(runAccountOptions(agentRun, resources), () => routeAgentTurn(agentRun, controller.signal)) : Promise.resolve(null));
       if (routed && constrained?.decision) routed.decision = constrained.decision;
       if (routed && initialDecision) routed.decision = { routing: initialDecision, providerId: initialDecision.providerId === "codex" || initialDecision.providerId === "claude-code" ? initialDecision.providerId : null, model: initialDecision.model, selectionReason: "explicit", degraded: initialDecision.fallback, attempts: [] };
-      if (deps.prepareGatewayCredentials) gatewayCredentials = await prepareRunTurn(controller.signal, () =>
+      if (!resetContinuation && deps.prepareGatewayCredentials) gatewayCredentials = await prepareRunTurn(controller.signal, () =>
         deps.prepareGatewayCredentials!({ accounts: runAccountOptions(agentRun, resources), signal: controller.signal }));
       if (!startHeadSha) startHeadSha = await prepareRunTurn(controller.signal, async () => {
         const cwd = await deps.resolveWorkspacePath(agentRun.workspaceId);
@@ -973,6 +985,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
             stageId: before.stageId,
             attempt: before.attempt,
             reason,
+            fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
+            accountProfileId: resetContinuation?.accountProfileId ?? selectedProviderAccount(routed?.fingerprint.providerId ?? agentRun.fingerprint.providerId, runAccountOptions(agentRun, resources)),
             ...(routed
               ? { route: routed.route, model: formatAgentRunFingerprint(routed.fingerprint), rationale: routed.rationale.slice(0, 300) }
               : {}),
@@ -991,7 +1005,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       (reason === "nudge" ? buildStageNudgePrompt(started) : compileAgentRunStagePrompt(started, deps.agentNames?.()));
     try {
       const turn = await deps.runSupervisedTurn({
-        ...(deps.prepareGatewayCredentials ? { gatewayCredentials: gatewayCredentials ?? {} } : {}),
+        ...(resetContinuation || deps.prepareGatewayCredentials ? { gatewayCredentials: gatewayCredentials ?? {} } : {}),
         workspaceId: agentRun.workspaceId,
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
@@ -1010,7 +1024,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               : undefined,
           ),
           ...routed?.runtimeOptions,
-        }), ...runAccountOptions(agentRun, resources) },
+        }), ...runAccountOptions(agentRun, resources), ...(resetContinuation ? usageLimitAccounts(resetContinuation.fingerprint, resetContinuation.accountProfileId, {}) : {}) },
         retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [{ type: "retrieved_context" as const,
           sourceId: "stave:adaptive-resources", title: "Adaptive Balanced resources",
           content: JSON.stringify({ policy: resources.policy, budget: store.readResources?.(agentRun.id), currentTurnKey: turnKey,
@@ -1118,6 +1132,18 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       step += 1
     ) {
       const { observation, turns } = await observe(aggregate);
+      const waiting = aggregate.agentRun.usageLimit;
+      const limited = observation.lastEndedTurn?.usageLimited;
+      const due = aggregate.agentRun.state === "paused" && aggregate.agentRun.pauseReason === "usage-limit" &&
+        waiting?.resumeAt && Date.parse(waiting.resumeAt) <= now().getTime();
+      if (deps.readAccountUsage && !observation.leadTask.activeTurn && !observation.leadTask.pendingApprovalCount && !observation.leadTask.pendingUserInputCount && (due || (limited && waiting?.turnId !== observation.lastEndedTurn?.turnId))) {
+        const runtime = due ? waiting! : limited!;
+        const accounts = usageLimitAccounts(runtime.fingerprint, runtime.accountProfileId,
+          runAccountOptions(aggregate.agentRun, store.resourceConfig?.(agentRunId)));
+        const quota = observeUsageLimitQuota(runtime.fingerprint, await deps.readAccountUsage({ fingerprint: runtime.fingerprint, accounts, workspaceId: aggregate.agentRun.workspaceId }).catch(() => null), now());
+        if (due) observation.usageLimitResume = quota;
+        else if (limited && quota.resetsAt) limited.resetsAt = quota.resetsAt;
+      }
       // Facts first, so a run that ends here keeps its last turn's plan and evidence.
       aggregate = await refreshFacts(aggregate, observation, turns);
       if (endAgentRunIfLeft(aggregate, observation)) return;

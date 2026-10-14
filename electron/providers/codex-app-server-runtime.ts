@@ -3037,7 +3037,7 @@ export async function streamCodexWithAppServer(
             const turn = params.turn as
               | {
                   status?: string;
-                  error?: { message?: string | null } | null;
+                  error?: { message?: string | null; codexErrorInfo?: unknown } | null;
                 }
               | undefined;
             if (turn?.status === "failed" && !abortRequested) {
@@ -3059,6 +3059,8 @@ export async function streamCodexWithAppServer(
             const stopReason = resolveCodexTurnCompletionStopReason({
               status: turn?.status,
               abortRequested,
+              errorMessage: turn?.error?.message ?? lastAppServerErrorMessage,
+              errorInfo: turn?.error?.codexErrorInfo,
             });
             emitBridgeEvent({
               type: "done",

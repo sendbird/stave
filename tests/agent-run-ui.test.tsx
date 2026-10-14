@@ -22,7 +22,7 @@ const bar = (detail: AgentRunDetail, nowPhrase: string | null = null) =>
       nowPhrase,
       now: NOW,
       reducedMotion: false,
-      agentActions: { onStop: () => {}, onTakeControl: () => {}, onRetry: () => {} },
+      agentActions: { onResume: () => {}, onStop: () => {}, onTakeControl: () => {}, onRetry: () => {} },
       actions: { onOpenPanel: () => {} },
     }),
   );
@@ -250,4 +250,15 @@ test("action failures expose Retry even for a single-stage agent", () => {
   aggregate.agentRun.workflow.stages = [{ id: aggregate.stages[0]!.stageId, title: "Check", kind: "action", action: { type: "run-script", scriptId: "check" } }];
   const detail = agentRunDetail(aggregate);
   expect(bar(detail)).toContain(">Retry<");
+});
+
+
+test("the run line and panel show usage waiting and a manual resume, without a stuck recovery", () => {
+  const html = bar(runs.waiting);
+  expect(html).toContain("Waiting for usage reset");
+  expect(html).toContain("Resume now");
+  expect(html).not.toContain("Needs you");
+  expect(html).not.toContain("Retry");
+  expect(panel(runs.waiting)).toContain("Waiting for usage reset at");
+  expect(card(runs.waiting)).toBe("");
 });

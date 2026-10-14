@@ -45,6 +45,10 @@ export function buildAgentRunFixtures(start: Date) {
   });
 
   const working = detail({}, { status: "running" });
+  const waiting = detail({ state: "paused", pauseReason: "usage-limit", usageLimit: {
+    turnId: "turn-6", resetsAt: at(60), resumeAt: at(61), accountProfileId: "system",
+    fingerprint: created.agentRun.fingerprint,
+  } }, { status: "running" });
   const needsYou = detail(
     {},
     { status: "blocked", blockReason: "agent-blocked", detail: "Which breakpoint should the table switch at: 640px or 768px?" },
@@ -148,5 +152,5 @@ export function buildAgentRunFixtures(start: Date) {
     report: null,
     usage: { turns: 2, measuredTurns: 2, inputTokens: 41_000, outputTokens: 6_200, costUsd: 0.42 },
   };
-  return { working, needsYou, stuck, ready, failed: ended(failed, at(41)), stopped, workflow };
+  return { working, waiting, needsYou, stuck, ready, failed: ended(failed, at(41)), stopped, workflow };
 }

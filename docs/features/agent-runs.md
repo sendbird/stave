@@ -309,3 +309,24 @@ sample limits and examples of when each screen helps.
 - [Wake-ups](wake-ups.md) — an agent run pauses its task's wake-up while it runs
 - [Notifications](notifications.md)
 - [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md)
+
+
+## Waiting for a usage reset
+
+When a provider usage limit ends a Run turn, the Run waits for usage instead
+of requesting another report or marking the stage stuck. The Run keeps its
+consumed turns and usage, its current attempt, and the account and model that
+ran the interrupted turn.
+
+If the provider reports a reset time, Stave saves a resume reservation for one
+minute after that time (or one minute from now if it already passed). The host
+checks that same account when the reservation is due. Available usage resumes
+work; an exhausted account with a later reset re-arms the reservation. A failed
+usage read keeps the Run waiting and retries after a minute. Without a known
+reset time, the Run waits for **Resume now**. Manual resume also keeps the
+account, model and accumulated counters.
+
+The reservation survives an app restart. A due reservation is processed once
+through the host's serialized supervisor tick. Resume starts a continuation
+that checks existing work before finishing what remains; it does not replay
+the original prompt, rotate accounts, or fall back to API billing.

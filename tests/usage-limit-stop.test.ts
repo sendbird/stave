@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   buildUsageLimitContinuationPrompt,
   findUsageLimitStop,
+  findUsageLimitStopInEvents,
   isUsageLimitErrorText,
 } from "../src/lib/providers/usage-limit-stop";
 import type { ChatMessage, MessagePart } from "../src/types/chat";
@@ -98,4 +99,21 @@ test("the continuation never replays the original prompt", () => {
   const prompt = buildUsageLimitContinuationPrompt();
   expect(prompt).toContain("usage limit");
   expect(prompt).toContain("finish only the remaining work");
+});
+
+
+describe("terminal usage-limit evidence", () => {
+  test("a structured cause wins over text, including successful recovery and cancellation", () => {
+    expect(findUsageLimitStopInEvents([{ type: "done", stop_reason: "usage_limit_exceeded", accountProfileId: "system", usageLimitResetsAt: "2026-09-26T11:00:00.000Z" }])).toEqual({ accountProfileId: "system", resetsAt: "2026-09-26T11:00:00.000Z" });
+    for (const reason of ["end_turn", "completed", "user_abort", "output_overflow"]) {
+      expect(findUsageLimitStopInEvents([{ type: "error", message: "Usage limit reached", recoverable: false }, { type: "done", stop_reason: reason }])).toBeNull();
+    }
+  });
+  test("legacy generic failures reuse usage error detection, while warnings and work after a limit do not stop", () => {
+    expect(findUsageLimitStopInEvents([{ type: "error", message: "Codex usage limit reached", recoverable: false }, { type: "done", stop_reason: "failed" }])).not.toBeNull();
+    expect(findUsageLimitStopInEvents([{ type: "error", message: "Rate limit reached", recoverable: true }, { type: "done" }])).toBeNull();
+    expect(findUsageLimitStopInEvents([{ type: "error", message: "Rate limit reached", recoverable: false }, { type: "text", text: "Done" }, { type: "done" }])).toBeNull();
+    expect(findUsageLimitStopInEvents([{ type: "error", message: "Codex rate limit hit. Retry shortly.", recoverable: false }, { type: "done", stop_reason: "failed" }])).toBeNull();
+    expect(findUsageLimitStopInEvents([{ type: "error", message: "Usage limit reached", recoverable: false }])).toBeNull();
+  });
 });

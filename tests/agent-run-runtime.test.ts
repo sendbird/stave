@@ -1733,3 +1733,94 @@ test("adaptive admission cannot attach a new budget to an existing native turn o
   expect(h.store.listActiveAgentRuns()).toHaveLength(0);
   expect(h.runCalls).toHaveLength(0);
 });
+
+
+describe("run runtime: persisted usage-limit reservation", () => {
+  const account = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+  const reset = "2026-09-26T11:00:00.000Z";
+  function quota(usedPercent: number, resetsAt = reset) {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.claude = { source: "oauth", session: { usedPercent, resetsAt: Date.parse(resetsAt) / 1000 },
+      weekly: null, fableWeekly: null, error: null };
+    return snapshot;
+  }
+  function limitedHarness(readAccountUsage?: AgentRunRuntimeDependencies["readAccountUsage"], extra: Partial<AgentRunRuntimeDependencies> = {}) {
+    return createHarness({ extra: { readUsageLimitStop: (id) => id === "turn-1" ? { resetsAt: reset } : null,
+      readAccountUsage, ...extra } });
+  }
+
+  test("a due reset resumes once on the actual routed model and captured account, keeping consumed usage", async () => {
+    let current = quota(100);
+    const reads: Parameters<NonNullable<AgentRunRuntimeDependencies["readAccountUsage"]>>[0][] = [];
+    let routes = 0, gateways = 0;
+    const h = limitedHarness(async (args) => { reads.push(args); return current; }, {
+      routeAgentTurn: async () => { routes++; return { fingerprint: { providerId: "claude-code", model: "opus" }, runtimeOptions: {}, route: "agent-model", rationale: "Pinned model" }; },
+      prepareGatewayCredentials: async () => { gateways++; return undefined; },
+      readTurnUsage: () => ({ completed: true, usage: { inputTokens: 10, outputTokens: 5, totalCostUsd: 0.25 } }),
+    });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", accounts: { claudeAccountProfileId: account } }));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", turnCount: 1,
+      usageLimit: { fingerprint: { providerId: "claude-code", model: "opus" }, accountProfileId: account, resumeAt: "2026-09-26T11:01:00.000Z" } });
+    expect(h.current(id)).toMatchObject({ status: "running", nudged: false, attempt: 1 });
+    expect(h.runCalls).toHaveLength(1);
+    current = quota(5); h.advance(61 * 60_000); await Promise.all([h.tick(), h.tick()]);
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]).toMatchObject({ fingerprint: { providerId: "claude-code", model: "opus" },
+      runtimeOptions: { claudeAccountProfileId: account }, gatewayCredentials: {} });
+    expect(h.runCalls[1]!.retrievedContextParts[0]!.content).toContain("without repeating completed side effects");
+    expect(reads.every((read) => read.accounts.claudeAccountProfileId === account && read.fingerprint.model === "opus")).toBe(true);
+    expect(routes).toBe(1); expect(gateways).toBe(1);
+    expect(h.aggregate(id).agentRun.turnCount).toBe(2);
+    expect(h.runtime.readUsage({ agentRunId: id })?.costUsd).toBe(0.5);
+    expect(h.store.listEventsByKind(id, ["resumed"])).toHaveLength(1);
+    await h.tick(); expect(h.runCalls).toHaveLength(2);
+  });
+
+  test("still exhausted re-arms for a later reset; no known reset stays paused and manual Resume works", async () => {
+    let current = quota(100);
+    const h = limitedHarness(async () => current);
+    const id = await startedAgentRun(h, startInput({ accounts: { claudeAccountProfileId: account } }));
+    h.endTurn("turn-1"); await h.tick(); h.advance(61 * 60_000);
+    current = quota(100, "2026-09-26T14:00:00.000Z"); await h.tick();
+    expect(h.aggregate(id).agentRun.usageLimit).toMatchObject({ resetsAt: "2026-09-26T14:00:00.000Z", resumeAt: "2026-09-26T14:01:00.000Z" });
+    expect(h.runCalls).toHaveLength(1);
+    current = quota(100); current.claude.session!.resetsAt = null;
+    h.advance(3 * 60 * 60_000); await h.tick();
+    expect(h.aggregate(id).agentRun.usageLimit?.resumeAt).toBeNull();
+    h.advance(24 * 60 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(1);
+    await h.runtime.resume({ agentRunId: id }); await h.tick();
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(account);
+    expect(h.aggregate(id).agentRun.turnCount).toBe(2);
+  });
+
+  test("unavailable usage does not authorize resume; cancel wins before the next due tick", async () => {
+    let current: ReturnType<typeof quota> | null = quota(100);
+    const h = limitedHarness(async () => current);
+    const id = await startedAgentRun(h); h.endTurn("turn-1"); await h.tick();
+    current = null; h.advance(61 * 60_000); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe("paused"); expect(h.runCalls).toHaveLength(1);
+    expect(Date.parse(h.aggregate(id).agentRun.usageLimit!.resumeAt!)).toBeGreaterThan(Date.parse("2026-09-26T11:01:00.000Z"));
+    await h.runtime.cancel({ agentRunId: id }); current = quota(5); h.advance(60_000); await h.tick();
+    expect(h.runCalls).toHaveLength(1); expect(h.aggregate(id).agentRun.state).toBe("cancelled");
+  });
+
+  test("boot reconstructs the persisted due reservation and dispatches only once", async () => {
+    const db = new Database(":memory:"); const store = new AgentRunStore(db);
+    const first = createHarness({ store, extra: { readUsageLimitStop: () => ({ resetsAt: reset }), readAccountUsage: async () => quota(100) } });
+    const id = await startedAgentRun(first, startInput({ accounts: { claudeAccountProfileId: account } }));
+    first.endTurn("turn-1"); await first.tick(); first.runtime.stop();
+    const restartedStore = new AgentRunStore(db);
+    expect(restartedStore.getAgentRun(id)?.usageLimit).toEqual(first.aggregate(id).agentRun.usageLimit);
+    const next = createHarness({ store: restartedStore, turns: first.turns, turnPrefix: "restarted", extra: {
+      readUsageLimitStop: (id) => id === "turn-1" ? { resetsAt: reset } : null, readAccountUsage: async () => quota(5),
+    } });
+    next.advance(61 * 60_000); next.runtime.start(); await next.tick(); await next.tick(); next.runtime.stop();
+    expect(next.runCalls).toHaveLength(1);
+    expect(next.runCalls[0]).toMatchObject({ fingerprint: { providerId: "claude-code", model: "sonnet" }, runtimeOptions: { claudeAccountProfileId: account } });
+    expect(next.aggregate(id).agentRun.turnCount).toBe(2);
+    expect(restartedStore.listEventsByKind(id, ["resumed"])).toHaveLength(1);
+    db.close();
+  });
+});

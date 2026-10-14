@@ -1,3 +1,4 @@
+import { describeAgentRunUsageLimit } from "./usage-limit";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { i18n } from "@/i18n/runtime";
 /**
@@ -23,10 +24,11 @@ import { describeUsageShort } from "./usage";
 
 export { extractRunAssignment };
 
-export type AgentRunViewState = "working" | "needs-you" | "ready" | "failed" | "stopped";
+export type AgentRunViewState = "working" | "waiting" | "needs-you" | "ready" | "failed" | "stopped";
 
 /** The words are the shared work-state vocabulary's. */
 export const AGENT_RUN_VIEW_STATE_LABELS: Record<AgentRunViewState, string> = {
+  get waiting() { return i18n.t("agentRuns:usageLimit.waiting"); },
   get working() { return WORK_STATE.working.label; },
   get "needs-you"() { return WORK_STATE["needs-you"].label; },
   get ready() { return WORK_STATE.ready.label; },
@@ -43,6 +45,7 @@ const STOP_REASON_TEXT: Record<AgentRunStopReason, string> = {
 /** The icon tone of a state; the icon is always paired with the state word. */
 export const AGENT_RUN_VIEW_STATE_TONES: Record<AgentRunViewState, StageTone> = {
   working: "active",
+  waiting: "idle",
   "needs-you": "waiting",
   ready: "done",
   failed: "attention",
@@ -87,6 +90,7 @@ export function describeAgentRunStatus(detail: AgentRunDetail): AgentRunStatus {
         "new-run",
       );
     case "paused":
+      if (agentRun.pauseReason === "usage-limit") return make("waiting", "neutral", describeAgentRunUsageLimit(agentRun));
       return make("needs-you", "warning", agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunStatus.extraCopy213"));
     case "running":
       break;

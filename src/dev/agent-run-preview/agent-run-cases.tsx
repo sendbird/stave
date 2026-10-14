@@ -21,6 +21,7 @@ import { AGENT_RUN_ASSIGNMENT, buildAgentRunFixtures } from "./agent-run-fixture
 
 const noop = (async () => ({ ok: true, agentRun: null })) as never;
 const runActions = {
+  onResume: () => {},
   onStop: () => {},
   onTakeControl: () => {},
   onRetry: () => {},
@@ -76,6 +77,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
       {(
         [
           ["Agent run working", "Composer · working", working.working, "Running the tests", null],
+          ["Agent run waiting", "Composer · waiting for usage reset", working.waiting, null, null],
           ["Agent run needs you", "Composer · needs you (blocked)", working.needsYou, null, null],
           ["Agent run stuck", "Composer · needs you (stuck)", working.stuck, null, null],
           ["Agent run workflow", "Composer · an agent with a workflow, stage 2 of 3", working.workflow, "Reading the export handler", null],
@@ -115,6 +117,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         [
           ["Agent run panel working", "Progress tab · working", working.working],
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow],
+          ["Agent run panel waiting", "Progress tab · waiting for usage reset", working.waiting],
           ["Agent run panel needs you", "Progress tab · needs you", working.needsYou],
           ["Agent run panel stuck", "Progress tab · stuck (the bar has Retry)", working.stuck],
           ["Agent run panel ready", "Progress tab · ready", runs.ready],

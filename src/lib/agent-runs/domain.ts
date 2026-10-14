@@ -149,7 +149,7 @@ export function isActiveAgentRunState(state: AgentRunState) {
 }
 
 /**
- * `paused-by-user` and `taken-over` are cleared by Resume. The other two
+ * `paused-by-user` and `taken-over` are cleared by Resume. The other reasons
  * describe a condition the supervisor watches and clears on its own.
  */
 export const AGENT_RUN_PAUSE_REASONS = [
@@ -157,11 +157,12 @@ export const AGENT_RUN_PAUSE_REASONS = [
   "taken-over",
   "task-identity-changed",
   "runtime-changed",
+  "usage-limit",
 ] as const;
 export type AgentRunPauseReason = (typeof AGENT_RUN_PAUSE_REASONS)[number];
 
 export function isAutomaticAgentRunPause(reason: AgentRunPauseReason) {
-  return reason === "task-identity-changed" || reason === "runtime-changed";
+  return reason === "task-identity-changed" || reason === "runtime-changed" || reason === "usage-limit";
 }
 
 export const AGENT_RUN_STOP_REASONS = [
@@ -598,6 +599,14 @@ export const AgentRunSchema = z
     pauseReason: z.enum(AGENT_RUN_PAUSE_REASONS).nullable(),
     stopReason: z.enum(AGENT_RUN_STOP_REASONS).nullable(),
     reasonDetail: ReasonSchema.nullable(),
+    /** Persisted reservation and the interrupted turn's exact runtime. Old rows omit it. */
+    usageLimit: z.object({
+      turnId: IdSchema,
+      resetsAt: TimestampSchema.nullable(),
+      resumeAt: TimestampSchema.nullable(),
+      accountProfileId: IdSchema,
+      fingerprint: AgentRunFingerprintSchema,
+    }).strict().optional(),
     currentStageIndex: z.number().int().min(0),
     turnCount: z.number().int().min(0),
     maxTurns: z.number().int().min(1).max(AGENT_RUN_LIMITS.maxTurnsCeiling),

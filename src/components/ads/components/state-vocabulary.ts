@@ -4,6 +4,7 @@ import {
   CircleDashed,
   CircleDot,
   CircleHelp,
+  CirclePause,
   CircleMinus,
   CircleX,
   Hand,
@@ -24,6 +25,7 @@ import type { StatusDotTone } from "./StatusDot";
  * state is a settled shape, and reduced motion keeps the shape.
  */
 export type WorkState =
+  | "waiting"
   | "working"
   | "needs-you"
   | "approval"
@@ -45,6 +47,7 @@ export interface WorkStateVisual {
 }
 
 export const WORK_STATE: Readonly<Record<WorkState, WorkStateVisual>> = {
+  waiting: { get label() { return i18n.t("ui:stateVocabulary.waiting"); }, icon: CirclePause, tone: "neutral", pulses: false },
   working: { get label() { return i18n.t("ui:stateVocabulary.working"); }, icon: CircleDot, tone: "accent", pulses: true },
   "needs-you": { get label() { return i18n.t("ui:stateVocabulary.needsYou"); }, icon: Hand, tone: "warning", pulses: false },
   approval: { get label() { return i18n.t("ui:stateVocabulary.awaitingApproval"); }, icon: ShieldQuestion, tone: "warning", pulses: false },

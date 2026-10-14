@@ -67,6 +67,7 @@ interface AgentRunRow {
   updated_at: string;
   origin: string | null;
   initial_context_json: string | null;
+  usage_limit_json: string | null;
 }
 
 interface AgentRunStageRow {
@@ -122,6 +123,7 @@ function parseAgentRunRow(row: AgentRunRow): AgentRun {
     pauseReason: row.pause_reason,
     stopReason: row.stop_reason,
     reasonDetail: row.reason_detail,
+    ...(row.usage_limit_json ? { usageLimit: JSON.parse(row.usage_limit_json) } : {}),
     currentStageIndex: row.current_stage_index,
     turnCount: row.turn_count,
     maxTurns: row.max_turns,
@@ -215,7 +217,8 @@ export class AgentRunStore {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         origin TEXT,
-        initial_context_json TEXT
+        initial_context_json TEXT,
+        usage_limit_json TEXT
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_agent_runs_active_lead
         ON agent_runs (lead_task_id) WHERE state IN ${ACTIVE_STATES_SQL};
@@ -253,6 +256,9 @@ export class AgentRunStore {
     const columns = this.db.prepare("PRAGMA table_info(agent_runs)").all() as { name: string }[];
     if (!columns.some((column) => column.name === "initial_context_json")) {
       this.db.exec("ALTER TABLE agent_runs ADD COLUMN initial_context_json TEXT");
+    }
+    if (!columns.some((column) => column.name === "usage_limit_json")) {
+      this.db.exec("ALTER TABLE agent_runs ADD COLUMN usage_limit_json TEXT");
     }
     if (!columns.some((column) => column.name === "origin")) {
       this.db.exec("ALTER TABLE agent_runs ADD COLUMN origin TEXT");
@@ -294,6 +300,7 @@ export class AgentRunStore {
       agentRun.updatedAt,
       agentRun.origin ?? null,
       agentRun.initialContext ? JSON.stringify(agentRun.initialContext) : null,
+      agentRun.usageLimit ? JSON.stringify(agentRun.usageLimit) : null,
     ];
     if (insert) {
       this.db
@@ -302,8 +309,8 @@ export class AgentRunStore {
              repository_path, workspace_id, lead_task_id, project_id,
              workflow_json, assignment, consent_json, fingerprint_json, state,
              pause_reason, stop_reason, reason_detail, current_stage_index,
-             turn_count, max_turns, expires_at, created_at, updated_at, origin, initial_context_json, id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             turn_count, max_turns, expires_at, created_at, updated_at, origin, initial_context_json, usage_limit_json, id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(...values, agentRun.id);
       return;
@@ -316,7 +323,7 @@ export class AgentRunStore {
            fingerprint_json = ?, state = ?, pause_reason = ?, stop_reason = ?,
            reason_detail = ?, current_stage_index = ?, turn_count = ?,
            max_turns = ?, expires_at = ?, created_at = ?, updated_at = ?,
-           origin = ?, initial_context_json = ?
+           origin = ?, initial_context_json = ?, usage_limit_json = ?
          WHERE id = ?`,
       )
       .run(...values, agentRun.id);

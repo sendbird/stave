@@ -410,3 +410,41 @@ describe("run sign-off", () => {
     expect(resolveAgentRunStageSignOff(aggregate.agentRun, readyIndex - 1)).toBe("auto");
   });
 });
+
+
+describe("usage-limit waiting", () => {
+  const resetsAt = "2026-09-26T11:00:00.000Z";
+  const limited = observe({ lastEndedTurn: turn({ endedAt: AGENT_RUN_NOW.toISOString(), usageLimited: {
+    resetsAt, accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" },
+  } }) });
+
+  test("pauses without a nudge, stuck stage, new attempt or reset counters", () => {
+    const aggregate = afterFirstTurn();
+    const { decision, next } = step(aggregate, limited);
+    expect(decision).toMatchObject({ action: "pause", reason: "usage-limit" });
+    expect(next.agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", turnCount: aggregate.agentRun.turnCount,
+      usageLimit: { resetsAt, resumeAt: "2026-09-26T11:01:00.000Z", turnId: "turn-1" } });
+    expect(next.stages).toEqual(aggregate.stages);
+    expect(decide(next, limited)).toEqual({ action: "idle" });
+    const headroom = { ...limited, usageLimitResume: { status: "headroom" as const } };
+    const due = new Date("2026-09-26T11:01:00.000Z");
+    expect(decide(next, headroom, due)).toEqual({ action: "resume" });
+    const resumed = applyChange(next, applyAgentRunDecision({ aggregate: next, decision: { action: "resume" }, now: due }));
+    expect(decide(resumed, limited, due)).toMatchObject({ action: "start-stage-turn", reason: "resume-after-usage-limit" });
+    expect(resumed.agentRun.turnCount).toBe(aggregate.agentRun.turnCount);
+  });
+
+  test("an unknown reset waits; a past reset gets a full minute; drift preserves the reservation", () => {
+    const unknown = step(afterFirstTurn(), observe({ lastEndedTurn: turn({ endedAt: AGENT_RUN_NOW.toISOString(), usageLimited: {
+      accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" },
+    } }) })).next;
+    expect(unknown.agentRun.usageLimit?.resumeAt).toBeNull();
+    expect(decide(unknown, { ...limited, usageLimitResume: { status: "headroom" } }, new Date("2026-09-27T00:00:00Z"))).toEqual({ action: "idle" });
+    const past = step(afterFirstTurn(), observe({ lastEndedTurn: turn({ usageLimited: {
+      resetsAt: "2026-09-25T00:00:00.000Z", accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" },
+    } }) })).next;
+    expect(past.agentRun.usageLimit?.resumeAt).toBe("2026-09-26T10:01:00.000Z");
+    expect(decide(past, observe({ leadTask: { workspaceAvailable: false } }))).toEqual({ action: "idle" });
+    expect(decide(past, observe({ leadTask: { identity: { ok: false, reason: "Moved" } } }))).toEqual({ action: "idle" });
+  });
+});

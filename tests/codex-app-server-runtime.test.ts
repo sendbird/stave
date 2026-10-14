@@ -2027,3 +2027,13 @@ describe("Codex per-turn token usage", () => {
     expect(tracker.read("thread-a", "turn-a")).toEqual({ inputTokens: 300, outputTokens: 30 });
   });
 });
+
+
+test("Codex usage-limit completion preserves its structured cause without confusing throttles or cancellation", () => {
+  expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: false, errorInfo: "usageLimitExceeded" })).toBe("usage_limit");
+  expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: false, errorMessage: "usage_limit_reached" })).toBe("usage_limit");
+  expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: false, errorMessage: "rate limit" })).toBe("failed");
+  expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: false, errorInfo: "contextWindowExceeded", errorMessage: "usage limit reached" })).toBe("failed");
+  expect(resolveCodexTurnCompletionStopReason({ status: "failed", abortRequested: true, errorInfo: "usageLimitExceeded" })).toBe("user_abort");
+  expect(buildCodexTerminalFailureEvents({ message: "usage_limit_reached" })[1]).toMatchObject({ type: "done", stop_reason: "usage_limit" });
+});

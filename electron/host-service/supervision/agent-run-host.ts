@@ -4,6 +4,8 @@
  *
  * Used by: `electron/host-service.ts`.
  */
+import { getRateLimitsSnapshot } from "../../providers/rate-limits/rate-limits-snapshot";
+import { findUsageLimitStopInEvents } from "../../../src/lib/providers/usage-limit-stop";
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import { freezeAdaptivePolicy } from "./adaptive-policy";
 import { getProviderAccountRegistry } from "../../provider-accounts/registry";
@@ -228,6 +230,12 @@ export function createHostAgentRunRuntime(args: {
     ...(args.taskAgent ? { taskRunsAsAgent: (taskId: string) => args.taskAgent!(taskId) !== null } : {}),
     readTurnEnding,
     emitChanged: args.emitChanged,
+    readUsageLimitStop: (turnId) => findUsageLimitStopInEvents(
+      persistence.getStreamEvents({ turnId }).flatMap((entry) => entry.event ? [entry.event] : [])),
+    readAccountUsage: async ({ fingerprint, accounts, workspaceId }) => getRateLimitsSnapshot({
+      cwd: (await resolveWorkspacePath(workspaceId)) ?? undefined, runtimeOptions: accounts,
+      providers: [fingerprint.providerId], force: true, reason: "dispatch-guard",
+    }),
     readObservedTurnEnding: (turnId) => observeAgentRunTurnEnding(persistence.getStreamEvents({ turnId })),
   });
 }

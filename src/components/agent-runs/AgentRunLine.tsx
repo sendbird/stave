@@ -1,3 +1,4 @@
+import { Play } from "lucide-react";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
@@ -60,9 +61,9 @@ export function AgentRunLineView(props: {
   useTranslation();
   const { detail, actions = {} } = props;
   const status = describeAgentRunStatus(detail);
-  const alert = props.turnAlert ?? null;
+  const alert = detail.agentRun.pauseReason === "usage-limit" ? null : props.turnAlert ?? null;
   const showNow = !alert && status.state === "working" && props.nowPhrase !== null;
-  const reason = status.state === "needs-you" && !props.reasonShownElsewhere && !alert ? status.reason : null;
+  const reason = (status.state === "needs-you" || status.state === "waiting") && !props.reasonShownElsewhere && !alert ? status.reason : null;
   const elapsed = agentRunDuration(detail, props.now);
   const staged = detail.agentRun.workflow.stages.length > 1;
   const plan = props.plan ?? agentRunStoredPlan(detail);
@@ -73,7 +74,7 @@ export function AgentRunLineView(props: {
   );
   const current = rows?.[detail.agentRun.currentStageIndex] ?? null;
   const paused = detail.agentRun.state === "paused";
-  const waiting = status.state === "needs-you";
+  const waiting = status.state === "needs-you" || status.state === "waiting";
   const stageWords = current && rows ? `${getStageDisplayTitle(current.stage)} ${current.index + 1}/${rows.length}` : null;
   return (
     <>
@@ -91,7 +92,7 @@ export function AgentRunLineView(props: {
         }
         text={
           <ShelfRunText
-            label={status.agentName}
+            label={status.state === "waiting" ? status.label : status.agentName}
             title={[
               status.agentName,
               stageWords,
@@ -108,7 +109,7 @@ export function AgentRunLineView(props: {
               alert
                 ? shelfTurnAlertParts(alert)
                 : [
-                    !planText || waiting ? <span className={sx(waiting ? shelfStyles.labelWaiting : shelfStyles.strong)}>{status.label}</span> : null,
+                    status.state !== "waiting" && (!planText || waiting) ? <span className={sx(waiting ? shelfStyles.labelWaiting : shelfStyles.strong)}>{status.label}</span> : null,
                     reason ?? planText ?? (showNow ? (
                       <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
                     ) : (
@@ -127,12 +128,19 @@ export function AgentRunLineView(props: {
             <ShelfTodoProgressView progress={props.todo} />
           ) : null
         }
-        meta={<span title={i18n.t("agentRuns:agentRunLine.title")}>{elapsed}</span>}
+        meta={status.state === "waiting" ? null : <span title={i18n.t("agentRuns:agentRunLine.title")}>{elapsed}</span>}
         actions={
           <>
             {status.recovery === "retry-stage" && actions.onRetry ? (
               <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onRetry}>
                 {i18n.t("agentRuns:agentRunLine.actions")}</Button>
+            ) : null}
+            {status.state === "waiting" && actions.onResume ? (
+              <Tooltip content={i18n.t("agentRuns:usageLimit.resumeNow")}>
+                <Button variant="secondary" size="xs" aria-label={i18n.t("agentRuns:usageLimit.resumeNow")} disabled={actions.busy} onClick={actions.onResume}>
+                  <Play aria-hidden />
+                </Button>
+              </Tooltip>
             ) : null}
             {actions.onStop ? (
               <Button variant="quiet" size="xs" disabled={actions.busy} onClick={actions.onStop} xstyle={shelfStyles.quiet}>
@@ -145,7 +153,7 @@ export function AgentRunLineView(props: {
                   size="xs"
                   disabled={actions.busy}
                   onClick={actions.onTakeControl}
-                  xstyle={shelfStyles.quiet}
+                  xstyle={[shelfStyles.quiet, status.state === "waiting" && shelfStyles.wideOnly]}
                 >
                   {i18n.t("agentRuns:agentRunLine.actions3")}</Button>
               </Tooltip>

@@ -116,7 +116,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
   const identity = record ? { agentRunId: agentRun.id, stageId: record.stageId, attempt: record.attempt } : null;
   const criteria = latestCriteria(detail);
   const signedOffAt = latestSignOffTime(detail);
-  const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over";
+  const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit";
   // The badge already names the state; the line beside it says where and why.
   const statusText = active
     ? [

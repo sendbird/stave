@@ -847,5 +847,11 @@
     "stopMerged": "Pull request #{{number}} merged, so this watch stopped.",
     "stopClosed": "Pull request #{{number}} closed without merging, so this watch stopped.",
     "deferred": "The task is mid-turn; the watch wakes it once that turn finishes."
+  },
+  "usageLimit": {
+    "waiting": "Waiting for usage reset",
+    "waitingUntil": "Waiting for usage reset at {{time}}. Stave resumes after checking this account.",
+    "waitingUnknown": "Waiting for usage reset. The reset time is unknown; resume when usage is available.",
+    "resumeNow": "Resume now"
   }
 }

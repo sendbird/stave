@@ -83,7 +83,7 @@ function describeAgentOriginNotification(
     case "stopped":
       return draft(detail, context, { kind: "agent_run.blocked", title: i18n.t("agentRuns:notifications.title2", { value1: agent }), detail: agentRun.reasonDetail, key: "stopped" });
     case "paused":
-      if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
+      if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit") return null;
       return draft(detail, context, {
         kind: "agent_run.blocked",
         title: i18n.t("agentRuns:notifications.title3", { value1: agent }),
@@ -141,7 +141,7 @@ export function describeAgentRunNotification(
       });
     case "paused":
       // A pause the user chose needs no notification; one Stave chose does.
-      if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
+      if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit") return null;
       return draft(detail, context, {
         kind: "agent_run.blocked",
         title: i18n.t("agentRuns:notifications.title7", { value1: getStageDisplayTitle(stage) }),

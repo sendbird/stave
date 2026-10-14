@@ -1060,6 +1060,8 @@ export type NormalizedProviderEvent =
   | {
       type: "done";
       accountProfileId?: string;
+      /** Provider-advertised account reset when a usage limit terminates the turn. */
+      usageLimitResetsAt?: string;
       stop_reason?:
         "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | string;
     };
