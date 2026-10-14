@@ -37,6 +37,7 @@ const SKILL_PROVIDER_PRIORITY = {
   codex: 2,
   cursor: 2,
   kiro: 2,
+  opencode: 2,
   shared: 1,
 } as const;
 

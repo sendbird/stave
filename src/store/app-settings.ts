@@ -206,6 +206,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   modelCodex: string;
   modelCursor: string;
   modelKiro: string;
+  modelOpenCode: string;
   modelRuntimePreferences: ModelRuntimePreferences;
   /**
    * Which catalog models the model selector offers before the user expands the
@@ -452,6 +453,17 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   kiroEffort: "low" | "medium" | "high" | "xhigh" | "max";
   /** Approval autonomy for Kiro turns. `auto` adds `acp --trust-all-tools`. */
   kiroApprovalMode: "manual" | "auto";
+  opencodeBinaryPath: string;
+  /**
+   * Preferred OpenCode effort. OpenCode's levels are per-model variants, so a
+   * turn sends it only when the selected model offers that level.
+   */
+  opencodeEffort: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Approval autonomy for OpenCode turns. `manual` makes OpenCode ask before
+   * every tool call; `auto` keeps OpenCode's own rules and approves its asks.
+   */
+  opencodeApprovalMode: "manual" | "auto";
   // ---------------------------------------------------------------------------
   // Customisable AI prompt templates (Settings → Prompts)
   // ---------------------------------------------------------------------------
@@ -583,6 +595,25 @@ export function normalizeKiroApprovalMode(
   return value === "auto" ? "auto" : "manual";
 }
 
+export function normalizeOpenCodeApprovalMode(
+  value: unknown,
+): AppSettings["opencodeApprovalMode"] {
+  // Unknown values fall back to asking, never to approvals off.
+  return value === "auto" ? "auto" : "manual";
+}
+
+export function normalizeOpenCodeEffort(
+  value: unknown,
+): AppSettings["opencodeEffort"] {
+  return value === "minimal" ||
+    value === "low" ||
+    value === "high" ||
+    value === "xhigh" ||
+    value === "max"
+    ? value
+    : "medium";
+}
+
 export function normalizeKiroEffort(value: unknown): AppSettings["kiroEffort"] {
   return value === "low" ||
     value === "high" ||
@@ -640,6 +671,7 @@ export const defaultSettings: AppSettings = {
   modelCodex: getDefaultModelForProvider({ providerId: "codex" }),
   modelCursor: getDefaultModelForProvider({ providerId: "cursor" }),
   modelKiro: getDefaultModelForProvider({ providerId: "kiro" }),
+  modelOpenCode: getDefaultModelForProvider({ providerId: "opencode" }),
   modelRuntimePreferences: {},
   modelVisibility: {},
   promptEnhancementStyleProfile: "",
@@ -773,6 +805,9 @@ export const defaultSettings: AppSettings = {
   kiroBinaryPath: "",
   kiroEffort: "medium",
   kiroApprovalMode: "auto",
+  opencodeBinaryPath: "",
+  opencodeEffort: "medium",
+  opencodeApprovalMode: "auto",
   promptResponseStyle: DEFAULT_PROMPT_RESPONSE_STYLE,
   promptPrDescription: DEFAULT_PROMPT_PR_DESCRIPTION,
   promptInlineCompletion: DEFAULT_PROMPT_INLINE_COMPLETION,

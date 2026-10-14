@@ -283,6 +283,9 @@ export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "cursorBinaryPath",
   "kiroApprovalMode",
   "kiroBinaryPath",
+  "opencodeApprovalMode",
+  "opencodeDenyEdits",
+  "opencodeBinaryPath",
 ] as const satisfies ReadonlyArray<keyof ProviderRuntimeOptions>;
 
 export function omitPermissionRuntimeOptions<T extends Partial<ProviderRuntimeOptions>>(

@@ -1,5 +1,6 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { listProviderIds } from "@/lib/providers/model-catalog";
+import { providerReportsQuota } from "@/lib/providers/account-usage-block";
 
 /**
  * Status-bar usage polling cadence.
@@ -350,6 +351,9 @@ export function resolveRateLimitsPollPlan(args: {
   const reasonByProvider: Partial<Record<ProviderId, RateLimitsReadReason>> =
     {};
   for (const providerId of args.providers ?? listProviderIds()) {
+    if (!providerReportsQuota(providerId)) {
+      continue;
+    }
     const updatedAt = args.updatedAtByProvider[providerId];
     const resolved = resolveProviderReadReason({
       providerId,

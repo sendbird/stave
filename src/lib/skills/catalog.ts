@@ -18,6 +18,7 @@ const SKILL_PROVIDER_PRIORITY = {
   codex: 2,
   cursor: 2,
   kiro: 2,
+  opencode: 2,
   shared: 1,
 } as const;
 
@@ -35,7 +36,9 @@ function isSkillCompatible(args: {
     return true;
   }
   return (
-    (args.providerId === "cursor" || args.providerId === "kiro") &&
+    (args.providerId === "cursor" ||
+      args.providerId === "kiro" ||
+      args.providerId === "opencode") &&
     (args.skillProvider === "claude-code" || args.skillProvider === "codex")
   );
 }

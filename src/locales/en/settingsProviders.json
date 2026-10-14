@@ -764,13 +764,15 @@
       "claude": "Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: {{opusGuidance}} Sonnet 5.5: {{sonnetGuidance}}",
       "codex": "Codex turns and Codex-native execution flows. {{guidance}}",
       "cursor": "Cursor Agent turns over the Agent Client Protocol.",
-      "kiro": "Kiro turns over the Agent Client Protocol."
+      "kiro": "Kiro turns over the Agent Client Protocol.",
+      "opencode": "OpenCode turns over the Agent Client Protocol. OpenCode manages provider authentication and models."
     },
     "auth": {
       "authenticated": "Authenticated",
       "unauthenticated": "Login Required",
       "notRequired": "No Auth",
-      "unknown": "Unknown Auth"
+      "unknown": "Unknown Auth",
+      "managedInCli": "Managed in CLI"
     },
     "state": {
       "warning": "Needs Attention",
@@ -1120,5 +1122,31 @@
     "missingConnection": "This connection is no longer available. Choose another one; native fallback remains available.",
     "loadFailed": "Could not load decision models. Your saved selection is kept.",
     "retry": "Try again"
+  },
+  "opencodeSection": {
+    "runtime": {
+      "title": "OpenCode Runtime Controls",
+      "description": "Approval behavior for interactive OpenCode turns.",
+      "authentication": "OpenCode keeps its own provider sign-ins and models. Stave never reads or stores OpenCode credentials. To connect a provider, run \"opencode auth login\"; for Vercel AI Gateway, run \"npx vercel ai-gateway setup --agent opencode\"."
+    },
+    "approvalPreset": {
+      "title": "Approval Preset",
+      "description": "How much OpenCode may run without asking. \"opencode acp\" has no approval flag, so Manual adds an ask-before-every-tool rule to OpenCode's inline config for each turn.",
+      "note": "OpenCode has no partial-trust tier that Stave can verify, so there is no middle setting. Auto keeps OpenCode's own rules: anything you set to deny there stays denied."
+    },
+    "cli": {
+      "title": "OpenCode CLI",
+      "description": "Stave resolves OpenCode from this path first, then checks supported environment overrides, your login shell and the standard install locations. Supported versions: 1.19.0 or newer in the 1.x line, 2.0.29 or newer in the 2.x line."
+    },
+    "cliPath": {
+      "description": "Leave blank to use automatic discovery. The configured executable must provide \"opencode acp\"."
+    },
+    "defaultModel": {
+      "description": "Use Auto to keep the model OpenCode would pick, or enter a \"provider/model\" id from the OpenCode catalog. The effort applies only to models whose variants include it.",
+      "ariaLabel": "OpenCode default model"
+    },
+    "defaultEffort": {
+      "ariaLabel": "OpenCode default effort"
+    }
   }
 }

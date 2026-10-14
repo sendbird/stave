@@ -11,6 +11,12 @@ import {
   resolveCursorAgentExecutablePath,
 } from "./cursor-cli-env";
 import { buildKiroCliEnv, resolveKiroExecutablePath } from "./kiro-cli-env";
+import {
+  buildOpenCodeCliEnv,
+  resolveOpenCodeExecutablePath,
+} from "./opencode-cli-env";
+import { OPENCODE_AUTHENTICATION_HELP } from "./opencode/opencode-auth";
+import { resolveOpenCodeVersionSupport } from "./opencode/opencode-version";
 import { runExecutableProbe } from "./runtime-shared";
 
 const STATUS_TTL_MS = 60_000;
@@ -50,6 +56,7 @@ export async function inspectOptionalProviderTooling(args: {
   providerId: OptionalProviderId;
   cursorBinaryPath?: string;
   kiroBinaryPath?: string;
+  opencodeBinaryPath?: string;
   force?: boolean;
 }): Promise<ToolingStatusEntry> {
   const id = args.providerId;
@@ -85,7 +92,11 @@ async function probeOptionalProvider(args: {
   providerId: OptionalProviderId;
   cursorBinaryPath?: string;
   kiroBinaryPath?: string;
+  opencodeBinaryPath?: string;
 }): Promise<ToolingStatusEntry> {
+  if (args.providerId === "opencode") {
+    return probeOpenCodeTooling(args);
+  }
   const cursor = args.providerId === "cursor";
   const label = cursor ? "Cursor Agent CLI" : "Kiro CLI";
   const login = cursor ? "agent login" : "kiro-cli login";
@@ -168,6 +179,77 @@ async function probeOptionalProvider(args: {
     authState,
     authDetail,
     // Auth output can contain account identity. Only normalized diagnostics cross IPC.
+    detail: [`Resolved path: ${executablePath}`, summary, authDetail]
+      .filter(Boolean)
+      .join("\n"),
+  };
+}
+
+/**
+ * OpenCode owns provider authentication per model, so there is no login for
+ * Stave to verify: auth is `not-required` and a missing credential surfaces
+ * when a turn or catalog read needs it. The version gate fails closed.
+ */
+async function probeOpenCodeTooling(args: {
+  opencodeBinaryPath?: string;
+}): Promise<ToolingStatusEntry> {
+  const label = "OpenCode";
+  const executablePath =
+    resolveOpenCodeExecutablePath({ explicitPath: args.opencodeBinaryPath }) ||
+    null;
+  const base = {
+    id: "opencode" as const,
+    label,
+    executablePath,
+    checkedAt: new Date().toISOString(),
+  };
+  if (!executablePath) {
+    return {
+      ...base,
+      state: "error",
+      available: false,
+      version: null,
+      summary: `${label} is unavailable.`,
+      detail: `Install ${label} or configure its binary path.`,
+      authState: "unknown",
+      authDetail: OPENCODE_AUTHENTICATION_HELP,
+    };
+  }
+  const env = buildOpenCodeCliEnv({ executablePath });
+  const [versionProbe, acpProbe] = await Promise.all([
+    runExecutableProbe({ executablePath, commandArgs: ["--version"], env }),
+    runExecutableProbe({ executablePath, commandArgs: ["acp", "--help"], env }),
+  ]);
+  const transient = [versionProbe, acpProbe].some(
+    (probe) => probe.status === null || probe.timedOut,
+  );
+  const version =
+    versionProbe.text
+      .split("\n")
+      .map((line) => line.trim())
+      .find(Boolean) ?? null;
+  const support = resolveOpenCodeVersionSupport(version);
+  const runs = versionProbe.status === 0 && acpProbe.status === 0;
+  const available = runs && support.supported;
+  const state = transient ? "unknown" : available ? "ready" : "error";
+  const summary =
+    state === "unknown"
+      ? `${label} status could not be verified.`
+      : !runs
+        ? `${label} does not provide a working ACP runtime.`
+        : !support.supported
+          ? support.reason
+          : `${label} is ready.`;
+  const authDetail = `${label} manages provider authentication. ${OPENCODE_AUTHENTICATION_HELP}`;
+  return {
+    ...base,
+    checkedAt: new Date().toISOString(),
+    state,
+    available,
+    version,
+    summary,
+    authState: "not-required",
+    authDetail,
     detail: [`Resolved path: ${executablePath}`, summary, authDetail]
       .filter(Boolean)
       .join("\n"),

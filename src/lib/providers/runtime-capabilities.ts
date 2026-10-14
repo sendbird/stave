@@ -94,7 +94,11 @@ export function resolveProviderRuntimeCapabilities(args: {
     return createEmptyProviderRuntimeCapabilities();
   }
 
-  if (args.providerId === "cursor" || args.providerId === "kiro") {
+  if (
+    args.providerId === "cursor" ||
+    args.providerId === "kiro" ||
+    args.providerId === "opencode"
+  ) {
     return createEmptyProviderRuntimeCapabilities();
   }
 
@@ -224,5 +228,6 @@ export function createDefaultProviderRuntimeCapabilities(): Record<
     codex: createEmptyProviderRuntimeCapabilities(),
     cursor: createEmptyProviderRuntimeCapabilities(),
     kiro: createEmptyProviderRuntimeCapabilities(),
+    opencode: createEmptyProviderRuntimeCapabilities(),
   };
 }

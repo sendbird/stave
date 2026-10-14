@@ -110,7 +110,8 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       label: provider === ALL ? id : usageAccountLabel(provider, id, profiles) }))];
   }, [profiles, knownAccounts, provider, account]);
   const profile = profiles.find((entry) => entry.providerId === provider && entry.id === account);
-  const canRefresh = provider !== ALL && account !== ALL && account !== UNATTRIBUTED_ACCOUNT_ID && !profile?.gateway
+  // OpenCode reports no quota windows, so there is nothing to read.
+  const canRefresh = provider !== ALL && provider !== "opencode" && account !== ALL && account !== UNATTRIBUTED_ACCOUNT_ID && !profile?.gateway
     && (account === SYSTEM_ACCOUNT_PROFILE_ID || Boolean(profile));
   const refreshQuota = async () => {
     if (!canRefresh) return;

@@ -11,7 +11,7 @@ import { AgentConfigSchema, type AgentConfig } from "./schema";
  *   Codex instruction channels.
  * - A Claude denylist is merged into `claudeDisallowedTools`, never replacing
  *   what the user or Stave already disallowed. A limit can only narrow.
- * - Cursor and Kiro get nothing here: intake prepends `promptPreamble` to the
+ * - Cursor, Kiro and OpenCode get nothing here: intake prepends `promptPreamble` to the
  *   first message instead.
  */
 export function agentRuntimeOptions(

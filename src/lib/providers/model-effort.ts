@@ -18,8 +18,15 @@ import {
   CODEX_EFFORT_OPTIONS,
   CURSOR_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
+import {
+  isOpenCodeEffort,
+  listOpenCodeModelEfforts,
+  resolveSupportedOpenCodeEffort,
+  type OpenCodeEffort,
+} from "@/lib/providers/opencode-model-efforts";
 
 /**
  * Provider-agnostic model effort helpers.
@@ -41,11 +48,13 @@ export type CursorModelEffort = NonNullable<
   ProviderRuntimeOptions["cursorEffort"]
 >;
 export type KiroModelEffort = NonNullable<ProviderRuntimeOptions["kiroEffort"]>;
+export type OpenCodeModelEffort = OpenCodeEffort;
 export type ModelEffort =
   | ClaudeModelEffort
   | CodexModelEffort
   | CursorModelEffort
-  | KiroModelEffort;
+  | KiroModelEffort
+  | OpenCodeModelEffort;
 
 export interface ModelEffortOption {
   value: ModelEffort;
@@ -97,7 +106,8 @@ export function isModelEffort(value: string | undefined): value is ModelEffort {
     isClaudeModelEffort(value) ||
     isCodexModelEffort(value) ||
     isCursorModelEffort(value) ||
-    isKiroModelEffort(value)
+    isKiroModelEffort(value) ||
+    isOpenCodeEffort(value)
   );
 }
 
@@ -111,6 +121,11 @@ export function resolveDefaultModelEffort(args: {
   }
   if (args.providerId === "cursor" || args.providerId === "kiro") {
     return "medium";
+  }
+  if (args.providerId === "opencode") {
+    // The model's own variants decide; medium when it offers it.
+    const supported = listOpenCodeModelEfforts(args.model);
+    return supported.includes("medium") ? "medium" : (supported[0] ?? "medium");
   }
   return resolveDefaultCodexEffortForModel({ model: args.model });
 }
@@ -146,6 +161,13 @@ export function listModelEffortOptions(args: {
   if (args.providerId === "kiro") {
     return KIRO_EFFORT_OPTIONS;
   }
+  if (args.providerId === "opencode") {
+    // Per-model variants from the catalog; none known means none offered.
+    const supported = listOpenCodeModelEfforts(args.model);
+    return OPENCODE_EFFORT_OPTIONS.filter((option) =>
+      supported.includes(option.value),
+    );
+  }
   return listCodexEffortOptionsForModel({ model: args.model });
 }
 
@@ -166,6 +188,9 @@ export function resolveModelEffortFromSettings<
   }
   if (args.providerId === "kiro") {
     return runtimeSettings.kiroEffort;
+  }
+  if (args.providerId === "opencode") {
+    return runtimeSettings.opencodeEffort;
   }
   return runtimeSettings.codexReasoningEffort;
 }
@@ -212,7 +237,11 @@ export function buildModelEffortRuntimeOverrides(args: {
   effort: ModelEffort | undefined;
 }): Pick<
   ProviderRuntimeOptions,
-  "claudeEffort" | "codexReasoningEffort" | "cursorEffort" | "kiroEffort"
+  | "claudeEffort"
+  | "codexReasoningEffort"
+  | "cursorEffort"
+  | "kiroEffort"
+  | "opencodeEffort"
 > {
   if (!args.effort) {
     return {};
@@ -231,6 +260,13 @@ export function buildModelEffortRuntimeOverrides(args: {
     return isKiroModelEffort(args.effort)
       ? { kiroEffort: args.effort }
       : {};
+  }
+  if (args.providerId === "opencode") {
+    const opencodeEffort = resolveSupportedOpenCodeEffort({
+      model: args.model,
+      effort: args.effort,
+    });
+    return opencodeEffort ? { opencodeEffort } : {};
   }
   return isCodexModelEffort(args.effort)
     ? {
@@ -280,6 +316,7 @@ export function buildModelSelectionRuntimeOverrides(args: {
     codexReasoningEffort: undefined,
     cursorEffort: undefined,
     kiroEffort: undefined,
+    opencodeEffort: undefined,
     // Fast stays in per-model preferences. Carrying the previous model's
     // Fast through the draft is what made Cursor Instant and Codex share it.
     codexFastMode: undefined,

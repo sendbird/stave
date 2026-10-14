@@ -142,7 +142,8 @@
     "recentReadsAreReusedToAvoid": "반복 요청을 피하기 위해 최근 관측값을 재사용합니다.",
     "youCanRefreshAgainAt": "{{value1}}에 다시 새로고침할 수 있습니다.",
     "youCanRefreshAgainNow": "지금 다시 새로고침할 수 있습니다.",
-    "automaticReadsPauseAfterAnError": "오류가 발생하면 자동 읽기를 일시 중지하며 {{value1}}에 재개할 수 있습니다."
+    "automaticReadsPauseAfterAnError": "오류가 발생하면 자동 읽기를 일시 중지하며 {{value1}}에 재개할 수 있습니다.",
+    "providerDoesNotReportQuota": "이 프로바이더는 할당량을 보고하지 않습니다."
   },
   "messages": {
     "timeZoneHeading": "시간 ({{zone}})",

@@ -17,6 +17,7 @@ import {
   CODEX_EFFORT_OPTIONS,
   CURSOR_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import type { CliSessionContextMode } from "@/lib/terminal/types";
@@ -45,6 +46,13 @@ export function resolveTaskPresetRuntimeOverrides(preset: TaskPreset): PromptDra
     overrides.kiroEffort = KIRO_EFFORT_OPTIONS.find(
       (option) => option.value === preset.effort,
     )?.value ?? "medium";
+  } else if (preset.provider === "opencode") {
+    // No fallback level: OpenCode's levels are per model, and an omitted
+    // effort keeps the model's default.
+    const opencodeEffort = OPENCODE_EFFORT_OPTIONS.find(
+      (option) => option.value === preset.effort,
+    )?.value;
+    if (opencodeEffort) overrides.opencodeEffort = opencodeEffort;
   }
   return overrides;
 }
@@ -67,7 +75,8 @@ export interface TaskPreset {
   model?: string;
   /**
    * Reasoning effort applied to `task` presets. Claude, Cursor, and Kiro
-   * presets accept `low | medium | high | xhigh | max`; Codex presets accept
+   * presets accept `low | medium | high | xhigh | max`; OpenCode presets also
+   * accept `minimal`, applied only when the model offers it; Codex presets accept
    * `low | medium | high | xhigh | max | ultra` (legacy persisted `minimal`
    * still validates and maps to `low` at runtime). When omitted, the model's
    * default effort is used at launch. Ignored for CLI sessions.
@@ -97,6 +106,9 @@ export function listEffortsForPresetProvider(
   }
   if (providerId === "kiro") {
     return KIRO_EFFORT_OPTIONS;
+  }
+  if (providerId === "opencode") {
+    return OPENCODE_EFFORT_OPTIONS;
   }
   if (providerId === "codex") {
     return model
@@ -193,7 +205,9 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
     input.provider === "claude-code" ||
     input.provider === "codex" ||
     (kind === "task" &&
-      (input.provider === "cursor" || input.provider === "kiro"))
+      (input.provider === "cursor" ||
+        input.provider === "kiro" ||
+        input.provider === "opencode"))
   ) {
     provider = input.provider;
   } else {

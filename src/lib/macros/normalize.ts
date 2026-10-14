@@ -64,7 +64,8 @@ function normalizeMacroRuntime(input: unknown): MacroRuntime | undefined {
     providerId !== "claude-code" &&
     providerId !== "codex" &&
     providerId !== "cursor" &&
-    providerId !== "kiro"
+    providerId !== "kiro" &&
+    providerId !== "opencode"
   ) {
     return undefined;
   }

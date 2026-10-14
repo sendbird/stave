@@ -82,7 +82,7 @@ const UrlSchema = z.url().max(AGENT_RUN_LIMITS.report.ref);
  */
 export const AgentRunFingerprintSchema = z
   .object({
-    providerId: z.enum(["claude-code", "codex", "cursor", "kiro"]),
+    providerId: z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]),
     model: z.string().trim().min(1).max(200),
   })
   .strict();

@@ -20,6 +20,7 @@ export const PROVIDER_ACCENT_COLORS: Record<ProviderId, string> = {
   codex: getProviderAccentColor({ providerId: "codex" }),
   cursor: getProviderAccentColor({ providerId: "cursor" }),
   kiro: getProviderAccentColor({ providerId: "kiro" }),
+  opencode: getProviderAccentColor({ providerId: "opencode" }),
 };
 
 function getCellKey(option: ModelSelectorOption, effort: ModelEffortValue) {

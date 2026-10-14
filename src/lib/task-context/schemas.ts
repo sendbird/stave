@@ -24,6 +24,7 @@ const ProviderIdSchema = z.union([
   z.literal("codex"),
   z.literal("cursor"),
   z.literal("kiro"),
+  z.literal("opencode"),
 ]);
 const ManagedExecutionProviderIdSchema = z.union([
   z.literal("claude-code"),
@@ -366,6 +367,16 @@ const PromptDraftRuntimeOverridesSchema = z.object({
       z.literal("max"),
     ])
     .optional(),
+  opencodeEffort: z
+    .union([
+      z.literal("minimal"),
+      z.literal("low"),
+      z.literal("medium"),
+      z.literal("high"),
+      z.literal("xhigh"),
+      z.literal("max"),
+    ])
+    .optional(),
   autoRouting: z.boolean().optional(),
   boundSecretIds: z.array(z.string().uuid()).optional(),
 });
@@ -475,6 +486,7 @@ export const ChatMessageSchema = z.object({
     z.literal("codex"),
     z.literal("cursor"),
     z.literal("kiro"),
+    z.literal("opencode"),
     z.literal("user"),
   ]),
   nativeProviderSessionId: z.string().optional(),
@@ -618,6 +630,7 @@ const TaskProviderSessionStateSchema = z.object({
   codex: TaskProviderSessionEntrySchema.optional(),
   cursor: TaskProviderSessionEntrySchema.optional(),
   kiro: TaskProviderSessionEntrySchema.optional(),
+  opencode: TaskProviderSessionEntrySchema.optional(),
   stave: z.string().optional(),
 });
 

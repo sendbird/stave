@@ -684,10 +684,11 @@ export function SettingsAutoRoutingSection(props: {
   const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
   const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  const opencodeBinaryPath = useAppStore((state) => state.settings.opencodeBinaryPath);
   const providerAvailability = useAppStore((state) => state.providerAvailability);
   const rateLimitsSnapshot = useAppStore((state) => state.rateLimitsSnapshot);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const catalogOptions = useMemo(() => ({ codexBinaryPath, cursorBinaryPath, kiroBinaryPath }), [codexBinaryPath, cursorBinaryPath, kiroBinaryPath]);
+  const catalogOptions = useMemo(() => ({ codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }), [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath]);
   const { catalogs } = useProviderModelCatalogs({ enabled: true, runtimeOptions: catalogOptions });
   const codexModelCatalog = catalogs.codex;
   const profiles = useProviderAccounts((state) => state.profiles);
@@ -704,8 +705,9 @@ export function SettingsAutoRoutingSection(props: {
           : getSdkModelOptions({ providerId: "codex" }),
       cursor: catalogs.cursor.models,
       kiro: catalogs.kiro.models,
+      opencode: catalogs.opencode.models,
     }),
-    [catalogs["claude-code"].models, codexModelCatalog.models, catalogs.cursor.models, catalogs.kiro.models],
+    [catalogs["claude-code"].models, codexModelCatalog.models, catalogs.cursor.models, catalogs.kiro.models, catalogs.opencode.models],
   );
 
   const commit = (next: AutoRoutingProfile) =>

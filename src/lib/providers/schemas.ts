@@ -25,6 +25,7 @@ const ProviderSessionEventSchema = z.object({
     z.literal("codex"),
     z.literal("cursor"),
     z.literal("kiro"),
+    z.literal("opencode"),
   ]),
   nativeSessionId: z.string(),
 });
@@ -37,6 +38,7 @@ const ProviderTurnEventSchema = z.object({
     z.literal("codex"),
     z.literal("cursor"),
     z.literal("kiro"),
+    z.literal("opencode"),
   ]),
   nativeSessionId: z.string(),
   nativeTurnId: z.string(),
@@ -99,6 +101,7 @@ const ProviderIdSchema = z.union([
   z.literal("codex"),
   z.literal("cursor"),
   z.literal("kiro"),
+  z.literal("opencode"),
 ]);
 
 const DelegatedUsageEventSchema = z.object({

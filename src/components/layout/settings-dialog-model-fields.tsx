@@ -27,7 +27,7 @@ export function useSettingsModelSelectorOptions(args: {
   providerIds: readonly ProviderId[];
 }) {
   const providerAvailability = useAppStore((state) => state.providerAvailability);
-  const [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, workspaceCwd] =
+  const [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath, workspaceCwd] =
     useAppStore(
       useShallow(
         (state) =>
@@ -35,6 +35,7 @@ export function useSettingsModelSelectorOptions(args: {
             state.settings.codexBinaryPath,
             state.settings.cursorBinaryPath,
             state.settings.kiroBinaryPath,
+            state.settings.opencodeBinaryPath,
             state.workspacePathById[state.activeWorkspaceId] ??
               state.repositoryPath ??
               undefined,
@@ -46,8 +47,9 @@ export function useSettingsModelSelectorOptions(args: {
       ...(codexBinaryPath ? { codexBinaryPath } : {}),
       ...(cursorBinaryPath ? { cursorBinaryPath } : {}),
       ...(kiroBinaryPath ? { kiroBinaryPath } : {}),
+      ...(opencodeBinaryPath ? { opencodeBinaryPath } : {}),
     }),
-    [codexBinaryPath, cursorBinaryPath, kiroBinaryPath],
+    [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath],
   );
   const modelCatalogs = useProviderModelCatalogs({
     enabled: true,

@@ -16,6 +16,7 @@ export interface ResolvedPromptDraftRuntimeState {
   cursorEffort?: PromptDraftRuntimeOverrides["cursorEffort"];
   cursorFastMode?: boolean;
   kiroEffort?: PromptDraftRuntimeOverrides["kiroEffort"];
+  opencodeEffort?: PromptDraftRuntimeOverrides["opencodeEffort"];
   boundSecretIds?: string[];
 }
 
@@ -44,6 +45,8 @@ export function resolvePromptDraftRuntimeState(args: {
     cursorFastMode:
       runtimeOverrides?.cursorFastMode ?? args.fallback.cursorFastMode,
     kiroEffort: runtimeOverrides?.kiroEffort ?? args.fallback.kiroEffort,
+    opencodeEffort:
+      runtimeOverrides?.opencodeEffort ?? args.fallback.opencodeEffort,
     boundSecretIds:
       runtimeOverrides?.boundSecretIds ?? args.fallback.boundSecretIds,
   };
@@ -61,7 +64,9 @@ export function resolvePromptDraftModelForProvider(args: {
 
   const overrideProviderId =
     args.runtimeOverrides?.modelProviderId ??
-    ((args.providerId === "cursor" || args.providerId === "kiro") &&
+    ((args.providerId === "cursor" ||
+      args.providerId === "kiro" ||
+      args.providerId === "opencode") &&
     overrideModel.toLowerCase() === "auto"
       ? args.providerId
       : inferProviderIdFromModel({ model: overrideModel }));
@@ -86,6 +91,7 @@ export function resolveTurnModelForSend(args: {
     modelCodex: string;
     modelCursor: string;
     modelKiro: string;
+    modelOpenCode: string;
   };
 }) {
   return resolvePromptDraftModelForProvider({
@@ -104,6 +110,7 @@ export function getConfiguredModelForProvider(
     modelCodex: string;
     modelCursor: string;
     modelKiro: string;
+    modelOpenCode: string;
   },
 ) {
   return providerId === "claude-code"
@@ -112,7 +119,9 @@ export function getConfiguredModelForProvider(
       ? settings.modelCodex
       : providerId === "cursor"
         ? settings.modelCursor
-        : settings.modelKiro;
+        : providerId === "kiro"
+          ? settings.modelKiro
+          : settings.modelOpenCode;
 }
 
 function areStringArraysEqual(left?: string[], right?: string[]) {
@@ -142,6 +151,7 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.cursorEffort === right?.cursorEffort &&
     left?.cursorFastMode === right?.cursorFastMode &&
     left?.kiroEffort === right?.kiroEffort &&
+    left?.opencodeEffort === right?.opencodeEffort &&
     left?.autoRouting === right?.autoRouting &&
     left?.agentRunAdaptive === right?.agentRunAdaptive &&
     left?.agentRunAccountPool?.enabled === right?.agentRunAccountPool?.enabled &&

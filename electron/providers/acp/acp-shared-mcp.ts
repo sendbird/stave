@@ -29,7 +29,7 @@ export type AcpHttpMcpServer = {
 };
 
 export type AcpMcpServerDescriptor = AcpStdioMcpServer | AcpHttpMcpServer;
-export type AcpMcpTargetProvider = "cursor" | "kiro";
+export type AcpMcpTargetProvider = "cursor" | "kiro" | "opencode";
 
 export type NativeMcpRouteIndex = {
   names: Set<string>;
@@ -422,6 +422,10 @@ function getTargetNativeMcpPaths(args: {
   homeDirectory?: string;
 }) {
   const homeDirectory = args.homeDirectory ?? homedir();
+  if (args.targetProvider === "opencode") {
+    // OpenCode reads its own `mcp` config; nothing is projected onto it.
+    return [];
+  }
   if (args.targetProvider === "cursor") {
     return [
       path.join(homeDirectory, ".cursor", "mcp.json"),
@@ -597,6 +601,12 @@ export async function resolveAcpTurnMcpServers(args: {
   homeDirectory?: string;
   staveLocalMcpServers?: readonly AcpMcpServerDescriptor[];
 }): Promise<AcpMcpServerDescriptor[]> {
+  if (args.targetProvider === "opencode") {
+    // OpenCode connects the servers in its own config itself. Stave only adds
+    // its Local MCP, so Claude and Codex server definitions (and the env
+    // values they reference) are never copied into an OpenCode session.
+    return mergeAcpMcpServers([...(args.staveLocalMcpServers ?? [])]);
+  }
   try {
     const [shared, nativeRoutes] = await Promise.all([
       resolveAcpSharedMcpServers({

@@ -23,6 +23,10 @@ import {
   streamKiroWithAcp,
 } from "./kiro/kiro-acp-profile";
 import {
+  describeOpenCodeAvailability,
+  streamOpenCodeWithAcp,
+} from "./opencode/opencode-acp-profile";
+import {
   appendBoundedBridgeEvent,
   createBoundedBridgeEventCollector,
   dropBufferedBridgeEvents,
@@ -655,7 +659,7 @@ export function setReleasedTaskAgentResolver(resolver: typeof releasedTaskAgentR
   releasedTaskAgentResolver = resolver;
 }
 /**
- * Cursor and Kiro have no instruction channel: a released Agent's notice
+ * Cursor, Kiro and OpenCode have no instruction channel: a released Agent's notice
  * (carried as `agentInstructions`) goes into the prompt once per native
  * session, the same way the Agent's own preamble went in. In memory: after a
  * restart a session gets the notice once more, which is harmless.
@@ -1039,16 +1043,28 @@ async function runProviderTurnImpl(
 
   if (
     effectiveArgs.providerId === "cursor" ||
-    effectiveArgs.providerId === "kiro"
+    effectiveArgs.providerId === "kiro" ||
+    effectiveArgs.providerId === "opencode"
   ) {
-    const isCursor = effectiveArgs.providerId === "cursor";
-    const providerLabel = isCursor ? "Cursor" : "Kiro";
+    const acpProviderId = effectiveArgs.providerId;
+    const providerLabel =
+      acpProviderId === "cursor"
+        ? "Cursor"
+        : acpProviderId === "kiro"
+          ? "Kiro"
+          : "OpenCode";
+    const streamWithAcp =
+      acpProviderId === "cursor"
+        ? streamCursorWithAcp
+        : acpProviderId === "kiro"
+          ? streamKiroWithAcp
+          : streamOpenCodeWithAcp;
     const releasedPrompt = agentTurn ? null : releasedAgentPromptHooks({
       providerId: effectiveArgs.providerId, taskId: effectiveArgs.taskId, notice: effectiveArgs.runtimeOptions?.agentInstructions,
     });
     try {
       const events = await runStreamWithPausableTimeout(
-        (isCursor ? streamCursorWithAcp : streamKiroWithAcp)({
+        streamWithAcp({
           ...effectiveArgs,
           prepareTaskAgentPrompt: agentTurn?.prepareSessionPrompt ?? releasedPrompt?.prepare,
           acknowledgeTaskAgentPrompt: () => {
@@ -1398,6 +1414,10 @@ export const providerRuntime: ProviderRuntime = {
       const result = await describeKiroAvailability({ runtimeOptions });
       return { ok: true, ...result };
     }
+    if (providerId === "opencode") {
+      const result = await describeOpenCodeAvailability({ runtimeOptions });
+      return { ok: true, ...result };
+    }
     return {
       ok: false,
       available: false,
@@ -1413,12 +1433,12 @@ export const providerRuntime: ProviderRuntime = {
       return await getClaudeCommandCatalog({ cwd, runtimeOptions });
     }
 
-    if (providerId === "cursor" || providerId === "kiro") {
+    if (providerId === "cursor" || providerId === "kiro" || providerId === "opencode") {
       return {
         ok: true,
         supported: false,
         commands: [],
-        detail: `${providerId === "cursor" ? "Cursor" : "Kiro"} command catalog integration is not available.`,
+        detail: `${providerId === "cursor" ? "Cursor" : providerId === "kiro" ? "Kiro" : "OpenCode"} command catalog integration is not available.`,
       };
     }
 

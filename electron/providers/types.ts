@@ -18,10 +18,10 @@ import type {
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
 
-export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
+export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro" | "opencode";
 export type ManagedExecutionProviderId = Exclude<
   ProviderId,
-  "cursor" | "kiro"
+  "cursor" | "kiro" | "opencode"
 >;
 
 export interface ProviderSlashCommand {

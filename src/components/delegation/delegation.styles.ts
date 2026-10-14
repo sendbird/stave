@@ -404,5 +404,6 @@ export const delegationWaveTone = stylex.create({
   codex: { color: "var(--provider-codex)" },
   cursor: { color: "var(--provider-cursor)" },
   kiro: { color: "var(--provider-kiro)" },
+  opencode: { color: "var(--provider-opencode)" },
   accent: { color: vars["--ads-color-accent"] },
 });

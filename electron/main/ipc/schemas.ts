@@ -1431,15 +1431,8 @@ export const ToolingStatusArgsSchema = z
     codexBinaryPath: z.string().max(4096).optional(),
     cursorBinaryPath: z.string().max(4096).optional(),
     kiroBinaryPath: z.string().max(4096).optional(),
-    kiroEffort: z
-      .union([
-        z.literal("low"),
-        z.literal("medium"),
-        z.literal("high"),
-        z.literal("xhigh"),
-        z.literal("max"),
-      ])
-      .optional(),
+    opencodeBinaryPath: z.string().max(4096).optional(),
+    kiroEffort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
   })
   .strict();
 

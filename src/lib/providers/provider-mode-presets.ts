@@ -37,9 +37,13 @@ type CursorProviderModeSettings = Pick<AppSettings, "cursorApprovalMode">;
 
 type KiroProviderModeSettings = Pick<AppSettings, "kiroApprovalMode">;
 
+type OpenCodeProviderModeSettings = Pick<AppSettings, "opencodeApprovalMode">;
+
 export type CursorApprovalMode = AppSettings["cursorApprovalMode"];
 
 export type KiroApprovalMode = AppSettings["kiroApprovalMode"];
+
+export type OpenCodeApprovalMode = AppSettings["opencodeApprovalMode"];
 
 export interface ProviderModePresentation {
   id: ProviderModeDisplayId;
@@ -123,6 +127,24 @@ export const KIRO_PROVIDER_MODE_PRESETS = [
   },
 ] as const satisfies readonly ProviderModePresetDefinition[];
 
+/**
+ * OpenCode has two tiers for the same reason Kiro does: `opencode acp` takes
+ * no approval flag, and the only verified levers are an ask-everything
+ * permission rule (Manual) and answering every request with allow-once (Auto).
+ */
+export const OPENCODE_PROVIDER_MODE_PRESETS = [
+  {
+    id: "auto",
+    get label() { return i18n.t("common:labels.auto"); },
+    get description() { return i18n.t("providers:providerModePresets.opencodeAutoApprovesEveryToolPermission"); },
+  },
+  {
+    id: "manual",
+    get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); },
+    get description() { return i18n.t("providers:providerModePresets.opencodeAsksBeforeEveryToolCall"); },
+  },
+] as const satisfies readonly ProviderModePresetDefinition[];
+
 const CLAUDE_PROVIDER_MODE_PATCHES: Record<
   ProviderModePresetId,
   ClaudeProviderModeSettings
@@ -188,6 +210,14 @@ const KIRO_PROVIDER_MODE_PATCHES: Record<
   auto: { kiroApprovalMode: "auto" },
 };
 
+const OPENCODE_PROVIDER_MODE_PATCHES: Record<
+  OpenCodeApprovalMode,
+  OpenCodeProviderModeSettings
+> = {
+  manual: { opencodeApprovalMode: "manual" },
+  auto: { opencodeApprovalMode: "auto" },
+};
+
 function findPresetDefinition(
   presets: readonly ProviderModePresetDefinition[],
   presetId: ProviderModePresetId,
@@ -213,6 +243,12 @@ function formatCursorModeDetail(settings: CursorProviderModeSettings) {
     : settings.cursorApprovalMode === "guided"
       ? i18n.t("providers:providerModePresets.autoReviewClassifierAutoReview")
       : i18n.t("providers:providerModePresets.approveEveryToolCall");
+}
+
+function formatOpenCodeModeDetail(settings: OpenCodeProviderModeSettings) {
+  return settings.opencodeApprovalMode === "auto"
+    ? i18n.t("providers:providerModePresets.opencodeApprovalsOffAllowOnce")
+    : i18n.t("providers:providerModePresets.approveEveryToolCall");
 }
 
 function formatKiroModeDetail(settings: KiroProviderModeSettings) {
@@ -326,6 +362,16 @@ export function buildCursorProviderModeSettingsPatch(args: {
   return { ...CURSOR_PROVIDER_MODE_PATCHES[args.presetId] };
 }
 
+export function buildOpenCodeProviderModeSettingsPatch(args: {
+  presetId: ProviderModePresetId;
+}): OpenCodeProviderModeSettings {
+  // No Guided tier: an id OpenCode cannot honor resolves to Manual.
+  return {
+    ...(OPENCODE_PROVIDER_MODE_PATCHES[args.presetId as OpenCodeApprovalMode] ??
+      OPENCODE_PROVIDER_MODE_PATCHES.manual),
+  };
+}
+
 export function buildKiroProviderModeSettingsPatch(args: {
   presetId: ProviderModePresetId;
 }): KiroProviderModeSettings {
@@ -359,6 +405,28 @@ export function detectKiroProviderModePreset(args: {
           ?.kiroApprovalMode === args.settings.kiroApprovalMode,
     )?.id ?? null
   );
+}
+
+export function detectOpenCodeProviderModePreset(args: {
+  settings: OpenCodeProviderModeSettings;
+}): ProviderModePresetId | null {
+  return (
+    OPENCODE_PROVIDER_MODE_PRESETS.find(
+      (preset) =>
+        OPENCODE_PROVIDER_MODE_PATCHES[preset.id as OpenCodeApprovalMode]
+          ?.opencodeApprovalMode === args.settings.opencodeApprovalMode,
+    )?.id ?? null
+  );
+}
+
+export function resolveOpenCodeProviderModePresentation(args: {
+  settings: OpenCodeProviderModeSettings;
+}): ProviderModePresentation {
+  return toPresentation({
+    presetId: detectOpenCodeProviderModePreset({ settings: args.settings }),
+    presets: OPENCODE_PROVIDER_MODE_PRESETS,
+    detail: formatOpenCodeModeDetail(args.settings),
+  });
 }
 
 export function resolveCursorProviderModePresentation(args: {

@@ -2,10 +2,10 @@ import type { ProviderId, ProviderRuntimeOptions } from "./provider.types";
 import type { ToolingStatusEntry } from "../tooling-status";
 import { selectedProviderAccount } from "./provider-account-selection";
 
-export type OptionalProviderId = "cursor" | "kiro";
+export type OptionalProviderId = "cursor" | "kiro" | "opencode";
 
 export function isOptionalProvider(id: ProviderId): id is OptionalProviderId {
-  return id === "cursor" || id === "kiro";
+  return id === "cursor" || id === "kiro" || id === "opencode";
 }
 
 export function providerConfigurationKey(
@@ -21,16 +21,23 @@ export function providerConfigurationKey(
   return (
     (id === "cursor"
       ? options?.cursorBinaryPath
-      : options?.kiroBinaryPath
+      : id === "kiro"
+        ? options?.kiroBinaryPath
+        : options?.opencodeBinaryPath
     )?.trim() || ""
   );
 }
 
+/**
+ * `not-required` covers a provider whose own CLI owns per-model
+ * authentication (OpenCode): Stave has no login to verify, and the CLI
+ * reports a missing credential when a turn or catalog read needs one.
+ */
 export function toolingAllowsProviderReads(tool?: ToolingStatusEntry) {
   return (
     tool?.state === "ready" &&
     tool.available &&
-    tool.authState === "authenticated"
+    (tool.authState === "authenticated" || tool.authState === "not-required")
   );
 }
 

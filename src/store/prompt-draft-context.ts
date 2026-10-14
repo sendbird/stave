@@ -107,7 +107,9 @@ export function buildQueuedTurnFromDraft(args: {
         ? "cursorEffort"
         : args.providerId === "kiro"
           ? "kiroEffort"
-          : "codexReasoningEffort";
+          : args.providerId === "opencode"
+            ? "opencodeEffort"
+            : "codexReasoningEffort";
   const effort =
     args.draft.runtimeOverrides?.[effortKey] ??
     (args.settings && args.providerId && args.model

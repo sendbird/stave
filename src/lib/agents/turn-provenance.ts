@@ -9,7 +9,7 @@ export const AgentTurnProvenanceSchema = z.object({
   agentName: z.string().min(1).max(80),
   agentContentHash: z.string().min(1).max(200),
   role: z.enum(["primary", "delegate"]),
-  providerId: z.enum(["claude-code", "codex", "cursor", "kiro"]),
+  providerId: z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]),
   model: z.string().max(200).nullable(),
   effort: z.string().max(80).nullable(),
   permission: z.object({
@@ -28,6 +28,8 @@ export const AgentTurnProvenanceSchema = z.object({
       cursorMode: z.string().max(80).optional(),
       cursorApprovalMode: z.string().max(80).optional(),
       kiroApprovalMode: z.string().max(80).optional(),
+      opencodeApprovalMode: z.string().max(80).optional(),
+      opencodeDenyEdits: z.boolean().optional(),
     }).strict(),
   }).strict(),
   instructions: z.object({

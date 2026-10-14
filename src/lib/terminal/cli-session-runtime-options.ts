@@ -14,11 +14,13 @@ export function buildCliSessionRuntimeOptions(args: {
   codexBinaryPath?: string | null;
   cursorBinaryPath?: string | null;
   kiroBinaryPath?: string | null;
+  opencodeBinaryPath?: string | null;
 }): ProviderRuntimeOptions | undefined {
   const claudeBinaryPath = args.claudeBinaryPath?.trim();
   const codexBinaryPath = args.codexBinaryPath?.trim();
   const cursorBinaryPath = args.cursorBinaryPath?.trim();
   const kiroBinaryPath = args.kiroBinaryPath?.trim();
+  const opencodeBinaryPath = args.opencodeBinaryPath?.trim();
 
   switch (args.providerId) {
     case "claude-code":
@@ -35,5 +37,7 @@ export function buildCliSessionRuntimeOptions(args: {
       return cursorBinaryPath ? { cursorBinaryPath } : undefined;
     case "kiro":
       return kiroBinaryPath ? { kiroBinaryPath } : undefined;
+    case "opencode":
+      return opencodeBinaryPath ? { opencodeBinaryPath } : undefined;
   }
 }

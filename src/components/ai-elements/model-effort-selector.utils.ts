@@ -19,6 +19,7 @@ import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ModelSelectorOption } from "./model-selector.utils";
@@ -328,6 +329,9 @@ export function listProviderEffortScale(
   if (providerId === "cursor" || providerId === "kiro") {
     return KIRO_EFFORT_OPTIONS as readonly ModelEffortOption[];
   }
+  if (providerId === "opencode") {
+    return OPENCODE_EFFORT_OPTIONS as readonly ModelEffortOption[];
+  }
   return [];
 }
 
@@ -389,6 +393,13 @@ export function listModelEfforts(
       ? scale.filter((effort) => effort.value === embeddedEffort)
       : [];
   }
+  if (option.providerId === "opencode") {
+    // Levels are the model's variants. A model the catalog lists without any
+    // (or a 2.x catalog, which reports none) gets no effort control, because
+    // Stave would have nothing it could apply.
+    const supported = new Set(option.supportedEfforts ?? []);
+    return scale.filter((effort) => supported.has(effort.value));
+  }
   if (
     option.providerId === "kiro" &&
     (option.supportedEfforts?.length ?? 0) > 0
@@ -422,7 +433,7 @@ export function resolveDefaultModelEffort(
       efforts[0]?.value
     );
   }
-  if (option.providerId === "kiro") {
+  if (option.providerId === "kiro" || option.providerId === "opencode") {
     const efforts = listModelEfforts(option);
     return (
       efforts.find((effort) => effort.value === option.defaultEffort)?.value ??

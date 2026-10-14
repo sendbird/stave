@@ -107,7 +107,9 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
       nextProvider === "claude-code" ||
       nextProvider === "codex" ||
       (kind === "task" &&
-        (nextProvider === "cursor" || nextProvider === "kiro"))
+        (nextProvider === "cursor" ||
+          nextProvider === "kiro" ||
+          nextProvider === "opencode"))
         ? (nextProvider as ProviderId)
         : "claude-code";
     setProvider(providerId);

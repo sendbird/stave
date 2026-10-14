@@ -9,15 +9,17 @@ import type { AgentPermission } from "./schema";
  *
  * Ceilings per provider:
  *
- * | Agent      | Claude                                  | Codex                          | Cursor              | Kiro   |
- * | ---------- | --------------------------------------- | ------------------------------ | ------------------- | ------ |
- * | Read only  | `default`, edit tools off, no skipping  | read-only files, `on-request`  | Ask mode, Manual    | Manual |
- * | Manual     | `default`, no skipping                  | workspace files, `untrusted`   | Manual              | Manual |
- * | Guided     | `acceptEdits`, no skipping              | workspace files, `untrusted`   | Guided              | Manual |
- * | Auto       | the user's settings                     | the user's settings            | the user's settings | the user's settings |
+ * | Agent      | Claude                                  | Codex                          | Cursor              | Kiro   | OpenCode                 |
+ * | ---------- | --------------------------------------- | ------------------------------ | ------------------- | ------ | ------------------------ |
+ * | Read only  | `default`, edit tools off, no skipping  | read-only files, `on-request`  | Ask mode, Manual    | Manual | Manual, edit tools off   |
+ * | Manual     | `default`, no skipping                  | workspace files, `untrusted`   | Manual              | Manual | Manual                   |
+ * | Guided     | `acceptEdits`, no skipping              | workspace files, `untrusted`   | Guided              | Manual | Manual                   |
+ * | Auto       | the user's settings                     | the user's settings            | the user's settings | the user's settings | the user's settings |
  *
  * Kiro has no read-only mode: a read-only agent there asks before every tool
  * and is told not to edit, so its file limit is reported as instructed.
+ * OpenCode denies its edit tools through a permission rule and asks before
+ * every other tool, the same posture as Claude's read-only ceiling.
  */
 
 type PermissionOptions = Pick<
@@ -31,6 +33,8 @@ type PermissionOptions = Pick<
   | "cursorMode"
   | "cursorApprovalMode"
   | "kiroApprovalMode"
+  | "opencodeApprovalMode"
+  | "opencodeDenyEdits"
 >;
 
 /** Claude tools that edit files; a read-only agent turns them off. */
@@ -139,6 +143,11 @@ export function agentPermissionOverrides(args: {
     }
     case "kiro":
       if (options.kiroApprovalMode === "auto") out.kiroApprovalMode = "manual";
+      return out;
+    case "opencode":
+      // OpenCode has no Guided tier, so every ceiling below Auto is Manual.
+      if (options.opencodeApprovalMode === "auto") out.opencodeApprovalMode = "manual";
+      if (args.permission === "read-only" && options.opencodeDenyEdits !== true) out.opencodeDenyEdits = true;
       return out;
   }
 }

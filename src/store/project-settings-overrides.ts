@@ -7,7 +7,7 @@ import type { AppSettings } from "@/store/app-settings";
  * - the default model and effort per provider (Settings > Models);
  * - the permission posture per provider (Settings > Providers): Claude's
  *   permission mode and sandbox switches, Codex's file access, network
- *   access and approvals, and the Cursor and Kiro approval presets.
+ *   access and approvals, and the Cursor, Kiro and OpenCode approval presets.
  *
  * Everything else is global. Every read of an overridable value for a new
  * task or turn goes through `resolveEffectiveSettings` / `effectiveSetting`,
@@ -22,6 +22,8 @@ export const PROJECT_OVERRIDABLE_SETTING_KEYS = [
   "cursorEffort",
   "modelKiro",
   "kiroEffort",
+  "modelOpenCode",
+  "opencodeEffort",
   "claudePermissionMode",
   "claudeAllowDangerouslySkipPermissions",
   "claudeSandboxEnabled",
@@ -32,6 +34,7 @@ export const PROJECT_OVERRIDABLE_SETTING_KEYS = [
   "codexAppToolApprovalMode",
   "cursorApprovalMode",
   "kiroApprovalMode",
+  "opencodeApprovalMode",
 ] as const satisfies readonly (keyof AppSettings)[];
 
 export type ProjectOverridableSettingKey =
@@ -96,6 +99,8 @@ const OVERRIDE_VALIDATORS: {
   cursorEffort: oneOf<AppSettings["cursorEffort"]>(EFFORTS),
   modelKiro: modelId,
   kiroEffort: oneOf<AppSettings["kiroEffort"]>(EFFORTS),
+  modelOpenCode: modelId,
+  opencodeEffort: oneOf<AppSettings["opencodeEffort"]>(["minimal", ...EFFORTS]),
   claudePermissionMode: oneOf<AppSettings["claudePermissionMode"]>([
     "default",
     "acceptEdits",
@@ -131,6 +136,7 @@ const OVERRIDE_VALIDATORS: {
     "auto",
   ]),
   kiroApprovalMode: oneOf<AppSettings["kiroApprovalMode"]>(["manual", "auto"]),
+  opencodeApprovalMode: oneOf<AppSettings["opencodeApprovalMode"]>(["manual", "auto"]),
 };
 
 function validateOverride<K extends ProjectOverridableSettingKey>(

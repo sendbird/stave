@@ -46,6 +46,7 @@ const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   get codex() { return i18n.t("settingsProviders:settingsDialogToolingSection.codexTurnsAndCodexNativeExecution", { value1: getCodexModelAvailabilityGuidance() }); },
   get cursor() { return i18n.t("settingsProviders:toolingSection.purpose.cursor"); },
   get kiro() { return i18n.t("settingsProviders:toolingSection.purpose.kiro"); },
+  get opencode() { return i18n.t("settingsProviders:toolingSection.purpose.opencode"); },
 };
 
 const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
@@ -54,6 +55,7 @@ const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
   codex: "codex login",
   cursor: "agent login",
   kiro: "kiro-cli login",
+  opencode: "opencode auth login",
 };
 
 function AuthBadge(args: { tool: ToolingStatusEntry }) {
@@ -64,7 +66,10 @@ function AuthBadge(args: { tool: ToolingStatusEntry }) {
       : args.tool.authState === "unauthenticated"
         ? t("settingsProviders:toolingSection.auth.unauthenticated")
         : args.tool.authState === "not-required"
-          ? t("settingsProviders:toolingSection.auth.notRequired")
+          ? // OpenCode signs in per provider itself; Stave has nothing to verify.
+            args.tool.id === "opencode"
+            ? t("settingsProviders:toolingSection.auth.managedInCli")
+            : t("settingsProviders:toolingSection.auth.notRequired")
           : t("settingsProviders:toolingSection.auth.unknown");
 
   const toneStyle =
@@ -261,6 +266,7 @@ export function ToolingSection() {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    opencodeBinaryPath,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -272,6 +278,7 @@ export function ToolingSection() {
           state.settings.codexBinaryPath,
           state.settings.cursorBinaryPath,
           state.settings.kiroBinaryPath,
+          state.settings.opencodeBinaryPath,
         ] as const,
     ),
   );
@@ -317,11 +324,12 @@ export function ToolingSection() {
           codexBinaryPath: codexBinaryPath || undefined,
           cursorBinaryPath: cursorBinaryPath || undefined,
           kiroBinaryPath: kiroBinaryPath || undefined,
+          opencodeBinaryPath: opencodeBinaryPath || undefined,
         });
         if (cancelled) {
           return;
         }
-        const runtimeOptions = { ...accountOptions, claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath };
+        const runtimeOptions = { ...accountOptions, claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath };
         for (const tool of snapshot.tools) publishProviderTooling(tool, runtimeOptions);
         void useAppStore.getState().refreshProviderAvailability();
         useAppStore.setState(providerToolingStatePatch(useAppStore.getState()));
@@ -353,6 +361,7 @@ export function ToolingSection() {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    opencodeBinaryPath,
     accountOptions,
     refreshNonce,
     workspaceCwd,
@@ -431,7 +440,7 @@ export function ToolingSection() {
               {snapshot.tools.map((tool) => (
                 <ToolCard
                   key={tool.id}
-                  tool={(tool.id === "cursor" || tool.id === "kiro") && readiness[tool.id]?.configurationKey === providerConfigurationKey(tool.id, { cursorBinaryPath, kiroBinaryPath }) ? readiness[tool.id]!.tool : tool}
+                  tool={(tool.id === "cursor" || tool.id === "kiro" || tool.id === "opencode") && readiness[tool.id]?.configurationKey === providerConfigurationKey(tool.id, { cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }) ? readiness[tool.id]!.tool : tool}
                   canOpenTerminal={Boolean(workspaceCwd)}
                   onOpenTerminal={handleOpenTerminal}
                   onCopyRepairCommand={handleCopyRepairCommand}

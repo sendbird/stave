@@ -71,6 +71,7 @@ const MODEL_SHORTCUT_PROVIDER_IDS = [
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ] as const;
 
 const UNASSIGNED_APP_SHORTCUT_VALUE = "__shortcut_unassigned__";

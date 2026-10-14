@@ -57,6 +57,7 @@ const EXECUTABLE_DISCOVERY_COMMANDS = [
   "agent",
   "cursor-agent",
   "kiro-cli",
+  "opencode",
 ] as const;
 
 type PreparedExecutableSelection = {

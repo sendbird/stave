@@ -112,6 +112,8 @@ export interface PromptDraftRuntimeOverrides {
   cursorEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   cursorFastMode?: boolean;
   kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  /** OpenCode effort; a model offers the subset its variants support. */
+  opencodeEffort?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
   autoRouting?: boolean;
   model?: string;
   /**
@@ -132,6 +134,7 @@ export type TurnModelEffort = NonNullable<
   | PromptDraftRuntimeOverrides["codexReasoningEffort"]
   | PromptDraftRuntimeOverrides["cursorEffort"]
   | PromptDraftRuntimeOverrides["kiroEffort"]
+  | PromptDraftRuntimeOverrides["opencodeEffort"]
 >;
 
 export interface TurnModelInfo {

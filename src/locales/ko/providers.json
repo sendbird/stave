@@ -222,7 +222,11 @@
     "standardPriceBelowTheKInputVariantca1656d7": "입력 토큰이 27만 2천 개 미만이면 표준 요금을 적용합니다.",
     "promotionalPricePublishedThroughAtLeast": "공개된 할인 요금은 최소 2026-11-21까지 적용합니다.",
     "standardPriceBelowTheKContext": "컨텍스트가 27만 2천 토큰 미만이면 표준 요금을 적용합니다.",
-    "haikuPriceBelowTheKInput": "입력 토큰이 10만 개 이하인 프롬프트의 표준 요금입니다. 더 긴 프롬프트에는 토큰 100만 개당 $0.50 / $2.50을 적용합니다."
+    "haikuPriceBelowTheKInput": "입력 토큰이 10만 개 이하인 프롬프트의 표준 요금입니다. 더 긴 프롬프트에는 토큰 100만 개당 $0.50 / $2.50을 적용합니다.",
+    "opencodeSessionID": "OpenCode 세션 ID",
+    "opencodeDoesNotExposePointIn": "Stave에서 OpenCode의 특정 시점 세션 분기를 사용할 수 없습니다.",
+    "opencodeDoesNotExposeInPlace": "Stave에서 OpenCode의 현재 세션 롤백을 사용할 수 없습니다.",
+    "opencodeSessionRenameIsNotWired": "Stave에서 OpenCode 세션 이름을 변경할 수 없습니다."
   },
   "providerAccountIdentity": {
     "checkingSignIn": "로그인 확인 중…",
@@ -261,7 +265,10 @@
     "approveEveryToolCall": "모든 도구 호출 승인",
     "approvalsOffTrustAllTools": "승인 해제 (--trust-all-tools)",
     "thisSettingsCombinationNoLongerMatches": "현재 설정 조합이 기본 프리셋과 일치하지 않습니다.",
-    "providerModePresetsAreRequired": "프로바이더 모드 프리셋이 필요합니다."
+    "providerModePresetsAreRequired": "프로바이더 모드 프리셋이 필요합니다.",
+    "opencodeAutoApprovesEveryToolPermission": "OpenCode가 보내는 모든 권한 요청을 Stave가 승인합니다. OpenCode에서 거부로 설정한 규칙은 그대로 적용됩니다. 신뢰할 수 있는 워크스페이스에서만 사용하십시오.",
+    "opencodeAsksBeforeEveryToolCall": "OpenCode가 모든 도구 호출 전에 승인을 요청합니다. 명시적인 승인 없이는 실행하지 않습니다.",
+    "opencodeApprovalsOffAllowOnce": "승인 해제 / 모든 요청을 한 번 허용"
   },
   "runtimeOptionContract": {
     "repository": "저장소"

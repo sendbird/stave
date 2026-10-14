@@ -4,7 +4,7 @@ import type { TurnUsageSample } from "./usage";
 import { RoutingDecisionObservationSchema, type RoutingDecisionObservation } from "../providers/routing-decision";
 
 const RouteModelSchema = z.object({
-  providerId: z.enum(["claude-code", "codex", "cursor", "kiro"]),
+  providerId: z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]),
   model: z.string().trim().min(1).max(200),
 }).strict();
 

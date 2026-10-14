@@ -27,7 +27,7 @@ export function publishProviderTooling(
   tool: ToolingStatusEntry,
   options?: ProviderRuntimeOptions,
 ) {
-  if (!["claude", "codex", "cursor", "kiro"].includes(tool.id)) return;
+  if (!["claude", "codex", "cursor", "kiro", "opencode"].includes(tool.id)) return;
   const id = (tool.id === "claude" ? "claude-code" : tool.id) as ProviderId;
   const configurationKey = providerConfigurationKey(id, options);
   const checkedAt = Date.parse(tool.checkedAt ?? "") || Date.now();

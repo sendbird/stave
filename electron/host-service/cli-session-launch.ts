@@ -20,12 +20,16 @@ import {
   buildKiroCliEnv,
   resolveKiroExecutablePath,
 } from "../providers/kiro-cli-env";
+import {
+  buildOpenCodeCliEnv,
+  resolveOpenCodeExecutablePath,
+} from "../providers/opencode-cli-env";
 
 /**
  * Which post-spawn discovery routine (if any) has to run to learn the native
  * session id, for CLIs that do not accept one up front.
  */
-export type CliSessionNativeSessionDiscovery = "codex" | "kiro";
+export type CliSessionNativeSessionDiscovery = "codex" | "kiro" | "opencode";
 
 export interface CliSessionLaunchSpec {
   ok: true;
@@ -179,6 +183,31 @@ export function buildCliSessionLaunch(args: {
         ...(requestedNativeSessionId
           ? { nativeSessionId: requestedNativeSessionId }
           : { discovery: "kiro" as const }),
+      };
+    }
+    case "opencode": {
+      const executablePath = resolveOpenCodeExecutablePath({
+        explicitPath: runtimeOptions?.opencodeBinaryPath,
+      });
+      if (!executablePath) {
+        return {
+          ok: false,
+          stderr:
+            "OpenCode executable not found. Check OpenCode installation or the configured binary path.",
+        };
+      }
+      // 1.x cannot open a new session under a chosen id, so a new tab starts
+      // the TUI bare and learns the id from `opencode session list`.
+      return {
+        ok: true,
+        executablePath,
+        commandArgs: requestedNativeSessionId
+          ? ["--session", requestedNativeSessionId]
+          : undefined,
+        env: buildOpenCodeCliEnv({ executablePath }),
+        ...(requestedNativeSessionId
+          ? { nativeSessionId: requestedNativeSessionId }
+          : { discovery: "opencode" as const }),
       };
     }
     default:

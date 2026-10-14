@@ -64,9 +64,10 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
   const availability = useAppStore((state) => state.providerAvailability);
   const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  const opencodeBinaryPath = useAppStore((state) => state.settings.opencodeBinaryPath);
   const runtimeOptions = useMemo(
-    () => ({ cursorBinaryPath, kiroBinaryPath }),
-    [cursorBinaryPath, kiroBinaryPath],
+    () => ({ cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }),
+    [cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath],
   );
   const { catalogs } = useProviderModelCatalogs({ enabled: true, runtimeOptions });
   const providerIds = listProviderIds().filter(

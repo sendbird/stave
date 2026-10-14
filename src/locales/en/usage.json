@@ -142,7 +142,8 @@
     "recentReadsAreReusedToAvoid": "Recent reads are reused to avoid repeated requests.",
     "youCanRefreshAgainAt": "You can refresh again at {{value1}}.",
     "youCanRefreshAgainNow": "You can refresh again now.",
-    "automaticReadsPauseAfterAnError": "Automatic reads pause after an error and can resume at {{value1}}."
+    "automaticReadsPauseAfterAnError": "Automatic reads pause after an error and can resume at {{value1}}.",
+    "providerDoesNotReportQuota": "This provider does not report quota."
   },
   "messages": {
     "timeZoneHeading": "Time ({{zone}})",

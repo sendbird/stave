@@ -39,6 +39,7 @@ export interface TaskProviderSessionState {
   codex?: TaskProviderSessionEntry;
   cursor?: TaskProviderSessionEntry;
   kiro?: TaskProviderSessionEntry;
+  opencode?: TaskProviderSessionEntry;
 }
 
 export interface WorkspaceSnapshot {

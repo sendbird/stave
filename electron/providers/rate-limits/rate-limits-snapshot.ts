@@ -128,9 +128,10 @@ export async function getRateLimitsSnapshot(args: {
   const unavailable: QuotaReadFeedback = { status: "unavailable", reason: "unavailable",
     nextRefreshAt: null, nextAutomaticReadAt: null, lastReadFailed: false };
 
+  // Only providers with a usage fetcher; OpenCode reports no quota windows.
   async function read<K extends keyof UsageFetchers>(
     key: K,
-    providerId: ProviderId,
+    providerId: NonNullable<QuotaObservationMetadata["providerId"]>,
     request: () => Promise<RateLimitsSnapshotResponse[K]>,
   ): Promise<RateLimitsSnapshotResponse[K]> {
     if (!shouldFetchProvider(providerId, providers)) {

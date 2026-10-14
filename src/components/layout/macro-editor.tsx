@@ -154,7 +154,8 @@ export function MacroEditor(props: MacroEditorProps) {
     const nextProviderId =
       nextProvider === "codex" ||
       nextProvider === "cursor" ||
-      nextProvider === "kiro"
+      nextProvider === "kiro" ||
+      nextProvider === "opencode"
         ? nextProvider
         : "claude-code";
     setProviderId(nextProviderId);

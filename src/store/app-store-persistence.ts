@@ -92,6 +92,8 @@ import {
   normalizeCursorEffort,
   normalizeCursorMode,
   normalizeKiroApprovalMode,
+  normalizeOpenCodeApprovalMode,
+  normalizeOpenCodeEffort,
   normalizeKiroEffort,
   normalizePersistedLensSettings,
   normalizeReasoningExpansionMode,
@@ -617,6 +619,12 @@ export function createAppStorePersistenceOptions() {
       state.settings.kiroApprovalMode = normalizeKiroApprovalMode(
         state.settings.kiroApprovalMode,
       );
+      state.settings.opencodeApprovalMode = normalizeOpenCodeApprovalMode(
+        state.settings.opencodeApprovalMode,
+      );
+      state.settings.opencodeEffort = normalizeOpenCodeEffort(
+        state.settings.opencodeEffort,
+      );
       // Snapshots written before the catalog folded the auto family into a
       // single `auto` row can hold a provider auto id such as
       // `auto-smart[optimize_for=balanced]`, which no longer names a row.
@@ -627,6 +635,10 @@ export function createAppStorePersistenceOptions() {
       state.settings.modelKiro = normalizeAutoDefaultProviderModel({
         value: state.settings.modelKiro,
         fallback: defaultSettings.modelKiro,
+      });
+      state.settings.modelOpenCode = normalizeAutoDefaultProviderModel({
+        value: state.settings.modelOpenCode,
+        fallback: defaultSettings.modelOpenCode,
       });
       state.settings.modelClaude = upgradeSettingsScopedClaudeModel({
         model: state.settings.modelClaude,
