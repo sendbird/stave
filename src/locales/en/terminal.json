@@ -70,7 +70,7 @@
     "noFolder": "No folder set",
     "openSettings": "Open Settings",
     "emptyState": {
-      "noFolder": "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, and Kiro here. Nothing is added to your repositories.",
+      "noFolder": "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, Kiro and OpenCode here. Nothing is added to your repositories.",
       "noInstalledCli": "No supported CLI was found on this machine. Install Claude Code, Codex, Cursor, or Kiro, or set its binary path in Settings."
     },
     "errors": {

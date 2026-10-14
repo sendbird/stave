@@ -7,6 +7,7 @@ import {
   readCodexSessionMeta,
 } from "./codex-native-session-files";
 import { listKiroSessions } from "./kiro-native-session-files";
+import { listOpenCodeSessions } from "./opencode-native-session-files";
 import type { TerminalSessionEntry } from "./terminal-session-entry";
 
 const CODEX_SESSION_DISCOVERY_POLL_MS = 500;
@@ -16,6 +17,9 @@ const CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS = 60_000;
 const KIRO_SESSION_DISCOVERY_POLL_MS = 500;
 const KIRO_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
 const KIRO_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
+const OPENCODE_SESSION_DISCOVERY_POLL_MS = 2_000;
+const OPENCODE_SESSION_DISCOVERY_MAX_ATTEMPTS = 150;
+const OPENCODE_SESSION_DISCOVERY_LOOKBACK_MS = 5_000;
 
 /**
  * Native session ids are not known at spawn time for every provider, so they
@@ -29,6 +33,7 @@ export function createNativeSessionDiscovery(args: {
   const codexSessionFileClaimByPath = new Map<string, string>();
   const codexSessionIdClaimByNativeId = new Map<string, string>();
   const kiroSessionIdClaimByNativeId = new Map<string, string>();
+  const opencodeSessionIdClaimByNativeId = new Map<string, string>();
 
   function normalizeSessionCwd(cwd: string) {
     return resolveCommandCwd({ cwd });
@@ -48,29 +53,32 @@ export function createNativeSessionDiscovery(args: {
         codexSessionIdClaimByNativeId.delete(nativeSessionId);
       }
     }
-    for (const [
-      nativeSessionId,
-      ownerSessionId,
-    ] of kiroSessionIdClaimByNativeId) {
-      if (ownerSessionId === sessionId) {
-        kiroSessionIdClaimByNativeId.delete(nativeSessionId);
+    for (const claims of [
+      kiroSessionIdClaimByNativeId,
+      opencodeSessionIdClaimByNativeId,
+    ]) {
+      for (const [nativeSessionId, ownerSessionId] of claims) {
+        if (ownerSessionId === sessionId) {
+          claims.delete(nativeSessionId);
+        }
       }
     }
   }
 
   /**
-   * Kiro accepts no session id up front, so the id is discovered after spawn by
-   * polling `kiro-cli chat --list-sessions --format json` in the session cwd.
-   * The lookback filter keeps a conversation the user started in that folder
-   * before this PTY existed from being adopted, and the claim map keeps two
-   * PTYs in the same folder from landing on the same id.
+   * Polls a CLI-provided session list until a session that started after this
+   * PTY appears. The lookback filter keeps a conversation the user started in
+   * that folder before this PTY existed from being adopted, and the claim map
+   * keeps two PTYs in the same folder from landing on the same id.
    */
-  function startKiroNativeSessionDiscovery(args: {
+  function startListedNativeSessionDiscovery(args: {
     sessionId: string;
-    cwd: string;
     startedAtMs: number;
-    executablePath: string;
-    env?: Record<string, string | undefined>;
+    pollMs: number;
+    maxAttempts: number;
+    lookbackMs: number;
+    claims: Map<string, string>;
+    listSessions: () => Promise<Array<{ sessionId: string; updatedAtMs: number }>>;
   }) {
     const session = sessions.get(args.sessionId);
     if (!session || session.nativeSessionId) {
@@ -110,11 +118,7 @@ export function createNativeSessionDiscovery(args: {
       scanning = true;
       let summaries: Array<{ sessionId: string; updatedAtMs: number }> = [];
       try {
-        summaries = await listKiroSessions({
-          executablePath: args.executablePath,
-          cwd: args.cwd,
-          env: args.env,
-        });
+        summaries = await args.listSessions();
       } finally {
         scanning = false;
       }
@@ -130,13 +134,10 @@ export function createNativeSessionDiscovery(args: {
 
       let bestMatch: { sessionId: string; updatedAtMs: number } | null = null;
       for (const summary of summaries) {
-        if (
-          summary.updatedAtMs <
-          args.startedAtMs - KIRO_SESSION_DISCOVERY_LOOKBACK_MS
-        ) {
+        if (summary.updatedAtMs < args.startedAtMs - args.lookbackMs) {
           continue;
         }
-        const claimedBy = kiroSessionIdClaimByNativeId.get(summary.sessionId);
+        const claimedBy = args.claims.get(summary.sessionId);
         if (claimedBy && claimedBy !== args.sessionId) {
           continue;
         }
@@ -147,22 +148,79 @@ export function createNativeSessionDiscovery(args: {
 
       if (bestMatch) {
         liveSession.nativeSessionId = bestMatch.sessionId;
-        kiroSessionIdClaimByNativeId.set(bestMatch.sessionId, args.sessionId);
+        args.claims.set(bestMatch.sessionId, args.sessionId);
         stop();
         return;
       }
 
       attempts += 1;
-      if (attempts >= KIRO_SESSION_DISCOVERY_MAX_ATTEMPTS) {
+      if (attempts >= args.maxAttempts) {
         stop();
       }
     };
 
     const intervalId = setInterval(() => {
       void scan();
-    }, KIRO_SESSION_DISCOVERY_POLL_MS);
+    }, args.pollMs);
     session.disposeNativeSessionDiscovery = stop;
     void scan();
+  }
+
+  /**
+   * Kiro accepts no session id up front, so the id is discovered after spawn by
+   * polling `kiro-cli chat --list-sessions --format json` in the session cwd.
+   */
+  function startKiroNativeSessionDiscovery(args: {
+    sessionId: string;
+    cwd: string;
+    startedAtMs: number;
+    executablePath: string;
+    env?: Record<string, string | undefined>;
+  }) {
+    startListedNativeSessionDiscovery({
+      sessionId: args.sessionId,
+      startedAtMs: args.startedAtMs,
+      pollMs: KIRO_SESSION_DISCOVERY_POLL_MS,
+      maxAttempts: KIRO_SESSION_DISCOVERY_MAX_ATTEMPTS,
+      lookbackMs: KIRO_SESSION_DISCOVERY_LOOKBACK_MS,
+      claims: kiroSessionIdClaimByNativeId,
+      listSessions: () =>
+        listKiroSessions({
+          executablePath: args.executablePath,
+          cwd: args.cwd,
+          env: args.env,
+        }),
+    });
+  }
+
+  /**
+   * The OpenCode TUI creates its session when the first message is sent, and
+   * 1.x takes no new-session id, so the id is discovered by polling
+   * `opencode session list --format json` for a session created in this folder
+   * after the PTY started. Each poll starts the CLI, so it runs less often than
+   * Kiro's and for longer, to cover the time before the first message.
+   */
+  function startOpenCodeNativeSessionDiscovery(args: {
+    sessionId: string;
+    cwd: string;
+    startedAtMs: number;
+    executablePath: string;
+    env?: Record<string, string | undefined>;
+  }) {
+    startListedNativeSessionDiscovery({
+      sessionId: args.sessionId,
+      startedAtMs: args.startedAtMs,
+      pollMs: OPENCODE_SESSION_DISCOVERY_POLL_MS,
+      maxAttempts: OPENCODE_SESSION_DISCOVERY_MAX_ATTEMPTS,
+      lookbackMs: OPENCODE_SESSION_DISCOVERY_LOOKBACK_MS,
+      claims: opencodeSessionIdClaimByNativeId,
+      listSessions: () =>
+        listOpenCodeSessions({
+          executablePath: args.executablePath,
+          cwd: args.cwd,
+          env: args.env,
+        }),
+    });
   }
 
   function startCodexNativeSessionDiscovery(args: {
@@ -279,5 +337,6 @@ export function createNativeSessionDiscovery(args: {
     releaseNativeSessionClaims,
     startCodexNativeSessionDiscovery,
     startKiroNativeSessionDiscovery,
+    startOpenCodeNativeSessionDiscovery,
   };
 }

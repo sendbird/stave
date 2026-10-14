@@ -54,6 +54,7 @@ export function buildStandaloneCliCreateSessionArgs(args: {
   codexBinaryPath: string;
   cursorBinaryPath: string;
   kiroBinaryPath: string;
+  opencodeBinaryPath: string;
 }) {
   return {
     workspaceId: STANDALONE_CLI_WORKSPACE_ID,
@@ -75,6 +76,7 @@ export function buildStandaloneCliCreateSessionArgs(args: {
       codexBinaryPath: args.codexBinaryPath,
       cursorBinaryPath: args.cursorBinaryPath,
       kiroBinaryPath: args.kiroBinaryPath,
+      opencodeBinaryPath: args.opencodeBinaryPath,
     }),
   };
 }
@@ -178,6 +180,7 @@ export function StandaloneCliTerminal(props: {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    opencodeBinaryPath,
     terminalFontFamily,
     terminalFontSize,
     terminalLineHeight,
@@ -191,6 +194,7 @@ export function StandaloneCliTerminal(props: {
           state.settings.codexBinaryPath,
           state.settings.cursorBinaryPath,
           state.settings.kiroBinaryPath,
+          state.settings.opencodeBinaryPath,
           state.settings.terminalFontFamily,
           state.settings.terminalFontSize,
           state.settings.terminalLineHeight,
@@ -286,6 +290,7 @@ export function StandaloneCliTerminal(props: {
           codexBinaryPath,
           cursorBinaryPath,
           kiroBinaryPath,
+          opencodeBinaryPath,
         }),
       );
     },
@@ -294,6 +299,7 @@ export function StandaloneCliTerminal(props: {
       codexBinaryPath,
       cursorBinaryPath,
       kiroBinaryPath,
+      opencodeBinaryPath,
       props.folderPath,
     ],
   );
