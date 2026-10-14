@@ -50,6 +50,25 @@ describe("run notifications", () => {
     ).toBe("agent_run.blocked");
   });
 
+  test("a usage limit with a known reset stays quiet; an unknown reset is blocked once per limited turn", () => {
+    const usageLimit = (resumeAt: string | null, turnId = "turn-3") => ({
+      turnId, resetsAt: resumeAt ? "2026-09-26T11:00:00.000Z" : null, resumeAt,
+      accountProfileId: "system", fingerprint: { providerId: "claude-code" as const, model: "sonnet" },
+    });
+    const paused = (limit: ReturnType<typeof usageLimit>) =>
+      detailWith("running", { state: "paused", pauseReason: "usage-limit", reasonDetail: null, usageLimit: limit });
+    expect(describeAgentRunNotification(paused(usageLimit("2026-09-26T11:01:00.000Z")), CONTEXT)).toBeNull();
+    const blocked = describeAgentRunNotification(paused(usageLimit(null)), CONTEXT)!;
+    expect(blocked).toMatchObject({
+      kind: "agent_run.blocked",
+      title: "Understand is blocked",
+      dedupeKey: "agent-run:agent-run-1:paused:usage-limit:turn-3",
+      payload: { detail: expect.stringContaining("reset time is unknown") },
+    });
+    expect(describeAgentRunNotification(paused(usageLimit(null, "turn-5")), CONTEXT)?.dedupeKey)
+      .toBe("agent-run:agent-run-1:paused:usage-limit:turn-5");
+  });
+
   test("overdue sign-offs are batched into one reminder per interval", () => {
     const now = new Date(AGENT_RUN_NOW.getTime() + 95 * 60_000);
     const old = { detail: detailWith("awaiting-sign-off"), since: AGENT_RUN_NOW.toISOString(), taskTitle: "Billing export" };

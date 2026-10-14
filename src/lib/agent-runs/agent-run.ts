@@ -96,6 +96,8 @@ export function buildAgentRunStartInput(args: {
   routingIntent?: import("./resources").AdaptiveRoutingIntent;
   /** The accounts selected for this send; the run's own turns keep them. */
   accounts?: import("../providers/provider-account-selection").ProviderAccountSelection;
+  /** Opt-in: the subscription accounts a usage limit may move the run to (`account-pool.ts`). */
+  accountPool?: import("./domain").AgentRunAccountPool | null;
   now: Date;
 }): AgentRunStartInput {
   const workflow = buildAgentRunWorkflow({ agent: args.agent, doneWhen: args.doneWhen, now: args.now });
@@ -112,6 +114,7 @@ export function buildAgentRunStartInput(args: {
     ...(args.adaptive ? { adaptive: true } : {}),
     ...(args.routingIntent ? { routingIntent: args.routingIntent } : {}),
     ...(args.accounts ? { accounts: args.accounts } : {}),
+    ...(args.accountPool ? { accountPool: args.accountPool } : {}),
   };
 }
 

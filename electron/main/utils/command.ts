@@ -81,6 +81,23 @@ export function createCommandOutputCollector(maxOutputChars?: number) {
   };
 }
 
+/** How long a timed-out or cancelled command has to exit after SIGTERM before SIGKILL. */
+export const COMMAND_KILL_GRACE_MS = 5_000;
+
+/**
+ * SIGTERM to the direct child; if it is still running once the grace ends,
+ * SIGKILL. The caller's result does not wait for that, and a shell's
+ * descendants are not signalled.
+ */
+function terminateCommand(child: ReturnType<typeof spawn>, graceMs = COMMAND_KILL_GRACE_MS) {
+  child.kill("SIGTERM");
+  const force = setTimeout(() => {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+  }, graceMs);
+  force.unref?.();
+  child.once("exit", () => clearTimeout(force));
+}
+
 export function runCommand(args: {
   command: string;
   cwd?: string;
@@ -112,7 +129,7 @@ export function runCommand(args: {
               return;
             }
             settled = true;
-            child.kill("SIGTERM");
+            terminateCommand(child);
             resolve({
               ok: false,
               code: -1,
@@ -168,6 +185,9 @@ export function runCommand(args: {
   });
 }
 
+/** The stderr of a command its caller cancelled. */
+export const COMMAND_CANCELLED_MESSAGE = "Command was cancelled.";
+
 export function runCommandArgs(args: {
   command: string;
   commandArgs?: string[];
@@ -175,8 +195,16 @@ export function runCommandArgs(args: {
   env?: NodeJS.ProcessEnv;
   maxOutputChars?: number;
   timeoutMs?: number;
+  /** Aborting kills the command (SIGTERM); an already aborted signal starts none. */
+  signal?: AbortSignal;
+  /** Overrides `COMMAND_KILL_GRACE_MS`. */
+  killGraceMs?: number;
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
+    if (args.signal?.aborted) {
+      resolve({ ok: false, code: -1, stdout: "", stderr: COMMAND_CANCELLED_MESSAGE });
+      return;
+    }
     const cwd = resolveCommandCwd({ cwd: args.cwd });
     const env = buildRepositoryShellEnv({
       cwd,
@@ -193,6 +221,7 @@ export function runCommandArgs(args: {
     const stdout = createCommandOutputCollector(args.maxOutputChars);
     const stderr = createCommandOutputCollector(args.maxOutputChars);
     let settled = false;
+    const terminate = () => terminateCommand(child, args.killGraceMs);
     const timeout =
       args.timeoutMs && args.timeoutMs > 0
         ? setTimeout(() => {
@@ -200,7 +229,8 @@ export function runCommandArgs(args: {
               return;
             }
             settled = true;
-            child.kill("SIGTERM");
+            clearCommandTimeout();
+            terminate();
             resolve({
               ok: false,
               code: -1,
@@ -212,11 +242,29 @@ export function runCommandArgs(args: {
           }, args.timeoutMs)
         : null;
     timeout?.unref?.();
+    const onAbort = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      clearCommandTimeout();
+      terminate();
+      resolve({
+        ok: false,
+        code: -1,
+        stdout: stdout.finish(),
+        stderr: `${stderr.finish()}\n${COMMAND_CANCELLED_MESSAGE}`.trim(),
+        stdoutTruncated: stdout.wasTruncated(),
+        stderrTruncated: stderr.wasTruncated(),
+      });
+    };
     const clearCommandTimeout = () => {
       if (timeout) {
         clearTimeout(timeout);
       }
+      args.signal?.removeEventListener("abort", onAbort);
     };
+    args.signal?.addEventListener("abort", onAbort, { once: true });
     child.stdout.on("data", (chunk: Buffer) => {
       stdout.append(chunk);
     });

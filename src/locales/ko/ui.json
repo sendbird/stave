@@ -60,7 +60,9 @@
     "idle": "대기 상태",
     "skipped": "건너뜀",
     "unknown": "알 수 없음",
-    "waiting": "대기 중"
+    "waiting": "대기 중",
+    "paused": "일시정지",
+    "halted": "멈춤"
   },
   "command": {
     "noMatchingCommands": "일치하는 명령이 없습니다.",

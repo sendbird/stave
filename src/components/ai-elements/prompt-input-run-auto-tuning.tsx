@@ -15,6 +15,7 @@ import {
   composerControlAttributes,
 } from "./composer-control-density";
 import * as stylex from "@stylexjs/stylex";
+import { PromptInputRunAccountPoolSection, type PromptInputRunAccountPool } from "./prompt-input-run-account-pool";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { cx, sx } from "../ads/utils/stylex";
 
@@ -22,6 +23,8 @@ export interface PromptInputRunAutoTuning {
   enabled: boolean;
   locked: boolean;
   onEnabledChange: (enabled: boolean) => void;
+  /** The Run's account pool choice; null when the provider has one subscription account. */
+  accountPool?: PromptInputRunAccountPool | null;
 }
 
 export function PromptInputRunAutoTuningControl({ control }: {
@@ -72,6 +75,7 @@ export function PromptInputRunAutoTuningControl({ control }: {
           {t(control.locked ? "adaptive.locked" : "adaptive.nextRun")}
         </p>
         <p className={sx(styles.copy)}>{t("adaptive.description")}</p>
+        {control.accountPool ? <PromptInputRunAccountPoolSection pool={control.accountPool} /> : null}
       </PopoverContent>
     </Popover>
   );

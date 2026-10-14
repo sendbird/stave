@@ -269,13 +269,13 @@ describe("agent run line", () => {
   });
 
   test("a sign-off already asked in its card is not repeated on the line", () => {
-    const html = agentLine(runs.needsYou, { reasonShownElsewhere: true, nowPhrase: null });
-    expect(html).toContain("Needs you");
+    const html = agentLine(runs.blocked, { reasonShownElsewhere: true, nowPhrase: null });
+    expect(html).toContain("Halted · Blocked");
     expect(html).not.toContain("Which breakpoint should the table switch at");
-    expect(agentLine(runs.needsYou, { nowPhrase: null })).toContain("Which breakpoint should the table switch at");
+    expect(agentLine(runs.blocked, { nowPhrase: null })).toContain("Which breakpoint should the table switch at");
   });
 
-  test("a stalled turn under the run says so, with the way out, instead of Working", () => {
+  test("a stalled turn under the run says so, with the way out, instead of Running", () => {
     const html = agentLine(runs.working, {
       turnAlert: {
         tone: "stalled",
@@ -289,7 +289,7 @@ describe("agent run line", () => {
     expect(html).toContain("No updates for 2m 14s");
     expect(html).toContain("Esc stops it");
     // One line: the run's own state and live step give way, its actions stay.
-    expect(html).not.toContain(">Working<");
+    expect(html).not.toContain(">Running<");
     expect(html).not.toContain("Reading the export handler");
     expect(html).toContain(">Stop<");
     expect(html).toContain("Take control");

@@ -13,7 +13,7 @@ import { buildCanonicalConversationRequest } from "../../src/lib/providers/canon
 import { getDefaultModelForProvider } from "../../src/lib/providers/model-catalog";
 import { addIdleTask, resolveTaskModel } from "./idle-task";
 import { resolveTurnModelInfo } from "../../src/lib/providers/turn-model-info";
-import { getProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
+import { getTurnProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
 import type {
   CanonicalRetrievedContextPart,
   NormalizedProviderEvent,
@@ -1721,6 +1721,7 @@ async function runTaskImpl(args: {
   agentRunStage?: import("../../src/lib/agent-runs/domain").AgentRunStageIdentity;
   agentRunPrompt?: import("../../src/types/chat").AgentRunPromptProvenance; // agent run supervisor only: marks the user row
   spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null; agentMode?: boolean }; // the calling turn caps this one
+  freshSession?: boolean; // agent run supervisor only: an account-pool switch starts a new conversation on that account
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
@@ -1876,10 +1877,9 @@ async function runTaskImpl(args: {
 
   const turnId = randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
-  const providerSession = session.providerSessionByTask[task.id];
-  const providerSessionCursor = getProviderSessionCursor({
-    sessions: providerSession,
-    providerId: provider,
+  const providerSessionCursor = args.freshSession ? null : getTurnProviderSessionCursor({ // Only the turn's own account's; none when fresh.
+    sessions: session.providerSessionByTask[task.id], providerId: provider, runtimeOptions: args.runtimeOptions,
+    fallbackAccountId: provider === "claude-code" || provider === "codex" ? currentProviderAccountId(provider) : undefined,
   });
   const informationReferencesContext =
     args.informationReferences && args.informationReferences.length > 0
@@ -2031,7 +2031,7 @@ async function runTaskImpl(args: {
       ...(args.unattendedAutomation
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
-      ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
+      ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}), ...(args.freshSession ? { freshSession: true } : {}),
       runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({

@@ -9,10 +9,12 @@ import {
   currentStageRecord,
   isActiveAgentRunState,
   isAutomaticAgentRunPause,
+  type AgentRun,
   type AgentRunPauseReason,
   type AgentRunState,
   type StageStatus,
 } from "./domain";
+import { awaitsUsageReset } from "./usage-limit";
 
 export interface AgentRunLaneInput {
   state: AgentRunState;
@@ -20,12 +22,15 @@ export interface AgentRunLaneInput {
   currentStageStatus: StageStatus;
   /** An open pull request from this agent run that nobody has reviewed yet. */
   hasOpenPullRequestAwaitingReview: boolean;
+  /** A usage-limit pause's reservation; without a resume time the run needs the user. */
+  usageLimit?: AgentRun["usageLimit"] | null;
 }
 
 /**
- * - Awaiting sign-off, blocked, stuck, a supervisor pause, or stopped short of
- *   the goal: `action-required`.
- * - Running, including watching checks: `in-progress`.
+ * - Awaiting sign-off, blocked, stuck, a supervisor pause, a usage limit with
+ *   no known reset, or stopped short of the goal: `action-required`.
+ * - Running, including watching checks, or waiting for a known usage reset:
+ *   `in-progress`.
  * - Ended with an open pull request awaiting review: `in-review`.
  * - Ended with nothing open: `idle`.
  * - Paused because the user took over: no opinion (`null`); the task's own
@@ -40,7 +45,11 @@ export function agentRunWorkQueueLane(input: AgentRunLaneInput): SidebarWorkQueu
         ? "action-required"
         : "in-progress";
     case "paused":
-      if (input.pauseReason === "usage-limit") return "in-progress";
+      if (input.pauseReason === "usage-limit") {
+        return awaitsUsageReset({ usageLimit: input.usageLimit ?? undefined }) ? "in-progress" : "action-required";
+      }
+      // The event it waited for never came: the user decides how it goes on.
+      if (input.pauseReason === "wait-expired") return "action-required";
       return input.pauseReason && isAutomaticAgentRunPause(input.pauseReason)
         ? "action-required"
         : null;
@@ -81,6 +90,7 @@ export function agentRunLanesByWorkspace(details: Iterable<AgentRunDetail>): Rec
       pauseReason: agentRun.pauseReason,
       currentStageStatus: currentStageRecord(detail).status,
       hasOpenPullRequestAwaitingReview: false,
+      usageLimit: agentRun.usageLimit,
     });
     if (!lane) continue;
     const current = lanes[agentRun.workspaceId];

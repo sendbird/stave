@@ -128,6 +128,24 @@ function latestAssistantFailureNeedsAttention(messages: ChatMessage[]) {
   return true;
 }
 
+/**
+ * The question or approval card a task's messages hold unanswered, a question
+ * first: one stays open until its own card is answered, however many others
+ * were. Fleet's status and an agent run's Needs your answer both read this
+ * (`agentRunDecisionOfMessages`), so every surface agrees.
+ */
+export function findTaskPendingDecision(
+  messages: ChatMessage[],
+): "waiting-input" | "waiting-approval" | null {
+  if (findLatestPendingUserInput({ messages })) {
+    return "waiting-input";
+  }
+  if (findLatestPendingApproval({ messages })) {
+    return "waiting-approval";
+  }
+  return null;
+}
+
 export function classifyTaskStatus(args: {
   task: FleetTaskStatusTask;
   messages?: ChatMessage[];
@@ -139,14 +157,9 @@ export function classifyTaskStatus(args: {
   }
 
   const messages = args.messages ?? EMPTY_MESSAGES;
-  const pendingUserInput = findLatestPendingUserInput({ messages });
-  if (pendingUserInput) {
-    return "waiting-input";
-  }
-
-  const pendingApproval = findLatestPendingApproval({ messages });
-  if (pendingApproval) {
-    return "waiting-approval";
+  const pendingDecision = findTaskPendingDecision(messages);
+  if (pendingDecision) {
+    return pendingDecision;
   }
 
   const turnState = resolveProviderTurnDisplayState({

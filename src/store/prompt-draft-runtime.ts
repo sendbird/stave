@@ -144,6 +144,8 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.kiroEffort === right?.kiroEffort &&
     left?.autoRouting === right?.autoRouting &&
     left?.agentRunAdaptive === right?.agentRunAdaptive &&
+    left?.agentRunAccountPool?.enabled === right?.agentRunAccountPool?.enabled &&
+    areStringArraysEqual(left?.agentRunAccountPool?.excludedAccountIds, right?.agentRunAccountPool?.excludedAccountIds) &&
     areStringArraysEqual(left?.boundSecretIds, right?.boundSecretIds)
   );
 }

@@ -45,6 +45,11 @@ async function connect(grants: StaveTurnGrants) {
         return receipt;
       },
       requestAgentRunResources: async (args) => { calls.push({ tool: "resources", args }); return { recorded: true }; },
+      waitForAgentRunEvent: async (args) => {
+        calls.push({ tool: "wait", args });
+        if ((args.request as { target?: string }).target === "refuse") throw new Error("target must be a pull request number or URL.");
+        return { waitId: "wait-1", expiresAt: "2026-10-15T10:00:00.000Z" };
+      },
       blockAgentRunStage: async (args) => {
         calls.push({ tool: "block", args });
         return receipt;
@@ -74,6 +79,7 @@ test("run tools exist only on a connection that carries a run grant", async () =
     "stave_get_agent_run",
     "stave_report_stage",
     "stave_request_agent_resources",
+    "stave_wait_for_event",
     "stave_workspace_fixture",
   ]);
 });
@@ -105,6 +111,29 @@ test("the reporting tools take no ids; the connection's key names the stage", as
 
   const briefing = await client.callTool({ name: "stave_get_agent_run", arguments: {} });
   expect(briefing.structuredContent).toEqual({ agentRun: BRIEFING });
+});
+
+test("the wait tool exists only under a run grant, takes no ids and returns the wait", async () => {
+  const plain = await connect({});
+  expect(await toolNames(plain.client)).not.toContain("stave_wait_for_event");
+  const { client, calls } = await connect({ agentRunKey: "agent-run-live" });
+  const tool = (await client.listTools()).tools.find((candidate) => candidate.name === "stave_wait_for_event");
+  // The description tells the agent when to wait and what happens.
+  expect(tool?.description).toContain("instead of ending the stage");
+  expect(Object.keys(tool?.inputSchema.properties ?? {}).sort()).toEqual(["at", "expiresAt", "kind", "maxWakes", "target"]);
+  const result = await client.callTool({
+    name: "stave_wait_for_event",
+    arguments: { kind: "pull_request_checks", target: "128", agentRunId: "someone-elses-run" },
+  });
+  expect(result.isError).toBeFalsy();
+  expect(result.structuredContent).toEqual({ waitId: "wait-1", expiresAt: "2026-10-15T10:00:00.000Z" });
+  expect(calls).toEqual([{ tool: "wait", args: { agentRunKey: "agent-run-live", request: { kind: "pull_request_checks", target: "128" } } }]);
+  const refused = await client.callTool({ name: "stave_wait_for_event", arguments: { kind: "pull_request_checks", target: "refuse" } });
+  expect(refused.isError).toBe(true);
+  expect(JSON.stringify(refused.content)).toContain("pull request number");
+  const malformed = await client.callTool({ name: "stave_wait_for_event", arguments: { kind: "forever" } });
+  expect(malformed.isError).toBe(true);
+  expect(calls).toHaveLength(2);
 });
 
 test("a refused report comes back as a tool error with the host's sentence", async () => {

@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { CircleCheck, CircleDashed, CircleHelp, CircleMinus, CircleX, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
+import { CircleAlert, CircleCheck, CircleDashed, CircleHelp, CircleMinus, CirclePause, CircleX, Clock, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
 import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentRunState } from "../src/components/ads/components/agent-state";
 import { StateIcon } from "../src/components/ads/components/StateIcon";
 import { StatusDot, statusDotWorkState } from "../src/components/ads/components/StatusDot";
 import { WORK_STATE, WORK_STATES } from "../src/components/ads/components/state-vocabulary";
-import { AGENT_RUN_VIEW_STATE_LABELS } from "../src/lib/agent-runs/agent-run-status";
+import { AGENT_RUN_BADGE_LABELS } from "../src/lib/agent-runs/agent-run-status";
 
 describe("work state vocabulary", () => {
   test("each state has the fixed glyph, and no two states share glyph and tone", () => {
@@ -19,6 +19,10 @@ describe("work state vocabulary", () => {
     expect(WORK_STATE.skipped.icon).toBe(CircleMinus);
     expect(WORK_STATE.approval.icon).toBe(ShieldQuestion);
     expect(WORK_STATE.approval.icon).not.toBe(ShieldCheck);
+    // A wait is a clock, a pause the pause glyph, a halt the alert circle.
+    expect(WORK_STATE.waiting.icon).toBe(Clock);
+    expect(WORK_STATE.paused.icon).toBe(CirclePause);
+    expect(WORK_STATE.halted.icon).toBe(CircleAlert);
     // Unknown is not idle.
     expect(WORK_STATE.unknown.icon).toBe(CircleHelp);
     expect(WORK_STATE.unknown.icon).not.toBe(WORK_STATE.idle.icon);
@@ -39,7 +43,7 @@ describe("work state vocabulary", () => {
       expect(agentStateTone[state]).toBe(WORK_STATE[work].tone as never);
       expect(agentStateDotTone[state]).toBe(WORK_STATE[work].tone);
     }
-    expect(AGENT_RUN_VIEW_STATE_LABELS.stopped).toBe(WORK_STATE.stopped.label);
+    for (const badge of ["paused", "halted", "stopped"] as const) expect(AGENT_RUN_BADGE_LABELS[badge]).toBe(WORK_STATE[badge].label);
   });
 
   test("the state icon is decorative unless it carries a label", () => {

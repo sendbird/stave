@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
-import { AGENT_RUN_VIEW_STATE_LABELS, agentRunFleetState, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
+import { agentRunDecisionOfMessages, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
@@ -424,15 +424,18 @@ export function FleetWorkspaceCard(args: {
 
   // A stored reference: the card re-renders only when an assignment changes.
   const taskAgents = useAgentAssignmentsStore((state) => state.byTaskId);
-  // An agent run's strip names the agent and the state for its lead task, so
-  // that row shows neither: never twice, and never "Needs you" over "Idle".
+  // An agent run's strip names the agent and the badge for its lead task, so
+  // that row shows neither: never twice, and never "Needs your answer" over "Idle".
   const activeAgentRun = useFleetActiveAgentRun(args.workspace.id);
   const runLeadTaskId = activeAgentRun && hasAgentOrigin(activeAgentRun.agentRun) ? activeAgentRun.agentRun.leadTaskId : null;
-  const runLeadStatus = runLeadTaskId ? rows.find((row) => row.task.id === runLeadTaskId)?.status : undefined;
-  const runLeadWaiting = runLeadStatus === "waiting-input" || runLeadStatus === "waiting-approval";
+  // A question or an approval the lead task's messages hold unanswered: the
+  // run needs your answer. The same derivation as the run's own surfaces.
+  const runLeadDecision = activeAgentRun && taskState.hasRuntimeState
+    ? agentRunDecisionOfMessages(taskState.messagesByTask[activeAgentRun.agentRun.leadTaskId])
+    : null;
   const runLeadLabel =
     activeAgentRun && runLeadTaskId
-      ? AGENT_RUN_VIEW_STATE_LABELS[agentRunFleetState(describeAgentRunStatus(activeAgentRun).state, runLeadWaiting)]
+      ? formatAgentRunBadge(describeAgentRunStatus(activeAgentRun, runLeadDecision))
       : null;
   const matchesFilter = matchesFleetBoardFilter({
     filter: args.filter,
@@ -570,7 +573,7 @@ export function FleetWorkspaceCard(args: {
 
       <FleetAgentRunStrip
         workspaceId={args.workspace.id}
-        leadTaskWaiting={runLeadWaiting}
+        leadTaskDecision={runLeadDecision}
         onOpen={(taskId) =>
           args.onOpenTask({
             repositoryPath: args.repositoryPath,

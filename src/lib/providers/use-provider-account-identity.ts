@@ -46,6 +46,11 @@ export const useProviderAccountIdentities = create<{
   },
 }));
 
+/** The last sign-in answer for an account, outside React; undefined until one arrived. */
+export function readProviderAccountIdentity(providerId: ProviderAccountProviderId, profileId: string) {
+  return useProviderAccountIdentities.getState().byKey[identityKey(providerId, profileId)];
+}
+
 /** Row-local read: the row re-renders only when its own account's identity changes. */
 export function useProviderAccountIdentity(providerId: ProviderAccountProviderId, profileId: string, enabled = true) {
   const identity = useProviderAccountIdentities((state) => state.byKey[identityKey(providerId, profileId)]);

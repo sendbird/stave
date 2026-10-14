@@ -21,37 +21,44 @@ import type { AppState } from "@/store/app-store.types";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
-import { describeAgentRunProgress, describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
+import { agentRunDecisionOf, describeAgentRunProgress, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
 import { useAgentRunProgress } from "../agent-runs/useAgentRunProgress";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
 import { agentStyles } from "./agents.styles";
 
 /**
- * Live Fleet status for a set of task ids, without an unstable selector: the
+ * Live Fleet status for a set of tasks, without an unstable selector: the
  * selector returns a JSON string, so a streamed token that changes no task's
  * status leaves it equal, and the parsed map is memoized here. Mirrors the
- * sidebar's `useAgentsWithWork` pattern.
+ * sidebar's `useAgentsWithWork` pattern. A task in another workspace is read
+ * from that workspace's runtime cache, as its Fleet card reads it.
  */
-function useStatusByTaskId(taskIds: readonly string[]): Record<string, FleetTaskStatus> {
-  const key = taskIds.join(",");
+function useStatusByTaskId(
+  tasks: ReadonlyArray<{ taskId: string; workspaceId: string | null }>,
+): Record<string, FleetTaskStatus> {
+  const key = JSON.stringify(tasks.map((entry) => [entry.taskId, entry.workspaceId]));
+  const entries = useMemo(() => JSON.parse(key) as Array<[string, string | null]>, [key]);
   const serialized = useAppStore(
     useCallback(
       (state: AppState) => {
-        const ids = key ? key.split(",") : [];
         const byId: Record<string, FleetTaskStatus> = {};
-        for (const id of ids) {
-          const task = state.tasks.find((candidate) => candidate.id === id);
+        for (const [id, workspaceId] of entries) {
+          const session = workspaceId && workspaceId !== state.activeWorkspaceId
+            ? state.workspaceRuntimeCacheById[workspaceId]
+            : state;
+          if (!session) continue;
+          const task = session.tasks.find((candidate) => candidate.id === id);
           if (!task) continue;
           byId[id] = classifyTaskStatus({
             task,
-            messages: state.messagesByTask[id] ?? [],
-            activeTurnId: state.activeTurnIdsByTask[id] ?? null,
+            messages: session.messagesByTask[id] ?? [],
+            activeTurnId: session.activeTurnIdsByTask[id] ?? null,
             activity: state.providerTurnActivityByTask[id] ?? null,
           });
         }
         return JSON.stringify(byId);
       },
-      [key],
+      [entries],
     ),
   );
   return useMemo(() => JSON.parse(serialized) as Record<string, FleetTaskStatus>, [serialized]);
@@ -131,11 +138,11 @@ function ActivitySummary(props: { summary: AgentActivitySummary }) {
 export function AgentActivity(props: { assignments: readonly AgentAssignment[] }) {
   useTranslation();
   const [filter, setFilter] = useState<AgentActivityFilter>("all");
-  const taskIds = useMemo(
-    () => props.assignments.flatMap((row) => (row.taskId ? [row.taskId] : [])),
+  const tasks = useMemo(
+    () => props.assignments.flatMap((row) => (row.taskId ? [{ taskId: row.taskId, workspaceId: row.workspaceId }] : [])),
     [props.assignments],
   );
-  const statusByTaskId = useStatusByTaskId(taskIds);
+  const statusByTaskId = useStatusByTaskId(tasks);
   const runByTaskId = useRunByTaskId();
   const summary = useMemo(
     () => summarizeAgentActivity({ assignments: props.assignments, statusByTaskId }),
@@ -175,8 +182,10 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               // The run this agent is doing on the task, when Fleet has it.
               const run = row.taskId ? runByTaskId[row.taskId] : undefined;
               const ownRun = run && run.agentRun.workflow.name === row.agentName ? run : undefined;
+              // `live` waits on the user exactly when the task's messages hold an
+              // unanswered card (`findTaskPendingDecision`), as on every run surface.
               const stateLabel = ownRun
-                ? describeAgentRunStatus(ownRun).label
+                ? formatAgentRunBadge(describeAgentRunStatus(ownRun, agentRunDecisionOf(live)))
                 : live
                   ? FLEET_STATUS_LABELS[live]
                   : ASSIGNMENT_STATE_LABELS[row.state];

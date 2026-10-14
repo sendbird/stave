@@ -11,9 +11,8 @@ piece of its work, inside its turn or as a delegated task.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start. A task that runs as an Agent runs **autonomously**: no routine
-approval prompts. Claude asks when its native Auto classifier hands an action
-to you or is unavailable. Guardrails (all on by default, each one can be turned
-off) also ask. A read-only Agent stays read only. Delegated Agents use the delegation policy resolved by the host and never
+approval prompts, only the guardrails (all on by default, each one can be turned off). A read-only Agent stays read
+only. Delegated Agents use the delegation policy resolved by the host and never
 get more autonomy than the task that delegated them.
 
 **Run overview → Run details** shows the Agent version captured for that turn,
@@ -368,21 +367,19 @@ Fleet's search finds its tasks.
 - A task that runs as an Agent is autonomous. Every turn of the task — the
   first and each later one — removes routine approval prompts and changes
   nothing else: your sandbox, deny lists, credential lists and network setting
-  stay as you set them. Claude's native Auto classifier can hand an action
-  to you when it cannot decide or Auto is unavailable; the Agent Run waits
-  for that approval. Saved **Manual** and **Guided** agents now run like
+  stay as you set them. Saved **Manual** and **Guided** agents now run like
   **Auto**; only **Read only** limits a turn.
 
   | Agent | Claude | Codex | Cursor | Kiro |
   | --- | --- | --- | --- | --- |
   | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
-  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Classifier handoffs wait for your approval | Never asks; at least workspace files, or your full access | Your settings | Your settings |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks; at least workspace files, or your full access | Your settings | Your settings |
 
-  Agent-mode guardrails (all on by default; turn each off in Settings) also
-  interrupt work: a write outside the task's repository, a protected credential path or variable, an irreversible
+  The only interrupts left are the Agent-mode guardrails (all on by default;
+  turn each off in Settings) — a write outside the task's repository, a protected credential path or variable, an irreversible
   remote action (force-pushing a default or protected branch, deleting remote
   branches, tags, releases or repositories, publishing, `sudo`) — and the
-  agent's own questions require your response. See
+  agent's own questions. See
   [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-guardrails).
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in

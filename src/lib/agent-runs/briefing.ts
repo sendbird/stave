@@ -30,6 +30,8 @@ import {
 } from "./domain";
 import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
+import { currentEventWait, type AgentRunEventWait } from "./event-wait";
+import type { EventWaitWake } from "./event-wait-observe";
 import type { StageTurnReason } from "./policy";
 
 export const AGENT_RUN_TOOL_NAMES = Object.freeze({
@@ -37,6 +39,7 @@ export const AGENT_RUN_TOOL_NAMES = Object.freeze({
   report: "stave_report_stage",
   block: "stave_block_stage",
   resources: "stave_request_agent_resources",
+  wait: "stave_wait_for_event",
 });
 
 export const AGENT_RUN_CONTEXT_SOURCE_ID = "stave:agent-run";
@@ -55,13 +58,19 @@ const TURN_REASON_LINES: Record<AgentRunTurnReason, string> = {
     "Stave's local tools are reachable again, so this turn resumes the stage.",
   "resume-after-usage-limit":
     "Continue after the usage reset. Inspect the workspace and conversation, keep completed work, and finish only the remaining assignment without repeating completed side effects.",
+  "resume-after-account-switch":
+    "A usage limit stopped the previous turn, so Stave continues this run on another of the user's accounts in a separate provider conversation. Inspect the workspace and the conversation so far, keep completed work, and finish only the remaining assignment without repeating completed side effects.",
   "resume-after-restart":
     "Stave stopped while the previous turn of this stage ran, so this turn resumes the stage. Check what that turn already did before you continue.",
+  "resume-after-event":
+    "The outside event this run waited for happened, so Stave started this turn. The message says what it observed.",
+  "resume-after-wait-expired":
+    "The run's wait for an outside event ended without the event, and the user continued the run.",
   nudge: "The previous turn ended without a stage report.",
   "repair-checks": "Checks failed on the pull request, so the Watch checks action asked for a repair.",
 };
 
-const STAGE_TURN_CLOSING = `Before this turn ends, report through \`${AGENT_RUN_TOOL_NAMES.report}\`, or \`${AGENT_RUN_TOOL_NAMES.block}\` when you cannot finish. Do not ask a question you cannot get answered.`;
+const STAGE_TURN_CLOSING = `Before this turn ends, report through \`${AGENT_RUN_TOOL_NAMES.report}\`, or \`${AGENT_RUN_TOOL_NAMES.block}\` when you cannot finish. When the next step depends on an outside event (pull request checks or a review, a time, delegated work finishing), call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn instead: the run waits without spending turns and resumes when it happens. Do not ask a question you cannot get answered.`;
 const ACTION_TURN_CLOSING =
   "Commit your fix before this turn ends. Stave pushes the branch and watches the checks again afterwards; this turn reports no stage. Do not ask a question you cannot get answered.";
 
@@ -130,10 +139,14 @@ export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): 
   const { agentRun } = aggregate;
   const stage = workflowStageAt(agentRun, agentRun.currentStageIndex);
   const record = currentStageRecord(aggregate);
+  const wait = currentEventWait(agentRun, record);
   return [
     `Current stage: ${stage.title} (${stage.kind}), attempt ${record.attempt}, status ${record.status}.`,
     stage.kind === "ai" ? `Required outcome: ${stage.doneWhen}` : `Action: ${stage.action.type}`,
     `Remaining supervised turns: ${Math.max(0, agentRun.maxTurns - agentRun.turnCount)}.`,
+    ...(wait?.status === "waiting"
+      ? [`Active event wait: ${wait.kind}${wait.target ? ` on ${wait.target}` : ""}, woke ${wait.wakes} of ${wait.maxWakes} times, expires ${wait.expiresAt}. Calling \`${AGENT_RUN_TOOL_NAMES.wait}\` again replaces it.`]
+      : []),
     ...(record.detail ? [`Latest blocker: ${record.detail.slice(0, 2000)}`] : []),
     ...(record.feedback ? [`Requested changes: ${record.feedback.slice(0, 2000)}`] : []),
     ...(record.report ? [`Latest report: ${JSON.stringify(record.report).slice(0, 3000)}`] : []),
@@ -167,7 +180,35 @@ export function buildStageNudgePrompt(aggregate: AgentRunAggregate): string {
     `You ended the last turn without reporting the stage "${stage.title}".`,
     `If the stage is done, call \`${AGENT_RUN_TOOL_NAMES.report}\` now with a summary, the evidence you gathered, and the status of each acceptance criterion.`,
     `If you cannot finish it, call \`${AGENT_RUN_TOOL_NAMES.block}\` and name exactly what is missing.`,
+    `If it waits on an outside event, call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn.`,
     "Do not start later stages.",
+  ].join("\n\n");
+}
+
+/** The message of the turn the awaited event started: what happened, then how to go on. */
+export function buildEventWakePrompt(aggregate: AgentRunAggregate, wake: Pick<EventWaitWake, "summary" | "final">): string {
+  const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
+  return [
+    `The outside event you waited for in the stage "${stage.title}" happened. This is what Stave observed:`,
+    wake.summary,
+    wake.final
+      ? "That wait has ended."
+      : `The wait stays active, so the next event of the same kind wakes this run again unless you report the stage or call \`${AGENT_RUN_TOOL_NAMES.wait}\` with a new wait.`,
+    `Continue the stage from here. When it is done, call \`${AGENT_RUN_TOOL_NAMES.report}\`. If the next step waits on another event, call \`${AGENT_RUN_TOOL_NAMES.wait}\` and end the turn. If you cannot go on, call \`${AGENT_RUN_TOOL_NAMES.block}\`.`,
+  ].join("\n\n");
+}
+
+/** The message of the turn that continues a run whose wait ended without its event. */
+export function buildWaitExpiredPrompt(aggregate: AgentRunAggregate, wait: Pick<AgentRunEventWait, "kind" | "target" | "endReason" | "wakes">): string {
+  const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
+  const why = wait.endReason === "wake-limit"
+    ? `it already woke this run ${wait.wakes} times, its limit`
+    : wait.endReason === "unreadable"
+      ? "Stave could not read the pull request"
+      : "it expired before the event came";
+  return [
+    `Your wait for ${wait.kind}${wait.target ? ` on ${wait.target}` : ""} in the stage "${stage.title}" ended without the event: ${why}. The user continued the run.`,
+    `Check the current state yourself. Then report the stage with \`${AGENT_RUN_TOOL_NAMES.report}\`, wait again with \`${AGENT_RUN_TOOL_NAMES.wait}\` if waiting still makes sense, or call \`${AGENT_RUN_TOOL_NAMES.block}\` and name what is missing.`,
   ].join("\n\n");
 }
 
@@ -259,7 +300,7 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
     },
     earlierStages: collectPriorStageSummaries(aggregate),
     acceptanceCriteria: collectAcceptanceCriteria(aggregate),
-    reporting: `Call \`${AGENT_RUN_TOOL_NAMES.report}\` before this turn ends, or \`${AGENT_RUN_TOOL_NAMES.block}\` when you cannot finish the stage.`,
+    reporting: `Call \`${AGENT_RUN_TOOL_NAMES.report}\` before this turn ends, or \`${AGENT_RUN_TOOL_NAMES.block}\` when you cannot finish the stage. Call \`${AGENT_RUN_TOOL_NAMES.wait}\` when the next step depends on an outside event.`,
   };
 }
 

@@ -8,6 +8,8 @@ import type { AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
 import type { AgentRunUsage } from "./usage";
 import type { AgentRunRouteObservation } from "./route-observation";
 import { collectAcceptanceCriteria } from "./briefing";
+import { collectAgentRunAccountSwitches, type AgentRunAccountSwitch } from "./account-pool";
+import { collectEventWaitLines, type AgentRunEventWaitLine } from "./event-wait";
 import {
   latestStageRecord,
   type AgentRunAggregate,
@@ -82,6 +84,10 @@ export interface AgentRunReport {
   usage?: AgentRunUsage;
   /** Host-observed route facts, separate from the Agent's reported decisions. */
   routing?: AgentRunRouteObservation[];
+  /** Account-pool switches, oldest first; present when the run switched at least once. */
+  accountSwitches?: AgentRunAccountSwitch[];
+  /** Event waits: each start, wake and end, oldest first; present when the run waited. */
+  eventWaits?: AgentRunEventWaitLine[];
 }
 
 const WAIT_START_KINDS = new Set(["stage-completed", "stage-skipped", "resumed", "agent-run-started"]);
@@ -184,6 +190,8 @@ export function buildAgentRunReport(args: {
     }
   }
 
+  const accountSwitches = args.events ? collectAgentRunAccountSwitches(args.events) : [];
+  const eventWaits = args.events ? collectEventWaitLines(args.events) : [];
   return {
     agentRunId: agentRun.id,
     workflowName: agentRun.workflow.name,
@@ -200,5 +208,7 @@ export function buildAgentRunReport(args: {
     ...(args.events
       ? { metrics: computeAgentRunMetrics({ providerId: agentRun.fingerprint.providerId, events: args.events }) }
       : {}),
+    ...(accountSwitches.length ? { accountSwitches } : {}),
+    ...(eventWaits.length ? { eventWaits } : {}),
   };
 }

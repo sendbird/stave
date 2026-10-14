@@ -295,6 +295,15 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
 
 const PromptDraftRuntimeOverridesSchema = z.object({
   agentRunAdaptive: z.boolean().optional(),
+  // A malformed pool preference drops only itself, never the snapshot.
+  agentRunAccountPool: z
+    .object({
+      enabled: z.boolean(),
+      excludedAccountIds: z.array(ProviderAccountProfileIdSchema).max(100).optional(),
+    })
+    .strict()
+    .optional()
+    .catch(undefined),
   claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   model: z.string().optional(),

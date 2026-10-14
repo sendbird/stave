@@ -7,6 +7,8 @@ import {
   resolveResultsTabMark,
   resolveSubagentsTabMark,
 } from "@/components/session/task-panel-marks";
+import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
+import { describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
 
 test("Activity marks a pending interaction ahead of a running turn", () => {
   expect(resolveActivityTabMark({ running: true, pendingInteraction: "approval" })).toEqual({
@@ -39,18 +41,21 @@ test("running and waiting on the user wear different glyphs, not only different 
   expect(new Set(glyphs).size).toBe(3);
 });
 
-test("Progress marks only a run that needs attention", () => {
+test("Progress marks only a run that waits on the user, in its badge's glyph and words", () => {
+  const runs = buildAgentRunFixtures(new Date("2026-10-01T09:00:00.000Z"));
   expect(resolveProgressTabMark(null)).toBeNull();
-  expect(resolveProgressTabMark({ tone: "accent", label: "Running" })).toBeNull();
-  expect(resolveProgressTabMark({ tone: "warning", label: "Needs sign-off" })).toEqual({
+  for (const detail of [runs.working, runs.waiting, runs.eventWait, runs.paused, runs.takenOver]) {
+    expect(resolveProgressTabMark(describeAgentRunStatus(detail))).toBeNull();
+  }
+  expect(resolveProgressTabMark(describeAgentRunStatus(runs.working, "approval"))).toEqual({
     kind: "state",
-    state: "needs-you",
-    label: "Needs sign-off",
+    state: "approval",
+    label: "Needs your answer · Approval",
   });
-  expect(resolveProgressTabMark({ tone: "danger", label: "Failed" })).toEqual({
+  expect(resolveProgressTabMark(describeAgentRunStatus(runs.blocked))).toEqual({
     kind: "state",
-    state: "failed",
-    label: "Failed",
+    state: "halted",
+    label: "Halted · Blocked",
   });
 });
 

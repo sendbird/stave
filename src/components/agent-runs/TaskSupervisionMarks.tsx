@@ -1,56 +1,66 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
-import { AlarmClock, AlarmClockOff, Hand, Target } from "lucide-react";
+import { AlarmClock, AlarmClockOff, Target } from "lucide-react";
+import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import { sx } from "@/components/ads/utils/stylex";
-import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
-import { describeAgentRunStatus } from "@/lib/agent-runs/agent-run-status";
-import { currentStageRecord, isActiveAgentRunState } from "@/lib/agent-runs/domain";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import {
+  describeAgentRunStatus,
+  formatAgentRunBadge,
+  type AgentRunDecision,
+} from "@/lib/agent-runs/agent-run-status";
+import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { useAppStore } from "@/store/app.store";
 import { useTaskAgentRun } from "@/store/agent-runs-store";
-import { useTaskWakeUp } from "@/store/wake-ups-store";
+import { useTaskWakeUp, type TaskWakeUp } from "@/store/wake-ups-store";
+import { STAGE_TONE_STYLES } from "./StageStatusIcon";
+import { useAgentRunDecision } from "./useAgentRun";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 /**
- * Small marks on a task's tab: a running agent run (a hand when it waits for
- * the user) and the task's wake-up. Each carries its meaning as a label.
+ * Small marks on a task's tab: an active agent run and the task's wake-up.
+ * The run's mark wears its badge (`describeAgentRunStatus`) in its color and
+ * label; a run that waits on the user (Needs your answer, Halted) takes the
+ * badge's glyph so the shape says so too. Each mark carries its meaning as a
+ * label.
  */
 export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { taskId: string }) {
   useTranslation();
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const agentRun = useTaskAgentRun(workspaceId, props.taskId);
   const wakeUp = useTaskWakeUp(workspaceId, props.taskId);
-  const agentRunActive = Boolean(agentRun && isActiveAgentRunState(agentRun.agentRun.state));
-  const agentStatus = agentRunActive && hasAgentOrigin(agentRun!.agentRun) ? describeAgentRunStatus(agentRun!) : null;
-  const waitingOnUser = agentStatus
-    ? agentStatus.state === "needs-you"
-    : agentRunActive &&
-      agentRun!.agentRun.state === "running" &&
-      currentStageRecord(agentRun!).status === "awaiting-sign-off";
+  const active = Boolean(agentRun && isActiveAgentRunState(agentRun.agentRun.state));
+  const decision = useAgentRunDecision(active ? agentRun?.agentRun.leadTaskId : null);
+  return <TaskSupervisionMarksView agentRun={agentRun} decision={decision} wakeUp={wakeUp} />;
+});
+
+/** The marks themselves, free of the store so a test can render them. */
+export function TaskSupervisionMarksView(props: {
+  agentRun: AgentRunDetail | undefined;
+  decision: AgentRunDecision | null;
+  wakeUp: TaskWakeUp | undefined;
+}) {
+  useTranslation();
+  const { agentRun, wakeUp } = props;
+  const status = agentRun && isActiveAgentRunState(agentRun.agentRun.state)
+    ? describeAgentRunStatus(agentRun, props.decision)
+    : null;
   const wakeUpShown = wakeUp && wakeUp.summary.state !== "stopped";
-  if (!agentRunActive && !wakeUpShown) return null;
-  const agentRunLabel = agentStatus
-    ? `${agentStatus.agentName}: ${agentStatus.label}`
-    : waitingOnUser
-      ? i18n.t("agentRuns:taskSupervisionMarks.agentRunLabel")
-      : agentRun?.agentRun.state === "paused"
-        ? i18n.t("agentRuns:taskSupervisionMarks.agentRunLabel2")
-        : i18n.t("agentRuns:taskSupervisionMarks.agentRunLabel3");
+  if (!status && !wakeUpShown) return null;
+  const asksUser = status?.badge === "needs-answer" || status?.badge === "halted";
+  const RunIcon = status && asksUser ? WORK_STATE[status.mark.state].icon : Target;
+  const runLabel = status ? `${status.agentName}: ${formatAgentRunBadge(status)}` : "";
   return (
     <span className={sx(styles.inline)}>
-      {agentRunActive ? (
-        waitingOnUser ? (
-          <Hand role="img" aria-label={agentRunLabel} className={sx(styles.icon, styles.toneWaiting)}>
-            <title>{agentRunLabel}</title>
-          </Hand>
-        ) : (
-          <Target
-            role="img"
-            aria-label={agentRunLabel}
-            className={sx(styles.icon, agentRun?.agentRun.state === "paused" ? styles.toneIdle : styles.toneActive)}
-          >
-            <title>{agentRunLabel}</title>
-          </Target>
-        )
+      {status ? (
+        <RunIcon
+          role="img"
+          aria-label={runLabel}
+          data-badge={status.badge}
+          className={sx(styles.icon, STAGE_TONE_STYLES[status.mark.tone])}
+        >
+          <title>{runLabel}</title>
+        </RunIcon>
       ) : null}
       {wakeUpShown ? (
         wakeUp.summary.state === "scheduled" ? (
@@ -65,4 +75,4 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
       ) : null}
     </span>
   );
-});
+}

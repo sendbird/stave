@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n";
 import {
+  CircleAlert,
   CircleCheck,
   CircleDashed,
   CircleDot,
@@ -7,6 +8,7 @@ import {
   CirclePause,
   CircleMinus,
   CircleX,
+  Clock,
   Hand,
   ShieldQuestion,
   Square,
@@ -29,6 +31,8 @@ export type WorkState =
   | "working"
   | "needs-you"
   | "approval"
+  | "paused"
+  | "halted"
   | "ready"
   | "failed"
   | "stopped"
@@ -47,10 +51,14 @@ export interface WorkStateVisual {
 }
 
 export const WORK_STATE: Readonly<Record<WorkState, WorkStateVisual>> = {
-  waiting: { get label() { return i18n.t("ui:stateVocabulary.waiting"); }, icon: CirclePause, tone: "neutral", pulses: false },
+  // Waiting for an event or a time; a pause is the user's, and wears the pause glyph.
+  waiting: { get label() { return i18n.t("ui:stateVocabulary.waiting"); }, icon: Clock, tone: "neutral", pulses: false },
   working: { get label() { return i18n.t("ui:stateVocabulary.working"); }, icon: CircleDot, tone: "accent", pulses: true },
   "needs-you": { get label() { return i18n.t("ui:stateVocabulary.needsYou"); }, icon: Hand, tone: "warning", pulses: false },
   approval: { get label() { return i18n.t("ui:stateVocabulary.awaitingApproval"); }, icon: ShieldQuestion, tone: "warning", pulses: false },
+  paused: { get label() { return i18n.t("ui:stateVocabulary.paused"); }, icon: CirclePause, tone: "neutral", pulses: false },
+  // Stopped short of the goal with no automatic continuation; not ended.
+  halted: { get label() { return i18n.t("ui:stateVocabulary.halted"); }, icon: CircleAlert, tone: "warning", pulses: false },
   ready: { get label() { return i18n.t("ui:stateVocabulary.ready"); }, icon: CircleCheck, tone: "success", pulses: false },
   failed: { get label() { return i18n.t("ui:stateVocabulary.failed"); }, icon: CircleX, tone: "danger", pulses: false },
   stopped: { get label() { return i18n.t("ui:stateVocabulary.stopped"); }, icon: Square, tone: "neutral", pulses: false },

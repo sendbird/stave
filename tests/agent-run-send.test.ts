@@ -11,6 +11,8 @@ import {
 } from "../src/store/agent-run-send";
 import type { AppState } from "../src/store/app-store.types";
 import { holdsComposerTurn, usePendingAutoRoutingStore } from "../src/store/pending-auto-routing-store";
+import { useProviderAccounts } from "../src/lib/providers/use-provider-accounts";
+import { useProviderAccountIdentities } from "../src/lib/providers/use-provider-account-identity";
 
 const AGENT = { agentConfigId: "implementer", agentName: "Implementer" } as TaskAgent;
 
@@ -107,6 +109,56 @@ describe("agent run send path", () => {
       attachments: [],
       runtimeOverrides: { autoRouting: true },
     });
+  });
+
+  test("the account pool joins the start only when turned on, as subscription accounts confirmed signed in", async () => {
+    const WORK = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d", PERSONAL = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+    const GATEWAY = "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b", SPARE = "2b3c4d5e-6f70-4a8b-9c0d-1e2f3a4b5c6d";
+    const UNCHECKED = "3c4d5e6f-7081-4b9c-8d1e-2f3a4b5c6d7e", FAILED = "4d5e6f70-8192-4c0d-9e2f-3a4b5c6d7e8f";
+    const LATE = "5e6f7081-92a3-4d1e-8f3a-4b5c6d7e8f90";
+    useProviderAccounts.setState({ loaded: true, profiles: [
+      { id: "system-default", providerId: "claude-code", label: "System default", kind: "system" },
+      { id: WORK, providerId: "claude-code", label: "Work", kind: "managed" },
+      { id: PERSONAL, providerId: "claude-code", label: "Personal", kind: "managed" },
+      { id: SPARE, providerId: "claude-code", label: "Spare", kind: "managed" },
+      { id: UNCHECKED, providerId: "claude-code", label: "Unchecked", kind: "managed" },
+      { id: FAILED, providerId: "claude-code", label: "Failed check", kind: "managed" },
+      { id: LATE, providerId: "claude-code", label: "Checked at send", kind: "managed" },
+      { id: GATEWAY, providerId: "claude-code", label: "Gateway", kind: "managed",
+        gateway: { baseUrl: "https://ai-gateway.example/v1", secretId: "secret-1", models: ["anthropic/claude-sonnet-5"] } },
+    ] });
+    useProviderAccountIdentities.setState({ byKey: {
+      [`claude-code:${PERSONAL}`]: { state: "signed-in", email: null, plan: null, checkedAt: 1 },
+      [`claude-code:${SPARE}`]: { state: "signed-out", checkedAt: 1 },
+      [`claude-code:${FAILED}`]: { state: "unknown", reason: "failed", checkedAt: 1 },
+    } });
+    // The sign-in check main answers for the accounts not checked yet: only LATE is signed in.
+    const probed: string[] = [];
+    const originalWindow = (globalThis as { window?: unknown }).window;
+    (globalThis as { window?: unknown }).window = { api: { providerAccounts: { identity: async ({ profileId }: { profileId: string }) => {
+      probed.push(profileId);
+      return { ok: true, identity: profileId === LATE
+        ? { state: "signed-in", email: null, plan: null, checkedAt: 2 } : { state: "unknown", reason: "failed", checkedAt: 2 } };
+    } } } };
+    try {
+      useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+      const off = fakeBridge();
+      await startAgentRunForSend(sendArgs({ accounts: { claudeAccountProfileId: WORK } }).args);
+      expect("accountPool" in off.started[0]!).toBe(false);
+      expect(probed).toEqual([]);
+
+      usePendingAutoRoutingStore.setState({ byTaskId: {} });
+      const on = fakeBridge();
+      await startAgentRunForSend(sendArgs({ accounts: { claudeAccountProfileId: WORK }, promptDraft: { attachedFilePaths: [], attachments: [],
+        runtimeOverrides: { agentRunAccountPool: { enabled: true, excludedAccountIds: ["system-default"] } } } }).args);
+      // Only the unanswered, included subscription accounts were checked before the pool froze.
+      expect(probed.sort()).toEqual([LATE, UNCHECKED].sort());
+      expect(on.started[0]!.accountPool).toEqual({ accountIds: [WORK, PERSONAL, LATE] });
+    } finally {
+      (globalThis as { window?: unknown }).window = originalWindow;
+      useProviderAccounts.setState({ loaded: false, profiles: [] });
+      useProviderAccountIdentities.setState({ byKey: {} });
+    }
   });
 
   test("an Agent task with an active run sends a plain user turn", async () => {

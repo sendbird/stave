@@ -66,6 +66,8 @@ export const PULL_REQUEST_WATCH_LIMITS = Object.freeze({
   maxErrorChars: 500,
   maxFailingChecks: 100,
   maxReviewComments: 200,
+  /** The newest approvals and change requests a read returns. */
+  maxReviews: 30,
 });
 
 /**
@@ -122,6 +124,17 @@ export type PullRequestWatchComment = z.infer<
   typeof PullRequestWatchCommentSchema
 >;
 
+/** One submitted approval or change request, by GitHub's review id. */
+const PullRequestWatchReviewSchema = z
+  .object({
+    id: z.string().trim().min(1).max(PULL_REQUEST_WATCH_LIMITS.maxNameChars),
+    state: z.enum(["APPROVED", "CHANGES_REQUESTED"]),
+    author: z.string().max(100),
+    submittedAt: z.string().max(64),
+  })
+  .strict();
+export type PullRequestWatchReview = z.infer<typeof PullRequestWatchReviewSchema>;
+
 const PullRequestStateSchema = z.enum(["OPEN", "CLOSED", "MERGED"]);
 
 /** One read of the watched pull request, already reduced to what a watch needs. */
@@ -141,12 +154,22 @@ export const PullRequestWatchSnapshotSchema = z
       .max(PULL_REQUEST_WATCH_LIMITS.maxFailingChecks),
     checksPending: z.boolean(),
     /**
+     * Every check on the head commit finished and none failed. Set only when
+     * `checks_failed` is watched and checks exist; a run's event wait reads it.
+     */
+    checksPassed: z.boolean().optional(),
+    /**
      * Comments in unresolved, current review threads. Empty unless
      * `review_comments` is watched.
      */
     reviewComments: z
       .array(PullRequestWatchCommentSchema)
       .max(PULL_REQUEST_WATCH_LIMITS.maxReviewComments),
+    /**
+     * The newest approvals and change requests, oldest first. Read only when
+     * asked for (a run's review wait); absent otherwise.
+     */
+    reviews: z.array(PullRequestWatchReviewSchema).max(PULL_REQUEST_WATCH_LIMITS.maxReviews).optional(),
   })
   .strict();
 export type PullRequestWatchSnapshot = z.infer<

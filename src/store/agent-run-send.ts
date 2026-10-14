@@ -27,7 +27,10 @@ import {
 } from "@/store/pending-auto-routing-store";
 import { buildClearedPromptDraft, hasPromptDraftPayload } from "@/store/prompt-draft-state";
 import type { PromptDraft } from "@/types/chat";
-import type { ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
+import { selectedProviderAccount, type ProviderAccountSelection } from "@/lib/providers/provider-account-selection";
+import { buildAgentRunAccountPool, isPoolableAccount } from "@/lib/agent-runs/account-pool";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { readProviderAccountIdentity, useProviderAccountIdentities } from "@/lib/providers/use-provider-account-identity";
 import { toast } from "@/lib/notifications/toast";
 import { isTaskArchived } from "@/lib/tasks";
 
@@ -77,6 +80,39 @@ type AgentRunSendArgs = {
 };
 
 const UNSENT_RUN_REASON = "agentRuns:agentRunSend.unsentReason";
+
+/**
+ * The pool a Run asked for with its pool on: the run's account, then the
+ * provider's other subscription accounts in Settings order whose sign-in check
+ * confirmed a sign-in, without the ones the user left out. A check that has not
+ * answered yet runs first; an account still not confirmed stays out. The host
+ * checks the pool again against its own account list.
+ */
+export async function resolveStartAccountPool(args: {
+  providerId: string;
+  accounts?: ProviderAccountSelection;
+  excludedAccountIds?: readonly string[];
+}) {
+  if (args.providerId !== "claude-code" && args.providerId !== "codex") return null;
+  const providerId = args.providerId;
+  if (!useProviderAccounts.getState().loaded) await useProviderAccounts.getState().refresh().catch(() => undefined);
+  const { profiles } = useProviderAccounts.getState();
+  const currentAccountId = selectedProviderAccount(providerId, args.accounts);
+  const excluded = new Set(args.excludedAccountIds ?? []);
+  const candidates = profiles.filter((profile) => profile.providerId === providerId && isPoolableAccount(profile) &&
+    profile.id !== currentAccountId && !excluded.has(profile.id));
+  // Main caches the sign-in probe, so this only asks for answers not yet loaded.
+  await Promise.all(candidates.filter((profile) => !readProviderAccountIdentity(providerId, profile.id)).map((profile) =>
+    useProviderAccountIdentities.getState().load({ providerId, profileId: profile.id }).catch(() => undefined)));
+  return buildAgentRunAccountPool({
+    providerId,
+    currentAccountId,
+    profiles,
+    excludedAccountIds: args.excludedAccountIds,
+    signedInAccountIds: candidates.filter((profile) =>
+      readProviderAccountIdentity(providerId, profile.id)?.state === "signed-in").map((profile) => profile.id),
+  });
+}
 
 type RecoveryState = Pick<
   AppState,
@@ -220,6 +256,10 @@ export function prepareAgentRunForSend(
             return { model, modelProviderId: modelProviderId ?? (args.providerId === "codex" || args.providerId === "claude-code" ? args.providerId : undefined), autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId };
           })() } : {}),
           ...(args.accounts ? { accounts: args.accounts } : {}),
+          accountPool: args.promptDraft.runtimeOverrides?.agentRunAccountPool?.enabled
+            ? await resolveStartAccountPool({ providerId: args.providerId, accounts: args.accounts,
+              excludedAccountIds: args.promptDraft.runtimeOverrides.agentRunAccountPool.excludedAccountIds })
+            : null,
           now: args.now ?? new Date(),
         }),
       ))
