@@ -97,6 +97,8 @@ export const AgentRunEventWaitSchema = z
       .max(AGENT_RUN_EVENT_WAIT_LIMITS.maxConsumedKeys),
     /** PR kinds: what the pull request watch learned, so polling and backoff survive a restart. */
     watch: PullRequestWatchStateSchema.optional(),
+    /** `delegated_completion` with a target: the saved Agent that delegated task runs as, for display. */
+    targetLabel: z.string().trim().min(1).max(120).optional(),
   })
   .strict();
 export type AgentRunEventWait = z.infer<typeof AgentRunEventWaitSchema>;
@@ -371,7 +373,16 @@ export function describeEventWaitLabel(wait: Pick<AgentRunEventWait, "kind">): s
   return i18n.t("agentRuns:eventWait.waitingOn", { event: describeEventWaitKind(wait.kind) });
 }
 
-function describeTarget(wait: Pick<AgentRunEventWait, "kind" | "target" | "watch">): string {
+const OPAQUE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function describeTarget(wait: Pick<AgentRunEventWait, "kind" | "target" | "watch" | "targetLabel">): string {
+  if (wait.kind === "delegated_completion" && wait.targetLabel) {
+    return i18n.t("agentRuns:eventWait.target.delegatedAgent", { name: wait.targetLabel });
+  }
+  // A bare task id means nothing to a reader; a delegation key the agent chose may.
+  if (wait.kind === "delegated_completion" && wait.target && OPAQUE_ID.test(wait.target)) {
+    return i18n.t("agentRuns:eventWait.target.delegatedTaskUnnamed");
+  }
   if (isPullRequestEventWait(wait.kind)) {
     const number = (wait.target ? parsePullRequestTarget(wait.target) : null) ?? wait.watch?.pullRequest?.number ?? null;
     return number
@@ -470,6 +481,7 @@ export function describeEventWaitEvent(event: {
       const target = describeTarget({
         kind,
         target: typeof event.detail.target === "string" ? event.detail.target : null,
+        ...(typeof event.detail.targetLabel === "string" ? { targetLabel: event.detail.targetLabel } : {}),
       });
       return {
         at: event.createdAt,

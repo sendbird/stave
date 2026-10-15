@@ -32,11 +32,12 @@ export interface DelegatedTaskPhaseDescription {
  * auto-denies. The signal therefore comes from the interaction the child raised,
  * not from the delegation record.
  */
-export type DelegatedTaskBlockedKind = "user-input" | "approval";
+export type DelegatedTaskBlockedKind = "user-input" | "approval" | "agent-run";
 
 const BLOCKED_LABEL: Record<DelegatedTaskBlockedKind, string> = {
   get "user-input"() { return i18n.t("workspace:delegatedTaskView.needsAnswer"); },
   get approval() { return i18n.t("workspace:delegatedTaskView.needsApproval"); },
+  get "agent-run"() { return i18n.t("workspace:delegatedTaskView.needsYou"); },
 };
 
 /**
@@ -90,6 +91,11 @@ export function selectDelegatedTaskBlockedKinds(args: {
       }
       blocked[child.delegationKey] = kind;
     }
+  }
+  // A saved Agent's run that halted, paused or asked a question waits for a person
+  // in its own task; the ledger records it as `waiting` with the run's reason.
+  for (const child of activeChildren) {
+    if (!blocked[child.delegationKey] && child.agentRunId && child.phase === "waiting") blocked[child.delegationKey] = "agent-run";
   }
   return blocked;
 }

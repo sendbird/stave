@@ -334,6 +334,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
    */
   listCompletedDelegatedRuns?: (args: { workspaceId: string; taskId: string }) =>
     Promise<TaskCompletionSignal[]> | TaskCompletionSignal[];
+  /** The saved Agent a task's delegated task (by id or delegation key) runs as; null for a model-only one. */
+  delegatedTargetAgent?: (args: { taskId: string; target: string }) => string | null;
   emitChanged?: (event: AgentRunChangedEvent) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
@@ -2225,7 +2227,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           previous: currentEventWait(agentRun, record),
         });
         if (!resolved.ok) refuse(resolved.message);
-        const { wait } = resolved;
+        // A delegated task is shown by the saved Agent it runs as, not its id.
+        const agentConfigId = resolved.wait.kind === "delegated_completion" && resolved.wait.target
+          ? deps.delegatedTargetAgent?.({ taskId: agentRun.leadTaskId, target: resolved.wait.target }) : null;
+        const targetLabel = agentConfigId ? deps.agentNames?.()[agentConfigId]?.trim().slice(0, 120) : undefined;
+        const wait = targetLabel ? { ...resolved.wait, targetLabel } : resolved.wait;
         applyChange({
           agentRun: { ...agentRun, eventWait: wait, updatedAt: at.toISOString() },
           // Waiting from a reply to a blocked or stuck stage takes the stage up again.
@@ -2234,7 +2240,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
             kind: "wait-registered",
             idempotencyKey: `${agentRun.id}:wait:${wait.id}:registered`,
             detail: {
-              waitId: wait.id, waitKind: wait.kind, target: wait.target, at: wait.at, expiresAt: wait.expiresAt,
+              waitId: wait.id, waitKind: wait.kind, target: wait.target, ...(targetLabel ? { targetLabel } : {}), at: wait.at, expiresAt: wait.expiresAt,
               maxWakes: wait.maxWakes, stageId: wait.stageId, attempt: wait.attempt, turnId: wait.turnId,
               ...(agentRun.eventWait ? { replacedWaitId: agentRun.eventWait.id } : {}),
             },

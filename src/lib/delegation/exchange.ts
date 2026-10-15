@@ -62,6 +62,8 @@ export interface DelegationOutcome {
   spend?: DelegationSpend;
   /** Progress narration the delegate reported while running, oldest first. */
   progress?: readonly string[];
+  /** Set while the delegate waits for a person (a question, an approval, a halted run). */
+  needsUser?: true;
 }
 
 export interface DelegationStage {
@@ -184,7 +186,7 @@ export function fromDelegatedTask(
         : child.result || child.reason
           ? { result: child.result ?? child.reason! }
           : {}),
-      ...(phase.blocked ? { progress: [phase.label] } : {}),
+      ...(phase.blocked ? { progress: [phase.label], needsUser: true as const } : {}),
     },
     timing: {
       startedAt,

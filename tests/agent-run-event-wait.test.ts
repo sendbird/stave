@@ -617,6 +617,22 @@ describe("event waits: what wakes the run", () => {
     expect(harness.runCalls[1]!.prompt).toContain("Subagent results");
     expect(harness.aggregate(id).agentRun.eventWait).toBeUndefined();
   });
+
+  test("a wait on a delegated task reads as the Agent it runs as, never as its id", async () => {
+    const named = "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d";
+    const harness = createHarness({ extra: { agentNames: () => ({ reviewer: "Reviewer" }),
+      delegatedTargetAgent: ({ target }) => target === named ? "reviewer" : null } });
+    const { id } = await waitingRun(harness, { kind: "delegated_completion", target: named });
+    expect(harness.aggregate(id).agentRun.eventWait?.targetLabel).toBe("Reviewer");
+    const line = describeAgentRunStatusLine(await harness.detail(id));
+    expect(JSON.stringify(line)).toContain("Waiting for Reviewer to finish");
+    expect(JSON.stringify(line)).not.toContain("2c21e993");
+    const unnamed = createHarness();
+    const other = await waitingRun(unnamed, { kind: "delegated_completion", target: "7f0e2a11-1b2c-4d3e-8f4a-5b6c7d8e9f0a" });
+    const otherLine = JSON.stringify(describeAgentRunStatusLine(await unnamed.detail(other.id)));
+    expect(otherLine).toContain("the delegated task");
+    expect(otherLine).not.toContain("7f0e2a11");
+  });
 });
 
 /** Rejects when the promise is still pending after `ms`: what a call blocked behind a hung read looks like. */

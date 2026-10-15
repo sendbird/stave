@@ -107,6 +107,14 @@ test("Claude subagents retain label, step, result and failure after event compac
   const framed = { ...rows[0]!, outcome: { ...rows[0]!.outcome, result: "[Report] Provider output follows:\n  The checks passed.\n  No issues found." } };
   expect(subagentResultLine(framed)).toBe("The checks passed. No issues found.");
   expect(framed.outcome.result).toContain("[Report]");
+  // A delegated Agent run's report previews its last stage, not its header or the assignment.
+  const report = { ...rows[0]!, outcome: { ...rows[0]!.outcome, result: [
+    "## Run complete · 2m · 1 turn", "", "**Reviewer:** Review the diff at commit abc1234 and report findings.", "",
+    "### Stages", "- **Review** — completed: No CRITICAL findings; one `NIT` in [the docs](https://example.com).",
+  ].join("\n") } };
+  expect(subagentResultLine(report)).toBe("Review — completed: No CRITICAL findings; one NIT in the docs.");
+  const markdown = { ...rows[0]!, outcome: { ...rows[0]!.outcome, result: "## Result\n\n- **Fixed** the `parser` bug\n- Added a test" } };
+  expect(subagentResultLine(markdown)).toBe("Fixed the parser bug Added a test");
 });
 
 test("Codex spawn handle leaves the worker running, with its own plan until final output", () => {

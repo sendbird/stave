@@ -26,7 +26,7 @@ import type { AgentRunChangedEvent } from "../../../src/lib/agent-runs/api";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
 import { runCommandArgs } from "../../main/utils/command";
 import { resolveAgentRunGrant } from "../../providers/agent-run-grants";
-import { countActiveDelegatedTasks, listTaskCompletionSignals } from "../delegated-task-signals";
+import { countActiveDelegatedTasks, listDelegatedTaskSummaries, listTaskCompletionSignals } from "../delegated-task-signals";
 import { createPullRequestWatchReader } from "../pull-request-watch-reader";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
@@ -272,6 +272,8 @@ export function createHostAgentRunRuntime(args: {
     // reader on the task's workspace checkout, and the same completion feed.
     readPullRequestWatch: createPullRequestWatchReader({ resolveWorkspacePath }),
     listCompletedDelegatedRuns: ({ taskId }) => listTaskCompletionSignals({ taskId }),
+    delegatedTargetAgent: ({ taskId, target }) => listDelegatedTaskSummaries({ parentTaskId: taskId })
+      .find((summary) => summary.delegatedTaskId === target || summary.delegationKey === target)?.agentConfigId ?? null,
     // Subscription sign-ins only: an API connection is never an account-pool candidate.
     listSubscriptionAccounts: (providerId) => getProviderAccountRegistry().list()
       .filter((profile) => profile.providerId === providerId && isPoolableAccount(profile))

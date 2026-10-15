@@ -75,6 +75,9 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
   const runs = buildAgentRunFixtures(new Date(now - 23 * 60_000));
   const working = buildAgentRunFixtures(new Date(now - 4 * 60_000));
   const limitReached: AgentRunDetail = { ...working.working, agentRun: { ...working.working.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 } };
+  // Waiting on a delegated task, named by the saved Agent it runs as.
+  const delegatedWait: AgentRunDetail = { ...working.eventWait, agentRun: { ...working.eventWait.agentRun, eventWait: {
+    ...working.eventWait.agentRun.eventWait!, kind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d", targetLabel: "Reviewer" } } };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   return (
     <div className={sx(styles.cases)} style={width ? { maxWidth: width } : undefined}>
@@ -147,6 +150,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow, null],
           ["Agent run panel waiting", "Progress tab · Running · waiting for a usage reset", working.waiting, null],
           ["Agent run panel event wait", "Progress tab · Running · waiting for PR checks", working.eventWait, null],
+          ["Agent run panel delegated wait", "Progress tab · Running · waiting for a delegated Agent", delegatedWait, null],
           ["Agent run panel approval", "Progress tab · Needs your answer · approval", working.working, "approval"],
           ["Agent run panel taken over", "Progress tab · Paused · taken over", working.takenOver, null],
           ["Agent run panel blocked", "Progress tab · Halted · blocked", working.blocked, null],

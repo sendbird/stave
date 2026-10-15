@@ -785,7 +785,8 @@
     "extraCopy211": "The required workspace script check has no successful, current verification evidence."
   },
   "subagentSummary": {
-    "extraCopy405": "timed out"
+    "extraCopy405": "timed out",
+    "needsYou": "needs you"
   },
   "normalize": {
     "extraCopy416": "Saved workflows are not a list.",
@@ -900,7 +901,9 @@
       "pullRequest": "PR #{{number}}",
       "branchPullRequest": "this branch's PR",
       "delegatedTask": "delegated task {{target}}",
-      "anyDelegated": "this task's delegated work"
+      "anyDelegated": "this task's delegated work",
+      "delegatedAgent": "{{name}}",
+      "delegatedTaskUnnamed": "the delegated task"
     },
     "detail": {
       "pullRequestChecks": "Waiting for the checks on {{target}} to finish. Stops waiting at {{expires}}.",

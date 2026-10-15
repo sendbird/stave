@@ -119,6 +119,16 @@ describe("selectDelegatedTaskBlockedKinds", () => {
     };
   }
 
+  test("a saved Agent's run waiting for a person needs you; a parked detached child does not", () => {
+    const supervised = buildChild({ lifecycle: "supervised", agentRunId: "run-child", phase: "waiting", reason: "Choose a storage policy" });
+    expect(selectDelegatedTaskBlockedKinds({ children: [supervised], notifications: [] })).toEqual({ review: "agent-run" });
+    expect(describeDelegatedTaskPhase(supervised, "agent-run")).toEqual({ label: "Needs you", tone: "waiting", blocked: true });
+    // An open question outranks the run's own waiting state.
+    expect(selectDelegatedTaskBlockedKinds({ children: [supervised],
+      notifications: [buildNotification({ kind: "task.user_input_requested" })] })).toEqual({ review: "user-input" });
+    expect(selectDelegatedTaskBlockedKinds({ children: [buildChild({ phase: "waiting" })], notifications: [] })).toEqual({});
+  });
+
   test("maps an open request onto the delegation that raised it", () => {
     expect(
       selectDelegatedTaskBlockedKinds({

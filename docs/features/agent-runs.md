@@ -50,9 +50,13 @@ into agents finish as they are, and their surfaces keep working.
    plan between turns; the report carries the final plan. Agent runs require
    the agent to write and maintain a plan with one step in progress.
 4. The shelf summarizes the task's subagents, for example **Implementer
-   running · Reviewer done**. **Progress** and **Subagents** show their latest
-   step or tool and a short result. Saved tool parts preserve these summaries
-   after completed turn events are compacted.
+   running · Reviewer done**, or **Reviewer needs you** when a delegated Agent
+   waits for a person (a question, an approval, or its own run halted or
+   paused); open its task to answer. **Progress** and **Subagents** show their
+   latest step or tool and a one-line result in plain text: a delegated Agent
+   run's result is its last stage's outcome, and the full report stays on hover
+   and in its task. Saved tool parts preserve these summaries after completed
+   turn events are compacted.
 
 ## Interface Walkthrough
 
@@ -482,7 +486,9 @@ what fails, and waits again.
 - While it waits the Run stays running and starts no turns, so the wait spends
   none of the turn budget. The run line and the Task panel read **Running ·
   Waiting · PR checks** (or **PR review**, **Scheduled time**, **Delegated work**) with what
-  it waits for and when it stops waiting. The workspace stays **In progress**.
+  it waits for and when it stops waiting; a delegated task is named by the
+  saved Agent it runs as (**Waiting for Reviewer to finish**), never by its id.
+  The workspace stays **In progress**.
 - A turn that ends after asking to wait is not an unreported turn: Stave sends
   no reminder and does not mark the stage stuck.
 - What wakes it:
