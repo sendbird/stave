@@ -18,6 +18,8 @@ type Seed = {
   /** Codex's account for new turns is the API connection, with a readable key. */
   codexUsesConnection?: boolean;
   checkStatus?: string;
+  /** A built-in theme preset, such as `dracula`. */
+  customThemeId?: string;
 };
 
 function screenshotPath(testInfo: TestInfo, name: string) {
@@ -191,6 +193,7 @@ function seedAccounts(page: Page, seed: Seed) {
               themeMode: args.seed.themeMode,
               language: "en",
               ...(args.seed.codexUsesConnection ? { codexAccountProfileId: args.connectionId } : {}),
+              ...(args.seed.customThemeId ? { customThemeId: args.seed.customThemeId } : {}),
             },
           },
           version: 0,
@@ -371,3 +374,15 @@ test("Pick a model closes Settings and opens the composer's model selector", asy
   await expect(settings).toBeHidden();
   await expect(page.getByRole("dialog", { name: "Model and effort selector" })).toBeVisible();
 });
+
+for (const [customThemeId, themeMode] of [["dracula", "dark"], ["catppuccin-latte", "light"]] as const) {
+  test(`built-in theme ${customThemeId}: Accounts and the composer line use theme tokens`, async ({ page }, testInfo) => {
+    await seedAccounts(page, { themeMode, ...READY, claudeSignedIn: false, customThemeId });
+    await page.setViewportSize({ width: 1440, height: 1800 });
+    await page.goto("/");
+    await expect(page.getByTestId("composer-shelf-account")).toBeVisible({ timeout: 20_000 });
+    await page.screenshot({ path: screenshotPath(testInfo, `composer-${customThemeId}`) });
+    await openSettingsSection(page, "Accounts");
+    await page.screenshot({ path: screenshotPath(testInfo, `settings-accounts-${customThemeId}`) });
+  });
+}
