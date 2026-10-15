@@ -81,7 +81,14 @@ After `bun run build:desktop`, run a focused desktop spec with
 These tests use temporary profiles. The harness launches Stave with
 `STAVE_DISABLE_ACCOUNT_USAGE_READS=1`, so a suite run does not read provider
 account usage with your credentials on every launch; set the same variable for
-any other script that launches the desktop app repeatedly. Provider
+any other script that launches the desktop app repeatedly. With it set,
+`STAVE_E2E_ACCOUNT_USAGE_FILE` can name a JSON file holding the Claude usage
+window to report instead (`{ "claude": { "session": { "usedPercent": 10,
+"resetsAt": <epoch seconds> } } }`), read on every call.
+`tests/e2e-electron/agent-run-usage-limit.electron.e2e.ts` uses it with a
+stand-in `claude` CLI (`STAVE_CLAUDE_CLI_PATH`, `harness/fake-claude-cli.cjs`)
+to reproduce an Agent run that hits a usage limit, waits for the reset and
+continues, without a real account or billable turns. Provider
 authentication is checked separately:
 
 ```bash
