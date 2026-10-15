@@ -19,7 +19,8 @@ import type {
   StatusBarAccountProviderId,
   StatusBarAccountView,
 } from "@/components/layout/status-bar-usage.utils";
-import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
+import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
+import { useAppStore } from "@/store/app.store";
 
 /**
  * Who a sign-in account is signed in as, under its name in the switch. The same
@@ -143,13 +144,7 @@ export function StatusBarAccountSection(props: {
         variant="ghost"
         size="sm"
         xstyle={styles.manageAccounts}
-        onClick={() =>
-          window.dispatchEvent(
-            new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-              detail: { section: "tooling" },
-            }),
-          )
-        }
+        onClick={() => openAccountsSettings(view.canSwitch ? providerId : `${providerId}-add`)}
       >
         {view.canSwitch ? i18n.t("shell:statusBarAccountSection.manageAccounts") : i18n.t("shell:statusBarAccountSection.addAnAccount")}
       </Button>

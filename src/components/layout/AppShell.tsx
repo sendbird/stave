@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { STAVE_OPEN_MODEL_SELECTOR_EVENT, requestSettingsFocus } from "@/lib/providers/accounts-navigation";
 import { WorkspaceWelcome } from "./WorkspaceWelcome";
 import {
   Suspense,
@@ -248,8 +249,10 @@ export function AppShell() {
     void loadSettingsDialog();
   }, []);
   const handleOpenSettings = useCallback(
-    (options?: { repositoryPath?: string | null; section?: SectionId }) => {
+    (options?: { repositoryPath?: string | null; section?: SectionId; focus?: string }) => {
       handlePreloadSettings();
+      // The section that owns the target scrolls to it once it renders.
+      requestSettingsFocus(options?.focus ?? null);
       setSettingsInitialSection(options?.section ?? "general");
       setSettingsInitialRepositoryPath(options?.repositoryPath ?? null);
       setSettingsOpen(true);
@@ -633,12 +636,17 @@ export function AppShell() {
       const customEvent = event as CustomEvent<{
         repositoryPath?: string | null;
         section?: SectionId;
+        focus?: string;
       }>;
       handleOpenSettings({
         repositoryPath: customEvent.detail?.repositoryPath ?? null,
         section: customEvent.detail?.section ?? "general",
+        ...(typeof customEvent.detail?.focus === "string" ? { focus: customEvent.detail.focus } : {}),
       });
     };
+    // The composer's model selector cannot open behind the modal Settings.
+    const handleOpenModelSelectorEvent = () => handleSettingsOpenChange({ open: false });
+    window.addEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, handleOpenModelSelectorEvent);
 
     window.addEventListener(
       STAVE_OPEN_SETTINGS_EVENT,
@@ -649,8 +657,9 @@ export function AppShell() {
         STAVE_OPEN_SETTINGS_EVENT,
         handleOpenSettingsEvent as EventListener,
       );
+      window.removeEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, handleOpenModelSelectorEvent);
     };
-  }, [handleOpenSettings]);
+  }, [handleOpenSettings, handleSettingsOpenChange]);
 
   useEffect(() => {
     if (typeof window === "undefined") {

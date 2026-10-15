@@ -252,6 +252,8 @@ import {
   ComposerFrameStatusBar,
   ComposerFrameWing,
 } from "./composer-frame";
+import { listProviderIds } from "@/lib/providers/model-catalog";
+import { STAVE_OPEN_MODEL_SELECTOR_EVENT } from "@/lib/providers/accounts-navigation";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
@@ -1082,6 +1084,7 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
+  const [modelSelectorOpenProvider, setModelSelectorOpenProvider] = useState<ProviderId | undefined>(undefined);
   // "Assign to an agent…" opens the selector on its Agents section.
   const agentSelectorNonce = useAgentsUiStore((state) => state.agentSelectorNonce);
   const handledAgentSelectorNonce = useRef(agentSelectorNonce);
@@ -1517,6 +1520,27 @@ export function PromptInput(args: PromptInputProps) {
     ],
   );
 
+  // Settings > Accounts ("Pick a model", "Use in Codex") opens this selector.
+  // The frame delay lets Settings close first, so the popover is not behind it.
+  useEffect(() => {
+    if (interactionsDisabled || !windowShortcutsEnabled) return;
+    let frame = 0;
+    const onOpenModelSelector = (event: Event) => {
+      const providerId = (event as CustomEvent<{ providerId?: string }>).detail?.providerId;
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const known = listProviderIds().find((candidate) => candidate === providerId);
+        setModelSelectorOpenProvider(known);
+        setModelSelectorOpenNonce((current) => current + 1);
+      });
+    };
+    window.addEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
+    };
+  }, [interactionsDisabled, windowShortcutsEnabled]);
+
   useEffect(() => {
     if (agentSelectorNonce === handledAgentSelectorNonce.current) return;
     handledAgentSelectorNonce.current = agentSelectorNonce;
@@ -1563,6 +1587,7 @@ export function PromptInput(args: PromptInputProps) {
       if (isAltP) {
         event.preventDefault();
         armShortcutEchoGuard();
+        setModelSelectorOpenProvider(undefined);
         setModelSelectorOpenNonce((current) => current + 1);
         return;
       }
@@ -4395,6 +4420,7 @@ export function PromptInput(args: PromptInputProps) {
                       ? modelSelectorOpenNonce
                       : undefined
                   }
+                  {...(modelSelectorOpenProvider ? { openProviderId: modelSelectorOpenProvider } : {})}
                   openAgentsToken={agentsOpenToken}
                   onFastModeChange={onFastModeChange}
                   onSelect={({ selection, effort, fastMode: nextFastMode }) => {

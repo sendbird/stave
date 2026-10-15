@@ -142,6 +142,8 @@ interface ModelEffortSelectorProps {
   onRefreshCatalogs?: () => void;
   /** Offer agents on the rail, and split the trigger in two while an agent runs the task. */
   agents?: ModelPickerAgents;
+  /** The provider tab an `openToken` request opens on, when it has models. */
+  openProviderId?: ProviderId;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
     selection: ModelSelectorOption;
@@ -623,8 +625,13 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     const startProviderId = args.value.isAuto
       ? (providerIds[0] ?? "claude-code")
       : args.value.providerId;
-    const requestedTab = pinMode ? null : requestedTabRef.current;
+    const requested = pinMode ? null : requestedTabRef.current;
     requestedTabRef.current = null;
+    // A provider tab is honored only when that provider has models to list.
+    const requestedProvider = requested && requested !== AUTO_TAB && requested !== AGENTS_TAB
+      ? (providerIds.includes(requested) ? requested : null)
+      : null;
+    const requestedTab = requested === AUTO_TAB || requested === AGENTS_TAB ? requested : requestedProvider;
     setRailValue(
       requestedTab ??
       (pinMode
@@ -637,7 +644,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             ? AUTO_TAB
             : args.value.providerId),
     );
-    setProviderId(startProviderId);
+    setProviderId(requestedProvider ?? startProviderId);
     setContext1M(isClaudeContext1MModel(args.value.model));
     setQuery("");
     setShowAllModels(false);
@@ -663,7 +670,10 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     handledOpenTokenRef.current = args.openToken;
+    requestedTabRef.current = args.openProviderId ?? null;
     setOpenPanel("selector");
+    // `openProviderId` rides with the token that asked for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [args.disabled, args.openToken]);
 
   useEffect(() => {

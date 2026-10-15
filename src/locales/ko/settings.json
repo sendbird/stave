@@ -1052,7 +1052,7 @@
     },
     "tooling": {
       "label": "툴링",
-      "description": "Claude와 Codex 계정, API 연결, 로컬 도구 상태 점검입니다."
+      "description": "로컬 도구의 CLI 경로, 설치 상태, 버전, 상태 점검입니다."
     },
     "lens": {
       "label": "Lens",
@@ -1151,6 +1151,10 @@
         "title": "라우팅 판단 모델",
         "description": "Auto와 Agent의 작업을 분류하는 모델을 선택합니다. 실제 작업을 수행하는 모델은 바뀌지 않습니다."
       }
+    },
+    "accounts": {
+      "label": "계정",
+      "description": "Claude와 Codex에 로그인하거나, 구독 계정을 추가하거나, 토큰 단위로 과금되는 게이트웨이 키를 연결합니다."
     }
   },
   "macroEditor": {

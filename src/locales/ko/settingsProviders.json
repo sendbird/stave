@@ -802,6 +802,11 @@
       "openedInTerminal": "터미널에서 워크스페이스를 열었습니다",
       "commandCopied": "{{tool}} 명령어를 복사했습니다",
       "copyCommandFailed": "명령어를 복사하지 못했습니다"
+    },
+    "accountsMoved": {
+      "title": "계정과 API 연결",
+      "body": "계정과 API 연결은 설정 > 계정으로 옮겼습니다.",
+      "action": "계정 열기"
     }
   },
   "codexPlugins": {

@@ -1,6 +1,6 @@
 import { formatList } from "@/i18n/format";
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
@@ -12,7 +12,9 @@ import {
   type ApiConnectionCreateArgs,
   type ApiConnectionModel,
 } from "@/lib/providers/api-connections";
-import { API_CONNECTIONS_FIELD_ID, STAVE_API_CONNECTIONS_GUIDE_URL } from "@/lib/providers/accounts-guide";
+import { API_CONNECTIONS_FIELD_ID, STAVE_API_CONNECTIONS_GUIDE_URL, apiConnectionFieldId, apiConnectionIdFromFocus } from "@/lib/providers/accounts-guide";
+import { openComposerModelSelector, useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
+import { describeApiConnectionCheck } from "@/lib/providers/api-connection-failure";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { useAppStore } from "@/store/app.store";
@@ -34,7 +36,7 @@ function ConnectionRow(props: {
   secrets: SecretOption[];
   busy: boolean;
   run: (action: () => Promise<unknown>) => void;
-  onRefreshSecrets: () => void;
+  onRefreshSecrets: () => Promise<void> | void;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { connection } = props;
@@ -47,7 +49,13 @@ function ConnectionRow(props: {
   const keyName = props.secrets.find((secret) => secret.id === connection.secretId)?.name;
   const servesClaude = Boolean(connection.endpoints["claude-code"]);
   const startEditing = () => { setLabel(connection.label); setSecretId(connection.secretId); setModels(connection.models); setEditing(true); };
-  return <div className={sx(styles.connection)}>
+  // "Edit models" in the composer's model selector opens this row's edit form.
+  const editRequest = useSettingsFocusRequest((state) => (apiConnectionIdFromFocus(state.focus) === connection.id ? state.nonce : null));
+  useEffect(() => {
+    if (editRequest !== null) startEditing();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editRequest]);
+  return <div id={apiConnectionFieldId(connection.id)} tabIndex={-1} data-focus-first-control="" className={sx(styles.connection)}>
     <div className={sx(styles.heading)}>
       <span className={sx(styles.name)}>{connection.label}</span>
       <span className={sx(styles.meta)}>
@@ -97,7 +105,37 @@ function ConnectionRow(props: {
         </Tooltip>
       </>}
     </div>
-    {check && <p role="status" className={sx(check.ok ? styles.checkOk : styles.checkFailed)}>{check.message}</p>}
+    {check && <p role="status" className={sx(check.ok ? styles.checkOk : styles.checkFailed)}>{describeApiConnectionCheck(check)}</p>}
+  </div>;
+}
+
+/**
+ * Right after "Add connection": check it, then use it. "Use in Codex" makes
+ * the connection Codex's account for new turns and opens the composer's model
+ * selector on the Codex tab, where its models are listed.
+ */
+function ApiConnectionNextStep(props: { connection: ApiConnection; busy: boolean; onDismiss: () => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const { connection } = props;
+  const [check, setCheck] = useState<ApiConnectionCheckResult | null>(null);
+  const [checking, setChecking] = useState(false);
+  const runtime = connection.endpoints.codex ? "codex" : "claude-code";
+  const use = () => {
+    useAppStore.getState().updateSettings({ patch: runtime === "codex" ? { codexAccountProfileId: connection.id } : { claudeAccountProfileId: connection.id } });
+    openComposerModelSelector(runtime);
+  };
+  return <div role="status" className={sx(styles.nextStep)} data-testid="api-connection-next-step">
+    <span className={sx(accountStyles.subheading)}>{t("settingsConnections:apiConnectionsSettings.nextStep.title", { value1: connection.label })}</span>
+    <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.nextStep.body", { value1: RUNTIME_NAME[runtime] })}</p>
+    <div className={sx(accountStyles.row)}>
+      <Button size="sm" variant="outline" disabled={props.busy || checking} onClick={() => {
+        setChecking(true); setCheck(null);
+        void window.api!.apiConnections!.check({ id: connection.id }).then(setCheck).finally(() => setChecking(false));
+      }}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</Button>
+      <Button size="sm" onClick={use}>{t("settingsConnections:apiConnectionsSettings.nextStep.use", { value1: RUNTIME_NAME[runtime] })}</Button>
+      <Button size="sm" variant="quiet" onClick={props.onDismiss}>{t("settingsConnections:apiConnectionsSettings.nextStep.done")}</Button>
+    </div>
+    {check && <p className={sx(check.ok ? styles.checkOk : styles.checkFailed)}>{describeApiConnectionCheck(check)}</p>}
   </div>;
 }
 
@@ -131,6 +169,7 @@ export function ApiConnectionsSettings() {
     void action().catch((failure) => setError(failure instanceof Error ? failure.message : String(failure)))
       .finally(() => { setBusy(false); void refresh(); void useProviderAccounts.getState().refresh(); });
   };
+  const [added, setAdded] = useState<ApiConnection | null>(null);
   const create = async (args: ApiConnectionCreateArgs) => {
     let created = false;
     setBusy(true); setError(null);
@@ -138,10 +177,12 @@ export function ApiConnectionsSettings() {
       const result = await window.api!.apiConnections!.create(args);
       if (!result.ok) throw new Error(result.message);
       created = true;
+      setAdded(result.connection);
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
     finally { setBusy(false); void refresh(); void useProviderAccounts.getState().refresh(); }
     return created;
   };
+  const suggestedModelIds = useMemo(() => [...new Set(connections.flatMap((connection) => connection.models.map((model) => model.id)))], [connections]);
   if (!window.api?.apiConnections) return null;
   return <SettingsCard
     id={API_CONNECTIONS_FIELD_ID}
@@ -153,9 +194,10 @@ export function ApiConnectionsSettings() {
     <div className={sx(accountStyles.stack)}>
       {connections.length === 0
         ? <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.noAPIConnectionsYetSaveThe")}</p>
-        : connections.map((connection) => <ConnectionRow key={connection.id} connection={connection} secrets={secrets} busy={busy} run={run} onRefreshSecrets={() => void refreshSecrets()} />)}
+        : connections.map((connection) => <ConnectionRow key={connection.id} connection={connection} secrets={secrets} busy={busy} run={run} onRefreshSecrets={refreshSecrets} />)}
       {error && <p role="alert" className={sx(accountStyles.error)}>{error}</p>}
-      <ApiConnectionForm busy={busy} secrets={secrets} onRefreshSecrets={() => void refreshSecrets()} onCreate={create} />
+      {added && <ApiConnectionNextStep key={added.id} connection={added} busy={busy} onDismiss={() => setAdded(null)} />}
+      <ApiConnectionForm busy={busy} secrets={secrets} suggestedModelIds={suggestedModelIds} onRefreshSecrets={refreshSecrets} onCreate={create} />
     </div>
   </SettingsCard>;
 }
