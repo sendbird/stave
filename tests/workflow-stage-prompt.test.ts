@@ -55,6 +55,16 @@ describe("stage prompt", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
+  test("tells only the last stage to restate every criterion in its report", () => {
+    const rule = "This is the last stage. Report every criterion below";
+    expect(compileStagePrompt(input())).not.toContain(rule);
+    const lastAi = slack.stages.findLastIndex((stage) => stage.kind === "ai");
+    const twoStage = { ...slack, stages: [slack.stages[0]!, slack.stages[lastAi]!] };
+    expect(compileStagePrompt(input({ workflow: twoStage, stageIndex: 1 }))).toContain(rule);
+    // A one-stage run has no earlier criteria to restate.
+    expect(compileStagePrompt(input({ workflow: { ...slack, stages: [slack.stages[lastAi]!] }, stageIndex: 0 }))).not.toContain(rule);
+  });
+
   test("states the reporting contract", () => {
     const prompt = compileStagePrompt(input());
     expect(prompt).toContain("`stave_report_stage`");

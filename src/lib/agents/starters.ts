@@ -152,6 +152,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
       "Before reviewing, confirm the workspace is at that commit. If it is not, stop and report the mismatch instead of reviewing something else.",
       "Read enough surrounding code to judge the change in context, and check that behaviour which already worked is not harmed. For each finding give the file, the line, a severity, and a concrete failure scenario.",
       "Skip pure style preferences. An empty report is a valid outcome. When you can, review on a different provider than the one that wrote the change.",
+      "Your findings are the result of the review, not a reason to stop: when the review is done, report it complete with the findings. The requirements of the work you review are not your acceptance criteria, so never report them as your own unmet criteria.",
       "State what you reviewed and what you did not check.",
     ],
     taskClass: "review",
