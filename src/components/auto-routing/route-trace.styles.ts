@@ -17,7 +17,9 @@ export const routeTraceStyles = stylex.create({
     display: "flex",
     gap: vars["--ads-space-8"],
     minWidth: 0,
-    paddingBlock: vars["--ads-space-4"],
+    // With the xs toggle the header is as tall as an activity row, and the
+    // inline padding starts "Route" where the rows start their icons.
+    paddingBlock: vars["--ads-space-2"],
     paddingInline: vars["--ads-space-8"],
   },
   title: {
@@ -51,10 +53,12 @@ export const routeTraceStyles = stylex.create({
     minWidth: 0,
     overflow: "hidden",
   },
+  // Shrinks but never grows, so the rule stays beside the model instead of
+  // being pushed against the toggle.
   titleIdentity: {
     alignItems: "center",
     display: "inline-flex",
-    flex: "1 1 auto",
+    flex: "0 1 auto",
     minWidth: 0,
     overflow: "hidden",
   },
@@ -70,10 +74,12 @@ export const routeTraceStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-2"],
   },
+  // The dot column and gap match an activity row's icon slot and gap, so the
+  // hops line up with the rows below.
   chain: {
     display: "grid",
-    gridTemplateColumns: "0.75rem minmax(0, 1fr)",
-    columnGap: vars["--ads-space-8"],
+    gridTemplateColumns: "1rem minmax(0, 1fr)",
+    columnGap: "0.625rem",
     paddingBlock: vars["--ads-space-2"],
     paddingInline: vars["--ads-space-8"],
     rowGap: 0,

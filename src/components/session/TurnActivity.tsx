@@ -1377,7 +1377,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   budgetStepDownAt={props.autoRoutingBudgetStepDownAt}
                   providerAvailability={props.providerAvailability}
                   defaultCollapsed
-                  className={sx(styles.childBlock)}
                   data-testid="turn-activity-route"
                 />
               ) : null}
