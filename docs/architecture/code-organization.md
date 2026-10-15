@@ -98,10 +98,15 @@ in `accounts-navigation.ts`. Entry points outside Settings read
 cannot send): the composer shelf line (`composer-shelf/ShelfAccountNotice.tsx`),
 the model selector foot and group action
 (`ai-elements/model-picker-account-actions.tsx`), and turn errors
-(`session/ProviderErrorAccountAction.tsx`). Focused checks are
+(`session/ProviderErrorAccountAction.tsx`). Readiness counts all five
+providers; Cursor, Kiro and OpenCode fixes land on their CLI row
+(`cli:<provider>`). Settings' requests to open the composer model selector
+(`openComposerModelSelector`) wait in the selector until the provider lists
+the requested group (`ai-elements/model-selector-open-request.ts`). Focused checks are
 `tests/accounts-onboarding.test.ts`, `tests/accounts-section-render.test.tsx`,
-`tests/provider-account-blocker.test.ts`, `tests/settings-dialog-utils.test.ts`,
-and the rendered flows in `tests/e2e/accounts-settings.e2e.ts`.
+`tests/provider-account-blocker.test.ts`, `tests/model-selector-open-request.test.ts`,
+`tests/settings-dialog-utils.test.ts`, and the rendered flows in
+`tests/e2e/accounts-settings.e2e.ts`.
 
 Sign-in identity and shared setup add channels without changing the registry
 file. `src/lib/providers/provider-account-identity.ts` and

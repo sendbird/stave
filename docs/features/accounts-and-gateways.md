@@ -28,13 +28,13 @@
 
 New to Stave? Open **Settings > Accounts** and follow **Getting started** at the top. It lists what is left before your first turn, in order, with one button per step:
 
-1. **Install the Claude Code or Codex CLI**: copies the install command, or opens Settings > Tooling.
-2. **Sign in**: opens the sign-in terminal for System default. **Check again** asks the CLI again. With no workspace open, it asks you to open a repository first.
+1. **Install a provider CLI**: Claude Code, Codex, Cursor, Kiro or OpenCode. It copies the Claude Code or Codex install command, or opens Settings > Tooling.
+2. **Sign in**: for Claude Code or Codex, opens the sign-in terminal for System default; with no workspace open, it asks you to open a repository first. For Cursor, Kiro or OpenCode, **How to sign in** goes to that CLI's row, which copies its own login command. **Check again** asks every CLI again.
 3. **Add another account** (optional): goes to the **Add an account** form.
 4. **Connect a gateway** (optional): goes to the **Add a connection** form.
-5. **Pick a model**: closes Settings and opens the composer's model selector.
+5. **Pick a model**: closes Settings and opens the composer's model selector. It needs a workspace, because the selector is in the composer.
 
-Each step updates as you work; closing the sign-in terminal checks again. **Skip** marks an optional step as done, and **Hide** folds the list. Both are remembered. Once every step is done or skipped, the list folds to one line on its own. When you open Stave and no provider can take a turn yet, the welcome screen shows the same steps with **Open Accounts**.
+Any of the five providers counts: once one of them can take a turn, steps 1, 2 and 5 are done. Each step updates as you work; closing the sign-in terminal checks again. **Skip** marks an optional step as done, and **Hide** folds the list. Both are remembered. Once every step is done or skipped, the list folds to one line on its own. When you open Stave and no provider can take a turn yet (Claude Code, Codex, Cursor, Kiro and OpenCode all included), the welcome screen shows the required steps with **Open Accounts**.
 
 To add a second subscription:
 
@@ -58,9 +58,9 @@ You sign in once per account, not once per CLI binary. The sign-in is saved in t
   - **Cursor, Kiro and OpenCode sign-in**: whether each CLI is signed in, and **Copy Login Command**. These CLIs keep their own sign-in, so Stave does not manage accounts for them. **CLI not installed** links to Settings > Tooling.
   - **API connections**: add, check, edit, and remove API connections.
 - **Settings > Tooling** keeps CLI paths, install status, and versions. Its top card points to Settings > Accounts.
-- **Composer model selector**: its foot names a provider that cannot run (CLI not installed, not signed in, or a connection key Stave cannot read) with the button that fixes it, offers **Add other models with Vercel AI Gateway…** when you have no API connection, and ends with **Manage accounts and connections…**. An API connection's group has **Edit models**, which opens that connection's edit form.
-- **Composer**: when the selected account cannot send, a line above the input says why, with one button: **Sign in**, **Connect key**, **Switch account**, **Add an account**, or **Set up**. Nothing shows while sending works.
-- **A turn that ended on the account**: under a sign-in failure, **Open Accounts**; under a usage-limit failure, **Switch account** (or **Add an account** when there is no other account).
+- **Composer model selector**: its foot names a provider that cannot run (CLI not installed, not signed in, or a connection key Stave cannot read) with the button that fixes it; Cursor, Kiro and OpenCode CLIs that are not installed share one **Not installed** line. It offers **Add other models with Vercel AI Gateway…** when you have no API connection, and ends with **Manage accounts and connections…**. An API connection's group has **Edit models**, which opens that connection's edit form.
+- **Composer**: when the task's provider cannot send with its selected account, a line above the input says why, with one button: **Sign in**, **Connect key**, **Switch account**, **Add an account**, or **Set up**. For Cursor, Kiro and OpenCode the button goes to that CLI's row in Settings > Accounts. The usage-limit line follows the same rule as sending: it checks the selected model, so a limit only another model uses does not show it, and Stave Auto never shows it because it routes around an exhausted account. Nothing shows while sending works.
+- **A turn that ended on the account**: under a sign-in failure, **Open Accounts** (for Cursor, Kiro and OpenCode, at that CLI's row); under a Claude Code or Codex usage-limit failure, **Switch account** (or **Add an account** when there is no other account).
 - **Status bar usage meter**: shows the account new turns use and its usage, and switches accounts when there is more than one. An API connection is listed there as an account, marked **API billing**. **Manage accounts** and **Add an account** open Settings > Accounts.
 - **Command palette**: **Open Settings: Accounts**, **Add an account**, and **Add an API connection**.
 - **Standalone CLI**: each Claude Code and Codex tab has its own account select. See [Standalone CLI](standalone-cli.md).
@@ -198,7 +198,7 @@ An API connection is one gateway key that both Claude Code and Codex can use. Th
 3. **Name**: type a name such as `Company gateway`.
 4. **Models**: under **Find models on Vercel AI Gateway**, search and **Pin** the models you want, for example `anthropic/claude-sonnet-5`, `openai/gpt-6-astra` and `zai/glm-5.3`. Each row shows the model's context window and its list price per 1M input and output tokens. Models you pinned on your other connections are offered first, when the catalog lists them.
 5. The step line under the form shows which of key, name, and models are done. Choose **Add connection**, then **Check connection** in the box that follows. Stave asks the gateway whether it accepts the key and lists the pinned models; no prompt is sent and nothing is billed.
-6. Choose **Use in Codex** (or **Use in Claude Code** for a connection that serves only Claude Code). Stave makes the connection that runtime's account for new turns and opens the composer's model selector on its tab. You can also pick the connection in the status bar account switch, or in **Account for new turns** in the **Claude accounts** or **Codex accounts** card. Each runtime is chosen on its own, so Claude can use the connection while Codex keeps its sign-in, or the other way round.
+6. Choose **Use in Codex** (or **Use in Claude Code** for a connection that serves only Claude Code). Stave makes the connection that runtime's account for new turns and opens the composer's model selector. The runtime is checked again after the switch, so its tab can take a moment to appear; the selector then moves to it, at the connection's group, unless you picked another tab first. With no workspace open the button is off, because the selector is in the composer. You can also pick the connection in the status bar account switch, or in **Account for new turns** in the **Claude accounts** or **Codex accounts** card. Each runtime is chosen on its own, so Claude can use the connection while Codex keeps its sign-in, or the other way round.
 7. In the composer, choose one of its models. They appear in the model picker under the runtime, in a group named after the connection, for example **Company gateway · API billing**.
 
 What to expect:
