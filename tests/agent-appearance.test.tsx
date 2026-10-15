@@ -45,9 +45,16 @@ function custom(overrides: Partial<AgentConfig> = {}): AgentConfig {
 
 describe("agent appearance", () => {
   test("appearance is optional, so an agent saved without it stays valid", () => {
-    expect(AgentConfigSchema.safeParse(custom()).success).toBe(true);
+    // `custom()` copies Implementer, which now has a colour and an icon, so the
+    // field is removed to get the shape an agent saved before it existed.
+    const { appearance: _appearance, ...saved } = custom();
+    expect("appearance" in saved).toBe(false);
+    const parsed = AgentConfigSchema.safeParse(saved);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.appearance).toBeUndefined();
+    expect(normalizeCustomAgents([saved]).agents).toHaveLength(1);
     const withColor = AgentConfigSchema.parse(custom({ appearance: { color: "green" } }));
-    expect(withColor.appearance?.color).toBe("green");
+    expect(withColor.appearance).toEqual({ color: "green" });
   });
 
   test("a chosen colour wins; without one the id derives a stable colour", () => {
