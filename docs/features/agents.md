@@ -348,6 +348,8 @@ agent the task runs (a short content hash), each instruction source that went
 in, and how firmly the instructions, tool limits, model and permission are held
 on that provider. If the agent was edited after the task started, the flow
 says so: later turns keep the version used, and assigning again uses the edit.
+A change of colour or icon alone is not counted as an edit, since it does not
+change what the agent does.
 
 ### Fleet
 

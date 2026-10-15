@@ -3,6 +3,7 @@ import { AGENT_PERMISSIONS } from "@/lib/agents/schema";
 import { agentPermissionOverrides, CLAUDE_EDIT_TOOLS } from "@/lib/agents/permission";
 import { taskAgentRuntimeOptions } from "@/lib/agents/runtime-options";
 import { getBuiltinAgent } from "@/lib/agents/starters";
+import { duplicateAgent } from "@/lib/agents/library";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 
@@ -112,6 +113,7 @@ describe("what it received", () => {
     const base = {
       agentName: "Researcher",
       agentContentHash: snapshot.contentHash,
+      agentSnapshot: snapshot.agent,
       received: compiled.compiled.received,
       support: compiled.compiled.support,
     };
@@ -124,6 +126,61 @@ describe("what it received", () => {
     expect(edited.changedSince).toContain("edited after this task started");
     // Archiving is not an edit to what the agent does.
     expect(describeAssignmentReceived({ ...base, current: { ...researcher, archived: true } }).changedSince).toBeNull();
+  });
+
+  test("a built-in that only gained its colour and icon is not edited; new instructions are", async () => {
+    const { describeAssignmentReceived } = await import("@/lib/agents/agents-view");
+    const { snapshotAgent } = await import("@/lib/agents/compile");
+    const implementer = getBuiltinAgent("implementer")!;
+    expect(implementer.appearance).toEqual({ color: "green", icon: "hammer" });
+    // What a task assigned before this update saved: Implementer with no appearance.
+    const { appearance: _appearance, ...before } = implementer;
+    const saved = snapshotAgent(before);
+    expect(saved.contentHash).not.toBe(snapshotAgent(implementer).contentHash);
+    const view = (current: typeof implementer) =>
+      describeAssignmentReceived({
+        agentName: "Implementer", agentContentHash: saved.contentHash, agentSnapshot: saved.agent,
+        received: [], support: [], current,
+      }).changedSince;
+    expect(view(implementer)).toBeNull();
+    expect(view({ ...implementer, instructions: `${implementer.instructions}\n\nAlso update the changelog.` })).toContain(
+      "edited after this task started",
+    );
+  });
+
+  test("a snapshot whose hash still covers the colour is judged without it", async () => {
+    const { describeAssignmentReceived } = await import("@/lib/agents/agents-view");
+    const { snapshotAgent } = await import("@/lib/agents/compile");
+    // A custom agent saved with a chosen colour: its stored hash includes it.
+    const custom = { ...duplicateAgent(getBuiltinAgent("reviewer")!, []), appearance: { color: "violet" as const } };
+    const saved = snapshotAgent(custom);
+    const recolored = { ...custom, appearance: { color: "red" as const, icon: "eye" } };
+    expect(snapshotAgent(recolored).contentHash).not.toBe(saved.contentHash);
+    const view = (current: typeof custom) =>
+      describeAssignmentReceived({
+        agentName: custom.name, agentContentHash: saved.contentHash, agentSnapshot: saved.agent,
+        received: [], support: [], current,
+      }).changedSince;
+    expect(view(custom)).toBeNull();
+    expect(view(recolored)).toBeNull();
+    expect(view({ ...recolored, permission: "auto" })).toContain("edited after this task started");
+    // Without the saved copy the edit cannot be judged, so nothing is flagged.
+    expect(
+      describeAssignmentReceived({
+        agentName: custom.name, agentContentHash: saved.contentHash, received: [], support: [],
+        current: { ...custom, instructions: "Different." },
+      }).changedSince,
+    ).toBeNull();
+  });
+
+  test("the task turn's saved hash is unchanged: appearance still counts there", async () => {
+    const { snapshotAgent } = await import("@/lib/agents/compile");
+    const reviewer = getBuiltinAgent("reviewer")!;
+    // `prepareTaskAgentTurn` recompiles a saved agent and must reproduce its saved
+    // hash, so the snapshot hash keeps covering appearance.
+    expect(snapshotAgent({ ...reviewer, appearance: { color: "red" } }).contentHash).not.toBe(
+      snapshotAgent(reviewer).contentHash,
+    );
   });
 });
 
