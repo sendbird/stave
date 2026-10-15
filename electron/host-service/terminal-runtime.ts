@@ -82,6 +82,7 @@ export function createTerminalRuntime(args: {
     releaseNativeSessionClaims,
     startCodexNativeSessionDiscovery,
     startKiroNativeSessionDiscovery,
+    startOpenCodeNativeSessionDiscovery,
   } = createNativeSessionDiscovery({ sessions });
 
   function deleteSession(sessionId: string) {
@@ -664,6 +665,14 @@ export function createTerminalRuntime(args: {
       });
     } else if (launch.discovery === "kiro") {
       startKiroNativeSessionDiscovery({
+        sessionId,
+        cwd: sessionCwd,
+        startedAtMs,
+        executablePath: launch.executablePath,
+        env: launch.env,
+      });
+    } else if (launch.discovery === "opencode") {
+      startOpenCodeNativeSessionDiscovery({
         sessionId,
         cwd: sessionCwd,
         startedAtMs,

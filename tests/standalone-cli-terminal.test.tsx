@@ -22,6 +22,7 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
     codexBinaryPath: "",
     cursorBinaryPath: "",
     kiroBinaryPath: "",
+    opencodeBinaryPath: "",
   };
 
   test("sends the sentinel workspace id and the folder as cwd and workspacePath", () => {
@@ -91,6 +92,13 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
         tab: { id: "kiro", title: "Kiro", cwd: "/tmp/notes" },
       }).runtimeOptions,
     ).toEqual({ kiroBinaryPath: "/opt/kiro-cli" });
+    expect(
+      buildStandaloneCliCreateSessionArgs({
+        ...base,
+        opencodeBinaryPath: "/opt/opencode",
+        tab: { id: "opencode", title: "OpenCode", cwd: "/tmp/notes" },
+      }).runtimeOptions,
+    ).toEqual({ opencodeBinaryPath: "/opt/opencode" });
   });
 
   test("uses a transcript key that no other surface shares", () => {

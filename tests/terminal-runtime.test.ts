@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
 import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, setSystemTime, test } from "bun:test";
+import { OPENCODE_NATIVE_SESSION_DISCOVERY } from "../src/lib/terminal/native-session-discovery-window";
 
 type ExitPayload = { exitCode: number; signal?: number };
 
@@ -151,6 +152,35 @@ mock.module("../electron/providers/kiro-cli-env", () => ({
   buildKiroCliEnv: () => ({ PATH: process.env.PATH ?? "" }),
 }));
 
+let fakeOpenCodeSessions: Array<{ sessionId: string; updatedAtMs: number }> = [];
+const fakeOpenCodeListCalls: Array<{ executablePath: string; cwd: string }> = [];
+
+mock.module("../electron/host-service/opencode-native-session-files", () => ({
+  canonicalOpenCodeDirectory: (value: string) => value,
+  listOpenCodeSessions: async (listArgs: {
+    executablePath: string;
+    cwd: string;
+  }) => {
+    fakeOpenCodeListCalls.push({
+      executablePath: listArgs.executablePath,
+      cwd: listArgs.cwd,
+    });
+    return fakeOpenCodeSessions;
+  },
+}));
+
+let fakeOpenCodeMajorVersion: number | null = 1;
+
+mock.module("../electron/providers/opencode-cli-env", () => ({
+  resolveOpenCodeExecutablePath: () => "/tmp/fake-opencode",
+  buildOpenCodeCliEnv: () => ({ PATH: process.env.PATH ?? "" }),
+  readOpenCodeMajorVersion: () => fakeOpenCodeMajorVersion,
+}));
+
+const { rememberOpenCodeAcpSessionId } = await import(
+  "../electron/providers/opencode/opencode-session-registry"
+);
+
 const { createTerminalRuntime } =
   await import("../electron/host-service/terminal-runtime");
 
@@ -163,6 +193,9 @@ afterEach(() => {
   fakeClaudeAutoModeSupported = true;
   fakeKiroSessions = [];
   fakeKiroListCalls.length = 0;
+  fakeOpenCodeSessions = [];
+  fakeOpenCodeListCalls.length = 0;
+  fakeOpenCodeMajorVersion = 1;
 });
 
 describe("terminal runtime PTY cleanup", () => {
@@ -1204,6 +1237,321 @@ describe("terminal runtime slot lifecycle", () => {
     runtime.closeSession({ sessionId: second.sessionId! });
   });
 
+  test("starts the OpenCode TUI bare and discovers its session after spawn", async () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const startedAtMs = Date.now();
+    fakeOpenCodeSessions = [
+      { sessionId: "ses_stale", updatedAtMs: startedAtMs - 600_000 },
+      { sessionId: "ses_fresh", updatedAtMs: startedAtMs + 1_000 },
+    ];
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "opencode",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created.ok).toBe(true);
+    expect(created.nativeSessionId).toBeUndefined();
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-opencode",
+      args: [],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fakeOpenCodeListCalls.at(-1)).toEqual({
+      executablePath: "/tmp/fake-opencode",
+      cwd: "/tmp/workspace",
+    });
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: created.sessionId! }),
+    ).toEqual({
+      ok: true,
+      nativeSessionId: "ses_fresh",
+    });
+
+    runtime.closeSession({ sessionId: created.sessionId! });
+  });
+
+  test("ignores OpenCode sessions already claimed by another PTY", async () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+    fakeOpenCodeSessions = [{ sessionId: "ses_shared", updatedAtMs: Date.now() + 1_000 }];
+    const create = (cliSessionTabId: string) =>
+      runtime.createCliSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        cliSessionTabId,
+        providerId: "opencode",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+    const first = create("cli-1");
+    await Promise.resolve();
+    await Promise.resolve();
+    const second = create("cli-2");
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: first.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: "ses_shared" });
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: second.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: undefined });
+
+    runtime.closeSession({ sessionId: first.sessionId! });
+    runtime.closeSession({ sessionId: second.sessionId! });
+  });
+
+  test("does not adopt an OpenCode session created before the tab started", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    // An ACP turn in the same folder created this one a moment earlier.
+    fakeOpenCodeSessions = [{ sessionId: "ses_recent_acp", updatedAtMs: Date.now() - 2_000 }];
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "opencode",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: created.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: undefined });
+    runtime.closeSession({ sessionId: created.sessionId! });
+  });
+
+  test("does not adopt a session Stave's own OpenCode ACP turn created after the tab started", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    rememberOpenCodeAcpSessionId("ses_acp_turn");
+    fakeOpenCodeSessions = [{ sessionId: "ses_acp_turn", updatedAtMs: Date.now() + 1_000 }];
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "opencode",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: created.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: undefined });
+    runtime.closeSession({ sessionId: created.sessionId! });
+  });
+
+  test("leaves two OpenCode tabs in one folder unconfirmed when one new session appears", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const create = (cliSessionTabId: string) =>
+      runtime.createCliSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        cliSessionTabId,
+        providerId: "opencode",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+    const first = create("cli-1");
+    const second = create("cli-2");
+    await Promise.resolve();
+    await Promise.resolve();
+    // Either tab could have sent the first message, so neither may claim it.
+    fakeOpenCodeSessions = [{ sessionId: "ses_one_of_two", updatedAtMs: Date.now() + 500 }];
+    await Bun.sleep(2_300);
+    expect(fakeOpenCodeListCalls.length).toBeGreaterThan(2);
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: first.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: undefined });
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: second.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: undefined });
+    runtime.closeSession({ sessionId: first.sessionId! });
+    runtime.closeSession({ sessionId: second.sessionId! });
+  }, 10_000);
+
+  test("stops OpenCode discovery when its time window ends, however slow listing is", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "opencode",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+    // Few attempts have run, but the renderer stops asking once the window
+    // ends, so a session found later would never be stored.
+    const windowMs =
+      OPENCODE_NATIVE_SESSION_DISCOVERY.pollMs * OPENCODE_NATIVE_SESSION_DISCOVERY.maxAttempts;
+    setSystemTime(new Date(Date.now() + windowMs + 1_000));
+    try {
+      fakeOpenCodeSessions = [{ sessionId: "ses_too_late", updatedAtMs: Date.now() }];
+      await Bun.sleep(2_300);
+      expect(
+        runtime.getSessionResumeInfo({ sessionId: created.sessionId! }),
+      ).toEqual({ ok: true, nativeSessionId: undefined });
+    } finally {
+      setSystemTime();
+      runtime.closeSession({ sessionId: created.sessionId! });
+    }
+  }, 10_000);
+
+  test("a new OpenCode tab does not take the session of a live tab whose discovery ended", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const create = (cliSessionTabId: string) =>
+      runtime.createCliSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        cliSessionTabId,
+        providerId: "opencode",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+    const older = create("cli-1");
+    await Promise.resolve();
+    await Promise.resolve();
+    const windowMs =
+      OPENCODE_NATIVE_SESSION_DISCOVERY.pollMs * OPENCODE_NATIVE_SESSION_DISCOVERY.maxAttempts;
+    setSystemTime(new Date(Date.now() + windowMs + 1_000));
+    try {
+      // Tab A's discovery runs out while its PTY stays open.
+      await Bun.sleep(2_300);
+      const newer = create("cli-2");
+      await Promise.resolve();
+      await Promise.resolve();
+      // Tab A now sends its first message; the session belongs to A.
+      fakeOpenCodeSessions = [{ sessionId: "ses_created_by_old_pty", updatedAtMs: Date.now() + 500 }];
+      await Bun.sleep(2_300);
+      expect(
+        runtime.getSessionResumeInfo({ sessionId: newer.sessionId! }),
+      ).toEqual({ ok: true, nativeSessionId: undefined });
+      expect(
+        runtime.getSessionResumeInfo({ sessionId: older.sessionId! }),
+      ).toEqual({ ok: true, nativeSessionId: undefined });
+      runtime.closeSession({ sessionId: newer.sessionId! });
+    } finally {
+      setSystemTime();
+      runtime.closeSession({ sessionId: older.sessionId! });
+    }
+  }, 10_000);
+
+  test("a waiting OpenCode tab can own a session once the other tab in its folder closes", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const create = (cliSessionTabId: string) =>
+      runtime.createCliSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        cliSessionTabId,
+        providerId: "opencode",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+    const first = create("cli-1");
+    const second = create("cli-2");
+    await Promise.resolve();
+    runtime.closeSession({ sessionId: first.sessionId! });
+    fakeOpenCodeSessions = [{ sessionId: "ses_second", updatedAtMs: Date.now() + 500 }];
+    await Bun.sleep(2_300);
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: second.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: "ses_second" });
+    runtime.closeSession({ sessionId: second.sessionId! });
+  }, 10_000);
+
+  test("chooses the session id up front on OpenCode 2.x", () => {
+    fakeOpenCodeMajorVersion = 2;
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "opencode",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    expect(created.nativeSessionId).toMatch(/^ses_[0-9a-z]{26}$/);
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-opencode",
+      args: ["--session", created.nativeSessionId],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+    expect(fakeOpenCodeListCalls).toEqual([]);
+    runtime.closeSession({ sessionId: created.sessionId! });
+  });
+
+  test("resumes OpenCode sessions with --session", () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "opencode",
+      contextMode: "workspace",
+      nativeSessionId: "ses_saved",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created).toEqual({
+      ok: true,
+      sessionId: expect.any(String),
+      nativeSessionId: "ses_saved",
+    });
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-opencode",
+      args: ["--session", "ses_saved"],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+    expect(fakeOpenCodeListCalls).toEqual([]);
+  });
+
   test("resumes Kiro CLI sessions from a stored native session id", () => {
     const runtime = createTerminalRuntime({
       emitEvent: async () => {},
@@ -1253,7 +1601,7 @@ test("workspace stop preserves a similarly prefixed owner and blocks all provide
     expect(fakePtys[1]?.destroyed).toBe(false);
     expect(runtime.writeSession({ sessionId: first.sessionId!, input: "" }).ok).toBe(false);
     expect(runtime.writeSession({ sessionId: other.sessionId!, input: "" }).ok).toBe(true);
-    for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
+    for (const providerId of ["claude-code", "codex", "cursor", "kiro", "opencode"] as const) {
       expect(runtime.createCliSession({ ...args, cliSessionTabId: "cli", providerId, contextMode: "workspace" }).ok).toBe(false);
     }
     expect(runtime.createSession(args).ok).toBe(false);

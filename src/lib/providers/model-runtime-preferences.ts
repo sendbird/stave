@@ -3,6 +3,7 @@ import {
   buildCodexProviderModeSettingsPatch,
   buildCursorProviderModeSettingsPatch,
   buildKiroProviderModeSettingsPatch,
+  buildOpenCodeProviderModeSettingsPatch,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import {
@@ -21,10 +22,11 @@ type ClaudeEffort = NonNullable<ProviderRuntimeOptions["claudeEffort"]>;
 type CodexEffort = NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>;
 type KiroEffort = NonNullable<ProviderRuntimeOptions["kiroEffort"]>;
 type CursorEffort = NonNullable<ProviderRuntimeOptions["cursorEffort"]>;
+type OpenCodeEffort = NonNullable<ProviderRuntimeOptions["opencodeEffort"]>;
 
 export interface ModelRuntimePreference {
   mode?: ProviderModePresetId;
-  effort?: ClaudeEffort | CodexEffort | KiroEffort | CursorEffort;
+  effort?: ClaudeEffort | CodexEffort | KiroEffort | CursorEffort | OpenCodeEffort;
   fastMode?: boolean;
   /** Claude `[1m]` context, stored on the family base model. */
   context1M?: boolean;
@@ -60,6 +62,7 @@ export interface ModelRuntimePreferenceSettings {
   codexReasoningEffort: CodexEffort;
   codexFastMode: boolean;
   kiroEffort: KiroEffort;
+  opencodeEffort: OpenCodeEffort;
 }
 
 const CLAUDE_EFFORTS = new Set<ClaudeEffort>([
@@ -86,6 +89,14 @@ const KIRO_EFFORTS = new Set<KiroEffort>([
   "max",
 ]);
 const CURSOR_EFFORTS = KIRO_EFFORTS as Set<CursorEffort>;
+const OPENCODE_EFFORTS = new Set<OpenCodeEffort>([
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+]);
 const MODE_PRESETS = new Set<ProviderModePresetId>([
   "manual",
   "guided",
@@ -99,7 +110,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isProviderEffort(
   providerId: ProviderId,
   value: unknown,
-): value is ClaudeEffort | CodexEffort | KiroEffort | CursorEffort {
+): value is ClaudeEffort | CodexEffort | KiroEffort | CursorEffort | OpenCodeEffort {
   if (typeof value !== "string") {
     return false;
   }
@@ -111,6 +122,9 @@ function isProviderEffort(
   }
   if (providerId === "cursor") {
     return CURSOR_EFFORTS.has(value as CursorEffort);
+  }
+  if (providerId === "opencode") {
+    return OPENCODE_EFFORTS.has(value as OpenCodeEffort);
   }
   return providerId === "kiro" && KIRO_EFFORTS.has(value as KiroEffort);
 }
@@ -124,6 +138,7 @@ function parseModelRuntimePreferenceKey(key: string): {
     "codex",
     "cursor",
     "kiro",
+    "opencode",
   ] as const) {
     const prefix = `${providerId}:`;
     if (key.startsWith(prefix) && key.length > prefix.length) {
@@ -388,6 +403,24 @@ export function applyModelRuntimePreference<
         ? buildKiroProviderModeSettingsPatch({ presetId: preference.mode })
         : {}),
       kiroEffort,
+    };
+  }
+
+  if (args.providerId === "opencode") {
+    const opencodeEffort =
+      preference?.effort &&
+      OPENCODE_EFFORTS.has(preference.effort as OpenCodeEffort)
+        ? (preference.effort as OpenCodeEffort)
+        : args.settings.opencodeEffort;
+    if (!preference && opencodeEffort === args.settings.opencodeEffort) {
+      return args.settings;
+    }
+    return {
+      ...args.settings,
+      ...(preference?.mode
+        ? buildOpenCodeProviderModeSettingsPatch({ presetId: preference.mode })
+        : {}),
+      opencodeEffort,
     };
   }
 

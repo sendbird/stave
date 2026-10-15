@@ -33,6 +33,7 @@ const ICONED_PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ]);
 
 /** A recorded run can name a provider the catalog has no mark for. */

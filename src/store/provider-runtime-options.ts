@@ -5,6 +5,7 @@ import {
 } from "@/lib/providers/codex-runtime-options";
 import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
+import { resolveSupportedOpenCodeEffort } from "@/lib/providers/opencode-model-efforts";
 import {
   normalizeTrustedToolEntries,
   toClaudeAllowedToolsFromTrustedEntries,
@@ -86,6 +87,9 @@ type RuntimeSettings = Pick<
   | "kiroBinaryPath"
   | "kiroEffort"
   | "kiroApprovalMode"
+  | "opencodeBinaryPath"
+  | "opencodeEffort"
+  | "opencodeApprovalMode"
   | "promptResponseStyle"
   | "promptPrDescription"
   | "promptInlineCompletion"
@@ -236,6 +240,10 @@ export function buildProviderRuntimeOptions(args: {
     sessions: providerSession ?? undefined,
     providerId: "kiro",
   });
+  const opencodeResumeSessionId = getProviderSessionId({
+    sessions: providerSession ?? undefined,
+    providerId: "opencode",
+  });
   const claudePluginOverrides = normalizeClaudePluginOverrides(
     settings.claudePluginOverrides,
   );
@@ -361,6 +369,23 @@ export function buildProviderRuntimeOptions(args: {
     kiroApprovalMode: settings.kiroApprovalMode,
     ...(args.provider === "kiro" && kiroResumeSessionId
       ? { kiroResumeSessionId }
+      : {}),
+    opencodeBinaryPath: settings.opencodeBinaryPath || undefined,
+    // Sent only when the catalog lists it for this model; otherwise OpenCode
+    // keeps the model's default effort.
+    ...(() => {
+      const opencodeEffort =
+        args.provider === "opencode"
+          ? resolveSupportedOpenCodeEffort({
+              model: args.model,
+              effort: settings.opencodeEffort,
+            })
+          : undefined;
+      return opencodeEffort ? { opencodeEffort } : {};
+    })(),
+    opencodeApprovalMode: settings.opencodeApprovalMode,
+    ...(args.provider === "opencode" && opencodeResumeSessionId
+      ? { opencodeResumeSessionId }
       : {}),
     responseStylePrompt: settings.promptResponseStyle || undefined,
     promptPrDescription: settings.promptPrDescription || undefined,

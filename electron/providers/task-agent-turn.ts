@@ -70,6 +70,7 @@ export function prepareTaskAgentTurn(args: {
     codex: ["codexFileAccess", "codexApprovalPolicy", "codexApprovalsReviewer", "codexNetworkAccess"],
     cursor: ["cursorMode", "cursorApprovalMode"],
     kiro: ["kiroApprovalMode"],
+    opencode: ["opencodeApprovalMode", "opencodeDenyEdits"],
   } as const;
   const keys = providerKeys[turn.providerId];
   for (const key of keys) {
@@ -83,7 +84,8 @@ export function prepareTaskAgentTurn(args: {
     role: compiled.role,
     model: runtimeOptions.model ?? null,
     effort: ({ "claude-code": runtimeOptions.claudeEffort, codex: runtimeOptions.codexReasoningEffort,
-      cursor: runtimeOptions.cursorEffort, kiro: runtimeOptions.kiroEffort })[turn.providerId] ?? null,
+      cursor: runtimeOptions.cursorEffort, kiro: runtimeOptions.kiroEffort,
+      opencode: runtimeOptions.opencodeEffort })[turn.providerId] ?? null,
     permission: {
       source: compiled.role === "delegate" ? "delegation-policy" : "agent-autonomy",
       agentLimit: compiled.permission,

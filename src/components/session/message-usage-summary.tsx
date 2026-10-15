@@ -25,14 +25,15 @@ import type { ChatMessage } from "@/types/chat";
 
 /**
  * An explicit "not reported" badge is only useful when a provider sometimes
- * reports usage and this turn did not. That applies to Kiro. Cursor never
+ * reports usage and this turn did not. That applies to Kiro, and to OpenCode,
+ * which reports usage except on some cancelled turns. Cursor never
  * reports usage over ACP, so the same badge on every Cursor turn is noise.
  * Native runtimes keep their original literal rendering.
  */
 export function providerMayOmitTurnUsage(
   providerId?: ChatMessage["providerId"],
 ): boolean {
-  return providerId === "kiro";
+  return providerId === "kiro" || providerId === "opencode";
 }
 
 /**

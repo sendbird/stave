@@ -2,8 +2,8 @@
 
 ## Summary
 
-- Standalone CLI is a popover, anchored to a top-bar button, that runs the real `claude`, `codex`, `agent` (Cursor), and `kiro-cli` executables in a folder of your choice, without registering that folder as a repository.
-- It has one tab per AI provider whose CLI is installed on this machine — **Claude Code**, **Codex**, **Cursor**, and **Kiro** — each a full terminal session for that provider's own CLI.
+- Standalone CLI is a popover, anchored to a top-bar button, that runs the real `claude`, `codex`, `agent` (Cursor), `kiro-cli` and `opencode` executables in a folder of your choice, without registering that folder as a repository.
+- It has one tab per AI provider whose CLI is installed on this machine — **Claude Code**, **Codex**, **Cursor**, **Kiro** and **OpenCode** — each a full terminal session for that provider's own CLI.
 - Reach for it when you want the CLI's native interface — its own approvals, plan mode, model picker, and slash commands — instead of anything Stave renders.
 
 ## When To Use It
@@ -16,15 +16,15 @@
 ## Before You Start
 
 - Set a folder first: open `Settings > General`, find the **Standalone CLI** card, and enter an absolute folder path or click **Browse** to pick one.
-- The CLI for the tab you want (`claude`, `codex`, `agent`, or `kiro-cli`) must be available to the desktop app the same way it is for any other CLI session. Only installed CLIs get a tab. Stave learns this from the same provider check it runs at startup, on window focus, and after you change a binary path in Settings, so a CLI you install while the app is open appears shortly after.
-- Claude Code and Codex are shown until that check reports them missing. Cursor and Kiro appear once the check finds their executable; they are shown even when you are not signed in, because you sign in from the CLI itself.
+- The CLI for the tab you want (`claude`, `codex`, `agent`, `kiro-cli` or `opencode`) must be available to the desktop app the same way it is for any other CLI session. Only installed CLIs get a tab. Stave learns this from the same provider check it runs at startup, on window focus, and after you change a binary path in Settings, so a CLI you install while the app is open appears shortly after.
+- Claude Code and Codex are shown until that check reports them missing. Cursor, Kiro and OpenCode appear once the check finds their executable; they are shown even when you are not signed in, because you sign in from the CLI itself. OpenCode appears only for a supported version (1.19.0 or newer in the 1.x line, 2.0.29 or newer in the 2.x line).
 - On macOS, the first folder you pick with **Browse** may trigger a system folder-access prompt. See [macOS Folder Access](macos-folder-access-prompts.md).
 
 ## Quick Start
 
 1. Open `Settings > General`, go to the **Standalone CLI** card, and set an absolute folder path (type it or click **Browse**).
 2. Click the terminal icon on the top bar to open the panel. It is there even with no repository open.
-3. Use the tab bar in the panel header to pick one of the installed CLIs: **Claude Code**, **Codex**, **Cursor**, or **Kiro**.
+3. Use the tab bar in the panel header to pick one of the installed CLIs: **Claude Code**, **Codex**, **Cursor**, **Kiro** or **OpenCode**.
 4. Type directly into the terminal, exactly as you would in a regular shell running that CLI.
 
 ## Interface Walkthrough
@@ -35,9 +35,9 @@
 
 ### Key Controls
 
-- **Provider tabs** — the header's tab bar switches between the installed CLIs among **Claude Code**, **Codex**, **Cursor**, and **Kiro**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from. If the tab you last used is no longer installed, the panel opens on the first installed one instead, and your earlier choice comes back once that CLI is installed again.
+- **Provider tabs** — the header's tab bar switches between the installed CLIs among **Claude Code**, **Codex**, **Cursor**, **Kiro** and **OpenCode**. Each tab is its own PTY session; switching tabs does not stop the session you switch away from. If the tab you last used is no longer installed, the panel opens on the first installed one instead, and your earlier choice comes back once that CLI is installed again.
 - **Folder label** — the header shows the current folder's name (with the full path on hover), so you always know where the active CLI is running.
-- **Account** — on the **Claude Code** and **Codex** tabs, a selector in the row above the terminal shows the account that tab runs under. It appears only when the provider has two or more [accounts](accounts-and-gateways.md), or when the tab still points at an account that was removed; the row keeps the same height either way. Each tab keeps its own account, independent of the account selected for new turns elsewhere in Stave. Picking another account opens a confirmation warning that the current session and any running commands will end. Confirming closes the old session before starting a fresh conversation under the selected account; cancelling keeps the current session. Cursor and Kiro have no selector; they sign in through their own CLI.
+- **Account** — on the **Claude Code** and **Codex** tabs, a selector in the row above the terminal shows the account that tab runs under. It appears only when the provider has two or more [accounts](accounts-and-gateways.md), or when the tab still points at an account that was removed; the row keeps the same height either way. Each tab keeps its own account, independent of the account selected for new turns elsewhere in Stave. Picking another account opens a confirmation warning that the current session and any running commands will end. Confirming closes the old session before starting a fresh conversation under the selected account; cancelling keeps the current session. Cursor, Kiro and OpenCode have no selector; they sign in through their own CLI.
 - **Restart** — one button in the row above the terminal. It acts on the active tab: that tab's CLI process ends and a fresh one starts with a new session, discarding that tab's conversation. The other tabs are unaffected.
 - **Close** — click anywhere outside the panel, press the top-bar button again, or use the header's close button. Nothing is dimmed and nothing is blocked: the rest of the app stays usable while the panel is open. `Escape` is not a close shortcut here: it is sent straight to the CLI, matching what `Escape` does in that CLI's own terminal interface.
 
@@ -80,16 +80,18 @@
   - **Claude Code** — Stave issues the id up front (`--session-id`) and resumes with `--resume`.
   - **Codex** — the id is discovered after launch by scanning `~/.agents/codex/sessions`; resume is `codex resume <id>`.
   - **Kiro** — the id is discovered after launch by polling `kiro-cli chat --list-sessions --format json` in the folder; resume is `--resume-id <id>`.
+  - **OpenCode 2.x** — Stave issues the id up front: a new tab starts `opencode --session <id>`, which creates the session under that id. Resume uses the same flag. OpenCode 2.x starts its own background service for the TUI, as it does in any terminal; `opencode service stop` stops it.
+  - **OpenCode 1.x** — 1.x refuses an id it does not know, so a new tab starts `opencode` with no arguments and the TUI creates its session when you send the first message. Stave polls `opencode session list --format json` every two seconds for up to five minutes and keeps an id only when the tab is certain to own it: the session was created in this folder after the tab started, it is not one of Stave's own OpenCode chat turns, and no other open OpenCode tab in the same folder without a session id could have created it, even one that has stopped polling. Otherwise the tab keeps working but that conversation is not resumed after a restart. Resume is `opencode --session <id>`.
   - **Cursor** — conversations live on Cursor's servers, so Stave asks the CLI for an id with `agent create-chat` _before_ launching and starts with `--resume <chatId>`. This adds roughly two seconds to the Cursor tab's first start, and needs you to be online and signed in. If it fails, the tab still works but that conversation cannot be resumed after a restart.
 - File edits the CLI makes (through its own approval flow, if any) are written to the configured folder exactly like any other CLI usage — those changes are real and stay on disk.
 
 ## Limitations And Advanced Options
 
 - **One folder at a time.** Setting a new folder replaces the one every tab is running against.
-- **Fixed tabs, one per installed provider.** Each of Claude Code, Codex, Cursor, and Kiro gets a tab when its CLI is installed; you cannot add more tabs or additional folders. A new provider added to Stave gets a tab automatically — see [Adding A Provider](../developer/adding-a-provider.md).
+- **Fixed tabs, one per installed provider.** Each of Claude Code, Codex, Cursor, Kiro and OpenCode gets a tab when its CLI is installed; you cannot add more tabs or additional folders. A new provider added to Stave gets a tab automatically — see [Adding A Provider](../developer/adding-a-provider.md).
 - **No Stave-rendered approvals, plan mode, or model picker.** The CLI's own interface owns all of that; Stave only hosts the terminal surface.
 - **Not a repository.** The folder never appears in the repository list or recents, and Standalone CLI does not use worktrees, plans, or subagents.
-- **Switching folders starts fresh for every tab.** Changing the folder in Settings restarts all four tabs and discards their conversations.
+- **Switching folders starts fresh for every tab.** Changing the folder in Settings restarts every tab and discards their conversations.
 - **Cursor resume depends on the network.** See Files And Data above; an offline or signed-out first start means that Cursor conversation is not resumable.
 
 ## Troubleshooting
@@ -103,7 +105,7 @@
 ### A CLI's tab is missing
 
 - Symptom: the tab bar does not show a provider you expected.
-- Cause: Stave's provider check could not find that CLI's executable. Cursor and Kiro also stay hidden until the first check finishes.
+- Cause: Stave's provider check could not find that CLI's executable. Cursor, Kiro and OpenCode also stay hidden until the first check finishes, and OpenCode stays hidden while its version is unsupported.
 - Fix: install the CLI, or set its binary path in Settings. The tab appears after the next check.
 
 ### Escape does not close the panel

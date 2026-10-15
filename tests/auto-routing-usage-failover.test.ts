@@ -25,6 +25,7 @@ const AVAILABILITY: Record<ProviderId, boolean> = {
   codex: true,
   cursor: false,
   kiro: false,
+  opencode: false,
 };
 
 function codexUsage(usedPercent: number): RateLimitsSnapshotResponse["codex"] {

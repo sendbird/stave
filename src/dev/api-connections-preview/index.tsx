@@ -67,7 +67,7 @@ useProviderAccounts.setState({ profiles: ["claude-code", "codex"].map((providerI
   apiConnection: { label: connection.label, kind: connection.kind, models: connection.models },
 })), loaded: true });
 useAppStore.setState((state) => ({ settings: { ...state.settings, autoRoutingEnabled: true, codexAccountProfileId: connection.id, claudeAccountProfileId: connection.id },
-  providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false } }));
+  providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false, opencode: false } }));
 
 /** The settings card and the composer picker for one connection selected under Claude Code. */
 export function ApiConnectionsPreview() {

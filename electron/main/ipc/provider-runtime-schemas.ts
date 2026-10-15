@@ -4,7 +4,7 @@ import { MAX_BOUND_SECRETS } from "../../../src/lib/secrets/secrets";
 
 export const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
 
-export const ProviderIdSchema = z.enum(["claude-code", "codex", "cursor", "kiro"]);
+export const ProviderIdSchema = z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]);
 
 export const ManagedExecutionProviderIdSchema = z.union([
   z.literal("claude-code"),
@@ -192,6 +192,11 @@ export const RuntimeOptionsObjectSchema = z
       .union([z.literal("manual"), z.literal("auto")])
       .optional(),
     kiroResumeSessionId: z.string().max(500).optional(),
+    opencodeBinaryPath: z.string().max(4096).optional(),
+    opencodeEffort: z.enum(["minimal", "low", "medium", "high", "xhigh", "max"]).optional(),
+    opencodeApprovalMode: z.enum(["manual", "auto"]).optional(),
+    opencodeDenyEdits: z.boolean().optional(),
+    opencodeResumeSessionId: z.string().max(500).optional(),
     nativeSubagents: z
       .array(
         z

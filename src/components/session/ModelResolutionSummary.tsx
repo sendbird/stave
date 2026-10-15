@@ -16,6 +16,7 @@ const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ]);
 
 function toProviderLabel(providerId: string) {
@@ -23,6 +24,7 @@ function toProviderLabel(providerId: string) {
   if (providerId === "codex") return "Codex";
   if (providerId === "cursor") return "Cursor";
   if (providerId === "kiro") return "Kiro";
+  if (providerId === "opencode") return "OpenCode";
   return providerId;
 }
 
@@ -72,6 +74,9 @@ function formatAgentPermissions(provenance: AgentTurnProvenance) {
     applied.cursorMode ? i18n.t("session:modelResolutionSummary.extraCopy97", { value1: applied.cursorMode }) : null,
     applied.cursorApprovalMode ? i18n.t("session:modelResolutionSummary.extraCopy99", { value1: applied.cursorApprovalMode }) : null,
     applied.kiroApprovalMode ? i18n.t("session:modelResolutionSummary.extraCopy99", { value1: applied.kiroApprovalMode }) : null,
+    applied.opencodeApprovalMode ? i18n.t("session:modelResolutionSummary.extraCopy99", { value1: applied.opencodeApprovalMode }) : null,
+    // i18n-ignore: OpenCode permission key named in the denied-tools list
+    applied.opencodeDenyEdits ? i18n.t("session:modelResolutionSummary.extraCopy102", { value1: "edit" }) : null,
     applied.codexNetworkAccess === undefined ? null : i18n.t("session:modelResolutionSummary.extraCopy100", { value1: i18n.t(applied.codexNetworkAccess ? "session:presentation.on" : "session:presentation.off") }),
     applied.claudeAllowDangerouslySkipPermissions === undefined ? null
       : i18n.t("session:modelResolutionSummary.extraCopy101", { value1: i18n.t(applied.claudeAllowDangerouslySkipPermissions ? "session:presentation.on" : "session:presentation.off") }),

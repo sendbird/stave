@@ -2,7 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import type { AppState } from "./app-store.types";
-import { mergeRateLimitsSnapshots } from "@/lib/providers/account-usage-block";
+import { mergeRateLimitsSnapshots, providerReportsQuota } from "@/lib/providers/account-usage-block";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import { isOptionalProvider } from "@/lib/providers/provider-readiness";
 import { providerToolingStatePatch } from "@/store/provider-tooling";
@@ -36,7 +36,9 @@ export function createProviderSupportActions(args: {
       };
       const requestedProviders = (
         args?.providers?.length ? args.providers : listProviderIds()
-      ).filter((id) => get().providerAvailability[id] && providerReadsAllowed(id, runtimeOptions));
+      ).filter((id) =>
+        providerReportsQuota(id) &&
+        get().providerAvailability[id] && providerReadsAllowed(id, runtimeOptions));
       if (requestedProviders.length === 0) return;
       const generations = new Map(
         requestedProviders.map((id) => [
@@ -122,6 +124,7 @@ export function createProviderSupportActions(args: {
         codexBinaryPath: settings.codexBinaryPath || undefined,
         cursorBinaryPath: settings.cursorBinaryPath || undefined,
         kiroBinaryPath: settings.kiroBinaryPath || undefined,
+        opencodeBinaryPath: settings.opencodeBinaryPath || undefined,
       };
       const settingsAreCurrent = () => {
         const current = get().settings;

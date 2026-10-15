@@ -15,7 +15,8 @@
 | Keep using the CLI login you already have | **System default** (nothing to do) | Your current Claude or Codex plan | Already done in the CLI |
 | Use a second subscription, such as work and personal | **Add an account** | That account's own plan and usage limits | Once per account, in the terminal Stave opens |
 | Use a company API key for Claude, Codex or both, through a gateway such as Vercel AI Gateway | **Add an API connection** | The gateway, per token | None. The key is saved in Secrets |
-| Try open models such as Kimi, GLM, Qwen, DeepSeek or gpt-oss | **Add an API connection** and pin those models | The gateway, per token | None |
+| Try open models such as Kimi, GLM, Qwen, DeepSeek or gpt-oss | **Add an API connection**, pin those models and use them in Codex | The gateway, per token | None |
+| Keep using an open model that keeps failing in Codex | **OpenCode**, as a fallback; install the OpenCode CLI first | The gateway, per token, through the key you connect in OpenCode | In the OpenCode CLI |
 
 ## Before You Start
 
@@ -192,9 +193,27 @@ For a gateway other than Vercel, choose **Other gateway** and enter the endpoint
 
 A connection can pin any model the gateway offers, not only Claude and OpenAI ones.
 
-- **In Codex**, these models run through the gateway's Codex endpoint like any other model. Vercel documents that every model in its catalog works with Codex.
+- **In Codex**, these models run through the gateway's Codex endpoint like any other model. Vercel documents that every model in its catalog works with Codex. This is the recommended way to use open models, because the key stays in Stave and Codex is a managed provider.
 - **In Claude Code**, non-Claude models are marked **Experimental in Claude Code**. Anthropic doesn't support routing Claude Code to non-Claude models through any gateway, so a turn can fail when the model rejects a field Claude Code sends, such as its thinking settings or a beta header. If a model keeps failing in Claude Code, try it in Codex instead.
+- **In OpenCode**, as a fallback. If a model keeps failing in Codex, for example on tool calls, use it through OpenCode instead. This needs the OpenCode CLI; see [Use Gateway Models Through OpenCode](#use-gateway-models-through-opencode). Stave does not switch a task to OpenCode on its own.
 - Open models are not all cheaper. Compare the prices shown next to each model before pinning it.
+
+### Use Gateway Models Through OpenCode
+
+Use OpenCode when a gateway model keeps failing in Codex. OpenCode handles each model's tool calls itself, so a model such as GLM, DeepSeek or Gemini that misbehaves in Codex can still work here. Codex with an API connection stays the recommended path, because OpenCode is not a managed provider: it is not used for Agent Runs, delegation or reviews.
+
+OpenCode needs its own CLI and its own provider sign-in. Stave does not pass an API connection or a Secrets key to it, so connect the gateway key in OpenCode as well.
+
+1. Install OpenCode 1.19.0 or newer (`npm i -g opencode-ai`) or 2.0.29 or newer (`npm i -g @opencode/cli`). Both install the `opencode` command.
+2. Connect Vercel AI Gateway in OpenCode: run `npx vercel ai-gateway setup --agent opencode`, or open the OpenCode TUI and use `/connect`. For another provider, run `opencode auth login`.
+3. In Stave, open **Settings > Tooling** and check that the **OpenCode** row shows **Ready**. Set **Settings > Providers > OpenCode > CLI Path** if Stave did not find it.
+4. In the composer, open the model selector, choose the **OpenCode** tab and search for the model, for example `vercel/zai/glm-5.3`. Model ids are `provider/model`, as OpenCode lists them.
+
+What to expect:
+
+- Billing and rate limits are your OpenCode provider's, for example the Vercel AI Gateway key you connected in OpenCode. Stave shows no quota meter for OpenCode.
+- If a model needs a sign-in OpenCode does not have, the turn ends with an "Authentication required" error that names the commands above.
+- The models in the selector are the ones `opencode models` reports. If the list is empty, connect a provider in OpenCode and choose **Refresh** in the selector.
 
 ## Files And Data
 
@@ -207,6 +226,7 @@ A connection can pin any model the gateway offers, not only Claude and OpenAI on
 ## Limitations And Advanced Options
 
 - Non-Claude models are experimental in Claude Code; see [Use Open Models](#use-open-models).
+- An API connection serves Claude Code and Codex only. OpenCode uses the provider sign-ins in its own configuration; see [Use Gateway Models Through OpenCode](#use-gateway-models-through-opencode).
 - In Claude Code, commands the agent runs can read the connection's key. Claude Code reads the key from its environment, and its Bash tool inherits that environment. Codex hides the key from the commands it runs. Claude Code's own setting for hiding credentials from commands also forces every turn into the default permission mode, so Stave leaves it off. Treat the key as visible to the agent's commands, and keep a spending limit on it at the gateway.
 - Model discovery reads the Vercel AI Gateway catalog only. For other gateways, add model IDs by hand.
 - **Check connection** does not run a turn, so it cannot confirm that tools and streaming work with a model. Send a short turn to confirm.

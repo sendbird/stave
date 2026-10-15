@@ -41,6 +41,14 @@ const { streamCursorWithAcp } = await import(
 const { streamKiroWithAcp } = await import(
   "../electron/providers/kiro/kiro-acp-profile"
 );
+const { streamOpenCodeWithAcp } = await import(
+  "../electron/providers/opencode/opencode-acp-profile"
+);
+const opencodeFixturePath = path.join(
+  import.meta.dir,
+  "fixtures",
+  "fake-opencode-acp-agent.ts",
+);
 
 const cursorFixturePath = path.join(
   import.meta.dir,
@@ -145,6 +153,37 @@ describe("ACP Stave Local MCP embedding", () => {
       ),
     ).toBe(false);
     expect(echoed.prompt).toContain("Notes: keep the panel compact");
+  });
+
+  test("OpenCode turns never receive the Stave tools that answer another task", async () => {
+    manifestOverride = fixtureManifest;
+    for (const opencodeApprovalMode of ["auto", "manual"] as const) {
+      const echoed = parseEchoSession(
+        await streamOpenCodeWithAcp({
+          providerId: "opencode",
+          prompt: "Answer the waiting task",
+          cwd: import.meta.dir,
+          runtimeOptions: {
+            model: "auto",
+            opencodeBinaryPath: process.execPath,
+            opencodeApprovalMode,
+          },
+          acpArgsForTest: [opencodeFixturePath, "echo-session"],
+          versionTextForTest: "1.19.0",
+        }),
+      );
+      const staveServer = echoed.mcpServers.find(
+        (server) => server.name === "stave-local-mcp",
+      );
+      expect(staveServer).toBeTruthy();
+      const denied = staveServer?.env?.find(
+        (entry) => entry.name === "STAVE_MCP_DENIED_TOOLS",
+      );
+      expect(denied?.value.split(",").sort()).toEqual([
+        "stave_respond_approval",
+        "stave_respond_user_input",
+      ]);
+    }
   });
 
   test("Cursor turns carry their caller grant to the full catalog", async () => {

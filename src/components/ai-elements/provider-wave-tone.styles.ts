@@ -14,6 +14,7 @@ export const providerWaveToneStyles = stylex.create({
   codex: { color: "var(--provider-codex)" },
   cursor: { color: "var(--provider-cursor)" },
   kiro: { color: "var(--provider-kiro)" },
+  opencode: { color: "var(--provider-opencode)" },
   accent: { color: vars["--ads-color-accent"] },
 });
 
@@ -22,6 +23,7 @@ export const providerWaveToneFillStyles = stylex.create({
   codex: { backgroundColor: "var(--provider-codex)" },
   cursor: { backgroundColor: "var(--provider-cursor)" },
   kiro: { backgroundColor: "var(--provider-kiro)" },
+  opencode: { backgroundColor: "var(--provider-opencode)" },
   accent: { backgroundColor: vars["--ads-color-accent"] },
 });
 

@@ -22,6 +22,7 @@ const ALL_PROVIDER_IDS = Object.keys({
   codex: true,
   cursor: true,
   kiro: true,
+  opencode: true,
 } satisfies Record<ProviderId, true>) as ProviderId[];
 
 describe("standalone cli identity", () => {
@@ -86,6 +87,7 @@ describe("standalone cli identity", () => {
     expect(getStandaloneCliTabTitle("codex")).toBe("Codex");
     expect(getStandaloneCliTabTitle("cursor")).toBe("Cursor");
     expect(getStandaloneCliTabTitle("kiro")).toBe("Kiro");
+    expect(getStandaloneCliTabTitle("opencode")).toBe("OpenCode");
   });
 
   test("keeps one tab per provider id", () => {
@@ -105,6 +107,7 @@ describe("standalone cli identity", () => {
       "codex",
       "cursor",
       "kiro",
+      "opencode",
     ]);
     expect(tabs.every((tab) => tab.cwd === "/tmp/notes")).toBe(true);
     expect(Object.hasOwn(tabs[0], "nativeSessionId")).toBe(false);
@@ -115,6 +118,7 @@ describe("standalone cli identity", () => {
       "Codex",
       "Cursor",
       "Kiro",
+      "OpenCode",
     ]);
   });
 });

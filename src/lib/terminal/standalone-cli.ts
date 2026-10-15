@@ -36,6 +36,7 @@ export const STANDALONE_CLI_TAB_IDS = [
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ] as const satisfies readonly ProviderId[];
 
 /**
@@ -63,6 +64,7 @@ const STANDALONE_CLI_TAB_TITLE: Record<ProviderId, string> = {
   codex: "Codex",
   cursor: "Cursor",
   kiro: "Kiro",
+  opencode: "OpenCode",
 };
 
 export const STANDALONE_CLI_SLOT_PREFIX = buildTerminalSessionSlotKey({

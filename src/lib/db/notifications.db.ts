@@ -22,6 +22,7 @@ const ProviderIdSchema = z.preprocess(
     z.literal("codex"),
     z.literal("cursor"),
     z.literal("kiro"),
+    z.literal("opencode"),
   ]),
 );
 

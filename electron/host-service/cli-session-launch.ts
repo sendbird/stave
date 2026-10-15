@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomBytes, randomUUID } from "node:crypto";
 import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
 import { buildCodexApiConnectionCliArgs } from "../providers/codex-api-connection";
 import type { ProviderId } from "../providers/types";
@@ -20,12 +20,17 @@ import {
   buildKiroCliEnv,
   resolveKiroExecutablePath,
 } from "../providers/kiro-cli-env";
+import {
+  buildOpenCodeCliEnv,
+  readOpenCodeMajorVersion,
+  resolveOpenCodeExecutablePath,
+} from "../providers/opencode-cli-env";
 
 /**
  * Which post-spawn discovery routine (if any) has to run to learn the native
  * session id, for CLIs that do not accept one up front.
  */
-export type CliSessionNativeSessionDiscovery = "codex" | "kiro";
+export type CliSessionNativeSessionDiscovery = "codex" | "kiro" | "opencode";
 
 export interface CliSessionLaunchSpec {
   ok: true;
@@ -181,9 +186,60 @@ export function buildCliSessionLaunch(args: {
           : { discovery: "kiro" as const }),
       };
     }
+    case "opencode": {
+      const executablePath = resolveOpenCodeExecutablePath({
+        explicitPath: runtimeOptions?.opencodeBinaryPath,
+      });
+      if (!executablePath) {
+        return {
+          ok: false,
+          stderr:
+            "OpenCode executable not found. Check OpenCode installation or the configured binary path.",
+        };
+      }
+      const env = buildOpenCodeCliEnv({ executablePath });
+      if (requestedNativeSessionId) {
+        return {
+          ok: true,
+          executablePath,
+          commandArgs: ["--session", requestedNativeSessionId],
+          env,
+          nativeSessionId: requestedNativeSessionId,
+        };
+      }
+      // 2.x creates a session under an id given with `--session`, so the tab
+      // owns its id from the start. 1.x refuses an unknown id, so a new tab
+      // starts the TUI bare and the host infers the id only when exactly one
+      // tab could own the new session.
+      if ((readOpenCodeMajorVersion({ executablePath, env }) ?? 0) >= 2) {
+        const nativeSessionId = createOpenCodeSessionId();
+        return {
+          ok: true,
+          executablePath,
+          commandArgs: ["--session", nativeSessionId],
+          env,
+          nativeSessionId,
+        };
+      }
+      return {
+        ok: true,
+        executablePath,
+        env,
+        discovery: "opencode" as const,
+      };
+    }
     default:
       return assertNeverProvider(providerId);
   }
+}
+
+/** `ses_` plus 26 lowercase alphanumerics: the shape OpenCode 2.x accepts for `--session`. */
+export function createOpenCodeSessionId() {
+  const alphabet = "0123456789abcdefghijklmnopqrstuvwxyz";
+  const bytes = randomBytes(26);
+  let suffix = "";
+  for (const byte of bytes) suffix += alphabet[byte % alphabet.length];
+  return `ses_${suffix}`;
 }
 
 function assertNeverProvider(providerId: never): never {

@@ -10,6 +10,7 @@ import {
 import {
   CLAUDE_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import type {
@@ -198,6 +199,9 @@ export function listModelShortcutEffortOptions(args: {
   }
   if (parsed.providerId === "cursor") {
     return KIRO_EFFORT_OPTIONS;
+  }
+  if (parsed.providerId === "opencode") {
+    return OPENCODE_EFFORT_OPTIONS;
   }
   return listCodexEffortOptionsForModel({ model: parsed.model });
 }

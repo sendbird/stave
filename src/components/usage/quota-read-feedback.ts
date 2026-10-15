@@ -9,6 +9,9 @@ export type QuotaReadResult = { error: string | null; feedback: QuotaReadFeedbac
 export type QuotaReader = (providerId: ProviderId, accountProfileId: string) => Promise<QuotaReadResult>;
 
 export async function readQuota(providerId: ProviderId, accountProfileId: string): Promise<QuotaReadResult> {
+  if (providerId === "opencode") {
+    return { error: i18n.t("usage:quotaReadFeedback.providerDoesNotReportQuota"), feedback: null };
+  }
   const read = window.api?.provider?.getRateLimitsSnapshot;
   if (!read) return { error: i18n.t("usage:quotaReadFeedback.quotaReadsAreAvailableInThe"), feedback: null };
   const snapshot = await read({ providers: [providerId], force: true, reason: "manual",

@@ -340,6 +340,9 @@ export default function App() {
         ...(state.settings.kiroBinaryPath
           ? { kiroBinaryPath: state.settings.kiroBinaryPath }
           : {}),
+        ...(state.settings.opencodeBinaryPath
+          ? { opencodeBinaryPath: state.settings.opencodeBinaryPath }
+          : {}),
       };
       await useAppStore.getState().refreshProviderAvailability();
       if (cancelled) return;

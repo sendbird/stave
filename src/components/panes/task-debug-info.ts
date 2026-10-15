@@ -27,6 +27,7 @@ export interface TaskDebugInfoState {
     modelCodex: string;
     modelCursor: string;
     modelKiro: string;
+    modelOpenCode: string;
   };
 }
 

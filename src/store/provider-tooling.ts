@@ -10,12 +10,15 @@ export function providerToolingStatePatch(state: AppState): Partial<AppState> {
   const options = {
     cursorBinaryPath: state.settings.cursorBinaryPath,
     kiroBinaryPath: state.settings.kiroBinaryPath,
+    opencodeBinaryPath: state.settings.opencodeBinaryPath,
   };
   const cursor = providerReadsAllowed("cursor", options);
   const kiro = providerReadsAllowed("kiro", options);
+  // OpenCode has no quota snapshot to clear; only its availability follows readiness.
+  const opencode = providerReadsAllowed("opencode", options);
   const empty = emptyRateLimitsSnapshot();
   return {
-    providerAvailability: { ...state.providerAvailability, cursor, kiro },
+    providerAvailability: { ...state.providerAvailability, cursor, kiro, opencode },
     rateLimitsSnapshot: state.rateLimitsSnapshot
       ? {
           ...state.rateLimitsSnapshot,

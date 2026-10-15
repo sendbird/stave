@@ -7,7 +7,7 @@ import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts"
 
 /** The Standalone CLI tabs whose CLI is installed on this machine. */
 export function useStandaloneCliInstalledTabIds() {
-  const [providerAvailability, claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath] = useAppStore(
+  const [providerAvailability, claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath] = useAppStore(
     useShallow(
       (state) =>
         [
@@ -16,13 +16,14 @@ export function useStandaloneCliInstalledTabIds() {
           state.settings.codexBinaryPath,
           state.settings.cursorBinaryPath,
           state.settings.kiroBinaryPath,
+          state.settings.opencodeBinaryPath,
         ] as const,
     ),
   );
   const optionalProviders = useProviderReadinessStore(
     (state) => state.providers,
   );
-  const paths = useMemo(() => ({ claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath }), [claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath]);
+  const paths = useMemo(() => ({ claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }), [claudeBinaryPath, codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath]);
   const runtimeOptions = useAccountRuntimeOptions(paths);
 
   // Derived outside the selectors: selectors must never return fresh arrays.

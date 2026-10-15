@@ -4,6 +4,7 @@ import { selectedProviderAccount } from "./provider-account-selection";
 import { buildApiConnectionCatalogEntries } from "./api-connection-models";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
+import { registerOpenCodeModelEfforts } from "@/lib/providers/opencode-model-efforts";
 import {
   providerReadiness,
   providerReadsAllowed,
@@ -89,7 +90,9 @@ function cacheKey(args: {
         ? args.runtimeOptions?.cursorBinaryPath
         : args.providerId === "kiro"
           ? args.runtimeOptions?.kiroBinaryPath
-          : "";
+          : args.providerId === "opencode"
+            ? args.runtimeOptions?.opencodeBinaryPath
+            : "";
   return [
     args.providerId,
     selectedProviderAccount(args.providerId, args.runtimeOptions),
@@ -181,6 +184,12 @@ function registerCatalogMetadata(args: {
         ),
       ),
     );
+  }
+  if (args.providerId === "opencode") {
+    registerOpenCodeModelEfforts(
+      args.entries.map((entry) => [entry.model, entry.supportedEfforts] as const),
+    );
+    return;
   }
   if (args.providerId !== "codex") {
     return;

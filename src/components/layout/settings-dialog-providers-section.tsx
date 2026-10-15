@@ -40,6 +40,7 @@ import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettin
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
 import { SettingsKiroSection } from "./settings-dialog-kiro-section";
+import { SettingsOpenCodeSection } from "./settings-dialog-opencode-section";
 import { providersStyles } from "./settings-dialog-providers-section.styles";
 import {
   buildGuideExamples,
@@ -65,6 +66,7 @@ const PROVIDER_SETTINGS_TAB_IDS = [
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ] as const satisfies readonly ProviderId[];
 
 const CLAUDE_THINKING_MODE_HELP = [
@@ -754,6 +756,9 @@ export function ProvidersSection(props: {
         </TabsContent>
         <TabsContent value="kiro">
           <SettingsKiroSection onNavigateSection={props.onNavigateSection} />
+        </TabsContent>
+        <TabsContent value="opencode">
+          <SettingsOpenCodeSection onNavigateSection={props.onNavigateSection} />
         </TabsContent>
       </Tabs>
     </>

@@ -23,6 +23,7 @@ const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ]);
 
 /** A usage counter as a non-negative number: absent, malformed or negative reads as 0. */

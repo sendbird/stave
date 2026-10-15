@@ -1,3 +1,4 @@
+import { resolveCliResumeInfoPolling } from "@/lib/terminal/cli-resume-info-poller";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -43,6 +44,11 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
+/** Each tab is a provider id, so the tab picks its provider's polling window. */
+function standaloneResumeInfoPollingPlan(tab: StandaloneCliTab) {
+  return resolveCliResumeInfoPolling(tab.id);
+}
+
 /** Pure so the payload contract can be asserted without a DOM. */
 export function buildStandaloneCliCreateSessionArgs(args: {
   tab: StandaloneCliTab;
@@ -54,6 +60,7 @@ export function buildStandaloneCliCreateSessionArgs(args: {
   codexBinaryPath: string;
   cursorBinaryPath: string;
   kiroBinaryPath: string;
+  opencodeBinaryPath: string;
 }) {
   return {
     workspaceId: STANDALONE_CLI_WORKSPACE_ID,
@@ -75,6 +82,7 @@ export function buildStandaloneCliCreateSessionArgs(args: {
       codexBinaryPath: args.codexBinaryPath,
       cursorBinaryPath: args.cursorBinaryPath,
       kiroBinaryPath: args.kiroBinaryPath,
+      opencodeBinaryPath: args.opencodeBinaryPath,
     }),
   };
 }
@@ -178,6 +186,7 @@ export function StandaloneCliTerminal(props: {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    opencodeBinaryPath,
     terminalFontFamily,
     terminalFontSize,
     terminalLineHeight,
@@ -191,6 +200,7 @@ export function StandaloneCliTerminal(props: {
           state.settings.codexBinaryPath,
           state.settings.cursorBinaryPath,
           state.settings.kiroBinaryPath,
+          state.settings.opencodeBinaryPath,
           state.settings.terminalFontFamily,
           state.settings.terminalFontSize,
           state.settings.terminalLineHeight,
@@ -286,6 +296,7 @@ export function StandaloneCliTerminal(props: {
           codexBinaryPath,
           cursorBinaryPath,
           kiroBinaryPath,
+          opencodeBinaryPath,
         }),
       );
     },
@@ -294,6 +305,7 @@ export function StandaloneCliTerminal(props: {
       codexBinaryPath,
       cursorBinaryPath,
       kiroBinaryPath,
+      opencodeBinaryPath,
       props.folderPath,
     ],
   );
@@ -340,6 +352,7 @@ export function StandaloneCliTerminal(props: {
     terminalController: terminalInstance.controller,
     terminalReady: terminalInstance.ready,
     terminalRevision: terminalInstance.revision,
+    resumeInfoPollingPlan: standaloneResumeInfoPollingPlan,
   });
 
   // A running CLI cannot change accounts, so the switch is a restart under the

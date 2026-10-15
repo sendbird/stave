@@ -7,7 +7,10 @@ import {
   resolveProviderResumeSessionId,
 } from "../../../src/lib/providers/provider-request-translators";
 import { isAcpStaveLocalMcpServer } from "../../main/stave-local-mcp-manifest";
-import { isAlwaysAllowedStaveLocalMcpTool } from "../stave-local-mcp-approval";
+import {
+  isAlwaysAllowedStaveLocalMcpTool,
+  isNeverAutoApprovedStaveLocalMcpTool,
+} from "../stave-local-mcp-approval";
 import { createBoundedBridgeEventCollector } from "../provider-buffering";
 import { buildProviderFailureContinuationPrompt } from "../../../src/lib/providers/provider-error-recovery";
 import { PROVIDER_STEER_ACK_TIMEOUT_MS } from "../../../src/lib/providers/steer-delivery";
@@ -93,7 +96,12 @@ export interface AcpProviderExtensionRuntime {
   pendingUserInputRequestIds?: () => string[];
 }
 
-export type AcpPermissionPolicy = "interactive" | "auto-reject";
+/**
+ * `auto-approve` answers every request with the agent's allow-once option
+ * except Stave tools that answer another task's prompt, which always reach
+ * the user. It is for agents whose CLI has no approval-autonomy flag.
+ */
+export type AcpPermissionPolicy = "interactive" | "auto-reject" | "auto-approve";
 
 export interface AcpProviderRuntimeProfile {
   providerId: ProviderId;
@@ -114,8 +122,25 @@ export interface AcpProviderRuntimeProfile {
    * effort/fast config options instead of one encoded variant per combination.
    */
   parameterizedModelPicker?: boolean;
-  /** Reject tool permissions immediately instead of waiting on UI approval. */
+  /**
+   * `auto-reject` rejects tool permissions immediately and `auto-approve`
+   * allows them once; the default waits on UI approval.
+   */
   permissionPolicy?: AcpPermissionPolicy;
+  /**
+   * Session config options applied in order, after the model unless
+   * `beforeModel` is set (a mode switch can reset the model, so it goes
+   * first). Each is set only when the session currently advertises that
+   * option and value, because agents such as OpenCode advertise options like
+   * `effort` per model.
+   */
+  sessionConfigOptions?: readonly {
+    configId: string;
+    value: string;
+    beforeModel?: boolean;
+    /** Fail the turn when the session does not advertise this option and value. */
+    required?: boolean;
+  }[];
   modelConfigId?: string;
   modelSetter?: "config-option" | "legacy-set-model";
   promptParameterName?: "prompt" | "content" | "prompt+content";
@@ -337,11 +362,25 @@ export async function streamAcpProviderTurn(args: {
       kind: parsed.data.toolCall.kind,
       rawInput: parsed.data.toolCall.rawInput,
     });
+    const requestToolNames = [
+      parsed.data.toolCall.title,
+      presentation.toolName,
+    ].filter((name): name is string => Boolean(name));
+    if (
+      profile.permissionPolicy === "auto-approve" &&
+      allowOption &&
+      !requestToolNames.some(isNeverAutoApprovedStaveLocalMcpTool)
+    ) {
+      return {
+        outcome: {
+          outcome: "selected",
+          optionId: allowOption.optionId,
+        },
+      };
+    }
     if (
       allowOption &&
-      [parsed.data.toolCall.title, presentation.toolName].some(
-        (name) => Boolean(name) && isAlwaysAllowedStaveLocalMcpTool(name!),
-      )
+      requestToolNames.some(isAlwaysAllowedStaveLocalMcpTool)
     ) {
       return {
         outcome: {
@@ -648,6 +687,41 @@ export async function streamAcpProviderTurn(args: {
       }
     }
 
+    const applySessionConfigOptions = async (beforeModel: boolean) => {
+      for (const option of profile.sessionConfigOptions ?? []) {
+        if (Boolean(option.beforeModel) !== beforeModel) {
+          continue;
+        }
+        const advertised = mapper
+          .getConfigOptions()
+          .find((candidate) => candidate.id === option.configId);
+        const offered =
+          advertised !== undefined &&
+          (advertised.currentValue === option.value ||
+            listConfigOptionValues(advertised).includes(option.value));
+        if (!offered) {
+          if (option.required) {
+            throw new AcpProtocolError(
+              `${profile.displayName} session did not offer ${option.configId} "${option.value}", which this turn requires.`,
+            );
+          }
+          continue;
+        }
+        if (advertised.currentValue === option.value) {
+          continue;
+        }
+        const result = await client.setConfigOption({
+          sessionId: session.sessionId,
+          configId: option.configId,
+          value: option.value,
+        });
+        if (result.configOptions) {
+          mapper.setConfigOptions(result.configOptions);
+        }
+      }
+    };
+    await applySessionConfigOptions(true);
+
     const modelConfig = mapper
       .getConfigOptions()
       .find((option) => option.id === (profile.modelConfigId ?? "model"));
@@ -710,6 +784,7 @@ export async function streamAcpProviderTurn(args: {
         }
       }
     }
+    await applySessionConfigOptions(false);
     emit({
       type: "model_resolved",
       resolvedProviderId: profile.providerId,

@@ -47,6 +47,24 @@ describe("buildCliSessionRuntimeOptions", () => {
     });
   });
 
+  test("returns only the configured OpenCode binary override for OpenCode sessions", () => {
+    expect(
+      buildCliSessionRuntimeOptions({
+        providerId: "opencode",
+        opencodeBinaryPath: " /tmp/opencode ",
+        kiroBinaryPath: "/tmp/kiro-cli",
+      }),
+    ).toEqual({
+      opencodeBinaryPath: "/tmp/opencode",
+    });
+    expect(
+      buildCliSessionRuntimeOptions({
+        providerId: "opencode",
+        opencodeBinaryPath: "  ",
+      }),
+    ).toBeUndefined();
+  });
+
   test("omits empty Cursor and Kiro CLI session overrides", () => {
     expect(
       buildCliSessionRuntimeOptions({

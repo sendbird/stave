@@ -9,6 +9,7 @@ import { currentClaudeGateway, peekApiConnection, resolveApiConnectionModel } fr
 import { getCodexModelCatalog } from "./codex-app-server-runtime";
 import { getCursorModelCatalog } from "./cursor/cursor-model-catalog";
 import { getKiroModelCatalog } from "./kiro/kiro-model-catalog";
+import { getOpenCodeModelCatalog } from "./opencode/opencode-model-catalog";
 import { isOptionalProvider } from "../../src/lib/providers/provider-readiness";
 import { optionalProviderReadKey } from "./optional-provider-tooling";
 
@@ -34,7 +35,11 @@ async function readProviderModelCatalog(args: {
     const key = optionalProviderReadKey(args.providerId, args.runtimeOptions);
     const unavailable = { providerId: args.providerId, ok: false, detail: "Verify installation and login in Settings > Tooling before loading models.", models: [] };
     if (!key) return unavailable;
-    const result = await (args.providerId === "cursor" ? getCursorModelCatalog(args) : getKiroModelCatalog(args));
+    const result = await (args.providerId === "cursor"
+      ? getCursorModelCatalog(args)
+      : args.providerId === "kiro"
+        ? getKiroModelCatalog(args)
+        : getOpenCodeModelCatalog(args));
     return key === optionalProviderReadKey(args.providerId, args.runtimeOptions) ? result : unavailable;
   }
 

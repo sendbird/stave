@@ -12,8 +12,11 @@ import type {
 } from "@/types/chat";
 import type { SkillPromptContext } from "@/lib/skills/types";
 
-export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro";
-export type ManagedExecutionProviderId = Exclude<ProviderId, "cursor" | "kiro">;
+export type ProviderId = "claude-code" | "codex" | "cursor" | "kiro" | "opencode";
+export type ManagedExecutionProviderId = Exclude<
+  ProviderId,
+  "cursor" | "kiro" | "opencode"
+>;
 export type ClaudeSettingSource = "user" | "project" | "local";
 
 /**
@@ -1224,6 +1227,23 @@ export interface ProviderRuntimeOptions {
    */
   kiroApprovalMode?: "manual" | "auto";
   kiroResumeSessionId?: string;
+  opencodeBinaryPath?: string;
+  /**
+   * Effort for interactive OpenCode turns. OpenCode advertises effort per
+   * model as an ACP `effort` config option (the model's variants); the
+   * runtime sets it only when the selected model lists this value.
+   */
+  opencodeEffort?: "minimal" | "low" | "medium" | "high" | "xhigh" | "max";
+  /**
+   * Approval autonomy for interactive OpenCode turns: `manual` makes OpenCode
+   * ask before every tool call through `OPENCODE_CONFIG_CONTENT`; `auto`
+   * leaves OpenCode's permission config untouched and answers every
+   * permission request with allow-once.
+   */
+  opencodeApprovalMode?: "manual" | "auto";
+  /** Deny OpenCode's file edit tools for the turn (a read-only agent). */
+  opencodeDenyEdits?: boolean;
+  opencodeResumeSessionId?: string;
   /**
    * In-turn subagents the task's agent may call, compiled by the host from
    * the agent's `canCall` list (`native-subagents.ts`). Set only for a task

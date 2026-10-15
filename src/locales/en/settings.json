@@ -1010,7 +1010,7 @@
     },
     "providers": {
       "label": "Providers",
-      "description": "Claude, Codex, Cursor, and Kiro provider runtime settings."
+      "description": "Claude, Codex, Cursor, Kiro and OpenCode provider runtime settings."
     },
     "models": {
       "label": "Models",
@@ -1278,7 +1278,7 @@
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "Standalone CLI",
-    "runClaudeCodeCodexCursorAnd": "Run Claude Code, Codex, Cursor, and Kiro against one folder without registering it as a repository.",
+    "runClaudeCodeCodexCursorAnd": "Run Claude Code, Codex, Cursor, Kiro and OpenCode against one folder without registering it as a repository.",
     "standaloneCLIFolder": "Standalone CLI Folder",
     "absolutePathChangingItRestartsEvery": "Absolute path. Changing it restarts every CLI tab in the new folder and discards their conversations.",
     "enterAnAbsoluteFolderPath": "Enter an absolute folder path."

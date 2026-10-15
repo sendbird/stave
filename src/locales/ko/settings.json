@@ -996,7 +996,7 @@
     },
     "providers": {
       "label": "프로바이더",
-      "description": "Claude, Codex, Cursor, Kiro 프로바이더의 런타임 설정입니다."
+      "description": "Claude, Codex, Cursor, Kiro, OpenCode 프로바이더의 런타임 설정입니다."
     },
     "models": {
       "label": "모델",
@@ -1264,7 +1264,7 @@
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "독립 CLI",
-    "runClaudeCodeCodexCursorAnd": "저장소로 등록하지 않은 폴더에서도 Claude Code, Codex, Cursor, Kiro를 실행합니다.",
+    "runClaudeCodeCodexCursorAnd": "저장소로 등록하지 않은 폴더에서도 Claude Code, Codex, Cursor, Kiro, OpenCode를 실행합니다.",
     "standaloneCLIFolder": "독립 CLI 폴더",
     "absolutePathChangingItRestartsEvery": "절대 경로를 입력합니다. 변경하면 모든 CLI 탭을 새 폴더에서 다시 시작하고 대화를 삭제합니다.",
     "enterAnAbsoluteFolderPath": "절대 폴더 경로를 입력하세요."

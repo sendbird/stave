@@ -94,6 +94,9 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_request_secret",
 ]);
 
+/** Mirrors `STAVE_LOCAL_MCP_SERVER_NAME` without importing the main-process manifest. */
+const OPENCODE_STAVE_LOCAL_MCP_TOOL_PREFIX = "stave-local-mcp_";
+
 /**
  * Reduces a provider-decorated tool name to its bare Stave tool name.
  *
@@ -102,11 +105,19 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
  * metadata may report `stave-local__stave_list_delegated_tasks`, a dotted
  * `stave-local.stave_list_delegated_tasks`, or the bare name. Normalising here
  * keeps that decoding in one place instead of at each call site.
+ *
+ * OpenCode joins the server and tool names with a single underscore
+ * (`stave-local-mcp_stave_list_delegated_tasks`). Only that exact server
+ * prefix is stripped, because a single underscore also separates words
+ * inside every Stave tool name.
  */
 export function normalizeStaveLocalMcpToolName(toolName: string) {
   const normalized = toolName.trim().toLowerCase();
   const afterNamespace = normalized.split("__").at(-1) ?? normalized;
-  return afterNamespace.split(".").at(-1) ?? afterNamespace;
+  const bare = afterNamespace.split(".").at(-1) ?? afterNamespace;
+  return bare.startsWith(OPENCODE_STAVE_LOCAL_MCP_TOOL_PREFIX)
+    ? bare.slice(OPENCODE_STAVE_LOCAL_MCP_TOOL_PREFIX.length)
+    : bare;
 }
 
 /**
@@ -128,10 +139,14 @@ export function isAlwaysAllowedStaveLocalMcpTool(toolName: string) {
  * on its own; they always reach the user. (`stave_respond_approval` is not
  * served to MCP clients at all; it stays listed in case an old client asks.)
  */
-const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES = new Set([
+export const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOLS = Object.freeze([
   "stave_respond_approval",
   "stave_respond_user_input",
-]);
+] as const);
+
+const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES: ReadonlySet<string> = new Set(
+  STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOLS,
+);
 
 export function isNeverAutoApprovedStaveLocalMcpTool(toolName: string) {
   return STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES.has(

@@ -7,6 +7,7 @@ import {
   CODEX_EFFORT_OPTIONS,
   CURSOR_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import type {
@@ -28,7 +29,9 @@ export function resolveTurnModelInfo(args: {
           ? args.runtimeOptions.cursorEffort
           : args.providerId === "kiro"
             ? args.runtimeOptions.kiroEffort
-            : undefined;
+            : args.providerId === "opencode"
+              ? args.runtimeOptions.opencodeEffort
+              : undefined;
   const effort =
     args.providerId === "codex"
       ? resolveCodexAppServerReasoningEffort({
@@ -149,7 +152,9 @@ export function getTurnModelInfoParts(
       ? CLAUDE_EFFORT_OPTIONS
       : message.providerId === "kiro"
         ? KIRO_EFFORT_OPTIONS
-        : CODEX_EFFORT_OPTIONS;
+        : message.providerId === "opencode"
+          ? OPENCODE_EFFORT_OPTIONS
+          : CODEX_EFFORT_OPTIONS;
   const details = [findOptionLabel(effortOptions, message.modelInfo.effort)];
   if (message.modelInfo.fastMode) {
     details.push(i18n.t("providers:turnModelInfo.fast"));

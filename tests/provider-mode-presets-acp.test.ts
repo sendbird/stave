@@ -2,15 +2,20 @@ import { describe, expect, test } from "bun:test";
 import {
   CURSOR_PROVIDER_MODE_PRESETS,
   KIRO_PROVIDER_MODE_PRESETS,
+  OPENCODE_PROVIDER_MODE_PRESETS,
   buildCursorProviderModeSettingsPatch,
   buildKiroProviderModeSettingsPatch,
+  buildOpenCodeProviderModeSettingsPatch,
   detectCursorProviderModePreset,
   detectKiroProviderModePreset,
+  detectOpenCodeProviderModePreset,
   resolveCursorProviderModePresentation,
   resolveKiroProviderModePresentation,
+  resolveOpenCodeProviderModePresentation,
 } from "@/lib/providers/provider-mode-presets";
 import { buildCursorAcpCommandArgs } from "../electron/providers/cursor/cursor-acp-profile";
 import { buildKiroAcpCommandArgs } from "../electron/providers/kiro/kiro-acp-profile";
+import { buildOpenCodePermissionRules } from "../electron/providers/opencode/opencode-acp-profile";
 
 describe("Cursor and Kiro approval presets", () => {
   test("offers three Cursor tiers and only the two Kiro tiers the CLI can honor", () => {
@@ -107,5 +112,51 @@ describe("Cursor and Kiro approval presets", () => {
         settings: { kiroApprovalMode: "auto" },
       }).detail,
     ).toContain("--trust-all-tools");
+  });
+});
+
+describe("OpenCode approval presets", () => {
+  test("offers only the two tiers Stave can enforce", () => {
+    expect(OPENCODE_PROVIDER_MODE_PRESETS.map((preset) => preset.id)).toEqual([
+      "auto",
+      "manual",
+    ]);
+  });
+
+  test("collapses a preset OpenCode cannot honor down to Manual", () => {
+    expect(buildOpenCodeProviderModeSettingsPatch({ presetId: "guided" })).toEqual({
+      opencodeApprovalMode: "manual",
+    });
+    expect(buildOpenCodeProviderModeSettingsPatch({ presetId: "auto" })).toEqual({
+      opencodeApprovalMode: "auto",
+    });
+  });
+
+  test("round-trips each preset through detection and names the behavior", () => {
+    for (const presetId of ["auto", "manual"] as const) {
+      const settings = buildOpenCodeProviderModeSettingsPatch({ presetId });
+      expect(detectOpenCodeProviderModePreset({ settings })).toBe(presetId);
+    }
+    expect(
+      resolveOpenCodeProviderModePresentation({
+        settings: { opencodeApprovalMode: "manual" },
+      }).detail,
+    ).toBe("Approve every tool call");
+    expect(
+      resolveOpenCodeProviderModePresentation({
+        settings: { opencodeApprovalMode: "auto" },
+      }).detail,
+    ).toBe("Approvals off / every request allowed once");
+  });
+
+  test("maps Manual to a Stave agent that asks and Auto to OpenCode's own rules", () => {
+    expect(buildOpenCodePermissionRules({ approvalMode: "manual" })).toEqual({
+      "*": "ask",
+      task: "deny",
+      "opencode_*": "deny",
+      browser: "deny",
+      execute: "deny",
+    });
+    expect(buildOpenCodePermissionRules({ approvalMode: "auto" })).toBeNull();
   });
 });

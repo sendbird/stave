@@ -28,6 +28,14 @@ export interface AccountUsageBlock {
   message: string;
 }
 
+/**
+ * Whether a provider reports quota windows at all. OpenCode exposes no
+ * official usage window, so Stave never reads, polls or guards its quota.
+ */
+export function providerReportsQuota(providerId: ProviderId): boolean {
+  return providerId !== "opencode";
+}
+
 export function providerAccountUsageLabel(providerId: ProviderId): string {
   switch (providerId) {
     case "claude-code":
@@ -38,6 +46,8 @@ export function providerAccountUsageLabel(providerId: ProviderId): string {
       return "Cursor";
     case "kiro":
       return "Kiro";
+    case "opencode":
+      return "OpenCode";
   }
 }
 
@@ -206,6 +216,10 @@ export function collectProviderAccountUsageWindows(args: {
       return collectAccountWindows(snapshot.cursor.monthly, [], i18n.t("providers:accountUsageBlock.monthly"));
     }
     return collectAccountWindows(snapshot.cursor.monthly, snapshot.cursor.buckets, i18n.t("providers:accountUsageBlock.monthly"));
+  }
+  if (args.providerId === "opencode") {
+    // OpenCode reports no included-usage window, so it can never be exhausted here.
+    return null;
   }
   if (!snapshot.kiro || snapshot.kiro.source === "unavailable") {
     return null;
@@ -404,7 +418,7 @@ export function mergeRateLimitsSnapshots(args: {
       next.codex = args.incoming.codex;
     } else if (providerId === "cursor") {
       next.cursor = args.incoming.cursor;
-    } else {
+    } else if (providerId === "kiro") {
       next.kiro = args.incoming.kiro;
     }
   }

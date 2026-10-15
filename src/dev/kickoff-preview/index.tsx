@@ -61,6 +61,7 @@ useAppStore.setState({
     codex: true,
     cursor: true,
     kiro: false,
+    opencode: false,
   },
   resolveKickoffProposal: async ({ input }) => ({
     ok: true,

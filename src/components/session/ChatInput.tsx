@@ -27,14 +27,17 @@ import {
   CODEX_PROVIDER_MODE_PRESETS,
   CURSOR_PROVIDER_MODE_PRESETS,
   KIRO_PROVIDER_MODE_PRESETS,
+  OPENCODE_PROVIDER_MODE_PRESETS,
   detectClaudeProviderModePreset,
   detectCodexProviderModePreset,
   detectCursorProviderModePreset,
   detectKiroProviderModePreset,
+  detectOpenCodeProviderModePreset,
   resolveClaudeProviderModePresentation,
   resolveCodexProviderModePresentation,
   resolveCursorProviderModePresentation,
   resolveKiroProviderModePresentation,
+  resolveOpenCodeProviderModePresentation,
   type ProviderModePresetDefinition,
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
@@ -69,6 +72,7 @@ import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
 import { getEffectiveSkillEntries } from "@/lib/skills/catalog";
@@ -87,6 +91,7 @@ import {
   resolvePromptDraftModelForProvider,
   resolvePromptDraftRuntimeState,
 } from "@/store/prompt-draft-runtime";
+import { resolveSupportedOpenCodeEffort } from "@/lib/providers/opencode-model-efforts";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildChatInputGoalStatus,
@@ -189,6 +194,9 @@ function BaseChatInput() {
   const kiroBinaryPathForCatalog = useAppStore(
     (state) => state.settings.kiroBinaryPath,
   );
+  const opencodeBinaryPathForCatalog = useAppStore(
+    (state) => state.settings.opencodeBinaryPath,
+  );
   const promptDraftRuntimeOverrides = useAppStore(
     (state) =>
       state.promptDraftByTask[activeTaskId || "draft:session"]
@@ -230,6 +238,7 @@ function BaseChatInput() {
     modelCodex,
     modelCursor,
     modelKiro,
+    modelOpenCode,
     skillsEnabled,
     skillsAutoSuggest,
     providerTimeoutMs,
@@ -245,6 +254,7 @@ function BaseChatInput() {
         effective.modelCodex,
         effective.modelCursor,
         effective.modelKiro,
+        effective.modelOpenCode,
         state.settings.skillsEnabled,
         state.settings.skillsAutoSuggest,
         state.settings.providerTimeoutMs,
@@ -276,7 +286,9 @@ function BaseChatInput() {
               ? modelCodex
               : activeProvider === "cursor"
                 ? modelCursor
-                : modelKiro,
+                : activeProvider === "kiro"
+                  ? modelKiro
+                  : modelOpenCode,
         });
   const cursorMode = useAppStore((state) => state.settings.cursorMode);
   const cursorApprovalMode = useAppStore((state) =>
@@ -297,6 +309,25 @@ function BaseChatInput() {
         }).kiroApprovalMode
       : selectEffectiveSettings(state).kiroApprovalMode,
   );
+  const opencodeApprovalMode = useAppStore((state) =>
+    activeProvider === "opencode"
+      ? applyModelRuntimePreference({
+          settings: selectEffectiveSettings(state),
+          providerId: activeProvider,
+          model: activeModel,
+        }).opencodeApprovalMode
+      : selectEffectiveSettings(state).opencodeApprovalMode,
+  );
+  const opencodeEffort = useAppStore((state) => {
+    if (activeProvider !== "opencode") {
+      return "medium" as const;
+    }
+    return applyModelRuntimePreference({
+      settings: selectEffectiveSettings(state),
+      providerId: activeProvider,
+      model: activeModel,
+    }).opencodeEffort;
+  });
   const kiroEffort = useAppStore((state) => {
     if (activeProvider !== "kiro") {
       return "medium" as const;
@@ -395,17 +426,27 @@ function BaseChatInput() {
           claudePermissionMode,
           cursorMode,
           kiroEffort,
+          opencodeEffort,
         },
       }),
     [
       claudePermissionMode,
       cursorMode,
       kiroEffort,
+      opencodeEffort,
       promptDraftRuntimeOverrides,
     ],
   );
   const effectiveClaudePermissionMode = taskRuntimeState.claudePermissionMode;
   const effectiveKiroEffort = taskRuntimeState.kiroEffort ?? kiroEffort;
+  // Only a level the selected model offers is sent, so only that one is shown.
+  const effectiveOpenCodeEffort =
+    activeProvider === "opencode"
+      ? resolveSupportedOpenCodeEffort({
+          model: activeModel,
+          effort: taskRuntimeState.opencodeEffort ?? opencodeEffort,
+        })
+      : undefined;
   const catalogRuntimeOptions = useMemo(
     () => ({
       ...(codexBinaryPathForCatalog
@@ -417,11 +458,15 @@ function BaseChatInput() {
       ...(kiroBinaryPathForCatalog
         ? { kiroBinaryPath: kiroBinaryPathForCatalog }
         : {}),
+      ...(opencodeBinaryPathForCatalog
+        ? { opencodeBinaryPath: opencodeBinaryPathForCatalog }
+        : {}),
     }),
     [
       codexBinaryPathForCatalog,
       cursorBinaryPathForCatalog,
       kiroBinaryPathForCatalog,
+      opencodeBinaryPathForCatalog,
     ],
   );
   const providerModelCatalogs = useProviderModelCatalogs({
@@ -490,6 +535,7 @@ function BaseChatInput() {
           codex: providerModelCatalogs.catalogs.codex.models,
           cursor: providerModelCatalogs.catalogs.cursor.models,
           kiro: providerModelCatalogs.catalogs.kiro.models,
+          opencode: providerModelCatalogs.catalogs.opencode.models,
         },
         enrichmentByModel: modelEnrichment,
       }),
@@ -525,12 +571,18 @@ function BaseChatInput() {
     if (activeProvider === "kiro") {
       return findOptionLabel(KIRO_EFFORT_OPTIONS, effectiveKiroEffort);
     }
+    if (activeProvider === "opencode") {
+      return effectiveOpenCodeEffort
+        ? findOptionLabel(OPENCODE_EFFORT_OPTIONS, effectiveOpenCodeEffort)
+        : undefined;
+    }
     return undefined;
   }, [
     activeProvider,
     claudeEffort,
     codexReasoningEffort,
     effectiveKiroEffort,
+    effectiveOpenCodeEffort,
   ]);
   const effortValue =
     activeProvider === "claude-code"
@@ -539,7 +591,9 @@ function BaseChatInput() {
         ? codexReasoningEffort
         : activeProvider === "kiro"
           ? effectiveKiroEffort
-          : promptDraftRuntimeOverrides?.cursorEffort;
+          : activeProvider === "opencode"
+            ? effectiveOpenCodeEffort
+            : promptDraftRuntimeOverrides?.cursorEffort;
   const goalStatus = useMemo(
     () =>
       buildChatInputGoalStatus({
@@ -644,6 +698,15 @@ function BaseChatInput() {
         };
       }
 
+      if (activeProvider === "opencode") {
+        return {
+          providerLabel: "OpenCode",
+          ...resolveOpenCodeProviderModePresentation({
+            settings: { opencodeApprovalMode },
+          }),
+        };
+      }
+
       return null;
     }, [
       activeProvider,
@@ -657,6 +720,7 @@ function BaseChatInput() {
       codexWebSearch,
       cursorApprovalMode,
       kiroApprovalMode,
+      opencodeApprovalMode,
     ]);
   const activeProviderModePresetId =
     useMemo<ProviderModePresetId | null>(() => {
@@ -694,6 +758,12 @@ function BaseChatInput() {
         });
       }
 
+      if (activeProvider === "opencode") {
+        return detectOpenCodeProviderModePreset({
+          settings: { opencodeApprovalMode },
+        });
+      }
+
       return null;
     }, [
       activeProvider,
@@ -707,6 +777,7 @@ function BaseChatInput() {
       codexWebSearch,
       cursorApprovalMode,
       kiroApprovalMode,
+      opencodeApprovalMode,
     ]);
   const providerModePresets = useMemo(() => {
     if (activeProvider === "claude-code") {
@@ -720,6 +791,9 @@ function BaseChatInput() {
     }
     if (activeProvider === "kiro") {
       return KIRO_PROVIDER_MODE_PRESETS;
+    }
+    if (activeProvider === "opencode") {
+      return OPENCODE_PROVIDER_MODE_PRESETS;
     }
     return EMPTY_PROVIDER_MODE_PRESETS;
   }, [activeProvider]);
@@ -1056,7 +1130,11 @@ function BaseChatInput() {
           }
           return;
         }
-        if (selection.providerId === "kiro" && effort) {
+        if (
+          (selection.providerId === "kiro" ||
+            selection.providerId === "opencode") &&
+          effort
+        ) {
           updateModelRuntimePreference({
             providerId: selection.providerId,
             model: nextModel,

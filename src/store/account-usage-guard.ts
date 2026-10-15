@@ -35,7 +35,8 @@ export async function readProviderAccountUsage(
   accountProfileId: string,
 ) {
   const read = window.api?.provider?.getRateLimitsSnapshot;
-  if (!read) return null;
+  // OpenCode reports no included-usage window to guard against.
+  if (!read || providerId === "opencode") return null;
   const settings = getState().settings;
   const runtimeOptions: ProviderRuntimeOptions = providerId === "codex"
     ? { codexAccountProfileId: accountProfileId, codexBinaryPath: settings.codexBinaryPath || undefined }
@@ -43,7 +44,9 @@ export async function readProviderAccountUsage(
       ? { claudeAccountProfileId: accountProfileId, claudeBinaryPath: settings.claudeBinaryPath || undefined }
       : providerId === "cursor"
         ? { cursorBinaryPath: settings.cursorBinaryPath || undefined }
-        : { kiroBinaryPath: settings.kiroBinaryPath || undefined };
+        : providerId === "kiro"
+          ? { kiroBinaryPath: settings.kiroBinaryPath || undefined }
+          : { opencodeBinaryPath: settings.opencodeBinaryPath || undefined };
   try {
     return await read({ providers: [providerId], runtimeOptions, force: true, reason: "dispatch-guard" });
   } catch {

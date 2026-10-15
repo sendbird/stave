@@ -75,6 +75,7 @@ const WORKFLOW_PROVIDER_IDS = [
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ] as const satisfies readonly ProviderId[];
 
 /**

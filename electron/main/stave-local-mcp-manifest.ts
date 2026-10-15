@@ -294,12 +294,21 @@ export function toAcpStdioMcpServerConfig(
   manifest: StaveLocalMcpManifest,
   options?: {
     allowedToolNames?: readonly string[];
+    /** Hidden from `tools/list` and refused on `tools/call` by the proxy. */
+    deniedToolNames?: readonly string[];
     turnGrants?: StaveTurnGrants;
   },
 ) {
   const allowedToolNames = Array.from(
     new Set(
       (options?.allowedToolNames ?? [])
+        .map((name) => name.trim())
+        .filter(Boolean),
+    ),
+  );
+  const deniedToolNames = Array.from(
+    new Set(
+      (options?.deniedToolNames ?? [])
         .map((name) => name.trim())
         .filter(Boolean),
     ),
@@ -329,6 +338,14 @@ export function toAcpStdioMcpServerConfig(
             },
           ]
         : []),
+      ...(deniedToolNames.length > 0
+        ? [
+            {
+              name: "STAVE_MCP_DENIED_TOOLS",
+              value: deniedToolNames.join(","),
+            },
+          ]
+        : []),
     ],
   };
 }
@@ -346,6 +363,7 @@ export function isAcpStaveLocalMcpServer(server: unknown): boolean {
 
 export async function resolveAcpStaveLocalMcpServers(args?: {
   allowedToolNames?: readonly string[];
+  deniedToolNames?: readonly string[];
   turnGrants?: StaveTurnGrants;
 }) {
   const manifest = await readStaveLocalMcpManifest();
@@ -364,6 +382,7 @@ export async function resolveAcpStaveLocalMcpServers(args?: {
   return [
     toAcpStdioMcpServerConfig(manifest, {
       allowedToolNames: args?.allowedToolNames,
+      deniedToolNames: args?.deniedToolNames,
       turnGrants: args?.turnGrants,
     }),
   ];

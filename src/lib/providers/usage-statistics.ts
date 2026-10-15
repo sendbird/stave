@@ -6,7 +6,7 @@ import { ProviderAccountProfileIdSchema } from "./provider-accounts";
 export const UNATTRIBUTED_ACCOUNT_ID = "unattributed";
 export const USAGE_STATISTICS_IPC = "persistence:usage-statistics";
 export const USAGE_PROVIDER_NAMES: Record<ProviderId, string> = {
-  "claude-code": "Claude", codex: "Codex", cursor: "Cursor", kiro: "Kiro",
+  "claude-code": "Claude", codex: "Codex", cursor: "Cursor", kiro: "Kiro", opencode: "OpenCode",
 };
 
 const IsoDate = z.iso.datetime().transform((value) => new Date(value).toISOString());
@@ -18,7 +18,7 @@ export const UsageStatisticsArgsSchema = z.object({
     catch { return false; }
   }),
   granularity: z.enum(["day", "hour"]).default("day"),
-  providerId: z.enum(["claude-code", "codex", "cursor", "kiro"]).optional(),
+  providerId: z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]).optional(),
   accountProfileId: z.union([ProviderAccountProfileIdSchema, z.literal(UNATTRIBUTED_ACCOUNT_ID)]).optional(),
   /** null selects turns with no recorded model; omission selects every model. */
   modelId: z.string().min(1).max(500).nullable().optional(),
@@ -140,7 +140,7 @@ export function quotaObservations(snapshot: RateLimitsSnapshotResponse, provider
         push(`${id}:${key}`, `${label} · ${minutes ? i18n.t("providers:usageStatistics.hourLimitVariant9f03f68c", { value1: minutes / 60 }) : key === "individualLimit" ? i18n.t("providers:usageStatistics.credits") : key}`, window, snapshot.codex.source);
       }
     });
-  } else {
+  } else if (providerId === "cursor" || providerId === "kiro") {
     const value = snapshot[providerId];
     push("monthly", i18n.t("providers:usageStatistics.monthlyIncludedUsage"), value.monthly, value.source);
     for (const bucket of value.buckets) push(`bucket:${bucket.id}`, bucket.label, bucket, value.source);

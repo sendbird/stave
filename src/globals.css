@@ -302,6 +302,7 @@
   --provider-claude: oklch(0.62 0.16 38);
   --provider-cursor: oklch(0.38 0.028 94);
   --provider-kiro: oklch(0.54 0.18 296);
+  --provider-opencode: oklch(0.52 0.12 165);
   --service-git-open: oklch(0.51 0.13 145);
   --service-git-merged: oklch(0.55 0.19 303);
   --service-git-closed: oklch(0.55 0.19 25);
@@ -403,6 +404,7 @@
   --provider-claude: oklch(0.75 0.14 45);
   --provider-cursor: oklch(0.86 0.018 94);
   --provider-kiro: oklch(0.72 0.16 296);
+  --provider-opencode: oklch(0.74 0.12 165);
   --service-git-open: oklch(0.7 0.15 145);
   --service-git-merged: oklch(0.68 0.17 303);
   --service-git-closed: oklch(0.67 0.19 25);
@@ -512,6 +514,7 @@
   --color-provider-claude: var(--provider-claude);
   --color-provider-cursor: var(--provider-cursor);
   --color-provider-kiro: var(--provider-kiro);
+  --color-provider-opencode: var(--provider-opencode);
   --color-service-git-open: var(--service-git-open);
   --color-service-git-merged: var(--service-git-merged);
   --color-service-git-closed: var(--service-git-closed);

@@ -4,4 +4,5 @@ export const PROVIDER_LABELS: Record<string, string> = {
   codex: "Codex",
   cursor: "Cursor",
   kiro: "Kiro",
+  opencode: "OpenCode",
 };

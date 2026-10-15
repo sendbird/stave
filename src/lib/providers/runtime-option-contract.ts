@@ -121,6 +121,28 @@ export const KIRO_EFFORT_OPTIONS = [
   NonNullable<ProviderRuntimeOptions["kiroEffort"]>
 >[];
 
+// Verified against OpenCode 1.19.0 and 2.0.29: `opencode acp` has no
+// approval flag. Manual is delivered as `"*": "ask"` permission rules in
+// `OPENCODE_CONFIG_CONTENT`; Auto keeps OpenCode's own rules and Stave
+// answers each permission request with allow-once.
+export const OPENCODE_APPROVAL_MODE_OPTIONS = [
+  { value: "manual", get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); } },
+  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["opencodeApprovalMode"]>
+>[];
+
+/**
+ * OpenCode effort levels are the model's variant names. These are the names
+ * Stave offers; a model lists the subset it supports in the catalog.
+ */
+export const OPENCODE_EFFORT_OPTIONS = [
+  { value: "minimal", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.minimal"); } },
+  ...KIRO_EFFORT_OPTIONS,
+] as const satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["opencodeEffort"]>
+>[];
+
 export const CURSOR_EFFORT_OPTIONS = KIRO_EFFORT_OPTIONS satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["cursorEffort"]>
 >[];
@@ -248,6 +270,11 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "kiroEffort",
   "kiroApprovalMode",
   "kiroResumeSessionId",
+  "opencodeBinaryPath",
+  "opencodeEffort",
+  "opencodeApprovalMode",
+  "opencodeDenyEdits",
+  "opencodeResumeSessionId",
   "nativeSubagents",
   "nativePlanTools",
   "agentInstructions",

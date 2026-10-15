@@ -6,6 +6,7 @@ export const TOOLING_STATUS_IDS = [
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ] as const;
 
 export type ToolingStatusId = (typeof TOOLING_STATUS_IDS)[number];
@@ -79,6 +80,7 @@ export interface ToolingStatusRequest {
   codexBinaryPath?: string;
   cursorBinaryPath?: string;
   kiroBinaryPath?: string;
+  opencodeBinaryPath?: string;
 }
 
 export interface SyncOriginMainRequest {

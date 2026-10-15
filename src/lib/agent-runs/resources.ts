@@ -16,7 +16,7 @@ export function supportsAdaptiveEffort(providerId: "claude-code" | "codex", mode
 const Id = z.string().trim().min(1).max(256);
 export const AdaptiveRoutingIntentSchema = z.object({
   model: z.string().trim().min(1).max(200).optional(),
-  modelProviderId: z.enum(["claude-code", "codex", "cursor", "kiro"]).optional(),
+  modelProviderId: z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]).optional(),
   autoRouting: z.boolean().optional(),
   claudeEffort: z.enum(["low", "medium", "high", "xhigh", "max"]).optional(),
   codexReasoningEffort: z.enum(["minimal", "low", "medium", "high", "xhigh", "max", "ultra"]).optional(),

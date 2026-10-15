@@ -980,6 +980,11 @@ export async function getToolingStatusSnapshot(
       force: true,
       kiroBinaryPath: args.kiroBinaryPath,
     }),
+    inspectOptionalProviderTooling({
+      providerId: "opencode",
+      force: true,
+      opencodeBinaryPath: args.opencodeBinaryPath,
+    }),
   ]);
 
   return {

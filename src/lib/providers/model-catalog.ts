@@ -267,6 +267,49 @@ export const PROVIDER_DESCRIPTORS = [
       },
     },
   },
+  {
+    id: "opencode",
+    label: "OpenCode",
+    shortLabel: "OpenCode",
+    // No mark ships with Stave; the monogram stands in.
+    iconUrl: null,
+    // i18n-ignore: provider icon initials
+    fallbackLabel: "Oc",
+    models: ["auto"],
+    modelCatalogSource: "runtime",
+    defaultModel: "auto",
+    get sessionLabel() { return i18n.t("providers:modelCatalog.opencodeSessionID"); },
+    capabilities: {
+      primaryTurns: true,
+      advisor: false,
+      worker: true,
+      secondaryRuns: false,
+      unattendedRuns: false,
+      prePrReview: false,
+      nativeCommandCatalog: false,
+      supportsMidTurnSteering: false,
+      threadActions: {
+        forkFromTurn: {
+          supported: false,
+          get reason() { return i18n.t("providers:modelCatalog.opencodeDoesNotExposePointIn"); },
+        },
+        rollbackToTurn: {
+          supported: false,
+          get reason() { return i18n.t("providers:modelCatalog.opencodeDoesNotExposeInPlace"); },
+        },
+        renameNativeSession: {
+          supported: false,
+          get reason() { return i18n.t("providers:modelCatalog.opencodeSessionRenameIsNotWired"); },
+        },
+      },
+      // Background AI never starts OpenCode: each ACP session it opened would
+      // be stored in the user's OpenCode history.
+      utilityInference: {
+        supported: false,
+        defaultModel: "auto",
+      },
+    },
+  },
 ] as const satisfies readonly ProviderDescriptor[];
 
 export function listProviderDescriptors() {
@@ -354,7 +397,7 @@ export function resolveProviderDisplayId(args: {
  * Semantic provider-wave tone. A presentation value, not a color: the consuming
  * component maps it to a StyleX style using the themed provider CSS variables
  * (`--provider-claude` / `--provider-codex` / `--provider-cursor` /
- * `--provider-kiro`) or the ADS accent token. `"accent"` is only for a
+ * `--provider-kiro` / `--provider-opencode`) or the ADS accent token. `"accent"` is only for a
  * presentation that is not a known provider (for example a user-authored row).
  */
 export type ProviderWaveTone =
@@ -362,6 +405,7 @@ export type ProviderWaveTone =
   | "codex"
   | "cursor"
   | "kiro"
+  | "opencode"
   | "accent";
 
 const PROVIDER_WAVE_COLOR: Record<ProviderWaveTone, string> = {
@@ -369,6 +413,7 @@ const PROVIDER_WAVE_COLOR: Record<ProviderWaveTone, string> = {
   codex: "var(--provider-codex)",
   cursor: "var(--provider-cursor)",
   kiro: "var(--provider-kiro)",
+  opencode: "var(--provider-opencode)",
   accent: "var(--primary)",
 };
 
@@ -389,6 +434,9 @@ export function getProviderWaveTone(args: {
   }
   if (displayProviderId === "kiro") {
     return "kiro";
+  }
+  if (displayProviderId === "opencode") {
+    return "opencode";
   }
   return "accent";
 }

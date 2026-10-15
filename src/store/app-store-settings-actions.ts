@@ -683,7 +683,7 @@ export function createSettingsActions(args: {
           get().refreshRateLimits({ providers: [...providers] }),
         );
       }
-      if (normalizedPatch.claudeBinaryPath !== undefined || normalizedPatch.codexBinaryPath !== undefined || normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined) {
+      if (normalizedPatch.claudeBinaryPath !== undefined || normalizedPatch.codexBinaryPath !== undefined || normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined || normalizedPatch.opencodeBinaryPath !== undefined) {
         set(providerToolingStatePatch(get()));
         void get().refreshProviderAvailability();
       }

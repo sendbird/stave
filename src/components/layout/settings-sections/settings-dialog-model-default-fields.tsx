@@ -12,6 +12,7 @@ import {
   CLAUDE_EFFORT_OPTIONS,
   CURSOR_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
+  OPENCODE_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import {
@@ -160,11 +161,12 @@ export function CodexEffortSelect() {
 }
 
 /**
- * Cursor and Kiro (ACP runtimes) report their model catalog only once a
- * session connects, so their default model is a free-form identifier.
+ * Cursor, Kiro and OpenCode (ACP runtimes) report their model catalog only
+ * from the connected CLI, so their default model is a free-form identifier.
  */
 const CURSOR_DEFAULT_KEYS = ["modelCursor", "cursorEffort"] as const;
 const KIRO_DEFAULT_KEYS = ["modelKiro", "kiroEffort"] as const;
+const OPENCODE_DEFAULT_KEYS = ["modelOpenCode", "opencodeEffort"] as const;
 
 export function AcpDefaultModelRows() {
   const { t } = useTranslation(I18N_NAMESPACES);
@@ -172,6 +174,8 @@ export function AcpDefaultModelRows() {
   const cursorEffort = useScopedSetting("cursorEffort").value;
   const modelKiro = useScopedSetting("modelKiro").value;
   const kiroEffort = useScopedSetting("kiroEffort").value;
+  const modelOpenCode = useScopedSetting("modelOpenCode").value;
+  const opencodeEffort = useScopedSetting("opencodeEffort").value;
   const { write } = useScopedSettingsWriter();
 
   return (
@@ -228,6 +232,34 @@ export function AcpDefaultModelRows() {
               options={KIRO_EFFORT_OPTIONS}
               ariaLabel={t("settingsProviders:kiroSection.defaultEffort.ariaLabel")}
               onChange={(value) => write({ kiroEffort: value })}
+            />
+          }
+        />
+      </LabeledField>
+      <LabeledField
+        title="OpenCode"
+        description={t("settingsProviders:opencodeSection.defaultModel.description")}
+        guide={<ScopedFieldStatus keys={OPENCODE_DEFAULT_KEYS} label="OpenCode" />}
+      >
+        <ModelEffortRow
+          model={
+            <DraftInput
+              xstyle={styles.modelIdInput}
+              value={modelOpenCode}
+              aria-label={t("settingsProviders:opencodeSection.defaultModel.ariaLabel")}
+              // i18n-ignore: literal runtime model identifier
+              placeholder="auto"
+              onCommit={(value) =>
+                write({ modelOpenCode: value.trim() || "auto" })
+              }
+            />
+          }
+          effort={
+            <EffortSelect
+              value={opencodeEffort}
+              options={OPENCODE_EFFORT_OPTIONS}
+              ariaLabel={t("settingsProviders:opencodeSection.defaultEffort.ariaLabel")}
+              onChange={(value) => write({ opencodeEffort: value })}
             />
           }
         />

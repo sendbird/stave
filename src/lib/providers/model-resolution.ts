@@ -7,6 +7,7 @@ const ModelResolutionProviderIdSchema = z.union([
   z.literal("codex"),
   z.literal("cursor"),
   z.literal("kiro"),
+  z.literal("opencode"),
 ]);
 
 /**

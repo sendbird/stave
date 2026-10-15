@@ -49,6 +49,7 @@ const KNOWN_PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
   "codex",
   "cursor",
   "kiro",
+  "opencode",
 ]);
 
 function isProviderId(value: string): value is ProviderId {

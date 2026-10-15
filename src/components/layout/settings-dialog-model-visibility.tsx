@@ -237,6 +237,7 @@ export function SettingsModelVisibilitySection() {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    opencodeBinaryPath,
     workspaceCwd,
   ] = useAppStore(
     useShallow(
@@ -246,6 +247,7 @@ export function SettingsModelVisibilitySection() {
           state.settings.codexBinaryPath,
           state.settings.cursorBinaryPath,
           state.settings.kiroBinaryPath,
+          state.settings.opencodeBinaryPath,
           state.workspacePathById[state.activeWorkspaceId] ??
             state.repositoryPath ??
             undefined,
@@ -261,8 +263,9 @@ export function SettingsModelVisibilitySection() {
       ...(codexBinaryPath ? { codexBinaryPath } : {}),
       ...(cursorBinaryPath ? { cursorBinaryPath } : {}),
       ...(kiroBinaryPath ? { kiroBinaryPath } : {}),
+      ...(opencodeBinaryPath ? { opencodeBinaryPath } : {}),
     }),
-    [codexBinaryPath, cursorBinaryPath, kiroBinaryPath],
+    [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath],
   );
   const modelCatalogs = useProviderModelCatalogs({
     enabled: true,
