@@ -3,6 +3,7 @@ import type { StyleXValue } from "../ads/utils/stylex";
 import type { ComponentType, ReactNode } from "react";
 import type { Button as BaseButton } from "@base-ui/react/button";
 import { Button as AdsButton, type ButtonBaseProps } from "../ads/components/Button";
+import type { ButtonPress } from "../ads/components/Button.types";
 import { buttonVariantStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../ads/components/Button.config";
 import { styles } from "../ads/components/Button.styles";
 import { buttonToneVariantStyles } from "../ads/components/Button.tone-styles";
@@ -31,6 +32,8 @@ type Options = {
    * from every consumer that imports `Button` from `@/components/ui`.
    */
   indicator?: ReactNode;
+  /** Forwarded to ADS `Button press`; `none` for a row that is not an action. */
+  press?: ButtonPress;
   variant?: keyof typeof variants | null;
   size?: keyof typeof sizes | null;
   /**
