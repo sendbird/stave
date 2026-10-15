@@ -58,8 +58,10 @@ export const AGENT_RUN_LIMITS = Object.freeze({
     command: 1_000,
     artifacts: 10,
     artifactLabel: 160,
-    criteria: 10,
-    criterionText: 300,
+    // A last stage restates the criteria it inherits as well as its own (up
+    // to 20 per stage), and a criterion's text can be a stage's Done when.
+    criteria: 40,
+    criterionText: 500,
     missing: 600,
     suggestedAction: 300,
   },
