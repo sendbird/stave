@@ -4,6 +4,7 @@ import { exportAgentFile } from "@/lib/agents/export";
 import { REVIEW_AGENT_ID, resolveReviewBeforeDone } from "@/lib/agents/review-before-done";
 import { buildAgentRunWorkflow } from "@/lib/agent-runs/agent-run";
 import { buildDelegatedAgentRunInput } from "@/lib/agent-runs/delegated-run";
+import { agentCallableIds } from "@/lib/agents/delegate";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { WorkflowSchema } from "@/lib/workflows/schema";
 
@@ -48,6 +49,22 @@ describe("review before done", () => {
         permissionPolicy: { providerId: "claude-code", profile: "auto", source: "agent" } },
     } as never });
     expect(helper.workflow.stages.map((stage) => stage.id)).toEqual(["work"]);
+  });
+
+  test("an agent whose runs end with a review may call the Reviewer even when its Can call list leaves it out", () => {
+    expect(agentCallableIds({ ...implementer(), canCall: [] })).toEqual([REVIEW_AGENT_ID]);
+    expect(agentCallableIds({ ...implementer(), canCall: [], reviewBeforeDone: "off" })).toEqual([]);
+    expect(agentCallableIds({ ...implementer(), canCall: [], permission: "read-only" })).toEqual([]);
+    expect(agentCallableIds({ ...implementer(), canCall: undefined })).toBeNull();
+  });
+
+  test("Run again of a one-stage run stays one stage; the review it ran is carried in its stages", () => {
+    // What Run again passes for a run that was one Work stage (`useAgentRunActions.ts`).
+    const again = buildAgentRunWorkflow({ agent: { name: "Implementer", permission: "manual", reviewBeforeDone: "off" }, now });
+    expect(again.stages.map((stage) => stage.id)).toEqual(["work"]);
+    const composed = buildAgentRunWorkflow({ agent: implementer(), now });
+    const rerun = buildAgentRunWorkflow({ agent: { name: "Implementer", permission: "auto", workflow: composed.stages }, now });
+    expect(rerun.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
   });
 
   test("an exported agent file lists a set review choice among the fields left out", () => {

@@ -91,6 +91,8 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 tools: { maxTurns: agentRun.maxTurns },
                 // The new run keeps the permission the last run recorded.
                 permission: agentRun.consent.permissionMode === "auto" ? "auto" : "manual",
+                // A run that was one Work stage stays one: review stages it ran are in `stages`.
+                ...(single ? { reviewBeforeDone: "off" as const } : {}),
               },
               assignment: agentRun.assignment,
               doneWhen,

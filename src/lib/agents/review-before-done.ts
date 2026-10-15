@@ -35,7 +35,7 @@ export function offersReviewBeforeDone(agent: Partial<Pick<AgentConfig, "permiss
 }
 
 // Model-facing stage text; the stage titles are localized for display by `stage-display.ts`.
-const COMMIT_FOR_REVIEW = "When the change is verified, commit it before you report the stage: a Reviewer reviews that commit next.";
+const COMMIT_FOR_REVIEW = "When the change is verified, commit it before you report the stage, and name in your report the commit the work started from: a Reviewer reviews every commit since then next.";
 
 /** The two stages that follow the work stage. */
 export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowStage[] {
@@ -47,9 +47,9 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
       agentConfigId: REVIEW_AGENT_ID,
       pinCommit: true,
       instruction: [
-        "Review the commit the previous stage made against the assignment, without changing any file.",
+        "Review every commit the previous stage made, from the commit it started from (its report names it) to the pinned commit, against the assignment, without changing any file.",
         mode === "behavior-changes"
-          ? "If the commit changes only wording, formatting or comments, say so and report the review complete with no findings."
+          ? "If those commits change only wording, formatting or comments, say so and report the review complete with no findings."
           : "",
         "For each defect give the file, the line, the reason and a failure scenario.",
       ].filter(Boolean).join(" "),

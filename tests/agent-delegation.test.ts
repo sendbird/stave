@@ -245,8 +245,8 @@ describe("can call", () => {
   });
 
   test("an agent may call the agent its own workflow names for a stage, and no other", () => {
-    // An agent that lists nobody under Can call.
-    const implementer = { ...getBuiltinAgent("implementer")!, canCall: [] };
+    // An agent that lists nobody under Can call, and whose runs end without a review.
+    const implementer = { ...getBuiltinAgent("implementer")!, canCall: [], reviewBeforeDone: "off" as const };
     const reviewStage = { id: "review", title: "Review", kind: "ai" as const, instruction: "Review the commit.", doneWhen: "No defect remains.", agentConfigId: reviewer.id, pinCommit: true };
     const withReview = { ...implementer, workflow: [{ id: "work", title: "Implement", kind: "ai" as const, instruction: "Implement.", doneWhen: "Done." }, reviewStage] };
     expect(agentCallableIds(implementer)).toEqual([]);
