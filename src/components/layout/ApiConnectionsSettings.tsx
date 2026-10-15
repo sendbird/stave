@@ -1,6 +1,6 @@
 import { formatList } from "@/i18n/format";
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
@@ -14,7 +14,8 @@ import {
   type ApiConnectionModel,
 } from "@/lib/providers/api-connections";
 import { API_CONNECTIONS_FIELD_ID, STAVE_API_CONNECTIONS_GUIDE_URL, apiConnectionFieldId, apiConnectionIdFromFocus } from "@/lib/providers/accounts-guide";
-import { openComposerModelSelector, useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
+import { clearSettingsFocus, openComposerModelSelector, useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
+import { focusSettingsElement } from "./settings-focus";
 import { describeApiConnectionCheck } from "@/lib/providers/api-connection-failure";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
 import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
@@ -50,13 +51,21 @@ function ConnectionRow(props: {
   const keyName = props.secrets.find((secret) => secret.id === connection.secretId)?.name;
   const servesClaude = Boolean(connection.endpoints["claude-code"]);
   const startEditing = () => { setLabel(connection.label); setSecretId(connection.secretId); setModels(connection.models); setEditing(true); };
-  // "Edit models" in the composer's model selector opens this row's edit form.
+  // "Edit models" in the composer's model selector opens this row's edit form,
+  // whenever the row mounts: the list can answer after Settings opened.
+  const rowRef = useRef<HTMLDivElement>(null);
   const editRequest = useSettingsFocusRequest((state) => (apiConnectionIdFromFocus(state.focus) === connection.id ? state.nonce : null));
   useEffect(() => {
-    if (editRequest !== null) startEditing();
+    if (editRequest === null) return;
+    startEditing();
+    const frame = window.requestAnimationFrame(() => {
+      if (rowRef.current) focusSettingsElement(rowRef.current);
+      clearSettingsFocus(editRequest);
+    });
+    return () => window.cancelAnimationFrame(frame);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequest]);
-  return <div id={apiConnectionFieldId(connection.id)} tabIndex={-1} data-focus-first-control="" className={sx(styles.connection)}>
+  return <div ref={rowRef} id={apiConnectionFieldId(connection.id)} tabIndex={-1} data-focus-first-control="" className={sx(styles.connection)}>
     <div className={sx(styles.heading)}>
       <span className={sx(styles.name)}>{connection.label}</span>
       <span className={sx(styles.meta)}>
@@ -163,12 +172,26 @@ export function ApiConnectionsSettings() {
   const [secrets, setSecrets] = useState<SecretOption[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The list answered once, so a connection deep link can tell "absent" from "not loaded yet". */
+  const [loaded, setLoaded] = useState(false);
   const refresh = useCallback(async () => {
-    const result = await window.api?.apiConnections?.list();
-    if (!result) return;
-    if (result.ok) setConnections(result.connections);
-    else setError(result.message);
+    try {
+      const result = await window.api?.apiConnections?.list();
+      if (!result) return;
+      if (result.ok) setConnections(result.connections);
+      else setError(result.message);
+    } finally {
+      setLoaded(true);
+    }
   }, []);
+  // A connection deep link waits for the list; once it answered without that
+  // connection, the request is dropped and the section stays where it is.
+  const focusRequest = useSettingsFocusRequest((state) => (apiConnectionIdFromFocus(state.focus) ? state : null));
+  const focusConnectionId = apiConnectionIdFromFocus(focusRequest?.focus);
+  useEffect(() => {
+    if (!loaded || !focusRequest || !focusConnectionId) return;
+    if (!connections.some((connection) => connection.id === focusConnectionId)) clearSettingsFocus(focusRequest.nonce);
+  }, [connections, focusConnectionId, focusRequest, loaded]);
   const refreshSecrets = useCallback(async () => {
     try {
       const result = await window.api?.secrets?.list?.();

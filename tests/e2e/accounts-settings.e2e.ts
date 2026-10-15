@@ -459,3 +459,61 @@ test("Use in Codex waits for Codex to come back after the account switch, then o
   await expect(selector.getByRole("tab", { name: /^Codex, / })).toHaveAttribute("aria-selected", "true", { timeout: 10_000 });
   await expect(selector.getByText("Company gateway · API billing")).toBeVisible();
 });
+
+test("a connection deep link waits for a slow connection list, then opens the edit form", async ({ page }) => {
+  await seedAccounts(page, { themeMode: "light", ...READY, connectionListDelayMs: 2500 });
+  await page.setViewportSize({ width: 1440, height: 1200 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible({ timeout: 20_000 });
+  await page.evaluate((id) => window.dispatchEvent(new CustomEvent("stave:open-settings", { detail: { section: "accounts", focus: `api-connection:${id}` } })), CONNECTION_ID);
+  const row = page.getByRole("dialog", { name: "Settings" }).locator(`#settings-field-api-connection-${CONNECTION_ID}`);
+  await expect(row.getByRole("button", { name: "Save changes" })).toBeVisible({ timeout: 10_000 });
+  await expect(row.getByLabel("Name")).toBeFocused();
+});
+
+test("a rejected check in the new connection's next step shows a fixed sentence", async ({ page }) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+  await seedAccounts(page, { themeMode: "light", ...READY, withConnection: false, allowConnectionCreate: true, checkRejects: true });
+  await page.setViewportSize({ width: 1440, height: 2400 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible({ timeout: 20_000 });
+  const settings = await openSettingsSection(page, "Accounts");
+  const form = settings.locator("#settings-field-api-connection-new");
+  await form.getByRole("combobox", { name: "API key from Secrets" }).click();
+  await page.getByRole("option", { name: "Vercel AI Gateway" }).click();
+  await form.getByLabel("Name", { exact: true }).fill("Company gateway");
+  await form.getByRole("list", { name: "Models you can pin" }).getByRole("button", { name: "Pin" }).first().click();
+  await form.getByRole("button", { name: "Add connection" }).click();
+  const next = settings.getByTestId("api-connection-next-step");
+  await next.getByRole("button", { name: "Check connection" }).click();
+  await expect(next.getByRole("alert")).toHaveText("The check could not run. Try again; if it keeps failing, restart Stave.");
+  await expect(next).not.toContainText("fixture bridge rejected");
+  await expect(next.getByRole("button", { name: "Check connection" })).toBeEnabled();
+  expect(pageErrors.filter((message) => message.includes("fixture bridge"))).toEqual([]);
+});
+
+for (const failure of ["fail", "throw"] as const) {
+  test(`a pasted key whose save ${failure === "fail" ? "is refused" : "rejects"} shows why and keeps the value only in the field`, async ({ page }) => {
+    await seedAccounts(page, { themeMode: "light", ...READY, secretUpsert: failure });
+    await page.setViewportSize({ width: 1440, height: 2400 });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible({ timeout: 20_000 });
+    const settings = await openSettingsSection(page, "Accounts");
+    const form = settings.locator("#settings-field-api-connection-new");
+    await form.getByRole("button", { name: "Paste a new key" }).click();
+    const value = form.getByLabel("Key", { exact: true });
+    await value.fill("fixture-gateway-key-value");
+    await form.getByRole("button", { name: "Save key" }).click();
+    const alert = form.getByRole("alert");
+    await expect(alert).toHaveText(failure === "fail" ? 'A secret named "Vercel AI Gateway 2" already exists.' : "The key could not be saved.");
+    await expect(alert).not.toContainText("fixture-gateway-key-value");
+    await expect(alert).not.toContainText("fixture bridge");
+    // The value stays in the field for another try, and nothing was selected.
+    await expect(value).toHaveValue("fixture-gateway-key-value");
+    await expect(form.getByRole("combobox", { name: "API key from Secrets" })).toContainText("Choose the key from Secrets");
+    // Cancel removes the field; the value is not left anywhere on the page.
+    await form.getByRole("button", { name: "Cancel" }).click();
+    expect(await page.content()).not.toContain("fixture-gateway-key-value");
+  });
+}

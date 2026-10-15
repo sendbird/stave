@@ -61,14 +61,26 @@ function ApiConnectionNewKeyForm(props: {
     if (!value || !name.trim()) return;
     setSaving(true);
     setError(null);
+    // On a failed save the value stays in the field so the person can fix the
+    // name and save again; it is never put in the error. Main's own answer
+    // (ok: false) names the problem; a rejected call gets a fixed sentence.
+    let result: Awaited<ReturnType<typeof upsert>>;
     try {
-      const result = await upsert({ name: name.trim(), description: t("settingsConnections:apiConnectionForm.newKey.secretDescription"), envVarName: "", value });
-      if (!result.ok || !result.secret) throw new Error(result.message || t("settingsConnections:apiConnectionForm.newKey.failed"));
-      field.value = "";
-      setHasValue(false);
+      result = await upsert({ name: name.trim(), description: t("settingsConnections:apiConnectionForm.newKey.secretDescription"), envVarName: "", value });
+    } catch {
+      setError(t("settingsConnections:apiConnectionForm.newKey.failed"));
+      setSaving(false);
+      return;
+    }
+    if (!result.ok || !result.secret) {
+      setError(result.message || t("settingsConnections:apiConnectionForm.newKey.failed"));
+      setSaving(false);
+      return;
+    }
+    field.value = "";
+    setHasValue(false);
+    try {
       await props.onCreated(result.secret.id);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : t("settingsConnections:apiConnectionForm.newKey.failed"));
     } finally {
       setSaving(false);
     }

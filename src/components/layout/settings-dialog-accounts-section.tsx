@@ -6,7 +6,8 @@ import { Button } from "@/components/ads/components/Button";
 import { toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, cliProviderFieldId } from "@/lib/providers/accounts-guide";
+import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, apiConnectionIdFromFocus, cliProviderFieldId } from "@/lib/providers/accounts-guide";
+import { focusSettingsElement } from "./settings-focus";
 import {
   clearSettingsFocus,
   openToolingSettings,
@@ -26,28 +27,20 @@ import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { accountsSectionStyles as styles } from "./settings-dialog-accounts-section.styles";
 
-/** About one second of frames: long enough for the connection list to load. */
+/** About one second of frames, for targets that mount after the section. */
 const FOCUS_ATTEMPT_FRAMES = 60;
 
 /**
- * Lands a deep link: scrolls the target into view and focuses it, or its first
- * control when the target is a form (`data-focus-first-control`). Targets that
- * load asynchronously (an API connection row) get a few frames to appear; an
- * unknown target leaves the section at its top.
+ * Lands a deep link inside the section. Targets that render a little late get
+ * a few frames to appear; an unknown target leaves the section at its top.
+ * An API connection's row is not handled here: it exists only once the
+ * connection list answered, so `ApiConnectionsSettings` owns that request.
  */
-export function focusSettingsElement(element: HTMLElement) {
-  element.scrollIntoView({ block: "start", behavior: "auto" });
-  const control = element.hasAttribute("data-focus-first-control")
-    ? element.querySelector<HTMLElement>("input:not([disabled]), textarea:not([disabled]), button:not([disabled])")
-    : null;
-  (control ?? element).focus({ preventScroll: true });
-}
-
 function useAccountsFocusTarget() {
   const focus = useSettingsFocusRequest((state) => state.focus);
   const nonce = useSettingsFocusRequest((state) => state.nonce);
   useEffect(() => {
-    if (!focus) return;
+    if (!focus || apiConnectionIdFromFocus(focus)) return;
     const elementId = accountsFocusElementId(focus);
     if (!elementId) {
       clearSettingsFocus(nonce);
