@@ -1,11 +1,23 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildPendingProviderTurnState,
+  buildOutgoingUserMessage,
   buildSteeredUserMessageState,
   resolveActiveTurnProviderId,
   resolveMidTurnSteeringContext,
 } from "@/store/chat-state-helpers";
 import type { ChatMessage, Task } from "@/types/chat";
+import { ChatMessageSchema } from "@/lib/task-context/schemas";
+
+describe("outgoing message timestamps", () => {
+  test("records the send time and preserves it through the persisted message schema", () => {
+    const before = Date.now();
+    const message = buildOutgoingUserMessage({ id: "sent-message", content: "hello" });
+    expect(Date.parse(message.startedAt!)).toBeGreaterThanOrEqual(before);
+    expect(Date.parse(message.startedAt!)).toBeLessThanOrEqual(Date.now());
+    expect(ChatMessageSchema.parse(message).startedAt).toBe(message.startedAt);
+  });
+});
 
 function task(id: string): Task {
   return {
@@ -156,6 +168,7 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     });
 
     const appended = (next.messagesByTask[taskId] ?? []).slice(-2);
+    expect(Number.isFinite(Date.parse(appended[0]!.startedAt!))).toBe(true);
     // Pre-fix scheme used window length (2) -> m-3/m-4, colliding with the real
     // on-disk m-3/m-4 (silently overwritten by the additive upsert).
     expect(appended.map((m) => m.id)).toEqual([
@@ -350,6 +363,7 @@ describe("buildSteeredUserMessageState", () => {
     });
     expect(messages[2]).toMatchObject({
       id: "client-steer-1",
+      startedAt: messages[1]!.completedAt,
       content: "Also update the tests",
       steeredIntoTurnId: "turn-1",
       steerDeliveryState: "accepted",

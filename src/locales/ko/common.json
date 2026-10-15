@@ -1,4 +1,10 @@
 {
+  "activityTimestamp": {
+    "updated": "마지막 수정 {{time}}",
+    "sent": "전송 {{time}}",
+    "started": "응답 시작 {{time}}",
+    "completed": "응답 {{time}}"
+  },
   "actions": {
     "add": "추가",
     "apply": "적용",

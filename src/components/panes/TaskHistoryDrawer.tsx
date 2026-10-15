@@ -27,6 +27,7 @@ import {
 } from "@/lib/tasks";
 import type { Task } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
+import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
 
 const EMPTY_TASKS: Task[] = [];
 
@@ -208,9 +209,12 @@ export function TaskHistoryDrawer(args: {
                     providerId={task.provider}
                     className={sx(styles.icon)}
                   />
-                  <span className={sx(styles.title)}>
-                    {task.title}
-                  </span>
+                  <div className={sx(styles.details)}>
+                    <span className={sx(styles.title)} title={task.title}>
+                      {task.title}
+                    </span>
+                    <ActivityTimestamp value={task.updatedAt} kind="updated" />
+                  </div>
                   {isTaskArchived(task) ? (
                     <span className={sx(styles.badge)}>
                       {i18n.t("panes:taskHistoryDrawer.archived")}
@@ -248,7 +252,8 @@ empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars["--ad
 list: {display:"flex",flexDirection:"column",gap:8},
 row: {display:"flex",alignItems:"center",gap:12,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],backgroundColor:vars["--ads-color-canvas"],padding:12},
 icon: {width:16,height:16,flexShrink:0,color:vars["--ads-color-text-muted"]},
-title: {minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-body"],fontWeight:500},
+details: {minWidth:0,flex:1,display:"flex",flexDirection:"column",gap:vars["--ads-space-4"]},
+title: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-body"],fontWeight:500},
 badge: {flexShrink:0,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],paddingInline:6,paddingBlock:2,fontSize: vars["--ads-font-size-micro"],color:vars["--ads-color-text-muted"]},
 action: {height:32,flexShrink:0},
 footer: {borderTopWidth:1,borderTopStyle:"solid",borderTopColor:vars["--ads-color-border"],paddingInline:20,paddingBlock:16}

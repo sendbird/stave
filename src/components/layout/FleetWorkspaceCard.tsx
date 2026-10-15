@@ -54,6 +54,7 @@ import {
 import { PR_STATUS_VISUAL, type WorkspacePrStatus } from "@/lib/pr-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
+import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
 import {
   resolveWorkspaceTodoStatus,
   type WorkspaceTodoItem,
@@ -628,7 +629,10 @@ export function FleetWorkspaceCard(args: {
                     }
                   >
                     <FleetProviderIcon provider={row.task.provider} />
-                    <span className={sx(styles.taskTitle)}>{taskTitle}</span>
+                    <span className={sx(styles.taskDetails)}>
+                      <span className={sx(styles.taskTitle)}>{taskTitle}</span>
+                      <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
+                    </span>
                     {taskAgent ? (
                       <Badge xstyle={styles.chip} title={tI18n("fleet:fleetWorkspaceCard.runsAsTheValueAgent", { value1: taskAgent.agentName })}>
                         <AgentAvatar
