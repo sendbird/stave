@@ -18,14 +18,17 @@ import {
   agentInitials,
   derivedAgentColor,
 } from "@/lib/agents/agent-appearance";
+import { AGENT_ICONS, agentIconLabel, getAgentIcon, matchAgentIcons } from "@/lib/agents/agent-icons";
+import { i18n } from "@/i18n/runtime";
 import { findAgentReferences, agentIsDeletable } from "@/lib/agents/agent-references";
 import {
   blankCustomAgent,
   duplicateAgent,
+  normalizeCustomAgents,
   removeCustomAgent,
   upsertCustomAgent,
 } from "@/lib/agents/library";
-import { AgentConfigSchema, AGENT_COLORS, type AgentConfig } from "@/lib/agents/schema";
+import { AgentConfigSchema, AGENT_COLORS, AGENT_ICON_ID_PATTERN, type AgentConfig } from "@/lib/agents/schema";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { AgentEditor } from "@/components/agents/AgentEditor";
 
@@ -66,6 +69,79 @@ describe("agent appearance", () => {
     expect(agentInitials("Reviewer")).toBe("RE");
     expect(agentInitials("   ")).toBe("?");
   });
+});
+
+describe("agent avatar icon", () => {
+  test("an icon is optional; any well-formed id is kept, so a dropped catalog icon never rejects the agent", () => {
+    expect(AgentConfigSchema.parse(custom({ appearance: { icon: "hammer" } })).appearance?.icon).toBe("hammer");
+    expect(AgentConfigSchema.parse(custom({ appearance: { color: "red", icon: "retired-glyph" } })).appearance).toEqual({
+      color: "red",
+      icon: "retired-glyph",
+    });
+    const saved = normalizeCustomAgents([custom({ appearance: { icon: "retired-glyph" } }), custom({ id: "plain", name: "Plain" })]);
+    expect(saved.rejected).toEqual([]);
+    expect(saved.agents.map((agent) => agent.id)).toEqual(["ui-maintainer", "plain"]);
+    for (const icon of ["Hammer", "hammer icon", "x".repeat(41), ""]) {
+      expect(AgentConfigSchema.safeParse({ ...custom(), appearance: { icon } }).success).toBe(false);
+    }
+  });
+
+  test("the catalog has unique, well-formed ids, each with a glyph and an en/ko label", async () => {
+    expect(AGENT_ICONS.length).toBeGreaterThanOrEqual(24);
+    expect(AGENT_ICONS.length).toBeLessThanOrEqual(32);
+    expect(new Set(AGENT_ICONS.map((entry) => entry.id)).size).toBe(AGENT_ICONS.length);
+    const original = i18n.language;
+    try {
+      for (const language of ["en", "ko"]) {
+        await i18n.changeLanguage(language);
+        const labels = AGENT_ICONS.map((entry) => agentIconLabel(entry));
+        for (const [index, entry] of AGENT_ICONS.entries()) {
+          expect(entry.id).toMatch(AGENT_ICON_ID_PATTERN);
+          expect(entry.icon).toBeTruthy();
+          expect(labels[index]).not.toContain("agentIcons.");
+        }
+        expect(new Set(labels).size).toBe(labels.length);
+      }
+    } finally {
+      await i18n.changeLanguage(original);
+    }
+  });
+
+  test("search matches the label in the display language and the id", async () => {
+    expect(matchAgentIcons("").length).toBe(AGENT_ICONS.length);
+    expect(matchAgentIcons("rocket").map((entry) => entry.id)).toEqual(["rocket"]);
+    expect(matchAgentIcons("pull").map((entry) => entry.id)).toEqual(["git-pull-request"]);
+    expect(matchAgentIcons("zzz")).toEqual([]);
+    const original = i18n.language;
+    try {
+      await i18n.changeLanguage("ko");
+      expect(matchAgentIcons("망원경").map((entry) => entry.id)).toEqual(["telescope"]);
+      // Ids are English words, so an English search still works in Korean.
+      expect(matchAgentIcons("telescope").map((entry) => entry.id)).toEqual(["telescope"]);
+    } finally {
+      await i18n.changeLanguage(original);
+    }
+  });
+
+  test("a catalog icon replaces the initials; no icon or an unknown one shows the initials", () => {
+    const render = (appearance: AgentConfig["appearance"], size: "xs" | "sm" | "md" | "lg" = "sm") =>
+      renderToStaticMarkup(createElement(AgentAvatar, { agent: custom({ appearance }), size }));
+    for (const size of ["xs", "sm", "md", "lg"] as const) {
+      const html = render({ color: "green", icon: "hammer" }, size);
+      expect(html).toContain("<svg");
+      expect(html).toContain("lucide-hammer");
+      expect(html).not.toContain(">UM<");
+      expect(html).toContain('aria-label="UI Maintainer"');
+    }
+    for (const appearance of [undefined, { color: "green" as const }, { color: "green" as const, icon: "retired-glyph" }]) {
+      const html = render(appearance);
+      expect(html).not.toContain("<svg");
+      expect(html).toContain(">UM<");
+    }
+    expect(getAgentIcon("retired-glyph")).toBeNull();
+    expect(getAgentIcon(undefined)).toBeNull();
+  });
+
 });
 
 describe("agent avatar", () => {

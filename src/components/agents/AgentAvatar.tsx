@@ -5,6 +5,7 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../ads/utils/stylex";
 import { agentAvatarTone, agentColor, agentInitials } from "@/lib/agents/agent-appearance";
+import { getAgentIcon } from "@/lib/agents/agent-icons";
 import type { AgentConfig } from "@/lib/agents/schema";
 import { getProviderIconUrl } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -18,6 +19,11 @@ import { useAgentAvatarPalette } from "./use-agent-avatar-palette";
  * theme's own ink falls short. People and models stay round; only agents are
  * squared. The tint reaches the element through custom properties so no new
  * colour token is added.
+ *
+ * The face is the agent's chosen icon (`appearance.icon`) when the catalog in
+ * `agent-icons.ts` knows it, and its initials otherwise, so an agent with no
+ * icon, or one the catalog no longer carries, keeps the face it had. The icon
+ * is painted with the same ink as the initials.
  *
  * `providerId` adds a 10px provider mark at the bottom-left, for places that
  * show an agent together with the provider it runs on.
@@ -56,6 +62,7 @@ export function AgentAvatar({
   const palette = useAgentAvatarPalette();
   const tone = palette?.[agentColor(agent)] ?? agentAvatarTone(agent);
   const providerIcon = providerId ? getProviderIconUrl({ providerId }) : null;
+  const Icon = getAgentIcon(agent.appearance?.icon)?.icon ?? null;
   return (
     <span
       className={cx(sx(styles.root, sizeStyles[size], xstyle), className)}
@@ -64,9 +71,13 @@ export function AgentAvatar({
       aria-hidden={decorative || undefined}
       style={{ "--agent-avatar-fill": tone.fill, "--agent-avatar-ink": tone.ink } as React.CSSProperties}
     >
-      <span aria-hidden className={sx(styles.initials)}>
-        {agentInitials(getAgentDisplayName(agent))}
-      </span>
+      {Icon ? (
+        <Icon aria-hidden className={sx(styles.icon, iconSizeStyles[size])} strokeWidth={ICON_STROKE_WIDTH[size]} />
+      ) : (
+        <span aria-hidden className={sx(styles.initials)}>
+          {agentInitials(getAgentDisplayName(agent))}
+        </span>
+      )}
       {providerIcon ? (
         <span aria-hidden className={sx(styles.provider)}>
           <img src={providerIcon} alt="" className={sx(styles.providerMark)} />
@@ -101,6 +112,7 @@ const styles = stylex.create({
     textTransform: "uppercase",
   },
   initials: { display: "block" },
+  icon: { display: "block", flexShrink: 0 },
   status: {
     position: "absolute",
     right: 0,
@@ -132,6 +144,25 @@ const sizeStyles = stylex.create({
   md: { width: 40, height: 40, borderRadius: 11, fontSize: vars["--ads-font-size-body"] },
   lg: { width: 56, height: 56, borderRadius: 15, fontSize: vars["--ads-font-size-lead"] },
 });
+
+/**
+ * Each icon takes a little over half its square (12 / 16 / 22 / 30 px), the
+ * share at which lucide's 24px grid, with its own 2px inset, reads as filling
+ * the face about as much as two initials do.
+ */
+const iconSizeStyles = stylex.create({
+  xs: { width: 12, height: 12 },
+  sm: { width: 16, height: 16 },
+  md: { width: 22, height: 22 },
+  lg: { width: 30, height: 30 },
+});
+
+/**
+ * Stroke in lucide's 24px units, chosen per size so the drawn line lands near
+ * 1.1-1.9px: the default 2 would print a 1px hairline at 12px and a heavy 2.5px
+ * line at 30px.
+ */
+const ICON_STROKE_WIDTH: Readonly<Record<AgentAvatarSize, number>> = { xs: 2.25, sm: 2, md: 1.75, lg: 1.5 };
 
 const statusSizeStyles = stylex.create({
   xs: { width: 7, height: 7 },
