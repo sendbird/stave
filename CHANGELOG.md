@@ -1,3 +1,24 @@
+## [0.27.1](https://github.com/sendbird/stave/compare/v0.27.0...v0.27.1) (2026-10-15)
+
+This patch release improves Agent run reliability and review, adds account setup and agent customization, and fixes provider networking and large-response handling.
+
+### Features and Fixes
+
+- Agent runs use shared turn and helper limits, retry transient provider failures, explain delegated work more clearly, and can review code changes before finishing.
+- Settings adds an Accounts area with provider setup guidance, API connection checks, and shortcuts to resolve sign-in or account issues.
+- Agents can use searchable icons and built-in appearances; assignment lists and run plans show clearer progress.
+- Claude sessions no longer inherit plan-tool flags from the launching shell. Codex and ACP can handle larger responses, and main-process HTTPS requests can use OS certificate authorities.
+- Task history and conversations show saved local dates and times for tasks and messages.
+- Agent Runs now explain verified workspace checks more clearly and preserve unmet review criteria for the next stage; the Route activity line is aligned with neighboring activity rows.
+
+### Known Limits
+
+- Live account switching, provider failure recovery, the new review workflow, and a packaged desktop upgrade were not exercised end to end during this release preparation. PR-level tests include real Codex Agent runs, focused Electron coverage, and rendered UI checks.
+
+### References
+
+- [PR #754](https://github.com/sendbird/stave/pull/754), [PR #755](https://github.com/sendbird/stave/pull/755), [PR #756](https://github.com/sendbird/stave/pull/756), [PR #757](https://github.com/sendbird/stave/pull/757), [PR #758](https://github.com/sendbird/stave/pull/758), [PR #759](https://github.com/sendbird/stave/pull/759), [PR #760](https://github.com/sendbird/stave/pull/760), [PR #761](https://github.com/sendbird/stave/pull/761), [PR #762](https://github.com/sendbird/stave/pull/762), [PR #763](https://github.com/sendbird/stave/pull/763), [PR #764](https://github.com/sendbird/stave/pull/764), [PR #765](https://github.com/sendbird/stave/pull/765), [PR #766](https://github.com/sendbird/stave/pull/766)
+
 ## [0.27.0](https://github.com/sendbird/stave/compare/v0.26.5...v0.27.0) (2026-10-15)
 
 This minor release adds OpenCode as a fifth provider, lets Agent Runs keep going through usage limits, turn caps and waits, requires a host-verified check before a write run completes, and adds Vercel AI Gateway routing with cache-aware model changes.
