@@ -1,4 +1,7 @@
 {
+  "workspaceCheck": {
+    "criterion": "워크스페이스 검사 통과"
+  },
   "limit": {
     "reached": "한도 도달",
     "extend": "연장 (+10턴)",

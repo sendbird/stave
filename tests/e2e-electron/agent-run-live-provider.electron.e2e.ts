@@ -75,12 +75,13 @@ async function runLiveAgentRun(args: {
   expectedAppliedOptions: Record<string, unknown>;
   extendAtLimit?: boolean;
   persistentQuestion?: boolean;
+  workspaceCheck?: boolean;
 }) {
   const { providerId, testInfo } = args;
   const directory = await mkdtemp(path.join(tmpdir(), `stave-agent-run-live-${providerId}-`));
   const repositoryPath = await seedTemporaryRepository(directory);
   const stave = await launchStave({ env: args.persistentQuestion ? { STAVE_CLAUDE_APPROVAL_TIMEOUT_MS: "20000", STAVE_CODEX_APPROVAL_TIMEOUT_MS: "20000" } : {} });
-  const goal = args.persistentQuestion ? QUESTION_GOAL : GOAL;
+  const goal = args.workspaceCheck ? "Make the workspace check pass: it requires OK.txt containing `ok`. Run the workspace check with your Stave tool before reporting. Do not commit." : args.persistentQuestion ? QUESTION_GOAL : GOAL;
   const evidence: Record<string, unknown> = { providerId, goal, path: "kickoff-assign" };
   let detail: AgentRunDetail | null = null;
   let messages: ChatMessage[] = [];
@@ -107,6 +108,15 @@ async function runLiveAgentRun(args: {
       repositoryPath,
       settings: { customAgents: [agent], autoRoutingEnabled: false, providerTimeoutMs: 120_000, themeMode: "dark", ...args.settings },
     });
+    if (args.workspaceCheck) {
+      await writeFile(path.join(repositoryPath, "check.sh"), '[ "$(cat OK.txt 2>/dev/null)" = "ok" ]\n');
+      const configured = await stave.page.evaluate(async repositoryPath => {
+        await window.api!.fs!.createDirectory!({ rootPath: repositoryPath, directoryPath: ".stave" });
+        return window.api!.fs!.writeFile!({ rootPath: repositoryPath, filePath: ".stave/scripts.json", expectedRevision: null,
+          content: JSON.stringify({ version: 2, actions: { check: { commands: ["sh check.sh"], target: "workspace" } } }) });
+      }, repositoryPath);
+      expect(configured.ok, JSON.stringify(configured)).toBe(true);
+    }
     // Let `hydrateWorkspaces` settle before driving the product (see the harness notes).
     await stave.page.waitForTimeout(2_000);
     const startedAt = Date.now();
@@ -211,7 +221,7 @@ async function runLiveAgentRun(args: {
     const cards = messages.flatMap((message) => message.parts.filter(isCardPart).map((part) => ({ messageId: message.id, type: part.type, state: part.state })));
     const notices = messages.flatMap((message) => message.parts.flatMap((part) => part.type === "system_event" ? [part.content] : []));
     const applied = messages.filter((message) => message.role === "assistant" && message.agentProvenance).map((message) => message.agentProvenance!.permission);
-    const helloPath = path.join(repositoryPath, args.persistentQuestion ? "B.md" : "HELLO.md");
+    const helloPath = path.join(repositoryPath, args.workspaceCheck ? "OK.txt" : args.persistentQuestion ? "B.md" : "HELLO.md");
     const hello = existsSync(helloPath) ? await readFile(helloPath, "utf8") : null;
     const run = detail!.agentRun;
     const stage = detail!.stages.find((record) => record.stageId === "work");
@@ -241,7 +251,14 @@ async function runLiveAgentRun(args: {
     expect(applied.length).toBeGreaterThan(0);
     for (const permission of applied) expect(permission.applied).toMatchObject(args.expectedAppliedOptions);
     expect(hello, "HELLO.md must exist").not.toBeNull();
-    expect(hello!.trim()).toBe(args.persistentQuestion ? "answered" : EXPECTED_CONTENT);
+    expect(hello!.trim()).toBe(args.workspaceCheck ? "ok" : args.persistentQuestion ? "answered" : EXPECTED_CONTENT);
+    if (args.workspaceCheck) {
+      const check = stage?.facts?.workspaceScripts?.find(check => check.source === "stave" && check.exitCode === 0);
+      expect(check).toBeTruthy();
+      expect(stage?.report?.outcome).toBe("complete");
+      if (stage?.report?.outcome === "complete") expect(check!.verification.completedRevision).toEqual(stage.report.workspaceRevision);
+      expect(detail!.report?.acceptanceCriteria).toContainEqual({ text: "Workspace checks pass", required: true, status: "met" });
+    }
     expect(evidence.commits).toBe("1");
     expect(run.turnCount).toBeLessThanOrEqual(MAX_TURNS);
     if (args.extendAtLimit) {
@@ -327,6 +344,21 @@ for (const providerId of ["claude-code", "codex"] as const) {
     test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
     test.setTimeout(420_000);
     await runLiveAgentRun({ providerId, testInfo, persistentQuestion: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "auto" }
+        : { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+    });
+  });
+}
+
+for (const providerId of ["codex", "claude-code"] as const) {
+  test(`live ${providerId} write Run completes only with a host workspace check`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(300_000);
+    await runLiveAgentRun({ providerId, testInfo, workspaceCheck: true,
       pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
         : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
       settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }

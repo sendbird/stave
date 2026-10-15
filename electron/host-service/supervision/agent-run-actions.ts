@@ -88,7 +88,7 @@ type ActionStore = Pick<AgentRunStore, "recordEvent" | "listEventsByKind">;
 /** A finished run of a workspace script, as the Run script action reads it. */
 export type AgentRunScriptRun =
   | { ok: true; exitCode: number; output: string; verification?: import("../../../src/lib/agent-runs/verification-contract").ScriptVerification }
-  | { ok: false; detail: string; exitCode?: number | null; output?: string };
+  | { ok: false; detail: string; exitCode?: number | null; output?: string; verification?: import("../../../src/lib/agent-runs/verification-contract").ScriptVerification };
 
 /** How long an agent run waits for a script before it fails the stage. */
 const SCRIPT_TIMEOUT_MS = 30 * 60_000;

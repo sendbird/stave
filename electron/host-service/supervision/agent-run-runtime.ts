@@ -1,5 +1,7 @@
 import { i18n } from "../../../src/i18n/runtime";
 import type { RunQuestionAnswer } from "../run-question-answer";
+import { withWorkspaceCheck } from "../../../src/lib/agent-runs/workspace-check";
+import { createStageScriptRunner, type WorkspaceCheckDependencies, type WorkspaceScriptReceipt } from "./agent-run-workspace-script";
 import { usageLimitedTurnRuntime, usageLimitedTurnEffort, usageLimitAccounts, observeUsageLimitQuota, turnEffortOf } from "./agent-run-usage-limit";
 import { accountPoolReadOrder, agentRunPoolAccount, normalizeAgentRunAccountPool, type PoolAccountUsage } from "../../../src/lib/agent-runs/account-pool";
 import { selectedProviderAccount } from "../../../src/lib/providers/provider-account-selection";
@@ -200,7 +202,7 @@ export interface AgentRunTurnRow {
   completedAt: string | null;
 }
 
-export interface AgentRunRuntimeDependencies {
+export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies {
   store: AgentRunStorePort;
   prepareGatewayCredentials?: (args: { accounts: ProviderAccountSelection; signal: AbortSignal }) => Promise<import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined>;
   freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection }) => AdaptiveRunPolicy;
@@ -413,6 +415,7 @@ export interface AgentRunRuntime {
   blockStage: (args: { agentRunKey: string; block: unknown }) => Promise<AgentRunReportReceipt>;
   /** `stave_wait_for_event`: the run waits for one outside event, replacing any earlier wait. */
   waitForEvent: (args: { agentRunKey: string; request: unknown }) => Promise<EventWaitReceipt>;
+  runWorkspaceScript: (args: { agentRunKey: string; scriptId: string }) => Promise<WorkspaceScriptReceipt>;
 }
 
 function refuse(message: string): never {
@@ -892,7 +895,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       });
       // A plan older than the messages read keeps standing until a newer one.
       const previousPlan = record.facts?.plan;
-      facts = { ...facts, currentTurnId: last.turnId, ...(!facts.plan && previousPlan ? { plan: previousPlan } : {}) };
+      facts = { ...facts, ...(record.facts?.workspaceScripts ? { workspaceScripts: record.facts.workspaceScripts } : {}), currentTurnId: last.turnId, ...(!facts.plan && previousPlan ? { plan: previousPlan } : {}) };
     } catch (error) {
       console.warn("[agent-runs] failed to collect stage facts", error, { agentRunId: agentRun.id });
       return aggregate;
@@ -1639,7 +1642,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   async function getDetail({ agentRunId }: AgentRunIdArgs): Promise<AgentRunDetail> {
     let aggregate = requireAggregate(agentRunId);
     const { agentRun } = aggregate;
-    if (deps.readWorkspaceRevision && aggregate.stages.some((stage) => stage.facts?.action?.type === "run-script" && stage.facts.action.verification)) {
+    if (deps.readWorkspaceRevision && aggregate.stages.some((stage) => stage.facts?.workspaceScripts?.length || stage.facts?.action?.type === "run-script" && stage.facts.action.verification)) {
       const cwd = await deps.resolveWorkspacePath(agentRun.workspaceId).catch(() => null);
       const workspaceRevision = cwd ? await deps.readWorkspaceRevision(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const };
       aggregate = { ...aggregate, stages: aggregate.stages.map((stage) => stage.facts ? { ...stage, facts: { ...stage.facts, workspaceRevision } } : stage) };
@@ -1701,7 +1704,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     };
   }
 
+  const runWorkspaceScript = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange, isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null });
   return {
+    runWorkspaceScript,
     reserveChildResources: (args) => store.reserveChildResources?.({ ...args, now: now() }) ?? null,
     releaseChildResources: (link) => { store.releaseResourceReservation?.(link, now()); },
     requestResources: ({ agentRunKey, request }) => enqueue(() => {
@@ -1877,6 +1882,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     startAgentRun: (rawInput) =>
       enqueue(async () => {
         const input = AgentRunStartInputSchema.parse(rawInput);
+        if (input.origin === "agent" && deps.listWorkspaceActionScripts) input.workflow = withWorkspaceCheck(input.workflow,
+          deps.taskAgent?.(input.leadTaskId) ?? null, await deps.listWorkspaceActionScripts(input.workspaceId));
         const existing = store.getActiveAgentRunForTask(input.leadTaskId);
         if (existing) {
           refuse("This task already has an active run. Cancel it or wait for it to end before starting another.");
@@ -2118,14 +2125,17 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return { ...buildAgentRunBriefing(aggregate), ...(store.readResources?.(aggregate.agentRun.id) ? { resources: store.readResources!(aggregate.agentRun.id)!, stageTurnIds: store.listEventsByKind(aggregate.agentRun.id, ["turn-linked"]).filter((event) => event.detail.stageId === grant.stageId && event.detail.attempt === grant.attempt).map((event) => String(event.detail.turnId)) } : {}) };
       }),
     reportStage: ({ agentRunKey, report }) =>
-      enqueue(() => {
+      enqueue(async () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageCompleteReportInputSchema.parse(report);
+        const cwd = deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
+        const workspaceRevision = cwd ? await deps.readWorkspaceRevision!(cwd) : undefined;
         const next = applyChange(
           recordStageReport({
             aggregate,
             expected: { stageId: grant.stageId, attempt: grant.attempt },
             report: { outcome: "complete", ...input },
+            workspaceRevision,
             turnId: grant.turnId,
             now: now(),
           }),
@@ -2278,6 +2288,8 @@ function dispatch(runtime: AgentRunRuntime, action: HostAgentRunAction, args: un
       return runtime.blockStage(args as { agentRunKey: string; block: unknown });
     case "wait-for-event":
       return runtime.waitForEvent(args as { agentRunKey: string; request: unknown });
+    case "run-workspace-script":
+      return runtime.runWorkspaceScript(args as { agentRunKey: string; scriptId: string });
     default:
       action satisfies never;
       throw new Error(`Unsupported run action: ${String(action)}`);

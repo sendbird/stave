@@ -2,6 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import type { AgentRunAggregate, AgentRunStageRecord } from "./domain";
 import { collectAcceptanceCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
+import { workspaceCheckInstruction, workspaceCheckMet } from "./workspace-check";
 
 /** Reports and successful children do not satisfy an unresolved explicit requirement. */
 export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: AgentRunStageRecord): string | null {
@@ -26,13 +27,17 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   const required = new Map(explicit.map((criterion) => [criterion.text.trim(), criterion]));
   // Planning may record criteria for later stages without claiming to have met them.
   if (stage.role !== "plan") {
-    for (const criterion of goalCriteria) required.set(criterion.text.trim(), { text: criterion.text });
+    for (const criterion of goalCriteria) if (!required.has(criterion.text.trim())) required.set(criterion.text.trim(), { text: criterion.text });
     for (const criterion of report?.acceptanceCriteria ?? []) {
       const text = criterion.text.trim();
       if (criterion.required !== false && !required.has(text) && !optionalTexts.has(text) && (finalStage || !inheritedTexts.has(text))) required.set(text, { text: criterion.text });
     }
   }
-  for (const text of required.keys()) {
+  for (const [text, criterion] of required) {
+    if (criterion.verification === "stave-check") {
+      if (!workspaceCheckMet(record, "scriptIds" in criterion ? criterion.scriptIds : undefined)) return workspaceCheckInstruction(criterion);
+      continue;
+    }
     const reported = report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text);
     if (reported?.status !== "met") return i18n.t("agentRuns:acceptance.extraCopy212", { value1: text });
   }

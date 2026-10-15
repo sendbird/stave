@@ -144,7 +144,7 @@ const AiStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("ai"),
-    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.literal("agent-report").optional() }).strict()).max(20).optional(),
+    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.enum(["agent-report", "stave-check"]).optional(), scriptIds: z.array(z.string().trim().min(1).max(120)).optional() }).strict()).max(20).optional(),
     get instruction() { return text(i18n.t("agentRuns:schema.extraCopy425"), WORKFLOW_LIMITS.instruction); },
     get doneWhen() { return text(i18n.t("agentRuns:schema.extraCopy426"), WORKFLOW_LIMITS.doneWhen); },
     role: z.enum(AI_STAGE_ROLES).optional(),

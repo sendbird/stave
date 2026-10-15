@@ -1,4 +1,7 @@
 {
+  "workspaceCheck": {
+    "criterion": "Workspace checks pass"
+  },
   "limit": {
     "reached": "Limit reached",
     "extend": "Extend (+10 turns)",

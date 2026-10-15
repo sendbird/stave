@@ -63,10 +63,16 @@ export function classifyStageEvidence(
   report: CompleteStageReport,
   facts: StageFacts | null,
 ): ClassifiedEvidence[] {
-  return report.evidence.map((evidence) => ({
+  const hostChecks = (facts?.workspaceScripts ?? []).map((check) => {
+    const evidence = describeActionEvidence(check, facts);
+    if (evidence.freshness === "current" && !revisionsMatch(check.verification.completedRevision, report.workspaceRevision))
+      evidence.freshness = report.workspaceRevision?.status === "known" ? "stale" : "unknown";
+    return evidence;
+  });
+  return [...hostChecks, ...report.evidence.map((evidence) => ({
     ...evidence,
     ...classify(evidence, report, facts),
-  }));
+  }))];
 }
 
 /** Host actions record their origin; script checks also expose outcome and freshness. */

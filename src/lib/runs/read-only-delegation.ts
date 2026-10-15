@@ -102,6 +102,7 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_create_workspace",
   "stave_register_repository",
   "stave_run_task",
+  "stave_run_workspace_script",
   "stave_delegate_task",
   "stave_follow_up_delegated_task",
   "stave_stop_delegated_task",

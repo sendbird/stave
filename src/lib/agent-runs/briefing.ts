@@ -31,6 +31,7 @@ import {
 import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { currentEventWait, type AgentRunEventWait } from "./event-wait";
+import { workspaceCheckInstruction, workspaceCheckMet } from "./workspace-check";
 import type { EventWaitWake } from "./event-wait-observe";
 import type { StageTurnReason } from "./policy";
 
@@ -40,6 +41,7 @@ export const AGENT_RUN_TOOL_NAMES = Object.freeze({
   block: "stave_block_stage",
   resources: "stave_request_agent_resources",
   wait: "stave_wait_for_event",
+  script: "stave_run_workspace_script",
 });
 
 export const AGENT_RUN_CONTEXT_SOURCE_ID = "stave:agent-run";
@@ -121,7 +123,8 @@ export function collectAcceptanceCriteria(
     const observed = stage.kind === "action" && record?.facts?.action?.type === "run-script"
       ? (stage.acceptanceCriteria ?? []).map((criterion) => ({ text: criterion.text, required: criterion.required, status: isVerifiedEvidence(describeActionEvidence(record.facts!.action!, record.facts)) ? "met" as const : "unverified" as const })) : [];
     const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
-    const updates = [...reported, ...observed];
+    const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => ({ text: criterion.text, required: criterion.required, status: workspaceCheckMet(record, criterion.scriptIds) ? "met" as const : "unverified" as const })) : [];
+    const updates = [...reported, ...observed, ...checks];
     if (updates.length) {
       if (stage.kind === "ai" && stage.role === "plan") criteria = [];
       for (const incoming of updates) {
@@ -143,6 +146,7 @@ export function describeAgentRunExecutionContext(aggregate: AgentRunAggregate): 
   return [
     `Current stage: ${stage.title} (${stage.kind}), attempt ${record.attempt}, status ${record.status}.`,
     stage.kind === "ai" ? `Required outcome: ${stage.doneWhen}` : `Action: ${stage.action.type}`,
+    ...(stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction) : []),
     `Remaining supervised turns: ${Math.max(0, agentRun.maxTurns - agentRun.turnCount)}.`,
     ...(wait?.status === "waiting"
       ? [`Active event wait: ${wait.kind}${wait.target ? ` on ${wait.target}` : ""}, woke ${wait.wakes} of ${wait.maxWakes} times, expires ${wait.expiresAt}. Calling \`${AGENT_RUN_TOOL_NAMES.wait}\` again replaces it.`]
@@ -264,6 +268,7 @@ export interface AgentRunBriefing {
     title: string;
     instruction: string | null;
     doneWhen: string | null;
+    workspaceChecks?: string[];
     attempt: number;
     feedback: string | null;
   };
@@ -295,6 +300,7 @@ export function buildAgentRunBriefing(aggregate: AgentRunAggregate): AgentRunBri
       title: current.title,
       instruction: current.kind === "ai" ? current.instruction : null,
       doneWhen: current.kind === "ai" ? current.doneWhen : null,
+      ...(current.kind === "ai" ? { workspaceChecks: (current.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map(workspaceCheckInstruction) } : {}),
       attempt: record.attempt,
       feedback: record.feedback,
     },
