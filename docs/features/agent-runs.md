@@ -73,8 +73,11 @@ earlier stage met stands; the last stage must report met only what is still
 open, and its prompt says which.
 
 While a stage waits for another agent, the run reads **Running · Waiting ·
-Delegated work**. If that agent's own task halts, the run keeps waiting:
-open the task from **Subagents** and answer or retry it there.
+Delegated work**. A delegated run that reports a required criterion unmet
+ends (**Criterion unmet**) instead of halting, and the waiting stage wakes
+with its report. A delegated task that stops for your answer or a blocked
+stage keeps the run waiting: open it from **Subagents** and answer or retry
+it there.
 
 For goals with separate parts, assign **Lead**, which splits the work across
 agents and checks each result before it reports.
