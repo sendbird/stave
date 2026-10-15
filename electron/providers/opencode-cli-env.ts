@@ -6,7 +6,8 @@ import {
   resolveExecutablePath,
   resolveLoginShellCommandPath,
 } from "./executable-path";
-import { buildRuntimeProcessEnv } from "./runtime-shared";
+import { buildRuntimeProcessEnv, probeExecutableVersion } from "./runtime-shared";
+import { parseOpenCodeVersion } from "./opencode/opencode-version";
 
 const OPENCODE_CLI_COMMAND = "opencode";
 
@@ -79,4 +80,24 @@ export function buildOpenCodeCliEnv(args: {
     baseEnv: args.baseEnv,
     extraPaths: openCodeHomeBinDirectories(),
   });
+}
+
+/**
+ * The installed release line (1 or 2), or null when it cannot be read. Used
+ * where the two lines differ in CLI behavior rather than for the ACP version
+ * gate, which reports a full reason instead. Bounded by the probe's 2-second
+ * timeout.
+ */
+export function readOpenCodeMajorVersion(args: {
+  executablePath: string;
+  env: Record<string, string | undefined>;
+}): number | null {
+  const probe = probeExecutableVersion({
+    executablePath: args.executablePath,
+    env: args.env,
+  });
+  if (probe.status !== 0) {
+    return null;
+  }
+  return parseOpenCodeVersion(probe.text)?.major ?? null;
 }

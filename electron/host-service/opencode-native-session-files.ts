@@ -22,7 +22,7 @@ export interface OpenCodeSessionSummary {
   updatedAtMs: number;
 }
 
-function canonicalDirectory(value: string) {
+export function canonicalOpenCodeDirectory(value: string) {
   try {
     return realpathSync(value);
   } catch {
@@ -43,7 +43,7 @@ export function parseOpenCodeSessionList(args: {
   if (!Array.isArray(parsed)) {
     return [];
   }
-  const targetDirectory = canonicalDirectory(args.cwd);
+  const targetDirectory = canonicalOpenCodeDirectory(args.cwd);
   const summaries: OpenCodeSessionSummary[] = [];
   for (const session of parsed) {
     if (!session || typeof session !== "object") {
@@ -56,7 +56,7 @@ export function parseOpenCodeSessionList(args: {
     }
     if (
       typeof record.directory !== "string" ||
-      canonicalDirectory(record.directory) !== targetDirectory
+      canonicalOpenCodeDirectory(record.directory) !== targetDirectory
     ) {
       continue;
     }

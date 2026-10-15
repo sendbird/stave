@@ -1,3 +1,8 @@
+import {
+  resolveCliResumeInfoPolling,
+  startCliResumeInfoPolling,
+  type CliResumeInfoPollingPlan,
+} from "@/lib/terminal/cli-resume-info-poller";
 import { useTranslation } from "@/i18n";
 import {
   useCallback,
@@ -111,6 +116,8 @@ export interface UseCliSessionManagerArgs<
   terminalController: CliTerminalInstanceController;
   terminalReady: boolean;
   terminalRevision: number;
+  /** How long to ask the host for a tab's native session id; 30 seconds when omitted. */
+  resumeInfoPollingPlan?: (tab: TTab) => CliResumeInfoPollingPlan;
 }
 
 export interface UseCliSessionManagerReturn {
@@ -128,10 +135,15 @@ export function useCliSessionManager<
 >(args: UseCliSessionManagerArgs<TTab>): UseCliSessionManagerReturn {
   useTranslation();
   const terminalControllerRef = useRef(args.terminalController);
+  const resumeInfoPollingPlanRef = useRef(args.resumeInfoPollingPlan);
 
   useEffect(() => {
     terminalControllerRef.current = args.terminalController;
   }, [args.terminalController]);
+
+  useEffect(() => {
+    resumeInfoPollingPlanRef.current = args.resumeInfoPollingPlan;
+  }, [args.resumeInfoPollingPlan]);
 
   const launchQueueRef = useRef(createCliSessionLaunchQueue());
   const sessionIdByTabKeyRef = useRef<Record<string, string>>({});
@@ -729,54 +741,27 @@ export function useCliSessionManager<
       return;
     }
 
-    let cancelled = false;
-    let timer: number | null = null;
-    let attempts = 0;
-
-    const poll = async () => {
-      let result: {
-        ok: boolean;
-        nativeSessionId?: string;
-        stderr?: string;
-      } | null = null;
-      try {
-        result = await getSessionResumeInfo({ sessionId: activeSessionId });
-      } catch {
-        return;
-      }
-      if (
-        cancelled ||
-        sessionIdByTabKeyRef.current[activeTabKey ?? ""] !== activeSessionId
-      ) {
-        return;
-      }
-
-      const nativeSessionId = result?.ok ? result.nativeSessionId?.trim() : "";
-      if (nativeSessionId) {
+    return startCliResumeInfoPolling({
+      plan:
+        resumeInfoPollingPlanRef.current?.(activeTab) ??
+        resolveCliResumeInfoPolling(undefined),
+      read: async () => {
+        const result = await getSessionResumeInfo({ sessionId: activeSessionId });
+        return result?.ok ? result.nativeSessionId : undefined;
+      },
+      isCurrent: () =>
+        sessionIdByTabKeyRef.current[activeTabKey ?? ""] === activeSessionId,
+      onFound: (nativeSessionId) => {
         rememberNativeSessionId({
           tabId: activeTab.id,
           nativeSessionId,
         });
-        return;
-      }
-
-      attempts += 1;
-      if (attempts >= 60) {
-        return;
-      }
-
-      timer = window.setTimeout(() => {
-        void poll();
-      }, 500);
-    };
-
-    void poll();
-    return () => {
-      cancelled = true;
-      if (timer !== null) {
-        window.clearTimeout(timer);
-      }
-    };
+      },
+      schedule: (callback, delayMs) => {
+        const timer = window.setTimeout(callback, delayMs);
+        return () => window.clearTimeout(timer);
+      },
+    });
   }, [activeSessionId, activeTabKey, args.activeTab, rememberNativeSessionId]);
 
   useEffect(() => {

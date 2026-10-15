@@ -7,7 +7,12 @@ import {
   readCodexSessionMeta,
 } from "./codex-native-session-files";
 import { listKiroSessions } from "./kiro-native-session-files";
-import { listOpenCodeSessions } from "./opencode-native-session-files";
+import {
+  canonicalOpenCodeDirectory,
+  listOpenCodeSessions,
+} from "./opencode-native-session-files";
+import { isOpenCodeAcpSessionId } from "../providers/opencode/opencode-session-registry";
+import { OPENCODE_NATIVE_SESSION_DISCOVERY } from "../../src/lib/terminal/native-session-discovery-window";
 import type { TerminalSessionEntry } from "./terminal-session-entry";
 
 const CODEX_SESSION_DISCOVERY_POLL_MS = 500;
@@ -17,9 +22,8 @@ const CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS = 60_000;
 const KIRO_SESSION_DISCOVERY_POLL_MS = 500;
 const KIRO_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
 const KIRO_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
-const OPENCODE_SESSION_DISCOVERY_POLL_MS = 2_000;
-const OPENCODE_SESSION_DISCOVERY_MAX_ATTEMPTS = 150;
-const OPENCODE_SESSION_DISCOVERY_LOOKBACK_MS = 5_000;
+/** Claim owner for a session two OpenCode tabs could own; nobody adopts it. */
+const CONTESTED_OPENCODE_SESSION = "\u0000contested";
 
 /**
  * Native session ids are not known at spawn time for every provider, so they
@@ -34,12 +38,17 @@ export function createNativeSessionDiscovery(args: {
   const codexSessionIdClaimByNativeId = new Map<string, string>();
   const kiroSessionIdClaimByNativeId = new Map<string, string>();
   const opencodeSessionIdClaimByNativeId = new Map<string, string>();
+  const pendingOpenCodeDiscoveries = new Map<
+    string,
+    { cwdKey: string; startedAtMs: number }
+  >();
 
   function normalizeSessionCwd(cwd: string) {
     return resolveCommandCwd({ cwd });
   }
 
   function releaseNativeSessionClaims(sessionId: string) {
+    pendingOpenCodeDiscoveries.delete(sessionId);
     for (const [filePath, ownerSessionId] of codexSessionFileClaimByPath) {
       if (ownerSessionId === sessionId) {
         codexSessionFileClaimByPath.delete(filePath);
@@ -194,11 +203,20 @@ export function createNativeSessionDiscovery(args: {
   }
 
   /**
-   * The OpenCode TUI creates its session when the first message is sent, and
-   * 1.x takes no new-session id, so the id is discovered by polling
-   * `opencode session list --format json` for a session created in this folder
-   * after the PTY started. Each poll starts the CLI, so it runs less often than
-   * Kiro's and for longer, to cover the time before the first message.
+   * OpenCode 1.x takes no new-session id and its TUI creates the session only
+   * when the first message is sent, so the id is inferred from
+   * `opencode session list`. OpenCode lists the sessions of Stave's own ACP
+   * turns and of other TUIs in the same folder alongside, so the id is taken
+   * only when ownership is unambiguous:
+   *
+   * - the session was created after this tab started;
+   * - Stave's ACP runtime did not create or load it in this process;
+   * - it is the only such unclaimed session; and
+   * - no other undiscovered OpenCode tab in the same folder started before it.
+   *
+   * Anything else leaves the tab without a resumable id rather than resuming
+   * someone else's conversation, and marks the session contested so a tab
+   * that is still looking cannot take it later either.
    */
   function startOpenCodeNativeSessionDiscovery(args: {
     sessionId: string;
@@ -207,20 +225,113 @@ export function createNativeSessionDiscovery(args: {
     executablePath: string;
     env?: Record<string, string | undefined>;
   }) {
-    startListedNativeSessionDiscovery({
-      sessionId: args.sessionId,
+    const session = sessions.get(args.sessionId);
+    if (!session || session.nativeSessionId) {
+      return;
+    }
+    const cwdKey = canonicalOpenCodeDirectory(args.cwd);
+    pendingOpenCodeDiscoveries.set(args.sessionId, {
+      cwdKey,
       startedAtMs: args.startedAtMs,
-      pollMs: OPENCODE_SESSION_DISCOVERY_POLL_MS,
-      maxAttempts: OPENCODE_SESSION_DISCOVERY_MAX_ATTEMPTS,
-      lookbackMs: OPENCODE_SESSION_DISCOVERY_LOOKBACK_MS,
-      claims: opencodeSessionIdClaimByNativeId,
-      listSessions: () =>
-        listOpenCodeSessions({
+    });
+
+    let disposed = false;
+    let scanning = false;
+    // Bounded by elapsed time, not by scans: a slow `session list` must not
+    // keep the host looking after the renderer has stopped asking.
+    const discoveryWindowMs =
+      OPENCODE_NATIVE_SESSION_DISCOVERY.pollMs * OPENCODE_NATIVE_SESSION_DISCOVERY.maxAttempts;
+
+    const stop = () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      clearInterval(intervalId);
+      pendingOpenCodeDiscoveries.delete(args.sessionId);
+      const currentSession = sessions.get(args.sessionId);
+      if (currentSession?.disposeNativeSessionDiscovery === stop) {
+        currentSession.disposeNativeSessionDiscovery = null;
+      }
+    };
+
+    const isLive = () => {
+      const liveSession = sessions.get(args.sessionId);
+      return Boolean(
+        liveSession && !liveSession.closing && !liveSession.nativeSessionId,
+      );
+    };
+
+    const scan = async () => {
+      if (scanning) {
+        return;
+      }
+      if (!isLive()) {
+        stop();
+        return;
+      }
+      scanning = true;
+      let summaries: Array<{ sessionId: string; updatedAtMs: number }> = [];
+      try {
+        summaries = await listOpenCodeSessions({
           executablePath: args.executablePath,
           cwd: args.cwd,
           env: args.env,
-        }),
-    });
+        });
+      } finally {
+        scanning = false;
+      }
+      if (disposed) {
+        return;
+      }
+      if (!isLive() || Date.now() - args.startedAtMs >= discoveryWindowMs) {
+        stop();
+        return;
+      }
+
+      const candidates = summaries.filter((summary) => {
+        if (summary.updatedAtMs < args.startedAtMs) return false;
+        if (isOpenCodeAcpSessionId(summary.sessionId)) return false;
+        const claimedBy = opencodeSessionIdClaimByNativeId.get(summary.sessionId);
+        return !claimedBy || claimedBy === args.sessionId;
+      });
+      if (candidates.length === 0) {
+        return;
+      }
+      const possibleOwners = [...pendingOpenCodeDiscoveries.entries()].filter(
+        ([, pending]) =>
+          pending.cwdKey === cwdKey &&
+          candidates.some((candidate) => pending.startedAtMs <= candidate.updatedAtMs),
+      );
+      const [candidate] = candidates;
+      if (
+        candidates.length === 1 &&
+        candidate &&
+        possibleOwners.length === 1 &&
+        possibleOwners[0]?.[0] === args.sessionId
+      ) {
+        const liveSession = sessions.get(args.sessionId);
+        if (liveSession) {
+          liveSession.nativeSessionId = candidate.sessionId;
+        }
+        opencodeSessionIdClaimByNativeId.set(candidate.sessionId, args.sessionId);
+        stop();
+        return;
+      }
+      for (const contested of candidates) {
+        opencodeSessionIdClaimByNativeId.set(
+          contested.sessionId,
+          CONTESTED_OPENCODE_SESSION,
+        );
+      }
+      stop();
+    };
+
+    const intervalId = setInterval(() => {
+      void scan();
+    }, OPENCODE_NATIVE_SESSION_DISCOVERY.pollMs);
+    session.disposeNativeSessionDiscovery = stop;
+    void scan();
   }
 
   function startCodexNativeSessionDiscovery(args: {

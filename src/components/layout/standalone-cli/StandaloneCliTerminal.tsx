@@ -1,3 +1,4 @@
+import { resolveCliResumeInfoPolling } from "@/lib/terminal/cli-resume-info-poller";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -42,6 +43,11 @@ import {
 } from "@/lib/terminal/standalone-cli";
 import { useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
+
+/** Each tab is a provider id, so the tab picks its provider's polling window. */
+function standaloneResumeInfoPollingPlan(tab: StandaloneCliTab) {
+  return resolveCliResumeInfoPolling(tab.id);
+}
 
 /** Pure so the payload contract can be asserted without a DOM. */
 export function buildStandaloneCliCreateSessionArgs(args: {
@@ -346,6 +352,7 @@ export function StandaloneCliTerminal(props: {
     terminalController: terminalInstance.controller,
     terminalReady: terminalInstance.ready,
     terminalRevision: terminalInstance.revision,
+    resumeInfoPollingPlan: standaloneResumeInfoPollingPlan,
   });
 
   // A running CLI cannot change accounts, so the switch is a restart under the
