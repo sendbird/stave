@@ -1,6 +1,8 @@
 import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
+import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import { transition } from "@/components/ads/recipes/transition";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
@@ -93,10 +95,6 @@ function openAssignmentTask(row: AgentAssignment) {
   });
 }
 
-function plural(count: number, one: string, many = `${one}s`): string {
-  return `${count} ${count === 1 ? one : many}`;
-}
-
 /**
  * The summary line under the header. Only what drives a decision is loud:
  * "N running" and "N need you" appear when non-zero. Everything else is one
@@ -108,7 +106,7 @@ function ActivitySummary(props: { summary: AgentActivitySummary }) {
   const { summary } = props;
   if (summary.total === 0) return null;
   const quiet = [
-    plural(summary.total, "assignment"),
+    i18n.t("agents:agentActivity.assignments", { count: summary.total }),
     ...(summary.couldntStart > 0 ? [i18n.t("agents:agentActivity.extraCopy23", { value1: summary.couldntStart })] : []),
   ].join(" · ");
   const lastUsed = summary.lastUsedAt ? new Date(summary.lastUsedAt) : null;
@@ -163,10 +161,14 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
     <section aria-label={i18n.t("agents:agentActivity.ariaLabel")} className={sx(agentStyles.activity)}>
       <ActivitySummary summary={summary} />
       <section aria-label={i18n.t("agents:agentActivity.ariaLabel2")}>
-        <div className={sx(styles.sectionHeader)}>
-          <h3 className={sx(styles.sectionTitle)}>{i18n.t("agents:agentActivity.agentActivity")}</h3>
+        <div className={sx(agentStyles.workHeader)}>
+          <h3 className={sx(styles.sectionTitle)}>
+            {i18n.t("agents:agentActivity.agentActivity")}{" "}
+            <span className={sx(agentStyles.workCount)}>{filtered.length}</span>
+          </h3>
           <Select
             size="sm"
+            xstyle={agentStyles.workFilter}
             aria-label={i18n.t("agents:agentActivity.ariaLabel3")}
             value={filter}
             options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
@@ -176,7 +178,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
         {filtered.length === 0 ? (
           <p className={sx(styles.hint)}>{i18n.t("agents:agentActivity.agentActivity2")}</p>
         ) : (
-          <ul className={sx(agentStyles.runs)}>
+          <ul className={sx(agentStyles.workList)}>
             {filtered.map((row) => {
               const live = row.taskId ? statusByTaskId[row.taskId] : undefined;
               // The run this agent is doing on the task, when Fleet has it.
@@ -184,30 +186,29 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               const ownRun = run && run.agentRun.workflow.name === row.agentName ? run : undefined;
               // `live` waits on the user exactly when the task's messages hold an
               // unanswered card (`findTaskPendingDecision`), as on every run surface.
-              const stateLabel = ownRun
-                ? formatAgentRunBadge(describeAgentRunStatus(ownRun, agentRunDecisionOf(live)))
+              const runStatus = ownRun ? describeAgentRunStatus(ownRun, agentRunDecisionOf(live)) : null;
+              const state = runStatus
+                ? { label: formatAgentRunBadge(runStatus), tone: runStatus.tone }
                 : live
-                  ? FLEET_STATUS_LABELS[live]
-                  : ASSIGNMENT_STATE_LABELS[row.state];
+                  ? { label: FLEET_STATUS_LABELS[live], tone: FLEET_STATUS_TONES[live] }
+                  : { label: ASSIGNMENT_STATE_LABELS[row.state], tone: ASSIGNMENT_STATE_TONES[row.state] };
+              const body = <WorkRowBody row={row} run={ownRun} state={state} />;
               return (
-                <li key={row.id} className={sx(agentStyles.run)}>
+                <li key={row.id} className={sx(agentStyles.workItem)}>
                   {row.taskId ? (
                     <Button
                       layout="host"
                       variant="quiet"
                       press="none"
-                      xstyle={[agentStyles.runTitle, agentStyles.runLink]}
+                      xstyle={[agentStyles.workRow, transition.colors]}
                       title={i18n.t("agents:agentActivity.title", { value1: row.assignment })}
                       onClick={() => openAssignmentTask(row)}
                     >
-                      {row.assignment.split("\n")[0]}
+                      {body}
                     </Button>
                   ) : (
-                    <span className={sx(agentStyles.runTitle)} title={row.assignment}>
-                      {row.assignment.split("\n")[0]}
-                    </span>
+                    <div className={sx(agentStyles.workRow)} title={row.assignment}>{body}</div>
                   )}
-                  <AssignmentProgress run={ownRun} stateLabel={stateLabel} />
                 </li>
               );
             })}
@@ -218,13 +219,50 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
   );
 }
 
-/** Each row subscribes only to its task's live plan. */
-function AssignmentProgress(props: { run: AgentRunDetail | undefined; stateLabel: string }) {
+/**
+ * One assignment: its first line and its state as a badge, then where the
+ * run stands (plan or stage) and when it started. Each row subscribes only
+ * to its task's live plan.
+ */
+function WorkRowBody(props: { row: AgentAssignment; run: AgentRunDetail | undefined; state: { label: string; tone: BadgeTone } }) {
   useTranslation();
   const plan = useAgentRunProgress(props.run);
   const progress = props.run ? describeAgentRunProgress(props.run, plan) : null;
-  return <span className={sx(agentStyles.runState)}>{progress ? `${progress} · ` : ""}{props.stateLabel}</span>;
+  const started = new Date(props.row.createdAt);
+  const startedValid = !Number.isNaN(started.getTime());
+  return (
+    <>
+      <span className={sx(agentStyles.workLine)}>
+        <span className={sx(agentStyles.workTitle)}>{props.row.assignment.split("\n")[0]}</span>
+        <Badge size="sm" tone={props.state.tone} dot>{props.state.label}</Badge>
+      </span>
+      {progress || startedValid ? (
+        // Where the run stands leads; without it the start time takes the line.
+        <span className={sx(agentStyles.workLine)}>
+          {progress ? <span className={sx(agentStyles.workMeta)}>{progress}</span> : null}
+          {startedValid ? (
+            <span className={sx(progress ? agentStyles.workWhen : agentStyles.workMeta)} title={formatDateTime(started)}>{formatRelativeTime(started)}</span>
+          ) : null}
+        </span>
+      ) : null}
+    </>
+  );
 }
+
+const FLEET_STATUS_TONES: Readonly<Record<FleetTaskStatus, BadgeTone>> = {
+  "waiting-input": "warning",
+  "waiting-approval": "warning",
+  error: "danger",
+  running: "accent",
+  idle: "neutral",
+};
+
+const ASSIGNMENT_STATE_TONES: Readonly<Record<AgentAssignment["state"], BadgeTone>> = {
+  preparing: "accent",
+  started: "neutral",
+  failed: "danger",
+  interrupted: "warning",
+};
 
 const FLEET_STATUS_LABELS: Readonly<Record<FleetTaskStatus, string>> = {
   get "waiting-input"() { return i18n.t("agents:agentActivity.waitingInput"); },
