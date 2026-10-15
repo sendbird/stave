@@ -10,7 +10,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import { duplicateAgent } from "@/lib/agents/library";
 import { revisionContentHash } from "@/lib/agents/revisions";
-import { getBuiltinAgent } from "@/lib/agents/starters";
+import { BUILTIN_AGENTS, getBuiltinAgent } from "@/lib/agents/starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
@@ -25,7 +25,8 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
  * standards) instead of the tab. `&new=1` opens the New agent dialog,
  * `&edit=1` selects the custom agent so its sectioned editor shows, and
  * `&avatars=1` shows every avatar hue at each size (with and without the
- * provider mark), next to a round person mark, and
+ * provider mark), then every built-in agent's icon avatar the same way and an
+ * unknown icon id falling back to initials, next to a round person mark, and
  * `&delete=1` opens the delete dialog with a blocking workflow reference. Use
  * `?stavePreview=kickoff&agent=1` to see the Kickoff dialog with an agent
  * preselected.
@@ -128,6 +129,16 @@ function AvatarSheet() {
           <AgentAvatar agent={{ id: color, name: `${color} agent`, appearance: { color } }} size="md" providerId="codex" status="needs-you" aria-label={null} />
         </div>
       ))}
+      {[...BUILTIN_AGENTS, { id: "unknown-icon", name: "Unknown icon", appearance: { color: "blue" as const, icon: "not-in-catalog" } }].map((agent) => (
+        <div key={agent.id} className={sx(styles.sheetRow)} data-testid={`avatar-icon-row-${agent.id}`}>
+          <span className={sx(styles.sheetLabel)}>{agent.id}</span>
+          {AVATAR_SIZES.map((size) => (
+            <AgentAvatar key={size} agent={agent} size={size} aria-label={null} />
+          ))}
+          <AgentAvatar agent={agent} size="md" providerId="claude-code" status="running" aria-label={null} />
+          <AgentAvatar agent={agent} size="xs" status="needs-you" aria-label={null} />
+        </div>
+      ))}
       <div className={sx(styles.sheetRow)}>
         <span className={sx(styles.sheetLabel)}>person</span>
         <span className={sx(styles.person)}>JK</span>
@@ -224,9 +235,17 @@ const styles = stylex.create({
     color: vars["--ads-color-text"],
   },
   frame: { flex: "1 1 auto", minHeight: 0, display: "flex", flexDirection: "column" },
-  sheet: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"], padding: vars["--ads-space-24"] },
+  sheet: {
+    display: "flex",
+    flexDirection: "column",
+    flex: "1 1 auto",
+    minHeight: 0,
+    overflowY: "auto",
+    gap: vars["--ads-space-12"],
+    padding: vars["--ads-space-24"],
+  },
   sheetRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-16"] },
-  sheetLabel: { width: 64, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  sheetLabel: { width: 104, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   person: {
     display: "inline-flex",
     alignItems: "center",
