@@ -582,7 +582,7 @@ export class AgentRunStore {
   }
 
   /** Parent dispatch and child reservation share the same SQLite writer/savepoint. */
-  reserveChildResources(args: { parentTaskId: string; childRunId: string; executionId: string; requestedTurns: number; expectedRootRunId?: string; providerId?: "claude-code" | "codex"; model?: string; agentConfigId?: string; now: Date }) {
+  reserveChildResources(args: { parentTaskId: string; childRunId: string; executionId: string; requestedTurns: number; expectedRootRunId?: string; providerId?: "claude-code" | "codex"; model?: string; now: Date }) {
     return this.inSavepoint("resource_reserve", () => {
       if (!Number.isInteger(args.requestedTurns) || args.requestedTurns < 1 || args.requestedTurns > 30) throw new Error("Invalid child turn capacity.");
       const parent = this.getActiveAgentRunForTask(args.parentTaskId);
@@ -603,15 +603,13 @@ export class AgentRunStore {
         if (existing.executionId !== args.executionId || existing.released) throw new Error("The helper reservation is no longer admitted.");
         return { policy: config.policy, link: { rootRunId: parent.id, reservationId, executionId: args.executionId }, capacity: existing.capacity };
       }
-      // The workflow's later stages done by another agent (a review) keep their helper slots,
-      // so helpers the agent calls on its own cannot spend them.
+      // The workflow's later stages done by another agent (a review) keep their helper slots:
+      // no helper of an earlier stage, its own retries included, can spend them.
       const stages = parent.workflow.stages;
-      const current = stages[parent.currentStageIndex];
-      const forStage = current?.kind === "ai" && current.agentConfigId !== undefined && current.agentConfigId === args.agentConfigId;
       const keptForStages = stages.slice(parent.currentStageIndex + 1).filter((stage) => stage.kind === "ai" && stage.agentConfigId).length;
-      const totalLimit = forStage ? config.policy.totalHelpers : config.policy.totalHelpers - keptForStages;
+      const totalLimit = config.policy.totalHelpers - keptForStages;
       if (snapshot.activeHelpers >= config.policy.concurrentHelpers || snapshot.helpersLaunched >= totalLimit)
-        throw new Error(keptForStages && !forStage && snapshot.helpersLaunched >= totalLimit && snapshot.helpersLaunched < config.policy.totalHelpers
+        throw new Error(keptForStages && snapshot.helpersLaunched >= totalLimit && snapshot.helpersLaunched < config.policy.totalHelpers
           ? `The run keeps its last ${keptForStages} helper slot(s) for the workflow's stages done by another agent. Continue directly; the user can raise the limits for later runs in Settings.`
           : `The run's helper limit was reached (${config.policy.concurrentHelpers} at once / ${config.policy.totalHelpers} in total). Wait for a helper to finish or continue directly; the user can raise the limits for later runs in Settings.`);
       const capacity = Math.min(args.requestedTurns, snapshot.remaining - config.policy.parentReserve);

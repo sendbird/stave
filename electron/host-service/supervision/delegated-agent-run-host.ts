@@ -18,7 +18,7 @@ export async function prepareDelegatedAgentRun(args: {
       assignment.requestId !== `delegated:${start.authority.executionId}`)
     throw new Error("The admitted delegated Agent snapshot is unavailable.");
   const reservation = args.runtime.reserveChildResources({ parentTaskId: start.authority.parentTaskId,
-    childRunId: start.agentRunId, executionId: start.authority.executionId, requestedTurns: start.maxTurns, providerId: start.authority.permissionPolicy.providerId, model: start.model, agentConfigId: start.authority.agentConfigId, expectedRootRunId: start.authority.resourceRootRunId });
+    childRunId: start.agentRunId, executionId: start.authority.executionId, requestedTurns: start.maxTurns, providerId: start.authority.permissionPolicy.providerId, model: start.model, expectedRootRunId: start.authority.resourceRootRunId });
   try {
   await args.createTask({ workspaceId: start.workspaceId, taskId: start.taskId, parentTaskId: start.authority.parentTaskId,
     title: start.title, provider: start.authority.permissionPolicy.providerId, model: start.model });
