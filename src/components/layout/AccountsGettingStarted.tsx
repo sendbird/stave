@@ -283,8 +283,8 @@ export function AccountsGettingStartedWelcomeView({ checklist, fallback }: { che
     <ol className={sx(styles.welcomeSteps)}>
       {required.map((step) => <li key={step.id} className={sx(styles.welcomeStep, step.status === "todo" && styles.welcomeStepTodo)}>
         <StepIcon status={step.status} small />
-        <span>{stepTitle(step)}</span>
-        <span>{t("settingsConnections:accountsOnboarding.statusSuffix", { value1: statusLabel(step.status) })}</span>
+        {/* One text run, so the title and its status read "Sign in · To do" like the other meta lines. */}
+        <span>{t("settingsConnections:accountsOnboarding.welcome.stepStatus", { value1: stepTitle(step), value2: statusLabel(step.status) })}</span>
       </li>)}
     </ol>
   </section>;

@@ -617,7 +617,6 @@
     "description": "첫 턴을 보내기 전에 남은 일입니다. 설치하고 로그인하면 바로 갱신됩니다.",
     "stepNumber": "{{value1}}. {{value2}}",
     "optionalStatus": "선택 · {{value1}}",
-    "statusSuffix": "· {{value1}}",
     "status": {
       "done": "완료됨",
       "todo": "할 일",
@@ -680,7 +679,8 @@
     },
     "welcome": {
       "title": "시작하기",
-      "description": "아직 턴을 보낼 수 있는 프로바이더가 없습니다. CLI를 설치하고 로그인하거나 게이트웨이 키를 연결하세요."
+      "description": "아직 턴을 보낼 수 있는 프로바이더가 없습니다. CLI를 설치하고 로그인하거나 게이트웨이 키를 연결하세요.",
+      "stepStatus": "{{value1}} · {{value2}}"
     },
     "toasts": {
       "commandCopied": "{{value1}} 설치 명령을 복사했습니다.",

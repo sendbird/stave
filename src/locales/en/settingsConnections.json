@@ -625,7 +625,6 @@
     "description": "What is left before your first turn. It updates as you install and sign in.",
     "stepNumber": "{{value1}}. {{value2}}",
     "optionalStatus": "Optional · {{value1}}",
-    "statusSuffix": "· {{value1}}",
     "status": {
       "done": "Done",
       "todo": "To do",
@@ -689,7 +688,8 @@
     },
     "welcome": {
       "title": "Getting started",
-      "description": "No provider can take a turn yet. Install a CLI and sign in, or connect a gateway key."
+      "description": "No provider can take a turn yet. Install a CLI and sign in, or connect a gateway key.",
+      "stepStatus": "{{value1}} · {{value2}}"
     },
     "toasts": {
       "commandCopied": "{{value1}} install command copied",

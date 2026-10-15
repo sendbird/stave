@@ -168,6 +168,8 @@ describe("welcome Getting started", () => {
     const html = render(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: checklist() }));
     expect(html).toContain("No provider can take a turn yet.");
     expect(inOrder(html, ["Install a provider CLI", "Sign in", "Pick a model"])).toBe(true);
+    // Title and status are one run with single spaces around the dot.
+    expect(renderToStaticMarkup(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: checklist() }))).toContain("<span>Install a provider CLI · To do</span>");
     // Only the required steps are listed, so no checklist numbers (1, 2, 5) show.
     expect(html).not.toMatch(/\b[125]\. /);
     expect(html).not.toContain("Add another account");
