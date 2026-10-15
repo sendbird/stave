@@ -2,6 +2,7 @@ import { formatDateTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
@@ -200,7 +201,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
                       layout="host"
                       variant="quiet"
                       press="none"
-                      xstyle={[agentStyles.workRow, transition.colors]}
+                      xstyle={[agentStyles.workRow, transition.colors, focusRing.ringInset]}
                       title={i18n.t("agents:agentActivity.title", { value1: row.assignment })}
                       onClick={() => openAssignmentTask(row)}
                     >
