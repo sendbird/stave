@@ -85,7 +85,8 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 ### Agents tab
 
 - **Custom**, **From repository** and **Built-in** agents, with search. Each row
-  shows an avatar — an initials disc in the agent's colour. Drag the list's
+  shows an avatar: a rounded square in the agent's colour with its icon, or its
+  initials when it has none. Drag the list's
   edge to make it wider or narrower (240–480px, never so wide the detail drops
   under 512px); double-click the edge to return to the default 288px. Stave
   keeps the width between sessions.
@@ -95,7 +96,8 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
   colour; a reviewer or researcher is kept read only. The editor opens with the
   draft. **Start blank** (Auto model, Auto permission, a new worktree, usable as
   a main agent) and **Or copy an existing agent** (any built-in or repository
-  agent) skip the model. Nothing is saved until you save the editor; **Cancel**
+  agent) skip the model. A copy keeps the original's colour and icon. Nothing
+  is saved until you save the editor; **Cancel**
   discards the draft. The command palette's **New agent** and the empty state
   open the same dialog.
 - **Profile header**: the avatar, the name, **Use when**, and chips for source,
@@ -120,7 +122,10 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 A custom agent's editor shows what most agents need and keeps the rest out of
 the way:
 
-- **Profile**: name, colour and **Use when**.
+- **Profile**: name, colour, icon and **Use when**. **Icon** opens a grid of
+  icons with a search field; **Initials** in the same grid goes back to the
+  agent's initials. Colour and icon are independent, so changing one keeps the
+  other. A change to either is recorded in **History** as **Colour and icon**.
 - **Instructions**: what the agent does on every task.
 - **Workflow**: the stages its runs follow (see below).
 - **How it runs**: the model (**Auto-routing** with an optional task class
@@ -201,8 +206,12 @@ version they started with and finish on their own.
 An agent's avatar also appears next to its work in the sidebar (with a status
 dot — a green dot for running, an amber dot when it needs you), in the Kickoff
 **Who** picker, on the Fleet task badge, and on the assignment node of a task's
-**Flow** panel. Built-in and repository agents get a stable colour derived from
-their id; a custom agent's colour is chosen in its **Profile** section.
+**Flow** panel, and in the composer's agent control and selector. Each
+built-in agent has its own icon and colour, chosen so agents whose initials
+look alike (Reviewer and Researcher, for one) never share either. A repository
+agent gets a stable colour derived from its id and shows its initials; a custom
+agent's colour and icon are chosen in its **Profile** section, and one with no
+icon shows its initials.
 
 ### Models and agents in the composer
 
