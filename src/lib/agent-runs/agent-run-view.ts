@@ -17,7 +17,7 @@ import { i18n } from "@/i18n/runtime";
  * Pure. Callers pass `now` and a time formatter.
  */
 import type { AgentRunDetail } from "./api";
-import { resolveAgentRunStageSignOff } from "./policy";
+import { PROVIDER_RETRY_DELAYS_MS, resolveAgentRunStageSignOff } from "./policy";
 import {
   latestStageRecord,
   type AgentRun,
@@ -410,6 +410,11 @@ function describeTurnStart(args: {
     if (fact?.success) return i18n.t("agentRuns:eventWait.wokeTurn", { name, fact: describeEventWaitFact(fact.data) });
   }
   if (reason === "resume-after-wait-expired") return i18n.t("agentRuns:eventWait.expiredTurn", { name });
+  if (reason === "retry-after-provider-error") {
+    const retry = args.events.slice(0, args.position + 1).filter((event) => event.kind === "turn-started" &&
+      event.detail.reason === reason && event.detail.stageId === args.stageId && event.detail.attempt === args.attempt).length;
+    return i18n.t("agentRuns:agentRunView.providerRetryTurn", { name, retry, total: PROVIDER_RETRY_DELAYS_MS.length });
+  }
   // What happened just before this stage started.
   for (let index = args.position - 1; index >= 0; index -= 1) {
     const event = args.events[index]!;

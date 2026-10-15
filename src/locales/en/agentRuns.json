@@ -456,7 +456,8 @@
     "hours": "{{value}}h",
     "days": "{{value}}d",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto permissions: Claude classifies actions; Codex uses auto-review when available and otherwise does not ask. Approvals that reach you are declined if nobody answers in time."
+    "autoPermissionDescription": "Auto permissions: Claude classifies actions; Codex uses auto-review when available and otherwise does not ask. Approvals that reach you are declined if nobody answers in time.",
+    "providerRetryTurn": "{{name}} — retried after a provider error ({{retry}} of {{total}})"
   },
   "checks": {
     "detail": "{{value1}} has been pending for {{value2}} minutes.",
@@ -582,7 +583,8 @@
     "detail7": "You took over the lead task. Resume the run when you are done.",
     "extraCopy307": "This stage is done, but {{value1}} Cancel the run and finish the rest by hand.",
     "extraCopy308": "The lead task's workspace is not loaded right now.",
-    "extraCopy309": "The lead task now runs on {{value1}}, not {{value2}}."
+    "extraCopy309": "The lead task now runs on {{value1}}, not {{value2}}.",
+    "providerRetriesSpent": "The provider kept failing: {{count}} retries ended with “{{message}}”. Retry when the provider is back."
   },
   "reportMarkdown": {
     "completed": "Run complete",

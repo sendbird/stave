@@ -229,6 +229,28 @@ describe("AI stages", () => {
     ).toMatchObject({ action: "pause", reason: "limit-reached" });
   });
 
+  test("a passing provider failure retries after 30s, 2m and 5m without the reminder, then halts", () => {
+    const endedAt = "2026-09-26T10:03:00.000Z";
+    const failed = turn({ endedAt, providerFailure: { message: "workspace routing discovery timed out" } });
+    const at = (ms: number) => new Date(Date.parse(endedAt) + ms);
+    const aggregate = afterFirstTurn();
+    for (const [retries, delay] of [[0, 30_000], [1, 120_000], [2, 300_000]] as const) {
+      const observation = observe({ lastEndedTurn: failed, providerRetries: retries });
+      expect(decide(aggregate, observation, at(delay - 1_000))).toEqual({ action: "idle" });
+      expect(decide(aggregate, observation, at(delay))).toEqual({
+        action: "start-stage-turn", stageIndex: 0, attempt: 1, reason: "retry-after-provider-error" });
+    }
+    const retried = applyChange(aggregate, applyAgentRunDecision({ aggregate, now: at(30_000),
+      decision: decide(aggregate, observe({ lastEndedTurn: failed, providerRetries: 0 }), at(30_000)) }));
+    expect(currentStageRecord(retried).nudged).toBe(false);
+    const spent = decide(aggregate, observe({ lastEndedTurn: failed, providerRetries: 3 }), at(3_600_000));
+    expect(spent).toMatchObject({ action: "mark-stuck" });
+    expect(spent.action === "mark-stuck" ? spent.detail : "").toContain("workspace routing discovery timed out");
+    // An ordinary turn without a report still spends the reminder; a report still wins.
+    expect(decide(aggregate, observe({ lastEndedTurn: turn({ endedAt }) }), at(30_000))).toEqual({ action: "nudge" });
+    expect(decide(afterFirstTurn(COMPLETE_REPORT), observe({ lastEndedTurn: failed, providerRetries: 0 }), at(0)).action).not.toBe("idle");
+  });
+
   test("a stage whose next stage has no attempts left is marked stuck once instead of failing every tick", () => {
     const done = afterFirstTurn(COMPLETE_REPORT);
     const exhausted: AgentRunAggregate = {

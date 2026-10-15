@@ -6,6 +6,7 @@
  */
 import { getRateLimitsSnapshot } from "../../providers/rate-limits/rate-limits-snapshot";
 import { findUsageLimitStopInEvents } from "../../../src/lib/providers/usage-limit-stop";
+import { findTransientTurnFailure } from "../../../src/lib/providers/provider-error-recovery";
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import { isPoolableAccount } from "../../../src/lib/agent-runs/account-pool";
 import { freezeAdaptivePolicy } from "./adaptive-policy";
@@ -259,6 +260,8 @@ export function createHostAgentRunRuntime(args: {
     readTurnEnding,
     emitChanged: args.emitChanged,
     readUsageLimitStop: (turnId) => findUsageLimitStopInEvents(
+      persistence.getStreamEvents({ turnId }).flatMap((entry) => entry.event ? [entry.event] : [])),
+    readTransientFailure: (turnId) => findTransientTurnFailure(
       persistence.getStreamEvents({ turnId }).flatMap((entry) => entry.event ? [entry.event] : [])),
     readAccountUsage: async ({ fingerprint, accounts, workspaceId }) => getRateLimitsSnapshot({
       cwd: (await resolveWorkspacePath(workspaceId)) ?? undefined, runtimeOptions: accounts,

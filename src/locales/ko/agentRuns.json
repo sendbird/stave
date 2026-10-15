@@ -453,7 +453,8 @@
     "hours": "{{value}}시간",
     "days": "{{value}}일",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고, Codex는 사용할 수 있으면 auto-review를 사용하며 그렇지 않으면 승인을 요청하지 않습니다. 사용자에게 온 승인 요청에 제때 응답하지 않으면 거부됩니다."
+    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고, Codex는 사용할 수 있으면 auto-review를 사용하며 그렇지 않으면 승인을 요청하지 않습니다. 사용자에게 온 승인 요청에 제때 응답하지 않으면 거부됩니다.",
+    "providerRetryTurn": "{{name}} — 제공사 오류 뒤 다시 시도 ({{total}}회 중 {{retry}}회)"
   },
   "checks": {
     "detail": "{{value1}} 검사가 {{value2}}분 동안 대기 중입니다.",
@@ -577,7 +578,8 @@
     "detail7": "주 작업을 직접 진행 중입니다. 완료되면 실행을 재개하세요.",
     "extraCopy307": "이 단계는 완료되었지만 {{value1}} 실행을 취소하고 나머지는 직접 완료하세요.",
     "extraCopy308": "주 작업의 워크스페이스를 현재 불러오지 않았습니다.",
-    "extraCopy309": "주 작업이 이제 {{value2}} 대신 {{value1}} 모델로 실행합니다."
+    "extraCopy309": "주 작업이 이제 {{value2}} 대신 {{value1}} 모델로 실행합니다.",
+    "providerRetriesSpent": "제공사 오류가 계속됐습니다. {{count}}번 다시 시도했지만 “{{message}}”로 끝났습니다. 제공사가 복구되면 다시 시도하세요."
   },
   "reportMarkdown": {
     "completed": "실행 완료됨",

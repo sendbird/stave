@@ -2062,6 +2062,26 @@ describe("run runtime: opt-in account pool", () => {
   });
 });
 
+test("a provider timeout retries the stage after a pause and keeps the reminder for the agent", async () => {
+  const failing = new Set(["turn-1", "turn-2"]);
+  const h = createHarness({ extra: { readTransientFailure: (turnId) => failing.has(turnId) ? { message: "workspace routing discovery timed out" } : null } });
+  const id = await startedAgentRun(h, startInput());
+  h.endTurn("turn-1");
+  h.advance(20_000); await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+  h.advance(11_000); await h.tick();
+  expect(h.runCalls).toHaveLength(2);
+  expect(h.store.listEventsByKind(id, ["turn-started"]).at(-1)?.detail.reason).toBe("retry-after-provider-error");
+  expect(h.current(id).nudged).toBe(false);
+  // The second failure waits two minutes; a recovered turn without a report then spends the reminder.
+  h.endTurn("turn-2");
+  h.advance(60_000); await h.tick();
+  expect(h.runCalls).toHaveLength(2);
+  h.advance(61_000); await h.tick();
+  expect(h.runCalls).toHaveLength(3);
+  h.endTurn("turn-3"); await h.tick();
+  expect(h.store.listEventsByKind(id, ["nudge"])).toHaveLength(1);
+});
 
 test("turn cap persists a pause; Extend keeps the task session, fingerprint and usage", async () => {
   const harness = createHarness({ extra: { readTurnUsage: () => ({ completed: true, usage: { inputTokens: 12, outputTokens: 8, totalCostUsd: 0.2 } }) } });

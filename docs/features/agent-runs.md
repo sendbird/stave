@@ -339,6 +339,13 @@ sample limits and examples of when each screen helps.
   pull request lacks them.
 - If Stave quits while a stage's turn runs, the stage continues with a new turn
   after the restart; that turn does not use up the stage's one reminder.
+- If the provider fails for a reason that passes (a timeout, a dropped
+  connection, an overloaded or unavailable service), the stage retries after
+  30 seconds, then 2 minutes, then 5 minutes, without using up its reminder.
+  Each retry is a turn and checks what the failed turn already did. After the
+  third retry fails too, the stage is **Stuck** with the provider's error;
+  **Retry stage** once the provider is back. A usage limit is not a provider
+  failure: it waits for the reset instead.
 - The turn limit comes from the agent's `tools.maxTurns`, or defaults to 30,
   capped at 100. At the cap, unfinished work shows **Halted · Limit reached**
   (**멈춤 · 한도 도달**). **Extend (+10 turns)** adds up to ten turns (at most
@@ -382,7 +389,8 @@ sample limits and examples of when each screen helps.
 ### A stage is stuck
 
 - Symptom: the stage says **Stuck** after the agent ended a turn without
-  reporting, even after one reminder, or because its turn could not start.
+  reporting, even after one reminder, because its turn could not start, or
+  because the provider kept failing through three retries.
 - Fix: read the transcript, reply with what is missing, and **Retry stage**.
   A stuck stage continues on its own only for a reply sent after it got stuck.
 
