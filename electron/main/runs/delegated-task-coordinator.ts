@@ -643,10 +643,12 @@ export function createDelegatedTaskCoordinator(
     if (completion.kind === "cancelled")
       return args.ledger.cancelRunStep({ runId: args.runId, stepId: args.stepId, expectedExecutionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:cancelled`, error: args.detail?.agentRun.reasonDetail ?? "The delegated Agent run was cancelled.", now: now() });
+    // A stopped child's report (a review's findings, say) still reaches the parent as its answer.
     if (completion.kind === "stopped")
       return args.ledger.failRunStep({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:stopped`, error: args.detail?.agentRun.reasonDetail ?? "The delegated Agent reached its execution limit before completion.",
-        detail: { code: "child-agent-run-stopped", agentRunId }, now: now() });
+        detail: { code: "child-agent-run-stopped", agentRunId,
+          ...(completion.report ? { responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) } : {}) }, now: now() });
     if (completion.kind === "waiting") {
       const message = args.detail?.agentRun.reasonDetail ?? (args.detail ? currentStageRecord(args.detail).detail : null) ?? `Delegated Agent ${completion.reason}; open its task to respond or resume.`;
       // A usage reset resumes the child on its own; any other wait needs a person.
@@ -710,7 +712,8 @@ export function createDelegatedTaskCoordinator(
       try {
         // The claim is durable before this host read. Root admission sees it,
         // or this read sees a root created before the claim reached persistence.
-        if (dependencies.readResourceRoot && (await dependencies.readResourceRoot(args.parentTaskId)) !== (args.turn.resourceRootRunId ?? null))
+        if (args.turn.lifecycle === "supervised" && dependencies.readResourceRoot &&
+            (await dependencies.readResourceRoot(args.parentTaskId)) !== (args.turn.resourceRootRunId ?? null))
           throw new Error("The parent resource Run changed before helper execution.");
         if (args.agentAssignment) {
           if (!dependencies.recordAgentAssignment) throw new Error("Delegated Agent snapshots cannot be recorded.");
@@ -1185,8 +1188,6 @@ export function createDelegatedTaskCoordinator(
     }
     // An effort the agent fixed is explicit; the parent's only fills a gap.
     const resourceRootRunId = await dependencies.readResourceRoot?.(args.parentTaskId);
-    if (resourceRootRunId && (args.lifecycle !== "supervised" || !args.agentConfigId))
-      return rejected("agent-refused", null, "This adaptive Run admits only saved-Agent supervised helpers. Native, one-turn and detached helpers cannot share its turn budget.");
     const effort = args.effort ?? defaults.inheritedEffort;
     return withParentDelegationLock(args.parentTaskId, () =>
       admitDelegation(args, agentContentHash, agentAssignment, effort, resourceRootRunId, defaults.accounts),
@@ -1317,10 +1318,12 @@ export function createDelegatedTaskCoordinator(
     const reviewSourceRevision = isReservedDelegationKey(args.delegationKey)
       ? await captureReviewRevision({ workspaceId: delegatedWorkspaceId, repositoryPath: args.repositoryPath,
         resolveWorkspace: dependencies.host.resolveWorkspace, readRevision: dependencies.readWorkspaceRevision }) : undefined;
-    const resourceRootRunId = expectedResourceRoot === undefined ? await dependencies.readResourceRoot?.(args.parentTaskId) : expectedResourceRoot;
-    if (dependencies.readResourceRoot && (await dependencies.readResourceRoot(args.parentTaskId)) !== resourceRootRunId)
-      return rejected("agent-refused", existingSummary, "The parent's adaptive Run changed during admission. Submit a new helper request.");
-    if (resourceRootRunId && args.lifecycle !== "supervised") return rejected("agent-refused", existingSummary, "Adaptive helpers must be supervised.");
+    const parentResourceRoot = expectedResourceRoot === undefined ? await dependencies.readResourceRoot?.(args.parentTaskId) : expectedResourceRoot;
+    if (dependencies.readResourceRoot && (await dependencies.readResourceRoot(args.parentTaskId)) !== parentResourceRoot)
+      return rejected("agent-refused", existingSummary, "The parent's Agent run changed during admission. Submit a new helper request.");
+    // Only a supervised saved-Agent helper draws on the run's shared turn budget;
+    // a one-turn or detached helper runs as it would outside a run.
+    const resourceRootRunId = args.lifecycle === "supervised" ? parentResourceRoot : null;
     const transition = ledger.claimRunStep({
       run: createPendingRun({
         id: runId,

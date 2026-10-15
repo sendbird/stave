@@ -19,6 +19,8 @@ export interface ClassifiedEvidence extends StageEvidence {
   outcome?: "succeeded" | "failed" | "unknown";
   freshness?: "current" | "stale" | "unknown";
   exitCode?: number | null;
+  /** A host workspace check: the configured action it ran. */
+  scriptId?: string;
 }
 
 export const EVIDENCE_SOURCE_LABELS: Record<EvidenceSource, string> = {
@@ -64,7 +66,7 @@ export function classifyStageEvidence(
   facts: StageFacts | null,
 ): ClassifiedEvidence[] {
   const hostChecks = (facts?.workspaceScripts ?? []).map((check) => {
-    const evidence = { ...describeActionEvidence(check, facts), ...(check.executedCommands ? { command: check.commandsTruncated ? `${check.executedCommands.slice(0, 1_999)}…` : check.executedCommands } : {}) };
+    const evidence: ClassifiedEvidence = { ...describeActionEvidence(check, facts), scriptId: check.scriptId, ...(check.executedCommands ? { command: check.commandsTruncated ? `${check.executedCommands.slice(0, 1_999)}…` : check.executedCommands } : {}) };
     if (evidence.freshness === "current" && !revisionsMatch(check.verification.completedRevision, report?.workspaceRevision))
       evidence.freshness = report?.workspaceRevision?.status === "known" ? "stale" : "unknown";
     return evidence;

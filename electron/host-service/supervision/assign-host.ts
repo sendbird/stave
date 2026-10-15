@@ -6,6 +6,7 @@
  */
 import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
 import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
+import { agentCallableIds } from "../../../src/lib/agents/delegate";
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { AgentRouteSettingsSchema } from "../../../src/lib/routing/agent-run-route";
@@ -21,9 +22,11 @@ export function createHostAssignRuntime(args: {
   const runtime = createAssignRuntime({
     store: persistence.agentAssignments,
     listAgents: () => hostAgents(),
+    // In-turn native subagents spend no turn of their own, so default team limits
+    // keep them; a run that froze the opt-in version 1 policy kept them off.
     allowNativeSubagents: (taskId) => {
       const run = persistence.agentRuns.getActiveAgentRunForTask(taskId);
-      return !run || !persistence.agentRuns.resourceConfig(run.id);
+      return !run || persistence.agentRuns.resourceConfig(run.id)?.policy.version !== 1;
     },
     emitChanged: (row) => args.emitChanged({ assignmentId: row.id, state: row.state }),
     ...(args.onTaskAgentEnded ? { onTaskAgentEnded: args.onTaskAgentEnded } : {}),
@@ -92,7 +95,7 @@ export async function invokeAgentAction(
         const parent = runtime.agentForTask(taskId);
         const value: AgentDelegationContext = {
           parentPermission: parent?.permission ?? null,
-          parentCanCall: parent?.canCall ?? null,
+          parentCanCall: parent ? agentCallableIds(parent) : null,
         };
         return { ok: true, value };
       }

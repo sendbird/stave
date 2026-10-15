@@ -1,11 +1,18 @@
 import { expect, test } from "bun:test";
 import { unmetStageAcceptance } from "../src/lib/agent-runs/acceptance";
-import { currentStageRecord, createStageRecord } from "../src/lib/agent-runs/domain";
+import { currentStageRecord, createStageRecord, StageCompleteReportInputSchema } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction } from "../src/lib/agent-runs/policy";
-import { WorkflowSchema } from "../src/lib/workflows/schema";
+import { WorkflowSchema, WORKFLOW_LIMITS } from "../src/lib/workflows/schema";
 import { COMPLETE_REPORT, AGENT_RUN_NOW, agentRunFixture, observe, patchCurrent, turn } from "./fixtures/agent-run-fixtures";
 
 const ai = (id: string) => ({ id, title: id, kind: "ai" as const, instruction: "Do this stage.", doneWhen: "This stage is done." });
+
+test("a last-stage report can restate two full stages of criteria, each as long as a Done when", () => {
+  const text = (index: number) => `${index} ${"x".repeat(WORKFLOW_LIMITS.doneWhen - 4)}`;
+  const report = (count: number) => ({ summary: "Done", acceptanceCriteria: Array.from({ length: count }, (_, index) => ({ text: text(index), status: "met" as const })) });
+  expect(StageCompleteReportInputSchema.safeParse(report(40)).success).toBe(true);
+  expect(StageCompleteReportInputSchema.safeParse(report(41)).success).toBe(false);
+});
 function aggregateFor(stages: unknown[]) {
   const base = agentRunFixture();
   return agentRunFixture({ workflow: WorkflowSchema.parse({ ...base.agentRun.workflow, checkIns: "when-stuck", stages }) });
@@ -24,6 +31,17 @@ test("complete reports with unmet or missing stage requirements block; simple an
   expect(decide(reported([{ ...stage, acceptanceCriteria: [{ text: "Answer supplied", required: false }] }], [{ text: "Answer supplied", status: "unverified" }]))).toEqual({ action: "complete-stage", next: "finish" });
 });
 
+test("a delegated run whose report leaves a criterion unmet ends for its parent instead of halting", () => {
+  // A reviewer that reports the reviewed work's problem as unmet: a primary run halts, a delegated one ends.
+  const aggregate = reported([ai("review")], [{ text: "Design-system violations fixed without changing the check", status: "unmet" }]);
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  const delegated = decideAgentRunAction({ aggregate, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW });
+  expect(delegated).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining("Design-system violations") });
+  // A delegated run whose report meets its criteria still completes.
+  const met = reported([ai("review")], [{ text: "Review written", status: "met" }]);
+  expect(decideAgentRunAction({ aggregate: met, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW })).toEqual({ action: "complete-stage", next: "finish" });
+});
+
 test("a build stage can precede testing, but final integration cannot leave goal criteria unresolved", () => {
   let aggregate = aggregateFor([{ ...ai("plan"), role: "plan" }, ai("build"), ai("test")]);
   aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } };
@@ -37,6 +55,30 @@ test("a build stage can precede testing, but final integration cannot leave goal
   expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
   aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }] } });
   expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+});
+
+test("a goal criterion an earlier stage met need not be restated by the last stage, unless the last stage reports it otherwise", () => {
+  let aggregate = aggregateFor([ai("review"), ai("fix")]);
+  aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "The review lists each defect", status: "met" }, { text: "Tests pass", status: "unverified" }] } };
+  aggregate.agentRun.currentStageIndex = 1;
+  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
+  // The not-yet-met goal criterion must still be met here.
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }] } });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+  // Reported again as unmet on the final work, the earlier "met" no longer stands.
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }, { text: "The review lists each defect", status: "unmet" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  // Restating a required criterion as optional and unverified does not lift it.
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }, { text: "The review lists each defect", required: false, status: "unverified" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  // The last stage's own criterion is checked whatever an earlier stage reported.
+  aggregate.agentRun.workflow.stages[1] = { ...ai("fix"), acceptanceCriteria: [{ text: "The review lists each defect" }] };
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  // An optional host check of the same text on the last stage that has not passed reopens the required criterion.
+  aggregate.agentRun.workflow.stages[1] = { ...ai("fix"), acceptanceCriteria: [{ text: "The review lists each defect", required: false, verification: "stave-check", scriptDefinitions: [{ scriptId: "check", definitionHash: "a".repeat(64) }] }] };
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
 });
 
 test("a later timestamp cannot make a previous turn's explicit report current", () => {

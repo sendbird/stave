@@ -223,7 +223,26 @@
     "aName": "a name",
     "aKeyFromSecrets": "a key from Secrets",
     "anHTTPSEndpoint": "an HTTPS endpoint",
-    "atLeastOneModel": "at least one model"
+    "atLeastOneModel": "at least one model",
+    "newKey": {
+      "open": "Paste a new key",
+      "name": "Key name in Secrets",
+      "value": "Key",
+      "valuePlaceholder": "Paste the gateway key",
+      "help": "Saved encrypted in Settings > Secrets, then chosen here. Stave keeps only its reference with the connection.",
+      "save": "Save key",
+      "failed": "The key could not be saved.",
+      "unavailable": "Secure key storage is available only in the desktop app.",
+      "secretDescription": "Saved from Settings > Accounts for an API connection."
+    },
+    "steps": {
+      "label": "Steps to add a connection",
+      "item": "{{value1}} {{value2}}",
+      "key": "Key",
+      "name": "Name",
+      "models": "Models",
+      "check": "Check after adding"
+    }
   },
   "apiConnectionModelPicker": {
     "pinnedModels": "Pinned models (",
@@ -243,10 +262,10 @@
     "addAModelByID": "Add a model by ID",
     "creatorModelForExampleMoonshotaiKimi": "creator/model, for example moonshotai/kimi-k3",
     "addModel": "Add model",
-    "useTheGatewaySModelIDs": "Use the gateway's model IDs, separated by commas, such as anthropic/claude-sonnet-5."
+    "useTheGatewaySModelIDs": "Use the gateway's model IDs, separated by commas, such as anthropic/claude-sonnet-5.",
+    "suggestions": "On your other connections:"
   },
   "apiConnectionsSettings": {
-    "key": "· Key:",
     "notFoundInSecrets": "not found in Secrets",
     "modelsPinnedOn": "Models pinned on {{value1}}",
     "saveChanges": "Save changes",
@@ -257,7 +276,17 @@
     "sendTurnsThroughAGatewayThat": "Send turns through a gateway that bills per token, instead of your Claude or Codex subscription. One connection can serve both Claude and Codex with the same key. To use it, choose it as the account for new turns in the Claude or Codex accounts card, or in the status bar account switch.",
     "noAPIConnectionsYetSaveThe": "No API connections yet. Save the gateway's key in Secrets, then add a connection below.",
     "serves": "Serves {{value1}}",
-    "secretStorageIsUnavailable": "Secret storage is unavailable."
+    "secretStorageIsUnavailable": "Secret storage is unavailable.",
+    "nextStep": {
+      "title": "Added {{value1}}",
+      "body": "Check that the gateway accepts the key, then use the connection in {{value1}}. Using it makes it the account for new turns; running turns keep theirs.",
+      "use": "Use in {{value1}}",
+      "done": "Done",
+      "needsWorkspace": "Open a repository first: the model selector is in the composer, which needs a workspace. The connection is saved and you can pick it in {{value1}} later.",
+      "checkFailed": "The check could not run. Try again; if it keeps failing, restart Stave.",
+      "switchedOnly": "New {{value1}} turns now use {{value2}}. Open a task, then pick one of its models in the model selector."
+    },
+    "keyLine": "· Key: {{value1}}"
   },
   "providerAccountAddForm": {
     "couldNotUpdateTheSharedSetup": "Could not update the shared setup.",
@@ -591,5 +620,121 @@
     "headerModel": "Model",
     "summaryRule": "{{taskClass}} via rule {{rule}} → {{model}}{{effort}}: {{reason}}",
     "summaryFallback": "{{taskClass}} via fallback → {{model}}{{effort}}: {{reason}}"
+  },
+  "accountsOnboarding": {
+    "title": "Getting started",
+    "description": "What is left before your first turn. It updates as you install and sign in.",
+    "stepNumber": "{{value1}}. {{value2}}",
+    "optionalStatus": "Optional · {{value1}}",
+    "status": {
+      "done": "Done",
+      "todo": "To do",
+      "skipped": "Skipped",
+      "blocked": "Waiting for an earlier step",
+      "checking": "Checking"
+    },
+    "steps": {
+      "install": {
+        "title": "Install a provider CLI"
+      },
+      "signIn": {
+        "title": "Sign in"
+      },
+      "accounts": {
+        "title": "Add another account"
+      },
+      "gateway": {
+        "title": "Connect a gateway"
+      },
+      "model": {
+        "title": "Pick a model"
+      }
+    },
+    "detail": {
+      "checking": "Checking which CLIs are installed…",
+      "installTodo": "Stave runs turns through a CLI you sign in to: Claude Code, Codex, Cursor, Kiro or OpenCode. Install one, then check again. Claude Code and Codex install with:",
+      "installDone": "Found {{value1}}.",
+      "signInTodo": "Sign in to {{value1}} with the plan you already pay for, or add an API connection below.",
+      "signInDone": "Ready to take turns: {{value1}}.",
+      "signInBlocked": "Install a CLI first.",
+      "signInNeedsWorkspace": "The sign-in terminal runs in a workspace. Open a repository first.",
+      "accountsTodo": "Keep a work and a personal subscription side by side and switch between them.",
+      "accountsDone": "You have more than one account.",
+      "gatewayTodo": "Use a company Vercel AI Gateway key for Claude Code and Codex, billed per token.",
+      "gatewayDone": "An API connection is set up.",
+      "skipped": "Skipped. You can come back to it any time.",
+      "modelDone": "Choose a model in the composer's model selector.",
+      "modelBlocked": "Available once a provider can take turns.",
+      "signInTodoCli": "{{value1}} keeps its own sign-in. Sign in with its login command in a terminal, then check again.",
+      "modelNeedsTask": "Open a task first: the model selector is in its composer.",
+      "modelNeedsRepository": "Open a repository and a task first: the model selector is in a task's composer."
+    },
+    "actions": {
+      "copyInstall": "Copy {{value1}} install command",
+      "openTooling": "Open Tooling",
+      "openRepository": "Open a repository",
+      "signIn": "Sign in to {{value1}}",
+      "addAccount": "Add an account",
+      "addConnection": "Add a connection",
+      "skip": "Skip",
+      "undoSkip": "Undo skip",
+      "openModelSelector": "Open the model selector",
+      "show": "Show steps",
+      "hide": "Hide",
+      "openAccounts": "Open Accounts",
+      "signInCli": "How to sign in to {{value1}}"
+    },
+    "summary": {
+      "complete": "Setup is complete. Ready to take turns: {{value1}}.",
+      "remaining_one": "{{count}} step left.",
+      "remaining_other": "{{count}} steps left."
+    },
+    "welcome": {
+      "title": "Getting started",
+      "description": "No provider can take a turn yet. Install a CLI and sign in, or connect a gateway key.",
+      "stepStatus": "{{value1}} · {{value2}}"
+    },
+    "toasts": {
+      "commandCopied": "{{value1}} install command copied",
+      "copyFailed": "Could not copy the command"
+    }
+  },
+  "accountsSection": {
+    "billing": {
+      "title": "Choose how you pay",
+      "description": "Each provider can use your subscription, another subscription, or a gateway key. You can mix them.",
+      "subscription": {
+        "title": "Use your subscription",
+        "body": "Sign in to Claude Code or Codex with the plan you already pay for.",
+        "action": "Go to sign-in"
+      },
+      "secondAccount": {
+        "title": "Add another subscription",
+        "body": "Keep work and personal accounts apart. Each has its own history and usage limits."
+      },
+      "gateway": {
+        "title": "Use a company gateway key",
+        "body": "Bill per token through Vercel AI Gateway, with one key for Claude Code and Codex."
+      },
+      "inUse": "In use"
+    },
+    "cliManaged": {
+      "title": "Cursor, Kiro and OpenCode sign-in",
+      "description": "These CLIs keep their own sign-in. Stave shows whether they are signed in and the command that signs in.",
+      "checking": "Checking",
+      "notInstalled": "CLI not installed",
+      "installHint": "Install {{value1}} to use it. Settings > Tooling shows where Stave looks.",
+      "loginHint": "Sign in in a terminal with {{value1}}."
+    },
+    "help": "How accounts, subscriptions and gateway keys work:"
+  },
+  "apiConnectionFailure": {
+    "unreachable": "Could not reach the gateway. Check your internet connection, VPN or proxy, and the endpoint URL, then try again.",
+    "timeout": "The gateway did not answer in time. Try again; if it keeps happening, check your network or proxy.",
+    "certificateUntrusted": "The gateway's certificate is not trusted on this network. A company proxy that inspects TLS traffic usually causes this: ask whoever runs your network to allow the gateway, or try another network.",
+    "invalidKey": "The gateway rejected the key. Paste a new key, or check that this one is still active.",
+    "budgetExhausted": "This key's budget on the gateway is used up. Ask whoever manages the gateway to raise it, or wait until it resets.",
+    "rateLimited": "The gateway is limiting requests for this key. Wait a moment and try again.",
+    "missingKey": "The connection's key is missing or locked. Choose a key, or paste a new one."
   }
 }

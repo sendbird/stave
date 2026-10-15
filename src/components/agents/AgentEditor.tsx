@@ -11,6 +11,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   AGENT_COLOR_CHART_INDEX,
   AGENT_COLOR_LABELS,
+  updateAgentAppearance,
 } from "@/lib/agents/agent-appearance";
 import {
   AGENT_COLORS,
@@ -26,6 +27,7 @@ import {
   AGENT_WORKSPACE_LABELS,
   AGENT_WORKSPACES,
   AgentConfigSchema,
+  type AgentAppearance,
   type AgentColor,
   type AgentConfig,
   type AgentModel,
@@ -42,6 +44,8 @@ import { AgentCanCallField } from "./AgentCanCallField";
 import { AgentWorkflowField } from "./AgentWorkflowField";
 import { RoutingDecisionField } from "@/components/layout/RoutingDecisionField";
 import { AgentExecutionModelField } from "./AgentExecutionModelField";
+import { AgentIconChooser } from "./AgentIconChooser";
+import { stableStringify } from "@/lib/agents/compile";
 
 const REPORT_LABELS: Readonly<Record<(typeof AGENT_REPORT_SECTIONS)[number], string>> = {
   get summary() { return i18n.t("agents:agentEditor.summary"); },
@@ -112,7 +116,7 @@ const ADVANCED_FIELDS = new Set(["avoidWhen", "skills", "tools", "concurrency", 
 
 /**
  * The agent editor. What most agents need is always visible — Profile (name,
- * colour, Use when), Instructions, Workflow (its stages and check-ins) and
+ * colour, icon, Use when), Instructions, Workflow (its stages and check-ins) and
  * How it runs (model, permission, where)
  * — and everything else sits under one collapsed Advanced. Edits a draft copy;
  * `onSave` receives the draft and returns an error message or null.
@@ -138,10 +142,15 @@ export function AgentEditor(props: {
     props.onDraftChange?.(next);
   };
   const issues = useMemo(() => fieldIssues(draft), [draft]);
-  const changed = JSON.stringify(draft) !== JSON.stringify(props.agent);
+  // Key order is not a change: a saved agent comes back in schema order, while
+  // a field the draft gained (a first colour or icon) sits at its end.
+  const changed = stableStringify(draft) !== stableStringify(props.agent);
   const providers = listProviderIds();
 
   const setModel = (model: AgentModel) => setDraft({ ...draft, model });
+  // Colour and icon are independent: changing one keeps the other.
+  const setAppearance = (patch: Partial<AgentAppearance>) =>
+    setDraft({ ...draft, appearance: updateAgentAppearance(draft.appearance, patch) });
 
   return (
     <div className={sx(props.embedded ? agentStyles.pane : styles.editor)}>
@@ -161,10 +170,11 @@ export function AgentEditor(props: {
           </dd>
           <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor2")}</dt>
           <dd className={sx(styles.propertyValue)}>
-            <ColorChooser
-              value={draft.appearance?.color}
-              onChange={(color) => setDraft({ ...draft, appearance: { color } })}
-            />
+            <ColorChooser value={draft.appearance?.color} onChange={(color) => setAppearance({ color })} />
+          </dd>
+          <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentIconChooser.label")}</dt>
+          <dd className={sx(styles.propertyValue)}>
+            <AgentIconChooser agent={draft} value={draft.appearance?.icon} onChange={(icon) => setAppearance({ icon })} />
           </dd>
           <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor3")}</dt>
           <dd className={sx(styles.propertyValue)}>

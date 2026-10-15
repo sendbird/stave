@@ -1,4 +1,4 @@
-import { PromptInputRunAutoTuningControl, type PromptInputRunAutoTuning } from "./prompt-input-run-auto-tuning";
+import { PromptInputRunAccountPoolControl, type PromptInputRunAccountPool } from "./prompt-input-run-account-pool";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
@@ -252,6 +252,9 @@ import {
   ComposerFrameStatusBar,
   ComposerFrameWing,
 } from "./composer-frame";
+import { listProviderIds } from "@/lib/providers/model-catalog";
+import { STAVE_OPEN_MODEL_SELECTOR_EVENT, registerComposerModelSelectorReceiver } from "@/lib/providers/accounts-navigation";
+import type { ModelSelectorOpenRequest } from "./model-selector-open-request";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
@@ -301,7 +304,7 @@ interface PromptInputProps {
   activeProviderModePresetId?: ProviderModePresetId | null;
   goalStatus?: PromptInputGoalStatus | null;
   contextMeter?: ReactNode;
-  runAutoTuning?: PromptInputRunAutoTuning | null;
+  runAccountPool?: PromptInputRunAccountPool | null;
   /**
    * Wrap the raised card in the four-bar composer frame and move toolbar
    * controls into the side wings when the viewport is wide enough.
@@ -868,7 +871,7 @@ export function PromptInput(args: PromptInputProps) {
     activeProviderModePresetId,
     goalStatus,
     contextMeter,
-    runAutoTuning,
+    runAccountPool,
     framed = false,
     frameTop,
     frameBottom,
@@ -1082,6 +1085,7 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
+  const [modelSelectorOpenRequest, setModelSelectorOpenRequest] = useState<ModelSelectorOpenRequest | undefined>(undefined);
   // "Assign to an agent…" opens the selector on its Agents section.
   const agentSelectorNonce = useAgentsUiStore((state) => state.agentSelectorNonce);
   const handledAgentSelectorNonce = useRef(agentSelectorNonce);
@@ -1517,6 +1521,30 @@ export function PromptInput(args: PromptInputProps) {
     ],
   );
 
+  // Settings > Accounts ("Pick a model", "Use in Codex") opens this selector.
+  // The frame delay lets Settings close first, so the popover is not behind it.
+  useEffect(() => {
+    if (interactionsDisabled || !windowShortcutsEnabled) return;
+    let frame = 0;
+    const onOpenModelSelector = (event: Event) => {
+      const detail = (event as CustomEvent<{ providerId?: string; group?: string }>).detail;
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const known = listProviderIds().find((candidate) => candidate === detail?.providerId);
+        setModelSelectorOpenRequest(known ? { providerId: known, ...(detail?.group ? { group: detail.group } : {}) } : undefined);
+        setModelSelectorOpenNonce((current) => current + 1);
+      });
+    };
+    window.addEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
+    // Settings asks whether a composer can take the request before sending it.
+    const unregister = registerComposerModelSelectorReceiver();
+    return () => {
+      unregister();
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
+    };
+  }, [interactionsDisabled, windowShortcutsEnabled]);
+
   useEffect(() => {
     if (agentSelectorNonce === handledAgentSelectorNonce.current) return;
     handledAgentSelectorNonce.current = agentSelectorNonce;
@@ -1563,6 +1591,7 @@ export function PromptInput(args: PromptInputProps) {
       if (isAltP) {
         event.preventDefault();
         armShortcutEchoGuard();
+        setModelSelectorOpenRequest(undefined);
         setModelSelectorOpenNonce((current) => current + 1);
         return;
       }
@@ -2333,7 +2362,7 @@ export function PromptInput(args: PromptInputProps) {
   const unavailableComposerControls: ComposerControlId[] = [];
   if (!providerModeStatus) unavailableComposerControls.push("providerMode");
   if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
-  if (!runAutoTuning) unavailableComposerControls.push("runAutoTuning");
+  if (!runAccountPool) unavailableComposerControls.push("runAccountPool");
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
@@ -2345,7 +2374,7 @@ export function PromptInput(args: PromptInputProps) {
     activeIds: collectActiveComposerControls({
       thinkingMode,
       fastMode,
-      runAutoTuningEnabled: runAutoTuning?.enabled,
+      runAccountPoolEnabled: runAccountPool?.enabled,
       runtimeTone: runtimeProfile.tone,
       boundSecretCount: secretsActive ? 1 : 0,
     }),
@@ -2353,7 +2382,7 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   const composerControlNodes: Partial<Record<ComposerControlId, ReactNode>> = {
-    runAutoTuning: runAutoTuning ? <PromptInputRunAutoTuningControl control={runAutoTuning} /> : null,
+    runAccountPool: runAccountPool ? <PromptInputRunAccountPoolControl pool={runAccountPool} /> : null,
     providerMode: providerModeStatus ? (
       <PromptInputProviderModePill
         status={providerModeStatus}
@@ -4395,6 +4424,8 @@ export function PromptInput(args: PromptInputProps) {
                       ? modelSelectorOpenNonce
                       : undefined
                   }
+                  {...(modelSelectorOpenRequest ? { openRequest: modelSelectorOpenRequest } : {})}
+                  accountActions
                   openAgentsToken={agentsOpenToken}
                   onFastModeChange={onFastModeChange}
                   onSelect={({ selection, effort, fastMode: nextFastMode }) => {

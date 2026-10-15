@@ -4,7 +4,9 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ads/components/Button";
 import { ActionButton } from "@/components/system/ActionButton";
 import { OpenPathDialog } from "./OpenPathDialog";
-import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
+import { useAppStore } from "@/store/app.store";
+import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
+import { AccountsGettingStartedWelcome } from "./AccountsGettingStarted";
 import { workspaceWelcomeStyles as styles } from "./workspace-welcome.styles";
 import { Trans, useTranslation } from "@/i18n";
 
@@ -47,30 +49,28 @@ export function WorkspaceWelcome() {
             </li>
           ))}
         </ol>
-        <p className={sx(styles.actionHint)}>
-          <Trans
-            t={t}
-            i18nKey="welcome.accountsHint"
-            components={{
-              link: (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="link"
-                  flushInline
-                  xstyle={styles.inlineLink}
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                        detail: { section: "tooling" },
-                      }),
-                    )
-                  }
-                />
-              ),
-            }}
-          />
-        </p>
+        <AccountsGettingStartedWelcome
+          fallback={
+            <p className={sx(styles.actionHint)}>
+              <Trans
+                t={t}
+                i18nKey="welcome.accountsHint"
+                components={{
+                  link: (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="link"
+                      flushInline
+                      xstyle={styles.inlineLink}
+                      onClick={() => openAccountsSettings()}
+                    />
+                  ),
+                }}
+              />
+            </p>
+          }
+        />
       </div>
       <OpenPathDialog
         open={open}

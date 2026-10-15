@@ -382,7 +382,9 @@
   "agentRunStatus": {
     "taskUnavailable": "작업을 더 이상 사용할 수 없습니다.",
     "turnCapReached": "실행이 완료되기 전에 턴을 모두 사용했습니다.",
+    "acceptanceUnmet": "위임된 실행이 필수 조건을 미충족으로 보고해, 상위 실행이 판단하도록 종료했습니다.",
     "expired": "실행 시간이 초과되어 만료되었습니다.",
+    "metVerified": "충족됨 · Stave 확인",
     "metReported": "충족됨 · 에이전트 보고",
     "unmet": "미충족",
     "unverified": "검증 안 됨",
@@ -453,7 +455,8 @@
     "hours": "{{value}}시간",
     "days": "{{value}}일",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고, Codex는 사용할 수 있으면 auto-review를 사용하며 그렇지 않으면 승인을 요청하지 않습니다. 사용자에게 온 승인 요청에 제때 응답하지 않으면 거부됩니다.",
+    "autoPermissionClaude": "Claude auto mode가 각 행동을 판단합니다. 판단하지 못한 행동은 사용자에게 묻고, 제때 답하지 않은 승인 요청은 거부됩니다.",
+    "autoPermissionCodex": "사용할 수 있으면 Codex auto-review가 각 행동을 판단하고, 그렇지 않으면 Codex는 묻지 않습니다. 제때 답하지 않은 승인 요청은 거부됩니다.",
     "providerRetryTurn": "{{name}} — 제공사 오류 뒤 다시 시도 ({{total}}회 중 {{retry}}회)"
   },
   "checks": {
@@ -513,6 +516,7 @@
   "insights": {
     "stuckStage": "정체된 단계",
     "turnCapReached": "턴 한도 도달",
+    "acceptanceUnmet": "조건 미충족",
     "expired": "만료됨",
     "taskUnavailable": "작업 사용 불가",
     "turnFailed": "턴 실패함",
@@ -579,7 +583,8 @@
     "extraCopy307": "이 단계는 완료되었지만 {{value1}} 실행을 취소하고 나머지는 직접 완료하세요.",
     "extraCopy308": "주 작업의 워크스페이스를 현재 불러오지 않았습니다.",
     "extraCopy309": "주 작업이 이제 {{value2}} 대신 {{value1}} 모델로 실행합니다.",
-    "providerRetriesSpent": "제공사 오류가 계속됐습니다. {{count}}번 다시 시도했지만 “{{message}}”로 끝났습니다. 제공사가 복구되면 다시 시도하세요."
+    "providerRetriesSpent": "제공사 오류가 계속됐습니다. {{count}}번 다시 시도했지만 “{{message}}”로 끝났습니다. 제공사가 복구되면 다시 시도하세요.",
+    "teamDetail": "이 실행과 보조 Agent가 공유 턴 {{value1}}턴을 모두 사용했습니다."
   },
   "reportMarkdown": {
     "completed": "실행 완료됨",
@@ -743,7 +748,8 @@
   },
   "agentRunSend": {
     "copy": "실행을 시작하지 못했습니다",
-    "unsentReason": "시작 전에 실행이 종료되었습니다."
+    "unsentReason": "시작 전에 실행이 종료되었습니다.",
+    "attachedFilePaths": "이 Run은 기존 권한으로 첨부 경로의 저장된 파일을 확인합니다. 편집 중인 변경은 먼저 저장하세요. 직접 첨부한 이미지와 문맥 자료는 일반 턴으로 보냅니다."
   },
   "agentRunsStore": {
     "message": "실행에는 데스크톱 앱이 필요합니다.",
@@ -822,25 +828,14 @@
     "presentationCopy523": "단계 인덱스 {{v1}}이 {{v2}}개 단계의 워크플로 범위를 벗어났습니다.",
     "presentationCopy524": "\"{{v1}}\" 단계는 Stave 동작으로, 프롬프트가 없습니다."
   },
-  "adaptive": {
-    "enable": "자동 조정 사용",
-    "description": "실행 한도: 공통 30턴 · 보조 Agent 동시 2개/총 4개 · 부모 통합 1턴 확보.",
-    "title": "자동 조정 실행 자원",
-    "budget": "공통 턴: {{used}} / {{total}} 배정 · {{reserved}} 예약 · {{remaining}} 사용 가능",
-    "helpers": "Helper: {{active}} / 2개 실행 중 · {{launched}} / 4개 시작",
-    "boundary": "부모·자식 턴과 단계 답장을 합산합니다. 시작 실패도 배정한 턴으로 셉니다. 실제 청구 금액은 별도이며 확인되지 않은 비용은 미상으로 남습니다.",
-    "files": "이 Run은 기존 권한으로 첨부 경로의 저장된 파일을 확인합니다. 편집 중인 변경은 먼저 저장하세요. 직접 첨부한 이미지와 문맥 자료는 일반 턴으로 보냅니다.",
-    "route": "Provider: {{provider}} · 모델: {{model}} · effort: {{effort}}. 변경은 최대 2회이며 변경 사이에 2턴을 둡니다.",
+  "teamLimits": {
+    "title": "팀 한도",
+    "budget": "공유 턴: {{total}}턴 중 {{used}}턴 사용 · 보조 Agent 예약 {{reserved}}턴 · 남은 턴 {{remaining}}",
+    "helpers": "보조 Agent: 동시 {{concurrent}}개 중 {{active}}개 작업 중 · 전체 {{totalHelpers}}개 중 {{launched}}개 호출",
+    "route": "제공사: {{provider}} · 모델: {{model}} · 추론 강도: {{effort}}. 변경은 최대 2회이며 변경 사이에 2턴을 둡니다.",
     "pinned": "고정",
-    "eligible": "자동 조정 가능",
-    "label": "자동 조정",
-    "summary": "작업 단계에 맞춰 모델과 추론 강도를 조정합니다. 선택한 AI 서비스와 직접 고정한 설정은 유지합니다.",
-    "on": "켬",
-    "off": "끔",
-    "trigger": "자동 조정: {{state}}",
-    "nextRun": "이 태스크의 다음 Agent 작업에 적용합니다.",
-    "locked": "진행 중인 작업은 시작할 때의 설정을 유지합니다. 작업이 끝나면 변경할 수 있습니다.",
-    "controlTitle": "모델 자동 조정"
+    "eligible": "자동 조정",
+    "boundary": "이 실행의 턴, 보조 Agent의 턴, 단계 중 사용자 답장을 합산하며 시작에 실패한 턴도 셉니다. 다 쓰면 실행이 한도 도달로 멈추고, 연장하면 턴이 늘어납니다. 실제 청구 금액은 별도이며 확인되지 않은 비용은 미상으로 남습니다."
   },
   "pullRequestWatch": {
     "stopUnreadable_other": "GitHub를 {{count}}회 연속 읽지 못해 이 감시를 중지했습니다. 마지막 오류: {{error}}",
@@ -867,7 +862,10 @@
     "reportHeading": "계정 전환",
     "searchLabel": "계정 검색",
     "searchPlaceholder": "이름 또는 ID로 검색",
-    "noMatches": "“{{query}}” 검색과 일치하는 계정이 없습니다."
+    "noMatches": "“{{query}}” 검색과 일치하는 계정이 없습니다.",
+    "trigger": "계정 풀: {{state}}",
+    "on": "켬",
+    "off": "끔"
   },
   "eventWait": {
     "waitingOn": "대기 · {{event}}",

@@ -4,6 +4,7 @@ import {
   listVisibleSettingsSections,
   matchesSettingsSection,
   resolveVisibleSettingsSection,
+  settingsSectionGroups,
   settingsSections,
 } from "@/components/layout/settings-dialog.schema";
 import {
@@ -173,9 +174,30 @@ describe("settings field registry", () => {
       expect(fieldIds(query)).toContain("settings-field-api-connections");
     }
     // Profile ids are machine-local, so account choices never travel in an export.
-    for (const field of settingDefinitions.filter((candidate) => candidate.sectionId === "tooling")) {
+    const accountFields = settingDefinitions.filter((candidate) => candidate.sectionId === "accounts");
+    expect(accountFields.map((field) => field.fieldId)).toEqual([
+      "settings-field-claude-accounts",
+      "settings-field-codex-accounts",
+      "settings-field-api-connections",
+    ]);
+    for (const field of accountFields) {
       expect(field.importExport).toBe("exclude");
     }
+  });
+
+  test("account words lead to Settings > Accounts, not Tooling", () => {
+    const accounts = settingsSections.find((section) => section.id === "accounts")!;
+    const tooling = settingsSections.find((section) => section.id === "tooling")!;
+    for (const query of ["account", "sign in", "login", "subscription", "api key", "gateway", "vercel", "billing", "계정", "로그인", "구독", "게이트웨이", "과금"]) {
+      expect(matchesSettingsSection(accounts, query)).toBe(true);
+    }
+    for (const query of ["account", "sign in", "gateway"]) {
+      expect(matchesSettingsSection(tooling, query)).toBe(false);
+    }
+    for (const query of ["sign in", "api connection", "account"]) {
+      expect(searchSettingsFields(query).some((field) => field.sectionId === "tooling")).toBe(false);
+    }
+    expect(settingsSectionGroups.find((group) => group.ids.includes("accounts"))?.ids[0]).toBe("accounts");
   });
 });
 

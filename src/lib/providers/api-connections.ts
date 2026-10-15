@@ -109,6 +109,12 @@ export type ApiConnectionSaveResult =
   | { ok: false; message: string };
 export type ApiConnectionRemoveResult = { ok: boolean; message?: string };
 
+/**
+ * What a check found. `unreachable`, `timeout` and `certificate-untrusted`
+ * come from the request itself (no answer, no answer in time, or a TLS
+ * certificate Node does not trust, as behind an inspecting proxy); the rest
+ * come from the gateway's answer or the stored key.
+ */
 export type ApiConnectionCheckStatus =
   | "ok"
   | "invalid-key"
@@ -117,6 +123,8 @@ export type ApiConnectionCheckStatus =
   | "models-missing"
   | "missing-key"
   | "unreachable"
+  | "timeout"
+  | "certificate-untrusted"
   | "unexpected";
 export interface ApiConnectionCheckResult {
   ok: boolean;
@@ -131,9 +139,11 @@ export interface ApiConnectionCatalogModel extends ApiConnectionModel {
   name: string;
   tags: string[];
 }
+/** Why the model list could not be read; the renderer picks the words. */
+export type ApiConnectionCatalogFailure = ApiConnectionRequestFailure | "rate-limited" | "unexpected";
 export type ApiConnectionCatalogResult =
   | { ok: true; models: ApiConnectionCatalogModel[] }
-  | { ok: false; models: []; message: string };
+  | { ok: false; models: []; message: string; reason?: ApiConnectionCatalogFailure };
 
 export interface ApiConnectionsBridgeApi {
   list: () => Promise<ApiConnectionListResult>;
@@ -205,7 +215,52 @@ export function apiConnectionGroupLabel(label: string) {
   return i18n.t("providers:apiConnections.apiBilling", { value1: label });
 }
 
-export type ApiConnectionHttpStatus = Exclude<ApiConnectionCheckStatus, "ok" | "models-missing" | "missing-key" | "unreachable">;
+export type ApiConnectionHttpStatus = Exclude<ApiConnectionCheckStatus, "ok" | "models-missing" | "missing-key" | ApiConnectionRequestFailure>;
+
+/** A request that got no usable answer: no route, no answer in time, or an untrusted certificate. */
+export type ApiConnectionRequestFailure = "unreachable" | "timeout" | "certificate-untrusted";
+
+/**
+ * TLS verification failures Node reports when a proxy re-signs traffic with a
+ * certificate the bundled roots do not include, plus expired or mismatched
+ * certificates. Electron's network stack reports the same as `net::ERR_CERT_*`.
+ */
+const CERTIFICATE_ERROR_CODES = new Set([
+  "UNABLE_TO_GET_ISSUER_CERT", "UNABLE_TO_GET_ISSUER_CERT_LOCALLY", "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+  "SELF_SIGNED_CERT_IN_CHAIN", "DEPTH_ZERO_SELF_SIGNED_CERT", "CERT_UNTRUSTED", "CERT_REJECTED",
+  "CERT_HAS_EXPIRED", "CERT_NOT_YET_VALID", "CERT_SIGNATURE_FAILURE", "UNABLE_TO_DECRYPT_CERT_SIGNATURE",
+  "ERR_TLS_CERT_ALTNAME_INVALID", "HOSTNAME_MISMATCH",
+]);
+const TIMEOUT_ERROR_CODES = new Set([
+  "ETIMEDOUT", "ESOCKETTIMEDOUT", "UND_ERR_CONNECT_TIMEOUT", "UND_ERR_HEADERS_TIMEOUT", "UND_ERR_BODY_TIMEOUT",
+]);
+
+/**
+ * Classifies a thrown request error by its code, walking `cause` (undici puts
+ * the socket error there). Only codes and names are read; the message and any
+ * header or key never leave this function. Null for errors that are not about
+ * the request, such as a body that failed to parse.
+ */
+export function classifyApiConnectionRequestError(error: unknown): ApiConnectionRequestFailure | null {
+  let current: unknown = error;
+  let request = false;
+  for (let depth = 0; depth < 6 && current && typeof current === "object"; depth += 1) {
+    const { name, code, message } = current as { name?: unknown; code?: unknown; message?: unknown };
+    if (name === "TimeoutError") return "timeout";
+    if (typeof code === "string") {
+      if (CERTIFICATE_ERROR_CODES.has(code)) return "certificate-untrusted";
+      if (TIMEOUT_ERROR_CODES.has(code)) return "timeout";
+      request = true;
+    }
+    if (typeof message === "string") {
+      if (/net::ERR_CERT_|ERR_SSL_|certificate/i.test(message)) return "certificate-untrusted";
+      if (/net::ERR_TIMED_OUT|net::ERR_CONNECTION_TIMED_OUT/.test(message)) return "timeout";
+      if (/^net::ERR_|fetch failed|failed to fetch/i.test(message)) request = true;
+    }
+    current = (current as { cause?: unknown }).cause;
+  }
+  return request ? "unreachable" : null;
+}
 
 /** What a gateway's HTTP refusal means for the person holding the key. */
 export function classifyApiConnectionHttpStatus(status: number): ApiConnectionHttpStatus {

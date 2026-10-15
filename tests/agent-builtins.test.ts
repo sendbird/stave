@@ -1,7 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { i18n } from "@/i18n/runtime";
+import { agentInitials } from "@/lib/agents/agent-appearance";
+import { getAgentIcon } from "@/lib/agents/agent-icons";
+import { getAgentDisplayName } from "@/lib/agents/display";
 import { importAgentFile } from "@/lib/agents/import";
-import { blankCustomAgent, listAgents, upsertCustomAgent } from "@/lib/agents/library";
+import { blankCustomAgent, duplicateAgent, listAgents, upsertCustomAgent } from "@/lib/agents/library";
 import { selectableMainAgents } from "@/lib/agents/selector-choice";
 import { BUILTIN_AGENTS, currentAgentId, getBuiltinAgent } from "@/lib/agents/starters";
 
@@ -62,6 +66,59 @@ describe("built-in agents", () => {
       "Ready for review",
     ]);
     for (const id of ["implementer", "researcher"]) expect(getBuiltinAgent(id)!.workflow).toBeUndefined();
+  });
+});
+
+describe("built-in avatars", () => {
+  test("every built-in, general agent and subagent preset alike, has a catalog icon and a colour", () => {
+    expect(BUILTIN_AGENTS).toHaveLength(13);
+    for (const agent of BUILTIN_AGENTS) {
+      expect(getAgentIcon(agent.appearance?.icon)).not.toBeNull();
+      expect(agent.appearance?.color).toBeDefined();
+    }
+    const icons = BUILTIN_AGENTS.map((agent) => agent.appearance?.icon);
+    expect(new Set(icons).size).toBe(icons.length);
+  });
+
+  test("the seven general agents never share a colour", () => {
+    const colors = ORDER.map((id) => getBuiltinAgent(id)!.appearance?.color);
+    expect(new Set(colors).size).toBe(ORDER.length);
+  });
+
+  test("agents whose initials start alike, in English or Korean, differ in both icon and colour", async () => {
+    const pairs = new Set<string>();
+    const original = i18n.language;
+    try {
+      for (const language of ["en", "ko"]) {
+        await i18n.changeLanguage(language);
+        const byLead = new Map<string, string[]>();
+        for (const agent of BUILTIN_AGENTS) {
+          const lead = agentInitials(getAgentDisplayName(agent))[0]!;
+          byLead.set(lead, [...(byLead.get(lead) ?? []), agent.id]);
+        }
+        for (const ids of byLead.values()) {
+          for (const [index, left] of ids.entries()) {
+            for (const right of ids.slice(index + 1)) pairs.add([left, right].sort().join("|"));
+          }
+        }
+      }
+    } finally {
+      await i18n.changeLanguage(original);
+    }
+    // The clashes the defaults were chosen against, so a renamed agent that
+    // stops clashing (or starts) shows up here.
+    for (const pair of ["researcher|reviewer", "researcher|scout", "debugger|deep-packet", "lead|reviewer", "scout|shipper", "second-pair|sweep"]) {
+      expect(pairs).toContain(pair);
+    }
+    for (const pair of pairs) {
+      const [left, right] = pair.split("|").map((id) => getBuiltinAgent(id)!.appearance!);
+      expect({ pair, icon: left!.icon === right!.icon, color: left!.color === right!.color }).toEqual({ pair, icon: false, color: false });
+    }
+  });
+
+  test("a copy of a built-in keeps its icon and colour", () => {
+    const reviewer = getBuiltinAgent("reviewer")!;
+    expect(duplicateAgent(reviewer, []).appearance).toEqual(reviewer.appearance);
   });
 });
 

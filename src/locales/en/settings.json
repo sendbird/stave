@@ -1066,7 +1066,7 @@
     },
     "tooling": {
       "label": "Tooling",
-      "description": "Claude and Codex accounts, API connections, and local tool health checks."
+      "description": "CLI paths, install status, versions, and health checks for local tools."
     },
     "lens": {
       "label": "Lens",
@@ -1165,6 +1165,10 @@
         "title": "Routing decision model",
         "description": "Choose the model that classifies work for Auto and Agents. This does not change the model that performs the task."
       }
+    },
+    "accounts": {
+      "label": "Accounts",
+      "description": "Sign in to Claude and Codex, add a second subscription, or connect a gateway key billed per token."
     }
   },
   "macroEditor": {

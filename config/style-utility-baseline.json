@@ -6,6 +6,10 @@
     "src/lib/lens/lens-element-message.ts": {
       "tokens": 2,
       "reason": "Denylist of class names commonly found on an inspected external page, used to decide whether a picked element's class list is distinctive enough to be a search hint. These literals describe someone else's markup and are never authored onto Stave DOM."
+    },
+    "src/lib/inline-render/inline-render.ts": {
+      "tokens": 1,
+      "reason": "The font-src token is a Content Security Policy directive name, not a utility class or authored style."
     }
   }
 }

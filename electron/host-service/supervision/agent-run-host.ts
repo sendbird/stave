@@ -160,12 +160,12 @@ export function createHostAgentRunRuntime(args: {
     prepareGatewayCredentials: async ({ accounts, signal }) => (await requestHostGatewayCredentials(accounts, undefined, signal))?.credentials,
     routeConstrainedTurn: constrained,
     freezeResources: ({ run, authority, routingIntent, accounts }) => {
-      if (run.fingerprint.providerId !== "codex" && run.fingerprint.providerId !== "claude-code") throw new Error("Adaptive resources require a supported provider.");
+      if (run.fingerprint.providerId !== "codex" && run.fingerprint.providerId !== "claude-code") throw new Error("Team limits require a supported provider.");
       return freezeAdaptivePolicy({
       providerId: run.fingerprint.providerId, model: run.fingerprint.model,
       agent: args.taskAgent?.(run.leadTaskId) ?? null,
       draft: authority ? null : routingIntent ?? persistence.loadWorkspaceShell({ workspaceId: run.workspaceId })?.promptDraftByTask?.[run.leadTaskId]?.runtimeOverrides,
-      settings: persistence.delegationPolicies.loadRouteSettings(), maxTurns: 30,
+      settings: persistence.delegationPolicies.loadRouteSettings(), maxTurns: run.maxTurns,
       exclusiveModels: exclusiveGatewayModels(getProviderAccountRegistry().list(), accounts ?? {
         claudeAccountProfileId: currentProviderAccountId("claude-code"), codexAccountProfileId: currentProviderAccountId("codex"),
       })[run.fingerprint.providerId],

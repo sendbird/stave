@@ -17,6 +17,7 @@ import { McpSection } from "./settings-dialog-mcp-section";
 import { KickoffSection } from "./settings-dialog-kickoff-section";
 import { ProvidersSection } from "./settings-dialog-providers-section";
 import { ToolingSection } from "./settings-dialog-tooling-section";
+import { AccountsSection } from "./settings-dialog-accounts-section";
 import { ScriptsSection } from "./settings-dialog-scripts-section";
 import { ThemeSection } from "./settings-sections/settings-dialog-theme-section";
 import { GeneralSection } from "./settings-sections/settings-dialog-general-section";
@@ -68,8 +69,10 @@ export function SettingsDialogSectionContent(args: {
       return <TerminalSection />;
     case "chat":
       return <ChatSection />;
+    case "accounts":
+      return <AccountsSection />;
     case "tooling":
-      return <ToolingSection />;
+      return <ToolingSection onNavigateSection={args.onNavigateSection} />;
     case "skills":
       return <SkillsSection />;
     case "commandPalette":

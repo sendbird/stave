@@ -2,8 +2,10 @@ import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
-import { SettingsCard } from "@/components/layout/settings-dialog.shared";
+import { DraftInput, LabeledField, SettingsCard, readInt } from "@/components/layout/settings-dialog.shared";
 import { delegationStyles } from "./settings-dialog-delegation-section.styles";
+import { settingsSectionsStyles } from "./settings-dialog-sections.styles";
+import { TEAM_LIMITS, clampTeamLimit } from "@/lib/agent-runs/resources";
 import {
   resolveLocalMcpReadiness,
   useLocalMcpReadiness,
@@ -12,7 +14,7 @@ import {
   getProviderLabel,
   listProviderIdsForCapability,
 } from "@/lib/providers/model-catalog";
-import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
+import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 
 /**
  * Each knob a delegation carries, and what it does when the agent leaves it
@@ -73,6 +75,40 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
  * So this card is deliberately read-only. It answers the two questions the
  * absent UI leaves open: what can be asked for, and would it work right now.
  */
+/**
+ * How many helper Agents one Agent run can call. A run freezes these when it
+ * starts, beside its shared turn budget (its max turns), so a change applies
+ * to the runs that start after it.
+ */
+function TeamLimitFields() {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const concurrent = useAppStore((state) => state.settings.agentRunConcurrentHelpers);
+  const total = useAppStore((state) => state.settings.agentRunTotalHelpers);
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  const fields = [
+    { key: "concurrentHelpers" as const, setting: "agentRunConcurrentHelpers" as const, value: clampTeamLimit("concurrentHelpers", concurrent) },
+    { key: "totalHelpers" as const, setting: "agentRunTotalHelpers" as const, value: clampTeamLimit("totalHelpers", total) },
+  ];
+  return fields.map((field) => (
+    <LabeledField
+      key={field.key}
+      title={t(`settingsProviders:delegationSection.teamLimits.${field.key}.title`)}
+      description={t(`settingsProviders:delegationSection.teamLimits.${field.key}.description`, {
+        min: TEAM_LIMITS[field.key].min, max: TEAM_LIMITS[field.key].max, value: TEAM_LIMITS[field.key].default })}
+    >
+      <DraftInput
+        xstyle={settingsSectionsStyles.input40}
+        type="number"
+        min={TEAM_LIMITS[field.key].min}
+        max={TEAM_LIMITS[field.key].max}
+        data-testid={`team-limit-${field.key}`}
+        value={String(field.value)}
+        onCommit={(next) => updateSettings({ patch: { [field.setting]: clampTeamLimit(field.key, readInt(next, field.value)) } })}
+      />
+    </LabeledField>
+  ));
+}
+
 export function SettingsDelegationSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const providerIds = listProviderIdsForCapability({
@@ -162,6 +198,8 @@ export function SettingsDelegationSection() {
         >
           {t("settingsProviders:delegationSection.availability.openSettings")}</Button>
       </div>
+
+      <TeamLimitFields />
 
       <div className={sx(delegationStyles.panel)}>
         <p className={sx(delegationStyles.panelHeading)}>

@@ -956,5 +956,10 @@
       "invalidResponse": "잘못된 응답"
     },
     "heading": "라우팅 판단 기록"
+  },
+  "providerErrorAccountAction": {
+    "openAccounts": "계정 열기",
+    "switchAccount": "다른 계정으로 바꾸기",
+    "addAccount": "계정 추가"
   }
 }

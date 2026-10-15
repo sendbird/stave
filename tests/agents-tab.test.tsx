@@ -74,8 +74,12 @@ describe("agents view", () => {
       updatedAt: "2026-10-01T09:00:00.000Z",
     } as never;
     const html = renderToStaticMarkup(createElement(AgentActivity, { assignments: [row] }));
-    expect(html).toContain(">Work<");
+    // "Work" with its count, each row's first line, its state as a badge, and when it started.
+    expect(html).toMatch(/>Work <span[^>]*>1<\/span><\/h3>/);
     expect(html).toContain("Tighten the sidebar spacing");
+    expect(html).not.toContain("Keep keyboard order</span>");
+    expect(html).toMatch(/data-tone="neutral"[^>]*>.*Started/);
+    expect(html).toContain("1 assignment ·");
     expect(renderToStaticMarkup(createElement(AgentActivity, { assignments: [] }))).toBe("");
   });
 

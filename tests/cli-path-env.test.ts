@@ -154,6 +154,25 @@ describe("applyConfiguredMcpEnvOverrides", () => {
 });
 
 describe("buildClaudeCliEnv", () => {
+  test("does not inherit native plan tool flags from the parent process", () => {
+    const originalTodoTools = process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS;
+    const originalTasks = process.env.CLAUDE_CODE_ENABLE_TASKS;
+    process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS = "1";
+    process.env.CLAUDE_CODE_ENABLE_TASKS = "1";
+
+    try {
+      const env = buildClaudeCliEnv({ executablePath: "/tmp/claude" });
+
+      expect(env.CLAUDE_CODE_ENABLE_TODO_TOOLS).toBeUndefined();
+      expect(env.CLAUDE_CODE_ENABLE_TASKS).toBeUndefined();
+    } finally {
+      if (originalTodoTools === undefined) delete process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS;
+      else process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS = originalTodoTools;
+      if (originalTasks === undefined) delete process.env.CLAUDE_CODE_ENABLE_TASKS;
+      else process.env.CLAUDE_CODE_ENABLE_TASKS = originalTasks;
+    }
+  });
+
   test("does not force a default Claude config dir when none is exported", () => {
     const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
     delete process.env.CLAUDE_CONFIG_DIR;

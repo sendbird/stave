@@ -21,6 +21,7 @@ export type RunEndReason = AgentRunStopReason | "stuck-stage" | "turn-failed" | 
 export const RUN_END_REASON_LABELS: Record<RunEndReason, string> = {
   get "stuck-stage"() { return i18n.t("agentRuns:insights.stuckStage"); },
   get "turn-cap-reached"() { return i18n.t("agentRuns:insights.turnCapReached"); },
+  get "acceptance-unmet"() { return i18n.t("agentRuns:insights.acceptanceUnmet"); },
   get expired() { return i18n.t("agentRuns:insights.expired"); },
   get "task-unavailable"() { return i18n.t("agentRuns:insights.taskUnavailable"); },
   get "turn-failed"() { return i18n.t("agentRuns:insights.turnFailed"); },

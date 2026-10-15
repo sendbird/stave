@@ -1,12 +1,13 @@
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile, type ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
-import { PROVIDER_ACCOUNTS_FIELD_ID, STAVE_ACCOUNTS_GUIDE_URL } from "@/lib/providers/accounts-guide";
+import { PROVIDER_ACCOUNTS_FIELD_ID, PROVIDER_ACCOUNT_ADD_FIELD_ID, STAVE_ACCOUNTS_GUIDE_URL, signInProviderFromFocus } from "@/lib/providers/accounts-guide";
+import { useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
 import { SettingsCard } from "./settings-dialog.shared";
 import { AccountsGuideButton } from "./AccountsGuideButton";
 import { ProviderAccountPicker } from "./ProviderAccountPicker";
@@ -92,6 +93,18 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
     if (!result.ok) throw new Error(result.message);
     setLoginSession({ id: result.sessionId, profileId: profile.id, label: profile.label });
   };
+  // Getting started's "Sign in" asks for System default's sign-in terminal here,
+  // so it is the same flow as the row's own button. Each request runs once.
+  const signInRequest = useSettingsFocusRequest((state) => (signInProviderFromFocus(state.focus) === providerId ? state.nonce : null));
+  const handledSignInRequest = useRef<number | null>(null);
+  useEffect(() => {
+    if (signInRequest === null || handledSignInRequest.current === signInRequest) return;
+    handledSignInRequest.current = signInRequest;
+    const system = useProviderAccounts.getState().profiles.find((p) => p.providerId === providerId && p.kind === "system");
+    if (system) run(() => login(system));
+    // `run` and `login` are this render's; the request is what triggers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [signInRequest]);
   return <SettingsCard
     id={PROVIDER_ACCOUNTS_FIELD_ID[providerId]}
     tabIndex={-1}
@@ -102,7 +115,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
     <div className={sx(styles.stack)}>
       <ProviderAccountPicker providerId={providerId} />
       {profiles.filter(p => p.providerId === providerId && !p.apiConnection).map(p => <AccountRow key={p.id} profile={p} name={name} run={run} login={login} busy={busy} signingIn={loginSession?.profileId === p.id} />)}
-      <ProviderAccountAddForm providerId={providerId} name={name} busy={busy} run={run} login={login} />
+      <ProviderAccountAddForm id={PROVIDER_ACCOUNT_ADD_FIELD_ID[providerId]} providerId={providerId} name={name} busy={busy} run={run} login={login} />
       {error && <p role="alert" className={sx(styles.error)}>{error}</p>}
       {loginSession && <div className={sx(styles.stack)}>
         <div className={sx(styles.row)}><strong>{t("settingsConnections:messages.accountSigningIn", { name: loginSession.label })}</strong><Button size="sm" variant="quiet" onClick={() => run(async () => {

@@ -93,8 +93,8 @@ its state, folds its answer under the row, and offers View activity (its
 answer, assignment and tool calls in a dialog over the current task), Open
 transcript and Stop.
 Turn Activity retains its compact child rows with follow-up, retry and release
-controls. Settings → Providers → Delegation documents provider availability and
-per-call parameters.
+controls. Settings → Providers → Delegated tasks documents provider availability,
+per-call parameters and how many helper Agents one Agent run can call ([team limits](./agents.md#team-limits)).
 
 A child does not appear as a peer in workspace task lists, counts, or Fleet
 roll-ups — it is shown under its parent instead, so one delegated unit of work is

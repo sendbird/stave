@@ -85,7 +85,8 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 ### Agents tab
 
 - **Custom**, **From repository** and **Built-in** agents, with search. Each row
-  shows an avatar — an initials disc in the agent's colour. Drag the list's
+  shows an avatar: a rounded square in the agent's colour with its icon, or its
+  initials when it has none. Drag the list's
   edge to make it wider or narrower (240–480px, never so wide the detail drops
   under 512px); double-click the edge to return to the default 288px. Stave
   keeps the width between sessions.
@@ -95,7 +96,8 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
   colour; a reviewer or researcher is kept read only. The editor opens with the
   draft. **Start blank** (Auto model, Auto permission, a new worktree, usable as
   a main agent) and **Or copy an existing agent** (any built-in or repository
-  agent) skip the model. Nothing is saved until you save the editor; **Cancel**
+  agent) skip the model. A copy keeps the original's colour and icon. Nothing
+  is saved until you save the editor; **Cancel**
   discards the draft. The command palette's **New agent** and the empty state
   open the same dialog.
 - **Profile header**: the avatar, the name, **Use when**, and chips for source,
@@ -120,7 +122,10 @@ autonomously, exactly like every later turn. Kickoff shows where it runs as
 A custom agent's editor shows what most agents need and keeps the rest out of
 the way:
 
-- **Profile**: name, colour and **Use when**.
+- **Profile**: name, colour, icon and **Use when**. **Icon** opens a grid of
+  icons with a search field; **Initials** in the same grid goes back to the
+  agent's initials. Colour and icon are independent, so changing one keeps the
+  other. A change to either is recorded in **History** as **Colour and icon**.
 - **Instructions**: what the agent does on every task.
 - **Workflow**: the stages its runs follow (see below).
 - **How it runs**: the model (**Auto-routing** with an optional task class
@@ -201,8 +206,12 @@ version they started with and finish on their own.
 An agent's avatar also appears next to its work in the sidebar (with a status
 dot — a green dot for running, an amber dot when it needs you), in the Kickoff
 **Who** picker, on the Fleet task badge, and on the assignment node of a task's
-**Flow** panel. Built-in and repository agents get a stable colour derived from
-their id; a custom agent's colour is chosen in its **Profile** section.
+**Flow** panel, and in the composer's agent control and selector. Each
+built-in agent has its own icon and colour, chosen so agents whose initials
+look alike (Reviewer and Researcher, for one) never share either. A repository
+agent gets a stable colour derived from its id and shows its initials; a custom
+agent's colour and icon are chosen in its **Profile** section, and one with no
+icon shows its initials.
 
 ### Models and agents in the composer
 
@@ -339,6 +348,8 @@ agent the task runs (a short content hash), each instruction source that went
 in, and how firmly the instructions, tool limits, model and permission are held
 on that provider. If the agent was edited after the task started, the flow
 says so: later turns keep the version used, and assigning again uses the edit.
+A change of colour or icon alone is not counted as an edit, since it does not
+change what the agent does.
 
 ### Fleet
 
@@ -427,34 +438,40 @@ Fleet's search finds its tasks.
   the delegating task's provider. The preference is not written to exported Markdown or TOML agent
   files and is listed among the fields left out.
 
-## Automatic model adjustment
+## Team limits
 
-On an assigned Claude or Codex task, open **Auto adjust** in the composer's
-right-side panel, then check **Enable automatic adjustment** in its popover.
-In compact and classic layouts, the same button lives in the composer toolbar. The button shows On or
-Off in its label and accessible name; the side panel reveals labels on hover
-or focus. Its popover explains the Balanced limits below. Enabled automatic adjustment
-stays visible even if you move the control to overflow or hide it.
+Every Agent run on a Claude or Codex task starts with team limits; there is
+nothing to turn on. The Run panel's **Team limits** section shows them.
 
-This choice applies to the next Run only. While a Run is active, the button
-shows that Run's actual policy and its toggle is locked; existing Runs keep
-their policy. The host freezes the provider, account and eligible
-models at admission. Fixed Agent models and composer model/effort pins stay
-fixed. The Agent can propose a justified model or effort change for a later
-turn; at most two changes are accepted, separated by two supervised turns.
+- **Shared turns.** The Agent's max turns (30 by default, up to 100) are the
+  whole team's: the run's own turns, the turns of the helper Agents it calls
+  and your replies in a stage all count, and a turn that fails to start still
+  counts. When they run out the run halts with **Limit reached**; **Extend**
+  adds turns, and the shared budget grows with them. While helpers work, one
+  turn stays reserved so the run can integrate their results.
+- **Helper Agents.** A run can have 3 helper Agents working at once and call 8
+  in total. Change both in **Settings → Providers → Delegated tasks**; a run keeps the
+  numbers it started with. These count saved Agents that work to completion
+  (supervised delegations). One-turn and detached helpers, and in-turn native
+  subagents, do not draw on the shared turns.
+- **Model and effort.** An Agent whose model is **Auto** may change model or
+  effort as the work needs it: at most two changes per run, with two turns
+  between them. A **Fixed** Agent model, or a model or effort pinned in the
+  composer, never changes; a composer pin replaces a fixed model on the
+  Agent's own provider, and a pin on another provider is refused at start. The
+  Agent can also propose a justified change for a later turn.
+- **Providers.** The run stays on the provider and account it started on. A
+  helper Agent runs on its own provider, so a Reviewer can review Claude's
+  work on Codex, unless the run's model is pinned; then helpers stay on the
+  run's provider too. Helpers cannot call further helpers.
 
-Balanced shares 30 admitted turn attempts across the parent and saved-Agent
-helpers, including stage replies. It admits at most two helpers concurrently
-and four overall, preserving one parent integration turn while helpers are
-active. The Run area shows admitted, reserved and available turns and helper
-counts. Failed starts still count, and exhausting the budget leaves unfinished
-work visible. Reported billing is separate; unknown cost remains unknown.
+After helpers settle, the run integrates their results and reports its
+acceptance criteria; a report written before they finished is not enough.
+Reported billing is separate from these limits; an unknown cost stays unknown.
 
-A helper keeps the parent's frozen provider/account/catalog and all applicable
-pins, with its own admitted permissions. Helpers use supervised saved Agents
-and cannot spawn further helpers. Ordinary native helpers remain available on
-non-adaptive primary turns. After helpers settle, the parent integrates their
-results and reports acceptance; an earlier parent report is insufficient.
+Runs that started on Stave 0.27.0 with the composer's former **Auto adjust**
+option keep the limits they started with: 30 shared turns, 2 helpers at once,
+4 in total, helpers on the run's provider, and no in-turn native subagents.
 
 Saved file paths can accompany a supervised assignment, including image
 paths. Save editor changes first: the Run reads the on-disk files. Inline image

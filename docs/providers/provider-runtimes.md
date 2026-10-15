@@ -169,8 +169,9 @@ usage responses cannot replace the new selection's readings.
 Custom Claude usage reads search only the selected configuration directory and
 its scoped keychain service, without falling back to default credentials.
 
-Settings > Tooling provides account registration, label editing, removal, and
-native sign-in terminals for Claude and Codex. **Add and sign in** creates a
+Settings > Accounts provides account registration, label editing, removal, and
+native sign-in terminals for Claude and Codex (Settings > Tooling keeps CLI
+paths, install status, and versions). **Add and sign in** creates a
 managed profile and immediately opens its sign-in terminal; registering an
 existing absolute configuration directory is under **Advanced: reuse a folder
 you already use** and skips the sign-in step. Each sign-in account shows its
@@ -178,10 +179,10 @@ identity line ("Signed in as <email> · <plan>", "Not signed in", or "Can't chec
 sign-in" with **Check again**), and the status bar switch repeats it under each
 account's name. Managed accounts also carry **Use my skills and instructions
 from System default** (on by default at creation) and **Update copied
-settings**. Removing a profile keeps its local files. The Tooling account selector and the status bar usage meter set the
+settings**. Removing a profile keeps its local files. The Accounts account selector and the status bar usage meter set the
 global default for **new turns** for that provider across tasks; running turns,
 queued messages, and open CLI sessions retain their captured account. The
-meter, the Tooling selector, and the Standalone CLI tab selector draw a choice
+meter, the Accounts selector, and the Standalone CLI tab selector draw a choice
 only when a provider has more than one account (the selectors also stay when the
 selected account was removed, as the way back), and the meter names the account
 beside the provider only when it is not System default or is an API
@@ -608,14 +609,16 @@ task from it and refuse a `parentTaskId` that names another task, and
 derived per task, so a resumed Codex thread that kept its headers still names
 the same task and the key never rotates a thread.
 
-An opted-in adaptive Run uses supervised saved-Agent durable helpers with a
-shared admission budget. Its host-owned empty `nativeSubagents` list disables
-native spawning rather than merely omitting custom definitions: Claude receives
-an Agent/Task denylist, and Codex receives disabled `features.multi_agent` and
-`features.multi_agent_v2` settings after transport overrides. Adaptive delegate turns use the same
-no-spawn contract. Ordinary non-adaptive primary and delegate turns preserve
-their existing native helper behavior and one-level instructions. These options are
-contract-tested; live provider execution and billed savings are separate checks.
+Every Agent run's team limits admit supervised saved-Agent durable helpers
+against a shared turn budget. In-turn native helpers spend no turn of their
+own, so a run with the default (version 2) team limits keeps its native helper
+behavior and one-level instructions. A run that froze the opt-in version 1
+policy (the 0.27.0 **Auto adjust** option) gets a host-owned empty
+`nativeSubagents` list, which disables native spawning rather than merely
+omitting custom definitions: Claude receives an Agent/Task denylist, and Codex
+receives disabled `features.multi_agent` and `features.multi_agent_v2` settings
+after transport overrides. These options are contract-tested; live provider
+execution and billed savings are separate checks.
 
 ## Image attachment transport
 
@@ -1754,7 +1757,7 @@ Codex); a different model is never substituted. Explicit fallback, subagent, and
 pinned. Provider authentication environment names, including
 `STAVE_API_CONNECTION_KEY`, are reserved against task-bound secret overrides.
 
-Settings > Tooling > **API connections** adds Vercel AI Gateway connections by
+Settings > Accounts > **API connections** adds Vercel AI Gateway connections by
 pinning models from the public `GET https://ai-gateway.vercel.sh/v1/models`
 catalog (language models with the `tool-use` tag; untagged language models are
 kept; past `deprecated_at` dropped), or custom ones by model ID. **Check

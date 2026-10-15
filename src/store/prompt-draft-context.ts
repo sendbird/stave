@@ -90,7 +90,6 @@ export function buildQueuedTurnFromDraft(args: {
     // dispatch as Cursor Auto.
     return {
       id,
-      agentRunAdaptive: args.draft.runtimeOverrides?.agentRunAdaptive === true,
       ...accounts,
       queuedAt,
       sourceTurnId: args.sourceTurnId,
@@ -121,7 +120,6 @@ export function buildQueuedTurnFromDraft(args: {
       : undefined);
   return {
     id,
-    agentRunAdaptive: args.draft.runtimeOverrides?.agentRunAdaptive === true,
     ...accounts,
     queuedAt,
     sourceTurnId: args.sourceTurnId,

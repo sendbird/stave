@@ -421,14 +421,17 @@ export const DelegatedTaskSummarySchema = z
   .strict();
 export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
 
-/** The answer the latest settled turn of the current execution recorded, if any. */
+/**
+ * The answer the latest settled turn of the current execution recorded, if
+ * any; a failed step's answer counts too, such as a stopped child's report.
+ */
 export function delegatedTaskResultText(
   receipts: ReadonlyArray<Pick<RunReceiptRecord, "type" | "detail" | "executionId">>,
   step: Pick<RunStepRecord, "executionId">,
 ): string | null {
   for (let index = receipts.length - 1; index >= 0; index -= 1) {
     const receipt = receipts[index]!;
-    if ((receipt.type === "completed" || receipt.type === "waiting") &&
+    if ((receipt.type === "completed" || receipt.type === "waiting" || receipt.type === "failed") &&
         receipt.executionId === step.executionId && receipt.detail?.responseText)
       return receipt.detail.responseText;
   }

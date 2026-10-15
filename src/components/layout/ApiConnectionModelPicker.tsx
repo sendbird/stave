@@ -18,6 +18,7 @@ import {
   type ApiConnectionModel,
 } from "@/lib/providers/api-connections";
 import { apiConnectionCatalogMatches } from "@/lib/providers/api-connection-catalog";
+import { describeApiConnectionFailure } from "@/lib/providers/api-connection-failure";
 import { accountStyles } from "./provider-accounts.styles";
 import { apiConnectionStyles as styles } from "./api-connections.styles";
 
@@ -49,6 +50,11 @@ export function ApiConnectionModelPicker(props: {
   servesClaude: boolean;
   value: ApiConnectionModel[];
   onChange: (models: ApiConnectionModel[]) => void;
+  /**
+   * Models pinned on the person's other connections. Offered as quick picks,
+   * but only when this catalog lists them: there is no built-in shortlist.
+   */
+  suggestedIds?: readonly string[];
 }) {
   const { t } = useTranslation(["common", "settings", "settingsProviders", "settingsConnections", "providers", "usage", "compare"]);
   const searchId = useId();
@@ -64,7 +70,7 @@ export function ApiConnectionModelPicker(props: {
     void window.api?.apiConnections?.discoverModels().then((result) => {
       if (cancelled) return;
       if (result.ok) setCatalog(result.models);
-      else setCatalogError(result.message);
+      else setCatalogError((result.reason && describeApiConnectionFailure(result.reason)) || result.message);
     });
     return () => { cancelled = true; };
   }, [discover, catalog]);
@@ -73,6 +79,10 @@ export function ApiConnectionModelPicker(props: {
     .filter((model) => !pinnedIds.has(model.id) && apiConnectionCatalogMatches(model, query))
     .slice(0, RESULT_LIMIT), [catalog, pinnedIds, query]);
   const full = props.value.length >= MAX_API_CONNECTION_MODELS;
+  const suggestions = useMemo(() => {
+    const wanted = new Set(props.suggestedIds ?? []);
+    return (catalog ?? []).filter((model) => wanted.has(model.id) && !pinnedIds.has(model.id)).slice(0, 6);
+  }, [catalog, pinnedIds, props.suggestedIds]);
   const pin = (model: ApiConnectionModel) => {
     const { tags: _tags, ...stored } = model as ApiConnectionCatalogModel;
     if (!full && !pinnedIds.has(model.id)) props.onChange([...props.value, stored]);
@@ -103,6 +113,10 @@ export function ApiConnectionModelPicker(props: {
     </div>
     {discover && <div className={sx(accountStyles.stackTight)}>
       <label htmlFor={searchId} className={sx(accountStyles.label)}>{t("settingsConnections:apiConnectionModelPicker.findModelsOnVercelAIGateway")}</label>
+      {suggestions.length > 0 && <div className={sx(styles.suggestions)} role="group" aria-label={t("settingsConnections:apiConnectionModelPicker.suggestions")}>
+        <span className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.suggestions")}</span>
+        {suggestions.map((model) => <Button key={model.id} size="xs" variant="outline" disabled={full} onClick={() => pin(model)}>{model.name}</Button>)}
+      </div>}
       <Input id={searchId} placeholder={t("settingsConnections:apiConnectionModelPicker.forExampleKimiGlmSonnetOr")} value={query} onChange={(event) => setQuery(event.target.value)} />
       {catalogError ? <p role="alert" className={sx(accountStyles.error)}>{catalogError}</p>
         : !catalog ? <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionModelPicker.loadingTheModelList")}</p>

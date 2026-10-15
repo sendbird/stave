@@ -3,6 +3,7 @@ import { SUBAGENT_PRESETS, type SubagentPreset } from "./subagent-presets";
 import {
   AGENT_CONFIG_VERSION,
   AgentConfigSchema,
+  type AgentAppearance,
   type AgentReportSection,
   type AgentConfig,
 } from "./schema";
@@ -22,6 +23,35 @@ export const SHARED_STYLE =
   "Reply in the user's language, outcome first, in plain words and short. Separate facts from inference, say what you did not verify, and finish the whole scope.";
 
 const READ_ONLY_DENY = ["Edit", "Write", "NotebookEdit"];
+
+/**
+ * Each built-in's avatar: an icon from `agent-icons.ts` for its job and a
+ * colour. Agents whose initials can start alike, in English or Korean (Reviewer
+ * and Researcher; Shipper, Sweep, Scout and Second pair of eyes; Debugger and
+ * Deep packet; Lead and Reviewer; Researcher and Scout, both "조사자"), differ
+ * in both, and the seven general agents never share a colour. A copy keeps
+ * them, since duplicating copies the whole agent.
+ */
+export const BUILTIN_AGENT_APPEARANCE: Readonly<Record<string, AgentAppearance>> = {
+  lead: { icon: "compass", color: "blue" },
+  implementer: { icon: "hammer", color: "green" },
+  debugger: { icon: "bug", color: "red" },
+  "ui-polisher": { icon: "paintbrush", color: "violet" },
+  reviewer: { icon: "search-check", color: "amber" },
+  researcher: { icon: "telescope", color: "cyan" },
+  shipper: { icon: "rocket", color: "orange" },
+  "patch-hand": { icon: "wrench", color: "green" },
+  "verified-patch": { icon: "shield-check", color: "green" },
+  sweep: { icon: "replace-all", color: "purple" },
+  scout: { icon: "binoculars", color: "green" },
+  "deep-packet": { icon: "package", color: "blue" },
+  "second-pair": { icon: "glasses", color: "amber" },
+};
+
+function builtinAppearance(id: string): Pick<AgentConfig, "appearance"> {
+  const appearance = BUILTIN_AGENT_APPEARANCE[id];
+  return appearance ? { appearance: { ...appearance } } : {};
+}
 
 type AutoAgentModel = Extract<AgentConfig["model"], { mode: "auto" }>;
 
@@ -48,6 +78,7 @@ function general(draft: GeneralAgentDraft): AgentConfig {
     ...rest,
     instructions: [...instructions, SHARED_STYLE].join("\n\n"),
     ...(BUILTIN_AGENT_WORKFLOWS[draft.id] ? { workflow: structuredClone(BUILTIN_AGENT_WORKFLOWS[draft.id]) } : {}),
+    ...builtinAppearance(draft.id),
   };
 }
 
@@ -152,6 +183,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
       "Before reviewing, confirm the workspace is at that commit. If it is not, stop and report the mismatch instead of reviewing something else.",
       "Read enough surrounding code to judge the change in context, and check that behaviour which already worked is not harmed. For each finding give the file, the line, a severity, and a concrete failure scenario.",
       "Skip pure style preferences. An empty report is a valid outcome. When you can, review on a different provider than the one that wrote the change.",
+      "Your findings are the result of the review, not a reason to stop: when the review is done, report it complete with the findings. The requirements of the work you review are not your acceptance criteria, so never report them as your own unmet criteria.",
       "State what you reviewed and what you did not check.",
     ],
     taskClass: "review",
@@ -236,6 +268,7 @@ export function agentFromSubagentPreset(preset: SubagentPreset): AgentConfig {
     report: presetReport(preset),
     usableAs: ["worker"],
     workerPresetId: preset.id,
+    ...builtinAppearance(preset.id),
   });
 }
 

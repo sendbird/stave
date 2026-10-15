@@ -106,7 +106,8 @@ const SYSTEM_CHANNEL_PROVIDERS: readonly ProviderId[] = ["claude-code", "codex"]
 /* Snapshot                                                                   */
 /* -------------------------------------------------------------------------- */
 
-function stableStringify(value: unknown): string {
+/** JSON with object keys sorted and undefined entries left out, so key order never makes two equal values differ. */
+export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value) ?? "null";
   }
@@ -139,6 +140,22 @@ export function hashAgentContent(value: unknown): string {
 function behaviouralContent(agent: AgentConfig) {
   const { archived: _archived, concurrency: _concurrency, ...content } = agent;
   return content;
+}
+
+/**
+ * The key an "edited since this task started" check compares: the behavioural
+ * content without `appearance`, since a colour or an icon does not change what
+ * the agent does. Compute it from both the assignment's saved agent copy and
+ * the current agent, never compare it with a stored `contentHash`.
+ *
+ * It is deliberately not the snapshot hash. `contentHash` stays exactly as
+ * stored: a task turn recompiles its saved agent and refuses to run unless the
+ * result reproduces the saved hash (`task-agent-turn.ts`), and saved
+ * snapshots of agents with a chosen colour already include it.
+ */
+export function agentEditKey(agent: AgentConfig): string {
+  const { appearance: _appearance, ...content } = behaviouralContent(agent);
+  return hashAgentContent(content);
 }
 
 export function snapshotAgent(agent: AgentConfig): AgentSnapshot {

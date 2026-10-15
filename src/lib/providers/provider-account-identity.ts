@@ -46,6 +46,31 @@ export interface ProviderAccountIdentityBridgeApi {
   identity: (args: ProviderAccountIdentityArgs) => Promise<ProviderAccountIdentityResult>;
 }
 
+/** Where an account's identity is cached: one entry per provider and profile. */
+export function providerAccountIdentityKey(providerId: string, profileId: string) {
+  return `${providerId}:${profileId}`;
+}
+
+/**
+ * Whether a sign-in account of this provider that is still registered answered
+ * "signed in". Identities are cached by profile and outlive a removed
+ * account, so the registry is the list to read them through, never the cache.
+ * API connections have no sign-in and are not counted.
+ */
+export function registeredAccountSignedIn(args: {
+  providerId: string;
+  profiles: readonly { id: string; providerId: string; gateway?: unknown; apiConnection?: unknown }[];
+  identities: Readonly<Record<string, ProviderAccountIdentity | undefined>>;
+}) {
+  return args.profiles.some(
+    (profile) =>
+      profile.providerId === args.providerId &&
+      !profile.gateway &&
+      !profile.apiConnection &&
+      args.identities[providerAccountIdentityKey(profile.providerId, profile.id)]?.state === "signed-in",
+  );
+}
+
 export interface ProviderAccountIdentityLine {
   text: string;
   /** `attention` for states that need the reader to act; `quiet` otherwise. */

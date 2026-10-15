@@ -734,5 +734,25 @@
     "failed": "This diagram could not be drawn, so its source is shown.",
     "showCode": "Show code",
     "showDiagram": "Show diagram"
+  },
+  "accountNotice": {
+    "ariaLabel": "Account",
+    "cliMissing": "{{value1}} is not installed, so this task cannot send.",
+    "signedOut": "{{value1}} is not signed in on {{value2}}.",
+    "keyUnreadable": "Stave cannot read the key for {{value1}}.",
+    "limitReached": "{{value1}} usage limit reached on {{value2}}.",
+    "actions": {
+      "setUp": "Set up",
+      "signIn": "Sign in",
+      "connectKey": "Connect key",
+      "switchAccount": "Switch account",
+      "addAccount": "Add an account"
+    },
+    "signedOutCli": "{{value1}} is not signed in."
+  },
+  "modelPickerAccounts": {
+    "manage": "Manage accounts and connections…",
+    "addGatewayModels": "Add other models with Vercel AI Gateway…",
+    "editModels": "Edit models"
   }
 }

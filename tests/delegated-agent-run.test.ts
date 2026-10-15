@@ -247,6 +247,19 @@ describe("supervised saved-Agent delegations", () => {
     expect(h.calls).toHaveLength(1);
   });
 
+  test("a child that reports a criterion unmet ends, and its report still reaches the parent", async () => {
+    const h = harness(), child = await h.start();
+    await h.runtime.reportStage({ agentRunKey: "turn-1", report: {
+      summary: "Review found a defect: inline-render.ts splits the font-src string to dodge the check.",
+      acceptanceCriteria: [{ text: "Design-system violations fixed without gaming the check", status: "unmet" }] } });
+    h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
+    const ended = await h.coordinator.get(child);
+    expect(ended?.phase).toBe("failed");
+    expect(h.runs.getAggregate(child.agentRunId!)?.agentRun.stopReason).toBe("acceptance-unmet");
+    expect(ended?.result).toContain("splits the font-src string");
+    expect(h.calls).toHaveLength(1);
+  });
+
   test("blocked child retains its concurrency slot and exact supervisor; restart ignores native completion", async () => {
     const h = harness(), child = await h.start();
     await h.runtime.blockStage({ agentRunKey: "turn-1", block: { kind: "input", missing: "Select a target.", suggestedAction: "Reply in the child task." } });

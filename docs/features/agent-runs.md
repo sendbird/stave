@@ -13,6 +13,75 @@ run* (`AgentRun`). The product shows the agent, its stages and its result.
 Legacy runs, started from playbooks before playbooks folded
 into agents finish as they are, and their surfaces keep working.
 
+## Hand Off A Goal And Leave It
+
+You give an agent an outcome; the run carries it to a checked result and
+calls you only when it needs a decision.
+
+**Set up once**
+
+1. Give the agent **Permission: Auto** (Agents → the agent → **How it runs**).
+   With any other permission the run stops at each approval card.
+2. Add a workspace check: Settings → Repositories → **Scripts Manager** → an
+   **Action** that runs your checks, for example `bun run typecheck && bun test`
+   ([Workspace Scripts](workspace-scripts.md)). With one configured, a write
+   agent's run is done only when Stave runs that action itself and it passes.
+3. For work you want reviewed before it counts as done, add a review stage
+   ([Bigger goals](#bigger-goals)).
+
+**Start**: Agents → the agent → **Assign…**, write the outcome and what proves
+it, pick where it works, **Assign**. Or pick the agent in the composer and
+send.
+
+**What happens without you**
+
+| Situation | What the run does |
+|---|---|
+| The agent edits files or runs commands | The provider's classifier allows safe actions (Claude auto mode, Codex auto-review); only what it cannot decide asks you |
+| The run uses its turns | It halts on **Limit reached**; **Extend (+10 turns)** continues the same session |
+| The agent asks a question | The card stays until you answer, across app restarts; your answer continues the run once |
+| The agent says it is done | With a workspace check, done only when Stave's own check passes on the final work (**Met · checked by Stave**) |
+| The next step waits for pull request checks, a review or a time | The run waits without using turns and continues when it happens |
+| The subscription hits its usage limit | The run waits for the reset and continues on its own |
+
+**When it needs you**: the run reads **Needs your answer** (answer the card)
+or **Halted** with the reason (**Retry stage**, **Extend**, or **Take
+control**). Fleet's **Action required** and a notification point to it. Every
+other state continues on its own.
+
+### Bigger goals
+
+One run can take several related fixes at once. A passing check proves the
+check passes, not that the change is right: a change can satisfy a check
+without fixing its cause. For work that matters, give the agent three stages
+(Agents → the agent → **Workflow** → **Add stage**):
+
+1. **Implement**: do the assignment, run the workspace check, commit.
+2. **Review**: **Done by** Reviewer, with **Work on the commit checked out when
+   it starts** on. Instruction: review the committed change against the
+   assignment without changing files. Done when: `The review lists each defect
+   with file, line and reason, or says it found none.` Write a Done when the
+   reviewer can meet by reporting; a reviewer asked to make defects disappear
+   cannot, and its task halts.
+3. **Fix review findings**: fix each defect at its cause, run the workspace
+   check, commit. Done when every defect is fixed and the check passes.
+
+The Reviewer runs on the other provider when it can and reports its findings
+as its result. An agent may always call the agents its own workflow names for
+a stage, even when its **Can call** list leaves them out. A criterion an
+earlier stage met stands; the last stage must report met only what is still
+open, and its prompt says which.
+
+While a stage waits for another agent, the run reads **Running · Waiting ·
+Delegated work**. A delegated run that reports a required criterion unmet
+ends (**Criterion unmet**) instead of halting, and the waiting stage wakes
+with its report. A delegated task that stops for your answer or a blocked
+stage keeps the run waiting: open it from **Subagents** and answer or retry
+it there.
+
+For goals with separate parts, assign **Lead**, which splits the work across
+agents and checks each result before it reports.
+
 ## When To Use It
 
 - The work has a shape you repeat: reproduce, fix, verify; or validate, open a
@@ -185,8 +254,13 @@ agent run (a task without one shows its flow there):
 
 - The goal, the Run's badge and subtitle ([Run states](#run-states)), and
   the stage track.
-- **Done when**: the acceptance criteria the agent reported, each **Met**,
-  **Not met** or **Not verified**.
+- **Done when**: the acceptance criteria, each **Met · checked by Stave** (a
+  workspace check Stave ran and saw pass on the final work), **Met · agent
+  reported**, **Not met** or **Not verified**. A workspace check criterion
+  never reads as met on the agent's word. Below them, **Checked by Stave**
+  names the checks Stave saw pass, a workspace check by its action name.
+- The **Run** card's permissions line is short (**Auto permissions**); hover it
+  for what Auto does on that provider.
 - **Stages** as a timeline. Open a stage for its summary, decisions with their
   reasons, evidence (**Verified by Stave** first, with **Show** to jump to the
   tool call in the transcript), links, and the instruction it ran with.
@@ -208,7 +282,9 @@ A finished provider turn or subagent does not complete a stage by itself. The
 current turn must report completion, and any required criteria authored for
 that stage must be reported **Met**. Criteria for the overall goal are checked
 at the final stage; a Build stage can pass to Test while future checks are
-still pending. A simple answer or documentation stage requires no shell check
+still pending. At the final stage a goal criterion an earlier stage already
+met stands unless the final report says otherwise; the others must be
+reported **Met** there. A report holds up to 40 criteria. A simple answer or documentation stage requires no shell check
 unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 
@@ -357,6 +433,10 @@ sample limits and examples of when each screen helps.
   that finishes on its last allowed turn still completes. At 100, Extend is
   refused with an explanation. A [delegated](./delegated-tasks.md) Run still
   ends at its cap: its parent reads a finished child, not a halted one.
+- An Agent run shares its turn limit with the helper Agents it calls and your
+  replies in a stage ([team limits](./agents.md#team-limits)). When helpers
+  use the rest, the run halts with **Limit reached** the same way, and Extend
+  raises the shared limit too.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache
@@ -443,10 +523,10 @@ only when the Run's account pool is on (below).
 ### Continue on another account (account pool)
 
 The account pool is off by default. Turn it on before you send the
-assignment: open the composer's **Auto adjust** popover for an Agent task and
-check **Continue on my other accounts at a usage limit** under
-**Account pool**. The section appears when the task's provider (Claude or
-Codex) has two or more subscription accounts.
+assignment: open the composer's **Account pool** button for an Agent task and
+check **Continue on my other accounts at a usage limit**. The button appears
+when the task's provider (Claude or Codex) has two or more subscription
+accounts, and its label shows whether the pool is on.
 
 - The pool lists the provider's signed-in subscription accounts: the account
   the Run starts on first, then the others in their Settings order. Clear an
@@ -458,7 +538,7 @@ Codex) has two or more subscription accounts.
   Stave runs any check that has not answered yet; an account that is signed
   out, or whose check failed, stays out.
 - The pool is saved on the Run when it starts and never changes while it
-  runs. While a Run is active the section shows its pool, read-only.
+  runs. While a Run is active the button shows its pool, read-only.
 - When a usage limit stops a turn, Stave reads the other pool accounts' usage
   with the same official usage check, in pool order, and continues on the
   first one with usage left at the next turn boundary. An account whose usage

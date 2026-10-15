@@ -307,7 +307,7 @@ describe("run runtime: accounts a turn runs on", () => {
     const seen: unknown[] = [];
     const harness = createHarness({ extra: { freezeResources: (args) => { seen.push(args.accounts); return frozen; } } });
     const accounts = { claudeAccountProfileId: PERSONAL, codexAccountProfileId: PERSONAL };
-    await startedAgentRun(harness, startInput({ origin: "agent", adaptive: true, accounts }));
+    await startedAgentRun(harness, startInput({ origin: "agent", accounts }));
     expect(seen).toEqual([accounts]);
     expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: WORK, codexAccountProfileId: PERSONAL });
   });
@@ -1557,7 +1557,7 @@ test("a new persisted Run event invalidates an old route before dispatch", async
   await tick;
 });
 
-describe("opted-in adaptive Run resources", () => {
+describe("Agent run team limits", () => {
   const policy = (providerId: "claude-code" | "codex", patch = {}) => ({
     version: 1 as const, profile: "balanced" as const, providerId,
     allowedModels: providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-sonnet-5-5", "claude-opus-5-5"],
@@ -1573,7 +1573,7 @@ describe("opted-in adaptive Run resources", () => {
       return { fingerprint: { providerId: "codex", model: "gpt-6-luna" }, runtimeOptions: { codexReasoningEffort: "low" }, route: "auto", rationale: "Low complexity" };
     } } });
     h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     expect(calls).toBe(1);
     expect(h.runCalls[0]!.fingerprint.model).toBe("gpt-6-luna");
     expect(h.store.listEventsByKind(id, ["resource-decision"])[0]?.detail).toMatchObject({ automatic: true, accepted: true });
@@ -1585,7 +1585,7 @@ describe("opted-in adaptive Run resources", () => {
       observed = signal; entered(); await held; return { fingerprint: { providerId: "codex", model: "gpt-6-luna" }, runtimeOptions: {}, route: "auto", rationale: "Late" };
     } } });
     stopped.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
-    const start = await stopped.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }));
+    const start = await stopped.runtime.startAgentRun(startInput({ origin: "agent" }));
     await ready; await stopped.runtime.pause({ agentRunId: start.agentRun.id });
     expect(observed?.aborted).toBe(true); finish(); await stopped.tick();
     expect(stopped.runCalls).toHaveLength(0);
@@ -1595,7 +1595,7 @@ describe("opted-in adaptive Run resources", () => {
     const p = policy(providerId);
     const h = createHarness({ extra: { freezeResources: () => p, routeAgentTurn: async () => { throw new Error("Adaptive turns must not run the utility classifier"); } } });
     h.setSnapshot({ providerId, model: p.allowedModels[0]! });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     expect((await h.runtime.get({ agentRunId: id })).resources).toMatchObject({ spent: 1, remaining: 29 });
     await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { model: p.allowedModels[1], reason: "capability-mismatch", rationale: "The linked turn diagnosed a capability gap", evidenceRefs: ["turn-1"] } });
     expect(h.runCalls).toHaveLength(1);
@@ -1610,7 +1610,7 @@ describe("opted-in adaptive Run resources", () => {
     const p = policy("claude-code", { modelLocked: true });
     const h = createHarness({ extra: { freezeResources: () => p } });
     h.setSnapshot({ model: p.allowedModels[0]! });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { model: p.allowedModels[1], reason: "capability-mismatch", rationale: "gap", evidenceRefs: ["other-stage-turn"] } });
     h.endTurn("turn-1"); await h.tick();
     expect(h.runCalls[1]!.fingerprint.model).toBe(p.allowedModels[0]!);
@@ -1622,7 +1622,7 @@ describe("opted-in adaptive Run resources", () => {
   });
   test("budget refusal prevents native dispatch and never reports completion", async () => {
     const h = createHarness({ extra: { freezeResources: () => policy("claude-code", { teamTurns: 1 }) } });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     h.endTurn("turn-1"); await h.tick();
     expect(h.runCalls).toHaveLength(1);
     expect(h.current(id).status).toBe("stuck");
@@ -1631,13 +1631,15 @@ describe("opted-in adaptive Run resources", () => {
   });
   test("replies deduplicate against the same team budget", async () => {
     const h = createHarness({ extra: { freezeResources: () => policy("claude-code") } });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     h.endTurn("turn-1");
     const reply = { taskId: "task-1", turnId: "user-reply" };
     h.runtime.prepareUserTurn(reply); h.runtime.prepareUserTurn(reply);
     expect(h.store.readResources(id)?.spent).toBe(2);
     await h.runtime.pause({ agentRunId: id });
-    expect(() => h.runtime.prepareUserTurn({ ...reply, turnId: "new-reply" })).toThrow("Resume");
+    // A paused run takes no reply: the user's message is a plain turn outside the run and its budget.
+    expect(h.runtime.prepareUserTurn({ ...reply, turnId: "new-reply" })).toBeNull();
+    expect(h.store.readResources(id)?.spent).toBe(2);
   });
   const rememberCodexEfforts = (account: string, efforts: string[]) => rememberAdaptiveCatalog(account, {
     providerId: "codex", ok: true, detail: "Observed model support",
@@ -1650,16 +1652,16 @@ describe("opted-in adaptive Run resources", () => {
     const h = createHarness({ extra: { freezeResources: () => p } });
     h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
     rememberCodexEfforts(account, ["medium"]);
-    await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("does not support");
+    await expect(h.runtime.startAgentRun(startInput({ origin: "agent" }))).rejects.toThrow("does not support");
     expect(h.store.listActiveAgentRuns()).toHaveLength(0);
     expect(h.runCalls).toHaveLength(0);
     h.advance(300_001);
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     expect(h.runCalls[0]?.runtimeOptions.codexReasoningEffort).toBe("ultra");
     await h.runtime.cancel({ agentRunId: id });
     const other = createHarness({ extra: { freezeResources: () => ({ ...p, accountProfileId: "different-catalog-account" }) } });
     other.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
-    await startedAgentRun(other, startInput({ origin: "agent", adaptive: true }));
+    await startedAgentRun(other, startInput({ origin: "agent" }));
     expect(other.runCalls[0]?.runtimeOptions.codexReasoningEffort).toBe("ultra");
   });
   test("a proposal cannot accept statically supported effort excluded by the account catalog", async () => {
@@ -1667,7 +1669,7 @@ describe("opted-in adaptive Run resources", () => {
     const p = policy("codex", { accountProfileId: account });
     const h = createHarness({ extra: { freezeResources: () => p } });
     h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { effort: "ultra", reason: "capability-mismatch",
       rationale: "Deeper reasoning requested", evidenceRefs: ["turn-1"] } });
     rememberCodexEfforts(account, ["medium", "high"]);
@@ -1681,7 +1683,7 @@ describe("opted-in adaptive Run resources", () => {
     const p = policy("codex", { initialEffort: "ultra", effortLocked: true, accountProfileId: account });
     const h = createHarness({ extra: { freezeResources: () => p } });
     h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     rememberCodexEfforts(account, ["medium", "high"]);
     h.endTurn("turn-1"); await h.tick();
     expect(h.runCalls).toHaveLength(1);
@@ -1702,7 +1704,7 @@ test("a parent report predating helper settlement requires a fresh integration t
     allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
   const h = createHarness({ extra: { freezeResources: () => policy } });
-  const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true, workflow: workflow([DRAFT]) }));
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
   const reserved = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: id, childRunId: "helper", executionId: "exec", requestedTurns: 4, now: new Date(START) })!;
   await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
   h.endTurn("turn-1"); h.setActiveDelegated(1); await h.tick();
@@ -1722,7 +1724,7 @@ test("root Stop cancels the exact child and releases unused capacity without ref
     allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
   const h = createHarness({ extra: { freezeResources: () => p, stopResourceTask: async ({ taskId }) => { stops.push(taskId); } } });
-  const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+  const id = await startedAgentRun(h, startInput({ origin: "agent" }));
   const reservation = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: id, childRunId: "child", executionId: "exact", requestedTurns: 4, now: new Date(START) })!;
   const change = createAgentRun({ id: "child", input: startInput({ leadTaskId: "child-task", origin: "agent" }), repositoryPath: "/tmp/repo",
     fingerprint: { providerId: "claude-code", model: "sonnet" }, now: new Date(START) });
@@ -1744,7 +1746,7 @@ test("cached quota admits a healthy same-account turn and replies cannot change 
   rememberAdaptiveQuota(snapshot, { observedAt: START, providerId: "claude-code", accountProfileId: p.accountProfileId,
     claudeAccountProfileId: p.accountProfileId, codexAccountProfileId: "system-default", source: "sdk" });
   const h = createHarness({ extra: { freezeResources: () => p } });
-  const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+  const id = await startedAgentRun(h, startInput({ origin: "agent" }));
   expect(h.runCalls).toHaveLength(1); h.endTurn("turn-1"); await h.tick(); expect(h.runCalls).toHaveLength(2);
   expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "codex", turnId: "forged" })).toThrow("provider");
   expect(h.store.readResources(id)?.spent).toBe(2);
@@ -1762,14 +1764,63 @@ test("cached quota admits a healthy same-account turn and replies cannot change 
   expect(h.store.readResources(id)!.spent).toBe(before);
 });
 
-test("adaptive admission cannot attach a new budget to an existing native turn or helper", async () => {
-  const h = createHarness();
-  h.setSnapshot({ activeTurnId: "old-native-turn" });
-  await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("idle task");
-  h.setSnapshot({ activeTurnId: null }); h.setActiveDelegated(1);
-  await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("idle task");
-  expect(h.store.listActiveAgentRuns()).toHaveLength(0);
-  expect(h.runCalls).toHaveLength(0);
+describe("team limits by default", () => {
+  const teamPolicy = (patch = {}) => ({ version: 2 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: false, initialEffort: null, teamTurns: 30,
+    concurrentHelpers: 3, totalHelpers: 8, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const, ...patch });
+
+  test("an Agent run started on a busy task freezes its limits and waits for the task's turn", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy() } });
+    h.setSnapshot({ activeTurnId: "old-native-turn" }); h.setActiveDelegated(1);
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 30, spent: 0, policy: { version: 2, concurrentHelpers: 3, totalHelpers: 8 } });
+    expect(h.runCalls).toHaveLength(0);
+    h.setSnapshot({ activeTurnId: null }); await h.tick();
+    expect(h.runCalls).toHaveLength(1);
+    expect(h.store.readResources(id)?.spent).toBe(1);
+  });
+
+  test("a run whose task no longer runs as an Agent has no team limits", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy(), taskRunsAsAgent: () => false } });
+    const start = await h.runtime.startAgentRun(startInput({ origin: "agent" }));
+    expect(h.store.readResources(start.agentRun.id)).toBeNull();
+  });
+
+  test("a spent budget halts the run at its limit, and Extend raises it with the max turns", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 2 }) } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 2 }));
+    h.endTurn("turn-1");
+    // The user's reply in the stage spends the second shared turn.
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "user-reply" })).not.toBeNull();
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 2, spent: 2, remaining: 0 });
+    await h.tick();
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 1 });
+    expect(h.runCalls).toHaveLength(1);
+    await h.runtime.extend({ agentRunId: id });
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 12, remaining: 10 });
+    await h.tick();
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.store.readResources(id)?.spent).toBe(3);
+  });
+
+  test("a run blocked on a question on its last shared turn halts at the limit on a reply, then Extend takes it", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 1 }) } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 1 }));
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe("running");
+    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer" })).toThrow("Extend it");
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached" });
+    await h.runtime.extend({ agentRunId: id });
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer-2" })).not.toBeNull();
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 11, spent: 2 });
+  });
+
+  test("a version 1 run keeps its frozen budget after Extend", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy({ version: 1, teamTurns: 2, concurrentHelpers: 2, totalHelpers: 4 }) } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 5 }));
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 2, remaining: 1 });
+  });
 });
 
 
@@ -2004,6 +2055,24 @@ describe("run runtime: opt-in account pool", () => {
     await h.runtime.cancel({ agentRunId: id });
     expect((await h.runtime.get({ agentRunId: id })).report?.accountSwitches).toEqual([
       expect.objectContaining({ from: "Work", to: "Personal", reason: "usage-limit" })]);
+  });
+
+  test("with team limits, a reply after a pool switch runs on the account the run moved to", async () => {
+    const reads: string[] = [];
+    const h = createHarness({ extra: {
+      readUsageLimitStop: (turnId) => turnId === "turn-1" ? { resetsAt: reset } : null,
+      readAccountUsage: async ({ accounts }) => { reads.push(accounts.claudeAccountProfileId!); return ({ [WORK]: quota(100), [PERSONAL]: quota(10) } as Record<string, ReturnType<typeof quota>>)[accounts.claudeAccountProfileId!] ?? null; },
+      listSubscriptionAccounts: (providerId) => providerId === "claude-code" ? [{ id: WORK, label: "Work" }, { id: PERSONAL, label: "Personal" }] : [],
+      freezeResources: () => ({ version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["sonnet"], modelLocked: true,
+        effortLocked: false, initialEffort: null, accountProfileId: WORK, teamTurns: 30, concurrentHelpers: 3, totalHelpers: 8,
+        parentReserve: 1, maxChanges: 2, cooldownTurns: 2 }),
+    } });
+    const id = await startedAgentRun(h, pooledStart([WORK, PERSONAL]));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(PERSONAL);
+    h.endTurn("turn-2");
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL });
+    expect(h.store.readResources(id)?.spent).toBe(3);
   });
 
   test("every pool account exhausted: wait for the earliest reset, then check the pool in order", async () => {

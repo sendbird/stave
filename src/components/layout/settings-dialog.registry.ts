@@ -393,7 +393,7 @@ export const settingDefinitions = [
   // picking it selects it.
   {
     key: "claudeAccountProfileId",
-    sectionId: "tooling",
+    sectionId: "accounts",
     fieldId: PROVIDER_ACCOUNTS_FIELD_ID["claude-code"],
     titleKey: "settings:sections.fields.claudeAccounts.title",
     descriptionKey: "settings:sections.fields.claudeAccounts.description",
@@ -421,7 +421,7 @@ export const settingDefinitions = [
   } satisfies SettingDefinition<"claudeAccountProfileId">,
   {
     key: "codexAccountProfileId",
-    sectionId: "tooling",
+    sectionId: "accounts",
     fieldId: PROVIDER_ACCOUNTS_FIELD_ID.codex,
     titleKey: "settings:sections.fields.codexAccounts.title",
     descriptionKey: "settings:sections.fields.codexAccounts.description",
@@ -450,7 +450,7 @@ export const settingDefinitions = [
   } satisfies SettingDefinition<"codexAccountProfileId">,
   {
     key: "claudeAccountProfileId",
-    sectionId: "tooling",
+    sectionId: "accounts",
     fieldId: API_CONNECTIONS_FIELD_ID,
     titleKey: "settings:sections.fields.apiConnections.title",
     descriptionKey: "settings:sections.fields.apiConnections.description",

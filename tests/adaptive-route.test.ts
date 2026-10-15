@@ -42,7 +42,43 @@ test("automatic Decision proposals share pins, same-provider catalog, cooldown a
 test("explicit model and effort pins are frozen without taking a caller authority field", () => {
   const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 100,
     draft: { model: "gpt-6-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
-  expect(p).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true, effortLocked: true, initialEffort: "high", teamTurns: 30 });
+  expect(p).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true, effortLocked: true, initialEffort: "high" });
+});
+test("a composer pin wins over a fixed Agent model on its provider; another provider is refused at start", () => {
+  const agent = { ...getBuiltinAgent("builder")!, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.1-sol", effort: "high" as const } };
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent, settings: null, maxTurns: 30,
+    draft: { model: "gpt-6-astra", modelProviderId: "codex" } })).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true });
+  expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-astra", agent, settings: null, maxTurns: 30, draft: null }))
+    .toMatchObject({ allowedModels: ["gpt-6.1-sol"], modelLocked: true, effortLocked: true, initialEffort: "high" });
+  // A fixed Agent compiles for its own provider only, so a pin on another provider is refused before any turn.
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30,
+    draft: { model: "claude-opus-5-5", modelProviderId: "claude-code" } })).toThrow("another provider");
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30, draft: null }))
+    .toThrow("another provider");
+});
+test("a helper of a run that froze the version 1 policy keeps version 1, so native subagents stay off for it", () => {
+  const child = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 30, delegated: true });
+  expect(constrainHelperResources({ ...policy, version: 1, concurrentHelpers: 2, totalHelpers: 4 }, child, "gpt-6.1-sol"))
+    .toMatchObject({ version: 1, concurrentHelpers: 2, totalHelpers: 4 });
+  expect(constrainHelperResources(policy, child, "gpt-6.1-sol").version).toBe(2);
+});
+test("the team budget is the run's max turns, and the helper limits come from Settings within their range", () => {
+  const freeze = (maxTurns: number, teamLimits?: { concurrentHelpers: number; totalHelpers: number }) => freezeAdaptivePolicy({ providerId: "codex",
+    model: "gpt-6.1-sol", agent: null, maxTurns, draft: null,
+    settings: teamLimits ? { routing: { autoRoutingEnabled: false, autoRoutingProfile: undefined }, classifier: null, teamLimits } : null });
+  expect(freeze(100)).toMatchObject({ version: 2, teamTurns: 100, concurrentHelpers: 3, totalHelpers: 8, maxChanges: 2, cooldownTurns: 2 });
+  expect(freeze(45, { concurrentHelpers: 2, totalHelpers: 12 })).toMatchObject({ teamTurns: 45, concurrentHelpers: 2, totalHelpers: 12 });
+  // A hand-edited setting outside the range is clamped, never rejected.
+  expect(freeze(30, { concurrentHelpers: 40, totalHelpers: 0 })).toMatchObject({ concurrentHelpers: 6, totalHelpers: 1 });
+});
+test("a helper on another provider keeps its own catalog unless the parent's model is pinned", () => {
+  const claudeChild = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent: null, settings: null, maxTurns: 30, delegated: true });
+  const constrained = constrainHelperResources(policy, claudeChild, "claude-opus-5-5");
+  expect(constrained).toMatchObject({ providerId: "claude-code", teamTurns: policy.teamTurns, concurrentHelpers: policy.concurrentHelpers, totalHelpers: policy.totalHelpers });
+  expect(constrained.allowedModels).toContain("claude-opus-5-5");
+  expect(() => constrainHelperResources({ ...policy, modelLocked: true }, claudeChild, "claude-opus-5-5")).toThrow("pinned");
+  // A run that froze the opt-in version 1 policy keeps its provider for every helper.
+  expect(() => constrainHelperResources({ ...policy, version: 1 }, claudeChild, "claude-opus-5-5")).toThrow("pinned");
 });
 test("the account selected when the Run was asked for wins over a draft pin and the request scope", () => {
   const selected = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
