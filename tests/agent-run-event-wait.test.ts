@@ -618,12 +618,23 @@ describe("event waits: what wakes the run", () => {
     expect(harness.aggregate(id).agentRun.eventWait).toBeUndefined();
   });
 
+  test("a wait the turn registered outranks a provider failure that ended the turn", async () => {
+    const harness = createHarness({ extra: { readTransientFailure: (turnId) => turnId === "turn-1" ? { message: "request timed out" } : null } });
+    const { id } = await waitingRun(harness, { kind: "delegated_completion", target: "review" });
+    harness.advance(31_000);
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(1);
+    expect(harness.aggregate(id).agentRun.eventWait?.status).toBe("waiting");
+    expect(harness.eventKinds(id)).not.toContain("nudge");
+  });
+
   test("a wait on a delegated task reads as the Agent it runs as, never as its id", async () => {
     const named = "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d";
     const harness = createHarness({ extra: { agentNames: () => ({ reviewer: "Reviewer" }),
       delegatedTargetAgent: ({ target }) => target === named ? "reviewer" : null } });
     const { id } = await waitingRun(harness, { kind: "delegated_completion", target: named });
-    expect(harness.aggregate(id).agentRun.eventWait?.targetLabel).toBe("Reviewer");
+    expect(harness.aggregate(id).agentRun.eventWait).not.toHaveProperty("targetLabel");
+    expect(harness.store.listEventsByKind(id, ["wait-registered"]).at(-1)?.detail.targetLabel).toBe("Reviewer");
     const line = describeAgentRunStatusLine(await harness.detail(id));
     expect(JSON.stringify(line)).toContain("Waiting for Reviewer to finish");
     expect(JSON.stringify(line)).not.toContain("2c21e993");

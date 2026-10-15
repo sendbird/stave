@@ -2227,11 +2227,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           previous: currentEventWait(agentRun, record),
         });
         if (!resolved.ok) refuse(resolved.message);
-        // A delegated task is shown by the saved Agent it runs as, not its id.
+        // A delegated task is shown by the saved Agent it runs as, not its id; the label rides on the event so older builds still read the wait.
         const agentConfigId = resolved.wait.kind === "delegated_completion" && resolved.wait.target
           ? deps.delegatedTargetAgent?.({ taskId: agentRun.leadTaskId, target: resolved.wait.target }) : null;
         const targetLabel = agentConfigId ? deps.agentNames?.()[agentConfigId]?.trim().slice(0, 120) : undefined;
-        const wait = targetLabel ? { ...resolved.wait, targetLabel } : resolved.wait;
+        const { wait } = resolved;
         applyChange({
           agentRun: { ...agentRun, eventWait: wait, updatedAt: at.toISOString() },
           // Waiting from a reply to a blocked or stuck stage takes the stage up again.

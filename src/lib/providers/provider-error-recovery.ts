@@ -84,6 +84,10 @@ const TRANSIENT_FAILURE_PATTERNS: readonly RegExp[] = [
   /\b(?:bad gateway|gateway timeout|internal server error)\b/i,
   /\b(?:HTTP |status )?50[0234]\b/,
   /\boverloaded\b/i,
+  // How the Codex adapter words a dropped stream or an unreachable endpoint, and a
+  // short per-request throttle (`codex-app-server-errors.ts`); a usage limit reads differently.
+  /\bendpoint is unreachable\b/i,
+  /\brate limit hit\b/i,
 ];
 
 /** Whether a provider error says a failure that a later retry can get past. */

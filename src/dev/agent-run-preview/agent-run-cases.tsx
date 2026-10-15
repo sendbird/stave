@@ -75,9 +75,13 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
   const runs = buildAgentRunFixtures(new Date(now - 23 * 60_000));
   const working = buildAgentRunFixtures(new Date(now - 4 * 60_000));
   const limitReached: AgentRunDetail = { ...working.working, agentRun: { ...working.working.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 } };
-  // Waiting on a delegated task, named by the saved Agent it runs as.
-  const delegatedWait: AgentRunDetail = { ...working.eventWait, agentRun: { ...working.eventWait.agentRun, eventWait: {
-    ...working.eventWait.agentRun.eventWait!, kind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d", targetLabel: "Reviewer" } } };
+  // Waiting on a delegated task, named by the saved Agent it runs as (recorded on the registration event).
+  const delegatedWaitBase = working.eventWait.agentRun.eventWait!;
+  const delegatedWait: AgentRunDetail = { ...working.eventWait,
+    agentRun: { ...working.eventWait.agentRun, eventWait: { ...delegatedWaitBase, kind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d" } },
+    events: [...working.eventWait.events, { id: "wait-registered-preview", agentRunId: working.eventWait.agentRun.id, sequence: 999, kind: "wait-registered",
+      idempotencyKey: null, createdAt: delegatedWaitBase.registeredAt,
+      detail: { waitId: delegatedWaitBase.id, waitKind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d", targetLabel: "Reviewer" } }] };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   return (
     <div className={sx(styles.cases)} style={width ? { maxWidth: width } : undefined}>

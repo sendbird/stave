@@ -417,6 +417,10 @@ function decideAiStage(
     // the stage resumes without spending the one reminder.
     return startTurn({ agentRun, record, observation, reason: "resume-after-restart" });
   }
+  // The turn asked to wait for an outside event: the run waits instead of nudging,
+  // even when the provider failed after the wait was registered.
+  const waited = decideEventWait({ agentRun, record, observation, now });
+  if (waited) return waited;
   if (last.providerFailure) {
     // The provider failed, not the agent: retry after a pause without spending
     // the one reminder, and halt once the retries are used up.
@@ -429,9 +433,6 @@ function decideAiStage(
     if (now.getTime() < Date.parse(last.endedAt ?? last.startedAt) + delay) return { action: "idle" };
     return startTurn({ agentRun, record, observation, reason: "retry-after-provider-error" });
   }
-  // The turn asked to wait for an outside event: the run waits instead of nudging.
-  const waited = decideEventWait({ agentRun, record, observation, now });
-  if (waited) return waited;
   if (!observation.reportingAvailable) {
     // The model cannot report through a connection that is down, so this
     // blocks with "reporting unavailable" rather than spending the nudge.

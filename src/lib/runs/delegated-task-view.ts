@@ -95,7 +95,7 @@ export function selectDelegatedTaskBlockedKinds(args: {
   // A saved Agent's run that halted, paused or asked a question waits for a person
   // in its own task; the ledger records it as `waiting` with the run's reason.
   for (const child of activeChildren) {
-    if (!blocked[child.delegationKey] && child.agentRunId && child.phase === "waiting") blocked[child.delegationKey] = "agent-run";
+    if (!blocked[child.delegationKey] && child.waitsForPerson) blocked[child.delegationKey] = "agent-run";
   }
   return blocked;
 }

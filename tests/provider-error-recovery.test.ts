@@ -9,6 +9,7 @@ import {
   parseProviderErrorNotice,
 } from "@/lib/providers/provider-error-recovery";
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
+import { buildCodexTerminalFailureEvents } from "../electron/providers/codex-app-server-errors";
 import { ChatMessageSchema } from "@/lib/task-context/schemas";
 
 describe("a turn that a passing provider failure ended", () => {
@@ -21,6 +22,13 @@ describe("a turn that a passing provider failure ended", () => {
       expect(isTransientProviderFailureText(message)).toBe(true);
     expect(findTransientTurnFailure(ended("workspace routing discovery timed out", "cancelled"))).toBeNull();
     expect(findTransientTurnFailure([{ type: "done", stop_reason: "runtime_failure" }])).toBeNull();
+  });
+
+  test("Codex's own wording for a dropped stream, an overloaded model or a throttle passes; its usage limit does not", () => {
+    for (const raw of ["stream disconnected before completion", "error sending request for url (https://chatgpt.com/backend-api/codex/responses)",
+      "server_overloaded: The model is overloaded", "rate limit: too many requests"])
+      expect(findTransientTurnFailure(buildCodexTerminalFailureEvents({ message: raw }) as NormalizedProviderEvent[])).not.toBeNull();
+    expect(findTransientTurnFailure(buildCodexTerminalFailureEvents({ message: "usage_limit_reached" }) as NormalizedProviderEvent[])).toBeNull();
   });
 
   test("a usage limit, a permission error or a bad request does not pass", () => {

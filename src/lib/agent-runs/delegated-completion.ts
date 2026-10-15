@@ -11,7 +11,8 @@ export interface DelegatedAgentRunIdentity {
 export type DelegatedAgentCompletion =
   | { kind: "unknown"; reason: "unavailable" | "identity-mismatch" | "report-unavailable" | "report-mismatch" }
   | { kind: "running" }
-  | { kind: "waiting"; reason: "paused" | "blocked" | "stuck" | "awaiting-sign-off" }
+  /** `usage-reset`: paused for a usage limit with a resume time; it continues on its own. */
+  | { kind: "waiting"; reason: "paused" | "usage-reset" | "blocked" | "stuck" | "awaiting-sign-off" }
   | { kind: "completed"; report: AgentRunReport }
   | { kind: "cancelled" | "stopped"; report: AgentRunReport | null };
 
@@ -43,7 +44,7 @@ export function readDelegatedAgentCompletion(args: {
     return { kind: agentRun.state,
       report: report?.agentRunId === agentRun.id && report.outcome === agentRun.state ? report : null };
   }
-  if (agentRun.state === "paused") return { kind: "waiting", reason: "paused" };
+  if (agentRun.state === "paused") return { kind: "waiting", reason: agentRun.pauseReason === "usage-limit" && agentRun.usageLimit?.resumeAt ? "usage-reset" : "paused" };
   const stageId = agentRun.workflow.stages[agentRun.currentStageIndex]?.id;
   const stage = stageId ? latestStageRecord(detail.stages.filter(record => record.agentRunId === agentRun.id), stageId) : undefined;
   if (stage?.status === "blocked" || stage?.status === "stuck" || stage?.status === "awaiting-sign-off") {

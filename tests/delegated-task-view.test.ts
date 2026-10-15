@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   DELEGATED_TASK_DETACHED_REASON,
   DELEGATED_TASK_STOPPED_REASON,
+  delegatedTaskWaitingReason,
+  delegatedTaskWaitsForPerson,
   resolveDelegatedTaskControls,
   type DelegatedTaskActionResponse,
   type DelegatedTaskSummary,
@@ -119,14 +121,28 @@ describe("selectDelegatedTaskBlockedKinds", () => {
     };
   }
 
-  test("a saved Agent's run waiting for a person needs you; a parked detached child does not", () => {
-    const supervised = buildChild({ lifecycle: "supervised", agentRunId: "run-child", phase: "waiting", reason: "Choose a storage policy" });
+  test("a saved Agent's run waiting for a person needs you; a usage reset or a parked detached child does not", () => {
+    const supervised = buildChild({ lifecycle: "supervised", agentRunId: "run-child", phase: "waiting", reason: "Choose a storage policy", waitsForPerson: true });
     expect(selectDelegatedTaskBlockedKinds({ children: [supervised], notifications: [] })).toEqual({ review: "agent-run" });
     expect(describeDelegatedTaskPhase(supervised, "agent-run")).toEqual({ label: "Needs you", tone: "waiting", blocked: true });
     // An open question outranks the run's own waiting state.
     expect(selectDelegatedTaskBlockedKinds({ children: [supervised],
       notifications: [buildNotification({ kind: "task.user_input_requested" })] })).toEqual({ review: "user-input" });
+    const { waitsForPerson: _person, ...usageReset } = supervised;
+    expect(selectDelegatedTaskBlockedKinds({ children: [usageReset], notifications: [] })).toEqual({});
     expect(selectDelegatedTaskBlockedKinds({ children: [buildChild({ phase: "waiting" })], notifications: [] })).toEqual({});
+  });
+
+  test("a supervised child's waiting receipt says whether it waits for a person or a usage reset", () => {
+    const step = { executionId: "exec-1", status: "waiting" as const };
+    const receipt = (code: string, message: string) => ({ id: code, runId: "run", stepId: "step", type: "waiting" as const, executionId: "exec-1",
+      idempotencyKey: code, createdAt: "2026-08-10T00:00:00.000Z", detail: { code, message } });
+    const person = [receipt("child-agent-run-waiting", "Choose a storage policy")];
+    const reset = [...person, receipt("child-agent-run-usage-reset", "Waiting for the usage reset at 3:00 PM.")];
+    expect(delegatedTaskWaitsForPerson(person as never, step)).toBe(true);
+    expect(delegatedTaskWaitsForPerson(reset as never, step)).toBe(false);
+    expect(delegatedTaskWaitingReason(reset as never, step)).toBe("Waiting for the usage reset at 3:00 PM.");
+    expect(delegatedTaskWaitsForPerson(person as never, { ...step, status: "running" })).toBe(false);
   });
 
   test("maps an open request onto the delegation that raised it", () => {

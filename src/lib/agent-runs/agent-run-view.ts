@@ -3,6 +3,7 @@ import { toAgentRunAccountSwitch } from "./account-pool";
 import {
   activeEventWait,
   describeEventWaitDetail,
+  eventWaitTargetLabel,
   describeEventWaitFact,
   EventWaitFactSchema,
 } from "./event-wait";
@@ -157,7 +158,7 @@ export function describeAgentRunHeadline(detail: AgentRunDetail): AgentRunHeadli
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex]!;
   const record = latestStageRecord(detail.stages, stage.id);
   const wait = activeEventWait(agentRun, record);
-  if (wait) return { text: describeEventWaitDetail(wait), tone: "waiting", since: wait.waitingSince ?? since };
+  if (wait) return { text: describeEventWaitDetail(wait, eventWaitTargetLabel(detail.events, wait)), tone: "waiting", since: wait.waitingSince ?? since };
   switch (record?.status ?? "pending") {
     case "awaiting-sign-off":
       return { text: i18n.t("agentRuns:agentRunView.text5"), tone: "waiting", since };

@@ -97,10 +97,23 @@ export const AgentRunEventWaitSchema = z
       .max(AGENT_RUN_EVENT_WAIT_LIMITS.maxConsumedKeys),
     /** PR kinds: what the pull request watch learned, so polling and backoff survive a restart. */
     watch: PullRequestWatchStateSchema.optional(),
-    /** `delegated_completion` with a target: the saved Agent that delegated task runs as, for display. */
-    targetLabel: z.string().trim().min(1).max(120).optional(),
   })
   .strict();
+
+/**
+ * The saved Agent a `delegated_completion` wait's task runs as, recorded on its
+ * `wait-registered` event rather than the stored wait so an older build still
+ * reads the run. Null when the wait named no task or the task runs as no Agent.
+ */
+export function eventWaitTargetLabel(
+  events: readonly { kind: string; detail: Record<string, unknown> }[],
+  wait: Pick<AgentRunEventWait, "id" | "kind">,
+): string | null {
+  if (wait.kind !== "delegated_completion") return null;
+  const registered = events.find((event) => event.kind === "wait-registered" && event.detail.waitId === wait.id);
+  const label = registered?.detail.targetLabel;
+  return typeof label === "string" && label.trim() ? label.trim() : null;
+}
 export type AgentRunEventWait = z.infer<typeof AgentRunEventWaitSchema>;
 
 /**
@@ -375,9 +388,9 @@ export function describeEventWaitLabel(wait: Pick<AgentRunEventWait, "kind">): s
 
 const OPAQUE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function describeTarget(wait: Pick<AgentRunEventWait, "kind" | "target" | "watch" | "targetLabel">): string {
-  if (wait.kind === "delegated_completion" && wait.targetLabel) {
-    return i18n.t("agentRuns:eventWait.target.delegatedAgent", { name: wait.targetLabel });
+function describeTarget(wait: Pick<AgentRunEventWait, "kind" | "target" | "watch">, targetLabel?: string | null): string {
+  if (wait.kind === "delegated_completion" && targetLabel) {
+    return i18n.t("agentRuns:eventWait.target.delegatedAgent", { name: targetLabel });
   }
   // A bare task id means nothing to a reader; a delegation key the agent chose may.
   if (wait.kind === "delegated_completion" && wait.target && OPAQUE_ID.test(wait.target)) {
@@ -397,8 +410,8 @@ function describeTarget(wait: Pick<AgentRunEventWait, "kind" | "target" | "watch
   return "";
 }
 
-/** What the run waits for and until when, in one sentence. */
-export function describeEventWaitDetail(wait: AgentRunEventWait): string {
+/** What the run waits for and until when, in one sentence. `targetLabel`: `eventWaitTargetLabel`. */
+export function describeEventWaitDetail(wait: AgentRunEventWait, targetLabel?: string | null): string {
   const expires = formatDateTime(wait.expiresAt);
   switch (wait.kind) {
     case "pull_request_checks":
@@ -408,7 +421,7 @@ export function describeEventWaitDetail(wait: AgentRunEventWait): string {
     case "time":
       return i18n.t("agentRuns:eventWait.detail.time", { at: formatDateTime(wait.at ?? wait.expiresAt) });
     case "delegated_completion":
-      return i18n.t("agentRuns:eventWait.detail.delegatedCompletion", { target: describeTarget(wait), expires });
+      return i18n.t("agentRuns:eventWait.detail.delegatedCompletion", { target: describeTarget(wait, targetLabel), expires });
   }
 }
 
@@ -481,8 +494,7 @@ export function describeEventWaitEvent(event: {
       const target = describeTarget({
         kind,
         target: typeof event.detail.target === "string" ? event.detail.target : null,
-        ...(typeof event.detail.targetLabel === "string" ? { targetLabel: event.detail.targetLabel } : {}),
-      });
+      }, typeof event.detail.targetLabel === "string" ? event.detail.targetLabel : null);
       return {
         at: event.createdAt,
         text: target
