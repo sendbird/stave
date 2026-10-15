@@ -87,8 +87,9 @@ window to report instead (`{ "claude": { "session": { "usedPercent": 10,
 "resetsAt": <epoch seconds> } } }`), read on every call.
 `tests/e2e-electron/agent-run-usage-limit.electron.e2e.ts` uses it with a
 stand-in `claude` CLI (`STAVE_CLAUDE_CLI_PATH`, `harness/fake-claude-cli.cjs`)
-to reproduce an Agent run that hits a usage limit, waits for the reset and
-continues, without a real account or billable turns. Provider
+to reproduce an Agent run that hits a usage limit, waits again while the window
+is still used up, and continues once it has room,
+without a real account or billable turns (about three minutes). Provider
 authentication is checked separately:
 
 ```bash

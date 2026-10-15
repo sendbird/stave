@@ -18,7 +18,8 @@ const { randomUUID } = require("node:crypto");
 
 const dir = process.env.FAKE_CLAUDE_DIR;
 const args = process.argv.slice(2);
-// Stave ranks the Claude executables it finds by version; the stand-in must win.
+// Stave reads the CLI version to decide what it supports (auto permission
+// mode needs a recent CLI); report one newer than any real release.
 if (args.includes("--version") || args.includes("-v")) {
   process.stdout.write("99.0.0 (Claude Code)\n");
   process.exit(0);
