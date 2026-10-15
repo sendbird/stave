@@ -27,6 +27,7 @@ type PermissionOptions = Pick<
   | "claudeDisallowedTools"
   | "codexFileAccess"
   | "codexApprovalPolicy"
+  | "codexApprovalsReviewer"
   | "cursorMode"
   | "cursorApprovalMode"
   | "kiroApprovalMode"
@@ -127,6 +128,7 @@ export function agentPermissionOverrides(args: {
       if (files) out.codexFileAccess = files;
       const approval = lower(options.codexApprovalPolicy, cap.codexApproval, CODEX_APPROVAL_RANK, "never");
       if (approval) out.codexApprovalPolicy = approval;
+      if (options.codexApprovalsReviewer === "auto_review") out.codexApprovalsReviewer = "user";
       return out;
     }
     case "cursor": {

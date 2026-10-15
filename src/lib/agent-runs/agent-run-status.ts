@@ -1,4 +1,7 @@
+import { describeAgentRunUsageLimit } from "./usage-limit";
+import { activeEventWait, describeEventWaitDetail, describeEventWaitLabel } from "./event-wait";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { findTaskPendingDecision } from "@/lib/fleet/task-status";
 import { i18n } from "@/i18n/runtime";
 /**
  * How an agent run reads. A run is an agent run (`agent-run.ts`) with one
@@ -8,10 +11,12 @@ import { i18n } from "@/i18n/runtime";
  * run produced.
  *
  * Pure. Used by the agent run surfaces in `src/components/agent-runs/` for runs
- * marked `origin: "agent"`; a legacy run keeps its own copy.
+ * marked `origin: "agent"`; a legacy run keeps its own copy of everything but
+ * the badge, which every run wears (`describeAgentRunStatus`).
  */
 import { describeRunPlan } from "./plan-progress";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import { formatDateTime } from "@/i18n/format";
 import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
 import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
 import type { AgentRunDetail } from "./api";
@@ -23,16 +28,58 @@ import { describeUsageShort } from "./usage";
 
 export { extractRunAssignment };
 
-export type AgentRunViewState = "working" | "needs-you" | "ready" | "failed" | "stopped";
+/**
+ * The six badges a run wears. The sidebar mark, the Fleet card, the Run panel
+ * and the run line all read them from `describeAgentRunStatus`, so they never
+ * disagree. Waiting for an event or a usage reset is still Running.
+ */
+export const AGENT_RUN_BADGES = ["running", "needs-answer", "paused", "halted", "completed", "stopped"] as const;
+export type AgentRunBadge = (typeof AGENT_RUN_BADGES)[number];
 
-/** The words are the shared work-state vocabulary's. */
-export const AGENT_RUN_VIEW_STATE_LABELS: Record<AgentRunViewState, string> = {
-  get working() { return WORK_STATE.working.label; },
-  get "needs-you"() { return WORK_STATE["needs-you"].label; },
-  get ready() { return WORK_STATE.ready.label; },
-  get failed() { return WORK_STATE.failed.label; },
-  get stopped() { return WORK_STATE.stopped.label; },
+export const AGENT_RUN_BADGE_LABELS: Record<AgentRunBadge, string> = {
+  get running() { return i18n.t("agentRuns:badge.running"); },
+  get "needs-answer"() { return i18n.t("agentRuns:badge.needsAnswer"); },
+  get paused() { return i18n.t("agentRuns:badge.paused"); },
+  get halted() { return i18n.t("agentRuns:badge.halted"); },
+  get completed() { return i18n.t("agentRuns:badge.completed"); },
+  get stopped() { return i18n.t("agentRuns:badge.stopped"); },
 };
+
+/** A decision card the run's lead task holds open. */
+export type AgentRunDecision = "question" | "approval";
+
+/**
+ * The decision card a lead task holds open, from its turn (`user_input`,
+ * `approval`) or its Fleet status (`waiting-input`, `waiting-approval`).
+ */
+export function agentRunDecisionOf(pending: string | null | undefined): AgentRunDecision | null {
+  if (pending === "approval" || pending === "waiting-approval") return "approval";
+  if (pending === "user_input" || pending === "waiting-input") return "question";
+  return null;
+}
+
+const decisionByMessages = new WeakMap<readonly ChatMessage[], AgentRunDecision | null>();
+
+/**
+ * The run's pending decision: a question or approval card its lead task's
+ * messages hold unanswered. The one derivation every surface that shows a
+ * run's badge uses, read from the same source as the Fleet card's status
+ * (`findTaskPendingDecision`), so answering one of two approvals leaves every
+ * surface on Needs your answer. Not the turn's single `pendingInteraction`
+ * hint, which only tracks the prompts blocking the current turn (an async
+ * question or one an earlier turn left open does not raise it).
+ *
+ * Remembered per messages array (the store replaces it on change), so the
+ * store selectors that call it on every update stay a lookup.
+ */
+export function agentRunDecisionOfMessages(messages: ChatMessage[] | null | undefined): AgentRunDecision | null {
+  if (!messages || messages.length === 0) return null;
+  const known = decisionByMessages.get(messages);
+  if (known !== undefined) return known;
+  const decision = agentRunDecisionOf(findTaskPendingDecision(messages));
+  decisionByMessages.set(messages, decision);
+  return decision;
+}
 
 const STOP_REASON_TEXT: Record<AgentRunStopReason, string> = {
   get "task-unavailable"() { return i18n.t("agentRuns:agentRunStatus.taskUnavailable"); },
@@ -40,75 +87,146 @@ const STOP_REASON_TEXT: Record<AgentRunStopReason, string> = {
   get expired() { return i18n.t("agentRuns:agentRunStatus.expired"); },
 };
 
-/** The icon tone of a state; the icon is always paired with the state word. */
-export const AGENT_RUN_VIEW_STATE_TONES: Record<AgentRunViewState, StageTone> = {
-  working: "active",
-  "needs-you": "waiting",
-  ready: "done",
-  failed: "attention",
-  stopped: "skipped",
+/** The glyph beside the words: its shape (a shared work state) and its color. */
+export interface AgentRunStatusMark {
+  state: WorkState;
+  tone: StageTone;
+}
+
+/** Each badge's tone and mark; a run waiting between turns wears the waiting mark. */
+const BADGE_LOOK: Record<AgentRunBadge, { tone: AgentRunBadgeTone; mark: AgentRunStatusMark }> = {
+  running: { tone: "accent", mark: { state: "working", tone: "active" } },
+  "needs-answer": { tone: "warning", mark: { state: "needs-you", tone: "waiting" } },
+  paused: { tone: "neutral", mark: { state: "paused", tone: "idle" } },
+  halted: { tone: "warning", mark: { state: "halted", tone: "waiting" } },
+  completed: { tone: "success", mark: { state: "ready", tone: "done" } },
+  stopped: { tone: "neutral", mark: { state: "stopped", tone: "skipped" } },
 };
+const WAITING_LOOK = { tone: "neutral", mark: { state: "waiting", tone: "idle" } } as const;
+const APPROVAL_MARK: AgentRunStatusMark = { state: "approval", tone: "waiting" };
 
 /** What Retry does: ask the stage again, or start a new run from the assignment. */
 export type AgentRunRecovery = "retry-stage" | "new-run";
 
 export interface AgentRunStatus {
-  state: AgentRunViewState;
+  badge: AgentRunBadge;
+  /** The badge's word. */
   label: string;
+  /** What the badge stands on, such as `Waiting · PR checks`, `Question` or `Blocked`. */
+  subtitle: string | null;
   tone: AgentRunBadgeTone;
+  mark: AgentRunStatusMark;
+  /** Running between turns until an outside event or a usage reset. */
+  waiting: boolean;
   /** The agent's name; the run's implicit workflow carries it. */
   agentName: string;
-  /** Why the run needs you or failed, in one sentence. */
+  /** Why the run stands where it does, in one sentence. */
   reason: string | null;
   /** Set when the run stopped moving: it gets a reason card with Retry and Take control. */
   recovery: AgentRunRecovery | null;
 }
 
-/** The state of an agent run in the words people see. */
-export function describeAgentRunStatus(detail: AgentRunDetail): AgentRunStatus {
+/** `Halted · Blocked`: the badge and its subtitle, as one run of words. */
+export function formatAgentRunBadge(status: Pick<AgentRunStatus, "label" | "subtitle">): string {
+  return status.subtitle ? `${status.label} · ${status.subtitle}` : status.label;
+}
+
+/**
+ * The state of an agent run in the words people see: one of six badges, what
+ * it stands on, and why. `decision` is the question or approval card the lead
+ * task holds open, which only its messages know (`agentRunDecisionOfMessages`).
+ */
+export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRunDecision | null = null): AgentRunStatus {
   const { agentRun } = detail;
   const agentName = agentRun.workflow.name;
   const make = (
-    state: AgentRunViewState,
-    tone: AgentRunBadgeTone,
-    reason: string | null = null,
-    recovery: AgentRunRecovery | null = null,
-  ): AgentRunStatus => ({ state, label: AGENT_RUN_VIEW_STATE_LABELS[state], tone, agentName, reason, recovery });
+    badge: AgentRunBadge,
+    subtitle: string | null = null,
+    extra: { reason?: string | null; recovery?: AgentRunRecovery | null; mark?: AgentRunStatusMark } = {},
+  ): AgentRunStatus => ({
+    badge,
+    label: AGENT_RUN_BADGE_LABELS[badge],
+    subtitle,
+    tone: BADGE_LOOK[badge].tone,
+    mark: extra.mark ?? BADGE_LOOK[badge].mark,
+    waiting: false,
+    agentName,
+    reason: extra.reason ?? null,
+    recovery: extra.recovery ?? null,
+  });
+  // Running, between turns: "Running · Waiting · PR checks".
+  const waiting = (subtitle: string, reason: string): AgentRunStatus => ({
+    ...make("running", subtitle, { reason, mark: WAITING_LOOK.mark }),
+    tone: WAITING_LOOK.tone,
+    waiting: true,
+  });
+  const paused = (): AgentRunStatus => {
+    const reason = agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunStatus.extraCopy213");
+    switch (agentRun.pauseReason) {
+      case "usage-limit": {
+        // A known reset resumes on its own; an unknown one halts until the user resumes.
+        const resumeAt = agentRun.usageLimit?.resumeAt;
+        return resumeAt
+          ? waiting(i18n.t("agentRuns:badge.usageWait", { time: formatDateTime(resumeAt) }), describeAgentRunUsageLimit(agentRun))
+          : make("halted", i18n.t("agentRuns:badge.usageLimit"), { reason: describeAgentRunUsageLimit(agentRun) });
+      }
+      case "wait-expired":
+        return make("halted", i18n.t("agentRuns:badge.waitExpired"), { reason });
+      case "task-identity-changed":
+      case "runtime-changed":
+        return make("halted", i18n.t("agentRuns:badge.recoveryNeeded"), { reason });
+      case "taken-over":
+        return make("paused", i18n.t("agentRuns:badge.takenOver"), { reason });
+      case "paused-by-user":
+      case null:
+        return make("paused", null, { reason });
+    }
+  };
   switch (agentRun.state) {
     case "completed":
-      return make("ready", "success");
+      return make("completed");
     case "cancelled":
-      return make("stopped", "neutral");
+      return make("stopped");
     case "stopped":
-      return make(
-        "failed",
-        "danger",
-        agentRun.reasonDetail ?? (agentRun.stopReason ? STOP_REASON_TEXT[agentRun.stopReason] : null),
-        "new-run",
-      );
+      return make("stopped", null, {
+        reason: agentRun.reasonDetail ?? (agentRun.stopReason ? STOP_REASON_TEXT[agentRun.stopReason] : null),
+        recovery: "new-run",
+      });
     case "paused":
-      return make("needs-you", "warning", agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunStatus.extraCopy213"));
+      return paused();
     case "running":
       break;
   }
+  if (decision) {
+    return make("needs-answer", i18n.t(decision === "approval" ? "agentRuns:badge.approval" : "agentRuns:badge.question"), {
+      mark: decision === "approval" ? APPROVAL_MARK : undefined,
+    });
+  }
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
+  const wait = activeEventWait(agentRun, record);
+  if (wait) return waiting(describeEventWaitLabel(wait), describeEventWaitDetail(wait));
   switch (record?.status) {
+    case "awaiting-sign-off":
+      // A sign-off is the approval card of a stage that asks first.
+      return make("needs-answer", i18n.t("agentRuns:badge.approval"), {
+        mark: APPROVAL_MARK,
+        reason: stage ? i18n.t("agentRuns:agentRunStatus.extraCopy217", { value1: getStageDisplayTitle(stage) }) : i18n.t("agentRuns:agentRunStatus.extraCopy218"),
+      });
     case "blocked":
-      return make(
-        "needs-you",
-        "warning",
-        record.blockReason === "reporting-unavailable"
+      return make("halted", i18n.t("agentRuns:badge.blocked"), {
+        reason: record.blockReason === "reporting-unavailable"
           ? i18n.t("agentRuns:agentRunStatus.extraCopy214")
           : (record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy215")),
-        record.blockReason === "action-failed" || record.blockReason === "acceptance-unmet" ? "retry-stage" : null,
-      );
+        recovery: record.blockReason === "action-failed" || record.blockReason === "acceptance-unmet" ? "retry-stage" : null,
+      });
     case "stuck":
-      return make("needs-you", "warning", record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy216"), "retry-stage");
-    case "awaiting-sign-off":
-      return make("needs-you", "warning", stage ? i18n.t("agentRuns:agentRunStatus.extraCopy217", { value1: getStageDisplayTitle(stage) }) : i18n.t("agentRuns:agentRunStatus.extraCopy218"));
+      return make("halted", i18n.t("agentRuns:badge.blocked"), {
+        reason: record.detail ?? i18n.t("agentRuns:agentRunStatus.extraCopy216"),
+        recovery: "retry-stage",
+      });
     default:
-      return make("working", "accent");
+      return make("running");
   }
 }
 
@@ -253,9 +371,9 @@ export interface AgentRunResult {
 }
 
 /** Everything the Result card and the panel's Result section show. */
-export function describeAgentRunResult(detail: AgentRunDetail, now: number): AgentRunResult {
+export function describeAgentRunResult(detail: AgentRunDetail, now: number, decision: AgentRunDecision | null = null): AgentRunResult {
   return {
-    status: describeAgentRunStatus(detail),
+    status: describeAgentRunStatus(detail, decision),
     duration: agentRunDuration(detail, now),
     doneWhen: describeDoneWhen(detail),
     staveChecks: describeStaveChecks(detail),
@@ -283,17 +401,8 @@ export function selectAgentRunCard(args: {
   if (!hasAgentOrigin(agentRun) || isActiveAgentRunState(agentRun.state)) return null;
   if (args.lastMessageStartedAt && Date.parse(args.lastMessageStartedAt) > Date.parse(agentRun.updatedAt)) return null;
   const status = describeAgentRunStatus(args.detail);
-  if (status.state === "ready") return "result";
+  if (status.badge === "completed") return "result";
   return status.recovery ? "reason" : null;
-}
-
-/**
- * A run's state on a Fleet card, where the run's strip names the agent and
- * the state for the lead task: a working run whose task waits on the user (a
- * question or an approval in the turn) needs you.
- */
-export function agentRunFleetState(state: AgentRunViewState, leadTaskWaiting: boolean): AgentRunViewState {
-  return state === "working" && leadTaskWaiting ? "needs-you" : state;
 }
 
 /** A user bubble of an agent run: the user's words and the compiled prompt folded under them. */

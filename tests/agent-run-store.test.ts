@@ -181,3 +181,19 @@ describe("run store", () => {
     expect(store.getAggregate("agent-run-9")).toEqual(fixture);
   });
 });
+
+
+test("old rows gain the nullable usage reservation and still parse", () => {
+  store.create(startChange(), AGENT_RUN_NOW);
+  database.exec("ALTER TABLE agent_runs DROP COLUMN usage_limit_json");
+  const restarted = new AgentRunStore(database);
+  expect(restarted.getAgentRun("agent-run-1")?.usageLimit).toBeUndefined();
+  expect(restarted.getAgentRun("agent-run-1")?.state).toBe("running");
+  const aggregate = restarted.getAggregate("agent-run-1")!;
+  const change = applyAgentRunDecision({ aggregate, decision: { action: "pause", reason: "usage-limit", detail: "", usageLimit: {
+    turnId: "turn-1", resetsAt: "2026-09-26T11:00:00.000Z", resumeAt: "2026-09-26T11:01:00.000Z",
+    accountProfileId: "system", fingerprint: aggregate.agentRun.fingerprint,
+  } }, now: AGENT_RUN_NOW });
+  restarted.apply(change, AGENT_RUN_NOW);
+  expect(new AgentRunStore(database).getAgentRun("agent-run-1")).toEqual(change.agentRun);
+});

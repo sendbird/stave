@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { WorkState } from "@/components/ads/components/state-vocabulary";
+import { formatAgentRunBadge, type AgentRunStatus } from "@/lib/agent-runs/agent-run-status";
 
 /**
  * What a Task panel tab carries beside its label. A state wears the shared
@@ -35,20 +36,15 @@ export function resolveActivityTabMark(args: {
 }
 
 /**
- * Progress: only an active agent run or agent run that needs attention. A
- * healthy run says nothing here; its stage track is one click away.
+ * Progress: only an active agent run that waits on the user (Needs your
+ * answer, Halted), in its badge's glyph and words. A healthy, waiting or
+ * paused run says nothing here; its badge is one click away.
  */
 export function resolveProgressTabMark(
-  badge: { tone: string; label: string } | null,
+  status: Pick<AgentRunStatus, "badge" | "label" | "subtitle" | "mark"> | null,
 ): TaskTabMark | null {
-  if (!badge) return null;
-  if (badge.tone === "warning") {
-    return { kind: "state", state: "needs-you", label: badge.label };
-  }
-  if (badge.tone === "danger") {
-    return { kind: "state", state: "failed", label: badge.label };
-  }
-  return null;
+  if (!status || (status.badge !== "needs-answer" && status.badge !== "halted")) return null;
+  return { kind: "state", state: status.mark.state, label: formatAgentRunBadge(status) };
 }
 
 /** Subagents: how many agents are running now. */

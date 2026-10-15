@@ -88,10 +88,18 @@ export function autonomyOfOptions(
       : "ask";
   }
   if (providerId === "codex") {
-    if (value.codexApprovalPolicy !== "never") return "ask";
+    // Run Auto hands approvals to Codex's own reviewer instead of `never`:
+    // the same autonomy, so it gets the same posture.
+    const approvals = isCodexAutoReview(value) ? "never" : value.codexApprovalPolicy;
+    if (approvals !== "never") return "ask";
     return value.codexFileAccess === "read-only" ? "read-only" : "autonomous";
   }
   return "ask";
+}
+
+/** Codex native auto-review, as an agent run's Auto permission requests it. */
+export function isCodexAutoReview(options: ProviderRuntimeOptions | undefined) {
+  return options?.codexApprovalsReviewer === "auto_review" && options.codexApprovalPolicy === "on-request";
 }
 
 function resolveAutonomy(actor: TurnActor, requested: Autonomy): Autonomy {
@@ -118,7 +126,8 @@ function readOnlyOptions(providerId: ProviderId, options: ProviderRuntimeOptions
           claudeSandboxCredentialEnvVars: options.claudeSandboxCredentialEnvVars,
         });
   }
-  if (providerId === "codex") return codexReadOnlyDelegationOptions();
+  if (providerId === "codex") return { ...codexReadOnlyDelegationOptions(),
+    ...(options.codexApprovalsReviewer ? { codexApprovalsReviewer: "user" as const } : {}) };
   return agentPermissionOverrides({ permission: "read-only", providerId, options });
 }
 
@@ -130,7 +139,11 @@ function readOnlyOptions(providerId: ProviderId, options: ProviderRuntimeOptions
  *   what the user denied; everything else becomes native `auto`. Stave's own
  *   permission callback answers whatever the CLI still hands over.
  * - Codex: approvals `never`, file access at least `workspace-write` (rooted at
- *   the workspace by the runtime) or the user's full access, network as set.
+ *   the workspace by the runtime) or the user's full access, network as set,
+ *   and Stave's own prompt-free tools approved. An agent run's Auto keeps all
+ *   of that but asks Codex's reviewer (`on-request` + `auto_review`) instead
+ *   of `never`; a runtime without the reviewer swaps back to exactly `never`
+ *   (`electron/providers/codex-runtime-capabilities.ts`).
  * - Cursor and Kiro keep the user's settings.
  */
 function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptions): Partial<ProviderRuntimeOptions> {
@@ -141,7 +154,9 @@ function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptio
   }
   if (providerId === "codex") {
     return {
-      codexApprovalPolicy: "never",
+      ...(options.codexApprovalsReviewer === "auto_review"
+        ? { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }
+        : { codexApprovalPolicy: "never" }),
       codexFileAccess: options.codexFileAccess === "danger-full-access" ? "danger-full-access" : "workspace-write",
       codexAutoApproveStaveLocalMcpTools: true,
     };
@@ -157,7 +172,8 @@ function autonomousOptions(providerId: ProviderId, options: ProviderRuntimeOptio
 function askOptions(providerId: ProviderId, options: ProviderRuntimeOptions): Partial<ProviderRuntimeOptions> {
   if (autonomyOfOptions(providerId, options) !== "autonomous") return {};
   if (providerId === "claude-code") return { claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false };
-  if (providerId === "codex") return { codexApprovalPolicy: "on-request", codexAutoApproveStaveLocalMcpTools: false };
+  if (providerId === "codex") return { codexApprovalPolicy: "on-request", codexAutoApproveStaveLocalMcpTools: false,
+    ...(options.codexApprovalsReviewer ? { codexApprovalsReviewer: "user" as const } : {}) };
   return {};
 }
 
@@ -258,6 +274,7 @@ export const PERMISSION_RUNTIME_OPTION_KEYS = [
   "codexFileAccess",
   "codexNetworkAccess",
   "codexApprovalPolicy",
+  "codexApprovalsReviewer",
   "codexAutoApproveStaveLocalMcpTools",
   "codexAppToolApprovalMode",
   "codexBinaryPath",

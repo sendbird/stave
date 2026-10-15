@@ -102,6 +102,7 @@ import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import { buildCodexRouteClassificationThreadStartParams } from "./codex-route-classification";
 import {
   buildCodexTerminalFailureEvents,
+  CodexAppServerRpcError,
   resolveCodexTurnCompletionStopReason,
   toCodexUserFacingErrorMessage,
   toErrorMessage,
@@ -155,8 +156,14 @@ import { noteCodexApiConnectionSpawn, readCodexTurnAccount, retireStaleCodexApiC
 import { parsePositiveIntEnv } from "./runtime-shared";
 import { createCodexMcpManagement } from "./codex-mcp-management";
 import {
+  codexAutoReviewRetryOptions,
+  codexRequirementsAllowAutoReview,
   downgradeUnsupportedCodexRuntimeOptions,
   getCodexVersionCapabilities,
+  isCodexAutoReviewInEffect,
+  rememberCodexAutoReviewRejected,
+  takeCodexAutoReviewFallbackNotice,
+  withoutCodexAutoReview,
 } from "./codex-runtime-capabilities";
 import { mapCodexHookNotificationToBridgeEvent } from "./codex-hook-mapping";
 import { mapCodexTurnPlanToTodoEvent } from "./codex-plan-mapping";
@@ -874,8 +881,9 @@ class CodexAppServerClient {
       }
       if (message.error) {
         pending.reject(
-          new Error(
+          new CodexAppServerRpcError(
             message.error.message || "Codex App Server request failed.",
+            message.error.code,
           ),
         );
       } else {
@@ -1826,6 +1834,16 @@ export async function streamCodexWithAppServer(
       return events;
     }
 
+    // Managed requirements can rule out auto-review on a runtime that has it.
+    // Auto then runs as it did before auto-review instead of failing the turn.
+    // An unreadable answer leaves the request to the thread response check.
+    if (runtimeOptions?.codexApprovalsReviewer === "auto_review") {
+      const allowed = await client
+        .request<unknown>("configRequirements/read", {}, { timeoutMs: CODEX_CONFIG_READ_TIMEOUT_MS })
+        .then(codexRequirementsAllowAutoReview, () => true);
+      if (!allowed) runtimeOptions = withoutCodexAutoReview(runtimeOptions, true);
+    }
+
     let secondaryConfigOverrides: CodexConfigOverrides | undefined;
     if (secondaryReadOnly) {
       try {
@@ -1898,6 +1916,8 @@ export async function streamCodexWithAppServer(
     let resumedThreadId: string | null;
     let releaseThread: () => void;
     let instructionRefresh: string | null;
+    let threadApprovalsReviewer: unknown;
+    let autoReviewRejected: true | undefined;
     try {
       ({
         threadId,
@@ -1906,6 +1926,8 @@ export async function streamCodexWithAppServer(
         instructionRefresh,
         resolvedModel,
         fallbackModel,
+        approvalsReviewer: threadApprovalsReviewer,
+        autoReviewRejected,
       } =
         await ensureCodexThread({
           client,
@@ -1916,6 +1938,7 @@ export async function streamCodexWithAppServer(
           conversation: args.conversation,
           runtimeOptions,
           ephemeral: secondaryReadOnly,
+          ...(args.freshSession ? { fresh: true } : {}),
           configOverrides: mergedConfigOverrides,
           boundSecretFingerprint,
           secondaryReadOnly,
@@ -1934,6 +1957,17 @@ export async function streamCodexWithAppServer(
         ...runtimeOptions,
         model: resolvedModel?.trim() || fallbackModel,
       };
+    }
+    // Codex reports the reviewer it actually applied (account or plan limits
+    // can leave it at `user`). On-request with a person as the reviewer would
+    // ask for every escalation, so this turn runs as Auto did before, as it
+    // does when App Server refused auto-review (`ensureCodexThread` retried).
+    if (autoReviewRejected) rememberCodexAutoReviewRejected(codexExecutablePath);
+    if (
+      runtimeOptions?.codexApprovalsReviewer === "auto_review" &&
+      (autoReviewRejected || !isCodexAutoReviewInEffect(threadApprovalsReviewer))
+    ) {
+      runtimeOptions = withoutCodexAutoReview(runtimeOptions, true);
     }
 
     try {
@@ -1972,6 +2006,14 @@ export async function streamCodexWithAppServer(
         return events;
       };
 
+      const announceAutoReviewFallback = () => {
+        const notice = takeCodexAutoReviewFallbackNotice({
+          requested: requestedRuntimeOptions, effective: runtimeOptions,
+          key: args.agentRunStage?.agentRunId ?? args.taskId,
+        });
+        if (notice) emitBridgeEvent(notice);
+      };
+      announceAutoReviewFallback();
       const modelResolution = createCodexModelResolutionTracker(requestedModel);
       emitBridgeEvents(
         modelResolution.resolve(
@@ -2060,6 +2102,8 @@ export async function streamCodexWithAppServer(
       const interruptedCleanup: { finish: ((safe: boolean) => void) | null } = { finish: null };
       let abortRequested = false;
       let completed = false;
+      // A turn notification held before turn/start named the turn: one may be running.
+      let turnSeenBeforeStart = false;
       let resolveTurnCompletion: (() => void) | null = null;
       let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
       let lastAgentMessageSegmentId = "";
@@ -2555,7 +2599,10 @@ export async function streamCodexWithAppServer(
           emitBridgeEvents(mapped.events);
           return;
         }
-        if (!turnNotificationGate.shouldDeliver(message, appServerTurnId)) return;
+        if (!turnNotificationGate.shouldDeliver(message, appServerTurnId)) {
+          if (!appServerTurnId) turnSeenBeforeStart = true;
+          return;
+        }
         switch (message.method) {
           case "model/rerouted":
             if (eventThreadId === threadId) {
@@ -3037,7 +3084,7 @@ export async function streamCodexWithAppServer(
             const turn = params.turn as
               | {
                   status?: string;
-                  error?: { message?: string | null } | null;
+                  error?: { message?: string | null; codexErrorInfo?: unknown } | null;
                 }
               | undefined;
             if (turn?.status === "failed" && !abortRequested) {
@@ -3059,6 +3106,8 @@ export async function streamCodexWithAppServer(
             const stopReason = resolveCodexTurnCompletionStopReason({
               status: turn?.status,
               abortRequested,
+              errorMessage: turn?.error?.message ?? lastAppServerErrorMessage,
+              errorInfo: turn?.error?.codexErrorInfo,
             });
             emitBridgeEvent({
               type: "done",
@@ -3164,7 +3213,7 @@ export async function streamCodexWithAppServer(
         // Race turn/start against waitForTurnCompletion so an abort (or
         // process death) during the request isn't blocked until the outer
         // 3-hour timeout.
-        const turnStartPromise = client.request<{ turn: { id: string } }>(
+        const startTurn = () => client.request<{ turn: { id: string } }>(
           "turn/start",
           buildCodexTurnStartParams({
             threadId,
@@ -3177,11 +3226,29 @@ export async function streamCodexWithAppServer(
           }),
           { signal: orphanRequestAbortController.signal },
         );
-
-        const turnResponse = await Promise.race([
+        let turnStartPromise = startTurn();
+        const raceTurnStart = () => Promise.race([
           turnStartPromise,
           waitForTurnCompletion.then(() => null as null),
         ]);
+
+        // A turn/start refused for auto-review has not started a turn: retry
+        // it once as Auto was before, like `ensureCodexThread` does. Any turn
+        // notification first means a turn may be running; never send it twice.
+        const turnResponse = await raceTurnStart().catch((error: unknown) => {
+          const turnMayHaveStarted = completed || turnSeenBeforeStart;
+          const retryOptions = turnMayHaveStarted ? null : codexAutoReviewRetryOptions(runtimeOptions, error);
+          if (!retryOptions) throw error;
+          runtimeOptions = retryOptions;
+          turnStartPromise = startTurn();
+          return raceTurnStart().then((response) => {
+            if (response) {
+              rememberCodexAutoReviewRejected(codexExecutablePath);
+              announceAutoReviewFallback();
+            }
+            return response;
+          });
+        });
 
         // If waitForTurnCompletion won the race (abort or process death during
         // turn/start), clean up the orphaned turn/start and return.

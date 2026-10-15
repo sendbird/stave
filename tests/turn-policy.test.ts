@@ -366,6 +366,16 @@ describe("Claude guardrails", () => {
     expect(resolveClaudeTurnGuardrail({ policy: autonomous, toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })?.id).toBe("G1");
     expect(resolveClaudeTurnGuardrail({ policy: resolve("claude-code", readOnlyAgent), toolName: "Write", input: { file_path: "/etc/x" }, cwd: ROOT })).toBeNull();
     expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "Bash" })).toBe(true);
+    // A call native Auto hands over still passes for repository edits, reads
+    // and prompt-free Stave tools, so a Run asks a person only when needed.
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "Edit" })).toBe("allow");
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "Read" })).toBe("allow");
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "Read", keepReadOnlyPrompt: true })).toBe("prompt");
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "mcp__stave-local-mcp__stave_report_stage" })).toBe("allow");
+    expect(resolveClaudePermissionModeDecision({ permissionMode: "auto", toolName: "Bash" })).toBe("prompt");
+    expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "Bash", nativeAuto: true })).toBe(false);
+    // Unattended callers that did not select native Auto keep their existing behavior.
+    expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "Bash", nativeAuto: false })).toBe(true);
     expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "mcp__stave-local-mcp__stave_run_task" })).toBe(true);
     expect(shouldAllowClaudeAutonomousCall({ policy: resolve("claude-code", chat), toolName: "Bash" })).toBe(false);
     expect(shouldAllowClaudeAutonomousCall({ policy: autonomous, toolName: "AskUserQuestion" })).toBe(false);
@@ -493,4 +503,32 @@ describe("helper autonomy across providers", () => {
     const reader = resolveDelegationPermissionPolicy({ providerId: "claude-code", access: "read-only" });
     expect(helperAutonomyPolicy("claude-code", codexParent, "inherit", reader)).toBe(reader);
   });
+});
+
+test("Run auto-review survives policy resolution while file and network settings stay fixed", () => {
+  const options = { codexApprovalPolicy: "on-request" as const, codexApprovalsReviewer: "auto_review" as const,
+    codexFileAccess: "workspace-write" as const, codexNetworkAccess: false };
+  for (const actor of [chat, agent]) {
+    const policy = resolve("codex", actor, options);
+    expect(policy.autonomy).toBe("autonomous");
+    expect({ ...options, ...policy.options }).toMatchObject(options);
+  }
+  const narrowed = resolve("codex", { kind: "spawned", caller: "ask" }, options);
+  expect(narrowed.options).toMatchObject({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "user" });
+  expect(resolve("codex", readOnlyAgent, options).options).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" });
+  expect(omitPermissionRuntimeOptions(options)).not.toHaveProperty("codexApprovalsReviewer");
+});
+
+test("Run auto-review gets the posture of Codex Auto: same floor, same Stave tools, same read-only rule", () => {
+  const auto = { codexApprovalPolicy: "on-request" as const, codexApprovalsReviewer: "auto_review" as const };
+  for (const actor of [chat, agent]) {
+    expect(resolve("codex", actor, auto).options).toMatchObject({
+      codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review",
+      codexFileAccess: "workspace-write", codexAutoApproveStaveLocalMcpTools: true,
+    });
+    expect(resolve("codex", actor, { ...auto, codexFileAccess: "danger-full-access" }).options.codexFileAccess).toBe("danger-full-access");
+  }
+  // As with `never`, a read-only file setting makes it the read-only posture.
+  expect(autonomyOfOptions("codex", { ...auto, codexFileAccess: "read-only" })).toBe("read-only");
+  expect(autonomyOfOptions("codex", { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "user" })).toBe("ask");
 });

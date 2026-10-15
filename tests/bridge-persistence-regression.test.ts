@@ -9089,6 +9089,151 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("answering one of two prompts keeps the turn's pending hint on the other", async () => {
+    setWindowContext({
+      localStorage: createMemoryStorage(),
+      api: {
+        provider: {
+          respondApproval: async () => ({ ok: true, message: "ok" }),
+          respondUserInput: async () => ({ ok: true, message: "ok" }),
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const { startProviderTurnActivity } = await import("../src/lib/providers/turn-status");
+    const taskId = "task-two-prompts";
+    const turnId = "turn-two-prompts";
+    const started = startProviderTurnActivity({
+      activityByTask: {},
+      taskId,
+      turnId,
+      providerId: "codex",
+      now: 1_000,
+    });
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      hasHydratedWorkspaces: true,
+      activeWorkspaceId: "ws-main",
+      activeTaskId: taskId,
+      repositoryPath: "/tmp/stave-project",
+      tasks: [
+        {
+          id: taskId,
+          title: "Two prompts",
+          provider: "codex",
+          updatedAt: "2026-10-14T00:00:00.000Z",
+          unread: false,
+          controlMode: "interactive",
+          controlOwner: "stave",
+        },
+      ],
+      messagesByTask: {
+        [taskId]: [
+          // An earlier turn's async question (still unanswered, but it blocks
+          // no turn) and a blocking approval its end left open: neither
+          // raises the running turn's hint.
+          {
+            id: "assistant-earlier",
+            role: "assistant",
+            model: "gpt-5.6",
+            providerId: "codex",
+            turnId: "turn-earlier",
+            content: "",
+            isStreaming: false,
+            parts: [
+              {
+                type: "user_input",
+                toolName: "stave_ask_user",
+                requestId: "async-question",
+                questions: [],
+                state: "input-requested",
+                delivery: "async",
+              },
+              {
+                type: "approval",
+                toolName: "bash",
+                requestId: "approval-stale",
+                description: "Left open by an earlier turn",
+                state: "approval-requested",
+              },
+            ],
+          },
+          {
+            id: "assistant-two-prompts",
+            role: "assistant",
+            model: "gpt-5.6",
+            providerId: "codex",
+            turnId,
+            content: "",
+            isStreaming: true,
+            parts: [
+              {
+                type: "approval",
+                toolName: "bash",
+                requestId: "approval-a",
+                description: "Run the first command",
+                state: "approval-requested",
+              },
+              {
+                type: "approval",
+                toolName: "bash",
+                requestId: "approval-b",
+                description: "Run the second command",
+                state: "approval-requested",
+              },
+              {
+                type: "user_input",
+                toolName: "request_user_input",
+                requestId: "input-a",
+                questions: [],
+                state: "input-requested",
+              },
+            ],
+          },
+        ],
+      },
+      activeTurnIdsByTask: { [taskId]: turnId },
+      taskWorkspaceIdById: { [taskId]: "ws-main" },
+      providerTurnActivityByTask: {
+        [taskId]: { ...started[taskId]!, pendingInteraction: "user_input" },
+      },
+    });
+    const hint = () =>
+      useAppStore.getState().providerTurnActivityByTask[taskId]?.pendingInteraction ?? null;
+
+    useAppStore.getState().resolveUserInput({
+      taskId,
+      messageId: "assistant-two-prompts",
+      requestId: "input-a",
+      answers: {},
+    });
+    await Bun.sleep(0);
+    expect(hint()).toBe("approval");
+
+    useAppStore.getState().resolveApproval({
+      taskId,
+      messageId: "assistant-two-prompts",
+      requestId: "approval-a",
+      approved: true,
+    });
+    await Bun.sleep(0);
+    expect(hint()).toBe("approval");
+
+    useAppStore.getState().resolveApproval({
+      taskId,
+      messageId: "assistant-two-prompts",
+      requestId: "approval-b",
+      approved: false,
+    });
+    await Bun.sleep(0);
+    expect(hint()).toBeNull();
+    // The async question stays open for Fleet; only the turn's hint ignores it.
+    expect(
+      useAppStore.getState().messagesByTask[taskId]?.[0]?.parts[0],
+    ).toMatchObject({ requestId: "async-question", state: "input-requested" });
+  });
+
   test("notification approval delegates to a Stave-owned managed task", async () => {
     const approvalCalls: Array<{
       workspaceId: string;

@@ -287,6 +287,7 @@ const ErrorEventSchema = z.object({
 const DoneEventSchema = z.object({
   type: z.literal("done"),
   accountProfileId: z.string().optional(),
+  usageLimitResetsAt: z.iso.datetime().optional(),
   stop_reason: z.string().optional(),
 });
 

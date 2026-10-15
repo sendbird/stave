@@ -309,7 +309,9 @@ export function AgentEditor(props: {
               size="sm"
               aria-label={i18n.t("agents:agentEditor.ariaLabel10")}
               value={draft.permission}
-              options={AGENT_PERMISSIONS.map((value) => ({ value, label: AGENT_PERMISSION_LABELS[value] }))}
+              options={AGENT_PERMISSIONS.map((value) => ({ value, label: AGENT_PERMISSION_LABELS[value],
+                ...(value === "auto" ? { description: i18n.t("agents:agentEditor.autoPermissionHint") } : {}),
+              }))}
               onValueChange={(value) => setDraft({ ...draft, permission: String(value) as AgentConfig["permission"] })}
             />
           </dd>

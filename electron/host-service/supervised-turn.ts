@@ -62,6 +62,8 @@ export async function runSupervisedTurn(args: {
   agentRunStage?: AgentRunStageIdentity;
   /** On an agent run's turn: the run and the assignment, recorded on the user row. */
   agentRunPrompt?: AgentRunPromptProvenance;
+  /** After an account-pool switch: a new provider conversation on the account switched to. */
+  freshSession?: boolean;
 }) {
   const store = ensureHostServicePersistenceReady();
   const saved = store.delegationPolicies.loadTaskAccounts(args.taskId) ?? store.loadWorkspaceShell({ workspaceId: args.workspaceId })?.promptDraftByTask?.[args.taskId]?.runtimeOverrides;
@@ -92,5 +94,6 @@ export async function runSupervisedTurn(args: {
       : {}),
     ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}),
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
+    ...(args.freshSession ? { freshSession: true } : {}),
   })));
 }

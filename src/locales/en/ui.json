@@ -59,7 +59,10 @@
     "queued": "Queued",
     "idle": "Idle",
     "skipped": "Skipped",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "waiting": "Waiting",
+    "paused": "Paused",
+    "halted": "Halted"
   },
   "command": {
     "noMatchingCommands": "No matching commands.",

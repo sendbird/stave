@@ -57,6 +57,12 @@ export interface StreamTurnArgs {
    */
   agentRunStage?: AgentRunStageIdentity;
   /**
+   * Start a new provider conversation: neither the conversation's stored
+   * session nor the runtime's cached one for the turn's account is resumed.
+   * Host-owned: set only for an Agent run's turn after an account-pool switch.
+   */
+  freshSession?: boolean;
+  /**
    * Resolved once by the host turn entry (`runProviderTurn`) for every turn
    * that reaches a provider. Host-owned like the grants above: any value a
    * caller supplies is replaced there.

@@ -410,3 +410,68 @@ describe("run sign-off", () => {
     expect(resolveAgentRunStageSignOff(aggregate.agentRun, readyIndex - 1)).toBe("auto");
   });
 });
+
+
+describe("usage-limit waiting", () => {
+  const resetsAt = "2026-09-26T11:00:00.000Z";
+  const limited = observe({ lastEndedTurn: turn({ endedAt: AGENT_RUN_NOW.toISOString(), usageLimited: {
+    resetsAt, accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" },
+  } }) });
+
+  test("pauses without a nudge, stuck stage, new attempt or reset counters", () => {
+    const aggregate = afterFirstTurn();
+    const { decision, next } = step(aggregate, limited);
+    expect(decision).toMatchObject({ action: "pause", reason: "usage-limit" });
+    expect(next.agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", turnCount: aggregate.agentRun.turnCount,
+      usageLimit: { resetsAt, resumeAt: "2026-09-26T11:01:00.000Z", turnId: "turn-1" } });
+    expect(next.stages).toEqual(aggregate.stages);
+    expect(decide(next, limited)).toEqual({ action: "idle" });
+    const headroom = { ...limited, usageLimitResume: { status: "headroom" as const } };
+    const due = new Date("2026-09-26T11:01:00.000Z");
+    expect(decide(next, headroom, due)).toEqual({ action: "resume" });
+    const resumed = applyChange(next, applyAgentRunDecision({ aggregate: next, decision: { action: "resume" }, now: due }));
+    expect(decide(resumed, limited, due)).toMatchObject({ action: "start-stage-turn", reason: "resume-after-usage-limit" });
+    expect(resumed.agentRun.turnCount).toBe(aggregate.agentRun.turnCount);
+  });
+
+  test("an unreadable usage window retries after five minutes, not every minute", () => {
+    const paused = step(afterFirstTurn(), limited).next;
+    const due = new Date("2026-09-26T11:01:00.000Z");
+    const decision = decide(paused, { ...limited, usageLimitResume: { status: "unavailable" as const } }, due);
+    expect(decision).toMatchObject({ action: "pause", reason: "usage-limit",
+      usageLimit: { resetsAt, resumeAt: "2026-09-26T11:06:00.000Z" } });
+  });
+
+  test("an unknown reset waits; a past reset gets a full minute; drift preserves the reservation", () => {
+    const unknown = step(afterFirstTurn(), observe({ lastEndedTurn: turn({ endedAt: AGENT_RUN_NOW.toISOString(), usageLimited: {
+      accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" },
+    } }) })).next;
+    expect(unknown.agentRun.usageLimit?.resumeAt).toBeNull();
+    expect(decide(unknown, { ...limited, usageLimitResume: { status: "headroom" } }, new Date("2026-09-27T00:00:00Z"))).toEqual({ action: "idle" });
+    const past = step(afterFirstTurn(), observe({ lastEndedTurn: turn({ usageLimited: {
+      resetsAt: "2026-09-25T00:00:00.000Z", accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" },
+    } }) })).next;
+    expect(past.agentRun.usageLimit?.resumeAt).toBe("2026-09-26T10:01:00.000Z");
+    expect(decide(past, observe({ leadTask: { workspaceAvailable: false } }))).toEqual({ action: "idle" });
+    expect(decide(past, observe({ leadTask: { identity: { ok: false, reason: "Moved" } } }))).toEqual({ action: "idle" });
+  });
+
+  test("no known reset: a first usage read that failed reads again in five minutes; a read without a reset needs the user", () => {
+    const unknownReset = (extra: Partial<AgentRunObservation> = {}) => observe({ lastEndedTurn: turn({ endedAt: AGENT_RUN_NOW.toISOString(), usageLimited: {
+      accountProfileId: "system", fingerprint: { providerId: "claude-code", model: "sonnet" } } }), ...extra });
+    const unreadable = step(afterFirstTurn(), unknownReset({ usageLimitResume: { status: "unavailable" } })).next;
+    expect(unreadable.agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit",
+      usageLimit: { resetsAt: null, resumeAt: "2026-09-26T10:05:00.000Z" } });
+    // The re-read at that time resumes on usage left.
+    expect(decide(unreadable, { ...unknownReset(), usageLimitResume: { status: "headroom" } }, new Date("2026-09-26T10:05:00.000Z")))
+      .toEqual({ action: "resume" });
+    // A read that worked but reports no reset, or no read at all: the user resumes.
+    for (const usageLimitResume of [{ status: "exhausted" as const }, { status: "headroom" as const }, undefined]) {
+      const next = step(afterFirstTurn(), unknownReset(usageLimitResume ? { usageLimitResume } : {})).next;
+      expect(next.agentRun.usageLimit).toMatchObject({ resetsAt: null, resumeAt: null });
+    }
+    // A reset the stop reported wins over a failed read.
+    expect(step(afterFirstTurn(), { ...limited, usageLimitResume: { status: "unavailable" } }).next.agentRun.usageLimit)
+      .toMatchObject({ resetsAt, resumeAt: "2026-09-26T11:01:00.000Z" });
+  });
+});

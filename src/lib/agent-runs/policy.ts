@@ -1,3 +1,13 @@
+import { resolveAgentRunUsageLimitResumeAt, resolveUsageLimitRetryAt } from "./usage-limit";
+import { accountSwitchedEvent, decideAccountPoolRotation, type PoolAccountUsage } from "./account-pool";
+import {
+  appendConsumedKeys,
+  currentEventWait,
+  describeEventWaitEnd,
+  type AgentRunEventWait,
+  type AgentRunEventWaitEndReason,
+} from "./event-wait";
+import type { EventWaitOutcome, EventWaitWake } from "./event-wait-observe";
 import { i18n } from "@/i18n/runtime";
 /**
  * Agent run supervisor policy: the pure half of an agent run.
@@ -49,6 +59,7 @@ export interface ObservedTurn {
   endedAt?: string | null;
   /** True when Stave stopped in the middle of this turn and closed it at boot. */
   interrupted?: boolean;
+  usageLimited?: { resetsAt?: string; accountProfileId: string; fingerprint: AgentRunFingerprint };
 }
 
 /** What the runtime read about the lead task this tick. */
@@ -94,6 +105,21 @@ export interface AgentRunObservation {
   actionOutcome: ActionOutcome | null;
   /** When the current attempt was last marked stuck, if it is stuck. */
   stageStuckAt?: string | null;
+  /**
+   * With the pool off (or not applicable): what the limited account's own
+   * usage read said this tick, right after its limit or at a due resume.
+   */
+  usageLimitResume?: { status: "headroom" | "exhausted" | "unavailable"; resetsAt?: string };
+  /**
+   * Set only for a run with an account pool that applies: the pool accounts
+   * the host read for this limit, in read order (`account-pool.ts`).
+   */
+  accountPoolUsage?: PoolAccountUsage[];
+  /**
+   * What the run's event wait found this tick (`event-wait-observe.ts`).
+   * Absent: nothing was read, as for a run that is not waiting.
+   */
+  eventWait?: EventWaitOutcome;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -104,14 +130,29 @@ export type StageTurnReason =
   | "stage-start"
   | "continue-after-user"
   | "reporting-restored"
-  | "resume-after-restart";
+  | "resume-after-restart"
+  | "resume-after-usage-limit"
+  | "resume-after-account-switch"
+  /** The event the run waited for came; the turn starts with what happened. */
+  | "resume-after-event"
+  /** The user continued a run whose wait ended without its event. */
+  | "resume-after-wait-expired";
 
 export type AgentRunDecision =
   | { action: "idle" }
   | { action: "wait"; reason: "awaiting-approval" | "awaiting-user-input" }
   | { action: "stop"; reason: AgentRunStopReason; detail: string }
-  | { action: "pause"; reason: AgentRunPauseReason; detail: string }
+  | {
+      action: "pause";
+      reason: AgentRunPauseReason;
+      detail: string;
+      usageLimit?: AgentRun["usageLimit"];
+      /** A `wait-expired` pause keeps its ended wait, so Resume can tell the agent. */
+      eventWait?: AgentRunEventWait;
+    }
   | { action: "resume" }
+  /** Continue on another pool account; `usageLimit` names it as the continuation's account. */
+  | { action: "switch-account"; from: string; to: string; usageLimit: NonNullable<AgentRun["usageLimit"]> }
   | { action: "block"; reason: StageBlockReason; detail: string }
   | { action: "request-sign-off" }
   | {
@@ -120,6 +161,8 @@ export type AgentRunDecision =
       attempt: number;
       reason: StageTurnReason;
       feedback?: string;
+      /** For `resume-after-event`: the event, delivered once with this turn. */
+      wake?: EventWaitWake;
     }
   | { action: "nudge" }
   | { action: "mark-stuck"; detail: string }
@@ -139,6 +182,7 @@ export const AGENT_RUN_DECISION_EFFECTS: Record<AgentRunDecisionAction, string> 
   stop: "End the run with a reason and a partial report.",
   pause: "Pause the run with a reason.",
   resume: "Clear a supervisor pause whose condition lifted.",
+  "switch-account": "Continue on the next account of the run's pool that has usage left.",
   block: "Block the current stage with a reason.",
   "request-sign-off": "Show a sign-off card before the current stage.",
   "start-stage-turn": "Start a turn on the lead task for the current stage.",
@@ -260,6 +304,47 @@ function startTurn(args: {
   };
 }
 
+/**
+ * A run that waits for an outside event (`stave_wait_for_event`) between its
+ * turns: a turn that ended after asking to wait is not an unreported turn, so
+ * it is never nudged or marked stuck. The event starts the next turn, counted
+ * against the turn cap; the wait's expiry, its wake cap or an unreadable pull
+ * request pause the run with `wait-expired` instead. Null when the current
+ * attempt has no wait.
+ */
+function decideEventWait(args: {
+  agentRun: AgentRun;
+  record: AgentRunStageRecord;
+  observation: AgentRunObservation;
+  now: Date;
+}): AgentRunDecision | null {
+  const { agentRun, record, observation, now } = args;
+  const wait = currentEventWait(agentRun, record);
+  if (!wait) return null;
+  // Continued after the wait ran out: one turn tells the agent, then the wait is gone.
+  if (wait.status === "expired") return startTurn({ agentRun, record, observation, reason: "resume-after-wait-expired" });
+  const outcome = observation.eventWait;
+  if (outcome?.kind === "event" && outcome.wake.waitId === wait.id && wait.wakes < wait.maxWakes) {
+    const decided = startTurn({ agentRun, record, observation, reason: "resume-after-event" });
+    return decided.action === "start-stage-turn" ? { ...decided, wake: outcome.wake } : decided;
+  }
+  const ended: AgentRunEventWaitEndReason | null =
+    outcome?.kind === "unreadable"
+      ? "unreadable"
+      : Date.parse(wait.expiresAt) <= now.getTime()
+        ? "expired"
+        : wait.wakes >= wait.maxWakes
+          ? "wake-limit"
+          : null;
+  if (!ended) return { action: "idle" };
+  return {
+    action: "pause",
+    reason: "wait-expired",
+    detail: describeEventWaitEnd(wait, ended, outcome?.kind === "unreadable" ? outcome.detail : undefined),
+    eventWait: { ...wait, status: "expired", endReason: ended, endedAt: now.toISOString() },
+  };
+}
+
 /** True when the report was made during or after the last ended turn. */
 function isCurrentReport(record: AgentRunStageRecord, lastEndedTurn: ObservedTurn | null) {
   if (!record.report) return false;
@@ -272,6 +357,7 @@ function decideAiStage(
   aggregate: AgentRunAggregate,
   record: AgentRunStageRecord,
   observation: AgentRunObservation,
+  now: Date,
 ): AgentRunDecision {
   const { agentRun } = aggregate;
   const last = observation.lastEndedTurn;
@@ -305,6 +391,10 @@ function decideAiStage(
     // The user's reply is guidance for this stage; the agent run picks it up.
     return startTurn({ agentRun, record, observation, reason: "continue-after-user" });
   }
+  if (record.status !== "stuck" && last.usageLimited && agentRun.usageLimit?.turnId === last.turnId) {
+    const switched = agentRun.usageLimit.accountProfileId !== last.usageLimited.accountProfileId;
+    return startTurn({ agentRun, record, observation, reason: switched ? "resume-after-account-switch" : "resume-after-usage-limit" });
+  }
   // The agent run's own turn ended without a report.
   if (record.status === "stuck") return { action: "idle" };
   if (last.interrupted) {
@@ -312,6 +402,9 @@ function decideAiStage(
     // the stage resumes without spending the one reminder.
     return startTurn({ agentRun, record, observation, reason: "resume-after-restart" });
   }
+  // The turn asked to wait for an outside event: the run waits instead of nudging.
+  const waited = decideEventWait({ agentRun, record, observation, now });
+  if (waited) return waited;
   if (!observation.reportingAvailable) {
     // The model cannot report through a connection that is down, so this
     // blocks with "reporting unavailable" rather than spending the nudge.
@@ -389,7 +482,7 @@ export function decideAgentRunAction(args: {
 
   // 1. Stop. Trusted only when the workspace actually loaded.
   if (!lead.workspaceAvailable) {
-    return manuallyPaused
+    return manuallyPaused || agentRun.pauseReason === "usage-limit"
       ? { action: "idle" }
       : pauseFor(agentRun, "task-identity-changed", i18n.t("agentRuns:policy.extraCopy308"));
   }
@@ -407,8 +500,21 @@ export function decideAgentRunAction(args: {
     };
   }
 
+  // A reply in the task after a wait ran out continues the run, as Resume does.
+  if (agentRun.state === "paused" && agentRun.pauseReason === "wait-expired" && !lead.activeTurn) {
+    const last = observation.lastEndedTurn;
+    const endedAt = agentRun.eventWait?.endedAt;
+    if (last?.startedBy === "user" && endedAt && Date.parse(last.endedAt ?? last.startedAt) > Date.parse(endedAt)) {
+      return { action: "resume" };
+    }
+  }
+
   // A pause the user chose outranks every automatic one.
   if (manuallyPaused) return { action: "idle" };
+
+  // Keep a usage reservation while identity/runtime drift prevents dispatch.
+  if (agentRun.pauseReason === "usage-limit" && (!lead.identity.ok ||
+      (agentRun.origin !== "agent" && lead.fingerprint && !agentRunFingerprintsMatch(agentRun.fingerprint, lead.fingerprint)))) return { action: "idle" };
 
   // 2. Pause.
   if (!lead.identity.ok) {
@@ -430,6 +536,32 @@ export function decideAgentRunAction(args: {
       detail: i18n.t("agentRuns:policy.detail7"),
     };
   }
+  if (agentRun.state === "paused" && agentRun.pauseReason === "usage-limit") {
+    const waiting = agentRun.usageLimit;
+    if (!waiting?.resumeAt || Date.parse(waiting.resumeAt) > now.getTime() || lead.activeTurn ||
+        lead.pendingApprovalCount || lead.pendingUserInputCount) return { action: "idle" };
+    // A pooled run checks its whole pool in order: its own account first only
+    // when it is first in the pool.
+    const pooled = observation.accountPoolUsage;
+    if (pooled) {
+      const rotation = decideAccountPoolRotation({ usage: pooled, now });
+      if (rotation.kind === "use") {
+        return rotation.accountProfileId === waiting.accountProfileId ? { action: "resume" } : { action: "switch-account",
+          from: waiting.accountProfileId, to: rotation.accountProfileId, usageLimit: { ...waiting, accountProfileId: rotation.accountProfileId, resumeAt: null } };
+      }
+      return { action: "pause", reason: "usage-limit", detail: "",
+        usageLimit: { ...waiting, resetsAt: rotation.resetsAt ?? waiting.resetsAt, resumeAt: rotation.resumeAt } };
+    }
+    const quota = observation.usageLimitResume;
+    if (!quota) return { action: "idle" };
+    if (quota.status === "headroom") return { action: "resume" };
+    // An unreadable usage window retries on a fixed interval instead of every
+    // minute past the old reset; a read without a reset time leaves the resume
+    // to the user.
+    const resetsAt = quota.status === "unavailable" ? waiting.resetsAt : quota.resetsAt ?? null;
+    const resumeAt = quota.status === "unavailable" ? resolveUsageLimitRetryAt(now) : resolveAgentRunUsageLimitResumeAt(resetsAt, now);
+    return { action: "pause", reason: "usage-limit", detail: "", usageLimit: { ...waiting, resetsAt, resumeAt } };
+  }
   if (agentRun.state === "paused") return { action: "resume" };
 
   // 4. Wait on the user.
@@ -438,6 +570,31 @@ export function decideAgentRunAction(args: {
 
   // 5. A turn is running.
   if (lead.activeTurn) return { action: "idle" };
+
+  const last = observation.lastEndedTurn;
+  if (last?.usageLimited && agentRun.usageLimit?.turnId !== last.turnId) {
+    const resetsAt = last.usageLimited.resetsAt ?? null;
+    // With no reset time, a first usage read that failed reads again on the
+    // fixed interval; a read that reports no reset leaves the resume to the user.
+    const unreadable = observation.usageLimitResume?.status === "unavailable";
+    const limit = {
+      turnId: last.turnId, resetsAt,
+      resumeAt: resolveAgentRunUsageLimitResumeAt(resetsAt, now) ?? (unreadable ? resolveUsageLimitRetryAt(now) : null),
+      accountProfileId: last.usageLimited.accountProfileId, fingerprint: last.usageLimited.fingerprint,
+    };
+    const pooled = observation.accountPoolUsage;
+    if (pooled) {
+      // The next turn boundary continues on another pool account with usage left.
+      const rotation = decideAccountPoolRotation({ usage: pooled, limitedAccountId: limit.accountProfileId, limitedResetsAt: resetsAt, now });
+      if (rotation.kind === "use") {
+        return { action: "switch-account", from: limit.accountProfileId, to: rotation.accountProfileId,
+          usageLimit: { ...limit, accountProfileId: rotation.accountProfileId, resumeAt: null } };
+      }
+      return { action: "pause", reason: "usage-limit", detail: "",
+        usageLimit: { ...limit, resetsAt: rotation.resetsAt, resumeAt: rotation.resumeAt } };
+    }
+    return { action: "pause", reason: "usage-limit", detail: "", usageLimit: limit };
+  }
 
   // 6-9. The current stage.
   const record = currentStageRecord(aggregate);
@@ -459,7 +616,7 @@ export function decideAgentRunAction(args: {
     case "blocked":
     case "stuck":
       return stage.kind === "ai"
-        ? decideAiStage(aggregate, record, observation)
+        ? decideAiStage(aggregate, record, observation, now)
         : decideActionStage(aggregate, record, observation);
   }
 }
@@ -470,6 +627,29 @@ export function decideAgentRunAction(args: {
 
 function withAgentRun(agentRun: AgentRun, patch: Partial<AgentRun>, now: Date): AgentRun {
   return { ...agentRun, ...patch, updatedAt: now.toISOString() };
+}
+
+/** A wait whose run starts a turn: it is no longer sitting in it. */
+function withoutWaitingSince(wait: AgentRunEventWait): AgentRunEventWait {
+  if (!wait.waitingSince) return wait;
+  const { waitingSince: _settled, ...rest } = wait;
+  return rest;
+}
+
+/** The run without its event wait; unchanged when it has none. */
+function withoutEventWait(agentRun: AgentRun, now: Date): AgentRun {
+  if (!agentRun.eventWait) return agentRun;
+  const { eventWait: _ended, ...rest } = agentRun;
+  return withAgentRun(rest, {}, now);
+}
+
+/** The keyed event of a wait that ended without its event. */
+export function eventWaitExpiredEvent(agentRunId: string, wait: AgentRunEventWait) {
+  return {
+    kind: "wait-expired" as const,
+    idempotencyKey: `${agentRunId}:wait:${wait.id}:expired`,
+    detail: { waitId: wait.id, waitKind: wait.kind, reason: wait.endReason ?? "expired", wakes: wait.wakes, stageId: wait.stageId, attempt: wait.attempt },
+  };
 }
 
 /**
@@ -540,21 +720,28 @@ export function applyAgentRunDecision(args: {
           },
         ],
       };
-    case "pause":
+    case "pause": {
+      const ended = decision.eventWait;
       return {
         agentRun: withAgentRun(
           agentRun,
           {
             state: "paused",
             pauseReason: decision.reason,
+            ...(decision.usageLimit ? { usageLimit: decision.usageLimit } : {}),
+            ...(ended ? { eventWait: ended } : {}),
             stopReason: null,
             reasonDetail: clampReason(decision.detail),
           },
           now,
         ),
         upserts: [],
-        events: [{ kind: "paused", idempotencyKey: null, detail: { reason: decision.reason } }],
+        events: [
+          ...(ended ? [eventWaitExpiredEvent(agentRun.id, ended)] : []),
+          { kind: "paused", idempotencyKey: null, detail: { reason: decision.reason } },
+        ],
       };
+    }
     case "resume":
       return {
         agentRun: withAgentRun(
@@ -565,10 +752,24 @@ export function applyAgentRunDecision(args: {
         upserts: [],
         events: [{ kind: "resumed", idempotencyKey: null, detail: {} }],
       };
+    case "switch-account":
+      // Running again, quietly: a switch raises no notification.
+      return {
+        agentRun: withAgentRun(
+          agentRun,
+          { state: "running", pauseReason: null, reasonDetail: null, usageLimit: decision.usageLimit },
+          now,
+        ),
+        upserts: [],
+        events: [accountSwitchedEvent({ agentRunId: agentRun.id, providerId: decision.usageLimit.fingerprint.providerId,
+          from: decision.from, to: decision.to, turnId: decision.usageLimit.turnId })],
+      };
     case "block": {
       const record = currentStageRecord(aggregate);
+      // The agent's own blocker, or an unmet goal, ends its wait; a reporting outage keeps it.
+      const endsWait = decision.reason === "agent-blocked" || decision.reason === "acceptance-unmet";
       return {
-        agentRun,
+        agentRun: endsWait ? withoutEventWait(agentRun, now) : agentRun,
         upserts: [
           { ...record, status: "blocked", blockReason: decision.reason, detail: clampReason(decision.detail) },
         ],
@@ -587,8 +788,20 @@ export function applyAgentRunDecision(args: {
     }
     case "start-stage-turn": {
       const record = currentStageRecord(aggregate);
+      const wait = currentEventWait(agentRun, record);
+      const woke = decision.wake && wait?.id === decision.wake.waitId ? wait : null;
+      // A wake spends one of the wait's wakes and delivers its keys; a final
+      // one, an ended wait, or a wait of an earlier attempt is gone.
+      const kept = wait?.status === "waiting" ? withoutWaitingSince(wait) : undefined;
+      const eventWait = woke
+        ? decision.wake!.final
+          ? undefined
+          : { ...withoutWaitingSince(woke), wakes: woke.wakes + 1, consumedKeys: appendConsumedKeys(woke.consumedKeys, decision.wake!.keys) }
+        : kept;
+      const counted = withAgentRun(eventWait === agentRun.eventWait ? agentRun : withoutEventWait(agentRun, now),
+        { turnCount: agentRun.turnCount + 1, ...(eventWait && eventWait !== agentRun.eventWait ? { eventWait } : {}) }, now);
       return {
-        agentRun: withAgentRun(agentRun, { turnCount: agentRun.turnCount + 1 }, now),
+        agentRun: counted,
         upserts: [
           {
             ...record,
@@ -598,7 +811,16 @@ export function applyAgentRunDecision(args: {
             startedAt: record.startedAt ?? timestamp,
           },
         ],
-        events: [],
+        events: woke
+          ? [{
+              kind: "wait-woke",
+              idempotencyKey: `${agentRun.id}:wait:${woke.id}:woke:${woke.wakes + 1}`,
+              detail: {
+                waitId: woke.id, waitKind: woke.kind, stageId: record.stageId, attempt: record.attempt,
+                wake: woke.wakes + 1, maxWakes: woke.maxWakes, fact: decision.wake!.fact, final: decision.wake!.final,
+              },
+            }]
+          : [],
       };
     }
     case "nudge": {
@@ -618,7 +840,7 @@ export function applyAgentRunDecision(args: {
     case "mark-stuck": {
       const record = currentStageRecord(aggregate);
       return {
-        agentRun,
+        agentRun: withoutEventWait(agentRun, now),
         upserts: [{ ...record, status: "stuck", blockReason: null, detail: clampReason(decision.detail) }],
         events: [
           {
@@ -659,7 +881,8 @@ export function applyAgentRunDecision(args: {
       let change: AgentRunChange;
       try {
         change = advanceAgentRun({
-          aggregate,
+          // A completed stage has nothing left to wait for.
+          aggregate: { ...aggregate, agentRun: withoutEventWait(agentRun, now) },
           completed,
           now,
           signOff: decision.next === "sign-off",

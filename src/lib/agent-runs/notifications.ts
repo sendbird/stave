@@ -12,6 +12,7 @@ import type {
 import type { AgentRunDetail } from "./api";
 import { hasAgentOrigin } from "./agent-run";
 import { currentStageRecord } from "./domain";
+import { awaitsUsageReset, describeAgentRunUsageLimit } from "./usage-limit";
 
 export interface AgentRunNotificationContext {
   repositoryPath: string | null;
@@ -66,6 +67,38 @@ function draft(
 }
 
 /**
+ * A usage-limit pause with a known reset resumes on its own and stays quiet.
+ * Without one the run is blocked until the user resumes it: one notification
+ * per limited turn, so a later limit after a resume notifies again.
+ */
+function usageLimitNotification(
+  detail: AgentRunDetail,
+  context: AgentRunNotificationContext,
+  title: string,
+): AppNotificationCreateInput | null {
+  const { agentRun } = detail;
+  if (awaitsUsageReset(agentRun)) return null;
+  const record = currentStageRecord(detail);
+  return draft(detail, context, {
+    kind: "agent_run.blocked",
+    title,
+    detail: describeAgentRunUsageLimit(agentRun),
+    key: `paused:usage-limit:${agentRun.usageLimit?.turnId ?? `${record.stageId}:${record.attempt}`}`,
+  });
+}
+
+/**
+ * One notification per pause episode. A wait that runs out notifies once per
+ * wait, so a second wait in the same attempt that also runs out notifies again.
+ */
+function pauseKey(detail: AgentRunDetail, attemptKey: string): string {
+  const { agentRun } = detail;
+  return agentRun.pauseReason === "wait-expired" && agentRun.eventWait
+    ? `paused:wait-expired:${agentRun.eventWait.id}`
+    : `paused:${agentRun.pauseReason}:${attemptKey}`;
+}
+
+/**
  * An agent run is named by its agent and state, never as an agent run: "Ready —
  * Implementer", "Needs you — Implementer", "Failed — Implementer".
  */
@@ -83,12 +116,15 @@ function describeAgentOriginNotification(
     case "stopped":
       return draft(detail, context, { kind: "agent_run.blocked", title: i18n.t("agentRuns:notifications.title2", { value1: agent }), detail: agentRun.reasonDetail, key: "stopped" });
     case "paused":
+      if (agentRun.pauseReason === "usage-limit") {
+        return usageLimitNotification(detail, context, i18n.t("agentRuns:notifications.title3", { value1: agent }));
+      }
       if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
       return draft(detail, context, {
         kind: "agent_run.blocked",
         title: i18n.t("agentRuns:notifications.title3", { value1: agent }),
         detail: agentRun.reasonDetail,
-        key: `paused:${agentRun.pauseReason}:${attemptKey}`,
+        key: pauseKey(detail, attemptKey),
       });
     case "cancelled":
       return null;
@@ -140,13 +176,16 @@ export function describeAgentRunNotification(
         key: "stopped",
       });
     case "paused":
+      if (agentRun.pauseReason === "usage-limit") {
+        return usageLimitNotification(detail, context, i18n.t("agentRuns:notifications.title9", { value1: getStageDisplayTitle(stage) }));
+      }
       // A pause the user chose needs no notification; one Stave chose does.
       if (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over") return null;
       return draft(detail, context, {
         kind: "agent_run.blocked",
         title: i18n.t("agentRuns:notifications.title7", { value1: getStageDisplayTitle(stage) }),
         detail: agentRun.reasonDetail,
-        key: `paused:${agentRun.pauseReason}:${attemptKey}`,
+        key: pauseKey(detail, attemptKey),
       });
     case "cancelled":
       return null;

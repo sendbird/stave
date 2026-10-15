@@ -34,6 +34,7 @@ import {
   requestAgentRunResources,
   getAgentRunForGrant,
   reportAgentRunStage,
+  waitForAgentRunEvent,
 } from "./agent-runs-service";
 import { callerTaskId, resolveStaveMcpCaller, StaveMcpCallerError } from "./stave-mcp-caller";
 import {
@@ -760,6 +761,7 @@ function createToolServer(options?: {
     reportAgentRunStage,
     blockAgentRunStage,
     requestAgentRunResources,
+    waitForAgentRunEvent,
   });
 
   server.registerTool(

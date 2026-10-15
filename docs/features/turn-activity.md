@@ -205,7 +205,7 @@ While a task runs an agent or an [agent run](agent-runs.md), its line heads the
 shelf for the whole run, between turns included, and the turn it is running
 never draws a second status:
 
-- The agent's name, `Working` or `Needs you` with what it waits on, and the
+- The agent's name, its [badge](agent-runs.md#run-states) (`Running`, or `Halted · Blocked` with what it waits on), and the
   current step while a turn runs.
 - When that turn stalls, steers, retries or fails, the line says so in the
   turn's own words and colors in place of the run's state:

@@ -90,7 +90,8 @@
     "agentEditor12": "Cancel",
     "agentEditor13": "Discard",
     "preferredProvider": "Prefers",
-    "preferredProviderNone": "No preference"
+    "preferredProviderNone": "No preference",
+    "autoPermissionHint": "An Auto agent's runs use the provider's classifier: Claude auto mode, which asks when it cannot decide or Auto is unavailable, or Codex auto-review when it is available. Every other permission runs on your own provider settings; Read only stays read only."
   },
   "agentHistory": {
     "revisionRow": "Same as now",

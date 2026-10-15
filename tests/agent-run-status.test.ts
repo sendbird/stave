@@ -1,7 +1,10 @@
+import { i18n } from "../src/i18n/runtime";
+import { formatDateTime } from "../src/i18n/format";
+import { describeAgentRunHeadline, describeAgentRunStatusLine } from "../src/lib/agent-runs/agent-run-view";
+import { agentRunLanesByWorkspace, agentRunWorkQueueLane } from "../src/lib/agent-runs/lanes";
 import { describe, expect, test } from "bun:test";
 import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import {
-  agentRunFleetState,
   agentRunStoredPlan,
   describeAgentRunProgress,
   describeAgentRunResult,
@@ -19,28 +22,30 @@ import { selectAgentRunForTurn } from "../src/store/agent-runs-store";
 const START = new Date("2026-10-01T09:00:00.000Z");
 const runs = buildAgentRunFixtures(START);
 const NOW = START.getTime() + 4 * 60_000;
+const NOTIFICATION_CONTEXT = { repositoryPath: "/tmp/repo", repositoryName: "repo", workspaceName: "Billing", taskTitle: "CSV export" };
 
 describe("agent run state", () => {
-  test("names the agent and one of five states", () => {
-    expect(describeAgentRunStatus(runs.working)).toMatchObject({ agentName: "Implementer", state: "working", label: "Working", recovery: null });
-    expect(describeAgentRunStatus(runs.ready)).toMatchObject({ state: "ready", label: "Ready", tone: "success" });
-    expect(describeAgentRunStatus(runs.stopped)).toMatchObject({ state: "stopped", label: "Stopped" });
+  test("names the agent and its badge", () => {
+    expect(describeAgentRunStatus(runs.working)).toMatchObject({ agentName: "Implementer", badge: "running", label: "Running", recovery: null });
+    expect(describeAgentRunStatus(runs.ready)).toMatchObject({ badge: "completed", label: "Completed", tone: "success" });
+    expect(describeAgentRunStatus(runs.stopped)).toMatchObject({ badge: "stopped", label: "Stopped" });
   });
 
-  test("a blocked stage needs you, with what it waits on; a stuck one can be retried", () => {
-    expect(describeAgentRunStatus(runs.needsYou)).toMatchObject({
-      state: "needs-you",
-      label: "Needs you",
+  test("a blocked stage halts, with what it waits on; a stuck one can be retried", () => {
+    expect(describeAgentRunStatus(runs.blocked)).toMatchObject({
+      badge: "halted",
+      label: "Halted",
+      subtitle: "Blocked",
       reason: "Which breakpoint should the table switch at: 640px or 768px?",
       recovery: null,
     });
-    expect(describeAgentRunStatus(runs.stuck)).toMatchObject({ state: "needs-you", recovery: "retry-stage" });
+    expect(describeAgentRunStatus(runs.stuck)).toMatchObject({ badge: "halted", subtitle: "Blocked", recovery: "retry-stage" });
   });
 
-  test("a run that hit its limit failed, and a retry starts a new run", () => {
+  test("a run Stave stopped at its limit is stopped, with the reason, and a retry starts a new run", () => {
     expect(describeAgentRunStatus(runs.failed)).toMatchObject({
-      state: "failed",
-      label: "Failed",
+      badge: "stopped",
+      label: "Stopped",
       reason: "The run used all 30 turns before it finished.",
       recovery: "new-run",
     });
@@ -160,20 +165,12 @@ describe("agent run first prompt", () => {
   });
 });
 
-describe("agent run on a Fleet card", () => {
-  test("a working run whose lead task waits on the user needs you; other states stand", () => {
-    expect(agentRunFleetState("working", true)).toBe("needs-you");
-    expect(agentRunFleetState("working", false)).toBe("working");
-    expect(agentRunFleetState("needs-you", false)).toBe("needs-you");
-  });
-});
-
 describe("agent run notifications", () => {
   const context = { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null };
   test("name the agent and state, never a run", () => {
     expect(describeAgentRunNotification(runs.ready, context)?.title).toBe("Ready — Implementer");
     expect(describeAgentRunNotification(runs.failed, context)?.title).toBe("Failed — Implementer");
-    expect(describeAgentRunNotification(runs.needsYou, context)?.title).toBe("Needs you — Implementer");
+    expect(describeAgentRunNotification(runs.blocked, context)?.title).toBe("Needs you — Implementer");
     expect(describeAgentRunNotification(runs.stuck, context)?.title).toBe("Needs you — Implementer");
     expect(describeAgentRunNotification(runs.working, context)).toBeNull();
     expect(describeAgentRunNotification(runs.stopped, context)).toBeNull();
@@ -231,4 +228,56 @@ describe("agent run plan and progress", () => {
     const stages = runs.workflow.agentRun.workflow.stages;
     expect(describeAgentRunProgress(runs.workflow)).toBe(`${stages[1]!.title} 2/${stages.length}`);
   });
+});
+
+
+test("usage wait is localized with its reset time, without Needs you or a blocked notification", async () => {
+  const previous = i18n.language;
+  try {
+    for (const language of ["en", "ko"]) {
+      await i18n.changeLanguage(language);
+      const status = describeAgentRunStatus(runs.waiting);
+      expect(status).toMatchObject({ badge: "running", waiting: true, tone: "neutral", recovery: null });
+      expect(status.label).toBe(language === "en" ? "Running" : "실행 중");
+      expect(status.subtitle).toContain(formatDateTime(runs.waiting.agentRun.usageLimit!.resumeAt!));
+      expect(status.reason).toContain(formatDateTime(runs.waiting.agentRun.usageLimit!.resetsAt!));
+      expect(describeAgentRunHeadline(runs.waiting)).toMatchObject({ tone: "waiting", text: status.reason });
+      expect(agentRunWorkQueueLane({ state: "paused", pauseReason: "usage-limit", currentStageStatus: "running", hasOpenPullRequestAwaitingReview: false, usageLimit: runs.waiting.agentRun.usageLimit })).toBe("in-progress");
+      expect(agentRunLanesByWorkspace([runs.waiting])[runs.waiting.agentRun.workspaceId]).toBe("in-progress");
+      expect(describeAgentRunNotification(runs.waiting, NOTIFICATION_CONTEXT)).toBeNull();
+      // An unreadable usage window keeps waiting until its retry time; the reset stays unknown.
+      const retrying = structuredClone(runs.waiting); retrying.agentRun.usageLimit!.resetsAt = null;
+      expect(describeAgentRunStatus(retrying)).toMatchObject({ badge: "running", waiting: true, reason: expect.stringContaining(formatDateTime(retrying.agentRun.usageLimit!.resumeAt!)) });
+      expect(describeAgentRunNotification(retrying, NOTIFICATION_CONTEXT)).toBeNull();
+    }
+  } finally { await i18n.changeLanguage(previous); }
+});
+
+test("an unknown usage reset halts, keeps Resume and notifies once per limited turn", async () => {
+  const previous = i18n.language;
+  try {
+    for (const language of ["en", "ko"]) {
+      await i18n.changeLanguage(language);
+      const unknown = runs.usageUnknown;
+      const status = describeAgentRunStatus(unknown);
+      expect(status).toMatchObject({ badge: "halted", tone: "warning", recovery: null, reason: i18n.t("agentRuns:usageLimit.unknownReset") });
+      expect([status.label, status.subtitle]).toEqual(language === "en" ? ["Halted", "Usage limit"] : ["멈춤", "사용량 한도"]);
+      expect(describeAgentRunHeadline(unknown)).toMatchObject({ tone: "attention", text: status.reason });
+      expect(describeAgentRunStatusLine(unknown)).toMatchObject({ detail: status.reason });
+      expect(agentRunWorkQueueLane({ state: "paused", pauseReason: "usage-limit", currentStageStatus: "running", hasOpenPullRequestAwaitingReview: false, usageLimit: unknown.agentRun.usageLimit })).toBe("action-required");
+      expect(agentRunWorkQueueLane({ state: "paused", pauseReason: "usage-limit", currentStageStatus: "running", hasOpenPullRequestAwaitingReview: false })).toBe("action-required");
+      expect(agentRunLanesByWorkspace([unknown])[unknown.agentRun.workspaceId]).toBe("action-required");
+      const notification = describeAgentRunNotification(unknown, NOTIFICATION_CONTEXT)!;
+      expect(notification).toMatchObject({
+        kind: "agent_run.blocked",
+        title: i18n.t("agentRuns:notifications.title3", { value1: "Implementer" }),
+        payload: { detail: status.reason },
+        dedupeKey: `agent-run:${unknown.agentRun.id}:paused:usage-limit:${unknown.agentRun.usageLimit!.turnId}`,
+      });
+      // The same limited turn keeps its key, so it notifies once; a later limit is a new episode.
+      expect(describeAgentRunNotification(structuredClone(unknown), NOTIFICATION_CONTEXT)!.dedupeKey).toBe(notification.dedupeKey);
+      const later = structuredClone(unknown); later.agentRun.usageLimit!.turnId = "turn-9";
+      expect(describeAgentRunNotification(later, NOTIFICATION_CONTEXT)!.dedupeKey).not.toBe(notification.dedupeKey);
+    }
+  } finally { await i18n.changeLanguage(previous); }
 });

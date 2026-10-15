@@ -13,6 +13,7 @@ import {
   type AgentRunInvokeResult,
 } from "../../src/lib/agent-runs/api";
 import type { AgentRunBriefing } from "../../src/lib/agent-runs/briefing";
+import type { EventWaitReceipt } from "../../src/lib/agent-runs/event-wait";
 import type { AgentRunReportReceipt } from "../host-service/supervision/agent-run-runtime";
 import type { HostAgentRunAction } from "../host-service/protocol";
 import { invokeHostService, onHostServiceEvent } from "./host-service-client";
@@ -60,4 +61,8 @@ export function blockAgentRunStage(args: { agentRunKey: string; block: unknown }
 
 export function requestAgentRunResources(args: { agentRunKey: string; request: unknown }) {
   return invokeForTool<{ recorded: true }>("request-resources", args);
+}
+
+export function waitForAgentRunEvent(args: { agentRunKey: string; request: unknown }) {
+  return invokeForTool<EventWaitReceipt>("wait-for-event", args);
 }

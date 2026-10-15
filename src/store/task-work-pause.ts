@@ -35,7 +35,8 @@ export type UsageLimitPauseByTask = Record<string, TaskUsageLimitPause | undefin
  * Providers are given a minute past the advertised reset before Stave sends
  * again, so the first request does not race the window boundary.
  */
-export const USAGE_LIMIT_RESUME_GRACE_MS = 60_000;
+export { USAGE_LIMIT_RESUME_GRACE_MS } from "@/lib/agent-runs/usage-limit";
+import { USAGE_LIMIT_RESUME_GRACE_MS } from "@/lib/agent-runs/usage-limit";
 
 /**
  * When this renderer started. Queue items stamped earlier were written by a

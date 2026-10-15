@@ -96,6 +96,11 @@ export type ClaudePermissionMode =
 
 export interface PromptDraftRuntimeOverrides {
   agentRunAdaptive?: boolean;
+  /**
+   * The next Run's account pool: off unless `enabled`. The user's left-out
+   * accounts are kept, so an account added later joins by default.
+   */
+  agentRunAccountPool?: { enabled: boolean; excludedAccountIds?: string[] };
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   claudePermissionMode?: ClaudePermissionMode;

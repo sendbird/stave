@@ -1,3 +1,4 @@
+import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { CODEX_MODEL_UPDATE_GUIDANCE } from "../../src/lib/providers/codex-model-requirements";
 /**
  * User-facing error formatting for Codex App Server failures.
@@ -8,6 +9,17 @@ import { CODEX_MODEL_UPDATE_GUIDANCE } from "../../src/lib/providers/codex-model
  */
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
 import type { BridgeEvent } from "./types";
+
+/**
+ * A JSON-RPC error response: App Server received the request and refused it.
+ * Transport failures, request timeouts and cancellation are plain errors.
+ */
+export class CodexAppServerRpcError extends Error {
+  constructor(message: string, readonly code?: number) {
+    super(message);
+    this.name = "CodexAppServerRpcError";
+  }
+}
 
 export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
@@ -93,7 +105,7 @@ export function buildCodexTerminalFailureEvents(args: {
     },
     {
       type: "done",
-      stop_reason: args.stopReason ?? "runtime_failure",
+      stop_reason: isUsageLimitErrorText(toCodexUserFacingErrorMessage({ message: args.message })) ? "usage_limit" : args.stopReason ?? "runtime_failure",
     },
   ];
 }
@@ -101,12 +113,16 @@ export function buildCodexTerminalFailureEvents(args: {
 export function resolveCodexTurnCompletionStopReason(args: {
   status?: string;
   abortRequested: boolean;
+  errorMessage?: string | null;
+  errorInfo?: unknown;
 }) {
   if (args.abortRequested) {
     return "user_abort";
   }
   const status = args.status?.trim().toLowerCase();
   if (status === "failed") {
+    if (args.errorInfo === "usageLimitExceeded" || (!args.errorInfo && args.errorMessage &&
+        isUsageLimitErrorText(toCodexUserFacingErrorMessage({ message: args.errorMessage })))) return "usage_limit";
     return "failed";
   }
   if (

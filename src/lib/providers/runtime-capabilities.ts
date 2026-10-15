@@ -7,10 +7,12 @@ interface ParsedVersion {
   major: number;
   minor: number;
   patch: number;
+  /** A semver prerelease tag such as `alpha.3`, when present. */
+  prerelease?: string;
 }
 
 function parseVersion(value?: string | null): ParsedVersion | null {
-  const match = value?.match(/(\d+)\.(\d+)\.(\d+)/);
+  const match = value?.match(/(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?/);
   if (!match) {
     return null;
   }
@@ -18,6 +20,7 @@ function parseVersion(value?: string | null): ParsedVersion | null {
     major: Number(match[1]),
     minor: Number(match[2]),
     patch: Number(match[3]),
+    ...(match[4] ? { prerelease: match[4] } : {}),
   };
 }
 
@@ -32,6 +35,16 @@ function isAtLeast(version: ParsedVersion | null, minimum: ParsedVersion) {
     return version.minor > minimum.minor;
   }
   return version.patch >= minimum.patch;
+}
+
+/** Like `isAtLeast`, but a prerelease of the minimum release is below it (semver order). */
+function isReleaseAtLeast(version: ParsedVersion | null, minimum: ParsedVersion) {
+  if (!isAtLeast(version, minimum)) {
+    return false;
+  }
+  const sameRelease = version!.major === minimum.major &&
+    version!.minor === minimum.minor && version!.patch === minimum.patch;
+  return !(sameRelease && version!.prerelease);
 }
 
 export function createEmptyProviderRuntimeCapabilities(): ProviderRuntimeCapabilities {
@@ -162,7 +175,9 @@ export function resolveProviderRuntimeCapabilities(args: {
       appToolModes: hasH1AppControls
         ? ["auto", "prompt", "writes", "approve"]
         : [],
-      autoClassifierPolicy: false,
+      // Conservative floor verified with this binary's generated protocol schema;
+      // its prereleases are not the verified build.
+      autoClassifierPolicy: isReleaseAtLeast(version, { major: 0, minor: 162, patch: 1 }),
       permissionProfiles: false,
     },
     history: {

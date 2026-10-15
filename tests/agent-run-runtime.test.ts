@@ -43,6 +43,8 @@ import { buildStarterProfile, DEFAULT_AUTO_ROUTING_PROFILE_ID } from "../src/lib
 import { AgentRouteSettingsSchema, routeAgentRunTurn } from "../src/lib/routing/agent-run-route";
 import type { PromptDraftRuntimeOverrides } from "../src/types/chat";
 import type { AgentRunRouteSelection } from "../src/lib/agent-runs/route-observation";
+import { buildAgentRunTurnDividers } from "../src/lib/agent-runs/agent-run-view";
+import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -311,8 +313,9 @@ describe("run runtime: accounts a turn runs on", () => {
 
 describe("run runtime: permissions a turn runs with", () => {
   const USER_SETTINGS = {
-    "claude-code": { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false },
-    codex: { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const },
+    "claude-code": { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false, claudeDisallowedTools: ["WebFetch"],
+      claudeSandboxCredentialFiles: ["~/.netrc"] },
+    codex: { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const, codexNetworkAccess: true },
   };
   const userPermissionOptions = (providerId: string) =>
     USER_SETTINGS[providerId as keyof typeof USER_SETTINGS];
@@ -332,17 +335,50 @@ describe("run runtime: permissions a turn runs with", () => {
     expect(harness.runCalls[0]?.runtimeOptions).toEqual(USER_SETTINGS.codex);
   });
 
-  test("Auto and Guided keep their explicit consent over the user's settings", async () => {
+  test("Auto and Guided replace only the approval method; the user's protection settings survive", async () => {
     const guided = createHarness({ userPermissionOptions });
     await startedAgentRun(guided);
     expect(guided.runCalls[0]?.runtimeOptions).toEqual({
+      ...USER_SETTINGS["claude-code"],
       claudePermissionMode: "default",
       claudeAllowDangerouslySkipPermissions: false,
     });
+    const claudeAuto = createHarness({ userPermissionOptions });
+    const id = await startedAgentRun(claudeAuto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
+    // The deny list, sandbox and credential protection from the user's settings stay on an Auto run.
+    expect(claudeAuto.runCalls[0]?.runtimeOptions).toEqual({
+      ...USER_SETTINGS["claude-code"], claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false,
+    });
+    claudeAuto.setSnapshot({ pendingApprovalCount: 1 });
+    await claudeAuto.tick();
+    expect(claudeAuto.runCalls).toHaveLength(1);
+    expect(claudeAuto.aggregate(id).agentRun.state).toBe("running");
+    expect(claudeAuto.current(id).nudged).toBe(false);
     const auto = createHarness({ userPermissionOptions });
     auto.setSnapshot({ providerId: "codex", model: "gpt-5" });
     await startedAgentRun(auto, startInput({ consent: { ...manual, permissionMode: "auto" } }));
-    expect(auto.runCalls[0]?.runtimeOptions).toEqual({ codexApprovalPolicy: "never" });
+    expect(auto.runCalls[0]?.runtimeOptions).toEqual({
+      ...USER_SETTINGS.codex, codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review",
+    });
+  });
+
+  test("the user's reply in a stage carries the run's permission, on both providers", async () => {
+    const auto = { ...manual, permissionMode: "auto" as const };
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const h = createHarness({ userPermissionOptions, extra: { taskRunsAsAgent: () => true } });
+      h.setSnapshot({ providerId, model: providerId === "codex" ? "gpt-5" : "sonnet" });
+      const id = await startedAgentRun(h, startInput({ origin: "agent", consent: auto }));
+      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
+      h.endTurn("turn-1");
+      await h.tick();
+      h.userTurn("reply-1");
+      const reply = h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "reply-1", providerId });
+      expect(reply?.agentRunStage).toMatchObject({ agentRunId: id, stageId: "draft", attempt: 1 });
+      expect(reply?.runtimeOptionsMode).toBe("routing");
+      expect(reply?.runtimeOptions).toEqual(providerId === "codex"
+        ? { ...USER_SETTINGS.codex, codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }
+        : { ...USER_SETTINGS["claude-code"], claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false });
+    }
   });
 });
 
@@ -1732,4 +1768,294 @@ test("adaptive admission cannot attach a new budget to an existing native turn o
   await expect(h.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }))).rejects.toThrow("idle task");
   expect(h.store.listActiveAgentRuns()).toHaveLength(0);
   expect(h.runCalls).toHaveLength(0);
+});
+
+
+describe("run runtime: persisted usage-limit reservation", () => {
+  const account = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+  const reset = "2026-09-26T11:00:00.000Z";
+  function quota(usedPercent: number, resetsAt = reset) {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.claude = { source: "oauth", session: { usedPercent, resetsAt: Date.parse(resetsAt) / 1000 },
+      weekly: null, fableWeekly: null, error: null };
+    return snapshot;
+  }
+  function limitedHarness(readAccountUsage?: AgentRunRuntimeDependencies["readAccountUsage"], extra: Partial<AgentRunRuntimeDependencies> = {}) {
+    return createHarness({ extra: { readUsageLimitStop: (id) => id === "turn-1" ? { resetsAt: reset } : null,
+      readAccountUsage, ...extra } });
+  }
+
+  test("a due reset resumes once on the actual routed model and captured account, keeping consumed usage", async () => {
+    let current = quota(100);
+    const reads: Parameters<NonNullable<AgentRunRuntimeDependencies["readAccountUsage"]>>[0][] = [];
+    let routes = 0, gateways = 0;
+    const h = limitedHarness(async (args) => { reads.push(args); return current; }, {
+      routeAgentTurn: async () => { routes++; return { fingerprint: { providerId: "claude-code", model: "opus" }, runtimeOptions: {}, route: "agent-model", rationale: "Pinned model" }; },
+      prepareGatewayCredentials: async () => { gateways++; return undefined; },
+      readTurnUsage: () => ({ completed: true, usage: { inputTokens: 10, outputTokens: 5, totalCostUsd: 0.25 } }),
+    });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", accounts: { claudeAccountProfileId: account } }));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", turnCount: 1,
+      usageLimit: { fingerprint: { providerId: "claude-code", model: "opus" }, accountProfileId: account, resumeAt: "2026-09-26T11:01:00.000Z" } });
+    expect(h.current(id)).toMatchObject({ status: "running", nudged: false, attempt: 1 });
+    expect(h.runCalls).toHaveLength(1);
+    current = quota(5); h.advance(61 * 60_000); await Promise.all([h.tick(), h.tick()]);
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]).toMatchObject({ fingerprint: { providerId: "claude-code", model: "opus" },
+      runtimeOptions: { claudeAccountProfileId: account }, gatewayCredentials: {} });
+    expect(h.runCalls[1]!.retrievedContextParts[0]!.content).toContain("without repeating completed side effects");
+    // Same account: the continuation resumes its own conversation.
+    expect(h.runCalls[1]!.freshSession).toBeUndefined();
+    expect(reads.every((read) => read.accounts.claudeAccountProfileId === account && read.fingerprint.model === "opus")).toBe(true);
+    expect(routes).toBe(1); expect(gateways).toBe(1);
+    expect(h.aggregate(id).agentRun.turnCount).toBe(2);
+    expect(h.runtime.readUsage({ agentRunId: id })?.costUsd).toBe(0.5);
+    expect(h.store.listEventsByKind(id, ["resumed"])).toHaveLength(1);
+    await h.tick(); expect(h.runCalls).toHaveLength(2);
+  });
+
+  test("the resumed turn keeps the limited turn's effort, at the due reset and on manual Resume", async () => {
+    let current = quota(100);
+    let routes = 0;
+    const h = limitedHarness(async () => current, {
+      // A second routing would pick another effort; the continuation must not route again.
+      routeAgentTurn: async () => ({ fingerprint: { providerId: "claude-code", model: "opus" },
+        runtimeOptions: { claudeEffort: routes++ === 0 ? "xhigh" : "low" }, route: "agent-model", rationale: "Pinned model" }),
+      // The second limit reports no reset time.
+      readUsageLimitStop: (id) => id === "turn-1" ? { resetsAt: reset } : id === "turn-2" ? {} : null,
+    });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", accounts: { claudeAccountProfileId: account } }));
+    expect(h.runCalls[0]!.runtimeOptions.claudeEffort).toBe("xhigh");
+    expect(h.store.listEventsByKind(id, ["turn-linked"]).at(-1)?.detail).toMatchObject({ turnId: "turn-1", effort: { claudeEffort: "xhigh" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit" });
+    current = quota(5); h.advance(61 * 60_000); await h.tick();
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]).toMatchObject({ fingerprint: { providerId: "claude-code", model: "opus" },
+      runtimeOptions: { claudeEffort: "xhigh", claudeAccountProfileId: account } });
+    expect(routes).toBe(1);
+
+    // The continuation hits the limit too, with no known reset; Resume keeps the same effort.
+    current = quota(100); current.claude.session!.resetsAt = null;
+    h.endTurn("turn-2"); await h.tick();
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit", usageLimit: { turnId: "turn-2", resumeAt: null } });
+    await h.runtime.resume({ agentRunId: id }); await h.tick();
+    expect(h.runCalls).toHaveLength(3);
+    expect(h.runCalls[2]!.runtimeOptions).toMatchObject({ claudeEffort: "xhigh", claudeAccountProfileId: account });
+    expect(routes).toBe(1);
+  });
+
+  test("still exhausted re-arms for a later reset; no known reset stays paused and manual Resume works", async () => {
+    let current = quota(100);
+    const h = limitedHarness(async () => current);
+    const id = await startedAgentRun(h, startInput({ accounts: { claudeAccountProfileId: account } }));
+    h.endTurn("turn-1"); await h.tick(); h.advance(61 * 60_000);
+    current = quota(100, "2026-09-26T14:00:00.000Z"); await h.tick();
+    expect(h.aggregate(id).agentRun.usageLimit).toMatchObject({ resetsAt: "2026-09-26T14:00:00.000Z", resumeAt: "2026-09-26T14:01:00.000Z" });
+    expect(h.runCalls).toHaveLength(1);
+    current = quota(100); current.claude.session!.resetsAt = null;
+    h.advance(3 * 60 * 60_000); await h.tick();
+    expect(h.aggregate(id).agentRun.usageLimit?.resumeAt).toBeNull();
+    h.advance(24 * 60 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(1);
+    await h.runtime.resume({ agentRunId: id }); await h.tick();
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(account);
+    expect(h.aggregate(id).agentRun.turnCount).toBe(2);
+  });
+
+  test("unavailable usage does not authorize resume; cancel wins before the next due tick", async () => {
+    let current: ReturnType<typeof quota> | null = quota(100);
+    const h = limitedHarness(async () => current);
+    const id = await startedAgentRun(h); h.endTurn("turn-1"); await h.tick();
+    current = null; h.advance(61 * 60_000); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe("paused"); expect(h.runCalls).toHaveLength(1);
+    expect(Date.parse(h.aggregate(id).agentRun.usageLimit!.resumeAt!)).toBeGreaterThan(Date.parse("2026-09-26T11:01:00.000Z"));
+    await h.runtime.cancel({ agentRunId: id }); current = quota(5); h.advance(60_000); await h.tick();
+    expect(h.runCalls).toHaveLength(1); expect(h.aggregate(id).agentRun.state).toBe("cancelled");
+  });
+
+  test("no known reset and an unreadable first read: it reads again in five minutes instead of waiting on the user", async () => {
+    let current: ReturnType<typeof quota> | null = null;
+    let reads = 0;
+    const h = limitedHarness(async () => { reads++; return current; }, { readUsageLimitStop: (id) => id === "turn-1" ? {} : null });
+    const id = await startedAgentRun(h, startInput({ accounts: { claudeAccountProfileId: account } }));
+    h.endTurn("turn-1"); await h.tick();
+    expect(reads).toBe(1);
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit",
+      usageLimit: { resetsAt: null, resumeAt: new Date(Date.parse(h.aggregate(id).agentRun.updatedAt) + 5 * 60_000).toISOString() } });
+    current = quota(5); h.advance(5 * 60_000); await h.tick();
+    expect(reads).toBe(2);
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(account);
+  });
+
+  test("no known reset and a read that reports none: the run waits for the user", async () => {
+    const exhausted = quota(100); exhausted.claude.session!.resetsAt = null;
+    const h = limitedHarness(async () => exhausted, { readUsageLimitStop: (id) => id === "turn-1" ? {} : null });
+    const id = await startedAgentRun(h, startInput({ accounts: { claudeAccountProfileId: account } }));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun.usageLimit).toMatchObject({ resetsAt: null, resumeAt: null });
+    h.advance(24 * 60 * 60_000); await h.tick(); expect(h.runCalls).toHaveLength(1);
+  });
+
+  test("boot reconstructs the persisted due reservation and dispatches only once", async () => {
+    const db = new Database(":memory:"); const store = new AgentRunStore(db);
+    const first = createHarness({ store, extra: { readUsageLimitStop: () => ({ resetsAt: reset }), readAccountUsage: async () => quota(100) } });
+    const id = await startedAgentRun(first, startInput({ accounts: { claudeAccountProfileId: account } }));
+    first.endTurn("turn-1"); await first.tick(); first.runtime.stop();
+    const restartedStore = new AgentRunStore(db);
+    expect(restartedStore.getAgentRun(id)?.usageLimit).toEqual(first.aggregate(id).agentRun.usageLimit);
+    const next = createHarness({ store: restartedStore, turns: first.turns, turnPrefix: "restarted", extra: {
+      readUsageLimitStop: (id) => id === "turn-1" ? { resetsAt: reset } : null, readAccountUsage: async () => quota(5),
+    } });
+    next.advance(61 * 60_000); next.runtime.start(); await next.tick(); await next.tick(); next.runtime.stop();
+    expect(next.runCalls).toHaveLength(1);
+    expect(next.runCalls[0]).toMatchObject({ fingerprint: { providerId: "claude-code", model: "sonnet" }, runtimeOptions: { claudeAccountProfileId: account } });
+    expect(next.aggregate(id).agentRun.turnCount).toBe(2);
+    expect(restartedStore.listEventsByKind(id, ["resumed"])).toHaveLength(1);
+    db.close();
+  });
+});
+
+
+test("cancellation during the due account read wins over automatic dispatch", async () => {
+  const reset = "2026-09-26T11:00:00.000Z";
+  const snapshot = emptyRateLimitsSnapshot();
+  snapshot.claude = { source: "oauth", session: { usedPercent: 100, resetsAt: Date.parse(reset) / 1000 }, weekly: null, fableWeekly: null, error: null };
+  let announceRead!: () => void, finishRead!: (value: typeof snapshot) => void;
+  const reading = new Promise<void>((resolve) => { announceRead = resolve; });
+  let reads = 0;
+  const h = createHarness({ extra: {
+    readUsageLimitStop: () => ({ resetsAt: reset }),
+    readAccountUsage: async () => {
+      if (++reads === 1) return snapshot;
+      announceRead();
+      return await new Promise<typeof snapshot>((resolve) => { finishRead = resolve; });
+    },
+  } });
+  const id = await startedAgentRun(h); h.endTurn("turn-1"); await h.tick(); h.advance(61 * 60_000);
+  const tick = h.tick(); await reading;
+  const cancelled = h.runtime.cancel({ agentRunId: id });
+  const headroom = structuredClone(snapshot); headroom.claude.session!.usedPercent = 0;
+  finishRead(headroom); await tick; await cancelled; await h.tick();
+  expect(h.runCalls).toHaveLength(1);
+  expect(h.aggregate(id).agentRun.state).toBe("cancelled");
+});
+
+describe("run runtime: opt-in account pool", () => {
+  const WORK = "1a2b3c4d-5e6f-4a7b-8c9d-0e1f2a3b4c5d";
+  const PERSONAL = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
+  const GATEWAY = "9e8d7c6b-5a4f-4e3d-8c2b-1a0f9e8d7c6b";
+  const reset = "2026-09-26T11:00:00.000Z";
+  function quota(usedPercent: number, resetsAt = reset) {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.claude = { source: "oauth", session: { usedPercent, resetsAt: Date.parse(resetsAt) / 1000 },
+      weekly: null, fableWeekly: null, error: null };
+    return snapshot;
+  }
+  /** Usage per account; the host lists subscription accounts only, so the API connection is never among them. */
+  function poolHarness(usage: Record<string, ReturnType<typeof quota> | null>, stop: { resetsAt?: string } = { resetsAt: reset }) {
+    const reads: string[] = [];
+    const h = createHarness({ extra: {
+      readUsageLimitStop: (id) => id === "turn-1" ? stop : null,
+      readAccountUsage: async ({ accounts }) => { reads.push(accounts.claudeAccountProfileId!); return usage[accounts.claudeAccountProfileId!] ?? null; },
+      listSubscriptionAccounts: (providerId) => providerId === "claude-code"
+        ? [{ id: "system-default", label: "System default" }, { id: WORK, label: "Work" }, { id: PERSONAL, label: "Personal" }] : [],
+    } });
+    return { h, reads };
+  }
+  const pooledStart = (accountIds: string[]) => startInput({ origin: "agent", accounts: { claudeAccountProfileId: WORK }, accountPool: { accountIds } });
+
+  test("a limit moves the run to the next pool account with usage: a quiet switch, a fresh session and the Run briefing", async () => {
+    const usage: Record<string, ReturnType<typeof quota> | null> = { [WORK]: quota(100), [PERSONAL]: quota(10) };
+    const { h, reads } = poolHarness(usage);
+    const id = await startedAgentRun(h, pooledStart([WORK, GATEWAY, PERSONAL]));
+    // The API connection never joins the pool the host freezes.
+    expect(h.aggregate(id).agentRun.accountPool).toEqual({ accountIds: [WORK, PERSONAL] });
+    expect(h.runCalls[0]!.runtimeOptions.claudeAccountProfileId).toBe(WORK);
+
+    h.endTurn("turn-1"); await h.tick();
+    expect(reads).toEqual([WORK, PERSONAL]);
+    expect(h.runCalls).toHaveLength(2);
+    const resumed = h.runCalls[1]!;
+    expect(resumed.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL });
+    // The switch turn starts a new conversation on that account (runTask then skips its stored slot).
+    expect(resumed.runtimeOptions.claudeResumeSessionId).toBeUndefined();
+    expect(resumed.freshSession).toBe(true);
+    expect(h.runCalls[0]!.freshSession).toBeUndefined();
+    expect(resumed.prompt).toContain("Add CSV export to the billing page.");
+    expect(resumed.retrievedContextParts[0]!.content).toContain("separate provider conversation");
+    expect(h.store.listEventsByKind(id, ["account-switched"]).map((event) => event.detail)).toEqual([{ providerId: "claude-code",
+      from: WORK, to: PERSONAL, reason: "usage-limit", turnId: "turn-1", fromLabel: "Work", toLabel: "Personal" }]);
+    expect(h.store.listEventsByKind(id, ["turn-started"]).at(-1)?.detail).toMatchObject({ accountProfileId: PERSONAL, reason: "resume-after-account-switch" });
+    expect(h.store.listEventsByKind(id, ["paused"])).toHaveLength(0);
+    const detail = await h.runtime.get({ agentRunId: id });
+    expect(detail.agentRun.state).toBe("running");
+    expect(describeAgentRunNotification(detail, { repositoryPath: null, repositoryName: null, workspaceName: null, taskTitle: null })).toBeNull();
+    expect(buildAgentRunTurnDividers(detail, (iso) => iso).get("turn-2")).toContain("Account switched · Work → Personal · usage limit");
+
+    // The run's later turns stay on the account it switched to and resume its conversation.
+    h.endTurn("turn-2"); await h.tick();
+    expect(h.runCalls[2]!.runtimeOptions.claudeAccountProfileId).toBe(PERSONAL);
+    expect(h.runCalls[2]!.freshSession).toBeUndefined();
+    await h.runtime.cancel({ agentRunId: id });
+    expect((await h.runtime.get({ agentRunId: id })).report?.accountSwitches).toEqual([
+      expect.objectContaining({ from: "Work", to: "Personal", reason: "usage-limit" })]);
+  });
+
+  test("every pool account exhausted: wait for the earliest reset, then check the pool in order", async () => {
+    const usage: Record<string, ReturnType<typeof quota> | null> = { [WORK]: quota(100), [PERSONAL]: quota(100, "2026-09-26T10:30:00.000Z") };
+    const { h, reads } = poolHarness(usage);
+    const id = await startedAgentRun(h, pooledStart([WORK, PERSONAL]));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit",
+      usageLimit: { accountProfileId: WORK, resetsAt: "2026-09-26T10:30:00.000Z", resumeAt: "2026-09-26T10:31:00.000Z" } });
+    expect(h.runCalls).toHaveLength(1);
+    reads.length = 0;
+    usage[PERSONAL] = quota(5); h.advance(31 * 60_000); await h.tick();
+    expect(reads).toEqual([WORK, PERSONAL]);
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(PERSONAL);
+    expect(h.runCalls[1]!.freshSession).toBe(true);
+    expect(h.store.listEventsByKind(id, ["account-switched"]).map((event) => [event.detail.from, event.detail.to])).toEqual([[WORK, PERSONAL]]);
+  });
+
+  test("a pool account whose usage read is unavailable is skipped; the next one with usage left takes over", async () => {
+    const { h, reads } = poolHarness({ [WORK]: quota(100), [PERSONAL]: null, "system-default": quota(10) });
+    const id = await startedAgentRun(h, pooledStart([WORK, PERSONAL, "system-default"]));
+    h.endTurn("turn-1"); await h.tick();
+    expect(reads).toEqual([WORK, PERSONAL, "system-default"]);
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe("system-default");
+    expect(h.store.listEventsByKind(id, ["account-switched"]).map((event) => event.detail.to)).toEqual(["system-default"]);
+  });
+
+  test("no known reset and every pool read unavailable: the pool is read again in five minutes", async () => {
+    const usage: Record<string, ReturnType<typeof quota> | null> = { [WORK]: null, [PERSONAL]: null };
+    // This limit's stop reports no reset time.
+    const { h, reads } = poolHarness(usage, {});
+    const id = await startedAgentRun(h, pooledStart([WORK, PERSONAL]));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls).toHaveLength(1);
+    const paused = h.aggregate(id).agentRun;
+    expect(paused.usageLimit).toMatchObject({ resetsAt: null, resumeAt: new Date(Date.parse(paused.updatedAt) + 5 * 60_000).toISOString() });
+    reads.length = 0;
+    usage[PERSONAL] = quota(5); h.advance(5 * 60_000); await h.tick();
+    expect(reads).toEqual([WORK, PERSONAL]);
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(PERSONAL);
+  });
+
+  test("pool off, or nothing but an API connection to switch to: the run waits on its own account as before", async () => {
+    for (const input of [startInput({ origin: "agent", accounts: { claudeAccountProfileId: WORK } }), pooledStart([WORK, GATEWAY])]) {
+      const { h, reads } = poolHarness({ [WORK]: quota(100), [GATEWAY]: quota(0), [PERSONAL]: quota(0) });
+      const id = await startedAgentRun(h, input);
+      expect(h.aggregate(id).agentRun.accountPool).toBeUndefined();
+      h.endTurn("turn-1"); await h.tick();
+      expect(reads).toEqual([WORK]);
+      expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "usage-limit",
+        usageLimit: { accountProfileId: WORK, resumeAt: "2026-09-26T11:01:00.000Z" } });
+      expect(h.store.listEventsByKind(id, ["account-switched"])).toHaveLength(0);
+      expect(h.runCalls).toHaveLength(1);
+    }
+  });
 });

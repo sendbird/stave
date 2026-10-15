@@ -3,7 +3,6 @@ import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import {
-  AGENT_RUN_VIEW_STATE_TONES,
   describeAgentRunResult,
   selectAgentRunCard,
   type AgentRunResult,
@@ -55,7 +54,8 @@ export function AgentRunOutcome(props: { result: AgentRunResult; actions?: Agent
 /**
  * What an agent run leaves in the conversation once it ended. Ready: Done when
  * with what backs each line, the changes, the summary, and what to do next.
- * Failed: the reason, with Retry and Take control. Renders nothing while the
+ * Stopped by Stave (a limit, an unavailable task): the reason, with Retry and
+ * Take control. Renders nothing while the
  * run is active (the run bar owns its state and actions), for a run the user
  * stopped, for one a later message made history, or for a legacy run
  * (`selectAgentRunCard`).
@@ -82,7 +82,7 @@ export function AgentRunResultCardView(props: {
       data-testid={ready ? "agent-run-result" : "agent-run-reason"}
     >
       <div className={sx(styles.header)}>
-        <StageStatusIcon tone={AGENT_RUN_VIEW_STATE_TONES[status.state]} state={status.state} />
+        <StageStatusIcon tone={status.mark.tone} state={status.mark.state} />
         <p className={sx(styles.headline)}>
           <span className={sx(styles.headlineState)}>{status.label}</span>
           <span className={sx(styles.headlineMeta)}>{` · ${meta}`}</span>

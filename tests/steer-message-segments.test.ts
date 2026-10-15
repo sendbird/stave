@@ -46,3 +46,32 @@ test("reload hides only sealed empty steer segments and keeps the live placehold
   const ordinary = [ordinaryEmpty];
   expect(visibleSteerMessageSegments(ordinary)).toBe(ordinary);
 });
+
+test("a turn's end closes the prompts a steer sealed before it, and leaves other turns alone", () => {
+  const asking: ChatMessage = {
+    ...before,
+    parts: [
+      { type: "approval", toolName: "Bash", requestId: "approval-before", description: "Run the migration", state: "approval-requested" },
+      { type: "user_input", toolName: "AskUserQuestion", requestId: "question-before", questions: [], state: "input-requested" },
+      { type: "user_input", toolName: "stave_ask_user", requestId: "async-before", questions: [], state: "input-requested", delivery: "async" },
+    ],
+  };
+  const otherTurn: ChatMessage = {
+    ...before, id: "assistant-other", turnId: "turn-0", isStreaming: false,
+    parts: [{ type: "approval", toolName: "Bash", requestId: "approval-other", description: "Other turn", state: "approval-requested" }],
+  };
+  const split = steer([otherTurn, asking]);
+  const replayed = replayProviderEventsToTaskState({
+    taskId: "task", messages: split, turnId: "turn-1", provider: "codex", model: "gpt-test",
+    events: [{ type: "done", stop_reason: "error" }],
+  });
+  const sealed = replayed.messages.find((message) => message.id === "assistant-before")!;
+  expect(sealed.parts).toEqual([
+    expect.objectContaining({ requestId: "approval-before", state: "approval-interrupted" }),
+    expect.objectContaining({ requestId: "question-before", state: "input-interrupted" }),
+    // An async question outlives a turn that ended on its own, as on the final answer.
+    expect.objectContaining({ requestId: "async-before", state: "input-requested" }),
+  ]);
+  expect(replayed.messages.find((message) => message.id === "assistant-other")?.parts[0])
+    .toMatchObject({ requestId: "approval-other", state: "approval-requested" });
+});

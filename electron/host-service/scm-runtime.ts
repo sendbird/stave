@@ -280,8 +280,18 @@ export function isTerminalPullRequestSuperseded(ancestorCheck: {
 export async function fetchGitHubPrStatus(args: {
   cwd?: string;
   target?: string;
+  /**
+   * `[HOST/]OWNER/REPO` for `gh --repo`: read `target` in that repository
+   * instead of the checkout's. Needs `target`; a repository gh cannot resolve
+   * is a failed read, not "no pull request".
+   */
+  repository?: string;
   runCommand?: ScmCommandRunner;
 }) {
+  if (args.repository && !args.target) {
+    // The branch lookup below only knows the checkout's repository.
+    return { ok: false, pr: null, stderr: "A pull request in another repository needs its number." };
+  }
   const run = args.runCommand ?? runCommandArgs;
   const authResult = await ensureGhAuth({
     cwd: args.cwd,
@@ -342,6 +352,9 @@ export async function fetchGitHubPrStatus(args: {
   if (args.target) {
     commandArgs.push(args.target);
   }
+  if (args.repository) {
+    commandArgs.push("--repo", args.repository);
+  }
   commandArgs.push("--json", GITHUB_PR_JSON_FIELDS);
 
   const result = await run({
@@ -352,10 +365,13 @@ export async function fetchGitHubPrStatus(args: {
   invalidateCachedGhAuthOnFailure(result, args.cwd);
 
   if (!result.ok) {
+    const missingRepository =
+      Boolean(args.repository) && result.stderr.includes("Could not resolve to a Repository");
     const noPr =
-      result.stderr.includes("no pull requests found") ||
-      result.stderr.includes("Could not resolve") ||
-      result.stderr.includes("no open pull requests");
+      !missingRepository &&
+      (result.stderr.includes("no pull requests found") ||
+        result.stderr.includes("Could not resolve") ||
+        result.stderr.includes("no open pull requests"));
     if (noPr) {
       return { ok: true, pr: null, stderr: "" };
     }
@@ -392,6 +408,8 @@ export async function fetchGitHubPrStatus(args: {
 export async function readPullRequestChecks(args: {
   cwd?: string;
   target?: string;
+  /** `[HOST/]OWNER/REPO` for `gh --repo`: `target` in that repository instead of the checkout's. */
+  repository?: string;
   runCommand?: ScmCommandRunner;
 }): Promise<
   | { ok: true; checks: PullRequestCheck[] }
@@ -408,6 +426,7 @@ export async function readPullRequestChecks(args: {
       "pr",
       "checks",
       ...(args.target ? [args.target] : []),
+      ...(args.repository ? ["--repo", args.repository] : []),
       "--json",
       "name,state,link,startedAt",
     ],

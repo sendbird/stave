@@ -5,7 +5,6 @@ import {
   buildClaudeDenyPermissionResult,
   resolveClaudeDisallowedTools,
   resolveClaudePermissionMode,
-  resolveClaudePermissionModeDecision,
   resolveTrustedApprovalInput,
   shouldDenyClaudeToolInSecondaryReadOnly,
   validateClaudePermissionResult,
@@ -20,7 +19,10 @@ export {
   shouldDenyClaudeToolInSecondaryReadOnly,
 } from "./claude-permission-policy";
 import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
-import { resolveClaudeTurnGuardrail, shouldAllowClaudeAutonomousCall, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
+import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
+import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-stop-reason";
+import { resolveClaudeTurnGuardrail, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
+import { CLAUDE_HANDOFF_ALLOW_MESSAGES, resolveClaudeHandoffDecision } from "./claude-permission-handoff";
 export {
   describeClaudeAutoModeFallback,
   resolveClaudeAutoModeAvailability,
@@ -70,7 +72,6 @@ import {
   parseReviewFindings,
   type PrePrReviewFinding,
 } from "../../src/lib/source-control-review";
-import { isTrustedApproval } from "../../src/lib/providers/trusted-tools";
 import { modelAcceptsExplicitEffort } from "../../src/lib/providers/model-effort";
 import {
   coerceClaudeElicitationAnswer,
@@ -1782,11 +1783,19 @@ export function resolveClaudeTurnStopReason(args: {
   message: ClaudeIncomingMessage;
   currentStopReason?: string;
 }): string | undefined {
+  if (args.message.type === "rate_limit_event" && args.message.rate_limit_info?.status === "rejected") return "usage_limit";
   if (args.message.type === "result") {
     const result = args.message as SDKResultMessage;
+    // A cancellation stays a cancellation. On an error result the CLI copies
+    // the synthetic error message's stop_reason (often `stop_sequence`), so
+    // usage-limit evidence wins over it; a successful result keeps its own.
+    if (result.stop_reason && classifyProviderTurnStopReason(result.stop_reason) === "cancelled") return result.stop_reason;
+    if (result.is_error && (args.currentStopReason === "usage_limit" ||
+        isUsageLimitErrorText(JSON.stringify((result as { errors?: string[]; result?: string }).errors ?? (result as { result?: string }).result ?? "")))) return "usage_limit";
+    if (result.stop_reason && !["failed", "runtime_failure", "error"].includes(result.stop_reason)) return result.stop_reason;
     return (
       result.stop_reason ??
-      (result.is_error ? "runtime_failure" : args.currentStopReason)
+      (result.is_error ? "runtime_failure" : args.currentStopReason === "usage_limit" ? undefined : args.currentStopReason)
     );
   }
 
@@ -3184,7 +3193,9 @@ export async function streamClaudeWithSdk(
         : await resolveBoundSecretEnv({
             ids: args.runtimeOptions.boundSecretIds,
           });
-    const existingSessionId = secondaryReadOnly
+    // A fresh turn (an Agent run's account switch) resumes nothing, not even
+    // this account's cached session; the new session replaces it.
+    const existingSessionId = secondaryReadOnly || args.freshSession
       ? undefined
       : resolveSessionId({
           taskId: args.taskId,
@@ -3496,9 +3507,20 @@ export async function streamClaudeWithSdk(
             });
           }
 
-          const modeDecision = resolveClaudePermissionModeDecision({
+          // An Agent Run turn in native Auto trusts Claude's classifier: a call
+          // it hands over is not waved through by Stave's blanket autonomy.
+          // Trusted tools, repository reads and edits, and prompt-free Stave
+          // tools still pass without asking.
+          const handoff = resolveClaudeHandoffDecision({
             permissionMode: claudePermissionMode,
             toolName,
+            input: normalizedInput,
+            guardrail,
+            turnPolicy: args.turnPolicy,
+            matchedAskRule: options.matchedAskRule,
+            agentRunStage: Boolean(args.agentRunStage),
+            unattendedAutomation: Boolean(args.unattendedAutomation),
+            trustedTools: args.runtimeOptions?.trustedTools,
             ...(claudePermissionMode === "auto"
               ? {
                   keepReadOnlyPrompt: shouldKeepClaudeReadOnlyPrompt({
@@ -3516,16 +3538,15 @@ export async function streamClaudeWithSdk(
               : {}),
           });
 
-          const permissionModeDecision = guardrail && modeDecision === "allow" ? "prompt" : modeDecision;
-          if (permissionModeDecision === "allow") {
+          if (handoff.action === "allow") {
             return buildClaudeApprovalPermissionResult({
               approved: true,
               normalizedInput,
-              denialMessage: `Claude auto-allowed ${toolName}.`,
+              denialMessage: CLAUDE_HANDOFF_ALLOW_MESSAGES[handoff.source](toolName),
             });
           }
 
-          if (toolName === "AskUserQuestion") {
+          if (handoff.action === "question") {
             const questions = parseClaudeQuestionList({
               input: normalizedInput,
             });
@@ -3588,34 +3609,17 @@ export async function streamClaudeWithSdk(
             }
           }
 
-          if (permissionModeDecision === "deny") {
+          if (handoff.action === "deny") {
             return buildClaudeDenyPermissionResult({
               message: `Claude permission mode ${claudePermissionMode} denied ${toolName} without prompting.`,
               context: "approval:permission-mode-deny",
             });
           }
 
-          if (!guardrail && shouldAllowClaudeAutonomousCall({ policy: args.turnPolicy, toolName, matchedAskRule: options.matchedAskRule })) {
-            return buildClaudeApprovalPermissionResult({ approved: true, normalizedInput, denialMessage: `Stave autonomy allowed ${toolName}.` });
-          }
           const trustedApprovalInput = resolveTrustedApprovalInput({
             toolName,
             input: normalizedInput,
           });
-          if (
-            !guardrail && isTrustedApproval({
-              trustedTools: args.runtimeOptions?.trustedTools,
-              toolName,
-              input: trustedApprovalInput,
-            })
-          ) {
-            return buildClaudeApprovalPermissionResult({
-              approved: true,
-              normalizedInput,
-              denialMessage: `Claude trusted ${toolName}.`,
-            });
-          }
-
           const autoModeNotice = claudePermissionMode === "auto" ? claudeAutoModeNotice.take() : null;
           if (autoModeNotice) {
             const noticeEvent: BridgeEvent = { type: "system", content: autoModeNotice };
@@ -3769,6 +3773,7 @@ export async function streamClaudeWithSdk(
     let hasStreamedThinking = false;
     const emittedToolUseIds = new Set<string>();
     let finalStopReason: string | undefined;
+    let usageLimitResetsAt: string | undefined;
     const claudeDebugStream =
       args.runtimeOptions?.debug ?? process.env.STAVE_CLAUDE_DEBUG === "1";
     const subagentTracker = new SubagentProgressTracker();
@@ -3902,6 +3907,11 @@ export async function streamClaudeWithSdk(
           hasStreamedThinking = true;
         }
       }
+      if (message.type === "rate_limit_event" && message.rate_limit_info?.status === "rejected") {
+        const info = message.rate_limit_info;
+        const reset = info.rateLimitType === "overage" ? info.overageResetsAt ?? info.resetsAt : info.resetsAt;
+        usageLimitResetsAt = typeof reset === "number" && Number.isFinite(reset) ? new Date(reset * 1000).toISOString() : undefined;
+      }
       finalStopReason = resolveClaudeTurnStopReason({
         message,
         currentStopReason: finalStopReason,
@@ -3976,7 +3986,7 @@ export async function streamClaudeWithSdk(
       currentStopReason: finalStopReason,
     });
     const done: BridgeEvent = terminalStopReason
-      ? { type: "done", stop_reason: terminalStopReason }
+      ? { type: "done", stop_reason: terminalStopReason, ...(terminalStopReason === "usage_limit" && usageLimitResetsAt ? { usageLimitResetsAt } : {}) }
       : { type: "done" };
     if (eventCollector.overflowed) {
       for (const overflowEvent of CLAUDE_OVERFLOW_TAIL_EVENTS) {

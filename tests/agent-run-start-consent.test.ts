@@ -26,11 +26,11 @@ function start(checkIns?: "when-stuck" | "plan-and-publishing") {
 }
 
 describe("run start consent", () => {
-  test("a saved agent never grants permissions; every run start records its own consent", () => {
-    // The agent's own permission is Auto; the run records the user's settings.
+  test("every run start records its own consent: the agent's permission, which the runtime reads from the run only", () => {
+    // The agent's own permission is Auto, so the run starts on the provider's classifier.
     expect(shipper.permission).toBe("auto");
     const agentRun = start("plan-and-publishing");
-    expect(agentRun.consent).toEqual({ checkIns: "plan-and-publishing", permissionMode: "manual", authorizedEffectStageIds: [] });
+    expect(agentRun.consent).toEqual({ checkIns: "plan-and-publishing", permissionMode: "auto", authorizedEffectStageIds: [] });
     expect(agentRun.assignment).toBe("Ship the CSV export.");
 
     // The runtime derives a turn's permissions from the agent run's consent only.

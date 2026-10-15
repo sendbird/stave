@@ -37,7 +37,9 @@ export function prepareTaskAgentTurn(args: {
   }
   const base = turn.runtimeOptions ?? {};
   // A main Agent runs autonomously unless it is read only (`turn-policy.ts`);
-  // its saved permission is no longer a ceiling. Delegation policy has already
+  // its saved permission is no longer a ceiling, in an agent run as anywhere
+  // else, so a Codex agent run's Auto keeps its native reviewer here exactly
+  // as Claude keeps native Auto. Delegation policy has already
   // been resolved by its host authority, so a delegate only adds instructions.
   const instructions = compiled.role === "primary" ? agentRuntimeOptions(compiled, base) : {};
   const turnPolicy = compiled.role === "primary" ? resolveTurnPolicy({
@@ -65,7 +67,7 @@ export function prepareTaskAgentTurn(args: {
   const applied: AgentTurnProvenance["permission"]["applied"] = {};
   const providerKeys = {
     "claude-code": ["claudePermissionMode", "claudeAllowDangerouslySkipPermissions", "claudeDisallowedTools"],
-    codex: ["codexFileAccess", "codexApprovalPolicy", "codexNetworkAccess"],
+    codex: ["codexFileAccess", "codexApprovalPolicy", "codexApprovalsReviewer", "codexNetworkAccess"],
     cursor: ["cursorMode", "cursorApprovalMode"],
     kiro: ["kiroApprovalMode"],
   } as const;

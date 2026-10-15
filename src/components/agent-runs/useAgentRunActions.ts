@@ -9,10 +9,13 @@ import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { useAgentRunsStore } from "@/store/agent-runs-store";
 import { snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
+import { resolveStartAccountPool } from "@/store/agent-run-send";
 
 /** What the user can do to an agent run from the bar, the result card and the panel. */
 export interface AgentRunActions {
   busy?: boolean;
+  /** Resumes a usage-limit wait without changing account or model. */
+  onResume?: () => void;
   /** Ends the run and stops its turn. */
   onStop?: () => void;
   /** Ends the run and leaves the task in Chat, on the model the agent last used. */
@@ -37,6 +40,7 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
     const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
     return {
       busy,
+      onResume: () => void useAgentRunsStore.getState().runCommand("resume", { agentRunId: agentRun.id }),
       onStop: () => useAppStore.getState().abortTaskTurn({ taskId: agentRun.leadTaskId }),
       onTakeControl: () => {
         void (async () => {
@@ -69,6 +73,11 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
           const stages = agentRun.workflow.stages;
           const single = stages.length === 1 && stages[0]!.id === AGENT_RUN_STAGE_ID ? stages[0]! : null;
           const doneWhen = single?.kind === "ai" && single.doneWhen !== AGENT_RUN_DEFAULT_DONE_WHEN ? single.doneWhen : null;
+          const accounts = snapshotProviderAccounts(useAppStore.getState().settings);
+          // The task's pool choice for its next Run applies to this new run too.
+          const pool = useAppStore.getState().promptDraftByTask[agentRun.leadTaskId]?.runtimeOverrides?.agentRunAccountPool;
+          const accountPool = pool?.enabled ? await resolveStartAccountPool({ providerId: agentRun.fingerprint.providerId, accounts,
+            excludedAccountIds: pool.excludedAccountIds }) : null;
           const started = await useAgentRunsStore.getState().startAgentRun(
             buildAgentRunStartInput({
               workspaceId: agentRun.workspaceId,
@@ -77,12 +86,15 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 name: agentRun.workflow.name,
                 workflow: single ? undefined : stages,
                 checkIns: agentRun.consent.checkIns,
+                // The new run keeps the permission the last run recorded.
+                permission: agentRun.consent.permissionMode === "auto" ? "auto" : "manual",
               },
               assignment: agentRun.assignment,
               adaptive: Boolean(detail.resources),
               doneWhen,
               // A new run: the accounts selected now, not the ones the last run kept.
-              accounts: snapshotProviderAccounts(useAppStore.getState().settings),
+              accounts,
+              accountPool,
               now: new Date(),
             }),
           );

@@ -562,8 +562,15 @@ export function shouldAllowClaudeAutonomousCall(args: {
   policy: TurnPolicy | undefined;
   toolName: string;
   matchedAskRule?: unknown;
+  /**
+   * An Agent Run turn in Claude's native Auto: a call the classifier hands
+   * over (including its unavailable-mode fallback) is not approved by Stave's
+   * blanket autonomy. Trusted tools and the auto-mode rules still apply.
+   */
+  nativeAuto?: boolean;
 }) {
   return (
+    !args.nativeAuto &&
     args.policy?.autonomy === "autonomous" &&
     !args.matchedAskRule &&
     args.toolName.trim().toLowerCase() !== "askuserquestion" &&

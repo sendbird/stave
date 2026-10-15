@@ -87,7 +87,7 @@ started through Local MCP alike:
 | Posture | When | What it means |
 | --- | --- | --- |
 | Ask | Your preset prompts (Claude Default, Accept Edits; Codex Untrusted, On Request) | Your settings exactly, with their prompts |
-| Autonomous | Claude **Auto** or **Bypass**, Codex **Never**, or the task runs as an agent | No routine approval prompts; only the agent's questions and, in Agent mode, the guardrails stop the turn |
+| Autonomous | Claude **Auto** or **Bypass**, Codex **Never** or an agent run's Codex auto-review, or the task runs as an agent | No routine approval prompts; only the agent's questions and, in Agent mode, the guardrails stop the turn |
 | Read only | A read-only agent or a read-only delegation | Never writes, never asks |
 
 Autonomy only removes prompts. Your sandbox, deny lists, credential lists and
@@ -164,6 +164,26 @@ Use Codex controls when you want to decide:
 - whether approvals should stay on
 - whether network access should remain off
 - whether the turn should stay in planning mode
+
+Codex agent run **Auto** uses `approval_policy = "on-request"` and
+`approvals_reviewer = "auto_review"` when the selected executable supports it.
+Stave forwards the reviewer as `approvalsReviewer` on thread start, resume and
+turn start and trusts its decision. Everything else is Codex Auto as before:
+file access at least `workspace-write` (or your full access), network as set,
+and Stave's own prompt-free tools approved. A saved agent's Manual or Guided
+permission does not change this; a read-only agent stays read only. Stave
+enables auto-review for CLI/App Server 0.162.1 and newer, the verified
+baseline. A prerelease of 0.162.1, an older or unknown version, managed
+requirements that do not allow `auto_review` or `on-request`, and a thread that
+reports another reviewer all run the turn with `never` instead, exactly as
+Auto did before, with one notice per agent run. When Codex refuses a thread
+start, resume or turn start that asks for the reviewer, Stave sends it once
+more the same way and does not ask that Codex executable for auto-review again
+until Stave restarts. Ordinary composer turns keep their existing behavior.
+
+Approvals and questions that do reach you keep the same 45-minute limit in an
+agent run as in any other turn, on Claude and Codex alike: an unanswered one
+is declined. See [Agent Runs](./agent-runs.md).
 
 ### Cursor
 

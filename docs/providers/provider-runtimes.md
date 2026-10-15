@@ -1642,3 +1642,59 @@ Local tests cover the current schema and registry, request isolation, missing
 credentials, both adapters' environment and config overrides, exclusive
 catalogs, discovery filtering, and error mapping. Live gateway turns and
 multi-account acceptance remain a separate verification step.
+
+### Codex Run approval reviewer
+
+Run Auto requests `approvals_reviewer = "auto_review"`, delivered through
+`approvalsReviewer` on `thread/start`, `thread/resume`, and `turn/start`, with
+`approvalPolicy: "on-request"`. The verified support floor is CLI/App Server
+0.162.1; this is a conservative adoption boundary, not a claim about the first
+upstream release. Stave probes the selected executable with `--version`;
+prereleases of 0.162.1 (`0.162.1-alpha.N`) count as below it.
+The 0.162.1 generated JSON schema confirms the `auto_review` enum and all three
+parameter fields; upstream protocol revision `c22a06c1` documents the same shape.
+The same schema describes the reviewer as screening sandbox escapes, blocked
+network access and MCP approval prompts.
+
+The turn policy (`src/lib/policy/turn-policy.ts`) gives Run Auto the posture of
+every autonomous Codex turn — file access at least `workspace-write` (or full
+access), network as set, `codexAutoApproveStaveLocalMcpTools` on — and only
+replaces `never` with `on-request` + `auto_review`. Stave's own prompt-free
+Local MCP tools therefore stay approved even if a request for one reaches
+Stave. Every fallback swaps back to exactly `never`
+(`withoutCodexAutoReview` in `electron/providers/codex-runtime-capabilities.ts`):
+
+- an older, prerelease or unknown executable (no reviewer field is sent);
+- `configRequirements/read` whose `allowedApprovalsReviewers` lacks
+  `auto_review` or whose `allowedApprovalPolicies` lacks `on-request` (checked
+  before the thread starts; an unreadable answer is not treated as a refusal);
+- a `thread/start` or `thread/resume` response whose `approvalsReviewer` is
+  another reviewer (on-request with reviewer `user` would ask for every
+  escalation);
+- a JSON-RPC error answering a `thread/start`, `thread/resume` or `turn/start`
+  that asked for `auto_review` (`CodexAppServerRpcError`). The request is sent
+  once more with the fallback options (`codexAutoReviewRetryOptions`, used by
+  `ensureCodexThread` and the turn start). The retry no longer asks for the
+  reviewer, so it cannot repeat; if it is refused too, the turn fails as before.
+  Once a retry is accepted, the executable path is remembered for the rest of
+  the process and later turns on it skip auto-review and
+  `configRequirements/read`. Transport failures, request timeouts and anything
+  after `turn/start` was accepted are not retried.
+
+All but the first send `approvalsReviewer: "user"` with `never`. The fallback
+notice appears once per agent run (keyed by run, or by task outside one, in
+memory). A supported resumed thread
+explicitly returns to reviewer `user` for turns without a reviewer option, so a
+completed Run cannot leave automatic review enabled in an ordinary turn.
+
+### Unanswered decisions
+
+Native approvals and questions are synchronous provider callbacks, so both
+runtimes decline one nobody answers after the decision timeout (45 minutes;
+`STAVE_CLAUDE_APPROVAL_TIMEOUT_MS`, `STAVE_CODEX_APPROVAL_TIMEOUT_MS`) with a
+recoverable error, in an agent run stage turn exactly as in any other turn.
+Claude denies the permission callback; Codex answers `decline`, or empty
+answers for a question. Stopping the turn releases pending requests on both
+providers. For an externally managed (delegated) task the host also denies an
+unanswered approval after `MANAGED_TASK_APPROVAL_TIMEOUT_MS` (five minutes,
+`electron/host-service/local-mcp-runtime.ts`).

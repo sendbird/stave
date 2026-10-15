@@ -76,8 +76,57 @@ stages:
   machine asks first.
 - **Every stage**: before each stage after the first.
 
-A run records your own permission settings for its turns; a saved agent never
-grants permissions.
+A run records its permission at start, from the agent that was assigned: an
+**Auto** agent's runs use the provider's classifier (Claude auto mode, Codex
+auto-review when available); every other permission runs on your own provider
+settings, and a read-only agent stays read only. In every mode your sandbox,
+deny lists, credential protection, file access and network setting stay as you
+set them. **Auto** on Claude uses Claude's native permission classifier,
+without bypassing permission checks. When the classifier cannot decide or Auto
+is unavailable for the model or account, Claude hands the call to Stave. A
+trusted tool, a read or edit inside the repository, or a Stave tool that needs
+no approval still runs without asking; anything else asks, and the Run waits
+for that approval. Codex Auto uses native auto-review when available: `on-request`
+approvals with the `auto_review` reviewer, and Stave trusts its decision. When
+auto-review is not available (an older or prerelease Codex, a managed policy
+that does not allow it, a Codex that refuses the request, or a thread that
+reports another reviewer), the turn runs as Codex Auto did before: approvals
+`never`, and the run says so once.
+Either way file access is at least the workspace, or your full access; network
+stays as set; and Stave's own tools run without asking. A saved agent's
+**Manual** or **Guided** permission does not change Auto on either provider;
+a **Read only** agent stays read only. **Guided** and **Your settings** keep
+their existing mapping.
+
+An approval or question that reaches you in a run has the same time limit as
+in any other turn, on both providers: if nobody answers within 45 minutes,
+Stave declines it, shows an error and the turn continues, so a lost request
+cannot hold the run. In a [delegated task](./delegated-tasks.md) the host
+declines an unanswered approval after a few minutes.
+
+### Run states
+
+A Run wears one of six badges, the same on the task's tab mark, the Fleet
+card, the Task panel's **Progress** tab and the run line, with a subtitle
+that says what it stands on. Every word is in English and Korean.
+
+| Badge | Korean | What it means | Subtitle |
+|---|---|---|---|
+| **Running** | 실행 중 | A turn runs or is about to, or the Run waits between turns for an outside event or a usage reset | none; **Waiting · PR checks** (any event); **Waiting · Usage limit (resumes 3:05 PM)** |
+| **Needs your answer** | 답변 필요 | A question or an approval card is open, a stage sign-off included | **Question**, **Approval** |
+| **Paused** | 일시정지 | You paused the Run or took over; it has not ended | none; **Taken over** |
+| **Halted** | 멈춤 | Nothing continues on its own until you act; it has not ended | **Blocked** (a blocked or stuck stage), **Recovery needed** (the task or its runtime changed), **Wait expired**, **Usage limit** (no reset time) |
+| **Completed** | 완료 | The Run finished | none |
+| **Stopped** | 중지됨 | The Run ended before finishing: you stopped it, or Stave did at a limit (the reason card says which) | none |
+
+Running and its waits wear the progress and neutral tones, Needs your answer
+and Halted the warning tone, each with its own glyph. A question or approval
+belongs to the lead task's turn, so a Run reads **Needs your answer** while
+any such card in the lead task's conversation is unanswered, and goes back to
+its badge once you answer the last one. The run line, the Task panel, the
+task's mark, the Fleet card and Agent activity all read the cards the same
+way, so answering one of two approvals leaves every surface on **Needs your
+answer**.
 
 ### Agent run line
 
@@ -87,7 +136,7 @@ agent run is going, between its turns included (see
 
 - The current stage and what it is doing — a plain phrase such as
   **Running the tests** while a turn runs, or what it waits for and for how
-  long, such as **Waiting for your sign-off · 8m**. A stage turn that stalls,
+  long, with the Run's badge, such as **Needs your answer · Approval · 8m**. A stage turn that stalls,
   steers, retries or fails says so instead, as the turn's line would:
   **Stalled · No updates for 2m** with how to stop or interrupt it.
 - The stage track, one line high: the stages behind the run fill it and the
@@ -122,8 +171,8 @@ the turns used of the limit and what the agent run has spent, such as
 The **Progress** tab of the right rail's Task panel, while the task has an
 agent run (a task without one shows its flow there):
 
-- The goal, a state badge (**Running**, **Needs you**, **Blocked**,
-  **Stuck**, **Paused**, **Completed**), and the stage track.
+- The goal, the Run's badge and subtitle ([Run states](#run-states)), and
+  the stage track.
 - **Done when**: the acceptance criteria the agent reported, each **Met**,
   **Not met** or **Not verified**.
 - **Stages** as a timeline. Open a stage for its summary, decisions with their
@@ -182,8 +231,9 @@ When an agent run ends, its report is shown in the Task panel's **Progress** tab
 and under **Agent run report and actions** in **Outputs**. The Outputs disclosure
 starts collapsed so saved task answers stay easy to scan. The report contains
 outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
-decisions, what is still open, what was left behind, and how much the agent run
-needed you. **Copy Markdown** and **Add to PR description** act on it, and
+decisions, what is still open, what was left behind, any account-pool switches,
+every event wait (when it began, each wake, how it ended), and how much the
+agent run needed you. **Copy Markdown** and **Add to PR description** act on it, and
 **More** holds the rest:
 
 - **Save decisions to memory**, as memory candidates you review.
@@ -215,8 +265,9 @@ sample limits and examples of when each screen helps.
 - Fleet cards show the agent run's stage track (a one-stage run: **Plan 3/5**)
   and what it has spent, and the
   work queue puts the workspace in **Action required** or **In progress**.
-- Stave notifies once when an agent run asks for a sign-off, is blocked, is stuck
-  or completes. **Settings → General → Run Sign-off Reminders** sets when
+- Stave notifies once when an agent run asks for a sign-off, is blocked, is stuck,
+  stops waiting for an event that did not come, or completes. Waiting for an
+  event and waking on it send no notification. **Settings → General → Run Sign-off Reminders** sets when
   a waiting sign-off reminds you again, batched into one notification.
 
 ## Common Workflows
@@ -306,6 +357,147 @@ sample limits and examples of when each screen helps.
 
 - [Agents](agents.md) — an agent's Workflow and Check in with me
 - [Playbooks (retired)](playbooks.md)
-- [Wake-ups](wake-ups.md) — an agent run pauses its task's wake-up while it runs
+- [Wake-ups](wake-ups.md) — an agent run pauses its task's wake-up while it runs;
+  a Run waits for outside events itself ([Waiting for an outside event](#waiting-for-an-outside-event))
 - [Notifications](notifications.md)
 - [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md)
+
+
+## Waiting for a usage reset
+
+When a provider usage limit ends a Run turn, the Run waits for usage instead
+of requesting another report or marking the stage stuck. The Run keeps its
+consumed turns and usage, its current attempt, and the account, model and
+effort that ran the interrupted turn.
+
+If the provider reports a reset time, Stave saves a resume reservation for one
+minute after that time (or one minute from now if it already passed). The Run
+reads **Running · Waiting · Usage limit** with the time it resumes, and the
+reset time beside it, and sends no notification.
+The host checks that same account when the reservation is due. Available usage
+resumes work; an exhausted account with a later reset re-arms the reservation.
+A failed usage read keeps the Run waiting and retries after five minutes.
+
+When neither the limit nor the account's usage reports a reset time because
+the usage read itself failed, the Run keeps waiting and reads usage again five
+minutes later. Only a usage read that works but reports no reset time leaves
+the reset unknown.
+
+Without a known reset time, the Run halts until you act: it reads
+**Halted · Usage limit** with the usage limit as the reason, moves the workspace to
+**Action required**, and sends one notification for that limited turn. Resume
+it with **Resume now** once usage is available. Manual resume also keeps the
+account, model, effort and accumulated counters.
+
+The reservation survives an app restart. A due reservation is processed once
+through the host's serialized supervisor tick. Resume starts a continuation
+that checks existing work before finishing what remains; it does not replay
+the original prompt or fall back to API billing. It moves to another account
+only when the Run's account pool is on (below).
+
+### Continue on another account (account pool)
+
+The account pool is off by default. Turn it on before you send the
+assignment: open the composer's **Auto adjust** popover for an Agent task and
+check **Continue on my other accounts at a usage limit** under
+**Account pool**. The section appears when the task's provider (Claude or
+Codex) has two or more subscription accounts.
+
+- The pool lists the provider's signed-in subscription accounts: the account
+  the Run starts on first, then the others in their Settings order. Clear an
+  account to leave it out. The order cannot be changed here; reorder accounts
+  in Settings to change it. API connections are never listed and a Run never
+  switches to per-token billing. A long list scrolls and shows a search field
+  that matches account names and ids.
+- Only accounts whose sign-in check confirms a sign-in join the pool. At send,
+  Stave runs any check that has not answered yet; an account that is signed
+  out, or whose check failed, stays out.
+- The pool is saved on the Run when it starts and never changes while it
+  runs. While a Run is active the section shows its pool, read-only.
+- When a usage limit stops a turn, Stave reads the other pool accounts' usage
+  with the same official usage check, in pool order, and continues on the
+  first one with usage left at the next turn boundary. An account whose usage
+  read fails is skipped. The continuation always starts a new provider
+  conversation on that account, even when the account already has one for the
+  task; it never resumes an earlier conversation. It gets the Run briefing and
+  an instruction to check the work already done. The Run's later turns stay on
+  that account and continue the new conversation.
+- If no pool account has usage left, the Run waits until one minute after the
+  earliest reset any pool account reported, then checks the whole pool in
+  order again. When no reset is known because a usage read failed, it checks
+  the pool again five minutes later.
+- A switch sends no notification. The transcript divider of the continued turn
+  and the Run report show **Account switched · Work → Personal · usage limit**.
+- Automatic account switching may be limited by each provider's terms.
+
+## Waiting for an outside event
+
+A Run can wait for something outside it without ending. When the next step
+depends on a pull request's checks, a review, a time, or delegated work
+finishing, the agent calls `stave_wait_for_event` and ends its turn. Shipper
+uses it after opening a draft pull request: it waits for the checks, fixes
+what fails, and waits again.
+
+- While it waits the Run stays running and starts no turns, so the wait spends
+  none of the turn budget. The run line and the Task panel read **Running ·
+  Waiting · PR checks** (or **PR review**, **Scheduled time**, **Delegated work**) with what
+  it waits for and when it stops waiting. The workspace stays **In progress**.
+- A turn that ends after asking to wait is not an unreported turn: Stave sends
+  no reminder and does not mark the stage stuck.
+- What wakes it:
+  - **PR checks**: the pull request's checks finish. Failing checks wake it
+    with their names and links; checks that all pass wake it so it can finish
+    the stage. Without a pull request number it watches the workspace branch's
+    pull request. A number (`7`, `#7`) names a pull request of the workspace's
+    repository; a URL names one in the URL's repository, which every GitHub
+    read then uses. A repository Stave cannot read that way fails the read
+    instead of reading the workspace's pull request of the same number.
+  - **PR review**: unresolved review comments, approvals or change requests
+    submitted after the asking turn began, each once by its GitHub id. One
+    that arrives before Stave first reads the pull request still counts, and
+    a new approval after a change request wakes the Run again.
+  - **Scheduled time**: the time the agent named, within seven days. Reaching
+    it wakes the Run even when the wait's expiry falls at that same time; by
+    default the wait never expires before its time.
+  - **Delegated work**: a delegated task the agent named finishes, or, without
+    a name, any delegated work of the task that finishes after the wait began.
+    The woken turn sees the result under Subagent results.
+  - A merged or closed pull request ends a pull request wait as its event.
+- When the event comes, Stave starts the stage's next turn with what happened.
+  That turn counts against the Run's turn limit. The transcript divider reads
+  **Stage 1 · Work — woke on 2 failing checks**. The same event never wakes the
+  Run twice: a failing check counts once per commit, a comment once. Each
+  event is remembered with the repository and number of its pull request, so
+  passing checks on #7 never stand in for #8 on the same commit.
+- A pull request or untargeted delegated-work wait stays active after a wake,
+  so the agent can fix, push and keep waiting. A time, a named delegated task
+  or a merged or closed pull request ends it. A Run has one wait at a time; a
+  new request replaces the old one and keeps what the old one already
+  delivered. A pull request is the same one however the agent names it
+  (`7`, `#7` or its URL, or the branch's pull request once Stave found it).
+- Stave reads what wake-ups read, with the same rules: the pull request watch
+  reader every two minutes (backing off when GitHub cannot be read), the
+  delegated-task ledger, and the clock. The pull request read runs in the
+  background, so a slow GitHub never delays another Run, Pause or Stop; each
+  GitHub CLI call times out, Pause and Stop end the call in flight and start
+  no other, and a read still out after five minutes counts as a failed read.
+  The wait is saved on the Run, so it survives a restart.
+
+When the event does not come, the Run pauses and reads **Halted · Wait
+expired** with the reason, for example **The event it waited for did not come: no PR checks by
+Oct 15, 2:00 PM**, moves the workspace to **Action required**, and sends one
+notification for that wait. That happens when the wait expires (after 24
+hours unless the agent set another time, at most seven days), after its last
+allowed wake (five by default) when the agent neither finished nor asked to
+wait again, or when the pull request stays unreadable. **Continue** (or
+**Resume**) starts one turn that tells the agent the wait ended so it can check
+the state itself, wait again, or block the stage. A reply in the task after the
+pause continues the Run with your reply as guidance.
+
+Pausing, taking over or stopping a waiting Run suspends or ends the wait: a
+paused Run never wakes. Resume re-arms a wait that has time left; a wait that
+expired while the Run was paused ends on resume with the same one turn instead
+of pausing again. While the Run is active, the task's own
+[wake-ups](wake-ups.md) stay paused (`agent-run-active`): the Run owns the
+task's automatic turns, and anything to do after the Run ends belongs in a
+wake-up or an automation.

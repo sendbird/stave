@@ -25,11 +25,11 @@ import { currentStageRecord, isActiveAgentRunState, latestStageRecord } from "@/
 import { collectAcceptanceCriteria } from "@/lib/agent-runs/briefing";
 import {
   describeCheckIns,
-  describeAgentRunBadge,
   describeAgentRunStatusLine,
   formatAge,
   projectAgentRunStages,
 } from "@/lib/agent-runs/agent-run-view";
+import { describeAgentRunStatus, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
 import type { AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
 import { useAppStore } from "@/store/app.store";
 import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store/agent-runs-store";
@@ -41,7 +41,7 @@ import { useAgentRunReportActions, type AgentRunReportActions } from "./useAgent
 import { AgentRunSummary } from "./AgentRunSummary";
 import { StageCard } from "./StageCard";
 import { StageTrack } from "./StageTrack";
-import { useNow, usePrefersReducedMotion } from "./useAgentRun";
+import { useAgentRunDecision, useNow, usePrefersReducedMotion } from "./useAgentRun";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 const CRITERION_PRESENTATION = {
@@ -84,6 +84,8 @@ type AgentRunDetailViewProps = {
   failure?: string | null;
   /** What an agent run's panel offers; a legacy run uses `onCommand`. */
   agentActions?: AgentRunActions;
+  /** The question or approval card the lead task holds open. */
+  decision?: AgentRunDecision | null;
 };
 
 /** The agent run in the Progress tab: the stage list for a workflow, the agent and its result for a run. */
@@ -93,6 +95,7 @@ export function AgentRunDetailView(props: AgentRunDetailViewProps) {
     <AgentRunOverview
       detail={props.detail}
       now={props.now}
+      decision={props.decision}
       reportActions={props.reportActions}
       actions={props.agentActions}
       failure={props.failure}
@@ -110,18 +113,19 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
   const { agentRun } = detail;
   const rows = useMemo(() => projectAgentRunStages(detail, new Date(now)), [detail, now, i18n.language]);
   const line = describeAgentRunStatusLine(detail);
-  const badge = describeAgentRunBadge(detail);
+  const badge = describeAgentRunStatus(detail, props.decision ?? null);
   const active = isActiveAgentRunState(agentRun.state);
   const record = active ? currentStageRecord(detail) : null;
   const identity = record ? { agentRunId: agentRun.id, stageId: record.stageId, attempt: record.attempt } : null;
   const criteria = latestCriteria(detail);
   const signedOffAt = latestSignOffTime(detail);
-  const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over";
-  // The badge already names the state; the line beside it says where and why.
+  const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" ||
+    agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired";
+  // The badge already names the state; its subtitle and the line beside it say where and why.
   const statusText = active
     ? [
-        line.title === badge.label ? null : line.title,
-        line.state === badge.label ? null : line.state,
+        badge.subtitle,
+        line.title,
         line.detail,
         formatAge(now - Date.parse(line.since)),
       ]
@@ -129,7 +133,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         .join(" · ")
     : (agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunPanel.statusText", { value1: formatClock(agentRun.updatedAt) }));
   return (
-    <section className={sx(styles.panel)} aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel", { value1: agentRun.workflow.name })} data-testid="agent-run-panel">
+    <section className={sx(styles.panel)} aria-label={i18n.t("agentRuns:agentRunPanel.ariaLabel", { value1: agentRun.workflow.name })} data-badge={badge.badge} data-testid="agent-run-panel">
       <header className={sx(styles.head)}>
         <div className={sx(styles.headRow)}>
           <IconTile size="sm" tone={TILE_TONES[badge.tone]}>
@@ -319,6 +323,7 @@ export function AgentRunPanel(props: { taskId: string; detail: AgentRunDetail })
   const active = isActiveAgentRunState(detail.agentRun.state);
   const now = useNow(active);
   const reducedMotion = usePrefersReducedMotion();
+  const decision = useAgentRunDecision(active ? detail.agentRun.leadTaskId : null);
   // A finished agent run's report is built on request; fetch it once.
   const needsReport = !active && !detail.report;
   useEffect(() => {
@@ -328,6 +333,7 @@ export function AgentRunPanel(props: { taskId: string; detail: AgentRunDetail })
     <AgentRunDetailView
       detail={detail}
       now={now}
+      decision={decision}
       busy={busy}
       failure={failure}
       reducedMotion={reducedMotion}

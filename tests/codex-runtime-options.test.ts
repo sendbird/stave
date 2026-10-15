@@ -59,3 +59,13 @@ describe("resolveCodexAppServerReasoningEffort", () => {
     ).toBeUndefined();
   });
 });
+
+describe("Codex approvals reviewer", () => {
+  test("accepts only the supported reviewers", async () => {
+    const { resolveCodexApprovalsReviewer } = await import("@/lib/providers/codex-runtime-options");
+    expect(resolveCodexApprovalsReviewer("auto_review")).toBe("auto_review");
+    expect(resolveCodexApprovalsReviewer("user")).toBe("user");
+    expect(resolveCodexApprovalsReviewer("guardian_subagent")).toBeUndefined();
+    expect(resolveCodexApprovalsReviewer()).toBeUndefined();
+  });
+});

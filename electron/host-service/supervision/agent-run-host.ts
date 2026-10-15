@@ -4,7 +4,10 @@
  *
  * Used by: `electron/host-service.ts`.
  */
+import { getRateLimitsSnapshot } from "../../providers/rate-limits/rate-limits-snapshot";
+import { findUsageLimitStopInEvents } from "../../../src/lib/providers/usage-limit-stop";
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
+import { isPoolableAccount } from "../../../src/lib/agent-runs/account-pool";
 import { freezeAdaptivePolicy } from "./adaptive-policy";
 import { getProviderAccountRegistry } from "../../provider-accounts/registry";
 import { currentProviderAccountId } from "../../provider-accounts/runtime-scope";
@@ -21,7 +24,8 @@ import type { AgentRunChangedEvent } from "../../../src/lib/agent-runs/api";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
 import { runCommandArgs } from "../../main/utils/command";
 import { resolveAgentRunGrant } from "../../providers/agent-run-grants";
-import { countActiveDelegatedTasks } from "../delegated-task-signals";
+import { countActiveDelegatedTasks, listTaskCompletionSignals } from "../delegated-task-signals";
+import { createPullRequestWatchReader } from "../pull-request-watch-reader";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { fetchGitHubPrStatus, readScmPrBody, updateScmPrBody } from "../scm-runtime";
@@ -228,6 +232,20 @@ export function createHostAgentRunRuntime(args: {
     ...(args.taskAgent ? { taskRunsAsAgent: (taskId: string) => args.taskAgent!(taskId) !== null } : {}),
     readTurnEnding,
     emitChanged: args.emitChanged,
+    readUsageLimitStop: (turnId) => findUsageLimitStopInEvents(
+      persistence.getStreamEvents({ turnId }).flatMap((entry) => entry.event ? [entry.event] : [])),
+    readAccountUsage: async ({ fingerprint, accounts, workspaceId }) => getRateLimitsSnapshot({
+      cwd: (await resolveWorkspacePath(workspaceId)) ?? undefined, runtimeOptions: accounts,
+      providers: [fingerprint.providerId], force: true, reason: "dispatch-guard",
+    }),
     readObservedTurnEnding: (turnId) => observeAgentRunTurnEnding(persistence.getStreamEvents({ turnId })),
+    // A run's event wait reads what wake-ups read: the same pull request watch
+    // reader on the task's workspace checkout, and the same completion feed.
+    readPullRequestWatch: createPullRequestWatchReader({ resolveWorkspacePath }),
+    listCompletedDelegatedRuns: ({ taskId }) => listTaskCompletionSignals({ taskId }),
+    // Subscription sign-ins only: an API connection is never an account-pool candidate.
+    listSubscriptionAccounts: (providerId) => getProviderAccountRegistry().list()
+      .filter((profile) => profile.providerId === providerId && isPoolableAccount(profile))
+      .map((profile) => ({ id: profile.id, label: profile.label })),
   });
 }

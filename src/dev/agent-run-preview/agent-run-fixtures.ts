@@ -5,9 +5,13 @@ import { createAgentRun, type AgentRunStageRecord } from "@/lib/agent-runs/domai
 import { buildAgentRunReport } from "@/lib/agent-runs/report";
 
 /**
- * Agent runs for the agent run preview and the render tests: working, needs
- * you, stuck, ready (with a pull request), failed, and a run of an agent
- * with a workflow at its second stage. Times count from
+ * Agent runs for the agent run preview and the render tests, one or more per
+ * badge: Running (working, waiting for an event or a usage reset), Needs your
+ * answer (a sign-off; a question or an approval is the turn's, so a surface
+ * passes it), Paused (by the user, taken over), Halted (blocked, stuck, an
+ * unknown usage reset, a wait that expired, a recovery), Completed (with a
+ * pull request) and Stopped (by the user, or by Stave at its turn limit), and
+ * a run of an agent with a workflow at its second stage. Times count from
  * `start`, so tests are exact and the preview looks recent.
  */
 export const AGENT_RUN_ASSIGNMENT = "Fix the billing table overflow on narrow screens.";
@@ -45,7 +49,32 @@ export function buildAgentRunFixtures(start: Date) {
   });
 
   const working = detail({}, { status: "running" });
-  const needsYou = detail(
+  const waiting = detail({ state: "paused", pauseReason: "usage-limit", usageLimit: {
+    turnId: "turn-6", resetsAt: at(60), resumeAt: at(61), accountProfileId: "system",
+    fingerprint: created.agentRun.fingerprint,
+  } }, { status: "running" });
+  // The usage read worked but named no reset: the run halts until the user resumes.
+  const usageUnknown = detail({ state: "paused", pauseReason: "usage-limit", usageLimit: {
+    turnId: "turn-6", resetsAt: null, resumeAt: null, accountProfileId: "system",
+    fingerprint: created.agentRun.fingerprint,
+  } }, { status: "running" });
+  const eventWait = detail({ eventWait: {
+    id: "wait-preview", kind: "pull_request_checks", target: "612", at: null,
+    stageId: base.stageId, attempt: base.attempt, turnId: "turn-6",
+    registeredAt: at(2), since: at(2), expiresAt: at(24 * 60), maxWakes: 5, wakes: 0,
+    status: "waiting", waitingSince: at(3), consumedKeys: [],
+  } }, { status: "running" });
+  const waitExpired = detail(
+    { state: "paused", pauseReason: "wait-expired", reasonDetail: "The event it waited for did not come: no PR checks by Oct 2, 9:00 AM." },
+    { status: "running" },
+  );
+  const recovery = detail(
+    { state: "paused", pauseReason: "task-identity-changed", reasonDetail: "The task's provider changed, so the run stopped before its next turn." },
+    { status: "running" },
+  );
+  const paused = detail({ state: "paused", pauseReason: "paused-by-user", reasonDetail: "Paused by you." }, { status: "running" });
+  const takenOver = detail({ state: "paused", pauseReason: "taken-over", reasonDetail: "You took over." }, { status: "running" });
+  const blocked = detail(
     {},
     { status: "blocked", blockReason: "agent-blocked", detail: "Which breakpoint should the table switch at: 640px or 768px?" },
   );
@@ -148,5 +177,26 @@ export function buildAgentRunFixtures(start: Date) {
     report: null,
     usage: { turns: 2, measuredTurns: 2, inputTokens: 41_000, outputTokens: 6_200, costUsd: 0.42 },
   };
-  return { working, needsYou, stuck, ready, failed: ended(failed, at(41)), stopped, workflow };
+  // The workflow's second stage asks first: the run waits for your sign-off.
+  const signOff: AgentRunDetail = {
+    ...workflow,
+    stages: [reproduced, { ...workflow.stages[1]!, status: "awaiting-sign-off", startedAt: null }],
+  };
+  return {
+    working,
+    waiting,
+    eventWait,
+    usageUnknown,
+    waitExpired,
+    recovery,
+    paused,
+    takenOver,
+    blocked,
+    stuck,
+    ready,
+    failed: ended(failed, at(41)),
+    stopped,
+    workflow,
+    signOff,
+  };
 }

@@ -1060,6 +1060,8 @@ export type NormalizedProviderEvent =
   | {
       type: "done";
       accountProfileId?: string;
+      /** Provider-advertised account reset when a usage limit terminates the turn. */
+      usageLimitResetsAt?: string;
       stop_reason?:
         "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | string;
     };
@@ -1183,6 +1185,8 @@ export interface ProviderRuntimeOptions {
   codexFileAccess?: "read-only" | "workspace-write" | "danger-full-access";
   codexNetworkAccess?: boolean;
   codexApprovalPolicy?: "never" | "on-request" | "on-failure" | "untrusted";
+  /** Native approval reviewer; omitted outside Runs to keep existing behavior. */
+  codexApprovalsReviewer?: "user" | "auto_review";
   /**
    * Stave-hosted unattended runs may approve only the managed `stave-local`
    * MCP server without widening Codex's filesystem sandbox.

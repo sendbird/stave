@@ -21,6 +21,7 @@ import { AGENT_RUN_ASSIGNMENT, buildAgentRunFixtures } from "./agent-run-fixture
 
 const noop = (async () => ({ ok: true, agentRun: null })) as never;
 const runActions = {
+  onResume: () => {},
   onStop: () => {},
   onTakeControl: () => {},
   onRetry: () => {},
@@ -50,10 +51,24 @@ export function agentRunFleetDetails(): Record<string, AgentRunDetail> {
   });
   return {
     "fleet-agent-working": as(runs.working, "fleet-agent-working", "fleet-d"),
-    "fleet-agent-needs": as(runs.needsYou, "fleet-agent-needs", "fleet-e"),
+    "fleet-agent-needs": as(runs.blocked, "fleet-agent-needs", "fleet-e"),
     "fleet-agent-workflow": as(runs.workflow, "fleet-agent-workflow", "fleet-f"),
+    "fleet-agent-event-wait": as(runs.eventWait, "fleet-agent-event-wait", "fleet-g"),
+    "fleet-agent-taken-over": as(runs.takenOver, "fleet-agent-taken-over", "fleet-h"),
+    "fleet-agent-usage-unknown": as(runs.usageUnknown, "fleet-agent-usage-unknown", "fleet-i"),
   };
 }
+
+/** The preview's Fleet cards: workspace, card title, and the decision its lead task holds open. */
+const FLEET_CARDS = [
+  ["fleet-d", "billing-overflow", null],
+  ["fleet-d", "billing-overflow · a question open", "question"],
+  ["fleet-e", "csv-export", null],
+  ["fleet-f", "export-crash", null],
+  ["fleet-g", "pr-checks", null],
+  ["fleet-h", "taken-over", null],
+  ["fleet-i", "usage-limit", null],
+] as const;
 
 export function AgentRunPreviewCases({ now, width }: { now: number; width: number | null }) {
   const runs = buildAgentRunFixtures(new Date(now - 23 * 60_000));
@@ -75,14 +90,24 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
 
       {(
         [
-          ["Agent run working", "Composer · working", working.working, "Running the tests", null],
-          ["Agent run needs you", "Composer · needs you (blocked)", working.needsYou, null, null],
-          ["Agent run stuck", "Composer · needs you (stuck)", working.stuck, null, null],
-          ["Agent run workflow", "Composer · an agent with a workflow, stage 2 of 3", working.workflow, "Reading the export handler", null],
-          ["Agent run turn stalled", "Composer · working, its turn stalled", working.working, "Running the tests", STALLED_TURN],
-          ["Agent run turn steering", "Composer · workflow, a steer in flight", working.workflow, "Reading the export handler", STEERING_TURN],
+          ["Agent run working", "Composer · Running", working.working, "Running the tests", null, null],
+          ["Agent run waiting", "Composer · Running · waiting for a usage reset", working.waiting, null, null, null],
+          ["Agent run event wait", "Composer · Running · waiting for PR checks", working.eventWait, null, null, null],
+          ["Agent run question", "Composer · Needs your answer · question", working.working, null, null, "question"],
+          ["Agent run approval", "Composer · Needs your answer · approval", working.working, null, null, "approval"],
+          ["Agent run paused", "Composer · Paused", working.paused, null, null, null],
+          ["Agent run taken over", "Composer · Paused · taken over", working.takenOver, null, null, null],
+          ["Agent run blocked", "Composer · Halted · blocked", working.blocked, null, null, null],
+          ["Agent run stuck", "Composer · Halted · stuck (Retry)", working.stuck, null, null, null],
+          ["Agent run usage unknown", "Composer · Halted · usage limit, reset unknown", working.usageUnknown, null, null, null],
+          ["Agent run wait expired", "Composer · Halted · wait expired", working.waitExpired, null, null, null],
+          ["Agent run recovery", "Composer · Halted · recovery needed", working.recovery, null, null, null],
+          ["Agent run workflow", "Composer · an agent with a workflow, stage 2 of 3", working.workflow, "Reading the export handler", null, null],
+          ["Agent run sign-off", "Composer · workflow, Needs your answer · sign-off", working.signOff, null, null, null],
+          ["Agent run turn stalled", "Composer · working, its turn stalled", working.working, "Running the tests", STALLED_TURN, null],
+          ["Agent run turn steering", "Composer · workflow, a steer in flight", working.workflow, "Reading the export handler", STEERING_TURN, null],
         ] as const
-      ).map(([id, label, detail, phrase, turnAlert]) => (
+      ).map(([id, label, detail, phrase, turnAlert, decision]) => (
         <section key={id} className={sx(styles.case)} data-preview-case={id}>
           <p className={sx(styles.caption)}>{label}</p>
           <div className={sx(styles.stack)}>
@@ -91,6 +116,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
                 detail={detail}
                 nowPhrase={phrase}
                 turnAlert={turnAlert}
+                decision={decision}
                 now={now}
                 reducedMotion={false}
                 agentActions={runActions}
@@ -107,36 +133,41 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <AgentRunResultCardView detail={runs.ready} now={now} actions={runActions} />
       </section>
       <section className={sx(styles.case)} data-preview-case="Agent run failed">
-        <p className={sx(styles.caption)}>Conversation · reason card, failed</p>
+        <p className={sx(styles.caption)}>Conversation · reason card, stopped at its turn limit</p>
         <AgentRunResultCardView detail={runs.failed} now={now} actions={runActions} />
       </section>
 
       {(
         [
-          ["Agent run panel working", "Progress tab · working", working.working],
-          ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow],
-          ["Agent run panel needs you", "Progress tab · needs you", working.needsYou],
-          ["Agent run panel stuck", "Progress tab · stuck (the bar has Retry)", working.stuck],
-          ["Agent run panel ready", "Progress tab · ready", runs.ready],
-          ["Agent run panel failed", "Progress tab · failed", runs.failed],
+          ["Agent run panel working", "Progress tab · Running", working.working, null],
+          ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow, null],
+          ["Agent run panel waiting", "Progress tab · Running · waiting for a usage reset", working.waiting, null],
+          ["Agent run panel event wait", "Progress tab · Running · waiting for PR checks", working.eventWait, null],
+          ["Agent run panel approval", "Progress tab · Needs your answer · approval", working.working, "approval"],
+          ["Agent run panel taken over", "Progress tab · Paused · taken over", working.takenOver, null],
+          ["Agent run panel blocked", "Progress tab · Halted · blocked", working.blocked, null],
+          ["Agent run panel stuck", "Progress tab · Halted · stuck (the bar has Retry)", working.stuck, null],
+          ["Agent run panel ready", "Progress tab · Completed", runs.ready, null],
+          ["Agent run panel failed", "Progress tab · Stopped at its turn limit", runs.failed, null],
+          ["Agent run panel stopped", "Progress tab · Stopped by you", runs.stopped, null],
         ] as const
-      ).map(([id, label, detail]) => (
+      ).map(([id, label, detail, decision]) => (
         <section key={id} className={sx(styles.case, styles.rail)} data-preview-case={id}>
           <p className={sx(styles.caption)}>{label}</p>
-          <AgentRunDetailView detail={detail} now={now} onCommand={noop} agentActions={runActions} />
+          <AgentRunDetailView detail={detail} now={now} onCommand={noop} agentActions={runActions} decision={decision} />
         </section>
       ))}
 
       <section className={sx(styles.case)} data-preview-case="Agent run fleet">
         <p className={sx(styles.caption)}>Fleet workspace cards</p>
         <div className={sx(styles.fleet)}>
-          {(["fleet-d", "fleet-e", "fleet-f"] as const).map((workspaceId, index) => (
-            <div key={workspaceId} className={sx(styles.fleetCard)}>
+          {FLEET_CARDS.map(([workspaceId, title, decision]) => (
+            <div key={title} className={sx(styles.fleetCard)}>
               <div className={sx(styles.fleetHeader)}>
-                <strong>{["billing-overflow", "csv-export", "export-crash"][index]}</strong>
+                <strong>{title}</strong>
                 <span className={sx(styles.caption)}>acme/app</span>
               </div>
-              <FleetAgentRunStrip workspaceId={workspaceId} onOpen={() => {}} />
+              <FleetAgentRunStrip workspaceId={workspaceId} onOpen={() => {}} leadTaskDecision={decision} />
             </div>
           ))}
         </div>

@@ -6,6 +6,7 @@ import {
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
   retainRetiredTurnActivity,
+  type ProviderTurnPendingInteraction,
 } from "@/lib/providers/turn-status";
 import { i18n } from "@/i18n/runtime";
 import { formatAsyncQuestionAnswer } from "@/lib/async-question-answer";
@@ -26,7 +27,9 @@ import {
 } from "@/store/managed-task-takeover";
 import type { NotificationAttentionSync } from "@/store/notification-attention-sync";
 import {
+  findLatestPendingApproval,
   findLatestPendingApprovalPart,
+  findLatestPendingUserInput,
   findLatestPendingUserInputPart,
   interruptPendingToolInteractionsInMessages,
 } from "@/store/provider-message.utils";
@@ -40,6 +43,23 @@ import type {
 } from "@/types/chat";
 
 const pendingAsyncAnswers = new Set<string>();
+
+/**
+ * The prompt that still blocks the turn after one is answered, as the turn's
+ * single `pendingInteraction` hint: answering one of two approvals leaves the
+ * other open. Only the turn's own rows count, so a prompt an earlier turn left
+ * behind never raises it. An async question blocks no turn (it can outlive
+ * the one that asked), so it never raises the hint; Fleet still counts it.
+ */
+function remainingPendingInteraction(
+  messages: ChatMessage[] | undefined,
+  turnId: string,
+): ProviderTurnPendingInteraction | null {
+  const list = (messages ?? []).filter((message) => message.turnId === turnId);
+  if (findLatestPendingUserInput({ messages: list, blockingOnly: true })) return "user_input";
+  if (findLatestPendingApproval({ messages: list })) return "approval";
+  return null;
+}
 
 type ProviderInteractionActionKey =
   | "abortTaskTurn"
@@ -371,15 +391,17 @@ export function createProviderInteractionActions(args: {
       const applyApprovalResponse = (requestId: string) => {
         const resolvedAt = Date.now();
         set((state) => {
-          const nextProviderTurnActivityByTask = activeTurnId
-            ? markProviderTurnInteractionResolved({
-                activityByTask: state.providerTurnActivityByTask,
-                taskId,
-                turnId: activeTurnId,
-                now: resolvedAt,
-                interactionId: approvalInteractionId(requestId),
-              })
-            : state.providerTurnActivityByTask;
+          const resolveActivity = (messagesByTask: Record<string, ChatMessage[]>) =>
+            activeTurnId
+              ? markProviderTurnInteractionResolved({
+                  activityByTask: state.providerTurnActivityByTask,
+                  taskId,
+                  turnId: activeTurnId,
+                  now: resolvedAt,
+                  interactionId: approvalInteractionId(requestId),
+                  remaining: remainingPendingInteraction(messagesByTask[taskId], activeTurnId),
+                })
+              : state.providerTurnActivityByTask;
           if (workspaceId && workspaceId !== state.activeWorkspaceId) {
             const cachedSession = state.workspaceRuntimeCacheById[workspaceId];
             if (!cachedSession) {
@@ -401,20 +423,21 @@ export function createProviderInteractionActions(args: {
                   messagesByTask: nextMessagesState.messagesByTask,
                 },
               },
-              providerTurnActivityByTask: nextProviderTurnActivityByTask,
+              providerTurnActivityByTask: resolveActivity(nextMessagesState.messagesByTask),
             };
           }
 
+          const nextMessagesState = applyApprovalState({
+            messagesByTask: state.messagesByTask,
+            workspaceSnapshotVersion: state.workspaceSnapshotVersion,
+            taskId,
+            messageId,
+            requestId,
+            approved,
+          });
           return {
-            ...applyApprovalState({
-              messagesByTask: state.messagesByTask,
-              workspaceSnapshotVersion: state.workspaceSnapshotVersion,
-              taskId,
-              messageId,
-              requestId,
-              approved,
-            }),
-            providerTurnActivityByTask: nextProviderTurnActivityByTask,
+            ...nextMessagesState,
+            providerTurnActivityByTask: resolveActivity(nextMessagesState.messagesByTask),
           };
         });
         if (activeTurnId) {
@@ -618,15 +641,17 @@ export function createProviderInteractionActions(args: {
       const applyUserInputResponse = (requestId: string) => {
         const resolvedAt = Date.now();
         set((state) => {
-          const nextProviderTurnActivityByTask = activeTurnId
-            ? markProviderTurnInteractionResolved({
-                activityByTask: state.providerTurnActivityByTask,
-                taskId,
-                turnId: activeTurnId,
-                now: resolvedAt,
-                interactionId: userInputInteractionId(requestId),
-              })
-            : state.providerTurnActivityByTask;
+          const resolveActivity = (messagesByTask: Record<string, ChatMessage[]>) =>
+            activeTurnId
+              ? markProviderTurnInteractionResolved({
+                  activityByTask: state.providerTurnActivityByTask,
+                  taskId,
+                  turnId: activeTurnId,
+                  now: resolvedAt,
+                  interactionId: userInputInteractionId(requestId),
+                  remaining: remainingPendingInteraction(messagesByTask[taskId], activeTurnId),
+                })
+              : state.providerTurnActivityByTask;
           if (workspaceId && workspaceId !== state.activeWorkspaceId) {
             const cachedSession = state.workspaceRuntimeCacheById[workspaceId];
             if (!cachedSession) {
@@ -649,21 +674,22 @@ export function createProviderInteractionActions(args: {
                   messagesByTask: nextMessagesState.messagesByTask,
                 },
               },
-              providerTurnActivityByTask: nextProviderTurnActivityByTask,
+              providerTurnActivityByTask: resolveActivity(nextMessagesState.messagesByTask),
             };
           }
 
+          const nextMessagesState = applyUserInputState({
+            messagesByTask: state.messagesByTask,
+            workspaceSnapshotVersion: state.workspaceSnapshotVersion,
+            taskId,
+            messageId,
+            requestId,
+            answers,
+            denied,
+          });
           return {
-            ...applyUserInputState({
-              messagesByTask: state.messagesByTask,
-              workspaceSnapshotVersion: state.workspaceSnapshotVersion,
-              taskId,
-              messageId,
-              requestId,
-              answers,
-              denied,
-            }),
-            providerTurnActivityByTask: nextProviderTurnActivityByTask,
+            ...nextMessagesState,
+            providerTurnActivityByTask: resolveActivity(nextMessagesState.messagesByTask),
           };
         });
         if (activeTurnId) {

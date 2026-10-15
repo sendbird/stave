@@ -202,9 +202,6 @@
     "copy": ", 먼저 확인합니다"
   },
   "taskSupervisionMarks": {
-    "agentRunLabel": "승인을 기다리는 실행",
-    "agentRunLabel2": "실행 일시 중지됨",
-    "agentRunLabel3": "실행 중",
     "ariaLabel": "일정 활성화됨",
     "taskSupervisionMarks": "일정 활성화됨",
     "ariaLabel2": "일정 일시 중지됨",
@@ -386,7 +383,6 @@
     "describeRunningAction": "Stave가 초안 PR을 여는 중입니다",
     "describeRunningAction2": "Stave가 PR을 리뷰 준비 상태로 바꾸는 중입니다",
     "describeRunningAction3": "Stave가 “{{value1}}” 스크립트를 실행하는 중입니다",
-    "title": "일시 중지됨",
     "detail": "직접 진행 중 · 재개할 때까지 직접 응답합니다",
     "detail2": "{{value1}} 단계 전에 직접 일시 중지함",
     "detail3": "Stave 로컬 도구에 연결할 수 없음",
@@ -394,14 +390,6 @@
     "detail5": "단계 진행이 정체됨",
     "detail6": "작업 중",
     "detail7": "시작 중",
-    "label9": "완료됨",
-    "label10": "취소됨",
-    "label11": "중지됨",
-    "label12": "일시 중지됨",
-    "label13": "응답 필요",
-    "label14": "차단됨",
-    "label15": "정체됨",
-    "label16": "실행 중",
     "auto": "자동",
     "guided": "안내됨",
     "manual": "사용자 설정",
@@ -423,10 +411,6 @@
     "describeTurnStart9": "{{value1}} — 실행 시작됨",
     "extraCopy219": "응답 대기 중",
     "extraCopy220": "단계 진행 정체됨",
-    "extraCopy221": "승인 대기 중",
-    "extraCopy222": "보고 불가",
-    "extraCopy223": "차단됨",
-    "extraCopy224": "정체됨",
     "extraCopy225": "Stave에서 {{value1}}개 검증함",
     "extraCopy226": "단계 {{value1}} · {{value2}}{{value3}}",
     "extraCopy227": "완료 보고됨",
@@ -436,7 +420,8 @@
     "minutes": "{{value}}분",
     "hours": "{{value}}시간",
     "days": "{{value}}일",
-    "stageOutcome": "{{stage}} {{status}}"
+    "stageOutcome": "{{stage}} {{status}}",
+    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고, Codex는 사용할 수 있으면 auto-review를 사용하며 그렇지 않으면 승인을 요청하지 않습니다. 사용자에게 온 승인 요청에 제때 응답하지 않으면 거부됩니다."
   },
   "checks": {
     "detail": "{{value1}} 검사가 {{value2}}분 동안 대기 중입니다.",
@@ -828,5 +813,93 @@
     "stopMerged": "PR #{{number}}이(가) 병합되어 이 감시를 중지했습니다.",
     "stopClosed": "PR #{{number}}이(가) 병합되지 않고 닫혀 이 감시를 중지했습니다.",
     "deferred": "작업 턴이 진행 중이며, 감시는 그 턴이 끝나면 작업을 깨웁니다."
+  },
+  "usageLimit": {
+    "waitingUntil": "{{time}} 사용량 초기화를 기다립니다. 이 계정의 사용량을 확인한 뒤 재개합니다.",
+    "unknownReset": "사용량 한도에 도달했습니다. 초기화 시각을 알 수 없어 실행이 대기합니다. 사용량이 확보되면 재개하세요.",
+    "resumeNow": "지금 재개",
+    "waitingUntilPool": "이 실행의 계정 풀에 있는 모든 계정이 사용량 한도에 도달했습니다. 가장 빠른 초기화는 {{time}}이며, 이후 사용량이 남은 첫 계정에서 재개합니다."
+  },
+  "accountPool": {
+    "title": "계정 풀",
+    "enable": "사용량 한도에 도달하면 내 다른 계정으로 이어서 진행",
+    "description": "사용량 한도로 실행이 멈추면 아래 순서대로 사용량이 남은 첫 계정에서 이어서 진행합니다. API 연결은 사용하지 않습니다.",
+    "accountsLabel": "풀에 포함할 계정",
+    "current": "현재 계정",
+    "notice": "계정 자동 전환은 각 제공사 약관 해석에 따라 제한될 수 있습니다.",
+    "switched": "계정 전환 · {{from}} → {{to}} · 사용량 한도",
+    "switchedTurn": "{{name}} — 계정 전환 · {{from}} → {{to}} · 사용량 한도",
+    "reportHeading": "계정 전환",
+    "searchLabel": "계정 검색",
+    "searchPlaceholder": "이름 또는 ID로 검색",
+    "noMatches": "“{{query}}” 검색과 일치하는 계정이 없습니다."
+  },
+  "eventWait": {
+    "waitingOn": "대기 · {{event}}",
+    "resume": "이어서 진행",
+    "kind": {
+      "pullRequestChecks": "PR 검사",
+      "pullRequestReview": "PR 리뷰",
+      "time": "정해진 시각",
+      "delegatedCompletion": "위임한 작업"
+    },
+    "target": {
+      "pullRequest": "PR #{{number}}",
+      "branchPullRequest": "이 브랜치의 PR",
+      "delegatedTask": "위임 작업 {{target}}",
+      "anyDelegated": "이 작업이 위임한 작업"
+    },
+    "detail": {
+      "pullRequestChecks": "{{target}} 검사가 끝나기를 기다립니다. {{expires}}에 대기를 멈춥니다.",
+      "pullRequestReview": "{{target}} 리뷰를 기다립니다. {{expires}}에 대기를 멈춥니다.",
+      "time": "{{at}}까지 기다립니다.",
+      "delegatedCompletion": "{{target}} 완료를 기다립니다. {{expires}}에 대기를 멈춥니다."
+    },
+    "ended": {
+      "expired": "기다리던 사건이 오지 않았습니다. {{time}}까지 {{event}} 소식이 없었습니다.",
+      "wakeLimit_other": "기다리던 사건이 마무리되지 않았습니다. {{event}} 대기가 한도인 {{count}}번 실행을 깨웠습니다.",
+      "unreadable": "기다리던 사건을 확인할 수 없습니다: {{event}}. {{error}}"
+    },
+    "fact": {
+      "checksFailed_other": "실패한 검사 {{count}}개",
+      "checksPassed": "검사 통과",
+      "reviewComments_other": "새 리뷰 코멘트 {{count}}개",
+      "reviewApproved": "승인",
+      "reviewChangesRequested": "변경 요청",
+      "pullRequestMerged": "PR #{{number}} 병합됨",
+      "pullRequestClosed": "PR #{{number}} 닫힘",
+      "delegatedFinished_other": "위임 작업 {{count}}개 완료",
+      "timeReached": "정해진 시각 도래"
+    },
+    "timeline": {
+      "registered": "{{event}} 대기 시작",
+      "registeredTarget": "{{target}} 대상 {{event}} 대기 시작",
+      "woke": "깨어남 · {{fact}} · {{max}}번 중 {{wake}}번째",
+      "endedExpired": "{{event}} 대기 종료 · 제시간에 오지 않음",
+      "endedWakeLimit": "{{event}} 대기 종료 · 깨어남 한도 도달",
+      "endedUnreadable": "{{event}} 대기 종료 · PR을 읽을 수 없음"
+    },
+    "wokeTurn": "{{name}} — 깨어남 · {{fact}}",
+    "expiredTurn": "{{name}} — 대기가 끝난 뒤 이어서 진행",
+    "reportHeading": "이벤트 대기"
+  },
+  "badge": {
+    "running": "실행 중",
+    "needsAnswer": "답변 필요",
+    "paused": "일시정지",
+    "halted": "멈춤",
+    "completed": "완료",
+    "stopped": "중지됨",
+    "question": "질문",
+    "approval": "승인",
+    "takenOver": "직접 조작",
+    "blocked": "막힘",
+    "recoveryNeeded": "복구 필요",
+    "waitExpired": "대기 만료",
+    "usageLimit": "사용량 한도",
+    "usageWait": "대기 · 사용량 한도 ({{time}} 재개)"
+  },
+  "permissions": {
+    "codexAutoReviewUnavailable": "이 Codex 버전, 계정 또는 관리 정책에서는 Codex auto-review를 사용할 수 없어 이 에이전트 실행은 이전 Auto 방식으로 진행합니다. Codex는 승인을 요청하지 않으며 워크스페이스 안에서, 또는 설정한 전체 권한으로 파일을 씁니다."
   }
 }

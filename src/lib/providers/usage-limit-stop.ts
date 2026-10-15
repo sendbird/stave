@@ -1,3 +1,4 @@
+import type { NormalizedProviderEvent } from "./provider.types";
 import type { ChatMessage } from "@/types/chat";
 
 const PROVIDER_ERROR_PREFIX = /^\[error\]\s*/i;
@@ -80,4 +81,28 @@ export function buildUsageLimitContinuationPrompt() {
     "Identify what already completed, then finish only the remaining work.",
     "Do not repeat completed side effects or assume an earlier action failed solely because the turn ended.",
   ].join(" ");
+}
+
+/** Structured terminal reasons win over error copy; old generic failures use the existing detector. */
+export function findUsageLimitStopInEvents(events: readonly NormalizedProviderEvent[]):
+  { accountProfileId?: string; resetsAt?: string } | null {
+  const reversedIndex = [...events].reverse().findIndex((event) => event.type === "done");
+  const end = reversedIndex < 0 ? -1 : events.length - 1 - reversedIndex;
+  if (end < 0) return null;
+  const done = events[end]!;
+  if (done.type !== "done") return null;
+  const reason = done.stop_reason?.trim().toLowerCase();
+  if (reason && ["usage_limit", "usage-limit", "usage_limit_reached", "usage_limit_exceeded", "usagelimitexceeded"].includes(reason)) {
+    return { accountProfileId: done.accountProfileId, ...(done.usageLimitResetsAt ? { resetsAt: done.usageLimitResetsAt } : {}) };
+  }
+  // A generic failure carries no structured cause. Never reinterpret a success or user cancellation.
+  if (reason && !["failed", "runtime_failure", "error"].includes(reason)) return null;
+  let limited = false;
+  for (const event of events.slice(0, end)) {
+    if (event.type === "done") limited = false;
+    else if (event.type === "error") limited = !event.recoverable && isUsageLimitErrorText(event.message);
+    else if (event.type === "text" && event.text.trim() && !isUsageLimitErrorText(event.text)) limited = false;
+    else if (event.type === "tool") limited = false;
+  }
+  return limited ? { accountProfileId: done.accountProfileId } : null;
 }

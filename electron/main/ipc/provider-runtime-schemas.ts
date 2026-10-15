@@ -115,6 +115,7 @@ export const RuntimeOptionsObjectSchema = z
         z.literal("untrusted"),
       ])
       .optional(),
+    codexApprovalsReviewer: z.enum(["user", "auto_review"]).optional(),
     codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
     codexBinaryPath: z.string().max(4096).optional(),
     codexReasoningEffort: z

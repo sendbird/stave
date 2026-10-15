@@ -1045,10 +1045,11 @@ export function replayProviderEventsToTaskState(args: {
     // A tool started before a steer still owns its later updates and result.
     const toolUseId = event.type === "tool_result" ? event.tool_use_id
       : event.type === "tool_progress" || event.type === "tool" || event.type === "subagent_progress" ? event.toolUseId : undefined;
-    const ownerIndex = toolUseId ? current.findLastIndex((message) =>
+    const reverseOwnerIndex = toolUseId ? [...current].reverse().findIndex((message) =>
       message.role === "assistant" && (!args.turnId || message.turnId === args.turnId) &&
       message.parts.some((part) => part.type === "tool_use" && part.toolUseId === toolUseId),
     ) : -1;
+    const ownerIndex = reverseOwnerIndex < 0 ? -1 : current.length - 1 - reverseOwnerIndex;
     if (ownerIndex >= 0 && ownerIndex < current.length - 1) {
       const owner = current[ownerIndex]!;
       const updated = appendProviderEventToAssistant({ message: owner, event });
@@ -1101,6 +1102,17 @@ export function replayProviderEventsToTaskState(args: {
 
     current = [...current.slice(0, -1), updated];
     changed = true;
+
+    // A steer seals the turn's earlier answer while its prompts may still be
+    // open; they end with the turn too, as the final answer's do above.
+    if (event.type === "done" && args.turnId) {
+      const preserveAsync = !["cancelled", "aborted"].includes(event.stop_reason ?? "");
+      current = current.map((message, index) => {
+        if (index === current.length - 1 || message.role !== "assistant" || message.turnId !== args.turnId) return message;
+        const parts = interruptPendingToolInteractionParts({ preserveAsync, parts: message.parts });
+        return parts === message.parts ? message : { ...message, parts };
+      });
+    }
 
     if (
       event.type !== "system" &&

@@ -112,3 +112,13 @@ describe("what it received", () => {
     expect(describeAssignmentReceived({ ...base, current: { ...researcher, archived: true } }).changedSince).toBeNull();
   });
 });
+
+test("Codex auto-review cannot bypass a stricter Agent permission", () => {
+  const options = { codexApprovalPolicy: "on-request" as const, codexApprovalsReviewer: "auto_review" as const,
+    codexFileAccess: "workspace-write" as const };
+  expect(agentPermissionOverrides({ permission: "auto", providerId: "codex", options })).toEqual({});
+  for (const permission of ["manual", "guided"] as const) {
+    expect(agentPermissionOverrides({ permission, providerId: "codex", options })).toMatchObject({ codexApprovalPolicy: "untrusted", codexApprovalsReviewer: "user" });
+  }
+  expect(agentPermissionOverrides({ permission: "read-only", providerId: "codex", options })).toMatchObject({ codexFileAccess: "read-only", codexApprovalsReviewer: "user" });
+});

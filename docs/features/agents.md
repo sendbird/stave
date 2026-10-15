@@ -11,8 +11,11 @@ piece of its work, inside its turn or as a delegated task.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start. A task that runs as an Agent runs **autonomously**: no routine
-approval prompts, only the guardrails (all on by default, each one can be turned off). A read-only Agent stays read
-only. Delegated Agents use the delegation policy resolved by the host and never
+approval prompts. Claude asks when its native Auto classifier hands an action
+to you or is unavailable. In an agent run with Auto permission, Codex hands
+approvals to its native auto-review when the runtime supports it, and
+otherwise never asks, as before. Guardrails (all on by default, each one can be turned
+off) also ask. A read-only Agent stays read only. Delegated Agents use the delegation policy resolved by the host and never
 get more autonomy than the task that delegated them.
 
 **Run overview → Run details** shows the Agent version captured for that turn,
@@ -367,13 +370,18 @@ Fleet's search finds its tasks.
 - A task that runs as an Agent is autonomous. Every turn of the task — the
   first and each later one — removes routine approval prompts and changes
   nothing else: your sandbox, deny lists, credential lists and network setting
-  stay as you set them. Saved **Manual** and **Guided** agents now run like
-  **Auto**; only **Read only** limits a turn.
+  stay as you set them. Claude's native Auto classifier can hand an action
+  to you when it cannot decide or Auto is unavailable; the Agent Run waits
+  for that approval. Saved **Manual** and **Guided** agents now run like
+  **Auto**; only **Read only** limits a turn. This holds in agent runs too: an
+  **Auto** agent's runs use the provider's classifier (Claude auto mode, Codex
+  auto-review when available); every other permission runs on your own
+  provider settings, and **Read only** stays read only.
 
   | Agent | Claude | Codex | Cursor | Kiro |
   | --- | --- | --- | --- | --- |
   | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
-  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks; at least workspace files, or your full access | Your settings | Your settings |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an Auto agent's run, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings |
 
   The only interrupts left are the Agent-mode guardrails (all on by default;
   turn each off in Settings) — a write outside the task's repository, a protected credential path or variable, an irreversible

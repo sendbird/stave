@@ -39,7 +39,7 @@ describe("agent run: implicit workflow", () => {
     expect(blank.stages[0]).toMatchObject({ doneWhen: AGENT_RUN_DEFAULT_DONE_WHEN });
   });
 
-  test("the start input is an agent run on the user's settings with the default turn cap", () => {
+  test("the start input is an agent run on the agent's permission with the default turn cap", () => {
     const input = AgentRunStartInputSchema.parse(
       buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: AGENT, assignment: " Add CSV export. ", now: NOW }),
     );
@@ -50,6 +50,10 @@ describe("agent run: implicit workflow", () => {
       maxTurns: AGENT_RUN_LIMITS.defaultMaxTurns,
       consent: { checkIns: "when-stuck", permissionMode: "manual", authorizedEffectStageIds: [] },
     });
+    // Only an Auto agent starts on the provider's classifier; Guided, Manual, read-only and an unspecified one on the user's settings.
+    for (const [permission, mode] of [["auto", "auto"], ["guided", "manual"], ["manual", "manual"], ["read-only", "manual"]] as const) {
+      expect(buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: { ...AGENT, permission }, assignment: "x", now: NOW }).consent.permissionMode).toBe(mode);
+    }
   });
 
   test("the stage prompt carries the assignment and the reporting contract, not the agent's instructions", () => {
