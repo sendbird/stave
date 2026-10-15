@@ -23,6 +23,7 @@ import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
+import { workspaceCheckMet } from "./workspace-check";
 import { formatAge, type AgentRunBadgeTone, type StageTone } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 
@@ -246,9 +247,10 @@ export function agentRunDuration(detail: AgentRunDetail, now: number): string {
   return formatRunDuration(end - Date.parse(agentRun.createdAt));
 }
 
-export type DoneWhenStatus = "met-reported" | "unmet" | "unverified";
+export type DoneWhenStatus = "met-verified" | "met-reported" | "unmet" | "unverified";
 
 export const DONE_WHEN_LABELS: Record<DoneWhenStatus, string> = {
+  get "met-verified"() { return i18n.t("agentRuns:agentRunStatus.metVerified"); },
   get "met-reported"() { return i18n.t("agentRuns:agentRunStatus.metReported"); },
   get unmet() { return i18n.t("agentRuns:agentRunStatus.unmet"); },
   get unverified() { return i18n.t("agentRuns:agentRunStatus.unverified"); },
@@ -279,10 +281,26 @@ function reportOf(detail: AgentRunDetail) {
 }
 
 /**
+ * A `stave-check` criterion holds only on Stave's own check, whatever the agent
+ * reported: met-verified when the stage's host check meets it, otherwise not
+ * verified. Null for any other criterion.
+ */
+function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus | null {
+  for (const stage of detail.agentRun.workflow.stages) {
+    if (stage.kind !== "ai") continue;
+    const criterion = stage.acceptanceCriteria?.find((candidate) => candidate.verification === "stave-check" && candidate.text.trim() === text.trim());
+    if (!criterion) continue;
+    const record = latestStageRecord(detail.stages, stage.id);
+    return record && workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions) ? "met-verified" : "unverified";
+  }
+  return null;
+}
+
+/**
  * The run's Done when: the criteria the agent reported, else the assignment's
- * own line, each with the agent's status. A criterion carries no link to the
- * checks that would prove it, so a line never claims Stave verified it;
- * `describeStaveChecks` lists what Stave itself saw succeed, separately.
+ * own line, each with its status. Only a `stave-check` criterion can read as
+ * checked by Stave, and only when Stave's own check met it; every other line
+ * stays the agent's word. `describeStaveChecks` lists what Stave saw succeed.
  */
 export function describeDoneWhen(detail: AgentRunDetail): AgentRunDoneWhenLine[] {
   const { stage, record } = reportOf(detail);
@@ -294,7 +312,7 @@ export function describeDoneWhen(detail: AgentRunDetail): AgentRunDoneWhenLine[]
   const criteria = collectAcceptanceCriteria(detail, true);
   if (criteria.length > 0) {
     return criteria.map((criterion) =>
-      line(criterion.text, criterion.status === "met" ? "met-reported" : criterion.status),
+      line(criterion.text, hostCheckStatus(detail, criterion.text) ?? (criterion.status === "met" ? "met-reported" : criterion.status)),
     );
   }
   const stages = detail.agentRun.workflow.stages;
@@ -317,11 +335,15 @@ export function describeDoneWhen(detail: AgentRunDetail): AgentRunDoneWhenLine[]
   return [line(text, record?.status === "completed" ? "met-reported" : "unverified")];
 }
 
-/** The checks Stave saw succeed on the current work, by command or label, once each. */
+/**
+ * The checks Stave saw succeed on the current work, once each: a workspace
+ * check by its action name (its commands can run long), anything else by
+ * command or label.
+ */
 export function describeStaveChecks(detail: AgentRunDetail): string[] {
   const names = reportOf(detail)
     .evidence.filter(isVerifiedEvidence)
-    .map((evidence) => (evidence.command ?? evidence.label).trim())
+    .map((evidence) => (evidence.scriptId ?? evidence.command ?? evidence.label).trim())
     .filter((name) => name.length > 0);
   return [...new Set(names)];
 }

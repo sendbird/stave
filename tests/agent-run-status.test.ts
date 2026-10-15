@@ -71,6 +71,29 @@ describe("agent run result", () => {
     expect(describeAgentRunResult(runs.ready, NOW).staveChecks.length).toBeGreaterThan(0);
   });
 
+  test("a workspace check criterion reads as checked by Stave only on Stave's own passing check", () => {
+    const revision = { status: "known" as const, revision: "r1" };
+    const definition = { scriptId: "check", definitionHash: "a".repeat(64) };
+    const run = structuredClone(runs.ready);
+    const stage = run.agentRun.workflow.stages.findLast((candidate) => candidate.kind === "ai")!;
+    if (stage.kind !== "ai") throw new Error("Expected an AI stage");
+    stage.acceptanceCriteria = [{ text: "Workspace checks pass", required: true, verification: "stave-check", scriptIds: ["check"], scriptDefinitions: [definition] }];
+    const record = run.stages.findLast((candidate) => candidate.stageId === stage.id)!;
+    if (record.report?.outcome !== "complete") throw new Error("Expected a complete report");
+    record.report = { ...record.report, workspaceRevision: revision, acceptanceCriteria: [...(record.report.acceptanceCriteria ?? []), { text: "Workspace checks pass", status: "met" }] };
+    record.facts = { ...record.facts!, workspaceRevision: revision, workspaceScripts: [] };
+    const label = () => describeDoneWhen(run).find((line) => line.text === "Workspace checks pass")?.label;
+    // The agent's "met" alone does not count.
+    expect(label()).toBe("Not verified");
+    record.facts.workspaceScripts = [{ source: "stave", type: "run-script", scriptId: "check", definitionHash: definition.definitionHash,
+      executedCommands: "env -u A sh -c \"bun run typecheck && bun test\"", exitCode: 0, durationMs: 10, outputTail: "", verification: { sourceRevision: revision, completedRevision: revision } }];
+    expect(label()).toBe("Met · checked by Stave");
+    expect(describeDoneWhen(run).filter((line) => line.status === "met-verified")).toHaveLength(1);
+    // The check is named by its action, not by its long command line.
+    expect(describeAgentRunResult(run, NOW).staveChecks).toContain("check");
+    expect(describeAgentRunResult(run, NOW).staveChecks.some((name) => name.includes("bun run typecheck &&"))).toBe(false);
+  });
+
   test("a run that reported no criteria shows the assignment's own line", () => {
     expect(describeDoneWhen(runs.working)).toEqual([
       { text: "The table scrolls below 640px and the checks pass.", status: "unverified", label: "Not verified" },

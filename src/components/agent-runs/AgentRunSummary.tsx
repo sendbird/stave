@@ -5,7 +5,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { AgentRun } from "@/lib/agent-runs/domain";
-import { describeAgentRunPermissions, formatAge } from "@/lib/agent-runs/agent-run-view";
+import { describeAgentRunPermissions, explainAgentRunPermissions, formatAge } from "@/lib/agent-runs/agent-run-view";
 import { formatCostUsd, formatTokenCount, type AgentRunUsage } from "@/lib/agent-runs/usage";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -108,7 +108,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
           <span className={sx(styles.model)} title={agentRun.fingerprint.model}>
             {model.name}
           </span>
-          <span className={sx(styles.context)}>
+          <span className={sx(styles.context)} title={explainAgentRunPermissions(permissionMode, providerId)}>
             {model.namesProvider ? null : (
               <>
                 {getProviderLabel({ providerId })}

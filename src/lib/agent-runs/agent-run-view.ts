@@ -276,12 +276,19 @@ export const AGENT_RUN_PERMISSION_LABELS: Record<AgentRun["consent"]["permission
   get manual() { return i18n.t("agentRuns:agentRunView.manual"); },
 };
 
-/** The permissions line of an agent run summary. */
+/** The permissions line of an agent run summary: a short label that fits beside the model. */
 export function describeAgentRunPermissions(permissionMode: AgentRun["consent"]["permissionMode"]): string {
-  if (permissionMode === "auto") return i18n.t("agentRuns:agentRunView.autoPermissionDescription");
   return permissionMode === "manual"
     ? i18n.t("agentRuns:agentRunView.describeAgentRunPermissions")
     : i18n.t("agentRuns:remaining.presentationCopy416", { v1: AGENT_RUN_PERMISSION_LABELS[permissionMode] });
+}
+
+/** What Auto means on the run's provider, shown on hover of the permissions line. */
+export function explainAgentRunPermissions(permissionMode: AgentRun["consent"]["permissionMode"], providerId: string): string | undefined {
+  if (permissionMode !== "auto") return undefined;
+  return providerId === "codex"
+    ? i18n.t("agentRuns:agentRunView.autoPermissionCodex")
+    : i18n.t("agentRuns:agentRunView.autoPermissionClaude");
 }
 
 /** The primary button names what happens when it is pressed. */

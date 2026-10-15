@@ -5,14 +5,15 @@ import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/agent-runs/agen
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 const PRESENTATION = {
+  "met-verified": { icon: CircleCheck, mark: styles.toneDone, label: styles.toneDone },
   "met-reported": { icon: CircleCheck, mark: styles.toneDone, label: styles.muted },
   unmet: { icon: CircleX, mark: styles.toneAttention, label: styles.toneAttention },
   unverified: { icon: CircleDashed, mark: styles.toneIdle, label: styles.toneIdle },
 } as const satisfies Record<DoneWhenStatus, unknown>;
 
 /**
- * The Done when lines of an agent run with the agent's status, then the checks
- * Stave itself saw succeed. The two stay apart: no criterion is linked to a check.
+ * The Done when lines of an agent run with their status, then the checks Stave
+ * itself saw succeed. Only a workspace check criterion reads as checked by Stave.
  */
 export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
   lines: readonly AgentRunDoneWhenLine[];
