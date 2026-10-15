@@ -372,7 +372,7 @@ export interface AgentRunRuntime {
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
   answerQuestion: (args: { workspaceId: string; taskId: string; stage: AgentRunStageIdentity; prompt: string; questionAnswer: RunQuestionAnswer }) => Promise<void>;
-  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: AgentRunStageIdentity; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation" } | null;
+  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation" } | null;
   resourceRootForTask: (taskId: string) => string | null;
   getActiveAgentRunForTask: (taskId: string) => AgentRun | null;
   readDelegatedAgentRun: (args: AgentRunIdArgs) => Promise<DelegatedAgentRunRead>;
@@ -1727,10 +1727,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     answerQuestion: (args) => enqueue(async () => {
       const aggregate = requireAggregate(args.stage.agentRunId);
       const run = aggregate.agentRun, record = currentStageRecord(aggregate);
-      if (run.workspaceId !== args.workspaceId || run.leadTaskId !== args.taskId || run.state !== "running" ||
-          record.stageId !== args.stage.stageId || record.attempt !== args.stage.attempt ||
-          !["running", "blocked", "stuck"].includes(record.status) || workflowStageAt(run, run.currentStageIndex).kind !== "ai")
-        refuse(i18n.t("agentRuns:persistentQuestion.stageChanged"));
+      // The question is moot once its run ended or its stage attempt moved on; a paused run only waits.
+      if (run.workspaceId !== args.workspaceId || run.leadTaskId !== args.taskId || !isActiveAgentRunState(run.state) ||
+          record.stageId !== args.stage.stageId || record.attempt !== args.stage.attempt || workflowStageAt(run, run.currentStageIndex).kind !== "ai")
+        throw new AgentRunCommandError("not-active", i18n.t("agentRuns:persistentQuestion.stageChanged"));
+      if (run.state !== "running" || !["running", "blocked", "stuck"].includes(record.status)) refuse(i18n.t("agentRuns:persistentQuestion.resumeFirst"));
       const snapshot = await readSnapshot(run);
       if (!snapshot.exists || snapshot.archived || snapshot.activeTurnId || snapshot.pendingApprovalCount || !snapshot.providerId || !snapshot.model)
         refuse(i18n.t("agentRuns:persistentQuestion.waitForRequest"));
@@ -1785,7 +1786,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
       const accountOptions = resources?.policy.accountProfileId ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: resources.policy.accountProfileId } : { claudeAccountProfileId: resources.policy.accountProfileId }) : {};
-      return { agentRunStage, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
+      return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
       }) } } : { runtimeOptions: { ...accountOptions,
         // The reply is a turn of the run: the run's consent, not the composer's settings alone.

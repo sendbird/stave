@@ -938,6 +938,7 @@
     "waitForTurn": "Wait for the question's native turn to finish before answering.",
     "stageChanged": "The question's Run or stage is no longer active.",
     "waitForRequest": "Wait for the current turn or approval before answering this Run question.",
+    "resumeFirst": "Resume the Run before answering its question.",
     "reportingUnavailable": "Local reporting tools must be available before replying.",
     "alreadyAnswered": "This question was already answered or is no longer pending.",
     "deliveryFailed": "Could not deliver your answer: {{reason}}"

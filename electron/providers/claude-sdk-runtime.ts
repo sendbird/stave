@@ -3095,6 +3095,8 @@ export async function streamClaudeWithSdk(
   type ClaudeUserInputDecision = { answers?: Record<string, string>; denied?: boolean };
   const pendingUserInputResolvers = new Map<string, (response: ClaudeUserInputDecision) => void>();
   let awaitingQuestion = false;
+  // A delegated (managed) run's question keeps today's timeout: its controller, not the user, answers it.
+  const runQuestionScope = args.managedTask ? undefined : args.agentRunStage;
   let stream: Query | null = null;
   let inputQueue: SteerableUserMessageQueue | null = null;
   try {
@@ -3549,7 +3551,7 @@ export async function streamClaudeWithSdk(
           }
 
           if (handoff.action === "question") {
-            requestId = runQuestionRequestId(args.agentRunStage, requestId, args.turnId);
+            requestId = runQuestionRequestId(runQuestionScope, requestId, args.turnId);
             const questions = parseClaudeQuestionList({
               input: normalizedInput,
             });
@@ -3595,7 +3597,7 @@ export async function streamClaudeWithSdk(
               });
             } catch (error) {
               if (error instanceof ClaudeToolDecisionTimeoutError) {
-                if (args.agentRunStage) {
+                if (runQuestionScope) {
                   const pending: BridgeEvent = { ...userInputEvent, delivery: "async" };
                   eventCollector.append(pending); args.onEvent?.(pending);
                   awaitingQuestion = true; abortRequested = true; inputQueue?.close(); stream?.close();

@@ -2041,7 +2041,7 @@ async function runTaskImpl(args: {
       ...(args.unattendedAutomation
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
-      ...(args.agentRunStage ? { agentRunStage: args.agentRunStage } : {}), ...(args.freshSession ? { freshSession: true } : {}),
+      ...(args.agentRunStage ? { agentRunStage: args.agentRunStage, managedTask: isExternallyManagedTask(task) } : {}), ...(args.freshSession ? { freshSession: true } : {}),
       runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({

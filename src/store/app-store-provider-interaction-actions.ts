@@ -203,6 +203,7 @@ export function createProviderInteractionActions(args: {
         const current = messagesByTask[taskId] ?? [];
         const interruptedMessages = interruptPendingToolInteractionsInMessages({
           messages: current,
+          stopped: true,
         });
         const target = interruptedMessages[interruptedMessages.length - 1];
         // Clear persisted provider session so stale thread IDs are not

@@ -342,9 +342,14 @@ export function resolvePendingToolInteractionPartsByRequestId(args: {
   return changed ? nextParts : args.parts;
 }
 
+/** Stop reasons of a turn the user stopped or the host cancelled. */
+export const USER_STOPPED_TURN_REASONS = ["cancelled", "aborted", "user_abort"];
+
 export function interruptPendingToolInteractionParts(args: {
   parts: MessagePart[];
   preserveAsync?: boolean;
+  /** The user stopped the turn: a run's question ends with it instead of outliving it. */
+  stopped?: boolean;
 }): MessagePart[] {
   let changed = false;
   const nextParts = args.parts.map((part) => {
@@ -356,7 +361,7 @@ export function interruptPendingToolInteractionParts(args: {
       };
     }
 
-    if (part.type === "user_input" && part.state === "input-requested" && runQuestionStage(part.requestId)) {
+    if (part.type === "user_input" && part.state === "input-requested" && runQuestionStage(part.requestId) && !args.stopped) {
       if (part.delivery === "async") return part;
       changed = true;
       return { ...part, delivery: "async" as const };
@@ -377,11 +382,13 @@ export function interruptPendingToolInteractionParts(args: {
 
 export function interruptPendingToolInteractionsInMessages(args: {
   messages: ChatMessage[];
+  stopped?: boolean;
 }): ChatMessage[] {
   let changed = false;
   const nextMessages = args.messages.map((message) => {
     const nextParts = interruptPendingToolInteractionParts({
       parts: message.parts,
+      stopped: args.stopped,
     });
     if (nextParts === message.parts) {
       return message;

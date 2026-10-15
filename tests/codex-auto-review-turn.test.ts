@@ -93,6 +93,7 @@ const autoBefore = { approvalPolicy: "never", approvalsReviewer: "user" };
 function startTurn(server: ReturnType<typeof fakeServer>, args: {
   taskId: string;
   agentRunId?: string;
+  managedTask?: boolean;
   runtimeOptions?: ProviderRuntimeOptions;
 }) {
   const events: BridgeEvent[] = [];
@@ -105,7 +106,7 @@ function startTurn(server: ReturnType<typeof fakeServer>, args: {
   const waiting = new Promise<void>((resolve) => { asked = resolve; });
   const work = streamCodexWithAppServer({
     providerId: "codex", turnId: `stave-${args.taskId}`, cwd: server.cwd, taskId: args.taskId, prompt: "Work",
-    ...(args.agentRunId ? { agentRunStage: { agentRunId: args.agentRunId, stageId: "work", attempt: 1 } } : {}),
+    ...(args.agentRunId ? { agentRunStage: { agentRunId: args.agentRunId, stageId: "work", attempt: 1 }, managedTask: args.managedTask } : {}),
     runtimeOptions: { codexBinaryPath: server.executable, ...(args.runtimeOptions ?? autoReview) },
     registerAbort: (fn) => { responders.abort = fn; },
     registerApprovalResponder: (fn) => { responders.approval = fn; },
@@ -170,7 +171,10 @@ for (const agentRunId of ["run-timeout", undefined]) {
     const turn = startTurn(server, { taskId: `task-question-${label}`, agentRunId });
     await turn.asked();
     await turn.work;
-    if (!agentRunId) expect(server.read().find((entry) => entry.response)?.response).toEqual({ answers: {} });
+    // Both end the server's wait: the ordinary turn at the timeout, the Run at its turn's cleanup.
+    expect(server.read().find((entry) => entry.response)?.response).toEqual({ answers: {} });
+    const asked = turn.events.find(event => event.type === "user_input") as Extract<BridgeEvent, { type: "user_input" }>;
+    expect(turn.responders.userInput?.({ requestId: asked.requestId, answers: { q1: "late" } })).toMatchObject({ ok: false, reason: "unknown-request" });
     expect(errors(turn.events)).toEqual(agentRunId ? [] : [expect.stringContaining("did not receive an answer decision")]);
     const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
     const replayed = replayProviderEventsToTaskState({ taskId: "task", provider: "codex", model: "gpt", turnId: "turn", events: turn.events, messages: [] });
@@ -181,6 +185,20 @@ for (const agentRunId of ["run-timeout", undefined]) {
     if (agentRunId) expect(classifyAgentRunTurnEnding(turn.events.map(event => ({ event })) as never)).toBe("completed");
   }, 10_000);
 }
+
+test("a delegated (managed) run's question keeps today's timeout decline", async () => {
+  const server = fakeServer("0.162.1", { request: "user_input" });
+  const turn = startTurn(server, { taskId: "task-question-managed", agentRunId: "run-managed", managedTask: true });
+  await turn.asked();
+  await turn.work;
+  expect(server.read().find((entry) => entry.response)?.response).toEqual({ answers: {} });
+  expect(errors(turn.events)).toEqual([expect.stringContaining("did not receive an answer decision")]);
+  const question = turn.events.find(event => event.type === "user_input") as Extract<BridgeEvent, { type: "user_input" }>;
+  expect(question.requestId.startsWith("run-question:")).toBe(false);
+  const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
+  const replayed = replayProviderEventsToTaskState({ taskId: "task", provider: "codex", model: "gpt", turnId: "turn", events: turn.events, messages: [] });
+  expect(replayed.messages.flatMap(message => message.parts).filter(part => part.type === "user_input")[0]).toMatchObject({ state: "input-interrupted" });
+}, 10_000);
 
 test("an agent run question answered in time reaches Codex", async () => {
   process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS = "60000";

@@ -2100,7 +2100,7 @@ test("turn cap persists a pause; Extend keeps the task session, fingerprint and 
 for (const delivery of ["async", undefined] as const) {
   test(`a persisted ${delivery ?? "native"} Run question survives SQLite reload and answers once`, async () => {
     const { runQuestionRequestId } = await import("../src/lib/agent-runs/persistent-question");
-    const { interruptPendingToolInteractionsInMessages } = await import("../src/store/provider-message.utils");
+    const { interruptPendingToolInteractionsInMessages, findPendingUserInputMessageByRequestId } = await import("../src/store/provider-message.utils");
     const { buildWorkspaceSessionState } = await import("../src/store/workspace-session-state");
     const { respondHostUserInput } = await import("../electron/host-service/host-user-input");
     const { setRunQuestionAnswerer } = await import("../electron/host-service/run-question-answer");
@@ -2135,6 +2135,8 @@ for (const delivery of ["async", undefined] as const) {
       expect(session.messagesByTask["task-1"]![0]!.parts[0]).toMatchObject({ state: "input-requested", delivery: "async" });
       const restored = createHarness({ store: new AgentRunStore(db), turns: first.turns, extra: {
         runSupervisedTurn: async args => {
+          // As runTaskImpl does: a card answered by an earlier reply is not answered again.
+          if (!findPendingUserInputMessageByRequestId({ messages: session.messagesByTask["task-1"]!, requestId: args.questionAnswer!.requestId })) throw new Error("already answered");
           const pending = session.messagesByTask["task-1"]![0]!;
           session = { ...session, ...applyUserInputState({ messagesByTask: session.messagesByTask, workspaceSnapshotVersion: 0,
             taskId: "task-1", messageId: pending.id, ...args.questionAnswer! }) };
@@ -2158,7 +2160,7 @@ for (const delivery of ["async", undefined] as const) {
         cache: (_key: string, value: typeof session) => value, persist: async () => {} };
       const answer = { workspaceId: "ws-1", taskId: "task-1", requestId, answers: { file: "B.md" } };
       const responses = await Promise.allSettled([respondHostUserInput(answer, ports), respondHostUserInput(answer, ports)]);
-      expect(responses.map(response => response.status)).toEqual(["fulfilled", "rejected"]);
+      expect(responses.map(response => response.status).sort()).toEqual(["fulfilled", "rejected"]);
       session = loadSession();
       expect(session.messagesByTask["task-1"]!.filter(message => message.role === "user").map(message => message.content)).toEqual(["> Which filename?\n\nB.md"]);
       expect(restored.store.listEventsByKind(id, ["user-turn"])).toHaveLength(1);
@@ -2168,3 +2170,24 @@ for (const delivery of ["async", undefined] as const) {
     } finally { setRunQuestionAnswerer(null); db.close(); rmSync(directory, { recursive: true, force: true }); }
   });
 }
+
+test("a paused Run keeps its saved question answerable until Resume", async () => {
+  const { runQuestionRequestId } = await import("../src/lib/agent-runs/persistent-question");
+  const replies: string[] = [];
+  const h = createHarness({ extra: { runSupervisedTurn: async args => { if (args.questionAnswer) replies.push(args.prompt); return { turnId: `turn-${replies.length}` }; } } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+  const stage = { agentRunId: id, stageId: DRAFT.id, attempt: 1 };
+  const requestId = runQuestionRequestId(stage, "native-question");
+  h.setSnapshot({ pendingUserInputCount: 1 });
+  const answer = { workspaceId: "ws-1", taskId: "task-1", stage, prompt: "> Which filename?\n\nB.md", questionAnswer: { requestId, answers: { file: "B.md" } } };
+  await h.runtime.pause({ agentRunId: id });
+  // Paused only waits: the card must stay answerable, so this is a transient refusal, not "not-active".
+  await expect(h.runtime.answerQuestion(answer)).rejects.toMatchObject({ code: "refused" });
+  expect(replies).toHaveLength(0);
+  await h.runtime.resume({ agentRunId: id });
+  await h.runtime.answerQuestion(answer);
+  expect(replies).toEqual(["> Which filename?\n\nB.md"]);
+  await h.runtime.cancel({ agentRunId: id });
+  await expect(h.runtime.answerQuestion(answer)).rejects.toMatchObject({ code: "not-active" });
+  h.runtime.stop();
+});

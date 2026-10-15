@@ -67,21 +67,27 @@ for (const agentRunStage of [{ agentRunId: "run", stageId: "work", attempt: 1 },
   }, 10_000);
 }
 
-for (const agentRunStage of [{ agentRunId: "question-run", stageId: "work", attempt: 1 }, undefined]) {
-  test(`${agentRunStage ? "Run" : "ordinary"} Claude question survives only in a Run after timeout`, async () => {
+const QUESTION_STAGE = { agentRunId: "question-run", stageId: "work", attempt: 1 };
+for (const turn of [
+  { label: "a user-owned Run", agentRunStage: QUESTION_STAGE, survives: true },
+  { label: "a delegated (managed) Run", agentRunStage: QUESTION_STAGE, managedTask: true, survives: false },
+  { label: "an ordinary turn", survives: false },
+]) {
+  test(`${turn.label}: a Claude question survives the timeout only on a user-owned Run`, async () => {
     questionMode = true;
     const events: BridgeEvent[] = [];
-    await streamClaudeWithSdk({ providerId: "claude-code", turnId: "native-question-turn", cwd: process.cwd(), taskId: `question-${!!agentRunStage}`, prompt: "Work",
-      runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude", claudePermissionMode: "default" }, agentRunStage,
+    await streamClaudeWithSdk({ providerId: "claude-code", turnId: "native-question-turn", cwd: process.cwd(), taskId: `question-${turn.label}`, prompt: "Work",
+      runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude", claudePermissionMode: "default" }, agentRunStage: turn.agentRunStage, managedTask: turn.managedTask,
       onEvent: event => { events.push(event); } });
     const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
     const replayed = replayProviderEventsToTaskState({ taskId: "task", provider: "claude-code", model: "sonnet", turnId: "turn", events, messages: [] });
     const parts = replayed.messages.flatMap(message => message.parts).filter(part => part.type === "user_input");
     expect(parts).toHaveLength(1);
-    expect(parts[0]).toMatchObject(agentRunStage ? { delivery: "async", state: "input-requested" } : { state: "input-interrupted" });
+    expect(parts[0]).toMatchObject(turn.survives ? { delivery: "async", state: "input-requested" } : { state: "input-interrupted" });
+    if (!turn.survives) expect((parts[0] as { requestId: string }).requestId.startsWith("run-question:")).toBe(false);
     expect(events.some(event => event.type === "done")).toBe(true);
-    expect(events.some(event => event.type === "error")).toBe(!agentRunStage);
-    if (agentRunStage) expect(classifyAgentRunTurnEnding(events.map(event => ({ event })) as never)).toBe("completed");
+    expect(events.some(event => event.type === "error")).toBe(!turn.survives);
+    if (turn.survives) expect(classifyAgentRunTurnEnding(events.map(event => ({ event })) as never)).toBe("completed");
   }, 10_000);
 }
 

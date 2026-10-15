@@ -2198,7 +2198,7 @@ export async function streamCodexWithAppServer(
         }, codexApprovalDecisionTimeoutMs);
         pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
       };
-      const runStage = args.agentRunStage;
+      const runStage = args.managedTask ? undefined : args.agentRunStage; // a managed run's controller answers; today's timeout stays
       const scheduleUserInputAutoDecline = (args: {
         event: Extract<BridgeEvent, { type: "user_input" }>;
       }) => {
@@ -2208,20 +2208,15 @@ export async function streamCodexWithAppServer(
           if (!pending || completed) {
             return;
           }
-          pendingUserInputRequests.delete(args.event.requestId);
-          console.warn(
-            "[provider-runtime] Codex user-input request auto-declined after timeout",
-            {
-              threadId,
-              requestId: args.event.requestId,
-              timeoutMs: codexApprovalDecisionTimeoutMs,
-            },
-          );
+          console.warn("[provider-runtime] Codex user-input request auto-declined after timeout",
+            { threadId, requestId: args.event.requestId, timeoutMs: codexApprovalDecisionTimeoutMs });
           if (runStage) {
+            // The entry stays pending: the turn's cleanup declines the server request, as for an aborted approval.
             emitBridgeEvent({ ...args.event, delivery: "async" });
             awaitingQuestion = true; interruptTurn();
             return;
           }
+          pendingUserInputRequests.delete(args.event.requestId);
           emitBridgeEvent(buildApprovalAutoDeclineTimeoutEvent({ kind: "user_input", toolName: args.event.toolName, requestId: args.event.requestId }));
           void client
             .respond(
@@ -2302,7 +2297,8 @@ export async function streamCodexWithAppServer(
       });
 
       args.registerUserInputResponder?.(({ requestId, answers, denied }) => {
-        const pending = pendingUserInputRequests.get(requestId);
+        // After the timeout saved the question, only the saved card takes the answer.
+        const pending = awaitingQuestion ? undefined : pendingUserInputRequests.get(requestId);
         if (!pending) {
           return {
             ok: false,
@@ -2507,7 +2503,7 @@ export async function streamCodexWithAppServer(
             return;
           }
           if (presentation?.kind === "user_input") {
-            const scopedId = runQuestionRequestId(args.agentRunStage, requestId, args.turnId);
+            const scopedId = runQuestionRequestId(runStage, requestId, args.turnId);
             pendingUserInputRequests.set(scopedId, {
               serverRequestId: message.id as JsonRpcId,
               ...presentation.pending,
