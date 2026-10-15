@@ -150,9 +150,11 @@ child on them; inside a Stave turn, account IDs a model passes to
 `DelegatedTaskRequestContext`, kept out of the model-facing argument schemas.
 One-turn children reach the host as a Local MCP `run-task` with the IDs in
 runtime options, and main resolves an API connection's key from them. Agent
-run turns are started by the host outside any request, so a run whose provider
-account is an API connection is refused at admission instead of failing on its
-first turn.
+run turns are started by the host outside any request, so the supervisor asks
+the private main/host broker for the key of the run's captured accounts before
+every turn (`prepareGatewayCredentials` in
+`electron/host-service/supervision/agent-run-host.ts`). The key is never saved
+in the run, its events or the prompt.
 
 Native session cursors for custom profiles are stored under
 `providerSession.accounts[profileId][providerId]`; existing top-level entries
