@@ -255,6 +255,11 @@ async function runLiveAgentRun(args: {
     if (args.workspaceCheck) {
       const check = stage?.facts?.workspaceScripts?.find(check => check.source === "stave" && check.exitCode === 0);
       expect(check).toBeTruthy();
+      const workflowStage = run.workflow.stages.find(entry => entry.id === stage?.stageId);
+      const frozen = workflowStage?.kind === "ai" ? workflowStage.acceptanceCriteria?.flatMap(criterion => criterion.scriptDefinitions ?? []).find(definition => definition.scriptId === check?.scriptId) : null;
+      expect(frozen?.definitionHash).toBeTruthy();
+      expect(check!.definitionHash).toBe(frozen!.definitionHash);
+      expect(check!.executedCommands).toBe("sh check.sh");
       expect(stage?.report?.outcome).toBe("complete");
       if (stage?.report?.outcome === "complete") expect(check!.verification.completedRevision).toEqual(stage.report.workspaceRevision);
       expect(detail!.report?.acceptanceCriteria).toContainEqual({ text: "Workspace checks pass", required: true, status: "met" });

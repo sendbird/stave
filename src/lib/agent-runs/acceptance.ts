@@ -2,7 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import type { AgentRunAggregate, AgentRunStageRecord } from "./domain";
 import { collectAcceptanceCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
-import { workspaceCheckInstruction, workspaceCheckMet } from "./workspace-check";
+import { workspaceCheckBlock, workspaceCheckMet } from "./workspace-check";
 
 /** Reports and successful children do not satisfy an unresolved explicit requirement. */
 export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: AgentRunStageRecord): string | null {
@@ -35,7 +35,8 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   }
   for (const [text, criterion] of required) {
     if (criterion.verification === "stave-check") {
-      if (!workspaceCheckMet(record, "scriptIds" in criterion ? criterion.scriptIds : undefined)) return workspaceCheckInstruction(criterion);
+      const checkCriterion = { ...criterion, scriptIds: "scriptIds" in criterion ? criterion.scriptIds : undefined, scriptDefinitions: "scriptDefinitions" in criterion ? criterion.scriptDefinitions : undefined };
+      if (!workspaceCheckMet(record, checkCriterion.scriptIds, checkCriterion.scriptDefinitions)) return workspaceCheckBlock(record, checkCriterion);
       continue;
     }
     const reported = report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text);

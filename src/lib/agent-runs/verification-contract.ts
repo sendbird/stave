@@ -13,6 +13,13 @@ export const ScriptVerificationSchema = z.object({
 }).strict();
 export type ScriptVerification = z.infer<typeof ScriptVerificationSchema>;
 
+export const FrozenWorkspaceScriptSchema = z.object({
+  scriptId: z.string().trim().min(1).max(120),
+  definitionHash: z.string().regex(/^[a-f0-9]{64}$/),
+}).strict();
+export type FrozenWorkspaceScript = z.infer<typeof FrozenWorkspaceScriptSchema>;
+export const WORKSPACE_SCRIPT_TIMEOUT_MS = 30 * 60_000;
+
 export function revisionsMatch(source?: WorkspaceRevision, current?: WorkspaceRevision) {
   return source?.status === "known" && current?.status === "known" && source.revision === current.revision;
 }

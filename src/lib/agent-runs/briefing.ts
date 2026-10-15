@@ -123,7 +123,7 @@ export function collectAcceptanceCriteria(
     const observed = stage.kind === "action" && record?.facts?.action?.type === "run-script"
       ? (stage.acceptanceCriteria ?? []).map((criterion) => ({ text: criterion.text, required: criterion.required, status: isVerifiedEvidence(describeActionEvidence(record.facts!.action!, record.facts)) ? "met" as const : "unverified" as const })) : [];
     const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
-    const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => ({ text: criterion.text, required: criterion.required, status: workspaceCheckMet(record, criterion.scriptIds) ? "met" as const : "unverified" as const })) : [];
+    const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => ({ text: criterion.text, required: criterion.required, status: workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions) ? "met" as const : "unverified" as const })) : [];
     const updates = [...reported, ...observed, ...checks];
     if (updates.length) {
       if (stage.kind === "ai" && stage.role === "plan") criteria = [];

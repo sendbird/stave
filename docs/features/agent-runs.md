@@ -221,18 +221,18 @@ checks pass** when the workspace has configured action scripts. Researcher,
 Reviewer, Lead and read-only agents do not get this default. With one action,
 that script is required; with several, all IDs are listed in sorted order and
 any one may satisfy the criterion. Script configuration currently has no
-verification-role marker. The criterion stays with the workflow on retry.
+verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on retry. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
 Without configured actions, completion remains agent-reported.
 
 The agent calls `stave_run_workspace_script({ scriptId })` before reporting.
 Stave runs the configured action, records its exit status, duration, bounded
-output and before/after revisions on that stage, and displays the host check
+output, the definition hash, the executed commands and before/after revisions on that stage, and displays the host check
 in its evidence. Required checks need exit 0 and known matching source,
 completed, report and final workspace revisions. A missing, failing or stale
 check blocks completion with the script ID and tool to run before reporting
 again. Only write-capable primary AI-stage turns may run it; read-only,
 non-run and action-stage callers are refused. Each run allows one script at
-a time.
+a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation; if the workspace revision cannot be read at admission, the default check is omitted with a timeline/report notice. An invalid default-criterion insertion is also skipped with a notice.
 
 Check evidence separates **Provider result** and **Agent reported** claims from
 successful host checks of unchanged work. A tool response without a structured

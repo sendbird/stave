@@ -428,7 +428,11 @@ export const StageFactsSchema = z
       verification: ScriptVerificationSchema,
       durationMs: z.number().nonnegative(),
       outputTail: z.string().max(2_000),
+      definitionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+      executedCommands: z.string().max(2_000).optional(),
+      commandsTruncated: z.boolean().optional(),
     }).strict()).max(50).optional(),
+    workspaceCheckNotice: z.string().max(500).optional(),
     currentTurnId: IdSchema.optional(),
     workspaceRevision: WorkspaceRevisionSchema.optional(),
     /**

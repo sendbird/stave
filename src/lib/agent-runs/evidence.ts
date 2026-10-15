@@ -60,18 +60,19 @@ function classify(evidence: StageEvidence, report: CompleteStageReport, facts: S
 }
 
 export function classifyStageEvidence(
-  report: CompleteStageReport,
+  report: CompleteStageReport | null,
   facts: StageFacts | null,
 ): ClassifiedEvidence[] {
   const hostChecks = (facts?.workspaceScripts ?? []).map((check) => {
-    const evidence = describeActionEvidence(check, facts);
-    if (evidence.freshness === "current" && !revisionsMatch(check.verification.completedRevision, report.workspaceRevision))
-      evidence.freshness = report.workspaceRevision?.status === "known" ? "stale" : "unknown";
+    const evidence = { ...describeActionEvidence(check, facts), ...(check.executedCommands ? { command: check.commandsTruncated ? `${check.executedCommands.slice(0, 1_999)}…` : check.executedCommands } : {}) };
+    if (evidence.freshness === "current" && !revisionsMatch(check.verification.completedRevision, report?.workspaceRevision))
+      evidence.freshness = report?.workspaceRevision?.status === "known" ? "stale" : "unknown";
     return evidence;
   });
-  return [...hostChecks, ...report.evidence.map((evidence) => ({
+  const notices: ClassifiedEvidence[] = facts?.workspaceCheckNotice ? [{ label: facts.workspaceCheckNotice, kind: "observation", source: "stave", freshness: "unknown" }] : [];
+  return [...notices, ...hostChecks, ...(report?.evidence ?? []).map((evidence) => ({
     ...evidence,
-    ...classify(evidence, report, facts),
+    ...classify(evidence, report!, facts),
   }))];
 }
 

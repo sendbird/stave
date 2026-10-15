@@ -149,9 +149,7 @@ export function buildAgentRunReport(args: {
     const record = latestStageRecord(records, stage.id);
     const attempts = records.filter((candidate) => candidate.stageId === stage.id).length;
     const report = record?.report?.outcome === "complete" ? record.report : null;
-    const evidence: ClassifiedEvidence[] = report
-      ? classifyStageEvidence(report, record?.facts ?? null)
-      : [];
+    const evidence: ClassifiedEvidence[] = classifyStageEvidence(report, record?.facts ?? null);
     const action = record?.facts?.action ?? null;
     if (action) {
       const actionEvidence = describeActionEvidence(action, record?.facts);

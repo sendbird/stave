@@ -61,10 +61,12 @@ test("cancelling an owned action stops its child command before later effects", 
   const { join } = await import("node:path");
   const directory = mkdtempSync(join(tmpdir(), "stave-cancel-"));
   const controller = new AbortController();
+  const commands: string[] = [];
   try {
     const run = runScriptEntry({
       workspaceId: "cancel-workspace", workspacePath: directory, repositoryPath: directory,
       workspaceName: "cancel", branch: "test", signal: controller.signal,
+      onCommandStarted: command => commands.push(command),
       scriptEntry: { ...createServiceScript(), id: "action", kind: "action",
         commands: ["echo ready > ready; sleep 1; echo late > late", "echo next > next"] },
     });
@@ -72,6 +74,7 @@ test("cancelling an owned action stops its child command before later effects", 
     expect(existsSync(join(directory, "ready"))).toBe(true);
     controller.abort();
     expect((await run).ok).toBe(false);
+    expect(commands).toEqual(["echo ready > ready; sleep 1; echo late > late"]);
     await Bun.sleep(1100);
     expect(existsSync(join(directory, "late"))).toBe(false);
     expect(existsSync(join(directory, "next"))).toBe(false);

@@ -246,6 +246,7 @@ async function runFiniteScript(args: {
   source: WorkspaceScriptRunSource;
   hookContext?: ScriptHookContext;
   signal?: AbortSignal;
+  onCommandStarted?: (command: string) => void;
 }) {
   const runId = randomUUID();
   if (args.signal?.aborted) return { ok: false as const, runId, exitCode: -1, error: "Aborted", output: "" };
@@ -324,6 +325,7 @@ async function runFiniteScript(args: {
             cwd,
             env,
           });
+          args.onCommandStarted?.(command);
           let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
           const clearScriptTimeout = () => {
             if (timeoutHandle != null) {
@@ -724,6 +726,7 @@ async function runScriptEntryImpl(args: {
   source?: WorkspaceScriptRunSource;
   hookContext?: ScriptHookContext;
   signal?: AbortSignal;
+  onCommandStarted?: (command: string) => void;
 }) {
   const source = args.source ?? { kind: "manual" as const };
   if (args.scriptEntry.kind === "service") {

@@ -1,6 +1,6 @@
 import { i18n } from "../../../src/i18n/runtime";
 import type { RunQuestionAnswer } from "../run-question-answer";
-import { withWorkspaceCheck } from "../../../src/lib/agent-runs/workspace-check";
+import { admitWorkspaceCheck } from "./workspace-check-admission";
 import { createStageScriptRunner, type WorkspaceCheckDependencies, type WorkspaceScriptReceipt } from "./agent-run-workspace-script";
 import { usageLimitedTurnRuntime, usageLimitedTurnEffort, usageLimitAccounts, observeUsageLimitQuota, turnEffortOf } from "./agent-run-usage-limit";
 import { accountPoolReadOrder, agentRunPoolAccount, normalizeAgentRunAccountPool, type PoolAccountUsage } from "../../../src/lib/agent-runs/account-pool";
@@ -585,6 +585,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
 
   function applyChange(change: AgentRunChange): AgentRunAggregate {
     store.apply(change, now());
+    scriptRunner.onChange(change);
     // A read belongs to one wait of a running run: a pause, an end or a replaced wait drops it.
     const read = pullRequestReads.get(change.agentRun.id);
     if (read && (change.agentRun.state !== "running" || change.agentRun.eventWait?.id !== read.waitId))
@@ -895,7 +896,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       });
       // A plan older than the messages read keeps standing until a newer one.
       const previousPlan = record.facts?.plan;
-      facts = { ...facts, ...(record.facts?.workspaceScripts ? { workspaceScripts: record.facts.workspaceScripts } : {}), currentTurnId: last.turnId, ...(!facts.plan && previousPlan ? { plan: previousPlan } : {}) };
+      facts = { ...facts, ...(record.facts?.workspaceCheckNotice ? { workspaceCheckNotice: record.facts.workspaceCheckNotice } : {}), ...(record.facts?.workspaceScripts ? { workspaceScripts: record.facts.workspaceScripts } : {}), currentTurnId: last.turnId, ...(!facts.plan && previousPlan ? { plan: previousPlan } : {}) };
     } catch (error) {
       console.warn("[agent-runs] failed to collect stage facts", error, { agentRunId: agentRun.id });
       return aggregate;
@@ -1631,6 +1632,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   }
 
   function stop() {
+    scriptRunner.stop();
     for (const controller of preparationControllers.values()) controller.abort();
     for (const agentRunId of [...pullRequestReads.keys()]) dropPullRequestRead(agentRunId);
     if (intervalHandle) {
@@ -1704,9 +1706,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     };
   }
 
-  const runWorkspaceScript = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange, isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null });
+  const scriptRunner = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange, isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null });
   return {
-    runWorkspaceScript,
+    runWorkspaceScript: scriptRunner.run,
     reserveChildResources: (args) => store.reserveChildResources?.({ ...args, now: now() }) ?? null,
     releaseChildResources: (link) => { store.releaseResourceReservation?.(link, now()); },
     requestResources: ({ agentRunKey, request }) => enqueue(() => {
@@ -1882,8 +1884,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     startAgentRun: (rawInput) =>
       enqueue(async () => {
         const input = AgentRunStartInputSchema.parse(rawInput);
-        if (input.origin === "agent" && deps.listWorkspaceActionScripts) input.workflow = withWorkspaceCheck(input.workflow,
-          deps.taskAgent?.(input.leadTaskId) ?? null, await deps.listWorkspaceActionScripts(input.workspaceId));
+        const check = input.origin === "agent" && deps.listWorkspaceActionScripts ? await admitWorkspaceCheck({ workflow: input.workflow,
+          agent: deps.taskAgent?.(input.leadTaskId) ?? null, scripts: await deps.listWorkspaceActionScripts(input.workspaceId), readRevision: async () => {
+            const cwd = await deps.resolveWorkspacePath(input.workspaceId);
+            return cwd && deps.readWorkspaceRevision ? deps.readWorkspaceRevision(cwd) : { status: "unknown", reason: "unavailable" };
+          } }) : { workflow: input.workflow };
+        input.workflow = check.workflow;
         const existing = store.getActiveAgentRunForTask(input.leadTaskId);
         if (existing) {
           refuse("This task already has an active run. Cancel it or wait for it to end before starting another.");
@@ -1924,6 +1930,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           fingerprint: { providerId: snapshot.providerId, model: snapshot.model },
           now: now(),
         });
+        if (check.notice) {
+          change.upserts[change.upserts.length - 1]!.facts = { ...EMPTY_STAGE_FACTS, workspaceCheckNotice: check.notice };
+          change.events[0]!.detail.workspaceCheckNotice = check.notice;
+        }
         if (input.routingIntent) change.events = change.events.map((event) => ({ ...event,
           idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, routingIntent: input.routingIntent } }));
         if (input.adaptive) {
@@ -2060,6 +2070,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         retryStage({ aggregate, expected: stageIdentity(args), now: now() }),
       ),
     pause: ({ agentRunId }) => {
+      scriptRunner.abort(agentRunId);
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
       return command(agentRunId, (aggregate) => pauseAgentRun({ aggregate, reason: "paused-by-user", now: now() }));
@@ -2073,6 +2084,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     extend: ({ agentRunId, additionalTurns }) =>
       command(agentRunId, (aggregate) => extendAgentRun({ aggregate, additionalTurns, now: now() })),
     takeOver: ({ agentRunId }) => {
+      scriptRunner.abort(agentRunId);
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
       return command(agentRunId, (aggregate) => pauseAgentRun({ aggregate, reason: "taken-over", now: now() }));
@@ -2108,6 +2120,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         return { agentRun: aggregate.agentRun, upserts: [], events: [] };
       }),
     cancel: ({ agentRunId }) => {
+      scriptRunner.abort(agentRunId);
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
       return command(agentRunId, (aggregate) => cancelAgentRun({ aggregate, now: now() }));
@@ -2128,8 +2141,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       enqueue(async () => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageCompleteReportInputSchema.parse(report);
-        const cwd = deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
-        const workspaceRevision = cwd ? await deps.readWorkspaceRevision!(cwd) : undefined;
+        const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
+        const needsRevision = stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check");
+        const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
+        const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
         const next = applyChange(
           recordStageReport({
             aggregate,

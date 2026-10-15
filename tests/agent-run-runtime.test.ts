@@ -1,3 +1,5 @@
+import { resolveScriptsForWorkspace } from "../electron/main/workspace-scripts/config-loader";
+import { workspaceScriptDefinitionHash } from "../electron/host-service/supervision/workspace-script-definition";
 import { currentProviderAccountId, withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
@@ -26,7 +28,7 @@ import { classifyStageEvidence } from "../src/lib/agent-runs/evidence";
 import type { ActionOutcome } from "../src/lib/agent-runs/policy";
 import { computeAgentRunMetrics } from "../src/lib/agent-runs/report";
 import { WorkflowSchema, type Workflow, type WorkflowStage } from "../src/lib/workflows/schema";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -2194,13 +2196,16 @@ test("a paused Run keeps its saved question answerable until Resume", async () =
 
 
 describe("primary write run workspace checks", () => {
+  const definitionHash = "a".repeat(64);
+  const scriptDefinitions = [{ scriptId: "check", definitionHash }];
+  const scriptMetadata = { definitionHash, executedCommands: "sh check.sh", commandsTruncated: false };
   const agent = { id: "implementer", name: "Implementer", permission: "auto" } as AgentConfig;
   const revision = { status: "known" as const, revision: "final" };
   function checkedHarness(extra: Partial<AgentRunRuntimeDependencies> = {}) {
     return createHarness({ extra: {
-      taskAgent: () => agent, listWorkspaceActionScripts: async () => ["check"],
+      taskAgent: () => agent, listWorkspaceActionScripts: async () => scriptDefinitions,
       readWorkspaceRevision: async () => revision,
-      runWorkspaceScript: async () => ({ exitCode: 0, output: "passed", verification: { sourceRevision: revision, completedRevision: revision } }),
+      runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: revision, completedRevision: revision } }),
       ...extra,
     } });
   }
@@ -2211,11 +2216,11 @@ describe("primary write run workspace checks", () => {
     const h = checkedHarness();
     h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: revision });
     const id = await startedAgentRun(h, input());
-    expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria).toEqual([{ text: "Workspace checks pass", required: true, verification: "stave-check", scriptIds: ["check"] }]);
+    expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria).toEqual([{ text: "Workspace checks pass", required: true, verification: "stave-check", scriptIds: ["check"], scriptDefinitions }]);
     await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: "Workspace checks pass", status: "met" }] } });
     h.endTurn("turn-1"); await h.tick();
     expect(h.current(id)).toMatchObject({ status: "blocked", blockReason: "acceptance-unmet" });
-    expect(h.current(id).detail).toBe("Run `stave_run_workspace_script` with script `check` on the final revision, then report again");
+    expect(h.current(id).detail).toContain("Run `stave_run_workspace_script` with script `check` on the final revision, then report again");
     h.userTurn("reply");
     h.grants.set("reply-key", { agentRunId: id, stageId: "work", attempt: 1, taskId: "task-1", turnId: "reply" });
     const receipt = await h.runtime.runWorkspaceScript({ agentRunKey: "reply-key", scriptId: "check" });
@@ -2250,7 +2255,7 @@ describe("primary write run workspace checks", () => {
     const pending = new Promise<void>(resolve => { release = resolve; });
     const h = checkedHarness({ runWorkspaceScript: async () => {
       entered(); await pending;
-      return { exitCode: 1, output: "x".repeat(4_000), verification: { sourceRevision: revision, completedRevision: revision } };
+      return { ...scriptMetadata, exitCode: 1, output: "x".repeat(4_000), verification: { sourceRevision: revision, completedRevision: revision } };
     } });
     const id = await startedAgentRun(h, input());
     const first = h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
@@ -2269,4 +2274,82 @@ describe("primary write run workspace checks", () => {
     expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria?.[0]).toMatchObject({ verification: "stave-check" });
     expect(h.current(id).facts?.workspaceScripts).toBeUndefined();
   });
+  test("a changed ignored check definition is refused and cannot satisfy acceptance", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "stave-frozen-check-"));
+    try {
+      execFileSync("git", ["init", "-b", "main"], { cwd });
+      writeFileSync(join(cwd, ".gitignore"), ".stave/\n");
+      execFileSync("git", ["add", ".gitignore"], { cwd });
+      execFileSync("git", ["-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "test: seed ignored check"], { cwd });
+      mkdirSync(join(cwd, ".stave"));
+      const configure = (command: string) => writeFileSync(join(cwd, ".stave/scripts.json"), JSON.stringify({ version: 2, actions: { check: { commands: [command], target: "workspace" } } }));
+      configure("exit 1");
+      const before = await readWorkspaceRevision(cwd);
+      let executions = 0;
+      const h = checkedHarness({ resolveWorkspacePath: async () => cwd, readWorkspaceRevision,
+        listWorkspaceActionScripts: async () => (await resolveScriptsForWorkspace({ repositoryPath: cwd, workspacePath: cwd }))!.actions.map(script => ({ scriptId: script.id,
+          definitionHash: workspaceScriptDefinitionHash(script, { repositoryPath: cwd, workspacePath: cwd, workspaceName: "test", branch: "main" }) })),
+        runWorkspaceScript: async () => { executions++; return { ...scriptMetadata, exitCode: 0, output: "", verification: { sourceRevision: revision, completedRevision: revision } }; },
+      });
+      h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: before });
+      const id = await startedAgentRun(h, input());
+      configure("true");
+      expect(await readWorkspaceRevision(cwd)).toEqual(before);
+      await expect(h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" })).rejects.toThrow("definition changed");
+      expect(executions).toBe(0);
+      await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "done", acceptanceCriteria: [{ text: "Workspace checks pass", status: "met" }] } });
+      h.endTurn("turn-1"); await h.tick();
+      expect(h.current(id)).toMatchObject({ status: "blocked", blockReason: "acceptance-unmet" });
+      expect(h.current(id).facts?.workspaceScripts).toBeUndefined();
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
+  test("unreadable admission revision skips the default check and records one timeline/report notice", async () => {
+    const h = checkedHarness({ readWorkspaceRevision: async () => ({ status: "unknown", reason: "limit" }) });
+    const id = await startedAgentRun(h, input());
+    expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria).toBeUndefined();
+    expect(h.store.listEventsByKind(id, ["agent-run-started"])[0]!.detail.workspaceCheckNotice).toContain("200-file");
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "done" } });
+    h.endTurn("turn-1"); await h.tick();
+    const report = (await h.runtime.get({ agentRunId: id })).report!;
+    expect(report.stages[0]!.evidence.filter(evidence => evidence.kind === "observation")).toEqual([
+      expect.objectContaining({ source: "stave", label: expect.stringContaining("not added") }),
+    ]);
+  });
+  test("duplicate default criterion is skipped safely and reports without stave-check do not read revisions", async () => {
+    let revisionReads = 0;
+    const h = checkedHarness({ readWorkspaceRevision: async () => { revisionReads++; return revision; } });
+    const start = input();
+    start.workflow.stages[0]!.acceptanceCriteria = [{ text: "Workspace checks pass", verification: "agent-report" }];
+    const id = await startedAgentRun(h, start);
+    expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria).toHaveLength(1);
+    expect(h.store.listEventsByKind(id, ["agent-run-started"])[0]!.detail.workspaceCheckNotice).toContain("invalid");
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "done", acceptanceCriteria: [{ text: "Workspace checks pass", status: "met" }] } });
+    expect(revisionReads).toBe(0);
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe("completed");
+  });
+  test("a check that modifies the tree returns its reason and blocks the final report", async () => {
+    const changed = { status: "known" as const, revision: "modified-by-check" };
+    const h = checkedHarness({ runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "", verification: { sourceRevision: revision, completedRevision: changed } }) });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: revision });
+    const id = await startedAgentRun(h, input());
+    expect(await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" })).toMatchObject({ verified: false, reason: expect.stringContaining("changed the workspace") });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "done" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.current(id).detail).toContain("changed the workspace");
+  });
+  for (const action of ["pause", "cancel", "stop"] as const) test(`${action} aborts a running workspace script and fences its late evidence`, async () => {
+    let signal!: AbortSignal;
+    let entered!: () => void;
+    const started = new Promise<void>(resolve => { entered = resolve; });
+    const h = checkedHarness({ runWorkspaceScript: async args => { signal = args.signal; entered(); return new Promise(() => {}); } });
+    const id = await startedAgentRun(h, input());
+    const pending = h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" }).catch(error => error);
+    await started;
+    if (action === "stop") h.runtime.stop(); else await h.runtime[action]({ agentRunId: id });
+    expect(signal.aborted).toBe(true);
+    expect(await pending).toBeInstanceOf(Error);
+    expect(h.current(id).facts?.workspaceScripts).toBeUndefined();
+  });
+
 });
