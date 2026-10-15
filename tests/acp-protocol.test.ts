@@ -190,6 +190,17 @@ describe("ACP protocol client", () => {
     ).resolves.toEqual({ value: "fast" });
   });
 
+  test("accepts a response line above the former 32 MiB default cap", async () => {
+    const client = createClient();
+    await initialize(client);
+    const response = await client.request(
+      "fixture/large-response",
+      {},
+      z.object({ ok: z.literal(true), debug: z.string() }),
+    );
+    expect(response.debug.length).toBe(37_737_483);
+  }, 30_000);
+
   test("fails the in-flight request when stderr reports a Cursor PING timeout", async () => {
     const client = createClient("standard", {
       interpretStderr: (accumulated) =>

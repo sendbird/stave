@@ -4,6 +4,10 @@ import { z, type ZodType } from "zod";
 import { describeJsonRpcLinePrefix } from "../../shared/json-rpc-line";
 import { Utf8LineBuffer } from "../../shared/utf8-line-buffer";
 import {
+  PROVIDER_STDOUT_BUFFER_MAX_BYTES,
+  PROVIDER_STDOUT_LINE_MAX_BYTES,
+} from "../provider-stdout-limits";
+import {
   AcpInitializeResponseSchema,
   AcpJsonRpcErrorSchema,
   AcpJsonRpcIdSchema,
@@ -19,8 +23,8 @@ import {
 const ACP_JSON_RPC_VERSION = "2.0";
 const ACP_PROTOCOL_VERSION = 1;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
-const DEFAULT_MAX_LINE_BYTES = 32 * 1024 * 1024;
-const DEFAULT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+const DEFAULT_MAX_LINE_BYTES = PROVIDER_STDOUT_LINE_MAX_BYTES;
+const DEFAULT_MAX_BUFFER_BYTES = PROVIDER_STDOUT_BUFFER_MAX_BYTES;
 const DEFAULT_MAX_STDERR_BYTES = 32 * 1024;
 const ACP_KILL_ESCALATION_MS = 2_000;
 

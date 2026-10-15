@@ -341,6 +341,11 @@ export function buildCodexThreadResumeParams(args: {
     ...(args.runtimeOptions?.model ? { model: args.runtimeOptions.model } : {}),
     cwd: args.cwd,
     ...(config ? { config } : {}),
+    // Resume callers read only `thread.id` and `model`. Without this, the
+    // response carries the full turn history as one JSON-RPC line, which grows
+    // past the stdout line cap in a long session with images. Servers that
+    // predate the field ignore it and still return turns.
+    excludeTurns: true,
   });
 }
 

@@ -147,6 +147,11 @@ input.on("line", (line) => {
     result(id, { ok: true, debug: "x".repeat(2048) });
     return;
   }
+  if (method === "fixture/large-response") {
+    // One response line above the former 32 MiB default line cap.
+    result(id, { ok: true, debug: "x".repeat(37_737_483) });
+    return;
+  }
   if (method === "fixture/ping-timeout") {
     process.stderr.write("RetriableError: [unavailable] PING timed out\n");
     return;

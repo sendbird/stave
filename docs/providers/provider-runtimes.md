@@ -223,8 +223,9 @@ window are unaffected, because MCP startup reports arrive during `session/new`.
 The shared ACP layer used by Cursor and Kiro owns bounded NDJSON framing, JSON-RPC request lifecycle,
 schema validation, cancellation, and stable session-update mapping. Official
 ACP v1 does not define a message-size cap or a client setting that shrinks
-`session/update` payloads. Stave therefore accepts NDJSON lines up to 32 MiB
-and drops a larger line without closing the process, so a large tool result,
+`session/update` payloads. Stave therefore accepts NDJSON lines up to 128 MiB
+(`PROVIDER_STDOUT_LINE_MAX_BYTES`, shared with Codex) and drops a larger line
+without closing the process, so a large tool result,
 diff, or `session/load` replay cannot poison every follow-up turn. Dropped
 JSON-RPC responses fail that one request; notifications are skipped. The Cursor
 profile owns executable discovery, authentication, mode and model selection,
@@ -1034,6 +1035,17 @@ High-level flow:
 4. Stave starts or resumes an App Server thread for the current task and runtime configuration.
 5. `turn/start` streams App Server notifications into the same `BridgeEvent` format used by Claude.
 6. File changes are post-processed through `turn-diff-tracker.ts` so the UI can render diffs.
+
+App Server stdout is newline-delimited JSON-RPC, one message per line. Stave
+accepts lines up to 128 MiB (`PROVIDER_STDOUT_LINE_MAX_BYTES` in
+`electron/providers/provider-stdout-limits.ts`). A larger line is dropped
+without restarting the App Server; a dropped response rejects only its own
+request with `Codex App Server response was dropped: oversized line ...`.
+`thread/resume` sends `excludeTurns: true` because Stave reads only the thread
+id and model from that response; full history would otherwise arrive as one
+line that grows with the session. `thread/read` with
+turns (saved subagent history) and `thread/fork` (which maps returned turn ids)
+still receive history and are bounded only by the line cap.
 
 Cancellation blocks reuse of the native thread until the matching `turn/completed`
 arrives, whether stop happened before or after `turn/start` acknowledged. If the

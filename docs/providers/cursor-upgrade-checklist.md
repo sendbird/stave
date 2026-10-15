@@ -12,7 +12,7 @@ baseline or its ACP integration.
 - Session resume: `session/load` when `loadSession` is advertised.
   ACP v1 `session/resume` (no history replay) is not used until a baseline
   advertises `sessionCapabilities.resume`.
-- NDJSON framing: accept stdout lines up to 32 MiB; drop a larger line and
+- NDJSON framing: accept stdout lines up to 128 MiB; drop a larger line and
   keep the process. ACP has no client-negotiated payload-size option.
 - Cursor Agent `RetriableError` envelopes (`PING timed out`,
   `NGHTTP2_INTERNAL_ERROR`, generic `[unavailable]` / `[internal]`,
