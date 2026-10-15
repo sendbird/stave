@@ -65,16 +65,38 @@ const ALLOWED_TOOL_NAMES = new Set(
     .map((name) => name.trim())
     .filter(Boolean),
 );
+/**
+ * Tools this client may never see or call, whatever the allow list says. A
+ * provider whose own permission evaluation Stave cannot observe (OpenCode
+ * allows tools before any request reaches Stave) gets the tools that answer
+ * another task's prompt removed here.
+ */
+const DENIED_TOOL_NAMES = new Set(
+  (process.env.STAVE_MCP_DENIED_TOOLS ?? "")
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean),
+);
+
+function isExposedToolName(name: string) {
+  if (DENIED_TOOL_NAMES.has(name)) {
+    return false;
+  }
+  return ALLOWED_TOOL_NAMES.size === 0 || ALLOWED_TOOL_NAMES.has(name);
+}
 
 function isAllowedToolCall(body: Record<string, unknown>) {
-  if (ALLOWED_TOOL_NAMES.size === 0 || body.method !== "tools/call") {
+  if (
+    (ALLOWED_TOOL_NAMES.size === 0 && DENIED_TOOL_NAMES.size === 0) ||
+    body.method !== "tools/call"
+  ) {
     return true;
   }
   const params =
     body.params && typeof body.params === "object"
       ? (body.params as Record<string, unknown>)
       : null;
-  return typeof params?.name === "string" && ALLOWED_TOOL_NAMES.has(params.name);
+  return typeof params?.name === "string" && isExposedToolName(params.name);
 }
 
 function filterToolList(
@@ -82,7 +104,7 @@ function filterToolList(
   response: unknown,
 ): unknown {
   if (
-    ALLOWED_TOOL_NAMES.size === 0 ||
+    (ALLOWED_TOOL_NAMES.size === 0 && DENIED_TOOL_NAMES.size === 0) ||
     body.method !== "tools/list" ||
     !response ||
     typeof response !== "object"
@@ -106,7 +128,7 @@ function filterToolList(
           return false;
         }
         const name = (tool as Record<string, unknown>).name;
-        return typeof name === "string" && ALLOWED_TOOL_NAMES.has(name);
+        return typeof name === "string" && isExposedToolName(name);
       }),
     },
   };

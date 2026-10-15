@@ -46,6 +46,24 @@ function update(value: Record<string, unknown>) {
   });
 }
 
+/**
+ * Like OpenCode, primary agents defined in the inline config become session
+ * modes. `no-custom-agents` stands for a build that ignores them.
+ */
+function inlineAgentModes(): string[] {
+  if (scenario === "no-custom-agents") return [];
+  try {
+    const content = JSON.parse(process.env.OPENCODE_CONFIG_CONTENT ?? "{}") as {
+      agent?: Record<string, { mode?: string }>;
+    };
+    return Object.entries(content.agent ?? {})
+      .filter(([name, agent]) => agent?.mode === "primary" && name !== "build" && name !== "plan")
+      .map(([name]) => name);
+  } catch {
+    return [];
+  }
+}
+
 function configOptions() {
   const efforts = MODEL_EFFORTS[currentModel] ?? [];
   return [
@@ -82,10 +100,10 @@ function configOptions() {
       category: "mode",
       type: "select",
       currentValue: currentMode,
-      options: [
-        { value: "build", name: "build" },
-        { value: "plan", name: "plan" },
-      ],
+      options: ["build", "plan", ...inlineAgentModes()].map((value) => ({
+        value,
+        name: value,
+      })),
     },
   ];
 }
@@ -232,7 +250,11 @@ input.on("line", (raw) => {
     pendingPromptId = undefined;
     return;
   }
-  if (scenario === "echo-session" || scenario === "plan-default") {
+  if (
+    scenario === "echo-session" ||
+    scenario === "plan-default" ||
+    scenario === "no-custom-agents"
+  ) {
     update({
       sessionUpdate: "agent_message_chunk",
       messageId: "msg_echo",

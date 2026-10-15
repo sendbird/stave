@@ -21,22 +21,35 @@ import {
 import { parsePositiveIntEnv, runExecutableProbe } from "../runtime-shared";
 import type { BridgeEvent, StreamTurnArgs } from "../types";
 import { OPENCODE_AUTHENTICATION_HELP } from "./opencode-auth";
+import { rememberOpenCodeAcpSessionId } from "./opencode-session-registry";
+import {
+  OPENCODE_BUILD_AGENT,
+  OPENCODE_CONFIG_CONTENT_ENV,
+  OPENCODE_LOCAL_MCP_DENIED_TOOLS,
+  OPENCODE_STAVE_MANUAL_AGENT,
+  OPENCODE_STAVE_READ_ONLY_AGENT,
+  OpenCodeConfigContentError,
+  buildOpenCodeConfigContent,
+  buildOpenCodePermissionRules,
+  parseOpenCodeConfigContent,
+  resolveOpenCodeTurnAgent,
+} from "./opencode-turn-config";
 import { resolveOpenCodeVersionSupport } from "./opencode-version";
 
 const OPENCODE_APPROVAL_TIMEOUT_DEFAULT_MS = 45 * 60 * 1000;
-const OPENCODE_CONFIG_CONTENT_ENV = "OPENCODE_CONFIG_CONTENT";
-/** OpenCode's primary agent; Stave turns always run it. */
-export const OPENCODE_BUILD_AGENT = "build";
-/**
- * Built-in agents a Stave turn can reach: the primary agents selectable as a
- * session mode and the subagents `build` delegates to. A permission rule a
- * user sets on one of these agents in their own OpenCode config outranks the
- * global rule, so Stave repeats its rule on each of them.
- */
-const OPENCODE_BUILT_IN_AGENTS = ["build", "plan", "general", "explore"] as const;
 
 type OpenCodeRuntimeOptions = NonNullable<StreamTurnArgs["runtimeOptions"]>;
-type PermissionRules = Record<string, unknown>;
+
+export {
+  OPENCODE_BUILD_AGENT,
+  OPENCODE_LOCAL_MCP_DENIED_TOOLS,
+  OPENCODE_STAVE_MANUAL_AGENT,
+  OPENCODE_STAVE_READ_ONLY_AGENT,
+  buildOpenCodeConfigContent,
+  buildOpenCodePermissionRules,
+  parseOpenCodeConfigContent,
+  resolveOpenCodeTurnAgent,
+};
 
 /** `opencode acp` has no approval or effort flags; both travel over ACP and env. */
 export function buildOpenCodeAcpCommandArgs() {
@@ -44,80 +57,10 @@ export function buildOpenCodeAcpCommandArgs() {
 }
 
 /**
- * The permission rules Stave adds for a turn, or null when it adds none.
- *
- * `manual` asks before every tool call (`"*": "ask"`); `denyEdits` removes
- * OpenCode's file edit tools. `auto` adds nothing: OpenCode keeps the user's
- * own rules, including `deny`, and Stave answers whatever OpenCode asks.
+ * The process env for a turn. Throws `OpenCodeConfigContentError` when the
+ * inherited inline config cannot be read, so the caller fails the turn
+ * instead of replacing that config.
  */
-export function buildOpenCodePermissionRules(args: {
-  approvalMode?: OpenCodeRuntimeOptions["opencodeApprovalMode"];
-  denyEdits?: boolean;
-}): PermissionRules | null {
-  const rules: PermissionRules = {
-    ...(args.approvalMode !== "auto" ? { "*": "ask" } : {}),
-    ...(args.denyEdits ? { edit: "deny" } : {}),
-  };
-  return Object.keys(rules).length > 0 ? rules : null;
-}
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  return value && typeof value === "object" && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-/**
- * OpenCode evaluates permission rules last match wins, and its config layers
- * merge objects key by key. Stave's keys are removed from the existing rules
- * and appended so they come last; rules for other tools stay in place.
- */
-function appendPermissionRules(existing: unknown, rules: PermissionRules) {
-  const base = asRecord(existing) ?? {};
-  const kept = Object.fromEntries(
-    Object.entries(base).filter(([key]) => !(key in rules)),
-  );
-  return { ...kept, ...rules };
-}
-
-/**
- * The `OPENCODE_CONFIG_CONTENT` value for a turn, merged over the value
- * already in the environment. OpenCode applies this inline config over the
- * global and project config, so the rules hold even when a project
- * `opencode.json` allows a tool. Returns undefined when Stave adds no rules,
- * so the inherited value passes through untouched.
- */
-export function buildOpenCodeConfigContent(args: {
-  rules: PermissionRules | null;
-  existing?: string;
-}): string | undefined {
-  if (!args.rules) {
-    return undefined;
-  }
-  let base: Record<string, unknown> = {};
-  if (args.existing?.trim()) {
-    try {
-      base = asRecord(JSON.parse(args.existing)) ?? {};
-    } catch {
-      // OpenCode would reject the malformed value anyway; Stave's rules win.
-      base = {};
-    }
-  }
-  const agents = { ...(asRecord(base.agent) ?? {}) };
-  for (const name of OPENCODE_BUILT_IN_AGENTS) {
-    const agent = asRecord(agents[name]) ?? {};
-    agents[name] = {
-      ...agent,
-      permission: appendPermissionRules(agent.permission, args.rules),
-    };
-  }
-  return JSON.stringify({
-    ...base,
-    permission: appendPermissionRules(base.permission, args.rules),
-    agent: agents,
-  });
-}
-
 export function buildOpenCodeTurnEnv(args: {
   executablePath: string;
   runtimeOptions?: OpenCodeRuntimeOptions;
@@ -127,16 +70,11 @@ export function buildOpenCodeTurnEnv(args: {
     executablePath: args.executablePath,
     baseEnv: args.baseEnv,
   });
-  const configContent = buildOpenCodeConfigContent({
-    rules: buildOpenCodePermissionRules({
-      approvalMode: args.runtimeOptions?.opencodeApprovalMode,
-      denyEdits: args.runtimeOptions?.opencodeDenyEdits,
-    }),
+  env[OPENCODE_CONFIG_CONTENT_ENV] = buildOpenCodeConfigContent({
+    approvalMode: args.runtimeOptions?.opencodeApprovalMode,
+    denyEdits: args.runtimeOptions?.opencodeDenyEdits,
     existing: env[OPENCODE_CONFIG_CONTENT_ENV],
   });
-  if (configContent !== undefined) {
-    env[OPENCODE_CONFIG_CONTENT_ENV] = configContent;
-  }
   return env;
 }
 
@@ -231,9 +169,23 @@ export async function streamOpenCodeWithAcp(
   const secretEnv = args.runtimeOptions?.boundSecretIds?.length
     ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
     : {};
+  let env: Record<string, string | undefined>;
+  try {
+    env = buildOpenCodeTurnEnv({
+      executablePath,
+      runtimeOptions: args.runtimeOptions,
+      baseEnv: secretEnv,
+    });
+  } catch (error) {
+    if (error instanceof OpenCodeConfigContentError) {
+      return fail(error.message);
+    }
+    throw error;
+  }
   const { servers: staveLocalMcpServers } =
     await resolveAcpEmbeddedStaveLocalMcpServers({
       turnGrants: args.staveTurnGrants,
+      deniedToolNames: OPENCODE_LOCAL_MCP_DENIED_TOOLS,
     });
   const mcpServers = await resolveAcpTurnMcpServers({
     targetProvider: "opencode",
@@ -241,31 +193,48 @@ export async function streamOpenCodeWithAcp(
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,
   });
+  const agent = resolveOpenCodeTurnAgent({
+    approvalMode: args.runtimeOptions?.opencodeApprovalMode,
+    denyEdits: args.runtimeOptions?.opencodeDenyEdits,
+  });
+  const resumeSessionId = args.runtimeOptions?.opencodeResumeSessionId;
+  if (resumeSessionId) {
+    rememberOpenCodeAcpSessionId(resumeSessionId);
+  }
   const effort = args.runtimeOptions?.opencodeEffort?.trim();
   return streamAcpProviderTurn({
-    turn: args,
+    turn: {
+      ...args,
+      // Standalone CLI discovery must never adopt a session an ACP turn made.
+      onEvent: (event) => {
+        if (event.type === "provider_session") {
+          rememberOpenCodeAcpSessionId(event.nativeSessionId);
+        }
+        args.onEvent?.(event);
+      },
+    },
     profile: {
       providerId: "opencode",
       displayName: "OpenCode",
       command: executablePath,
       commandArgs: args.acpArgsForTest ?? buildOpenCodeAcpCommandArgs(),
       cwd: runtimeCwd,
-      env: buildOpenCodeTurnEnv({
-        executablePath,
-        runtimeOptions: args.runtimeOptions,
-        baseEnv: secretEnv,
-      }),
-      resumeSessionId: args.runtimeOptions?.opencodeResumeSessionId,
+      env,
+      resumeSessionId,
       requestedModel: args.runtimeOptions?.model?.trim() || "auto",
       modelSetter: "config-option",
       sessionConfigOptions: [
-        { configId: "mode", value: OPENCODE_BUILD_AGENT, beforeModel: true },
+        // A Stave agent carries the turn's whole permission ceiling, so a
+        // session that does not offer it must not fall back to `build`.
+        {
+          configId: "mode",
+          value: agent,
+          beforeModel: true,
+          required: agent !== OPENCODE_BUILD_AGENT,
+        },
         ...(effort ? [{ configId: "effort", value: effort }] : []),
       ],
-      permissionPolicy:
-        args.runtimeOptions?.opencodeApprovalMode === "auto"
-          ? "auto-approve"
-          : "interactive",
+      permissionPolicy: agent === OPENCODE_BUILD_AGENT ? "auto-approve" : "interactive",
       promptParameterName: "prompt",
       supportsMidTurnSteering: false,
       authenticationHelp: OPENCODE_AUTHENTICATION_HELP,

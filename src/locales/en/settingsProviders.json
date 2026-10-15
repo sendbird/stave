@@ -1131,8 +1131,8 @@
     },
     "approvalPreset": {
       "title": "Approval Preset",
-      "description": "How much OpenCode may run without asking. \"opencode acp\" has no approval flag, so Manual adds an ask-before-every-tool rule to OpenCode's inline config for each turn.",
-      "note": "OpenCode has no partial-trust tier that Stave can verify, so there is no middle setting. Auto keeps OpenCode's own rules: anything you set to deny there stays denied."
+      "description": "How much OpenCode may run without asking. \"opencode acp\" has no approval flag, so Manual runs each turn on a Stave-defined OpenCode agent that asks before every tool call and cannot start subagents.",
+      "note": "OpenCode has no partial-trust tier that Stave can verify, so there is no middle setting. Auto keeps OpenCode's own build agent and rules: anything you set to deny there stays denied. In every preset, OpenCode never receives the Stave tools that answer another task's question. On OpenCode 2.x, MCP tools run through the execute tool, which runs its script and HTTP requests without asking in every preset; each tool the script calls asks in Manual."
     },
     "cli": {
       "title": "OpenCode CLI",

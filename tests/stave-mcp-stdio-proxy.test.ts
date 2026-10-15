@@ -427,4 +427,101 @@ describe("stave-mcp-stdio-proxy", () => {
     expect(stderr).toContain("its Stave instance is no longer running");
     expect(stderr).not.toContain("connected →");
   }, 15_000);
+
+  test("hides denied tools from tools/list and refuses calls to them", async () => {
+    const tempHome = await mkdtemp(path.join(tmpdir(), "stave-mcp-proxy-deny-"));
+    cleanupPaths.push(tempHome);
+    await mkdir(path.join(tempHome, ".stave"), { recursive: true });
+    const callLogPath = path.join(tempHome, "calls.log");
+    const portPath = path.join(tempHome, "server-port.txt");
+
+    const server = Bun.spawn([
+      "node",
+      "-e",
+      `
+        const fs = require("node:fs");
+        const http = require("node:http");
+        const callLogPath = process.argv[1];
+        const portPath = process.argv[2];
+        const server = http.createServer(async (req, res) => {
+          const chunks = [];
+          for await (const chunk of req) chunks.push(Buffer.from(chunk));
+          const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
+          fs.appendFileSync(callLogPath, JSON.stringify({ method: body.method, name: body.params?.name }) + "\\n");
+          res.statusCode = 200;
+          res.setHeader("content-type", "application/json");
+          const result = body.method === "tools/list"
+            ? { tools: [
+                { name: "stave_respond_user_input", inputSchema: { type: "object" } },
+                { name: "stave_get_workspace_information", inputSchema: { type: "object" } },
+              ] }
+            : { content: [{ type: "text", text: "called " + body.params?.name }] };
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: body.id, result }));
+        });
+        server.listen(0, "127.0.0.1", () => {
+          fs.writeFileSync(portPath, String(server.address().port));
+        });
+      `,
+      callLogPath,
+      portPath,
+    ], {
+      cwd: REPO_ROOT,
+      stdout: "ignore",
+      stderr: "pipe",
+    });
+    cleanupChildren.push(server);
+    const port = await waitForFile({ filePath: portPath, timeoutMs: 5_000 });
+    await writeFile(
+      path.join(tempHome, ".stave", "local-mcp.json"),
+      `${JSON.stringify({ url: `http://127.0.0.1:${port}/mcp`, token: "test-token", pid: process.pid })}\n`,
+    );
+
+    const child = Bun.spawn([process.execPath, "electron/main/stave-mcp-stdio-proxy.ts"], {
+      cwd: REPO_ROOT,
+      env: proxyEnv(tempHome, {
+        STAVE_MCP_DENIED_TOOLS: "stave_respond_user_input,stave_respond_approval",
+      }),
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    cleanupChildren.push(child);
+    if (!child.stdin) {
+      throw new Error("Failed to open stdin for proxy process.");
+    }
+    await child.stdin.write(
+      [
+        { jsonrpc: "2.0", id: 1, method: "tools/list", params: {} },
+        {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: { name: "stave_respond_user_input", arguments: { requestId: "x", answer: "yes" } },
+        },
+        {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: { name: "stave_get_workspace_information", arguments: {} },
+        },
+      ]
+        .map((message) => JSON.stringify(message))
+        .join("\n") + "\n",
+    );
+    await child.stdin.end();
+    await child.exited;
+    const stdout = child.stdout ? await new Response(child.stdout).text() : "";
+    const responses = stdout
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as { id: number; result?: any; error?: any });
+    const byId = new Map(responses.map((response) => [response.id, response]));
+    expect(byId.get(1)?.result.tools.map((tool: { name: string }) => tool.name)).toEqual([
+      "stave_get_workspace_information",
+    ]);
+    expect(byId.get(2)?.error?.message).toContain("not available");
+    expect(byId.get(3)?.result?.content?.[0]?.text).toBe("called stave_get_workspace_information");
+    const calls = (await readFile(callLogPath, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
+    expect(calls).not.toContainEqual({ method: "tools/call", name: "stave_respond_user_input" });
+  }, 15_000);
 });

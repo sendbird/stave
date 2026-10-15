@@ -267,7 +267,7 @@
     "thisSettingsCombinationNoLongerMatches": "This settings combination no longer matches a built-in preset.",
     "providerModePresetsAreRequired": "Provider mode presets are required.",
     "opencodeAutoApprovesEveryToolPermission": "Stave approves every permission request OpenCode sends. Rules you set to deny in OpenCode still apply. Use only in trusted workspaces.",
-    "opencodeAsksBeforeEveryToolCall": "OpenCode asks before every tool call. Nothing runs without an explicit approval.",
+    "opencodeAsksBeforeEveryToolCall": "OpenCode asks before every tool call and cannot start subagents. On OpenCode 2.x, the execute tool runs its script and HTTP requests without asking; each tool the script calls still asks.",
     "opencodeApprovalsOffAllowOnce": "Approvals off / every request allowed once"
   },
   "runtimeOptionContract": {

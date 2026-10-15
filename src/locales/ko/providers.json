@@ -267,7 +267,7 @@
     "thisSettingsCombinationNoLongerMatches": "현재 설정 조합이 기본 프리셋과 일치하지 않습니다.",
     "providerModePresetsAreRequired": "프로바이더 모드 프리셋이 필요합니다.",
     "opencodeAutoApprovesEveryToolPermission": "OpenCode가 보내는 모든 권한 요청을 Stave가 승인합니다. OpenCode에서 거부로 설정한 규칙은 그대로 적용됩니다. 신뢰할 수 있는 워크스페이스에서만 사용하십시오.",
-    "opencodeAsksBeforeEveryToolCall": "OpenCode가 모든 도구 호출 전에 승인을 요청합니다. 명시적인 승인 없이는 실행하지 않습니다.",
+    "opencodeAsksBeforeEveryToolCall": "OpenCode가 모든 도구 호출 전에 승인을 요청하고 서브에이전트를 시작할 수 없습니다. OpenCode 2.x에서는 execute 도구가 스크립트와 HTTP 요청을 승인 없이 실행하며, 스크립트가 호출하는 각 도구는 승인을 요청합니다.",
     "opencodeApprovalsOffAllowOnce": "승인 해제 / 모든 요청을 한 번 허용"
   },
   "runtimeOptionContract": {

@@ -138,6 +138,8 @@ export interface AcpProviderRuntimeProfile {
     configId: string;
     value: string;
     beforeModel?: boolean;
+    /** Fail the turn when the session does not advertise this option and value. */
+    required?: boolean;
   }[];
   modelConfigId?: string;
   modelSetter?: "config-option" | "legacy-set-model";
@@ -693,11 +695,19 @@ export async function streamAcpProviderTurn(args: {
         const advertised = mapper
           .getConfigOptions()
           .find((candidate) => candidate.id === option.configId);
-        if (
-          !advertised ||
-          advertised.currentValue === option.value ||
-          !listConfigOptionValues(advertised).includes(option.value)
-        ) {
+        const offered =
+          advertised !== undefined &&
+          (advertised.currentValue === option.value ||
+            listConfigOptionValues(advertised).includes(option.value));
+        if (!offered) {
+          if (option.required) {
+            throw new AcpProtocolError(
+              `${profile.displayName} session did not offer ${option.configId} "${option.value}", which this turn requires.`,
+            );
+          }
+          continue;
+        }
+        if (advertised.currentValue === option.value) {
           continue;
         }
         const result = await client.setConfigOption({

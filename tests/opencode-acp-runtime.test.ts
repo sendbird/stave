@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
+  OPENCODE_LOCAL_MCP_DENIED_TOOLS,
   buildOpenCodeAcpCommandArgs,
   buildOpenCodeConfigContent,
   buildOpenCodePermissionRules,
   buildOpenCodeTurnEnv,
   interpretOpenCodeFailure,
+  parseOpenCodeConfigContent,
+  resolveOpenCodeTurnAgent,
   streamOpenCodeWithAcp,
 } from "../electron/providers/opencode/opencode-acp-profile";
 import {
@@ -109,51 +112,115 @@ describe("OpenCode version support", () => {
   });
 });
 
+/** Tool families OpenCode 2.x runs without a permission check. */
+const UNGATED_TOOL_DENIES = { "opencode_*": "deny", browser: "deny" } as const;
+
 describe("OpenCode permission config", () => {
   test("`opencode acp` takes no approval flag", () => {
     expect(buildOpenCodeAcpCommandArgs()).toEqual(["acp"]);
   });
 
-  test("manual asks for every tool, read only also removes edit tools, auto adds nothing", () => {
-    expect(buildOpenCodePermissionRules({ approvalMode: "manual" })).toEqual({ "*": "ask" });
+  test("Manual and read-only run on a Stave agent; Auto keeps OpenCode's build agent", () => {
+    expect(resolveOpenCodeTurnAgent({ approvalMode: "manual" })).toBe("stave-manual");
     // An unset mode is the fail-safe default, never approvals off.
-    expect(buildOpenCodePermissionRules({})).toEqual({ "*": "ask" });
+    expect(resolveOpenCodeTurnAgent({})).toBe("stave-manual");
+    expect(resolveOpenCodeTurnAgent({ approvalMode: "manual", denyEdits: true })).toBe("stave-read-only");
+    expect(resolveOpenCodeTurnAgent({ approvalMode: "auto", denyEdits: true })).toBe("stave-read-only");
+    expect(resolveOpenCodeTurnAgent({ approvalMode: "auto" })).toBe("build");
+    expect(buildOpenCodePermissionRules({ approvalMode: "manual" })).toEqual({
+      "*": "ask",
+      task: "deny",
+      ...UNGATED_TOOL_DENIES,
+    });
     expect(buildOpenCodePermissionRules({ approvalMode: "manual", denyEdits: true })).toEqual({
       "*": "ask",
       edit: "deny",
+      task: "deny",
+      ...UNGATED_TOOL_DENIES,
     });
     expect(buildOpenCodePermissionRules({ approvalMode: "auto" })).toBeNull();
   });
 
-  test("repeats the rules on the built-in agents and appends them after existing rules", () => {
-    const content = buildOpenCodeConfigContent({
-      rules: { "*": "ask", edit: "deny" },
-      existing: JSON.stringify({
-        theme: "system",
-        permission: { edit: "allow", bash: { "git *": "allow" } },
-        agent: { build: { model: "vercel/zai/glm-5.3", permission: { bash: "allow" } } },
-      }),
-    });
-    const parsed = JSON.parse(content!) as Record<string, any>;
-    expect(parsed.theme).toBe("system");
-    // Last match wins in OpenCode, so Stave's keys must come after the user's.
-    expect(Object.keys(parsed.permission)).toEqual(["bash", "*", "edit"]);
-    expect(parsed.permission).toEqual({ bash: { "git *": "allow" }, "*": "ask", edit: "deny" });
-    expect(parsed.agent.build.model).toBe("vercel/zai/glm-5.3");
-    expect(Object.keys(parsed.agent.build.permission)).toEqual(["bash", "*", "edit"]);
-    for (const agent of ["build", "plan", "general", "explore"]) {
-      expect(parsed.agent[agent].permission["*"]).toBe("ask");
+  test("hides the OpenCode 2.x code-mode tools that never ask", () => {
+    // OpenCode 2.0.29 runs `opencode_worktree_create`, `opencode_session_move`
+    // and the browser tools without a permission check; only a wildcard deny
+    // removes them. The ask-everything rule must come first, because OpenCode
+    // applies the last matching rule.
+    for (const rules of [
+      buildOpenCodePermissionRules({ approvalMode: "manual" }),
+      buildOpenCodePermissionRules({ approvalMode: "manual", denyEdits: true }),
+    ]) {
+      expect(rules).toMatchObject(UNGATED_TOOL_DENIES);
+      expect(Object.keys(rules ?? {})[0]).toBe("*");
     }
   });
 
-  test("leaves the inherited config untouched in auto", () => {
-    expect(buildOpenCodeConfigContent({ rules: null, existing: "{}" })).toBeUndefined();
+  test("owns the whole permission object of its agent, whatever the inherited config holds", () => {
+    const content = buildOpenCodeConfigContent({
+      approvalMode: "manual",
+      denyEdits: true,
+      existing: JSON.stringify({
+        theme: "system",
+        permission: { edit: "allow", "*": "allow" },
+        agent: {
+          build: { permission: { "*": "allow", bash: "allow" } },
+          "stave-read-only": { permission: { bash: "allow" }, prompt: "user prompt" },
+        },
+      }),
+    });
+    const parsed = JSON.parse(content) as Record<string, any>;
+    expect(parsed.theme).toBe("system");
+    // The user's own rules stay as they were; Stave adds its own agent.
+    expect(parsed.permission).toEqual({ edit: "allow", "*": "allow" });
+    expect(parsed.agent.build).toEqual({ permission: { "*": "allow", bash: "allow" } });
+    expect(parsed.agent["stave-read-only"]).toEqual({
+      mode: "primary",
+      description: expect.any(String),
+      permission: { "*": "ask", edit: "deny", task: "deny", ...UNGATED_TOOL_DENIES },
+    });
+  });
+
+  test("Auto keeps the user's build rules and asks for the tools that answer another task", () => {
+    const parsed = JSON.parse(
+      buildOpenCodeConfigContent({
+        approvalMode: "auto",
+        existing: JSON.stringify({ agent: { build: { permission: { "*": "allow", bash: "allow" } } } }),
+      }),
+    ) as Record<string, any>;
+    expect(parsed.agent.build.permission).toEqual({
+      "*": "allow",
+      bash: "allow",
+      "stave-local-mcp_stave_respond_approval": "ask",
+      "stave-local-mcp_stave_respond_user_input": "ask",
+    });
+    // The new keys come after the user's, so the last match is Stave's.
+    expect(Object.keys(parsed.agent.build.permission).slice(-2)).toEqual([
+      "stave-local-mcp_stave_respond_approval",
+      "stave-local-mcp_stave_respond_user_input",
+    ]);
+  });
+
+  test("never hands OpenCode the Stave tools that answer another task", () => {
+    expect([...OPENCODE_LOCAL_MCP_DENIED_TOOLS].sort()).toEqual([
+      "stave_respond_approval",
+      "stave_respond_user_input",
+    ]);
+  });
+
+  test("reads inherited JSONC the way OpenCode does and refuses what it cannot read", () => {
+    expect(
+      parseOpenCodeConfigContent(
+        '{\n  // comment\n  "model": "vercel/example", /* block */\n  "url": "https://x.test//y",\n  "list": [1, 2,],\n}',
+      ),
+    ).toEqual({ model: "vercel/example", url: "https://x.test//y", list: [1, 2] });
+    expect(() => parseOpenCodeConfigContent('{"model": }')).toThrow(/OPENCODE_CONFIG_CONTENT/);
+    expect(() => parseOpenCodeConfigContent("[1, 2]")).toThrow(/OPENCODE_CONFIG_CONTENT/);
     const env = buildOpenCodeTurnEnv({
       executablePath: process.execPath,
-      runtimeOptions: { opencodeApprovalMode: "auto" },
-      baseEnv: { OPENCODE_CONFIG_CONTENT: '{"theme":"system"}' },
+      runtimeOptions: { opencodeApprovalMode: "manual" },
+      baseEnv: { OPENCODE_CONFIG_CONTENT: '{"model":"vercel/example",}' },
     });
-    expect(env.OPENCODE_CONFIG_CONTENT).toBe('{"theme":"system"}');
+    expect(JSON.parse(env.OPENCODE_CONFIG_CONTENT ?? "{}").model).toBe("vercel/example");
   });
 
   test("recognises OpenCode's single-underscore Local MCP tool names", () => {
@@ -252,8 +319,12 @@ describe("OpenCode ACP runtime", () => {
       ),
     ).toBe(true);
     const content = JSON.parse(session.configContent ?? "null") as Record<string, any>;
-    expect(content.permission).toEqual({ "*": "ask" });
-    expect(content.agent.build.permission).toEqual({ "*": "ask" });
+    expect(content.agent["stave-manual"]).toMatchObject({
+      mode: "primary",
+      permission: { "*": "ask", task: "deny", ...UNGATED_TOOL_DENIES },
+    });
+    expect(session.mode).toBe("stave-manual");
+    expect(session.configCalls[0]).toBe("mode=stave-manual");
   });
 
   test("removes edit tools for a read-only agent", async () => {
@@ -264,13 +335,42 @@ describe("OpenCode ACP runtime", () => {
         }),
       ),
     );
-    expect(JSON.parse(session.configContent ?? "null").permission).toEqual({
+    expect(JSON.parse(session.configContent ?? "null").agent["stave-read-only"].permission).toEqual({
       "*": "ask",
       edit: "deny",
+      task: "deny",
+      ...UNGATED_TOOL_DENIES,
     });
+    expect(session.mode).toBe("stave-read-only");
   });
 
-  test("keeps OpenCode's own permission config in auto", async () => {
+  test("refuses a Manual turn when OpenCode does not offer the Stave agent", async () => {
+    const events = await streamOpenCodeWithAcp(
+      createTurnArgs("no-custom-agents", { runtimeOptions: { opencodeApprovalMode: "manual" } }),
+    );
+    expect(events.some((event) => event.type === "text")).toBe(false);
+    const failure = events.find((event) => event.type === "error");
+    expect(failure?.type === "error" ? failure.message : "").toContain("stave-manual");
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "runtime_failure" },
+    ]);
+  });
+
+  test("blocks the turn instead of discarding an inherited config it cannot read", async () => {
+    const previous = process.env.OPENCODE_CONFIG_CONTENT;
+    process.env.OPENCODE_CONFIG_CONTENT = '{"model": }';
+    try {
+      const events = await streamOpenCodeWithAcp(createTurnArgs("standard"));
+      expect(events.some((event) => event.type === "provider_session")).toBe(false);
+      const failure = events.find((event) => event.type === "error");
+      expect(failure?.type === "error" ? failure.message : "").toContain("OPENCODE_CONFIG_CONTENT");
+    } finally {
+      if (previous === undefined) delete process.env.OPENCODE_CONFIG_CONTENT;
+      else process.env.OPENCODE_CONFIG_CONTENT = previous;
+    }
+  });
+
+  test("keeps OpenCode's build agent and the user's rules in auto", async () => {
     const session = echoedSession(
       await streamOpenCodeWithAcp(
         createTurnArgs("echo-session", {
@@ -278,10 +378,17 @@ describe("OpenCode ACP runtime", () => {
         }),
       ),
     );
-    expect(session.configContent).toBe(process.env.OPENCODE_CONFIG_CONTENT ?? null);
+    const content = JSON.parse(session.configContent ?? "null") as Record<string, any>;
+    expect(content.permission).toBeUndefined();
+    expect(content.agent.build.permission).toEqual({
+      "stave-local-mcp_stave_respond_approval": "ask",
+      "stave-local-mcp_stave_respond_user_input": "ask",
+    });
+    expect(session.mode).toBe("build");
+    expect(session.configCalls).toEqual([]);
   });
 
-  test("selects the build agent first, then the model, then an effort the model offers", async () => {
+  test("selects the turn's agent first, then the model, then an effort the model offers", async () => {
     const events = await streamOpenCodeWithAcp(
       createTurnArgs("echo-session", {
         line: "v2",
@@ -289,8 +396,12 @@ describe("OpenCode ACP runtime", () => {
       }),
     );
     const session = echoedSession(events);
-    expect(session.configCalls).toEqual(["model=opencode/cat-jam-free", "effort=high"]);
-    expect(session).toMatchObject({ model: "opencode/cat-jam-free", effort: "high", mode: "build" });
+    expect(session.configCalls).toEqual([
+      "mode=stave-manual",
+      "model=opencode/cat-jam-free",
+      "effort=high",
+    ]);
+    expect(session).toMatchObject({ model: "opencode/cat-jam-free", effort: "high", mode: "stave-manual" });
     expect(events).toContainEqual({
       type: "model_resolved",
       resolvedProviderId: "opencode",
@@ -302,7 +413,7 @@ describe("OpenCode ACP runtime", () => {
     const session = echoedSession(
       await streamOpenCodeWithAcp(
         createTurnArgs("plan-default", {
-          runtimeOptions: { model: "vercel/zai/glm-5.3" },
+          runtimeOptions: { model: "vercel/zai/glm-5.3", opencodeApprovalMode: "auto" },
         }),
       ),
     );
@@ -314,7 +425,11 @@ describe("OpenCode ACP runtime", () => {
     const session = echoedSession(
       await streamOpenCodeWithAcp(
         createTurnArgs("echo-session", {
-          runtimeOptions: { model: "vercel/zai/glm-5.3", opencodeEffort: "low" },
+          runtimeOptions: {
+            model: "vercel/zai/glm-5.3",
+            opencodeEffort: "low",
+            opencodeApprovalMode: "auto",
+          },
         }),
       ),
     );

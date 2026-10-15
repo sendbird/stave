@@ -139,10 +139,14 @@ export function isAlwaysAllowedStaveLocalMcpTool(toolName: string) {
  * on its own; they always reach the user. (`stave_respond_approval` is not
  * served to MCP clients at all; it stays listed in case an old client asks.)
  */
-const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES = new Set([
+export const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOLS = Object.freeze([
   "stave_respond_approval",
   "stave_respond_user_input",
-]);
+] as const);
+
+const STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES: ReadonlySet<string> = new Set(
+  STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOLS,
+);
 
 export function isNeverAutoApprovedStaveLocalMcpTool(toolName: string) {
   return STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOL_NAMES.has(

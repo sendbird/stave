@@ -583,11 +583,14 @@ export async function resolveAcpSharedMcpServers(args: {
  */
 export async function resolveAcpEmbeddedStaveLocalMcpServers(args?: {
   turnGrants?: StaveTurnGrants;
+  /** Tools the Local MCP proxy hides from and refuses to this provider. */
+  deniedToolNames?: readonly string[];
 }) {
   return {
     servers: await resolveAcpStaveLocalMcpServers({
       allowedToolNames: [],
       turnGrants: args?.turnGrants,
+      ...(args?.deniedToolNames ? { deniedToolNames: args.deniedToolNames } : {}),
     }),
   };
 }

@@ -149,8 +149,13 @@ describe("OpenCode approval presets", () => {
     ).toBe("Approvals off / every request allowed once");
   });
 
-  test("maps Manual to an ask rule and Auto to OpenCode's own rules", () => {
-    expect(buildOpenCodePermissionRules({ approvalMode: "manual" })).toEqual({ "*": "ask" });
+  test("maps Manual to a Stave agent that asks and Auto to OpenCode's own rules", () => {
+    expect(buildOpenCodePermissionRules({ approvalMode: "manual" })).toEqual({
+      "*": "ask",
+      task: "deny",
+      "opencode_*": "deny",
+      browser: "deny",
+    });
     expect(buildOpenCodePermissionRules({ approvalMode: "auto" })).toBeNull();
   });
 });
