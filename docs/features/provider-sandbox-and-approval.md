@@ -214,25 +214,44 @@ cannot verify.
 ### OpenCode
 
 OpenCode exposes the same Approval Preset with two tiers. `opencode acp` has no
-approval flag, so Stave delivers each tier per turn.
+approval flag, so Stave delivers each tier per turn through OpenCode's inline
+config (`OPENCODE_CONFIG_CONTENT`).
 
-- `Manual`: OpenCode asks before every tool call, reads included. Stave adds an
-  ask rule for every tool to OpenCode's inline config (`OPENCODE_CONFIG_CONTENT`)
-  for the turn, on the global rules and on OpenCode's built-in `build`, `plan`,
-  `general` and `explore` agents, so it holds even when your global or project
-  `opencode.json` allows a tool. A permission rule you set on a custom agent of
-  your own still applies to that agent.
-- `Auto`: Stave leaves OpenCode's permission config as you set it and answers
-  every request OpenCode sends with allow once. Rules you set to `deny` still
-  apply, because OpenCode never asks for them. OpenCode's own default allows
-  most tools without asking.
+- `Manual`: the turn runs as `stave-manual`, an OpenCode agent Stave defines
+  for that turn. It asks before every tool call, reads included, and cannot
+  start subagents (`task` is denied, because a subagent would run under rules
+  Stave does not set). The agent's rules are Stave's alone and OpenCode applies
+  agent rules after your global ones, so this holds even when your global or
+  project `opencode.json` allows a tool or gives the `build` agent an allow
+  rule. If OpenCode does not offer the agent, the turn stops instead of running
+  on `build`.
+- `Auto`: the turn runs on OpenCode's own `build` agent with your rules. Stave
+  answers every request OpenCode sends with allow once. Rules you set to `deny`
+  still apply, because OpenCode never asks for them. OpenCode's own default
+  allows most tools without asking.
 
-A read-only agent on OpenCode runs in `Manual` and also removes OpenCode's file
-edit tools (an `edit: deny` rule). A shell command you approve can still write.
-OpenCode's `plan` mode is not used for this, because it does not stop shell
-writes. Stave always runs OpenCode's `build` agent.
+A read-only agent on OpenCode runs as `stave-read-only`: `Manual` plus OpenCode's
+file edit tools removed (`edit: deny`). A shell command you approve can still
+write. OpenCode's `plan` mode is not used for this, because a shell command
+still writes in it.
 
-Stave tools that answer another task's prompt always reach you, even in `Auto`.
+OpenCode 2.x runs MCP tools, Stave's included, through its code-mode `execute`
+tool. That tool does not ask in any preset: its script and the HTTP requests
+the script makes with `fetch` run without approval. It has no file system
+access, and in `Manual` and read-only every tool the script calls asks first.
+OpenCode's own code-mode tools that never ask (creating worktrees, moving or
+renaming sessions, the desktop browser) are removed from `stave-manual` and
+`stave-read-only`. OpenCode 1.x has no code mode.
+
+In every preset, OpenCode never receives the Stave tools that answer another
+task's question: the Local MCP connection hides them and refuses calls to them,
+and the `build` agent also asks before them. A shell command can still read the
+Local MCP connection file in your home folder and call Stave directly, the same
+as for any provider whose shell runs without asking, so keep OpenCode in
+`Manual` for work you do not trust.
+
+Stave reserves the OpenCode agent names `stave-manual` and `stave-read-only`;
+do not define agents with those names in your own OpenCode config.
 
 ## Quick Start
 

@@ -380,7 +380,7 @@ Fleet's search finds its tasks.
 
   | Agent | Claude | Codex | Cursor | Kiro | OpenCode |
   | --- | --- | --- | --- | --- | --- |
-  | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit | Manual, edit tools off |
+  | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit | Stave read-only agent: asks before every tool, edit tools and subagents off |
   | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks, or in an Auto agent's run, Codex auto-review when available; at least workspace files, or your full access | Your settings | Your settings | Your settings |
 
   The only interrupts left are the Agent-mode guardrails (all on by default;
@@ -391,9 +391,13 @@ Fleet's search finds its tasks.
   [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-guardrails).
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in
-  instructions**. OpenCode removes its file edit tools for a read-only agent
-  (an `edit: deny` permission rule) and asks before every other tool, so the
-  limit is enforced; a shell command you approve can still write.
+  instructions**. OpenCode runs a read-only agent as `stave-read-only`, an
+  OpenCode agent Stave defines whose rules your OpenCode config cannot
+  override: file edit tools are removed, subagents are off and every other
+  tool asks, so the limit is enforced; a shell command you approve can still
+  write. On OpenCode 2.x the code-mode `execute` tool, which serves MCP tools,
+  runs its script and HTTP requests without asking; it cannot write files, and
+  each tool it calls asks.
   Read only covers the repository, not Stave's own records of the work: a
   read-only agent can still add workspace notes, todos, links and custom
   fields, write a plan file with `stave_write_plan_file`, and report or block
