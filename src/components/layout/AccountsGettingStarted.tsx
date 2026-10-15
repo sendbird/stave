@@ -271,7 +271,9 @@ export function AccountsGettingStartedWelcome(props: { fallback: ReactNode }) {
 export function AccountsGettingStartedWelcomeView({ checklist, fallback }: { checklist: AccountsOnboardingChecklist; fallback: ReactNode }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   if (!checklist.known || checklist.ready) return <>{fallback}</>;
-  const required = checklist.steps.flatMap((step, index) => (step.optional ? [] : [{ step, number: index + 1 }]));
+  // The welcome lists only the required steps, so it shows them without the
+  // checklist's numbers (which would skip from 2 to 5).
+  const required = checklist.steps.filter((step) => !step.optional);
   return <section className={sx(styles.welcome)} aria-labelledby="welcome-getting-started" data-testid="welcome-getting-started">
     <div className={sx(styles.welcomeHeader)}>
       <h2 id="welcome-getting-started" className={sx(styles.welcomeTitle)}>{t("settingsConnections:accountsOnboarding.welcome.title")}</h2>
@@ -279,9 +281,9 @@ export function AccountsGettingStartedWelcomeView({ checklist, fallback }: { che
     </div>
     <p className={sx(styles.rowDetail)}>{t("settingsConnections:accountsOnboarding.welcome.description")}</p>
     <ol className={sx(styles.welcomeSteps)}>
-      {required.map(({ step, number }) => <li key={step.id} className={sx(styles.welcomeStep, step.status === "todo" && styles.welcomeStepTodo)}>
+      {required.map((step) => <li key={step.id} className={sx(styles.welcomeStep, step.status === "todo" && styles.welcomeStepTodo)}>
         <StepIcon status={step.status} small />
-        <span>{t("settingsConnections:accountsOnboarding.stepNumber", { value1: number, value2: stepTitle(step) })}</span>
+        <span>{stepTitle(step)}</span>
         <span>{t("settingsConnections:accountsOnboarding.statusSuffix", { value1: statusLabel(step.status) })}</span>
       </li>)}
     </ol>

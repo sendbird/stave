@@ -720,7 +720,7 @@
       "description": "These CLIs keep their own sign-in. Stave shows whether they are signed in and the command that signs in.",
       "checking": "Checking",
       "notInstalled": "CLI not installed",
-      "installHint": "Install the {{value1}} CLI to use it. Settings > Tooling shows where Stave looks.",
+      "installHint": "Install {{value1}} to use it. Settings > Tooling shows where Stave looks.",
       "loginHint": "Sign in in a terminal with {{value1}}."
     },
     "help": "How accounts, subscriptions and gateway keys work:"

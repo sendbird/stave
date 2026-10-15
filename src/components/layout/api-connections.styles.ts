@@ -50,13 +50,9 @@ export const apiConnectionStyles = stylex.create({
     padding: 0,
     listStyle: "none",
   },
-  /** The inline "Paste a new key" form, indented under the key picker it fills. */
+  /** The inline "Paste a new key" form under the key picker it fills; spacing only, no rule. */
   newKey: {
-    borderInlineStartColor: vars["--ads-color-border"],
-    borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars["--ads-border-width-hairline"],
     marginBlockStart: vars["--ads-space-4"],
-    paddingInlineStart: vars["--ads-space-12"],
   },
   steps: {
     columnGap: vars["--ads-space-16"],

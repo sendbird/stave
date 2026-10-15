@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { i18n } from "@/i18n";
 import { TooltipProvider } from "@/components/ui";
 import { AccountsSection } from "@/components/layout/settings-dialog-accounts-section";
 import { ToolingSection } from "@/components/layout/settings-dialog-tooling-section";
@@ -110,6 +111,15 @@ describe("Getting started card", () => {
     expect(html).not.toContain("Sign in to Claude Code");
   });
 
+  test("a CLI that is not installed names itself once, in both languages", () => {
+    for (const lng of ["en", "ko"]) {
+      for (const name of ["Kiro CLI", "Cursor Agent", "OpenCode"]) {
+        expect(i18n.t("settingsConnections:accountsSection.cliManaged.installHint", { value1: name, lng })).not.toContain("CLI CLI");
+        expect(i18n.t("composer:accountNotice.cliMissing", { value1: name, lng })).not.toContain("CLI CLI");
+      }
+    }
+  });
+
   test("a CLI-managed provider signs in through its own login, without a workspace", () => {
     const html = render(createElement(AccountsGettingStartedCardView, { ...props, checklist: checklist({ workspaceOpen: false, providers: { cursor: { installed: true, signedIn: false } } }) }));
     expect(html).toContain("Cursor Agent keeps its own sign-in.");
@@ -157,7 +167,9 @@ describe("welcome Getting started", () => {
   test("replaces the accounts sentence while no provider can take a turn", () => {
     const html = render(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: checklist() }));
     expect(html).toContain("No provider can take a turn yet.");
-    expect(inOrder(html, ["1. Install a provider CLI", "2. Sign in", "5. Pick a model"])).toBe(true);
+    expect(inOrder(html, ["Install a provider CLI", "Sign in", "Pick a model"])).toBe(true);
+    // Only the required steps are listed, so no checklist numbers (1, 2, 5) show.
+    expect(html).not.toMatch(/\b[125]\. /);
     expect(html).not.toContain("Add another account");
     expect(html).toContain("Open Accounts");
     expect(html).not.toContain("original accounts sentence");
