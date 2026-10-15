@@ -117,4 +117,11 @@ test.describe("agent avatar icon", () => {
     await expect(trigger).toHaveAccessibleName("Icon: Initials");
     await expect(profile.getByRole("button", { name: "Red" })).toHaveAttribute("aria-pressed", "true");
   });
+
+  test("built-in agents show their icons in the list", async ({ page }) => {
+    await page.goto("/?stavePreview=agents");
+    for (const icon of ["hammer", "compass", "bug", "paintbrush", "search-check", "telescope", "rocket"]) {
+      await expect(page.locator(`svg.lucide-${icon}`).first()).toBeVisible();
+    }
+  });
 });
