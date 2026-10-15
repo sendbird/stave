@@ -64,21 +64,31 @@ function useProviderSignedIn(providerId: AccountsOnboardingAccountProviderId, pr
   return available || authenticated || registeredSignedIn;
 }
 
-/** Whether any Claude or Codex sign-in account still registered is signed in, for "In use". */
+/**
+ * Whether a Claude or Codex subscription is in use, for "In use": that
+ * provider's CLI is installed and a registered sign-in account works, the same
+ * per-provider rule as Getting started's ready.
+ */
 export function useRegisteredSubscriptionSignedIn() {
   const profiles = useProviderAccounts((state) => state.profiles);
   const identities = useProviderAccountIdentities((state) => state.byKey);
   const claudeKey = useSelectedConfigurationKey("claude-code");
   const codexKey = useSelectedConfigurationKey("codex");
-  const authenticated = useProviderReadinessStore((state) =>
-    (["claude-code", "codex"] as const).some((providerId) => {
-      const readiness = state.providers[providerId];
-      return readiness?.configurationKey === (providerId === "codex" ? codexKey : claudeKey) && readiness.tool.authState === "authenticated";
-    }),
-  );
+  const claudeAuthenticated = useProviderReadinessStore((state) => {
+    const readiness = state.providers["claude-code"];
+    return readiness?.configurationKey === claudeKey && readiness.tool.authState === "authenticated";
+  });
+  const codexAuthenticated = useProviderReadinessStore((state) => {
+    const readiness = state.providers.codex;
+    return readiness?.configurationKey === codexKey && readiness.tool.authState === "authenticated";
+  });
+  const claudeInstalled = useProviderInstalled("claude-code");
+  const codexInstalled = useProviderInstalled("codex");
   return useMemo(
-    () => authenticated || (["claude-code", "codex"] as const).some((providerId) => registeredAccountSignedIn({ providerId, profiles, identities })),
-    [authenticated, identities, profiles],
+    () =>
+      (claudeInstalled === true && (claudeAuthenticated || registeredAccountSignedIn({ providerId: "claude-code", profiles, identities }))) ||
+      (codexInstalled === true && (codexAuthenticated || registeredAccountSignedIn({ providerId: "codex", profiles, identities }))),
+    [claudeAuthenticated, claudeInstalled, codexAuthenticated, codexInstalled, identities, profiles],
   );
 }
 

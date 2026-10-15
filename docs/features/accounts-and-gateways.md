@@ -34,7 +34,7 @@ New to Stave? Open **Settings > Accounts** and follow **Getting started** at the
 4. **Connect a gateway** (optional): goes to the **Add a connection** form.
 5. **Pick a model**: closes Settings and opens the composer's model selector. It needs a workspace, because the selector is in the composer.
 
-Any of the five providers counts: once one of them can take a turn, steps 1, 2 and 5 are done. Each step updates as you work; closing the sign-in terminal checks again. **Skip** marks an optional step as done, and **Hide** folds the list. Both are remembered. Once every step is done or skipped, the list folds to one line on its own. When you open Stave and no provider can take a turn yet (Claude Code, Codex, Cursor, Kiro and OpenCode all included), the welcome screen shows the required steps with **Open Accounts**.
+Any of the five providers counts: once one of them can take a turn (its own CLI is installed and its own sign-in, or its selected API connection, works), steps 1, 2 and 5 are done. A sign-in Stave remembers for a provider whose CLI is gone does not count. Each step updates as you work; closing the sign-in terminal checks again. **Skip** marks an optional step as done, and **Hide** folds the list. Both are remembered. Once every step is done or skipped, the list folds to one line on its own. When you open Stave and no provider can take a turn yet (Claude Code, Codex, Cursor, Kiro and OpenCode all included), the welcome screen shows the required steps with **Open Accounts**.
 
 To add a second subscription:
 

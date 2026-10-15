@@ -112,6 +112,34 @@ describe("Getting started checklist", () => {
   });
 });
 
+describe("ready is per provider: its own CLI and its own sign-in", () => {
+  test("Claude's cached sign-in without its CLI and Codex's CLI without a sign-in are not ready", () => {
+    const checklist = buildAccountsOnboardingChecklist(input({
+      providers: { "claude-code": { installed: false, signedIn: true }, codex: { installed: true, signedIn: false } },
+    }));
+    expect(checklist.ready).toBe(false);
+    expect(checklist.signedInProviderIds).toEqual([]);
+    expect(statuses(checklist)).toMatchObject({ install: "done", signIn: "todo", model: "blocked" });
+    // The installed provider is the one to sign in to.
+    expect(checklist.signInProviderId).toBe("codex");
+  });
+
+  test("a provider with its CLI and a working sign-in is ready, and listed alone", () => {
+    const checklist = buildAccountsOnboardingChecklist(input({
+      providers: { "claude-code": { installed: true, signedIn: true }, codex: { installed: true, signedIn: false }, cursor: { installed: false, signedIn: true } },
+    }));
+    expect(checklist.ready).toBe(true);
+    expect(checklist.signedInProviderIds).toEqual(["claude-code"]);
+    expect(statuses(checklist)).toMatchObject({ signIn: "done", model: "done" });
+  });
+
+  test("a sign-in whose CLI has not been checked yet does not count", () => {
+    const checklist = buildAccountsOnboardingChecklist(input({ providers: { "claude-code": { installed: null, signedIn: true } } }));
+    expect(checklist.ready).toBe(false);
+    expect(checklist.signedInProviderIds).toEqual([]);
+  });
+});
+
 describe("every provider counts toward ready", () => {
   test("a ready Cursor or OpenCode makes the checklist ready without Claude or Codex", () => {
     for (const providerId of ["cursor", "opencode"] as const) {

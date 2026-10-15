@@ -73,7 +73,7 @@ export interface AccountsOnboardingStep {
 
 export interface AccountsOnboardingChecklist {
   steps: AccountsOnboardingStep[];
-  /** Steps 1 and 2 are done: at least one provider can take a turn. */
+  /** Steps 1 and 2 are done: at least one provider has its CLI installed and a working sign-in. */
   ready: boolean;
   /** Every step is done or skipped. */
   complete: boolean;
@@ -86,6 +86,7 @@ export interface AccountsOnboardingChecklist {
   /** The sign-in step needs a workspace before its button can work. */
   signInNeedsWorkspace: boolean;
   installedProviderIds: AccountsOnboardingProviderId[];
+  /** Providers that can take a turn: their CLI is installed and their sign-in works. */
   signedInProviderIds: AccountsOnboardingProviderId[];
   /** The composer, and so its model selector, exists only with a workspace open. */
   workspaceOpen: boolean;
@@ -97,7 +98,11 @@ export function buildAccountsOnboardingChecklist(input: AccountsOnboardingInput)
   const known = states.some((state) => state.installed !== null);
   const installed = states.filter((state) => state.installed === true);
   const installDone = installed.length > 0;
-  const signedIn = states.some((state) => state.signedIn);
+  // Ready is per provider: its own CLI is installed and its own sign-in (or
+  // selected API connection) works. Claude's cached sign-in and Codex's CLI do
+  // not add up to a provider that can take a turn.
+  const readyStates = installed.filter((state) => state.signedIn);
+  const signedIn = readyStates.length > 0;
   const install: AccountsOnboardingStepStatus = installDone ? "done" : known ? "todo" : "checking";
   const signIn: AccountsOnboardingStepStatus = signedIn
     ? "done"
@@ -129,7 +134,7 @@ export function buildAccountsOnboardingChecklist(input: AccountsOnboardingInput)
     // Only Stave's sign-in terminal needs a workspace; a CLI-managed sign-in runs in the person's own terminal.
     signInNeedsWorkspace: signIn === "todo" && !input.workspaceOpen && signInProviderId !== null && !isCliManagedProvider(signInProviderId),
     installedProviderIds: installed.map((state) => state.id),
-    signedInProviderIds: states.filter((state) => state.signedIn).map((state) => state.id),
+    signedInProviderIds: readyStates.map((state) => state.id),
     workspaceOpen: input.workspaceOpen,
     remainingCount: steps.filter((step) => !settled(step.status)).length,
   };
