@@ -42,7 +42,10 @@ import {
   startTrackerIssuesRuntime,
   stopTrackerIssuesRuntime,
 } from "./main/tracker-issues/service";
+import { trustSystemCertificateAuthorities } from "./main/system-certificate-authorities";
 
+// Before any main-process network call: TLS-intercepting proxies need the OS roots.
+trustSystemCertificateAuthorities();
 registerRendererScheme();
 
 const persistenceRuntime = configurePersistenceUserDataPath(app);
