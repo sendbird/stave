@@ -46,6 +46,20 @@ test("a build stage can precede testing, but final integration cannot leave goal
   expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
 });
 
+test("a goal criterion an earlier stage met need not be restated by the last stage, unless the last stage reports it otherwise", () => {
+  let aggregate = aggregateFor([ai("review"), ai("fix")]);
+  aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "The review lists each defect", status: "met" }, { text: "Tests pass", status: "unverified" }] } };
+  aggregate.agentRun.currentStageIndex = 1;
+  aggregate.stages.push({ ...createStageRecord({ agentRunId: aggregate.agentRun.id, stageId: "fix", attempt: 1 }), status: "running", report: { ...COMPLETE_REPORT, acceptanceCriteria: [] } });
+  // The not-yet-met goal criterion must still be met here.
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }] } });
+  expect(decide(aggregate)).toEqual({ action: "complete-stage", next: "finish" });
+  // Reported again as unmet on the final work, the earlier "met" no longer stands.
+  aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }, { text: "The review lists each defect", status: "unmet" }] } });
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+});
+
 test("a later timestamp cannot make a previous turn's explicit report current", () => {
   const aggregate = patchCurrent(reported([ai("answer")]), { report: { ...COMPLETE_REPORT, acceptanceCriteria: [], reportedAt: "2026-09-26T11:00:00.000Z" } });
   expect(decide(aggregate, "turn-2").action).not.toBe("complete-stage");

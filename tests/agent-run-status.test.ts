@@ -124,6 +124,14 @@ describe("agent run result", () => {
     lastRecord.facts = { ...lastRecord.facts!, workspaceRevision: revision, workspaceScripts: [] };
     lastRecord.report = { ...lastRecord.report, acceptanceCriteria: [{ text: criterion.text, status: "met" }] };
     expect(label()).toBe("Not verified");
+    // A later Run script action with the same criterion decides by its own result.
+    run.agentRun.workflow.stages = [firstStage, { id: "verify", title: "Verify", kind: "action", action: { type: "run-script", scriptId: "check" }, acceptanceCriteria: [{ text: criterion.text }] }];
+    const actionRecord = { ...structuredClone(templateRecord), stageId: "verify", report: undefined };
+    actionRecord.facts = { ...actionRecord.facts!, workspaceRevision: revision, action: { type: "run-script", scriptId: "check", exitCode: 1, outputTail: "failed", verification: { sourceRevision: revision, completedRevision: revision } } };
+    run.stages = [firstRecord, actionRecord];
+    expect(label()).toBe("Not verified");
+    actionRecord.facts = { ...actionRecord.facts, action: { ...actionRecord.facts.action!, exitCode: 0 } as typeof actionRecord.facts.action };
+    expect(label()).toBe("Met · checked by Stave");
   });
 
   test("a run that reported no criteria shows the assignment's own line", () => {

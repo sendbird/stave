@@ -22,7 +22,7 @@ import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
 import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
-import { classifyStageEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
+import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
 import { workspaceCheckMet } from "./workspace-check";
 import { formatAge, type AgentRunBadgeTone, type StageTone } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
@@ -283,10 +283,10 @@ function reportOf(detail: AgentRunDetail) {
 /**
  * Whether the latest word on a criterion is Stave's own check, in the order
  * `collectAcceptanceCriteria` settles it: stage by stage up to the current one,
- * a stage's host check after its report. Met-verified when the latest stage
- * that speaks to the criterion defines it as `stave-check` and its latest
- * attempt meets it; not verified when that stage's check does not; null when
- * the latest word is a report, so the reported status stands.
+ * within a stage its report, then a Run script action's result, then its host
+ * check. Met-verified when that latest word is a Stave check that passed on the
+ * stage's latest attempt; not verified when it is one that did not; null when
+ * it is a report, so the reported status stands.
  */
 function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus | null {
   const key = text.trim();
@@ -295,9 +295,13 @@ function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus |
   for (let index = 0; index <= agentRun.currentStageIndex && index < agentRun.workflow.stages.length; index += 1) {
     const stage = agentRun.workflow.stages[index]!;
     const record = latestStageRecord(detail.stages, stage.id);
-    const reported = record?.report?.outcome === "complete" && record.report.acceptanceCriteria?.some((criterion) => criterion.text.trim() === key);
-    const check = stage.kind === "ai" ? stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check" && criterion.text.trim() === key) : undefined;
-    if (check && record) status = workspaceCheckMet(record, check.scriptIds, check.scriptDefinitions) ? "met-verified" : "unverified";
+    if (!record) continue;
+    const reported = record.report?.outcome === "complete" && record.report.acceptanceCriteria?.some((criterion) => criterion.text.trim() === key);
+    const scriptAction = stage.kind === "action" && record.facts?.action?.type === "run-script" && stage.acceptanceCriteria?.some((criterion) => criterion.text.trim() === key)
+      ? record.facts.action : null;
+    const hostCheck = stage.kind === "ai" ? stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check" && criterion.text.trim() === key) : undefined;
+    if (scriptAction) status = isVerifiedEvidence(describeActionEvidence(scriptAction, record.facts)) ? "met-verified" : "unverified";
+    else if (hostCheck) status = workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions) ? "met-verified" : "unverified";
     else if (reported) status = null;
   }
   return status;

@@ -27,7 +27,9 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   const required = new Map(explicit.map((criterion) => [criterion.text.trim(), criterion]));
   // Planning may record criteria for later stages without claiming to have met them.
   if (stage.role !== "plan") {
-    for (const criterion of goalCriteria) if (!required.has(criterion.text.trim())) required.set(criterion.text.trim(), { text: criterion.text });
+    // A goal criterion an earlier stage already met stands, as it does before an
+    // action stage, unless this report says otherwise; the rest must be met here.
+    for (const criterion of goalCriteria) if (criterion.status !== "met" && !required.has(criterion.text.trim())) required.set(criterion.text.trim(), { text: criterion.text });
     for (const criterion of report?.acceptanceCriteria ?? []) {
       const text = criterion.text.trim();
       if (criterion.required !== false && !required.has(text) && !optionalTexts.has(text) && (finalStage || !inheritedTexts.has(text))) required.set(text, { text: criterion.text });

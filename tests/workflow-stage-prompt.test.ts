@@ -55,8 +55,8 @@ describe("stage prompt", () => {
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
   });
 
-  test("tells only the last stage to restate every criterion in its report", () => {
-    const rule = "This is the last stage. Report every criterion below";
+  test("tells only the last stage which criteria it must still report met", () => {
+    const rule = "This is the last stage. The run finishes only when every criterion below that is not marked [met]";
     expect(compileStagePrompt(input())).not.toContain(rule);
     const lastAi = slack.stages.findLastIndex((stage) => stage.kind === "ai");
     const twoStage = { ...slack, stages: [slack.stages[0]!, slack.stages[lastAi]!] };
