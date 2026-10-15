@@ -57,9 +57,6 @@ import { normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
-// temporary-migration: agent-run-settings-keys
-import { migrateLegacyRunSignOffReminder } from "@/lib/agent-runs/legacy-settings";
-// end temporary-migration: agent-run-settings-keys
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
 import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
@@ -205,9 +202,6 @@ export function createAppStorePersistenceOptions() {
         ...persistedSettings,
       });
       // end temporary-migration: plan-mode-removal
-      // temporary-migration: agent-run-settings-keys
-      migrateLegacyRunSignOffReminder(state.settings, persistedSettings);
-      // end temporary-migration: agent-run-settings-keys
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;

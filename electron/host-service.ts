@@ -30,11 +30,7 @@ import {
 import {
   ensureHostServicePersistenceReady,
   resetHostServicePersistence,
-  resolveHostServiceUserDataPath,
 } from "./host-service/persistence";
-// temporary-migration: project-memory-export
-import { runLegacyProjectMemoryExport } from "./persistence/legacy-project-memory-export";
-// end temporary-migration: project-memory-export
 import {
   checkoutDefaultBranchDetached,
   checkoutScmBranch,
@@ -2201,13 +2197,6 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
-  // temporary-migration: project-memory-export
-  // Projects were removed; their memories are written out once so none is lost.
-  runLegacyProjectMemoryExport({
-    userDataPath: resolveHostServiceUserDataPath(),
-    log: (message) => process.stderr.write(`${message}\n`),
-  });
-  // end temporary-migration: project-memory-export
   automationRuntime.start();
   wakeUpRuntime.start();
   agentRunRuntime.start();

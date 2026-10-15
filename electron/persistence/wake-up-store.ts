@@ -19,9 +19,6 @@ import {
   PullRequestWatchStateSchema,
   type PullRequestWatchState,
 } from "../../src/lib/supervision/pull-request-watch";
-// temporary-migration: agent-run-wake-up-pause-reason
-import { migrateLegacyWakeUpPauseReason } from "./agent-run-legacy-names";
-// end temporary-migration: agent-run-wake-up-pause-reason
 
 interface WakeUpStatement {
   get: (...params: unknown[]) => unknown;
@@ -225,9 +222,6 @@ export class WakeUpStore {
     if (!columns.some((column) => column.name === "watch_state_json")) {
       this.db.exec("ALTER TABLE wake_ups ADD COLUMN watch_state_json TEXT");
     }
-    // temporary-migration: agent-run-wake-up-pause-reason
-    migrateLegacyWakeUpPauseReason(this.db);
-    // end temporary-migration: agent-run-wake-up-pause-reason
   }
 
   list(): WakeUp[] {
