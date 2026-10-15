@@ -53,14 +53,16 @@ export function openToolingSettings() {
 
 /**
  * Asks the active composer to open its model selector, on `providerId`'s tab
- * when it has one. Settings closes first, so the selector is not behind it.
+ * (and `group` there, such as an API connection's) when it has models. The
+ * selector keeps the request while that provider is still being checked.
+ * Settings closes first, so the selector is not behind it.
  */
 export const STAVE_OPEN_MODEL_SELECTOR_EVENT = "stave:open-model-selector";
 
-export function openComposerModelSelector(providerId?: string) {
+export function openComposerModelSelector(providerId?: string, group?: string) {
   window.dispatchEvent(
     new CustomEvent(STAVE_OPEN_MODEL_SELECTOR_EVENT, {
-      detail: providerId ? { providerId } : {},
+      detail: { ...(providerId ? { providerId } : {}), ...(group ? { group } : {}) },
     }),
   );
 }

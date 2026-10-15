@@ -6,6 +6,8 @@ import { AccountsSection } from "@/components/layout/settings-dialog-accounts-se
 import { ToolingSection } from "@/components/layout/settings-dialog-tooling-section";
 import { AccountsGettingStartedCardView, AccountsGettingStartedWelcomeView } from "@/components/layout/AccountsGettingStarted";
 import { ApiConnectionForm } from "@/components/layout/ApiConnectionForm";
+import { ApiConnectionNextStep } from "@/components/layout/ApiConnectionsSettings";
+import { VERCEL_AI_GATEWAY } from "@/lib/providers/api-connections";
 import { ModelPickerAccountFooterView } from "@/components/ai-elements/model-picker-account-actions";
 import { buildAccountsOnboardingChecklist, type AccountsOnboardingInput } from "@/lib/providers/accounts-onboarding";
 import { resolveProviderAccountBlocker } from "@/lib/providers/provider-account-blocker";
@@ -180,6 +182,24 @@ describe("API connection form and model picker foot", () => {
     expect(inOrder(html, ["API key", "Name", "Pinned models", "1 Key", "2 Name", "3 Models", "4 Check after adding", "Add connection"])).toBe(true);
     // The step line replaces the old "Still needed" list.
     expect(html).not.toContain("Still needed");
+  });
+
+  test("after adding a connection, Use in Codex needs a workspace and says so", () => {
+    // The server render reads the store's initial state, which has no workspace open.
+    const html = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(ApiConnectionNextStep, {
+      connection: {
+        id: "44444444-4444-4444-8444-444444444444",
+        label: "Company gateway",
+        kind: "vercel-ai-gateway",
+        secretId: "11111111-1111-4111-8111-111111111111",
+        endpoints: { ...VERCEL_AI_GATEWAY.endpoints },
+        models: [{ id: "moonshotai/kimi-k3" }],
+      },
+      busy: false,
+      onDismiss: () => {},
+    })));
+    expect(html).toMatch(/<button[^>]*disabled=""[^>]*><span[^>]*>Use in Codex<\/span><\/button>/);
+    expect(text(html)).toContain("Open a repository first");
   });
 
   test("the picker foot says which provider is missing and how to fix it", () => {

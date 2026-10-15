@@ -254,6 +254,7 @@ import {
 } from "./composer-frame";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import { STAVE_OPEN_MODEL_SELECTOR_EVENT } from "@/lib/providers/accounts-navigation";
+import type { ModelSelectorOpenRequest } from "./model-selector-open-request";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
 const LENS_ANNOTATION_STYLE_FIELDS = [
@@ -1084,7 +1085,7 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
-  const [modelSelectorOpenProvider, setModelSelectorOpenProvider] = useState<ProviderId | undefined>(undefined);
+  const [modelSelectorOpenRequest, setModelSelectorOpenRequest] = useState<ModelSelectorOpenRequest | undefined>(undefined);
   // "Assign to an agent…" opens the selector on its Agents section.
   const agentSelectorNonce = useAgentsUiStore((state) => state.agentSelectorNonce);
   const handledAgentSelectorNonce = useRef(agentSelectorNonce);
@@ -1526,11 +1527,11 @@ export function PromptInput(args: PromptInputProps) {
     if (interactionsDisabled || !windowShortcutsEnabled) return;
     let frame = 0;
     const onOpenModelSelector = (event: Event) => {
-      const providerId = (event as CustomEvent<{ providerId?: string }>).detail?.providerId;
+      const detail = (event as CustomEvent<{ providerId?: string; group?: string }>).detail;
       window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
-        const known = listProviderIds().find((candidate) => candidate === providerId);
-        setModelSelectorOpenProvider(known);
+        const known = listProviderIds().find((candidate) => candidate === detail?.providerId);
+        setModelSelectorOpenRequest(known ? { providerId: known, ...(detail?.group ? { group: detail.group } : {}) } : undefined);
         setModelSelectorOpenNonce((current) => current + 1);
       });
     };
@@ -1587,7 +1588,7 @@ export function PromptInput(args: PromptInputProps) {
       if (isAltP) {
         event.preventDefault();
         armShortcutEchoGuard();
-        setModelSelectorOpenProvider(undefined);
+        setModelSelectorOpenRequest(undefined);
         setModelSelectorOpenNonce((current) => current + 1);
         return;
       }
@@ -4420,7 +4421,7 @@ export function PromptInput(args: PromptInputProps) {
                       ? modelSelectorOpenNonce
                       : undefined
                   }
-                  {...(modelSelectorOpenProvider ? { openProviderId: modelSelectorOpenProvider } : {})}
+                  {...(modelSelectorOpenRequest ? { openRequest: modelSelectorOpenRequest } : {})}
                   accountActions
                   openAgentsToken={agentsOpenToken}
                   onFastModeChange={onFastModeChange}

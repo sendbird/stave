@@ -22,6 +22,16 @@ type Seed = {
   customThemeId?: string;
   /** OpenCode is installed and can take a turn; true unless set to false. */
   openCodeReady?: boolean;
+  /** "Add connection" saves instead of failing. */
+  allowConnectionCreate?: boolean;
+  /** Codex availability for an API connection answers this late, as a re-check after an account switch can. */
+  codexAvailabilityDelayMs?: number;
+  /** The connection list answers this late. */
+  connectionListDelayMs?: number;
+  /** "Check connection" rejects at the bridge instead of returning a result. */
+  checkRejects?: boolean;
+  /** Saving a pasted key fails: `fail` answers ok:false, `throw` rejects. */
+  secretUpsert?: "fail" | "throw";
 };
 
 function screenshotPath(testInfo: TestInfo, name: string) {
@@ -48,7 +58,8 @@ function seedAccounts(page: Page, seed: Seed) {
           { id: "moonshotai/kimi-k3", name: "Kimi K3", contextWindow: 1_000_000, inputPrice: "0.000003", outputPrice: "0.000015" },
         ],
       };
-      const connections = args.seed.withConnection ? [connection] : [];
+      const connections: Array<typeof connection> = args.seed.withConnection ? [connection] : [];
+      const sleep = (ms?: number) => new Promise((resolve) => setTimeout(resolve, ms ?? 0));
       const savedSecrets: Array<Record<string, string>> = [];
       const tool = (id: "claude" | "codex") => {
         const installed = id === "claude" || args.seed.codexInstalled;
@@ -67,7 +78,7 @@ function seedAccounts(page: Page, seed: Seed) {
           checkedAt: now(),
         };
       };
-      const profiles = [
+      const currentProfiles = () => [
         { id: "system-default", providerId: "claude-code", label: "System default", kind: "system" },
         { id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", providerId: "claude-code", label: "Work", kind: "managed", configDirectory: "/tmp/fixture/claude-work" },
         { id: "system-default", providerId: "codex", label: "System default", kind: "system" },
@@ -88,7 +99,7 @@ function seedAccounts(page: Page, seed: Seed) {
         platform: "darwin",
         provider: {
           streamTurn: async () => [],
-          checkAvailability: async ({ providerId }: { providerId: string }) => {
+          checkAvailability: async ({ providerId, runtimeOptions }: { providerId: string; runtimeOptions?: { codexAccountProfileId?: string } }) => {
             if (providerId !== "claude-code" && providerId !== "codex") {
               // OpenCode is installed and manages its own sign-in (unless the seed says otherwise);
               // Cursor and Kiro are not installed.
@@ -102,7 +113,8 @@ function seedAccounts(page: Page, seed: Seed) {
               return { ok: true, providerId, available: installed, toolingStatus: status, detail: status.summary };
             }
             const status = tool(providerId === "claude-code" ? "claude" : "codex");
-            const viaConnection = providerId === "codex" && args.seed.codexUsesConnection;
+            const viaConnection = providerId === "codex" && connections.some((entry) => entry.id === runtimeOptions?.codexAccountProfileId);
+            if (viaConnection) await sleep(args.seed.codexAvailabilityDelayMs);
             return { ok: true, providerId, available: viaConnection ? status.available : status.authState === "authenticated", toolingStatus: status, detail: status.summary };
           },
           getCodexModelCatalog: async () => ({ ok: true, models: [], detail: "" }),
@@ -113,7 +125,7 @@ function seedAccounts(page: Page, seed: Seed) {
         },
         terminal: { runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }) },
         providerAccounts: {
-          list: async () => ({ ok: true, profiles }),
+          list: async () => ({ ok: true, profiles: currentProfiles() }),
           identity: async ({ providerId, profileId }: { providerId: string; profileId: string }) => ({
             ok: true,
             identity: signedIn(providerId, profileId)
@@ -129,11 +141,22 @@ function seedAccounts(page: Page, seed: Seed) {
           shareSetup: async () => ({ ok: true, setup: { enabled: true, entries: [] } }),
         },
         apiConnections: {
-          list: async () => ({ ok: true, connections }),
-          create: async () => ({ ok: false, message: "Fixture: saving is disabled." }),
+          list: async () => {
+            await sleep(args.seed.connectionListDelayMs);
+            return { ok: true, connections: [...connections] };
+          },
+          create: async (input: { label: string; secretId: string; models: typeof connection.models }) => {
+            if (!args.seed.allowConnectionCreate) return { ok: false, message: "Fixture: saving is disabled." };
+            const created = { ...connection, id: "44444444-4444-4444-8444-444444444444", label: input.label, secretId: input.secretId, models: input.models };
+            connections.push(created);
+            return { ok: true, connection: created };
+          },
           update: async () => ({ ok: false, message: "Fixture: saving is disabled." }),
           remove: async () => ({ ok: false, message: "Fixture: removing is disabled." }),
-          check: async () => ({ ok: false, status: args.seed.checkStatus ?? "certificate-untrusted", missingModels: [], message: "fixture main message" }),
+          check: async () => {
+            if (args.seed.checkRejects) throw new Error("fixture bridge rejected the check");
+            return { ok: false, status: args.seed.checkStatus ?? "certificate-untrusted", missingModels: [], message: "fixture main message" };
+          },
           discoverModels: async () => ({
             ok: true,
             models: [
@@ -153,6 +176,8 @@ function seedAccounts(page: Page, seed: Seed) {
           upsert: async (input: { name: string; value?: string }) => {
             const store = window as unknown as { __secretSaves?: Array<{ name: string; valueLength: number }> };
             store.__secretSaves = [...(store.__secretSaves ?? []), { name: input.name, valueLength: input.value?.length ?? 0 }];
+            if (args.seed.secretUpsert === "throw") throw new Error("fixture bridge rejected the save");
+            if (args.seed.secretUpsert === "fail") return { ok: false, message: `A secret named "${input.name}" already exists.` };
             const secret = { id: "22222222-2222-4222-8222-222222222222", name: input.name, description: "", valuePreview: "…", createdAt: now(), updatedAt: now() };
             savedSecrets.push(secret);
             return { ok: true, secret };
@@ -410,4 +435,27 @@ test("the picker foot groups CLIs that are not installed and opens their row", a
   await notInstalled.getByRole("button", { name: "Set up" }).click();
   const row = page.getByRole("dialog", { name: "Settings" }).locator("#settings-field-cli-provider-cursor");
   await expect(row.getByRole("button", { name: "Open Tooling" })).toBeFocused();
+});
+
+test("Use in Codex waits for Codex to come back after the account switch, then opens its connection group", async ({ page }) => {
+  await seedAccounts(page, { themeMode: "light", ...READY, withConnection: false, allowConnectionCreate: true, codexAvailabilityDelayMs: 1500 });
+  await page.setViewportSize({ width: 1440, height: 2400 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible({ timeout: 20_000 });
+  const settings = await openSettingsSection(page, "Accounts");
+  const form = settings.locator("#settings-field-api-connection-new");
+  await form.getByRole("combobox", { name: "API key from Secrets" }).click();
+  await page.getByRole("option", { name: "Vercel AI Gateway" }).click();
+  await form.getByLabel("Name", { exact: true }).fill("Company gateway");
+  await form.getByRole("list", { name: "Models you can pin" }).getByRole("button", { name: "Pin" }).first().click();
+  await form.getByRole("button", { name: "Add connection" }).click();
+  const next = settings.getByTestId("api-connection-next-step");
+  await next.getByRole("button", { name: "Use in Codex" }).click();
+  await expect(settings).toBeHidden();
+  const selector = page.getByRole("dialog", { name: "Model and effort selector" });
+  await expect(selector).toBeVisible();
+  // Codex is still being checked: it has no tab yet, and the request waits.
+  await expect(selector.getByRole("tab", { name: /^Codex, / })).toHaveCount(0);
+  await expect(selector.getByRole("tab", { name: /^Codex, / })).toHaveAttribute("aria-selected", "true", { timeout: 10_000 });
+  await expect(selector.getByText("Company gateway · API billing")).toBeVisible();
 });

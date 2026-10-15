@@ -40,6 +40,7 @@ import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";
 import { ModelGroupEditButton, ModelPickerAccountFooter } from "./model-picker-account-actions";
+import { isModelSelectorOpenRequestReady, type ModelSelectorOpenRequest } from "./model-selector-open-request";
 import { ModelIcon } from "./model-icon";
 import {
   readCursorComposerSettings,
@@ -148,8 +149,12 @@ interface ModelEffortSelectorProps {
    * Settings > Accounts, and "Edit models" on an API connection's group.
    */
   accountActions?: boolean;
-  /** The provider tab an `openToken` request opens on, when it has models. */
-  openProviderId?: ProviderId;
+  /**
+   * The provider tab (and model group) an `openToken` request opens on. Kept
+   * while the selector is open until that provider has models, so a provider
+   * whose availability comes back late still gets its tab.
+   */
+  openRequest?: ModelSelectorOpenRequest;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
     selection: ModelSelectorOption;
@@ -354,6 +359,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const handledAgentsTokenRef = useRef(args.openAgentsToken);
   /** A tab an open request asked for; the open's reset lands on it once. */
   const requestedTabRef = useRef<RailValue | null>(null);
+  /** A provider tab (and group) an open request asked for, until its models are listed. */
+  const pendingOpenRequestRef = useRef<ModelSelectorOpenRequest | null>(null);
   const resetHandledForOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const pinTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -541,6 +548,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         : args.value.label;
 
   const showTab = (next: RailValue) => {
+    // The person chose a tab; a waiting open request must not move them.
+    pendingOpenRequestRef.current = null;
     if (next === railValue) {
       return;
     }
@@ -622,6 +631,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   useEffect(() => {
     if (!open) {
       resetHandledForOpenRef.current = false;
+      pendingOpenRequestRef.current = null;
       return;
     }
     if (resetHandledForOpenRef.current) {
@@ -631,14 +641,17 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     const startProviderId = args.value.isAuto
       ? (providerIds[0] ?? "claude-code")
       : args.value.providerId;
-    const requested = pinMode ? null : requestedTabRef.current;
+    const requestedTab = pinMode ? null : requestedTabRef.current;
     requestedTabRef.current = null;
-    // A provider tab is honored only when that provider has models to list.
-    const requestedProvider = requested && requested !== AUTO_TAB && requested !== AGENTS_TAB
-      ? (providerIds.includes(requested) ? requested : null)
+    // An open request names a provider tab; until that provider has models the
+    // usual tab shows and the request waits (see the effect below).
+    const openRequest = pinMode ? null : pendingOpenRequestRef.current;
+    const requestedProvider = openRequest && isModelSelectorOpenRequestReady({ request: openRequest, providerIds, options: args.options })
+      ? openRequest.providerId
       : null;
-    const requestedTab = requested === AUTO_TAB || requested === AGENTS_TAB ? requested : requestedProvider;
+    if (requestedProvider) pendingOpenRequestRef.current = null;
     setRailValue(
+      requestedProvider ??
       requestedTab ??
       (pinMode
         ? args.value.isAuto && showsAutoTab
@@ -654,6 +667,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     setContext1M(isClaudeContext1MModel(args.value.model));
     setQuery("");
     setShowAllModels(false);
+    // The reset runs once per open; options arriving later go through the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentActive,
     args.value.isAuto,
@@ -676,11 +691,25 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     handledOpenTokenRef.current = args.openToken;
-    requestedTabRef.current = args.openProviderId ?? null;
+    pendingOpenRequestRef.current = args.openRequest ?? null;
     setOpenPanel("selector");
-    // `openProviderId` rides with the token that asked for it.
+    // `openRequest` rides with the token that asked for it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [args.disabled, args.openToken]);
+
+  // A request that was not ready when the selector opened (the provider was
+  // still being checked after an account switch) moves to its tab once the
+  // provider's models arrive. Picking a tab or closing the selector drops it.
+  useEffect(() => {
+    const request = pendingOpenRequestRef.current;
+    if (!open || !request || !resetHandledForOpenRef.current) return;
+    if (!isModelSelectorOpenRequestReady({ request, providerIds, options: args.options })) return;
+    pendingOpenRequestRef.current = null;
+    setRailValue(request.providerId);
+    setProviderId(request.providerId);
+    setQuery("");
+    setShowAllModels(false);
+  }, [args.options, open, providerIds]);
 
   useEffect(() => {
     if (args.openAgentsToken === undefined || args.openAgentsToken === handledAgentsTokenRef.current) return;

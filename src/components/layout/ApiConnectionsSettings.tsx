@@ -6,6 +6,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Input, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import {
   VERCEL_AI_GATEWAY,
+  apiConnectionGroupLabel,
   apiConnectionRuntimes,
   type ApiConnection,
   type ApiConnectionCheckResult,
@@ -112,30 +113,42 @@ function ConnectionRow(props: {
 /**
  * Right after "Add connection": check it, then use it. "Use in Codex" makes
  * the connection Codex's account for new turns and opens the composer's model
- * selector on the Codex tab, where its models are listed.
+ * selector on the Codex tab at the connection's group; the selector waits for
+ * Codex's availability check that the account switch starts. The composer
+ * exists only with a workspace open, so without one the button is off and
+ * says so, as Getting started's model step does.
  */
-function ApiConnectionNextStep(props: { connection: ApiConnection; busy: boolean; onDismiss: () => void }) {
+export function ApiConnectionNextStep(props: { connection: ApiConnection; busy: boolean; onDismiss: () => void }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const { connection } = props;
   const [check, setCheck] = useState<ApiConnectionCheckResult | null>(null);
+  const [checkFailed, setCheckFailed] = useState(false);
   const [checking, setChecking] = useState(false);
+  const workspaceOpen = useAppStore((state) => Boolean(state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath));
   const runtime = connection.endpoints.codex ? "codex" : "claude-code";
   const use = () => {
     useAppStore.getState().updateSettings({ patch: runtime === "codex" ? { codexAccountProfileId: connection.id } : { claudeAccountProfileId: connection.id } });
-    openComposerModelSelector(runtime);
+    openComposerModelSelector(runtime, apiConnectionGroupLabel(connection.label));
+  };
+  const runCheck = () => {
+    setChecking(true); setCheck(null); setCheckFailed(false);
+    // A rejected bridge call gets a fixed sentence; its own text is not shown.
+    void Promise.resolve()
+      .then(() => window.api!.apiConnections!.check({ id: connection.id }))
+      .then(setCheck, () => setCheckFailed(true))
+      .finally(() => setChecking(false));
   };
   return <div role="status" className={sx(styles.nextStep)} data-testid="api-connection-next-step">
     <span className={sx(accountStyles.subheading)}>{t("settingsConnections:apiConnectionsSettings.nextStep.title", { value1: connection.label })}</span>
     <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.nextStep.body", { value1: RUNTIME_NAME[runtime] })}</p>
     <div className={sx(accountStyles.row)}>
-      <Button size="sm" variant="outline" disabled={props.busy || checking} onClick={() => {
-        setChecking(true); setCheck(null);
-        void window.api!.apiConnections!.check({ id: connection.id }).then(setCheck).finally(() => setChecking(false));
-      }}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</Button>
-      <Button size="sm" onClick={use}>{t("settingsConnections:apiConnectionsSettings.nextStep.use", { value1: RUNTIME_NAME[runtime] })}</Button>
+      <Button size="sm" variant="outline" disabled={props.busy || checking} onClick={runCheck}>{t("settingsConnections:apiConnectionsSettings.checkConnection")}</Button>
+      <Button size="sm" disabled={!workspaceOpen} onClick={use}>{t("settingsConnections:apiConnectionsSettings.nextStep.use", { value1: RUNTIME_NAME[runtime] })}</Button>
       <Button size="sm" variant="quiet" onClick={props.onDismiss}>{t("settingsConnections:apiConnectionsSettings.nextStep.done")}</Button>
     </div>
+    {!workspaceOpen && <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.nextStep.needsWorkspace", { value1: RUNTIME_NAME[runtime] })}</p>}
     {check && <p className={sx(check.ok ? styles.checkOk : styles.checkFailed)}>{describeApiConnectionCheck(check)}</p>}
+    {checkFailed && <p role="alert" className={sx(styles.checkFailed)}>{t("settingsConnections:apiConnectionsSettings.nextStep.checkFailed")}</p>}
   </div>;
 }
 

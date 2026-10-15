@@ -282,7 +282,9 @@
       "title": "Added {{value1}}",
       "body": "Check that the gateway accepts the key, then use the connection in {{value1}}. Using it makes it the account for new turns; running turns keep theirs.",
       "use": "Use in {{value1}}",
-      "done": "Done"
+      "done": "Done",
+      "needsWorkspace": "Open a repository first: the model selector is in the composer, which needs a workspace. The connection is saved and you can pick it in {{value1}} later.",
+      "checkFailed": "The check could not run. Try again; if it keeps failing, restart Stave."
     }
   },
   "providerAccountAddForm": {
