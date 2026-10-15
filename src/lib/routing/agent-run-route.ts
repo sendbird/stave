@@ -29,6 +29,9 @@ import {
   type AutoRoutingHistoryMessage,
   type RouteClassifier,
 } from "./auto-routing";
+
+/** The routing history of a task's saved messages; shared with the composer's Auto path. */
+export { toRoutingHistory } from "./auto-routing";
 // temporary-migration: auto-routing-v1-settings-keys
 import { AUTO_ROUTING_V1_SETTINGS_KEYS, withoutAutoRoutingV1Keys } from "./auto-routing-v1-settings-migration";
 // end temporary-migration: auto-routing-v1-settings-keys
@@ -131,6 +134,8 @@ export async function routeAgentRunTurn(args: {
   classifyRoute?: RouteClassifier;
   exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   signal?: AbortSignal;
+  /** Clock for the prompt-cache warm check; defaults to `Date.now()`. */
+  now?: number;
 }): Promise<AgentTurnRoute> {
   args.signal?.throwIfAborted();
   const draft = args.draft ?? {};
@@ -196,6 +201,7 @@ export async function routeAgentRunTurn(args: {
       ...(taskClassHint ? { taskClassHint } : {}),
       ...(preferredProviderHint ? { preferredProviderHint } : {}),
       ...(args.classifyRoute ? { classifyRoute: args.classifyRoute } : {}),
+      ...(args.now != null ? { now: args.now } : {}),
     });
     return observed({
       providerId: decision.providerId,
@@ -239,21 +245,4 @@ export function createAgentRouteClassifier(args: {
       return null;
     }
   };
-}
-
-/** The routing history of a task's saved messages, newest last; unreadable entries are skipped. */
-export function toRoutingHistory(messages: readonly unknown[]): AutoRoutingHistoryMessage[] {
-  return messages.flatMap((message): AutoRoutingHistoryMessage[] => {
-    if (!message || typeof message !== "object") return [];
-    const { role, content, providerId, model } = message as Record<string, unknown>;
-    if ((role !== "user" && role !== "assistant") || typeof content !== "string") return [];
-    return [
-      {
-        role,
-        content,
-        ...(providerId === "claude-code" || providerId === "codex" ? { providerId } : {}),
-        ...(typeof model === "string" && model ? { model } : {}),
-      },
-    ];
-  });
 }

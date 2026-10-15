@@ -233,6 +233,62 @@ export interface AutoRoutingHistoryMessage {
   content: string;
   providerId?: ProviderId | "user";
   model?: string;
+  /** ISO time the turn finished; the last assistant turn's feeds the cache-warm check. */
+  completedAt?: string;
+  /** True when the conversation was compacted after this turn's last output. */
+  compactedAfter?: boolean;
+}
+
+function isContextCompaction(part: unknown): boolean {
+  if (!part || typeof part !== "object") return false;
+  const { type, compactBoundary } = part as { type?: unknown; compactBoundary?: { trigger?: unknown } | null };
+  return type === "system_event" && compactBoundary != null && compactBoundary.trigger !== "turn_start";
+}
+
+/**
+ * Where a message's provider-reported context compactions fall (a Codex
+ * `turn_start` checkpoint is not one). A compaction before the turn's last
+ * output was summarized into the prefix that output then extended, so the
+ * cache is warm again; only one after the last output leaves it cold.
+ */
+function readContextCompaction(parts: unknown): { any: boolean; afterLastOutput: boolean } {
+  if (!Array.isArray(parts)) return { any: false, afterLastOutput: false };
+  let lastCompaction = -1;
+  let lastOutput = -1;
+  parts.forEach((part, index) => {
+    if (isContextCompaction(part)) lastCompaction = index;
+    else if ((part as { type?: unknown } | null)?.type !== "system_event") lastOutput = index;
+  });
+  return { any: lastCompaction >= 0, afterLastOutput: lastCompaction > lastOutput };
+}
+
+/**
+ * The routing history of a task's messages (live `ChatMessage`s or saved
+ * rows), newest last; unreadable entries are skipped. Each message carries
+ * its finish time and whether a compaction followed its last output, in the
+ * message itself or in a later one.
+ */
+export function toRoutingHistory(messages: readonly unknown[]): AutoRoutingHistoryMessage[] {
+  let compactedLater = false;
+  const history: AutoRoutingHistoryMessage[] = [];
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || typeof message !== "object") continue;
+    const { role, content, providerId, model, completedAt, parts } = message as Record<string, unknown>;
+    const compaction = readContextCompaction(parts);
+    const compactedAfter = compactedLater || compaction.afterLastOutput;
+    compactedLater = compactedLater || compaction.any;
+    if ((role !== "user" && role !== "assistant") || typeof content !== "string") continue;
+    history.push({
+      role,
+      content,
+      ...(providerId === "claude-code" || providerId === "codex" ? { providerId } : {}),
+      ...(typeof model === "string" && model ? { model } : {}),
+      ...(typeof completedAt === "string" && completedAt ? { completedAt } : {}),
+      ...(compactedAfter ? { compactedAfter: true } : {}),
+    });
+  }
+  return history.reverse();
 }
 
 export interface AutoRoutingClassifierRequest {
@@ -350,6 +406,8 @@ export interface ResolveAutoRoutingDecisionArgs {
    */
   classifierSignal?: AbortSignal;
   classifyRoute?: RouteClassifier;
+  /** Clock for the prompt-cache warm check; defaults to `Date.now()`. */
+  now?: number;
 }
 
 /**
@@ -642,21 +700,35 @@ export function findLastAssistantProvider(
   return null;
 }
 
-/** Concrete model behind the most recent managed-provider assistant turn. */
-export function findLastAssistantModel(
+function findLastAssistantTurn(
   history: readonly AutoRoutingHistoryMessage[],
-): string | null {
+): AutoRoutingHistoryMessage | null {
   for (let index = history.length - 1; index >= 0; index -= 1) {
     const message = history[index];
     if (
       message?.role === "assistant" &&
       (message.providerId === "claude-code" || message.providerId === "codex")
     ) {
-      const model = message.model?.trim();
-      return model && !isAutoModelId({ model }) ? model : null;
+      return message;
     }
   }
   return null;
+}
+
+/** Concrete model behind the most recent managed-provider assistant turn. */
+export function findLastAssistantModel(
+  history: readonly AutoRoutingHistoryMessage[],
+): string | null {
+  const model = findLastAssistantTurn(history)?.model?.trim();
+  return model && !isAutoModelId({ model }) ? model : null;
+}
+
+function lastAssistantCompletedAt(
+  history: readonly AutoRoutingHistoryMessage[],
+): number | null {
+  const completedAt = findLastAssistantTurn(history)?.completedAt;
+  const time = completedAt ? Date.parse(completedAt) : Number.NaN;
+  return Number.isFinite(time) ? time : null;
 }
 
 function countAssistantProviderTurns(
@@ -988,6 +1060,8 @@ export function computeRouterSignals(args: {
         : {}),
       lastAssistantProvider,
       lastAssistantModel: findLastAssistantModel(args.history),
+      lastAssistantCompletedAt: lastAssistantCompletedAt(args.history),
+      compactedSinceLastAssistant: findLastAssistantTurn(args.history)?.compactedAfter === true,
       // A task boundary is the first turn: no managed provider has answered yet.
       boundary: lastAssistantProvider == null,
       ...(args.preferredProviderHint
@@ -1152,6 +1226,11 @@ export async function resolveAutoRoutingDecision(
     allowProviderSwitch: profile.signals.providerSwitch,
     classifierStick,
   });
+  // Without a classifier verdict the task's current model stands in for an
+  // unknown previous one. It is a guess, not the model whose cache is warm,
+  // so the route marks it and never holds it.
+  const inferredLastModel =
+    signals.lastAssistantModel == null && source === "classifier_fallback" ? args.currentModel : undefined;
 
   const route = resolveRoute({
     profile,
@@ -1159,11 +1238,13 @@ export async function resolveAutoRoutingDecision(
     signals: {
       ...signals,
       uncertain: signals.uncertain || source === "classifier_fallback",
-      lastAssistantModel: signals.lastAssistantModel ?? (source === "classifier_fallback" ? args.currentModel : undefined),
+      lastAssistantModel: signals.lastAssistantModel ?? inferredLastModel,
+      ...(inferredLastModel ? { lastAssistantModelInferred: true } : {}),
       lastAssistantProvider: pinnedProvider,
     },
     runtimeModelsByProvider: args.runtimeModelsByProvider,
     exclusiveModelsByProvider: args.exclusiveModelsByProvider,
+    ...(args.now != null ? { now: args.now } : {}),
   });
 
   const confidence = null;
