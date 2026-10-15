@@ -213,7 +213,7 @@ and optional `verification`. AI stages use `agent-report` for the agent's
 assessment, or `stave-check` for a host workspace script result. A required
 `stave-check` cannot be satisfied by an agent-reported **Met**. Run script
 action stages keep the same check behavior, including when verification is
-omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place.
+omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
 
 A primary write agent's implicit Work stage, and the last AI stage of the
 built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
@@ -221,7 +221,7 @@ checks pass** when the workspace has configured action scripts. Researcher,
 Reviewer, Lead and read-only agents do not get this default. With one action,
 that script is required; with several, all IDs are listed in sorted order and
 any one may satisfy the criterion. Script configuration currently has no
-verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on retry. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
+verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
 Without configured actions, completion remains agent-reported.
 
 The agent calls `stave_run_workspace_script({ scriptId })` before reporting.

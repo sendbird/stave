@@ -84,7 +84,34 @@ test("every explicit AI check is bound without adding a default to a custom work
   const workflow = { ...base, stages: ["prepare", "finish"].map(id => ({ ...stage, id, acceptanceCriteria: [{ text: id, verification: "stave-check" as const }] })) };
   const bound = withWorkspaceCheck(workflow, null, [frozen("z"), frozen("a")]);
   expect(bound.stages.map(entry => entry.acceptanceCriteria)).toEqual(["prepare", "finish"].map(text => [{ text, verification: "stave-check", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]));
-  expect(withWorkspaceCheck(bound, null, [frozen("different")])).toBe(bound);
+  const updated = [{ scriptId: "a", definitionHash: "b".repeat(64) }, frozen("z")];
+  expect(withWorkspaceCheck(bound, null, updated).stages[0]!.acceptanceCriteria?.[0]?.scriptDefinitions).toEqual(updated);
+});
+
+test("admission replaces incoming hashes and preserves explicit script subsets", async () => {
+  const agent = getBuiltinAgent("implementer")!;
+  const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
+  workflow.stages[0]!.acceptanceCriteria = [{ ...criterion, scriptIds: ["lint"], scriptDefinitions: [frozen("forged")] }];
+  const lint = { scriptId: "lint", definitionHash: "b".repeat(64) };
+  const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check"), lint], readRevision: async () => revision });
+  expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, scriptIds: ["lint"], scriptDefinitions: [lint] }]);
+  await expect(admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], readRevision: async () => revision })).rejects.toThrow("'lint'");
+});
+
+test("admission refuses explicit checks without actions instead of preserving stale client definitions", async () => {
+  const workflow = buildAgentRunWorkflow({ agent: getBuiltinAgent("implementer")!, now: AGENT_RUN_NOW });
+  workflow.stages[0]!.acceptanceCriteria = [criterion];
+  await expect(admitWorkspaceCheck({ workflow, agent: null, scripts: [], readRevision: async () => revision })).rejects.toThrow("no action script");
+});
+
+test("upgrading the default text and rebinding a host check preserve required false", async () => {
+  const agent = getBuiltinAgent("implementer")!;
+  for (const verification of ["agent-report", "stave-check"] as const) {
+    const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
+    workflow.stages[0]!.acceptanceCriteria = [{ text: criterion.text, required: false, verification }];
+    const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], readRevision: async () => revision });
+    expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, required: false }]);
+  }
 });
 
 test("transient unavailable, changing and thrown revision reads retry once and retain the default gate", async () => {

@@ -2335,6 +2335,68 @@ describe("primary write run workspace checks", () => {
     await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "done" } });
     expect(reads).toBe(0);
   });
+  test("Run again rebinds the previous workflow after a script edit and completes with the new host check", async () => {
+    let definitions = scriptDefinitions;
+    const custom = { ...agent, id: "custom-checker", workflow: [{ ...DRAFT, acceptanceCriteria: [{ text: "Custom checks pass", verification: "stave-check" }] }] } as AgentConfig;
+    const h = checkedHarness({ taskAgent: () => custom, listWorkspaceActionScripts: async () => definitions,
+      runWorkspaceScript: async () => ({ ...scriptMetadata, definitionHash: definitions[0]!.definitionHash, exitCode: 0, output: "passed", verification: { sourceRevision: revision, completedRevision: revision } }),
+    });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: revision });
+    let stages = custom.workflow!;
+    for (const turn of [1, 2]) {
+      const start = buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: { ...custom, workflow: stages }, assignment: "Check work", now: new Date(START) });
+      const id = await startedAgentRun(h, start);
+      stages = h.aggregate(id).agentRun.workflow.stages;
+      expect(stages[0]!.acceptanceCriteria?.[0]?.scriptDefinitions).toEqual(definitions);
+      expect(await h.runtime.runWorkspaceScript({ agentRunKey: `key-turn-${turn}`, scriptId: "check" })).toMatchObject({ verified: true });
+      await h.runtime.reportStage({ agentRunKey: `key-turn-${turn}`, report: { summary: "Checked" } });
+      h.endTurn(`turn-${turn}`); await h.tick();
+      expect(h.aggregate(id).agentRun.state).toBe("completed");
+      expect(h.current(id).facts?.workspaceScripts?.[0]?.definitionHash).toBe(definitions[0]!.definitionHash);
+      definitions = [{ scriptId: "check", definitionHash: "b".repeat(64) }];
+    }
+  });
+  test("explicit script subset completes with its selected action and missing actions refuse before persistence", async () => {
+    const h = checkedHarness({ listWorkspaceActionScripts: async () => [...scriptDefinitions, { scriptId: "other", definitionHash: "b".repeat(64) }] });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: revision });
+    const start = input();
+    start.workflow.stages[0]!.acceptanceCriteria = [{ text: "Lint passes", verification: "stave-check", scriptIds: ["check"] }];
+    const id = await startedAgentRun(h, start);
+    expect(h.aggregate(id).agentRun.workflow.stages[0]!.acceptanceCriteria).toEqual([{ text: "Lint passes", verification: "stave-check", scriptIds: ["check"], scriptDefinitions }]);
+    await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "Checked" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe("completed");
+    for (const scripts of [[], [{ scriptId: "other", definitionHash }]]) {
+      const refused = checkedHarness({ listWorkspaceActionScripts: async () => scripts });
+      await expect(refused.runtime.startAgentRun(start)).rejects.toThrow(scripts.length ? "'check'" : "no action script");
+      expect(refused.store.listRecentAgentRuns()).toEqual([]);
+      expect(refused.runCalls).toEqual([]);
+    }
+  });
+  test("slow admission revision reads and retry leave the supervisor queue free for another run", async () => {
+    let release!: () => void, entered!: () => void;
+    const reading = new Promise<void>(resolve => { entered = resolve; });
+    const pending = new Promise<void>(resolve => { release = resolve; });
+    let reads = 0;
+    const h = checkedHarness({ readWorkspaceRevision: async () => {
+      reads++;
+      if (reads === 1) return { status: "unknown", reason: "unavailable" };
+      entered(); await pending; return revision;
+    } });
+    const active = await startedAgentRun(h, startInput({ workflow: workflow([DRAFT]) }));
+    const next = h.runtime.startAgentRun({ ...input(), leadTaskId: "task-2" });
+    try {
+      await reading;
+      const paused = await Promise.race([
+        h.runtime.pause({ agentRunId: active }).then(() => true),
+        Bun.sleep(500).then(() => false),
+      ]);
+      expect(paused).toBe(true);
+      expect(h.aggregate(active).agentRun.state).toBe("paused");
+    } finally { release(); await next; h.runtime.stop(); }
+    expect(reads).toBe(2);
+  });
   test("a check that modifies the tree returns its reason and blocks the final report", async () => {
     const changed = { status: "known" as const, revision: "modified-by-check" };
     const h = checkedHarness({ runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "", verification: { sourceRevision: revision, completedRevision: changed } }) });

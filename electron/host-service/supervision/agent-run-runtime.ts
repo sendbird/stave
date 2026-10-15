@@ -1829,6 +1829,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     prepareDelegatedAgentRun: ({ agentRunId, model, input: rawInput, authority: rawAuthority, resourceLink }) =>
       enqueue(async () => {
         const input = AgentRunStartInputSchema.parse(rawInput);
+        if (input.workflow.stages.some((stage) => stage.kind === "ai" && stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check")))
+          refuse(i18n.t("agentRuns:workspaceCheck.delegated"));
         const authority = DelegatedAgentRunAuthoritySchema.parse(rawAuthority);
         if (input.origin !== "agent" || input.maxTurns > AGENT_RUN_LIMITS.defaultMaxTurns || input.consent.authorizedEffectStageIds.length)
           refuse("Invalid delegated supervision policy.");
@@ -1881,14 +1883,15 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(agentRunId);
       }),
-    startAgentRun: (rawInput) =>
-      enqueue(async () => {
-        const input = AgentRunStartInputSchema.parse(rawInput);
-        const check = deps.listWorkspaceActionScripts ? await admitWorkspaceCheck({ workflow: input.workflow,
-          agent: input.origin === "agent" ? deps.taskAgent?.(input.leadTaskId) ?? null : null, scripts: await deps.listWorkspaceActionScripts(input.workspaceId), readRevision: async () => {
-            const cwd = await deps.resolveWorkspacePath(input.workspaceId);
-            return cwd && deps.readWorkspaceRevision ? deps.readWorkspaceRevision(cwd) : { status: "unknown", reason: "unavailable" };
-          } }) : { workflow: input.workflow };
+    startAgentRun: async (rawInput) => {
+      const input = AgentRunStartInputSchema.parse(rawInput);
+      // Git snapshots and their retry can take seconds; keep them outside the supervisor queue.
+      const check = await admitWorkspaceCheck({ workflow: input.workflow,
+        agent: input.origin === "agent" ? deps.taskAgent?.(input.leadTaskId) ?? null : null, scripts: await deps.listWorkspaceActionScripts?.(input.workspaceId) ?? [], readRevision: async () => {
+          const cwd = await deps.resolveWorkspacePath(input.workspaceId);
+          return cwd && deps.readWorkspaceRevision ? deps.readWorkspaceRevision(cwd) : { status: "unknown", reason: "unavailable" };
+        } });
+      return enqueue(async () => {
         input.workflow = check.workflow;
         const existing = store.getActiveAgentRunForTask(input.leadTaskId);
         if (existing) {
@@ -1947,7 +1950,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         emit(change.agentRun);
         void requestTick();
         return detailOf(change.agentRun.id);
-      }),
+      });
+    },
     list: async (args = {}) => {
       const recent = args.workspaceId
         ? store.listAgentRunsForWorkspace(args.workspaceId, args.limit)
