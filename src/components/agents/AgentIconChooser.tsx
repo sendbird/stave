@@ -140,9 +140,16 @@ const styles = stylex.create({
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
   },
+  /**
+   * Selection is the soft wash plus an inset ring; the glyph and the initials
+   * keep the body ink. The theme accent is not used here: on the soft wash it
+   * measured 2.15:1 in Ayu Light, while body ink stays above 4.5:1 and the
+   * `--muted-foreground` ring above 3:1 against both the wash and the popover
+   * in every built-in theme (`tests/agent-appearance.test.tsx`).
+   */
   cellSelected: {
     backgroundColor: { default: vars["--ads-color-accent-soft"], ":hover": vars["--ads-color-accent-soft"] },
-    color: vars["--ads-color-accent"],
+    boxShadow: `inset 0 0 0 ${vars["--ads-ring-width-sm"]} ${vars["--ads-color-border-strong"]}`,
   },
   empty: {
     margin: 0,

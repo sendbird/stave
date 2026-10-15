@@ -20,6 +20,7 @@ import {
   updateAgentAppearance,
 } from "@/lib/agents/agent-appearance";
 import { AGENT_ICONS, agentIconLabel, getAgentIcon, matchAgentIcons } from "@/lib/agents/agent-icons";
+import { adsThemeVariables } from "@/components/system/ads-theme";
 import { i18n } from "@/i18n/runtime";
 import { findAgentReferences, agentIsDeletable } from "@/lib/agents/agent-references";
 import {
@@ -160,6 +161,45 @@ describe("agent avatar icon", () => {
     }
     expect(getAgentIcon("retired-glyph")).toBeNull();
     expect(getAgentIcon(undefined)).toBeNull();
+  });
+
+  test("the chooser's selected cell keeps its glyph, initials and ring readable in every built-in theme", () => {
+    // The selected cell paints body ink on the soft wash with a muted-ink ring,
+    // inside a popover. Check that the bridge still maps those roles as computed
+    // below, then measure each pair in every theme a user can pick.
+    expect(adsThemeVariables["--ads-color-text"]).toBe("var(--foreground)");
+    expect(adsThemeVariables["--ads-color-accent-soft"]).toBe("color-mix(in oklab, var(--foreground) 4%, var(--card))");
+    expect(adsThemeVariables["--ads-color-border-strong"]).toBe("var(--muted-foreground)");
+    expect(adsThemeVariables["--ads-color-surface-raised"]).toBe("var(--popover)");
+    const themes = [
+      { id: "preset-light", tokens: PRESET_THEME_TOKENS.light as Record<string, string> },
+      { id: "preset-dark", tokens: PRESET_THEME_TOKENS.dark as Record<string, string> },
+      ...BUILTIN_CUSTOM_THEMES.map((theme) => ({ id: theme.id, tokens: theme.tokens as Record<string, string> })),
+    ];
+    expect(themes.map((theme) => theme.id)).toContain("ayu-light");
+    const failures: string[] = [];
+    for (const theme of themes) {
+      const ink = parseCssColor(theme.tokens.foreground ?? "");
+      const card = parseCssColor(theme.tokens.card ?? "");
+      const popover = parseCssColor(theme.tokens.popover ?? "");
+      const ring = parseCssColor(theme.tokens["muted-foreground"] ?? "");
+      if (!ink || !card || !popover || !ring) {
+        failures.push(`${theme.id}: unreadable`);
+        continue;
+      }
+      const wash = mixOklab(card, ink, 0.04);
+      const pairs: Array<[string, number, number]> = [
+        // Initials are text, so the stricter floor covers the icon (3:1) too.
+        ["ink on selected wash", contrastRatio(ink, wash), 4.5],
+        ["ink on popover", contrastRatio(ink, popover), 4.5],
+        ["ring on selected wash", contrastRatio(ring, wash), 3],
+        ["ring on popover", contrastRatio(ring, popover), 3],
+      ];
+      for (const [name, ratio, floor] of pairs) {
+        if (ratio < floor) failures.push(`${theme.id} ${name} ${ratio.toFixed(2)}:1`);
+      }
+    }
+    expect(failures).toEqual([]);
   });
 
   test("the editor offers the icon next to the colour, labelled with the current choice", () => {
