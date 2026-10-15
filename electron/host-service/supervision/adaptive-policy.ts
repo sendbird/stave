@@ -22,10 +22,12 @@ export function freezeAdaptivePolicy(args: {
   exclusiveModels?: readonly string[];
 }): AdaptiveRunPolicy {
   const { providerId, agent, draft } = args;
-  // A model pinned in the composer wins over the Agent's fixed model, as it does for any Agent turn.
+  // A model pinned in the composer wins over the Agent's fixed model on its provider.
+  // A fixed Agent compiles for its own provider only, so another provider is refused here.
   const composerPin = !args.delegated && draft?.model ? draft.model : undefined;
-  const fixedModel = agent?.model.mode === "fixed" && !composerPin ? agent.model : null;
-  if (fixedModel && fixedModel.providerId !== providerId) throw new Error("This Agent's fixed model runs on another provider. Switch the task to that provider before starting.");
+  const agentFixed = agent?.model.mode === "fixed" ? agent.model : null;
+  if (agentFixed && agentFixed.providerId !== providerId) throw new Error("This Agent's fixed model runs on another provider. Switch the task to that provider before starting.");
+  const fixedModel = agentFixed && !composerPin ? agentFixed : null;
   if (composerPin && (draft?.modelProviderId ?? inferProviderIdFromModel({ model: composerPin })) !== providerId) throw new Error("The model pinned in the composer runs on another provider. Switch the task to that provider before starting.");
   const requestedModel = composerPin || fixedModel?.model || args.model;
   const model = args.exclusiveModels === undefined ? requestedModel : resolveApiConnectionModel({ runtime: providerId, models: args.exclusiveModels, model: requestedModel });

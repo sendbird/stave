@@ -32,8 +32,9 @@ export function createConstrainedHostRouter(deps: {
     // A route the caller already froze to a pinned model (a run's team limits) keeps
     // that model: the Agent's fixed model, or the composer pin that overrode it.
     const frozenPin = Boolean(input.modelPinned && input.allowedModels && input.model);
+    // A fixed Agent compiles for its own provider only, whatever model a pin chose.
+    if (agent?.model.mode === "fixed" && agent.model.providerId !== providerId) throw new Error("The fixed Agent provider cannot change.");
     const fixed = agent?.model.mode === "fixed" && !frozenPin ? agent.model : null;
-    if (fixed && fixed.providerId !== providerId) throw new Error("The fixed Agent provider cannot change.");
     return withProviderAccountScope(input.accounts, async () => {
       const pins = exclusiveGatewayModels(deps.profiles(), input.accounts)[providerId];
       const requested = fixed ? fixed.model ?? input.model : input.model;

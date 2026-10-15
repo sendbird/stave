@@ -44,14 +44,15 @@ test("explicit model and effort pins are frozen without taking a caller authorit
     draft: { model: "gpt-6-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
   expect(p).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true, effortLocked: true, initialEffort: "high" });
 });
-test("a composer pin wins over a fixed Agent model, on its provider or another; without one the fixed model holds", () => {
+test("a composer pin wins over a fixed Agent model on its provider; another provider is refused at start", () => {
   const agent = { ...getBuiltinAgent("builder")!, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.1-sol", effort: "high" as const } };
   expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent, settings: null, maxTurns: 30,
     draft: { model: "gpt-6-astra", modelProviderId: "codex" } })).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true });
-  expect(freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30,
-    draft: { model: "claude-opus-5-5", modelProviderId: "claude-code" } })).toMatchObject({ providerId: "claude-code", allowedModels: ["claude-opus-5-5"] });
   expect(freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6-astra", agent, settings: null, maxTurns: 30, draft: null }))
     .toMatchObject({ allowedModels: ["gpt-6.1-sol"], modelLocked: true, effortLocked: true, initialEffort: "high" });
+  // A fixed Agent compiles for its own provider only, so a pin on another provider is refused before any turn.
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30,
+    draft: { model: "claude-opus-5-5", modelProviderId: "claude-code" } })).toThrow("another provider");
   expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent, settings: null, maxTurns: 30, draft: null }))
     .toThrow("another provider");
 });

@@ -446,8 +446,9 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
 - **Model and effort.** An Agent whose model is **Auto** may change model or
   effort as the work needs it: at most two changes per run, with two turns
   between them. A **Fixed** Agent model, or a model or effort pinned in the
-  composer, never changes. The Agent can also propose a justified change for a
-  later turn.
+  composer, never changes; a composer pin replaces a fixed model on the
+  Agent's own provider, and a pin on another provider is refused at start. The
+  Agent can also propose a justified change for a later turn.
 - **Providers.** The run stays on the provider and account it started on. A
   helper Agent runs on its own provider, so a Reviewer can review Claude's
   work on Codex, unless the run's model is pinned; then helpers stay on the
