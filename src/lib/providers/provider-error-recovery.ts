@@ -50,6 +50,37 @@ export function parseProviderErrorNotice(
 }
 
 /**
+ * Whether a turn ended on the account rather than the work: the provider
+ * refused the sign-in or key (`auth`), or included usage ran out
+ * (`usage-limit`). Matches the runtimes' own normalized messages
+ * ("Claude authentication failed…", "Codex usage limit reached…") and the
+ * `usage_limit` stop reason. Null for every other failure.
+ */
+export function classifyProviderAccountFailure(
+  content: string,
+  terminalStopReason?: string,
+): "auth" | "usage-limit" | null {
+  const normalized = content.toLowerCase();
+  if (
+    normalized.includes("authentication failed") ||
+    normalized.includes("authentication_failed") ||
+    normalized.includes("not logged in") ||
+    normalized.includes("please run /login")
+  ) {
+    return "auth";
+  }
+  if (
+    terminalStopReason?.trim().toLowerCase() === "usage_limit" ||
+    normalized.includes("usage limit") ||
+    normalized.includes("usage_limit") ||
+    normalized.includes("hit your limit")
+  ) {
+    return "usage-limit";
+  }
+  return null;
+}
+
+/**
  * Starts a new turn instead of replaying the failed turn's original prompt.
  * The provider must reconcile workspace state before attempting remaining
  * work because tools may have completed before the terminal failure arrived.

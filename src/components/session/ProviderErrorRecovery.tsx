@@ -5,6 +5,7 @@ import { RotateCcw, TriangleAlert } from "lucide-react";
 import { Button, Loader } from "@/components/ui";
 import {
   buildProviderFailureContinuationPrompt,
+  classifyProviderAccountFailure,
   isProviderFailureRecoveryEligible,
   isProviderFailureRecoveryScopeCurrent,
   parseProviderErrorNotice,
@@ -12,6 +13,7 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { providerErrorRecoveryStyles as styles } from "./provider-error-recovery.styles";
+import { ProviderErrorAccountAction } from "./ProviderErrorAccountAction";
 
 export function ProviderErrorRecovery(props: {
   content: string;
@@ -46,6 +48,7 @@ export function ProviderErrorRecovery(props: {
     return null;
   }
 
+  const accountFailure = classifyProviderAccountFailure(props.content, props.terminalStopReason);
   const recoveryEligible = isProviderFailureRecoveryEligible({
     notice,
     terminalStopReason: props.terminalStopReason,
@@ -141,6 +144,7 @@ export function ProviderErrorRecovery(props: {
       {notice.guidance ? (
         <p className={sx(styles.guidance)}>{formatProviderErrorDisplay(notice.guidance)}</p>
       ) : null}
+      {accountFailure ? <ProviderErrorAccountAction taskId={props.taskId} failure={accountFailure} /> : null}
       {recoveryEligible && isLatestMessage ? (
         <div className={sx(styles.resume)}>
           <p className={sx(styles.help)}>

@@ -4421,6 +4421,7 @@ export function PromptInput(args: PromptInputProps) {
                       : undefined
                   }
                   {...(modelSelectorOpenProvider ? { openProviderId: modelSelectorOpenProvider } : {})}
+                  accountActions
                   openAgentsToken={agentsOpenToken}
                   onFastModeChange={onFastModeChange}
                   onSelect={({ selection, effort, fastMode: nextFastMode }) => {

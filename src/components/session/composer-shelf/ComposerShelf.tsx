@@ -34,6 +34,9 @@ import { shelfStyles as styles } from "./composer-shelf.styles";
 import { ShelfQueue, type ComposerShelfQueueProps } from "./ShelfQueue";
 import { ReviewActivityDialog, ShelfReviews } from "./ShelfReviews";
 import { ShelfUsageLimit } from "./ShelfUsageLimit";
+import { ShelfAccountNotice } from "./ShelfAccountNotice";
+import { useProviderAccountBlocker } from "@/lib/providers/use-provider-account-blocker";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { useShelfReviews } from "./use-shelf-reviews";
 import { hasPausedUsageLimitWork } from "@/store/task-work-pause";
 import type { ShelfRunDetailToggle, ShelfRunPanelButton } from "./ShelfRunLine";
@@ -65,9 +68,13 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   /** A steer was sent and the provider has not taken it yet. */
   steering: boolean;
   queue: ComposerShelfQueueProps | null;
+  /** The provider the next send uses; its account decides whether the account line shows. */
+  providerId?: ProviderId;
 }) {
   useTranslation();
   const taskId = useScopedTaskId();
+  const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code");
+  const blocker = props.providerId ? accountBlocker : null;
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
   const setLayout = useAppStore((state) => state.setLayout);
   const abortTaskTurn = useAppStore((state) => state.abortTaskTurn);
@@ -92,7 +99,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     hasPausedUsageLimitWork({ pause: usageLimitPause, queuedTurnCount: queueCount });
   const reviews = useShelfReviews(taskId);
   const reviewCount = reviews.items.length;
-  const rows = selectComposerShelfRows({ run: runSource, queueCount, limited, reviewCount });
+  const rows = selectComposerShelfRows({ run: runSource, queueCount, limited, reviewCount, accountBlocked: blocker != null });
   const onResumeNow = useCallback(
     () => void resumePausedTaskWork({ taskId }),
     [resumePausedTaskWork, taskId],
@@ -168,7 +175,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   }
   // Only the run line is left and it is on its way out: the whole shelf goes.
   const surfaceLeaving =
-    runSource === "turn" && turn.isLeaving && queueCount === 0 && !limited && reviewCount === 0;
+    runSource === "turn" && turn.isLeaving && queueCount === 0 && !limited && reviewCount === 0 && !rows.includes("account");
 
   return (
     <section
@@ -185,6 +192,11 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
         ),
       )}
     >
+      {blocker && rows.includes("account") ? (
+        <ShelfRow joining={shownBefore.current}>
+          <ShelfAccountNotice blocker={blocker} />
+        </ShelfRow>
+      ) : null}
       {runSource ? (
         <ShelfRow joining={shownBefore.current} leaving={runSource === "turn" && turn.isLeaving && !surfaceLeaving}>
           {runSource === "agentRun" ? (

@@ -1047,7 +1047,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   });
   const composerShelf = (
     <RenderProfiler id="ComposerShelf">
-      <ComposerShelf framed={useFramedComposer} steering={isSteerSubmitting} queue={shelfQueue} />
+      <ComposerShelf framed={useFramedComposer} steering={isSteerSubmitting} queue={shelfQueue} providerId={args.activeProvider} />
     </RenderProfiler>
   );
 

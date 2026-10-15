@@ -728,5 +728,24 @@
     "failed": "다이어그램을 그리지 못해 소스를 표시합니다.",
     "showCode": "코드 보기",
     "showDiagram": "다이어그램 보기"
+  },
+  "accountNotice": {
+    "ariaLabel": "계정",
+    "cliMissing": "{{value1}} CLI가 설치되지 않아 이 작업을 보낼 수 없습니다.",
+    "signedOut": "{{value1}}의 {{value2}} 계정에 로그인되어 있지 않습니다.",
+    "keyUnreadable": "Stave가 {{value1}} 연결의 키를 읽지 못합니다.",
+    "limitReached": "{{value1}}의 {{value2}} 계정이 사용 한도에 도달했습니다.",
+    "actions": {
+      "setUp": "설정",
+      "signIn": "로그인",
+      "connectKey": "키 연결",
+      "switchAccount": "다른 계정으로 바꾸기",
+      "addAccount": "계정 추가"
+    }
+  },
+  "modelPickerAccounts": {
+    "manage": "계정과 연결 관리…",
+    "addGatewayModels": "Vercel AI Gateway로 다른 모델 추가…",
+    "editModels": "모델 편집"
   }
 }

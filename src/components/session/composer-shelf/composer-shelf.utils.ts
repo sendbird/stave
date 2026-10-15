@@ -45,7 +45,7 @@ import type {
 /** What heads the run line: an active agent run (or legacy run), else the turn. */
 export type ShelfRunSource = "agentRun" | "turn";
 
-export type ComposerShelfRow = "run" | "limit" | "review" | "queue";
+export type ComposerShelfRow = "account" | "run" | "limit" | "review" | "queue";
 
 /**
  * The run line names one thing. An active run owns it for its whole life, the
@@ -73,8 +73,13 @@ export function selectComposerShelfRows(args: {
   limited?: boolean;
   /** Reviews running in their own task, or finished and not yet carried. */
   reviewCount?: number;
+  /** The selected account cannot send; the usage-limit line wins when work already paused. */
+  accountBlocked?: boolean;
 }): ComposerShelfRow[] {
   const rows: ComposerShelfRow[] = [];
+  if (args.accountBlocked && !args.limited) {
+    rows.push("account");
+  }
   if (args.run) {
     rows.push("run");
   }

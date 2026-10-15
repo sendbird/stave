@@ -6,7 +6,10 @@ import { AccountsSection } from "@/components/layout/settings-dialog-accounts-se
 import { ToolingSection } from "@/components/layout/settings-dialog-tooling-section";
 import { AccountsGettingStartedCardView, AccountsGettingStartedWelcomeView } from "@/components/layout/AccountsGettingStarted";
 import { ApiConnectionForm } from "@/components/layout/ApiConnectionForm";
+import { ModelPickerAccountFooterView } from "@/components/ai-elements/model-picker-account-actions";
 import { buildAccountsOnboardingChecklist, type AccountsOnboardingInput } from "@/lib/providers/accounts-onboarding";
+import { resolveProviderAccountBlocker } from "@/lib/providers/provider-account-blocker";
+import type { ToolingStatusEntry } from "@/lib/tooling-status";
 
 // A server render hands React each store's initial snapshot (zustand v5), so
 // state-dependent parts render through their views with built inputs; the
@@ -40,6 +43,10 @@ function checklist(overrides: Partial<AccountsOnboardingInput> & { providers?: P
       ...overrides.providers,
     },
   });
+}
+
+function tool(id: ToolingStatusEntry["id"], authState: ToolingStatusEntry["authState"]): ToolingStatusEntry {
+  return { id, label: id, state: "ready", available: true, summary: "", detail: "", version: null, executablePath: null, authState, authDetail: null };
 }
 
 beforeEach(() => {
@@ -152,12 +159,39 @@ describe("welcome Getting started", () => {
   });
 });
 
-describe("API connection form", () => {
+describe("API connection form and model picker foot", () => {
   test("the form offers a pasted key and shows its steps in order", () => {
     const html = render(createElement(ApiConnectionForm, { busy: false, secrets: [], onRefreshSecrets: () => {}, onCreate: async () => false }));
     expect(html).toContain("Paste a new key");
     expect(inOrder(html, ["API key", "Name", "Pinned models", "1 Key", "2 Name", "3 Models", "4 Check after adding", "Add connection"])).toBe(true);
     // The step line replaces the old "Still needed" list.
     expect(html).not.toContain("Still needed");
+  });
+
+  test("the picker foot says which provider is missing and how to fix it", () => {
+    const signedOut = resolveProviderAccountBlocker({
+      providerId: "codex",
+      available: false,
+      tool: tool("codex", "unauthenticated"),
+      selectedProfile: { id: "system-default", kind: "system", label: "System default" },
+      otherAccountCount: 0,
+      limitReached: false,
+    });
+    const limited = resolveProviderAccountBlocker({
+      providerId: "claude-code",
+      available: true,
+      tool: tool("claude", "authenticated"),
+      selectedProfile: { id: "system-default", kind: "system", label: "System default" },
+      otherAccountCount: 0,
+      limitReached: true,
+    });
+    const html = render(createElement(ModelPickerAccountFooterView, { blockers: [limited, signedOut], hasConnection: false, onGo: () => {} }));
+    expect(html).toContain("Codex is not signed in on System default.");
+    // A usage limit is the composer's line, not the picker's.
+    expect(html).not.toContain("usage limit");
+    expect(inOrder(html, ["Sign in", "Add other models with Vercel AI Gateway…", "Manage accounts and connections…"])).toBe(true);
+    const withConnection = render(createElement(ModelPickerAccountFooterView, { blockers: [null, null], hasConnection: true, onGo: () => {} }));
+    expect(withConnection).not.toContain("Add other models with Vercel AI Gateway…");
+    expect(withConnection).toContain("Manage accounts and connections…");
   });
 });

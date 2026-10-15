@@ -39,6 +39,7 @@ import { AgentRouteRow, describeAgentRoute } from "./agent-route-row";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";
+import { ModelGroupEditButton, ModelPickerAccountFooter } from "./model-picker-account-actions";
 import { ModelIcon } from "./model-icon";
 import {
   readCursorComposerSettings,
@@ -142,6 +143,11 @@ interface ModelEffortSelectorProps {
   onRefreshCatalogs?: () => void;
   /** Offer agents on the rail, and split the trigger in two while an agent runs the task. */
   agents?: ModelPickerAgents;
+  /**
+   * The composer's picker: a foot with account fixes and the way into
+   * Settings > Accounts, and "Edit models" on an API connection's group.
+   */
+  accountActions?: boolean;
   /** The provider tab an `openToken` request opens on, when it has models. */
   openProviderId?: ProviderId;
   onFastModeChange?: (enabled: boolean) => void;
@@ -886,7 +892,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       />
                     ) : null}
                     {visibleGroup ? (
-                      <div className={sx(styles.modelGroupHeading)}>{visibleGroup}</div>
+                      <div className={sx(styles.modelGroupHeading, styles.modelGroupHeadingRow)}>
+                        <span>{visibleGroup}</span>
+                        {args.accountActions ? (
+                          <ModelGroupEditButton providerId={providerId} onNavigate={() => setOpen(false)} />
+                        ) : null}
+                      </div>
                     ) : null}
                     <ModelEffortGrid
                       providerId={providerId}
@@ -955,6 +966,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 </span>
               </AdsButton>
             </div>
+          ) : null}
+          {args.accountActions && !pinMode ? (
+            <ModelPickerAccountFooter onNavigate={() => setOpen(false)} />
           ) : null}
         </div>
       </Tabs>
