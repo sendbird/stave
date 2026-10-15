@@ -88,17 +88,6 @@ export function describeProviderAccountBlocker(blocker: ProviderAccountBlocker) 
   }
 }
 
-/**
- * The model selector's shorter line: the picker lists every provider, so it
- * names the state without saying "this task".
- */
-export function describeProviderAccountBlockerShort(blocker: ProviderAccountBlocker) {
-  const provider = getProviderLabel({ providerId: blocker.providerId, variant: "full" });
-  return blocker.kind === "cli-missing"
-    ? i18n.t("composer:accountNotice.cliMissingShort", { value1: provider })
-    : describeProviderAccountBlocker(blocker);
-}
-
 export function providerAccountBlockerActionLabel(blocker: ProviderAccountBlocker) {
   switch (blocker.action) {
     case "set-up": return i18n.t("composer:accountNotice.actions.setUp");

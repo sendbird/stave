@@ -214,7 +214,7 @@ describe("API connection form and model picker foot", () => {
     expect(text(html)).toContain("Open a repository first");
   });
 
-  test("the picker foot says which provider is missing and how to fix it", () => {
+  test("the picker foot names only set-up providers that stopped working, and how to fix them", () => {
     const signedOut = resolveProviderAccountBlocker({
       providerId: "codex",
       available: false,
@@ -239,10 +239,21 @@ describe("API connection form and model picker foot", () => {
       otherAccountCount: 0,
       limitReached: false,
     });
-    const html = render(createElement(ModelPickerAccountFooterView, { blockers: [limited, signedOut, kiroSignedOut], hasConnection: false, onGo: () => {} }));
+    const notInstalled = (["claude-code", "cursor"] as const).map((providerId) => resolveProviderAccountBlocker({
+      providerId,
+      available: false,
+      tool: { ...tool(providerId === "cursor" ? "cursor" : "claude", "unknown"), available: false },
+      selectedProfile: providerId === "cursor" ? undefined : { id: "system-default", kind: "system", label: "System default" },
+      otherAccountCount: 0,
+      limitReached: false,
+    }));
+    expect(notInstalled.map((blocker) => blocker?.kind)).toEqual(["cli-missing", "cli-missing"]);
+    const html = render(createElement(ModelPickerAccountFooterView, { blockers: [limited, signedOut, kiroSignedOut, ...notInstalled], hasConnection: false, onGo: () => {} }));
     expect(html).toContain("Codex is not signed in on System default.");
     expect(html).toContain("Kiro CLI is not signed in.");
-    // A usage limit is the composer's line, not the picker's.
+    // A CLI that is not installed is left out, for every provider; so is a usage limit.
+    expect(html).not.toContain("not installed");
+    expect(html).not.toContain("Set up");
     expect(html).not.toContain("usage limit");
     expect(inOrder(html, ["Sign in", "Add other models with Vercel AI Gateway…", "Manage accounts and connections…"])).toBe(true);
     const withConnection = render(createElement(ModelPickerAccountFooterView, { blockers: [null, null], hasConnection: true, onGo: () => {} }));

@@ -742,13 +742,11 @@
       "switchAccount": "다른 계정으로 바꾸기",
       "addAccount": "계정 추가"
     },
-    "signedOutCli": "{{value1}}에 로그인되어 있지 않습니다.",
-    "cliMissingShort": "설치되지 않음: {{value1}}"
+    "signedOutCli": "{{value1}}에 로그인되어 있지 않습니다."
   },
   "modelPickerAccounts": {
     "manage": "계정과 연결 관리…",
     "addGatewayModels": "Vercel AI Gateway로 다른 모델 추가…",
-    "editModels": "모델 편집",
-    "notInstalled": "설치되지 않음: {{value1}}"
+    "editModels": "모델 편집"
   }
 }

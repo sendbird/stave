@@ -22,6 +22,8 @@ type Seed = {
   customThemeId?: string;
   /** OpenCode is installed and can take a turn; true unless set to false. */
   openCodeReady?: boolean;
+  /** Kiro is installed but its CLI is signed out (otherwise it is not installed). */
+  kiroSignedOut?: boolean;
   /** "Add connection" saves instead of failing. */
   allowConnectionCreate?: boolean;
   /** Codex availability for an API connection answers this late, as a re-check after an account switch can. */
@@ -120,14 +122,15 @@ function seedAccounts(page: Page, seed: Seed) {
             if (providerId !== "claude-code" && providerId !== "codex") {
               // OpenCode is installed and manages its own sign-in (unless the seed says otherwise);
               // Cursor and Kiro are not installed.
-              const installed = providerId === "opencode" && args.seed.openCodeReady !== false;
+              const installed = providerId === "opencode" ? args.seed.openCodeReady !== false : providerId === "kiro" && Boolean(args.seed.kiroSignedOut);
+              const authState = !installed ? "unknown" : providerId === "opencode" ? "not-required" : "unauthenticated";
               const status = {
                 id: providerId, label: providerId === "opencode" ? "OpenCode" : providerId === "cursor" ? "Cursor Agent" : "Kiro CLI",
-                state: installed ? "ready" : "error", available: installed, version: installed ? "1.19.0" : null,
-                executablePath: installed ? "/tmp/fixture/opencode" : null, authState: installed ? "not-required" : "unknown",
+                state: installed ? (authState === "unauthenticated" ? "warning" : "ready") : "error", available: installed, version: installed ? "1.19.0" : null,
+                executablePath: installed ? `/tmp/fixture/${providerId}` : null, authState,
                 authDetail: null, summary: installed ? "Ready." : "Not found.", detail: "", checkedAt: now(),
               };
-              return { ok: true, providerId, available: installed, toolingStatus: status, detail: status.summary };
+              return { ok: true, providerId, available: installed && authState !== "unauthenticated", toolingStatus: status, detail: status.summary };
             }
             const status = tool(providerId === "claude-code" ? "claude" : "codex");
             const viaConnection = providerId === "codex" && connections.some((entry) => entry.id === runtimeOptions?.codexAccountProfileId);
@@ -441,17 +444,19 @@ test("a ready OpenCode alone keeps the welcome sentence; the picker foot names C
   await expect(page.getByTestId("welcome-getting-started")).toHaveCount(0);
 });
 
-test("the picker foot groups CLIs that are not installed and opens their row", async ({ page }) => {
-  await seedAccounts(page, { themeMode: "light", ...READY });
+test("the picker foot leaves out CLIs that are not installed and opens a signed-out CLI's row", async ({ page }) => {
+  await seedAccounts(page, { themeMode: "light", ...READY, kiroSignedOut: true });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/");
   await page.getByRole("button", { name: /^Model:/ }).click();
   const foot = page.getByRole("dialog", { name: "Model and effort selector" }).getByTestId("model-picker-accounts");
-  const notInstalled = foot.locator('[data-kind="cli-missing"][data-providers="cursor kiro"]');
-  await expect(notInstalled).toContainText("Not installed: Cursor Agent and Kiro CLI.");
-  await notInstalled.getByRole("button", { name: "Set up" }).click();
-  const row = page.getByRole("dialog", { name: "Settings" }).locator("#settings-field-cli-provider-cursor");
-  await expect(row.getByRole("button", { name: "Open Tooling" })).toBeFocused();
+  // Cursor is not installed: no line for it, or for any other missing CLI.
+  await expect(foot.locator('[data-provider="kiro"]')).toContainText("Kiro CLI is not signed in.");
+  await expect(foot.locator('[data-kind="cli-missing"]')).toHaveCount(0);
+  await expect(foot).not.toContainText("not installed");
+  await foot.locator('[data-provider="kiro"]').getByRole("button", { name: "Sign in" }).click();
+  const row = page.getByRole("dialog", { name: "Settings" }).locator("#settings-field-cli-provider-kiro");
+  await expect(row.getByRole("button", { name: "Copy Login Command" })).toBeFocused();
 });
 
 for (const themeMode of ["light", "dark"] as const) {

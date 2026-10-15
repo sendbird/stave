@@ -748,13 +748,11 @@
       "switchAccount": "Switch account",
       "addAccount": "Add an account"
     },
-    "signedOutCli": "{{value1}} is not signed in.",
-    "cliMissingShort": "{{value1}} is not installed."
+    "signedOutCli": "{{value1}} is not signed in."
   },
   "modelPickerAccounts": {
     "manage": "Manage accounts and connections…",
     "addGatewayModels": "Add other models with Vercel AI Gateway…",
-    "editModels": "Edit models",
-    "notInstalled": "Not installed: {{value1}}."
+    "editModels": "Edit models"
   }
 }

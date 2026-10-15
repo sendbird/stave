@@ -4,11 +4,8 @@ import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { apiConnectionFocus, type AccountsSettingsFocus } from "@/lib/providers/accounts-guide";
 import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
-import { formatList } from "@/i18n/format";
-import { isCliManagedProvider } from "@/lib/providers/accounts-onboarding";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
-  describeProviderAccountBlockerShort,
+  describeProviderAccountBlocker,
   providerAccountBlockerActionLabel,
   type ProviderAccountBlocker,
 } from "@/lib/providers/provider-account-blocker";
@@ -22,14 +19,19 @@ import { modelPickerAccountStyles as styles } from "./model-picker-account-actio
 /**
  * The picker has no tab for a provider that cannot run (its options are
  * filtered out), so its state and fix sit in the foot instead of a group
- * heading. A usage limit is the composer's line, not the picker's.
+ * heading. Only a provider someone set up and that stopped working is named:
+ * installed but signed out, or a connection whose key Stave cannot read. A
+ * CLI that is not installed is left out (most people do not use every
+ * provider); the composer line covers the task's own provider, and Getting
+ * started and "Manage accounts and connections…" cover installing. A usage
+ * limit is the composer's line too.
  */
-function pickerBlocker(blocker: ProviderAccountBlocker | null) {
-  return blocker && blocker.kind !== "limit-reached" ? blocker : null;
+export function isModelPickerBlocker(blocker: ProviderAccountBlocker | null): blocker is ProviderAccountBlocker {
+  return blocker?.kind === "signed-out" || blocker?.kind === "key-unreadable";
 }
 
 /**
- * The composer model selector's foot: why a provider is missing from it,
+ * The composer model selector's foot: why a set-up provider is missing from it,
  * a way to add gateway models when there is no API connection, and the way
  * into Settings > Accounts. `onNavigate` closes the picker first.
  */
@@ -59,39 +61,22 @@ export function ModelPickerAccountFooterView(props: {
   onGo: (focus?: AccountsSettingsFocus) => void;
 }) {
   useTranslation();
-  const blockers = props.blockers.map(pickerBlocker).filter((blocker): blocker is ProviderAccountBlocker => blocker !== null);
-  // Cursor, Kiro and OpenCode that are not installed share one line: most
-  // people have not installed all of them, and their rows sit together.
-  const notInstalled = blockers.filter((blocker) => blocker.kind === "cli-missing" && isCliManagedProvider(blocker.providerId));
-  const lines = blockers.filter((blocker) => !notInstalled.includes(blocker));
+  const blockers = props.blockers.filter(isModelPickerBlocker);
   const hasConnection = props.hasConnection;
   const go = props.onGo;
   return (
     <div className={sx(styles.footer)} data-testid="model-picker-accounts">
-      {lines.map((blocker) => (
+      {blockers.map((blocker) => (
         <div key={blocker.providerId} className={sx(styles.notice)} data-provider={blocker.providerId} data-kind={blocker.kind}>
           <AlertCircle aria-hidden className={sx(styles.noticeIcon)} />
-          <span className={sx(styles.noticeText)} title={describeProviderAccountBlockerShort(blocker)}>
-            {describeProviderAccountBlockerShort(blocker)}
+          <span className={sx(styles.noticeText)} title={describeProviderAccountBlocker(blocker)}>
+            {describeProviderAccountBlocker(blocker)}
           </span>
           <Button size="xs" variant="outline" onClick={() => go(blocker.focus)}>
             {providerAccountBlockerActionLabel(blocker)}
           </Button>
         </div>
       ))}
-      {notInstalled.length > 0 ? (
-        <div className={sx(styles.notice)} data-kind="cli-missing" data-providers={notInstalled.map((blocker) => blocker.providerId).join(" ")}>
-          <AlertCircle aria-hidden className={sx(styles.noticeIcon)} />
-          <span className={sx(styles.noticeText)}>
-            {i18n.t("composer:modelPickerAccounts.notInstalled", {
-              value1: formatList(notInstalled.map((blocker) => getProviderLabel({ providerId: blocker.providerId, variant: "full" }))),
-            })}
-          </span>
-          <Button size="xs" variant="outline" onClick={() => go(notInstalled[0]!.focus)}>
-            {providerAccountBlockerActionLabel(notInstalled[0]!)}
-          </Button>
-        </div>
-      ) : null}
       {!hasConnection ? (
         <Button size="sm" variant="quiet" xstyle={styles.link} onClick={() => go("api-connection-new")}>
           {i18n.t("composer:modelPickerAccounts.addGatewayModels")}
