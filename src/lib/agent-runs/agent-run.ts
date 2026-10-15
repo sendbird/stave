@@ -105,7 +105,6 @@ export function buildAgentRunStartInput(args: {
   assignment: string;
   doneWhen?: string | null;
   initialContext?: import("./initial-context").AgentRunInitialContext;
-  adaptive?: boolean;
   routingIntent?: import("./resources").AdaptiveRoutingIntent;
   /** The accounts selected for this send; the run's own turns keep them. */
   accounts?: import("../providers/provider-account-selection").ProviderAccountSelection;
@@ -125,7 +124,6 @@ export function buildAgentRunStartInput(args: {
     consent: { checkIns: workflow.checkIns, permissionMode: agentRunPermissionMode(args.agent.permission), authorizedEffectStageIds },
     origin: "agent",
     maxTurns: Math.min(args.agent.tools?.maxTurns ?? AGENT_RUN_LIMITS.defaultMaxTurns, AGENT_RUN_LIMITS.maxTurnsCeiling),
-    ...(args.adaptive ? { adaptive: true } : {}),
     ...(args.routingIntent ? { routingIntent: args.routingIntent } : {}),
     ...(args.accounts ? { accounts: args.accounts } : {}),
     ...(args.accountPool ? { accountPool: args.accountPool } : {}),

@@ -1,15 +1,16 @@
-import { useId, useState } from "react";
+import { useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { Search } from "lucide-react";
+import { Search, Users } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { InputGroup } from "@/components/ads/components/InputGroup";
-import { Separator } from "@/components/ads/components/Separator";
+import { Button, Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui";
 import { useProviderAccountIdentity } from "@/lib/providers/use-provider-account-identity";
 import type { ProviderAccountIdentity } from "@/lib/providers/provider-account-identity";
 import type { ProviderAccountProviderId } from "@/lib/providers/provider-accounts";
+import { COMPOSER_CONTROL_BUTTON, ComposerControlLabel, composerControlAttributes } from "./composer-control-density";
 import { vars } from "../ads/tokens/tokens.stylex";
-import { sx } from "../ads/utils/stylex";
+import { cx, sx } from "../ads/utils/stylex";
 
 export interface PromptInputRunAccountPoolAccount {
   id: string;
@@ -109,14 +110,43 @@ export function PromptInputRunAccountPoolAccounts({ pool, query, onQueryChange }
   );
 }
 
+/** The composer's account pool button; it shows only when the provider has two subscription accounts or a live Run froze a pool. */
+export function PromptInputRunAccountPoolControl({ pool }: { pool: PromptInputRunAccountPool }) {
+  const { t } = useTranslation("agentRuns");
+  const name = t("accountPool.trigger", { state: t(pool.enabled ? "accountPool.on" : "accountPool.off") });
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            layout="host"
+            {...composerControlAttributes}
+            data-testid="run-account-pool-control"
+            aria-label={name}
+            title={name}
+            className={cx(COMPOSER_CONTROL_BUTTON, sx(styles.trigger, pool.enabled && styles.enabled))}
+          />
+        }
+      >
+        <Users aria-hidden />
+        <ComposerControlLabel>{name}</ComposerControlLabel>
+      </PopoverTrigger>
+      <PopoverContent side="top" align="end" sideOffset={8} xstyle={styles.popover}>
+        <PopoverTitle>{t("accountPool.title")}</PopoverTitle>
+        <PromptInputRunAccountPoolSection pool={pool} />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
 export function PromptInputRunAccountPoolSection({ pool }: { pool: PromptInputRunAccountPool }) {
   const { t } = useTranslation("agentRuns");
-  const headingId = useId();
   const [query, setQuery] = useState("");
   return (
-    <section aria-labelledby={headingId} data-testid="run-account-pool" className={sx(styles.section)}>
-      <Separator />
-      <p id={headingId} className={sx(styles.heading)}>{t("accountPool.title")}</p>
+    <div data-testid="run-account-pool" className={sx(styles.section)}>
       <Checkbox
         checked={pool.enabled}
         disabled={pool.locked}
@@ -128,18 +158,23 @@ export function PromptInputRunAccountPoolSection({ pool }: { pool: PromptInputRu
         <PromptInputRunAccountPoolAccounts pool={pool} query={query} onQueryChange={setQuery} />
       ) : null}
       <p className={sx(styles.notice)}>{t("accountPool.notice")}</p>
-    </section>
+    </div>
   );
 }
 
 const styles = stylex.create({
-  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
-  heading: {
-    margin: 0,
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    color: vars["--ads-color-text"],
+  trigger: { justifyContent: "flex-start", maxWidth: "100%" },
+  enabled: {
+    color: "var(--primary)",
+    backgroundColor: "color-mix(in oklch, var(--primary) 12%, transparent)",
   },
+  popover: {
+    width: "min(22rem, calc(100dvw - 32px))",
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-12"],
+  },
+  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
   accounts: {
     display: "flex",
     flexDirection: "column",

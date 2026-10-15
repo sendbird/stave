@@ -95,14 +95,14 @@ describe("collectActiveComposerControls", () => {
 });
 
 describe("resolveComposerControlLayout", () => {
-  test("keeps enabled run auto-tuning visible in the right wing even when hidden", () => {
+  test("keeps an enabled account pool visible in the right wing even when hidden", () => {
     const layout = resolveComposerControlLayout({
-      placements: { runAutoTuning: "hidden" },
-      activeIds: collectActiveComposerControls({ runAutoTuningEnabled: true }),
+      placements: { runAccountPool: "hidden" },
+      activeIds: collectActiveComposerControls({ runAccountPoolEnabled: true }),
     });
-    expect(layout.toolbar).toContain("runAutoTuning");
-    expect(layout.forced).toEqual(["runAutoTuning"]);
-    expect(partitionComposerFrameToolbar(layout.toolbar).right).toContain("runAutoTuning");
+    expect(layout.toolbar).toContain("runAccountPool");
+    expect(layout.forced).toEqual(["runAccountPool"]);
+    expect(partitionComposerFrameToolbar(layout.toolbar).right).toContain("runAccountPool");
   });
 
   test("puts every available control on the toolbar by default", () => {

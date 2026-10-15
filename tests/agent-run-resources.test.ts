@@ -47,3 +47,54 @@ test("legacy runs remain outside shared admission and malformed resource request
   expect(s.reserveChildResources({parentTaskId:"legacy",childRunId:"a",executionId:"ea",requestedTurns:30,now})).toBeNull();
   expect(AgentResourceRequestSchema.safeParse({model:"x",reason:"capability-mismatch",rationale:"diagnosed",evidenceRefs:["turn-1"],permissionMode:"auto"}).success).toBe(false);
 });
+test("a default team policy takes a helper on another provider unless the parent's model is pinned, and names its own limits", () => {
+  const team = (patch: Record<string, unknown>) => AdaptiveRunPolicySchema.parse({ ...policy, version: 2, concurrentHelpers: 1, totalHelpers: 2, ...patch });
+  const start = (id: string, resources: ReturnType<typeof team>) => {
+    const s = new AgentRunStore(new Database(":memory:"));
+    const change = create(new AgentRunStore(new Database(":memory:")), id);
+    Object.assign(change.events[0]!, { detail: { ...change.events[0]!.detail, resources } });
+    s.create(change, now);
+    return s;
+  };
+  const open = start("parent", team({ modelLocked: false }));
+  const claude = open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
+    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })!;
+  expect(claude.capacity).toBe(5);
+  expect(() => open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "second", executionId: "e2",
+    requestedTurns: 1, now })).toThrow("1 at once / 2 in total");
+  const pinned = start("parent", team({ modelLocked: true }));
+  expect(() => pinned.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
+    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })).toThrow("pinned");
+});
+test("a workflow's later stages done by another agent keep their helper slots from every earlier helper", () => {
+  const resources = AdaptiveRunPolicySchema.parse({ ...policy, version: 2, concurrentHelpers: 3, totalHelpers: 3 });
+  const review = (id: string) => ({ id, title: "Review", kind: "ai" as const, agentConfigId: "reviewer", pinCommit: true, instruction: "Review the commit.", doneWhen: "The review lists each defect." });
+  const workflow = [
+    { id: "work", title: "Work", kind: "ai" as const, instruction: "Do the work and commit it.", doneWhen: "The work is done." },
+    review("review-a"), review("review-b"),
+  ];
+  const start = (startStageIndex: number) => {
+    const s = new AgentRunStore(new Database(":memory:"));
+    const input = { ...buildAgentRunStartInput({ workspaceId: "ws", taskId: "parent", agent: { name: "Agent", workflow }, assignment: "Verify the artifact", now }), startStageIndex };
+    const change = createAgentRun({ id: "parent", input, repositoryPath: "/tmp/repo", fingerprint: { providerId: "codex", model: "gpt-6.1-sol" }, now });
+    Object.assign(change.events[0]!, { idempotencyKey: "parent:start", detail: { ...change.events[0]!.detail, resources } });
+    s.create(change, now);
+    return s;
+  };
+  const reserve = (s: AgentRunStore, childRunId: string) => s.reserveChildResources({ parentTaskId: "parent",
+    expectedRootRunId: "parent", childRunId, executionId: `e-${childRunId}`, requestedTurns: 2, now });
+  // Work: one helper of its own, then the two review slots are kept.
+  const working = start(0);
+  working.releaseResourceReservation(reserve(working, "helper-1")!.link, now);
+  expect(() => reserve(working, "helper-2")).toThrow("keeps its last 2 helper slot");
+  // Review A: its Reviewer runs, but a retry of it cannot take the slot kept for Review B.
+  const reviewingA = start(1);
+  reviewingA.releaseResourceReservation(reserve(reviewingA, "helper-1")!.link, now);
+  reviewingA.releaseResourceReservation(reserve(reviewingA, "reviewer-a")!.link, now);
+  expect(() => reserve(reviewingA, "reviewer-a-retry")).toThrow("keeps its last 1 helper slot");
+  // Review B takes the last slot.
+  const reviewingB = start(2);
+  reviewingB.releaseResourceReservation(reserve(reviewingB, "helper-1")!.link, now);
+  reviewingB.releaseResourceReservation(reserve(reviewingB, "reviewer-a")!.link, now);
+  expect(reserve(reviewingB, "reviewer-b")?.capacity).toBe(2);
+});

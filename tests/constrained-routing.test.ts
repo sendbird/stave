@@ -58,6 +58,20 @@ describe("constrained host Decision routing", () => {
     const controller = new AbortController(); controller.abort();
     await expect(router(input, controller.signal)).rejects.toMatchObject({ name: "AbortError" });
   });
+  test("a run's frozen composer pin wins over the Agent's fixed model on its provider", async () => {
+    const fixedAgent = { ...assignment, role: "primary", agent: { ...getBuiltinAgent("implementer")!,
+      model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-6.1-sol" } } } as AgentAssignment;
+    const router = createConstrainedHostRouter({ assignment: () => fixedAgent, settings: () => settings, profiles: () => [],
+      cwd: async () => "/tmp/workspace", history: () => [], classify: async () => ({ ok: false }) });
+    const run = { workspaceId: "ws", taskId: "lead", prompt: "Fix a typo", accounts: {}, modelPinned: true };
+    expect((await router({ ...run, providerId: "codex", model: "gpt-6-astra", allowedModels: ["gpt-6-astra"] })).fingerprint)
+      .toEqual({ providerId: "codex", model: "gpt-6-astra" });
+    // A fixed Agent compiles for its own provider only, pinned or not.
+    await expect(router({ ...run, providerId: "claude-code", model: "claude-opus-5-5", allowedModels: ["claude-opus-5-5"] })).rejects.toThrow("fixed Agent provider");
+    // Without a frozen pin the fixed model still applies.
+    expect((await router({ ...run, providerId: "codex", modelPinned: false })).fingerprint.model).toBe("gpt-6.1-sol");
+    await expect(router({ ...run, providerId: "claude-code", modelPinned: false })).rejects.toThrow("fixed Agent provider");
+  });
   test("Settings previews use the same exclusive models as execution, including empty intersections", () => {
     const profile = defaultSettings.autoRoutingProfile;
     const pins = ["moonshotai/kimi-k3"];

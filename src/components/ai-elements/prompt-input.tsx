@@ -1,4 +1,4 @@
-import { PromptInputRunAutoTuningControl, type PromptInputRunAutoTuning } from "./prompt-input-run-auto-tuning";
+import { PromptInputRunAccountPoolControl, type PromptInputRunAccountPool } from "./prompt-input-run-account-pool";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
@@ -301,7 +301,7 @@ interface PromptInputProps {
   activeProviderModePresetId?: ProviderModePresetId | null;
   goalStatus?: PromptInputGoalStatus | null;
   contextMeter?: ReactNode;
-  runAutoTuning?: PromptInputRunAutoTuning | null;
+  runAccountPool?: PromptInputRunAccountPool | null;
   /**
    * Wrap the raised card in the four-bar composer frame and move toolbar
    * controls into the side wings when the viewport is wide enough.
@@ -868,7 +868,7 @@ export function PromptInput(args: PromptInputProps) {
     activeProviderModePresetId,
     goalStatus,
     contextMeter,
-    runAutoTuning,
+    runAccountPool,
     framed = false,
     frameTop,
     frameBottom,
@@ -2333,7 +2333,7 @@ export function PromptInput(args: PromptInputProps) {
   const unavailableComposerControls: ComposerControlId[] = [];
   if (!providerModeStatus) unavailableComposerControls.push("providerMode");
   if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
-  if (!runAutoTuning) unavailableComposerControls.push("runAutoTuning");
+  if (!runAccountPool) unavailableComposerControls.push("runAccountPool");
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
@@ -2345,7 +2345,7 @@ export function PromptInput(args: PromptInputProps) {
     activeIds: collectActiveComposerControls({
       thinkingMode,
       fastMode,
-      runAutoTuningEnabled: runAutoTuning?.enabled,
+      runAccountPoolEnabled: runAccountPool?.enabled,
       runtimeTone: runtimeProfile.tone,
       boundSecretCount: secretsActive ? 1 : 0,
     }),
@@ -2353,7 +2353,7 @@ export function PromptInput(args: PromptInputProps) {
   });
 
   const composerControlNodes: Partial<Record<ComposerControlId, ReactNode>> = {
-    runAutoTuning: runAutoTuning ? <PromptInputRunAutoTuningControl control={runAutoTuning} /> : null,
+    runAccountPool: runAccountPool ? <PromptInputRunAccountPoolControl pool={runAccountPool} /> : null,
     providerMode: providerModeStatus ? (
       <PromptInputProviderModePill
         status={providerModeStatus}

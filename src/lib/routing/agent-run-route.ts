@@ -93,6 +93,11 @@ export const AgentRouteSettingsSchema = z
       .object({ "claude-code": ClassifierContextSchema.optional(), codex: ClassifierContextSchema.optional() })
       .strict()
       .nullable(),
+    /** The helper limits a starting Agent run freezes; absent uses the defaults (`TEAM_LIMITS`). */
+    teamLimits: z
+      .object({ concurrentHelpers: z.number().int(), totalHelpers: z.number().int() })
+      .strict()
+      .optional(),
   })
   .strict();
 export type AgentRouteSettings = z.output<typeof AgentRouteSettingsSchema>;

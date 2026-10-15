@@ -720,6 +720,16 @@
       "note": "Delegation reaches the model as Local MCP tools, so a task can only start subagents while that server is running.",
       "openSettings": "Open Settings → MCP → Local MCP Server."
     },
+    "teamLimits": {
+      "concurrentHelpers": {
+        "title": "Helper Agents at once",
+        "description": "How many helper Agents one Agent run can have working at the same time ({{min}}–{{max}}, default {{value}}). Every Agent run shares its max turns with the helpers it calls; a change applies to runs that start after it."
+      },
+      "totalHelpers": {
+        "title": "Helper Agents per run",
+        "description": "How many helper Agents one Agent run can call in total ({{min}}–{{max}}, default {{value}})."
+      }
+    },
     "asking": {
       "heading": "Asking for one, and what you can specify",
       "body": "There is no button: delegation happens when an agent calls<code>stave_delegate_task</code>during its turn, so you steer it by asking — for example <emphasis>“get a read-only second opinion on this plan from Codex at high effort”</emphasis>. Only the prompt is required: anything a delegation leaves out follows this task's provider, effort and permissions, and the child runs one turn in this workspace. Settings holds no global default for any of it.",

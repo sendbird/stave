@@ -18,6 +18,7 @@ import {
   resolvePullRequestTitle,
 } from "../src/lib/source-control-pr";
 import { DEFAULT_PROMPT_PR_DESCRIPTION } from "../src/lib/providers/prompt-defaults";
+import { helperKeepsParentProvider } from "../src/lib/agent-runs/resources";
 import {
   cleanupAllScriptProcesses,
   getScriptStatuses,
@@ -2165,7 +2166,10 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
         settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list(),
         history: ({ workspaceId, taskId }) => persistence.loadTaskMessagesPage({ workspaceId, taskId, limit: 12 })?.messages ?? [],
         parentModels: (taskId, providerId) => { const run = persistence.agentRuns.getActiveAgentRunForTask(taskId); const policy = run ? persistence.agentRuns.resourceConfig(run.id)?.policy : undefined;
-          if (policy && policy.providerId !== providerId) throw new Error("The helper must keep the parent's frozen provider."); return policy?.allowedModels; },
+          if (!policy || policy.providerId === providerId) return policy?.allowedModels;
+          // Another provider: allowed unless the parent's model is pinned; the parent's catalog says nothing about it.
+          if (helperKeepsParentProvider(policy)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
+          return undefined; },
         cwd: resolveWorkspacePath,
         classify: (input, signal) => classifyUtilityRoute(input, undefined, undefined, signal) });
       await respond(request.id, await withConstrainedRoutingCancellation(request.params.requestId, (signal) => router(request.params, signal))); return;

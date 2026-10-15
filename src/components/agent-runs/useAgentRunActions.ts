@@ -93,7 +93,6 @@ export function useAgentRunActions(detail: AgentRunDetail | undefined): AgentRun
                 permission: agentRun.consent.permissionMode === "auto" ? "auto" : "manual",
               },
               assignment: agentRun.assignment,
-              adaptive: Boolean(detail.resources),
               doneWhen,
               // A new run: the accounts selected now, not the ones the last run kept.
               accounts,

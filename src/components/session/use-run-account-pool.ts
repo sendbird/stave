@@ -1,9 +1,11 @@
 import { useEffect, useMemo } from "react";
 import type { PromptInputRunAccountPool } from "@/components/ai-elements/prompt-input-run-account-pool";
-import type { AgentRun } from "@/lib/agent-runs/domain";
+import { isActiveAgentRunState, type AgentRun } from "@/lib/agent-runs/domain";
 import { isPoolableAccount } from "@/lib/agent-runs/account-pool";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
+import { agentRunTaskKey, useAgentRunsStore } from "@/store/agent-runs-store";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -78,4 +80,17 @@ export function useRunAccountPool(args: {
       updatePreference({ excludedAccountIds: [...excluded] });
     },
   };
+}
+
+/** The composer's pool control: the next Run of a task an Agent runs on, or the pool a live Run froze. */
+export function useComposerRunAccountPool(taskId: string, providerId: string): PromptInputRunAccountPool | null {
+  const assigned = useAgentAssignmentsStore((state) => Boolean(state.byTaskId[taskId]));
+  const workspaceId = useAppStore((state) => state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId);
+  const liveRun = useAgentRunsStore((state) => {
+    const id = state.agentRunIdByTask[agentRunTaskKey(workspaceId, taskId)];
+    const run = id ? state.details[id]?.agentRun : undefined;
+    return run && isActiveAgentRunState(run.state) ? run : null;
+  });
+  const pool = useRunAccountPool({ taskId, providerId, lockedRun: liveRun });
+  return assigned || liveRun ? pool : null;
 }

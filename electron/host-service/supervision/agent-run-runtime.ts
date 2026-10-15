@@ -33,6 +33,7 @@ import { withRequestAccountScope } from "../../provider-accounts/runtime-scope";
 import { ProviderAccountSelectionSchema } from "../../../src/lib/providers/provider-accounts";
 import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, supportsAdaptiveEffort, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
+import { teamLimitsContextPart } from "./team-limits-context";
 import { selectAdaptiveRoute } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
 import { prepareRunTurn } from "./turn-preparation";
@@ -495,6 +496,20 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const observed = policy.accountProfileId ? readAdaptiveObservations(policy.providerId, policy.accountProfileId, now().getTime()) : null;
     if (!supportsAdaptiveEffort(policy.providerId, policy.allowedModels[0]!, policy.initialEffort, observed?.catalog?.catalog.ok ? observed.catalog.catalog.models : null))
       refuse("The cached model catalog does not support this Run's effort. Choose a supported effort before starting.");
+  }
+
+  /**
+   * The team limits every Agent run starts with. A pin the limits cannot keep
+   * (an effort the model does not support, a model off the API connection)
+   * refuses the start with its reason; a host without resource support starts
+   * the run on its own max turns.
+   */
+  function freezeTeamLimits(run: AgentRun, input: Pick<AgentRunStartInput, "origin" | "routingIntent" | "accounts">): AdaptiveRunPolicy | null {
+    if (input.origin !== "agent" || !store.consumeResourceTurn || !deps.freezeResources) return null;
+    if (deps.taskRunsAsAgent && !deps.taskRunsAsAgent(run.leadTaskId)) return null;
+    const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run, routingIntent: input.routingIntent, accounts: input.accounts }));
+    requireInitialEffortSupport(policy);
+    return policy;
   }
 
   /**
@@ -1111,6 +1126,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     }
     const remainingBudget = resources ? store.readResources?.(agentRun.id) : null;
     if (remainingBudget && !resources?.link && remainingBudget.activeHelpers > 0 && remainingBudget.remaining <= remainingBudget.policy.parentReserve) return;
+    // Helpers spent the rest of a budget that follows max turns: halt at the limit, so Extend raises both.
+    if (remainingBudget && !resources?.link && remainingBudget.policy.version === 2 && remainingBudget.activeHelpers === 0 && remainingBudget.remaining < 1) {
+      applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "limit-reached",
+        detail: i18n.t("agentRuns:policy.teamDetail", { value1: remainingBudget.teamTurns }) } }));
+      return;
+    }
     const resetContinuation = agentRun.usageLimit && agentRun.pauseReason === null &&
       store.listEventsByKind(agentRun.id, ["turn-linked"]).at(-1)?.detail.turnId === agentRun.usageLimit.turnId ? agentRun.usageLimit : null;
     // The continuation runs with the effort the limited turn ran with, not the task's current one.
@@ -1263,11 +1284,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         initialContext: agentRun.initialContext,
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
-        retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [{ type: "retrieved_context" as const,
-          sourceId: "stave:adaptive-resources", title: "Adaptive Balanced resources",
-          content: JSON.stringify({ policy: resources.policy, budget: store.readResources?.(agentRun.id), currentTurnKey: turnKey,
-            instruction: "Complete and verify this stage within the remaining shared budget. Helpers must be saved-Agent supervised delegations admitted by canCall. Do not start native, one-turn or detached helpers. Read stave_get_agent_run for linked stage turn ids. If another same-provider model or effort is justified by these turns, propose it with stave_request_agent_resources for the next turn. Permissions and pinned resources do not change. Environment/permission failures are blockers, not capability escalation evidence." }),
-        }] : [])],
+        retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey)] : [])],
         ...(actionPrompt === undefined || userReply ? { agentRunStage: identity } : {}),
         ...(reason === "resume-after-account-switch" ? { freshSession: true } : {}),
         ...(hasAgentOrigin(agentRun)
@@ -1763,36 +1780,47 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }
       // A reply continues a run whose wait ran out, as Resume does: the reply is
       // the stage's next turn, so the ended wait needs no turn of its own.
-      const endedWait = run.state === "paused" && run.pauseReason === "wait-expired" && !store.resourceConfig?.(run.id) ? run.eventWait : undefined;
+      const endedWait = run.state === "paused" && run.pauseReason === "wait-expired" ? run.eventWait : undefined;
       if (endedWait) {
         const resumed = resumeAgentRun({ aggregate, now: now() });
         const { eventWait: _ended, ...continued } = resumed.agentRun;
         aggregate = applyChange({ ...resumed, agentRun: continued });
         run = aggregate.agentRun;
       }
-      if (run.state !== "running") { if (store.resourceConfig?.(run.id)) refuse("Resume the adaptive Run before replying, or take control to end it."); return null; }
+      if (run.state !== "running") return null;
       const record = currentStageRecord(aggregate);
       const stage = workflowStageAt(run, run.currentStageIndex);
       if (stage.kind !== "ai" || !["running", "blocked", "stuck"].includes(record.status)) {
-        if (authority || store.resourceConfig?.(run.id)) refuse("Use the delegated Agent run controls to resume or approve its current stage before sending a reply.");
+        if (authority) refuse("Use the delegated Agent run controls to resume or approve its current stage before sending a reply.");
         return null;
       }
       const resources = store.resourceConfig?.(run.id);
-      if (resources && providerId && providerId !== resources.policy.providerId) refuse("An adaptive reply must keep the frozen provider.");
+      if (resources && providerId && providerId !== resources.policy.providerId) refuse("This run keeps the provider it started on. Switch back to it, or cancel the run to change providers.");
       const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(run.id, ["resource-decision"])) : null;
-      const observed = resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
+      // After a pool switch the reply runs on, and is checked against, the account the run moved to.
+      const replyAccount = resources ? (agentRunPoolAccount(run)?.accountProfileId ?? resources.policy.accountProfileId) : undefined;
+      const observed = resources && replyAccount ? readAdaptiveObservations(resources.policy.providerId, replyAccount, now().getTime()) : null;
       if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, observed?.catalog?.catalog.ok ? observed.catalog.catalog.models : null))
         refuse("The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently.");
       if (resources && (observed?.quota && resolveAccountUsageBlock({ providerId: resources.policy.providerId, model: adaptive?.model,
           snapshot: observed.quota.snapshot, now: now().getTime() }) !== null || observed?.catalog?.catalog.ok === false ||
           (adaptive && observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length > 0 && !observed.catalog.catalog.models.some((entry) => entry.model === adaptive.model))))
         refuse("Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers.");
-      if (resources && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) refuse("The shared turn budget cannot admit this reply. Stop helpers or start a new Run.");
+      if (resources && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) {
+        // A run that used its last shared turn while blocked on a question halts at its limit, so Extend is offered.
+        const budget = store.readResources?.(run.id);
+        if (budget && !resources.link && budget.policy.version === 2 && budget.activeHelpers === 0 && budget.remaining < 1) {
+          applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "limit-reached",
+            detail: i18n.t("agentRuns:policy.teamDetail", { value1: budget.teamTurns }) } }));
+          refuse("This run used all its shared turns. Extend it, then send your reply again.");
+        }
+        refuse("The run's shared turn budget cannot take this reply. Extend the run or stop a helper first.");
+      }
       const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
       turnIdsFor(run.id).add(turnId);
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
-      const accountOptions = resources?.policy.accountProfileId ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: resources.policy.accountProfileId } : { claudeAccountProfileId: resources.policy.accountProfileId }) : {};
+      const accountOptions = resources && replyAccount ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: replyAccount } : { claudeAccountProfileId: replyAccount }) : {};
       return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
       }) } } : { runtimeOptions: { ...accountOptions,
@@ -1914,12 +1942,6 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
             "Stave's local tools are off, so the agent could not report its stages. Turn on Local MCP in Settings, or send the assignment as a single turn.",
           );
         }
-        if (input.adaptive) {
-          const current = await deps.getTaskSupervisionSnapshot({ workspaceId: input.workspaceId, taskId: input.leadTaskId });
-          if (!current.exists || current.archived || current.activeTurnId || current.pendingApprovalCount || current.pendingUserInputCount || current.providerId !== snapshot.providerId || current.model !== snapshot.model || deps.countActiveDelegatedTasks(input.leadTaskId) > 0)
-            refuse("Start an adaptive Run on an idle task after existing turns and helpers have settled.");
-          if (deps.taskRunsAsAgent && !deps.taskRunsAsAgent(input.leadTaskId)) refuse("Assign an Agent before starting adaptive resources.");
-        }
         // The pool keeps only the provider's subscription accounts, the run's account first.
         const { accountPool: requestedPool, ...rest } = input;
         const accountPool = normalizeAgentRunAccountPool({ pool: requestedPool,
@@ -1937,12 +1959,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent) change.events = change.events.map((event) => ({ ...event,
           idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, routingIntent: input.routingIntent } }));
-        if (input.adaptive) {
-          if (input.origin !== "agent" || !store.consumeResourceTurn || !deps.freezeResources) refuse("Adaptive resources require an assigned Agent and a resource-aware host.");
-          const policy = AdaptiveRunPolicySchema.parse(deps.freezeResources({ run: change.agentRun, routingIntent: input.routingIntent, accounts: input.accounts }));
-          requireInitialEffortSupport(policy);
-          change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
-        }
+        const policy = freezeTeamLimits(change.agentRun, input);
+        if (policy) change.events = change.events.map((event) => ({ ...event, idempotencyKey: `${change.agentRun.id}:started`, detail: { ...event.detail, resources: policy } }));
         const created = store.create(change, now());
         if (!created.ok) refuse(created.message);
         emit(change.agentRun);

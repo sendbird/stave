@@ -141,7 +141,7 @@ for continuation behavior, cancellation and restored queues.
 
 An Agent run can move to another of your own subscription accounts when a
 usage limit stops it, but only if you turn on its **Account pool** before it
-starts (in the composer's **Auto adjust** popover). It is off by default.
+starts (the composer's **Account pool** button). It is off by default.
 
 - The pool holds the provider's subscription accounts whose sign-in check
   confirms a sign-in: the account the run starts on, then the others in the

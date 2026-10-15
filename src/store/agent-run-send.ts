@@ -250,11 +250,11 @@ export function prepareAgentRunForSend(
           agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns, permission: agent.agentPermission, tools: agent.agentTools },
           assignment: buildAgentRunAssignment(args.prompt, args.promptDraft),
           ...(args.resolveInitialContext ? { initialContext: await args.resolveInitialContext() } : {}),
-          adaptive: args.promptDraft.runtimeOverrides?.agentRunAdaptive,
-          ...((args.queued || args.promptDraft.runtimeOverrides?.agentRunAdaptive) ? { routingIntent: (() => {
+          // The composer's pins as sent: the run freezes its team limits from them, not from a later edit.
+          routingIntent: (() => {
             const { model, modelProviderId, autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId } = args.promptDraft.runtimeOverrides ?? {};
             return { model, modelProviderId: modelProviderId ?? (args.providerId === "codex" || args.providerId === "claude-code" ? args.providerId : undefined), autoRouting, claudeEffort, codexReasoningEffort, claudeAccountProfileId, codexAccountProfileId };
-          })() } : {}),
+          })(),
           ...(args.accounts ? { accounts: args.accounts } : {}),
           accountPool: args.promptDraft.runtimeOverrides?.agentRunAccountPool?.enabled
             ? await resolveStartAccountPool({ providerId: args.providerId, accounts: args.accounts,

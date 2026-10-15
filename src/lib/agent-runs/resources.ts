@@ -24,22 +24,65 @@ export const AdaptiveRoutingIntentSchema = z.object({
   codexAccountProfileId: z.string().min(1).max(200).optional(),
 }).strict();
 export type AdaptiveRoutingIntent = z.infer<typeof AdaptiveRoutingIntentSchema>;
+
+/**
+ * The team limits every Agent run freezes when it starts: one turn budget the
+ * parent and its helpers share (the run's max turns), how many helper Agents
+ * it can call, and how often it may change model or effort. Settings holds the
+ * helper limits; the rest is fixed.
+ */
+export const TEAM_LIMITS = {
+  concurrentHelpers: { default: 3, min: 1, max: 6 },
+  totalHelpers: { default: 8, min: 1, max: 20 },
+  /** `AGENT_RUN_LIMITS.maxTurnsCeiling`; `domain.ts` imports this module, so the value is not imported back. */
+  maxTeamTurns: 100,
+} as const;
+export type TeamLimitKey = "concurrentHelpers" | "totalHelpers";
+
+/** A settings value as a helper limit: an integer inside its range, else the default. */
+export function clampTeamLimit(key: TeamLimitKey, value: unknown): number {
+  const range = TEAM_LIMITS[key];
+  return typeof value === "number" && Number.isInteger(value) ? Math.min(range.max, Math.max(range.min, value)) : range.default;
+}
+
+/**
+ * Version 1 is the opt-in "Auto adjust" policy (30 shared turns, 2 / 4
+ * helpers); runs that froze it keep those numbers. Version 2 is the default
+ * policy of every Agent run: its budget follows the run's max turns, so
+ * Extend raises both, and its helper limits come from Settings.
+ */
 export const AdaptiveRunPolicySchema = z.object({
-  version: z.literal(1), profile: z.literal("balanced"),
+  version: z.union([z.literal(1), z.literal(2)]), profile: z.literal("balanced"),
   providerId: z.enum(["claude-code", "codex"]),
   allowedModels: z.array(z.string().trim().min(1).max(200)).min(1).max(64),
   modelLocked: z.boolean(), effortLocked: z.boolean(),
   accountProfileId: z.string().min(1).max(200).optional(),
   initialEffort: z.string().max(40).nullable(),
-  teamTurns: z.number().int().min(1).max(30),
-  concurrentHelpers: z.literal(2), totalHelpers: z.literal(4), parentReserve: z.literal(1),
-  maxChanges: z.literal(2), cooldownTurns: z.literal(2),
+  teamTurns: z.number().int().min(1).max(TEAM_LIMITS.maxTeamTurns),
+  concurrentHelpers: z.number().int().min(TEAM_LIMITS.concurrentHelpers.min).max(TEAM_LIMITS.concurrentHelpers.max),
+  totalHelpers: z.number().int().min(TEAM_LIMITS.totalHelpers.min).max(TEAM_LIMITS.totalHelpers.max),
+  parentReserve: z.literal(1), maxChanges: z.literal(2), cooldownTurns: z.literal(2),
 }).strict();
 export type AdaptiveRunPolicy = z.infer<typeof AdaptiveRunPolicySchema>;
 
+/**
+ * Whether a helper must run on the parent's provider: when the parent's model
+ * is pinned, and always for a version 1 policy. Otherwise a helper Agent runs
+ * on its own provider, so a review can go to the other one.
+ */
+export function helperKeepsParentProvider(root: Pick<AdaptiveRunPolicy, "version" | "modelLocked">): boolean {
+  return root.version === 1 || root.modelLocked;
+}
+
 /** Helpers can narrow frozen team authority, never obtain fresh wider settings. */
 export function constrainHelperResources(root: AdaptiveRunPolicy, child: AdaptiveRunPolicy, model: string): AdaptiveRunPolicy {
-  if (child.providerId !== root.providerId) throw new Error("This adaptive team must keep its frozen provider.");
+  if (child.providerId !== root.providerId) {
+    if (helperKeepsParentProvider(root)) throw new Error("This team must keep its provider: the parent's model is pinned.");
+    // Another provider: the child's own catalog, account and effort; the team's shared limits.
+    if (!child.allowedModels.includes(model)) throw new Error("The helper model is outside its own eligible catalog.");
+    return AdaptiveRunPolicySchema.parse({ ...child, version: root.version, teamTurns: root.teamTurns,
+      concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
+  }
   const allowedModels = child.allowedModels.filter((id) => root.allowedModels.includes(id));
   if (!allowedModels.includes(model)) throw new Error("The helper model is outside the parent's frozen eligible catalog.");
   if (root.effortLocked && child.effortLocked && child.initialEffort !== root.initialEffort) throw new Error("The helper effort conflicts with the parent's pin.");
@@ -48,7 +91,8 @@ export function constrainHelperResources(root: AdaptiveRunPolicy, child: Adaptiv
     throw new Error("The helper model cannot preserve the parent's effort pin.");
   return AdaptiveRunPolicySchema.parse({ ...child, allowedModels, accountProfileId: root.accountProfileId,
     modelLocked: root.modelLocked || child.modelLocked, effortLocked: root.effortLocked || child.effortLocked,
-    initialEffort: root.effortLocked ? root.initialEffort : child.initialEffort, teamTurns: root.teamTurns });
+    initialEffort: root.effortLocked ? root.initialEffort : child.initialEffort, version: root.version, teamTurns: root.teamTurns,
+    concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
 }
 
 export const ResourceLinkSchema = z.object({ rootRunId: Id, reservationId: Id, executionId: Id }).strict();
@@ -78,6 +122,8 @@ export interface AgentResourceSnapshot {
   rootRunId: string;
   policy: AdaptiveRunPolicy;
   memberPolicy?: AdaptiveRunPolicy;
+  /** The shared budget now: the frozen one, or the root run's max turns once Extend raised them. */
+  teamTurns: number;
   spent: number;
   reserved: number;
   remaining: number;
@@ -86,8 +132,17 @@ export interface AgentResourceSnapshot {
   reservations: ResourceReservation[];
 }
 
+/**
+ * The shared budget of a root run. A version 2 budget follows the run's max
+ * turns, so Extend raises it; a version 1 budget stays as it was frozen.
+ */
+export function teamTurnBudget(policy: Pick<AdaptiveRunPolicy, "version" | "teamTurns">, rootMaxTurns?: number): number {
+  return policy.version === 2 && rootMaxTurns !== undefined ? Math.max(policy.teamTurns, Math.min(rootMaxTurns, TEAM_LIMITS.maxTeamTurns)) : policy.teamTurns;
+}
+
 /** A projection of keyed Run events, never a second ledger or scheduler. */
-export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPolicy, events: readonly AgentRunEvent[]): AgentResourceSnapshot {
+export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPolicy, events: readonly AgentRunEvent[], rootMaxTurns?: number): AgentResourceSnapshot {
+  const teamTurns = teamTurnBudget(policy, rootMaxTurns);
   let spent = 0;
   const reservations = new Map<string, ResourceReservation>(), seen = new Set<string>();
   for (const event of [...events].sort((a, b) => a.sequence - b.sequence)) {
@@ -117,8 +172,8 @@ export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPoli
   }
   const rows = [...reservations.values()];
   const reserved = rows.filter((row) => !row.released).reduce((sum, row) => sum + row.capacity - row.consumed, 0);
-  if (spent + reserved > policy.teamTurns) throw new Error("The saved resource budget exceeds its limit.");
-  return { rootRunId, policy, spent, reserved, remaining: policy.teamTurns - spent - reserved,
+  if (spent + reserved > teamTurns) throw new Error("The saved resource budget exceeds its limit.");
+  return { rootRunId, policy, teamTurns, spent, reserved, remaining: teamTurns - spent - reserved,
     helpersLaunched: rows.length, activeHelpers: rows.filter((row) => !row.released).length, reservations: rows };
 }
 

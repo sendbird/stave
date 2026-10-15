@@ -6,6 +6,7 @@
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
 import { DEFAULT_ROUTING_DECISION, type RoutingDecisionConfig } from "@/lib/providers/routing-decision";
+import { TEAM_LIMITS } from "@/lib/agent-runs/resources";
 import { DEFAULT_APP_LOCALE, type AppLocale } from "@/i18n/locale";
 import type {
   LensAgentPresentationMode,
@@ -226,6 +227,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   promptEnhancementExemplars: PromptEnhancementExemplar[];
   autoRoutingEnabled: boolean;
   routingDecision: RoutingDecisionConfig;
+  /** How many helper Agents one Agent run can have working at once (`TEAM_LIMITS`). */
+  agentRunConcurrentHelpers: number;
+  /** How many helper Agents one Agent run can call in total (`TEAM_LIMITS`). */
+  agentRunTotalHelpers: number;
   /** Model router: role table × stance, signals and eligible models. */
   autoRoutingProfile: AutoRoutingProfile;
   /**
@@ -679,6 +684,8 @@ export const defaultSettings: AppSettings = {
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
   routingDecision: DEFAULT_ROUTING_DECISION,
+  agentRunConcurrentHelpers: TEAM_LIMITS.concurrentHelpers.default,
+  agentRunTotalHelpers: TEAM_LIMITS.totalHelpers.default,
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
