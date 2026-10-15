@@ -56,7 +56,7 @@ describe("stage prompt", () => {
   });
 
   test("tells only the last stage which criteria it must still report met", () => {
-    const rule = "This is the last stage. The run finishes only when every criterion below that is not marked [met]";
+    const rule = "This is the last stage. The run finishes only when your report marks met every criterion this stage defines";
     expect(compileStagePrompt(input())).not.toContain(rule);
     const lastAi = slack.stages.findLastIndex((stage) => stage.kind === "ai");
     const twoStage = { ...slack, stages: [slack.stages[0]!, slack.stages[lastAi]!] };

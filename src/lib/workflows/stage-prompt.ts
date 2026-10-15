@@ -137,7 +137,7 @@ export function compileStagePrompt(input: StagePromptInput): string {
   // The last stage completes the run only when every required criterion not
   // yet met is reported met in its own report (`unmetStageAcceptance`).
   const lastStageRule = stageIndex > 0 && stageIndex === workflow.stages.length - 1
-    ? "This is the last stage. The run finishes only when every criterion below that is not marked [met] is reported met in your report, using its exact text. Report a [met] criterion again only if your work changed it."
+    ? "This is the last stage. The run finishes only when your report marks met every criterion this stage defines and every criterion below that is not marked [met], each in its exact text. A criterion marked [met] stays met unless you report it otherwise."
     : null;
   const criteria = acceptanceCriteria.length
     ? section(
