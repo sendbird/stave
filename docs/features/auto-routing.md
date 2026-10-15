@@ -176,7 +176,7 @@ AI's text utility model. Advanced settings can disable classification for
 local-only routing.
 
 To use Jev, save a Vercel AI Gateway key in Secrets, add an API connection in
-Settings → Tooling, enable Auto, then choose that connection and Jev under Routing decision
+Settings → Accounts, enable Auto, then choose that connection and Jev under Routing decision
 model. Decision models have their own searchable list, separate from the coding
 models pinned on the connection. Jev is opt-in; adding a connection does not
 change the default. An Agent's Auto-routing settings can override the global

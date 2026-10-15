@@ -15,7 +15,8 @@ it with a masked card instead of asking you to paste it into the conversation.
   pasting the value into chat, where it would reach the model, the transcript
   and exports.
 - You keep an [API connection](accounts-and-gateways.md) key. The key lives in
-  Secrets and the connection stores only a reference.
+  Secrets and the connection stores only a reference. **Paste a new key** in
+  Settings > Accounts saves the key here for you.
 
 ## Before You Start
 

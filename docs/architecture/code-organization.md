@@ -80,9 +80,28 @@ entry per runtime they serve. `electron/provider-accounts/gateway-runtime.ts`
 is the Claude adapter and per-runtime credential scope;
 `electron/providers/codex-api-connection.ts` is the Codex adapter.
 `electron/main/api-connection-check.ts` owns discovery and the key check, and
-`electron/main/ipc/api-connections.ts` the validated handlers. Focused checks
-are `tests/api-connections.test.ts`, `tests/claude-gateway.test.ts`, and
-`tests/provider-account-registry.test.ts`.
+`electron/main/ipc/api-connections.ts` the validated handlers. Request failures
+(no route, timeout, untrusted TLS certificate) are classified by
+`classifyApiConnectionRequestError` in `api-connections.ts`, and the renderer
+picks the words in `api-connection-failure.ts`. Focused checks
+are `tests/api-connections.test.ts`, `tests/api-connection-failure.test.ts`,
+`tests/claude-gateway.test.ts`, and `tests/provider-account-registry.test.ts`.
+
+Settings > Accounts (`src/components/layout/settings-dialog-accounts-section.tsx`)
+hosts the account and API connection cards, the Getting started checklist
+(`AccountsGettingStarted.tsx`, state from the pure
+`src/lib/providers/accounts-onboarding.ts`), and the Cursor, Kiro and OpenCode
+sign-in rows. Deep links pass `focus` with the open-settings event; the targets
+are in `src/lib/providers/accounts-guide.ts` and the request store and helpers
+in `accounts-navigation.ts`. Entry points outside Settings read
+`src/lib/providers/provider-account-blocker.ts` (why the selected account
+cannot send): the composer shelf line (`composer-shelf/ShelfAccountNotice.tsx`),
+the model selector foot and group action
+(`ai-elements/model-picker-account-actions.tsx`), and turn errors
+(`session/ProviderErrorAccountAction.tsx`). Focused checks are
+`tests/accounts-onboarding.test.ts`, `tests/accounts-section-render.test.tsx`,
+`tests/provider-account-blocker.test.ts`, `tests/settings-dialog-utils.test.ts`,
+and the rendered flows in `tests/e2e/accounts-settings.e2e.ts`.
 
 Sign-in identity and shared setup add channels without changing the registry
 file. `src/lib/providers/provider-account-identity.ts` and
