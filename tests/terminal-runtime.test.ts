@@ -1429,6 +1429,74 @@ describe("terminal runtime slot lifecycle", () => {
     }
   }, 10_000);
 
+  test("a new OpenCode tab does not take the session of a live tab whose discovery ended", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const create = (cliSessionTabId: string) =>
+      runtime.createCliSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        cliSessionTabId,
+        providerId: "opencode",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+    const older = create("cli-1");
+    await Promise.resolve();
+    await Promise.resolve();
+    const windowMs =
+      OPENCODE_NATIVE_SESSION_DISCOVERY.pollMs * OPENCODE_NATIVE_SESSION_DISCOVERY.maxAttempts;
+    setSystemTime(new Date(Date.now() + windowMs + 1_000));
+    try {
+      // Tab A's discovery runs out while its PTY stays open.
+      await Bun.sleep(2_300);
+      const newer = create("cli-2");
+      await Promise.resolve();
+      await Promise.resolve();
+      // Tab A now sends its first message; the session belongs to A.
+      fakeOpenCodeSessions = [{ sessionId: "ses_created_by_old_pty", updatedAtMs: Date.now() + 500 }];
+      await Bun.sleep(2_300);
+      expect(
+        runtime.getSessionResumeInfo({ sessionId: newer.sessionId! }),
+      ).toEqual({ ok: true, nativeSessionId: undefined });
+      expect(
+        runtime.getSessionResumeInfo({ sessionId: older.sessionId! }),
+      ).toEqual({ ok: true, nativeSessionId: undefined });
+      runtime.closeSession({ sessionId: newer.sessionId! });
+    } finally {
+      setSystemTime();
+      runtime.closeSession({ sessionId: older.sessionId! });
+    }
+  }, 10_000);
+
+  test("a waiting OpenCode tab can own a session once the other tab in its folder closes", async () => {
+    const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+    const create = (cliSessionTabId: string) =>
+      runtime.createCliSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        cliSessionTabId,
+        providerId: "opencode",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+    const first = create("cli-1");
+    const second = create("cli-2");
+    await Promise.resolve();
+    runtime.closeSession({ sessionId: first.sessionId! });
+    fakeOpenCodeSessions = [{ sessionId: "ses_second", updatedAtMs: Date.now() + 500 }];
+    await Bun.sleep(2_300);
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: second.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: "ses_second" });
+    runtime.closeSession({ sessionId: second.sessionId! });
+  }, 10_000);
+
   test("chooses the session id up front on OpenCode 2.x", () => {
     fakeOpenCodeMajorVersion = 2;
     const runtime = createTerminalRuntime({ emitEvent: async () => {} });

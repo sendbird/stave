@@ -38,7 +38,12 @@ export function createNativeSessionDiscovery(args: {
   const codexSessionIdClaimByNativeId = new Map<string, string>();
   const kiroSessionIdClaimByNativeId = new Map<string, string>();
   const opencodeSessionIdClaimByNativeId = new Map<string, string>();
-  const pendingOpenCodeDiscoveries = new Map<
+  /**
+   * Open OpenCode 1.x tabs that have no session id yet, by PTY session id.
+   * Outlives a tab's polling: an entry leaves only when the PTY closes or the
+   * tab gets an id, because until then the tab can still create a session.
+   */
+  const unresolvedOpenCodeTabs = new Map<
     string,
     { cwdKey: string; startedAtMs: number }
   >();
@@ -48,7 +53,7 @@ export function createNativeSessionDiscovery(args: {
   }
 
   function releaseNativeSessionClaims(sessionId: string) {
-    pendingOpenCodeDiscoveries.delete(sessionId);
+    unresolvedOpenCodeTabs.delete(sessionId);
     for (const [filePath, ownerSessionId] of codexSessionFileClaimByPath) {
       if (ownerSessionId === sessionId) {
         codexSessionFileClaimByPath.delete(filePath);
@@ -212,7 +217,8 @@ export function createNativeSessionDiscovery(args: {
    * - the session was created after this tab started;
    * - Stave's ACP runtime did not create or load it in this process;
    * - it is the only such unclaimed session; and
-   * - no other undiscovered OpenCode tab in the same folder started before it.
+   * - no other open OpenCode tab without an id in the same folder started
+   *   before it, whether or not that tab is still polling.
    *
    * Anything else leaves the tab without a resumable id rather than resuming
    * someone else's conversation, and marks the session contested so a tab
@@ -230,7 +236,7 @@ export function createNativeSessionDiscovery(args: {
       return;
     }
     const cwdKey = canonicalOpenCodeDirectory(args.cwd);
-    pendingOpenCodeDiscoveries.set(args.sessionId, {
+    unresolvedOpenCodeTabs.set(args.sessionId, {
       cwdKey,
       startedAtMs: args.startedAtMs,
     });
@@ -248,7 +254,13 @@ export function createNativeSessionDiscovery(args: {
       }
       disposed = true;
       clearInterval(intervalId);
-      pendingOpenCodeDiscoveries.delete(args.sessionId);
+      // Polling ends here; ownership does not. A live tab without an id can
+      // still create a session, so it stays a possible owner for the other
+      // tabs in its folder until its PTY closes (releaseNativeSessionClaims)
+      // or it has an id.
+      if (!isLive()) {
+        unresolvedOpenCodeTabs.delete(args.sessionId);
+      }
       const currentSession = sessions.get(args.sessionId);
       if (currentSession?.disposeNativeSessionDiscovery === stop) {
         currentSession.disposeNativeSessionDiscovery = null;
@@ -298,7 +310,7 @@ export function createNativeSessionDiscovery(args: {
       if (candidates.length === 0) {
         return;
       }
-      const possibleOwners = [...pendingOpenCodeDiscoveries.entries()].filter(
+      const possibleOwners = [...unresolvedOpenCodeTabs.entries()].filter(
         ([, pending]) =>
           pending.cwdKey === cwdKey &&
           candidates.some((candidate) => pending.startedAtMs <= candidate.updatedAtMs),
