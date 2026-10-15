@@ -14,6 +14,7 @@ import {
   StageCompleteReportInputSchema,
 } from "../../src/lib/agent-runs/domain";
 import { EventWaitInputSchema } from "../../src/lib/agent-runs/event-wait";
+import { RunWorkspaceScriptInputSchema } from "../host-service/supervision/agent-run-workspace-script";
 import type { StaveTurnGrants } from "../providers/stave-turn-grants";
 import type {
   blockAgentRunStage,
@@ -21,6 +22,7 @@ import type {
   getAgentRunForGrant,
   reportAgentRunStage,
   waitForAgentRunEvent,
+  runAgentWorkspaceScript,
 } from "./agent-runs-service";
 
 export function registerAgentRunTools(
@@ -32,6 +34,7 @@ export function registerAgentRunTools(
     blockAgentRunStage: typeof blockAgentRunStage;
     requestAgentRunResources: typeof requestAgentRunResources;
     waitForAgentRunEvent: typeof waitForAgentRunEvent;
+    runAgentWorkspaceScript: typeof runAgentWorkspaceScript;
   },
 ) {
   const { agentRunKey } = grants;
@@ -97,4 +100,8 @@ export function registerAgentRunTools(
         ...(await handlers.waitForAgentRunEvent({ agentRunKey, request })),
       }),
   );
+  server.registerTool(AGENT_RUN_TOOL_NAMES.script, {
+    description: "Run a configured workspace action script as a host check of the final revision, then report the stage again. Pass its scriptId from the stage's workspace-check instruction. The execution definition must match the hash frozen at admission. Returns exitCode, verified, sourceRevision, completedRevision, bounded outputTail and a reason when verification fails; a failed, changing or stale check does not satisfy a required stave-check criterion. Only a write-capable agent in a primary run's AI stage can call this. One script at a time per run; wait for the result before retrying. The run stopping or pausing aborts the process; execution is capped at 30 minutes.",
+    inputSchema: RunWorkspaceScriptInputSchema.shape,
+  }, async ({ scriptId }) => toStructuredResult({ ...await handlers.runAgentWorkspaceScript({ agentRunKey, scriptId }) }));
 }

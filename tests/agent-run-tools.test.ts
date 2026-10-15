@@ -50,6 +50,10 @@ async function connect(grants: StaveTurnGrants) {
         if ((args.request as { target?: string }).target === "refuse") throw new Error("target must be a pull request number or URL.");
         return { waitId: "wait-1", expiresAt: "2026-10-15T10:00:00.000Z" };
       },
+      runAgentWorkspaceScript: async (args) => {
+        calls.push({ tool: "script", args });
+        return { exitCode: 0, verified: true, sourceRevision: { status: "known", revision: "r1" }, completedRevision: { status: "known", revision: "r1" }, outputTail: "passed" };
+      },
       blockAgentRunStage: async (args) => {
         calls.push({ tool: "block", args });
         return receipt;
@@ -79,9 +83,19 @@ test("run tools exist only on a connection that carries a run grant", async () =
     "stave_get_agent_run",
     "stave_report_stage",
     "stave_request_agent_resources",
+    "stave_run_workspace_script",
     "stave_wait_for_event",
     "stave_workspace_fixture",
   ]);
+});
+
+test("workspace script tool is grant-only and forwards only the configured script ID", async () => {
+  const plain = await connect({});
+  expect((await plain.client.callTool({ name: "stave_run_workspace_script", arguments: { scriptId: "check" } })).isError).toBe(true);
+  const { client, calls } = await connect({ agentRunKey: "current" });
+  const result = await client.callTool({ name: "stave_run_workspace_script", arguments: { scriptId: "check", stageId: "other" } });
+  expect(result.structuredContent).toMatchObject({ exitCode: 0, verified: true });
+  expect(calls).toEqual([{ tool: "script", args: { agentRunKey: "current", scriptId: "check" } }]);
 });
 
 test("the reporting tools take no ids; the connection's key names the stage", async () => {

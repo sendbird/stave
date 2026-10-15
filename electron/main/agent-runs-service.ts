@@ -14,6 +14,7 @@ import {
 } from "../../src/lib/agent-runs/api";
 import type { AgentRunBriefing } from "../../src/lib/agent-runs/briefing";
 import type { EventWaitReceipt } from "../../src/lib/agent-runs/event-wait";
+import type { WorkspaceScriptReceipt } from "../host-service/supervision/agent-run-workspace-script";
 import type { AgentRunReportReceipt } from "../host-service/supervision/agent-run-runtime";
 import type { HostAgentRunAction } from "../host-service/protocol";
 import { invokeHostService, onHostServiceEvent } from "./host-service-client";
@@ -65,4 +66,8 @@ export function requestAgentRunResources(args: { agentRunKey: string; request: u
 
 export function waitForAgentRunEvent(args: { agentRunKey: string; request: unknown }) {
   return invokeForTool<EventWaitReceipt>("wait-for-event", args);
+}
+
+export function runAgentWorkspaceScript(args: { agentRunKey: string; scriptId: string }) {
+  return invokeForTool<WorkspaceScriptReceipt>("run-workspace-script", args);
 }

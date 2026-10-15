@@ -45,9 +45,9 @@ test("a later timestamp cannot make a previous turn's explicit report current", 
   expect(decide(aggregate).action).toBe("complete-stage");
 });
 
-test("Stave checks are reachable only through a Run script action, whose omitted verification defaults to a check", () => {
+test("Stave checks are allowed on AI and Run script stages; action defaults remain checks", () => {
   const base = aggregateFor([ai("answer")]).agentRun.workflow;
-  expect(WorkflowSchema.safeParse({ ...base, stages: [{ ...ai("answer"), acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check" }] }] }).success).toBe(false);
+  expect(WorkflowSchema.safeParse({ ...base, stages: [{ ...ai("answer"), acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check" }] }] }).success).toBe(true);
   expect(WorkflowSchema.safeParse({ ...base, stages: [{ id: "publish", title: "Publish", kind: "action", action: { type: "open-draft-pr" }, acceptanceCriteria: [{ text: "Tests pass" }] }] }).success).toBe(false);
   const aggregate = aggregateFor([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]);
   const record = currentStageRecord(aggregate);

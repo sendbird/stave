@@ -297,6 +297,8 @@ const reportStamp = {
 export const StageReportSchema = z.discriminatedUnion("outcome", [
   StageCompleteReportInputSchema.extend({
     outcome: z.literal("complete"),
+    /** Host-captured at report receipt; never accepted from the agent input. */
+    workspaceRevision: WorkspaceRevisionSchema.optional(),
     ...reportStamp,
   }).strict(),
   StageBlockInputSchema.extend({
@@ -418,6 +420,19 @@ export const StageFactsSchema = z
       )
       .max(AGENT_RUN_LIMITS.facts.toolCalls),
     action: ActionResultSchema.nullable(),
+    workspaceScripts: z.array(z.object({
+      source: z.literal("stave"),
+      type: z.literal("run-script"),
+      scriptId: z.string().trim().min(1).max(120),
+      exitCode: z.number().int(),
+      verification: ScriptVerificationSchema,
+      durationMs: z.number().nonnegative(),
+      outputTail: z.string().max(2_000),
+      definitionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
+      executedCommands: z.string().max(2_000).optional(),
+      commandsTruncated: z.boolean().optional(),
+    }).strict()).max(50).optional(),
+    workspaceCheckNotice: z.string().max(500).optional(),
     currentTurnId: IdSchema.optional(),
     workspaceRevision: WorkspaceRevisionSchema.optional(),
     /**

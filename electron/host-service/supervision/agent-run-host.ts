@@ -20,6 +20,7 @@ import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { classifyUtilityRoute } from "../../providers/utility-inference";
 import { readWorkspaceRevision } from "./workspace-revision";
 import { observeWorkspaceScript } from "./workspace-script-verification";
+import { workspaceScriptDefinitionHash } from "./workspace-script-definition";
 import type { AgentRunChangedEvent } from "../../../src/lib/agent-runs/api";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
 import { runCommandArgs } from "../../main/utils/command";
@@ -51,7 +52,7 @@ import {
 const STAGE_FACT_MESSAGE_LIMIT = 80;
 
 /** Runs an action from a workspace's scripts for an agent run's Run script stage. */
-async function runAgentRunScript(args: { workspaceId: string; scriptId: string; signal?: AbortSignal }): Promise<AgentRunScriptRun> {
+async function runAgentRunScript(args: { workspaceId: string; scriptId: string; signal?: AbortSignal; expectedDefinitionHash?: string }): Promise<AgentRunScriptRun> {
   const repositories = await localMcpRuntime.listKnownRepositories();
   for (const repository of repositories) {
     const workspace = repository.workspaces.find((candidate) => candidate.id === args.workspaceId);
@@ -67,6 +68,11 @@ async function runAgentRunScript(args: { workspaceId: string; scriptId: string; 
         detail: `This workspace has no script action “${args.scriptId}”. Add it in Settings → Repositories → Scripts, or change the stage.`,
       };
     }
+    const definitionHash = workspaceScriptDefinitionHash(scriptEntry, { repositoryPath: repository.repositoryPath, workspacePath: workspace.path, workspaceName: workspace.name, branch: workspace.branch ?? repository.defaultBranch ?? "" });
+    if (args.expectedDefinitionHash && definitionHash !== args.expectedDefinitionHash)
+      throw new Error(`Script ${args.scriptId} definition changed after this run started. Restore the admitted definition or start a new run.`);
+    let executedCommands = "";
+    let commandsTruncated = false;
     const { result, verification } = await observeWorkspaceScript({ cwd: workspace.path, run: () => runScriptEntry({
       workspaceId: args.workspaceId,
       scriptEntry,
@@ -75,12 +81,17 @@ async function runAgentRunScript(args: { workspaceId: string; scriptId: string; 
       workspacePath: workspace.path,
       workspaceName: workspace.name,
       branch: workspace.branch ?? repository.defaultBranch ?? "",
+      onCommandStarted: (command) => {
+        const next = `${executedCommands ? "\n" : ""}${command}`;
+        commandsTruncated ||= executedCommands.length + next.length > 2_000;
+        executedCommands = (executedCommands + next).slice(0, 2_000);
+      },
     }) });
     if (!("exitCode" in result)) return { ok: false, detail: `“${args.scriptId}” did not run as an action.` };
     const output = "output" in result && typeof result.output === "string" ? result.output : "";
     return result.ok && typeof result.exitCode === "number" && Number.isInteger(result.exitCode)
-      ? { ok: true, exitCode: result.exitCode, output, verification }
-      : { ok: false, detail: "error" in result && result.error ? String(result.error) : typeof result.exitCode === "number" && Number.isInteger(result.exitCode) ? `“${args.scriptId}” exited with ${result.exitCode}.` : `“${args.scriptId}” did not report a process exit status.`, exitCode: result.exitCode, output };
+      ? { ok: true, exitCode: result.exitCode, output, verification, definitionHash, executedCommands, commandsTruncated }
+      : { ok: false, detail: "error" in result && result.error ? String(result.error) : typeof result.exitCode === "number" && Number.isInteger(result.exitCode) ? `“${args.scriptId}” exited with ${result.exitCode}.` : `“${args.scriptId}” did not report a process exit status.`, exitCode: result.exitCode, output, verification, definitionHash, executedCommands, commandsTruncated };
   }
   return { ok: false, detail: "The workspace could not be found." };
 }
@@ -129,6 +140,21 @@ export function createHostAgentRunRuntime(args: {
     readTurnEnding,
   });
   return createAgentRunRuntime({
+    taskAgent: args.taskAgent,
+    listWorkspaceActionScripts: async (workspaceId) => {
+      for (const repository of await localMcpRuntime.listKnownRepositories()) {
+        const workspace = repository.workspaces.find((entry) => entry.id === workspaceId);
+        if (workspace) return (await resolveScriptsForWorkspace({ repositoryPath: repository.repositoryPath, workspacePath: workspace.path }))?.actions.map((entry) => ({ scriptId: entry.id,
+          definitionHash: workspaceScriptDefinitionHash(entry, { repositoryPath: repository.repositoryPath, workspacePath: workspace.path, workspaceName: workspace.name, branch: workspace.branch ?? repository.defaultBranch ?? "" }) })) ?? [];
+      }
+      return [];
+    },
+    runWorkspaceScript: async (request) => {
+      const result = await runAgentRunScript(request);
+      if (typeof result.exitCode !== "number" || !Number.isInteger(result.exitCode) || !result.verification || !result.definitionHash)
+        throw new Error(result.ok ? "The script did not report a process exit status." : result.detail);
+      return { exitCode: result.exitCode, output: result.output ?? "", verification: result.verification, definitionHash: result.definitionHash, executedCommands: result.executedCommands ?? "", commandsTruncated: result.commandsTruncated ?? false };
+    },
     store: persistence.agentRuns,
     prepareGatewayCredentials: async ({ accounts, signal }) => (await requestHostGatewayCredentials(accounts, undefined, signal))?.credentials,
     routeConstrainedTurn: constrained,

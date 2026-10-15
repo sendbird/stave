@@ -88,6 +88,8 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // Records the run's wait on its own state; a later turn it starts counts
   // against the turn cap the user already set.
   "stave_wait_for_event",
+  // The host enforces the primary write-agent grant and configured script IDs.
+  "stave_run_workspace_script",
   // The masked card it shows in the calling task is the consent: the user
   // saves, binds or declines there. An approval prompt first would ask twice.
   // Read-only tasks are denied it in `read-only-delegation.ts`.

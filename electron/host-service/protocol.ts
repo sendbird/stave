@@ -524,6 +524,7 @@ export type HostAgentRunAction =
   | "block-stage"
   | "request-resources"
   | "wait-for-event"
+  | "run-workspace-script"
   | "resources-for-task";
 
 export type HostAutomationAction =

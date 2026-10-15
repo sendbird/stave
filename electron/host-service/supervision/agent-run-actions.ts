@@ -48,6 +48,7 @@ import {
 } from "../../../src/lib/agent-runs/pull-request-draft";
 import type { StaveAction } from "../../../src/lib/workflows/schema";
 import { classifyProviderTurnStopReason } from "../../../src/lib/providers/turn-status";
+import { WORKSPACE_SCRIPT_TIMEOUT_MS } from "../../../src/lib/agent-runs/verification-contract";
 import type { AgentRunStore } from "../../persistence/agent-run-store";
 import type { PersistedTurnStreamEvent } from "../../persistence/turn-event-payload";
 
@@ -87,11 +88,11 @@ type ActionStore = Pick<AgentRunStore, "recordEvent" | "listEventsByKind">;
 
 /** A finished run of a workspace script, as the Run script action reads it. */
 export type AgentRunScriptRun =
-  | { ok: true; exitCode: number; output: string; verification?: import("../../../src/lib/agent-runs/verification-contract").ScriptVerification }
-  | { ok: false; detail: string; exitCode?: number | null; output?: string };
+  | { ok: true; exitCode: number; output: string; verification?: import("../../../src/lib/agent-runs/verification-contract").ScriptVerification; definitionHash?: string; executedCommands?: string; commandsTruncated?: boolean }
+  | { ok: false; detail: string; exitCode?: number | null; output?: string; verification?: import("../../../src/lib/agent-runs/verification-contract").ScriptVerification; definitionHash?: string; executedCommands?: string; commandsTruncated?: boolean };
 
 /** How long an agent run waits for a script before it fails the stage. */
-const SCRIPT_TIMEOUT_MS = 30 * 60_000;
+const SCRIPT_TIMEOUT_MS = WORKSPACE_SCRIPT_TIMEOUT_MS;
 
 /** The last https address a script printed, such as a preview deployment's. */
 export function lastPrintedUrl(output: string): string | undefined {

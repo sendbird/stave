@@ -14,6 +14,7 @@ import {
   clampReason,
   currentStageRecord,
   enterStage,
+  EMPTY_STAGE_FACTS,
   isActiveAgentRunState,
   isTerminalStageStatus,
   workflowStageAt,
@@ -207,6 +208,7 @@ export function retryStage(args: {
     aggregate: { agentRun: aggregate.agentRun, stages: replaceStageRecord(aggregate.stages, ended) },
     index: aggregate.agentRun.currentStageIndex,
   });
+  if (record.facts?.workspaceCheckNotice) retried.facts = { ...EMPTY_STAGE_FACTS, workspaceCheckNotice: record.facts.workspaceCheckNotice };
   return {
     agentRun: touch(aggregate.agentRun, {}, now),
     upserts: [ended, retried],
@@ -398,6 +400,7 @@ export function recordStageReport(args: {
     | ({ outcome: "complete" } & StageCompleteReportInput)
     | ({ outcome: "blocked" } & StageBlockInput);
   turnId: string | null;
+  workspaceRevision?: CompleteStageReport["workspaceRevision"];
   now: Date;
 }): AgentRunChange {
   const record = requireCurrentStage(args.aggregate, args.expected, ["running", "blocked", "stuck"]);
@@ -414,6 +417,7 @@ export function recordStageReport(args: {
     args.report.outcome === "complete"
       ? ({
           ...args.report,
+          ...(args.workspaceRevision ? { workspaceRevision: args.workspaceRevision } : {}),
           decisions: args.report.decisions ?? [],
           evidence: args.report.evidence ?? [],
           artifacts: args.report.artifacts ?? [],

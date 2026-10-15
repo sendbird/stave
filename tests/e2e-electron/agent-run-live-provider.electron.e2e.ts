@@ -22,6 +22,16 @@ import { launchStave, seedRepository } from "./harness/stave-app";
  */
 const GOAL = "Create a file named HELLO.md containing exactly `hello from stave` and report done. Do not commit.";
 const QUESTION_GOAL = "Before writing anything, ask me with your question tool which filename to use (offer A.md or B.md), then create that file with the content `answered` and report done.";
+/**
+ * No "do not change any file" clause: a read-only sandbox cannot run `git
+ * status`, and an agent that turns the clause into a criterion it cannot
+ * verify reports it unverified, which halts the stage for the user. The
+ * harness checks the tree itself.
+ */
+const READ_ONLY_GOAL = "Read README.md and report the stage as done; the summary must quote its first line.";
+/** A merged pull request with finished checks: the wait ends on its first read. */
+const WAIT_PR_URL = process.env.STAVE_LIVE_WAIT_PR_URL ?? "https://github.com/sendbird/stave/pull/749";
+const EVENT_WAIT_GOAL = `Call stave_wait_for_event with kind pull_request_checks and target ${WAIT_PR_URL}, then end your turn without reporting. In the turn Stave starts with what happened to that pull request, report the stage as done with a summary that states it. Do not create or change any file.`;
 const EXPECTED_CONTENT = "hello from stave";
 const RUN_DEADLINE_MS = 180_000;
 const MAX_TURNS = 6;
@@ -75,12 +85,25 @@ async function runLiveAgentRun(args: {
   expectedAppliedOptions: Record<string, unknown>;
   extendAtLimit?: boolean;
   persistentQuestion?: boolean;
+  /** With `persistentQuestion`: kill and relaunch Stave on the same profile while the question waits. */
+  restartWhilePending?: boolean;
+  workspaceCheck?: boolean;
+  /** A read-only agent with a configured check: no host check is required and nothing is written. */
+  readOnly?: boolean;
+  /** The run waits inside itself for a pull request event and resumes on it. */
+  eventWait?: boolean;
 }) {
   const { providerId, testInfo } = args;
   const directory = await mkdtemp(path.join(tmpdir(), `stave-agent-run-live-${providerId}-`));
   const repositoryPath = await seedTemporaryRepository(directory);
-  const stave = await launchStave({ env: args.persistentQuestion ? { STAVE_CLAUDE_APPROVAL_TIMEOUT_MS: "20000", STAVE_CODEX_APPROVAL_TIMEOUT_MS: "20000" } : {} });
-  const goal = args.persistentQuestion ? QUESTION_GOAL : GOAL;
+  // The profile lives under the test directory so a relaunch can reopen it and the teardown removes it.
+  const profileDir = path.join(directory, "profile");
+  await mkdir(profileDir);
+  const launchEnv: Record<string, string> = args.persistentQuestion ? { STAVE_CLAUDE_APPROVAL_TIMEOUT_MS: "20000", STAVE_CODEX_APPROVAL_TIMEOUT_MS: "20000" } : {};
+  let stave = await launchStave({ userDataDir: profileDir, env: launchEnv });
+  const goal = args.readOnly ? READ_ONLY_GOAL : args.eventWait ? EVENT_WAIT_GOAL
+    : args.workspaceCheck ? "Make the workspace check pass: it requires OK.txt containing `ok`. Run the workspace check with your Stave tool before reporting. Do not commit." : args.persistentQuestion ? QUESTION_GOAL : GOAL;
+  const writesNothing = Boolean(args.readOnly || args.eventWait);
   const evidence: Record<string, unknown> = { providerId, goal, path: "kickoff-assign" };
   let detail: AgentRunDetail | null = null;
   let messages: ChatMessage[] = [];
@@ -101,12 +124,25 @@ async function runLiveAgentRun(args: {
         { id: "work", title: "Write", kind: "ai", instruction: "Create HELLO.md containing exactly hello from stave, read it back and re-read README.md. Report this stage as done. The final report must include every earlier stage acceptance criterion as met using its text verbatim, as well as the HELLO.md criterion. Do not commit.", doneWhen: "HELLO.md contains hello from stave." },
       ];
     }
+    if (args.readOnly) agent.permission = "read-only";
+    if (args.eventWait) agent.instructions = "You are an implementer. Follow the assignment exactly: register the wait with stave_wait_for_event and end that turn without reporting. In the turn that follows the event, report the stage as done with the Stave reporting tool. Do not commit. Do not ask the user questions.";
     if (args.persistentQuestion) agent.instructions = "Before writing any file, use your native question tool (AskUserQuestion or request_user_input) to ask which filename to use, offering A.md and B.md. Do not guess or proceed without an answer. After the user replies, create ONLY the selected file with exactly answered, read it back, and report the stage as done. Do not ask the question again after receiving the answer. Do not commit.";
     evidence.model = model;
     await seedRepository(stave.page, {
       repositoryPath,
       settings: { customAgents: [agent], autoRoutingEnabled: false, providerTimeoutMs: 120_000, themeMode: "dark", ...args.settings },
     });
+    if (args.workspaceCheck || args.readOnly) {
+      await writeFile(path.join(repositoryPath, "check.sh"), '[ "$(cat OK.txt 2>/dev/null)" = "ok" ]\n');
+      const configured = await stave.page.evaluate(async repositoryPath => {
+        await window.api!.fs!.createDirectory!({ rootPath: repositoryPath, directoryPath: ".stave" });
+        return window.api!.fs!.writeFile!({ rootPath: repositoryPath, filePath: ".stave/scripts.json", expectedRevision: null,
+          content: JSON.stringify({ version: 2, actions: { check: { commands: ["sh check.sh"], target: "workspace" } } }) });
+      }, repositoryPath);
+      expect(configured.ok, JSON.stringify(configured)).toBe(true);
+    }
+    // The seeded check files are untracked; a run that writes nothing leaves exactly this status.
+    const seededStatus = execFileSync("git", ["status", "--porcelain"], { cwd: repositoryPath, encoding: "utf8" });
     // Let `hydrateWorkspaces` settle before driving the product (see the harness notes).
     await stave.page.waitForTimeout(2_000);
     const startedAt = Date.now();
@@ -191,6 +227,24 @@ async function runLiveAgentRun(args: {
       expect(existsSync(path.join(repositoryPath, "B.md"))).toBe(false);
       evidence.pendingQuestion = pending;
       await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-pending-question.png`) });
+      if (args.restartWhilePending) {
+        const before = (await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId)).agentRun!.agentRun;
+        await stave.close();
+        stave = await launchStave({ userDataDir: profileDir, env: launchEnv });
+        await stave.page.waitForTimeout(2_000);
+        const after = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
+        detail = after.agentRun;
+        expect(after.agentRun?.agentRun, "the run must survive the restart and keep waiting").toMatchObject({ state: "running", turnCount: before.turnCount });
+        expect(after.agentRun?.stages.every(stage => stage.status !== "stuck")).toBe(true);
+        const restored = await readQuestion();
+        expect(restored, "the question card must be restored from disk").toMatchObject({ requestId: pending.requestId, state: "input-requested", delivery: "async" });
+        // The run waits for the answer: no turn may start on its own after the restart.
+        await stave.page.waitForTimeout(8_000);
+        const idle = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
+        expect(idle.agentRun?.agentRun.turnCount).toBe(before.turnCount);
+        await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-after-restart.png`) });
+        evidence.restart = { turnCountBefore: before.turnCount, stateAfter: after.agentRun?.agentRun.state, cardVisible: await stave.page.getByText(original.questions[0]!.question, { exact: true }).first().isVisible().catch(() => false) };
+      }
       const answers = Object.fromEntries(pending.questions.map(question => [question.key?.trim() || question.question, "B.md"]));
       const reply = { workspaceId, taskId, requestId: pending.requestId, answers };
       const result = await stave.page.evaluate(async reply => window.api!.localMcp!.respondUserInput!(reply), reply);
@@ -211,8 +265,8 @@ async function runLiveAgentRun(args: {
     const cards = messages.flatMap((message) => message.parts.filter(isCardPart).map((part) => ({ messageId: message.id, type: part.type, state: part.state })));
     const notices = messages.flatMap((message) => message.parts.flatMap((part) => part.type === "system_event" ? [part.content] : []));
     const applied = messages.filter((message) => message.role === "assistant" && message.agentProvenance).map((message) => message.agentProvenance!.permission);
-    const helloPath = path.join(repositoryPath, args.persistentQuestion ? "B.md" : "HELLO.md");
-    const hello = existsSync(helloPath) ? await readFile(helloPath, "utf8") : null;
+    const helloPath = path.join(repositoryPath, args.workspaceCheck ? "OK.txt" : args.persistentQuestion ? "B.md" : "HELLO.md");
+    const hello = !writesNothing && existsSync(helloPath) ? await readFile(helloPath, "utf8") : null;
     const run = detail!.agentRun;
     const stage = detail!.stages.find((record) => record.stageId === "work");
     Object.assign(evidence, {
@@ -234,14 +288,46 @@ async function runLiveAgentRun(args: {
       evidence.replyTurns = detail!.events.filter(event => event.kind === "user-turn").map(event => event.detail.turnId);
     } else expect(cards, "no approval or question card may appear in an Auto run").toEqual([]);
     expect(run.origin).toBe("agent");
-    expect(run.consent.permissionMode).toBe("auto");
+    // A read-only agent is not an Auto agent, so its run carries manual consent; its posture never asks anyway.
+    expect(run.consent.permissionMode).toBe(args.readOnly ? "manual" : "auto");
     expect(run.fingerprint.providerId).toBe(providerId);
     expect(run.state).toBe("completed");
     expect(stage?.status).toBe("completed");
     expect(applied.length).toBeGreaterThan(0);
     for (const permission of applied) expect(permission.applied).toMatchObject(args.expectedAppliedOptions);
-    expect(hello, "HELLO.md must exist").not.toBeNull();
-    expect(hello!.trim()).toBe(args.persistentQuestion ? "answered" : EXPECTED_CONTENT);
+    if (writesNothing) {
+      expect(evidence.gitStatus, "a read-only or waiting run must leave the tree untouched").toBe(seededStatus);
+      expect(stage?.report?.outcome).toBe("complete");
+    } else {
+      expect(hello, "HELLO.md must exist").not.toBeNull();
+      expect(hello!.trim()).toBe(args.workspaceCheck ? "ok" : args.persistentQuestion ? "answered" : EXPECTED_CONTENT);
+    }
+    if (args.readOnly) {
+      const criteria = run.workflow.stages.flatMap(entry => entry.acceptanceCriteria ?? []);
+      expect(criteria.some(criterion => criterion.verification === "stave-check"), "a read-only run gets no host check criterion").toBe(false);
+      expect(detail!.report?.acceptanceCriteria?.some(criterion => criterion.text === "Workspace checks pass")).toBeFalsy();
+      expect(stage?.facts?.workspaceScripts).toBeUndefined();
+      expect(stage?.report?.outcome === "complete" ? stage.report.summary : "").toContain("Temporary agent run validation");
+    }
+    if (args.eventWait) {
+      const waits = detail!.events.filter(event => event.kind.startsWith("wait-")).map(event => ({ kind: event.kind, detail: event.detail }));
+      evidence.waits = waits;
+      expect(waits.map(wait => wait.kind)).toEqual(["wait-registered", "wait-woke"]);
+      expect(run.turnCount, "one turn registers the wait, the woken turn reports").toBe(2);
+      expect(stage?.report?.outcome === "complete" ? stage.report.summary : "").toMatch(/749|merged|pass/i);
+    }
+    if (args.workspaceCheck) {
+      const check = stage?.facts?.workspaceScripts?.find(check => check.source === "stave" && check.exitCode === 0);
+      expect(check).toBeTruthy();
+      const workflowStage = run.workflow.stages.find(entry => entry.id === stage?.stageId);
+      const frozen = workflowStage?.kind === "ai" ? workflowStage.acceptanceCriteria?.flatMap(criterion => criterion.scriptDefinitions ?? []).find(definition => definition.scriptId === check?.scriptId) : null;
+      expect(frozen?.definitionHash).toBeTruthy();
+      expect(check!.definitionHash).toBe(frozen!.definitionHash);
+      expect(check!.executedCommands).toBe("sh check.sh");
+      expect(stage?.report?.outcome).toBe("complete");
+      if (stage?.report?.outcome === "complete") expect(check!.verification.completedRevision).toEqual(stage.report.workspaceRevision);
+      expect(detail!.report?.acceptanceCriteria).toContainEqual({ text: "Workspace checks pass", required: true, status: "met" });
+    }
     expect(evidence.commits).toBe("1");
     expect(run.turnCount).toBeLessThanOrEqual(MAX_TURNS);
     if (args.extendAtLimit) {
@@ -327,6 +413,60 @@ for (const providerId of ["claude-code", "codex"] as const) {
     test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
     test.setTimeout(420_000);
     await runLiveAgentRun({ providerId, testInfo, persistentQuestion: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "auto" }
+        : { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+    });
+  });
+}
+
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`live ${providerId} Run keeps a native question across an app restart and delivers one reply`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(480_000);
+    await runLiveAgentRun({ providerId, testInfo, persistentQuestion: true, restartWhilePending: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "auto" }
+        : { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+    });
+  });
+}
+
+for (const providerId of ["codex", "claude-code"] as const) {
+  test(`live ${providerId} read-only Run completes without a host check or a card`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(300_000);
+    await runLiveAgentRun({ providerId, testInfo, readOnly: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "dontAsk" }
+        : { codexFileAccess: "read-only", codexApprovalPolicy: "never" },
+    });
+  });
+  test(`live ${providerId} Run waits for a pull request event and resumes on it`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(300_000);
+    await runLiveAgentRun({ providerId, testInfo, eventWait: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "auto" }
+        : { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+    });
+  });
+  test(`live ${providerId} write Run completes only with a host workspace check`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(300_000);
+    await runLiveAgentRun({ providerId, testInfo, workspaceCheck: true,
       pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
         : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
       settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }

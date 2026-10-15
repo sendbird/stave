@@ -209,12 +209,30 @@ unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 
 Workflow stage criteria support `text`, optional `required` (true by default),
-and optional `verification`. AI stages use `agent-report`: this records the
-agent's assessment. Required `stave-check` criteria belong to a **Run script**
-action stage; omitting verification on that action has the same meaning. Other
-action stages cannot require a workspace script check. To require host-observed
-tests after an AI stage, add a Run script stage using a configured workspace
-action script.
+and optional `verification`. AI stages use `agent-report` for the agent's
+assessment, or `stave-check` for a host workspace script result. A required
+`stave-check` cannot be satisfied by an agent-reported **Met**. Run script
+action stages keep the same check behavior, including when verification is
+omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
+
+A primary write agent's implicit Work stage, and the last AI stage of the
+built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
+checks pass** when the workspace has configured action scripts. Researcher,
+Reviewer, Lead and read-only agents do not get this default. With one action,
+that script is required; with several, all IDs are listed in sorted order and
+any one may satisfy the criterion. Script configuration currently has no
+verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
+Without configured actions, completion remains agent-reported.
+
+The agent calls `stave_run_workspace_script({ scriptId })` before reporting.
+Stave runs the configured action, records its exit status, duration, bounded
+output, the definition hash, the executed commands and before/after revisions on that stage, and displays the host check
+in its evidence. Required checks need exit 0 and known matching source,
+completed, report and final workspace revisions. A missing, failing or stale
+check blocks completion with the script ID and tool to run before reporting
+again. Only write-capable primary AI-stage turns may run it; read-only,
+non-run and action-stage callers are refused. Each run allows one script at
+a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation, and a report whose revision cannot be read stays blocked with that reason. Admission reads no git snapshot, so the default check is never dropped because of the workspace state; only an invalid default-criterion insertion is skipped with a timeline/report notice, and that notice survives stage retry. Workspace renames do not change a script definition hash.
 
 Check evidence separates **Provider result** and **Agent reported** claims from
 successful host checks of unchanged work. A tool response without a structured

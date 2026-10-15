@@ -159,6 +159,19 @@ function harness(providerId: "claude-code" | "codex" = "codex", options: { agent
 }
 
 describe("supervised saved-Agent delegations", () => {
+  test("delegated AI host-check criteria refuse preparation with a reason before any run or turn", async () => {
+    const h = harness("codex", { agent: { ...agent, workflow: [{ id: "check", title: "Check", kind: "ai", instruction: "Check work", doneWhen: "Checked",
+      acceptanceCriteria: [{ text: "Workspace checks pass", verification: "stave-check" }],
+    }] } });
+    const response = await h.coordinator.delegate(request());
+    expect(response.accepted).toBe(true);
+    await h.coordinator.waitForInFlight();
+    const child = await h.coordinator.get(response.child!);
+    expect(child?.phase).toBe("failed");
+    expect(child?.reason).toContain("Delegated runs cannot execute host workspace checks");
+    expect(h.runs.getAggregate(response.child!.agentRunId!)).toBeNull();
+    expect(h.calls).toHaveLength(0);
+  });
   test("admission Decision is billed once for the first turn, persisted, and refreshed only on continuation", async () => {
     const h = harness("codex", { routing: true, decisionMetadata: true });
     const child = await h.start();
