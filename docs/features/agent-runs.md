@@ -232,7 +232,7 @@ completed, report and final workspace revisions. A missing, failing or stale
 check blocks completion with the script ID and tool to run before reporting
 again. Only write-capable primary AI-stage turns may run it; read-only,
 non-run and action-stage callers are refused. Each run allows one script at
-a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation; if the admission snapshot exceeds its limits, the default check is omitted with a timeline/report notice. Unavailable or changing revisions are retried once after a short delay, and the criterion remains required if the retry is still unavailable or changing. Explicit checks remain bound. An invalid default-criterion insertion is also skipped with a notice. A skip notice survives stage retry. Workspace renames do not change a script definition hash.
+a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation, and a report whose revision cannot be read stays blocked with that reason. Admission reads no git snapshot, so the default check is never dropped because of the workspace state; only an invalid default-criterion insertion is skipped with a timeline/report notice, and that notice survives stage retry. Workspace renames do not change a script definition hash.
 
 Check evidence separates **Provider result** and **Agent reported** claims from
 successful host checks of unchanged work. A tool response without a structured

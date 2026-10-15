@@ -1883,15 +1883,13 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         void requestTick();
         return detailOf(agentRunId);
       }),
-    startAgentRun: async (rawInput) => {
-      const input = AgentRunStartInputSchema.parse(rawInput);
-      // Git snapshots and their retry can take seconds; keep them outside the supervisor queue.
-      const check = await admitWorkspaceCheck({ workflow: input.workflow,
-        agent: input.origin === "agent" ? deps.taskAgent?.(input.leadTaskId) ?? null : null, scripts: await deps.listWorkspaceActionScripts?.(input.workspaceId) ?? [], readRevision: async () => {
-          const cwd = await deps.resolveWorkspacePath(input.workspaceId);
-          return cwd && deps.readWorkspaceRevision ? deps.readWorkspaceRevision(cwd) : { status: "unknown", reason: "unavailable" };
-        } });
-      return enqueue(async () => {
+    startAgentRun: (rawInput) =>
+      enqueue(async () => {
+        const input = AgentRunStartInputSchema.parse(rawInput);
+        // Binding reads only the workspace's script configuration; no git snapshot here.
+        const check = admitWorkspaceCheck({ workflow: input.workflow,
+          agent: input.origin === "agent" ? deps.taskAgent?.(input.leadTaskId) ?? null : null,
+          scripts: await deps.listWorkspaceActionScripts?.(input.workspaceId) ?? [] });
         input.workflow = check.workflow;
         const existing = store.getActiveAgentRunForTask(input.leadTaskId);
         if (existing) {
@@ -1950,8 +1948,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         emit(change.agentRun);
         void requestTick();
         return detailOf(change.agentRun.id);
-      });
-    },
+      }),
     list: async (args = {}) => {
       const recent = args.workspaceId
         ? store.listAgentRunsForWorkspace(args.workspaceId, args.limit)

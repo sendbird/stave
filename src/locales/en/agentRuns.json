@@ -21,7 +21,6 @@
     "delegated": "Delegated runs cannot execute host workspace checks. Remove the stave-check criterion or start a primary run before continuing.",
     "failed": "The workspace check exited with code {{exitCode}}.",
     "stale": "The workspace changed after the check or before the report.",
-    "skippedRevision": "The default workspace check was not added. {{reason}} Completion remains agent-reported.",
     "skippedInvalid": "The default workspace check was not added because the workflow would be invalid: {{reason}}"
   },
   "limit": {

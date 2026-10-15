@@ -88,75 +88,48 @@ test("every explicit AI check is bound without adding a default to a custom work
   expect(withWorkspaceCheck(bound, null, updated).stages[0]!.acceptanceCriteria?.[0]?.scriptDefinitions).toEqual(updated);
 });
 
-test("admission replaces incoming hashes and preserves explicit script subsets", async () => {
+test("admission replaces incoming hashes and preserves explicit script subsets", () => {
   const agent = getBuiltinAgent("implementer")!;
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
   workflow.stages[0]!.acceptanceCriteria = [{ ...criterion, scriptIds: ["lint"], scriptDefinitions: [frozen("forged")] }];
   const lint = { scriptId: "lint", definitionHash: "b".repeat(64) };
-  const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check"), lint], readRevision: async () => revision });
+  const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check"), lint] });
   expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, scriptIds: ["lint"], scriptDefinitions: [lint] }]);
-  await expect(admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], readRevision: async () => revision })).rejects.toThrow("'lint'");
+  expect(() => admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] })).toThrow("'lint'");
 });
 
-test("admission refuses explicit checks without actions instead of preserving stale client definitions", async () => {
+test("admission refuses explicit checks without actions instead of preserving stale client definitions", () => {
   const workflow = buildAgentRunWorkflow({ agent: getBuiltinAgent("implementer")!, now: AGENT_RUN_NOW });
   workflow.stages[0]!.acceptanceCriteria = [criterion];
-  await expect(admitWorkspaceCheck({ workflow, agent: null, scripts: [], readRevision: async () => revision })).rejects.toThrow("no action script");
+  expect(() => admitWorkspaceCheck({ workflow, agent: null, scripts: [] })).toThrow("no action script");
 });
 
-test("upgrading the default text and rebinding a host check preserve required false", async () => {
+test("upgrading the default text and rebinding a host check preserve required false", () => {
   const agent = getBuiltinAgent("implementer")!;
   for (const verification of ["agent-report", "stave-check"] as const) {
     const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
     workflow.stages[0]!.acceptanceCriteria = [{ text: criterion.text, required: false, verification }];
-    const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], readRevision: async () => revision });
+    const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] });
     expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, required: false }]);
   }
 });
 
-test("transient unavailable, changing and thrown revision reads retry once and retain the default gate", async () => {
+test("admission adds the default gate and binds explicit checks without any revision input", () => {
   const agent = getBuiltinAgent("implementer")!;
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
-  for (const reason of ["unavailable", "changing", "throw"] as const) {
-    let reads = 0;
-    const delays: number[] = [];
-    const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], wait: async ms => { delays.push(ms); }, readRevision: async () => {
-      if (reads++ > 0) return revision;
-      if (reason === "throw") throw new Error("Transient git timeout");
-      return { status: "unknown", reason };
-    } });
-    expect(reads).toBe(2);
-    expect(delays).toEqual([100]);
-    expect(admitted.notice).toBeUndefined();
-    expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([criterion]);
-  }
-});
-
-test("persistent unavailable or changing revisions retain the gate; only a snapshot limit skips the default", async () => {
-  const agent = getBuiltinAgent("implementer")!;
-  const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
-  for (const reason of ["unavailable", "changing", "limit"] as const) {
-    let reads = 0;
-    const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], wait: async () => {}, readRevision: async () => { reads++; return { status: "unknown", reason }; } });
-    expect(reads).toBe(reason === "limit" ? 1 : 2);
-    if (reason === "limit") {
-      expect(admitted.workflow).toBe(workflow);
-      expect(admitted.notice).toContain("200-file");
-    } else {
-      expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([criterion]);
-      expect(admitted.notice).toBeUndefined();
-    }
-  }
+  const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] });
+  expect(admitted.notice).toBeUndefined();
+  expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([criterion]);
   const explicit = { ...workflow, stages: workflow.stages.map(stage => ({ ...stage, acceptanceCriteria: [{ text: "Custom check", verification: "stave-check" as const }] })) };
-  const admitted = await admitWorkspaceCheck({ workflow: explicit, agent: null, scripts: [frozen("check")], readRevision: async () => ({ status: "unknown", reason: "limit" }) });
-  expect(admitted.workflow.stages[0]!.acceptanceCriteria?.[0]).toMatchObject({ verification: "stave-check", scriptDefinitions: [frozen("check")] });
+  expect(admitWorkspaceCheck({ workflow: explicit, agent: null, scripts: [frozen("check")] }).workflow.stages[0]!.acceptanceCriteria?.[0]).toMatchObject({ verification: "stave-check", scriptDefinitions: [frozen("check")] });
+  expect(admitWorkspaceCheck({ workflow, agent, scripts: [] }).workflow).toBe(workflow);
 });
 
-test("a default insertion beyond the criterion limit still preserves a valid workflow with a notice", async () => {
+test("a default insertion beyond the criterion limit still preserves a valid workflow with a notice", () => {
   const agent = getBuiltinAgent("implementer")!;
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
   workflow.stages[0]!.acceptanceCriteria = Array.from({ length: 20 }, (_, i) => ({ text: `Criterion ${i}` }));
-  const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], readRevision: async () => revision });
+  const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] });
   expect(admitted.workflow).toBe(workflow);
   expect(admitted.notice).toContain("invalid");
 });
