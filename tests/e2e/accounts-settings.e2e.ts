@@ -39,6 +39,23 @@ function screenshotPath(testInfo: TestInfo, name: string) {
   return dir ? `${dir}/${name}.png` : testInfo.outputPath(`${name}.png`);
 }
 
+/**
+ * Provider marks are lazy images; under a parallel run they can still be
+ * loading when the page is captured, which leaves their slots blank. Wait for
+ * every image on screen to finish (or fail) before a screenshot.
+ */
+async function shot(page: Page, testInfo: TestInfo, name: string) {
+  await page.waitForFunction(() =>
+    Array.from(document.images)
+      .filter((image) => {
+        const box = image.getBoundingClientRect();
+        return box.width > 0 && box.bottom > 0 && box.top < window.innerHeight;
+      })
+      .every((image) => image.complete),
+  undefined, { timeout: 10_000 });
+  await page.screenshot({ path: screenshotPath(testInfo, name) });
+}
+
 function seedAccounts(page: Page, seed: Seed) {
   page.on("pageerror", (error) => console.log("PAGEERROR", error.message));
   return page.addInitScript(
@@ -264,12 +281,12 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(settings.getByText("Company gateway").first()).toBeVisible({ timeout: 20_000 });
     await expect(settings.locator('[data-cli-provider="opencode"]')).toContainText("Managed in CLI");
     await expect(settings.locator('[data-cli-provider="cursor"]')).toContainText("CLI not installed");
-    await page.screenshot({ path: screenshotPath(testInfo, `settings-accounts-${themeMode}`) });
+    await shot(page, testInfo, `settings-accounts-${themeMode}`);
 
     await settings.getByRole("button", { name: "Tooling", exact: true }).click();
     await expect(settings.getByText("Accounts and API connections moved to Settings > Accounts.")).toBeVisible();
     await expect(settings.getByText("Company gateway")).toHaveCount(0);
-    await page.screenshot({ path: screenshotPath(testInfo, `settings-tooling-${themeMode}`) });
+    await shot(page, testInfo, `settings-tooling-${themeMode}`);
     await settings.getByRole("button", { name: "Open Accounts" }).click();
     await expect(settings.getByRole("heading", { name: "Getting started" })).toBeVisible();
   });
@@ -282,7 +299,7 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(shelfLine).toBeVisible({ timeout: 20_000 });
     await expect(shelfLine).toHaveAttribute("data-kind", "signed-out");
     await expect(shelfLine).toContainText("Claude Code is not signed in on System default.");
-    await page.screenshot({ path: screenshotPath(testInfo, `composer-${themeMode}`) });
+    await shot(page, testInfo, `composer-${themeMode}`);
 
     await page.getByRole("button", { name: /^Model:/ }).click();
     const selector = page.getByRole("dialog", { name: "Model and effort selector" });
@@ -291,7 +308,7 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(foot.locator('[data-provider="codex"]')).toContainText("Codex is not signed in on System default.");
     await expect(foot.getByRole("button", { name: "Manage accounts and connections…" })).toBeVisible();
     await page.waitForTimeout(500);
-    await page.screenshot({ path: screenshotPath(testInfo, `model-selector-${themeMode}`) });
+    await shot(page, testInfo, `model-selector-${themeMode}`);
     await foot.getByRole("button", { name: "Manage accounts and connections…" }).click();
     await expect(page.getByRole("dialog", { name: "Settings" }).getByRole("heading", { name: "Getting started" })).toBeVisible();
   });
@@ -304,14 +321,14 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(card).toBeVisible({ timeout: 20_000 });
     await expect(card).toContainText("Install a provider CLI");
     await expect(page.getByText("Stave uses the Claude and Codex sign-ins on this computer.")).toHaveCount(0);
-    await page.screenshot({ path: screenshotPath(testInfo, `welcome-${themeMode}`) });
+    await shot(page, testInfo, `welcome-${themeMode}`);
     await card.getByRole("button", { name: "Open Accounts" }).click();
     const settings = page.getByRole("dialog", { name: "Settings" });
     const steps = settings.getByRole("list", { name: "Getting started" });
     await expect(steps.locator('[data-step="install"]')).toHaveAttribute("data-status", "done");
     await expect(steps.locator('[data-step="signIn"]')).toHaveAttribute("data-status", "todo");
     await expect(steps.getByText("The sign-in terminal runs in a workspace. Open a repository first.")).toBeVisible();
-    await page.screenshot({ path: screenshotPath(testInfo, `settings-getting-started-${themeMode}`) });
+    await shot(page, testInfo, `settings-getting-started-${themeMode}`);
   });
 }
 
@@ -382,7 +399,7 @@ for (const themeMode of ["light", "dark"] as const) {
     await codexTab.click();
     await expect(selector.getByText("Company gateway · API billing")).toBeVisible();
     await page.waitForTimeout(400);
-    await page.screenshot({ path: screenshotPath(testInfo, `model-selector-connection-${themeMode}`) });
+    await shot(page, testInfo, `model-selector-connection-${themeMode}`);
     await selector.getByRole("button", { name: "Edit models" }).click();
     const row = page.getByRole("dialog", { name: "Settings" }).locator(`#settings-field-api-connection-${CONNECTION_ID}`);
     await expect(row.getByRole("button", { name: "Save changes" })).toBeVisible();
@@ -409,9 +426,9 @@ for (const [customThemeId, themeMode] of [["dracula", "dark"], ["catppuccin-latt
     await page.setViewportSize({ width: 1440, height: 1800 });
     await page.goto("/");
     await expect(page.getByTestId("composer-shelf-account")).toBeVisible({ timeout: 20_000 });
-    await page.screenshot({ path: screenshotPath(testInfo, `composer-${customThemeId}`) });
+    await shot(page, testInfo, `composer-${customThemeId}`);
     await openSettingsSection(page, "Accounts");
-    await page.screenshot({ path: screenshotPath(testInfo, `settings-accounts-${customThemeId}`) });
+    await shot(page, testInfo, `settings-accounts-${customThemeId}`);
   });
 }
 
@@ -437,8 +454,9 @@ test("the picker foot groups CLIs that are not installed and opens their row", a
   await expect(row.getByRole("button", { name: "Open Tooling" })).toBeFocused();
 });
 
-test("Use in Codex waits for Codex to come back after the account switch, then opens its connection group", async ({ page }) => {
-  await seedAccounts(page, { themeMode: "light", ...READY, withConnection: false, allowConnectionCreate: true, codexAvailabilityDelayMs: 1500 });
+for (const themeMode of ["light", "dark"] as const) {
+  test(`Use in Codex waits for Codex to come back after the account switch, then opens its connection group (${themeMode})`, async ({ page }, testInfo) => {
+  await seedAccounts(page, { themeMode, ...READY, withConnection: false, allowConnectionCreate: true, codexAvailabilityDelayMs: 1500 });
   await page.setViewportSize({ width: 1440, height: 2400 });
   await page.goto("/");
   await expect(page.getByRole("button", { name: /^Model:/ })).toBeVisible({ timeout: 20_000 });
@@ -450,6 +468,9 @@ test("Use in Codex waits for Codex to come back after the account switch, then o
   await form.getByRole("list", { name: "Models you can pin" }).getByRole("button", { name: "Pin" }).first().click();
   await form.getByRole("button", { name: "Add connection" }).click();
   const next = settings.getByTestId("api-connection-next-step");
+  await expect(next.getByRole("button", { name: "Use in Codex" })).toBeEnabled();
+  await next.scrollIntoViewIfNeeded();
+  await shot(page, testInfo, `settings-connection-next-step-${themeMode}`);
   await next.getByRole("button", { name: "Use in Codex" }).click();
   await expect(settings).toBeHidden();
   const selector = page.getByRole("dialog", { name: "Model and effort selector" });
@@ -458,7 +479,10 @@ test("Use in Codex waits for Codex to come back after the account switch, then o
   await expect(selector.getByRole("tab", { name: /^Codex, / })).toHaveCount(0);
   await expect(selector.getByRole("tab", { name: /^Codex, / })).toHaveAttribute("aria-selected", "true", { timeout: 10_000 });
   await expect(selector.getByText("Company gateway · API billing")).toBeVisible();
-});
+  await page.waitForTimeout(400);
+  await shot(page, testInfo, `model-selector-after-use-in-codex-${themeMode}`);
+  });
+}
 
 test("a connection deep link waits for a slow connection list, then opens the edit form", async ({ page }) => {
   await seedAccounts(page, { themeMode: "light", ...READY, connectionListDelayMs: 2500 });
