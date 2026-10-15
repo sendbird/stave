@@ -632,7 +632,13 @@
     "activeTask2": "Active task",
     "noTaskOpen": "No task open",
     "currentWorkspace": "Current workspace",
-    "resumeWork": "Resume work"
+    "resumeWork": "Resume work",
+    "openSettingsAccounts": "Open Settings: Accounts",
+    "openSettingsAccountsDescription": "Sign-in accounts, API connections and Getting started",
+    "addAnAccount": "Add an account",
+    "addAnAccountDescription": "Add a Claude or Codex sign-in in Settings > Accounts",
+    "addAnApiConnection": "Add an API connection",
+    "addAnApiConnectionDescription": "Connect a gateway key billed per token, such as Vercel AI Gateway"
   },
   "commandPaletteScripts": {
     "local": "{{value1}} · Local",

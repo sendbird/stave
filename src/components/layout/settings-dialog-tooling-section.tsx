@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
-import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
-import { ApiConnectionsSettings } from "./ApiConnectionsSettings";
+import { PROVIDER_LOGIN_COMMAND } from "@/lib/providers/provider-login-commands";
+import type { SectionId } from "./settings-dialog.schema";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { getCodexModelAvailabilityGuidance } from "@/lib/providers/codex-model-requirements";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
@@ -49,14 +49,7 @@ const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   get opencode() { return i18n.t("settingsProviders:toolingSection.purpose.opencode"); },
 };
 
-const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = {
-  gh: "gh auth login",
-  claude: "claude auth login",
-  codex: "codex login",
-  cursor: "agent login",
-  kiro: "kiro-cli login",
-  opencode: "opencode auth login",
-};
+const AUTH_COMMAND_BY_ID: Partial<Record<ToolingStatusId, string>> = PROVIDER_LOGIN_COMMAND;
 
 function AuthBadge(args: { tool: ToolingStatusEntry }) {
   const { t } = useTranslation(I18N_NAMESPACES);
@@ -256,7 +249,22 @@ function ToolCard(args: {
   );
 }
 
-export function ToolingSection() {
+/** Accounts and API connections used to live here; point people who look here to them. */
+function AccountsMovedNotice(props: { onNavigateSection?: (id: SectionId) => void }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  return (
+    <SettingsCard title={t("settingsProviders:toolingSection.accountsMoved.title")}>
+      <div className={sx(toolingStyles.movedNotice)}>
+        <span>{t("settingsProviders:toolingSection.accountsMoved.body")}</span>
+        <Button type="button" size="sm" variant="outline" onClick={() => props.onNavigateSection?.("accounts")}>
+          {t("settingsProviders:toolingSection.accountsMoved.action")}
+        </Button>
+      </div>
+    </SettingsCard>
+  );
+}
+
+export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => void }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     activeWorkspaceId,
@@ -412,8 +420,7 @@ export function ToolingSection() {
   return (
     <>
       <SectionStack>
-        <ProviderAccountsSettings />
-        <ApiConnectionsSettings />
+        <AccountsMovedNotice onNavigateSection={props.onNavigateSection} />
         <SettingsCard
           title={t("settingsProviders:toolingSection.card.title")}
           description={t("settingsProviders:toolingSection.card.description")}

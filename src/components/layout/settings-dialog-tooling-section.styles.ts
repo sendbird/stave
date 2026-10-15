@@ -8,6 +8,15 @@ const spin = stylex.keyframes({
 });
 
 export const toolingStyles = stylex.create({
+  movedNotice: {
+    alignItems: "center",
+    color: vars["--ads-color-text-muted"],
+    columnGap: vars["--ads-space-12"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-body"],
+    rowGap: vars["--ads-space-8"],
+  },
   authBadge: {
     blockSize: vars["--ads-space-24"],
     borderWidth: vars["--ads-border-width-hairline"],

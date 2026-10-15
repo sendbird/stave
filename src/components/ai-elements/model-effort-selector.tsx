@@ -39,6 +39,8 @@ import { AgentRouteRow, describeAgentRoute } from "./agent-route-row";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";
+import { ModelGroupEditButton, ModelPickerAccountFooter } from "./model-picker-account-actions";
+import { isModelSelectorOpenRequestReady, type ModelSelectorOpenRequest } from "./model-selector-open-request";
 import { ModelIcon } from "./model-icon";
 import {
   readCursorComposerSettings,
@@ -142,6 +144,17 @@ interface ModelEffortSelectorProps {
   onRefreshCatalogs?: () => void;
   /** Offer agents on the rail, and split the trigger in two while an agent runs the task. */
   agents?: ModelPickerAgents;
+  /**
+   * The composer's picker: a foot with account fixes and the way into
+   * Settings > Accounts, and "Edit models" on an API connection's group.
+   */
+  accountActions?: boolean;
+  /**
+   * The provider tab (and model group) an `openToken` request opens on. Kept
+   * while the selector is open until that provider has models, so a provider
+   * whose availability comes back late still gets its tab.
+   */
+  openRequest?: ModelSelectorOpenRequest;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
     selection: ModelSelectorOption;
@@ -346,6 +359,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const handledAgentsTokenRef = useRef(args.openAgentsToken);
   /** A tab an open request asked for; the open's reset lands on it once. */
   const requestedTabRef = useRef<RailValue | null>(null);
+  /** A provider tab (and group) an open request asked for, until its models are listed. */
+  const pendingOpenRequestRef = useRef<ModelSelectorOpenRequest | null>(null);
   const resetHandledForOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const pinTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -533,6 +548,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         : args.value.label;
 
   const showTab = (next: RailValue) => {
+    // The person chose a tab; a waiting open request must not move them.
+    pendingOpenRequestRef.current = null;
     if (next === railValue) {
       return;
     }
@@ -614,6 +631,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   useEffect(() => {
     if (!open) {
       resetHandledForOpenRef.current = false;
+      pendingOpenRequestRef.current = null;
       return;
     }
     if (resetHandledForOpenRef.current) {
@@ -625,7 +643,15 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       : args.value.providerId;
     const requestedTab = pinMode ? null : requestedTabRef.current;
     requestedTabRef.current = null;
+    // An open request names a provider tab; until that provider has models the
+    // usual tab shows and the request waits (see the effect below).
+    const openRequest = pinMode ? null : pendingOpenRequestRef.current;
+    const requestedProvider = openRequest && isModelSelectorOpenRequestReady({ request: openRequest, providerIds, options: args.options })
+      ? openRequest.providerId
+      : null;
+    if (requestedProvider) pendingOpenRequestRef.current = null;
     setRailValue(
+      requestedProvider ??
       requestedTab ??
       (pinMode
         ? args.value.isAuto && showsAutoTab
@@ -637,10 +663,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             ? AUTO_TAB
             : args.value.providerId),
     );
-    setProviderId(startProviderId);
+    setProviderId(requestedProvider ?? startProviderId);
     setContext1M(isClaudeContext1MModel(args.value.model));
     setQuery("");
     setShowAllModels(false);
+    // The reset runs once per open; options arriving later go through the effect below.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     agentActive,
     args.value.isAuto,
@@ -663,8 +691,25 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     handledOpenTokenRef.current = args.openToken;
+    pendingOpenRequestRef.current = args.openRequest ?? null;
     setOpenPanel("selector");
+    // `openRequest` rides with the token that asked for it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [args.disabled, args.openToken]);
+
+  // A request that was not ready when the selector opened (the provider was
+  // still being checked after an account switch) moves to its tab once the
+  // provider's models arrive. Picking a tab or closing the selector drops it.
+  useEffect(() => {
+    const request = pendingOpenRequestRef.current;
+    if (!open || !request || !resetHandledForOpenRef.current) return;
+    if (!isModelSelectorOpenRequestReady({ request, providerIds, options: args.options })) return;
+    pendingOpenRequestRef.current = null;
+    setRailValue(request.providerId);
+    setProviderId(request.providerId);
+    setQuery("");
+    setShowAllModels(false);
+  }, [args.options, open, providerIds]);
 
   useEffect(() => {
     if (args.openAgentsToken === undefined || args.openAgentsToken === handledAgentsTokenRef.current) return;
@@ -876,7 +921,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       />
                     ) : null}
                     {visibleGroup ? (
-                      <div className={sx(styles.modelGroupHeading)}>{visibleGroup}</div>
+                      <div className={sx(styles.modelGroupHeading, styles.modelGroupHeadingRow)}>
+                        <span>{visibleGroup}</span>
+                        {args.accountActions ? (
+                          <ModelGroupEditButton providerId={providerId} onNavigate={() => setOpen(false)} />
+                        ) : null}
+                      </div>
                     ) : null}
                     <ModelEffortGrid
                       providerId={providerId}
@@ -945,6 +995,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 </span>
               </AdsButton>
             </div>
+          ) : null}
+          {args.accountActions && !pinMode ? (
+            <ModelPickerAccountFooter onNavigate={() => setOpen(false)} />
           ) : null}
         </div>
       </Tabs>

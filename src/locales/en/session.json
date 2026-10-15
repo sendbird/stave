@@ -966,5 +966,10 @@
       "invalidResponse": "invalid response"
     },
     "heading": "Routing decisions"
+  },
+  "providerErrorAccountAction": {
+    "openAccounts": "Open Accounts",
+    "switchAccount": "Switch account",
+    "addAccount": "Add an account"
   }
 }

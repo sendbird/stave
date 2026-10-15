@@ -129,6 +129,25 @@ function createContext(
 }
 
 describe("command palette registry", () => {
+  test("Accounts commands open Settings > Accounts at the right target", () => {
+    const calls: unknown[] = [];
+    const context = createContext({ repositoryPath: null });
+    context.commands.openSettings = (options) => { calls.push(options); };
+    const actions = buildCommandPaletteGroups(context).flatMap((group) => group.items);
+    for (const id of ["settings.open.accounts", "settings.accounts.add", "settings.accounts.addApiConnection"]) {
+      actions.find((item) => item.id === id)?.run();
+    }
+    expect(calls).toEqual([
+      { section: "accounts" },
+      { section: "accounts", focus: "claude-code-add" },
+      { section: "accounts", focus: "api-connection-new" },
+    ]);
+    for (const [query, id] of [["accounts", "settings.open.accounts"], ["add account", "settings.accounts.add"], ["gateway", "settings.accounts.addApiConnection"]] as const) {
+      const matches = searchCommandPaletteGroups({ groups: buildCommandPaletteGroups(context), query });
+      expect(matches.flatMap((group) => group.items).some((item) => item.id === id)).toBe(true);
+    }
+  });
+
   test("AI usage is searchable without a repository and opens the usage screen", () => {
     let opened = false;
     const context = createContext({ repositoryPath: null });

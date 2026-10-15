@@ -1,4 +1,5 @@
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
+import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding";
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
@@ -429,6 +430,7 @@ export function createAppStorePersistenceOptions() {
         typeof raw.blockTurnsWhenAccountLimitReached === "boolean"
           ? raw.blockTurnsWhenAccountLimitReached
           : defaultSettings.blockTurnsWhenAccountLimitReached;
+      state.settings.accountsOnboarding = normalizeAccountsOnboarding(raw.accountsOnboarding);
       state.settings.visualCommentShortcut =
         raw.visualCommentShortcut === "mod-period"
           ? DEFAULT_VISUAL_COMMENT_SHORTCUT

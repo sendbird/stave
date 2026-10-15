@@ -2,10 +2,13 @@ import {
   VERCEL_AI_GATEWAY,
   apiConnectionRoutingModelId,
   classifyApiConnectionHttpStatus,
+  classifyApiConnectionRequestError,
   describeApiConnectionHttpStatus,
   type ApiConnection,
+  type ApiConnectionCatalogFailure,
   type ApiConnectionCatalogResult,
   type ApiConnectionCheckResult,
+  type ApiConnectionRequestFailure,
 } from "../../src/lib/providers/api-connections";
 import { filterApiConnectionCatalog } from "../../src/lib/providers/api-connection-catalog";
 import { getProviderAccountRegistry } from "../provider-accounts/registry";
@@ -16,6 +19,18 @@ const CATALOG_TTL_MS = 10 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 15_000;
 
 type Fetch = typeof fetch;
+
+/** A gateway answer that was not 2xx; only the status is kept. */
+class GatewayHttpError extends Error {
+  constructor(readonly status: number) {
+    super(`HTTP ${status}`);
+  }
+}
+
+function catalogFailureReason(error: unknown): ApiConnectionCatalogFailure {
+  if (error instanceof GatewayHttpError) return error.status === 429 ? "rate-limited" : "unexpected";
+  return classifyApiConnectionRequestError(error) ?? "unexpected";
+}
 
 /** Reads at most `maxBytes` of a JSON body; never follows a redirect upstream of this. */
 async function readBoundedJson(response: Response, maxBytes: number): Promise<unknown> {
@@ -44,7 +59,7 @@ export async function fetchVercelCatalog(request: Fetch = fetch, now = Date.now(
   const response = await request(VERCEL_AI_GATEWAY.modelsUrl, { redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   if (!response.ok) {
     await response.body?.cancel();
-    throw new Error(`HTTP ${response.status}`);
+    throw new GatewayHttpError(response.status);
   }
   const payload = await readBoundedJson(response, CATALOG_MAX_BYTES);
   catalogCache = { payload, fetchedAt: now };
@@ -58,8 +73,13 @@ export function resetVercelCatalogCache() {
 export async function discoverApiConnectionModels(request: Fetch = fetch, purpose: "coding" | "decision" = "coding"): Promise<ApiConnectionCatalogResult> {
   try {
     return { ok: true, models: filterApiConnectionCatalog(await fetchVercelCatalog(request), Date.now(), purpose) };
-  } catch {
-    return { ok: false, models: [], message: "Could not load the Vercel AI Gateway model list. Check your network, then try again; you can also type model IDs." };
+  } catch (error) {
+    return {
+      ok: false,
+      models: [],
+      reason: catalogFailureReason(error),
+      message: "Could not load the Vercel AI Gateway model list. Check your network, then try again; you can also type model IDs.",
+    };
   }
 }
 
@@ -69,6 +89,18 @@ function result(status: ApiConnectionCheckResult["status"], message: string, mis
 
 function httpFailure(status: number) {
   return result(classifyApiConnectionHttpStatus(status), describeApiConnectionHttpStatus(status));
+}
+
+const REQUEST_FAILURE_MESSAGE: Record<ApiConnectionRequestFailure, string> = {
+  unreachable: "Could not reach the gateway. Check your network and the endpoint URL, then try again.",
+  timeout: "The gateway did not answer in time. Try again; if it keeps happening, check your network or proxy.",
+  "certificate-untrusted": "The gateway's TLS certificate is not trusted on this network. A proxy that inspects traffic can cause this.",
+};
+
+/** The request got no usable answer; the message is fixed, never the raw error. */
+function requestFailure(error: unknown) {
+  const status = classifyApiConnectionRequestError(error) ?? "unreachable";
+  return result(status, REQUEST_FAILURE_MESSAGE[status]);
 }
 
 const LISTED = "The key works and the gateway lists every pinned model. Send a turn to confirm tools and streaming work.";
@@ -106,6 +138,7 @@ export async function checkApiConnection(args: { connection: ApiConnection; toke
     if (claudeEndpoint) {
       const checked = await checkClaudeGateway({ gateway: { baseUrl: claudeEndpoint, secretId: connection.secretId, models: pinned }, token: args.token, request });
       if (checked.httpStatus) return httpFailure(checked.httpStatus);
+      if (checked.requestFailure) return result(checked.requestFailure, REQUEST_FAILURE_MESSAGE[checked.requestFailure]);
       if (checked.ok) return result("ok", LISTED);
       if (checked.models.length > 0 || checked.message.startsWith("The gateway does not list")) {
         const missing = pinned.filter((id) => !checked.models.includes(id));
@@ -117,8 +150,8 @@ export async function checkApiConnection(args: { connection: ApiConnection; toke
     await models.body?.cancel();
     if (!models.ok) return httpFailure(models.status);
     return result("ok", "The gateway accepted the key. Its model list is in a format Stave doesn't read, so send a turn to confirm the pinned models.");
-  } catch {
-    return result("unreachable", "Could not reach the gateway. Check your network and the endpoint URL, then try again.");
+  } catch (error) {
+    return requestFailure(error);
   }
 }
 

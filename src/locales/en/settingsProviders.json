@@ -813,6 +813,11 @@
       "openedInTerminal": "Opened workspace in terminal",
       "commandCopied": "{{tool}} command copied",
       "copyCommandFailed": "Failed to copy command"
+    },
+    "accountsMoved": {
+      "title": "Accounts and API connections",
+      "body": "Accounts and API connections moved to Settings > Accounts.",
+      "action": "Open Accounts"
     }
   },
   "codexPlugins": {

@@ -628,7 +628,13 @@
     "activeTask2": "활성 작업",
     "noTaskOpen": "열린 작업 없음",
     "currentWorkspace": "현재 워크스페이스",
-    "resumeWork": "작업 재개"
+    "resumeWork": "작업 재개",
+    "openSettingsAccounts": "설정 열기: 계정",
+    "openSettingsAccountsDescription": "로그인 계정, API 연결, 시작하기",
+    "addAnAccount": "계정 추가",
+    "addAnAccountDescription": "설정 > 계정에서 Claude 또는 Codex 로그인 추가",
+    "addAnApiConnection": "API 연결 추가",
+    "addAnApiConnectionDescription": "Vercel AI Gateway처럼 토큰 단위로 과금되는 게이트웨이 키 연결"
   },
   "commandPaletteScripts": {
     "local": "{{value1}} · 로컬",

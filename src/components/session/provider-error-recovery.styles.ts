@@ -33,6 +33,12 @@ export const providerErrorRecoveryStyles = stylex.create({
   guidance: {
     color: vars["--ads-color-text-muted"],
   },
+  /** The account fix under a sign-in or usage-limit failure. */
+  accountAction: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+  },
   resume: {
     display: "flex",
     flexDirection: "column",

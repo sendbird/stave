@@ -19,6 +19,12 @@ afterEach(() => { host.window = originalWindow; });
 const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
 
 describe("API connections settings", () => {
+  test("the connection row's key reads with a space after the label, in both languages", async () => {
+    const { i18n } = await import("@/i18n");
+    expect(i18n.t("settingsConnections:apiConnectionsSettings.keyLine", { value1: "Vercel AI Gateway", lng: "en" })).toBe("· Key: Vercel AI Gateway");
+    expect(i18n.t("settingsConnections:apiConnectionsSettings.keyLine", { value1: "Vercel AI Gateway", lng: "ko" })).toBe("· 키: Vercel AI Gateway");
+  });
+
   test("the card says how billing works, that it serves both runtimes, and how to pick it", () => {
     host.window = { ...originalWindow, api: { apiConnections: {} as ApiConnectionsBridgeApi } };
     const html = text(renderToStaticMarkup(createElement(TooltipProvider, null, createElement(ApiConnectionsSettings))));

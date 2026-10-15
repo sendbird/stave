@@ -19,6 +19,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   TerminalSquare,
+  UserRound,
   Wrench,
   Zap,
   type LucideIcon,
@@ -136,6 +137,34 @@ export const settingsSections = [
       "cdn",
       "mcp app",
       "mcp apps",
+    ],
+  },
+  {
+    id: "accounts",
+    labelKey: "settings:sections.accounts.label",
+    icon: UserRound,
+    descriptionKey: "settings:sections.accounts.description",
+    // Korean aliases so a Korean query finds the section even when it does
+    // not match the translated copy word for word.
+    keywords: [
+      "account",
+      "accounts",
+      "sign in",
+      "login",
+      "log in",
+      "subscription",
+      "api key",
+      "api connection",
+      "gateway",
+      "vercel",
+      "billing",
+      "getting started",
+      "onboarding",
+      "계정",
+      "로그인",
+      "구독",
+      "게이트웨이",
+      "과금",
     ],
   },
   {
@@ -395,15 +424,7 @@ export const settingsSections = [
     labelKey: "settings:sections.tooling.label",
     icon: Shield,
     descriptionKey: "settings:sections.tooling.description",
-    keywords: [
-      "status",
-      "dependencies",
-      "doctor",
-      "account",
-      "sign in",
-      "login",
-      "gateway",
-    ],
+    keywords: ["status", "dependencies", "doctor", "cli", "install", "path", "version"],
   },
   {
     id: "lens",
@@ -498,6 +519,7 @@ export const settingsSectionGroups: Array<{
   {
     labelKey: "settings:sections.groups.aiAgents",
     ids: [
+      "accounts",
       "providers",
       "presets",
       "macros",

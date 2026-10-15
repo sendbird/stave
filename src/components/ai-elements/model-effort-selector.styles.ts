@@ -423,6 +423,13 @@ export const modelEffortSelectorStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-text-muted"],
   },
+  /** An API connection's heading with its "Edit models" action at the end. */
+  modelGroupHeadingRow: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars["--ads-space-8"],
+    justifyContent: "space-between",
+  },
   modelRowCapabilities: {
     marginBlockStart: vars["--ads-space-4"],
     display: "flex",

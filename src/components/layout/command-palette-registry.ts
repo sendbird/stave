@@ -22,12 +22,15 @@ import {
   Save,
   Search,
   Settings,
+  KeySquare,
   SplitSquareHorizontal,
+  UserRoundPlus,
   Terminal,
   Workflow,
   type LucideIcon,
 } from "lucide-react";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { preferredAddAccountFocus } from "@/lib/providers/accounts-navigation";
 import { OPEN_COMMIT_GRAPH_TITLE_KEY } from "@/lib/git-graph/presentation";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
@@ -145,6 +148,8 @@ export interface CommandPaletteCommandHandlers {
   openSettings: (options?: {
     repositoryPath?: string | null;
     section?: SectionId;
+    /** A target inside the section, such as `api-connection-new` in Accounts. */
+    focus?: string;
   }) => void;
   refreshRepositoryFiles: () => Promise<void> | void;
   refreshWorkspaces: () => Promise<void> | void;
@@ -1105,6 +1110,60 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       icon: Settings,
       keywords: ["settings", "providers", "models"],
       run: () => args.commands.openSettings({ section: "providers" }),
+      source: "core",
+    }),
+  },
+  {
+    id: "settings.open.accounts",
+    get title() { return i18n.t("shell:commandPaletteRegistry.openSettingsAccounts"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.openSettingsAccountsDescription"); },
+    group: "settings",
+    icon: Settings,
+    keywords: ["settings", "accounts", "sign in", "login", "subscription", "gateway", "billing", "getting started"],
+    build: (args) => ({
+      id: "settings.open.accounts",
+      title: i18n.t("shell:commandPaletteRegistry.openSettingsAccounts"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.openSettingsAccountsDescription"),
+      group: "settings",
+      icon: Settings,
+      keywords: ["settings", "accounts", "sign in", "login", "subscription", "gateway", "billing", "getting started"],
+      run: () => args.commands.openSettings({ section: "accounts" }),
+      source: "core",
+    }),
+  },
+  {
+    id: "settings.accounts.add",
+    get title() { return i18n.t("shell:commandPaletteRegistry.addAnAccount"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.addAnAccountDescription"); },
+    group: "settings",
+    icon: UserRoundPlus,
+    keywords: ["account", "add account", "sign in", "login", "second subscription", "work", "personal"],
+    build: (args) => ({
+      id: "settings.accounts.add",
+      title: i18n.t("shell:commandPaletteRegistry.addAnAccount"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.addAnAccountDescription"),
+      group: "settings",
+      icon: UserRoundPlus,
+      keywords: ["account", "add account", "sign in", "login", "second subscription", "work", "personal"],
+      run: () => args.commands.openSettings({ section: "accounts", focus: preferredAddAccountFocus() }),
+      source: "core",
+    }),
+  },
+  {
+    id: "settings.accounts.addApiConnection",
+    get title() { return i18n.t("shell:commandPaletteRegistry.addAnApiConnection"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.addAnApiConnectionDescription"); },
+    group: "settings",
+    icon: KeySquare,
+    keywords: ["api connection", "gateway", "vercel", "api key", "per token", "billing"],
+    build: (args) => ({
+      id: "settings.accounts.addApiConnection",
+      title: i18n.t("shell:commandPaletteRegistry.addAnApiConnection"),
+      subtitle: i18n.t("shell:commandPaletteRegistry.addAnApiConnectionDescription"),
+      group: "settings",
+      icon: KeySquare,
+      keywords: ["api connection", "gateway", "vercel", "api key", "per token", "billing"],
+      run: () => args.commands.openSettings({ section: "accounts", focus: "api-connection-new" }),
       source: "core",
     }),
   },

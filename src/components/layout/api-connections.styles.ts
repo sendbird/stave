@@ -50,6 +50,58 @@ export const apiConnectionStyles = stylex.create({
     padding: 0,
     listStyle: "none",
   },
+  /** The inline "Paste a new key" form under the key picker it fills; spacing only, no rule. */
+  newKey: {
+    marginBlockStart: vars["--ads-space-4"],
+  },
+  steps: {
+    columnGap: vars["--ads-space-16"],
+    display: "flex",
+    flexWrap: "wrap",
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
+    rowGap: vars["--ads-space-4"],
+  },
+  step: {
+    alignItems: "center",
+    color: vars["--ads-color-text-muted"],
+    display: "flex",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-4"],
+  },
+  stepDone: { color: vars["--ads-color-text"] },
+  stepIcon: {
+    blockSize: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-text-subtle"],
+    flexShrink: 0,
+    inlineSize: vars["--ads-control-icon-size-sm"],
+  },
+  stepIconDone: { color: vars["--ads-color-success-text"] },
+  visuallyHidden: {
+    blockSize: 1,
+    clipPath: "inset(50%)",
+    inlineSize: 1,
+    overflow: "hidden",
+    position: "absolute",
+    whiteSpace: "nowrap",
+  },
+  suggestions: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+  },
+  /** After "Add connection": what to do next with the new connection. */
+  nextStep: {
+    borderTopColor: vars["--ads-color-border"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    paddingBlockStart: vars["--ads-space-12"],
+  },
   checkOk: { color: vars["--ads-color-success-text"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
   checkFailed: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
 });

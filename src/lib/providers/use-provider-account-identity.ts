@@ -1,14 +1,10 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useAppStore } from "@/store/app.store";
-import type { ProviderAccountIdentity } from "./provider-account-identity";
+import { providerAccountIdentityKey as identityKey, type ProviderAccountIdentity } from "./provider-account-identity";
 import type { ProviderAccountProviderId } from "./provider-accounts";
 
 const latestRequest = new Map<string, number>();
-
-function identityKey(providerId: ProviderAccountProviderId, profileId: string) {
-  return `${providerId}:${profileId}`;
-}
 
 /**
  * Sign-in identity for each account, keyed by provider and profile. Electron

@@ -20,6 +20,8 @@ const FOLDER_ENV = { "claude-code": "CLAUDE_CONFIG_DIR", codex: "CODEX_HOME" } a
  * is the advanced path; it skips sign-in because that folder has one.
  */
 export function ProviderAccountAddForm(props: {
+  /** Deep-link target: Settings focuses the name field when it lands here. */
+  id?: string;
   providerId: ProviderAccountProviderId;
   name: string;
   busy: boolean;
@@ -59,7 +61,7 @@ export function ProviderAccountAddForm(props: {
     }
     if (problems.length) throw new Error(problems.join(" "));
   });
-  return <div className={sx(styles.stack)}>
+  return <div id={props.id} tabIndex={-1} data-focus-first-control="" className={sx(styles.stack)}>
     <span className={sx(styles.subheading)}>{t("settingsConnections:providerAccountAddForm.addAnAccount")}</span>
     <div className={sx(styles.stackTight)}>
       <label htmlFor={nameId} className={sx(styles.label)}>{t("common:labels.name")}</label>
