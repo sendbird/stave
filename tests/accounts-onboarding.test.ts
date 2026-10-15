@@ -6,6 +6,7 @@ import {
   toggleAccountsOnboardingSkip,
   type AccountsOnboardingInput,
 } from "@/lib/providers/accounts-onboarding";
+import { registeredAccountSignedIn } from "@/lib/providers/provider-account-identity";
 import {
   accountsFocusElementId,
   apiConnectionFieldId,
@@ -125,5 +126,32 @@ describe("Settings > Accounts deep links", () => {
     expect(apiConnectionIdFromFocus("api-connection-new")).toBeNull();
     expect(signInProviderFromFocus("codex-signin")).toBe("codex");
     expect(signInProviderFromFocus("codex")).toBeNull();
+  });
+});
+
+describe("signed in means a registered account is signed in", () => {
+  const system = { id: "system-default", providerId: "claude-code" };
+  const removedId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const signedIn = { state: "signed-in" as const, email: "fixture@example.test", plan: null, checkedAt: 1 };
+  const signedOut = { state: "signed-out" as const, checkedAt: 1 };
+
+  test("a removed account's cached sign-in does not count", () => {
+    const identities = { "claude-code:system-default": signedOut, [`claude-code:${removedId}`]: signedIn };
+    expect(registeredAccountSignedIn({ providerId: "claude-code", profiles: [system], identities })).toBe(false);
+    // The same cache counts while the account is still registered.
+    expect(registeredAccountSignedIn({ providerId: "claude-code", profiles: [system, { id: removedId, providerId: "claude-code" }], identities })).toBe(true);
+    // The checklist built from it keeps sign-in open and the model step blocked.
+    const checklist = buildAccountsOnboardingChecklist(input({
+      providers: { "claude-code": { installed: true, signedIn: registeredAccountSignedIn({ providerId: "claude-code", profiles: [system], identities }) } },
+    }));
+    expect(statuses(checklist)).toMatchObject({ signIn: "todo", model: "blocked" });
+    expect(checklist.ready).toBe(false);
+  });
+
+  test("only that provider's sign-in accounts count, not an API connection or the other provider", () => {
+    const connection = { id: "33333333-3333-4333-8333-333333333333", providerId: "claude-code", apiConnection: {} };
+    const identities = { "claude-code:33333333-3333-4333-8333-333333333333": signedIn, "codex:system-default": signedIn };
+    expect(registeredAccountSignedIn({ providerId: "claude-code", profiles: [system, connection], identities })).toBe(false);
+    expect(registeredAccountSignedIn({ providerId: "codex", profiles: [{ id: "system-default", providerId: "codex" }], identities })).toBe(true);
   });
 });

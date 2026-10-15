@@ -16,8 +16,7 @@ import {
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { PROVIDER_LOGIN_COMMAND } from "@/lib/providers/provider-login-commands";
 import { useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
-import { useAccountsOnboarding } from "@/lib/providers/use-accounts-onboarding";
-import { useProviderAccountIdentities } from "@/lib/providers/use-provider-account-identity";
+import { useAccountsOnboarding, useRegisteredSubscriptionSignedIn } from "@/lib/providers/use-accounts-onboarding";
 import { useLoadProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import type { ToolingStatusEntry } from "@/lib/tooling-status";
 import { AccountsGettingStartedCard } from "./AccountsGettingStarted";
@@ -78,12 +77,7 @@ function useAccountsFocusTarget() {
 function AccountsBillingChoices() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const checklist = useAccountsOnboarding();
-  const subscriptionInUse = useProviderAccountIdentities((state) =>
-    Object.values(state.byKey).some((identity) => identity?.state === "signed-in"),
-  );
-  const cliAuthenticated = useProviderReadinessStore((state) =>
-    state.providers["claude-code"]?.tool.authState === "authenticated" || state.providers.codex?.tool.authState === "authenticated",
-  );
+  const subscriptionInUse = useRegisteredSubscriptionSignedIn();
   const statusOf = (id: "accounts" | "gateway") => checklist.steps.find((step) => step.id === id)?.status;
   const choices = [
     {
@@ -91,7 +85,7 @@ function AccountsBillingChoices() {
       title: t("settingsConnections:accountsSection.billing.subscription.title"),
       body: t("settingsConnections:accountsSection.billing.subscription.body"),
       action: t("settingsConnections:accountsSection.billing.subscription.action"),
-      inUse: subscriptionInUse || cliAuthenticated,
+      inUse: subscriptionInUse,
       onSelect: () => requestSettingsFocus(checklist.signInProviderId ?? "claude-code"),
     },
     {
