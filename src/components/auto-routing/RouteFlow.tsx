@@ -187,6 +187,12 @@ function tierIndex(tier: RouteTier) {
 }
 
 /** Mirrors the router's nearest-rung pick: closest tier, ties to the stronger. */
+/** The rung of the model a cache hold kept; a tier can hold several models. */
+function heldRungIndex(rungs: readonly LadderRung[], route: { model: string; tier: RouteTier }): number {
+  const exact = rungs.findIndex((rung) => rung.model === route.model);
+  return exact >= 0 ? exact : pickRungForTier(rungs, route.tier);
+}
+
 function pickRungForTier(rungs: readonly LadderRung[], tier: RouteTier): number {
   const requested = tierIndex(tier);
   let best = -1;
@@ -248,7 +254,8 @@ function buildLadder(args: {
   const targetNote = matchedRule ? i18n.t("settingsConnections:flow.ruleTarget") : i18n.t("settingsConnections:flow.fallbackTarget");
   rungs[targetIndex]?.notes.push(targetNote);
 
-  if (route.budgetShift === -2) {
+  // A held model deferred the ceiling's switch; the cache note below covers it.
+  if (route.budgetShift === -2 && !route.cacheHeldModel) {
     const cheapest = pickRungForTier(rungs, "light");
     if (cheapest !== targetIndex) {
       rungs[cheapest]?.notes.push(i18n.t("settingsConnections:flow.budgetCheapest"));
@@ -264,8 +271,10 @@ function buildLadder(args: {
   }
   if (route.budgetShift === -1) {
     if (route.budgetHeldModel) {
-      // Effort-first step-down: the rung stays, only the effort dropped.
-      rungs[cursorIndex]?.notes.push(i18n.t("settingsConnections:flow.budgetLessEffort"));
+      // Effort-first step-down: the rung stays, only the effort dropped. A
+      // cache hold kept a different rung, and that rung's effort dropped.
+      const effortRung = route.cacheHeldModel ? heldRungIndex(rungs, route) : cursorIndex;
+      rungs[effortRung]?.notes.push(i18n.t("settingsConnections:flow.budgetLessEffort"));
     } else {
       cursorTier = shiftTier(rungs, cursorTier, -1);
       const next = pickRungForTier(rungs, cursorTier);
@@ -275,8 +284,8 @@ function buildLadder(args: {
     }
   }
   if (route.cacheHeldModel) {
-    // The step-down was undone to keep the previous turn's prompt cache.
-    const held = pickRungForTier(rungs, route.tier);
+    // The model change was deferred to keep the previous turn's prompt cache.
+    const held = heldRungIndex(rungs, route);
     if (held !== cursorIndex) {
       rungs[held]?.notes.push(i18n.t("settingsConnections:flow.keptForCache"));
     }

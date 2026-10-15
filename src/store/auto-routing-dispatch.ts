@@ -11,6 +11,7 @@ import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState } from "@/store/app-store.types";
 import {
   resolveAutoRoutingDecision,
+  toRoutingHistory,
   type AutoRoutingDecision,
 } from "@/lib/routing/auto-routing";
 import { buildOutgoingUserMessage } from "@/store/chat-state-helpers";
@@ -124,6 +125,8 @@ export async function resolveAutoRoutingForSend(args: {
    * as (when it names one); a task about to be created passes its agent's.
    */
   taskClassHint?: TaskClass;
+  /** Clock for the prompt-cache warm check; defaults to `Date.now()`. */
+  now?: number;
 }): Promise<AutoRoutingDecision | null> {
   const { state, promptDraft } = args;
   const taskClassHint =
@@ -191,15 +194,7 @@ export async function resolveAutoRoutingForSend(args: {
       currentProviderId: args.provider,
       currentModel: args.activeModel,
       prompt: args.prompt,
-      history: args.history.map((message) => ({
-        role: message.role,
-        content: message.content,
-        providerId:
-          message.providerId === "claude-code" || message.providerId === "codex"
-            ? message.providerId
-            : undefined,
-        model: message.model,
-      })),
+      history: toRoutingHistory(args.history),
       fileContextCount: args.fileContextCount,
       phase: "execute",
       rateLimitsSnapshot: state.rateLimitsSnapshot,
@@ -208,6 +203,7 @@ export async function resolveAutoRoutingForSend(args: {
       classifyRoute,
       ...(taskClassHint ? { taskClassHint } : {}),
       ...(preferredProviderHint ? { preferredProviderHint } : {}),
+      ...(args.now != null ? { now: args.now } : {}),
     });
     if (controller.signal.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
     if (ownsPendingRow) {

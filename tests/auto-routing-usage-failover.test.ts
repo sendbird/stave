@@ -67,7 +67,10 @@ function snapshot(
   return { ...emptyRateLimitsSnapshot(), ...patch };
 }
 
-async function routeWith(rateLimitsSnapshot: RateLimitsSnapshotResponse | null) {
+async function routeWith(
+  rateLimitsSnapshot: RateLimitsSnapshotResponse | null,
+  history: readonly unknown[] = [],
+) {
   return resolveAutoRoutingForSend({
     taskId: `usage-failover-${crypto.randomUUID()}`,
     state: {
@@ -88,7 +91,7 @@ async function routeWith(rateLimitsSnapshot: RateLimitsSnapshotResponse | null) 
     provider: "codex",
     activeModel: "gpt-5.6-sol",
     prompt: "refactor the payment module",
-    history: [],
+    history: history as never,
     fileContextCount: 0,
     workspaceCwd: "/tmp/usage-failover",
   });
@@ -98,6 +101,19 @@ describe("Auto routing failover when an account is exhausted", () => {
   test("an exhausted Codex account routes to the other provider even with provider switching off", async () => {
     const decision = await routeWith(snapshot({ codex: codexUsage(100) }));
     expect(decision?.providerId).toBe("claude-code");
+  });
+
+  test("an exhausted account switches at once even while its model's cache is warm", async () => {
+    const warmCodexTurn = [
+      { id: "u1", role: "user", providerId: "user", model: "", content: "Start the refactor.", parts: [] },
+      { id: "a1", role: "assistant", providerId: "codex", model: "gpt-6.1-sol", content: "Started.",
+        completedAt: new Date(Date.now() - 60_000).toISOString(), parts: [] },
+    ];
+    const stays = await routeWith(snapshot({ codex: codexUsage(40) }), warmCodexTurn);
+    expect(stays).toMatchObject({ providerId: "codex", model: "gpt-6.1-sol" });
+    const decision = await routeWith(snapshot({ codex: codexUsage(100) }), warmCodexTurn);
+    expect(decision?.providerId).toBe("claude-code");
+    expect(decision?.ruleReason).not.toContain("deferred");
   });
 
   test("a Codex account with headroom stays pinned to Codex", async () => {

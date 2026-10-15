@@ -130,10 +130,28 @@ says so on the route line, whether or not provider switching is enabled. Only
 when no available provider has a capable allowed model does Auto report a
 routing error instead of silently using an underpowered or disallowed model.
 
-The previous eligible model stays selected when the next route would only
-downgrade it on the same provider. A clearly new task, an escalation, or the
-hard budget threshold can change it. Uncertain continuations preserve the
-capable previous model even at that threshold.
+Auto does not change the model in the middle of a task while the prompt cache
+is warm. Each model has its own cache, so a mid-task switch re-reads the whole
+conversation at the cache-write rate instead of the much cheaper cache-read
+rate. On the same provider, while the previous model is still allowed, Auto
+keeps it for a turn that would step up a level, step down, or follow a usage
+threshold (the hardest one included), and the route line says the switch was
+deferred. The switch happens at the next boundary:
+
+- the classifier marks the prompt as a new task;
+- the cache has cooled: more time has passed since the last answer finished
+  than the provider's window (60 minutes for Claude, whose subscription
+  conversation cache lasts an hour; 30 minutes for Codex; 5 minutes for other
+  providers);
+- the conversation was compacted after the last answer;
+- Auto cannot tell which model answered last or when it finished.
+
+Some changes never wait: a provider that cannot run the turn (its CLI
+unavailable or its usage exhausted), a previous model that is no longer
+allowed, a sensitive change that safety escalation moves to a stronger model,
+and a model pinned in the composer or fixed by an agent. Under a usage
+threshold, a held model that keeps its cache across effort changes (Opus and
+Fable) still lowers its effort. Agent Run turns follow the same rule.
 
 ## Provider failover
 

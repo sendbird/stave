@@ -10,6 +10,8 @@ import {
   migrateLegacyAutoSettings,
   resolveDelegateDefaults,
   listEligibleRouteModels,
+  CLAUDE_PROMPT_CACHE_WARM_MS,
+  CODEX_PROMPT_CACHE_WARM_MS,
   resolveRoute,
   SELECTABLE_ROUTER_ROLES,
   STARTER_PROFILES,
@@ -412,66 +414,6 @@ describe("pricing", () => {
     }
   });
 
-  test("keeps the previous turn's model when the route only steps down", () => {
-    // Opus answered the last turn; a bounded turn would route to the light
-    // model. The conversation's cache is scoped to Opus, so the cheaper pick
-    // would re-read every prior token uncached — the model is held instead.
-    const held = resolveRoute({
-      profile: balanced,
-      role: "primary",
-      signals: signals({
-        taskClass: "docs", complexity: "low",
-        lastAssistantProvider: "claude-code",
-        lastAssistantModel: DEFAULT_CLAUDE_OPUS_MODEL,
-      }),
-    });
-    expect(held).toMatchObject({
-      model: DEFAULT_CLAUDE_OPUS_MODEL,
-      cacheHeldModel: true,
-    });
-    expect(held.reason).toContain("prompt cache stays warm");
-
-    // Stepping up is a quality decision and goes through.
-    const escalated = resolveRoute({
-      profile: balanced,
-      role: "primary",
-      signals: signals({
-        taskClass: "plan", complexity: "high",
-        lastAssistantProvider: "claude-code",
-        lastAssistantModel: DEFAULT_CLAUDE_SONNET_MODEL,
-      }),
-    });
-    expect(escalated.cacheHeldModel).toBe(false);
-    expect(escalated.model).not.toBe(DEFAULT_CLAUDE_SONNET_MODEL);
-
-    // The hard budget ceiling still forces the cheapest model.
-    const ceiling = resolveRoute({
-      profile: balanced,
-      role: "primary",
-      signals: signals({
-        taskClass: "implement",
-        budgetUsedPercent: 98,
-        lastAssistantProvider: "claude-code",
-        lastAssistantModel: DEFAULT_CLAUDE_OPUS_MODEL,
-      }),
-    });
-    expect(ceiling.cacheHeldModel).toBe(false);
-    expect(ceiling.model).not.toBe(DEFAULT_CLAUDE_OPUS_MODEL);
-
-    // A model the route's provider cannot run is never held.
-    const foreignModel = resolveRoute({
-      profile: balanced,
-      role: "primary",
-      signals: signals({
-        taskClass: "docs",
-        lastAssistantProvider: "claude-code",
-        lastAssistantModel: "gpt-6-sol",
-      }),
-    });
-    expect(foreignModel.cacheHeldModel).toBe(false);
-    expect(foreignModel.providerId).toBe("claude-code");
-  });
-
   test("buildRoleSignals fills the defaults delegated roles need", () => {
     expect(buildRoleSignals({ currentProviderId: "codex" })).toMatchObject({
       taskClass: "implement",
@@ -491,4 +433,165 @@ test("model-first migration preserves custom routing and respects subsequent opt
   expect(migrated.eligibleModelsByProvider).toEqual(custom.eligibleModelsByProvider);
   expect(validateProfile({ ...migrated, signals: { ...migrated.signals, classifier: false } }).signals.classifier).toBe(false);
   expect(migrateLegacyAutoSettings({ autoRoutingUseClassifier: false }).signals.classifier).toBe(true);
+});
+
+describe("cache hold: model changes wait for a boundary", () => {
+  const NOW = Date.parse("2026-10-14T12:00:00Z");
+  const MINUTE = 60_000;
+  /** A continuing Claude task whose last turn finished `ago` ms before `NOW`. */
+  const continuing = (lastModel: string, overrides: Partial<RouterSignals> = {}, ago = 5 * MINUTE) =>
+    signals({
+      lastAssistantProvider: "claude-code",
+      lastAssistantModel: lastModel,
+      lastAssistantCompletedAt: NOW - ago,
+      ...overrides,
+    });
+  const route = (routeSignals: RouterSignals, extra: Partial<Parameters<typeof resolveRoute>[0]> = {}) =>
+    resolveRoute({ profile: balanced, role: "primary", signals: routeSignals, now: NOW, ...extra });
+
+  test("a step-down keeps the previous model while the cache is warm", () => {
+    const held = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, { taskClass: "docs", complexity: "low" }));
+    expect(held).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: true });
+    expect(held.reason).toContain("deferred until the cache cools or a new task starts");
+  });
+
+  test("a step-up is deferred while the cache is warm and goes through once it cools", () => {
+    const work = { taskClass: "plan" as const, complexity: "high" as const };
+    const warm = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work));
+    expect(warm).toMatchObject({ model: DEFAULT_CLAUDE_HAIKU_MODEL, cacheHeldModel: true });
+    expect(warm.reason).toContain("deferred");
+
+    const atEdge = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work, CLAUDE_PROMPT_CACHE_WARM_MS));
+    expect(atEdge.cacheHeldModel).toBe(true);
+
+    const cold = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work, CLAUDE_PROMPT_CACHE_WARM_MS + MINUTE));
+    expect(cold.cacheHeldModel).toBe(false);
+    expect(cold.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(cold.reason).not.toContain("deferred");
+  });
+
+  test("Codex uses its own, shorter warm window", () => {
+    const codexTask = (ago: number) =>
+      signals({
+        taskClass: "plan", complexity: "high",
+        currentProviderId: "codex",
+        lastAssistantProvider: "codex",
+        lastAssistantModel: "gpt-6-luna",
+        lastAssistantCompletedAt: NOW - ago,
+      });
+    expect(route(codexTask(CODEX_PROMPT_CACHE_WARM_MS - MINUTE))).toMatchObject({
+      providerId: "codex", model: "gpt-6-luna", cacheHeldModel: true,
+    });
+    const cold = route(codexTask(CODEX_PROMPT_CACHE_WARM_MS + MINUTE));
+    expect(cold).toMatchObject({ providerId: "codex", cacheHeldModel: false });
+    expect(cold.model).not.toBe("gpt-6-luna");
+  });
+
+  test("a compaction, a new task or an unknown finish time releases the hold", () => {
+    const work = { taskClass: "plan" as const, complexity: "high" as const };
+    for (const released of [
+      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, compactedSinceLastAssistant: true }),
+      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, newTask: true }),
+      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantCompletedAt: null }),
+      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantModel: null }),
+    ]) {
+      const result = route(released);
+      expect(result.cacheHeldModel).toBe(false);
+      expect(result.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    }
+  });
+
+  test("the hard budget ceiling waits while warm and applies once the cache cools", () => {
+    const pressured = { taskClass: "implement" as const, budgetUsedPercent: 98 };
+    const warm = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, pressured));
+    expect(warm).toMatchObject({
+      model: DEFAULT_CLAUDE_OPUS_MODEL, budgetShift: -2, cacheHeldModel: true,
+    });
+    expect(warm.reason).toContain("Usage is at 98%");
+    expect(warm.reason).toContain("deferred");
+    // Opus keeps its cache across effort changes, so effort still steps down.
+    const cold = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, pressured, 2 * CLAUDE_PROMPT_CACHE_WARM_MS));
+    // The cheapest model that still meets the Standard level's floor.
+    expect(cold).toMatchObject({ budgetShift: -2, cacheHeldModel: false, model: DEFAULT_CLAUDE_SONNET_MODEL });
+    expect(warm.effort).toBe("low");
+    expect(cold.effort).toBe("medium");
+  });
+
+  test("an inferred previous model never holds, even while a turn's cache is warm", () => {
+    const work = { taskClass: "plan" as const, complexity: "high" as const };
+    const stepUp = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantModelInferred: true, uncertain: true }));
+    expect(stepUp).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
+
+    const stepDown = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, {
+      taskClass: "docs", complexity: "low", lastAssistantModelInferred: true,
+    }));
+    expect(stepDown.cacheHeldModel).toBe(false);
+    expect(stepDown.model).not.toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+
+    const ceiling = route(continuing(CLAUDE_FABLE_MODEL, {
+      taskClass: "implement", budgetUsedPercent: 98, lastAssistantModelInferred: true, uncertain: true,
+    }));
+    expect(ceiling).toMatchObject({ budgetShift: -2, cacheHeldModel: false });
+    expect(ceiling.model).not.toBe(CLAUDE_FABLE_MODEL);
+  });
+
+  test("a held model that loses its cache on effort changes keeps its effort under budget pressure", () => {
+    const held = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, {
+      taskClass: "plan", complexity: "high", budgetUsedPercent: 85,
+    }));
+    expect(held).toMatchObject({
+      model: DEFAULT_CLAUDE_HAIKU_MODEL, budgetShift: -1, budgetHeldModel: false, cacheHeldModel: true,
+    });
+    const unpressured = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { taskClass: "plan", complexity: "high" }));
+    expect(held.effort).toBe(unpressured.effort);
+    expect(held.reason).toContain("Usage is at 85%");
+    expect(held.reason).toContain("deferred");
+    expect(held.reason).not.toContain("cheaper");
+  });
+
+  test("an effort-only budget step on a cache-preserving model still applies", () => {
+    const relaxed = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL));
+    const pressured = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, { budgetUsedPercent: 85 }));
+    expect(relaxed).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "medium", cacheHeldModel: false });
+    expect(pressured).toMatchObject({
+      model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "low", budgetShift: -1, budgetHeldModel: true, cacheHeldModel: false,
+    });
+  });
+
+  test("a safety escalation steps up at once; without escalation the step-up waits", () => {
+    const escalated = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { complexity: "low", sensitive: true }));
+    expect(escalated.cacheHeldModel).toBe(false);
+    expect(escalated.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+
+    const noEscalation = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { complexity: "high", sensitive: true }), {
+      profile: { ...balanced, signals: { ...balanced.signals, safetyEscalation: false } },
+    });
+    expect(noEscalation).toMatchObject({ model: DEFAULT_CLAUDE_HAIKU_MODEL, cacheHeldModel: true });
+  });
+
+  test("an unavailable provider or a model no longer allowed switches at once", () => {
+    const work = { taskClass: "plan" as const, complexity: "high" as const };
+    const notAllowed = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work), {
+      exclusiveModelsByProvider: { "claude-code": [DEFAULT_CLAUDE_OPUS_MODEL, CLAUDE_FABLE_MODEL] },
+    });
+    expect(notAllowed).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
+
+    const unavailable = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, {
+      ...work,
+      providerAvailability: { "claude-code": false, codex: true },
+    }));
+    expect(unavailable).toMatchObject({ providerId: "codex", cacheHeldModel: false });
+
+    // A model the route's provider cannot run is never held.
+    const foreignModel = route(continuing("gpt-6-sol", { taskClass: "docs" }));
+    expect(foreignModel).toMatchObject({ providerId: "claude-code", cacheHeldModel: false });
+  });
+
+  test("delegated roles never hold the primary's model", () => {
+    const delegate = resolveRoute({
+      profile: balanced, role: "delegate", now: NOW,
+      signals: continuing(CLAUDE_FABLE_MODEL, { complexity: "low" }),
+    });
+    expect(delegate.cacheHeldModel).toBe(false);
+  });
 });

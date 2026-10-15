@@ -18,8 +18,13 @@ import {
   resolveAutoRoutingDecision,
   resolveHeuristicRoute,
   resolveProviderStickiness,
+  toRoutingHistory,
   type AutoRoutingSettings,
 } from "@/lib/routing/auto-routing";
+
+const NOW = Date.parse("2026-10-14T12:00:00Z");
+/** ISO finish time `minutes` before `NOW`. */
+const finishedAgo = (minutes: number) => new Date(NOW - minutes * 60_000).toISOString();
 import { isAutoRoutingUnavailableForSend } from "@/store/auto-routing-dispatch";
 
 // The v1 flags are no longer settings; they remain a compact way to build a
@@ -79,6 +84,7 @@ function resolveDecision(args: {
     typeof resolveAutoRoutingDecision
   >[0]["classifyRoute"];
   classifierTimeoutMs?: number;
+  now?: number;
 }) {
   return resolveAutoRoutingDecision({
     settings: {
@@ -97,6 +103,7 @@ function resolveDecision(args: {
     fileContextCount: args.fileContextCount,
     classifyRoute: args.classifyRoute,
     classifierTimeoutMs: args.classifierTimeoutMs,
+    now: args.now ?? NOW,
   });
 }
 
@@ -294,7 +301,8 @@ describe("resolveAutoRoutingDecision", () => {
   test("a short continuation inherits sensitive context and retains the capable model", async () => {
     const result = await resolveDecision({ prompt: "계속해", history: [
       { role: "user", content: "Update payment transaction handling" },
-      { role: "assistant", content: "Plan ready", providerId: "claude-code", model: CLAUDE_FABLE_MODEL },
+      { role: "assistant", content: "Plan ready", providerId: "claude-code", model: CLAUDE_FABLE_MODEL,
+        completedAt: finishedAgo(2) },
     ] });
     expect(result.taskClass).toBe("safety-critical");
     expect(result.model).toBe(CLAUDE_FABLE_MODEL);
@@ -546,5 +554,97 @@ describe("a task running as an agent", () => {
     const sensitive = await decide({ intent: "unknown", risk: "high", taskClassHint: "docs" });
     expect(sensitive.taskClass).toBe("safety-critical");
     expect(sensitive.rationale).not.toContain("routed as the agent's");
+  });
+});
+
+describe("cache hold through the decision path", () => {
+  const classifier = (continuity: "continuing" | "new") => async () => ({
+    version: 2 as const, intent: "plan" as const, complexity: "high" as const,
+    risk: "normal" as const, continuity, evidenceCodes: ["explicit_request" as const],
+  });
+  const lightTurn = (overrides: Record<string, unknown> = {}) => [
+    { role: "user" as const, content: "Fix the typo." },
+    { role: "assistant" as const, content: "Fixed.", providerId: "claude-code" as const,
+      model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10), ...overrides },
+  ];
+  const decide = (args: { history: ReturnType<typeof lightTurn>; continuity?: "continuing" | "new"; now?: number }) =>
+    resolveDecision({
+      prompt: "Now design the sync architecture.",
+      settings: { autoRoutingUseClassifier: true },
+      history: args.history,
+      classifyRoute: classifier(args.continuity ?? "continuing"),
+      ...(args.now != null ? { now: args.now } : {}),
+    });
+
+  test("a continuing task keeps its model while warm and says the switch was deferred", async () => {
+    const decision = await decide({ history: lightTurn() });
+    expect(decision.model).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(decision.ruleReason).toContain("deferred until the cache cools or a new task starts");
+  });
+
+  test("the classifier's new task, a cold cache or a compaction releases the hold", async () => {
+    for (const decision of [
+      await decide({ history: lightTurn(), continuity: "new" }),
+      await decide({ history: lightTurn(), now: NOW + 2 * 60 * 60_000 }),
+      await decide({ history: lightTurn({ compactedAfter: true }) }),
+      await decide({ history: lightTurn({ completedAt: undefined }) }),
+    ]) {
+      expect(decision.model).not.toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+      expect(decision.ruleReason).not.toContain("deferred");
+    }
+  });
+
+  test("a pinned model is never routed, warm cache or not", async () => {
+    const decision = await resolveDecision({
+      prompt: "Now design the sync architecture.",
+      history: lightTurn(),
+      runtimeOverrides: { autoRouting: true, model: DEFAULT_CLAUDE_SONNET_MODEL, modelProviderId: "claude-code" },
+    });
+    expect(decision).toMatchObject({ source: "manual", model: DEFAULT_CLAUDE_SONNET_MODEL });
+  });
+
+  test("a classifier fallback with an unknown previous model does not block a step-up", async () => {
+    const decision = await resolveDecision({
+      prompt: "Now design the sync architecture across services.",
+      settings: { autoRoutingUseClassifier: true },
+      history: lightTurn({ model: undefined }),
+      currentModel: DEFAULT_CLAUDE_HAIKU_MODEL,
+      classifyRoute: async () => {
+        throw new Error("classifier unavailable");
+      },
+      now: NOW,
+    });
+    expect(decision.source).toBe("classifier_fallback");
+    expect(decision.model).not.toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(decision.ruleReason ?? "").not.toContain("deferred");
+  });
+
+  test("a compaction before the turn's last output leaves that turn warm", () => {
+    const compaction = { type: "system_event", content: "Context compacted (auto).", compactBoundary: { trigger: "auto" } };
+    const text = { type: "text", text: "Done." };
+    expect(toRoutingHistory([
+      { role: "assistant", content: "A", providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10), parts: [compaction, text] },
+    ])).toEqual([
+      { role: "assistant", content: "A", providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10) },
+    ]);
+    expect(toRoutingHistory([
+      { role: "assistant", content: "A", providerId: "claude-code", model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10), parts: [text, compaction] },
+    ])[0]?.compactedAfter).toBe(true);
+  });
+
+  test("routing history carries finish times and marks turns a compaction followed", () => {
+    const compaction = { type: "system_event", content: "Context compacted (manual).", compactBoundary: { trigger: "manual" } };
+    const checkpoint = { type: "system_event", content: "Checkpoint", compactBoundary: { trigger: "turn_start" } };
+    expect(toRoutingHistory([
+      { role: "assistant", content: "A", providerId: "codex", model: "gpt-6-luna", completedAt: finishedAgo(30), parts: [] },
+      { role: "assistant", content: "B", providerId: "codex", model: "gpt-6-luna", completedAt: finishedAgo(20), parts: [compaction] },
+      { role: "user", content: "C", parts: [] },
+      { role: "assistant", content: "D", providerId: "codex", model: "gpt-6-luna", completedAt: finishedAgo(10), parts: [checkpoint] },
+    ])).toEqual([
+      { role: "assistant", content: "A", providerId: "codex", model: "gpt-6-luna", completedAt: finishedAgo(30), compactedAfter: true },
+      { role: "assistant", content: "B", providerId: "codex", model: "gpt-6-luna", completedAt: finishedAgo(20), compactedAfter: true },
+      { role: "user", content: "C" },
+      { role: "assistant", content: "D", providerId: "codex", model: "gpt-6-luna", completedAt: finishedAgo(10) },
+    ]);
   });
 });

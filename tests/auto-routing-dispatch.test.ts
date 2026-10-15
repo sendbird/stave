@@ -188,3 +188,31 @@ test("an unclear intent on a task running as an agent routes as its agent's task
     useAgentAssignmentsStore.setState({ byTaskId: previousAssignments });
   }
 });
+
+test("the composer path holds the warm model and releases it after a compaction", async () => {
+  const profile = buildStarterProfile("starter-balanced");
+  const now = Date.parse("2026-10-14T12:00:00Z");
+  const opusTurn = (parts: unknown[]) => ({
+    id: "a1", role: "assistant", providerId: "claude-code", model: "claude-opus-5-5",
+    content: "Done.", completedAt: new Date(now - 5 * 60_000).toISOString(), parts,
+  });
+  const route = (history: unknown[]) => resolveAutoRoutingForSend({
+    state: {
+      settings: { ...defaultSettings, autoRoutingEnabled: true,
+        autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: false } } },
+      providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
+      rateLimitsSnapshot: null,
+    },
+    promptDraft: { text: "fix typo", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } },
+    provider: "claude-code", activeModel: "claude-opus-5-5", prompt: "fix typo",
+    history: [{ id: "u1", role: "user", providerId: "user", model: "", content: "Add export.", parts: [] }, ...history] as never,
+    fileContextCount: 0, workspaceCwd: "/tmp/routing-test", now,
+  });
+  const held = await route([opusTurn([])]);
+  expect(held).toMatchObject({ model: "claude-opus-5-5" });
+  expect(held?.ruleReason).toContain("deferred");
+  const compacted = await route([opusTurn([
+    { type: "system_event", content: "Context compacted (auto).", compactBoundary: { trigger: "auto" } },
+  ])]);
+  expect(compacted?.model).toBe("claude-haiku-5-5");
+});
