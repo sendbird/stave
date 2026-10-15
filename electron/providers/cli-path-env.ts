@@ -540,7 +540,11 @@ export function buildClaudeCliEnv(args: {
   let env = buildRuntimeProcessEnv({
     executablePath: args.executablePath,
     extraPaths: CLAUDE_LOOKUP_PATHS,
-    unsetEnvKeys: ["CLAUDECODE"],
+    unsetEnvKeys: [
+      "CLAUDECODE",
+      "CLAUDE_CODE_ENABLE_TODO_TOOLS",
+      "CLAUDE_CODE_ENABLE_TASKS",
+    ],
   });
 
   applyLoginShellEnvOverrides({
