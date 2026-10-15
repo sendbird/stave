@@ -484,7 +484,7 @@
     "usableAs": "사용 가능한 역할",
     "canCall": "호출 가능",
     "report": "보고서",
-    "appearance": "색상",
+    "appearance": "색과 아이콘",
     "concurrency": "동시 실행 수",
     "archived": "보관됨",
     "renderFieldValue": "예",

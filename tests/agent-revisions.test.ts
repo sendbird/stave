@@ -53,6 +53,20 @@ describe("agent revisions", () => {
     expect(revisionRan({ agent: { ...agent, instructions: "x" }, ranContentHashes: new Set([revisionContentHash(agent)]) })).toBe(false);
   });
 
+  test("an icon change is a new version, and the diff names the colour and the icon", () => {
+    const green = { ...agent, appearance: { color: "green" as const } };
+    const withIcon = { ...agent, appearance: { color: "green" as const, icon: "hammer" } };
+    const map = pushAgentRevision({ revisions: {}, agentId: agent.id, previous: green, next: withIcon, savedAt: "t" });
+    expect(map[agent.id]).toHaveLength(1);
+    expect(diffAgentVersions(green, withIcon)).toEqual([
+      { field: "appearance", label: "Colour and icon", from: "Green", to: "Green, Hammer" },
+    ]);
+    expect(diffAgentVersions(withIcon, { ...agent, appearance: { color: "green", icon: "retired-glyph" } })[0]?.to).toBe(
+      "Green, retired-glyph",
+    );
+    expect(diffAgentVersions(agent, withIcon)[0]?.from).toBe("—");
+  });
+
   test("diff names the fields that changed", () => {
     const labels = diffAgentVersions(agent, { ...agent, instructions: "x", name: "Other" }).map((change) => change.label);
     expect(labels).toContain("Name");
