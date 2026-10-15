@@ -85,6 +85,8 @@ async function runLiveAgentRun(args: {
   expectedAppliedOptions: Record<string, unknown>;
   extendAtLimit?: boolean;
   persistentQuestion?: boolean;
+  /** With `persistentQuestion`: kill and relaunch Stave on the same profile while the question waits. */
+  restartWhilePending?: boolean;
   workspaceCheck?: boolean;
   /** A read-only agent with a configured check: no host check is required and nothing is written. */
   readOnly?: boolean;
@@ -94,7 +96,11 @@ async function runLiveAgentRun(args: {
   const { providerId, testInfo } = args;
   const directory = await mkdtemp(path.join(tmpdir(), `stave-agent-run-live-${providerId}-`));
   const repositoryPath = await seedTemporaryRepository(directory);
-  const stave = await launchStave({ env: args.persistentQuestion ? { STAVE_CLAUDE_APPROVAL_TIMEOUT_MS: "20000", STAVE_CODEX_APPROVAL_TIMEOUT_MS: "20000" } : {} });
+  // The profile lives under the test directory so a relaunch can reopen it and the teardown removes it.
+  const profileDir = path.join(directory, "profile");
+  await mkdir(profileDir);
+  const launchEnv: Record<string, string> = args.persistentQuestion ? { STAVE_CLAUDE_APPROVAL_TIMEOUT_MS: "20000", STAVE_CODEX_APPROVAL_TIMEOUT_MS: "20000" } : {};
+  let stave = await launchStave({ userDataDir: profileDir, env: launchEnv });
   const goal = args.readOnly ? READ_ONLY_GOAL : args.eventWait ? EVENT_WAIT_GOAL
     : args.workspaceCheck ? "Make the workspace check pass: it requires OK.txt containing `ok`. Run the workspace check with your Stave tool before reporting. Do not commit." : args.persistentQuestion ? QUESTION_GOAL : GOAL;
   const writesNothing = Boolean(args.readOnly || args.eventWait);
@@ -221,6 +227,24 @@ async function runLiveAgentRun(args: {
       expect(existsSync(path.join(repositoryPath, "B.md"))).toBe(false);
       evidence.pendingQuestion = pending;
       await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-pending-question.png`) });
+      if (args.restartWhilePending) {
+        const before = (await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId)).agentRun!.agentRun;
+        await stave.close();
+        stave = await launchStave({ userDataDir: profileDir, env: launchEnv });
+        await stave.page.waitForTimeout(2_000);
+        const after = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
+        detail = after.agentRun;
+        expect(after.agentRun?.agentRun, "the run must survive the restart and keep waiting").toMatchObject({ state: "running", turnCount: before.turnCount });
+        expect(after.agentRun?.stages.every(stage => stage.status !== "stuck")).toBe(true);
+        const restored = await readQuestion();
+        expect(restored, "the question card must be restored from disk").toMatchObject({ requestId: pending.requestId, state: "input-requested", delivery: "async" });
+        // The run waits for the answer: no turn may start on its own after the restart.
+        await stave.page.waitForTimeout(8_000);
+        const idle = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
+        expect(idle.agentRun?.agentRun.turnCount).toBe(before.turnCount);
+        await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-after-restart.png`) });
+        evidence.restart = { turnCountBefore: before.turnCount, stateAfter: after.agentRun?.agentRun.state, cardVisible: await stave.page.getByText(original.questions[0]!.question, { exact: true }).first().isVisible().catch(() => false) };
+      }
       const answers = Object.fromEntries(pending.questions.map(question => [question.key?.trim() || question.question, "B.md"]));
       const reply = { workspaceId, taskId, requestId: pending.requestId, answers };
       const result = await stave.page.evaluate(async reply => window.api!.localMcp!.respondUserInput!(reply), reply);
@@ -389,6 +413,21 @@ for (const providerId of ["claude-code", "codex"] as const) {
     test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
     test.setTimeout(420_000);
     await runLiveAgentRun({ providerId, testInfo, persistentQuestion: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "auto" }
+        : { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+    });
+  });
+}
+
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`live ${providerId} Run keeps a native question across an app restart and delivers one reply`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(480_000);
+    await runLiveAgentRun({ providerId, testInfo, persistentQuestion: true, restartWhilePending: true,
       pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
         : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
       settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
