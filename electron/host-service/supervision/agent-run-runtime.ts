@@ -1797,19 +1797,30 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const resources = store.resourceConfig?.(run.id);
       if (resources && providerId && providerId !== resources.policy.providerId) refuse("This run keeps the provider it started on. Switch back to it, or cancel the run to change providers.");
       const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(run.id, ["resource-decision"])) : null;
-      const observed = resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
+      // After a pool switch the reply runs on, and is checked against, the account the run moved to.
+      const replyAccount = resources ? (agentRunPoolAccount(run)?.accountProfileId ?? resources.policy.accountProfileId) : undefined;
+      const observed = resources && replyAccount ? readAdaptiveObservations(resources.policy.providerId, replyAccount, now().getTime()) : null;
       if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, observed?.catalog?.catalog.ok ? observed.catalog.catalog.models : null))
         refuse("The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently.");
       if (resources && (observed?.quota && resolveAccountUsageBlock({ providerId: resources.policy.providerId, model: adaptive?.model,
           snapshot: observed.quota.snapshot, now: now().getTime() }) !== null || observed?.catalog?.catalog.ok === false ||
           (adaptive && observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length > 0 && !observed.catalog.catalog.models.some((entry) => entry.model === adaptive.model))))
         refuse("Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers.");
-      if (resources && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) refuse("The run's shared turn budget cannot take this reply. Extend the run or stop a helper first.");
+      if (resources && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) {
+        // A run that used its last shared turn while blocked on a question halts at its limit, so Extend is offered.
+        const budget = store.readResources?.(run.id);
+        if (budget && !resources.link && budget.policy.version === 2 && budget.activeHelpers === 0 && budget.remaining < 1) {
+          applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "limit-reached",
+            detail: i18n.t("agentRuns:policy.teamDetail", { value1: budget.teamTurns }) } }));
+          refuse("This run used all its shared turns. Extend it, then send your reply again.");
+        }
+        refuse("The run's shared turn budget cannot take this reply. Extend the run or stop a helper first.");
+      }
       const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
       turnIdsFor(run.id).add(turnId);
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
-      const accountOptions = resources?.policy.accountProfileId ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: resources.policy.accountProfileId } : { claudeAccountProfileId: resources.policy.accountProfileId }) : {};
+      const accountOptions = resources && replyAccount ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: replyAccount } : { claudeAccountProfileId: replyAccount }) : {};
       return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
       }) } } : { runtimeOptions: { ...accountOptions,

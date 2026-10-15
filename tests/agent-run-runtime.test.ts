@@ -1803,6 +1803,19 @@ describe("team limits by default", () => {
     expect(h.store.readResources(id)?.spent).toBe(3);
   });
 
+  test("a run blocked on a question on its last shared turn halts at the limit on a reply, then Extend takes it", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 1 }) } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 1 }));
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe("running");
+    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer" })).toThrow("Extend it");
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached" });
+    await h.runtime.extend({ agentRunId: id });
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer-2" })).not.toBeNull();
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 11, spent: 2 });
+  });
+
   test("a version 1 run keeps its frozen budget after Extend", async () => {
     const h = createHarness({ extra: { freezeResources: () => teamPolicy({ version: 1, teamTurns: 2, concurrentHelpers: 2, totalHelpers: 4 }) } });
     const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 5 }));
@@ -2042,6 +2055,24 @@ describe("run runtime: opt-in account pool", () => {
     await h.runtime.cancel({ agentRunId: id });
     expect((await h.runtime.get({ agentRunId: id })).report?.accountSwitches).toEqual([
       expect.objectContaining({ from: "Work", to: "Personal", reason: "usage-limit" })]);
+  });
+
+  test("with team limits, a reply after a pool switch runs on the account the run moved to", async () => {
+    const reads: string[] = [];
+    const h = createHarness({ extra: {
+      readUsageLimitStop: (turnId) => turnId === "turn-1" ? { resetsAt: reset } : null,
+      readAccountUsage: async ({ accounts }) => { reads.push(accounts.claudeAccountProfileId!); return ({ [WORK]: quota(100), [PERSONAL]: quota(10) } as Record<string, ReturnType<typeof quota>>)[accounts.claudeAccountProfileId!] ?? null; },
+      listSubscriptionAccounts: (providerId) => providerId === "claude-code" ? [{ id: WORK, label: "Work" }, { id: PERSONAL, label: "Personal" }] : [],
+      freezeResources: () => ({ version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["sonnet"], modelLocked: true,
+        effortLocked: false, initialEffort: null, accountProfileId: WORK, teamTurns: 30, concurrentHelpers: 3, totalHelpers: 8,
+        parentReserve: 1, maxChanges: 2, cooldownTurns: 2 }),
+    } });
+    const id = await startedAgentRun(h, pooledStart([WORK, PERSONAL]));
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(PERSONAL);
+    h.endTurn("turn-2");
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL });
+    expect(h.store.readResources(id)?.spent).toBe(3);
   });
 
   test("every pool account exhausted: wait for the earliest reset, then check the pool in order", async () => {

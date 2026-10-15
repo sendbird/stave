@@ -22,14 +22,15 @@ export function freezeAdaptivePolicy(args: {
   exclusiveModels?: readonly string[];
 }): AdaptiveRunPolicy {
   const { providerId, agent, draft } = args;
-  const fixedModel = agent?.model.mode === "fixed" ? agent.model : null;
+  // A model pinned in the composer wins over the Agent's fixed model, as it does for any Agent turn.
+  const composerPin = !args.delegated && draft?.model ? draft.model : undefined;
+  const fixedModel = agent?.model.mode === "fixed" && !composerPin ? agent.model : null;
   if (fixedModel && fixedModel.providerId !== providerId) throw new Error("This Agent's fixed model runs on another provider. Switch the task to that provider before starting.");
-  if (draft?.model && (draft.modelProviderId ?? inferProviderIdFromModel({ model: draft.model })) !== providerId) throw new Error("The model pinned in the composer runs on another provider. Switch the task to that provider before starting.");
-  const requestedModel = (!args.delegated && draft?.model) || fixedModel?.model || args.model;
+  if (composerPin && (draft?.modelProviderId ?? inferProviderIdFromModel({ model: composerPin })) !== providerId) throw new Error("The model pinned in the composer runs on another provider. Switch the task to that provider before starting.");
+  const requestedModel = composerPin || fixedModel?.model || args.model;
   const model = args.exclusiveModels === undefined ? requestedModel : resolveApiConnectionModel({ runtime: providerId, models: args.exclusiveModels, model: requestedModel });
   if (!model) throw new Error("Choose a model pinned on this API connection before starting.");
-  const fixed = agent?.model.mode === "fixed";
-  const modelLocked = fixed || args.modelPinned === true || (!args.delegated && Boolean(draft?.model || draft?.autoRouting === false));
+  const modelLocked = Boolean(fixedModel) || args.modelPinned === true || (!args.delegated && Boolean(draft?.model || draft?.autoRouting === false));
   const requestedEffort = args.effort ?? (providerId === "codex" ? draft?.codexReasoningEffort : draft?.claudeEffort) ??
     fixedModel?.effort ??
     (providerId === "codex" ? getModelCapability({ model })?.defaultCodexReasoningEffort : getModelCapability({ model })?.defaultClaudeEffort);

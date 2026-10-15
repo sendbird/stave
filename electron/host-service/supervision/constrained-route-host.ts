@@ -29,10 +29,14 @@ export function createConstrainedHostRouter(deps: {
     if (assignment && assignment.workspaceId !== input.workspaceId) throw new Error("The routing task belongs to another workspace.");
     const agent = assignment?.agent;
     const providerId = input.providerId;
-    if (agent?.model.mode === "fixed" && agent.model.providerId !== providerId) throw new Error("The fixed Agent provider cannot change.");
+    // A route the caller already froze to a pinned model (a run's team limits) keeps
+    // that model: the Agent's fixed model, or the composer pin that overrode it.
+    const frozenPin = Boolean(input.modelPinned && input.allowedModels && input.model);
+    const fixed = agent?.model.mode === "fixed" && !frozenPin ? agent.model : null;
+    if (fixed && fixed.providerId !== providerId) throw new Error("The fixed Agent provider cannot change.");
     return withProviderAccountScope(input.accounts, async () => {
       const pins = exclusiveGatewayModels(deps.profiles(), input.accounts)[providerId];
-      const requested = agent?.model.mode === "fixed" ? agent.model.model ?? input.model : input.model;
+      const requested = fixed ? fixed.model ?? input.model : input.model;
       let model = pins ? resolveApiConnectionModel({ runtime: providerId, models: pins, model: requested })
         : requested ?? buildDelegatedTaskRuntimeOptions({ providerId }).model!;
       if (!model) throw new Error("Choose a model pinned on this API connection before starting.");
@@ -42,8 +46,8 @@ export function createConstrainedHostRouter(deps: {
       const pool = (frozen ?? pins ?? getSdkModelOptions({ providerId })).filter((id) => !pins || Boolean(resolveApiConnectionModel({ runtime: providerId, models: pins, model: id })));
       let allowedModels = settings?.routing.autoRoutingEnabled ? listEligibleRouteModels({ profile, providerId, exclusiveModels: pool }) : [...pool];
       const locked = input.modelPinned || agent?.model.mode === "fixed";
-      const effort = agent?.model.mode === "fixed" ? agent.model.effort ?? input.effort : input.effort;
-      const effortLocked = input.effortPinned || Boolean(agent?.model.mode === "fixed" && agent.model.effort);
+      const effort = fixed ? fixed.effort ?? input.effort : input.effort;
+      const effortLocked = input.effortPinned || Boolean(fixed?.effort);
       if (!locked && effortLocked && effort) allowedModels = allowedModels.filter((id) => supportsAdaptiveEffort(providerId, id, effort));
       if (locked && frozen && !frozen.includes(model)) throw new Error("The model is outside the frozen routing catalog.");
       if (!locked && frozen && !allowedModels.includes(model)) { model = allowedModels[0]; if (!model) throw new Error("No model remains in the frozen routing catalog."); }

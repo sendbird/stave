@@ -80,7 +80,7 @@ export function constrainHelperResources(root: AdaptiveRunPolicy, child: Adaptiv
     if (helperKeepsParentProvider(root)) throw new Error("This team must keep its provider: the parent's model is pinned.");
     // Another provider: the child's own catalog, account and effort; the team's shared limits.
     if (!child.allowedModels.includes(model)) throw new Error("The helper model is outside its own eligible catalog.");
-    return AdaptiveRunPolicySchema.parse({ ...child, teamTurns: root.teamTurns,
+    return AdaptiveRunPolicySchema.parse({ ...child, version: root.version, teamTurns: root.teamTurns,
       concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
   }
   const allowedModels = child.allowedModels.filter((id) => root.allowedModels.includes(id));
@@ -91,7 +91,7 @@ export function constrainHelperResources(root: AdaptiveRunPolicy, child: Adaptiv
     throw new Error("The helper model cannot preserve the parent's effort pin.");
   return AdaptiveRunPolicySchema.parse({ ...child, allowedModels, accountProfileId: root.accountProfileId,
     modelLocked: root.modelLocked || child.modelLocked, effortLocked: root.effortLocked || child.effortLocked,
-    initialEffort: root.effortLocked ? root.initialEffort : child.initialEffort, teamTurns: root.teamTurns,
+    initialEffort: root.effortLocked ? root.initialEffort : child.initialEffort, version: root.version, teamTurns: root.teamTurns,
     concurrentHelpers: root.concurrentHelpers, totalHelpers: root.totalHelpers });
 }
 
