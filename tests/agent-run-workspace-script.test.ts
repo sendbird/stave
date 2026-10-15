@@ -80,7 +80,7 @@ test("abort, runner failure and process-death result each release the reservatio
   }
 });
 
-test("definition hashes cover commands, effective cwd, shell and configured env, independent of env key order", () => {
+test("definition hashes cover execution fields but ignore workspace renames and env key order", () => {
   const script: ResolvedWorkspaceScript = { id: "check", kind: "action", label: "Check", description: "", commands: ["check"], targetId: "workspace",
     target: { id: "workspace", label: "Workspace", cwd: "workspace", shell: "/bin/sh", env: { A: "1", B: "2" } }, source: "script" };
   const context = { repositoryPath: "/tmp/repo", workspacePath: "/tmp/workspace", workspaceName: "Workspace", branch: "test" };
@@ -90,6 +90,11 @@ test("definition hashes cover commands, effective cwd, shell and configured env,
     { ...script, target: { ...script.target, shell: "/bin/other" } }, { ...script, target: { ...script.target, env: { A: "changed", B: "2" } } },
   ]) expect(workspaceScriptDefinitionHash(changed, context)).not.toBe(original);
   expect(workspaceScriptDefinitionHash({ ...script, target: { ...script.target, env: { B: "2", A: "1" } } }, context)).toBe(original);
+  expect(workspaceScriptDefinitionHash(script, { ...context, workspaceName: "Renamed" })).toBe(original);
+  for (const changed of [{ ...context, repositoryPath: "/tmp/other-repo" }, { ...context, workspacePath: "/tmp/other-workspace" }, { ...context, branch: "other" }])
+    expect(workspaceScriptDefinitionHash(script, changed)).not.toBe(original);
+  for (const changed of [{ ...script, targetId: "other" }, { ...script, timeoutMs: 1_000 }])
+    expect(workspaceScriptDefinitionHash(changed, context)).not.toBe(original);
 });
 
 test("the real script runner reports tree mutation and kills an aborted process before later writes", async () => {

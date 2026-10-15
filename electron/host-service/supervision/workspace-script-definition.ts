@@ -7,7 +7,9 @@ export function workspaceScriptDefinitionHash(script: ResolvedWorkspaceScript, c
   repositoryPath: string; workspacePath: string; workspaceName: string; branch: string;
 }): string {
   return createHash("sha256").update(JSON.stringify({
-    ...context,
+    repositoryPath: context.repositoryPath,
+    workspacePath: context.workspacePath,
+    branch: context.branch,
     commands: script.commands,
     cwd: path.resolve(script.target.cwd === "project" ? context.repositoryPath : context.workspacePath),
     shell: script.target.shell ?? (process.platform === "win32" ? process.env.ComSpec ?? "cmd.exe" : "/bin/sh"),

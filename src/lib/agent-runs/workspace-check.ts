@@ -4,18 +4,41 @@ import type { Workflow, AiStage } from "../workflows/schema";
 import type { AgentRunStageRecord } from "./domain";
 import { revisionsMatch, type FrozenWorkspaceScript, type WorkspaceRevision, type ScriptVerification } from "./verification-contract";
 
-/** Freeze the configured action IDs into the primary write run's workflow. */
+/** Explicit checks are bound regardless of whether this agent gets a default. */
+export function freezeWorkspaceChecks(workflow: Workflow, scripts: readonly FrozenWorkspaceScript[]): Workflow {
+  if (!scripts.length) return workflow;
+  const definitions = [...scripts].sort((left, right) => left.scriptId < right.scriptId ? -1 : left.scriptId > right.scriptId ? 1 : 0);
+  const ids = definitions.map((script) => script.scriptId);
+  let changed = false;
+  const stages = workflow.stages.map((stage) => {
+    if (stage.kind !== "ai") return stage;
+    const criteria = stage.acceptanceCriteria?.map((criterion) => {
+      if (criterion.verification !== "stave-check" || criterion.scriptDefinitions?.length) return criterion;
+      changed = true;
+      return { ...criterion, scriptIds: ids, scriptDefinitions: definitions };
+    });
+    return criteria?.some((criterion, index) => criterion !== stage.acceptanceCriteria?.[index]) ? { ...stage, acceptanceCriteria: criteria } : stage;
+  });
+  return changed ? { ...workflow, stages } : workflow;
+}
+
+/** Add or upgrade the primary write run's default without duplicating a check. */
 export function withWorkspaceCheck(workflow: Workflow, agent: Pick<AgentConfig, "id" | "permission" | "workflow"> | null, scripts: readonly FrozenWorkspaceScript[]): Workflow {
-  if (!agent || agent.permission === "read-only" || ["researcher", "reviewer", "lead"].includes(agent.id) || !scripts.length) return workflow;
-  if (agent.workflow?.length && !["implementer", "debugger", "ui-polisher"].includes(agent.id)) return workflow;
-  const stage = [...workflow.stages].reverse().find((entry) => entry.kind === "ai");
-  if (!stage || stage.kind !== "ai") return workflow;
+  const bound = freezeWorkspaceChecks(workflow, scripts);
+  if (!agent || agent.permission === "read-only" || ["researcher", "reviewer", "lead"].includes(agent.id) || !scripts.length) return bound;
+  if (agent.workflow?.length && !["implementer", "debugger", "ui-polisher"].includes(agent.id)) return bound;
+  const stage = [...bound.stages].reverse().find((entry) => entry.kind === "ai");
+  if (!stage || stage.kind !== "ai") return bound;
   const definitions = [...scripts].sort((left, right) => left.scriptId < right.scriptId ? -1 : left.scriptId > right.scriptId ? 1 : 0);
   const ids = definitions.map((script) => script.scriptId);
   const text = i18n.t("agentRuns:workspaceCheck.criterion") + (ids.length > 1 ? ` (${ids.join(", ")})` : "");
-  return { ...workflow, stages: workflow.stages.map((entry) => entry !== stage ? entry : {
+  const existing = stage.acceptanceCriteria?.find((criterion) => criterion.text === text || criterion.text === i18n.t("agentRuns:workspaceCheck.criterion"));
+  if (existing?.verification === "stave-check" && existing.required !== false) return bound;
+  if (!existing && stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check" && criterion.required !== false)) return bound;
+  const criterion = { text, required: true, verification: "stave-check" as const, scriptIds: ids, scriptDefinitions: definitions };
+  return { ...bound, stages: bound.stages.map((entry) => entry !== stage ? entry : {
     ...stage,
-    acceptanceCriteria: [...(stage.acceptanceCriteria ?? []), { text, required: true, verification: "stave-check", scriptIds: ids, scriptDefinitions: definitions }],
+    acceptanceCriteria: existing ? stage.acceptanceCriteria!.map((entry) => entry === existing ? { ...criterion, text: existing.text } : entry) : [...(stage.acceptanceCriteria ?? []), criterion],
   }) };
 }
 

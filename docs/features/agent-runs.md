@@ -213,7 +213,7 @@ and optional `verification`. AI stages use `agent-report` for the agent's
 assessment, or `stave-check` for a host workspace script result. A required
 `stave-check` cannot be satisfied by an agent-reported **Met**. Run script
 action stages keep the same check behavior, including when verification is
-omitted. Other action stages cannot require a workspace script check.
+omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place.
 
 A primary write agent's implicit Work stage, and the last AI stage of the
 built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
@@ -232,7 +232,7 @@ completed, report and final workspace revisions. A missing, failing or stale
 check blocks completion with the script ID and tool to run before reporting
 again. Only write-capable primary AI-stage turns may run it; read-only,
 non-run and action-stage callers are refused. Each run allows one script at
-a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation; if the workspace revision cannot be read at admission, the default check is omitted with a timeline/report notice. An invalid default-criterion insertion is also skipped with a notice.
+a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation; if the admission snapshot exceeds its limits, the default check is omitted with a timeline/report notice. Unavailable or changing revisions are retried once after a short delay, and the criterion remains required if the retry is still unavailable or changing. Explicit checks remain bound. An invalid default-criterion insertion is also skipped with a notice. A skip notice survives stage retry. Workspace renames do not change a script definition hash.
 
 Check evidence separates **Provider result** and **Agent reported** claims from
 successful host checks of unchanged work. A tool response without a structured

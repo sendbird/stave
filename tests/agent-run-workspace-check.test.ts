@@ -5,6 +5,7 @@ import { classifyStageEvidence } from "../src/lib/agent-runs/evidence";
 import { workspaceCheckBlock } from "../src/lib/agent-runs/workspace-check";
 import { i18n } from "../src/i18n/runtime";
 import { buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
+import { admitWorkspaceCheck } from "../electron/host-service/supervision/workspace-check-admission";
 import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { currentStageRecord, EMPTY_STAGE_FACTS, AgentRunStageRecordSchema } from "../src/lib/agent-runs/domain";
 import { agentRunFixture, COMPLETE_REPORT, patchCurrent, AGENT_RUN_NOW } from "./fixtures/agent-run-fixtures";
@@ -73,4 +74,62 @@ test("only primary write work gets a default check; built-in workflows check the
   const agent = getBuiltinAgent("implementer")!;
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
   expect(withWorkspaceCheck(workflow, agent, [frozen("z"), frozen("a")]).stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, text: "Workspace checks pass (a, z)", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]);
+});
+
+test("every explicit AI check is bound without adding a default to a custom workflow", () => {
+  const agent = getBuiltinAgent("implementer")!;
+  const base = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
+  const stage = base.stages[0]!;
+  if (stage.kind !== "ai") throw new Error("Expected AI stage");
+  const workflow = { ...base, stages: ["prepare", "finish"].map(id => ({ ...stage, id, acceptanceCriteria: [{ text: id, verification: "stave-check" as const }] })) };
+  const bound = withWorkspaceCheck(workflow, null, [frozen("z"), frozen("a")]);
+  expect(bound.stages.map(entry => entry.acceptanceCriteria)).toEqual(["prepare", "finish"].map(text => [{ text, verification: "stave-check", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]));
+  expect(withWorkspaceCheck(bound, null, [frozen("different")])).toBe(bound);
+});
+
+test("transient unavailable, changing and thrown revision reads retry once and retain the default gate", async () => {
+  const agent = getBuiltinAgent("implementer")!;
+  const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
+  for (const reason of ["unavailable", "changing", "throw"] as const) {
+    let reads = 0;
+    const delays: number[] = [];
+    const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], wait: async ms => { delays.push(ms); }, readRevision: async () => {
+      if (reads++ > 0) return revision;
+      if (reason === "throw") throw new Error("Transient git timeout");
+      return { status: "unknown", reason };
+    } });
+    expect(reads).toBe(2);
+    expect(delays).toEqual([100]);
+    expect(admitted.notice).toBeUndefined();
+    expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([criterion]);
+  }
+});
+
+test("persistent unavailable or changing revisions retain the gate; only a snapshot limit skips the default", async () => {
+  const agent = getBuiltinAgent("implementer")!;
+  const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
+  for (const reason of ["unavailable", "changing", "limit"] as const) {
+    let reads = 0;
+    const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], wait: async () => {}, readRevision: async () => { reads++; return { status: "unknown", reason }; } });
+    expect(reads).toBe(reason === "limit" ? 1 : 2);
+    if (reason === "limit") {
+      expect(admitted.workflow).toBe(workflow);
+      expect(admitted.notice).toContain("200-file");
+    } else {
+      expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([criterion]);
+      expect(admitted.notice).toBeUndefined();
+    }
+  }
+  const explicit = { ...workflow, stages: workflow.stages.map(stage => ({ ...stage, acceptanceCriteria: [{ text: "Custom check", verification: "stave-check" as const }] })) };
+  const admitted = await admitWorkspaceCheck({ workflow: explicit, agent: null, scripts: [frozen("check")], readRevision: async () => ({ status: "unknown", reason: "limit" }) });
+  expect(admitted.workflow.stages[0]!.acceptanceCriteria?.[0]).toMatchObject({ verification: "stave-check", scriptDefinitions: [frozen("check")] });
+});
+
+test("a default insertion beyond the criterion limit still preserves a valid workflow with a notice", async () => {
+  const agent = getBuiltinAgent("implementer")!;
+  const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
+  workflow.stages[0]!.acceptanceCriteria = Array.from({ length: 20 }, (_, i) => ({ text: `Criterion ${i}` }));
+  const admitted = await admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")], readRevision: async () => revision });
+  expect(admitted.workflow).toBe(workflow);
+  expect(admitted.notice).toContain("invalid");
 });

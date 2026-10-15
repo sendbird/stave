@@ -14,6 +14,7 @@ import {
   clampReason,
   currentStageRecord,
   enterStage,
+  EMPTY_STAGE_FACTS,
   isActiveAgentRunState,
   isTerminalStageStatus,
   workflowStageAt,
@@ -207,6 +208,7 @@ export function retryStage(args: {
     aggregate: { agentRun: aggregate.agentRun, stages: replaceStageRecord(aggregate.stages, ended) },
     index: aggregate.agentRun.currentStageIndex,
   });
+  if (record.facts?.workspaceCheckNotice) retried.facts = { ...EMPTY_STAGE_FACTS, workspaceCheckNotice: record.facts.workspaceCheckNotice };
   return {
     agentRun: touch(aggregate.agentRun, {}, now),
     upserts: [ended, retried],

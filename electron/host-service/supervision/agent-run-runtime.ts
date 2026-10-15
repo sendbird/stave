@@ -1884,8 +1884,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     startAgentRun: (rawInput) =>
       enqueue(async () => {
         const input = AgentRunStartInputSchema.parse(rawInput);
-        const check = input.origin === "agent" && deps.listWorkspaceActionScripts ? await admitWorkspaceCheck({ workflow: input.workflow,
-          agent: deps.taskAgent?.(input.leadTaskId) ?? null, scripts: await deps.listWorkspaceActionScripts(input.workspaceId), readRevision: async () => {
+        const check = deps.listWorkspaceActionScripts ? await admitWorkspaceCheck({ workflow: input.workflow,
+          agent: input.origin === "agent" ? deps.taskAgent?.(input.leadTaskId) ?? null : null, scripts: await deps.listWorkspaceActionScripts(input.workspaceId), readRevision: async () => {
             const cwd = await deps.resolveWorkspacePath(input.workspaceId);
             return cwd && deps.readWorkspaceRevision ? deps.readWorkspaceRevision(cwd) : { status: "unknown", reason: "unavailable" };
           } }) : { workflow: input.workflow };
