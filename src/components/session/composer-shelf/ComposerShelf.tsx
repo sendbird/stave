@@ -70,10 +70,14 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   queue: ComposerShelfQueueProps | null;
   /** The provider the next send uses; its account decides whether the account line shows. */
   providerId?: ProviderId;
+  /** The model the next send uses, for the usage-limit test the send guard runs. */
+  model?: string;
+  /** Stave Auto picks the route on send, so no usage-limit line is shown for it. */
+  autoRouting?: boolean;
 }) {
   useTranslation();
   const taskId = useScopedTaskId();
-  const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code");
+  const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code", { model: props.model, autoRouting: props.autoRouting });
   const blocker = props.providerId ? accountBlocker : null;
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
   const setLayout = useAppStore((state) => state.setLayout);

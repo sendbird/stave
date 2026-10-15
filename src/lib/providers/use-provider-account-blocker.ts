@@ -13,13 +13,38 @@ import { useProviderAccounts } from "./use-provider-accounts";
  * Each store read is a primitive or a stored reference, so a composer that
  * re-renders on every keystroke does not recompute it.
  */
-export function useProviderAccountBlocker(providerId: ProviderId) {
+/**
+ * The composer's usage-limit test, on the same terms as the send guard: the
+ * model the next turn would use, on the selected account. Stave Auto picks the
+ * route on send and routes around an exhausted account, so it never shows the
+ * limit line itself.
+ */
+export function composerUsageLimitReached(args: {
+  providerId: ProviderId;
+  model?: string;
+  autoRouting?: boolean;
+  state: Parameters<typeof isAccountUsageBlockingFromState>[0]["state"];
+}) {
+  if (args.autoRouting) return false;
+  const model = args.model?.trim() || undefined;
+  return isAccountUsageBlockingFromState({ providerId: args.providerId, ...(model ? { model } : {}), state: args.state });
+}
+
+/** What the next send uses: the selected model, or Stave Auto choosing one. */
+export interface ProviderAccountBlockerSelection {
+  model?: string;
+  autoRouting?: boolean;
+}
+
+export function useProviderAccountBlocker(providerId: ProviderId, selection: ProviderAccountBlockerSelection = {}) {
   const claudeAccountProfileId = useAppStore((state) => state.settings.claudeAccountProfileId);
   const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
   const claudeBinaryPath = useAppStore((state) => state.settings.claudeBinaryPath);
   const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
   const available = useAppStore((state) => state.providerAvailability[providerId]);
-  const limitReached = useAppStore((state) => isAccountUsageBlockingFromState({ providerId, state }));
+  const limitReached = useAppStore((state) =>
+    composerUsageLimitReached({ providerId, model: selection.model, autoRouting: selection.autoRouting, state }),
+  );
   const readiness = useProviderReadinessStore((state) => state.providers[providerId]);
   const profiles = useProviderAccounts((state) => state.profiles);
   return useMemo(() => {

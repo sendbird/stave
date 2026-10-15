@@ -7,6 +7,10 @@ import {
   resolveProviderAccountBlocker,
 } from "@/lib/providers/provider-account-blocker";
 import type { ToolingStatusEntry } from "@/lib/tooling-status";
+import { emptyRateLimitsSnapshot } from "@/lib/providers/account-usage-block";
+import { composerUsageLimitReached } from "@/lib/providers/use-provider-account-blocker";
+import { mapCodexRateLimitBuckets } from "../electron/providers/codex-snapshot-mappers";
+import type { AppState } from "@/store/app-store.types";
 
 const CONNECTION_ID = "33333333-3333-4333-8333-333333333333";
 const tool = (overrides: Partial<ToolingStatusEntry> = {}): ToolingStatusEntry => ({
@@ -79,5 +83,44 @@ describe("turn errors that end on the account", () => {
     expect(classifyProviderAccountFailure("[error] You've hit your limit · resets 5pm")).toBe("usage-limit");
     expect(classifyProviderAccountFailure("[error] something else", "usage_limit")).toBe("usage-limit");
     expect(classifyProviderAccountFailure("[error] Selected model is at capacity. (status: 503)")).toBeNull();
+  });
+});
+
+describe("the composer usage-limit line matches the send guard", () => {
+  const codexSnapshot = (sharedUsed: number) => {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.codex = {
+      source: "rpc",
+      error: null,
+      buckets: mapCodexRateLimitBuckets({
+        rateLimitsByLimitId: {
+          codex: { limitId: "codex", limitName: "Codex", primary: { usedPercent: sharedUsed, resetsAt: null } },
+          codex_bengalfox: { limitId: "codex_bengalfox", limitName: "GPT-5.3-Codex-Spark", primary: { usedPercent: 100, resetsAt: null } },
+        },
+      }),
+    };
+    return { settings: { blockTurnsWhenAccountLimitReached: true }, rateLimitsSnapshot: snapshot } as Pick<AppState, "settings" | "rateLimitsSnapshot">;
+  };
+
+  test("a limit that only another model uses shows no line for the selected model", () => {
+    const state = codexSnapshot(20);
+    expect(composerUsageLimitReached({ providerId: "codex", model: "gpt-6.1-sol", state })).toBe(false);
+    expect(composerUsageLimitReached({ providerId: "codex", model: "gpt-5.3-codex-spark", state })).toBe(true);
+  });
+
+  test("Claude's model weekly limit stays with the model that uses it", () => {
+    const snapshot = emptyRateLimitsSnapshot();
+    snapshot.claude = { source: "oauth", session: { usedPercent: 10, resetsAt: null }, weekly: { usedPercent: 10, resetsAt: null }, fableWeekly: { usedPercent: 100, resetsAt: null }, error: null };
+    const state = { settings: { blockTurnsWhenAccountLimitReached: true }, rateLimitsSnapshot: snapshot } as Pick<AppState, "settings" | "rateLimitsSnapshot">;
+    expect(composerUsageLimitReached({ providerId: "claude-code", model: "claude-opus-5-5", state })).toBe(false);
+    expect(composerUsageLimitReached({ providerId: "claude-code", model: "claude-fable-5-1", state })).toBe(true);
+  });
+
+  test("Stave Auto routes on send, so it never shows the line; a shared limit still does for a model", () => {
+    const state = codexSnapshot(100);
+    expect(composerUsageLimitReached({ providerId: "codex", model: "gpt-6.1-sol", state })).toBe(true);
+    expect(composerUsageLimitReached({ providerId: "codex", autoRouting: true, state })).toBe(false);
+    const off = { ...state, settings: { blockTurnsWhenAccountLimitReached: false } } as typeof state;
+    expect(composerUsageLimitReached({ providerId: "codex", model: "gpt-6.1-sol", state: off })).toBe(false);
   });
 });
