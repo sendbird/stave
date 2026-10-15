@@ -65,6 +65,18 @@ export function cliProviderFocus(providerId: CliManagedAccountsProviderId): Acco
   return `cli:${providerId}`;
 }
 
+/**
+ * Where a "sign in" button for a provider lands. Claude Code and Codex: their
+ * accounts card (`show`) or System default's sign-in terminal (`start`).
+ * Cursor, Kiro and OpenCode keep their own sign-in, so both go to their CLI
+ * row, which copies the login command. Null for anything else.
+ */
+export function providerSignInFocus(providerId: string, mode: "show" | "start"): AccountsSettingsFocus | null {
+  if (providerId === "claude-code" || providerId === "codex") return mode === "start" ? `${providerId}-signin` : providerId;
+  if (providerId === "cursor" || providerId === "kiro" || providerId === "opencode") return cliProviderFocus(providerId);
+  return null;
+}
+
 /** The connection a `focus` names, when it names one. */
 export function apiConnectionIdFromFocus(focus: string | null | undefined) {
   return focus?.startsWith(API_CONNECTION_FOCUS_PREFIX)

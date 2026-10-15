@@ -11,6 +11,7 @@ import {
   accountsFocusElementId,
   apiConnectionFieldId,
   apiConnectionIdFromFocus,
+  providerSignInFocus,
   signInProviderFromFocus,
 } from "@/lib/providers/accounts-guide";
 
@@ -180,6 +181,21 @@ describe("Settings > Accounts deep links", () => {
     expect(accountsFocusElementId("cli:kiro")).toBe("settings-field-cli-provider-kiro");
     expect(accountsFocusElementId("nowhere")).toBeNull();
     expect(accountsFocusElementId(null)).toBeNull();
+  });
+
+  test("sign-in buttons send CLI-managed providers to their row, the others to their card or terminal", () => {
+    for (const providerId of ["cursor", "kiro", "opencode"] as const) {
+      for (const mode of ["show", "start"] as const) {
+        const focus = providerSignInFocus(providerId, mode);
+        expect(focus).toBe(`cli:${providerId}`);
+        expect(accountsFocusElementId(focus)).toBe(`settings-field-cli-provider-${providerId}`);
+      }
+    }
+    expect(providerSignInFocus("codex", "show")).toBe("codex");
+    expect(providerSignInFocus("codex", "start")).toBe("codex-signin");
+    expect(accountsFocusElementId(providerSignInFocus("claude-code", "show"))).toBe("settings-field-claude-accounts");
+    // The bare provider id that the billing button used to send lands nowhere.
+    expect(accountsFocusElementId("kiro")).toBeNull();
   });
 
   test("a connection focus and a sign-in focus are recognized by their owners", () => {

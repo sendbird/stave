@@ -24,6 +24,8 @@ type Seed = {
   openCodeReady?: boolean;
   /** Kiro is installed but its CLI is signed out (otherwise it is not installed). */
   kiroSignedOut?: boolean;
+  /** The Claude Code CLI is found; true unless set to false. */
+  claudeInstalled?: boolean;
   /** "Add connection" saves instead of failing. */
   allowConnectionCreate?: boolean;
   /** Codex availability for an API connection answers this late, as a re-check after an account switch can. */
@@ -81,7 +83,7 @@ function seedAccounts(page: Page, seed: Seed) {
       const sleep = (ms?: number) => new Promise((resolve) => setTimeout(resolve, ms ?? 0));
       const savedSecrets: Array<Record<string, string>> = [];
       const tool = (id: "claude" | "codex") => {
-        const installed = id === "claude" || args.seed.codexInstalled;
+        const installed = id === "claude" ? args.seed.claudeInstalled !== false : args.seed.codexInstalled;
         const signedIn = id === "claude" ? args.seed.claudeSignedIn : false;
         return {
           id,
@@ -546,3 +548,17 @@ for (const failure of ["fail", "throw"] as const) {
     expect(await page.content()).not.toContain("fixture-gateway-key-value");
   });
 }
+
+test("Go to sign-in lands on a CLI-managed provider's row when it is the one to sign in to", async ({ page }) => {
+  await seedAccounts(page, {
+    themeMode: "light", withRepository: true, claudeSignedIn: false, claudeInstalled: false, codexInstalled: false,
+    withConnection: false, openCodeReady: false, kiroSignedOut: true,
+  });
+  await page.setViewportSize({ width: 1440, height: 1600 });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Open settings" })).toBeVisible({ timeout: 20_000 });
+  const settings = await openSettingsSection(page, "Accounts");
+  await expect(settings.getByRole("list", { name: "Getting started" }).getByRole("button", { name: "How to sign in to Kiro CLI" })).toBeVisible({ timeout: 20_000 });
+  await settings.locator('[data-billing-choice="subscription"]').getByRole("button", { name: "Go to sign-in" }).click();
+  await expect(settings.locator("#settings-field-cli-provider-kiro").getByRole("button", { name: "Copy Login Command" })).toBeFocused();
+});

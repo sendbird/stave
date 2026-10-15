@@ -6,7 +6,7 @@ import { Button } from "@/components/ads/components/Button";
 import { toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, apiConnectionIdFromFocus, cliProviderFieldId } from "@/lib/providers/accounts-guide";
+import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, apiConnectionIdFromFocus, cliProviderFieldId, providerSignInFocus } from "@/lib/providers/accounts-guide";
 import { focusSettingsElement } from "./settings-focus";
 import {
   clearSettingsFocus,
@@ -79,7 +79,8 @@ function AccountsBillingChoices() {
       body: t("settingsConnections:accountsSection.billing.subscription.body"),
       action: t("settingsConnections:accountsSection.billing.subscription.action"),
       inUse: subscriptionInUse,
-      onSelect: () => requestSettingsFocus(checklist.signInProviderId ?? "claude-code"),
+      // The same target as Getting started's sign-in, shown rather than started.
+      onSelect: () => requestSettingsFocus(providerSignInFocus(checklist.signInProviderId ?? "claude-code", "show")),
     },
     {
       id: "second-account",

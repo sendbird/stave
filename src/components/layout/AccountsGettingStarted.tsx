@@ -6,7 +6,7 @@ import { Button } from "@/components/ads/components/Button";
 import { Loader, toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { ACCOUNTS_GETTING_STARTED_FIELD_ID, cliProviderFocus } from "@/lib/providers/accounts-guide";
+import { ACCOUNTS_GETTING_STARTED_FIELD_ID, providerSignInFocus } from "@/lib/providers/accounts-guide";
 import {
   openAccountsSettings,
   openComposerModelSelector,
@@ -138,7 +138,7 @@ function StepDetail({ step, checklist }: { step: AccountsOnboardingStep; checkli
 function SignInButton({ providerId, primary }: { providerId: AccountsOnboardingProviderId; primary: boolean }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const cli = isCliManagedProvider(providerId);
-  return <Button size="sm" variant={primary ? "primary" : "outline"} onClick={() => requestSettingsFocus(cli ? cliProviderFocus(providerId) : `${providerId}-signin`)}>
+  return <Button size="sm" variant={primary ? "primary" : "outline"} onClick={() => requestSettingsFocus(providerSignInFocus(providerId, "start"))}>
     {cli
       ? t("settingsConnections:accountsOnboarding.actions.signInCli", { value1: providerName(providerId) })
       : t("settingsConnections:accountsOnboarding.actions.signIn", { value1: providerName(providerId) })}
