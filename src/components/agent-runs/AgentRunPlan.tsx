@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { CircleCheck, CircleDashed, LoaderCircle } from "lucide-react";
+import { CircleCheck, CircleDashed, CircleDot, LoaderCircle } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import type { StagePlan, StagePlanStatus } from "@/lib/agent-runs/domain";
 import { agentRunStyles as styles } from "./agent-runs.styles";
@@ -17,19 +17,22 @@ export function describePlanProgress(items: StagePlan["items"]): string {
 
 /**
  * A one-stage run's steps: the agent's own to-do list, as it stood when its
- * latest turn ended.
+ * latest turn ended. While the run is running (`live`), the step it is on
+ * turns; once it pauses, halts or ends, that step keeps a still mark so a
+ * stopped run never looks busy.
  */
-export function AgentRunPlan({ items }: { items: StagePlan["items"] }) {
+export function AgentRunPlan({ items, live = false }: { items: StagePlan["items"]; live?: boolean }) {
   useTranslation();
   return (
     <ul className={sx(styles.checkList)} aria-label={i18n.t("agentRuns:agentRunPlan.ariaLabel")}>
       {items.map((item, index) => {
         const presentation = PRESENTATION[item.status];
-        const Icon = presentation.icon;
+        const current = item.status === "in_progress";
+        const Icon = current && !live ? CircleDot : presentation.icon;
         return (
           <li key={`${index}:${item.content}`} className={sx(styles.check)}>
             <span className={sx(styles.checkMark)}>
-              <Icon aria-hidden className={sx(styles.icon, presentation.mark)} />
+              <Icon aria-hidden className={sx(styles.icon, presentation.mark, current && live && styles.spinning)} />
             </span>
             <span className={sx(styles.checkText, presentation.text)}>{item.content}</span>
             {presentation.label ? (
