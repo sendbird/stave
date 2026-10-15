@@ -591,5 +591,14 @@
     "headerModel": "Model",
     "summaryRule": "{{taskClass}} via rule {{rule}} → {{model}}{{effort}}: {{reason}}",
     "summaryFallback": "{{taskClass}} via fallback → {{model}}{{effort}}: {{reason}}"
+  },
+  "apiConnectionFailure": {
+    "unreachable": "Could not reach the gateway. Check your internet connection, VPN or proxy, and the endpoint URL, then try again.",
+    "timeout": "The gateway did not answer in time. Try again; if it keeps happening, check your network or proxy.",
+    "certificateUntrusted": "The gateway's certificate is not trusted on this network. A company proxy that inspects TLS traffic usually causes this: ask whoever runs your network to allow the gateway, or try another network.",
+    "invalidKey": "The gateway rejected the key. Paste a new key, or check that this one is still active.",
+    "budgetExhausted": "This key's budget on the gateway is used up. Ask whoever manages the gateway to raise it, or wait until it resets.",
+    "rateLimited": "The gateway is limiting requests for this key. Wait a moment and try again.",
+    "missingKey": "The connection's key is missing or locked. Choose a key, or paste a new one."
   }
 }

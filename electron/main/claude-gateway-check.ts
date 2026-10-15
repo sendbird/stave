@@ -1,6 +1,10 @@
 import { z } from "zod";
 import type { ClaudeGateway, ClaudeGatewayCheckResult } from "../../src/lib/providers/claude-gateway";
-import { describeApiConnectionHttpStatus } from "../../src/lib/providers/api-connections";
+import {
+  classifyApiConnectionRequestError,
+  describeApiConnectionHttpStatus,
+  type ApiConnectionRequestFailure,
+} from "../../src/lib/providers/api-connections";
 
 const CatalogSchema = z.object({ data: z.array(z.object({ id: z.string().max(200) })).max(5000) });
 
@@ -21,7 +25,7 @@ export async function checkClaudeGateway(args: {
   gateway: ClaudeGateway;
   token: string;
   request?: typeof fetch;
-}): Promise<ClaudeGatewayCheckResult & { httpStatus?: number }> {
+}): Promise<ClaudeGatewayCheckResult & { httpStatus?: number; requestFailure?: ApiConnectionRequestFailure }> {
   const failed = (message: string, httpStatus?: number) => ({ ok: false, message, models: [], ...(httpStatus ? { httpStatus } : {}) });
   try {
     const response = await (args.request ?? fetch)(`${args.gateway.baseUrl}/v1/models`, {
@@ -55,5 +59,10 @@ export async function checkClaudeGateway(args: {
         ? "The gateway lists every model on this connection. Send a turn to confirm the key, streaming and tools work."
         : `The gateway does not list ${args.gateway.models.filter(model => !models.includes(model)).join(", ")}. Check the exact model IDs with whoever runs the gateway.`,
     };
-  } catch { return failed("Could not read the model list. Check that the gateway supports GET /v1/models; some gateways don't, and turns can still work."); }
+  } catch (error) {
+    // A request that got no answer is classified; a body Stave could not read is not.
+    const requestFailure = classifyApiConnectionRequestError(error);
+    const message = "Could not read the model list. Check that the gateway supports GET /v1/models; some gateways don't, and turns can still work.";
+    return requestFailure ? { ...failed(message), requestFailure } : failed(message);
+  }
 }
