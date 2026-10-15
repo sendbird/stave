@@ -133,7 +133,7 @@ export function AgentRunOverview(props: {
               {describePlanProgress(plan.items)}
             </span>
           </div>
-          <AgentRunPlan items={plan.items} />
+          <AgentRunPlan items={plan.items} live={status.badge === "running" && !status.waiting} />
         </section>
       ) : null}
 

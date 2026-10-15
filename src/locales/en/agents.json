@@ -18,6 +18,8 @@
     "interrupted": "Interrupted",
     "sentence9": "{{value1}} need you",
     "sentence10": "Last used {{value1}}",
+    "assignments_one": "{{count}} assignment",
+    "assignments_other": "{{count}} assignments",
     "extraCopy23": "{{value1}} couldn't start"
   },
   "agentCanCallField": {

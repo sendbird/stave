@@ -1,6 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
+const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
+
 /**
  * Shared agent run styles. Existing ADS tokens only; no new theme colors.
  *
@@ -28,6 +30,13 @@ export const agentRunStyles = stylex.create({
   toneIdle: { color: vars["--ads-color-text-subtle"] },
   toneSkipped: { color: vars["--ads-color-text-subtle"] },
   icon: { flex: "0 0 auto", width: 14, height: 14 },
+  /** The step a running run is on turns, as the ADS spinner does; still under reduced motion. */
+  spinning: {
+    animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" },
+    animationDuration: vars["--ads-motion-duration-loop"],
+    animationIterationCount: "infinite",
+    animationTimingFunction: "linear",
+  },
   iconSm: { flex: "0 0 auto", width: 12, height: 12 },
 
   /* Text ------------------------------------------------------------------- */
