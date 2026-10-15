@@ -94,6 +94,38 @@ describe("agent run result", () => {
     expect(describeAgentRunResult(run, NOW).staveChecks.some((name) => name.includes("bun run typecheck &&"))).toBe(false);
   });
 
+  test("the latest stage decides: a later unmet report or an unchecked later stage is not shown as checked", () => {
+    const revision = { status: "known" as const, revision: "r1" };
+    const definition = { scriptId: "check", definitionHash: "a".repeat(64) };
+    const criterion = { text: "Workspace checks pass", required: true, verification: "stave-check" as const, scriptIds: ["check"], scriptDefinitions: [definition] };
+    const passed = { source: "stave" as const, type: "run-script" as const, scriptId: "check", definitionHash: definition.definitionHash, exitCode: 0, durationMs: 1, outputTail: "", verification: { sourceRevision: revision, completedRevision: revision } };
+    // Two AI stages, Build then Final, each with a completed record.
+    const run = structuredClone(runs.ready);
+    const template = run.agentRun.workflow.stages.find((stage) => stage.kind === "ai")!;
+    if (template.kind !== "ai") throw new Error("Expected an AI stage");
+    const templateRecord = run.stages.findLast((record) => record.stageId === template.id)!;
+    const firstStage = { ...template, id: "build", acceptanceCriteria: [criterion] };
+    const lastStage: typeof template = { ...template, id: "final", acceptanceCriteria: [] };
+    run.agentRun.workflow.stages = [firstStage, lastStage];
+    run.agentRun.currentStageIndex = 1;
+    const firstRecord = { ...structuredClone(templateRecord), stageId: "build" };
+    const lastRecord = { ...structuredClone(templateRecord), stageId: "final" };
+    run.stages = [firstRecord, lastRecord];
+    firstRecord.facts = { ...firstRecord.facts!, workspaceRevision: revision, workspaceScripts: [passed] };
+    if (firstRecord.report?.outcome !== "complete" || lastRecord.report?.outcome !== "complete") throw new Error("Expected complete reports");
+    firstRecord.report = { ...firstRecord.report, workspaceRevision: revision, acceptanceCriteria: [{ text: criterion.text, status: "met" }] };
+    expect(describeDoneWhen({ ...run, agentRun: { ...run.agentRun, currentStageIndex: 0 } }).find((line) => line.text === criterion.text)?.label).toBe("Met · checked by Stave");
+    const label = () => describeDoneWhen(run).find((line) => line.text === criterion.text)?.label;
+    // The final stage reports the inherited criterion unmet on the final work: the earlier check does not override it.
+    lastRecord.report = { ...lastRecord.report, acceptanceCriteria: [{ text: criterion.text, status: "unmet" }] };
+    expect(label()).toBe("Not met");
+    // The same text checked again on the last stage, without a check there: not verified, whatever the first stage saw.
+    lastStage.acceptanceCriteria = [criterion];
+    lastRecord.facts = { ...lastRecord.facts!, workspaceRevision: revision, workspaceScripts: [] };
+    lastRecord.report = { ...lastRecord.report, acceptanceCriteria: [{ text: criterion.text, status: "met" }] };
+    expect(label()).toBe("Not verified");
+  });
+
   test("a run that reported no criteria shows the assignment's own line", () => {
     expect(describeDoneWhen(runs.working)).toEqual([
       { text: "The table scrolls below 640px and the checks pass.", status: "unverified", label: "Not verified" },

@@ -281,19 +281,26 @@ function reportOf(detail: AgentRunDetail) {
 }
 
 /**
- * A `stave-check` criterion holds only on Stave's own check, whatever the agent
- * reported: met-verified when the stage's host check meets it, otherwise not
- * verified. Null for any other criterion.
+ * Whether the latest word on a criterion is Stave's own check, in the order
+ * `collectAcceptanceCriteria` settles it: stage by stage up to the current one,
+ * a stage's host check after its report. Met-verified when the latest stage
+ * that speaks to the criterion defines it as `stave-check` and its latest
+ * attempt meets it; not verified when that stage's check does not; null when
+ * the latest word is a report, so the reported status stands.
  */
 function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus | null {
-  for (const stage of detail.agentRun.workflow.stages) {
-    if (stage.kind !== "ai") continue;
-    const criterion = stage.acceptanceCriteria?.find((candidate) => candidate.verification === "stave-check" && candidate.text.trim() === text.trim());
-    if (!criterion) continue;
+  const key = text.trim();
+  let status: DoneWhenStatus | null = null;
+  const { agentRun } = detail;
+  for (let index = 0; index <= agentRun.currentStageIndex && index < agentRun.workflow.stages.length; index += 1) {
+    const stage = agentRun.workflow.stages[index]!;
     const record = latestStageRecord(detail.stages, stage.id);
-    return record && workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions) ? "met-verified" : "unverified";
+    const reported = record?.report?.outcome === "complete" && record.report.acceptanceCriteria?.some((criterion) => criterion.text.trim() === key);
+    const check = stage.kind === "ai" ? stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check" && criterion.text.trim() === key) : undefined;
+    if (check && record) status = workspaceCheckMet(record, check.scriptIds, check.scriptDefinitions) ? "met-verified" : "unverified";
+    else if (reported) status = null;
   }
-  return null;
+  return status;
 }
 
 /**
