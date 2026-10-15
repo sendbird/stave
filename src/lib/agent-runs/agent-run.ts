@@ -16,12 +16,13 @@
  * Pure: no clock, no I/O. Callers pass `now`.
  */
 import { DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
+import { resolveReviewBeforeDone, reviewStages, withCommitForReview } from "@/lib/agents/review-before-done";
 import type { AutomationPermissionMode } from "@/lib/automations";
 import { WORKFLOW_LIMITS, WORKFLOW_VERSION, type Workflow } from "@/lib/workflows/schema";
 import { AGENT_RUN_LIMITS, stageHasExternalEffect, type AgentRun, type AgentRunStartInput } from "./domain";
 import type { PromptDraft } from "@/types/chat";
 
-type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns"> & Partial<Pick<AgentConfig, "permission" | "tools">>;
+type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns"> & Partial<Pick<AgentConfig, "permission" | "tools" | "reviewBeforeDone">>;
 
 /**
  * The permission a run starts with is the agent's: an Auto agent runs on the
@@ -60,6 +61,8 @@ function clip(value: string, max: number) {
 /**
  * The workflow of an agent run: the agent's workflow, or one AI stage, "Work",
  * whose `doneWhen` is the assignment's own criteria when the user gave any.
+ * With "Review before done" on (`review-before-done.ts`), the Work stage
+ * commits its change and a Reviewer stage and a fix stage follow it.
  */
 export function buildAgentRunWorkflow(args: {
   agent: RunAgent;
@@ -68,6 +71,7 @@ export function buildAgentRunWorkflow(args: {
 }): Workflow {
   const timestamp = args.now.toISOString();
   const doneWhen = args.doneWhen?.trim() ? clip(args.doneWhen, WORKFLOW_LIMITS.doneWhen) : AGENT_RUN_DEFAULT_DONE_WHEN;
+  const review = resolveReviewBeforeDone(args.agent);
   return {
     version: WORKFLOW_VERSION,
     id: AGENT_RUN_WORKFLOW_ID,
@@ -81,9 +85,10 @@ export function buildAgentRunWorkflow(args: {
         id: AGENT_RUN_STAGE_ID,
         title: "Work", // i18n-ignore: model-facing implicit stage name; localized by UI helper
         kind: "ai",
-        instruction: AGENT_RUN_INSTRUCTION,
+        instruction: review === "off" ? AGENT_RUN_INSTRUCTION : withCommitForReview(AGENT_RUN_INSTRUCTION),
         doneWhen,
       },
+      ...(review === "off" ? [] : reviewStages(review)),
     ],
     createdAt: timestamp,
     updatedAt: timestamp,

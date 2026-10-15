@@ -73,7 +73,9 @@ test("only primary write work gets a default check; built-in workflows check the
   }
   const agent = getBuiltinAgent("implementer")!;
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
-  expect(withWorkspaceCheck(workflow, agent, [frozen("z"), frozen("a")]).stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, text: "Workspace checks pass (a, z)", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]);
+  // With review before done the check gates the stage that fixes the findings, the last AI stage.
+  expect(workflow.stages.at(-1)!.id).toBe("fix-review");
+  expect(withWorkspaceCheck(workflow, agent, [frozen("z"), frozen("a")]).stages.at(-1)!.acceptanceCriteria).toEqual([{ ...criterion, text: "Workspace checks pass (a, z)", scriptIds: ["a", "z"], scriptDefinitions: [frozen("a"), frozen("z")] }]);
 });
 
 test("every explicit AI check is bound without adding a default to a custom workflow", () => {
@@ -105,7 +107,8 @@ test("admission refuses explicit checks without actions instead of preserving st
 });
 
 test("upgrading the default text and rebinding a host check preserve required false", () => {
-  const agent = getBuiltinAgent("implementer")!;
+  // One Work stage: these cases are about the stage a default check lands on, not the review stages.
+  const agent = { ...getBuiltinAgent("implementer")!, reviewBeforeDone: "off" as const };
   for (const verification of ["agent-report", "stave-check"] as const) {
     const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
     workflow.stages[0]!.acceptanceCriteria = [{ text: criterion.text, required: false, verification }];
@@ -115,7 +118,8 @@ test("upgrading the default text and rebinding a host check preserve required fa
 });
 
 test("admission adds the default gate and binds explicit checks without any revision input", () => {
-  const agent = getBuiltinAgent("implementer")!;
+  // One Work stage: these cases are about the stage a default check lands on, not the review stages.
+  const agent = { ...getBuiltinAgent("implementer")!, reviewBeforeDone: "off" as const };
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
   const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] });
   expect(admitted.notice).toBeUndefined();
@@ -126,7 +130,8 @@ test("admission adds the default gate and binds explicit checks without any revi
 });
 
 test("a default insertion beyond the criterion limit still preserves a valid workflow with a notice", () => {
-  const agent = getBuiltinAgent("implementer")!;
+  // One Work stage: these cases are about the stage a default check lands on, not the review stages.
+  const agent = { ...getBuiltinAgent("implementer")!, reviewBeforeDone: "off" as const };
   const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
   workflow.stages[0]!.acceptanceCriteria = Array.from({ length: 20 }, (_, i) => ({ text: `Criterion ${i}` }));
   const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] });

@@ -2268,7 +2268,8 @@ describe("primary write run workspace checks", () => {
   const definitionHash = "a".repeat(64);
   const scriptDefinitions = [{ scriptId: "check", definitionHash }];
   const scriptMetadata = { definitionHash, executedCommands: "sh check.sh", commandsTruncated: false };
-  const agent = { id: "implementer", name: "Implementer", permission: "auto" } as AgentConfig;
+  // One Work stage: these cases are about the host check on the stage that reports, not the review stages.
+  const agent = { id: "implementer", name: "Implementer", permission: "auto", reviewBeforeDone: "off" } as AgentConfig;
   const revision = { status: "known" as const, revision: "final" };
   function checkedHarness(extra: Partial<AgentRunRuntimeDependencies> = {}) {
     return createHarness({ extra: {

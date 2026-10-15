@@ -58,6 +58,7 @@ export function exportAgentFile(agent: AgentConfig, format: AgentExportFormat): 
     ...(agent.skills.length ? ["skills"] : []),
     ...(agent.workflow ? ["workflow"] : []),
     ...(agent.checkIns ? ["checkIns"] : []),
+    ...(agent.reviewBeforeDone ? ["reviewBeforeDone"] : []),
     ...(agent.model.mode === "auto" && agent.model.preferredProvider ? ["preferredProvider"] : []),
   ];
   const fixed = agent.model.mode === "fixed" ? agent.model : null;

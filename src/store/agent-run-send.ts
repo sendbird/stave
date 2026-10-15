@@ -247,7 +247,8 @@ export function prepareAgentRunForSend(
         buildAgentRunStartInput({
           workspaceId: args.workspaceId,
           taskId: args.taskId,
-          agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns, permission: agent.agentPermission, tools: agent.agentTools },
+          agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns, permission: agent.agentPermission, tools: agent.agentTools,
+            ...(agent.agentReviewBeforeDone ? { reviewBeforeDone: agent.agentReviewBeforeDone } : {}) },
           assignment: buildAgentRunAssignment(args.prompt, args.promptDraft),
           ...(args.resolveInitialContext ? { initialContext: await args.resolveInitialContext() } : {}),
           // The composer's pins as sent: the run freezes its team limits from them, not from a later edit.

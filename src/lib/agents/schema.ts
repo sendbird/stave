@@ -140,6 +140,15 @@ export const DEFAULT_AGENT_CHECK_INS: CheckIns = "when-stuck";
 export const AGENT_CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = CHECK_IN_LABELS;
 
 /**
+ * "Review before done": whether a run of an agent without its own workflow
+ * ends with a Reviewer stage and a fix stage. `behavior-changes`, the default
+ * for agents that edit files, lets the Reviewer pass a change that only
+ * touches wording, formatting or comments. See `review-before-done.ts`.
+ */
+export const REVIEW_BEFORE_DONE = ["behavior-changes", "always", "off"] as const;
+export type ReviewBeforeDone = (typeof REVIEW_BEFORE_DONE)[number];
+
+/**
  * A workflow: the ordered stages a run of this agent follows, each an AI
  * stage (instruction, done when, optionally done by another agent) or a Stave
  * action (open draft PR, watch checks, ready for review, run script). The
@@ -309,6 +318,8 @@ export const AgentConfigSchema = z
     workflow: AgentWorkflowSchema.optional(),
     /** Absent: only when stuck. */
     checkIns: z.enum(CHECK_INS).optional(),
+    /** Absent: `behavior-changes` for an agent that edits files and has no workflow. */
+    reviewBeforeDone: z.enum(REVIEW_BEFORE_DONE).optional(),
     /** Optional profile identity (avatar colour and icon). Absent stays valid. */
     appearance: AgentAppearanceSchema.optional(),
     origin: AgentFileOriginSchema.optional(),
