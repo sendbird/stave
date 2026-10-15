@@ -32,7 +32,7 @@ export function AgentAttachmentNotice(props: { taskId: string; providerId: strin
     prompt: buildAgentRunAssignment(buildPromptDraftContentForSend(props.draft), props.draft),
   });
   if (plan.kind === "start-run" && (props.draft.attachedFilePaths.length || props.draft.promptBatch?.some((item) => item.attachedFilePaths?.length)))
-    return <p role="status" className={sx(styles.notice)}>{i18n.t("agentRuns:adaptive.files")}</p>;
+    return <p role="status" className={sx(styles.notice)}>{i18n.t("agentRuns:agentRunSend.attachedFilePaths")}</p>;
   if (plan.kind !== "start-run" || !hasAgentPromptAttachments(props.draft)) return null;
   return <p role="status" className={sx(styles.notice)} data-testid="agent-attachment-notice">
     {i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")}</p>;

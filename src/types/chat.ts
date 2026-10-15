@@ -95,7 +95,6 @@ export type ClaudePermissionMode =
   "default" | "acceptEdits" | "bypassPermissions" | "dontAsk" | "auto";
 
 export interface PromptDraftRuntimeOverrides {
-  agentRunAdaptive?: boolean;
   /**
    * The next Run's account pool: off unless `enabled`. The user's left-out
    * accounts are kept, so an account added later joins by default.
@@ -149,8 +148,6 @@ export interface PromptDraftQueuedNextTurn {
 }
 
 export interface PromptDraftQueuedTurn {
-  /** Frozen next-Run policy intent; legacy entries remain non-adaptive. */
-  agentRunAdaptive?: boolean;
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   id: string;

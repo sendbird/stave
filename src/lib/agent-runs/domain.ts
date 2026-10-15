@@ -592,7 +592,6 @@ export const AgentRunStartInputSchema = z
      */
     startStageIndex: z.number().int().min(0).default(0),
     origin: AgentRunOriginSchema,
-    adaptive: z.boolean().optional(),
     routingIntent: AdaptiveRoutingIntentSchema.optional(),
     /** The accounts selected when the run was asked for; its own turns keep them. */
     accounts: ProviderAccountSelectionSchema.optional(),

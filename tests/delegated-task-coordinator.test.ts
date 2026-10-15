@@ -335,17 +335,17 @@ describe("writer isolation", () => {
   });
 });
 
-test("a new adaptive root observed after claim fences one-turn and detached execution", async () => {
+test("one-turn and detached helpers run beside an Agent run's team limits without drawing on its budget", async () => {
   for (const lifecycle of ["one-turn", "detached"] as const) {
     const harness = createHarness({ readOnly: true,
-      // Simulate a host root starting just before this durable claim was visible.
+      // The parent's run starts just before this durable claim is visible; the helper still runs.
       readResourceRoot: (): string | null => harness.store.listActiveAggregatesByStepKind({ kind: "delegated-task-turn" }).length ? "new-root" : null });
     const response = await harness.coordinator.delegate(delegateArgs({ lifecycle, access: "read-only" }));
     expect(response.accepted).toBe(true);
     await harness.coordinator.waitForInFlight();
-    expect(harness.runTaskCalls).toHaveLength(0);
+    expect(harness.runTaskCalls).toHaveLength(1);
     const child = await harness.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
-    expect(child?.phase).toBe("failed");
+    expect(child?.phase).not.toBe("failed");
   }
 });
 

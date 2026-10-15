@@ -87,6 +87,18 @@
       "tests": [
         "tests/results-surface-migration.test.ts"
       ]
+    },
+    {
+      "id": "agent-run-adaptive-draft-key",
+      "description": "The composer's Auto adjust toggle was removed after 0.27.0: every Agent run now freezes team limits on its own. A turn queued before then carries agentRunAdaptive, and the queued-turn schema is strict, so workspace snapshot parsing drops the key before parsing. At expiry, delete the marked block and parse queued turns with the plan-mode-free schema; a turn still queued from 0.27.0 then fails the strict schema.",
+      "introducedAfter": "0.27.0",
+      "removeInVersion": "0.29.0",
+      "files": [
+        "src/lib/task-context/schemas.ts"
+      ],
+      "tests": [
+        "tests/agent-run-adaptive-draft-key-migration.test.ts"
+      ]
     }
   ]
 }

@@ -295,7 +295,6 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
 ]);
 
 const PromptDraftRuntimeOverridesSchema = z.object({
-  agentRunAdaptive: z.boolean().optional(),
   // A malformed pool preference drops only itself, never the snapshot.
   agentRunAccountPool: z
     .object({
@@ -397,7 +396,6 @@ const PromptDraftQueuedNextTurnSchema = z
 
 const PromptDraftQueuedTurnSchema = z
   .object({
-    agentRunAdaptive: z.boolean().optional().catch(undefined),
     claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     id: z.string(),
@@ -430,6 +428,18 @@ const LegacyPromptDraftQueuedTurnSchema = z.preprocess(
   PromptDraftQueuedTurnSchema,
 );
 // end temporary-migration: plan-mode-removal
+
+// temporary-migration: agent-run-adaptive-draft-key
+// A turn queued while the composer's Auto adjust toggle existed carries
+// `agentRunAdaptive`; the queued-turn schema is strict, so the key is dropped
+// before parsing and is not saved again.
+function withoutAgentRunAdaptive(value: unknown) {
+  if (!value || typeof value !== "object" || !("agentRunAdaptive" in value)) return value;
+  const { agentRunAdaptive: _retired, ...rest } = value as Record<string, unknown>;
+  return rest;
+}
+const SavedPromptDraftQueuedTurnSchema = z.preprocess(withoutAgentRunAdaptive, LegacyPromptDraftQueuedTurnSchema);
+// end temporary-migration: agent-run-adaptive-draft-key
 
 const PromptDraftBatchItemSchema = z
   .object({
@@ -947,7 +957,7 @@ export const WorkspaceSnapshotSchema = z.object({
         attachments: z.array(AttachmentSchema).optional().default([]),
         runtimeOverrides: LegacyPromptDraftRuntimeOverridesSchema.optional(),
         promptBatch: z.array(PromptDraftBatchItemSchema).optional(),
-        queuedTurns: z.array(LegacyPromptDraftQueuedTurnSchema).optional(),
+        queuedTurns: z.array(SavedPromptDraftQueuedTurnSchema).optional(),
         queuedNextTurn: PromptDraftQueuedNextTurnSchema.optional(),
       }),
     )

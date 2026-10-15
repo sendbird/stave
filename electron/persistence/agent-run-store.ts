@@ -12,7 +12,7 @@
  * so an agent run row, its stage records and its events never disagree.
  */
 import { randomUUID } from "node:crypto";
-import { projectResourceBudget, readRunResourceConfig, type ResourceLink, type AgentResourceSnapshot } from "../../src/lib/agent-runs/resources";
+import { helperKeepsParentProvider, projectResourceBudget, readRunResourceConfig, type ResourceLink, type AgentResourceSnapshot } from "../../src/lib/agent-runs/resources";
 import {
   AGENT_RUN_LIMITS,
   AgentRunEventSchema,
@@ -573,7 +573,8 @@ export class AgentRunStore {
     const rootRunId = config.link?.rootRunId ?? agentRunId;
     const root = this.resourceConfig(rootRunId);
     if (!root || root.link) throw new Error("The resource root is missing or invalid.");
-    const snapshot = projectResourceBudget(rootRunId, root.policy, this.listEventsByKind(rootRunId, ["resource-budget"]));
+    const snapshot = projectResourceBudget(rootRunId, root.policy, this.listEventsByKind(rootRunId, ["resource-budget"]),
+      this.getAgentRun(rootRunId)?.maxTurns);
     if (config.link && !snapshot.reservations.some((row) => row.reservationId === config.link!.reservationId &&
         row.executionId === config.link!.executionId && row.childRunId === agentRunId))
       throw new Error("The child resource reservation does not match its Run.");
@@ -589,8 +590,10 @@ export class AgentRunStore {
       if (!parent || !this.resourceConfig(parent.id)) return null;
       if (!args.expectedRootRunId) throw new Error("A helper must carry the exact resource Run accepted by its coordinator.");
       const config = this.resourceConfig(parent.id)!;
-      if (args.providerId && args.providerId !== config.policy.providerId) throw new Error("The helper must keep the parent resource provider.");
-      if (args.model && !config.policy.allowedModels.includes(args.model)) throw new Error("The helper model is outside the frozen parent catalog.");
+      const otherProvider = Boolean(args.providerId && args.providerId !== config.policy.providerId);
+      if (otherProvider && helperKeepsParentProvider(config.policy)) throw new Error("The helper must keep the parent's provider: the parent's model is pinned.");
+      // A helper on another provider is held to its own catalog when its run freezes.
+      if (!otherProvider && args.model && !config.policy.allowedModels.includes(args.model)) throw new Error("The helper model is outside the frozen parent catalog.");
       if (config.link) throw new Error("A delegated Run cannot create recursive resource reservations.");
       if (parent.state !== "running") throw new Error("Resume the parent Run before starting a helper.");
       const snapshot = this.readResources(parent.id)!;
@@ -601,7 +604,7 @@ export class AgentRunStore {
         return { policy: config.policy, link: { rootRunId: parent.id, reservationId, executionId: args.executionId }, capacity: existing.capacity };
       }
       if (snapshot.activeHelpers >= config.policy.concurrentHelpers || snapshot.helpersLaunched >= config.policy.totalHelpers)
-        throw new Error("The shared helper limit was reached (2 concurrent / 4 total). Continue directly or start a new Run explicitly.");
+        throw new Error(`The run's helper limit was reached (${config.policy.concurrentHelpers} at once / ${config.policy.totalHelpers} in total). Wait for a helper to finish or continue directly; the user can raise the limits for later runs in Settings.`);
       const capacity = Math.min(args.requestedTurns, snapshot.remaining - config.policy.parentReserve);
       if (capacity < 1) throw new Error("Shared turn capacity is reserved for parent integration. Continue directly or start a new Run explicitly.");
       this.writeEvent(parent.id, { kind: "resource-budget", idempotencyKey: `reserve:${reservationId}`,

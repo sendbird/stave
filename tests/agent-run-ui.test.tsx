@@ -286,7 +286,6 @@ describe("Run start option: account pool", () => {
 
   test("off by default: the option and the terms notice, no account list", () => {
     const html = render(pool());
-    expect(html).toContain("Account pool");
     expect(html).toContain("Continue on my other accounts at a usage limit");
     expect(html).toContain("API connections are never used.");
     expect(html).toContain("Automatic account switching may be limited by each provider&#x27;s terms.");

@@ -12,7 +12,7 @@ import { i18n } from "@/i18n/runtime";
 export const COMPOSER_CONTROL_IDS = [
   "providerMode",
   "thinking",
-  "runAutoTuning",
+  "runAccountPool",
   "fast",
   "review",
   "secrets",
@@ -47,7 +47,7 @@ export type ComposerControlPlacements = Partial<
 export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
   get providerMode() { return i18n.t("app:composerControls.providerMode"); },
   get thinking() { return i18n.t("app:composerControls.thinking"); },
-  get runAutoTuning() { return i18n.t("agentRuns:adaptive.label"); },
+  get runAccountPool() { return i18n.t("agentRuns:accountPool.title"); },
   get fast() { return i18n.t("app:composerControls.fastMode"); },
   get review() { return i18n.t("app:composerControls.review"); },
   get secrets() { return i18n.t("app:composerControls.secrets"); },
@@ -60,7 +60,7 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
   {
     get providerMode() { return i18n.t("app:composerControls.manualGuidedOrAutoPermissionPreset"); },
     get thinking() { return i18n.t("app:composerControls.cycleExtendedThinkingClaudeOnly"); },
-    get runAutoTuning() { return i18n.t("agentRuns:adaptive.summary"); },
+    get runAccountPool() { return i18n.t("agentRuns:accountPool.enable"); },
     get fast() { return i18n.t("app:composerControls.fastToggleInsideTheModelPickerCodexAndCursor"); },
     get review() { return i18n.t("app:composerControls.reviewUncommittedLocalChanges"); },
     get secrets() { return i18n.t("app:composerControls.bindSecretsIntoThisRunSEnvironment"); },
@@ -107,7 +107,7 @@ export function composerControlIsIconOnly(id: ComposerControlId): boolean {
 const COMPOSER_CONTROLS_WITH_OWN_TOOLTIP = new Set<ComposerControlId>([
   "providerMode",
   "thinking",
-  "runAutoTuning",
+  "runAccountPool",
   "runtime",
 ]);
 
@@ -158,7 +158,7 @@ export function normalizeComposerControlPlacements(
 export function collectActiveComposerControls(args: {
   thinkingMode?: "adaptive" | "enabled" | "disabled" | null;
   fastMode?: boolean;
-  runAutoTuningEnabled?: boolean;
+  runAccountPoolEnabled?: boolean;
   runtimeTone?: "default" | "custom" | "warning";
   boundSecretCount?: number;
 }): ComposerControlId[] {
@@ -167,8 +167,8 @@ export function collectActiveComposerControls(args: {
   if (args.thinkingMode === "enabled" || args.thinkingMode === "disabled") {
     active.push("thinking");
   }
-  if (args.runAutoTuningEnabled) {
-    active.push("runAutoTuning");
+  if (args.runAccountPoolEnabled) {
+    active.push("runAccountPool");
   }
   if (args.fastMode) {
     active.push("fast");
@@ -250,7 +250,7 @@ const COMPOSER_FRAME_CARD_CONTROL_IDS = new Set<ComposerControlId>(["fast"]);
 const COMPOSER_FRAME_RIGHT_CONTROL_IDS = new Set<ComposerControlId>([
   "providerMode",
   "thinking",
-  "runAutoTuning",
+  "runAccountPool",
 ]);
 const COMPOSER_FRAME_STATUS_CONTROL_IDS = new Set<ComposerControlId>([
   "review",

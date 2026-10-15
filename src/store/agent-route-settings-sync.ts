@@ -1,3 +1,4 @@
+import { clampTeamLimit } from "@/lib/agent-runs/resources";
 import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
 import type {
   AgentRouteClassifierContext,
@@ -13,7 +14,8 @@ const CLASSIFIED_PROVIDERS = ["claude-code", "codex"] as const;
  * for an agent run (`src/lib/routing/agent-run-route.ts`). Synced with the
  * agents by `useAgentSync`. The classifier context is what the composer's
  * classifier would use on each provider, minus the workspace folder, and is
- * null whenever the composer would not classify either.
+ * null whenever the composer would not classify either. The helper limits are
+ * what a starting Agent run freezes as its team limits.
  */
 export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettingsInput {
   const classifies =
@@ -44,5 +46,9 @@ export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettin
       autoRoutingProfile: settings.autoRoutingProfile,
     },
     classifier: classifies ? { "claude-code": contextFor("claude-code"), codex: contextFor("codex") } : null,
+    teamLimits: {
+      concurrentHelpers: clampTeamLimit("concurrentHelpers", settings.agentRunConcurrentHelpers),
+      totalHelpers: clampTeamLimit("totalHelpers", settings.agentRunTotalHelpers),
+    },
   };
 }

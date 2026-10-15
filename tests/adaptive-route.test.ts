@@ -42,7 +42,25 @@ test("automatic Decision proposals share pins, same-provider catalog, cooldown a
 test("explicit model and effort pins are frozen without taking a caller authority field", () => {
   const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 100,
     draft: { model: "gpt-6-astra", modelProviderId: "codex", codexReasoningEffort: "high" } });
-  expect(p).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true, effortLocked: true, initialEffort: "high", teamTurns: 30 });
+  expect(p).toMatchObject({ allowedModels: ["gpt-6-astra"], modelLocked: true, effortLocked: true, initialEffort: "high" });
+});
+test("the team budget is the run's max turns, and the helper limits come from Settings within their range", () => {
+  const freeze = (maxTurns: number, teamLimits?: { concurrentHelpers: number; totalHelpers: number }) => freezeAdaptivePolicy({ providerId: "codex",
+    model: "gpt-6.1-sol", agent: null, maxTurns, draft: null,
+    settings: teamLimits ? { routing: { autoRoutingEnabled: false, autoRoutingProfile: undefined }, classifier: null, teamLimits } : null });
+  expect(freeze(100)).toMatchObject({ version: 2, teamTurns: 100, concurrentHelpers: 3, totalHelpers: 8, maxChanges: 2, cooldownTurns: 2 });
+  expect(freeze(45, { concurrentHelpers: 2, totalHelpers: 12 })).toMatchObject({ teamTurns: 45, concurrentHelpers: 2, totalHelpers: 12 });
+  // A hand-edited setting outside the range is clamped, never rejected.
+  expect(freeze(30, { concurrentHelpers: 40, totalHelpers: 0 })).toMatchObject({ concurrentHelpers: 6, totalHelpers: 1 });
+});
+test("a helper on another provider keeps its own catalog unless the parent's model is pinned", () => {
+  const claudeChild = freezeAdaptivePolicy({ providerId: "claude-code", model: "claude-opus-5-5", agent: null, settings: null, maxTurns: 30, delegated: true });
+  const constrained = constrainHelperResources(policy, claudeChild, "claude-opus-5-5");
+  expect(constrained).toMatchObject({ providerId: "claude-code", teamTurns: policy.teamTurns, concurrentHelpers: policy.concurrentHelpers, totalHelpers: policy.totalHelpers });
+  expect(constrained.allowedModels).toContain("claude-opus-5-5");
+  expect(() => constrainHelperResources({ ...policy, modelLocked: true }, claudeChild, "claude-opus-5-5")).toThrow("pinned");
+  // A run that froze the opt-in version 1 policy keeps its provider for every helper.
+  expect(() => constrainHelperResources({ ...policy, version: 1 }, claudeChild, "claude-opus-5-5")).toThrow("pinned");
 });
 test("the account selected when the Run was asked for wins over a draft pin and the request scope", () => {
   const selected = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";

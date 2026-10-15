@@ -47,3 +47,22 @@ test("legacy runs remain outside shared admission and malformed resource request
   expect(s.reserveChildResources({parentTaskId:"legacy",childRunId:"a",executionId:"ea",requestedTurns:30,now})).toBeNull();
   expect(AgentResourceRequestSchema.safeParse({model:"x",reason:"capability-mismatch",rationale:"diagnosed",evidenceRefs:["turn-1"],permissionMode:"auto"}).success).toBe(false);
 });
+test("a default team policy takes a helper on another provider unless the parent's model is pinned, and names its own limits", () => {
+  const team = (patch: Record<string, unknown>) => AdaptiveRunPolicySchema.parse({ ...policy, version: 2, concurrentHelpers: 1, totalHelpers: 2, ...patch });
+  const start = (id: string, resources: ReturnType<typeof team>) => {
+    const s = new AgentRunStore(new Database(":memory:"));
+    const change = create(new AgentRunStore(new Database(":memory:")), id);
+    Object.assign(change.events[0]!, { detail: { ...change.events[0]!.detail, resources } });
+    s.create(change, now);
+    return s;
+  };
+  const open = start("parent", team({ modelLocked: false }));
+  const claude = open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
+    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })!;
+  expect(claude.capacity).toBe(5);
+  expect(() => open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "second", executionId: "e2",
+    requestedTurns: 1, now })).toThrow("1 at once / 2 in total");
+  const pinned = start("parent", team({ modelLocked: true }));
+  expect(() => pinned.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
+    requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })).toThrow("pinned");
+});

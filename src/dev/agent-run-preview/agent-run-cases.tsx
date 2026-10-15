@@ -75,6 +75,12 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
   const runs = buildAgentRunFixtures(new Date(now - 23 * 60_000));
   const working = buildAgentRunFixtures(new Date(now - 4 * 60_000));
   const limitReached: AgentRunDetail = { ...working.working, agentRun: { ...working.working.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 } };
+  // An Extended run: 40 shared turns, one helper Agent still working.
+  const teamLimits: AgentRunDetail = { ...working.working, resources: { rootRunId: working.working.agentRun.id, teamTurns: 40,
+    policy: { version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["claude-opus-5-5", "claude-sonnet-5-5"],
+      modelLocked: false, effortLocked: false, initialEffort: "high", teamTurns: 30, concurrentHelpers: 3, totalHelpers: 8,
+      parentReserve: 1, maxChanges: 2, cooldownTurns: 2 },
+    spent: 12, reserved: 9, remaining: 19, helpersLaunched: 2, activeHelpers: 1, reservations: [] } };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   return (
     <div className={sx(styles.cases)} style={width ? { maxWidth: width } : undefined}>
@@ -144,6 +150,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         [
           ["Agent run panel limit reached", "Progress tab · Halted · Limit reached", limitReached, null],
           ["Agent run panel working", "Progress tab · Running", working.working, null],
+          ["Agent run panel team limits", "Progress tab · Running · team limits after Extend", teamLimits, null],
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow, null],
           ["Agent run panel waiting", "Progress tab · Running · waiting for a usage reset", working.waiting, null],
           ["Agent run panel event wait", "Progress tab · Running · waiting for PR checks", working.eventWait, null],
