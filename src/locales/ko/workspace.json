@@ -1073,7 +1073,8 @@
     "detached": "연결 해제됨",
     "stopped": "중지됨",
     "needsAnswer": "응답 필요",
-    "needsApproval": "승인 필요"
+    "needsApproval": "승인 필요",
+    "needsYou": "확인 필요"
   },
   "delegatedTask": {
     "supervisionRequiresAgent": "완료까지 실행하려면 저장된 Agent와 8,000자 이내의 작업 지시가 필요합니다. 지시를 줄이거나 단발 자문을 원하면 one-turn을 명시하세요.",

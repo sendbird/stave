@@ -75,6 +75,13 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
   const runs = buildAgentRunFixtures(new Date(now - 23 * 60_000));
   const working = buildAgentRunFixtures(new Date(now - 4 * 60_000));
   const limitReached: AgentRunDetail = { ...working.working, agentRun: { ...working.working.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 } };
+  // Waiting on a delegated task, named by the saved Agent it runs as (recorded on the registration event).
+  const delegatedWaitBase = working.eventWait.agentRun.eventWait!;
+  const delegatedWait: AgentRunDetail = { ...working.eventWait,
+    agentRun: { ...working.eventWait.agentRun, eventWait: { ...delegatedWaitBase, kind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d" } },
+    events: [...working.eventWait.events, { id: "wait-registered-preview", agentRunId: working.eventWait.agentRun.id, sequence: 999, kind: "wait-registered",
+      idempotencyKey: null, createdAt: delegatedWaitBase.registeredAt,
+      detail: { waitId: delegatedWaitBase.id, waitKind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d", targetLabel: "Reviewer" } }] };
   // An Extended run: 40 shared turns, one helper Agent still working.
   const teamLimits: AgentRunDetail = { ...working.working, resources: { rootRunId: working.working.agentRun.id, teamTurns: 40,
     policy: { version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["claude-opus-5-5", "claude-sonnet-5-5"],
@@ -154,6 +161,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow, null],
           ["Agent run panel waiting", "Progress tab · Running · waiting for a usage reset", working.waiting, null],
           ["Agent run panel event wait", "Progress tab · Running · waiting for PR checks", working.eventWait, null],
+          ["Agent run panel delegated wait", "Progress tab · Running · waiting for a delegated Agent", delegatedWait, null],
           ["Agent run panel approval", "Progress tab · Needs your answer · approval", working.working, "approval"],
           ["Agent run panel taken over", "Progress tab · Paused · taken over", working.takenOver, null],
           ["Agent run panel blocked", "Progress tab · Halted · blocked", working.blocked, null],

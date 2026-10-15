@@ -304,6 +304,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
   readTurnEnding?: (turnId: string) => "completed" | "stopped" | "failed";
   /** Persisted terminal evidence only; absent events stay unknown without affecting supervision. */
   readUsageLimitStop?: (turnId: string) => { accountProfileId?: string; resetsAt?: string } | null;
+  /** The passing provider failure that ended a turn (`findTransientTurnFailure`); absent: never read. */
+  readTransientFailure?: (turnId: string) => { message: string } | null;
   readAccountUsage?: (args: { fingerprint: AgentRunFingerprint; accounts: ProviderAccountSelection; workspaceId: string }) => Promise<RateLimitsSnapshotResponse | null>;
   /**
    * The provider's subscription accounts now, in Settings order, never API
@@ -333,6 +335,8 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
    */
   listCompletedDelegatedRuns?: (args: { workspaceId: string; taskId: string }) =>
     Promise<TaskCompletionSignal[]> | TaskCompletionSignal[];
+  /** The saved Agent a task's delegated task (by id or delegation key) runs as; null for a model-only one. */
+  delegatedTargetAgent?: (args: { taskId: string; target: string }) => string | null;
   emitChanged?: (event: AgentRunChangedEvent) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
@@ -490,6 +494,23 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       usageLimitStops.set(row.id, stop);
     }
     return stop;
+  };
+  // A passing provider failure is read the same way, once per settled turn.
+  const providerFailures = new Map<string, { message: string } | null>();
+  const readProviderFailure = (row: { id: string; completedAt?: string | null }) => {
+    if (providerFailures.has(row.id)) return providerFailures.get(row.id) ?? null;
+    let failure: { message: string } | null = null;
+    try {
+      failure = deps.readTransientFailure?.(row.id) ?? null;
+    } catch {
+      return null;
+    }
+    const settled = row.completedAt ? now().getTime() - Date.parse(row.completedAt) > USAGE_LIMIT_STOP_SETTLE_MS : false;
+    if (failure || settled) {
+      if (providerFailures.size >= 500) providerFailures.delete(providerFailures.keys().next().value!);
+      providerFailures.set(row.id, failure);
+    }
+    return failure;
   };
 
   function requireInitialEffortSupport(policy: AdaptiveRunPolicy) {
@@ -838,6 +859,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const usageLimited = stop && endedRow ? { ...stop, ...usageLimitedTurnRuntime({ aggregate,
       events: store.listEventsByKind(agentRun.id, ["turn-started", "turn-linked"]), turnId: endedRow.id,
       accounts: runAccountOptions(agentRun, store.resourceConfig?.(agentRun.id)), accountProfileId: stop.accountProfileId }) } : null;
+    const providerFailure = endedRow && !usageLimited && !interrupted.has(endedRow.id) ? readProviderFailure(endedRow) : null;
     const stage = workflowStageAt(agentRun, agentRun.currentStageIndex);
     return {
       turns,
@@ -866,6 +888,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               endedAt: endedRow.completedAt,
               ...(usageLimited ? { usageLimited } : {}),
               ...(interrupted.has(endedRow.id) ? { interrupted: true } : {}),
+              ...(providerFailure ? { providerFailure } : {}),
             }
           : null,
         userTurnIntent:
@@ -873,6 +896,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         actionOutcome:
           stage.kind === "action" ? (actionOutcomes.get(stageKey(record)) ?? null) : null,
         stageStuckAt: stuckAt(agentRun, record),
+        ...(providerFailure ? { providerRetries: store.listEventsByKind(agentRun.id, ["turn-started"]).filter((event) =>
+          event.detail.reason === "retry-after-provider-error" && event.detail.stageId === record.stageId && event.detail.attempt === record.attempt).length } : {}),
       },
     };
   }
@@ -2220,6 +2245,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           previous: currentEventWait(agentRun, record),
         });
         if (!resolved.ok) refuse(resolved.message);
+        // A delegated task is shown by the saved Agent it runs as, not its id; the label rides on the event so older builds still read the wait.
+        const agentConfigId = resolved.wait.kind === "delegated_completion" && resolved.wait.target
+          ? deps.delegatedTargetAgent?.({ taskId: agentRun.leadTaskId, target: resolved.wait.target }) : null;
+        const targetLabel = agentConfigId ? deps.agentNames?.()[agentConfigId]?.trim().slice(0, 120) : undefined;
         const { wait } = resolved;
         applyChange({
           agentRun: { ...agentRun, eventWait: wait, updatedAt: at.toISOString() },
@@ -2229,7 +2258,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
             kind: "wait-registered",
             idempotencyKey: `${agentRun.id}:wait:${wait.id}:registered`,
             detail: {
-              waitId: wait.id, waitKind: wait.kind, target: wait.target, at: wait.at, expiresAt: wait.expiresAt,
+              waitId: wait.id, waitKind: wait.kind, target: wait.target, ...(targetLabel ? { targetLabel } : {}), at: wait.at, expiresAt: wait.expiresAt,
               maxWakes: wait.maxWakes, stageId: wait.stageId, attempt: wait.attempt, turnId: wait.turnId,
               ...(agentRun.eventWait ? { replacedWaitId: agentRun.eventWait.id } : {}),
             },

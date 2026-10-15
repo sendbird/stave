@@ -350,6 +350,25 @@ describe("supervised saved-Agent delegations", () => {
     await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
   });
 
+  test("a child waiting for its usage reset does not need you, and needs you once the reset can no longer resume it", async () => {
+    const h = harness(), child = await h.start(), read = h.host.readAgentRun;
+    const live = await h.runtime.get({ agentRunId: child.agentRunId! });
+    const sequence = live.events.at(-1)!.sequence;
+    const limit = { turnId: "turn-1", resetsAt: "2026-09-26T11:00:00.000Z", accountProfileId: "system-default", fingerprint: live.agentRun.fingerprint };
+    h.host.readAgentRun = async () => ({ ...live, agentRun: { ...live.agentRun, state: "paused", pauseReason: "usage-limit", reasonDetail: "",
+      usageLimit: { ...limit, resumeAt: "2026-09-26T11:00:30.000Z" } }, events: [...live.events, { ...live.events.at(-1)!, sequence: sequence + 1 }] });
+    const restarted = h.createCoordinator(); await restarted.reconcile();
+    expect(await restarted.get(child)).toMatchObject({ phase: "waiting" });
+    expect((await restarted.get(child))?.waitsForPerson).toBeUndefined();
+    // The resume read found the account still exhausted with no reset time: the same words, now a wait for a person.
+    h.host.readAgentRun = async () => ({ ...live, agentRun: { ...live.agentRun, state: "paused", pauseReason: "usage-limit", reasonDetail: "",
+      usageLimit: { ...limit, resetsAt: null, resumeAt: null } }, events: [...live.events, { ...live.events.at(-1)!, sequence: sequence + 2 }] });
+    await restarted.reconcile();
+    expect((await restarted.get(child))?.waitsForPerson).toBe(true);
+    h.host.readAgentRun = read;
+    await h.coordinator.stop({ parentTaskId: child.parentTaskId, delegationKey: child.delegationKey }); await h.coordinator.waitForInFlight();
+  });
+
   test("running observations and repeated identical waiting do not grow the ledger", async () => {
     const h = harness(), child = await h.start(), read = h.host.readAgentRun;
     const running = await h.runtime.get({ agentRunId: child.agentRunId! }), count = h.ledger.listReceipts({ runId: child.runId }).length;

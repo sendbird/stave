@@ -33,6 +33,7 @@ import {
   DELEGATED_TASK_STOPPED_REASON,
   delegatedTaskResultText,
   delegatedTaskWaitingReason,
+  delegatedTaskWaitsForPerson,
   resolveDelegatedTaskWaitSeconds,
   describeDelegatedTaskRejection,
   isActiveDelegatedTaskPhase,
@@ -452,6 +453,7 @@ function summaryFromAggregate(
     ),
     resultText: delegatedTaskResultText(receipts, aggregate.step),
     waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
+    waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
   });
 }
 
@@ -649,11 +651,14 @@ export function createDelegatedTaskCoordinator(
           ...(completion.report ? { responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) } : {}) }, now: now() });
     if (completion.kind === "waiting") {
       const message = args.detail?.agentRun.reasonDetail ?? (args.detail ? currentStageRecord(args.detail).detail : null) ?? `Delegated Agent ${completion.reason}; open its task to respond or resume.`;
-      if (current.step.status === "waiting" && (sequence <= (latest?.detail?.supervisorSequence ?? 0) || latest?.detail?.message === message)) return null;
+      // A usage reset resumes the child on its own; any other wait needs a person.
+      const code = completion.reason === "usage-reset" ? "child-agent-run-usage-reset" : "child-agent-run-waiting";
+      // The same words can mean another kind of wait (a usage pause that can no longer resume on its own).
+      if (current.step.status === "waiting" && (sequence <= (latest?.detail?.supervisorSequence ?? 0) ||
+          (latest?.detail?.message === message && latest?.detail?.code === code))) return null;
       return args.ledger.markRunStepWaiting({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:waiting:${sequence}`,
-        detail: { code: "child-agent-run-waiting", agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}),
-          message }, reenter: true, now: now() });
+        detail: { code, agentRunId, ...(sequence ? { supervisorSequence: sequence } : {}), message }, reenter: true, now: now() });
     }
     if (completion.kind === "running" && current.step.status === "waiting")
       return args.ledger.resumeRunStep?.({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,

@@ -60,7 +60,12 @@ export interface ObservedTurn {
   /** True when Stave stopped in the middle of this turn and closed it at boot. */
   interrupted?: boolean;
   usageLimited?: { resetsAt?: string; accountProfileId: string; fingerprint: AgentRunFingerprint };
+  /** The provider failed for a reason that passes (a timeout, an overloaded or unreachable service). */
+  providerFailure?: { message: string };
 }
+
+/** How long a run waits before each retry after a passing provider failure; one entry per retry. */
+export const PROVIDER_RETRY_DELAYS_MS = [30_000, 120_000, 300_000] as const;
 
 /** What the runtime read about the lead task this tick. */
 export interface LeadTaskObservation {
@@ -107,6 +112,8 @@ export interface AgentRunObservation {
   actionOutcome: ActionOutcome | null;
   /** When the current attempt was last marked stuck, if it is stuck. */
   stageStuckAt?: string | null;
+  /** The turns this stage attempt already started to retry after a provider failure. */
+  providerRetries?: number;
   /**
    * With the pool off (or not applicable): what the limited account's own
    * usage read said this tick, right after its limit or at a due resume.
@@ -138,7 +145,9 @@ export type StageTurnReason =
   /** The event the run waited for came; the turn starts with what happened. */
   | "resume-after-event"
   /** The user continued a run whose wait ended without its event. */
-  | "resume-after-wait-expired";
+  | "resume-after-wait-expired"
+  /** The provider failed for a reason that passes; the stage continues after a pause. */
+  | "retry-after-provider-error";
 
 export type AgentRunDecision =
   | { action: "idle" }
@@ -412,9 +421,22 @@ function decideAiStage(
     // the stage resumes without spending the one reminder.
     return startTurn({ agentRun, record, observation, reason: "resume-after-restart" });
   }
-  // The turn asked to wait for an outside event: the run waits instead of nudging.
+  // The turn asked to wait for an outside event: the run waits instead of nudging,
+  // even when the provider failed after the wait was registered.
   const waited = decideEventWait({ agentRun, record, observation, now });
   if (waited) return waited;
+  if (last.providerFailure) {
+    // The provider failed, not the agent: retry after a pause without spending
+    // the one reminder, and halt once the retries are used up.
+    const retries = observation.providerRetries ?? 0;
+    const delay = PROVIDER_RETRY_DELAYS_MS[retries];
+    if (delay === undefined) {
+      return { action: "mark-stuck", detail: clampReason(i18n.t("agentRuns:policy.providerRetriesSpent", {
+        count: retries, message: last.providerFailure.message })) };
+    }
+    if (now.getTime() < Date.parse(last.endedAt ?? last.startedAt) + delay) return { action: "idle" };
+    return startTurn({ agentRun, record, observation, reason: "retry-after-provider-error" });
+  }
   if (!observation.reportingAvailable) {
     // The model cannot report through a connection that is down, so this
     // blocks with "reporting unavailable" rather than spending the nudge.

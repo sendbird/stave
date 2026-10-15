@@ -75,12 +75,27 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
 }
 
 export function describeSubagentState(exchange: DelegationExchange): string {
+  // A delegate waiting for a person is the one thing the reader can act on.
+  if (exchange.outcome.needsUser) return i18n.t("agentRuns:subagentSummary.needsYou");
   return { queued: "queued", running: "running", returned: "done", failed: "failed", cancelled: "stopped", timed_out: i18n.t("agentRuns:subagentSummary.extraCopy405"), unresolved: "unresolved" }[exchange.outcome.status];
 }
 
 export function describeSubagentSummary(rows: readonly DelegationExchange[]): string | null {
   return rows.length ? rows.map((row) => `${row.title} ${describeSubagentState(row)}`).join(" · ") : null;
 }
+
+/** Markdown read as plain words: no heading, list or quote markers, emphasis, code ticks or link targets. */
+export function plainMarkdownLine(line: string): string {
+  return line
+    .replace(/^\s*(?:#{1,6}\s+|[-*+]\s+|\d+[.)]\s+|>\s*)/, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/(\*\*|__)(.+?)\1/g, "$2")
+    .replace(/`([^`]+)`/g, "$1")
+    .trim();
+}
+
+/** A delegated Agent run's report (`## Run complete …` with a `### Stages` list). */
+const RUN_REPORT_STAGE = /^\s*- \*\*[^*]+\*\* — /;
 
 export function subagentResultLine(exchange: DelegationExchange): string | undefined {
   if (exchange.outcome.error) return truncateWorkText(exchange.outcome.error);
@@ -90,5 +105,11 @@ export function subagentResultLine(exchange: DelegationExchange): string | undef
   // A framed report can prepend a bracketed notice to an indented answer.
   // Preview the answer while retaining the original output for full details.
   const framed = /^\[[^\]]+\].*:\s*$/.test(lines[0] ?? "") && /^ {2}\S/.test(lines[1] ?? "");
-  return truncateWorkText(framed ? lines.slice(1).map((line) => line.replace(/^ {2}/, "")).join("\n") : result);
+  if (framed) return truncateWorkText(lines.slice(1).map((line) => line.replace(/^ {2}/, "")).join("\n"));
+  // A Run report previews its last stage's outcome, not its header or the assignment it repeats.
+  const lastStage = /^##\s/.test(lines[0] ?? "") ? [...lines].reverse().find((line) => RUN_REPORT_STAGE.test(line)) : undefined;
+  if (lastStage) return truncateWorkText(plainMarkdownLine(lastStage));
+  // Other markdown reads as plain text; headings drop out when there is more to say.
+  const content = lines.filter((line) => !/^\s*#{1,6}\s/.test(line));
+  return truncateWorkText((content.some((line) => line.trim()) ? content : lines).map(plainMarkdownLine).filter(Boolean).join(" "));
 }

@@ -13,6 +13,7 @@ import {
   DELEGATED_TASK_LIST_LIMIT,
   delegatedTaskResultText,
   delegatedTaskWaitingReason,
+  delegatedTaskWaitsForPerson,
   isActiveDelegatedTaskPhase,
   toDelegatedTaskSummary,
   type DelegatedTaskSummary,
@@ -48,6 +49,7 @@ export function listDelegatedTaskSummaries(args: {
           acceptedReceipt: receipts.find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt),
           resultText: delegatedTaskResultText(receipts, aggregate.step),
           waitingReason: delegatedTaskWaitingReason(receipts, aggregate.step),
+          waitsForPerson: delegatedTaskWaitsForPerson(receipts, aggregate.step),
         });
         return summary ? [summary] : [];
       });

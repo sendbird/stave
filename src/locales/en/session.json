@@ -209,7 +209,8 @@
     "delegatedTaskParentBacklink2": "Open parent task",
     "sentence43": "Attempt {{value1}}",
     "extraCopy91": "This delegated task's conversation could not be found.",
-    "extraCopy92": "This delegated task could not be opened."
+    "extraCopy92": "This delegated task could not be opened.",
+    "agentRun": "This delegated Agent run is waiting for a person: open its task to answer, retry or resume it."
   },
   "emptySplash": {
     "emptySplash": "Create a task to start a conversation, or open a CLI session for workspace work.",

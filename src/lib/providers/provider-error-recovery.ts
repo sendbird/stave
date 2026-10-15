@@ -1,4 +1,7 @@
 import { i18n } from "@/i18n/runtime";
+import type { NormalizedProviderEvent } from "./provider.types";
+import { classifyProviderTurnStopReason } from "./turn-stop-reason";
+import { isUsageLimitErrorText } from "./usage-limit-stop";
 const PROVIDER_ERROR_PREFIX = /^\[error\]\s*/i;
 const TERMINAL_FAILURE_STOP_REASONS = new Set([
   "aborted",
@@ -98,6 +101,53 @@ export function buildProviderFailureContinuationPrompt() {
     "Identify what already completed, then finish only the remaining work.",
     "Do not repeat completed side effects or assume an earlier action failed solely because the turn ended.",
   ].join(" ");
+}
+
+/**
+ * Failures that pass on their own: an overloaded or unreachable service, a
+ * dropped connection or a timeout. A usage limit is not one of them; it has
+ * its own wait (`usage-limit-stop.ts`).
+ */
+const TRANSIENT_FAILURE_PATTERNS: readonly RegExp[] = [
+  /\btimed out\b/i,
+  /\btime-?out\b/i,
+  /\b(?:ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|EPIPE|ENETUNREACH)\b/,
+  /\bsocket hang up\b/i,
+  /\bfetch failed\b/i,
+  /\bnetwork (?:error|drop|is unreachable)\b/i,
+  /\bconnection (?:reset|refused|closed|lost|error)\b/i,
+  /\b(?:service|server) (?:is )?(?:temporarily )?unavailable\b/i,
+  /\btemporarily unavailable\b/i,
+  /\b(?:bad gateway|gateway timeout|internal server error)\b/i,
+  /\b(?:HTTP |status )?50[0234]\b/,
+  /\boverloaded\b/i,
+  // How the Codex adapter words a dropped stream or an unreachable endpoint, and a
+  // short per-request throttle (`codex-app-server-errors.ts`); a usage limit reads differently.
+  /\bendpoint is unreachable\b/i,
+  /\brate limit hit\b/i,
+];
+
+/** Whether a provider error says a failure that a later retry can get past. */
+export function isTransientProviderFailureText(text: string) {
+  const notice = parseProviderErrorNotice(PROVIDER_ERROR_PREFIX.test(text.trim()) ? text : `[error] ${text}`);
+  if (!notice) return false;
+  if (isUsageLimitErrorText(notice.message)) return false;
+  return notice.capacityFailure || notice.transportFailure || TRANSIENT_FAILURE_PATTERNS.some((pattern) => pattern.test(notice.message));
+}
+
+/**
+ * The transient provider failure that ended a turn: the turn ended in failure
+ * (not a cancel) and its last error says a failure that passes. Null for a
+ * completed or cancelled turn, a usage limit, or any other error.
+ */
+export function findTransientTurnFailure(events: readonly NormalizedProviderEvent[]): { message: string } | null {
+  const reversedEnd = [...events].reverse().findIndex((event) => event.type === "done");
+  const end = reversedEnd < 0 ? -1 : events.length - 1 - reversedEnd;
+  const done = events[end];
+  if (done?.type !== "done" || classifyProviderTurnStopReason(done.stop_reason) !== "failed") return null;
+  const error = events.slice(0, end).reverse().find((event) => event.type === "error");
+  if (error?.type !== "error" || !isTransientProviderFailureText(error.message)) return null;
+  return { message: error.message.replace(PROVIDER_ERROR_PREFIX, "").split(/\r?\n/)[0]!.trim().slice(0, 300) };
 }
 
 export function isTerminalProviderFailureStopReason(

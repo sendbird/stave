@@ -1,12 +1,42 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildProviderFailureContinuationPrompt,
+  findTransientTurnFailure,
   isProviderFailureRecoveryEligible,
   isProviderFailureRecoveryScopeCurrent,
   isTerminalProviderFailureStopReason,
+  isTransientProviderFailureText,
   parseProviderErrorNotice,
 } from "@/lib/providers/provider-error-recovery";
+import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
+import { buildCodexTerminalFailureEvents } from "../electron/providers/codex-app-server-errors";
 import { ChatMessageSchema } from "@/lib/task-context/schemas";
+
+describe("a turn that a passing provider failure ended", () => {
+  const ended = (message: string, stopReason = "runtime_failure", after: NormalizedProviderEvent[] = []): NormalizedProviderEvent[] => [
+    { type: "error", message, recoverable: false }, ...after, { type: "done", stop_reason: stopReason }];
+
+  test("timeouts, dropped connections and overloaded services pass; the turn must have failed", () => {
+    expect(findTransientTurnFailure(ended("workspace routing discovery timed out"))).toEqual({ message: "workspace routing discovery timed out" });
+    for (const message of ["fetch failed", "read ECONNRESET", "503 Service Unavailable", "server_overloaded: try again", "stream closed before completion"])
+      expect(isTransientProviderFailureText(message)).toBe(true);
+    expect(findTransientTurnFailure(ended("workspace routing discovery timed out", "cancelled"))).toBeNull();
+    expect(findTransientTurnFailure([{ type: "done", stop_reason: "runtime_failure" }])).toBeNull();
+  });
+
+  test("Codex's own wording for a dropped stream, an overloaded model or a throttle passes; its usage limit does not", () => {
+    for (const raw of ["stream disconnected before completion", "error sending request for url (https://chatgpt.com/backend-api/codex/responses)",
+      "server_overloaded: The model is overloaded", "rate limit: too many requests"])
+      expect(findTransientTurnFailure(buildCodexTerminalFailureEvents({ message: raw }) as NormalizedProviderEvent[])).not.toBeNull();
+    expect(findTransientTurnFailure(buildCodexTerminalFailureEvents({ message: "usage_limit_reached" }) as NormalizedProviderEvent[])).toBeNull();
+  });
+
+  test("a usage limit, a permission error or a bad request does not pass", () => {
+    expect(findTransientTurnFailure(ended("You've hit your usage limit. Try again at 3pm."))).toBeNull();
+    for (const message of ["Permission denied: /etc/hosts", "invalid_request_error: max_tokens is too large", "Not logged in. Please run /login"])
+      expect(isTransientProviderFailureText(message)).toBe(false);
+  });
+});
 
 describe("provider error recovery", () => {
   test("recognizes a capacity failure without dropping its reason or guidance", () => {

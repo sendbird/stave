@@ -49,6 +49,7 @@ import { useAppStore } from "@/store/app.store";
 const BLOCKED_HINT: Record<DelegatedTaskBlockedKind, string> = {
   get "user-input"() { return i18n.t("session:delegatedTaskRows.userInput"); },
   get approval() { return i18n.t("session:delegatedTaskRows.approval"); },
+  get "agent-run"() { return i18n.t("session:delegatedTaskRows.agentRun"); },
 };
 
 type DelegatedTaskComposerKind = "follow-up" | "retry";

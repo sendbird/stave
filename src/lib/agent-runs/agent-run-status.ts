@@ -1,5 +1,5 @@
 import { describeAgentRunUsageLimit } from "./usage-limit";
-import { activeEventWait, describeEventWaitDetail, describeEventWaitLabel } from "./event-wait";
+import { activeEventWait, describeEventWaitDetail, describeEventWaitLabel, eventWaitTargetLabel } from "./event-wait";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { findTaskPendingDecision } from "@/lib/fleet/task-status";
 import { i18n } from "@/i18n/runtime";
@@ -209,7 +209,7 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
   const wait = activeEventWait(agentRun, record);
-  if (wait) return waiting(describeEventWaitLabel(wait), describeEventWaitDetail(wait));
+  if (wait) return waiting(describeEventWaitLabel(wait), describeEventWaitDetail(wait, eventWaitTargetLabel(detail.events, wait)));
   switch (record?.status) {
     case "awaiting-sign-off":
       // A sign-off is the approval card of a stage that asks first.

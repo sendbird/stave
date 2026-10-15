@@ -68,6 +68,8 @@ const TURN_REASON_LINES: Record<AgentRunTurnReason, string> = {
     "The outside event this run waited for happened, so Stave started this turn. The message says what it observed.",
   "resume-after-wait-expired":
     "The run's wait for an outside event ended without the event, and the user continued the run.",
+  "retry-after-provider-error":
+    "The provider failed during the previous turn (a timeout or an unavailable service), so Stave retried after a pause. Inspect the workspace and the conversation so far, keep completed work, and finish only the remaining assignment without repeating completed side effects.",
   nudge: "The previous turn ended without a stage report.",
   "repair-checks": "Checks failed on the pull request, so the Watch checks action asked for a repair.",
 };

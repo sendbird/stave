@@ -1088,7 +1088,8 @@
     "detached": "Detached",
     "stopped": "Stopped",
     "needsAnswer": "Needs answer",
-    "needsApproval": "Needs approval"
+    "needsApproval": "Needs approval",
+    "needsYou": "Needs you"
   },
   "delegatedTask": {
     "supervisionRequiresAgent": "Supervised work requires a saved Agent and an assignment of at most 8000 characters. Shorten the assignment or explicitly select one-turn for a single-turn consultation.",

@@ -415,6 +415,8 @@ export const DelegatedTaskSummarySchema = z
     completedAt: z.string().datetime().nullable(),
     /** The subagent's final answer for its latest turn, bounded; absent until a turn ends. */
     result: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
+    /** A supervised child whose run halted, paused or asked and waits for a person. */
+    waitsForPerson: z.literal(true).optional(),
   })
   .strict();
 export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
@@ -436,10 +438,22 @@ export function delegatedTaskResultText(
   return null;
 }
 
-export function delegatedTaskWaitingReason(receipts: readonly RunReceiptRecord[], step: Pick<RunStepRecord, "executionId" | "status">): string | null {
+/** A supervised child's run waits: for a person, or for a usage reset that resumes it on its own. */
+const CHILD_RUN_WAITING_CODES = new Set(["child-agent-run-waiting", "child-agent-run-usage-reset"]);
+
+function latestChildRunWait(receipts: readonly RunReceiptRecord[], step: Pick<RunStepRecord, "executionId" | "status">) {
   if (step.status !== "waiting") return null;
   return [...receipts].reverse().find((receipt) => receipt.type === "waiting" && receipt.executionId === step.executionId &&
-    receipt.detail?.code === "child-agent-run-waiting")?.detail?.message ?? null;
+    CHILD_RUN_WAITING_CODES.has(receipt.detail?.code ?? "")) ?? null;
+}
+
+export function delegatedTaskWaitingReason(receipts: readonly RunReceiptRecord[], step: Pick<RunStepRecord, "executionId" | "status">): string | null {
+  return latestChildRunWait(receipts, step)?.detail?.message ?? null;
+}
+
+/** Whether a supervised child's run waits for a person rather than a usage reset. */
+export function delegatedTaskWaitsForPerson(receipts: readonly RunReceiptRecord[], step: Pick<RunStepRecord, "executionId" | "status">): boolean {
+  return latestChildRunWait(receipts, step)?.detail?.code === "child-agent-run-waiting";
 }
 
 export const DelegatedTaskRejectionReasonSchema = z.enum([
@@ -583,6 +597,8 @@ export function toDelegatedTaskSummary(args: {
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
   resultText?: string | null;
   waitingReason?: string | null;
+  /** `delegatedTaskWaitsForPerson`. */
+  waitsForPerson?: boolean;
 }): DelegatedTaskSummary | null {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
@@ -639,6 +655,7 @@ export function toDelegatedTaskSummary(args: {
     updatedAt: step.updatedAt,
     completedAt: step.completedAt,
     ...(args.resultText ? { result: args.resultText } : {}),
+    ...(args.waitsForPerson && step.status === "waiting" ? { waitsForPerson: true } : {}),
   });
   return parsed.success ? parsed.data : null;
 }

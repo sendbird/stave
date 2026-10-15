@@ -209,7 +209,8 @@
     "delegatedTaskParentBacklink2": "부모 작업 열기",
     "sentence43": "시도 {{value1}}",
     "extraCopy91": "이 위임 작업의 대화를 찾지 못했습니다.",
-    "extraCopy92": "이 위임 작업을 열지 못했습니다."
+    "extraCopy92": "이 위임 작업을 열지 못했습니다.",
+    "agentRun": "위임한 Agent 실행이 사람을 기다립니다. 해당 작업을 열어 답하거나 다시 시도하거나 재개하세요."
   },
   "emptySplash": {
     "emptySplash": "작업을 만들어 대화를 시작하거나 워크스페이스 작업을 위해 CLI 세션을 여세요.",

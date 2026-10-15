@@ -6,6 +6,7 @@
  */
 import { getRateLimitsSnapshot } from "../../providers/rate-limits/rate-limits-snapshot";
 import { findUsageLimitStopInEvents } from "../../../src/lib/providers/usage-limit-stop";
+import { findTransientTurnFailure } from "../../../src/lib/providers/provider-error-recovery";
 import { AdaptiveRoutingIntentSchema } from "../../../src/lib/agent-runs/resources";
 import { isPoolableAccount } from "../../../src/lib/agent-runs/account-pool";
 import { freezeAdaptivePolicy } from "./adaptive-policy";
@@ -25,7 +26,7 @@ import type { AgentRunChangedEvent } from "../../../src/lib/agent-runs/api";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
 import { runCommandArgs } from "../../main/utils/command";
 import { resolveAgentRunGrant } from "../../providers/agent-run-grants";
-import { countActiveDelegatedTasks, listTaskCompletionSignals } from "../delegated-task-signals";
+import { countActiveDelegatedTasks, listDelegatedTaskSummaries, listTaskCompletionSignals } from "../delegated-task-signals";
 import { createPullRequestWatchReader } from "../pull-request-watch-reader";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
@@ -260,6 +261,8 @@ export function createHostAgentRunRuntime(args: {
     emitChanged: args.emitChanged,
     readUsageLimitStop: (turnId) => findUsageLimitStopInEvents(
       persistence.getStreamEvents({ turnId }).flatMap((entry) => entry.event ? [entry.event] : [])),
+    readTransientFailure: (turnId) => findTransientTurnFailure(
+      persistence.getStreamEvents({ turnId }).flatMap((entry) => entry.event ? [entry.event] : [])),
     readAccountUsage: async ({ fingerprint, accounts, workspaceId }) => getRateLimitsSnapshot({
       cwd: (await resolveWorkspacePath(workspaceId)) ?? undefined, runtimeOptions: accounts,
       providers: [fingerprint.providerId], force: true, reason: "dispatch-guard",
@@ -269,6 +272,8 @@ export function createHostAgentRunRuntime(args: {
     // reader on the task's workspace checkout, and the same completion feed.
     readPullRequestWatch: createPullRequestWatchReader({ resolveWorkspacePath }),
     listCompletedDelegatedRuns: ({ taskId }) => listTaskCompletionSignals({ taskId }),
+    delegatedTargetAgent: ({ taskId, target }) => listDelegatedTaskSummaries({ parentTaskId: taskId })
+      .find((summary) => summary.delegatedTaskId === target || summary.delegationKey === target)?.agentConfigId ?? null,
     // Subscription sign-ins only: an API connection is never an account-pool candidate.
     listSubscriptionAccounts: (providerId) => getProviderAccountRegistry().list()
       .filter((profile) => profile.providerId === providerId && isPoolableAccount(profile))

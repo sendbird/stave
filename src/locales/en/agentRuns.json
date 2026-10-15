@@ -459,7 +459,8 @@
     "days": "{{value}}d",
     "stageOutcome": "{{stage}} {{status}}",
     "autoPermissionClaude": "Claude auto mode decides each action. An action it cannot decide asks you, and an approval nobody answers in time is declined.",
-    "autoPermissionCodex": "Codex auto-review decides each action when available; otherwise Codex does not ask. An approval nobody answers in time is declined."
+    "autoPermissionCodex": "Codex auto-review decides each action when available; otherwise Codex does not ask. An approval nobody answers in time is declined.",
+    "providerRetryTurn": "{{name}} — retried after a provider error ({{retry}} of {{total}})"
   },
   "checks": {
     "detail": "{{value1}} has been pending for {{value2}} minutes.",
@@ -587,6 +588,7 @@
     "extraCopy307": "This stage is done, but {{value1}} Cancel the run and finish the rest by hand.",
     "extraCopy308": "The lead task's workspace is not loaded right now.",
     "extraCopy309": "The lead task now runs on {{value1}}, not {{value2}}.",
+    "providerRetriesSpent": "The provider kept failing: {{count}} retries ended with “{{message}}”. Retry when the provider is back.",
     "teamDetail": "This run and its helper Agents used all {{value1}} shared turns."
   },
   "reportMarkdown": {
@@ -789,7 +791,8 @@
     "extraCopy211": "The required workspace script check has no successful, current verification evidence."
   },
   "subagentSummary": {
-    "extraCopy405": "timed out"
+    "extraCopy405": "timed out",
+    "needsYou": "needs you"
   },
   "normalize": {
     "extraCopy416": "Saved workflows are not a list.",
@@ -896,7 +899,9 @@
       "pullRequest": "PR #{{number}}",
       "branchPullRequest": "this branch's PR",
       "delegatedTask": "delegated task {{target}}",
-      "anyDelegated": "this task's delegated work"
+      "anyDelegated": "this task's delegated work",
+      "delegatedAgent": "{{name}}",
+      "delegatedTaskUnnamed": "the delegated task"
     },
     "detail": {
       "pullRequestChecks": "Waiting for the checks on {{target}} to finish. Stops waiting at {{expires}}.",

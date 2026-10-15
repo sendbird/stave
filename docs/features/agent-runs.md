@@ -119,9 +119,13 @@ agents and checks each result before it reports.
    plan between turns; the report carries the final plan. Agent runs require
    the agent to write and maintain a plan with one step in progress.
 4. The shelf summarizes the task's subagents, for example **Implementer
-   running · Reviewer done**. **Progress** and **Subagents** show their latest
-   step or tool and a short result. Saved tool parts preserve these summaries
-   after completed turn events are compacted.
+   running · Reviewer done**, or **Reviewer needs you** when a delegated Agent
+   waits for a person (a question, an approval, or its own run halted or
+   paused); open its task to answer. **Progress** and **Subagents** show their
+   latest step or tool and a one-line result in plain text: a delegated Agent
+   run's result is its last stage's outcome, and the full report stays on hover
+   and in its task. Saved tool parts preserve these summaries after completed
+   turn events are compacted.
 
 ## Interface Walkthrough
 
@@ -415,6 +419,13 @@ sample limits and examples of when each screen helps.
   pull request lacks them.
 - If Stave quits while a stage's turn runs, the stage continues with a new turn
   after the restart; that turn does not use up the stage's one reminder.
+- If the provider fails for a reason that passes (a timeout, a dropped
+  connection, an overloaded or unavailable service), the stage retries after
+  30 seconds, then 2 minutes, then 5 minutes, without using up its reminder.
+  Each retry is a turn and checks what the failed turn already did. After the
+  third retry fails too, the stage is **Stuck** with the provider's error;
+  **Retry stage** once the provider is back. A usage limit is not a provider
+  failure: it waits for the reset instead.
 - The turn limit comes from the agent's `tools.maxTurns`, or defaults to 30,
   capped at 100. At the cap, unfinished work shows **Halted · Limit reached**
   (**멈춤 · 한도 도달**). **Extend (+10 turns)** adds up to ten turns (at most
@@ -462,7 +473,8 @@ sample limits and examples of when each screen helps.
 ### A stage is stuck
 
 - Symptom: the stage says **Stuck** after the agent ended a turn without
-  reporting, even after one reminder, or because its turn could not start.
+  reporting, even after one reminder, because its turn could not start, or
+  because the provider kept failing through three retries.
 - Fix: read the transcript, reply with what is missing, and **Retry stage**.
   A stuck stage continues on its own only for a reply sent after it got stuck.
 
@@ -554,7 +566,9 @@ what fails, and waits again.
 - While it waits the Run stays running and starts no turns, so the wait spends
   none of the turn budget. The run line and the Task panel read **Running ·
   Waiting · PR checks** (or **PR review**, **Scheduled time**, **Delegated work**) with what
-  it waits for and when it stops waiting. The workspace stays **In progress**.
+  it waits for and when it stops waiting; a delegated task is named by the
+  saved Agent it runs as (**Waiting for Reviewer to finish**), never by its id.
+  The workspace stays **In progress**.
 - A turn that ends after asking to wait is not an unreported turn: Stave sends
   no reminder and does not mark the stage stuck.
 - What wakes it:
