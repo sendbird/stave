@@ -46,14 +46,11 @@ export class UsageStatisticsStore {
     // atomically, across concurrent main/host connections.
     db.transaction(() => {
       if (db.prepare("SELECT key FROM usage_statistics_meta WHERE key = 'turn-history-imported'").get()) return;
-      // temporary-migration: usage-statistics-legacy-provider
-      // Remove the legacy provider CASE and its filter entry in 0.27.0.
       db.prepare(`INSERT OR IGNORE INTO usage_turns
       (id, provider_id, account_profile_id, model_id, created_at, completed_at, usage_json)
-      SELECT id, CASE provider_id WHEN 'stave' THEN 'claude-code' ELSE provider_id END, ?, NULL,
+      SELECT id, provider_id, ?, NULL,
         created_at, completed_at, usage_json FROM turns
-      WHERE provider_id IN ('stave', 'claude-code', 'codex', 'cursor', 'kiro')`).run(UNATTRIBUTED_ACCOUNT_ID);
-      // end temporary-migration: usage-statistics-legacy-provider
+      WHERE provider_id IN ('claude-code', 'codex', 'cursor', 'kiro')`).run(UNATTRIBUTED_ACCOUNT_ID);
       db.prepare("INSERT INTO usage_statistics_meta (key) VALUES ('turn-history-imported')").run();
     })();
   }

@@ -1,3 +1,32 @@
+## [0.27.0](https://github.com/sendbird/stave/compare/v0.26.5...v0.27.0) (2026-10-15)
+
+This minor release adds OpenCode as a fifth provider, lets Agent Runs keep going through usage limits, turn caps and waits, requires a host-verified check before a write run completes, and adds Vercel AI Gateway routing with cache-aware model changes.
+
+### Features and Fixes
+
+- OpenCode runs as a fifth provider through `opencode acp`, beside Cursor and Kiro, in task turns and a Standalone CLI tab. OpenCode keeps ownership of authentication; approval presets are enforced inside OpenCode, and models such as Vercel AI Gateway's GLM, DeepSeek and Gemini can run as first-class turns.
+- Agent Runs keep going where it is safe: an Auto agent's run uses the provider's own classifier (Claude auto mode, Codex auto-review), a usage limit pauses the run and resumes at the reset, an opt-in account pool can move it to another subscription account, and `stave_wait_for_event` waits for PR checks, reviews, time or delegated completion without spending turns. One status projection drives every run badge.
+- A run that reaches its turn cap halts as **Halted · Limit reached** and **Extend (+10 turns)** continues the same run and session; the cap comes from the agent's `tools.maxTurns` (default 30, ceiling 100). A delegated child run still ends at its cap.
+- A write-capable agent's run cannot claim "done" on its own word: when the workspace has an action script, the Work stage carries a required **Workspace checks pass** criterion that the host satisfies by running the script against the final revision (`stave_run_workspace_script`).
+- Vercel AI Gateway is an opt-in Routing decision model for Auto and Agent routing (Settings → Auto), with fallback to the native order and then local rules, connection pins and allowlists applied to execution, and safe decision diagnostics. Auto keeps the current model while the provider prompt cache is warm and defers a step up or a budget-driven step down to the next boundary; failover, pins and safety escalation still switch immediately.
+- Turns show the account they ran on: an inline label when a provider has more than one account, and a tooltip with the model, account and sign-in details.
+- Model selectors and usage meters list a provider only after authentication is confirmed; a changed account is verified before its quota is read.
+- Steering a running task keeps later reasoning after the steered message across restore, and late tool results stay with their calls. Task titles survive workspace switches and run updates, and Agent Run tasks receive names. Pane dividers stay visible beside Lens panels. The focus-only **Ask for changes** action is removed from completed results.
+
+### Upgrade Notes
+
+- Remove eight expired temporary migrations: project-memory export, agent-run prompt provenance, agent-run tables, notification kinds, settings keys and wake-up pause reasons (renames after 0.24.1), the Auto routing profile v5 rewrite, and the usage-statistics legacy provider mapping. Upgrades that skip the releases that carried them no longer convert this older data; launch 0.26.5 first if it has not already run, then upgrade to 0.27.0.
+- Codex Auto agents use `on-request` with `auto_review` on codex-cli 0.162.1 or later.
+
+### Known Limits
+
+- Live OpenCode, Vercel AI Gateway, installed-app sign-in and account-pool flows, and the packaged desktop app were not exercised during release preparation beyond the checks each PR reports. Live Electron runs covered Codex and Claude Code for Agent Run completion, limits and host checks.
+- A sealed message evicted from the 400-row memory window keeps a stale pending prompt on disk.
+
+### References
+
+- [PR #738](https://github.com/sendbird/stave/pull/738), [PR #739](https://github.com/sendbird/stave/pull/739), [PR #740](https://github.com/sendbird/stave/pull/740), [PR #741](https://github.com/sendbird/stave/pull/741), [PR #742](https://github.com/sendbird/stave/pull/742), [PR #743](https://github.com/sendbird/stave/pull/743), [PR #744](https://github.com/sendbird/stave/pull/744), [PR #745](https://github.com/sendbird/stave/pull/745), [PR #746](https://github.com/sendbird/stave/pull/746), [PR #747](https://github.com/sendbird/stave/pull/747), [PR #749](https://github.com/sendbird/stave/pull/749), [PR #750](https://github.com/sendbird/stave/pull/750), [PR #751](https://github.com/sendbird/stave/pull/751)
+
 ## [0.26.5](https://github.com/sendbird/stave/compare/v0.26.4...v0.26.5) (2026-10-12)
 
 This patch release adds customizable routing levels, document attribution, quoting and attachment, and a native Chrome retry for blocked Lens reads, and fixes quota state, run context and Compare baselines.

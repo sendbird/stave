@@ -26,12 +26,6 @@ import {
   type AgentRunEventKind,
   type AgentRunStageRecord,
 } from "../../src/lib/agent-runs/domain";
-// temporary-migration: agent-run-tables
-import { migrateLegacyAgentRunTables } from "./agent-run-legacy-names";
-// end temporary-migration: agent-run-tables
-// temporary-migration: agent-run-notification-kinds
-import { migrateLegacyAgentRunNotifications } from "./agent-run-legacy-names";
-// end temporary-migration: agent-run-notification-kinds
 import { SECOND_AGENT_RUN_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
 
 interface AgentRunStatement {
@@ -193,12 +187,6 @@ export class AgentRunStore {
   }
 
   private bootstrap() {
-    // temporary-migration: agent-run-tables
-    migrateLegacyAgentRunTables(this.db);
-    // end temporary-migration: agent-run-tables
-    // temporary-migration: agent-run-notification-kinds
-    migrateLegacyAgentRunNotifications(this.db);
-    // end temporary-migration: agent-run-notification-kinds
     // The retired mission_proposals and mission_trigger_seen tables are no
     // longer created; an existing database keeps them, unread and untouched.
     this.db.exec(`

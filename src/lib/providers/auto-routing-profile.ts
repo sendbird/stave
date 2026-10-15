@@ -954,15 +954,7 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     ? (candidate.stance as Stance)
     : starter.stance;
   const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
-  // temporary-migration: auto-routing-profile-v5
-  // Version 5 replaced the complexity ladder. A starter profile saved before
-  // it carries the previous starter table, whose tiers no longer match the
-  // levels, so it takes the current table. Custom tables are kept as saved.
-  const staleStarterTable =
-    (typeof candidate.version !== "number" || candidate.version < AUTO_ROUTING_PROFILE_VERSION)
-    && isStarterProfileId(rawId);
-  // end temporary-migration: auto-routing-profile-v5
-  const storedRules = Array.isArray(candidate.rules) && !staleStarterTable
+  const storedRules = Array.isArray(candidate.rules)
     ? candidate.rules
         .map((entry, index) => normalizeRule(entry, index))
         .filter((entry): entry is RouteRule => entry !== null)
