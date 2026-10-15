@@ -27,7 +27,20 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   const required = new Map(explicit.map((criterion) => [criterion.text.trim(), criterion]));
   // Planning may record criteria for later stages without claiming to have met them.
   if (stage.role !== "plan") {
-    for (const criterion of goalCriteria) if (!required.has(criterion.text.trim())) required.set(criterion.text.trim(), { text: criterion.text });
+    // A goal criterion an earlier stage already met stands, as it does before an
+    // action stage, unless this stage says otherwise: its report restates it as
+    // anything but met, or its own host check of that criterion has not passed
+    // (`collectAcceptanceCriteria` order: report, then check). Marking it
+    // optional here does not lift it. The rest must be met here.
+    for (const criterion of goalCriteria) {
+      const text = criterion.text.trim();
+      if (required.has(text)) continue;
+      const ownCheck = stage.acceptanceCriteria?.find((entry) => entry.verification === "stave-check" && entry.text.trim() === text);
+      const current = ownCheck
+        ? (workspaceCheckMet(record, "scriptIds" in ownCheck ? ownCheck.scriptIds : undefined, "scriptDefinitions" in ownCheck ? ownCheck.scriptDefinitions : undefined) ? "met" : "unverified")
+        : report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text)?.status ?? criterion.status;
+      if (current !== "met") required.set(text, ownCheck ? { ...ownCheck, required: true } : { text: criterion.text });
+    }
     for (const criterion of report?.acceptanceCriteria ?? []) {
       const text = criterion.text.trim();
       if (criterion.required !== false && !required.has(text) && !optionalTexts.has(text) && (finalStage || !inheritedTexts.has(text))) required.set(text, { text: criterion.text });

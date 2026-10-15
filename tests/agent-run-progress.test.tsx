@@ -142,13 +142,24 @@ test("sealed tool parts do not turn unfinished workers into successful results",
 });
 
 test("release notices and delegated instructions alone do not opt into native plans", () => {
-  for (const agentInstructions of ["# Agent released\nThe role no longer applies.", "Complete the delegated task."]) {
-    const runtimeOptions = { agentInstructions };
-    const claude = buildClaudeQueryOptions({ cwd: "/tmp/project", claudeExecutablePath: "", runtimeOptions });
-    expect(claude.env?.CLAUDE_CODE_ENABLE_TODO_TOOLS).toBeUndefined();
-    expect(claude.env?.CLAUDE_CODE_ENABLE_TASKS).toBeUndefined();
-    for (const params of [buildCodexThreadStartParams({ cwd: "/tmp/project", runtimeOptions }), buildCodexThreadResumeParams({ threadId: "thread", cwd: "/tmp/project", runtimeOptions })]) {
-      expect(params.config?.["tools.update_plan.enabled"]).toBeUndefined();
+  // Claude's env starts from this process's, and inside Claude Code both are already set.
+  const inherited = { CLAUDE_CODE_ENABLE_TODO_TOOLS: process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS, CLAUDE_CODE_ENABLE_TASKS: process.env.CLAUDE_CODE_ENABLE_TASKS };
+  delete process.env.CLAUDE_CODE_ENABLE_TODO_TOOLS;
+  delete process.env.CLAUDE_CODE_ENABLE_TASKS;
+  try {
+    for (const agentInstructions of ["# Agent released\nThe role no longer applies.", "Complete the delegated task."]) {
+      const runtimeOptions = { agentInstructions };
+      const claude = buildClaudeQueryOptions({ cwd: "/tmp/project", claudeExecutablePath: "", runtimeOptions });
+      expect(claude.env?.CLAUDE_CODE_ENABLE_TODO_TOOLS).toBeUndefined();
+      expect(claude.env?.CLAUDE_CODE_ENABLE_TASKS).toBeUndefined();
+      for (const params of [buildCodexThreadStartParams({ cwd: "/tmp/project", runtimeOptions }), buildCodexThreadResumeParams({ threadId: "thread", cwd: "/tmp/project", runtimeOptions })]) {
+        expect(params.config?.["tools.update_plan.enabled"]).toBeUndefined();
+      }
+    }
+  } finally {
+    for (const [name, value] of Object.entries(inherited)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
     }
   }
 });

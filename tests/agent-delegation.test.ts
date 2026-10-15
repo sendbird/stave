@@ -8,7 +8,7 @@ import {
   type DelegatedTaskHostPort,
   type DelegatedTaskLedgerPort,
 } from "../electron/main/runs/delegated-task-coordinator";
-import { applyAgentToDelegation } from "@/lib/agents/delegate";
+import { agentCallableIds, applyAgentToDelegation } from "@/lib/agents/delegate";
 import { duplicateAgent } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import type { AgentPermission } from "@/lib/agents/schema";
@@ -242,5 +242,18 @@ describe("can call", () => {
   test("without a Can call list any agent may be called", () => {
     expect(applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer, parentCanCall: null }).ok).toBe(true);
     expect(applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer }).ok).toBe(true);
+  });
+
+  test("an agent may call the agent its own workflow names for a stage, and no other", () => {
+    // An agent that lists nobody under Can call.
+    const implementer = { ...getBuiltinAgent("implementer")!, canCall: [] };
+    const reviewStage = { id: "review", title: "Review", kind: "ai" as const, instruction: "Review the commit.", doneWhen: "No defect remains.", agentConfigId: reviewer.id, pinCommit: true };
+    const withReview = { ...implementer, workflow: [{ id: "work", title: "Implement", kind: "ai" as const, instruction: "Implement.", doneWhen: "Done." }, reviewStage] };
+    expect(agentCallableIds(implementer)).toEqual([]);
+    expect(agentCallableIds(withReview)).toEqual([reviewer.id]);
+    expect(agentCallableIds({ ...withReview, canCall: undefined })).toBeNull();
+    expect(applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer, parentCanCall: agentCallableIds(withReview) }).ok).toBe(true);
+    const researcher = getBuiltinAgent("researcher")!;
+    expect(applyAgentToDelegation({ args: delegateArgs(researcher.id), agent: researcher, parentCanCall: agentCallableIds(withReview) })).toMatchObject({ ok: false, code: "not-allowed" });
   });
 });

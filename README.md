@@ -82,6 +82,7 @@ Recommended next steps:
 - workspace documents (plans, reports, specs) that agents revise in place, with every revision recorded
 - workspace-scoped notes, todos, PR links, Jira, Figma, Confluence, and Slack references
 - scheduled Claude and Codex automations with per-run results, repository selection, and reusable Information context
+- hand a goal to an agent and leave it: an Auto agent's run keeps going through approvals, turn limits, unanswered questions, pull request checks and usage resets, finishes only when the workspace check Stave runs itself passes, and calls you only for a decision ([how to work this way](docs/features/agent-runs.md#hand-off-a-goal-and-leave-it))
 - agents with a workflow: the stages you would otherwise prompt one by one — Stave opens the draft PR, watches checks, and checks in with you only where the agent says
 - Agent performance for comparing delegated runs across workspaces, and task Outputs for inspecting saved answers and changes
 - git worktree-aware repository and workspace management

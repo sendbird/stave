@@ -641,10 +641,12 @@ export function createDelegatedTaskCoordinator(
     if (completion.kind === "cancelled")
       return args.ledger.cancelRunStep({ runId: args.runId, stepId: args.stepId, expectedExecutionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:cancelled`, error: args.detail?.agentRun.reasonDetail ?? "The delegated Agent run was cancelled.", now: now() });
+    // A stopped child's report (a review's findings, say) still reaches the parent as its answer.
     if (completion.kind === "stopped")
       return args.ledger.failRunStep({ runId: args.runId, stepId: args.stepId, executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:stopped`, error: args.detail?.agentRun.reasonDetail ?? "The delegated Agent reached its execution limit before completion.",
-        detail: { code: "child-agent-run-stopped", agentRunId }, now: now() });
+        detail: { code: "child-agent-run-stopped", agentRunId,
+          ...(completion.report ? { responseText: boundResponseText(formatAgentRunReportMarkdown(completion.report)) } : {}) }, now: now() });
     if (completion.kind === "waiting") {
       const message = args.detail?.agentRun.reasonDetail ?? (args.detail ? currentStageRecord(args.detail).detail : null) ?? `Delegated Agent ${completion.reason}; open its task to respond or resume.`;
       if (current.step.status === "waiting" && (sequence <= (latest?.detail?.supervisorSequence ?? 0) || latest?.detail?.message === message)) return null;

@@ -239,9 +239,13 @@ function attemptLimitDetail(error: AgentRunCommandError) {
 /**
  * Completes the current stage, or marks it stuck once when the next stage has
  * no attempts left: entering that stage would otherwise throw on every tick.
+ * A report that leaves a required criterion unmet halts a primary run for its
+ * user; a delegated run ends instead, like at its turn cap, so the parent that
+ * waits on it reads the result rather than a child nobody is watching.
  */
-function completeStage(aggregate: AgentRunAggregate, record: AgentRunStageRecord): AgentRunDecision {
+function completeStage(aggregate: AgentRunAggregate, record: AgentRunStageRecord, observation: Pick<AgentRunObservation, "delegated">): AgentRunDecision {
   const unmet = unmetStageAcceptance(aggregate, record);
+  if (unmet && observation.delegated) return { action: "stop", reason: "acceptance-unmet", detail: clampReason(unmet) };
   if (unmet) return record.status === "blocked" && record.blockReason === "acceptance-unmet" && record.detail === clampReason(unmet)
     ? { action: "idle" } : { action: "block", reason: "acceptance-unmet", detail: clampReason(unmet) };
   const { agentRun } = aggregate;
@@ -372,7 +376,7 @@ function decideAiStage(
   if (report?.outcome === "complete") {
     // A stage cannot complete while work it delegated is still running.
     if (observation.leadTask.activeDelegatedTaskCount > 0) return { action: "idle" };
-    return completeStage(aggregate, record);
+    return completeStage(aggregate, record, observation);
   }
   if (report?.outcome === "blocked") {
     return record.status === "blocked"
@@ -438,7 +442,7 @@ function decideActionStage(
   }
   switch (outcome.status) {
     case "succeeded":
-      return completeStage(aggregate, record);
+      return completeStage(aggregate, record, observation);
     case "failed":
       return { action: "block", reason: "action-failed", detail: clampReason(outcome.detail) };
     case "stuck":

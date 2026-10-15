@@ -385,7 +385,9 @@
   "agentRunStatus": {
     "taskUnavailable": "The task is no longer available.",
     "turnCapReached": "The run used all its turns before it finished.",
+    "acceptanceUnmet": "The delegated run reported a required criterion unmet, so it ended for its parent to decide.",
     "expired": "The run took too long and expired.",
+    "metVerified": "Met · checked by Stave",
     "metReported": "Met · agent reported",
     "unmet": "Not met",
     "unverified": "Not verified",
@@ -456,7 +458,8 @@
     "hours": "{{value}}h",
     "days": "{{value}}d",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto permissions: Claude classifies actions; Codex uses auto-review when available and otherwise does not ask. Approvals that reach you are declined if nobody answers in time."
+    "autoPermissionClaude": "Claude auto mode decides each action. An action it cannot decide asks you, and an approval nobody answers in time is declined.",
+    "autoPermissionCodex": "Codex auto-review decides each action when available; otherwise Codex does not ask. An approval nobody answers in time is declined."
   },
   "checks": {
     "detail": "{{value1}} has been pending for {{value2}} minutes.",
@@ -517,6 +520,7 @@
   "insights": {
     "stuckStage": "Stuck stage",
     "turnCapReached": "Turn cap reached",
+    "acceptanceUnmet": "Criterion unmet",
     "expired": "Expired",
     "taskUnavailable": "Task unavailable",
     "turnFailed": "Turn failed",

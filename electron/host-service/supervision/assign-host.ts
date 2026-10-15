@@ -6,6 +6,7 @@
  */
 import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
 import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
+import { agentCallableIds } from "../../../src/lib/agents/delegate";
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { AgentRouteSettingsSchema } from "../../../src/lib/routing/agent-run-route";
@@ -94,7 +95,7 @@ export async function invokeAgentAction(
         const parent = runtime.agentForTask(taskId);
         const value: AgentDelegationContext = {
           parentPermission: parent?.permission ?? null,
-          parentCanCall: parent?.canCall ?? null,
+          parentCanCall: parent ? agentCallableIds(parent) : null,
         };
         return { ok: true, value };
       }

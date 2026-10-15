@@ -382,7 +382,9 @@
   "agentRunStatus": {
     "taskUnavailable": "작업을 더 이상 사용할 수 없습니다.",
     "turnCapReached": "실행이 완료되기 전에 턴을 모두 사용했습니다.",
+    "acceptanceUnmet": "위임된 실행이 필수 조건을 미충족으로 보고해, 상위 실행이 판단하도록 종료했습니다.",
     "expired": "실행 시간이 초과되어 만료되었습니다.",
+    "metVerified": "충족됨 · Stave 확인",
     "metReported": "충족됨 · 에이전트 보고",
     "unmet": "미충족",
     "unverified": "검증 안 됨",
@@ -453,7 +455,8 @@
     "hours": "{{value}}시간",
     "days": "{{value}}일",
     "stageOutcome": "{{stage}} {{status}}",
-    "autoPermissionDescription": "Auto 권한: Claude는 행동을 분류하고, Codex는 사용할 수 있으면 auto-review를 사용하며 그렇지 않으면 승인을 요청하지 않습니다. 사용자에게 온 승인 요청에 제때 응답하지 않으면 거부됩니다."
+    "autoPermissionClaude": "Claude auto mode가 각 행동을 판단합니다. 판단하지 못한 행동은 사용자에게 묻고, 제때 답하지 않은 승인 요청은 거부됩니다.",
+    "autoPermissionCodex": "사용할 수 있으면 Codex auto-review가 각 행동을 판단하고, 그렇지 않으면 Codex는 묻지 않습니다. 제때 답하지 않은 승인 요청은 거부됩니다."
   },
   "checks": {
     "detail": "{{value1}} 검사가 {{value2}}분 동안 대기 중입니다.",
@@ -512,6 +515,7 @@
   "insights": {
     "stuckStage": "정체된 단계",
     "turnCapReached": "턴 한도 도달",
+    "acceptanceUnmet": "조건 미충족",
     "expired": "만료됨",
     "taskUnavailable": "작업 사용 불가",
     "turnFailed": "턴 실패함",

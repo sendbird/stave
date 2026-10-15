@@ -26,6 +26,18 @@ const PROFILE_RANK: Readonly<Record<Profile, number>> = {
   auto: 2,
 };
 
+/**
+ * The agents a task running as `agent` may call: its "Can call" list plus the
+ * agents its own workflow names for a stage, since a stage done by another
+ * agent cannot run otherwise. Null when the list is absent (any agent).
+ * Permission ceilings still apply to every delegation.
+ */
+export function agentCallableIds(agent: Pick<AgentConfig, "canCall" | "workflow">): string[] | null {
+  if (!agent.canCall) return null;
+  const stageAgents = (agent.workflow ?? []).flatMap((stage) => stage.kind === "ai" && stage.agentConfigId ? [stage.agentConfigId] : []);
+  return [...new Set([...agent.canCall, ...stageAgents])];
+}
+
 /** The widest delegated profile a task running as an agent may hand out. */
 export function delegateCeiling(permission: AgentPermission): Profile {
   return permission === "read-only" ? "manual" : permission;

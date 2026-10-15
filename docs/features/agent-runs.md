@@ -13,6 +13,75 @@ run* (`AgentRun`). The product shows the agent, its stages and its result.
 Legacy runs, started from playbooks before playbooks folded
 into agents finish as they are, and their surfaces keep working.
 
+## Hand Off A Goal And Leave It
+
+You give an agent an outcome; the run carries it to a checked result and
+calls you only when it needs a decision.
+
+**Set up once**
+
+1. Give the agent **Permission: Auto** (Agents → the agent → **How it runs**).
+   With any other permission the run stops at each approval card.
+2. Add a workspace check: Settings → Repositories → **Scripts Manager** → an
+   **Action** that runs your checks, for example `bun run typecheck && bun test`
+   ([Workspace Scripts](workspace-scripts.md)). With one configured, a write
+   agent's run is done only when Stave runs that action itself and it passes.
+3. For work you want reviewed before it counts as done, add a review stage
+   ([Bigger goals](#bigger-goals)).
+
+**Start**: Agents → the agent → **Assign…**, write the outcome and what proves
+it, pick where it works, **Assign**. Or pick the agent in the composer and
+send.
+
+**What happens without you**
+
+| Situation | What the run does |
+|---|---|
+| The agent edits files or runs commands | The provider's classifier allows safe actions (Claude auto mode, Codex auto-review); only what it cannot decide asks you |
+| The run uses its turns | It halts on **Limit reached**; **Extend (+10 turns)** continues the same session |
+| The agent asks a question | The card stays until you answer, across app restarts; your answer continues the run once |
+| The agent says it is done | With a workspace check, done only when Stave's own check passes on the final work (**Met · checked by Stave**) |
+| The next step waits for pull request checks, a review or a time | The run waits without using turns and continues when it happens |
+| The subscription hits its usage limit | The run waits for the reset and continues on its own |
+
+**When it needs you**: the run reads **Needs your answer** (answer the card)
+or **Halted** with the reason (**Retry stage**, **Extend**, or **Take
+control**). Fleet's **Action required** and a notification point to it. Every
+other state continues on its own.
+
+### Bigger goals
+
+One run can take several related fixes at once. A passing check proves the
+check passes, not that the change is right: a change can satisfy a check
+without fixing its cause. For work that matters, give the agent three stages
+(Agents → the agent → **Workflow** → **Add stage**):
+
+1. **Implement**: do the assignment, run the workspace check, commit.
+2. **Review**: **Done by** Reviewer, with **Work on the commit checked out when
+   it starts** on. Instruction: review the committed change against the
+   assignment without changing files. Done when: `The review lists each defect
+   with file, line and reason, or says it found none.` Write a Done when the
+   reviewer can meet by reporting; a reviewer asked to make defects disappear
+   cannot, and its task halts.
+3. **Fix review findings**: fix each defect at its cause, run the workspace
+   check, commit. Done when every defect is fixed and the check passes.
+
+The Reviewer runs on the other provider when it can and reports its findings
+as its result. An agent may always call the agents its own workflow names for
+a stage, even when its **Can call** list leaves them out. A criterion an
+earlier stage met stands; the last stage must report met only what is still
+open, and its prompt says which.
+
+While a stage waits for another agent, the run reads **Running · Waiting ·
+Delegated work**. A delegated run that reports a required criterion unmet
+ends (**Criterion unmet**) instead of halting, and the waiting stage wakes
+with its report. A delegated task that stops for your answer or a blocked
+stage keeps the run waiting: open it from **Subagents** and answer or retry
+it there.
+
+For goals with separate parts, assign **Lead**, which splits the work across
+agents and checks each result before it reports.
+
 ## When To Use It
 
 - The work has a shape you repeat: reproduce, fix, verify; or validate, open a
@@ -181,8 +250,13 @@ agent run (a task without one shows its flow there):
 
 - The goal, the Run's badge and subtitle ([Run states](#run-states)), and
   the stage track.
-- **Done when**: the acceptance criteria the agent reported, each **Met**,
-  **Not met** or **Not verified**.
+- **Done when**: the acceptance criteria, each **Met · checked by Stave** (a
+  workspace check Stave ran and saw pass on the final work), **Met · agent
+  reported**, **Not met** or **Not verified**. A workspace check criterion
+  never reads as met on the agent's word. Below them, **Checked by Stave**
+  names the checks Stave saw pass, a workspace check by its action name.
+- The **Run** card's permissions line is short (**Auto permissions**); hover it
+  for what Auto does on that provider.
 - **Stages** as a timeline. Open a stage for its summary, decisions with their
   reasons, evidence (**Verified by Stave** first, with **Show** to jump to the
   tool call in the transcript), links, and the instruction it ran with.
@@ -204,7 +278,9 @@ A finished provider turn or subagent does not complete a stage by itself. The
 current turn must report completion, and any required criteria authored for
 that stage must be reported **Met**. Criteria for the overall goal are checked
 at the final stage; a Build stage can pass to Test while future checks are
-still pending. A simple answer or documentation stage requires no shell check
+still pending. At the final stage a goal criterion an earlier stage already
+met stands unless the final report says otherwise; the others must be
+reported **Met** there. A report holds up to 40 criteria. A simple answer or documentation stage requires no shell check
 unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 

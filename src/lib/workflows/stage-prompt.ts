@@ -69,7 +69,7 @@ function delegatedStageRule(stage: AiStage, agentName: string | undefined): stri
     stage.pinCommit
       ? "Commit your work first, then pass `workspace: { mode: \"same-workspace\" }` and `expectedHead` set to the commit `git rev-parse HEAD` prints now. Stave refuses to start the delegated task if the workspace moves off that commit; do not change files until it ends."
       : "Pass the workspace the agent should work in.",
-    "Wait for the delegated task to end, read its result with `stave_list_delegated_tasks`, and report this stage from that result. Do not do the stage's work yourself, and do not report it complete when the delegated task failed or found problems you did not resolve.",
+    "Wait for the delegated task to end, read its result with `stave_list_delegated_tasks`, and report this stage from that result. Do not do the stage's work yourself. When it did the stage's work and found problems, such as a review's findings, report this stage complete with those problems if a later stage of this workflow fixes them; otherwise do not report it complete with problems you did not resolve. When it failed to do the stage's work, do not report it complete.",
   ].join(" ");
 }
 
@@ -134,12 +134,20 @@ export function compileStagePrompt(input: StagePromptInput): string {
       )
     : null;
 
+  // The last stage completes the run only when every required criterion not
+  // yet met is reported met in its own report (`unmetStageAcceptance`).
+  const lastStageRule = stageIndex > 0 && stageIndex === workflow.stages.length - 1
+    ? "This is the last stage. The run finishes only when your report marks met every criterion this stage defines and every criterion below that is not marked [met], each in its exact text. A criterion marked [met] stays met unless you report it otherwise."
+    : null;
   const criteria = acceptanceCriteria.length
     ? section(
         "Acceptance criteria",
-        acceptanceCriteria
-          .map((criterion) => `- [${criterion.status}] ${criterion.text}`)
-          .join("\n"),
+        [
+          lastStageRule,
+          acceptanceCriteria
+            .map((criterion) => `- [${criterion.status}] ${criterion.text}`)
+            .join("\n"),
+        ].filter(Boolean).join("\n\n"),
       )
     : null;
 
