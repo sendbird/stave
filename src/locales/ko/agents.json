@@ -127,7 +127,15 @@
     "sentence13": "{{value1}} 각 단계의 확인 버튼 설정이 이 설정보다 우선합니다.",
     "extraCopy25": "실행이 모든 단계를 자동으로 진행하며 단계가 차단되거나 정체될 때만 중지합니다.",
     "extraCopy26": "계획 단계 이후, 게시하거나 풀 리퀘스트를 리뷰 준비 상태로 바꾸기 전에 응답을 기다립니다.",
-    "extraCopy27": "첫 단계 이후 매 단계 전에 응답을 기다립니다."
+    "extraCopy27": "첫 단계 이후 매 단계 전에 응답을 기다립니다.",
+    "reviewBeforeDone": "완료 전 리뷰",
+    "reviewBehaviorChanges": "동작이 바뀔 때",
+    "reviewAlways": "항상",
+    "reviewOff": "안 함",
+    "reviewBehaviorChangesHint": "실행이 검증한 변경을 커밋하면 Reviewer가 그 커밋을 리뷰하고(가능하면 다른 제공사), Agent가 지적을 고칩니다. 문구·서식·주석만 바뀐 변경은 지적 없이 통과합니다.",
+    "reviewAlwaysHint": "실행이 검증한 변경을 커밋하면 Reviewer가 모든 커밋을 리뷰하고(가능하면 다른 제공사), Agent가 지적을 고칩니다.",
+    "reviewOffHint": "작업을 마치고 검증하면 리뷰 없이 실행을 끝냅니다.",
+    "agentWorkflowFieldWithReview": "단계를 직접 계획하는 하나의 단계로 실행하고, 아래 리뷰가 켜져 있으면 리뷰를 거칩니다. 고정된 순서로 작업하려면 단계를 추가하세요."
   },
   "agentsTab": {
     "refused": "가져오지 않음",

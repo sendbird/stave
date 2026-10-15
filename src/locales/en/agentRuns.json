@@ -816,7 +816,9 @@
     "validate": "Validate",
     "openDraftPr": "Open draft PR",
     "watchChecks": "Watch checks",
-    "readyForReview": "Ready for review"
+    "readyForReview": "Ready for review",
+    "review": "Review",
+    "fixReview": "Fix review findings"
   },
   "remaining": {
     "presentationCopy0": "{{v1}} tokens",

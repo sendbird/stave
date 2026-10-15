@@ -53,8 +53,12 @@ other state continues on its own.
 
 One run can take several related fixes at once. A passing check proves the
 check passes, not that the change is right: a change can satisfy a check
-without fixing its cause. For work that matters, give the agent three stages
-(Agents → the agent → **Workflow** → **Add stage**):
+without fixing its cause. An agent that edits files and has no workflow of its
+own, such as Implementer, does this by itself: its **Review before done**
+setting (Agents → the agent → **Workflow**, on **When behavior changes** by
+default) makes every run Work → Review → Fix review findings. To shape the
+stages yourself, give the agent three stages (Agents → the agent →
+**Workflow** → **Add stage**):
 
 1. **Implement**: do the assignment, run the workspace check, commit.
 2. **Review**: **Done by** Reviewer, with **Work on the commit checked out when

@@ -56,7 +56,7 @@ function builtinAppearance(id: string): Pick<AgentConfig, "appearance"> {
 type AutoAgentModel = Extract<AgentConfig["model"], { mode: "auto" }>;
 
 type GeneralAgentDraft = Pick<AgentConfig, "id" | "name" | "description" | "permission" | "workspace" | "report"> &
-  Partial<Pick<AgentConfig, "avoidWhen" | "tools" | "canCall" | "usableAs">> & {
+  Partial<Pick<AgentConfig, "avoidWhen" | "tools" | "canCall" | "usableAs" | "reviewBeforeDone">> & {
     taskClass: NonNullable<AutoAgentModel["taskClass"]>;
     /** Where the agent would rather run; absent means the delegating task's provider. */
     preferredProvider?: AutoAgentModel["preferredProvider"];
@@ -129,6 +129,8 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     report: ["summary", "decisions", "verification", "risks"],
     usableAs: ["primary"],
     canCall: ["implementer", "ui-polisher", "debugger", "reviewer", "shipper", "researcher"],
+    // Lead asks for reviews of the parts it hands out; a review stage of its own would repeat them.
+    reviewBeforeDone: "off",
   }),
   general({
     id: "debugger",

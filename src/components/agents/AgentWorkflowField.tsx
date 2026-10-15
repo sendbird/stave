@@ -2,7 +2,8 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
-import { AGENT_CHECK_IN_LABELS, DEFAULT_AGENT_CHECK_INS, type AgentConfig } from "@/lib/agents/schema";
+import { AGENT_CHECK_IN_LABELS, DEFAULT_AGENT_CHECK_INS, REVIEW_BEFORE_DONE, type AgentConfig, type ReviewBeforeDone } from "@/lib/agents/schema";
+import { offersReviewBeforeDone, resolveReviewBeforeDone } from "@/lib/agents/review-before-done";
 import { applyCheckIns } from "@/lib/workflows/library";
 import { CHECK_INS, type CheckIns, type WorkflowStage } from "@/lib/workflows/schema";
 
@@ -11,6 +12,19 @@ const CHECK_IN_EFFECTS: Readonly<Record<CheckIns, string>> = {
   get "when-stuck"() { return i18n.t("agents:agentWorkflowField.extraCopy25"); },
   get "plan-and-publishing"() { return i18n.t("agents:agentWorkflowField.extraCopy26"); },
   get "every-stage"() { return i18n.t("agents:agentWorkflowField.extraCopy27"); },
+};
+
+const REVIEW_LABELS: Readonly<Record<ReviewBeforeDone, string>> = {
+  get "behavior-changes"() { return i18n.t("agents:agentWorkflowField.reviewBehaviorChanges"); },
+  get always() { return i18n.t("agents:agentWorkflowField.reviewAlways"); },
+  get off() { return i18n.t("agents:agentWorkflowField.reviewOff"); },
+};
+
+/** What a run of the agent does before it is done, per choice (`review-before-done.ts`). */
+const REVIEW_HINTS: Readonly<Record<ReviewBeforeDone, string>> = {
+  get "behavior-changes"() { return i18n.t("agents:agentWorkflowField.reviewBehaviorChangesHint"); },
+  get always() { return i18n.t("agents:agentWorkflowField.reviewAlwaysHint"); },
+  get off() { return i18n.t("agents:agentWorkflowField.reviewOffHint"); },
 };
 import { StageList } from "../workflows/StageList";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
@@ -41,6 +55,9 @@ export function AgentWorkflowField(props: {
   const checkIns = agent.checkIns ?? DEFAULT_AGENT_CHECK_INS;
   const value = useMemo(() => ({ checkIns, stages: agent.workflow ?? [] }), [agent.workflow, checkIns]);
   const issues = useMemo(() => stageIssues(props.issues), [props.issues]);
+  const review = resolveReviewBeforeDone(agent);
+  // Runs of the agent are Work → Review → Fix: they have stages to check in between.
+  const reviewed = value.stages.length === 0 && review !== "off";
   const apply = (next: { checkIns: CheckIns; stages: WorkflowStage[] }) => {
     const { workflow: _workflow, checkIns: _checkIns, ...rest } = agent;
     props.onChange({
@@ -52,10 +69,32 @@ export function AgentWorkflowField(props: {
   return (
     <>
       {value.stages.length === 0 ? (
-        <p className={sx(styles.hint)}>{i18n.t("agents:agentWorkflowField.agentWorkflowField")}</p>
+        <p className={sx(styles.hint)}>{i18n.t(offersReviewBeforeDone(agent) ? "agents:agentWorkflowField.agentWorkflowFieldWithReview" : "agents:agentWorkflowField.agentWorkflowField")}</p>
       ) : null}
       <StageList value={value} issues={issues} onChange={apply} />
-      {value.stages.length > 1 ? (
+      {offersReviewBeforeDone(agent) ? (
+        <>
+          <dl className={sx(styles.properties)}>
+            <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentWorkflowField.reviewBeforeDone")}</dt>
+            <dd className={sx(styles.propertyValue)}>
+              <Select
+                size="sm"
+                aria-label={i18n.t("agents:agentWorkflowField.reviewBeforeDone")}
+                value={review}
+                options={REVIEW_BEFORE_DONE.map((option) => ({ value: option, label: REVIEW_LABELS[option] }))}
+                onValueChange={(next) => {
+                  const { reviewBeforeDone: _previous, ...rest } = agent;
+                  const chosen = String(next) as ReviewBeforeDone;
+                  // The default stays implicit, so a later change of default reaches this agent.
+                  props.onChange(chosen === "behavior-changes" ? rest : { ...rest, reviewBeforeDone: chosen });
+                }}
+              />
+            </dd>
+          </dl>
+          <p className={sx(styles.hint)}>{REVIEW_HINTS[review]}</p>
+        </>
+      ) : null}
+      {value.stages.length > 1 || reviewed ? (
         <dl className={sx(styles.properties)}>
           <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentWorkflowField.agentWorkflowField2")}</dt>
           <dd className={sx(styles.propertyValue)}>
@@ -64,12 +103,18 @@ export function AgentWorkflowField(props: {
               aria-label={i18n.t("agents:agentWorkflowField.ariaLabel")}
               value={checkIns}
               options={[...CHECK_INS].reverse().map((level) => ({ value: level, label: AGENT_CHECK_IN_LABELS[level] }))}
-              onValueChange={(level) => apply(applyCheckIns(value, String(level) as CheckIns))}
+              onValueChange={(level) => {
+                const next = String(level) as CheckIns;
+                if (!reviewed) return apply(applyCheckIns(value, next));
+                // Review stages are composed when a run starts, so the choice is the agent's own.
+                const { checkIns: _previous, ...rest } = agent;
+                props.onChange(next === DEFAULT_AGENT_CHECK_INS ? rest : { ...rest, checkIns: next });
+              }}
             />
           </dd>
         </dl>
       ) : null}
-      {value.stages.length > 1 ? (
+      {value.stages.length > 1 || reviewed ? (
         <p className={sx(styles.hint)}>{i18n.t("agents:agentWorkflowField.sentence13", { value1: CHECK_IN_EFFECTS[checkIns] })}</p>
       ) : null}
     </>

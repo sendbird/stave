@@ -52,7 +52,8 @@ export type DelegatedAgentRunStart = z.infer<typeof DelegatedAgentRunStartSchema
 export function buildDelegatedAgentRunInput(args: {
   start: DelegatedAgentRunStart; agent: AgentConfig; now: Date;
 }): AgentRunStartInput {
-  const workflow = buildAgentRunWorkflow({ agent: args.agent, now: args.now });
+  // A helper's work is reviewed by the run that called it, and a solo child cannot delegate a review.
+  const workflow = buildAgentRunWorkflow({ agent: { ...args.agent, reviewBeforeDone: "off" }, now: args.now });
   return {
     workspaceId: args.start.workspaceId, leadTaskId: args.start.taskId,
     assignment: args.start.prompt, workflow: { ...workflow, team: "solo" },

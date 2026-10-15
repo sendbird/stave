@@ -368,7 +368,11 @@ describe("agent editor", () => {
 
   test("the Workflow section lists the stages and offers check-ins only with more than one", () => {
     const draft = blankCustomAgent({ name: "Docs Writer", takenIds: [] });
-    const single = renderToStaticMarkup(createElement(AgentEditor, { agent: draft, onSave: () => null }));
+    // With review before done a run of it is Work → Review → Fix, so check-ins apply.
+    const reviewed = renderToStaticMarkup(createElement(AgentEditor, { agent: draft, onSave: () => null }));
+    expect(reviewed).toContain("Review before done");
+    expect(reviewed).toContain("Check in with me");
+    const single = renderToStaticMarkup(createElement(AgentEditor, { agent: { ...draft, reviewBeforeDone: "off" }, onSave: () => null }));
     expect(single).toContain("Workflow");
     expect(single).toContain("Runs as one stage");
     expect(single).not.toContain("Check in with me");

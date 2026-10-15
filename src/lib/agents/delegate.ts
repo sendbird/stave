@@ -2,6 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import type { DelegateTaskArgs } from "@/lib/runs/delegated-task";
 import { compileAgent, snapshotAgent, type AgentSnapshot } from "./compile";
 import type { AgentConfig, AgentPermission } from "./schema";
+import { REVIEW_AGENT_ID, resolveReviewBeforeDone } from "./review-before-done";
 
 /**
  * Delegating to an agent (`DelegateTaskArgs.agentConfigId`): the agent's
@@ -28,14 +29,16 @@ const PROFILE_RANK: Readonly<Record<Profile, number>> = {
 
 /**
  * The agents a task running as `agent` may call: its "Can call" list plus the
- * agents its own workflow names for a stage, since a stage done by another
+ * agents its own workflow names for a stage, and the Reviewer when its runs
+ * end with a review (`review-before-done.ts`), since a stage done by another
  * agent cannot run otherwise. Null when the list is absent (any agent).
  * Permission ceilings still apply to every delegation.
  */
-export function agentCallableIds(agent: Pick<AgentConfig, "canCall" | "workflow">): string[] | null {
+export function agentCallableIds(agent: Pick<AgentConfig, "canCall" | "workflow"> & Partial<Pick<AgentConfig, "permission" | "reviewBeforeDone">>): string[] | null {
   if (!agent.canCall) return null;
   const stageAgents = (agent.workflow ?? []).flatMap((stage) => stage.kind === "ai" && stage.agentConfigId ? [stage.agentConfigId] : []);
-  return [...new Set([...agent.canCall, ...stageAgents])];
+  const reviewer = resolveReviewBeforeDone(agent) === "off" ? [] : [REVIEW_AGENT_ID];
+  return [...new Set([...agent.canCall, ...stageAgents, ...reviewer])];
 }
 
 /** The widest delegated profile a task running as an agent may hand out. */

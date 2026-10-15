@@ -19,6 +19,10 @@ const BUILTIN_STAGE_COPY = {
   "watch-checks": { canonical: "Watch checks", key: "agentRuns:builtinStages.watchChecks" },
   // i18n-ignore: canonical built-in stage title used for matching persisted workflows
   "ready-for-review": { canonical: "Ready for review", key: "agentRuns:builtinStages.readyForReview" },
+  // i18n-ignore: canonical built-in stage title used for matching persisted workflows
+  "review": { canonical: "Review", key: "agentRuns:builtinStages.review" },
+  // i18n-ignore: canonical built-in stage title used for matching persisted workflows
+  "fix-review": { canonical: "Fix review findings", key: "agentRuns:builtinStages.fixReview" },
 } as const;
 
 /** Localize reserved built-in stage names without changing the stored workflow or model instructions. */

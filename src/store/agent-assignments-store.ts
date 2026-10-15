@@ -49,6 +49,8 @@ export type TaskAgent = Pick<
   agentWorkflow: AgentAssignment["agent"]["workflow"];
   agentCheckIns: AgentAssignment["agent"]["checkIns"];
   agentTools?: AgentAssignment["agent"]["tools"];
+  /** Whether its runs end with a Reviewer stage and a fix stage (`review-before-done.ts`). */
+  agentReviewBeforeDone?: AgentAssignment["agent"]["reviewBeforeDone"];
 };
 
 interface AgentAssignmentsState {
@@ -93,6 +95,7 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentWorkflow: row.agent.workflow,
       agentCheckIns: row.agent.checkIns,
       agentTools: row.agent.tools,
+      ...(row.agent.reviewBeforeDone ? { agentReviewBeforeDone: row.agent.reviewBeforeDone } : {}),
       agentContentHash: row.agentContentHash,
       received: row.received,
       support: row.support,

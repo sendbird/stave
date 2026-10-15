@@ -128,7 +128,15 @@
     "sentence13": "{{value1}} A stage's hand toggle overrides this for that stage.",
     "extraCopy25": "The run goes through every stage on its own and stops only when a stage is blocked or stuck.",
     "extraCopy26": "The run waits for you after a plan stage and before it publishes or marks a pull request ready.",
-    "extraCopy27": "The run waits for you before each stage after the first."
+    "extraCopy27": "The run waits for you before each stage after the first.",
+    "reviewBeforeDone": "Review before done",
+    "reviewBehaviorChanges": "When behavior changes",
+    "reviewAlways": "Always",
+    "reviewOff": "Off",
+    "reviewBehaviorChangesHint": "A run commits its verified change, then the Reviewer reviews that commit, on the other provider when it can, and the agent fixes what it found. A change to wording, formatting or comments only passes without findings.",
+    "reviewAlwaysHint": "A run commits its verified change, then the Reviewer reviews every commit, on the other provider when it can, and the agent fixes what it found.",
+    "reviewOffHint": "A run ends when the work is done and verified, without a review.",
+    "agentWorkflowFieldWithReview": "Runs as one stage that plans its own steps, then the review below when it is on. Add stages to work in a fixed order."
   },
   "agentsTab": {
     "refused": "Not imported",

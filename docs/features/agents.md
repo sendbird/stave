@@ -182,6 +182,15 @@ Watch checks → Ready for review) come with a workflow.
 - **Check in with me** (with two or more stages): **Only when stuck**
   (default), **Before publishing** or **Every stage**. A stage's hand toggle
   makes that one stage ask, or not.
+- **Review before done** (an agent that edits files and has no stages):
+  **When behavior changes** (default), **Always** or **Off**. When it is on, a
+  run commits its verified change, the Reviewer reviews that commit (on the
+  other provider when it can) and the agent fixes what it found, so a run is
+  Work → Review → Fix review findings. Under **When behavior changes** a commit
+  that only changes wording, formatting or comments passes the review without
+  findings. Lead is **Off**: it asks for reviews of the parts it hands out. A
+  delegated helper's run is never reviewed this way; the run that called it
+  decides. The workspace check, when there is one, gates the fix stage.
 - Each AI stage reports when it is done; the run card and the Task panel's
   **Progress** show the stages only when there is more than one.
 - A saved Agent's delegated task defaults to supervised completion: its frozen
@@ -189,7 +198,7 @@ Watch checks → Ready for review) come with a workflow.
   permissions and the selected model. Explicit one-turn consultations and
   detached work retain their existing lifecycles. In-turn subagents receive AI
   stages as instructions and remain scoped to the parent's turn.
-- Exported agent files leave the workflow out and say so.
+- Exported agent files leave the workflow and a set review choice out and say so.
 
 ### Deleting an agent
 
