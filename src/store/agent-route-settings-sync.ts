@@ -18,8 +18,7 @@ const CLASSIFIED_PROVIDERS = ["claude-code", "codex"] as const;
 export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettingsInput {
   const classifies =
     settings.autoRoutingEnabled &&
-    settings.autoRoutingProfile.signals.classifier &&
-    settings.auxiliaryInferencePolicy.utility.enabled;
+    settings.autoRoutingProfile.signals.classifier;
   const contextFor = (providerId: (typeof CLASSIFIED_PROVIDERS)[number]): AgentRouteClassifierContext => {
     const context = buildUtilityInferenceContext({
       provider: providerId,
@@ -28,6 +27,7 @@ export function buildAgentRouteSettings(settings: AppSettings): AgentRouteSettin
     });
     const options = context.runtimeOptions;
     return {
+      routingDecision: settings.routingDecision,
       ...(context.utilityProviderId ? { utilityProviderId: context.utilityProviderId } : {}),
       ...(context.utilityModel ? { utilityModel: context.utilityModel } : {}),
       ...(context.utilityMaxProviderAttempts ? { utilityMaxProviderAttempts: context.utilityMaxProviderAttempts } : {}),

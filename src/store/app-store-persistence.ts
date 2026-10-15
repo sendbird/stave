@@ -1,4 +1,5 @@
 import { applyAppLocale, normalizeAppLocale } from "@/i18n";
+import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
@@ -394,6 +395,7 @@ export function createAppStorePersistenceOptions() {
       state.settings.auxiliaryInferenceDefault = normalizeAuxInferenceDefault(
         raw.auxiliaryInferenceDefault,
       );
+      state.settings.routingDecision = normalizeRoutingDecision(raw.routingDecision);
       // The standalone turn-summary model settings became the `turnSummary`
       // lane. Carry a user's explicit choice over once, then drop the old keys.
       if (raw.auxiliaryInferencePolicy === undefined) {

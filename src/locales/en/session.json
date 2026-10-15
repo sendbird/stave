@@ -946,5 +946,25 @@
     "errorUnavailable": "Secret requests are not available in this window.",
     "toastSaved": "{{envVar}} saved and bound to this task",
     "toastSavedDescription": "It is available from your next message."
+  },
+  "routingDecision": {
+    "description": "Decision: {{model}} · {{status}} · {{elapsed}}s · reason: {{failure}} · Gateway reported cost: {{cost}}",
+    "local": "Local rules",
+    "cached": "cached result",
+    "fallback": "fallback",
+    "primary": "preferred model",
+    "none": "none",
+    "unknownCost": "unknown",
+    "failures": {
+      "auth": "authentication rejected",
+      "budget": "budget exhausted",
+      "timeout": "deadline exceeded",
+      "network": "network failure",
+      "unavailable": "unavailable",
+      "missingKey": "missing key",
+      "rateLimit": "rate limited",
+      "invalidResponse": "invalid response"
+    },
+    "heading": "Routing decisions"
   }
 }

@@ -7,6 +7,14 @@ import {
 } from "@/components/ai-elements/model-selector.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { ApiConnectionsSettings } from "@/components/layout/ApiConnectionsSettings";
+import { RoutingDecisionField } from "@/components/layout/RoutingDecisionField";
+import { SettingsCard } from "@/components/layout/settings-dialog.shared";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import type { RoutingDecisionConfig } from "@/lib/providers/routing-decision";
+import { useTranslation } from "@/i18n";
+import { useAppStore } from "@/store/app.store";
+import { SettingsAutoRoutingSection } from "@/components/layout/settings-dialog-auto-routing-section";
+import { formatRoutingDecision } from "@/lib/providers/routing-decision-label";
 import { Toaster } from "@/components/ui";
 import { buildApiConnectionCatalogEntries } from "@/lib/providers/api-connection-models";
 import { VERCEL_AI_GATEWAY, type ApiConnection, type ApiConnectionCatalogModel } from "@/lib/providers/api-connections";
@@ -46,16 +54,26 @@ window.api = {
     remove: async () => ({ ok: false, message: "Preview: removing is disabled." }),
     check: async () => ({ ok: false, status: "budget-exhausted", missingModels: [],
       message: "This key's budget on the gateway is used up (HTTP 402). Ask whoever manages the gateway to raise it, or wait until it resets." }),
-    discoverModels: async () => ({ ok: true, models: catalog }),
+    discoverModels: async (args) => ({ ok: true, models: args?.purpose === "decision" ? [{ id: "typesafe-ai/jev", name: "Jev", tags: [] }, { id: "liquid/d1", name: "Liquid d1", tags: [] }] : catalog }),
   },
   secrets: {
     ...window.api?.secrets,
     list: async () => ({ ok: true, secrets: [{ id: secretId, name: "Vercel AI Gateway", description: "", valuePreview: "…f3a1", createdAt: 0, updatedAt: 0 }] as never }),
   },
 } as typeof window.api;
+useProviderAccounts.setState({ profiles: ["claude-code", "codex"].map((providerId) => ({ id: connection.id,
+  providerId: providerId as "claude-code" | "codex", kind: "managed" as const, label: connection.label,
+  gateway: { baseUrl: connection.endpoints[providerId as "claude-code" | "codex"]!, secretId, models: connection.models.map((model) => model.id) },
+  apiConnection: { label: connection.label, kind: connection.kind, models: connection.models },
+})), loaded: true });
+useAppStore.setState((state) => ({ settings: { ...state.settings, autoRoutingEnabled: true, codexAccountProfileId: connection.id, claudeAccountProfileId: connection.id },
+  providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false } }));
 
 /** The settings card and the composer picker for one connection selected under Claude Code. */
 export function ApiConnectionsPreview() {
+  const { t } = useTranslation("settingsProviders");
+  const [decision, setDecision] = useState<RoutingDecisionConfig>({ mode: "automatic" });
+  const [agentDecision, setAgentDecision] = useState<RoutingDecisionConfig>();
   const claudeEntries = useMemo(() => buildApiConnectionCatalogEntries({
     runtime: "claude-code",
     profile: { label: connection.label, apiConnection: { label: connection.label, kind: connection.kind, models: connection.models } },
@@ -68,6 +86,16 @@ export function ApiConnectionsPreview() {
   const [value, setValue] = useState<ModelSelectorOption>(() => options[0]!);
   return <div className={sx(styles.page)}>
     <h1 className={sx(styles.heading)}>API connections</h1>
+    <div data-preview="decision-settings" className={sx(local.card)}>
+      <SettingsCard title={t("routingDecision.title")} description={t("routingDecision.description")}>
+        <RoutingDecisionField value={decision} onChange={(value) => { if (value) setDecision(value); }} />
+      </SettingsCard>
+    </div>
+    <div data-preview="agent-decision" className={sx(local.card)}>
+      <RoutingDecisionField allowInherit value={agentDecision} onChange={setAgentDecision} />
+    </div>
+    <div data-preview="auto-settings" className={sx(local.card)}><SettingsAutoRoutingSection /></div>
+    <p data-preview="decision-diagnostic">{formatRoutingDecision({ providerId: "codex", model: "gpt-6-luna", preferred: { mode: "gateway", connectionId: connection.id, model: "typesafe-ai/jev" }, fallback: true, elapsedMs: 1800, failure: "budget", reportedCostUsd: null })}</p>
     <div data-preview="settings-card" className={sx(local.card)}><ApiConnectionsSettings /></div>
     <div data-preview="model-picker" className={sx(styles.stage)}>
       <ModelEffortSelector value={value} options={options} onSelect={({ selection }) => setValue(selection)} />

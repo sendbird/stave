@@ -5,26 +5,27 @@ import { routeEffortOverrides } from "../routing/auto-routing";
 import { getModelCapability, MODEL_TIER_ORDER } from "../providers/model-catalog";
 
 /** A proposal is applied only at the next supervised turn, never in its tool call. */
-export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentRunAggregate, events: readonly AgentRunEvent[], catalog?: AdaptiveModelCatalog | null) {
+export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentRunAggregate, events: readonly AgentRunEvent[], catalog?: AdaptiveModelCatalog | null,
+  automatic?: { model: string; effort?: string; rationale: string }) {
   let model = policy.allowedModels[0]!, effort = policy.initialEffort;
   let changes = 0, lastChangeTurn = -policy.cooldownTurns, appliedThrough = 0;
   const stage = currentStageRecord(aggregate);
   for (const event of events) {
     if (event.kind !== "resource-decision") continue;
-    appliedThrough = Math.max(appliedThrough, Number(event.detail.requestSequence));
+    if (event.detail.automatic !== true) appliedThrough = Math.max(appliedThrough, Number(event.detail.requestSequence));
     if (event.detail.accepted !== true) continue;
     if (typeof event.detail.model !== "string" || !policy.allowedModels.includes(event.detail.model)) throw new Error("Invalid saved adaptive route.");
     model = event.detail.model;
     effort = typeof event.detail.effort === "string" ? event.detail.effort : null;
     changes += 1;
     lastChangeTurn = Number(event.detail.turnCount);
-    appliedThrough = Math.max(appliedThrough, Number(event.detail.requestSequence));
+    if (event.detail.automatic !== true) appliedThrough = Math.max(appliedThrough, Number(event.detail.requestSequence));
   }
   const event = events.filter((row) => row.kind === "resource-request" && row.sequence > appliedThrough &&
     row.detail.stageId === stage.stageId && row.detail.attempt === stage.attempt).at(-1);
   let decision: Record<string, unknown> | null = null;
-  if (event) {
-    const request = AgentResourceRequestSchema.parse(event.detail.request);
+  if (event || automatic) {
+    const request = event ? AgentResourceRequestSchema.parse(event.detail.request) : { ...automatic!, reason: "capability-mismatch" as const, evidenceRefs: [] as string[] };
     const nextModel = request.model ?? model;
     const beforeTier = getModelCapability({ model }), afterTier = getModelCapability({ model: nextModel });
     const linkedTurns = new Set(events.filter((row) => row.kind === "turn-linked" && row.detail.stageId === stage.stageId && row.detail.attempt === stage.attempt)
@@ -44,7 +45,7 @@ export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentR
       request.reason === "mechanical-step" && nextEffort && (!effort || efforts.indexOf(nextEffort) > efforts.indexOf(effort)) ? "A mechanical step cannot increase effort." :
       request.reason === "mechanical-step" && (!beforeTier || !afterTier || MODEL_TIER_ORDER.indexOf(afterTier.tier) > MODEL_TIER_ORDER.indexOf(beforeTier.tier)) ? "A mechanical step cannot increase model capability." :
       nextModel === model && nextEffort === effort ? "This is already the current route." : null;
-    decision = { accepted: rejection === null, requestSequence: event.sequence,
+    decision = { accepted: rejection === null, requestSequence: event?.sequence ?? null, ...(!event ? { automatic: true } : {}),
       model: rejection ? model : nextModel, effort: rejection ? effort : nextEffort,
       turnCount: aggregate.agentRun.turnCount, stageId: stage.stageId, attempt: stage.attempt,
       reason: rejection ?? request.reason, rationale: request.rationale };

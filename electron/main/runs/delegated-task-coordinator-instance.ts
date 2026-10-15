@@ -116,6 +116,8 @@ export function getDelegatedTaskCoordinator() {
         return result.value.rootRunId;
       },
       host,
+      resolveTurnRoute: (input) => invokeHostService("delegated-agent.resolve-route", input),
+      cancelTurnRoute: (requestId) => invokeHostService("provider.cancel-route-classification", { requestId }),
       readAgentModel: (agentConfigId) => findAgent(agentConfigId)?.model ?? null,
       resolveDelegationStrengths: () =>
         invokeHostService("local-mcp.invoke", { action: "resolve-delegation-strengths", args: {} }) as Promise<

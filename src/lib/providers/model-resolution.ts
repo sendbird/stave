@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { AutoRoutingModelResolution } from "./provider.types";
+import { RoutingDecisionObservationSchema } from "./routing-decision";
 
 const ModelResolutionProviderIdSchema = z.union([
   z.literal("claude-code"),
@@ -16,6 +17,7 @@ const ModelResolutionProviderIdSchema = z.union([
  */
 export const AutoRoutingModelResolutionSchema = z
   .object({
+    routingDecision: RoutingDecisionObservationSchema.optional(),
     selectedProviderId: ModelResolutionProviderIdSchema,
     selectedModel: z.string().trim().min(1).max(200),
     source: z.union([

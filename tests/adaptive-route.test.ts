@@ -11,6 +11,12 @@ import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
 const now = new Date("2026-10-09T00:00:00Z");
 const policy = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: { ...getBuiltinAgent("builder")!, model: { mode: "auto" } },
   settings: null, maxTurns: 30, draft: { autoRouting: true } });
+test("adaptive Gateway runs freeze only pinned models and reject an unpinned seed", () => {
+  const args = { providerId: "codex" as const, model: "openai/gpt-6-luna", agent: null, settings: null, maxTurns: 30,
+    draft: { autoRouting: true }, exclusiveModels: ["openai/gpt-6-luna", "moonshotai/kimi-k3"] };
+  expect(freezeAdaptivePolicy(args).allowedModels).toEqual(args.exclusiveModels);
+  expect(() => freezeAdaptivePolicy({ ...args, model: "gpt-6-astra" })).toThrow("pinned");
+});
 function aggregate(turnCount = 1) {
   const change = createAgentRun({ id: "r", input: buildAgentRunStartInput({ workspaceId: "ws", taskId: "t", agent: { name: "Agent" }, assignment: "Verify", now }),
     repositoryPath: "/tmp/repo", fingerprint: { providerId: "codex", model: "gpt-6.1-sol" }, now });
@@ -22,6 +28,16 @@ function event(sequence: number, kind: AgentRunEvent["kind"], detail: Record<str
 const linked = event(1, "turn-linked", { stageId: "work", attempt: 1, turnId: "t1" });
 const request = (sequence: number, model: string) => event(sequence, "resource-request", {
   stageId: "work", attempt: 1, request: { model, reason: "mechanical-step", rationale: "A bounded mechanical task remains", evidenceRefs: ["t1"] },
+});
+test("automatic Decision proposals share pins, same-provider catalog, cooldown and change limits without hiding Agent requests", () => {
+  const proposal = { model: "gpt-6-luna", effort: "low", rationale: "Low complexity" };
+  expect(selectAdaptiveRoute(policy, aggregate(0), [], null, proposal).decision).toMatchObject({ accepted: true, automatic: true });
+  expect(selectAdaptiveRoute({ ...policy, modelLocked: true }, aggregate(0), [], null, proposal).decision).toMatchObject({ accepted: false, reason: "The model is pinned." });
+  expect(selectAdaptiveRoute(policy, aggregate(0), [], null, { ...proposal, model: "anthropic/claude-opus-5.5" }).decision?.accepted).toBe(false);
+  const automatic = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, model: "gpt-6-luna", effort: "low" });
+  expect(selectAdaptiveRoute(policy, aggregate(1), [automatic], null, { ...proposal, model: "gpt-6.1-sol" }).decision).toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
+  const pending = request(3, "gpt-6.1-sol");
+  expect(selectAdaptiveRoute(policy, aggregate(3), [linked, automatic, pending], null, proposal).requestSequence).toBe(3);
 });
 test("explicit model and effort pins are frozen without taking a caller authority field", () => {
   const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 100,

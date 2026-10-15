@@ -1,4 +1,5 @@
 import { normalizeInlineRenderNetworkPolicy } from "@/lib/inline-render/inline-render";
+import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
 import { normalizeWorkspaceSettleAfterDays } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { providersWithChangedAccount, resetRateLimitsForProviders } from "@/store/rate-limits-account-reset";
@@ -507,6 +508,7 @@ export function createSettingsActions(args: {
           : {
               autoRoutingProfile: validateProfile(patch.autoRoutingProfile),
             }),
+        ...(patch.routingDecision === undefined ? {} : { routingDecision: normalizeRoutingDecision(patch.routingDecision) }),
         ...(patch.auxiliaryInferenceDefault === undefined
           ? {}
           : {

@@ -55,9 +55,9 @@ export function resetVercelCatalogCache() {
   catalogCache = null;
 }
 
-export async function discoverApiConnectionModels(request: Fetch = fetch): Promise<ApiConnectionCatalogResult> {
+export async function discoverApiConnectionModels(request: Fetch = fetch, purpose: "coding" | "decision" = "coding"): Promise<ApiConnectionCatalogResult> {
   try {
-    return { ok: true, models: filterApiConnectionCatalog(await fetchVercelCatalog(request)) };
+    return { ok: true, models: filterApiConnectionCatalog(await fetchVercelCatalog(request), Date.now(), purpose) };
   } catch {
     return { ok: false, models: [], message: "Could not load the Vercel AI Gateway model list. Check your network, then try again; you can also type model IDs." };
   }

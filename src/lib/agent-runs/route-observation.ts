@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { buildAgentRunTurnOutcomeKey, type AgentRunEvent, type AgentRunStageRecord, type StageStatus } from "./domain";
 import type { TurnUsageSample } from "./usage";
+import { RoutingDecisionObservationSchema, type RoutingDecisionObservation } from "../providers/routing-decision";
 
 const RouteModelSchema = z.object({
   providerId: z.enum(["claude-code", "codex", "cursor", "kiro"]),
@@ -30,6 +31,7 @@ export interface AgentRunRouteTurnFacts {
 }
 
 export interface AgentRunRouteObservation {
+  decision?: RoutingDecisionObservation;
   decisionId: string;
   turnId: string | null;
   stageId: string | null;
@@ -90,6 +92,7 @@ export function projectAgentRunRoutes(args: {
     const stage = args.stages.find((record) => record.agentRunId === args.agentRunId && record.stageId === stageId && record.attempt === attempt);
     const usage = facts?.completed ? facts.usage : null;
     const observation: AgentRunRouteObservation = {
+      ...(RoutingDecisionObservationSchema.safeParse(event.detail.routingDecision).success ? { decision: RoutingDecisionObservationSchema.parse(event.detail.routingDecision) } : {}),
       decisionId, turnId, stageId, attempt,
       selection: selection.success ? selection.data : null,
       providerChanged: selection.success ? selection.data.previous.providerId !== selection.data.selected.providerId : null,

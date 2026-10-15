@@ -32,7 +32,7 @@ import {
   type AgentPreferredProvider,
 } from "@/lib/agents/schema";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
-import { CLAUDE_SDK_MODEL_OPTIONS, CODEX_MODEL_OPTIONS, listProviderIds } from "@/lib/providers/model-catalog";
+import { listProviderIds } from "@/lib/providers/model-catalog";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
@@ -40,6 +40,8 @@ import { agentStyles } from "./agents.styles";
 import { TagField } from "./TagField";
 import { AgentCanCallField } from "./AgentCanCallField";
 import { AgentWorkflowField } from "./AgentWorkflowField";
+import { RoutingDecisionField } from "@/components/layout/RoutingDecisionField";
+import { AgentExecutionModelField } from "./AgentExecutionModelField";
 
 const REPORT_LABELS: Readonly<Record<(typeof AGENT_REPORT_SECTIONS)[number], string>> = {
   get summary() { return i18n.t("agents:agentEditor.summary"); },
@@ -52,10 +54,6 @@ const REPORT_LABELS: Readonly<Record<(typeof AGENT_REPORT_SECTIONS)[number], str
   get limitations() { return i18n.t("agents:agentEditor.limitations"); },
 };
 
-const MODEL_OPTIONS_BY_PROVIDER: Partial<Record<ProviderId, readonly string[]>> = {
-  "claude-code": CLAUDE_SDK_MODEL_OPTIONS,
-  codex: CODEX_MODEL_OPTIONS,
-};
 
 /** Field-keyed validation issues from `AgentConfigSchema` for inline display. */
 function fieldIssues(agent: AgentConfig): Record<string, string> {
@@ -218,6 +216,14 @@ export function AgentEditor(props: {
           </dd>
           {draft.model.mode === "auto" ? (
             <>
+              <dt className={sx(styles.propertyLabel)}>{i18n.t("settingsProviders:routingDecision.title")}</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <RoutingDecisionField allowInherit value={draft.model.decision} onChange={(decision) => {
+                  if (draft.model.mode !== "auto") return;
+                  const { decision: _previous, ...model } = draft.model;
+                  setModel({ ...model, ...(decision ? { decision } : {}) });
+                }} />
+              </dd>
               <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor5")}</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Select
@@ -235,6 +241,7 @@ export function AgentEditor(props: {
                       ...(draft.model.mode === "auto" && draft.model.preferredProvider
                         ? { preferredProvider: draft.model.preferredProvider }
                         : {}),
+                      ...(draft.model.mode === "auto" && draft.model.decision ? { decision: draft.model.decision } : {}),
                     })
                   }
                 />
@@ -254,6 +261,7 @@ export function AgentEditor(props: {
                       mode: "auto",
                       ...(draft.model.mode === "auto" && draft.model.taskClass ? { taskClass: draft.model.taskClass } : {}),
                       ...(value ? { preferredProvider: String(value) as AgentPreferredProvider } : {}),
+                      ...(draft.model.mode === "auto" && draft.model.decision ? { decision: draft.model.decision } : {}),
                     })
                   }
                 />
@@ -275,18 +283,8 @@ export function AgentEditor(props: {
               </dd>
               <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor7")}</dt>
               <dd className={sx(styles.propertyValue)}>
-                <Select
-                  size="sm"
-                  aria-label={i18n.t("agents:agentEditor.ariaLabel8")}
-                  value={draft.model.model ?? ""}
-                  options={[
-                    { value: "", label: i18n.t("agents:agentEditor.label3") },
-                    ...(MODEL_OPTIONS_BY_PROVIDER[draft.model.providerId] ?? []).map((value) => ({ value, label: value })),
-                  ]}
-                  onValueChange={(value) =>
-                    setModel({ ...(draft.model as Extract<AgentModel, { mode: "fixed" }>), model: value ? String(value) : undefined })
-                  }
-                />
+                <AgentExecutionModelField providerId={draft.model.providerId} model={draft.model.model} onChange={(model) =>
+                  setModel({ ...(draft.model as Extract<AgentModel, { mode: "fixed" }>), model })} />
               </dd>
               <dt className={sx(styles.propertyLabel)}>{i18n.t("agents:agentEditor.agentEditor8")}</dt>
               <dd className={sx(styles.propertyValue)}>

@@ -21,6 +21,9 @@ import {
 } from "@/store/pending-auto-routing-store";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { createUtilityRouteClassifier } from "@/store/utility-inference-runtime";
+import { exclusiveGatewayModels } from "@/lib/providers/api-connection-routing";
+import { ensureRoutingAccountCatalog } from "@/lib/providers/routing-account-catalog";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 
 type RoutingState = Pick<
@@ -74,8 +77,7 @@ export function shouldClassifyAutoRoute(args: {
     args.settings.autoRoutingEnabled &&
     overrides?.autoRouting === true &&
     !overrides.model?.trim() &&
-    args.settings.autoRoutingProfile.signals.classifier &&
-    args.settings.auxiliaryInferencePolicy.utility.enabled
+    args.settings.autoRoutingProfile.signals.classifier
   );
 }
 
@@ -137,15 +139,17 @@ export async function resolveAutoRoutingForSend(args: {
   ) {
     return null;
   }
+  let routingDecision: import("@/lib/providers/routing-decision").RoutingDecisionObservation | undefined;
   const classifyRoute = shouldClassifyAutoRoute({ settings: state.settings, promptDraft })
     ? createUtilityRouteClassifier({
         cacheScope: `${args.workspaceCwd ?? ""}:${args.taskId ?? ""}`,
-        context: buildUtilityInferenceContext({
+        onDecision: (observation) => { routingDecision = observation; },
+        context: { ...buildUtilityInferenceContext({
           cwd: args.workspaceCwd,
           provider: args.provider,
           model: args.activeModel,
           settings: state.settings,
-        }),
+        }), routingDecision: (args.taskId ? useAgentAssignmentsStore.getState().byTaskId[args.taskId]?.agentDecision : undefined) ?? state.settings.routingDecision },
       })
     : undefined;
   const controller = new AbortController();
@@ -175,6 +179,7 @@ export async function resolveAutoRoutingForSend(args: {
     });
   const classifierStartedAt = Date.now();
   try {
+    await ensureRoutingAccountCatalog({ ...state.settings, ...promptDraft.runtimeOverrides }, controller.signal, (["codex", "claude-code"] as const).filter((providerId) => state.providerAvailability?.[providerId] !== false));
     const decision = await resolveAutoRoutingDecision({
       signal: controller.signal,
       classifierSignal: classifierController.signal,
@@ -199,6 +204,7 @@ export async function resolveAutoRoutingForSend(args: {
       phase: "execute",
       rateLimitsSnapshot: state.rateLimitsSnapshot,
       providerAvailability: state.providerAvailability,
+      exclusiveModelsByProvider: exclusiveGatewayModels(useProviderAccounts.getState().profiles, { ...state.settings, ...promptDraft.runtimeOverrides }),
       classifyRoute,
       ...(taskClassHint ? { taskClassHint } : {}),
       ...(preferredProviderHint ? { preferredProviderHint } : {}),
@@ -221,7 +227,7 @@ export async function resolveAutoRoutingForSend(args: {
     return classifyRoute &&
       (decision.source === "classifier" ||
         decision.source === "classifier_fallback")
-      ? { ...decision, classifierElapsedMs: Date.now() - classifierStartedAt }
+      ? { ...decision, classifierElapsedMs: Date.now() - classifierStartedAt, ...(routingDecision ? { routingDecision } : {}) }
       : decision;
   } catch (error) {
     if (ownsPendingRow) endPendingAutoRoute(pendingRow);
@@ -265,6 +271,7 @@ export function buildAutoRoutingModelResolution(args: {
     return null;
   }
   return {
+    ...(decision.routingDecision ? { routingDecision: decision.routingDecision } : {}),
     selectedProviderId: args.provider,
     selectedModel: args.model,
     source: decision.source,

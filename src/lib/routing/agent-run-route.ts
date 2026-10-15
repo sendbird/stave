@@ -17,6 +17,7 @@ import { fixedModelOf, resolveAgentModelRoute, type AgentModelRoute } from "@/li
 import type { AgentConfig } from "@/lib/agents/schema";
 import { AgentRunRouteSelectionSchema, type AgentRunRouteSelection } from "@/lib/agent-runs/route-observation";
 import { validateProfile } from "@/lib/providers/auto-routing-profile";
+import { RoutingDecisionConfigSchema } from "@/lib/providers/routing-decision";
 import { getDefaultModelForProvider, inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { boundRouteIntentInput, RouteIntentResultSchema } from "@/lib/providers/route-intent";
@@ -42,6 +43,7 @@ const BinaryPathSchema = z.string().max(4_096).optional();
 const ClassifierContextSchema = z
   .object({
     utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
+    routingDecision: RoutingDecisionConfigSchema.optional(),
     utilityModel: z.string().trim().max(200).optional(),
     utilityMaxProviderAttempts: z.number().int().min(1).max(8).optional(),
     runtimeOptions: z
@@ -127,6 +129,7 @@ export async function routeAgentRunTurn(args: {
   prompt: string;
   history: readonly AutoRoutingHistoryMessage[];
   classifyRoute?: RouteClassifier;
+  exclusiveModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   signal?: AbortSignal;
 }): Promise<AgentTurnRoute> {
   args.signal?.throwIfAborted();
@@ -182,6 +185,7 @@ export async function routeAgentRunTurn(args: {
     const preferredProviderHint = args.agent?.model.mode === "auto" ? args.agent.model.preferredProvider : undefined;
     const decision = await resolveAutoRoutingDecision({
       settings: args.settings.routing,
+      exclusiveModelsByProvider: args.exclusiveModelsByProvider,
       runtimeOverrides: draft,
       currentProviderId: args.current.providerId,
       currentModel: args.current.model,
@@ -222,12 +226,12 @@ export async function routeAgentRunTurn(args: {
  */
 export function createAgentRouteClassifier(args: {
   context: AgentRouteClassifierContext & Pick<UtilityInferenceContext, "cwd" | "activeProviderId">;
-  classify: (request: RouteClassificationRequest) => Promise<{ ok: boolean; classification?: unknown }>;
+  classify: (request: RouteClassificationRequest, signal?: AbortSignal) => Promise<{ ok: boolean; classification?: unknown }>;
 }): RouteClassifier {
   return async (request, signal) => {
     if (signal?.aborted) return null;
     try {
-      const result = await args.classify({ ...args.context, ...boundRouteIntentInput(request) });
+      const result = await args.classify({ ...args.context, ...boundRouteIntentInput(request) }, signal);
       if (signal?.aborted || !result.ok) return null;
       const parsed = RouteIntentResultSchema.safeParse(result.classification);
       return parsed.success ? parsed.data : null;

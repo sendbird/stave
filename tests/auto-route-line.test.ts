@@ -38,6 +38,15 @@ const MESSAGE = {
 } satisfies Pick<ChatMessage, "providerId" | "model" | "modelInfo">;
 
 describe("buildAutoRouteLineView", () => {
+  test("recorded Decision metadata distinguishes Gateway fallback and unknown cost", () => {
+    const view = buildAutoRouteLineView({ resolution: { ...RESOLUTION, routingDecision: {
+      providerId: "codex", model: "gpt-6-luna", preferred: { mode: "gateway", connectionId: "44444444-4444-4444-8444-444444444444", model: "typesafe-ai/jev" },
+      elapsedMs: 1800, fallback: true, failure: "budget", reportedCostUsd: null,
+    } }, message: MESSAGE });
+    expect(view.description).toContain("gpt-6-luna");
+    expect(view.description).toContain("budget exhausted");
+    expect(view.description).toContain("unknown");
+  });
   test("reads a classifier decision as model, effort, task class and wait", () => {
     const view = buildAutoRouteLineView({ resolution: RESOLUTION, message: MESSAGE });
     expect(view.modelLabel).toContain("High");

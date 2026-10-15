@@ -290,14 +290,10 @@ describe("run runtime: accounts a turn runs on", () => {
     expect(currentProviderAccountId("claude-code")).toBe("system-default");
   });
 
-  test("a run on an API connection is refused at the start, not on its first turn", async () => {
-    const harness = createHarness({ extra: { usesApiConnection: (_providerId, accountProfileId) => accountProfileId === WORK } });
-    await expect(harness.runtime.startAgentRun(startInput({ accounts: { claudeAccountProfileId: WORK, codexAccountProfileId: "system-default" } })))
-      .rejects.toThrow("cannot use an API connection");
-    expect(harness.store.listActiveAgentRuns()).toHaveLength(0);
-    // Only the run's own provider matters.
-    await startedAgentRun(harness, startInput({ accounts: { claudeAccountProfileId: PERSONAL, codexAccountProfileId: WORK } }));
-    expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL });
+  test("a run preserves API connection account ids for main-owned per-turn credential resolution", async () => {
+    const harness = createHarness();
+    await startedAgentRun(harness, startInput({ accounts: { claudeAccountProfileId: WORK, codexAccountProfileId: "system-default" } }));
+    expect(harness.runCalls[0]?.runtimeOptions).toMatchObject({ claudeAccountProfileId: WORK });
   });
 
   test("an adaptive policy's frozen account wins for its provider; the other provider keeps the selection", async () => {
@@ -1459,6 +1455,28 @@ test("pause cancels preparation and only a new resume can dispatch", async () =>
   expect(h.runCalls).toHaveLength(1);
 });
 
+test("pause during Gateway key preparation prevents a late credential from dispatching or entering events", async () => {
+  let reached!: () => void;
+  const ready = new Promise<void>((resolve) => { reached = resolve; });
+  let release!: () => void;
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  let signal: AbortSignal | undefined;
+  const harness = createHarness({ extra: {
+    prepareGatewayCredentials: async (args) => {
+      signal = args.signal; reached(); await held;
+      return { codex: { profileId: WORK, token: "late-fixture-key" } };
+    },
+  } });
+  const created = await harness.runtime.startAgentRun(startInput());
+  await ready;
+  await harness.runtime.pause({ agentRunId: created.agentRun.id });
+  expect(signal?.aborted).toBe(true);
+  release(); await harness.tick();
+  expect(harness.runCalls).toHaveLength(0);
+  expect(harness.aggregate(created.agentRun.id).agentRun.turnCount).toBe(0);
+  expect(JSON.stringify(harness.store.listRecentEvents(created.agentRun.id, 30))).not.toContain("late-fixture-key");
+});
+
 for (const conflict of [
   { activeTurnId: "user-turn" }, { pendingApprovalCount: 1 }, { pendingUserInputCount: 1 },
 ]) test(`preparation defers without charging a turn when attention changes: ${Object.keys(conflict)[0]}`, async () => {
@@ -1508,6 +1526,32 @@ describe("opted-in adaptive Run resources", () => {
     modelLocked: false, effortLocked: false, initialEffort: "medium", teamTurns: 30,
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const,
     maxChanges: 2 as const, cooldownTurns: 2 as const, ...patch,
+  });
+  test("Adaptive Decision recommendations use frozen limits and are cancelled before spending a turn", async () => {
+    const p = policy("codex");
+    let calls = 0;
+    const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async (input) => {
+      calls++; expect(input.allowedModels).toEqual(p.allowedModels);
+      return { fingerprint: { providerId: "codex", model: "gpt-6-luna" }, runtimeOptions: { codexReasoningEffort: "low" }, route: "auto", rationale: "Low complexity" };
+    } } });
+    h.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", adaptive: true }));
+    expect(calls).toBe(1);
+    expect(h.runCalls[0]!.fingerprint.model).toBe("gpt-6-luna");
+    expect(h.store.listEventsByKind(id, ["resource-decision"])[0]?.detail).toMatchObject({ automatic: true, accepted: true });
+    await h.runtime.cancel({ agentRunId: id });
+    let entered!: () => void, finish!: () => void, observed: AbortSignal | undefined;
+    const ready = new Promise<void>((resolve) => { entered = resolve; });
+    const held = new Promise<void>((resolve) => { finish = resolve; });
+    const stopped = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async (_, signal) => {
+      observed = signal; entered(); await held; return { fingerprint: { providerId: "codex", model: "gpt-6-luna" }, runtimeOptions: {}, route: "auto", rationale: "Late" };
+    } } });
+    stopped.setSnapshot({ providerId: "codex", model: p.allowedModels[0]! });
+    const start = await stopped.runtime.startAgentRun(startInput({ origin: "agent", adaptive: true }));
+    await ready; await stopped.runtime.pause({ agentRunId: start.agentRun.id });
+    expect(observed?.aborted).toBe(true); finish(); await stopped.tick();
+    expect(stopped.runCalls).toHaveLength(0);
+    expect(stopped.store.readResources(start.agentRun.id)?.spent).toBe(0);
   });
   for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a grant proposal changes only the next turn and keeps provider/permissions`, async () => {
     const p = policy(providerId);

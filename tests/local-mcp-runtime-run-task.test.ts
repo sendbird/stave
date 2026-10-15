@@ -164,7 +164,7 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
 }
 
 const fakeStore = {
-  delegationPolicies: { loadSettings: () => persistedPermissionSettings },
+  delegationPolicies: { loadSettings: () => persistedPermissionSettings, loadTaskAccounts: () => undefined },
   loadRepositoryRegistry: () => [
     {
       repositoryPath: REPOSITORY_PATH,

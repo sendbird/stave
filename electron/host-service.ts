@@ -4,6 +4,7 @@ import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
 import { currentProviderAccountId, withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
+import { createHostGatewayCredentialBroker, setHostGatewayCredentialBroker, type HostGatewayCredentialRequest } from "./provider-accounts/host-gateway-credentials";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
@@ -88,7 +89,10 @@ import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createPullRequestWatchReader } from "./host-service/pull-request-watch-reader";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
-import { createHostAgentRunRuntime } from "./host-service/supervision/agent-run-host";
+import { createHostAgentRunRuntime, resolveWorkspacePath } from "./host-service/supervision/agent-run-host";
+import { getProviderAccountRegistry } from "./provider-accounts/registry";
+import { createConstrainedHostRouter } from "./host-service/supervision/constrained-route-host";
+import { withConstrainedRoutingCancellation } from "./providers/constrained-routing-cancellation";
 import { invokeAgentRunRuntime } from "./host-service/supervision/agent-run-runtime";
 import {
   createHostAssignRuntime,
@@ -219,6 +223,7 @@ import type { PersistenceTurnUsage } from "./persistence/types";
 const hostServiceStdout = claimHostServiceStdout();
 
 type HostServiceOutboundMessage =
+  | HostGatewayCredentialRequest
   | AnyHostServiceResponseEnvelope
   | {
       type: "ready";
@@ -261,6 +266,7 @@ let fatalHostServiceError: Error | null = null;
 let shutdownTriggered = false;
 
 function describeOutboundMessage(message: HostServiceOutboundMessage) {
+  if (message.type === "gateway-credential-request") return "gateway-credential-request";
   if (message.type === "ready") {
     return "ready";
   }
@@ -271,6 +277,8 @@ function describeOutboundMessage(message: HostServiceOutboundMessage) {
 }
 
 const isDevBuild = !!process.env.STAVE_DEV;
+const gatewayCredentialBroker = createHostGatewayCredentialBroker((request) => writeMessage(request));
+setHostGatewayCredentialBroker(gatewayCredentialBroker);
 
 function logHostServiceQueue(message: string) {
   if (!isDevBuild) return;
@@ -1416,6 +1424,7 @@ async function respondError(id: number, error: unknown) {
 }
 
 async function shutdown() {
+  gatewayCredentialBroker.close();
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
@@ -1522,7 +1531,7 @@ function requestNeedsCliDiscovery(method: string) {
   ) {
     return false;
   }
-  return method.startsWith("provider.");
+  return method.startsWith("provider.") || method === "delegated-agent.resolve-route";
 }
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
@@ -2152,6 +2161,17 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, await prepareDelegatedAgentRun({ start: request.params, runtime: agentRunRuntime,
         assignmentForTask: (taskId) => assignRuntime.assignmentForTask(taskId), createTask: localMcpRuntime.createIdleTask }));
       return;
+    case "delegated-agent.resolve-route": {
+      const persistence = ensureHostServicePersistenceReady();
+      const router = createConstrainedHostRouter({ assignment: (taskId) => assignRuntime.assignmentForTask(taskId),
+        settings: () => persistence.delegationPolicies.loadRouteSettings(), profiles: () => getProviderAccountRegistry().list(),
+        history: ({ workspaceId, taskId }) => persistence.loadTaskMessagesPage({ workspaceId, taskId, limit: 12 })?.messages ?? [],
+        parentModels: (taskId, providerId) => { const run = persistence.agentRuns.getActiveAgentRunForTask(taskId); const policy = run ? persistence.agentRuns.resourceConfig(run.id)?.policy : undefined;
+          if (policy && policy.providerId !== providerId) throw new Error("The helper must keep the parent's frozen provider."); return policy?.allowedModels; },
+        cwd: resolveWorkspacePath,
+        classify: (input, signal) => classifyUtilityRoute(input, undefined, undefined, signal) });
+      await respond(request.id, await withConstrainedRoutingCancellation(request.params.requestId, (signal) => router(request.params, signal))); return;
+    }
     case "delegated-agent.activate":
       await respond(request.id, await agentRunRuntime.activateDelegatedAgentRun(request.params));
       return;
@@ -2252,10 +2272,14 @@ async function main() {
         continue;
       }
       void (async () => {
-        let request: AnyHostServiceRequestEnvelope;
+        let request: AnyHostServiceRequestEnvelope | import("./provider-accounts/host-gateway-credentials").HostGatewayCredentialResponse;
         try {
-          request = JSON.parse(message) as AnyHostServiceRequestEnvelope;
+          request = JSON.parse(message) as typeof request;
         } catch {
+          return;
+        }
+        if (request.type === "gateway-credential-response") {
+          gatewayCredentialBroker.receive(request);
           return;
         }
         if (request.type !== "request") {

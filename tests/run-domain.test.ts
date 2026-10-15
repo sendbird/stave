@@ -295,4 +295,11 @@ describe("run domain", () => {
       attempt: 2,
     });
   });
+
+  test("keeps only the strict Decision observation in receipt metadata", () => {
+    const observation = { providerId: "local", model: null, preferred: { mode: "automatic" }, fallback: true, elapsedMs: 50, failure: "budget", reportedCostUsd: null };
+    expect(sanitizeRunReceiptDetail({ routingDecision: observation })).toEqual({ routingDecision: observation });
+    expect(sanitizeRunReceiptDetail({ routingDecision: { ...observation, response: "private body" } })).toBeNull();
+    expect(sanitizeRunReceiptDetail({ routingDecision: { ...observation, failure: "raw backend text" } })).toBeNull();
+  });
 });

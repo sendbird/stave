@@ -159,7 +159,7 @@
     "classificationAndSignals": "분류와 판단 신호",
     "whatAutoMayReadBeforeIt": "Auto가 경로를 선택하기 전에 읽을 수 있는 정보입니다.",
     "modelClassification": "모델 분류",
-    "theUtilityModelRatesIntentLevel": "유틸리티 모델이 의도, 수준, 위험을 평가합니다 (최대 30초). 꺼져 있거나 실패하면 로컬 키워드 규칙을 사용합니다. 로컬 규칙은 전문가나 최고 수준을 선택하지 않습니다.",
+    "theUtilityModelRatesIntentLevel": "라우팅 판단 모델이 의도, 수준, 위험을 평가합니다 (최대 30초). 꺼져 있거나 실패하면 로컬 키워드 규칙을 사용합니다. 로컬 규칙은 전문가나 최고 수준을 선택하지 않습니다.",
     "safetyEscalation": "안전 수준 상향",
     "changesToAuthSecretsPaymentsOr": "인증, 시크릿, 결제, 운영 데이터의 변경은 복잡 수준 이상의 작업으로 라우팅합니다.",
     "skillRouting": "스킬 라우팅",

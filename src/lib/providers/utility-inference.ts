@@ -1,4 +1,5 @@
 import { getUtilityInferenceCapability, inferProviderIdFromModel } from "./model-catalog";
+import type { RoutingDecisionConfig, RoutingDecisionObservation, RoutingDecisionFailure } from "./routing-decision";
 import { buildRouteIntentPrompt, parseRouteIntent, type RouteIntentInput, type RouteIntentResult } from "./route-intent";
 import type {
   ManagedExecutionProviderId,
@@ -55,6 +56,9 @@ export type UtilityInferenceAttempt = {
 };
 
 export type UtilityInferenceMetadata = {
+  routing?: RoutingDecisionObservation;
+  /** Decision API provenance; credentials are never part of this record. */
+  gateway?: { connectionId: string; model: string; ok: boolean; failure?: RoutingDecisionFailure; reportedCostUsd?: number | null };
   providerId: UtilityRunnerProviderId | null;
   model: string | null;
   selectionReason: UtilityInferenceSelectionReason | "unavailable";
@@ -101,6 +105,7 @@ export function resolveRouteClassificationTarget(context: UtilityInferenceContex
 export type RouteClassification = RouteIntentResult;
 export type RouteClassificationRequest = UtilityInferenceContext & RouteIntentInput & {
   requestId?: string;
+  routingDecision?: RoutingDecisionConfig;
 };
 
 export function normalizeUtilityInferenceProvider(

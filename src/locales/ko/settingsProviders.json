@@ -608,7 +608,7 @@
       "utility": {
         "title": "유틸리티 추론",
         "switchTitle": "유틸리티 추론 실행",
-        "description": "라우팅 분류, 커밋 메시지, 프롬프트 개선 같은 기계적인 보조 호출입니다.",
+        "description": "커밋 메시지와 프롬프트 개선 같은 텍스트 보조 호출입니다. Auto와 Agent 분류는 설정 > Auto의 라우팅 판단 모델을 사용합니다.",
         "modelDescription": "기계적인 유틸리티 호출에 사용하는 모델입니다."
       },
       "prDescription": {
@@ -1092,5 +1092,23 @@
     "hiddenValues_other": "보호된 값 {{count}}개 숨김",
     "mcpApplyUnavailable": "MCP 구성을 적용하는 API를 사용할 수 없습니다.",
     "writesTrustNote": "`writes`는 각 도구의 읽기 전용 선언을 신뢰하며 보안 경계가 아닙니다."
+  },
+  "routingDecision": {
+    "title": "라우팅 판단 모델",
+    "description": "Auto와 Agent의 작업을 분류하는 모델을 선택합니다. 실제 작업을 수행하는 모델은 바뀌지 않습니다.",
+    "inherit": "전역 기본값 사용",
+    "automatic": "자동 · Luna 우선, 다음 Haiku",
+    "fallback": "로그인되어 사용 가능한 모델을 사용합니다. 자동은 Luna, Haiku 순으로 시도합니다. Gateway 실패 시에도 같은 순서로 전환하며, 둘 다 사용할 수 없으면 로컬 규칙으로 진행합니다.",
+    "noConnections": "먼저 설정 > 도구에서 Vercel AI Gateway API 연결을 추가하세요.",
+    "searchConnections": "API 연결 검색",
+    "connection": "API 연결",
+    "searchModels": "판단 모델 검색",
+    "model": "판단 모델",
+    "modelPlaceholder": "이름이나 ID로 검색하세요. 예: Jev",
+    "loading": "판단 모델을 불러오는 중…",
+    "noMatches": "일치하는 항목이 없습니다.",
+    "missingConnection": "이 연결을 더 이상 사용할 수 없습니다. 다른 연결을 선택하세요. 네이티브 fallback은 계속 사용할 수 있습니다.",
+    "loadFailed": "판단 모델을 불러오지 못했습니다. 저장된 선택은 유지됩니다.",
+    "retry": "다시 시도"
   }
 }

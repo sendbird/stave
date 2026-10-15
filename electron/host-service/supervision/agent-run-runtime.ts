@@ -160,9 +160,8 @@ export interface AgentRunTurnRow {
 
 export interface AgentRunRuntimeDependencies {
   store: AgentRunStorePort;
+  prepareGatewayCredentials?: (args: { accounts: ProviderAccountSelection; signal: AbortSignal }) => Promise<import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined>;
   freezeResources?: (args: { run: AgentRun; authority?: DelegatedAgentRunAuthority; routingIntent?: AdaptiveRoutingIntent; accounts?: ProviderAccountSelection }) => AdaptiveRunPolicy;
-  /** Whether an account is an API connection, whose key a host-started turn cannot read. */
-  usesApiConnection?: (providerId: "claude-code" | "codex", accountProfileId: string) => boolean;
   stopResourceTask?: (args: { workspaceId: string; taskId: string }) => Promise<unknown>;
   resourceExecutionLive?: (childRunId: string, executionId: string) => boolean;
   delegatedAssignment?: (taskId: string) => AgentAssignment | null;
@@ -180,6 +179,7 @@ export interface AgentRunRuntimeDependencies {
     limit: number;
   }) => AgentRunTurnRow[];
   runSupervisedTurn: (args: {
+    gatewayCredentials?: import("../../provider-accounts/gateway-runtime").GatewayCredentials;
     workspaceId: string;
     taskId: string;
     parentTaskId?: string;
@@ -248,6 +248,7 @@ export interface AgentRunRuntimeDependencies {
    * Absent or null: the agent run's fingerprint, as for a legacy run.
    */
   routeAgentTurn?: (args: { agentRun: AgentRun; prompt: string; signal?: AbortSignal }) => Promise<AgentRunTurnRoute | null>;
+  routeConstrainedTurn?: (args: import("../../../src/lib/routing/constrained-route").ConstrainedRouteInput, signal?: AbortSignal) => Promise<AgentRunTurnRoute>;
   /** Whether the task still runs as an agent. An agent run ends once it does not. Absent: it does. */
   taskRunsAsAgent?: (taskId: string) => boolean;
   /** How a turn ended. An agent run ends when the user stopped its turn. Absent: never read. */
@@ -262,6 +263,7 @@ export interface AgentRunRuntimeDependencies {
 
 /** The runtime one agent-run turn starts on, and why. */
 export interface AgentRunTurnRoute {
+  decision?: import("../../../src/lib/providers/utility-inference").UtilityInferenceMetadata;
   fingerprint: AgentRunFingerprint;
   runtimeOptions: ProviderRuntimeOptions;
   route: string;
@@ -434,16 +436,6 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     return accounts;
   }
 
-  /**
-   * A run's own turns start in the host, outside any request that carries an
-   * API connection's key, so they would fail on their first turn. Refuse at
-   * the start with the reason instead.
-   */
-  function refuseApiConnectionRun(providerId: "claude-code" | "codex", accounts: ProviderAccountSelection | undefined) {
-    const accountProfileId = providerId === "codex" ? accounts?.codexAccountProfileId : accounts?.claudeAccountProfileId;
-    if (accountProfileId && deps.usesApiConnection?.(providerId, accountProfileId))
-      refuse("An Agent run cannot use an API connection yet. Choose a signed-in account for new turns, then send again.");
-  }
 
   function requireDelegatedAssignment(agentRun: Pick<AgentRun, "leadTaskId" | "workspaceId">, authority: DelegatedAgentRunAuthority) {
     const assignment = deps.delegatedAssignment?.(agentRun.leadTaskId);
@@ -884,18 +876,34 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const observed = resources?.policy.accountProfileId ? readAdaptiveObservations(resources.policy.providerId, resources.policy.accountProfileId, now().getTime()) : null;
     const catalogModels = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models : null;
     // A cached catalog can reject a proposal; it never silently replaces a pinned/current model.
-    const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
+    let adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels) : null;
     preparationControllers.set(agentRun.id, controller);
     let routed: AgentRunTurnRoute | null, startHeadSha = before.startHeadSha;
+    let gatewayCredentials: import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined;
     try {
+      const initialDecision = !actionPrompt && !agentRun.turnCount ? delegation?.initialDecision : undefined;
+      const constrained = !initialDecision && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
+        workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId, providerId: agentRun.fingerprint.providerId as "codex" | "claude-code",
+        prompt: actionPrompt ?? agentRun.assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
+        effort: adaptive?.effort ?? delegation?.effort, modelPinned: resources?.policy.modelLocked ?? delegation?.modelPinned,
+        effortPinned: resources?.policy.effortLocked ?? delegation?.effortPinned, accounts: runAccountOptions(agentRun, resources),
+        allowedModels: resources?.policy.allowedModels ?? delegation?.allowedModels,
+      }, controller.signal)) : null;
+      if (adaptive && constrained?.route === "auto" && resources) adaptive = selectAdaptiveRoute(resources.policy, aggregate,
+        store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels,
+        { model: constrained.fingerprint.model, effort: constrained.runtimeOptions.codexReasoningEffort ?? constrained.runtimeOptions.claudeEffort, rationale: constrained.rationale });
       routed = adaptive ? {
         fingerprint: { providerId: resources!.policy.providerId, model: adaptive.model }, runtimeOptions: adaptive.runtimeOptions,
         route: "adaptive", rationale: String(adaptive.decision?.reason ?? "Frozen Balanced route; no unsupported escalation."),
         selection: { version: 1, source: "adaptive", previous: agentRun.fingerprint,
           selected: { providerId: resources!.policy.providerId, model: adaptive.model }, requestedEffort: adaptive.effort,
           effortSource: "adaptive", inputs: { quota: observed?.quota ? "cached" : "not-provided", catalog: catalogModels ? "cached" : "frozen", availability: observed?.quota || observed?.catalog ? "cached" : "not-provided" } },
-      } : await prepareRunTurn(controller.signal, () => !delegation && hasAgentOrigin(agentRun)
+      } : constrained ?? (initialDecision ? { fingerprint: agentRun.fingerprint, runtimeOptions: buildDelegatedTaskRuntimeOptions({ providerId: agentRun.fingerprint.providerId, model: agentRun.fingerprint.model, effort: delegation?.effort, permissionPolicy: delegation?.permissionPolicy }), route: "auto", rationale: "Admitted Decision route.", selection: null } : null) ?? await prepareRunTurn(controller.signal, () => !delegation && hasAgentOrigin(agentRun)
         ? withRequestAccountScope(runAccountOptions(agentRun, resources), () => routeAgentTurn(agentRun, controller.signal)) : Promise.resolve(null));
+      if (routed && constrained?.decision) routed.decision = constrained.decision;
+      if (routed && initialDecision) routed.decision = { routing: initialDecision, providerId: initialDecision.providerId === "codex" || initialDecision.providerId === "claude-code" ? initialDecision.providerId : null, model: initialDecision.model, selectionReason: "explicit", degraded: initialDecision.fallback, attempts: [] };
+      if (deps.prepareGatewayCredentials) gatewayCredentials = await prepareRunTurn(controller.signal, () =>
+        deps.prepareGatewayCredentials!({ accounts: runAccountOptions(agentRun, resources), signal: controller.signal }));
       if (!startHeadSha) startHeadSha = await prepareRunTurn(controller.signal, async () => {
         const cwd = await deps.resolveWorkspacePath(agentRun.workspaceId);
         return cwd ? deps.readHeadSha(cwd).catch(() => null) : null;
@@ -945,7 +953,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       await markStartFailure(agentRun.id, "The shared turn budget is unavailable. Finish or stop helpers to release unused reservations, or start a new Run.");
       return;
     }
-    if (adaptive?.decision) recordEvent(agentRun, { kind: "resource-decision", idempotencyKey: `${agentRun.id}:resource-decision:${adaptive.requestSequence}`, detail: adaptive.decision });
+    if (adaptive?.decision) recordEvent(agentRun, { kind: "resource-decision", idempotencyKey: `${agentRun.id}:resource-decision:${adaptive.requestSequence ?? `auto:${agentRun.turnCount}`}`, detail: adaptive.decision });
     const routeSelection = AgentRunRouteSelectionSchema.safeParse(routed?.selection);
     // The turn count, the stage record and the keyed `turn-started` event are
     // written together, before the turn exists.
@@ -972,6 +980,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               quotaObservedAt: observed.quota?.metadata.observedAt ?? null, quotaSource: observed.quota?.metadata.source ?? null,
               catalogObservedAt: observed.catalog?.observedAt ?? null } } : {}),
             ...(routeSelection.success ? { routeSelection: routeSelection.data } : {}),
+            ...(routed?.decision?.routing ? { routingDecision: routed.decision.routing } : {}),
           },
         },
       ],
@@ -982,6 +991,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       (reason === "nudge" ? buildStageNudgePrompt(started) : compileAgentRunStagePrompt(started, deps.agentNames?.()));
     try {
       const turn = await deps.runSupervisedTurn({
+        ...(deps.prepareGatewayCredentials ? { gatewayCredentials: gatewayCredentials ?? {} } : {}),
         workspaceId: agentRun.workspaceId,
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
@@ -1474,7 +1484,6 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           return detailOf(agentRunId);
         }
         if (store.getActiveAgentRunForTask(input.leadTaskId)) refuse("This delegated task already has an active run.");
-        refuseApiConnectionRun(authority.permissionPolicy.providerId, input.accounts);
         const snapshot = await deps.getTaskSupervisionSnapshot({ workspaceId: input.workspaceId, taskId: input.leadTaskId });
         if (!snapshot.exists || !snapshot.repositoryPath || snapshot.archived || snapshot.activeTurnId ||
             snapshot.providerId !== authority.permissionPolicy.providerId || snapshot.model !== model)
@@ -1534,7 +1543,6 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         if (input.routingIntent?.modelProviderId && input.routingIntent.modelProviderId !== snapshot.providerId)
           refuse("The captured provider changed before Run admission. Restore it or submit a new assignment.");
-        refuseApiConnectionRun(snapshot.providerId as "claude-code" | "codex", input.accounts);
         if (!(await deps.isReportingAvailable({ fresh: true }))) {
           refuse(
             "Stave's local tools are off, so the agent could not report its stages. Turn on Local MCP in Settings, or send the assignment as a single turn.",

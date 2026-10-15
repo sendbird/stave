@@ -143,7 +143,7 @@ export interface ApiConnectionsBridgeApi {
   /** Key validity and pinned-model listing. Never sends a prompt. */
   check: (args: ApiConnectionIdArgs) => Promise<ApiConnectionCheckResult>;
   /** The Vercel AI Gateway public catalog, filtered to coding-capable models. */
-  discoverModels: () => Promise<ApiConnectionCatalogResult>;
+  discoverModels: (args?: { purpose: "coding" | "decision" }) => Promise<ApiConnectionCatalogResult>;
 }
 
 export const API_CONNECTION_IPC = {
@@ -158,6 +158,12 @@ export const API_CONNECTION_IPC = {
 /** The routing form of a model ID: picker prefix and context marker removed. */
 export function apiConnectionRoutingModelId(id: string) {
   return id.trim().replace(/^claude-code\//, "").replace(/\[1m\]$/i, "");
+}
+
+/** Known native identifiers retain their capabilities when a gateway adds a creator prefix. */
+export function canonicalApiConnectionModelId(id: string) {
+  return id.trim().replace(/^claude-code\//, "").replace(/^(?:anthropic|openai)\//, "")
+    .replace(/^(claude-(?:haiku|sonnet|opus|fable)-\d+)\.(\d+)/, "$1-$2");
 }
 
 /** Claude models are the only ones Anthropic supports through a gateway. */

@@ -148,6 +148,8 @@ function createHarness(
     applyAgent?: Parameters<typeof createDelegatedTaskCoordinator>[0]["applyAgent"];
     resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
+    resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
+    cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
   } = {},
 ) {
   const store = new RunLedgerStore(new Database(":memory:"));
@@ -163,6 +165,7 @@ function createHarness(
       readHead: options.readHead,
       readWorkspaceRevision: options.readWorkspaceRevision,
       readResourceRoot: options.readResourceRoot,
+      resolveTurnRoute: options.resolveTurnRoute, cancelTurnRoute: options.cancelTurnRoute,
       ...(options.readAgentModel ? { readAgentModel: options.readAgentModel } : {}),
       ...(options.applyAgent ? { applyAgent: options.applyAgent } : {}),
       ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
@@ -245,6 +248,29 @@ describe("accounts a subagent runs on", () => {
     await harness.coordinator.waitForInFlight();
     expect(harness.runTaskCalls.map((call) => call.accounts)).toEqual([accounts, later]);
   });
+});
+
+test("stopping an admitted child during Decision cancels the read after the durable transition and prevents late dispatch", async () => {
+  let entered!: () => void, release!: () => void;
+  const reached = new Promise<void>((resolve) => { entered = resolve; });
+  const held = new Promise<void>((resolve) => { release = resolve; });
+  const cancelled: string[] = [];
+  const h = createHarness({ resolveTurnRoute: async (input) => { entered(); await held; return { fingerprint: { providerId: input.providerId, model: "gpt-6-luna" }, runtimeOptions: {}, route: "auto", rationale: "Fixture", allowedModels: ["gpt-6-luna"], selection: null }; },
+    cancelTurnRoute: async (id) => { cancelled.push(id); expect((await h.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" }))?.phase).toBe("cancelled"); } });
+  await h.coordinator.delegate(delegateArgs()); await reached;
+  await h.coordinator.stop({ parentTaskId: PARENT_TASK, delegationKey: "review-docs" });
+  expect(cancelled).toHaveLength(1);
+  release(); await h.coordinator.waitForInFlight();
+  expect(h.runTaskCalls).toHaveLength(0);
+});
+
+test("one-turn delegates persist safe Decision diagnostics with their completion receipt", async () => {
+  const routing = { providerId: "gateway" as const, model: "moonshotai/jev", preferred: { mode: "automatic" as const }, fallback: false, elapsedMs: 24, reportedCostUsd: 0.001 };
+  const h = createHarness({ resolveTurnRoute: async (input) => ({ fingerprint: { providerId: input.providerId, model: "gpt-6-luna" }, runtimeOptions: {}, route: "auto", rationale: "Fixture", allowedModels: ["gpt-6-luna"], selection: null,
+    decision: { providerId: null, model: "moonshotai/jev", selectionReason: "explicit", degraded: false, attempts: [], routing } }) });
+  const response = await h.coordinator.delegate(delegateArgs()); await h.coordinator.waitForInFlight();
+  const receipts = h.store.listReceipts({ runId: response.child!.runId });
+  expect(receipts.find((r) => r.type === "completed")?.detail?.routingDecision).toEqual(routing);
 });
 
 describe("writer isolation", () => {

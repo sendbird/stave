@@ -1037,6 +1037,7 @@ export interface HostServiceRequestMap {
   };
   /** Internal coordinator authority; no renderer IPC/preload exposure. */
   "delegated-agent.prepare": DelegatedAgentRunStart;
+  "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteInput;
   "delegated-agent.activate": { agentRunId: string; executionId: string };
   "delegated-agent.read": { agentRunId: string };
   "agent.invoke": {
@@ -1237,6 +1238,7 @@ export interface HostServiceResponseMap {
   "wake-up.invoke": unknown;
   "agent-run.invoke": AgentRunInvokeResult<unknown>;
   "delegated-agent.prepare": AgentRunDetail;
+  "delegated-agent.resolve-route": import("../../src/lib/routing/constrained-route").ConstrainedRouteResult;
   "delegated-agent.activate": AgentRunDetail;
   "delegated-agent.read": DelegatedAgentRunRead;
   "agent.invoke": AgentInvokeResult<unknown>;
@@ -1332,6 +1334,8 @@ export type AnyHostServiceEventEnvelope = {
 
 export type AnyHostServiceMessage =
   | HostServiceReadyEnvelope
+  | import("../provider-accounts/host-gateway-credentials").HostGatewayCredentialRequest
+  | import("../provider-accounts/host-gateway-credentials").HostGatewayCredentialResponse
   | AnyHostServiceRequestEnvelope
   | AnyHostServiceResponseEnvelope
   | AnyHostServiceEventEnvelope;

@@ -20,12 +20,13 @@ import type { ChatMessage, Task } from "@/types/chat";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import { useAppStore } from "@/store/app.store";
 
-const routeCache = new Map<string, { result: AutoRoutingClassifierResult; expiresAt: number }>();
+const routeCache = new Map<string, { result: AutoRoutingClassifierResult; expiresAt: number; observation?: import("@/lib/providers/routing-decision").RoutingDecisionObservation }>();
 const latestTaskNameRequests = new Map<string, symbol>();
 
 export function createUtilityRouteClassifier(args: {
   cacheScope?: string;
-  context: UtilityInferenceContext;
+  onDecision?: (observation: import("@/lib/providers/routing-decision").RoutingDecisionObservation) => void;
+  context: UtilityInferenceContext & Pick<import("@/lib/providers/utility-inference").RouteClassificationRequest, "routingDecision">;
 }):
   | ((
       request: AutoRoutingClassifierRequest,
@@ -45,14 +46,14 @@ export function createUtilityRouteClassifier(args: {
     if (signal?.aborted) return null;
     const input = boundRouteIntentInput(request);
     const target = resolveRouteClassificationTarget(args.context);
-    const cacheKey = JSON.stringify([args.cacheScope, ROUTE_INTENT_VERSION, target.providerId, target.model, input]);
+    const cacheKey = JSON.stringify([args.cacheScope, ROUTE_INTENT_VERSION, args.context.routingDecision, target.providerId, target.model, input]);
     const cached = args.cacheScope ? routeCache.get(cacheKey) : undefined;
-    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    if (cached && cached.expiresAt > Date.now()) { if (cached.observation) args.onDecision?.({ ...cached.observation, elapsedMs: 0, cached: true, reportedCostUsd: null }); return cached.result; }
     const requestId = crypto.randomUUID();
     const cancel = () => { void window.api?.provider?.cancelRouteClassification?.({ requestId }).catch(() => {}); };
 
     if (
-      isAccountUsageBlockingFromState({
+      !args.context.routingDecision && isAccountUsageBlockingFromState({
         providerId: target.providerId,
         model: target.model,
         state: useAppStore.getState(),
@@ -65,6 +66,7 @@ export function createUtilityRouteClassifier(args: {
       if (signal?.aborted) return null;
       const result = await classifyRoute({ ...args.context, ...input, requestId });
       if (signal?.aborted) return null;
+      if (result.utility.routing) args.onDecision?.(result.utility.routing);
       reportUtilityInferenceOutcome({
         feature: "route-classification",
         ok: result.ok,
@@ -73,7 +75,7 @@ export function createUtilityRouteClassifier(args: {
       const parsed = RouteIntentResultSchema.safeParse(result.classification);
       if (!result.ok || !parsed.success) return null;
       if (args.cacheScope) {
-        routeCache.set(cacheKey, { result: parsed.data, expiresAt: Date.now() + 60_000 });
+        routeCache.set(cacheKey, { result: parsed.data, expiresAt: Date.now() + 60_000, observation: result.utility.routing });
         if (routeCache.size > 64) routeCache.delete(routeCache.keys().next().value!);
       }
       return parsed.data;

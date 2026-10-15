@@ -21,6 +21,7 @@ export type ClaudeSettingSource = "user" | "project" | "local";
  * routing. Explicit user selections deliberately carry no inferred rationale.
  */
 export interface AutoRoutingModelResolution {
+  routingDecision?: import("./routing-decision").RoutingDecisionObservation;
   /** Target selected by automatic routing before the runtime confirms execution. */
   selectedProviderId: ProviderId;
   selectedModel: string;

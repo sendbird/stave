@@ -99,6 +99,17 @@ function nodeHtml(html: string, attribute: string) {
 }
 
 describe("RouteFlow", () => {
+  test("the model alternatives use the same exclusive connection catalog as the selected route", () => {
+    const profile = buildStarterProfile("balanced");
+    const pins = ["moonshotai/kimi-k3", "zai/glm-5.3"];
+    const exclusiveModelsByProvider = { codex: pins };
+    const { signals } = computeRouterSignals({ prompt: "Fix a typo", fileContextCount: 0, history: [], currentProviderId: "codex", profile, exclusiveModelsByProvider });
+    const route = resolveRoute({ profile, role: "primary", signals, exclusiveModelsByProvider });
+    const html = renderToStaticMarkup(createElement(RouteFlow, { profile, signals, route, role: "primary", summary: summarizeRouterSignals(signals), exclusiveModelsByProvider }));
+    expect([...html.matchAll(/data-model="([^"]+)"/g)].map((match) => match[1]).sort()).toEqual([...pins].sort());
+    expect(nodeHtml(html, `data-model="${route.model}"`)).toContain('aria-current="true"');
+    expect(html).not.toContain('data-model="gpt-6-luna"');
+  });
   test("lights the matched task class, rule and model and explains skipped rules", () => {
     const { html, route } = renderPlanFlow();
     expect(route.taskClass).toBe("plan");

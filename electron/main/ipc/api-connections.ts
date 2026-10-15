@@ -1,4 +1,5 @@
 import { ipcMain } from "electron";
+import { z } from "zod";
 import {
   API_CONNECTION_IPC,
   ApiConnectionCreateArgsSchema,
@@ -41,5 +42,8 @@ export function registerApiConnectionHandlers() {
     if (!parsed.success) return { ok: false, status: "unexpected", missingModels: [], message: "Invalid API connection id." };
     return checkStoredApiConnection(parsed.data.id, revealSecret);
   });
-  ipcMain.handle(API_CONNECTION_IPC.discoverModels, () => discoverApiConnectionModels());
+  ipcMain.handle(API_CONNECTION_IPC.discoverModels, (_event, input: unknown) => {
+    const parsed = z.object({ purpose: z.enum(["coding", "decision"]) }).strict().optional().safeParse(input);
+    return parsed.success ? discoverApiConnectionModels(undefined, parsed.data?.purpose) : { ok: false, models: [], message: "Invalid model discovery request." };
+  });
 }

@@ -4,6 +4,7 @@
 
 - Stave makes a number of model calls you never asked for directly: it names your tasks, summarizes each finished turn, checks a diff against pinned intent, drafts PR descriptions, and completes code inline.
 - `Settings → Background AI` sets one shared utility model (provider and model) that every lane uses, shows every lane with its own switch, and, under `Advanced`, lets a single lane run on a different provider or model.
+- Auto and Agent routing decisions have their own model setting in [Auto routing](auto-routing.md). They do not inherit the text utility model or its switch.
 
 ## When To Use It
 

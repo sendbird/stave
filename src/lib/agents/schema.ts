@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import { z } from "zod";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
+import { RoutingDecisionConfigSchema } from "@/lib/providers/routing-decision";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
@@ -209,6 +210,8 @@ export const AgentModelSchema = z.discriminatedUnion("mode", [
   z
     .object({
       mode: z.literal("auto"),
+      /** Absent inherits the global Decision model; the execution model remains Auto. */
+      decision: RoutingDecisionConfigSchema.optional(),
       /** Routed through the user's auto-routing rules when set. */
       taskClass: z.enum(TASK_CLASSES).optional(),
       /** Applied when a task starts as this agent or when it is delegated. */
