@@ -22,11 +22,17 @@ export const API_CONNECTION_NEW_FIELD_ID = "settings-field-api-connection-new";
 /** The Getting started checklist at the top of Settings > Accounts. */
 export const ACCOUNTS_GETTING_STARTED_FIELD_ID = "settings-field-accounts-getting-started";
 
+/** The row for Cursor, Kiro or OpenCode, whose CLI keeps its own sign-in. */
+export function cliProviderFieldId(providerId: CliManagedAccountsProviderId) {
+  return `settings-field-cli-provider-${providerId}`;
+}
+
 export function apiConnectionFieldId(connectionId: string) {
   return `settings-field-api-connection-${connectionId}`;
 }
 
 type AccountProviderId = keyof typeof PROVIDER_ACCOUNTS_FIELD_ID;
+export type CliManagedAccountsProviderId = "cursor" | "kiro" | "opencode";
 
 /**
  * Deep-link targets inside Settings > Accounts, passed as `focus` with
@@ -37,6 +43,7 @@ type AccountProviderId = keyof typeof PROVIDER_ACCOUNTS_FIELD_ID;
  * - `api-connections`: the API connections card.
  * - `api-connection-new`: the "Add a connection" form.
  * - `api-connection:<id>`: that connection, with its edit form open.
+ * - `cli:cursor` / `cli:kiro` / `cli:opencode`: that CLI's sign-in row.
  */
 export type AccountsSettingsFocus =
   | AccountProviderId
@@ -45,12 +52,17 @@ export type AccountsSettingsFocus =
   | "getting-started"
   | "api-connections"
   | "api-connection-new"
-  | `api-connection:${string}`;
+  | `api-connection:${string}`
+  | `cli:${CliManagedAccountsProviderId}`;
 
 const API_CONNECTION_FOCUS_PREFIX = "api-connection:";
 
 export function apiConnectionFocus(connectionId: string): AccountsSettingsFocus {
   return `${API_CONNECTION_FOCUS_PREFIX}${connectionId}`;
+}
+
+export function cliProviderFocus(providerId: CliManagedAccountsProviderId): AccountsSettingsFocus {
+  return `cli:${providerId}`;
 }
 
 /** The connection a `focus` names, when it names one. */
@@ -88,6 +100,10 @@ export function accountsFocusElementId(focus: string | null | undefined): string
       return API_CONNECTIONS_FIELD_ID;
     case "api-connection-new":
       return API_CONNECTION_NEW_FIELD_ID;
+    case "cli:cursor":
+    case "cli:kiro":
+    case "cli:opencode":
+      return cliProviderFieldId(focus.slice("cli:".length) as CliManagedAccountsProviderId);
     default: {
       const connectionId = apiConnectionIdFromFocus(focus);
       return connectionId ? apiConnectionFieldId(connectionId) : null;

@@ -4,8 +4,11 @@ import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { apiConnectionFocus, type AccountsSettingsFocus } from "@/lib/providers/accounts-guide";
 import { openAccountsSettings } from "@/lib/providers/accounts-navigation";
+import { formatList } from "@/i18n/format";
+import { isCliManagedProvider } from "@/lib/providers/accounts-onboarding";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
-  describeProviderAccountBlocker,
+  describeProviderAccountBlockerShort,
   providerAccountBlockerActionLabel,
   type ProviderAccountBlocker,
 } from "@/lib/providers/provider-account-blocker";
@@ -26,17 +29,20 @@ function pickerBlocker(blocker: ProviderAccountBlocker | null) {
 }
 
 /**
- * The composer model selector's foot: why Claude Code or Codex is missing,
+ * The composer model selector's foot: why a provider is missing from it,
  * a way to add gateway models when there is no API connection, and the way
  * into Settings > Accounts. `onNavigate` closes the picker first.
  */
 export function ModelPickerAccountFooter(props: { onNavigate: () => void }) {
   const claude = useProviderAccountBlocker("claude-code");
   const codex = useProviderAccountBlocker("codex");
+  const cursor = useProviderAccountBlocker("cursor");
+  const kiro = useProviderAccountBlocker("kiro");
+  const opencode = useProviderAccountBlocker("opencode");
   const hasConnection = useProviderAccounts((state) => state.profiles.some((profile) => Boolean(profile.apiConnection)));
   return (
     <ModelPickerAccountFooterView
-      blockers={[claude, codex]}
+      blockers={[claude, codex, cursor, kiro, opencode]}
       hasConnection={hasConnection}
       onGo={(focus) => {
         props.onNavigate();
@@ -53,24 +59,39 @@ export function ModelPickerAccountFooterView(props: {
   onGo: (focus?: AccountsSettingsFocus) => void;
 }) {
   useTranslation();
-  const [claude, codex] = props.blockers.map(pickerBlocker);
+  const blockers = props.blockers.map(pickerBlocker).filter((blocker): blocker is ProviderAccountBlocker => blocker !== null);
+  // Cursor, Kiro and OpenCode that are not installed share one line: most
+  // people have not installed all of them, and their rows sit together.
+  const notInstalled = blockers.filter((blocker) => blocker.kind === "cli-missing" && isCliManagedProvider(blocker.providerId));
+  const lines = blockers.filter((blocker) => !notInstalled.includes(blocker));
   const hasConnection = props.hasConnection;
   const go = props.onGo;
   return (
     <div className={sx(styles.footer)} data-testid="model-picker-accounts">
-      {[claude, codex].map((blocker) =>
-        blocker ? (
-          <div key={blocker.providerId} className={sx(styles.notice)} data-provider={blocker.providerId} data-kind={blocker.kind}>
-            <AlertCircle aria-hidden className={sx(styles.noticeIcon)} />
-            <span className={sx(styles.noticeText)} title={describeProviderAccountBlocker(blocker)}>
-              {describeProviderAccountBlocker(blocker)}
-            </span>
-            <Button size="xs" variant="outline" onClick={() => go(blocker.focus)}>
-              {providerAccountBlockerActionLabel(blocker)}
-            </Button>
-          </div>
-        ) : null,
-      )}
+      {lines.map((blocker) => (
+        <div key={blocker.providerId} className={sx(styles.notice)} data-provider={blocker.providerId} data-kind={blocker.kind}>
+          <AlertCircle aria-hidden className={sx(styles.noticeIcon)} />
+          <span className={sx(styles.noticeText)} title={describeProviderAccountBlockerShort(blocker)}>
+            {describeProviderAccountBlockerShort(blocker)}
+          </span>
+          <Button size="xs" variant="outline" onClick={() => go(blocker.focus)}>
+            {providerAccountBlockerActionLabel(blocker)}
+          </Button>
+        </div>
+      ))}
+      {notInstalled.length > 0 ? (
+        <div className={sx(styles.notice)} data-kind="cli-missing" data-providers={notInstalled.map((blocker) => blocker.providerId).join(" ")}>
+          <AlertCircle aria-hidden className={sx(styles.noticeIcon)} />
+          <span className={sx(styles.noticeText)}>
+            {i18n.t("composer:modelPickerAccounts.notInstalled", {
+              value1: formatList(notInstalled.map((blocker) => getProviderLabel({ providerId: blocker.providerId, variant: "full" }))),
+            })}
+          </span>
+          <Button size="xs" variant="outline" onClick={() => go(notInstalled[0]!.focus)}>
+            {providerAccountBlockerActionLabel(notInstalled[0]!)}
+          </Button>
+        </div>
+      ) : null}
       {!hasConnection ? (
         <Button size="sm" variant="quiet" xstyle={styles.link} onClick={() => go("api-connection-new")}>
           {i18n.t("composer:modelPickerAccounts.addGatewayModels")}

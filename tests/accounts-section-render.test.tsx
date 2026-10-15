@@ -40,6 +40,9 @@ function checklist(overrides: Partial<AccountsOnboardingInput> & { providers?: P
     providers: {
       "claude-code": { installed: false, signedIn: false },
       codex: { installed: false, signedIn: false },
+      cursor: { installed: false, signedIn: false },
+      kiro: { installed: false, signedIn: false },
+      opencode: { installed: false, signedIn: false },
       ...overrides.providers,
     },
   });
@@ -105,6 +108,13 @@ describe("Getting started card", () => {
     expect(html).not.toContain("Sign in to Claude Code");
   });
 
+  test("a CLI-managed provider signs in through its own login, without a workspace", () => {
+    const html = render(createElement(AccountsGettingStartedCardView, { ...props, checklist: checklist({ workspaceOpen: false, providers: { cursor: { installed: true, signedIn: false } } }) }));
+    expect(html).toContain("Cursor Agent keeps its own sign-in.");
+    expect(html).toContain("How to sign in to Cursor Agent");
+    expect(html).not.toContain("Open a repository");
+  });
+
   test("CLI only: one sign-in button for the installed provider; without a workspace, open a repository", () => {
     const codexOnly = { providers: { codex: { installed: true, signedIn: false } } };
     const html = render(createElement(AccountsGettingStartedCardView, { ...props, checklist: checklist(codexOnly) }));
@@ -145,17 +155,21 @@ describe("welcome Getting started", () => {
   test("replaces the accounts sentence while no provider can take a turn", () => {
     const html = render(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: checklist() }));
     expect(html).toContain("No provider can take a turn yet.");
-    expect(inOrder(html, ["1. Install the Claude Code or Codex CLI", "2. Sign in", "5. Pick a model"])).toBe(true);
+    expect(inOrder(html, ["1. Install a provider CLI", "2. Sign in", "5. Pick a model"])).toBe(true);
     expect(html).not.toContain("Add another account");
     expect(html).toContain("Open Accounts");
     expect(html).not.toContain("original accounts sentence");
   });
 
   test("keeps the sentence until a check answered, and once a provider is ready", () => {
-    const unknown = checklist({ providers: { "claude-code": { installed: null, signedIn: false }, codex: { installed: null, signedIn: false } } });
+    const none = { installed: null, signedIn: false };
+    const unknown = checklist({ providers: { "claude-code": none, codex: none, cursor: none, kiro: none, opencode: none } });
     expect(render(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: unknown }))).toContain("original accounts sentence");
     const ready = checklist({ providers: { "claude-code": { installed: true, signedIn: true } } });
     expect(render(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: ready }))).toContain("original accounts sentence");
+    // OpenCode alone is a provider that can take a turn.
+    const openCodeOnly = checklist({ providers: { opencode: { installed: true, signedIn: true } } });
+    expect(render(createElement(AccountsGettingStartedWelcomeView, { fallback, checklist: openCodeOnly }))).toContain("original accounts sentence");
   });
 });
 
@@ -185,8 +199,17 @@ describe("API connection form and model picker foot", () => {
       otherAccountCount: 0,
       limitReached: true,
     });
-    const html = render(createElement(ModelPickerAccountFooterView, { blockers: [limited, signedOut], hasConnection: false, onGo: () => {} }));
+    const kiroSignedOut = resolveProviderAccountBlocker({
+      providerId: "kiro",
+      available: false,
+      tool: tool("kiro", "unauthenticated"),
+      selectedProfile: undefined,
+      otherAccountCount: 0,
+      limitReached: false,
+    });
+    const html = render(createElement(ModelPickerAccountFooterView, { blockers: [limited, signedOut, kiroSignedOut], hasConnection: false, onGo: () => {} }));
     expect(html).toContain("Codex is not signed in on System default.");
+    expect(html).toContain("Kiro CLI is not signed in.");
     // A usage limit is the composer's line, not the picker's.
     expect(html).not.toContain("usage limit");
     expect(inOrder(html, ["Sign in", "Add other models with Vercel AI Gateway…", "Manage accounts and connections…"])).toBe(true);

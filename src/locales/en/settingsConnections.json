@@ -633,7 +633,7 @@
     },
     "steps": {
       "install": {
-        "title": "Install the Claude Code or Codex CLI"
+        "title": "Install a provider CLI"
       },
       "signIn": {
         "title": "Sign in"
@@ -650,7 +650,7 @@
     },
     "detail": {
       "checking": "Checking which CLIs are installed…",
-      "installTodo": "Stave runs turns through a CLI you sign in to. Install one, then check again:",
+      "installTodo": "Stave runs turns through a CLI you sign in to: Claude Code, Codex, Cursor, Kiro or OpenCode. Install one, then check again. Claude Code and Codex install with:",
       "installDone": "Found {{value1}}.",
       "signInTodo": "Sign in to {{value1}} with the plan you already pay for, or add an API connection below.",
       "signInDone": "Ready to take turns: {{value1}}.",
@@ -662,7 +662,8 @@
       "gatewayDone": "An API connection is set up.",
       "skipped": "Skipped. You can come back to it any time.",
       "modelDone": "Choose a model in the composer's model selector.",
-      "modelBlocked": "Available once a provider can take turns."
+      "modelBlocked": "Available once a provider can take turns.",
+      "signInTodoCli": "{{value1}} keeps its own sign-in. Sign in with its login command in a terminal, then check again."
     },
     "actions": {
       "copyInstall": "Copy {{value1}} install command",
@@ -676,7 +677,8 @@
       "openModelSelector": "Open the model selector",
       "show": "Show steps",
       "hide": "Hide",
-      "openAccounts": "Open Accounts"
+      "openAccounts": "Open Accounts",
+      "signInCli": "How to sign in to {{value1}}"
     },
     "summary": {
       "complete": "Setup is complete. Ready to take turns: {{value1}}.",

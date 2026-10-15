@@ -40,7 +40,8 @@ describe("why the composer cannot send", () => {
   test("nothing to say while sending works or nothing was checked", () => {
     expect(resolveProviderAccountBlocker(base)).toBeNull();
     expect(resolveProviderAccountBlocker({ ...base, tool: undefined, available: false })).toBeNull();
-    expect(resolveProviderAccountBlocker({ ...base, providerId: "opencode", available: false })).toBeNull();
+    // OpenCode manages its own provider sign-in; a ready CLI has nothing to fix here.
+    expect(resolveProviderAccountBlocker({ ...base, providerId: "opencode", available: true, tool: tool({ id: "opencode", authState: "not-required" }) })).toBeNull();
   });
 
   test("one cause per state, each with its own button", () => {
@@ -59,6 +60,18 @@ describe("why the composer cannot send", () => {
 
     expect(resolveProviderAccountBlocker({ ...base, limitReached: true, otherAccountCount: 1 })).toMatchObject({ kind: "limit-reached", action: "switch", focus: "claude-code" });
     expect(resolveProviderAccountBlocker({ ...base, limitReached: true })).toMatchObject({ kind: "limit-reached", action: "add-account", focus: "claude-code-add" });
+  });
+
+  test("Cursor, Kiro and OpenCode point to their CLI row for a missing or signed-out CLI", () => {
+    for (const providerId of ["cursor", "kiro", "opencode"] as const) {
+      expect(resolveProviderAccountBlocker({ ...base, providerId, available: false, selectedProfile: undefined, tool: tool({ id: providerId, available: false, authState: "unknown" }) }))
+        .toMatchObject({ kind: "cli-missing", action: "set-up", focus: `cli:${providerId}` });
+    }
+    const cursor = resolveProviderAccountBlocker({ ...base, providerId: "cursor", available: false, selectedProfile: undefined, tool: tool({ id: "cursor", authState: "unauthenticated" }) });
+    expect(cursor).toMatchObject({ kind: "signed-out", action: "sign-in", focus: "cli:cursor" });
+    expect(describeProviderAccountBlocker(cursor!)).toBe("Cursor Agent is not signed in.");
+    // No account to switch to, so no usage-limit line for them.
+    expect(resolveProviderAccountBlocker({ ...base, providerId: "kiro", selectedProfile: undefined, limitReached: true, tool: tool({ id: "kiro" }) })).toBeNull();
   });
 
   test("the line names the provider and the account", () => {
@@ -82,6 +95,8 @@ describe("turn errors that end on the account", () => {
     expect(classifyProviderAccountFailure("[error] Codex usage limit reached. Wait for the limit to reset or check account limits.")).toBe("usage-limit");
     expect(classifyProviderAccountFailure("[error] You've hit your limit · resets 5pm")).toBe("usage-limit");
     expect(classifyProviderAccountFailure("[error] something else", "usage_limit")).toBe("usage-limit");
+    expect(classifyProviderAccountFailure("[error] Kiro CLI provider stream failed: not authenticated. Run `kiro-cli login` if authentication has expired.")).toBe("auth");
+    expect(classifyProviderAccountFailure("[error] OpenCode provider stream failed: Authentication required. Connect a provider in OpenCode.")).toBe("auth");
     expect(classifyProviderAccountFailure("[error] Selected model is at capacity. (status: 503)")).toBeNull();
   });
 });

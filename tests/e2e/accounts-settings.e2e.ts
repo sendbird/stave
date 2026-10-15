@@ -20,6 +20,8 @@ type Seed = {
   checkStatus?: string;
   /** A built-in theme preset, such as `dracula`. */
   customThemeId?: string;
+  /** OpenCode is installed and can take a turn; true unless set to false. */
+  openCodeReady?: boolean;
 };
 
 function screenshotPath(testInfo: TestInfo, name: string) {
@@ -88,8 +90,9 @@ function seedAccounts(page: Page, seed: Seed) {
           streamTurn: async () => [],
           checkAvailability: async ({ providerId }: { providerId: string }) => {
             if (providerId !== "claude-code" && providerId !== "codex") {
-              // OpenCode is installed and manages its own sign-in; Cursor and Kiro are not installed.
-              const installed = providerId === "opencode";
+              // OpenCode is installed and manages its own sign-in (unless the seed says otherwise);
+              // Cursor and Kiro are not installed.
+              const installed = providerId === "opencode" && args.seed.openCodeReady !== false;
               const status = {
                 id: providerId, label: providerId === "opencode" ? "OpenCode" : providerId === "cursor" ? "Cursor Agent" : "Kiro CLI",
                 state: installed ? "ready" : "error", available: installed, version: installed ? "1.19.0" : null,
@@ -222,7 +225,7 @@ for (const themeMode of ["light", "dark"] as const) {
     const settings = await openSettingsSection(page, "Accounts");
     await expect(settings.getByRole("heading", { name: "Getting started" })).toBeVisible();
     // Every step is done, so the checklist folds to one line until asked.
-    await expect(settings.getByText("Setup is complete. Ready to take turns: Claude Code.")).toBeVisible();
+    await expect(settings.getByText("Setup is complete. Ready to take turns: Claude Code and OpenCode.")).toBeVisible();
     await settings.getByRole("button", { name: "Show steps" }).click();
     const steps = settings.getByRole("list", { name: "Getting started" });
     await expect(steps.locator('[data-step="install"]')).toHaveAttribute("data-status", "done");
@@ -269,12 +272,12 @@ for (const themeMode of ["light", "dark"] as const) {
   });
 
   test(`welcome shows Getting started while no provider can take a turn (${themeMode})`, async ({ page }, testInfo) => {
-    await seedAccounts(page, { themeMode, withRepository: false, claudeSignedIn: false, codexInstalled: false, withConnection: false });
+    await seedAccounts(page, { themeMode, withRepository: false, claudeSignedIn: false, codexInstalled: false, withConnection: false, openCodeReady: false });
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/");
     const card = page.getByTestId("welcome-getting-started");
     await expect(card).toBeVisible({ timeout: 20_000 });
-    await expect(card).toContainText("1. Install the Claude Code or Codex CLI");
+    await expect(card).toContainText("Install a provider CLI");
     await expect(page.getByText("Stave uses the Claude and Codex sign-ins on this computer.")).toHaveCount(0);
     await page.screenshot({ path: screenshotPath(testInfo, `welcome-${themeMode}`) });
     await card.getByRole("button", { name: "Open Accounts" }).click();
@@ -386,3 +389,25 @@ for (const [customThemeId, themeMode] of [["dracula", "dark"], ["catppuccin-latt
     await page.screenshot({ path: screenshotPath(testInfo, `settings-accounts-${customThemeId}`) });
   });
 }
+
+test("a ready OpenCode alone keeps the welcome sentence; the picker foot names CLIs to set up", async ({ page }) => {
+  await seedAccounts(page, { themeMode: "light", withRepository: false, claudeSignedIn: false, codexInstalled: false, withConnection: false, openCodeReady: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByTestId("workspace-welcome")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText("Stave uses the Claude and Codex sign-ins on this computer.", { exact: false })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByTestId("welcome-getting-started")).toHaveCount(0);
+});
+
+test("the picker foot groups CLIs that are not installed and opens their row", async ({ page }) => {
+  await seedAccounts(page, { themeMode: "light", ...READY });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const foot = page.getByRole("dialog", { name: "Model and effort selector" }).getByTestId("model-picker-accounts");
+  const notInstalled = foot.locator('[data-kind="cli-missing"][data-providers="cursor kiro"]');
+  await expect(notInstalled).toContainText("Not installed: Cursor Agent and Kiro CLI.");
+  await notInstalled.getByRole("button", { name: "Set up" }).click();
+  const row = page.getByRole("dialog", { name: "Settings" }).locator("#settings-field-cli-provider-cursor");
+  await expect(row.getByRole("button", { name: "Open Tooling" })).toBeFocused();
+});

@@ -53,7 +53,8 @@ export function parseProviderErrorNotice(
  * Whether a turn ended on the account rather than the work: the provider
  * refused the sign-in or key (`auth`), or included usage ran out
  * (`usage-limit`). Matches the runtimes' own normalized messages
- * ("Claude authentication failed…", "Codex usage limit reached…") and the
+ * ("Claude authentication failed…", "Codex usage limit reached…", an ACP
+ * runtime's "not authenticated" or "authentication required") and the
  * `usage_limit` stop reason. Null for every other failure.
  */
 export function classifyProviderAccountFailure(
@@ -65,7 +66,12 @@ export function classifyProviderAccountFailure(
     normalized.includes("authentication failed") ||
     normalized.includes("authentication_failed") ||
     normalized.includes("not logged in") ||
-    normalized.includes("please run /login")
+    normalized.includes("please run /login") ||
+    // ACP runtimes (Cursor, Kiro, OpenCode).
+    normalized.includes("not authenticated") ||
+    normalized.includes("authentication required") ||
+    normalized.includes("login expired") ||
+    normalized.includes("authentication has expired")
   ) {
     return "auth";
   }

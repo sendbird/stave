@@ -737,7 +737,7 @@
   },
   "accountNotice": {
     "ariaLabel": "Account",
-    "cliMissing": "The {{value1}} CLI is not installed, so this task cannot send.",
+    "cliMissing": "{{value1}} is not installed, so this task cannot send.",
     "signedOut": "{{value1}} is not signed in on {{value2}}.",
     "keyUnreadable": "Stave cannot read the key for {{value1}}.",
     "limitReached": "{{value1}} usage limit reached on {{value2}}.",
@@ -747,11 +747,14 @@
       "connectKey": "Connect key",
       "switchAccount": "Switch account",
       "addAccount": "Add an account"
-    }
+    },
+    "signedOutCli": "{{value1}} is not signed in.",
+    "cliMissingShort": "{{value1}} is not installed."
   },
   "modelPickerAccounts": {
     "manage": "Manage accounts and connections…",
     "addGatewayModels": "Add other models with Vercel AI Gateway…",
-    "editModels": "Edit models"
+    "editModels": "Edit models",
+    "notInstalled": "Not installed: {{value1}}."
   }
 }

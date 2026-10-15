@@ -26,6 +26,9 @@ function input(overrides: Partial<AccountsOnboardingInput> & { providers?: Parti
     providers: {
       "claude-code": { installed: false, signedIn: false },
       codex: { installed: false, signedIn: false },
+      cursor: { installed: false, signedIn: false },
+      kiro: { installed: false, signedIn: false },
+      opencode: { installed: false, signedIn: false },
       ...overrides.providers,
     },
   };
@@ -36,8 +39,9 @@ const statuses = (checklist: ReturnType<typeof buildAccountsOnboardingChecklist>
 
 describe("Getting started checklist", () => {
   test("claims nothing before a CLI check answered", () => {
+    const unknown = { installed: null, signedIn: false };
     const checklist = buildAccountsOnboardingChecklist(input({
-      providers: { "claude-code": { installed: null, signedIn: false }, codex: { installed: null, signedIn: false } },
+      providers: { "claude-code": unknown, codex: unknown, cursor: unknown, kiro: unknown, opencode: unknown },
     }));
     expect(checklist.known).toBe(false);
     expect(statuses(checklist)).toMatchObject({ install: "checking", signIn: "checking", model: "blocked" });
@@ -108,6 +112,34 @@ describe("Getting started checklist", () => {
   });
 });
 
+describe("every provider counts toward ready", () => {
+  test("a ready Cursor or OpenCode makes the checklist ready without Claude or Codex", () => {
+    for (const providerId of ["cursor", "opencode"] as const) {
+      const checklist = buildAccountsOnboardingChecklist(input({ providers: { [providerId]: { installed: true, signedIn: true } } }));
+      expect(checklist.ready).toBe(true);
+      expect(checklist.signedInProviderIds).toEqual([providerId]);
+      expect(statuses(checklist)).toMatchObject({ install: "done", signIn: "done", model: "done" });
+    }
+  });
+
+  test("an installed but signed-out CLI-managed provider is the sign-in target, and needs no workspace", () => {
+    const checklist = buildAccountsOnboardingChecklist(input({ workspaceOpen: false, providers: { kiro: { installed: true, signedIn: false } } }));
+    expect(statuses(checklist)).toMatchObject({ install: "done", signIn: "todo" });
+    expect(checklist.signInProviderId).toBe("kiro");
+    expect(checklist.signInNeedsWorkspace).toBe(false);
+    // Accounts stay a Claude Code and Codex feature.
+    expect(checklist.addAccountProviderId).toBe("claude-code");
+  });
+
+  test("Claude Code and Codex come before CLI-managed providers for sign-in", () => {
+    const checklist = buildAccountsOnboardingChecklist(input({
+      providers: { codex: { installed: true, signedIn: false }, cursor: { installed: true, signedIn: false } },
+    }));
+    expect(checklist.signInProviderId).toBe("codex");
+    expect(checklist.addAccountProviderId).toBe("codex");
+  });
+});
+
 describe("Settings > Accounts deep links", () => {
   test("each focus names one element; unknown targets name none", () => {
     expect(accountsFocusElementId("claude-code")).toBe("settings-field-claude-accounts");
@@ -117,6 +149,7 @@ describe("Settings > Accounts deep links", () => {
     expect(accountsFocusElementId("api-connection-new")).toBe("settings-field-api-connection-new");
     expect(accountsFocusElementId(`api-connection:${CONNECTION_ID}`)).toBe(apiConnectionFieldId(CONNECTION_ID));
     expect(accountsFocusElementId("api-connection:")).toBeNull();
+    expect(accountsFocusElementId("cli:kiro")).toBe("settings-field-cli-provider-kiro");
     expect(accountsFocusElementId("nowhere")).toBeNull();
     expect(accountsFocusElementId(null)).toBeNull();
   });

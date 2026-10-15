@@ -625,7 +625,7 @@
     },
     "steps": {
       "install": {
-        "title": "Claude Code 또는 Codex CLI 설치"
+        "title": "프로바이더 CLI 설치"
       },
       "signIn": {
         "title": "로그인"
@@ -642,7 +642,7 @@
     },
     "detail": {
       "checking": "설치된 CLI를 확인하는 중…",
-      "installTodo": "Stave는 로그인한 CLI로 턴을 실행합니다. 하나를 설치한 뒤 다시 확인하세요.",
+      "installTodo": "Stave는 로그인한 CLI로 턴을 실행합니다. Claude Code, Codex, Cursor, Kiro, OpenCode 중 하나를 설치한 뒤 다시 확인하세요. Claude Code와 Codex 설치 명령:",
       "installDone": "찾음: {{value1}}",
       "signInTodo": "이미 쓰고 있는 요금제로 {{value1}}에 로그인하거나, 아래에서 API 연결을 추가하세요.",
       "signInDone": "턴을 보낼 수 있음: {{value1}}",
@@ -654,7 +654,8 @@
       "gatewayDone": "API 연결이 설정되어 있습니다.",
       "skipped": "건너뛰었습니다. 언제든 다시 할 수 있습니다.",
       "modelDone": "입력창의 모델 선택기에서 모델을 고르세요.",
-      "modelBlocked": "프로바이더가 턴을 보낼 수 있게 되면 쓸 수 있습니다."
+      "modelBlocked": "프로바이더가 턴을 보낼 수 있게 되면 쓸 수 있습니다.",
+      "signInTodoCli": "이 CLI는 로그인을 직접 관리합니다. 터미널에서 {{value1}} 로그인 명령을 실행한 뒤 다시 확인하세요."
     },
     "actions": {
       "copyInstall": "{{value1}} 설치 명령 복사",
@@ -668,7 +669,8 @@
       "openModelSelector": "모델 선택기 열기",
       "show": "단계 보기",
       "hide": "숨기기",
-      "openAccounts": "계정 열기"
+      "openAccounts": "계정 열기",
+      "signInCli": "{{value1}} 로그인 방법"
     },
     "summary": {
       "complete": "설정을 마쳤습니다. 턴을 보낼 수 있음: {{value1}}",

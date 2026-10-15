@@ -6,7 +6,7 @@ import { Button } from "@/components/ads/components/Button";
 import { toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId } from "@/lib/providers/accounts-guide";
+import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, cliProviderFieldId } from "@/lib/providers/accounts-guide";
 import {
   clearSettingsFocus,
   openToolingSettings,
@@ -149,7 +149,7 @@ function CliManagedProviderRow({ providerId }: { providerId: CliManagedProviderI
   const copy = () => void copyTextToClipboard(command)
     .then(() => toast.success(i18n.t("settingsProviders:settingsDialogToolingSection.commandCopied", { value1: name }), { description: command }))
     .catch(() => toast.error(i18n.t("settingsProviders:toolingSection.toasts.copyCommandFailed")));
-  return <li className={sx(styles.row)} data-cli-provider={providerId}>
+  return <li id={cliProviderFieldId(providerId)} tabIndex={-1} data-focus-first-control="" className={sx(styles.row)} data-cli-provider={providerId}>
     <span className={sx(styles.rowText)}>
       <span className={sx(styles.rowTitleLine)}>
         <span className={sx(styles.rowTitle)}>{name}</span>

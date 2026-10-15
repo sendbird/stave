@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import { useAppStore } from "@/store/app.store";
 import {
   buildAccountsOnboardingChecklist,
+  type AccountsOnboardingAccountProviderId,
   type AccountsOnboardingProviderId,
+  type CliManagedProviderId,
 } from "./accounts-onboarding";
 import { registeredAccountSignedIn } from "./provider-account-identity";
 import type { ProviderAccountProfile } from "./provider-accounts";
@@ -19,8 +21,16 @@ function useProviderInstalled(providerId: AccountsOnboardingProviderId) {
   });
 }
 
+/**
+ * Cursor, Kiro and OpenCode sign in through their own CLI: availability is the
+ * readiness gate Stave already applies (authenticated, or managed in the CLI).
+ */
+function useCliManagedProviderSignedIn(providerId: CliManagedProviderId) {
+  return useAppStore((state) => state.providerAvailability[providerId] === true);
+}
+
 /** The readiness key for a provider's selected account and binary, as the checks publish it. */
-function useSelectedConfigurationKey(providerId: AccountsOnboardingProviderId) {
+function useSelectedConfigurationKey(providerId: AccountsOnboardingAccountProviderId) {
   const claudeAccountProfileId = useAppStore((state) => state.settings.claudeAccountProfileId);
   const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
   const claudeBinaryPath = useAppStore((state) => state.settings.claudeBinaryPath);
@@ -39,7 +49,7 @@ function useSelectedConfigurationKey(providerId: AccountsOnboardingProviderId) {
  * binary reported authenticated, or a sign-in account that is still registered
  * answered "signed in". A removed account's cached identity never counts.
  */
-function useProviderSignedIn(providerId: AccountsOnboardingProviderId, profiles: readonly ProviderAccountProfile[]) {
+function useProviderSignedIn(providerId: AccountsOnboardingAccountProviderId, profiles: readonly ProviderAccountProfile[]) {
   const available = useAppStore((state) => state.providerAvailability[providerId] === true);
   const configurationKey = useSelectedConfigurationKey(providerId);
   const authenticated = useProviderReadinessStore((state) => {
@@ -79,6 +89,12 @@ export function useAccountsOnboarding() {
   const profiles = useProviderAccounts((state) => state.profiles);
   const claudeSignedIn = useProviderSignedIn("claude-code", profiles);
   const codexSignedIn = useProviderSignedIn("codex", profiles);
+  const cursorInstalled = useProviderInstalled("cursor");
+  const kiroInstalled = useProviderInstalled("kiro");
+  const opencodeInstalled = useProviderInstalled("opencode");
+  const cursorSignedIn = useCliManagedProviderSignedIn("cursor");
+  const kiroSignedIn = useCliManagedProviderSignedIn("kiro");
+  const opencodeSignedIn = useCliManagedProviderSignedIn("opencode");
   const workspaceOpen = useAppStore((state) =>
     Boolean(state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath),
   );
@@ -90,11 +106,18 @@ export function useAccountsOnboarding() {
       providers: {
         "claude-code": { installed: claudeInstalled, signedIn: claudeSignedIn },
         codex: { installed: codexInstalled, signedIn: codexSignedIn },
+        cursor: { installed: cursorInstalled, signedIn: cursorSignedIn },
+        kiro: { installed: kiroInstalled, signedIn: kiroSignedIn },
+        opencode: { installed: opencodeInstalled, signedIn: opencodeSignedIn },
       },
       extraAccountCount,
       connectionCount,
       workspaceOpen,
       skipped,
     });
-  }, [claudeInstalled, claudeSignedIn, codexInstalled, codexSignedIn, profiles, skipped, workspaceOpen]);
+  }, [
+    claudeInstalled, claudeSignedIn, codexInstalled, codexSignedIn,
+    cursorInstalled, cursorSignedIn, kiroInstalled, kiroSignedIn, opencodeInstalled, opencodeSignedIn,
+    profiles, skipped, workspaceOpen,
+  ]);
 }

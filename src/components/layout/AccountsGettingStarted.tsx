@@ -6,7 +6,7 @@ import { Button } from "@/components/ads/components/Button";
 import { Loader, toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { ACCOUNTS_GETTING_STARTED_FIELD_ID } from "@/lib/providers/accounts-guide";
+import { ACCOUNTS_GETTING_STARTED_FIELD_ID, cliProviderFocus } from "@/lib/providers/accounts-guide";
 import {
   openAccountsSettings,
   openComposerModelSelector,
@@ -16,6 +16,8 @@ import {
 import {
   PROVIDER_CLI_INSTALL_COMMAND,
   isAccountsOnboardingCollapsed,
+  isCliManagedProvider,
+  type AccountsOnboardingAccountProviderId,
   toggleAccountsOnboardingSkip,
   type AccountsOnboardingChecklist,
   type AccountsOnboardingProviderId,
@@ -31,7 +33,8 @@ import { useAppStore } from "@/store/app.store";
 import { SettingsCard } from "./settings-dialog.shared";
 import { accountsSectionStyles as styles } from "./settings-dialog-accounts-section.styles";
 
-const PROVIDERS: readonly AccountsOnboardingProviderId[] = ["claude-code", "codex"];
+/** The two providers Stave installs commands for and signs in through its own terminal. */
+const PROVIDERS: readonly AccountsOnboardingAccountProviderId[] = ["claude-code", "codex"];
 
 const providerName = (providerId: AccountsOnboardingProviderId) => getProviderLabel({ providerId, variant: "full" });
 
@@ -67,7 +70,7 @@ function stepTitle(step: AccountsOnboardingStep) {
 
 const names = (ids: readonly AccountsOnboardingProviderId[]) => formatList(ids.map(providerName));
 
-function copyInstallCommand(providerId: AccountsOnboardingProviderId) {
+function copyInstallCommand(providerId: AccountsOnboardingAccountProviderId) {
   const command = PROVIDER_CLI_INSTALL_COMMAND[providerId];
   void copyTextToClipboard(command)
     .then(() => toast.success(i18n.t("settingsConnections:accountsOnboarding.toasts.commandCopied", { value1: providerName(providerId) }), { description: command }))
@@ -95,6 +98,9 @@ function stepDetail(step: AccountsOnboardingStep, checklist: AccountsOnboardingC
       if (status === "done") return i18n.t("settingsConnections:accountsOnboarding.detail.signInDone", { value1: names(checklist.signedInProviderIds) });
       if (status === "blocked") return i18n.t("settingsConnections:accountsOnboarding.detail.signInBlocked");
       if (checklist.signInNeedsWorkspace) return i18n.t("settingsConnections:accountsOnboarding.detail.signInNeedsWorkspace");
+      if (checklist.signInProviderId && isCliManagedProvider(checklist.signInProviderId)) {
+        return i18n.t("settingsConnections:accountsOnboarding.detail.signInTodoCli", { value1: providerName(checklist.signInProviderId) });
+      }
       return i18n.t("settingsConnections:accountsOnboarding.detail.signInTodo", { value1: providerName(checklist.signInProviderId ?? "claude-code") });
     case "accounts":
       return status === "done"
@@ -125,6 +131,20 @@ function StepDetail({ step, checklist }: { step: AccountsOnboardingStep; checkli
   </span>;
 }
 
+/**
+ * Claude Code and Codex open System default's sign-in terminal here; Cursor,
+ * Kiro and OpenCode go to their row, which copies the CLI's own login command.
+ */
+function SignInButton({ providerId, primary }: { providerId: AccountsOnboardingProviderId; primary: boolean }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const cli = isCliManagedProvider(providerId);
+  return <Button size="sm" variant={primary ? "primary" : "outline"} onClick={() => requestSettingsFocus(cli ? cliProviderFocus(providerId) : `${providerId}-signin`)}>
+    {cli
+      ? t("settingsConnections:accountsOnboarding.actions.signInCli", { value1: providerName(providerId) })
+      : t("settingsConnections:accountsOnboarding.actions.signIn", { value1: providerName(providerId) })}
+  </Button>;
+}
+
 function StepActions({ step, checklist, onSkip }: {
   step: AccountsOnboardingStep;
   checklist: AccountsOnboardingChecklist;
@@ -145,9 +165,7 @@ function StepActions({ step, checklist, onSkip }: {
         return <Button size="sm" variant="outline" onClick={() => void useAppStore.getState().createRepository({})}>{t("settingsConnections:accountsOnboarding.actions.openRepository")}</Button>;
       }
       return <>
-        {checklist.signInProviderId ? <Button size="sm" variant={step.status === "todo" ? "primary" : "outline"} onClick={() => requestSettingsFocus(`${checklist.signInProviderId}-signin`)}>
-          {t("settingsConnections:accountsOnboarding.actions.signIn", { value1: providerName(checklist.signInProviderId) })}
-        </Button> : null}
+        {checklist.signInProviderId ? <SignInButton providerId={checklist.signInProviderId} primary={step.status === "todo"} /> : null}
         <Button size="sm" variant="quiet" onClick={checkAgain}>{t("settingsConnections:providerAccountIdentityLine.checkAgain")}</Button>
       </>;
     case "accounts":

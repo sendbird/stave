@@ -41,6 +41,9 @@ export function useProviderAccountBlocker(providerId: ProviderId, selection: Pro
   const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
   const claudeBinaryPath = useAppStore((state) => state.settings.claudeBinaryPath);
   const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
+  const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
+  const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
+  const opencodeBinaryPath = useAppStore((state) => state.settings.opencodeBinaryPath);
   const available = useAppStore((state) => state.providerAvailability[providerId]);
   const limitReached = useAppStore((state) =>
     composerUsageLimitReached({ providerId, model: selection.model, autoRouting: selection.autoRouting, state }),
@@ -53,6 +56,9 @@ export function useProviderAccountBlocker(providerId: ProviderId, selection: Pro
       codexAccountProfileId,
       claudeBinaryPath: claudeBinaryPath || undefined,
       codexBinaryPath: codexBinaryPath || undefined,
+      cursorBinaryPath: cursorBinaryPath || undefined,
+      kiroBinaryPath: kiroBinaryPath || undefined,
+      opencodeBinaryPath: opencodeBinaryPath || undefined,
     };
     // A readiness answer for another account or binary says nothing about this one.
     const tool = readiness?.configurationKey === providerConfigurationKey(providerId, options) ? readiness.tool : undefined;
@@ -66,5 +72,8 @@ export function useProviderAccountBlocker(providerId: ProviderId, selection: Pro
       otherAccountCount: accounts.filter((profile) => profile.id !== selectedId).length,
       limitReached,
     });
-  }, [available, claudeAccountProfileId, claudeBinaryPath, codexAccountProfileId, codexBinaryPath, limitReached, profiles, providerId, readiness]);
+  }, [
+    available, claudeAccountProfileId, claudeBinaryPath, codexAccountProfileId, codexBinaryPath,
+    cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath, limitReached, profiles, providerId, readiness,
+  ]);
 }

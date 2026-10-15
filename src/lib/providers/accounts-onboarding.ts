@@ -26,7 +26,20 @@ export function normalizeAccountsOnboarding(raw: unknown): AccountsOnboardingSet
   };
 }
 
-export type AccountsOnboardingProviderId = "claude-code" | "codex";
+/**
+ * Every provider counts toward "can take a turn". Claude Code and Codex sign
+ * in through Stave's terminal and have accounts; Cursor, Kiro and OpenCode
+ * keep their own CLI sign-in, which Settings > Accounts reports.
+ */
+export const ACCOUNTS_ONBOARDING_PROVIDERS = ["claude-code", "codex", "cursor", "kiro", "opencode"] as const;
+export type AccountsOnboardingProviderId = (typeof ACCOUNTS_ONBOARDING_PROVIDERS)[number];
+/** The providers with Stave-managed sign-in accounts. */
+export type AccountsOnboardingAccountProviderId = "claude-code" | "codex";
+export type CliManagedProviderId = Exclude<AccountsOnboardingProviderId, AccountsOnboardingAccountProviderId>;
+
+export function isCliManagedProvider(providerId: string): providerId is CliManagedProviderId {
+  return providerId === "cursor" || providerId === "kiro" || providerId === "opencode";
+}
 
 export interface AccountsOnboardingProviderState {
   /** Whether the CLI was found; null until a check answered. */
@@ -66,10 +79,10 @@ export interface AccountsOnboardingChecklist {
   complete: boolean;
   /** Whether any CLI check has answered; until then nothing is claimed. */
   known: boolean;
-  /** The installed provider the sign-in button opens, Claude first. */
+  /** The installed provider the sign-in button opens: Claude, Codex, then the CLI-managed ones. */
   signInProviderId: AccountsOnboardingProviderId | null;
-  /** The provider the add-an-account button targets: an installed one, Claude first. */
-  addAccountProviderId: AccountsOnboardingProviderId;
+  /** The provider the add-an-account button targets: an installed one with accounts, Claude first. */
+  addAccountProviderId: AccountsOnboardingAccountProviderId;
   /** The sign-in step needs a workspace before its button can work. */
   signInNeedsWorkspace: boolean;
   installedProviderIds: AccountsOnboardingProviderId[];
@@ -79,10 +92,8 @@ export interface AccountsOnboardingChecklist {
   remainingCount: number;
 }
 
-const PROVIDER_ORDER: readonly AccountsOnboardingProviderId[] = ["claude-code", "codex"];
-
 export function buildAccountsOnboardingChecklist(input: AccountsOnboardingInput): AccountsOnboardingChecklist {
-  const states = PROVIDER_ORDER.map((id) => ({ id, ...input.providers[id] }));
+  const states = ACCOUNTS_ONBOARDING_PROVIDERS.map((id) => ({ id, ...input.providers[id] }));
   const known = states.some((state) => state.installed !== null);
   const installed = states.filter((state) => state.installed === true);
   const installDone = installed.length > 0;
@@ -106,14 +117,17 @@ export function buildAccountsOnboardingChecklist(input: AccountsOnboardingInput)
     { id: "model", status: ready ? "done" : "blocked", optional: false },
   ];
   const settled = (status: AccountsOnboardingStepStatus) => status === "done" || status === "skipped";
+  const signInProviderId = installed.find((state) => !state.signedIn)?.id ?? null;
+  const accountProvider = installed.find((state) => !isCliManagedProvider(state.id))?.id;
   return {
     steps,
     ready,
     complete: steps.every((step) => settled(step.status)),
     known,
-    signInProviderId: installed.find((state) => !state.signedIn)?.id ?? null,
-    addAccountProviderId: installed[0]?.id ?? "claude-code",
-    signInNeedsWorkspace: signIn === "todo" && !input.workspaceOpen,
+    signInProviderId,
+    addAccountProviderId: accountProvider === "codex" ? "codex" : "claude-code",
+    // Only Stave's sign-in terminal needs a workspace; a CLI-managed sign-in runs in the person's own terminal.
+    signInNeedsWorkspace: signIn === "todo" && !input.workspaceOpen && signInProviderId !== null && !isCliManagedProvider(signInProviderId),
     installedProviderIds: installed.map((state) => state.id),
     signedInProviderIds: states.filter((state) => state.signedIn).map((state) => state.id),
     workspaceOpen: input.workspaceOpen,
@@ -136,7 +150,7 @@ export function toggleAccountsOnboardingSkip(
 }
 
 /** npm installs for the two CLIs Stave signs in with; copied, never run by Stave. */
-export const PROVIDER_CLI_INSTALL_COMMAND: Record<AccountsOnboardingProviderId, string> = {
+export const PROVIDER_CLI_INSTALL_COMMAND: Record<AccountsOnboardingAccountProviderId, string> = {
   "claude-code": "npm install -g @anthropic-ai/claude-code",
   codex: "npm install -g @openai/codex",
 };

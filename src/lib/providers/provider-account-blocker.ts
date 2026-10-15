@@ -1,12 +1,14 @@
 import { i18n } from "@/i18n/runtime";
 import type { ToolingStatusEntry } from "../tooling-status";
-import { apiConnectionFocus, type AccountsSettingsFocus } from "./accounts-guide";
+import { apiConnectionFocus, cliProviderFocus, type AccountsSettingsFocus } from "./accounts-guide";
 import { getProviderLabel } from "./model-catalog";
 import type { ProviderAccountProfile } from "./provider-accounts";
 import type { ProviderId } from "./provider.types";
 
 /**
- * Why the selected Claude or Codex account cannot take a turn now:
+ * Why the selected account cannot take a turn now. Claude Code and Codex
+ * report all four; Cursor, Kiro and OpenCode, whose CLI keeps its own
+ * sign-in, report a missing CLI or a signed-out CLI and point to their row:
  * - `cli-missing`: the CLI was not found.
  * - `signed-out`: the account's sign-in answered "not signed in".
  * - `key-unreadable`: the account is an API connection whose key Stave cannot read.
@@ -16,8 +18,8 @@ export type ProviderAccountBlockerKind = "cli-missing" | "signed-out" | "key-unr
 
 export interface ProviderAccountBlocker {
   kind: ProviderAccountBlockerKind;
-  providerId: "claude-code" | "codex";
-  /** The account new turns use, by its label. */
+  providerId: ProviderId;
+  /** The account new turns use, by its label; empty for a CLI that keeps its own sign-in. */
   accountLabel: string;
   /** Where the one button goes: a deep link into Settings > Accounts. */
   focus: AccountsSettingsFocus;
@@ -39,10 +41,16 @@ export function resolveProviderAccountBlocker(args: {
   otherAccountCount: number;
   limitReached: boolean;
 }): ProviderAccountBlocker | null {
-  if (args.providerId !== "claude-code" && args.providerId !== "codex") return null;
-  const providerId = args.providerId;
   const tool = args.tool;
   if (!tool) return null;
+  if (args.providerId === "cursor" || args.providerId === "kiro" || args.providerId === "opencode") {
+    // No account to switch to: the fix is the CLI's own install or login, from its row.
+    const focus = cliProviderFocus(args.providerId);
+    if (!tool.available) return { kind: "cli-missing", providerId: args.providerId, accountLabel: "", focus, action: "set-up" };
+    if (tool.authState === "unauthenticated") return { kind: "signed-out", providerId: args.providerId, accountLabel: "", focus, action: "sign-in" };
+    return null;
+  }
+  const providerId = args.providerId;
   const accountLabel = args.selectedProfile?.label ?? "";
   if (!tool.available) {
     return { kind: "cli-missing", providerId, accountLabel, focus: "getting-started", action: "set-up" };
@@ -70,12 +78,25 @@ export function describeProviderAccountBlocker(blocker: ProviderAccountBlocker) 
     case "cli-missing":
       return i18n.t("composer:accountNotice.cliMissing", { value1: provider });
     case "signed-out":
-      return i18n.t("composer:accountNotice.signedOut", { value1: provider, value2: blocker.accountLabel });
+      return blocker.accountLabel
+        ? i18n.t("composer:accountNotice.signedOut", { value1: provider, value2: blocker.accountLabel })
+        : i18n.t("composer:accountNotice.signedOutCli", { value1: provider });
     case "key-unreadable":
       return i18n.t("composer:accountNotice.keyUnreadable", { value1: blocker.accountLabel });
     case "limit-reached":
       return i18n.t("composer:accountNotice.limitReached", { value1: provider, value2: blocker.accountLabel });
   }
+}
+
+/**
+ * The model selector's shorter line: the picker lists every provider, so it
+ * names the state without saying "this task".
+ */
+export function describeProviderAccountBlockerShort(blocker: ProviderAccountBlocker) {
+  const provider = getProviderLabel({ providerId: blocker.providerId, variant: "full" });
+  return blocker.kind === "cli-missing"
+    ? i18n.t("composer:accountNotice.cliMissingShort", { value1: provider })
+    : describeProviderAccountBlocker(blocker);
 }
 
 export function providerAccountBlockerActionLabel(blocker: ProviderAccountBlocker) {
