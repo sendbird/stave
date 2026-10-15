@@ -21,6 +21,7 @@ import { launchStave, seedRepository } from "./harness/stave-app";
  * `buildAgentRunStartInput`). The spec never builds a start input itself.
  */
 const GOAL = "Create a file named HELLO.md containing exactly `hello from stave` and report done. Do not commit.";
+const QUESTION_GOAL = "Before writing anything, ask me with your question tool which filename to use (offer A.md or B.md), then create that file with the content `answered` and report done.";
 const EXPECTED_CONTENT = "hello from stave";
 const RUN_DEADLINE_MS = 180_000;
 const MAX_TURNS = 6;
@@ -72,12 +73,15 @@ async function runLiveAgentRun(args: {
   pickModel: (models: Array<{ model: string; isDefault: boolean; hidden: boolean }>) => string | null;
   settings: Record<string, unknown>;
   expectedAppliedOptions: Record<string, unknown>;
+  extendAtLimit?: boolean;
+  persistentQuestion?: boolean;
 }) {
   const { providerId, testInfo } = args;
   const directory = await mkdtemp(path.join(tmpdir(), `stave-agent-run-live-${providerId}-`));
   const repositoryPath = await seedTemporaryRepository(directory);
-  const stave = await launchStave();
-  const evidence: Record<string, unknown> = { providerId, goal: GOAL, path: "kickoff-assign" };
+  const stave = await launchStave({ env: args.persistentQuestion ? { STAVE_CLAUDE_APPROVAL_TIMEOUT_MS: "20000", STAVE_CODEX_APPROVAL_TIMEOUT_MS: "20000" } : {} });
+  const goal = args.persistentQuestion ? QUESTION_GOAL : GOAL;
+  const evidence: Record<string, unknown> = { providerId, goal, path: "kickoff-assign" };
   let detail: AgentRunDetail | null = null;
   let messages: ChatMessage[] = [];
   try {
@@ -90,6 +94,14 @@ async function runLiveAgentRun(args: {
     const model = args.pickModel(catalog.models);
     test.skip(!model, `Live ${providerId} catalog offered no usable model.`);
     const agent = buildAgent(providerId, model!);
+    if (args.extendAtLimit) {
+      agent.tools = { maxTurns: 1 };
+      agent.workflow = [
+        { id: "prepare", title: "Prepare", kind: "ai", instruction: "Read README.md. Do not create HELLO.md yet. Report only this stage as done, with exactly one acceptance criterion: README.md has been read.", doneWhen: "README.md has been read." },
+        { id: "work", title: "Write", kind: "ai", instruction: "Create HELLO.md containing exactly hello from stave, read it back and re-read README.md. Report this stage as done. The final report must include every earlier stage acceptance criterion as met using its text verbatim, as well as the HELLO.md criterion. Do not commit.", doneWhen: "HELLO.md contains hello from stave." },
+      ];
+    }
+    if (args.persistentQuestion) agent.instructions = "Before writing any file, use your native question tool (AskUserQuestion or request_user_input) to ask which filename to use, offering A.md and B.md. Do not guess or proceed without an answer. After the user replies, create ONLY the selected file with exactly answered, read it back, and report the stage as done. Do not ask the question again after receiving the answer. Do not commit.";
     evidence.model = model;
     await seedRepository(stave.page, {
       repositoryPath,
@@ -102,7 +114,7 @@ async function runLiveAgentRun(args: {
     await stave.page.getByRole("button", { name: new RegExp(`^${agent.name}`) }).click();
     await stave.page.getByRole("button", { name: "Assign…", exact: true }).click();
     const dialog = stave.page.getByRole("dialog", { name: "Kick off workspace" });
-    await dialog.getByRole("textbox", { name: "Work source" }).fill(GOAL);
+    await dialog.getByRole("textbox", { name: "Work source" }).fill(goal);
     await expect(dialog.getByRole("button", { name: "Who does the work" })).toContainText(agent.name);
     // The goal must land in the seeded repository, not a new worktree.
     await dialog.getByRole("combobox", { name: "Where" }).click();
@@ -128,6 +140,65 @@ async function runLiveAgentRun(args: {
       return agentRunId;
     }, { timeout: 60_000, intervals: [500, 1_000] }).toBeTruthy();
     evidence.agentRunId = agentRunId;
+    if (args.extendAtLimit) {
+      await expect.poll(async () => {
+        const response = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
+        detail = response.agentRun;
+        return detail?.agentRun.pauseReason;
+      }, { timeout: RUN_DEADLINE_MS, intervals: [1_000, 2_000] }).toBe("limit-reached");
+      expect(detail!.agentRun).toMatchObject({ state: "paused", turnCount: 1, maxTurns: 1 });
+      const before = detail!;
+      await expect(stave.page.getByRole("button", { name: "Extend (+10 turns)", exact: true }).first()).toBeVisible();
+      const limitNotices = () => stave.page.evaluate(async agentRunId => {
+        const result = await window.api!.persistence!.listNotifications!({ limit: 200 });
+        return result.notifications.filter(notice => notice.payload.agentRunId === agentRunId && notice.title.includes("Limit reached"));
+      }, agentRunId);
+      await expect.poll(async () => (await limitNotices()).length).toBe(1);
+      await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-limit.png`) });
+      evidence.limitPause = before;
+      const extended = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.extend({ agentRunId }), agentRunId);
+      expect(extended.ok).toBe(true);
+      expect(extended.agentRun?.agentRun).toMatchObject({ maxTurns: 11, turnCount: 1, fingerprint: before.agentRun.fingerprint });
+      expect(extended.agentRun?.usage).toEqual(before.usage);
+      evidence.limitNotifications = await limitNotices();
+    }
+    if (args.persistentQuestion) {
+      const readQuestion = async () => stave.page.evaluate(async ({ workspaceId, taskId }) => {
+        const loaded = await window.api!.persistence!.loadWorkspace!({ workspaceId });
+        return (loaded.snapshot?.messagesByTask[taskId] ?? []).flatMap(message => message.parts.flatMap(part =>
+          part.type === "user_input" && part.state === "input-requested" ? [{ ...part, messageId: message.id }] : []))[0] ?? null;
+      }, { workspaceId, taskId });
+      await expect.poll(readQuestion, { timeout: RUN_DEADLINE_MS, intervals: [500, 1_000] }).toBeTruthy();
+      const original = (await readQuestion())!;
+      evidence.observedQuestion = original;
+      test.skip(providerId === "codex" && original.toolName === "request_user_input_async",
+        "This Auto/Default Codex session used request_user_input_async; the synchronous requestUserInput timeout was not exercised.");
+      await expect(stave.page.getByText(original.questions[0]!.question, { exact: true }).first()).toBeVisible();
+      await expect.poll(async () => (await readQuestion())?.delivery, { timeout: 45_000, intervals: [500, 1_000] }).toBe("async");
+      const waiting = await stave.page.evaluate(async agentRunId => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
+      detail = waiting.agentRun;
+      expect(waiting.agentRun?.agentRun.state).toBe("running");
+      expect(waiting.agentRun?.stages.every(stage => stage.status !== "stuck")).toBe(true);
+      await expect(stave.page.getByRole("region", { name: `${agent.name}: Needs your answer · Question`, exact: true })).toBeVisible();
+      const pending = (await readQuestion())!;
+      expect(pending.requestId).toBe(original.requestId);
+      expect(pending.state).toBe("input-requested");
+      await expect.poll(async () => {
+        const active = await stave.page.evaluate(async workspaceId => window.api!.persistence!.listActiveWorkspaceTurns!({ workspaceId }), workspaceId);
+        return active.turns.filter(turn => turn.taskId === taskId).length;
+      }, { timeout: 30_000 }).toBe(0);
+      expect(existsSync(path.join(repositoryPath, "A.md"))).toBe(false);
+      expect(existsSync(path.join(repositoryPath, "B.md"))).toBe(false);
+      evidence.pendingQuestion = pending;
+      await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-pending-question.png`) });
+      const answers = Object.fromEntries(pending.questions.map(question => [question.key?.trim() || question.question, "B.md"]));
+      const reply = { workspaceId, taskId, requestId: pending.requestId, answers };
+      const result = await stave.page.evaluate(async reply => window.api!.localMcp!.respondUserInput!(reply), reply);
+      evidence.answerResponse = result;
+      expect(result.ok, JSON.stringify(result)).toBe(true);
+      const duplicate = await stave.page.evaluate(async reply => window.api!.localMcp!.respondUserInput!(reply), reply);
+      expect(duplicate.ok).toBe(false);
+    }
     // Poll the run until it ends; a run that waits on an approval card never ends on its own.
     await expect.poll(async () => {
       const response = await stave.page.evaluate(async (agentRunId) => window.api!.agentRuns!.get({ agentRunId }), agentRunId);
@@ -140,7 +211,7 @@ async function runLiveAgentRun(args: {
     const cards = messages.flatMap((message) => message.parts.filter(isCardPart).map((part) => ({ messageId: message.id, type: part.type, state: part.state })));
     const notices = messages.flatMap((message) => message.parts.flatMap((part) => part.type === "system_event" ? [part.content] : []));
     const applied = messages.filter((message) => message.role === "assistant" && message.agentProvenance).map((message) => message.agentProvenance!.permission);
-    const helloPath = path.join(repositoryPath, "HELLO.md");
+    const helloPath = path.join(repositoryPath, args.persistentQuestion ? "B.md" : "HELLO.md");
     const hello = existsSync(helloPath) ? await readFile(helloPath, "utf8") : null;
     const run = detail!.agentRun;
     const stage = detail!.stages.find((record) => record.stageId === "work");
@@ -154,7 +225,14 @@ async function runLiveAgentRun(args: {
       commits: execFileSync("git", ["rev-list", "--count", "HEAD"], { cwd: repositoryPath, encoding: "utf8" }).trim(),
     });
     console.log(`Live agent run (${providerId}): path=kickoff-assign state=${run.state} consent=${run.consent.permissionMode} turns=${run.turnCount}/${run.maxTurns} cards=${cards.length} applied=${JSON.stringify(applied[0]?.applied ?? null)} wall=${Math.round(wallTimeMs / 1000)}s model=${model}`);
-    expect(cards, "no approval or question card may appear in an Auto run").toEqual([]);
+    if (args.persistentQuestion) {
+      expect(cards).toEqual([{ messageId: expect.any(String), type: "user_input", state: "input-responded" }]);
+      const replyTurns = messages.filter(message => message.role === "user" && message.content.includes("B.md") && message.content.startsWith(">"));
+      expect(replyTurns).toHaveLength(1);
+      expect(detail!.events.filter(event => event.kind === "user-turn")).toHaveLength(1);
+      expect(existsSync(path.join(repositoryPath, "A.md"))).toBe(false);
+      evidence.replyTurns = detail!.events.filter(event => event.kind === "user-turn").map(event => event.detail.turnId);
+    } else expect(cards, "no approval or question card may appear in an Auto run").toEqual([]);
     expect(run.origin).toBe("agent");
     expect(run.consent.permissionMode).toBe("auto");
     expect(run.fingerprint.providerId).toBe(providerId);
@@ -163,11 +241,27 @@ async function runLiveAgentRun(args: {
     expect(applied.length).toBeGreaterThan(0);
     for (const permission of applied) expect(permission.applied).toMatchObject(args.expectedAppliedOptions);
     expect(hello, "HELLO.md must exist").not.toBeNull();
-    expect(hello!.trim()).toBe(EXPECTED_CONTENT);
+    expect(hello!.trim()).toBe(args.persistentQuestion ? "answered" : EXPECTED_CONTENT);
     expect(evidence.commits).toBe("1");
     expect(run.turnCount).toBeLessThanOrEqual(MAX_TURNS);
+    if (args.extendAtLimit) {
+      expect(run).toMatchObject({ turnCount: 2, maxTurns: 11 });
+      const sessions = messages.filter(message => message.role === "assistant").map(message => message.nativeProviderSessionId).filter(Boolean);
+      expect(sessions.length).toBeGreaterThanOrEqual(2);
+      expect(new Set(sessions).size, "both stage turns must reuse the native session").toBe(1);
+      evidence.nativeSessionCount = new Set(sessions).size;
+    }
     await stave.page.screenshot({ path: testInfo.outputPath(`${providerId}-completed.png`) });
   } finally {
+    if (typeof evidence.workspaceId === "string" && typeof evidence.taskId === "string") {
+      const loaded = await stave.page.evaluate(async workspaceId => window.api!.persistence!.loadWorkspace!({ workspaceId }), evidence.workspaceId).catch(() => null);
+      messages = (loaded?.snapshot?.messagesByTask[evidence.taskId] ?? messages) as ChatMessage[];
+    }
+    const finalDetail = detail as AgentRunDetail | null;
+    console.log(`Final ${providerId} run: ${JSON.stringify({ state: finalDetail?.agentRun.state, turnCount: finalDetail?.agentRun.turnCount, stage: finalDetail?.agentRun.currentStageIndex, stages: finalDetail?.stages.map(stage => ({ id: stage.stageId, status: stage.status, detail: stage.detail, blockReason: stage.blockReason })) })}`);
+    await writeFile(testInfo.outputPath(`${providerId}-run-evidence.json`), JSON.stringify(evidence, null, 2));
+    await writeFile(testInfo.outputPath(`${providerId}-run-detail.json`), JSON.stringify(detail, null, 2));
+    await writeFile(testInfo.outputPath(`${providerId}-task-messages.json`), JSON.stringify(messages, null, 2));
     await testInfo.attach(`${providerId}-run-evidence`, { body: JSON.stringify(evidence, null, 2), contentType: "application/json" });
     await testInfo.attach(`${providerId}-run-detail`, { body: JSON.stringify(detail, null, 2), contentType: "application/json" });
     await testInfo.attach(`${providerId}-task-messages`, { body: JSON.stringify(messages, null, 2), contentType: "application/json" });
@@ -211,3 +305,34 @@ test("an Auto agent run on live Claude Code writes HELLO.md and completes withou
     expectedAppliedOptions: { claudePermissionMode: "auto" },
   });
 });
+
+
+test("a live Codex run halts at one turn and Extend completes its second stage", async ({}, testInfo) => {
+  test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+  test.setTimeout(420_000);
+  await runLiveAgentRun({
+    providerId: "codex", testInfo, extendAtLimit: true,
+    pickModel: models => {
+      const visible = models.filter(entry => !entry.hidden);
+      const requested = process.env.STAVE_LIVE_CODEX_MODEL;
+      return (requested ? visible.find(entry => entry.model === requested) : visible.find(entry => entry.isDefault) ?? visible[0])?.model ?? null;
+    },
+    settings: { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+    expectedAppliedOptions: { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+  });
+});
+
+for (const providerId of ["claude-code", "codex"] as const) {
+  test(`live ${providerId} Run keeps a native question after timeout and delivers one reply`, async ({}, testInfo) => {
+    test.skip(process.env.STAVE_LIVE_PROVIDER_E2E !== "1", "Requires explicit live provider opt-in.");
+    test.setTimeout(420_000);
+    await runLiveAgentRun({ providerId, testInfo, persistentQuestion: true,
+      pickModel: models => providerId === "claude-code" ? process.env.STAVE_LIVE_CLAUDE_MODEL ?? "claude-haiku-5-5"
+        : process.env.STAVE_LIVE_CODEX_MODEL ?? models.find(model => model.isDefault && !model.hidden)?.model ?? models.find(model => !model.hidden)?.model ?? null,
+      settings: providerId === "claude-code" ? { claudeEffort: "low", claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false }
+        : { codexReasoningEffort: "low", codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexNetworkAccess: false },
+      expectedAppliedOptions: providerId === "claude-code" ? { claudePermissionMode: "auto" }
+        : { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" },
+    });
+  });
+}

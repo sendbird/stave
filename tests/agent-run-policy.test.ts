@@ -226,7 +226,7 @@ describe("AI stages", () => {
     const capped = patchCurrent(afterFirstTurn(), {});
     expect(
       decide({ ...capped, agentRun: { ...capped.agentRun, turnCount: capped.agentRun.maxTurns } }, observe({ lastEndedTurn: interrupted })),
-    ).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
+    ).toMatchObject({ action: "pause", reason: "limit-reached" });
   });
 
   test("a stage whose next stage has no attempts left is marked stuck once instead of failing every tick", () => {
@@ -278,13 +278,13 @@ describe("AI stages", () => {
     ).toMatchObject({ action: "block", reason: "reporting-unavailable" });
   });
 
-  test("the turn cap stops before another turn, never before a completion", () => {
+  test("the turn cap pauses before another turn, never before a completion", () => {
     const capped = agentRunFixture({ maxTurns: 1 });
     const started = step(capped).next;
     expect(started.agentRun.turnCount).toBe(1);
     expect(decide(patchCurrent(started, {}), observe({ lastEndedTurn: turn() }))).toMatchObject({
-      action: "stop",
-      reason: "turn-cap-reached",
+      action: "pause",
+      reason: "limit-reached",
     });
     expect(
       decide(patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 }), observe({ lastEndedTurn: turn() })),
@@ -367,7 +367,9 @@ describe("Stave action stages", () => {
     expect(currentStageRecord(repair.next).status).toBe("running");
 
     const capped = { ...executing, agentRun: { ...executing.agentRun, turnCount: executing.agentRun.maxTurns } };
-    expect(decide(capped, observe(needsTurn))).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
+    expect(decide(capped, observe(needsTurn))).toMatchObject({ action: "pause", reason: "limit-reached" });
+    // A delegated run ends at its cap, as before: its parent reads a finished child, not a paused one.
+    expect(decide(capped, { ...observe(needsTurn), delegated: true })).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
     // A running repair turn keeps the action idle.
     expect(
       decide(executing, observe({ ...needsTurn, leadTask: { activeTurn: turn({ turnId: "repair-1" }) } })),
@@ -474,4 +476,24 @@ describe("usage-limit waiting", () => {
     expect(step(afterFirstTurn(), { ...limited, usageLimitResume: { status: "unavailable" } }).next.agentRun.usageLimit)
       .toMatchObject({ resetsAt, resumeAt: "2026-09-26T11:01:00.000Z" });
   });
+});
+
+
+test("a report on the last allowed turn still completes the whole run", () => {
+  const base = agentRunFixture({ maxTurns: 1 });
+  const single = { ...base, agentRun: { ...base.agentRun, workflow: { ...base.agentRun.workflow, stages: [base.agentRun.workflow.stages[0]!] } } };
+  const started = step(single).next;
+  const reported = patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 });
+  const done = step(reported, observe({ lastEndedTurn: turn() }));
+  expect(done.next.agentRun).toMatchObject({ state: "completed", turnCount: 1, maxTurns: 1, pauseReason: null, stopReason: null });
+});
+
+test("an ended stage turn with a pending question waits without nudge or stuck, even after restart", () => {
+  for (const nudged of [false, true]) {
+    const aggregate = patchCurrent(agentRunFixture(), { status: "running", nudged });
+    const observation = observe({ leadTask: { ...observe().leadTask, pendingUserInputCount: 1 },
+      lastEndedTurn: { turnId: "question-turn", startedBy: "agentRun", startedAt: AGENT_RUN_NOW.toISOString(), endedAt: AGENT_RUN_NOW.toISOString(), interrupted: true } });
+    expect(decide(aggregate, observation)).toEqual({ action: "wait", reason: "awaiting-user-input" });
+    expect(applyAgentRunDecision({ aggregate, decision: decide(aggregate, observation), now: AGENT_RUN_NOW }).upserts).toEqual([]);
+  }
 });

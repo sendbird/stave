@@ -1,3 +1,4 @@
+import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { truncateUtf8Middle } from "@/lib/providers/transport-bounds";
 import type {
   ApprovalPart,
@@ -327,7 +328,7 @@ export function resolvePendingToolInteractionPartsByRequestId(args: {
       };
     }
 
-    if (part.type === "user_input" && part.requestId === requestId && part.state === "input-requested") {
+    if (part.type === "user_input" && part.requestId === requestId && part.state === "input-requested" && part.delivery !== "async") {
       changed = true;
       return {
         ...part,
@@ -341,9 +342,14 @@ export function resolvePendingToolInteractionPartsByRequestId(args: {
   return changed ? nextParts : args.parts;
 }
 
+/** Stop reasons of a turn the user stopped or the host cancelled. */
+export const USER_STOPPED_TURN_REASONS = ["cancelled", "aborted", "user_abort"];
+
 export function interruptPendingToolInteractionParts(args: {
   parts: MessagePart[];
   preserveAsync?: boolean;
+  /** The user stopped the turn: a run's question ends with it instead of outliving it. */
+  stopped?: boolean;
 }): MessagePart[] {
   let changed = false;
   const nextParts = args.parts.map((part) => {
@@ -355,6 +361,11 @@ export function interruptPendingToolInteractionParts(args: {
       };
     }
 
+    if (part.type === "user_input" && part.state === "input-requested" && runQuestionStage(part.requestId) && !args.stopped) {
+      if (part.delivery === "async") return part;
+      changed = true;
+      return { ...part, delivery: "async" as const };
+    }
     if (part.type === "user_input" && part.state === "input-requested" && (!args.preserveAsync || part.delivery !== "async")) {
       changed = true;
       return {
@@ -371,11 +382,13 @@ export function interruptPendingToolInteractionParts(args: {
 
 export function interruptPendingToolInteractionsInMessages(args: {
   messages: ChatMessage[];
+  stopped?: boolean;
 }): ChatMessage[] {
   let changed = false;
   const nextMessages = args.messages.map((message) => {
     const nextParts = interruptPendingToolInteractionParts({
       parts: message.parts,
+      stopped: args.stopped,
     });
     if (nextParts === message.parts) {
       return message;

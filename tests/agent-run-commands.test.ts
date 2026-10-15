@@ -6,6 +6,7 @@ import {
   recordStageReport,
   requestStageChanges,
   resumeAgentRun,
+  extendAgentRun,
   retryStage,
   signOffStage,
   skipStage,
@@ -274,5 +275,36 @@ describe("stage reports", () => {
     expect(
       refusal(() => recordStageReport({ aggregate: full, expected: identity(full), report, turnId: null, now: AGENT_RUN_NOW })),
     ).toMatchObject({ code: "report-limit" });
+  });
+});
+
+
+describe("extend a turn-limit pause", () => {
+  const base = agentRunFixture({ maxTurns: 30 });
+  const paused: AgentRunAggregate = { ...base, agentRun: { ...base.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 30 } };
+
+  test("adds ten turns and resumes without changing accumulated work", () => {
+    const change = extendAgentRun({ aggregate: paused, now: AGENT_RUN_NOW });
+    expect(change.agentRun).toEqual({ ...paused.agentRun, state: "running", pauseReason: null, reasonDetail: null, maxTurns: 40, updatedAt: AGENT_RUN_NOW.toISOString() });
+    expect(change.upserts).toEqual([]);
+    expect(change.events.map(event => event.kind)).toEqual(["resumed"]);
+    expect(paused.agentRun.maxTurns).toBe(30);
+    expect(refusal(() => resumeAgentRun({ aggregate: paused, now: AGENT_RUN_NOW })).code).toBe("invalid-state");
+  });
+
+  test("only a limit pause can extend, even from a stale control", () => {
+    for (const aggregate of [base, { ...paused, agentRun: { ...paused.agentRun, pauseReason: "paused-by-user" as const } }, { ...base, agentRun: { ...base.agentRun, state: "completed" as const } }]) {
+      expect(refusal(() => extendAgentRun({ aggregate, now: AGENT_RUN_NOW })).code).toBe("invalid-state");
+    }
+    const resumed = applyChange(paused, extendAgentRun({ aggregate: paused, now: AGENT_RUN_NOW }));
+    expect(refusal(() => extendAgentRun({ aggregate: resumed, now: AGENT_RUN_NOW })).code).toBe("invalid-state");
+  });
+
+  test("clamps to 100, refuses the ceiling and invalid increments", () => {
+    const near = { ...paused, agentRun: { ...paused.agentRun, maxTurns: 95 } };
+    expect(extendAgentRun({ aggregate: near, now: AGENT_RUN_NOW }).agentRun.maxTurns).toBe(100);
+    expect(extendAgentRun({ aggregate: paused, additionalTurns: 3, now: AGENT_RUN_NOW }).agentRun.maxTurns).toBe(33);
+    expect(refusal(() => extendAgentRun({ aggregate: { ...near, agentRun: { ...near.agentRun, maxTurns: 100 } }, now: AGENT_RUN_NOW })).message).toContain("maximum");
+    for (const additionalTurns of [0, -1, 1.5, NaN]) expect(refusal(() => extendAgentRun({ aggregate: paused, additionalTurns, now: AGENT_RUN_NOW })).code).toBe("invalid-state");
   });
 });

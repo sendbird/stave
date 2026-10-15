@@ -1,3 +1,4 @@
+import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
 import { cancelAgentRunBeforeStop } from "./agent-run-send";
 import type { StoreApi } from "zustand";
@@ -202,6 +203,7 @@ export function createProviderInteractionActions(args: {
         const current = messagesByTask[taskId] ?? [];
         const interruptedMessages = interruptPendingToolInteractionsInMessages({
           messages: current,
+          stopped: true,
         });
         const target = interruptedMessages[interruptedMessages.length - 1];
         // Clear persisted provider session so stale thread IDs are not
@@ -706,6 +708,21 @@ export function createProviderInteractionActions(args: {
         });
       };
 
+      if (userInputPart?.delivery === "async" && runQuestionStage(userInputPart.requestId)) {
+        const host = window.api?.localMcp?.respondUserInput;
+        if (!host || !workspaceId) return;
+        const key = `${workspaceId}:${taskId}:${userInputPart.requestId}`;
+        if (pendingAsyncAnswers.has(key)) return;
+        pendingAsyncAnswers.add(key);
+        void host({ workspaceId, taskId, requestId: userInputPart.requestId, answers, denied })
+          .then(result => {
+            if (result.ok) applyUserInputResponse(userInputPart.requestId);
+            else appendUserInputFailure(i18n.t("agentRuns:persistentQuestion.deliveryFailed", { reason: result.message ?? "unknown" }));
+          })
+          .catch(error => appendUserInputFailure(i18n.t("agentRuns:persistentQuestion.deliveryFailed", { reason: String(error) })))
+          .finally(() => pendingAsyncAnswers.delete(key));
+        return;
+      }
       if (userInputPart?.delivery === "async") {
         // An async question did not pause the provider and has no pending
         // request to resolve. Its answer is an ordinary user message: steered

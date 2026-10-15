@@ -7,6 +7,7 @@ import { z } from "zod";
 import {
   AGENT_RUN_USER_TURN_INTENTS,
   type AgentRunIdArgs,
+  type AgentRunExtendArgs,
   type AgentRunListArgs,
   type AgentRunNoteUserTurnArgs,
   type AgentRunRequestChangesArgs,
@@ -32,6 +33,10 @@ export const AgentRunStartArgsSchema = AgentRunStartInputSchema.refine((input) =
 export const AgentRunIdArgsSchema = z
   .object({ agentRunId: IdSchema })
   .strict() satisfies z.ZodType<AgentRunIdArgs>;
+
+export const AgentRunExtendArgsSchema = AgentRunIdArgsSchema.extend({
+  additionalTurns: z.number().int().min(1).max(AGENT_RUN_LIMITS.maxTurnsCeiling).optional(),
+}).strict() satisfies z.ZodType<AgentRunExtendArgs>;
 
 export const AgentRunListArgsSchema = z
   .object({

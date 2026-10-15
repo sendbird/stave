@@ -120,7 +120,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
   const criteria = latestCriteria(detail);
   const signedOffAt = latestSignOffTime(detail);
   const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" ||
-    agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired";
+    agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired" || agentRun.pauseReason === "limit-reached";
   // The badge already names the state; its subtitle and the line beside it say where and why.
   const statusText = active
     ? [
@@ -162,10 +162,10 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
                   variant="secondary"
                   size="xs"
                   disabled={props.busy}
-                  onClick={() => void onCommand("resume", { agentRunId: agentRun.id })}
+                  onClick={() => void onCommand(agentRun.pauseReason === "limit-reached" ? "extend" : "resume", { agentRunId: agentRun.id })}
                 >
                   <Play aria-hidden />
-                  {i18n.t("agentRuns:agentRunPanel.legacyWorkflowRunDetailView3")}</Button>
+                  {i18n.t(agentRun.pauseReason === "limit-reached" ? "agentRuns:limit.extend" : "agentRuns:agentRunPanel.legacyWorkflowRunDetailView3")}</Button>
               ) : null}
               <Tooltip>
                 <DropdownMenu

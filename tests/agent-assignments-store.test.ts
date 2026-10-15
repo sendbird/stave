@@ -51,3 +51,9 @@ describe("agent assignments by task", () => {
     expect(fixed.t1?.agentTaskClass).toBeNull();
   });
 });
+
+
+test("assignment projection preserves the recorded agent tool cap for sends", () => {
+  const agent = { ...getBuiltinAgent("implementer")!, tools: { maxTurns: 1 } };
+  expect(indexAssignmentsByTask([row({ agent })]).t1?.agentTools).toEqual({ maxTurns: 1 });
+});

@@ -97,6 +97,8 @@ export interface AgentRunObservation {
   leadTask: LeadTaskObservation;
   /** False when the Local MCP server the model reports through is down. */
   reportingAvailable: boolean;
+  /** True for a run a parent agent delegated: at its turn cap it ends rather than halts. */
+  delegated?: boolean;
   /** The latest lead-task turn that ended since the current attempt began. */
   lastEndedTurn: ObservedTurn | null;
   /** The composer choice for the running user turn, if one is running. */
@@ -267,13 +269,17 @@ function isReplyAfterStuck(last: ObservedTurn, stuckAt: string | null | undefine
   return Date.parse(last.endedAt ?? last.startedAt) > Date.parse(stuckAt);
 }
 
-function turnCapStop(agentRun: AgentRun): AgentRunDecision | null {
+/**
+ * At the cap a primary run halts and waits to be extended. A delegated run
+ * ends instead, as before: its parent reads a finished child, not a paused
+ * one, and only the user could extend it.
+ */
+function turnCapPause(agentRun: AgentRun, observation: Pick<AgentRunObservation, "delegated">): AgentRunDecision | null {
   if (agentRun.turnCount < agentRun.maxTurns) return null;
-  return {
-    action: "stop",
-    reason: "turn-cap-reached",
-    detail: i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns }),
-  };
+  const detail = i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns });
+  return observation.delegated
+    ? { action: "stop", reason: "turn-cap-reached", detail }
+    : { action: "pause", reason: "limit-reached", detail };
 }
 
 function startTurn(args: {
@@ -293,7 +299,7 @@ function startTurn(args: {
             i18n.t("agentRuns:policy.detail2"),
         };
   }
-  const capped = turnCapStop(agentRun);
+  const capped = turnCapPause(agentRun, observation);
   if (capped) return capped;
   return {
     action: "start-stage-turn",
@@ -411,7 +417,7 @@ function decideAiStage(
     return startTurn({ agentRun, record, observation, reason: "stage-start" });
   }
   if (!record.nudged) {
-    return turnCapStop(agentRun) ?? { action: "nudge" };
+    return turnCapPause(agentRun, observation) ?? { action: "nudge" };
   }
   return {
     action: "mark-stuck",
@@ -439,7 +445,7 @@ function decideActionStage(
       return { action: "mark-stuck", detail: clampReason(outcome.detail) };
     case "needs-turn":
       return (
-        turnCapStop(agentRun) ?? {
+        turnCapPause(agentRun, observation) ?? {
           action: "start-action-turn",
           stageIndex: agentRun.currentStageIndex,
           attempt: record.attempt,

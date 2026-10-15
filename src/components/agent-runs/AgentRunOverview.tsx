@@ -4,6 +4,7 @@ import { formatTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import { Bot, Gauge, ListChecks, ListOrdered, ListTodo } from "lucide-react";
+import { Button } from "@/components/ads/components/Button";
 import { Badge } from "@/components/ads/components/Badge";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
@@ -100,6 +101,11 @@ export function AgentRunOverview(props: {
             {statusText}
           </span>
         </div>
+        {status.recovery === "extend" && actions.onExtend ? (
+          <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onExtend}>
+            {i18n.t("agentRuns:limit.extend")}
+          </Button>
+        ) : null}
         {!staged && (plan || active) ? <p className={sx(styles.notice, styles.statusText)} title={describeRunPlan(plan)}>{describeRunPlan(plan)}</p> : null}
       </header>
 

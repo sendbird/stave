@@ -1,3 +1,5 @@
+import { i18n } from "../../../src/i18n/runtime";
+import type { RunQuestionAnswer } from "../run-question-answer";
 import { usageLimitedTurnRuntime, usageLimitedTurnEffort, usageLimitAccounts, observeUsageLimitQuota, turnEffortOf } from "./agent-run-usage-limit";
 import { accountPoolReadOrder, agentRunPoolAccount, normalizeAgentRunAccountPool, type PoolAccountUsage } from "../../../src/lib/agent-runs/account-pool";
 import { selectedProviderAccount } from "../../../src/lib/providers/provider-account-selection";
@@ -42,6 +44,7 @@ import type {
   AgentRunChangedEvent,
   AgentRunDetail,
   AgentRunIdArgs,
+  AgentRunExtendArgs,
   AgentRunInvokeResult,
   AgentRunListArgs,
   AgentRunNoteUserTurnArgs,
@@ -84,6 +87,7 @@ import {
   recordStageReport,
   requestStageChanges,
   resumeAgentRun,
+  extendAgentRun,
   retryStage,
   signOffStage,
   skipStage,
@@ -230,6 +234,8 @@ export interface AgentRunRuntimeDependencies {
     agentRunStage?: AgentRunStageRef;
     /** On every turn of an agent run: marks the user row so it renders as the assignment. */
     agentRunPrompt?: AgentRunPromptProvenance;
+    /** Persisted with the reply message before native provider dispatch. */
+    questionAnswer?: RunQuestionAnswer;
     /** The turn after an account-pool switch: a new conversation on that account, never a stored or cached one. */
     freshSession?: boolean;
   }) => Promise<{ turnId: string }>;
@@ -365,7 +371,8 @@ export interface AgentRunRuntime {
   whenIdle: () => Promise<void>;
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
-  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: AgentRunStageIdentity; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation" } | null;
+  answerQuestion: (args: { workspaceId: string; taskId: string; stage: AgentRunStageIdentity; prompt: string; questionAnswer: RunQuestionAnswer }) => Promise<void>;
+  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation" } | null;
   resourceRootForTask: (taskId: string) => string | null;
   getActiveAgentRunForTask: (taskId: string) => AgentRun | null;
   readDelegatedAgentRun: (args: AgentRunIdArgs) => Promise<DelegatedAgentRunRead>;
@@ -392,6 +399,7 @@ export interface AgentRunRuntime {
   retryStage: (args: AgentRunStageRef) => Promise<AgentRunDetail>;
   pause: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   resume: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
+  extend: (args: AgentRunExtendArgs) => Promise<AgentRunDetail>;
   takeOver: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   acceptRuntime: (args: AgentRunIdArgs) => Promise<AgentRunDetail>;
   noteUserTurn: (args: AgentRunNoteUserTurnArgs) => Promise<AgentRunDetail>;
@@ -832,6 +840,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
             : 0,
         },
         reportingAvailable: await deps.isReportingAvailable(),
+        delegated: delegatedAuthority(agentRun) !== null,
         lastEndedTurn: endedRow
           ? {
               ...toObserved(endedRow),
@@ -1715,6 +1724,25 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     notifyTaskTurnFinished: ({ taskId }) => {
       if (store.getActiveAgentRunForTask(taskId)) void requestTick();
     },
+    answerQuestion: (args) => enqueue(async () => {
+      const aggregate = requireAggregate(args.stage.agentRunId);
+      const run = aggregate.agentRun, record = currentStageRecord(aggregate);
+      // The question is moot once its run ended or its stage attempt moved on; a paused run only waits.
+      if (run.workspaceId !== args.workspaceId || run.leadTaskId !== args.taskId || !isActiveAgentRunState(run.state) ||
+          record.stageId !== args.stage.stageId || record.attempt !== args.stage.attempt || workflowStageAt(run, run.currentStageIndex).kind !== "ai")
+        throw new AgentRunCommandError("not-active", i18n.t("agentRuns:persistentQuestion.stageChanged"));
+      if (run.state !== "running" || !["running", "blocked", "stuck"].includes(record.status)) refuse(i18n.t("agentRuns:persistentQuestion.resumeFirst"));
+      const snapshot = await readSnapshot(run);
+      if (!snapshot.exists || snapshot.archived || snapshot.activeTurnId || snapshot.pendingApprovalCount || !snapshot.providerId || !snapshot.model)
+        refuse(i18n.t("agentRuns:persistentQuestion.waitForRequest"));
+      if (!(await deps.isReportingAvailable({ fresh: true }))) refuse(i18n.t("agentRuns:persistentQuestion.reportingUnavailable"));
+      await deps.runSupervisedTurn({ workspaceId: args.workspaceId, taskId: args.taskId,
+        ...(delegatedAuthority(run) ? { parentTaskId: delegatedAuthority(run)!.parentTaskId } : {}),
+        prompt: args.prompt, questionAnswer: args.questionAnswer, fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as AgentRunFingerprint,
+        runtimeOptions: runAccountOptions(run, store.resourceConfig?.(run.id)), retrievedContextParts: [] });
+      // The normal provider admission calls prepareUserTurn: the reply is a
+      // user turn of this stage, not another automatic stage-start or nudge.
+    }),
     prepareUserTurn: ({ taskId, workspaceId, turnId, providerId }) => {
       let run = store.getActiveAgentRunForTask(taskId);
       if (!run || !hasAgentOrigin(run) || (workspaceId && run.workspaceId !== workspaceId)) return null;
@@ -1758,7 +1786,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
       const accountOptions = resources?.policy.accountProfileId ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: resources.policy.accountProfileId } : { claudeAccountProfileId: resources.policy.accountProfileId }) : {};
-      return { agentRunStage, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
+      return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
       }) } } : { runtimeOptions: { ...accountOptions,
         // The reply is a turn of the run: the run's consent, not the composer's settings alone.
@@ -2035,6 +2063,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           refuse("Delegation admission did not finish. Stop or retry it from the parent task.");
         return resumeAgentRun({ aggregate, now: now() });
       }),
+    extend: ({ agentRunId, additionalTurns }) =>
+      command(agentRunId, (aggregate) => extendAgentRun({ aggregate, additionalTurns, now: now() })),
     takeOver: ({ agentRunId }) => {
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
@@ -2224,6 +2254,8 @@ function dispatch(runtime: AgentRunRuntime, action: HostAgentRunAction, args: un
       return runtime.pause(args as AgentRunIdArgs);
     case "resume":
       return runtime.resume(args as AgentRunIdArgs);
+    case "extend":
+      return runtime.extend(args as AgentRunExtendArgs);
     case "take-over":
       return runtime.takeOver(args as AgentRunIdArgs);
     case "accept-runtime":

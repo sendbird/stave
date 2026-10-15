@@ -149,6 +149,7 @@ const ACTIVE_CASES: Array<[string, AgentRunDetail, ChatMessage[], AgentRunStatus
   ["running, waiting for PR checks", runs.eventWait, [], "running"],
   ["running, every card answered", runs.working, [assistant([question("input-responded"), approval("a1", "approval-responded")])], "running"],
   ["needs your answer, a question", runs.working, [assistant([question()])], "needs-answer"],
+  ["needs your answer, a persisted async question", runs.working, [assistant([{ ...question(), delivery: "async" }])], "needs-answer"],
   ["needs your answer, an approval", runs.working, [assistant([approval("a1")])], "needs-answer"],
   ["needs your answer, a sign-off", runs.signOff, [], "needs-answer"],
   ["paused", runs.paused, [], "paused"],
@@ -262,3 +263,16 @@ describe("one badge on every surface", () => {
     expect(html).not.toContain(formatAgentRunBadge(describeAgentRunStatus(detail, null)));
   });
 });
+
+
+for (const locale of ["en", "ko"] as const) {
+  test(`${locale}: limit pause wears Halted on every surface and offers Extend`, () => {
+    applyRuntimeLocale(locale);
+    const detail: AgentRunDetail = { ...runs.working, agentRun: { ...runs.working.agentRun, state: "paused", pauseReason: "limit-reached", maxTurns: 1, turnCount: 1 } };
+    const status = describeAgentRunStatus(detail);
+    expect(formatAgentRunBadge(status)).toBe(locale === "en" ? "Halted · Limit reached" : "멈춤 · 한도 도달");
+    const surfaces = renderSurfaces(detail, []);
+    expectOneBadge(surfaces, status);
+    for (const html of [surfaces.bar, surfaces.taskPanel]) expect(html).toContain(locale === "en" ? "Extend (+10 turns)" : "연장 (+10턴)");
+  });
+}

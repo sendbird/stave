@@ -21,7 +21,7 @@ import { WORKFLOW_LIMITS, WORKFLOW_VERSION, type Workflow } from "@/lib/workflow
 import { AGENT_RUN_LIMITS, stageHasExternalEffect, type AgentRun, type AgentRunStartInput } from "./domain";
 import type { PromptDraft } from "@/types/chat";
 
-type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns"> & Partial<Pick<AgentConfig, "permission">>;
+type RunAgent = Pick<AgentConfig, "name" | "workflow" | "checkIns"> & Partial<Pick<AgentConfig, "permission" | "tools">>;
 
 /**
  * The permission a run starts with is the agent's: an Auto agent runs on the
@@ -95,8 +95,8 @@ export function buildAgentRunWorkflow(args: {
  * user's own settings (`manual`); the agent actor makes the turns autonomous
  * at the host turn entry. Assigning work to an agent that checks in only when
  * stuck authorizes its workflow's publish and Stave action stages; under any
- * other check-in level each of those stages asks first. The default turn cap
- * applies.
+ * other check-in level each of those stages asks first. The agent's turn cap
+ * applies, or the default when it has none.
  */
 export function buildAgentRunStartInput(args: {
   workspaceId: string;
@@ -124,6 +124,7 @@ export function buildAgentRunStartInput(args: {
     ...(args.initialContext ? { initialContext: args.initialContext } : {}),
     consent: { checkIns: workflow.checkIns, permissionMode: agentRunPermissionMode(args.agent.permission), authorizedEffectStageIds },
     origin: "agent",
+    maxTurns: Math.min(args.agent.tools?.maxTurns ?? AGENT_RUN_LIMITS.defaultMaxTurns, AGENT_RUN_LIMITS.maxTurnsCeiling),
     ...(args.adaptive ? { adaptive: true } : {}),
     ...(args.routingIntent ? { routingIntent: args.routingIntent } : {}),
     ...(args.accounts ? { accounts: args.accounts } : {}),

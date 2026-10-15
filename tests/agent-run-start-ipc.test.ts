@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { AgentRunStartArgsSchema, AgentRunRequestChangesArgsSchema } from "../electron/main/ipc/agent-run-schemas";
+import { AgentRunStartArgsSchema, AgentRunRequestChangesArgsSchema, AgentRunExtendArgsSchema } from "../electron/main/ipc/agent-run-schemas";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 
 test("the renderer can start an agent run, never a legacy run without an agent", () => {
@@ -21,4 +21,12 @@ test("a supervised reply accepts bounded stage guidance and refuses caller autho
   expect(AgentRunRequestChangesArgsSchema.safeParse(reply).success).toBe(true);
   expect(AgentRunRequestChangesArgsSchema.safeParse({ ...reply, runtimeOptions: { codexFileAccess: "danger-full-access" } }).success).toBe(false);
   expect(AgentRunRequestChangesArgsSchema.safeParse({ ...reply, feedback: "x".repeat(100_001) }).success).toBe(false);
+});
+
+
+test("Extend IPC accepts bounded increments and refuses invalid or extra authority", () => {
+  expect(AgentRunExtendArgsSchema.safeParse({ agentRunId: "run" }).success).toBe(true);
+  expect(AgentRunExtendArgsSchema.safeParse({ agentRunId: "run", additionalTurns: 10 }).success).toBe(true);
+  for (const additionalTurns of [0, -1, 1.5, 101]) expect(AgentRunExtendArgsSchema.safeParse({ agentRunId: "run", additionalTurns }).success).toBe(false);
+  expect(AgentRunExtendArgsSchema.safeParse({ agentRunId: "run", maxTurns: 200 }).success).toBe(false);
 });

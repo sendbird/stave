@@ -22,6 +22,7 @@ import { AGENT_RUN_ASSIGNMENT, buildAgentRunFixtures } from "./agent-run-fixture
 const noop = (async () => ({ ok: true, agentRun: null })) as never;
 const runActions = {
   onResume: () => {},
+  onExtend: () => {},
   onStop: () => {},
   onTakeControl: () => {},
   onRetry: () => {},
@@ -73,6 +74,7 @@ const FLEET_CARDS = [
 export function AgentRunPreviewCases({ now, width }: { now: number; width: number | null }) {
   const runs = buildAgentRunFixtures(new Date(now - 23 * 60_000));
   const working = buildAgentRunFixtures(new Date(now - 4 * 60_000));
+  const limitReached: AgentRunDetail = { ...working.working, agentRun: { ...working.working.agentRun, state: "paused", pauseReason: "limit-reached", turnCount: 1, maxTurns: 1 } };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   return (
     <div className={sx(styles.cases)} style={width ? { maxWidth: width } : undefined}>
@@ -97,6 +99,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run approval", "Composer · Needs your answer · approval", working.working, null, null, "approval"],
           ["Agent run paused", "Composer · Paused", working.paused, null, null, null],
           ["Agent run taken over", "Composer · Paused · taken over", working.takenOver, null, null, null],
+          ["Agent run limit reached", "Composer · Halted · Limit reached", limitReached, null, null, null],
           ["Agent run blocked", "Composer · Halted · blocked", working.blocked, null, null, null],
           ["Agent run stuck", "Composer · Halted · stuck (Retry)", working.stuck, null, null, null],
           ["Agent run usage unknown", "Composer · Halted · usage limit, reset unknown", working.usageUnknown, null, null, null],
@@ -139,6 +142,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
 
       {(
         [
+          ["Agent run panel limit reached", "Progress tab · Halted · Limit reached", limitReached, null],
           ["Agent run panel working", "Progress tab · Running", working.working, null],
           ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow, null],
           ["Agent run panel waiting", "Progress tab · Running · waiting for a usage reset", working.waiting, null],

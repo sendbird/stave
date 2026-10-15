@@ -217,3 +217,11 @@ test("file-path assignments retain staged paths as data without converting image
   expect(assignment).toContain('["src/a.ts","image.png","b.ts"]');
   expect(assignment).toContain("saved files");
 });
+
+
+test("start cap follows the agent tools and clamps to the run ceiling", () => {
+  for (const [maxTurns, expected] of [[1, 1], [42, 42], [200, 100]] as const) {
+    const input = buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: { ...AGENT, tools: { maxTurns } }, assignment: "x", now: NOW });
+    expect(AgentRunStartInputSchema.parse(input).maxTurns).toBe(expected);
+  }
+});

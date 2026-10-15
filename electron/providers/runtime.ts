@@ -636,7 +636,7 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation" } | null) | null = null;
+let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; managedTask: boolean; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation" } | null) | null = null;
 export function setAgentRunUserTurnResolver(resolver: typeof agentRunUserTurnResolver) {
   agentRunUserTurnResolver = resolver;
 }
@@ -699,7 +699,7 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
     if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
         (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
       const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId, providerId: rawArgs.providerId });
-      if (stage) rawArgs = { ...rawArgs, agentRunStage: stage.agentRunStage,
+      if (stage) rawArgs = { ...rawArgs, agentRunStage: stage.agentRunStage, managedTask: stage.managedTask,
         ...(stage.runtimeOptions ? { runtimeOptions: stage.runtimeOptionsMode === "routing" ? { ...rawArgs.runtimeOptions, ...stage.runtimeOptions } : delegatedReplyRuntimeOptions(rawArgs.runtimeOptions, stage.runtimeOptions) } : {}),
         conversation: { ...rawArgs.conversation, contextParts: [...rawArgs.conversation.contextParts, stage.context] } };
     }

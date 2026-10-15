@@ -369,3 +369,11 @@ test("an admitted queued Run consumes only its queue identity and freezes bounde
   expect(state().promptDraftByTask["task-1"]?.text).toBe("A newer draft");
   expect(state().workspaceSnapshotVersion).toBe(3);
 });
+
+
+test("the send path forwards the assigned agent turn cap", async () => {
+  useAgentAssignmentsStore.setState({ byTaskId: { "task-1": { ...AGENT, agentTools: { maxTurns: 1 } } } });
+  const bridge = fakeBridge();
+  await startAgentRunForSend(sendArgs().args);
+  expect(bridge.started[0]?.maxTurns).toBe(1);
+});

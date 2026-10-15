@@ -15,6 +15,7 @@ import type { HostAgentRunAction } from "../../host-service/protocol";
 import { ensureAgentRunEventBridge, invokeAgentRun } from "../agent-runs-service";
 import {
   AgentRunIdArgsSchema,
+  AgentRunExtendArgsSchema,
   AgentRunListArgsSchema,
   AgentRunNoteUserTurnArgsSchema,
   AgentRunRequestChangesArgsSchema,
@@ -83,6 +84,7 @@ export function registerAgentRunHandlers() {
   handleCommand(AGENT_RUN_IPC.retryStage, "retry-stage", AgentRunStageRefSchema);
   handleCommand(AGENT_RUN_IPC.pause, "pause", AgentRunIdArgsSchema);
   handleCommand(AGENT_RUN_IPC.resume, "resume", AgentRunIdArgsSchema);
+  handleCommand(AGENT_RUN_IPC.extend, "extend", AgentRunExtendArgsSchema);
   handleCommand(AGENT_RUN_IPC.takeOver, "take-over", AgentRunIdArgsSchema);
   handleCommand(AGENT_RUN_IPC.acceptRuntime, "accept-runtime", AgentRunIdArgsSchema);
   handleCommand(AGENT_RUN_IPC.noteUserTurn, "note-user-turn", AgentRunNoteUserTurnArgsSchema);

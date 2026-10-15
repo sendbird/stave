@@ -106,7 +106,7 @@ const WAITING_LOOK = { tone: "neutral", mark: { state: "waiting", tone: "idle" }
 const APPROVAL_MARK: AgentRunStatusMark = { state: "approval", tone: "waiting" };
 
 /** What Retry does: ask the stage again, or start a new run from the assignment. */
-export type AgentRunRecovery = "retry-stage" | "new-run";
+export type AgentRunRecovery = "retry-stage" | "new-run" | "extend";
 
 export interface AgentRunStatus {
   badge: AgentRunBadge;
@@ -170,6 +170,8 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
           ? waiting(i18n.t("agentRuns:badge.usageWait", { time: formatDateTime(resumeAt) }), describeAgentRunUsageLimit(agentRun))
           : make("halted", i18n.t("agentRuns:badge.usageLimit"), { reason: describeAgentRunUsageLimit(agentRun) });
       }
+      case "limit-reached":
+        return make("halted", i18n.t("agentRuns:limit.reached"), { reason, recovery: "extend" });
       case "wait-expired":
         return make("halted", i18n.t("agentRuns:badge.waitExpired"), { reason });
       case "task-identity-changed":

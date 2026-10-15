@@ -171,7 +171,8 @@ export function isActiveAgentRunState(state: AgentRunState) {
 
 /**
  * `paused-by-user`, `taken-over` and `wait-expired` are cleared by Resume (a
- * reply in the task also continues a `wait-expired` run). The other reasons
+ * reply in the task also continues a `wait-expired` run). `limit-reached`
+ * requires Extend. The other reasons
  * describe a condition the supervisor watches and clears on its own.
  */
 export const AGENT_RUN_PAUSE_REASONS = [
@@ -182,6 +183,8 @@ export const AGENT_RUN_PAUSE_REASONS = [
   "usage-limit",
   /** The event the run waited for did not come before its wait ended (`event-wait.ts`). */
   "wait-expired",
+  /** The user adds turns with Extend; this pause never clears automatically. */
+  "limit-reached",
 ] as const;
 export type AgentRunPauseReason = (typeof AGENT_RUN_PAUSE_REASONS)[number];
 
