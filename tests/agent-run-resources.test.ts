@@ -66,3 +66,27 @@ test("a default team policy takes a helper on another provider unless the parent
   expect(() => pinned.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
     requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })).toThrow("pinned");
 });
+test("a workflow's later stage done by another agent keeps its helper slot from helpers the agent calls on its own", () => {
+  const resources = AdaptiveRunPolicySchema.parse({ ...policy, version: 2, concurrentHelpers: 3, totalHelpers: 2 });
+  const workflow = [
+    { id: "work", title: "Work", kind: "ai" as const, instruction: "Do the work and commit it.", doneWhen: "The work is done." },
+    { id: "review", title: "Review", kind: "ai" as const, agentConfigId: "reviewer", pinCommit: true, instruction: "Review the commit.", doneWhen: "The review lists each defect." },
+  ];
+  const start = (startStageIndex: number) => {
+    const s = new AgentRunStore(new Database(":memory:"));
+    const input = { ...buildAgentRunStartInput({ workspaceId: "ws", taskId: "parent", agent: { name: "Agent", workflow }, assignment: "Verify the artifact", now }), startStageIndex };
+    const change = createAgentRun({ id: "parent", input, repositoryPath: "/tmp/repo", fingerprint: { providerId: "codex", model: "gpt-6.1-sol" }, now });
+    Object.assign(change.events[0]!, { idempotencyKey: "parent:start", detail: { ...change.events[0]!.detail, resources } });
+    s.create(change, now);
+    return s;
+  };
+  const reserve = (s: AgentRunStore, childRunId: string, agentConfigId?: string) => s.reserveChildResources({ parentTaskId: "parent",
+    expectedRootRunId: "parent", childRunId, executionId: `e-${childRunId}`, requestedTurns: 2, ...(agentConfigId ? { agentConfigId } : {}), now });
+  const working = start(0);
+  working.releaseResourceReservation(reserve(working, "helper-1")!.link, now);
+  expect(() => reserve(working, "helper-2")).toThrow("keeps its last 1 helper slot");
+  // At the review stage the Reviewer takes the slot kept for it.
+  const reviewing = start(1);
+  reviewing.releaseResourceReservation(reserve(reviewing, "helper-1")!.link, now);
+  expect(reserve(reviewing, "reviewer-1", "reviewer")?.capacity).toBe(2);
+});

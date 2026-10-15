@@ -357,7 +357,7 @@ export interface AgentRunReportReceipt {
 }
 
 export interface AgentRunRuntime {
-  reserveChildResources: (args: { parentTaskId: string; childRunId: string; executionId: string; requestedTurns: number; expectedRootRunId?: string; providerId?: "claude-code" | "codex"; model?: string }) => { policy: AdaptiveRunPolicy; link: ResourceLink; capacity: number } | null;
+  reserveChildResources: (args: { parentTaskId: string; childRunId: string; executionId: string; requestedTurns: number; expectedRootRunId?: string; providerId?: "claude-code" | "codex"; model?: string; agentConfigId?: string }) => { policy: AdaptiveRunPolicy; link: ResourceLink; capacity: number } | null;
   releaseChildResources: (link: ResourceLink) => void;
   requestResources: (args: { agentRunKey: string; request: unknown }) => Promise<{ recorded: true }>;
   start: () => void;
