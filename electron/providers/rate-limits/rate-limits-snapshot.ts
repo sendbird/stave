@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { providerAccountKey, withProviderAccountScope } from "../../provider-accounts/runtime-scope";
 import { currentClaudeGateway, peekApiConnection } from "../../provider-accounts/gateway-runtime";
 import { emptyRateLimitsSnapshot } from "../../../src/lib/providers/account-usage-block";
@@ -38,6 +39,28 @@ export function accountUsageReadsDisabled(
   env: NodeJS.ProcessEnv = process.env,
 ): boolean {
   return env[ACCOUNT_USAGE_READS_DISABLED_ENV] === "1";
+}
+
+/**
+ * With reads disabled, an automated launch can name a JSON file holding the
+ * Claude usage window to report instead (`{ "claude": { "session": {
+ * "usedPercent": 100, "resetsAt": <epoch seconds> } } }`), read on every call
+ * so a test can move the window. Nothing reads it unless reads are disabled.
+ */
+export const ACCOUNT_USAGE_FIXTURE_ENV = "STAVE_E2E_ACCOUNT_USAGE_FILE";
+
+function readUsageFixture(env: NodeJS.ProcessEnv): RateLimitsSnapshotResponse["claude"] | null {
+  const file = env[ACCOUNT_USAGE_FIXTURE_ENV];
+  if (!file) return null;
+  try {
+    const parsed = JSON.parse(readFileSync(file, "utf8")) as { claude?: { session?: { usedPercent?: unknown; resetsAt?: unknown } } };
+    const session = parsed.claude?.session;
+    if (typeof session?.usedPercent !== "number") return null;
+    return { source: "oauth", session: { usedPercent: session.usedPercent, resetsAt: typeof session.resetsAt === "number" ? session.resetsAt : null },
+      weekly: null, fableWeekly: null, error: null } as RateLimitsSnapshotResponse["claude"];
+  } catch {
+    return null;
+  }
 }
 
 function shouldFetchProvider(
@@ -105,16 +128,19 @@ export async function getRateLimitsSnapshot(args: {
   onObservation?: (snapshot: RateLimitsSnapshotResponse, metadata: QuotaObservationMetadata) => void;
   env?: NodeJS.ProcessEnv;
 }): Promise<RateLimitsSnapshotResponse> {
-  if (accountUsageReadsDisabled(args.env)) {
+  if (accountUsageReadsDisabled(args.env ?? process.env)) {
     const disabled: QuotaReadFeedback = { status: "unavailable", reason: "unavailable",
       nextRefreshAt: null, nextAutomaticReadAt: null, lastReadFailed: false };
+    const fixture = readUsageFixture(args.env ?? process.env);
     const providerIds: ProviderId[] = ["claude-code", "codex", "cursor", "kiro"];
     return {
       ...emptyRateLimitsSnapshot(),
+      ...(fixture ? { claude: fixture } : {}),
       reads: Object.fromEntries(
         providerIds
           .filter((providerId) => shouldFetchProvider(providerId, args.providers))
-          .map((providerId) => [providerId, disabled]),
+          .map((providerId) => [providerId, fixture && providerId === "claude-code"
+            ? { ...disabled, status: "fresh", reason: "request" } satisfies QuotaReadFeedback : disabled]),
       ),
     };
   }
