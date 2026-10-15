@@ -98,16 +98,23 @@ export function agentIconLabel(entry: AgentIconEntry): string {
   return t(entry.labelKey);
 }
 
+/** Lower case, with hyphens read as spaces, so "search-check" and "search check" are the same search. */
+function normalizeSearchText(text: string): string {
+  return text.toLowerCase().replace(/-+/g, " ").trim();
+}
+
 /**
  * The icons whose label (in the display language) or id contains every word of
- * the query, in catalog order. Ids are English words, so an English search
- * still finds an icon while the UI is in another language.
+ * the query, in catalog order. The query and the candidates are normalized the
+ * same way, so an id typed as stored ("git-pull-request") finds its icon. Ids
+ * are English words, so an English search still finds an icon while the UI is
+ * in another language.
  */
 export function matchAgentIcons(query: string): AgentIconEntry[] {
-  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const words = normalizeSearchText(query).split(/\s+/).filter(Boolean);
   if (words.length === 0) return [...AGENT_ICONS];
   return AGENT_ICONS.filter((entry) => {
-    const haystack = `${agentIconLabel(entry)} ${entry.id.replace(/-/g, " ")}`.toLowerCase();
+    const haystack = normalizeSearchText(`${agentIconLabel(entry)} ${entry.id}`);
     return words.every((word) => haystack.includes(word));
   });
 }

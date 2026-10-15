@@ -113,12 +113,20 @@ describe("agent avatar icon", () => {
     expect(matchAgentIcons("rocket").map((entry) => entry.id)).toEqual(["rocket"]);
     expect(matchAgentIcons("pull").map((entry) => entry.id)).toEqual(["git-pull-request"]);
     expect(matchAgentIcons("zzz")).toEqual([]);
+    // An id typed as stored, hyphens and all, finds its icon; so do its words.
+    for (const id of ["git-pull-request", "search-check"]) {
+      expect(matchAgentIcons(id).map((entry) => entry.id)).toEqual([id]);
+      expect(matchAgentIcons(` ${id.toUpperCase()} `).map((entry) => entry.id)).toEqual([id]);
+      expect(matchAgentIcons(id.replace(/-/g, " ")).map((entry) => entry.id)).toEqual([id]);
+    }
     const original = i18n.language;
     try {
       await i18n.changeLanguage("ko");
       expect(matchAgentIcons("망원경").map((entry) => entry.id)).toEqual(["telescope"]);
       // Ids are English words, so an English search still works in Korean.
       expect(matchAgentIcons("telescope").map((entry) => entry.id)).toEqual(["telescope"]);
+      expect(matchAgentIcons("git-pull-request").map((entry) => entry.id)).toEqual(["git-pull-request"]);
+      expect(matchAgentIcons("search-check").map((entry) => entry.id)).toEqual(["search-check"]);
     } finally {
       await i18n.changeLanguage(original);
     }
