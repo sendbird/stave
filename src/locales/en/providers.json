@@ -425,7 +425,10 @@
     "slackAppClientIDsUseThe": "Slack app client IDs use the form 1234567890.1234567890."
   },
   "turnModelInfo": {
-    "fast": "Fast"
+    "fast": "Fast",
+    "account": "Account: {{name}}",
+    "removedAccount": "Removed account",
+    "apiBilling": "API billing"
   },
   "turnTerminalReceipt": {
     "providerTurnWasInterruptedBeforeIt": "Provider turn was interrupted before it completed.",

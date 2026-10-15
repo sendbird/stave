@@ -50,6 +50,29 @@ export const turnModelChipStyles = stylex.create({
     alignItems: "center",
     color: "var(--prompt-role-fast)",
   },
+  account: {
+    display: "flex",
+    minWidth: 0,
+    // Shrinks before the model name does.
+    flexShrink: 2,
+    alignItems: "center",
+    gap: vars["--ads-space-4"],
+    color: vars["--ads-color-text-muted"],
+  },
+  accountIcon: {
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
+    flexShrink: 0,
+  },
+  accountLabel: {
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-regular"],
+    lineHeight: vars["--ads-line-height-tight"],
+  },
   fastIcon: {
     width: vars["--ads-control-icon-size-sm"],
     height: vars["--ads-control-icon-size-sm"],

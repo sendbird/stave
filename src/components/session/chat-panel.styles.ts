@@ -77,15 +77,20 @@ export const chatPanelStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-4"],
   },
+  // Hoverable so the tooltip can name the model and account; still not an
+  // action, so it neither paints a hover fill nor moves on press.
   providerAction: {
-    pointerEvents: "none",
     height: "auto",
     maxWidth: "100%",
     cursor: "default",
     gap: 0,
     borderRadius: vars["--ads-radius-mark"],
     borderWidth: 0,
-    backgroundColor: { default: "transparent", ":hover": "transparent" },
+    backgroundColor: {
+      default: "transparent",
+      ":hover": "transparent",
+      ":active": "transparent",
+    },
     padding: 0,
     fontWeight: vars["--ads-font-weight-regular"],
     opacity: 1,

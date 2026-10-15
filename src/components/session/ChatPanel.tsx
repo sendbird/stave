@@ -50,6 +50,13 @@ import {
   getTurnModelInfoLabel,
   getTurnModelInfoParts,
 } from "@/lib/providers/turn-model-info";
+import {
+  findTurnAccountProfile,
+  resolveTurnAccountRef,
+  shouldShowTurnAccountInline,
+} from "@/lib/providers/turn-account";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { TurnModelTooltip } from "@/components/session/TurnModelTooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelStyles as styles } from "./chat-panel.styles";
 import { resolveUserMessageClipboardPlainText } from "@/lib/user-message-copy";
@@ -147,6 +154,7 @@ interface MessageRowProps {
     id: string;
     role: "user" | "assistant";
     providerId: ChatMessage["providerId"];
+    nativeAccountProfileId?: string;
     nativeProviderSessionId?: string;
     nativeProviderTurnId?: string;
     model: string;
@@ -282,8 +290,34 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
         : message,
     [agentRunPrompt?.assignment, message],
   );
-  const turnModelInfoLabel = getTurnModelInfoLabel(message);
   const turnModelInfoParts = getTurnModelInfoParts(message);
+  // The account list is a stable array replaced only on refresh, so every row
+  // can read it without re-rendering on unrelated store writes.
+  const accountProfiles = useProviderAccounts((state) => state.profiles);
+  const turnAccount = useMemo(() => {
+    const ref = resolveTurnAccountRef(message);
+    if (!ref) return undefined;
+    const profile = findTurnAccountProfile(accountProfiles, ref);
+    return {
+      ref,
+      profile,
+      inline: shouldShowTurnAccountInline(accountProfiles, ref.providerId),
+    };
+  }, [
+    accountProfiles,
+    message.providerId,
+    message.nativeAccountProfileId,
+    message.nativeProviderSessionId,
+    message.nativeProviderTurnId,
+  ]);
+  const turnAccountName = turnAccount
+    ? (turnAccount.profile?.label ??
+      i18n.t("providers:turnModelInfo.removedAccount"))
+    : undefined;
+  const turnModelLabel = getTurnModelInfoLabel(message);
+  const turnModelInfoLabel = turnAccountName
+    ? `${turnModelLabel} · ${i18n.t("providers:turnModelInfo.account", { name: turnAccountName })}`
+    : turnModelLabel;
   const steerDeliveryLabel =
     message.steerDeliveryState === "accepted"
       ? i18n.t("session:chatPanel.steerDeliveryLabel")
@@ -430,6 +464,13 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 <MessageAction
                   key="provider-action"
                   label={turnModelInfoLabel}
+                  tooltip={
+                    <TurnModelTooltip
+                      modelLabel={turnModelLabel}
+                      account={turnAccount}
+                    />
+                  }
+                  press="none"
                   // The notation is a flat metadata row, so the action shell
                   // is stripped back to a positioning wrapper.
                   className={sx(styles.providerAction)}
@@ -438,6 +479,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                     providerId={message.providerId}
                     model={message.model}
                     parts={turnModelInfoParts}
+                    account={turnAccount?.inline ? turnAccountName : undefined}
                   />
                 </MessageAction>
               ) : null}

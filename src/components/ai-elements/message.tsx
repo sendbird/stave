@@ -11,6 +11,7 @@ import type {
 import { createContext, useContext, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Paperclip, X } from "lucide-react";
 import { cx, sx } from "@/components/ads/utils/stylex";
+import type { ButtonPress } from "@/components/ads/components/Button.types";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { messageStyles as styles } from "./message.styles";
@@ -351,7 +352,9 @@ export function MessageActions(props: HTMLAttributes<HTMLDivElement>) {
 
 interface MessageActionProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   label?: string;
-  tooltip?: string;
+  /** Tooltip body; defaults to `label`. Rendered only while the tooltip is open. */
+  tooltip?: ReactNode;
+  press?: ButtonPress;
 }
 
 export function MessageAction({

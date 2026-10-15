@@ -27,4 +27,32 @@ describe("TurnModelChip", () => {
     expect(html).toContain(sx(turnModelChipStyles.fast));
     expect(html).toContain("<svg");
   });
+
+  test("names the account as a muted segment after the configuration", () => {
+    const html = renderToStaticMarkup(
+      <TurnModelChip
+        providerId="codex"
+        model="gpt-5.5"
+        parts={{ name: "GPT-5.5", details: ["High"] }}
+        account="Work"
+      />,
+    );
+
+    expect(html).toContain('data-turn-model-account="true"');
+    expect(html).toContain("Work");
+    expect(html.indexOf("High")).toBeLessThan(html.indexOf("Work"));
+    expect(html).toContain(sx(turnModelChipStyles.account));
+  });
+
+  test("draws no account segment without an account", () => {
+    const html = renderToStaticMarkup(
+      <TurnModelChip
+        providerId="codex"
+        model="gpt-5.5"
+        parts={{ name: "GPT-5.5", details: ["High"] }}
+      />,
+    );
+
+    expect(html).not.toContain("data-turn-model-account");
+  });
 });

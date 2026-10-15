@@ -276,3 +276,142 @@ test("shows each turn's model, effort, context, and fast mode", async ({
     path: testInfo.outputPath("turn-model-info.png"),
   });
 });
+
+test("names the account each turn ran on", async ({ page }, testInfo) => {
+  await page.addInitScript(() => {
+    const workId = "0b4f7b52-5d0f-4a51-9c39-6d2f0b9e4a11";
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: async () => [],
+        getCodexModelCatalog: async () => ({ ok: true, models: [], detail: "" }),
+      },
+      providerAccounts: {
+        list: async () => ({
+          ok: true,
+          profiles: [
+            { id: "system-default", providerId: "claude-code", label: "System default", kind: "system" },
+            { id: workId, providerId: "claude-code", label: "Work", kind: "managed" },
+            { id: "system-default", providerId: "codex", label: "System default", kind: "system" },
+          ],
+        }),
+        identity: async (args: { providerId: string; profileId: string }) => ({
+          ok: true,
+          identity:
+            args.profileId === workId
+              ? { state: "signed-in", email: "work@example.com", plan: "Max", checkedAt: 1 }
+              : { state: "signed-in", email: "me@example.com", plan: "Plus", checkedAt: 1 },
+        }),
+      },
+    };
+    const message = (id: string, extra: Record<string, unknown>) => ({
+      id,
+      role: "assistant",
+      content: id,
+      completedAt: "2026-07-24T00:00:01.000Z",
+      parts: [{ type: "text", text: id }],
+      ...extra,
+    });
+    const workspaceSnapshot = {
+      activeTaskId: "task-turn-account",
+      openTaskTabIds: ["task-turn-account"],
+      activeSurface: { kind: "task", taskId: "task-turn-account" },
+      tasks: [
+        {
+          id: "task-turn-account",
+          title: "Turn account",
+          provider: "claude-code",
+          updatedAt: "2026-07-24T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: {
+        "task-turn-account": [
+          message("Work account response", {
+            providerId: "claude-code",
+            model: "claude-opus-4-8[1m]",
+            modelInfo: { effort: "xhigh", fastMode: false },
+            nativeAccountProfileId: workId,
+            nativeProviderSessionId: "claude-session-1",
+            nativeProviderTurnId: "claude-turn-1",
+          }),
+          message("System account response", {
+            providerId: "claude-code",
+            model: "claude-opus-4-8[1m]",
+            modelInfo: { effort: "high", fastMode: false },
+            nativeProviderSessionId: "claude-session-2",
+            nativeProviderTurnId: "claude-turn-2",
+          }),
+          message("Codex single account response", {
+            providerId: "codex",
+            model: "gpt-5.6-terra",
+            modelInfo: { effort: "medium", fastMode: false },
+            nativeProviderSessionId: "codex-thread-1",
+            nativeProviderTurnId: "codex-turn-1",
+          }),
+        ],
+      },
+    };
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify([
+        { id: "ws-main", name: "main", updatedAt: "2026-07-24T00:00:00.000Z", snapshot: workspaceSnapshot },
+      ]),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
+          workspaces: [{ id: "ws-main", name: "main", updatedAt: "2026-07-24T00:00:00.000Z" }],
+          activeWorkspaceId: "ws-main",
+          workspaceBranchById: { "ws-main": "main" },
+          workspacePathById: { "ws-main": "/tmp/stave-project" },
+          workspaceDefaultById: { "ws-main": true },
+          ...workspaceSnapshot,
+        },
+        version: 0,
+      }),
+    );
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  // Claude has two accounts, so each turn names its account inline.
+  const workTurn = page.getByRole("button", {
+    name: "Claude Opus 4.8 · 1M · X-High · Account: Work",
+  });
+  await expect(workTurn).toBeVisible();
+  await expect(workTurn.locator("[data-turn-model-account]")).toHaveText("Work");
+  const systemTurn = page.getByRole("button", {
+    name: "Claude Opus 4.8 · 1M · High · Account: System default",
+  });
+  await expect(systemTurn.locator("[data-turn-model-account]")).toHaveText(
+    "System default",
+  );
+
+  // Codex has one account: the row stays quiet and the tooltip names it.
+  const codexTurn = page.getByRole("button", {
+    name: "GPT-5.6 Terra · Medium · Account: System default",
+  });
+  await expect(codexTurn).toBeVisible();
+  await expect(codexTurn.locator("[data-turn-model-account]")).toHaveCount(0);
+
+  await workTurn.hover();
+  const workTooltip = page
+    .locator('[data-slot="tooltip-content"]')
+    .filter({ hasText: "Account: Work" });
+  await expect(workTooltip).toContainText("Claude Opus 4.8 · 1M · X-High");
+  await expect(workTooltip).toContainText("work@example.com · Max");
+  await page.screenshot({ path: testInfo.outputPath("turn-account-work.png") });
+
+  await codexTurn.hover();
+  const codexTooltip = page
+    .locator('[data-slot="tooltip-content"]')
+    .filter({ hasText: "GPT-5.6 Terra · Medium" });
+  await expect(codexTooltip).toContainText("Account: System default");
+  await expect(codexTooltip).toContainText("me@example.com · Plus");
+  await page.screenshot({ path: testInfo.outputPath("turn-account-codex.png") });
+});

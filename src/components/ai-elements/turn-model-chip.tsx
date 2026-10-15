@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { Zap } from "lucide-react";
+import { UserRound, Zap } from "lucide-react";
 import type { TurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import { classifyTurnModelDetail } from "@/lib/providers/turn-model-info";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -17,14 +17,16 @@ import { turnModelChipStyles } from "./turn-model-chip.styles";
  * machine register. Effort is muted caption text. Fast is the bolt only —
  * the accessible name on the wrapping action still says the word.
  *
- * The name is the only segment allowed to shrink, so a narrow column
- * truncates the model name rather than dropping the configuration that
- * explains how the turn ran.
+ * The name and the account are the only segments allowed to shrink, so a
+ * narrow column truncates them rather than dropping the configuration that
+ * explains how the turn ran. The account goes first: the model name says more.
  */
 export function TurnModelChip(args: {
   providerId: ProviderId;
   model: string;
   parts: TurnModelInfoParts;
+  /** Account label, drawn only when the caller decided it tells turns apart. */
+  account?: string;
   className?: string;
 }) {
   useTranslation();
@@ -71,6 +73,20 @@ export function TurnModelChip(args: {
           </span>
         );
       })}
+      {args.account ? (
+        <span
+          data-turn-model-account="true"
+          className={sx(turnModelChipStyles.account)}
+        >
+          <UserRound
+            className={sx(turnModelChipStyles.accountIcon)}
+            aria-hidden
+          />
+          <span className={sx(turnModelChipStyles.accountLabel)}>
+            {args.account}
+          </span>
+        </span>
+      ) : null}
     </span>
   );
 }
