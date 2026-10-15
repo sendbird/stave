@@ -65,6 +65,9 @@ test("a goal criterion an earlier stage met need not be restated by the last sta
   aggregate.agentRun.workflow.stages[1] = { ...ai("fix"), acceptanceCriteria: [{ text: "The review lists each defect" }] };
   aggregate = patchCurrent(aggregate, { report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "met" }] } });
   expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  // An optional host check of the same text on the last stage that has not passed reopens the required criterion.
+  aggregate.agentRun.workflow.stages[1] = { ...ai("fix"), acceptanceCriteria: [{ text: "The review lists each defect", required: false, verification: "stave-check", scriptDefinitions: [{ scriptId: "check", definitionHash: "a".repeat(64) }] }] };
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
 });
 
 test("a later timestamp cannot make a previous turn's explicit report current", () => {
