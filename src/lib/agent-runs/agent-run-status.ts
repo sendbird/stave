@@ -85,6 +85,7 @@ export function agentRunDecisionOfMessages(messages: ChatMessage[] | null | unde
 const STOP_REASON_TEXT: Record<AgentRunStopReason, string> = {
   get "task-unavailable"() { return i18n.t("agentRuns:agentRunStatus.taskUnavailable"); },
   get "turn-cap-reached"() { return i18n.t("agentRuns:agentRunStatus.turnCapReached"); },
+  get "acceptance-unmet"() { return i18n.t("agentRuns:agentRunStatus.acceptanceUnmet"); },
   get expired() { return i18n.t("agentRuns:agentRunStatus.expired"); },
 };
 

@@ -197,6 +197,8 @@ export function isAutomaticAgentRunPause(reason: AgentRunPauseReason) {
 export const AGENT_RUN_STOP_REASONS = [
   "task-unavailable",
   "turn-cap-reached",
+  /** A delegated run whose report left a required criterion unmet: it ends so its parent reads the result. */
+  "acceptance-unmet",
   "expired",
 ] as const;
 export type AgentRunStopReason = (typeof AGENT_RUN_STOP_REASONS)[number];

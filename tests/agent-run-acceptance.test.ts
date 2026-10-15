@@ -31,6 +31,17 @@ test("complete reports with unmet or missing stage requirements block; simple an
   expect(decide(reported([{ ...stage, acceptanceCriteria: [{ text: "Answer supplied", required: false }] }], [{ text: "Answer supplied", status: "unverified" }]))).toEqual({ action: "complete-stage", next: "finish" });
 });
 
+test("a delegated run whose report leaves a criterion unmet ends for its parent instead of halting", () => {
+  // A reviewer that reports the reviewed work's problem as unmet: a primary run halts, a delegated one ends.
+  const aggregate = reported([ai("review")], [{ text: "Design-system violations fixed without changing the check", status: "unmet" }]);
+  expect(decide(aggregate)).toMatchObject({ action: "block", reason: "acceptance-unmet" });
+  const delegated = decideAgentRunAction({ aggregate, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW });
+  expect(delegated).toMatchObject({ action: "stop", reason: "acceptance-unmet", detail: expect.stringContaining("Design-system violations") });
+  // A delegated run whose report meets its criteria still completes.
+  const met = reported([ai("review")], [{ text: "Review written", status: "met" }]);
+  expect(decideAgentRunAction({ aggregate: met, observation: { ...observe({ lastEndedTurn: turn({ turnId: "turn-1" }) }), delegated: true }, now: AGENT_RUN_NOW })).toEqual({ action: "complete-stage", next: "finish" });
+});
+
 test("a build stage can precede testing, but final integration cannot leave goal criteria unresolved", () => {
   let aggregate = aggregateFor([{ ...ai("plan"), role: "plan" }, ai("build"), ai("test")]);
   aggregate.stages[0] = { ...aggregate.stages[0]!, status: "completed", report: { ...COMPLETE_REPORT, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } };

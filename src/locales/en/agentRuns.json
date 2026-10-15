@@ -385,6 +385,7 @@
   "agentRunStatus": {
     "taskUnavailable": "The task is no longer available.",
     "turnCapReached": "The run used all its turns before it finished.",
+    "acceptanceUnmet": "The delegated run reported a required criterion unmet, so it ended for its parent to decide.",
     "expired": "The run took too long and expired.",
     "metVerified": "Met · checked by Stave",
     "metReported": "Met · agent reported",
@@ -519,6 +520,7 @@
   "insights": {
     "stuckStage": "Stuck stage",
     "turnCapReached": "Turn cap reached",
+    "acceptanceUnmet": "Criterion unmet",
     "expired": "Expired",
     "taskUnavailable": "Task unavailable",
     "turnFailed": "Turn failed",
