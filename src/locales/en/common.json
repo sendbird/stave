@@ -1,4 +1,10 @@
 {
+  "activityTimestamp": {
+    "updated": "Last updated {{time}}",
+    "sent": "Sent {{time}}",
+    "started": "Started {{time}}",
+    "completed": "Responded {{time}}"
+  },
   "actions": {
     "add": "Add",
     "apply": "Apply",

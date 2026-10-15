@@ -13,6 +13,12 @@ const REVEAL_OPACITY = "--messageActionsOpacity";
 const REVEAL_POINTER = "--messageActionsPointerEvents";
 
 export const chatPanelStyles = stylex.create({
+  timestampUser: { alignSelf: "flex-end" },
+  taskTimestamp: {
+    flexShrink: 0,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-16"],
+  },
   rowFirst: {
     paddingTop: {
       default: vars["--ads-space-12"],

@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
 import {
   memo,
   useEffect,
@@ -453,6 +454,12 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           {message.role === "user" && steerDeliveryLabel ? (
             <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
+          <div className={sx(message.role === "user" && styles.timestampUser)}>
+            <ActivityTimestamp
+              value={message.role === "user" ? message.startedAt : (message.completedAt ?? message.startedAt)}
+              kind={message.role === "user" ? "sent" : message.completedAt ? "completed" : "started"}
+            />
+          </div>
           <MessageActions
             className={sx(
               message.role === "user" && styles.actionsUser,
@@ -1234,11 +1241,24 @@ function ChatPanelMessageList(props: {
 
 const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 
+function TaskActivityTimestamp() {
+  const taskId = useScopedTaskId();
+  const updatedAt = useAppStore((state) =>
+    state.tasks.find((task) => task.id === taskId)?.updatedAt,
+  );
+  return (
+    <div className={sx(styles.taskTimestamp)}>
+      <ActivityTimestamp value={updatedAt} kind="updated" />
+    </div>
+  );
+}
+
 export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   useTranslation();
   return (
     <Conversation>
       <div className={sx(styles.panelColumn)}>
+        <TaskActivityTimestamp />
         <MemoizedChatPanelMessageList
           scrollActivationKey={props.scrollActivationKey}
         />

@@ -160,6 +160,7 @@ export function buildLocalCommandResponseState(args: {
     model: "user",
     providerId: "user",
     content: args.content,
+    startedAt: timestamp,
     parts: [createUserTextPart({ text: args.content })],
   };
 
@@ -301,6 +302,7 @@ export function buildOutgoingUserMessage(args: {
     model: "user",
     providerId: "user",
     content: args.content,
+    startedAt: buildRecentTimestamp(),
     ...(displayContent ? { displayContent } : {}),
     parts:
       userParts.length > 0
@@ -467,6 +469,7 @@ export function buildSteeredUserMessageState(args: {
     model: "user",
     providerId: "user",
     content: args.content,
+    startedAt: timestamp,
     parts: [createUserTextPart({ text: args.content })],
     steeredIntoTurnId: args.steeredIntoTurnId,
     steerDeliveryState: "accepted",
