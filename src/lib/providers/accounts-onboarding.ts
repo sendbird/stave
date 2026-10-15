@@ -55,6 +55,8 @@ export interface AccountsOnboardingInput {
   connectionCount: number;
   /** The sign-in terminal runs in a workspace, so one must be open. */
   workspaceOpen: boolean;
+  /** A task's composer is mounted and can open its model selector. */
+  composerOpen: boolean;
   skipped: readonly AccountsOnboardingSkippableStep[];
 }
 
@@ -90,6 +92,11 @@ export interface AccountsOnboardingChecklist {
   signedInProviderIds: AccountsOnboardingProviderId[];
   /** The composer, and so its model selector, exists only with a workspace open. */
   workspaceOpen: boolean;
+  /**
+   * What the model step still needs before its button can open the selector:
+   * a repository (no workspace), or a task (a workspace with no composer open).
+   */
+  modelNeeds: "repository" | "task" | null;
   remainingCount: number;
 }
 
@@ -136,6 +143,7 @@ export function buildAccountsOnboardingChecklist(input: AccountsOnboardingInput)
     installedProviderIds: installed.map((state) => state.id),
     signedInProviderIds: readyStates.map((state) => state.id),
     workspaceOpen: input.workspaceOpen,
+    modelNeeds: input.composerOpen ? null : input.workspaceOpen ? "task" : "repository",
     remainingCount: steps.filter((step) => !settled(step.status)).length,
   };
 }

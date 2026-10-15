@@ -22,6 +22,7 @@ function input(overrides: Partial<AccountsOnboardingInput> & { providers?: Parti
     extraAccountCount: 0,
     connectionCount: 0,
     workspaceOpen: true,
+    composerOpen: true,
     skipped: [],
     ...overrides,
     providers: {
@@ -138,6 +139,17 @@ describe("ready is per provider: its own CLI and its own sign-in", () => {
     const checklist = buildAccountsOnboardingChecklist(input({ providers: { "claude-code": { installed: null, signedIn: true } } }));
     expect(checklist.ready).toBe(false);
     expect(checklist.signedInProviderIds).toEqual([]);
+  });
+});
+
+describe("the model step needs a task's composer", () => {
+  const ready = { providers: { "claude-code": { installed: true, signedIn: true } } };
+  test("names what is missing: a task with a workspace open, a repository without one", () => {
+    expect(buildAccountsOnboardingChecklist(input({ ...ready })).modelNeeds).toBeNull();
+    expect(buildAccountsOnboardingChecklist(input({ ...ready, composerOpen: false })).modelNeeds).toBe("task");
+    expect(buildAccountsOnboardingChecklist(input({ ...ready, composerOpen: false, workspaceOpen: false })).modelNeeds).toBe("repository");
+    // The step itself is done once a provider is ready; only its button waits.
+    expect(statuses(buildAccountsOnboardingChecklist(input({ ...ready, composerOpen: false }))).model).toBe("done");
   });
 });
 

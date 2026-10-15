@@ -115,9 +115,10 @@ function stepDetail(step: AccountsOnboardingStep, checklist: AccountsOnboardingC
           ? i18n.t("settingsConnections:accountsOnboarding.detail.skipped")
           : i18n.t("settingsConnections:accountsOnboarding.detail.gatewayTodo");
     case "model":
-      return status === "done"
-        ? i18n.t("settingsConnections:accountsOnboarding.detail.modelDone")
-        : i18n.t("settingsConnections:accountsOnboarding.detail.modelBlocked");
+      if (status !== "done") return i18n.t("settingsConnections:accountsOnboarding.detail.modelBlocked");
+      if (checklist.modelNeeds === "repository") return i18n.t("settingsConnections:accountsOnboarding.detail.modelNeedsRepository");
+      if (checklist.modelNeeds === "task") return i18n.t("settingsConnections:accountsOnboarding.detail.modelNeedsTask");
+      return i18n.t("settingsConnections:accountsOnboarding.detail.modelDone");
   }
 }
 
@@ -182,7 +183,8 @@ function StepActions({ step, checklist, onSkip }: {
       </>;
     }
     case "model":
-      return <Button size="sm" variant="outline" disabled={!checklist.ready || !checklist.workspaceOpen} onClick={() => openComposerModelSelector()}>
+      // The selector lives in a task's composer; with none mounted the button would only close Settings.
+      return <Button size="sm" variant="outline" disabled={!checklist.ready || checklist.modelNeeds !== null} onClick={() => openComposerModelSelector()}>
         {t("settingsConnections:accountsOnboarding.actions.openModelSelector")}
       </Button>;
   }

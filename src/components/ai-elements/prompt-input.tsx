@@ -253,7 +253,7 @@ import {
   ComposerFrameWing,
 } from "./composer-frame";
 import { listProviderIds } from "@/lib/providers/model-catalog";
-import { STAVE_OPEN_MODEL_SELECTOR_EVENT } from "@/lib/providers/accounts-navigation";
+import { STAVE_OPEN_MODEL_SELECTOR_EVENT, registerComposerModelSelectorReceiver } from "@/lib/providers/accounts-navigation";
 import type { ModelSelectorOpenRequest } from "./model-selector-open-request";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 
@@ -1536,7 +1536,10 @@ export function PromptInput(args: PromptInputProps) {
       });
     };
     window.addEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
+    // Settings asks whether a composer can take the request before sending it.
+    const unregister = registerComposerModelSelectorReceiver();
     return () => {
+      unregister();
       window.cancelAnimationFrame(frame);
       window.removeEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
     };

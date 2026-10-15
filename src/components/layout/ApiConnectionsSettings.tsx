@@ -14,7 +14,7 @@ import {
   type ApiConnectionModel,
 } from "@/lib/providers/api-connections";
 import { API_CONNECTIONS_FIELD_ID, STAVE_API_CONNECTIONS_GUIDE_URL, apiConnectionFieldId, apiConnectionIdFromFocus } from "@/lib/providers/accounts-guide";
-import { clearSettingsFocus, openComposerModelSelector, useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
+import { clearSettingsFocus, openComposerModelSelector, useComposerModelSelectorAvailable, useSettingsFocusRequest } from "@/lib/providers/accounts-navigation";
 import { focusSettingsElement } from "./settings-focus";
 import { describeApiConnectionCheck } from "@/lib/providers/api-connection-failure";
 import { SYSTEM_ACCOUNT_PROFILE_ID } from "@/lib/providers/provider-accounts";
@@ -123,9 +123,10 @@ function ConnectionRow(props: {
  * Right after "Add connection": check it, then use it. "Use in Codex" makes
  * the connection Codex's account for new turns and opens the composer's model
  * selector on the Codex tab at the connection's group; the selector waits for
- * Codex's availability check that the account switch starts. The composer
- * exists only with a workspace open, so without one the button is off and
- * says so, as Getting started's model step does.
+ * Codex's availability check that the account switch starts. Without a
+ * workspace the button is off and says so, as Getting started's model step
+ * does. With a workspace but no task's composer open, it switches the account
+ * only, keeps Settings open, and says what to do next.
  */
 export function ApiConnectionNextStep(props: { connection: ApiConnection; busy: boolean; onDismiss: () => void }) {
   const { t } = useTranslation(I18N_NAMESPACES);
@@ -134,10 +135,17 @@ export function ApiConnectionNextStep(props: { connection: ApiConnection; busy: 
   const [checkFailed, setCheckFailed] = useState(false);
   const [checking, setChecking] = useState(false);
   const workspaceOpen = useAppStore((state) => Boolean(state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath));
+  const composerOpen = useComposerModelSelectorAvailable();
+  const [switchedOnly, setSwitchedOnly] = useState(false);
   const runtime = connection.endpoints.codex ? "codex" : "claude-code";
   const use = () => {
     useAppStore.getState().updateSettings({ patch: runtime === "codex" ? { codexAccountProfileId: connection.id } : { claudeAccountProfileId: connection.id } });
-    openComposerModelSelector(runtime, apiConnectionGroupLabel(connection.label));
+    // Only a mounted composer can open its selector; otherwise Settings stays and says so.
+    if (composerOpen) {
+      openComposerModelSelector(runtime, apiConnectionGroupLabel(connection.label));
+    } else {
+      setSwitchedOnly(true);
+    }
   };
   const runCheck = () => {
     setChecking(true); setCheck(null); setCheckFailed(false);
@@ -156,6 +164,7 @@ export function ApiConnectionNextStep(props: { connection: ApiConnection; busy: 
       <Button size="sm" variant="quiet" onClick={props.onDismiss}>{t("settingsConnections:apiConnectionsSettings.nextStep.done")}</Button>
     </div>
     {!workspaceOpen && <p className={sx(accountStyles.muted)}>{t("settingsConnections:apiConnectionsSettings.nextStep.needsWorkspace", { value1: RUNTIME_NAME[runtime] })}</p>}
+    {switchedOnly && <p className={sx(styles.checkOk)} data-testid="api-connection-switched">{t("settingsConnections:apiConnectionsSettings.nextStep.switchedOnly", { value1: RUNTIME_NAME[runtime], value2: connection.label })}</p>}
     {check && <p className={sx(check.ok ? styles.checkOk : styles.checkFailed)}>{describeApiConnectionCheck(check)}</p>}
     {checkFailed && <p role="alert" className={sx(styles.checkFailed)}>{t("settingsConnections:apiConnectionsSettings.nextStep.checkFailed")}</p>}
   </div>;

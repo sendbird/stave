@@ -6,6 +6,7 @@ import {
   type AccountsOnboardingProviderId,
   type CliManagedProviderId,
 } from "./accounts-onboarding";
+import { useComposerModelSelectorAvailable } from "./accounts-navigation";
 import { registeredAccountSignedIn } from "./provider-account-identity";
 import type { ProviderAccountProfile } from "./provider-accounts";
 import { providerConfigurationKey } from "./provider-readiness";
@@ -109,6 +110,7 @@ export function useAccountsOnboarding() {
     Boolean(state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath),
   );
   const skipped = useAppStore((state) => state.settings.accountsOnboarding.skipped);
+  const composerOpen = useComposerModelSelectorAvailable();
   return useMemo(() => {
     const extraAccountCount = profiles.filter((profile) => profile.kind !== "system" && !profile.apiConnection).length;
     const connectionCount = new Set(profiles.filter((profile) => profile.apiConnection).map((profile) => profile.id)).size;
@@ -123,9 +125,11 @@ export function useAccountsOnboarding() {
       extraAccountCount,
       connectionCount,
       workspaceOpen,
+      composerOpen,
       skipped,
     });
   }, [
+    composerOpen,
     claudeInstalled, claudeSignedIn, codexInstalled, codexSignedIn,
     cursorInstalled, cursorSignedIn, kiroInstalled, kiroSignedIn, opencodeInstalled, opencodeSignedIn,
     profiles, skipped, workspaceOpen,

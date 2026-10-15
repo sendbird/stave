@@ -26,6 +26,8 @@ type Seed = {
   kiroSignedOut?: boolean;
   /** The Claude Code CLI is found; true unless set to false. */
   claudeInstalled?: boolean;
+  /** The workspace has a task open (and so a composer); true unless set to false. */
+  withTask?: boolean;
   /** "Add connection" saves instead of failing. */
   allowConnectionCreate?: boolean;
   /** Codex availability for an API connection answers this late, as a re-check after an account switch can. */
@@ -206,15 +208,17 @@ function seedAccounts(page: Page, seed: Seed) {
           },
         },
       };
-      const workspaceSnapshot = {
-        activeTaskId: "task-accounts",
-        openTaskTabIds: ["task-accounts"],
-        activeSurface: { kind: "task", taskId: "task-accounts" },
-        tasks: [
-          { id: "task-accounts", title: "Accounts", provider: "claude-code", updatedAt: "2026-10-15T00:00:00.000Z", unread: false, archivedAt: null },
-        ],
-        messagesByTask: { "task-accounts": [] },
-      };
+      const workspaceSnapshot = args.seed.withTask === false
+        ? { activeTaskId: "", openTaskTabIds: [], tasks: [], messagesByTask: {} }
+        : {
+            activeTaskId: "task-accounts",
+            openTaskTabIds: ["task-accounts"],
+            activeSurface: { kind: "task", taskId: "task-accounts" },
+            tasks: [
+              { id: "task-accounts", title: "Accounts", provider: "claude-code", updatedAt: "2026-10-15T00:00:00.000Z", unread: false, archivedAt: null },
+            ],
+            messagesByTask: { "task-accounts": [] },
+          };
       if (args.seed.withRepository) {
         window.localStorage.setItem(
           "stave:workspace-fallback:v1",
@@ -562,3 +566,38 @@ test("Go to sign-in lands on a CLI-managed provider's row when it is the one to 
   await settings.locator('[data-billing-choice="subscription"]').getByRole("button", { name: "Go to sign-in" }).click();
   await expect(settings.locator("#settings-field-cli-provider-kiro").getByRole("button", { name: "Copy Login Command" })).toBeFocused();
 });
+
+for (const themeMode of ["light", "dark"] as const) {
+  test(`with a workspace but no task, Use in Codex only switches the account and keeps Settings open (${themeMode})`, async ({ page }, testInfo) => {
+    await seedAccounts(page, { themeMode, ...READY, withConnection: false, allowConnectionCreate: true, withTask: false });
+    await page.setViewportSize({ width: 1440, height: 2600 });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: "Open settings" })).toBeVisible({ timeout: 20_000 });
+    // No task, so no composer and no model trigger.
+    await expect(page.getByRole("button", { name: /^Model:/ })).toHaveCount(0);
+    const settings = await openSettingsSection(page, "Accounts");
+    const form = settings.locator("#settings-field-api-connection-new");
+    await form.getByRole("combobox", { name: "API key from Secrets" }).click();
+    await page.getByRole("option", { name: "Vercel AI Gateway" }).click();
+    await form.getByLabel("Name", { exact: true }).fill("Company gateway");
+    await form.getByRole("list", { name: "Models you can pin" }).getByRole("button", { name: "Pin" }).first().click();
+    await form.getByRole("button", { name: "Add connection" }).click();
+    const next = settings.getByTestId("api-connection-next-step");
+    await next.getByRole("button", { name: "Use in Codex" }).click();
+    await expect(next.getByTestId("api-connection-switched")).toHaveText("New Codex turns now use Company gateway. Open a task, then pick one of its models in the model selector.");
+    await expect(settings).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Model and effort selector" })).toHaveCount(0);
+    // The account did switch: Codex's account for new turns is the connection.
+    await expect(settings.getByRole("combobox", { name: "Codex account for new turns" })).toContainText("Company gateway");
+    await next.scrollIntoViewIfNeeded();
+    await shot(page, testInfo, `settings-connection-next-step-no-task-${themeMode}`);
+    // Getting started's model step waits for a task the same way.
+    const card = settings.locator("#settings-field-accounts-getting-started");
+    await card.scrollIntoViewIfNeeded();
+    if (await card.getByRole("button", { name: "Show steps" }).count()) await card.getByRole("button", { name: "Show steps" }).click();
+    const modelStep = card.locator('[data-step="model"]');
+    await expect(modelStep).toContainText("Open a task first: the model selector is in its composer.");
+    await expect(modelStep.getByRole("button", { name: "Open the model selector" })).toBeDisabled();
+    await shot(page, testInfo, `settings-getting-started-no-task-${themeMode}`);
+  });
+}

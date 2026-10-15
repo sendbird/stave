@@ -38,6 +38,7 @@ function checklist(overrides: Partial<AccountsOnboardingInput> & { providers?: P
     extraAccountCount: 0,
     connectionCount: 0,
     workspaceOpen: true,
+    composerOpen: true,
     skipped: [],
     ...overrides,
     providers: {
@@ -148,6 +149,16 @@ describe("Getting started card", () => {
     expect(html).toContain("An API connection is set up.");
     expect(html).toContain("Undo skip");
     expect(html).toContain("Open the model selector");
+  });
+
+  test("without a task's composer the model step's button is off and says to open a task", () => {
+    const ready = { providers: { "claude-code": { installed: true, signedIn: true } } };
+    const noTask = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(AccountsGettingStartedCardView, { ...props, checklist: checklist({ ...ready, composerOpen: false }) })));
+    expect(noTask).toMatch(/<button[^>]*disabled=""[^>]*><span[^>]*>Open the model selector<\/span><\/button>/);
+    expect(text(noTask)).toContain("Open a task first: the model selector is in its composer.");
+    const withTask = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(AccountsGettingStartedCardView, { ...props, checklist: checklist(ready) })));
+    expect(withTask).not.toMatch(/<button[^>]*disabled=""[^>]*><span[^>]*>Open the model selector<\/span><\/button>/);
+    expect(text(withTask)).toContain("Choose a model in the composer's model selector.");
   });
 
   test("folded, it is one line", () => {

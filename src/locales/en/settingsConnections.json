@@ -283,7 +283,8 @@
       "use": "Use in {{value1}}",
       "done": "Done",
       "needsWorkspace": "Open a repository first: the model selector is in the composer, which needs a workspace. The connection is saved and you can pick it in {{value1}} later.",
-      "checkFailed": "The check could not run. Try again; if it keeps failing, restart Stave."
+      "checkFailed": "The check could not run. Try again; if it keeps failing, restart Stave.",
+      "switchedOnly": "New {{value1}} turns now use {{value2}}. Open a task, then pick one of its models in the model selector."
     },
     "keyLine": "· Key: {{value1}}"
   },
@@ -664,7 +665,9 @@
       "skipped": "Skipped. You can come back to it any time.",
       "modelDone": "Choose a model in the composer's model selector.",
       "modelBlocked": "Available once a provider can take turns.",
-      "signInTodoCli": "{{value1}} keeps its own sign-in. Sign in with its login command in a terminal, then check again."
+      "signInTodoCli": "{{value1}} keeps its own sign-in. Sign in with its login command in a terminal, then check again.",
+      "modelNeedsTask": "Open a task first: the model selector is in its composer.",
+      "modelNeedsRepository": "Open a repository and a task first: the model selector is in a task's composer."
     },
     "actions": {
       "copyInstall": "Copy {{value1}} install command",

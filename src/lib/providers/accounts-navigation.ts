@@ -59,6 +59,24 @@ export function openToolingSettings() {
  */
 export const STAVE_OPEN_MODEL_SELECTOR_EVENT = "stave:open-model-selector";
 
+/**
+ * How many composers can take that request right now: each mounted, active
+ * PromptInput registers while it listens for the event. Zero means no task's
+ * composer is open (no workspace, or a workspace with no task open), so
+ * opening the selector would do nothing; callers fall back instead of
+ * guessing from the workspace path.
+ */
+export const useComposerModelSelectorReceivers = create<{ count: number }>(() => ({ count: 0 }));
+
+export function registerComposerModelSelectorReceiver() {
+  useComposerModelSelectorReceivers.setState((state) => ({ count: state.count + 1 }));
+  return () => useComposerModelSelectorReceivers.setState((state) => ({ count: Math.max(0, state.count - 1) }));
+}
+
+export function useComposerModelSelectorAvailable() {
+  return useComposerModelSelectorReceivers((state) => state.count > 0);
+}
+
 export function openComposerModelSelector(providerId?: string, group?: string) {
   window.dispatchEvent(
     new CustomEvent(STAVE_OPEN_MODEL_SELECTOR_EVENT, {
