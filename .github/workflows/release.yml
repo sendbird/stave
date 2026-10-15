@@ -53,6 +53,9 @@ jobs:
         run: bun run rebuild:electron-deps
 
       - name: Build desktop app
+        env:
+          # tsc --noEmit in build:desktop exceeds Node's default heap on the macOS runner.
+          NODE_OPTIONS: --max-old-space-size=6144
         run: bun run build:desktop
 
       - name: Package unpacked macOS app bundle
