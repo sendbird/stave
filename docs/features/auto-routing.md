@@ -182,9 +182,9 @@ models pinned on the connection. Jev is opt-in; adding a connection does not
 change the default. An Agent's Auto-routing settings can override the global
 Decision model, or inherit it. Saved Agent snapshots keep their overrides.
 Fixed or composer-pinned models bypass classification. Saved-Agent delegates and
-Adaptive Balanced use the same Decision setting within their admitted provider
-and model catalog. Adaptive recommendations still obey model/effort pins, the
-two-change limit, two-turn cooldown and shared turn budget. Explicit resource
+Agent runs use the same Decision setting within their admitted provider
+and model catalog. A run's recommendations still obey its [team limits](./agents.md#team-limits):
+model/effort pins, the two-change limit, two-turn cooldown and shared turn budget. Explicit resource
 requests take priority over automatic recommendations. A classification that
 requires a model outside the allowed catalog cannot widen that catalog.
 

@@ -346,6 +346,10 @@ sample limits and examples of when each screen helps.
   that finishes on its last allowed turn still completes. At 100, Extend is
   refused with an explanation. A [delegated](./delegated-tasks.md) Run still
   ends at its cap: its parent reads a finished child, not a halted one.
+- An Agent run shares its turn limit with the helper Agents it calls and your
+  replies in a stage ([team limits](./agents.md#team-limits)). When helpers
+  use the rest, the run halts with **Limit reached** the same way, and Extend
+  raises the shared limit too.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache
@@ -431,10 +435,10 @@ only when the Run's account pool is on (below).
 ### Continue on another account (account pool)
 
 The account pool is off by default. Turn it on before you send the
-assignment: open the composer's **Auto adjust** popover for an Agent task and
-check **Continue on my other accounts at a usage limit** under
-**Account pool**. The section appears when the task's provider (Claude or
-Codex) has two or more subscription accounts.
+assignment: open the composer's **Account pool** button for an Agent task and
+check **Continue on my other accounts at a usage limit**. The button appears
+when the task's provider (Claude or Codex) has two or more subscription
+accounts, and its label shows whether the pool is on.
 
 - The pool lists the provider's signed-in subscription accounts: the account
   the Run starts on first, then the others in their Settings order. Clear an
@@ -446,7 +450,7 @@ Codex) has two or more subscription accounts.
   Stave runs any check that has not answered yet; an account that is signed
   out, or whose check failed, stays out.
 - The pool is saved on the Run when it starts and never changes while it
-  runs. While a Run is active the section shows its pool, read-only.
+  runs. While a Run is active the button shows its pool, read-only.
 - When a usage limit stops a turn, Stave reads the other pool accounts' usage
   with the same official usage check, in pool order, and continues on the
   first one with usage left at the next turn boundary. An account whose usage

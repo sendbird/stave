@@ -321,9 +321,11 @@ assignment can start a Run using queue-time routing intent, removing only its
 accepted queue identity. Refusal keeps the queued assignment available. Active
 Runs, utility work and unsupported providers keep their existing entry behavior.
 
-Legacy Agent-origin Auto can switch providers under its existing settings.
-Same-provider freezing applies to opted-in adaptive Runs and saved-Agent
-supervision; stage definitions never acquire provider-switch authority.
+An Agent-origin Run freezes its team limits at admission and keeps the provider
+it started on; saved-Agent supervision keeps its admitted provider. A helper
+Agent may run on its own provider unless the parent's model is pinned (always
+kept for a Run that froze the version 1 policy). Stage definitions never
+acquire provider-switch authority.
 
 ## Secondary Run Contract
 

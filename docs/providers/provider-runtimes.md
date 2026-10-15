@@ -608,14 +608,16 @@ task from it and refuse a `parentTaskId` that names another task, and
 derived per task, so a resumed Codex thread that kept its headers still names
 the same task and the key never rotates a thread.
 
-An opted-in adaptive Run uses supervised saved-Agent durable helpers with a
-shared admission budget. Its host-owned empty `nativeSubagents` list disables
-native spawning rather than merely omitting custom definitions: Claude receives
-an Agent/Task denylist, and Codex receives disabled `features.multi_agent` and
-`features.multi_agent_v2` settings after transport overrides. Adaptive delegate turns use the same
-no-spawn contract. Ordinary non-adaptive primary and delegate turns preserve
-their existing native helper behavior and one-level instructions. These options are
-contract-tested; live provider execution and billed savings are separate checks.
+Every Agent run's team limits admit supervised saved-Agent durable helpers
+against a shared turn budget. In-turn native helpers spend no turn of their
+own, so a run with the default (version 2) team limits keeps its native helper
+behavior and one-level instructions. A run that froze the opt-in version 1
+policy (the 0.27.0 **Auto adjust** option) gets a host-owned empty
+`nativeSubagents` list, which disables native spawning rather than merely
+omitting custom definitions: Claude receives an Agent/Task denylist, and Codex
+receives disabled `features.multi_agent` and `features.multi_agent_v2` settings
+after transport overrides. These options are contract-tested; live provider
+execution and billed savings are separate checks.
 
 ## Image attachment transport
 
