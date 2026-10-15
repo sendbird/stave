@@ -176,6 +176,7 @@ const GENERATED_CODEX_APP_SERVER_V2_THREAD_RESUME_PARAM_KEYS: Set<string> =
     "config",
     "cwd",
     "developerInstructions",
+    "excludeTurns",
     "model",
     "modelProvider",
     "personality",
@@ -1362,6 +1363,7 @@ describe("Codex App Server payloads", () => {
       threadId: "thread-1",
       cwd: "/tmp/project",
       model: "gpt-5.1",
+      excludeTurns: true,
       config: {
         "features.fast_mode": true,
       },

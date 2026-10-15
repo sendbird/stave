@@ -155,6 +155,10 @@ import {
 import { mergeCodexTurnConfigOverrides } from "./codex-app-server-config-overrides";
 import { noteCodexApiConnectionSpawn, readCodexTurnAccount, retireStaleCodexApiConnectionClient } from "./codex-api-connection";
 import { parsePositiveIntEnv } from "./runtime-shared";
+import {
+  PROVIDER_STDOUT_BUFFER_MAX_BYTES,
+  PROVIDER_STDOUT_LINE_MAX_BYTES,
+} from "./provider-stdout-limits";
 import { createCodexMcpManagement } from "./codex-mcp-management";
 import {
   codexAutoReviewRetryOptions,
@@ -259,9 +263,9 @@ export function resolveCodexApprovalDecisionTimeoutMs(args: {
   });
 }
 
-const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = 64 * 1024 * 1024;
+const CODEX_APP_SERVER_STDOUT_BUFFER_MAX_BYTES = PROVIDER_STDOUT_BUFFER_MAX_BYTES;
 const CODEX_APP_SERVER_STDOUT_SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
-const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = 32 * 1024 * 1024;
+const CODEX_APP_SERVER_STDOUT_HARD_LINE_MAX_BYTES = PROVIDER_STDOUT_LINE_MAX_BYTES;
 /**
  * Grace period between the teardown SIGTERM and the SIGKILL escalation. A
  * wedged app-server that ignores SIGTERM would otherwise survive its own

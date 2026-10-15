@@ -4,12 +4,18 @@ import { EventEmitter } from "node:events";
 const actualChildProcess = await import("node:child_process");
 
 const SOFT_LINE_MAX_BYTES = 1 * 1024 * 1024;
+/** Line size from the reported "response was dropped: oversized line" error. */
+const REPORTED_OVERSIZED_LINE_BYTES = 37_737_483;
+const PIPE_CHUNK_BYTES = 64 * 1024;
 
 class FakeStream extends EventEmitter {
   setEncoding(_encoding: string) {}
 }
 
-type FakeScenario = "oversized-valid-response" | "oversized-invalid-response";
+type FakeScenario =
+  | "oversized-valid-response"
+  | "oversized-invalid-response"
+  | "reported-size-response";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
@@ -53,6 +59,13 @@ class FakeChild extends EventEmitter {
           message.method === "mcpServerStatus/list" &&
           typeof message.id === "number"
         ) {
+          if (this.scenario === "reported-size-response") {
+            this.emitLineInChunks(
+              buildPaddedResponseLine(message.id, REPORTED_OVERSIZED_LINE_BYTES),
+            );
+            continue;
+          }
+
           if (this.scenario === "oversized-valid-response") {
             this.emitJson({
               jsonrpc: "2.0",
@@ -84,6 +97,21 @@ class FakeChild extends EventEmitter {
   private emitJson(message: unknown) {
     this.stdout.emit("data", `${JSON.stringify(message)}\n`);
   }
+
+  /** Delivers one line in pipe-sized reads, as a real child's stdout would. */
+  private emitLineInChunks(line: string) {
+    const payload = `${line}\n`;
+    for (let offset = 0; offset < payload.length; offset += PIPE_CHUNK_BYTES) {
+      this.stdout.emit("data", payload.slice(offset, offset + PIPE_CHUNK_BYTES));
+    }
+  }
+}
+
+/** An ASCII JSON-RPC response line padded to exactly `lineBytes` bytes. */
+function buildPaddedResponseLine(id: number, lineBytes: number) {
+  const prefix = `{"jsonrpc":"2.0","id":${id},"result":{"data":[{"name":"slack","authStatus":"oAuth"}],"debug":"`;
+  const suffix = `"}}`;
+  return `${prefix}${"x".repeat(lineBytes - prefix.length - suffix.length)}${suffix}`;
 }
 
 const fakeChildren: FakeChild[] = [];
@@ -158,6 +186,25 @@ describe("codex app server stdout overflow handling", () => {
     ]);
     expect(fakeChildren[0]?.killed).toBe(false);
   });
+
+  test("accepts a response line the size of the reported dropped thread payload", async () => {
+    // 37,737,483 bytes exceeded the former 32 MiB line cap, so this response
+    // was dropped and its request failed.
+    expect(REPORTED_OVERSIZED_LINE_BYTES).toBeGreaterThan(32 * 1024 * 1024);
+    nextScenario = "reported-size-response";
+
+    const result = await getCodexConnectedToolStatus({
+      runtimeOptions: {
+        codexBinaryPath: "/tmp/fake-codex-reported-size",
+      },
+      toolIds: ["slack"],
+    });
+
+    expect(result.detail).not.toContain("oversized line");
+    expect(result.ok).toBe(true);
+    expect(result.tools?.[0]?.state).toBe("ready");
+    expect(fakeChildren[0]?.killed).toBe(false);
+  }, 30_000);
 
   test("fails the request when an oversized stdout line is malformed JSON-RPC", async () => {
     nextScenario = "oversized-invalid-response";
