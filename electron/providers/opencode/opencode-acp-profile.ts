@@ -26,8 +26,8 @@ import {
   OPENCODE_BUILD_AGENT,
   OPENCODE_CONFIG_CONTENT_ENV,
   OPENCODE_LOCAL_MCP_DENIED_TOOLS,
-  OPENCODE_STAVE_MANUAL_AGENT,
-  OPENCODE_STAVE_READ_ONLY_AGENT,
+  OPENCODE_STAVE_MANUAL_AGENT_PREFIX,
+  OPENCODE_STAVE_READ_ONLY_AGENT_PREFIX,
   OpenCodeConfigContentError,
   buildOpenCodeConfigContent,
   buildOpenCodePermissionRules,
@@ -43,8 +43,8 @@ type OpenCodeRuntimeOptions = NonNullable<StreamTurnArgs["runtimeOptions"]>;
 export {
   OPENCODE_BUILD_AGENT,
   OPENCODE_LOCAL_MCP_DENIED_TOOLS,
-  OPENCODE_STAVE_MANUAL_AGENT,
-  OPENCODE_STAVE_READ_ONLY_AGENT,
+  OPENCODE_STAVE_MANUAL_AGENT_PREFIX,
+  OPENCODE_STAVE_READ_ONLY_AGENT_PREFIX,
   buildOpenCodeConfigContent,
   buildOpenCodePermissionRules,
   parseOpenCodeConfigContent,
@@ -64,6 +64,8 @@ export function buildOpenCodeAcpCommandArgs() {
 export function buildOpenCodeTurnEnv(args: {
   executablePath: string;
   runtimeOptions?: OpenCodeRuntimeOptions;
+  /** The turn's agent, from `resolveOpenCodeTurnAgent`. */
+  agent: string;
   baseEnv?: Record<string, string | undefined>;
 }) {
   const env = buildOpenCodeCliEnv({
@@ -73,6 +75,7 @@ export function buildOpenCodeTurnEnv(args: {
   env[OPENCODE_CONFIG_CONTENT_ENV] = buildOpenCodeConfigContent({
     approvalMode: args.runtimeOptions?.opencodeApprovalMode,
     denyEdits: args.runtimeOptions?.opencodeDenyEdits,
+    agent: args.agent,
     existing: env[OPENCODE_CONFIG_CONTENT_ENV],
   });
   return env;
@@ -169,11 +172,17 @@ export async function streamOpenCodeWithAcp(
   const secretEnv = args.runtimeOptions?.boundSecretIds?.length
     ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
     : {};
+  // One name per turn: the config defines it and the session selects it.
+  const agent = resolveOpenCodeTurnAgent({
+    approvalMode: args.runtimeOptions?.opencodeApprovalMode,
+    denyEdits: args.runtimeOptions?.opencodeDenyEdits,
+  });
   let env: Record<string, string | undefined>;
   try {
     env = buildOpenCodeTurnEnv({
       executablePath,
       runtimeOptions: args.runtimeOptions,
+      agent,
       baseEnv: secretEnv,
     });
   } catch (error) {
@@ -192,10 +201,6 @@ export async function streamOpenCodeWithAcp(
     cwd: runtimeCwd,
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,
-  });
-  const agent = resolveOpenCodeTurnAgent({
-    approvalMode: args.runtimeOptions?.opencodeApprovalMode,
-    denyEdits: args.runtimeOptions?.opencodeDenyEdits,
   });
   const resumeSessionId = args.runtimeOptions?.opencodeResumeSessionId;
   if (resumeSessionId) {

@@ -1,3 +1,4 @@
+import { randomBytes } from "node:crypto";
 import type { StreamTurnArgs } from "../types";
 import { STAVE_LOCAL_MCP_NEVER_AUTO_APPROVED_TOOLS } from "../stave-local-mcp-approval";
 
@@ -7,9 +8,15 @@ type PermissionRules = Record<string, unknown>;
 export const OPENCODE_CONFIG_CONTENT_ENV = "OPENCODE_CONFIG_CONTENT";
 /** OpenCode's own primary agent; Auto turns run it with the user's rules. */
 export const OPENCODE_BUILD_AGENT = "build";
-/** Stave-defined agents. Names no user config is expected to define. */
-export const OPENCODE_STAVE_MANUAL_AGENT = "stave-manual";
-export const OPENCODE_STAVE_READ_ONLY_AGENT = "stave-read-only";
+/**
+ * Name prefixes of the agents Stave defines for a turn. Each turn appends a
+ * random suffix, so no global or project config file can define the same
+ * agent first: OpenCode 1.x merges a file's agent of the same name key by
+ * key and keeps the file's key order, which would let the file's rules come
+ * last and win.
+ */
+export const OPENCODE_STAVE_MANUAL_AGENT_PREFIX = "stave-manual-";
+export const OPENCODE_STAVE_READ_ONLY_AGENT_PREFIX = "stave-read-only-";
 /** How OpenCode names a Local MCP tool: `<server>_<tool>`. */
 const STAVE_LOCAL_MCP_TOOL_PREFIX = "stave-local-mcp_";
 
@@ -27,33 +34,52 @@ export class OpenCodeConfigContentError extends Error {
   }
 }
 
+type OpenCodeTurnAgentKind = "manual" | "read-only" | "build";
+
+function resolveOpenCodeTurnAgentKind(args: {
+  approvalMode?: OpenCodeRuntimeOptions["opencodeApprovalMode"];
+  denyEdits?: boolean;
+}): OpenCodeTurnAgentKind {
+  if (args.denyEdits) return "read-only";
+  return args.approvalMode === "auto" ? "build" : "manual";
+}
+
 /**
- * The agent a turn runs as. Manual and read-only use an agent Stave defines,
- * so its permission object is Stave's alone: OpenCode merges config layers
- * key by key and keeps each key's first position, and evaluates rules last
- * match wins, so rules added to a built-in agent can be outranked by a
- * user's rule for the same key in a global or project file. An agent's rules
- * are evaluated after the global ones, so the Stave agent's rules decide.
+ * The agent a turn runs as, named afresh on every call. Manual and read-only
+ * use an agent Stave defines, so its permission object is Stave's alone:
+ * OpenCode merges config layers key by key and keeps each key's first
+ * position, and evaluates rules last match wins, so rules added to a built-in
+ * agent can be outranked by a user's rule for the same key in a global or
+ * project file. An agent's rules are evaluated after the global ones, so the
+ * Stave agent's rules decide. Auto runs OpenCode's own `build`.
  */
 export function resolveOpenCodeTurnAgent(args: {
   approvalMode?: OpenCodeRuntimeOptions["opencodeApprovalMode"];
   denyEdits?: boolean;
 }) {
-  if (args.denyEdits) return OPENCODE_STAVE_READ_ONLY_AGENT;
-  return args.approvalMode === "auto" ? OPENCODE_BUILD_AGENT : OPENCODE_STAVE_MANUAL_AGENT;
+  const kind = resolveOpenCodeTurnAgentKind(args);
+  if (kind === "build") return OPENCODE_BUILD_AGENT;
+  const prefix =
+    kind === "read-only"
+      ? OPENCODE_STAVE_READ_ONLY_AGENT_PREFIX
+      : OPENCODE_STAVE_MANUAL_AGENT_PREFIX;
+  return `${prefix}${randomBytes(8).toString("hex")}`;
 }
 
 /**
- * Tool families OpenCode 2.x runs without a permission check, so `ask` never
- * reaches them: the code-mode tools in the `opencode` namespace
+ * Tools OpenCode 2.x runs without a permission check, so `ask` never reaches
+ * them: code-mode `execute` (its script and its `fetch` global, which can
+ * send any HTTP request), the code-mode tools in the `opencode` namespace
  * (`worktree_create`, `session_move`, `session_rename`, ...) and the desktop
  * browser tools (permission name `browser`). OpenCode removes a tool from the
  * session only when the agent's last matching rule for it is a wildcard
- * `deny`. OpenCode 1.x has neither family and ignores the keys.
+ * `deny`. Denying `execute` also removes MCP tools on 2.x, which serves them
+ * only through it. OpenCode 1.x has none of these tools and ignores the keys.
  */
 const OPENCODE_UNGATED_TOOL_DENIES = Object.freeze({
   "opencode_*": "deny",
   browser: "deny",
+  execute: "deny",
 });
 
 /**
@@ -69,11 +95,11 @@ export function buildOpenCodePermissionRules(args: {
   approvalMode?: OpenCodeRuntimeOptions["opencodeApprovalMode"];
   denyEdits?: boolean;
 }): PermissionRules | null {
-  const agent = resolveOpenCodeTurnAgent(args);
-  if (agent === OPENCODE_STAVE_READ_ONLY_AGENT) {
+  const kind = resolveOpenCodeTurnAgentKind(args);
+  if (kind === "read-only") {
     return { "*": "ask", edit: "deny", task: "deny", ...OPENCODE_UNGATED_TOOL_DENIES };
   }
-  if (agent === OPENCODE_STAVE_MANUAL_AGENT) {
+  if (kind === "manual") {
     return { "*": "ask", task: "deny", ...OPENCODE_UNGATED_TOOL_DENIES };
   }
   return null;
@@ -158,9 +184,12 @@ export function parseOpenCodeConfigContent(text: string): Record<string, unknown
   let parsed: unknown;
   try {
     parsed = JSON.parse(stripTrailingCommas(stripJsoncComments(text)));
-  } catch (error) {
+  } catch {
+    // The parser's message quotes the input, and the value can hold
+    // credentials, so the error that reaches the conversation names only the
+    // variable.
     throw new OpenCodeConfigContentError(
-      `${OPENCODE_CONFIG_CONTENT_ENV} in Stave's environment is not valid JSON or JSONC (${error instanceof Error ? error.message : String(error)}). Stave did not start OpenCode, so that inline config was not replaced. Fix or unset it and send again.`,
+      `${OPENCODE_CONFIG_CONTENT_ENV} in Stave's environment has a JSON or JSONC syntax error. Stave did not start OpenCode, so that inline config was not replaced. Fix or unset it and send again.`,
     );
   }
   const record = asRecord(parsed);
@@ -177,8 +206,9 @@ export function parseOpenCodeConfigContent(text: string): Record<string, unknown
  * value. OpenCode applies this inline config over the global and project
  * config files.
  *
- * - Manual and read-only define the Stave agent whole, replacing any inline
- *   definition of the same name, and the turn selects it as the session mode.
+ * - Manual and read-only define the turn's Stave agent (`agent`, from
+ *   `resolveOpenCodeTurnAgent`) whole, and the turn selects it as the
+ *   session mode.
  * - Auto keeps everything and appends ask rules for the Stave tools that
  *   answer another task to the `build` agent. New keys land after the user's
  *   keys in OpenCode's merge, so they are the last match for those tools.
@@ -186,17 +216,23 @@ export function parseOpenCodeConfigContent(text: string): Record<string, unknown
 export function buildOpenCodeConfigContent(args: {
   approvalMode?: OpenCodeRuntimeOptions["opencodeApprovalMode"];
   denyEdits?: boolean;
+  /** The turn's agent, from `resolveOpenCodeTurnAgent`. */
+  agent: string;
   existing?: string;
 }): string {
   const base = args.existing?.trim() ? parseOpenCodeConfigContent(args.existing) : {};
   const agents = { ...(asRecord(base.agent) ?? {}) };
-  const agentName = resolveOpenCodeTurnAgent(args);
+  const agentName = args.agent;
+  const kind = resolveOpenCodeTurnAgentKind(args);
   const rules = buildOpenCodePermissionRules(args);
   if (rules) {
+    if (agentName === OPENCODE_BUILD_AGENT) {
+      throw new Error("A Manual or read-only OpenCode turn must run on a Stave agent.");
+    }
     agents[agentName] = {
       mode: "primary",
       description:
-        agentName === OPENCODE_STAVE_READ_ONLY_AGENT
+        kind === "read-only"
           ? "Stave read-only turn: asks before every tool, file edits off."
           : "Stave Manual turn: asks before every tool.",
       permission: rules,

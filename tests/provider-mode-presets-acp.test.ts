@@ -155,6 +155,7 @@ describe("OpenCode approval presets", () => {
       task: "deny",
       "opencode_*": "deny",
       browser: "deny",
+      execute: "deny",
     });
     expect(buildOpenCodePermissionRules({ approvalMode: "auto" })).toBeNull();
   });
