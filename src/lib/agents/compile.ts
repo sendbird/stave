@@ -106,7 +106,8 @@ const SYSTEM_CHANNEL_PROVIDERS: readonly ProviderId[] = ["claude-code", "codex"]
 /* Snapshot                                                                   */
 /* -------------------------------------------------------------------------- */
 
-function stableStringify(value: unknown): string {
+/** JSON with object keys sorted and undefined entries left out, so key order never makes two equal values differ. */
+export function stableStringify(value: unknown): string {
   if (value === null || typeof value !== "object") {
     return JSON.stringify(value) ?? "null";
   }

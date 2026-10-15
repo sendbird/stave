@@ -17,6 +17,7 @@ import {
   agentColorToken,
   agentInitials,
   derivedAgentColor,
+  updateAgentAppearance,
 } from "@/lib/agents/agent-appearance";
 import { AGENT_ICONS, agentIconLabel, getAgentIcon, matchAgentIcons } from "@/lib/agents/agent-icons";
 import { i18n } from "@/i18n/runtime";
@@ -123,6 +124,17 @@ describe("agent avatar icon", () => {
     }
   });
 
+  test("colour and icon are independent: setting one keeps the other", () => {
+    expect(updateAgentAppearance({ icon: "hammer" }, { color: "red" })).toEqual({ icon: "hammer", color: "red" });
+    expect(updateAgentAppearance({ color: "red" }, { icon: "bug" })).toEqual({ color: "red", icon: "bug" });
+    expect(updateAgentAppearance({ color: "red", icon: "bug" }, { icon: "rocket" })).toEqual({ color: "red", icon: "rocket" });
+    // Back to initials removes only the icon.
+    expect(updateAgentAppearance({ color: "red", icon: "bug" }, { icon: undefined })).toEqual({ color: "red" });
+    // Nothing left: the agent saves as one that never chose.
+    expect(updateAgentAppearance({ icon: "bug" }, { icon: undefined })).toBeUndefined();
+    expect(updateAgentAppearance(undefined, { icon: undefined })).toBeUndefined();
+  });
+
   test("a catalog icon replaces the initials; no icon or an unknown one shows the initials", () => {
     const render = (appearance: AgentConfig["appearance"], size: "xs" | "sm" | "md" | "lg" = "sm") =>
       renderToStaticMarkup(createElement(AgentAvatar, { agent: custom({ appearance }), size }));
@@ -142,6 +154,14 @@ describe("agent avatar icon", () => {
     expect(getAgentIcon(undefined)).toBeNull();
   });
 
+  test("the editor offers the icon next to the colour, labelled with the current choice", () => {
+    const html = (appearance: AgentConfig["appearance"]) =>
+      renderToStaticMarkup(createElement(AgentEditor, { agent: custom({ appearance }), onSave: () => null }));
+    expect(html(undefined)).toContain('aria-label="Icon: Initials"');
+    expect(html({ color: "red", icon: "telescope" })).toContain('aria-label="Icon: Telescope"');
+    // An id the catalog no longer has reads as initials, as the avatar does.
+    expect(html({ icon: "retired-glyph" })).toContain('aria-label="Icon: Initials"');
+  });
 });
 
 describe("agent avatar", () => {

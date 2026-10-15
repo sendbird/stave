@@ -1,6 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import { contrastRatio, formatOklch, mixOklab, parseCssColor, type Oklab } from "@/lib/themes/contrast";
-import { AGENT_COLORS, type AgentColor, type AgentConfig } from "./schema";
+import { AGENT_COLORS, type AgentAppearance, type AgentColor, type AgentConfig } from "./schema";
 
 /**
  * An agent's avatar identity, derived from its config. Pure so the disc's
@@ -38,6 +38,24 @@ export const AGENT_COLOR_LABELS: Readonly<Record<AgentColor, string>> = {
   get purple() { return i18n.t("agents:agentAppearance.purple"); },
   get cyan() { return i18n.t("agents:agentAppearance.cyan"); },
 };
+
+/**
+ * Changes some appearance fields and keeps the rest, so choosing a colour never
+ * clears the icon and choosing an icon never clears the colour. A field set to
+ * `undefined` is removed (for the icon, back to initials). Returns `undefined`
+ * when nothing is left, so an agent that drops every choice saves exactly as
+ * one that never made any.
+ */
+export function updateAgentAppearance(
+  current: AgentAppearance | undefined,
+  patch: Partial<AgentAppearance>,
+): AgentAppearance | undefined {
+  const next: AgentAppearance = { ...current, ...patch };
+  for (const key of Object.keys(next) as Array<keyof AgentAppearance>) {
+    if (next[key] === undefined) delete next[key];
+  }
+  return Object.keys(next).length > 0 ? next : undefined;
+}
 
 /** A small, stable, order-independent hash of a string (FNV-1a, 32-bit). */
 function hashString(value: string): number {

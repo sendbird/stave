@@ -327,6 +327,15 @@
     "gitPullRequest": "Pull request",
     "bot": "Robot"
   },
+  "agentIconChooser": {
+    "label": "Icon",
+    "trigger": "Icon: {{value1}}",
+    "title": "Avatar icon",
+    "search": "Search icons",
+    "group": "Icons",
+    "initials": "Initials",
+    "empty": "No icons match."
+  },
   "assignRoute": {
     "describeAssignRouteModel": "Stave Auto, each turn",
     "extraCopy328": "Set by the agent.",

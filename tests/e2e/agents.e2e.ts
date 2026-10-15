@@ -60,3 +60,61 @@ test.describe("agents", () => {
     await expect(exportSection.getByText(".codex/agents/ui-maintainer.toml")).toBeVisible();
   });
 });
+
+test.describe("agent avatar icon", () => {
+  test("an icon is picked, survives a colour change and a reopen, and goes back to initials", async ({ page }) => {
+    await page.goto("/?stavePreview=agents&edit=1");
+    const profile = page.getByRole("region", { name: "Profile" });
+    const trigger = profile.getByRole("button", { name: /^Icon: / });
+    await expect(trigger).toHaveAccessibleName("Icon: Initials");
+
+    await trigger.click();
+    const picker = page.getByRole("dialog", { name: "Avatar icon" });
+    const search = picker.getByRole("textbox", { name: "Search icons" });
+    await expect(search).toBeFocused();
+    const icons = picker.getByRole("group", { name: "Icons" });
+    await expect(icons.getByRole("button", { name: "Initials" })).toHaveAttribute("aria-pressed", "true");
+    // Every cell is a comfortable target.
+    for (const box of await icons.getByRole("button").evaluateAll((cells) => cells.map((cell) => cell.getBoundingClientRect()))) {
+      expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(28);
+    }
+    // Search narrows the grid; Initials stays as the way back.
+    await search.fill("zzz");
+    await expect(picker.getByRole("status")).toHaveText("No icons match.");
+    await expect(icons.getByRole("button")).toHaveCount(1);
+    await search.fill("tele");
+    await expect(icons.getByRole("button")).toHaveCount(2);
+    await icons.getByRole("button", { name: "Telescope" }).click();
+    await expect(picker).toBeHidden();
+    await expect(trigger).toHaveAccessibleName("Icon: Telescope");
+
+    // A colour change keeps the icon.
+    await profile.getByRole("button", { name: "Red" }).click();
+    await expect(profile.getByRole("button", { name: "Red" })).toHaveAttribute("aria-pressed", "true");
+    await expect(trigger).toHaveAccessibleName("Icon: Telescope");
+    const save = page.getByRole("button", { name: "Save", exact: true });
+    await save.click();
+    // Saved: nothing left to save, and the list row shows the icon too.
+    await expect(save).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^UI maintainer/ }).locator("svg.lucide-telescope")).toBeVisible();
+
+    // Reopen: another agent, then back.
+    await page.getByRole("button", { name: /^Ship a UI fix/ }).click();
+    await page.getByRole("button", { name: /^UI maintainer/ }).click();
+    await expect(trigger).toHaveAccessibleName("Icon: Telescope");
+    await expect(profile.getByRole("button", { name: "Red" })).toHaveAttribute("aria-pressed", "true");
+
+    // An icon change keeps the colour, and Initials removes only the icon.
+    await trigger.click();
+    await expect(icons.getByRole("button", { name: "Telescope" })).toHaveAttribute("aria-pressed", "true");
+    await icons.getByRole("button", { name: "Initials" }).click();
+    await expect(trigger).toHaveAccessibleName("Icon: Initials");
+    await expect(profile.getByRole("button", { name: "Red" })).toHaveAttribute("aria-pressed", "true");
+    await save.click();
+    await expect(save).toBeDisabled();
+    await page.getByRole("button", { name: /^Ship a UI fix/ }).click();
+    await page.getByRole("button", { name: /^UI maintainer/ }).click();
+    await expect(trigger).toHaveAccessibleName("Icon: Initials");
+    await expect(profile.getByRole("button", { name: "Red" })).toHaveAttribute("aria-pressed", "true");
+  });
+});
