@@ -39,6 +39,13 @@ describe("describe to create", () => {
     expect(result.agent.appearance?.color).toBe("cyan");
   });
 
+  test("a drafted colour leaves the icon to the user: the agent still parses and shows initials", () => {
+    const result = parseAgentDraft('{"name":"Helper","instructions":"You help.","color":"cyan","icon":"Rocket!"}', []);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.agent.appearance).toEqual({ color: "cyan" });
+  });
+
   test("a read-only agent is kept in the current workspace instead of refused", () => {
     const result = parseAgentDraft(
       '{"name":"Researcher","instructions":"You read and report.","permission":"read-only","workspace":"new-worktree"}',

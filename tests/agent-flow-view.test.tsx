@@ -8,6 +8,10 @@ import type { ChatMessage } from "@/types/chat";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FlowPanel } from "../src/components/agents/FlowPanel";
+import type { AgentAssignment } from "@/lib/agents/assign";
+import { getBuiltinAgent } from "@/lib/agents/starters";
+import { snapshotAgent } from "@/lib/agents/compile";
+import { indexAssignmentsByTask, useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 
 const EMPTY_BASE: FlowBaseInput = {
   request: null,
@@ -259,6 +263,92 @@ describe("buildFlow", () => {
       base: EMPTY_BASE,
     });
     expect(nodes[0]).toMatchObject({ state: "action-required", detail: "Stave stopped before the first turn started." });
+  });
+
+  test("the assignment node keeps the colour and icon the agent was assigned with", () => {
+    const appearance = { color: "green" as const, icon: "hammer" };
+    const [withIcon] = buildFlow({
+      taskTitle: "Fix",
+      assignment: { ...assignment, agentConfigId: "implementer", agentAppearance: appearance },
+      agentRun: null,
+      delegates: [],
+      base: EMPTY_BASE,
+    });
+    expect(withIcon!.agent).toEqual({ id: "implementer", name: "Implementer", appearance });
+    // An assignment recorded without one keeps the derived colour and initials.
+    const [plain] = buildFlow({ taskTitle: "Fix", assignment, agentRun: null, delegates: [], base: EMPTY_BASE });
+    expect(plain!.agent).toEqual({ id: "a1", name: "Implementer" });
+  });
+
+  test("the panel draws the assigned agent's icon on its assignment node", () => {
+    const implementer = getBuiltinAgent("implementer")!;
+    expect(implementer.appearance?.icon).toBe("hammer");
+    const row = {
+      id: "assignment-1",
+      requestId: "assign:1",
+      requestHash: "h",
+      agentConfigId: implementer.id,
+      agentName: implementer.name,
+      agentContentHash: "fnv1a64:0000000000000000",
+      agent: implementer,
+      assignment: "Fix the bug.",
+      providerId: "claude-code",
+      model: null,
+      repositoryPath: "/tmp/repo",
+      workspaceMode: "same-workspace",
+      branch: null,
+      workspaceId: "ws",
+      taskId: "t-flow-icon",
+      turnId: null,
+      state: "started",
+      detail: null,
+      received: [],
+      support: [],
+      createdAt: "2026-10-15T00:00:00.000Z",
+      updatedAt: "2026-10-15T00:00:00.000Z",
+    } as unknown as AgentAssignment;
+    // Server rendering reads the store's initial state, so the assignment is seeded there.
+    const initial = useAgentAssignmentsStore.getInitialState();
+    const previous = initial.byTaskId;
+    Object.assign(initial, { byTaskId: indexAssignmentsByTask([row]) });
+    try {
+      const html = renderToStaticMarkup(
+        createElement(FlowPanel, { workspaceId: "ws", taskId: "t-flow-icon", repositoryPath: null }),
+      );
+      expect(html).toContain("Assigned to Implementer");
+      expect(html).toContain("lucide-hammer");
+      // Same agent as now: no "edited after this task started" notice.
+      expect(html).not.toContain("edited after this task started");
+    } finally {
+      Object.assign(initial, { byTaskId: previous });
+    }
+  });
+
+  test("a task assigned before the built-in gained its colour and icon is not flagged as edited", () => {
+    const implementer = getBuiltinAgent("implementer")!;
+    const { appearance: _appearance, ...before } = implementer;
+    const snapshot = snapshotAgent(before);
+    const row = {
+      id: "assignment-2", requestId: "assign:2", requestHash: "h",
+      agentConfigId: implementer.id, agentName: implementer.name, agentContentHash: snapshot.contentHash,
+      agent: snapshot.agent, assignment: "Fix the bug.", providerId: "claude-code", model: null,
+      repositoryPath: "/tmp/repo", workspaceMode: "same-workspace", branch: null, workspaceId: "ws",
+      taskId: "t-flow-before", turnId: null, state: "started", detail: null, received: [], support: [],
+      createdAt: "2026-10-15T00:00:00.000Z", updatedAt: "2026-10-15T00:00:00.000Z",
+    } as unknown as AgentAssignment;
+    const render = (agent: AgentAssignment["agent"]) => {
+      const initial = useAgentAssignmentsStore.getInitialState();
+      const previous = initial.byTaskId;
+      Object.assign(initial, { byTaskId: indexAssignmentsByTask([{ ...row, agent }]) });
+      try {
+        return renderToStaticMarkup(createElement(FlowPanel, { workspaceId: "ws", taskId: "t-flow-before", repositoryPath: null }));
+      } finally {
+        Object.assign(initial, { byTaskId: previous });
+      }
+    };
+    expect(render(snapshot.agent)).not.toContain("edited after this task started");
+    // The saved copy had other instructions: that is an edit.
+    expect(render({ ...snapshot.agent, instructions: "Older instructions." })).toContain("edited after this task started");
   });
 
   test("the panel renders an empty task as waiting for the first message", () => {

@@ -12,6 +12,7 @@ import { getTodoProgress } from "@/components/ai-elements/todo";
 import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import type { ChatMessage } from "@/types/chat";
+import type { AgentConfig } from "./schema";
 
 /**
  * The Flow of one task: what was assigned, the stages it went through, and
@@ -54,8 +55,8 @@ export interface FlowNode {
   target: { workspaceId: string; taskId: string } | null;
   /** The node's Timeline, oldest first. */
   events: FlowEvent[];
-  /** Agent identity for an avatar on assignment nodes, when known. */
-  agent?: { id: string; name: string };
+  /** Agent identity for an avatar on assignment nodes, when known, with the colour and icon it was assigned with. */
+  agent?: Pick<AgentConfig, "id" | "name" | "appearance">;
   children: FlowNode[];
 }
 
@@ -64,6 +65,11 @@ export interface FlowAssignmentInput {
   agentName: string;
   /** The saved agent's id, for a stable avatar colour when known. */
   agentConfigId?: string;
+  /**
+   * The colour and icon in the assignment's agent snapshot, so the node shows
+   * the avatar the task's other surfaces (sidebar, Fleet, composer) show.
+   */
+  agentAppearance?: AgentConfig["appearance"];
   providerId: string;
   model: string | null;
   workspaceMode: "new-worktree" | "same-workspace";
@@ -499,7 +505,11 @@ export function buildFlow(args: {
       state: ASSIGNMENT_STATE[assignment.state],
       evidence: null,
       target: null,
-      agent: { id: assignment.agentConfigId ?? assignment.id, name: assignment.agentName },
+      agent: {
+        id: assignment.agentConfigId ?? assignment.id,
+        name: assignment.agentName,
+        ...(assignment.agentAppearance ? { appearance: assignment.agentAppearance } : {}),
+      },
       events: [
         { at: assignment.createdAt, label: i18n.t("agents:flowView.label9") },
         ...(assignment.updatedAt !== assignment.createdAt

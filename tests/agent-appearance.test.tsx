@@ -17,15 +17,20 @@ import {
   agentColorToken,
   agentInitials,
   derivedAgentColor,
+  updateAgentAppearance,
 } from "@/lib/agents/agent-appearance";
+import { AGENT_ICONS, agentIconLabel, getAgentIcon, matchAgentIcons } from "@/lib/agents/agent-icons";
+import { adsThemeVariables } from "@/components/system/ads-theme";
+import { i18n } from "@/i18n/runtime";
 import { findAgentReferences, agentIsDeletable } from "@/lib/agents/agent-references";
 import {
   blankCustomAgent,
   duplicateAgent,
+  normalizeCustomAgents,
   removeCustomAgent,
   upsertCustomAgent,
 } from "@/lib/agents/library";
-import { AgentConfigSchema, AGENT_COLORS, type AgentConfig } from "@/lib/agents/schema";
+import { AgentConfigSchema, AGENT_COLORS, AGENT_ICON_ID_PATTERN, type AgentConfig } from "@/lib/agents/schema";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { AgentEditor } from "@/components/agents/AgentEditor";
 
@@ -40,9 +45,16 @@ function custom(overrides: Partial<AgentConfig> = {}): AgentConfig {
 
 describe("agent appearance", () => {
   test("appearance is optional, so an agent saved without it stays valid", () => {
-    expect(AgentConfigSchema.safeParse(custom()).success).toBe(true);
+    // `custom()` copies Implementer, which now has a colour and an icon, so the
+    // field is removed to get the shape an agent saved before it existed.
+    const { appearance: _appearance, ...saved } = custom();
+    expect("appearance" in saved).toBe(false);
+    const parsed = AgentConfigSchema.safeParse(saved);
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data.appearance).toBeUndefined();
+    expect(normalizeCustomAgents([saved]).agents).toHaveLength(1);
     const withColor = AgentConfigSchema.parse(custom({ appearance: { color: "green" } }));
-    expect(withColor.appearance?.color).toBe("green");
+    expect(withColor.appearance).toEqual({ color: "green" });
   });
 
   test("a chosen colour wins; without one the id derives a stable colour", () => {
@@ -65,6 +77,145 @@ describe("agent appearance", () => {
     expect(agentInitials("UI Maintainer")).toBe("UM");
     expect(agentInitials("Reviewer")).toBe("RE");
     expect(agentInitials("   ")).toBe("?");
+  });
+});
+
+describe("agent avatar icon", () => {
+  test("an icon is optional; any well-formed id is kept, so a dropped catalog icon never rejects the agent", () => {
+    expect(AgentConfigSchema.parse(custom({ appearance: { icon: "hammer" } })).appearance?.icon).toBe("hammer");
+    expect(AgentConfigSchema.parse(custom({ appearance: { color: "red", icon: "retired-glyph" } })).appearance).toEqual({
+      color: "red",
+      icon: "retired-glyph",
+    });
+    const saved = normalizeCustomAgents([custom({ appearance: { icon: "retired-glyph" } }), custom({ id: "plain", name: "Plain" })]);
+    expect(saved.rejected).toEqual([]);
+    expect(saved.agents.map((agent) => agent.id)).toEqual(["ui-maintainer", "plain"]);
+    for (const icon of ["Hammer", "hammer icon", "x".repeat(41), ""]) {
+      expect(AgentConfigSchema.safeParse({ ...custom(), appearance: { icon } }).success).toBe(false);
+    }
+  });
+
+  test("the catalog has unique, well-formed ids, each with a glyph and an en/ko label", async () => {
+    expect(AGENT_ICONS.length).toBeGreaterThanOrEqual(24);
+    expect(AGENT_ICONS.length).toBeLessThanOrEqual(32);
+    expect(new Set(AGENT_ICONS.map((entry) => entry.id)).size).toBe(AGENT_ICONS.length);
+    const original = i18n.language;
+    try {
+      for (const language of ["en", "ko"]) {
+        await i18n.changeLanguage(language);
+        const labels = AGENT_ICONS.map((entry) => agentIconLabel(entry));
+        for (const [index, entry] of AGENT_ICONS.entries()) {
+          expect(entry.id).toMatch(AGENT_ICON_ID_PATTERN);
+          expect(entry.icon).toBeTruthy();
+          expect(labels[index]).not.toContain("agentIcons.");
+        }
+        expect(new Set(labels).size).toBe(labels.length);
+      }
+    } finally {
+      await i18n.changeLanguage(original);
+    }
+  });
+
+  test("search matches the label in the display language and the id", async () => {
+    expect(matchAgentIcons("").length).toBe(AGENT_ICONS.length);
+    expect(matchAgentIcons("rocket").map((entry) => entry.id)).toEqual(["rocket"]);
+    expect(matchAgentIcons("pull").map((entry) => entry.id)).toEqual(["git-pull-request"]);
+    expect(matchAgentIcons("zzz")).toEqual([]);
+    // An id typed as stored, hyphens and all, finds its icon; so do its words.
+    for (const id of ["git-pull-request", "search-check"]) {
+      expect(matchAgentIcons(id).map((entry) => entry.id)).toEqual([id]);
+      expect(matchAgentIcons(` ${id.toUpperCase()} `).map((entry) => entry.id)).toEqual([id]);
+      expect(matchAgentIcons(id.replace(/-/g, " ")).map((entry) => entry.id)).toEqual([id]);
+    }
+    const original = i18n.language;
+    try {
+      await i18n.changeLanguage("ko");
+      expect(matchAgentIcons("망원경").map((entry) => entry.id)).toEqual(["telescope"]);
+      // Ids are English words, so an English search still works in Korean.
+      expect(matchAgentIcons("telescope").map((entry) => entry.id)).toEqual(["telescope"]);
+      expect(matchAgentIcons("git-pull-request").map((entry) => entry.id)).toEqual(["git-pull-request"]);
+      expect(matchAgentIcons("search-check").map((entry) => entry.id)).toEqual(["search-check"]);
+    } finally {
+      await i18n.changeLanguage(original);
+    }
+  });
+
+  test("colour and icon are independent: setting one keeps the other", () => {
+    expect(updateAgentAppearance({ icon: "hammer" }, { color: "red" })).toEqual({ icon: "hammer", color: "red" });
+    expect(updateAgentAppearance({ color: "red" }, { icon: "bug" })).toEqual({ color: "red", icon: "bug" });
+    expect(updateAgentAppearance({ color: "red", icon: "bug" }, { icon: "rocket" })).toEqual({ color: "red", icon: "rocket" });
+    // Back to initials removes only the icon.
+    expect(updateAgentAppearance({ color: "red", icon: "bug" }, { icon: undefined })).toEqual({ color: "red" });
+    // Nothing left: the agent saves as one that never chose.
+    expect(updateAgentAppearance({ icon: "bug" }, { icon: undefined })).toBeUndefined();
+    expect(updateAgentAppearance(undefined, { icon: undefined })).toBeUndefined();
+  });
+
+  test("a catalog icon replaces the initials; no icon or an unknown one shows the initials", () => {
+    const render = (appearance: AgentConfig["appearance"], size: "xs" | "sm" | "md" | "lg" = "sm") =>
+      renderToStaticMarkup(createElement(AgentAvatar, { agent: custom({ appearance }), size }));
+    for (const size of ["xs", "sm", "md", "lg"] as const) {
+      const html = render({ color: "green", icon: "hammer" }, size);
+      expect(html).toContain("<svg");
+      expect(html).toContain("lucide-hammer");
+      expect(html).not.toContain(">UM<");
+      expect(html).toContain('aria-label="UI Maintainer"');
+    }
+    for (const appearance of [undefined, { color: "green" as const }, { color: "green" as const, icon: "retired-glyph" }]) {
+      const html = render(appearance);
+      expect(html).not.toContain("<svg");
+      expect(html).toContain(">UM<");
+    }
+    expect(getAgentIcon("retired-glyph")).toBeNull();
+    expect(getAgentIcon(undefined)).toBeNull();
+  });
+
+  test("the chooser's selected cell keeps its glyph, initials and ring readable in every built-in theme", () => {
+    // The selected cell paints body ink on the soft wash with a muted-ink ring,
+    // inside a popover. Check that the bridge still maps those roles as computed
+    // below, then measure each pair in every theme a user can pick.
+    expect(adsThemeVariables["--ads-color-text"]).toBe("var(--foreground)");
+    expect(adsThemeVariables["--ads-color-accent-soft"]).toBe("color-mix(in oklab, var(--foreground) 4%, var(--card))");
+    expect(adsThemeVariables["--ads-color-border-strong"]).toBe("var(--muted-foreground)");
+    expect(adsThemeVariables["--ads-color-surface-raised"]).toBe("var(--popover)");
+    const themes = [
+      { id: "preset-light", tokens: PRESET_THEME_TOKENS.light as Record<string, string> },
+      { id: "preset-dark", tokens: PRESET_THEME_TOKENS.dark as Record<string, string> },
+      ...BUILTIN_CUSTOM_THEMES.map((theme) => ({ id: theme.id, tokens: theme.tokens as Record<string, string> })),
+    ];
+    expect(themes.map((theme) => theme.id)).toContain("ayu-light");
+    const failures: string[] = [];
+    for (const theme of themes) {
+      const ink = parseCssColor(theme.tokens.foreground ?? "");
+      const card = parseCssColor(theme.tokens.card ?? "");
+      const popover = parseCssColor(theme.tokens.popover ?? "");
+      const ring = parseCssColor(theme.tokens["muted-foreground"] ?? "");
+      if (!ink || !card || !popover || !ring) {
+        failures.push(`${theme.id}: unreadable`);
+        continue;
+      }
+      const wash = mixOklab(card, ink, 0.04);
+      const pairs: Array<[string, number, number]> = [
+        // Initials are text, so the stricter floor covers the icon (3:1) too.
+        ["ink on selected wash", contrastRatio(ink, wash), 4.5],
+        ["ink on popover", contrastRatio(ink, popover), 4.5],
+        ["ring on selected wash", contrastRatio(ring, wash), 3],
+        ["ring on popover", contrastRatio(ring, popover), 3],
+      ];
+      for (const [name, ratio, floor] of pairs) {
+        if (ratio < floor) failures.push(`${theme.id} ${name} ${ratio.toFixed(2)}:1`);
+      }
+    }
+    expect(failures).toEqual([]);
+  });
+
+  test("the editor offers the icon next to the colour, labelled with the current choice", () => {
+    const html = (appearance: AgentConfig["appearance"]) =>
+      renderToStaticMarkup(createElement(AgentEditor, { agent: custom({ appearance }), onSave: () => null }));
+    expect(html(undefined)).toContain('aria-label="Icon: Initials"');
+    expect(html({ color: "red", icon: "telescope" })).toContain('aria-label="Icon: Telescope"');
+    // An id the catalog no longer has reads as initials, as the avatar does.
+    expect(html({ icon: "retired-glyph" })).toContain('aria-label="Icon: Initials"');
   });
 });
 

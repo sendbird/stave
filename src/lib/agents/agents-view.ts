@@ -2,7 +2,7 @@ import { getAgentDisplayName, getAgentDisplayDescription } from "./display";
 import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { AGENT_PERMISSION_LABELS, preferredProviderInlineLabel, AGENT_ROLE_LABELS, AGENT_SOURCE_LABELS, AGENT_WORKSPACE_LABELS, type AgentConfig, type AgentSource } from "./schema";
-import { compileAgent, snapshotAgent, type AgentReceivedInstruction, type AgentSupportEntry, type AgentSupportLevel } from "./compile";
+import { agentEditKey, compileAgent, snapshotAgent, type AgentReceivedInstruction, type AgentSupportEntry, type AgentSupportLevel } from "./compile";
 
 /**
  * What the Agents tab shows for an agent, derived from its config. Pure, so
@@ -111,10 +111,18 @@ const RECEIVED_FIELD_LABELS: Readonly<Record<AgentSupportEntry["field"], string>
  * "What it received" for one assignment: the agent version the task runs,
  * each instruction source that went in, and how firmly each field is held on
  * the provider. `current` is the agent as it is now, when it still exists.
+ *
+ * "Edited since" compares the assignment's saved agent copy (`agentSnapshot`)
+ * with `current` through `agentEditKey`, so a change of colour or icon alone,
+ * including the defaults built-in agents gained, is not an edit, and a
+ * snapshot saved when the hash still covered the colour is judged the same
+ * way. Without the saved copy the edit cannot be judged, so nothing is flagged.
  */
 export function describeAssignmentReceived(args: {
   agentName: string;
   agentContentHash: string;
+  /** The agent exactly as the assignment saved it. */
+  agentSnapshot?: AgentConfig;
   received: readonly AgentReceivedInstruction[];
   support: readonly AgentSupportEntry[];
   current: AgentConfig | null;
@@ -134,13 +142,12 @@ export function describeAssignmentReceived(args: {
       detail: `${SUPPORT_LEVEL_LABELS[entry.level]}${entry.reason ? ` — ${entry.reason}` : ""}`,
     })),
   ];
-  const now = args.current ? snapshotAgent(args.current).contentHash : null;
+  const edited = Boolean(
+    args.current && args.agentSnapshot && agentEditKey(args.current) !== agentEditKey(args.agentSnapshot),
+  );
   return {
     version: args.agentContentHash.slice(0, 8),
     lines,
-    changedSince:
-      now && now !== args.agentContentHash
-        ? i18n.t("agents:agentsView.extraCopy327", { value1: args.agentName })
-        : null,
+    changedSince: edited ? i18n.t("agents:agentsView.extraCopy327", { value1: args.agentName }) : null,
   };
 }

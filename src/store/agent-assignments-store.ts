@@ -36,6 +36,8 @@ export type TaskAgent = Pick<
   agentPermission: AgentAssignment["agent"]["permission"];
   /** The recorded agent's colour, so its avatar matches the Agents surface. */
   agentAppearance: AgentAssignment["agent"]["appearance"];
+  /** The agent exactly as the assignment saved it, so "edited since" compares like with like. */
+  agentSnapshot: AgentAssignment["agent"];
   /** The task class an auto-model agent routes as; Stave Auto uses it on every turn. */
   agentTaskClass: TaskClass | null;
   agentDecision?: RoutingDecisionConfig;
@@ -83,6 +85,7 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       agentName: row.agentName,
       agentPermission: row.agent.permission,
       agentAppearance: row.agent.appearance,
+      agentSnapshot: row.agent,
       agentTaskClass: row.agent.model.mode === "auto" ? (row.agent.model.taskClass ?? null) : null,
       ...(row.agent.model.mode === "auto" && row.agent.model.decision ? { agentDecision: row.agent.model.decision } : {}),
       agentPreferredProvider: row.agent.model.mode === "auto" ? (row.agent.model.preferredProvider ?? null) : null,

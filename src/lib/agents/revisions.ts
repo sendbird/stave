@@ -1,4 +1,6 @@
 import { i18n } from "@/i18n/runtime";
+import { AGENT_COLOR_LABELS } from "./agent-appearance";
+import { agentIconLabel, getAgentIcon } from "./agent-icons";
 import { AgentConfigSchema, type AgentConfig } from "./schema";
 import { hashAgentContent } from "./compile";
 
@@ -139,6 +141,21 @@ function renderFieldValue(value: unknown): string {
   return String(value);
 }
 
+/** Colour and icon by name ("Green, Hammer"); an icon the catalog no longer has shows its id. */
+function renderAppearance(appearance: AgentConfig["appearance"]): string {
+  const parts: string[] = [];
+  if (appearance?.color) parts.push(AGENT_COLOR_LABELS[appearance.color]);
+  if (appearance?.icon) {
+    const entry = getAgentIcon(appearance.icon);
+    parts.push(entry ? agentIconLabel(entry) : appearance.icon);
+  }
+  return parts.length ? parts.join(", ") : "—";
+}
+
+function renderField(agent: AgentConfig, field: keyof AgentConfig): string {
+  return field === "appearance" ? renderAppearance(agent.appearance) : renderFieldValue(agent[field]);
+}
+
 /**
  * The fields that differ between two agent versions, in a stable order, for a
  * side-by-side diff. Pure: the words shown are decided here, not in the view.
@@ -146,8 +163,8 @@ function renderFieldValue(value: unknown): string {
 export function diffAgentVersions(from: AgentConfig, to: AgentConfig): AgentFieldChange[] {
   const changes: AgentFieldChange[] = [];
   for (const field of DIFF_FIELDS) {
-    const before = renderFieldValue(from[field]);
-    const after = renderFieldValue(to[field]);
+    const before = renderField(from, field);
+    const after = renderField(to, field);
     if (before !== after) {
       changes.push({ field: String(field), label: FIELD_LABELS[field] ?? String(field), from: before, to: after });
     }

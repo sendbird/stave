@@ -125,6 +125,9 @@ export const AGENT_COLORS = [
 ] as const;
 export type AgentColor = (typeof AGENT_COLORS)[number];
 
+/** The shape of a stored avatar icon id (lowercase words joined by hyphens). */
+export const AGENT_ICON_ID_PATTERN = /^[a-z0-9-]{1,40}$/;
+
 /**
  * "Check in with me": when an agent with a workflow waits for the user
  * between stages. The values are the agent run engine's check-in levels; a
@@ -257,6 +260,13 @@ export const AgentAppearanceSchema = z
      * every load without a migration.
      */
     color: z.enum(AGENT_COLORS).optional(),
+    /**
+     * Chosen avatar icon, an id from the catalog in `agent-icons.ts`. Absent
+     * means the avatar shows initials. Kept a free-form id rather than an enum
+     * so an agent saved with an icon the catalog later drops still loads; the
+     * avatar falls back to initials for an id it does not know.
+     */
+    icon: z.string().regex(AGENT_ICON_ID_PATTERN).optional(),
   })
   .strict();
 export type AgentAppearance = z.infer<typeof AgentAppearanceSchema>;
@@ -299,7 +309,7 @@ export const AgentConfigSchema = z
     workflow: AgentWorkflowSchema.optional(),
     /** Absent: only when stuck. */
     checkIns: z.enum(CHECK_INS).optional(),
-    /** Optional profile identity (avatar colour). Absent stays valid. */
+    /** Optional profile identity (avatar colour and icon). Absent stays valid. */
     appearance: AgentAppearanceSchema.optional(),
     origin: AgentFileOriginSchema.optional(),
     archived: z.boolean().default(false),
