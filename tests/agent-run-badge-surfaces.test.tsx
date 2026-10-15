@@ -149,6 +149,7 @@ const ACTIVE_CASES: Array<[string, AgentRunDetail, ChatMessage[], AgentRunStatus
   ["running, waiting for PR checks", runs.eventWait, [], "running"],
   ["running, every card answered", runs.working, [assistant([question("input-responded"), approval("a1", "approval-responded")])], "running"],
   ["needs your answer, a question", runs.working, [assistant([question()])], "needs-answer"],
+  ["needs your answer, a persisted async question", runs.working, [assistant([{ ...question(), delivery: "async" }])], "needs-answer"],
   ["needs your answer, an approval", runs.working, [assistant([approval("a1")])], "needs-answer"],
   ["needs your answer, a sign-off", runs.signOff, [], "needs-answer"],
   ["paused", runs.paused, [], "paused"],

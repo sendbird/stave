@@ -487,3 +487,13 @@ test("a report on the last allowed turn still completes the whole run", () => {
   const done = step(reported, observe({ lastEndedTurn: turn() }));
   expect(done.next.agentRun).toMatchObject({ state: "completed", turnCount: 1, maxTurns: 1, pauseReason: null, stopReason: null });
 });
+
+test("an ended stage turn with a pending question waits without nudge or stuck, even after restart", () => {
+  for (const nudged of [false, true]) {
+    const aggregate = patchCurrent(agentRunFixture(), { status: "running", nudged });
+    const observation = observe({ leadTask: { ...observe().leadTask, pendingUserInputCount: 1 },
+      lastEndedTurn: { turnId: "question-turn", startedBy: "agentRun", startedAt: AGENT_RUN_NOW.toISOString(), endedAt: AGENT_RUN_NOW.toISOString(), interrupted: true } });
+    expect(decide(aggregate, observation)).toEqual({ action: "wait", reason: "awaiting-user-input" });
+    expect(applyAgentRunDecision({ aggregate, decision: decide(aggregate, observation), now: AGENT_RUN_NOW }).upserts).toEqual([]);
+  }
+});

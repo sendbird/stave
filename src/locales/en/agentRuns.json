@@ -932,5 +932,15 @@
   },
   "permissions": {
     "codexAutoReviewUnavailable": "Codex auto-review is not available with this Codex version, account or managed policy, so this agent run uses Auto as before: Codex does not ask for approvals and writes within the workspace, or with the full access you set."
+  },
+  "persistentQuestion": {
+    "unavailable": "The question's Run is unavailable. Resume its Run before answering.",
+    "waitForTurn": "Wait for the question's native turn to finish before answering.",
+    "stageChanged": "The question's Run or stage is no longer active.",
+    "waitForRequest": "Wait for the current turn or approval before answering this Run question.",
+    "resumeFirst": "Resume the Run before answering its question.",
+    "reportingUnavailable": "Local reporting tools must be available before replying.",
+    "alreadyAnswered": "This question was already answered or is no longer pending.",
+    "deliveryFailed": "Could not deliver your answer: {{reason}}"
   }
 }

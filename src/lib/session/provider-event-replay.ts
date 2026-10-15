@@ -18,7 +18,7 @@ import type {
   ProviderGoalSnapshot,
   ProviderId,
 } from "@/lib/providers/provider.types";
-import {
+import { USER_STOPPED_TURN_REASONS,
   hasRenderableAssistantContent,
   findLatestPendingToolInteractionPart,
   interruptPendingToolInteractionParts,
@@ -753,6 +753,7 @@ function appendProviderEventContentToAssistant(args: {
         terminalStopReason,
         parts: interruptPendingToolInteractionParts({
           preserveAsync: !["cancelled", "aborted"].includes(args.event.stop_reason ?? ""),
+          stopped: USER_STOPPED_TURN_REASONS.includes(args.event.stop_reason ?? ""),
           parts: [
             ...messageWithTruncationNotice.parts,
             { type: "system_event", content: "No response returned." },
@@ -779,6 +780,7 @@ function appendProviderEventContentToAssistant(args: {
       terminalStopReason,
       parts: interruptPendingToolInteractionParts({
         preserveAsync: !["cancelled", "aborted"].includes(args.event.stop_reason ?? ""),
+        stopped: USER_STOPPED_TURN_REASONS.includes(args.event.stop_reason ?? ""),
         parts: finalizedMessage.parts,
       }),
     };
@@ -789,7 +791,11 @@ function appendProviderEventContentToAssistant(args: {
     return message;
   }
 
-  if (part.type === "user_input" && message.parts.some((existing) => existing.type === "user_input" && existing.requestId === part.requestId)) return message;
+  if (part.type === "user_input") {
+    const existing = message.parts.find((item) => item.type === "user_input" && item.requestId === part.requestId);
+    if (existing) return part.delivery === "async" && existing.type === "user_input" && existing.state === "input-requested"
+      ? { ...message, parts: message.parts.map(item => item === existing ? { ...existing, delivery: "async" as const } : item) } : message;
+  }
   const nextParts = [...message.parts];
   const lastPart = nextParts.at(-1);
 
@@ -1107,9 +1113,10 @@ export function replayProviderEventsToTaskState(args: {
     // open; they end with the turn too, as the final answer's do above.
     if (event.type === "done" && args.turnId) {
       const preserveAsync = !["cancelled", "aborted"].includes(event.stop_reason ?? "");
+      const stopped = USER_STOPPED_TURN_REASONS.includes(event.stop_reason ?? "");
       current = current.map((message, index) => {
         if (index === current.length - 1 || message.role !== "assistant" || message.turnId !== args.turnId) return message;
-        const parts = interruptPendingToolInteractionParts({ preserveAsync, parts: message.parts });
+        const parts = interruptPendingToolInteractionParts({ preserveAsync, stopped, parts: message.parts });
         return parts === message.parts ? message : { ...message, parts };
       });
     }

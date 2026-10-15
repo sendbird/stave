@@ -242,7 +242,9 @@ still stop it.
 If the running task asks for an approval or a structured question:
 
 - poll task state with `stave_get_task`
-- answer a question with `stave_respond_user_input`
+- answer a question with `stave_respond_user_input`; a native Run question
+  remains answerable after its callback timeout or an app restart, and the
+  host delivers its saved answer as one reply turn of the same stage
 - approvals are answered only by you in Stave. `stave_respond_approval` is no
   longer served: every Local MCP client shares one token, so Stave cannot tell
   you from an agent, and an agent never grants consent

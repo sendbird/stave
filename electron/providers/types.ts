@@ -57,6 +57,12 @@ export interface StreamTurnArgs {
    */
   agentRunStage?: AgentRunStageIdentity;
   /**
+   * The task is driven by another task (a delegated run or a Local MCP
+   * caller), not by the user. Host-owned, set with `agentRunStage`: a run's
+   * native question outlives its turn for the user only on a run the user owns.
+   */
+  managedTask?: boolean;
+  /**
    * Start a new provider conversation: neither the conversation's stored
    * session nor the runtime's cached one for the turn's account is resumed.
    * Host-owned: set only for an Agent run's turn after an account-pool switch.

@@ -175,3 +175,20 @@ test("answer text quotes each question above its answer", () => {
   expect(formatAsyncQuestionAnswer({ questions: questions.slice(1), answers: { "question-1": "x" }, denied: true }))
     .toBe("> Constraints?\n\nDeclined to answer.");
 });
+
+test("a persisted Run question is answered once through its host controller on a managed task", async () => {
+  const { runQuestionRequestId } = await import("../src/lib/agent-runs/persistent-question");
+  const requestId = runQuestionRequestId({ agentRunId: "run-1", stageId: "work", attempt: 1 }, "native-1");
+  const { sends, hostCalls } = setup({ task: { controlMode: "managed", controlOwner: "external" },
+    send: async () => { throw new Error("Only the Run controller may send this reply"); } });
+  useAppStore.setState({ messagesByTask: { "task-1": [{ ...question, parts: question.parts.map(part => ({ ...part, requestId })) }] } });
+  const args = { ...answer, requestId };
+  useAppStore.getState().resolveUserInput(args);
+  useAppStore.getState().resolveUserInput(args);
+  await settle();
+  useAppStore.getState().resolveUserInput(args);
+  await settle();
+  expect(sends).toEqual([]);
+  expect(hostCalls).toEqual([{ workspaceId: "ws-1", taskId: "task-1", requestId, answers: answer.answers, denied: undefined }]);
+  expect(card()).toMatchObject({ state: "input-responded", answers: answer.answers });
+});
