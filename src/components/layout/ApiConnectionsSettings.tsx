@@ -69,7 +69,7 @@ function ConnectionRow(props: {
     <div className={sx(styles.heading)}>
       <span className={sx(styles.name)}>{connection.label}</span>
       <span className={sx(styles.meta)}>
-        {connection.kind === "vercel-ai-gateway" ? VERCEL_AI_GATEWAY.label : t("settingsConnections:apiConnectionForm.otherGateway")} · {servesLine(connection)} {t("settingsConnections:apiConnectionsSettings.key")}{keyName ?? t("settingsConnections:apiConnectionsSettings.notFoundInSecrets")}
+        {connection.kind === "vercel-ai-gateway" ? VERCEL_AI_GATEWAY.label : t("settingsConnections:apiConnectionForm.otherGateway")} · {servesLine(connection)} {t("settingsConnections:apiConnectionsSettings.keyLine", { value1: keyName ?? t("settingsConnections:apiConnectionsSettings.notFoundInSecrets") })}
       </span>
     </div>
     {!editing && <ul className={sx(styles.modelList)} aria-label={t("settingsConnections:apiConnectionsSettings.modelsPinnedOn", { value1: connection.label })}>

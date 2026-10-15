@@ -266,7 +266,6 @@
     "suggestions": "On your other connections:"
   },
   "apiConnectionsSettings": {
-    "key": "· Key:",
     "notFoundInSecrets": "not found in Secrets",
     "modelsPinnedOn": "Models pinned on {{value1}}",
     "saveChanges": "Save changes",
@@ -285,7 +284,8 @@
       "done": "Done",
       "needsWorkspace": "Open a repository first: the model selector is in the composer, which needs a workspace. The connection is saved and you can pick it in {{value1}} later.",
       "checkFailed": "The check could not run. Try again; if it keeps failing, restart Stave."
-    }
+    },
+    "keyLine": "· Key: {{value1}}"
   },
   "providerAccountAddForm": {
     "couldNotUpdateTheSharedSetup": "Could not update the shared setup.",

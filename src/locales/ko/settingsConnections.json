@@ -266,7 +266,6 @@
     "suggestions": "다른 연결에 고정한 모델:"
   },
   "apiConnectionsSettings": {
-    "key": "· 키:",
     "notFoundInSecrets": "시크릿에서 찾지 못함",
     "modelsPinnedOn": "{{value1}}에 고정한 모델",
     "saveChanges": "변경 사항 저장",
@@ -285,7 +284,8 @@
       "done": "닫기",
       "needsWorkspace": "먼저 저장소를 여세요. 모델 선택기는 입력창에 있고, 입력창은 워크스페이스가 있어야 열립니다. 연결은 저장되었으니 나중에 {{value1}}에서 고를 수 있습니다.",
       "checkFailed": "확인을 실행하지 못했습니다. 다시 시도하고, 계속 실패하면 Stave를 다시 시작하세요."
-    }
+    },
+    "keyLine": "· 키: {{value1}}"
   },
   "providerAccountAddForm": {
     "couldNotUpdateTheSharedSetup": "공유 설정을 업데이트하지 못했습니다.",
