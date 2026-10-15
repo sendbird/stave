@@ -391,13 +391,13 @@ Fleet's search finds its tasks.
   [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-guardrails).
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in
-  instructions**. OpenCode runs a read-only agent as `stave-read-only`, an
-  OpenCode agent Stave defines whose rules your OpenCode config cannot
-  override: file edit tools are removed, subagents are off and every other
-  tool asks, so the limit is enforced; a shell command you approve can still
-  write. On OpenCode 2.x the code-mode `execute` tool, which serves MCP tools,
-  runs its script and HTTP requests without asking; it cannot write files, and
-  each tool it calls asks.
+  instructions**. OpenCode runs a read-only agent as an OpenCode agent Stave
+  defines under a new random name each turn (`stave-read-only-<random>`), so
+  your OpenCode config cannot override its rules: file edit tools are removed,
+  subagents are off and every other tool asks, so the limit is enforced; a
+  shell command you approve can still write. On OpenCode 2.x the agent also
+  removes the code-mode `execute` tool, which cannot ask first, so a
+  read-only agent there cannot use Stave Local MCP tools.
   Read only covers the repository, not Stave's own records of the work: a
   read-only agent can still add workspace notes, todos, links and custom
   fields, write a plan file with `stave_write_plan_file`, and report or block

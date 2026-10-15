@@ -496,46 +496,57 @@ provider.
 Approval presets, verified against both versions with user config files that
 allow everything (`opencode acp` has no approval flag):
 
-- `Manual`: Stave defines an inline agent `stave-manual`
-  (`{"*": "ask", "task": "deny", "opencode_*": "deny", "browser": "deny"}`) in
-  `OPENCODE_CONFIG_CONTENT` and selects it as the session `mode` before the
-  model. Rules added to a built-in agent cannot
-  hold: OpenCode deep-merges config layers keeping each key's first position and
+- `Manual`: Stave defines an inline agent `stave-manual-<16 hex>`, named with
+  a new random suffix every turn,
+  (`{"*": "ask", "task": "deny", "opencode_*": "deny", "browser": "deny", "execute": "deny"}`)
+  in `OPENCODE_CONFIG_CONTENT` and selects it as the session `mode` before
+  the model. The random name matters: 1.19.0 merges a file's agent of the same
+  name key by key too, so a project `opencode.json` defining a fixed
+  `stave-manual` as allow-all kept `bash: allow` last. Rules added to a
+  built-in agent cannot hold: OpenCode deep-merges config layers keeping each key's first position and
   evaluates rules last match wins, so a user's `{"*": "allow", "bash": "allow"}`
   on `build` outranked an inline `"*": "ask"` on 1.19.0. The Stave agent's
   permission object has no user keys, and OpenCode evaluates agent rules after
   the global ones, so every tool raises `session/request_permission` (`once`,
   `always`, `reject`). `task` is denied because a subagent runs under its own
   agent's rules. The `mode` option is required: a session that does not offer
-  the agent fails the turn instead of falling back to `build`.
+  the agent fails the turn instead of falling back to `build`. A resumed
+  session (`session/load`) switches to the new turn's agent name; 1.19.0 and
+  2.0.29 kept the conversation across Manual (name A), Manual (name B) and
+  Auto (`build`) turns.
 - OpenCode 2.x code mode: the `execute` tool runs a script in a sandbox with
-  no file system access and a `fetch` global, and serves MCP tools and OpenCode's
-  own `opencode` namespace (`worktree_create`, `session_move`,
-  `session_rename`, ...). Neither `execute`, `fetch` nor those `opencode` tools
-  call OpenCode's permission check (2.0.29 created a git worktree from
-  `stave-read-only` without a request). OpenCode drops a tool from the session
-  only when the agent's last matching rule is a wildcard `deny`, so the Stave
-  agents deny `opencode_*` and the desktop `browser` tools after `"*": "ask"`.
-  `execute` stays, because 2.x serves MCP tools only through it; every MCP
-  call inside it raises a permission request titled `execute`. Its script and
-  `fetch` run without one. 1.x has no code mode and ignores the extra keys.
+  no file system access and a `fetch` global that sends any HTTP request, and
+  serves MCP tools and OpenCode's own `opencode` namespace
+  (`worktree_create`, `session_move`, `session_rename`, ...). Neither
+  `execute`, `fetch` nor those `opencode` tools call OpenCode's permission
+  check (2.0.29 created a git worktree from a read-only Stave agent without a
+  request). OpenCode drops a tool from the session only when the agent's last
+  matching rule is a wildcard `deny`, so the Stave agents deny `execute`,
+  `opencode_*` and the desktop `browser` tools after `"*": "ask"`. Because
+  2.x serves MCP tools only through `execute`, Stave Local MCP tools are not
+  available to `Manual` or read-only turns on 2.x; with `execute` gone, a
+  request to fetch a URL falls back to `webfetch` or the shell, which ask.
+  1.x has none of these tools, ignores the extra keys and offers MCP tools
+  directly.
 - `Auto`: the turn runs on `build` with the user's rules; Stave adds only ask
   rules for the Local MCP tools that answer another task and answers every
   permission request with allow once, except those tools.
-- Read-only agent: `stave-read-only`, the Manual rules plus `edit: deny`, which
+- Read-only agent: `stave-read-only-<16 hex>`, the Manual rules plus `edit: deny`, which
   removes OpenCode's file edit tools. OpenCode's `plan` mode is not used,
   because a shell command still writes in it.
 
 An inherited `OPENCODE_CONFIG_CONTENT` is parsed as JSONC, the way OpenCode
 reads it, and Stave's agent is merged into it. A value that is not valid JSONC
-stops the turn with an error instead of being replaced.
+stops the turn with an error instead of being replaced. The error names only
+the variable: the parser's message quotes the input, which can hold
+credentials.
 
 Stave Local MCP is passed in `mcpServers` with `STAVE_MCP_DENIED_TOOLS`, so the
 stdio proxy removes `stave_respond_user_input` and `stave_respond_approval` from
 `tools/list` and refuses calls to them. That boundary is needed because
 OpenCode evaluates permissions before Stave sees anything: an allowed MCP call
-sends no permission request, and 2.x code mode (`execute`) reports an inner MCP
-call's permission request under the outer tool's name. OpenCode names MCP tools
+sends no permission request, and in `Auto` 2.x code mode (`execute`) runs MCP
+calls without one. OpenCode names MCP tools
 `stave-local-mcp_<tool>`; the read-only Stave tools are approved without asking.
 Stave does not copy Claude or Codex MCP servers into OpenCode: OpenCode
 connects the servers in its own `mcp` config, and Stave has no editor for that
