@@ -7,6 +7,7 @@ import { cx, sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { highlightCodeBlockHtml } from "@/lib/syntax-highlight-client";
+import { createHighlightCache } from "./code-block-highlight-cache";
 import { useAppStore } from "@/store/app.store";
 import { codeBlockStyles as styles } from "./code-block.styles";
 import {
@@ -57,12 +58,7 @@ export function CodeBlock({ code, language, showLineNumbers, className, children
 // highlighted code blocks never flash the un-highlighted fallback.
 // ---------------------------------------------------------------------------
 
-const _highlightCache = new Map<string, string>();
-const MAX_HIGHLIGHT_CACHE_SIZE = 500;
-
-function getHighlightCacheKey(code: string, language: string) {
-  return `${language}\0${code}`;
-}
+const _highlightCache = createHighlightCache();
 
 // ---------------------------------------------------------------------------
 // CodeBlockContent — async Shiki render
@@ -77,7 +73,7 @@ interface CodeBlockContentProps {
 export const CodeBlockContent = memo(function CodeBlockContent({ code, language }: CodeBlockContentProps) {
   useTranslation();
   const resolvedLang = language ?? "bash";
-  const cacheKey = getHighlightCacheKey(code, resolvedLang);
+  const cacheKey = _highlightCache.keyFor(code, resolvedLang);
   const cached = _highlightCache.get(cacheKey);
   const [html, setHtml] = useState<string | null>(cached ?? null);
   const textScale = useMessageTextScale();
@@ -96,13 +92,6 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
     // Highlighting happens off the main thread; see syntax-highlight.worker.ts.
     highlightCodeBlockHtml(code, resolvedLang).then(
       (result) => {
-        // Evict oldest entry when cache is full.
-        if (_highlightCache.size >= MAX_HIGHLIGHT_CACHE_SIZE) {
-          const firstKey = _highlightCache.keys().next().value;
-          if (firstKey !== undefined) {
-            _highlightCache.delete(firstKey);
-          }
-        }
         _highlightCache.set(cacheKey, result);
         if (!cancelled) setHtml(result);
       },
