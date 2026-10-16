@@ -17,6 +17,7 @@ import { useLensSessionPresentationRequests } from "@/components/panes/useLensSe
 import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
+import { flushAppStorePersistence } from "@/store/app-store-persistence";
 import {
   applyCraneDispatchJobUpdate,
   enqueueCraneDispatchApproval,
@@ -431,6 +432,7 @@ export default function App() {
       void (async () => {
         let success = false;
         try {
+          flushAppStorePersistence();
           await Promise.all([
             useAppStore.getState().flushActiveWorkspaceSnapshot(),
             useAppStore.getState().flushRepositoryRegistry(),
@@ -451,6 +453,7 @@ export default function App() {
   // and window closes that bypass the main-process quit path.
   useEffect(() => {
     const onBeforeUnload = () => {
+      flushAppStorePersistence();
       void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
       void flushPendingSnapshotPersists().catch(() => {});
       void useAppStore.getState().flushRepositoryRegistry().catch((error) => {
