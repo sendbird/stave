@@ -55,7 +55,8 @@ describe("ProviderModelPicker", () => {
     const modelLabelId = html.match(/<span id="([^"]+)"[^>]*>Model model<\/span>/)?.[1];
     expect(modelLabelId).toBeTruthy();
     expect(html).toMatch(new RegExp(`aria-labelledby="${modelLabelId} [^"]+"`));
-    expect(html).toContain("GPT-5.4");
+    // The display name follows the dynamic catalog; the model id is stable.
+    expect(html).toContain(">gpt-5.4</span>");
     // Fixed-width provider trigger and full-width model trigger are distinct
     // StyleX styles; assert the compiled classes both appear rather than the
     // Tailwind strings the migration removed.
