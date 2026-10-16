@@ -36,20 +36,25 @@ dev server. Inline pages are results the agent produced, not sites to browse.
    step, and nothing appears yet.
 3. The trace shows a **Show HTML page** step, and the page appears above the
    agent's reply.
-4. Use the buttons in the page header to **View source**, **Save as HTML
+4. Use the buttons beside the page title to **View source**, **Save as HTML
    file**, or **Expand** the page.
 
 ## Interface Walkthrough
 
 ### The Page Block
 
+The title and buttons sit on a row above the page. The page itself sits in a
+slightly tinted area that marks where it begins and ends, with 16 pixels of
+space around its content (up to 24 pixels in a wide or expanded frame) unless
+the page sets its own.
+
 - **Title**: the name the agent gave the page.
 - **View source**: shows the page's HTML exactly as the agent wrote it, with a
   **Copy** button.
 - **Save as HTML file**: saves that same HTML to a file you choose.
-- **Expand**: lifts the page over the window so it has room. The page keeps its
-  state (a filter you set, a tab you opened). Press `Esc` or choose **Collapse**
-  to return.
+- **Expand**: lifts the page over the window, below the title bar, so it has
+  room. The page keeps its state (a filter you set, a tab you opened). Press
+  `Esc`, click outside the page, or choose **Collapse** to return.
 
 The page grows to fit its content, up to 2,000 pixels tall; beyond that it
 scrolls inside its frame. Changing between light and dark mode, or switching

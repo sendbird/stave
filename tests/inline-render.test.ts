@@ -4,6 +4,7 @@ import {
   buildInlineRenderFileName,
   buildInlineRenderToolResult,
   buildInlineRenderUrl,
+  INLINE_RENDER_BODY_INSET,
   INLINE_RENDER_CDN_ORIGINS,
   INLINE_RENDER_FRAME_SANDBOX,
   isInlineRenderId,
@@ -196,6 +197,14 @@ describe("prepareInlineRenderDocument", () => {
     const backdropAt = prepared.indexOf('<style id="stave-inline-render-backdrop">html{background:var(--background)}</style>');
     expect(backdropAt).toBeGreaterThan(prepared.indexOf("stave-inline-render-base"));
     expect(backdropAt).toBeLessThan(prepared.indexOf("html{background:white}"));
+  });
+
+  test("the frame insets the body by default, and the page's own body padding still wins", () => {
+    const page = "<style>body{padding:0}</style><p>x</p>";
+    const prepared = prepareInlineRenderDocument(page);
+    const insetAt = prepared.indexOf(`body{margin:0;padding:${INLINE_RENDER_BODY_INSET}}`);
+    expect(insetAt).toBeGreaterThan(prepared.indexOf("stave-inline-render-base"));
+    expect(insetAt).toBeLessThan(prepared.indexOf("body{padding:0}"));
   });
 
   test("the bootstrap is valid JavaScript", () => {

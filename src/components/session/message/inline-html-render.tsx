@@ -29,9 +29,10 @@ import {
   type InlineRenderReference,
 } from "@/lib/inline-render/inline-render";
 import { inlineRenderViewMemory } from "@/lib/inline-render/inline-render-frame-pool";
+import { layers } from "@/lib/ui-layers.stylex";
 import { useAppStore } from "@/store/app.store";
 import { inlineRenderContextRuntime } from "@/store/inline-render-context-runtime";
-import { inlineHtmlRenderStyles as styles } from "./inline-html-render.styles";
+import { expandedNoDragStyle, inlineHtmlRenderStyles as styles } from "./inline-html-render.styles";
 import { InlineRenderMessageConfirmDialog } from "./inline-render-message-confirm";
 import { useInlineRenderTheme } from "./inline-render-theme";
 import { useInlineRenderFrameBridge, useInlineRenderFrameSlot } from "./use-inline-render-frame";
@@ -315,15 +316,17 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
       {expanded ? (
         <div
           aria-hidden
-          className={sx(overlaySurface.backdrop)}
+          className={sx(overlaySurface.backdrop, layers.lightbox)}
+          style={expandedNoDragStyle}
           onClick={() => setExpanded(false)}
         />
       ) : null}
       <figure
-        className={sx(styles.figure, expanded && styles.figureExpanded)}
+        className={sx(styles.figure, expanded && [styles.figureExpanded, layers.lightbox])}
+        style={expanded ? expandedNoDragStyle : undefined}
         aria-label={reference.title}
       >
-        <figcaption className={sx(styles.header)}>
+        <figcaption className={sx(styles.header, expanded && styles.headerExpanded)}>
           <span className={sx(styles.title)} title={reference.title}>
             {reference.title}
           </span>
@@ -355,24 +358,26 @@ export const InlineHtmlRender = memo(function InlineHtmlRender(props: {
             </IconAction>
           </span>
         </figcaption>
-        {body}
-        {sourceOpen ? (
-          <div className={sx(styles.source, expanded && styles.sourceExpanded)}>
-            <pre className={sx(styles.sourceText)}>
-              {source ?? i18n.t("session:inlineRender.loading")}
-            </pre>
-            <Button
-              size="xs"
-              type="button"
-              variant="quiet"
-              disabled={!source}
-              onClick={copySource}
-            >
-              {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
-              {copied ? i18n.t("session:inlineRender.copied") : i18n.t("session:inlineRender.copy")}
-            </Button>
-          </div>
-        ) : null}
+        <div className={sx(styles.canvas, expanded && styles.canvasExpanded)}>
+          {body}
+          {sourceOpen ? (
+            <div className={sx(styles.source, expanded && styles.sourceExpanded)}>
+              <pre className={sx(styles.sourceText)}>
+                {source ?? i18n.t("session:inlineRender.loading")}
+              </pre>
+              <Button
+                size="xs"
+                type="button"
+                variant="quiet"
+                disabled={!source}
+                onClick={copySource}
+              >
+                {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+                {copied ? i18n.t("session:inlineRender.copied") : i18n.t("session:inlineRender.copy")}
+              </Button>
+            </div>
+          ) : null}
+        </div>
       </figure>
       <InlineRenderMessageConfirmDialog
         request={messageRequest}
