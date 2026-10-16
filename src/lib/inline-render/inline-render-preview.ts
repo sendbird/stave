@@ -22,8 +22,6 @@ import {
   type InlineRenderTheme,
 } from "./inline-render";
 
-export const INLINE_RENDER_PREVIEW_TOOL_NAME = "stave_preview_html";
-
 /** A typical chat column; pages should be fluid, so narrower checks are cheap. */
 export const INLINE_RENDER_PREVIEW_DEFAULT_WIDTH = 720;
 export const INLINE_RENDER_PREVIEW_MIN_WIDTH = 320;

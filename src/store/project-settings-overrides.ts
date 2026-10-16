@@ -44,9 +44,6 @@ export type ProjectSettingsOverrides = Partial<
   Pick<AppSettings, ProjectOverridableSettingKey>
 >;
 
-/** Where an effective value came from, for the Settings scope badges. */
-export type SettingValueSource = "global" | "project";
-
 const OVERRIDABLE_KEY_SET: ReadonlySet<string> = new Set(
   PROJECT_OVERRIDABLE_SETTING_KEYS,
 );
@@ -366,11 +363,4 @@ export function effectiveSetting<K extends keyof AppSettings>(
     }
   }
   return source.settings[key];
-}
-
-export function resolveSettingValueSource(args: {
-  key: ProjectOverridableSettingKey;
-  overrides: ProjectSettingsOverrides | undefined;
-}): SettingValueSource {
-  return args.overrides?.[args.key] === undefined ? "global" : "project";
 }

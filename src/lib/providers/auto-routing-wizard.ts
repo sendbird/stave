@@ -289,11 +289,6 @@ export function recommendStance(samples: readonly UsageSample[]): Stance {
   return "balanced";
 }
 
-export function formatUsageTarget(target: UsageTarget) {
-  const name = toHumanModelName({ model: target.model });
-  return target.effort ? `${name} · ${formatEffortLabel(target.effort)}` : name;
-}
-
 export function formatEffortLabel(effort: string) {
   return `${effort.slice(0, 1).toUpperCase()}${effort.slice(1)}`;
 }

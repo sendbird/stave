@@ -861,20 +861,6 @@ export function isAutoModelId(args: { model: string }) {
   return bareModel === "auto" || bareModel.startsWith("auto-");
 }
 
-const CURRENT_SONNET_BY_PREVIOUS_ID: Readonly<Record<string, string>> = {
-  "claude-sonnet-5": DEFAULT_CLAUDE_SONNET_MODEL,
-  "claude-sonnet-5[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
-};
-
-/**
- * Moves a pinned Sonnet 5 id onto Sonnet 5.5. Kept separate from
- * `upgradeSettingsScopedClaudeModel` so an unmigrated default of Sonnet 5 can
- * still be recognized by the one-time settings migration.
- */
-export function upgradePinnedSonnet5Model(model: string) {
-  return CURRENT_SONNET_BY_PREVIOUS_ID[model.trim()] ?? model;
-}
-
 /**
  * Moves a pinned Haiku 4.5 id onto Haiku 5.5. Background AI lanes, Auto's
  * allowed-model lists, and the kickoff fallback store model ids outside the
@@ -1106,17 +1092,6 @@ export function registerDynamicDefaultReasoningEfforts(
 }
 
 /**
- * Read-only access to the current dynamic default-reasoning-effort registry.
- * Useful for tests and diagnostics.
- */
-export function getDynamicDefaultReasoningEfforts(): ReadonlyMap<
-  string,
-  NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
-> {
-  return dynamicDefaultReasoningEfforts;
-}
-
-/**
  * Dynamic per-model supported-reasoning-effort registry populated at runtime
  * from the Codex model catalog (`model/list.supportedReasoningEfforts`). Read
  * by `listCodexReasoningEffortsForModel` so effort pickers never offer a
@@ -1144,17 +1119,6 @@ export function registerDynamicSupportedReasoningEfforts(
       dynamicSupportedReasoningEfforts.set(model, valid);
     }
   }
-}
-
-/**
- * Read-only access to the current dynamic supported-reasoning-effort
- * registry. Useful for tests and diagnostics.
- */
-export function getDynamicSupportedReasoningEfforts(): ReadonlyMap<
-  string,
-  readonly NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>[]
-> {
-  return dynamicSupportedReasoningEfforts;
 }
 
 /**

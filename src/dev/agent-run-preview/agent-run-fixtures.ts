@@ -15,7 +15,6 @@ import { buildAgentRunReport } from "@/lib/agent-runs/report";
  * `start`, so tests are exact and the preview looks recent.
  */
 export const AGENT_RUN_ASSIGNMENT = "Fix the billing table overflow on narrow screens.";
-export const AGENT_RUN_PROMPT_ASSIGNMENT_HEADING = `## Assignment\n\n${AGENT_RUN_ASSIGNMENT}`;
 
 export function buildAgentRunFixtures(start: Date) {
   const at = (minutes: number) => new Date(start.getTime() + minutes * 60_000).toISOString();

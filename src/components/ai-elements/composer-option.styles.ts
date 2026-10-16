@@ -4,10 +4,6 @@ import { vars } from "../ads/tokens/tokens.stylex";
 export const optionStyles = stylex.create({
   menu: { gap: vars["--ads-space-8"], padding: vars["--ads-space-8"] },
   list: { maxHeight: "13rem", display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], overflowY: "auto" },
-  toggle: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-12"], paddingInline: vars["--ads-space-12"], paddingBlock: vars["--ads-space-8"] },
-  label: { display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: vars["--ads-space-2"] },
-  title: { fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-medium"], lineHeight: 1 },
-  detail: { fontSize: vars["--ads-font-size-micro"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
   section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], borderTopWidth: vars["--ads-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--ads-color-border-subtle"], paddingTop: vars["--ads-space-8"] },
   sectionTitle: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text-muted"] },
   /*
@@ -51,9 +47,4 @@ export const optionStyles = stylex.create({
   warning: { color: vars["--ads-color-warning-text"], backgroundColor: vars["--ads-color-warning-soft"], borderRadius: vars["--ads-radius-control"] },
   calloutIcon: { marginTop: vars["--ads-space-2"], width: 14, height: 14, flexShrink: 0 },
   calloutBody: { minWidth: 0, flex: 1 },
-  settingsLink: {
-    paddingInline: vars["--ads-space-4"], textAlign: "start", fontSize: vars["--ads-font-size-micro"], lineHeight: "16px",
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-    textUnderlineOffset: 2, textDecorationLine: { default: "none", ":hover": "underline" },
-  },
 });

@@ -109,10 +109,6 @@ export function getRandomCompletionPhraseKey(): CompletionPhrase {
   return COMPLETION_PHRASES[Math.floor(Math.random() * COMPLETION_PHRASES.length)]!;
 }
 
-export function getRandomCompletionPhrase(): string {
-  return i18n.t(getRandomCompletionPhraseKey());
-}
-
 /**
  * Return a deterministic completion phrase for the given seed.
  * Identical seeds always produce the same phrase, so the text stays

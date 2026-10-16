@@ -140,10 +140,6 @@ export function normalizeRightRailSelection(
   };
 }
 
-export function normalizeSidebarOverlayTab(value: unknown): RightRailPanelId {
-  return normalizeRightRailSelection(value, undefined).sidebarOverlayTab;
-}
-
 export function normalizeWorkspaceSidebarItemDisplayMode(
   value: unknown,
 ): WorkspaceSidebarItemDisplayMode {

@@ -108,12 +108,6 @@ export type RouteClassificationRequest = UtilityInferenceContext & RouteIntentIn
   routingDecision?: RoutingDecisionConfig;
 };
 
-export function normalizeUtilityInferenceProvider(
-  value: unknown,
-): UtilityInferenceProvider {
-  return value === "claude-code" || value === "codex" ? value : "auto";
-}
-
 export function createUnavailableUtilityInferenceMetadata(
   detail: string,
 ): UtilityInferenceMetadata {

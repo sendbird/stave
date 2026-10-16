@@ -277,7 +277,3 @@ export function renderPromptEnhancementContextBlocks(
   }
   return blocks;
 }
-
-export function hasPromptEnhancementContext(context: PromptEnhancementContext) {
-  return renderPromptEnhancementContextBlocks(context).length > 0;
-}

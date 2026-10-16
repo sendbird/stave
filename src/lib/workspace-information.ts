@@ -157,12 +157,6 @@ export interface WorkspaceConfluencePage {
 
 export type WorkspaceTodoStatus = "pending" | "in_progress" | "completed";
 
-export const WORKSPACE_TODO_STATUSES: readonly WorkspaceTodoStatus[] = [
-  "pending",
-  "in_progress",
-  "completed",
-];
-
 export interface WorkspaceTodoItem {
   id: string;
   text: string;
@@ -839,10 +833,6 @@ export function extractSlackThreadReference(
   };
 }
 
-export function isSlackThreadUrl(value: string) {
-  return extractSlackThreadReference(value) !== null;
-}
-
 export interface AmplifyLinkReference {
   host: string;
   branch: string;
@@ -871,10 +861,6 @@ export function extractAmplifyLinkReference(
     branch: match[1] ?? "",
     appId: match[2] ?? "",
   };
-}
-
-export function isAmplifyLinkUrl(value: string) {
-  return extractAmplifyLinkReference(value) !== null;
 }
 
 export interface ConfluencePageReference {
@@ -916,10 +902,6 @@ export function extractConfluencePageReference(
   }
 
   return null;
-}
-
-export function isConfluencePageUrl(value: string) {
-  return extractConfluencePageReference(value) !== null;
 }
 
 // ---------------------------------------------------------------------------

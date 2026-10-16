@@ -29,11 +29,6 @@ export const PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS = 9_000;
 export const PRE_PR_REVIEW_WORKING_TREE_DIFF_MAX_CHARS = 4_000;
 const PRE_PR_REVIEW_AGENTS_MAX_CHARS = 2_000;
 
-export const PRE_PR_REVIEW_PROVIDER_IDS = [
-  "claude-code",
-  "codex",
-] as const satisfies readonly PrePrReviewProviderId[];
-
 export const DEFAULT_PRE_PR_REVIEW_PROVIDER: PrePrReviewProviderId =
   "claude-code";
 

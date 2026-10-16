@@ -10,7 +10,6 @@ import {
   type BrowserNetworkTiming,
   type BrowserStackTrace,
   type LensAnnotation,
-  type LensBounds,
   type LensDownloadEntry,
 } from "@/lib/lens/lens.types";
 import {
@@ -193,29 +192,6 @@ export function getConsoleLevelTone(
   }
 }
 
-export function getNetworkStatusTone(entry: BrowserNetworkEntry): LensLogTone {
-  if (entry.state === "pending") {
-    return "neutral";
-  }
-  if (entry.state === "failed") {
-    return "danger";
-  }
-  const status = entry.status;
-  if (!status) {
-    return "neutral";
-  }
-  if (status >= 500) {
-    return "danger";
-  }
-  if (status >= 400) {
-    return "warning";
-  }
-  if (status >= 300) {
-    return "info";
-  }
-  return "success";
-}
-
 export function formatNetworkRowStatus(entry: BrowserNetworkEntry): string {
   if (entry.state === "pending") {
     return i18n.t("lens:lensLogFormat.pending");
@@ -372,22 +348,6 @@ export function getNetworkTimingPhases(
     start !== undefined && end !== undefined && start >= 0 && end >= start
       ? [{ label, start, end }]
       : [],
-  );
-}
-
-export function areLensBoundsEqual(
-  left: LensBounds | null,
-  right: LensBounds | null,
-): boolean {
-  if (!left || !right) {
-    return left === right;
-  }
-
-  return (
-    left.x === right.x &&
-    left.y === right.y &&
-    left.width === right.width &&
-    left.height === right.height
   );
 }
 

@@ -337,24 +337,6 @@ export function resolveAccountUsageBlock(args: {
   };
 }
 
-export function isAccountUsageBlockingProvider(args: {
-  providerId: ProviderId;
-  model?: string;
-  enabled: boolean;
-  snapshot: RateLimitsSnapshotResponse | null | undefined;
-  now?: number;
-}): boolean {
-  return (
-    args.enabled &&
-    resolveAccountUsageBlock({
-      providerId: args.providerId,
-      model: args.model,
-      snapshot: args.snapshot,
-      now: args.now,
-    }) != null
-  );
-}
-
 function unavailableClaude(): ClaudeUsageSnapshot {
   return {
     source: "unavailable",

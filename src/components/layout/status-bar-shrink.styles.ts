@@ -3,13 +3,6 @@ import * as stylex from "@stylexjs/stylex";
 import type { ResourceLabelBreakpoint } from "@/components/layout/status-bar-shrink";
 import type { StyleXValue } from "../ads/utils/stylex";
 
-/**
- * The bar is the container the right-hand segments measure: the label rule
- * reads the whole bar, not the usage strip, so it cannot be fooled by the
- * room it frees.
- */
-export const STATUS_BAR_CONTAINER = "statusBar";
-
 // One rule per step: a container query condition cannot read a variable, so
 // the step the estimate picks selects a precompiled rule.
 const label = stylex.create({

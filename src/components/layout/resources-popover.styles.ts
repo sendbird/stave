@@ -342,13 +342,6 @@ export const resourceStyles = stylex.create({
   },
 });
 
-/** Pressure ramp for the usage bars: healthy, watch, saturated. */
-export const usageRampStyles = stylex.create({
-  healthy: { backgroundColor: vars["--ads-color-success"] },
-  watch: { backgroundColor: vars["--ads-color-warning"] },
-  saturated: { backgroundColor: vars["--ads-color-danger"] },
-});
-
 /** Process-type pills; `other` covers Electron types with no assigned hue. */
 export const processTypeStyles = stylex.create({
   Browser: { backgroundColor: vars["--ads-color-info"] },

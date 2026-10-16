@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Fragment, useEffect, useState, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   countDelegationExchanges,
@@ -11,27 +11,6 @@ import {
 import { formatExchangeDuration } from "@/lib/delegation/format";
 import { ExchangeRow } from "./ExchangeRow";
 import { delegationStyles as styles } from "./delegation.styles";
-
-/**
- * Ticks once a second while something is live; an idle list pays nothing for
- * being mounted. Shared by the shelf block and the panel.
- */
-export function useDelegationClock(active: boolean) {
-  const [nowMs, setNowMs] = useState(() => Date.now());
-  useEffect(() => {
-    if (!active) {
-      return;
-    }
-    setNowMs(Date.now());
-    const handle = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 1_000);
-    return () => {
-      window.clearInterval(handle);
-    };
-  }, [active]);
-  return nowMs;
-}
 
 /** Span from the earliest start to now (live) or the latest end (settled). */
 export function resolveDelegationSpanMs(

@@ -277,7 +277,3 @@ export type CraneStaveReceiptState =
 export function parseCraneStaveJobV1(value: unknown) {
   return CraneStaveJobV1Schema.parse(value);
 }
-
-export function parseCraneStaveReceiptV1(value: unknown) {
-  return CraneStaveReceiptV1Schema.parse(value);
-}

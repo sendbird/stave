@@ -121,18 +121,3 @@ export function findKeybindingConflicts(args: {
   }
   return conflicts;
 }
-
-/** Throws with a readable list when the entries collide. */
-export function assertNoKeybindingConflicts(
-  entries: readonly KeybindingEntry[],
-) {
-  const conflicts = findKeybindingConflicts({ entries });
-  if (conflicts.length === 0) {
-    return;
-  }
-  const lines = conflicts.map(
-    (conflict) =>
-      `${conflict.left.id} (${conflict.left.keys}) and ${conflict.right.id} (${conflict.right.keys}) on ${conflict.platform}`,
-  );
-  throw new Error(`Keybinding conflicts:\n${lines.join("\n")}`);
-}
