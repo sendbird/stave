@@ -27,7 +27,12 @@ export const providerModelPickerStyles = stylex.create({
   modelTriggerWidth: {
     flex: 1,
     minWidth: 0,
+    position: "relative",
     width: "100%",
+  },
+  // The searchable model trigger keeps the provider select's type scale.
+  searchTrigger: {
+    fontSize: vars["--ads-font-size-caption"],
   },
   item: {
     fontSize: vars["--ads-font-size-caption"],
@@ -37,19 +42,8 @@ export const providerModelPickerStyles = stylex.create({
     display: "flex",
     gap: vars["--ads-space-8"],
   },
-  modelItemInner: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-    minWidth: 0,
-  },
   icon: {
     height: vars["--ads-control-icon-size-sm"],
     width: vars["--ads-control-icon-size-sm"],
-  },
-  modelName: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
   },
 });

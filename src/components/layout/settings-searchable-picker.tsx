@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { controlChrome } from "@/components/ads/recipes/control-chrome";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -8,7 +8,7 @@ import {
   triggerStylesBySize,
 } from "@/components/ads/recipes/select-styles";
 import { transition } from "@/components/ads/recipes/transition";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import {
   Command,
   CommandEmpty,
@@ -27,6 +27,8 @@ export type SearchablePickerOption = {
   label: string;
   /** Secondary line, such as an ID. Searched together with the label. */
   detail?: string;
+  /** Decorative leading mark, such as a provider logo. */
+  icon?: ReactNode;
 };
 
 /**
@@ -48,6 +50,8 @@ export function SearchablePicker(props: {
   loading?: boolean;
   loadingText?: string;
   disabled?: boolean;
+  /** Matches the trigger to neighbouring controls in a compact row. */
+  triggerXstyle?: StyleXValue;
 }) {
   const valueId = useId();
   const [open, setOpen] = useState(false);
@@ -69,6 +73,7 @@ export function SearchablePicker(props: {
           transition.colors,
           focusRing.borderOnly,
           triggerHeightsBySize.sm,
+          props.triggerXstyle,
           open && selectStyles.triggerOpen,
           props.disabled && controlChrome.disabledField,
         )}
@@ -76,6 +81,7 @@ export function SearchablePicker(props: {
         <span id={valueId} className={sx(styles.value)}>
           {label ? (
             <>
+              {current?.icon ? <span aria-hidden className={sx(styles.icon)}>{current.icon}</span> : null}
               <span className={sx(styles.valueLabel)}>{label}</span>
               {detail ? <span className={sx(styles.valueDetail)}>{detail}</span> : null}
             </>
@@ -115,6 +121,7 @@ export function SearchablePicker(props: {
                       setOpen(false);
                     }}
                   >
+                    {option.icon ? <span aria-hidden className={sx(styles.icon, styles.itemIcon)}>{option.icon}</span> : null}
                     <span className={sx(styles.itemText)}>
                       <span className={sx(styles.itemLabel)}>{option.label}</span>
                       {option.detail && option.detail !== option.label ? (

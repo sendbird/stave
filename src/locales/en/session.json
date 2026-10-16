@@ -323,7 +323,10 @@
   "providerModelPicker": {
     "ariaLabel": "{{value1}} provider",
     "ariaLabel2": "{{value1}} model",
-    "extraCopy114": "Model"
+    "extraCopy114": "Model",
+    "placeholder": "Choose a model",
+    "searchPlaceholder": "Search models",
+    "empty": "No models match this search."
   },
   "resultFileSnapshots": {
     "resultFileSnapshots": "Files this run changed",
