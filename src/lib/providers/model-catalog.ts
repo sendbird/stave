@@ -1394,6 +1394,32 @@ export function formatModelPrice(model: string): string | null {
 }
 
 export function toHumanModelName(args: { model: string }) {
+  const named = findHumanModelName(args);
+  if (named) {
+    return named;
+  }
+
+  // 3. Best-effort formatting from the raw model ID
+  return args.model
+    .split("-")
+    .map((chunk) => {
+      if (/^\d+(\.\d+)?$/.test(chunk)) {
+        return chunk;
+      }
+      if (chunk.length <= 3) {
+        return chunk.toUpperCase();
+      }
+      return `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`;
+    })
+    .join(" ");
+}
+
+/**
+ * The registered display name for a model id, or null when only a formatted
+ * guess of the raw id is available. Surfaces that must show the id itself for
+ * an unknown model (such as a Gateway decision model) read this.
+ */
+export function findHumanModelName(args: { model: string }): string | null {
   // 1. Check dynamic registry first (server-provided names)
   const dynamic = dynamicDisplayNames.get(args.model);
   if (dynamic) {
@@ -1441,22 +1467,5 @@ export function toHumanModelName(args: { model: string }) {
     "gpt-5.3-codex": "GPT-5.3-Codex",
     "gpt-5.3-codex-spark": "GPT-5.3-Codex Spark",
   };
-  const exact = known[args.model];
-  if (exact) {
-    return exact;
-  }
-
-  // 3. Best-effort formatting from the raw model ID
-  return args.model
-    .split("-")
-    .map((chunk) => {
-      if (/^\d+(\.\d+)?$/.test(chunk)) {
-        return chunk;
-      }
-      if (chunk.length <= 3) {
-        return chunk.toUpperCase();
-      }
-      return `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`;
-    })
-    .join(" ");
+  return known[args.model] ?? null;
 }

@@ -153,3 +153,42 @@ test("routing-only summary omits a routed target already shown when no runtime m
   expect(html).not.toContain("GPT-5.6 Terra");
   expect(html).toContain("A bounded implementation task");
 });
+
+test("Why lists the decision model facts the turn recorded and nothing it did not", () => {
+  const resolution = {
+    selectedProviderId: "codex" as const,
+    selectedModel: "gpt-5.4",
+    source: "classifier_fallback" as const,
+    rationale: "Fell back to the native classifier.",
+    confidence: null,
+    taskType: "implementation" as const,
+    routingDecision: {
+      providerId: "codex" as const,
+      model: "gpt-5.4-mini",
+      preferred: { mode: "gateway" as const, connectionId: "6f1d1c8e-8a4b-4c6f-9a55-0c0f0b7d6a10", model: "openai/gpt-5.4-mini" },
+      fallback: true,
+      elapsedMs: 640,
+      failure: "rate-limit" as const,
+      reportedCostUsd: null,
+    },
+  };
+  const html = renderToStaticMarkup(createElement(ModelResolutionSummary, { actual: null, resolution, showModelFacts: false }));
+  expect(html).toContain("Decision model");
+  expect(html).toContain("GPT-5.4 Mini");
+  expect(html).toContain("640ms");
+  expect(html).toContain('data-decision-fact="failure"');
+  expect(html).toContain("rate limit");
+  // No Gateway-reported cost was recorded, so no "unknown" row is drawn.
+  expect(html).not.toContain('data-decision-fact="cost"');
+
+  const local = renderToStaticMarkup(createElement(ModelResolutionSummary, {
+    actual: null,
+    resolution: { ...resolution, routingDecision: { ...resolution.routingDecision, providerId: "local" as const, model: null, preferred: { mode: "automatic" as const }, failure: "unavailable" as const } },
+  }));
+  expect(local).not.toContain('data-decision-fact="model"');
+  expect(local).not.toContain('data-decision-fact="failure"');
+  expect(local).toContain('data-decision-fact="elapsed"');
+
+  const unrecorded = renderToStaticMarkup(createElement(ModelResolutionSummary, { actual: null, resolution: { ...resolution, routingDecision: undefined } }));
+  expect(unrecorded).not.toContain("data-decision-fact");
+});
