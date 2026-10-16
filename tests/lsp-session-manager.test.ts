@@ -1,31 +1,47 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, jest, mock, test } from "bun:test";
 import { EventEmitter } from "node:events";
 
 const actualChildProcess = await import("node:child_process");
 
 class FakeStream extends EventEmitter {}
 
+interface FakeJsonRpcMessage {
+  id?: number | string;
+  method?: string;
+  params?: unknown;
+  result?: unknown;
+  error?: { code?: number; message?: string };
+}
+
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
   stderr = new FakeStream();
+  written: FakeJsonRpcMessage[] = [];
   stdin = {
     write: (payload: string) => {
       const body = payload.split("\r\n\r\n")[1] ?? "";
-      const message = JSON.parse(body) as { id?: number; method?: string };
+      const message = JSON.parse(body) as FakeJsonRpcMessage;
+      this.written.push(message);
       if (message.method === "initialize" && typeof message.id === "number") {
-        const responseBody = JSON.stringify({
+        this.serverSend({
           jsonrpc: "2.0",
           id: message.id,
           result: { capabilities: {} },
-        });
-        this.stdout.emit(
-          "data",
-          `Content-Length: ${Buffer.byteLength(responseBody, "utf8")}\r\n\r\n${responseBody}`,
-        );
+        } as FakeJsonRpcMessage);
+        return true;
       }
+      onClientMessage?.(this, message);
       return true;
     },
   };
+
+  serverSend(message: FakeJsonRpcMessage) {
+    const responseBody = JSON.stringify({ jsonrpc: "2.0", ...message });
+    this.stdout.emit(
+      "data",
+      `Content-Length: ${Buffer.byteLength(responseBody, "utf8")}\r\n\r\n${responseBody}`,
+    );
+  }
 
   killed = false;
 
@@ -40,6 +56,7 @@ class FakeChild extends EventEmitter {
 
 const fakeChildren: FakeChild[] = [];
 let deferExitOnKill = false;
+let onClientMessage: ((child: FakeChild, message: FakeJsonRpcMessage) => void) | null = null;
 
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
@@ -64,6 +81,7 @@ mock.module("../electron/main/lsp/server-registry", () => ({
 }));
 
 const {
+  requestLspHover,
   stopLspSessions,
   syncLspDocument,
 } = await import("../electron/main/lsp/session-manager");
@@ -84,7 +102,9 @@ class FakeSender extends EventEmitter {
 }
 
 afterEach(async () => {
+  jest.useRealTimers();
   deferExitOnKill = false;
+  onClientMessage = null;
   await stopLspSessions({});
   fakeChildren.length = 0;
   mock.restore();
@@ -147,5 +167,64 @@ describe("lsp session manager lifecycle", () => {
 
     await stopLspSessions({ rootPath: baseArgs.rootPath });
     expect(newChild.killed).toBe(true);
+  });
+});
+
+describe("lsp session manager json-rpc", () => {
+  const hoverArgs = (rootPath: string, senderId: number) => ({
+    rootPath,
+    languageId: "typescript" as const,
+    sender: new FakeSender(senderId),
+    filePath: `${rootPath}/src/index.ts`,
+    line: 0,
+    character: 0,
+  });
+
+  test("answers server requests without settling a client request that shares the id", async () => {
+    onClientMessage = (child, message) => {
+      if (message.method !== "textDocument/hover" || typeof message.id !== "number") {
+        return;
+      }
+      child.serverSend({ id: message.id, method: "workspace/configuration", params: { items: [{}, {}] } });
+      child.serverSend({ id: message.id, method: "custom/unknownRequest" });
+      child.serverSend({ id: message.id, result: { contents: "real hover" } });
+    };
+
+    const result = await requestLspHover(hoverArgs("/tmp/workspace-server-request", 3001));
+
+    expect(result).toEqual({ ok: true, value: { contents: "real hover" } });
+    const replies = fakeChildren[0]!.written.filter((message) => message.method === undefined);
+    expect(replies.map(({ result: value, error }) => ({ result: value, code: error?.code }))).toEqual([
+      { result: [null, null], code: undefined },
+      { result: undefined, code: -32601 },
+    ]);
+  });
+
+  test("times out an unanswered request, forgets it, and cancels it on the server", async () => {
+    expect((await syncLspDocument({
+      ...hoverArgs("/tmp/workspace-timeout", 3002),
+      documentLanguageId: "typescript",
+      text: "",
+      version: 1,
+    })).ok).toBe(true);
+
+    jest.useFakeTimers();
+    const pending = requestLspHover(hoverArgs("/tmp/workspace-timeout", 3002));
+    await Promise.resolve();
+    const hoverRequest = fakeChildren[0]!.written.find((message) => message.method === "textDocument/hover");
+    expect(hoverRequest?.id).toBeNumber();
+
+    jest.advanceTimersByTime(15_001);
+    const result = await pending;
+
+    expect(result.ok).toBe(false);
+    expect(result.ok ? "" : result.detail).toContain("timed out");
+    expect(fakeChildren[0]!.written.at(-1)).toMatchObject({
+      method: "$/cancelRequest",
+      params: { id: hoverRequest?.id },
+    });
+
+    // A late response for the forgotten id is ignored.
+    fakeChildren[0]!.serverSend({ id: hoverRequest?.id, result: { contents: "late" } });
   });
 });
