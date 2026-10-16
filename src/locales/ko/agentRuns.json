@@ -831,6 +831,18 @@
     "presentationCopy524": "\"{{v1}}\" 단계는 Stave 동작으로, 프롬프트가 없습니다."
   },
   "teamLimits": {
+    "usageTitle": "팀 턴",
+    "available": "{{total}}턴 중 {{remaining}}턴 남음",
+    "sharedTurns": "공유 턴 예산",
+    "used": "사용",
+    "reserved": "보조 예약",
+    "remaining": "남은 턴",
+    "details": "보조 Agent 한도와 정책",
+    "working": "작업 중인 보조 Agent",
+    "called": "호출한 보조 Agent",
+    "ratio": "{{value}} / {{total}}",
+    "allAllocated": "남은 턴은 모두 보조 Agent에 예약되어 있습니다. 보조 Agent가 끝나면 사용하지 않은 예약 턴이 반환됩니다.",
+    "exhausted": "공유 턴을 모두 사용했습니다. 계속하려면 실행을 연장하세요.",
     "title": "팀 한도",
     "budget": "공유 턴: {{total}}턴 중 {{used}}턴 사용 · 보조 Agent 예약 {{reserved}}턴 · 남은 턴 {{remaining}}",
     "helpers": "보조 Agent: 동시 {{concurrent}}개 중 {{active}}개 작업 중 · 전체 {{totalHelpers}}개 중 {{launched}}개 호출",

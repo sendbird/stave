@@ -849,6 +849,18 @@
     "presentationCopy524": "Stage \"{{v1}}\" is a Stave action and has no prompt."
   },
   "teamLimits": {
+    "usageTitle": "Team turns",
+    "available": "{{remaining}} of {{total}} left",
+    "sharedTurns": "Shared turn budget",
+    "used": "Used",
+    "reserved": "Reserved",
+    "remaining": "Available",
+    "details": "Helper limits & policy",
+    "working": "Helpers working",
+    "called": "Helpers called",
+    "ratio": "{{value}} / {{total}}",
+    "allAllocated": "All unused turns are reserved for helpers. Unused reservations return when helpers finish.",
+    "exhausted": "All shared turns used. Extend the run to continue.",
     "title": "Team limits",
     "budget": "Shared turns: {{used}} of {{total}} used · {{reserved}} reserved for helpers · {{remaining}} left",
     "helpers": "Helper Agents: {{active}} of {{concurrent}} working · {{launched}} of {{totalHelpers}} called",
