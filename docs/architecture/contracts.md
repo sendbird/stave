@@ -272,14 +272,31 @@ bounded routing intent. Host-resolved version-1 policy in the keyed start event
 freezes provider, account, eligible catalog, Agent/composer pins and limits.
 The same event store projects resources; there is no second scheduler or table.
 
-`stave_request_agent_resources` uses the current task/stage grant. A proposal
-names a model or effort, capability mismatch or mechanical work, a bounded
-rationale and exact stage-attempt turn references. The next supervised turn
-checks frozen bounds and fresh cached catalog facts before recording its
-acceptance or refusal. Changes are limited to two per member Run with two
-supervised turns between changes. Mechanical proposals cannot increase tier or
-effort. Fixed model/effort, provider, account, permissions and completion checks
-cannot be widened. Linked references and rationale are auditable evidence, not
+`stave_request_agent_resources` uses the current task/stage grant, including
+a reply turn of a blocked or stuck stage. A proposal
+names a model or effort, a reason (the user's explicit request, a capability
+mismatch or mechanical work), a bounded rationale and exact stage-attempt turn
+references. The stage's next turn, a supervised turn or an admitted user
+reply, checks frozen bounds and fresh cached catalog facts before recording
+its acceptance or refusal. A reply also carries the composer's selection
+(`runtimeOptions.composerSelection`, dropped at turn entry): its Auto pick is
+the turn's automatic proposal, and its model or effort pin is recorded as a
+`composer` decision that overrides the route, proposals and frozen pins for
+the reply and later turns until a reply without a pin releases it; the
+release restores a model or effort frozen at start, and otherwise the run
+adapts from the current route. The pin
+must be a model of the run's provider in the fresh account catalog when one
+is cached; otherwise the reply is refused with that reason. Priority is
+composer pin, then explicit request, then automatic proposal. Changes are
+limited to two per member Run with two linked turns (supervised turns and
+replies) between changes; decisions saved without a linked-turn count fall
+back to supervised turns. A user request, and a capability proposal that
+raises the model tier or effort, are exempt from both limits; they still count
+as changes. Mechanical proposals cannot increase tier or effort. Provider,
+account, permissions and completion checks cannot be widened; fixed
+model/effort can be replaced only by a composer pin. When a reply runs on
+another model than the composer sent, the turn starts with a `model_resolved`
+event carrying `agentRunRoute.cause`, and the route line shows it. Linked references and rationale are auditable evidence, not
 a measured success probability. No extra classifier/provider call is added.
 Fresh account-scoped catalog effort lists override built-in support at initial
 root/helper admission, proposal validation, supervised dispatch and replies.

@@ -277,6 +277,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "opencodeResumeSessionId",
   "nativeSubagents",
   "nativePlanTools",
+  "composerSelection",
   "agentInstructions",
   "responseStylePrompt",
   "promptPrDescription",

@@ -846,7 +846,20 @@
     "extraCopy138": "ran on {{value1}}",
     "extraCopy139": "Starting",
     "extraCopy140": "Using local rules",
-    "extraCopy141": "Choosing a model"
+    "extraCopy141": "Choosing a model",
+    "agentRunRoute": {
+      "evidence": "the Agent run kept its route because the proposal cited no turn of this stage",
+      "catalog": "the Agent run kept its route because that model is outside its catalog",
+      "pinned": "the Agent run kept its pinned model",
+      "composerPin": "the Agent run kept the model pinned in the composer",
+      "effort": "the Agent run kept its route because that model does not support the effort",
+      "changeLimit": "the Agent run kept its route because it reached its change limit",
+      "cooldown": "the Agent run kept its route during the two-turn cooldown",
+      "mechanical": "the Agent run kept its route because a mechanical step cannot raise capability",
+      "current": "the Agent run already runs on this route",
+      "request": "the Agent run followed an explicit model request instead",
+      "route": "the Agent run used its own route"
+    }
   },
   "composerWorkspaceBar": {
     "extraCopy175": "Repository: {{value1}}",

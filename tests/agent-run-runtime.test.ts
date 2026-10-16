@@ -4,6 +4,7 @@ import { currentProviderAccountId, withProviderAccountScope } from "../electron/
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
+import type { AgentRunReplyComposer } from "../src/lib/agent-runs/adaptive-route";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 import {
   createAgentRunRuntime,
@@ -1605,6 +1606,143 @@ describe("Agent run team limits", () => {
     expect(h.store.listEventsByKind(id, ["resource-decision"])[0]?.detail.accepted).toBe(true);
     expect((await h.runtime.get({ agentRunId: id })).resources?.spent).toBe(2);
     expect(h.runCalls[1]?.runtimeOptions).toMatchObject(providerId === "codex" ? { codexApprovalPolicy: "untrusted" } : { claudePermissionMode: "default" });
+  });
+  for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a proposal made in a reply to a blocked stage escalates the stage's next turn`, async () => {
+    // The light placement at stage start, then a block, then the user asks for the strongest model.
+    const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+    const p = policy(providerId, { allowedModels: [strong, light] });
+    const setup = () => {
+      const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async () => ({
+        fingerprint: { providerId, model: light }, runtimeOptions: {}, route: "auto", rationale: "low complexity → bounded" }) } });
+      h.setSnapshot({ providerId, model: strong });
+      return h;
+    };
+    const reply = (h: ReturnType<typeof createHarness>, turnId: string) => {
+      h.userTurn(turnId);
+      const admitted = h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId, providerId })!;
+      // What the provider runtime does for a stage reply: a grant for this turn.
+      h.grants.set(`key-${turnId}`, { ...admitted.agentRunStage, turnId, taskId: "task-1" });
+      return admitted;
+    };
+    const ask = { model: strong, reason: "capability-mismatch" as const, rationale: "The user asked for the strongest model for a full review", evidenceRefs: ["reply-1"] };
+    const blocked = async () => {
+      const h = setup();
+      const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+      expect(h.runCalls[0]!.fingerprint.model).toBe(light);
+      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Scope of the review", kind: "input" } });
+      h.endTurn("turn-1"); await h.tick();
+      expect(h.current(id).status).toBe("blocked");
+      expect(reply(h, "reply-1").runtimeOptions?.model).toBe(light);
+      await expect(h.runtime.requestResources({ agentRunKey: "key-reply-1", request: ask })).resolves.toEqual({ recorded: true });
+      return { h, id };
+    };
+
+    // The reply ends without a report: the continuation turn decides the proposal.
+    const continued = await blocked();
+    continued.h.endTurn("reply-1"); await continued.h.tick();
+    expect(continued.h.runCalls[1]!.fingerprint).toEqual({ providerId, model: strong });
+    expect(continued.h.store.listEventsByKind(continued.id, ["resource-decision"]).at(-1)?.detail)
+      .toMatchObject({ accepted: true, model: strong, reason: "capability-mismatch" });
+
+    // The reply blocks again: the user's next reply runs on the new route.
+    const reblocked = await blocked();
+    await reblocked.h.runtime.blockStage({ agentRunKey: "key-reply-1", block: { missing: "Run the review on the strongest model", kind: "input" } });
+    reblocked.h.endTurn("reply-1"); await reblocked.h.tick();
+    expect(reblocked.h.runCalls).toHaveLength(1);
+    expect(reply(reblocked.h, "reply-2").runtimeOptions?.model).toBe(strong);
+    expect(reblocked.h.store.listEventsByKind(reblocked.id, ["resource-decision"]).at(-1)?.detail)
+      .toMatchObject({ accepted: true, model: strong, linkedTurnCount: 2 });
+    // The decision is recorded once, however often the reply is admitted.
+    reblocked.h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "reply-2", providerId });
+    expect(reblocked.h.store.listEventsByKind(reblocked.id, ["resource-decision"])).toHaveLength(2);
+  });
+  for (const providerId of ["claude-code", "codex"] as const) test(`${providerId}: a reply follows a composer pin and weighs the composer's Auto pick`, async () => {
+    const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+    const p = policy(providerId, { allowedModels: [strong, light] });
+    let classified = 0;
+    const setup = async () => {
+      const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async () => {
+        classified++;
+        return { fingerprint: { providerId, model: light }, runtimeOptions: {}, route: "auto", rationale: "low complexity → bounded" };
+      } } });
+      h.setSnapshot({ providerId, model: strong });
+      const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Scope", kind: "input" } });
+      h.endTurn("turn-1"); await h.tick();
+      return { h, id };
+    };
+    const reply = (h: ReturnType<typeof createHarness>, turnId: string, composer: AgentRunReplyComposer) => {
+      h.userTurn(turnId);
+      return h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId, providerId, composer });
+    };
+
+    // Auto picked the stronger model for the reply (the classifier saw a harder task): the step-up runs at once.
+    const auto = await setup();
+    const stepped = reply(auto.h, "reply-1", { model: "auto", effortPinned: false, requestedModel: strong, rationale: "implement, medium complexity → standard" });
+    expect(stepped?.runtimeOptions?.model).toBe(strong);
+    expect(stepped?.routeNote).toBeUndefined();
+    expect(auto.h.store.listEventsByKind(auto.id, ["resource-decision"]).at(-1)?.detail).toMatchObject({ automatic: true, accepted: true, model: strong });
+    // Auto steps back down on the next reply: the placement and the step-up spent both changes, so the
+    // stronger model stays, and the route line says why.
+    auto.h.endTurn("reply-1");
+    const held = reply(auto.h, "reply-2", { model: "auto", effortPinned: false, requestedModel: light });
+    expect(held?.runtimeOptions?.model).toBe(strong);
+    expect(held?.routeNote).toEqual({ model: strong, cause: "change-limit" });
+    // With only the effort pinned, Auto still picks the model, so a declined pick still says why.
+    auto.h.endTurn("reply-2");
+    const effortOnly = reply(auto.h, "reply-3", { model: "auto", effortPinned: true, requestedModel: light, requestedEffort: "high" });
+    expect(effortOnly?.runtimeOptions).toMatchObject({ model: strong, ...(providerId === "codex" ? { codexReasoningEffort: "high" } : { claudeEffort: "high" }) });
+    expect(effortOnly?.routeNote).toEqual({ model: strong, cause: "change-limit" });
+
+    // A composer pin wins at once and holds for the supervised turns after it, without classifying them.
+    const pin = await setup();
+    const pinned = reply(pin.h, "reply-1", { model: "pinned", effortPinned: false, requestedModel: strong });
+    expect(pinned?.runtimeOptions?.model).toBe(strong);
+    expect(pin.h.store.listEventsByKind(pin.id, ["resource-decision"]).at(-1)?.detail).toMatchObject({ source: "composer", modelPinned: true, model: strong });
+    const before = classified;
+    pin.h.endTurn("reply-1"); await pin.h.tick();
+    expect(pin.h.runCalls.at(-1)!.fingerprint.model).toBe(strong);
+    expect(classified).toBe(before);
+    // Back on Auto, the run adapts again from the pinned model.
+    pin.h.endTurn(`turn-${pin.h.runCalls.length}`);
+    reply(pin.h, "reply-2", { model: "auto", effortPinned: false, requestedModel: strong });
+    expect(pin.h.store.listEventsByKind(pin.id, ["resource-decision"]).some((row) => row.detail.source === "composer" && row.detail.modelPinned === false)).toBe(true);
+
+    // A pin this run's provider cannot run refuses the reply with a sentence the user can act on.
+    const foreign = await setup();
+    expect(() => reply(foreign.h, "reply-1", { model: "pinned", effortPinned: false, requestedModel: providerId === "codex" ? "claude-opus-5-5" : "gpt-6.1-sol" }))
+      .toThrow("not available");
+    expect(foreign.h.store.readResources(foreign.id)?.spent).toBe(1);
+  });
+  test("a reply admitted twice keeps the route decided the first time", async () => {
+    // The start places the run on another model of the same rung, which starts the cooldown.
+    const p = policy("codex", { allowedModels: ["gpt-6-astra", "gpt-6.1-sol", "gpt-6-luna"] });
+    const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: async () => ({
+      fingerprint: { providerId: "codex", model: "gpt-6.1-sol" }, runtimeOptions: {}, route: "auto", rationale: "standard" }) } });
+    h.setSnapshot({ providerId: "codex", model: "gpt-6-astra" });
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Scope", kind: "input" } });
+    h.endTurn("turn-1"); await h.tick();
+    // Only one turn ran since the start, so a step-down to the light model waits for the cooldown.
+    const args = { taskId: "task-1", workspaceId: "ws-1", turnId: "reply-1", providerId: "codex" as const,
+      composer: { model: "auto" as const, effortPinned: false, requestedModel: "gpt-6-luna" } };
+    h.userTurn("reply-1");
+    expect(h.runtime.prepareUserTurn(args)?.runtimeOptions?.model).toBe("gpt-6.1-sol");
+    // Admitted again, the reply now counts as a linked turn, yet the refusal recorded for it stands.
+    expect(h.runtime.prepareUserTurn(args)?.runtimeOptions?.model).toBe("gpt-6.1-sol");
+    expect(h.store.listEventsByKind(id, ["resource-decision"]).filter((row) => row.idempotencyKey?.includes("reply-1"))).toHaveLength(1);
+  });
+  test("a resource proposal is refused once its stage attempt moved on, not while the stage waits", async () => {
+    const p = policy("claude-code");
+    const h = createHarness({ extra: { freezeResources: () => p } });
+    h.setSnapshot({ model: p.allowedModels[0]! });
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+    const request = { model: p.allowedModels[1], reason: "capability-mismatch" as const, rationale: "gap", evidenceRefs: ["turn-1"] };
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.current(id).stageId).toBe(POLISH.id);
+    h.grants.set("key-turn-1", { agentRunId: id, stageId: "draft", attempt: 1, turnId: "turn-1", taskId: "task-1" });
+    await expect(h.runtime.requestResources({ agentRunKey: "key-turn-1", request })).rejects.toThrow("stale");
   });
   test("pins and foreign-stage evidence refuse escalation, and refusal is recorded once", async () => {
     const p = policy("claude-code", { modelLocked: true });

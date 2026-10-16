@@ -34,7 +34,7 @@ import { ProviderAccountSelectionSchema } from "../../../src/lib/providers/provi
 import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, supportsAdaptiveEffort, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
 import { teamLimitsContextPart } from "./team-limits-context";
-import { selectAdaptiveRoute } from "../../../src/lib/agent-runs/adaptive-route";
+import { selectAdaptiveRoute, type AgentRunReplyComposer, type AgentRunReplyRouteNote } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
 import { prepareRunTurn } from "./turn-preparation";
 import { DelegatedAgentRunAuthoritySchema, type DelegatedAgentRunAuthority, type DelegatedAgentRunRead } from "../../../src/lib/agent-runs/delegated-run";
@@ -379,7 +379,9 @@ export interface AgentRunRuntime {
   /** Forwarded when a host-run turn finishes, so the agent run reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
   answerQuestion: (args: { workspaceId: string; taskId: string; stage: AgentRunStageIdentity; prompt: string; questionAnswer: RunQuestionAnswer }) => Promise<void>;
-  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation" } | null;
+  prepareUserTurn: (args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; composer?: AgentRunReplyComposer }) => { agentRunStage: AgentRunStageIdentity; managedTask: boolean; context: CanonicalRetrievedContextPart; runtimeOptions?: ProviderRuntimeOptions; runtimeOptionsMode?: "routing" | "delegation";
+    /** Set when the reply runs on another model than the composer sent, so its route line can say so. */
+    routeNote?: AgentRunReplyRouteNote } | null;
   resourceRootForTask: (taskId: string) => string | null;
   getActiveAgentRunForTask: (taskId: string) => AgentRun | null;
   readDelegatedAgentRun: (args: AgentRunIdArgs) => Promise<DelegatedAgentRunRead>;
@@ -1173,7 +1175,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     let gatewayCredentials: import("../../provider-accounts/gateway-runtime").GatewayCredentials | undefined;
     try {
       const initialDecision = !actionPrompt && !agentRun.turnCount ? delegation?.initialDecision : undefined;
-      const constrained = !resetContinuation && !initialDecision && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
+      // A model pinned in the composer is not classified again: nothing automatic may replace it.
+      const constrained = !resetContinuation && !initialDecision && !adaptive?.composerPin?.model && (resources || delegation) && deps.routeConstrainedTurn ? await prepareRunTurn(controller.signal, () => deps.routeConstrainedTurn!({
         workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId, providerId: agentRun.fingerprint.providerId as "codex" | "claude-code",
         prompt: actionPrompt ?? agentRun.assignment, model: adaptive?.model ?? agentRun.fingerprint.model,
         effort: adaptive?.effort ?? delegation?.effort, modelPinned: resources?.policy.modelLocked ?? delegation?.modelPinned,
@@ -1756,9 +1759,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     requestResources: ({ agentRunKey, request }) => enqueue(() => {
       const { grant, aggregate } = requireGrant(agentRunKey);
       const config = store.resourceConfig?.(aggregate.agentRun.id);
-      if (!config || aggregate.agentRun.state !== "running") refuse("Adaptive resources are not enabled for this Run.");
+      if (!config) refuse("Adaptive resources are not enabled for this Run.");
+      if (aggregate.agentRun.state !== "running") refuse("This run is not running, so it takes no resource proposal.");
       const stage = currentStageRecord(aggregate);
-      if (stage.stageId !== grant.stageId || stage.attempt !== grant.attempt || stage.status !== "running") refuse("This stage grant is stale.");
+      if (stage.stageId !== grant.stageId || stage.attempt !== grant.attempt) refuse("This stage grant is stale.");
+      // A reply to a blocked or stuck stage is a turn of that stage, as for reports and waits.
+      if (!["running", "blocked", "stuck"].includes(stage.status)) refuse("The current stage is not running, so it takes no resource proposal.");
       const parsed = AgentResourceRequestSchema.parse(request);
       recordEvent(aggregate.agentRun, { kind: "resource-request", idempotencyKey: `${aggregate.agentRun.id}:resource-request:${grant.turnId}`,
         detail: { stageId: grant.stageId, attempt: grant.attempt, turnId: grant.turnId, request: parsed } });
@@ -1792,7 +1798,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // The normal provider admission calls prepareUserTurn: the reply is a
       // user turn of this stage, not another automatic stage-start or nudge.
     }),
-    prepareUserTurn: ({ taskId, workspaceId, turnId, providerId }) => {
+    prepareUserTurn: ({ taskId, workspaceId, turnId, providerId, composer }) => {
       let run = store.getActiveAgentRunForTask(taskId);
       if (!run || !hasAgentOrigin(run) || (workspaceId && run.workspaceId !== workspaceId)) return null;
       let aggregate = requireAggregate(run.id);
@@ -1821,10 +1827,25 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }
       const resources = store.resourceConfig?.(run.id);
       if (resources && providerId && providerId !== resources.policy.providerId) refuse("This run keeps the provider it started on. Switch back to it, or cancel the run to change providers.");
-      const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate, store.listEventsByKind(run.id, ["resource-decision"])) : null;
       // After a pool switch the reply runs on, and is checked against, the account the run moved to.
       const replyAccount = resources ? (agentRunPoolAccount(run)?.accountProfileId ?? resources.policy.accountProfileId) : undefined;
       const observed = resources && replyAccount ? readAdaptiveObservations(resources.policy.providerId, replyAccount, now().getTime()) : null;
+      const replyCatalog = observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length ? observed.catalog.catalog.models : null;
+      // A delegated run keeps the route its parent admitted; only a primary run follows its own composer.
+      // A reply admitted again keeps the decisions recorded for it the first time.
+      const selection = authority || turnIdsFor(run.id).has(turnId) ? undefined : composer;
+      const pinned = selection?.model === "pinned" || selection?.effortPinned === true;
+      // The reply is the stage's next turn, so it decides a pending proposal as a supervised turn would,
+      // with the composer's Auto pick as the automatic proposal and its pin above both.
+      const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate,
+        store.listEventsByKind(run.id, ["resource-request", "resource-decision", "turn-linked"]), replyCatalog,
+        selection?.model === "auto" && selection.requestedModel
+          ? { model: selection.requestedModel, ...(selection.requestedEffort ? { effort: selection.requestedEffort } : {}), rationale: selection.rationale ?? "Auto routed the reply." }
+          : undefined,
+        selection ? { modelPinned: selection.model === "pinned", effortPinned: selection.effortPinned === true,
+          ...(pinned && selection.requestedModel ? { model: selection.requestedModel } : {}),
+          ...(pinned && selection.requestedEffort ? { effort: selection.requestedEffort } : {}) } : undefined) : null;
+      if (adaptive?.composerRefusal) refuse(adaptive.composerRefusal);
       if (adaptive && !supportsAdaptiveEffort(resources!.policy.providerId, adaptive.model, adaptive.effort, observed?.catalog?.catalog.ok ? observed.catalog.catalog.models : null))
         refuse("The cached model catalog does not support this Run's effort. Refresh it and retry; pinned settings cannot be changed silently.");
       if (resources && (observed?.quota && resolveAccountUsageBlock({ providerId: resources.policy.providerId, model: adaptive?.model,
@@ -1842,11 +1863,19 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         refuse("The run's shared turn budget cannot take this reply. Extend the run or stop a helper first.");
       }
       const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
+      // Recorded only once the reply is admitted, before it links, as a supervised dispatch does.
+      if (adaptive?.composerDecision)
+        recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:composer:${turnId}`, detail: adaptive.composerDecision });
+      if (adaptive?.decision)
+        recordEvent(run, { kind: "resource-decision", idempotencyKey: `${run.id}:resource-decision:${adaptive.requestSequence ?? `reply-auto:${turnId}`}`, detail: adaptive.decision });
       turnIdsFor(run.id).add(turnId);
       recordEvent(run, { kind: "turn-linked", idempotencyKey: `${run.id}:user-reply:${turnId}`, detail: { ...agentRunStage, turnId, reason: "user-reply" } });
       recordEvent(run, { kind: "user-turn", idempotencyKey: `${run.id}:user-turn:${turnId}`, detail: { turnId } });
       const accountOptions = resources && replyAccount ? (resources.policy.providerId === "codex" ? { codexAccountProfileId: replyAccount } : { claudeAccountProfileId: replyAccount }) : {};
-      return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
+      // Only a model the composer did not pin can differ from what runs; an effort-only pin still lets Auto pick the model.
+      const routeNote: AgentRunReplyRouteNote | undefined = adaptive && selection && selection.model !== "pinned" && selection.requestedModel && adaptive.model !== selection.requestedModel
+        ? { model: adaptive.model, cause: adaptive.cause ?? "route" } : undefined;
+      return { agentRunStage, managedTask: authority != null, runtimeOptionsMode: authority ? "delegation" : "routing", ...(routeNote ? { routeNote } : {}), ...(authority ? { runtimeOptions: { ...accountOptions, ... buildDelegatedTaskRuntimeOptions({
         providerId: run.fingerprint.providerId, model: adaptive?.model ?? run.fingerprint.model, effort: AgentResourceRequestObjectSchema.shape.effort.parse(adaptive?.runtimeOptions.claudeEffort ?? adaptive?.runtimeOptions.codexReasoningEffort ?? authority.effort), permissionPolicy: authority.permissionPolicy,
       }) } } : { runtimeOptions: { ...accountOptions,
         // The reply is a turn of the run: the run's consent, not the composer's settings alone.

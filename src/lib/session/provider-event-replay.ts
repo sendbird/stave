@@ -703,13 +703,15 @@ function appendProviderEventContentToAssistant(args: {
   }
 
   if (args.event.type === "model_resolved") {
+    const modelResolution = args.event.modelResolution ?? message.modelResolution;
     return {
       ...message,
       providerId: args.event.resolvedProviderId,
       model: args.event.resolvedModel,
       ...(args.event.modelExecution ? { modelExecution: args.event.modelExecution } : {}),
-      ...(args.event.modelResolution
-        ? { modelResolution: args.event.modelResolution }
+      // An Agent run reply keeps Auto's pick on its route line and adds why it ran elsewhere.
+      ...(modelResolution && (args.event.modelResolution || args.event.agentRunRoute)
+        ? { modelResolution: args.event.agentRunRoute ? { ...modelResolution, agentRunRoute: args.event.agentRunRoute } : modelResolution }
         : {}),
     };
   }

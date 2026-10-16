@@ -100,7 +100,8 @@ export type ResourceLink = z.infer<typeof ResourceLinkSchema>;
 export const AgentResourceRequestObjectSchema = z.object({
   model: z.string().trim().min(1).max(200).optional(),
   effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultra"]).optional(),
-  reason: z.enum(["capability-mismatch", "mechanical-step"]),
+  /** `user-request` relays the user's explicit model or effort instruction from a cited turn. */
+  reason: z.enum(["capability-mismatch", "mechanical-step", "user-request"]),
   rationale: z.string().trim().min(1).max(500),
   evidenceRefs: z.array(z.string().trim().min(1).max(200)).min(1).max(8),
 }).strict();

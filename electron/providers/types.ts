@@ -314,6 +314,8 @@ export type BridgeEvent =
       resolvedProviderId: ProviderId;
       resolvedModel: string;
       modelExecution?: ModelExecution;
+      /** An Agent run reply ran on this model instead of the one the composer sent. */
+      agentRunRoute?: { cause: import("../../src/lib/providers/provider.types").AgentRunRouteCause };
     }
   | { type: "error"; message: string; recoverable: boolean }
   | { type: "done"; stop_reason?: string; accountProfileId?: string };

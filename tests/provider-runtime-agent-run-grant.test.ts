@@ -195,3 +195,58 @@ test("adaptive primary replies override only route fields and retain caller read
   expect(turn.runtimeOptions).toMatchObject({ model: "gpt-6-sol", codexReasoningEffort: "high", codexAccountProfileId: "frozen-account",
     codexFileAccess: "read-only", codexApprovalPolicy: "never", codexNetworkAccess: false, codexReasoningSummary: "detailed" });
 });
+
+test("a reply hands the composer's choice to its run, keeps it from the provider, and names the run's route", async () => {
+  const seen: unknown[] = [];
+  setAgentRunUserTurnResolver((args) => {
+    seen.push(args.composer);
+    return { agentRunStage: STAGE, runtimeOptionsMode: "routing", runtimeOptions: { model: "claude-opus-5-5" },
+      context: { type: "retrieved_context", sourceId: "stage", title: "Reply", content: "Continue" },
+      routeNote: { model: "claude-opus-5-5", cause: "cooldown" } };
+  });
+  const events: BridgeEvent[] = [];
+  let resolveDone = () => {};
+  const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+  providerRuntime.startTurnStream({ turnId: "routed-reply", taskId: "task-1", cwd: TEST_WORKSPACE_CWD, providerId: "claude-code", prompt: "Go on",
+    conversation: { mode: "chat", history: [], contextParts: [] },
+    runtimeOptions: { model: "claude-haiku-5-5", claudeEffort: "medium", composerSelection: { model: "auto", effortPinned: false, rationale: "bounded" } } },
+  { onEvent: (event) => events.push(event), onDone: resolveDone });
+  await done;
+  expect(seen).toEqual([{ model: "auto", effortPinned: false, rationale: "bounded", requestedModel: "claude-haiku-5-5", requestedEffort: "medium" }]);
+  const turn = primaryTurns.at(-1)!;
+  expect(turn.runtimeOptions?.model).toBe("claude-opus-5-5");
+  expect(turn.runtimeOptions && "composerSelection" in turn.runtimeOptions).toBe(false);
+  expect(events).toContainEqual(expect.objectContaining({ type: "model_resolved", resolvedModel: "claude-opus-5-5", agentRunRoute: { cause: "cooldown" } }));
+  // An effort pinned in the composer reaches the run even when Auto put its own effort on the turn.
+  let doneAgain = () => {};
+  const again = new Promise<void>((resolve) => { doneAgain = resolve; });
+  providerRuntime.startTurnStream({ turnId: "effort-pinned-reply", taskId: "task-1", cwd: TEST_WORKSPACE_CWD, providerId: "claude-code", prompt: "Go on",
+    conversation: { mode: "chat", history: [], contextParts: [] },
+    runtimeOptions: { model: "claude-haiku-5-5", claudeEffort: "low", composerSelection: { model: "auto", effortPinned: true, effort: "high" } } },
+  { onDone: doneAgain });
+  await again;
+  expect(seen.at(-1)).toEqual({ model: "auto", effortPinned: true, requestedModel: "claude-haiku-5-5", requestedEffort: "high" });
+});
+
+test("a run's refusal of a reply reaches the user as written", async () => {
+  setAgentRunUserTurnResolver(() => {
+    const error = new Error("The model pinned in the composer is not available to this run's provider and account.");
+    error.name = "AgentRunCommandError";
+    throw error;
+  });
+  const events: BridgeEvent[] = [];
+  let resolveDone = () => {};
+  const done = new Promise<void>((resolve) => { resolveDone = resolve; });
+  providerRuntime.startTurnStream({ turnId: "refused-reply", taskId: "task-1", cwd: TEST_WORKSPACE_CWD, providerId: "codex", prompt: "Go on",
+    conversation: { mode: "chat", history: [], contextParts: [] } }, { onEvent: (event) => events.push(event), onDone: resolveDone });
+  await done;
+  expect(events).toContainEqual(expect.objectContaining({ type: "error", message: expect.stringContaining("pinned in the composer is not available") }));
+  setAgentRunUserTurnResolver(() => { throw new Error("internal detail"); });
+  const generic: BridgeEvent[] = [];
+  let resolveGeneric = () => {};
+  const genericDone = new Promise<void>((resolve) => { resolveGeneric = resolve; });
+  providerRuntime.startTurnStream({ turnId: "failed-reply", taskId: "task-1", cwd: TEST_WORKSPACE_CWD, providerId: "codex", prompt: "Go on",
+    conversation: { mode: "chat", history: [], contextParts: [] } }, { onEvent: (event) => generic.push(event), onDone: resolveGeneric });
+  await genericDone;
+  expect(generic).toContainEqual(expect.objectContaining({ type: "error", message: expect.stringContaining("could not be applied") }));
+});

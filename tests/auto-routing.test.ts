@@ -558,38 +558,55 @@ describe("a task running as an agent", () => {
 });
 
 describe("cache hold through the decision path", () => {
-  const classifier = (continuity: "continuing" | "new") => async () => ({
-    version: 2 as const, intent: "plan" as const, complexity: "high" as const,
-    risk: "normal" as const, continuity, evidenceCodes: ["explicit_request" as const],
+  const classifier = (continuity: "continuing" | "new", work: "harder" | "lighter" = "harder") => async () => ({
+    version: 2 as const,
+    ...(work === "harder"
+      ? { intent: "plan" as const, complexity: "high" as const, evidenceCodes: ["explicit_request" as const] }
+      : { intent: "write" as const, complexity: "low" as const, evidenceCodes: ["bounded_edit" as const] }),
+    risk: "normal" as const, continuity,
   });
-  const lightTurn = (overrides: Record<string, unknown> = {}) => [
+  const turnOn = (model: string, overrides: Record<string, unknown> = {}) => [
     { role: "user" as const, content: "Fix the typo." },
     { role: "assistant" as const, content: "Fixed.", providerId: "claude-code" as const,
-      model: DEFAULT_CLAUDE_HAIKU_MODEL, completedAt: finishedAgo(10), ...overrides },
+      model, completedAt: finishedAgo(10), ...overrides },
   ];
-  const decide = (args: { history: ReturnType<typeof lightTurn>; continuity?: "continuing" | "new"; now?: number }) =>
+  const lightTurn = (overrides: Record<string, unknown> = {}) => turnOn(DEFAULT_CLAUDE_HAIKU_MODEL, overrides);
+  const flagshipTurn = (overrides: Record<string, unknown> = {}) => turnOn(DEFAULT_CLAUDE_OPUS_MODEL, overrides);
+  const decide = (args: {
+    history: ReturnType<typeof turnOn>;
+    continuity?: "continuing" | "new";
+    work?: "harder" | "lighter";
+    now?: number;
+  }) =>
     resolveDecision({
-      prompt: "Now design the sync architecture.",
+      prompt: args.work === "lighter" ? "Now fix the README typo." : "Now design the sync architecture.",
       settings: { autoRoutingUseClassifier: true },
       history: args.history,
-      classifyRoute: classifier(args.continuity ?? "continuing"),
+      classifyRoute: classifier(args.continuity ?? "continuing", args.work),
       ...(args.now != null ? { now: args.now } : {}),
     });
 
-  test("a continuing task keeps its model while warm and says the switch was deferred", async () => {
+  test("a continuing task that needs a stronger model switches at once while warm and says why", async () => {
     const decision = await decide({ history: lightTurn() });
-    expect(decision.model).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    expect(decision.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(decision.ruleReason).toContain("despite the warm prompt cache because the work needs a stronger model");
+    expect(decision.ruleReason).not.toContain("deferred");
+  });
+
+  test("a continuing task keeps its model for a step-down while warm and says the switch was deferred", async () => {
+    const decision = await decide({ history: flagshipTurn(), work: "lighter" });
+    expect(decision.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
     expect(decision.ruleReason).toContain("deferred until the cache cools or a new task starts");
   });
 
   test("the classifier's new task, a cold cache or a compaction releases the hold", async () => {
     for (const decision of [
-      await decide({ history: lightTurn(), continuity: "new" }),
-      await decide({ history: lightTurn(), now: NOW + 2 * 60 * 60_000 }),
-      await decide({ history: lightTurn({ compactedAfter: true }) }),
-      await decide({ history: lightTurn({ completedAt: undefined }) }),
+      await decide({ history: flagshipTurn(), work: "lighter", continuity: "new" }),
+      await decide({ history: flagshipTurn(), work: "lighter", now: NOW + 2 * 60 * 60_000 }),
+      await decide({ history: flagshipTurn({ compactedAfter: true }), work: "lighter" }),
+      await decide({ history: flagshipTurn({ completedAt: undefined }), work: "lighter" }),
     ]) {
-      expect(decision.model).not.toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+      expect(decision.model).not.toBe(DEFAULT_CLAUDE_OPUS_MODEL);
       expect(decision.ruleReason).not.toContain("deferred");
     }
   });

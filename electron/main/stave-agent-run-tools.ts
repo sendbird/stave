@@ -71,7 +71,7 @@ export function registerAgentRunTools(
   );
 
   server.registerTool(AGENT_RUN_TOOL_NAMES.resources, {
-    description: "Propose a same-provider model or effort for the next supervised turn of an Agent run. Cite exact turn ids from this stage attempt. Explain a demonstrated capability mismatch or a bounded mechanical step; an environment or permission failure does not justify escalation. Stave validates eligibility, pins, the two-change limit and two-turn cooldown. This call never starts a turn or changes permissions. Disabled Runs refuse it.",
+    description: "Propose a same-provider model or effort for the next turn of this Agent run's stage: the next supervised turn, or the user's next reply. It also works in a reply to a blocked stage. Cite exact turn ids from this stage attempt. Reasons: `user-request` when the user explicitly asked for a model or effort (cite the turn where they asked); `capability-mismatch` for a demonstrated gap; `mechanical-step` for bounded mechanical work, which cannot raise capability. A user request, or a stronger model or more effort for a capability gap, is not held by the two-change limit or the two-turn cooldown; other changes are (replies count as turns). An environment or permission failure does not justify escalation. Pins and the run's eligible catalog still apply, and a model pinned in the composer overrides every proposal. This call never starts a turn or changes permissions. Disabled Runs refuse it.",
     inputSchema: AgentResourceRequestObjectSchema.shape,
   }, async (request) => toStructuredResult(await handlers.requestAgentRunResources({ agentRunKey, request })));
 

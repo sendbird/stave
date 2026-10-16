@@ -1,7 +1,7 @@
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
-import { AutoRoutingModelResolutionSchema } from "./model-resolution";
+import { AgentRunRouteCauseSchema, AutoRoutingModelResolutionSchema } from "./model-resolution";
 import { z } from "zod";
 import type { NormalizedProviderEvent } from "./provider.types";
 
@@ -300,6 +300,7 @@ const ModelResolvedEventSchema = z.object({
   resolvedModel: z.string(),
   modelResolution: AutoRoutingModelResolutionSchema.optional(),
   modelExecution: ModelExecutionSchema.optional(),
+  agentRunRoute: z.object({ cause: AgentRunRouteCauseSchema }).strict().optional(),
 });
 
 const SubagentProgressEventSchema = z.object({

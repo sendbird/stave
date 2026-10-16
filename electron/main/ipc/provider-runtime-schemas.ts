@@ -217,6 +217,8 @@ export const RuntimeOptionsObjectSchema = z
     agentInstructions: z.string().max(12_000).optional(),
     // The host replaces caller values with the saved assignment's role.
     nativePlanTools: z.boolean().optional(),
+    // Read by an Agent run reply, then dropped at turn entry.
+    composerSelection: z.object({ model: z.enum(["auto", "pinned", "default"]), effortPinned: z.boolean(), effort: z.string().trim().min(1).max(40).optional(), rationale: z.string().trim().max(1_000).optional() }).strict().optional(),
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),

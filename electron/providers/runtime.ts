@@ -640,7 +640,7 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; managedTask: boolean; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation" } | null) | null = null;
+let agentRunUserTurnResolver: ((args: { taskId: string; workspaceId?: string; turnId: string; providerId?: string; composer?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyComposer }) => { agentRunStage: NonNullable<StreamTurnArgs["agentRunStage"]>; managedTask: boolean; context: import("../../src/lib/providers/provider.types").CanonicalRetrievedContextPart; runtimeOptions?: StreamTurnArgs["runtimeOptions"]; runtimeOptionsMode?: "routing" | "delegation"; routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote } | null) | null = null;
 export function setAgentRunUserTurnResolver(resolver: typeof agentRunUserTurnResolver) {
   agentRunUserTurnResolver = resolver;
 }
@@ -696,13 +696,23 @@ export function setTaskPermissionObserver(observer: typeof taskPermissionObserve
 }
 
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
-  rawArgs = { ...rawArgs, turnId: rawArgs.turnId ?? randomUUID() };
+  // The composer's selection is read here once and never reaches a provider.
+  const { composerSelection, ...sentOptions } = rawArgs.runtimeOptions ?? {};
+  rawArgs = { ...rawArgs, turnId: rawArgs.turnId ?? randomUUID(), ...(rawArgs.runtimeOptions ? { runtimeOptions: sentOptions } : {}) };
   const release = workspaceExecutionGate.acquire(rawArgs);
   let preparingPolicy = true;
+  let routeNote: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote | undefined;
   try {
     if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
         (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
-      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId, providerId: rawArgs.providerId });
+      // A pinned effort is the user's; the effort option may carry Auto's pick instead.
+      const { effort: pinnedEffort, ...selection } = composerSelection ?? { model: "default" as const, effortPinned: false };
+      const requestedEffort = selection.effortPinned && pinnedEffort ? pinnedEffort
+        : rawArgs.providerId === "codex" ? sentOptions.codexReasoningEffort : sentOptions.claudeEffort;
+      const stage = agentRunUserTurnResolver?.({ taskId: rawArgs.taskId, workspaceId: rawArgs.workspaceId, turnId: rawArgs.turnId, providerId: rawArgs.providerId,
+        ...(composerSelection ? { composer: { ...selection, ...(sentOptions.model ? { requestedModel: sentOptions.model } : {}),
+          ...(requestedEffort ? { requestedEffort } : {}) } } : {}) });
+      routeNote = stage?.routeNote;
       if (stage) rawArgs = { ...rawArgs, agentRunStage: stage.agentRunStage, managedTask: stage.managedTask,
         ...(stage.runtimeOptions ? { runtimeOptions: stage.runtimeOptionsMode === "routing" ? { ...rawArgs.runtimeOptions, ...stage.runtimeOptions } : delegatedReplyRuntimeOptions(rawArgs.runtimeOptions, stage.runtimeOptions) } : {}),
         conversation: { ...rawArgs.conversation, contextParts: [...rawArgs.conversation.contextParts, stage.context] } };
@@ -728,13 +738,15 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
       });
     }
     preparingPolicy = false;
-    return await runScopedProviderTurn(turnArgs, agentTurn);
+    return await runScopedProviderTurn(turnArgs, agentTurn, routeNote);
   } catch (error) {
     if (!preparingPolicy) throw error;
     // Mandatory task policy cannot fail open or escape the stream's terminal contract.
     const lifecycle = createProviderTurnLifecycle({ onEvent: rawArgs.onEvent });
+    // A run's refusal of a reply (a pin it cannot run, a spent budget) is written to be shown as-is.
+    const refusal = error instanceof Error && error.name === "AgentRunCommandError" ? error.message : null;
     lifecycle.emit({ type: "error", recoverable: false,
-      message: "The task's Agent configuration could not be applied. Check its assignment and provider before retrying." });
+      message: refusal ?? "The task's Agent configuration could not be applied. Check its assignment and provider before retrying." });
     lifecycle.finish("runtime_failure");
     return lifecycle.events();
   } finally { release(); }
@@ -743,12 +755,13 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
 async function runScopedProviderTurn(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
   agentTurn?: TaskAgentTurn | null,
+  routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote,
 ) {
   return await withProviderAccountScope(args.runtimeOptions, async () => {
     const stamp = providerAccountEventMapper(args);
     const events = await runProviderTurnImpl({
       ...args, onEvent: (event) => args.onEvent?.(stamp(event)),
-    }, agentTurn);
+    }, agentTurn, routeNote);
     return events.map(stamp);
   });
 }
@@ -756,11 +769,14 @@ async function runScopedProviderTurn(
 async function runProviderTurnImpl(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
   agentTurn?: TaskAgentTurn | null,
+  routeNote?: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote,
 ) {
   const lifecycle = createProviderTurnLifecycle({
     onEvent: args.onEvent,
   });
   if (agentTurn) lifecycle.emit({ type: "agent_provenance", provenance: agentTurn.provenance });
+  // The Agent run chose another model than the composer sent: the reply's route line shows what runs.
+  if (routeNote) lifecycle.emit({ type: "model_resolved", resolvedProviderId: args.providerId, resolvedModel: routeNote.model, agentRunRoute: { cause: routeNote.cause } });
   const finishLifecycle = (
     reason: "completed" | "runtime_failure" | "user_abort",
   ) => {

@@ -464,11 +464,24 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
   (supervised delegations). One-turn and detached helpers, and in-turn native
   subagents, do not draw on the shared turns.
 - **Model and effort.** An Agent whose model is **Auto** may change model or
-  effort as the work needs it: at most two changes per run, with two turns
-  between them. A **Fixed** Agent model, or a model or effort pinned in the
-  composer, never changes; a composer pin replaces a fixed model on the
-  Agent's own provider, and a pin on another provider is refused at start. The
-  Agent can also propose a justified change for a later turn.
+  effort as the work needs it. A step-up to a stronger model or more effort
+  happens as soon as the work needs it; other changes are limited to two per
+  run, with two turns between them, and your replies in a stage count as
+  turns. A **Fixed** Agent model, or a model or effort pinned in the composer
+  when the run starts, never changes on its own; a composer pin replaces a
+  fixed model on the Agent's own provider, and a pin on another provider is
+  refused at start.
+- **Your choice wins.** Pin a model or effort in the composer when you reply,
+  and the reply and the turns after it run on it, over the run's route, its
+  proposals and its start pins, until you switch the composer back to Auto;
+  then a model or effort the run fixed at start comes back, and otherwise the
+  run adapts from where it is.
+  The run keeps its provider, account and permissions, and refuses a pin that
+  this provider or account cannot run. When you ask for a model or effort in
+  words, the Agent proposes it as your request: it takes effect on the stage's
+  next turn, including your next reply, without waiting for the change limit
+  or cooldown, within the run's pins and eligible models. The Agent can also
+  propose a justified change itself, including while its stage is blocked.
 - **Providers.** The run stays on the provider and account it started on. A
   helper Agent runs on its own provider, so a Reviewer can review Claude's
   work on Codex, unless the run's model is pinned; then helpers stay on the

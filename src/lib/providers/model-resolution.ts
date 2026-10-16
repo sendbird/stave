@@ -2,6 +2,10 @@ import { z } from "zod";
 import type { AutoRoutingModelResolution } from "./provider.types";
 import { RoutingDecisionObservationSchema } from "./routing-decision";
 
+export const AgentRunRouteCauseSchema = z.enum([
+  "evidence", "catalog", "pinned", "composer-pin", "effort", "change-limit", "cooldown", "mechanical", "current", "request", "route",
+]);
+
 const ModelResolutionProviderIdSchema = z.union([
   z.literal("claude-code"),
   z.literal("codex"),
@@ -42,5 +46,6 @@ export const AutoRoutingModelResolutionSchema = z
     taskClass: z.string().trim().max(40).optional(),
     stance: z.string().trim().max(40).optional(),
     classifierElapsedMs: z.number().int().min(0).max(600_000).optional(),
+    agentRunRoute: z.object({ cause: AgentRunRouteCauseSchema }).strict().optional(),
   })
   .strict() satisfies z.ZodType<AutoRoutingModelResolution>;
