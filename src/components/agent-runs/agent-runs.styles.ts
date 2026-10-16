@@ -153,6 +153,7 @@ export const agentRunStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   checkNote: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  decisionDetail: { display: "block", overflowWrap: "anywhere" },
 
   /* Facts (key/value) ------------------------------------------------------ */
   facts: {

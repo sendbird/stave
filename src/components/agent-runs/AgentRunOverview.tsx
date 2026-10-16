@@ -19,6 +19,7 @@ import { useTaskSubagents } from "@/components/session/useTaskSubagents";
 import { AgentRunSubagents } from "./AgentRunSubagents";
 import { projectAgentRunStages } from "@/lib/agent-runs/agent-run-view";
 import { AGENT_CHECK_IN_LABELS } from "@/lib/agents/schema";
+import { AgentRunDecisionLog } from "./AgentRunDecisionLog";
 import { AgentRunDoneWhen } from "./AgentRunDoneWhen";
 import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
 import { AgentRunOutcome } from "./AgentRunResultCard";
@@ -139,6 +140,7 @@ export function AgentRunOverview(props: {
 
       <AgentRunSubagents rows={subagents} />
       {detail.resources ? <RunTeamLimits resources={detail.resources} /> : null}
+      <AgentRunDecisionLog detail={detail} />
 
       {rows ? (
         <section className={sx(styles.section, styles.sectionRule)} aria-label={i18n.t("agentRuns:agentRunOverview.ariaLabel3")}>

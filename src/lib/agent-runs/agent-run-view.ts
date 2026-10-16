@@ -354,6 +354,14 @@ function stagePosition(agentRun: AgentRun, stageId: string) {
   return index === -1 ? null : { index, stage: agentRun.workflow.stages[index]! };
 }
 
+/** `Stage 2 · Verify, attempt 2`, or null for a stage the workflow does not have. */
+export function describeAgentRunStageName(agentRun: AgentRun, stageId: string, attempt: number): string | null {
+  const where = stagePosition(agentRun, stageId);
+  return where
+    ? i18n.t("agentRuns:agentRunView.extraCopy226", { value1: where.index + 1, value2: getStageDisplayTitle(where.stage), value3: attempt > 1 ? i18n.t("agentRuns:remaining.presentationCopy417", { v1: attempt }) : "" })
+    : null;
+}
+
 /**
  * One divider per turn the agent run started, keyed by turn id. Built from the
  * agent run's events, never from message text.
@@ -378,9 +386,8 @@ export function buildAgentRunTurnDividers(
     const stageId = String(started.event.detail.stageId ?? "");
     const attempt = Number(started.event.detail.attempt ?? 1);
     const reason = String(started.event.detail.reason ?? "stage-start");
-    const where = stagePosition(agentRun, stageId);
-    if (!where) continue;
-    const name = i18n.t("agentRuns:agentRunView.extraCopy226", { value1: where.index + 1, value2: getStageDisplayTitle(where.stage), value3: attempt > 1 ? i18n.t("agentRuns:remaining.presentationCopy417", { v1: attempt }) : "" });
+    const name = describeAgentRunStageName(agentRun, stageId, attempt);
+    if (!name) continue;
     dividers.set(
       linked.detail.turnId,
       describeTurnStart({ agentRun, events, position: started.position, name, stageId, attempt, reason, formatTime }),

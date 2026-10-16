@@ -983,5 +983,49 @@
     "reportingUnavailable": "Local reporting tools must be available before replying.",
     "alreadyAnswered": "This question was already answered or is no longer pending.",
     "deliveryFailed": "Could not deliver your answer: {{reason}}"
+  },
+  "decisionLog": {
+    "title": "Decisions",
+    "ariaLabel": "Decision log",
+    "count_one": "{{count}} entry",
+    "count_other": "{{count}} entries",
+    "showAll": "Show all {{count}}",
+    "showLatest": "Show latest only",
+    "routed": "Turn routed to {{model}}",
+    "routedChanged": "Turn routed to {{model}} (was {{previous}})",
+    "inStage": "{{stage}}: {{sentence}}",
+    "fact": "{{label}}: {{value}}",
+    "changed": "Model and effort changed to {{model}}",
+    "kept": "Change declined; kept {{model}}",
+    "byAgent": "Requested by the agent",
+    "byStave": "Chosen by Stave",
+    "retried": "Stage retried",
+    "sources": {
+      "pinned": "Pinned model",
+      "agentFixed": "Agent's fixed model",
+      "taskModel": "Task model",
+      "disabled": "Auto off",
+      "manual": "Chosen by hand",
+      "heuristic": "Local rules",
+      "classifier": "Decision model",
+      "classifierFallback": "Local rules after the decision model failed",
+      "adaptive": "Adaptive change"
+    },
+    "changeReasons": {
+      "capabilityMismatch": "the model did not fit the work",
+      "mechanicalStep": "a mechanical step"
+    },
+    "declined": {
+      "evidence": "the evidence did not name this stage's turns",
+      "outsideCatalog": "the model is not available to this run",
+      "modelPinned": "the model is pinned",
+      "effortPinned": "the effort is pinned",
+      "unsupportedEffort": "the model does not support that effort",
+      "changeLimit": "the change limit is reached",
+      "cooldown": "the two-turn cooldown is active",
+      "mechanicalEffort": "a mechanical step cannot raise effort",
+      "mechanicalModel": "a mechanical step cannot raise model capability",
+      "alreadyCurrent": "this is already the current route"
+    }
   }
 }
