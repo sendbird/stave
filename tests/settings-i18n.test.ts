@@ -8,7 +8,8 @@ import { getCodexModelUpdateGuidance } from "@/lib/providers/codex-model-require
 import { formatCursorEffortLabel } from "@/lib/providers/cursor-model-id";
 import { quotaResetCountdown } from "@/components/usage/usage-quota.utils";
 import { quotaReadFeedbackText } from "@/components/usage/quota-read-feedback";
-import { explainRuleMiss, describeRuleConditions } from "@/components/auto-routing/RouteFlow";
+import { explainRuleMiss, describeRuleConditions, formatRuleConditions } from "@/components/auto-routing/RouteFlow";
+import { STANCE_LABELS, TASK_CLASS_LABELS } from "@/lib/providers/auto-routing-profile";
 import type { RouteRule, RouterSignals } from "@/lib/providers/auto-routing-profile";
 
 afterEach(() => applyAppLocale("en"));
@@ -51,6 +52,16 @@ describe("settings and provider display language", () => {
     expect(explainRuleMiss(rule, signals, "primary")).toBe("민감하지 않음");
     expect(describeRuleConditions(rule)).toEqual(["민감함"]);
     expect(rule.id).toBe("test-rule");
+  });
+
+  test("rule summaries start like a sentence and Auto's labels translate", () => {
+    const rule: RouteRule = { id: "complex", enabled: true, when: { complexity: "high" }, then: { tier: "flagship" } };
+    expect(formatRuleConditions(rule)).toBe("Complex level");
+    expect(formatRuleConditions({ ...rule, when: {} })).toBe("Always");
+    applyAppLocale("ko");
+    expect(formatRuleConditions(rule)).toBe("복잡 수준");
+    expect([STANCE_LABELS["cost-saver"], STANCE_LABELS["quality-first"], TASK_CLASS_LABELS["safety-critical"]])
+      .toEqual(["비용 절약", "품질 우선", "안전 민감"]);
   });
   test("evaluates validation and version guidance in the current locale", () => {
     const english = HttpsBaseUrlSchema.safeParse("http://example.org");

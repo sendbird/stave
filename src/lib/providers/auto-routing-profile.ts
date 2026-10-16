@@ -353,9 +353,9 @@ function clampIndex(value: number, min: number, max: number) {
 /* -------------------------------------------------------------------------- */
 
 export const STANCE_LABELS: Readonly<Record<Stance, string>> = {
-  "cost-saver": "Cost-saver",
+  get "cost-saver"() { return i18n.t("providers:autoRoutingProfile.costSaver"); },
   get balanced() { return i18n.t("providers:autoRoutingProfile.balanced"); },
-  "quality-first": "Quality-first",
+  get "quality-first"() { return i18n.t("providers:autoRoutingProfile.qualityFirst"); },
 };
 
 export const STANCE_DESCRIPTIONS: Readonly<Record<Stance, string>> = {
@@ -448,11 +448,11 @@ export const TASK_CLASS_LABELS: Readonly<Record<TaskClass, string>> = {
   get "ci-fix"() { return i18n.t("providers:autoRoutingProfile.ciFix"); },
   get docs() { return i18n.t("providers:autoRoutingProfile.docs"); },
   get research() { return i18n.t("providers:autoRoutingProfile.research"); },
-  "safety-critical": "Safety-critical",
+  get "safety-critical"() { return i18n.t("providers:autoRoutingProfile.safetyCritical"); },
 };
 
 export const ROUTER_ROLE_LABELS: Readonly<Record<RouterRole, string>> = {
-  get primary() { return i18n.t("settingsProviders:codexOverviewTab.rateLimits.primary"); },
+  get primary() { return i18n.t("providers:autoRoutingProfile.rolePrimary"); },
   get advisor() { return i18n.t("providers:autoRoutingProfile.advisor"); },
   get worker() { return i18n.t("providers:autoRoutingProfile.worker"); },
   get delegate() { return i18n.t("providers:autoRoutingProfile.delegate"); },
@@ -467,7 +467,7 @@ export const ROUTE_TIER_LABELS: Readonly<Record<RouteTier, string>> = {
   get frontier() { return i18n.t("providers:autoRoutingProfile.frontier"); },
   get flagship() { return i18n.t("providers:autoRoutingProfile.flagship"); },
   get balanced() { return i18n.t("providers:autoRoutingProfile.balanced"); },
-  get light() { return i18n.t("settings:themeSection.appearance.light"); },
+  get light() { return i18n.t("providers:autoRoutingProfile.tierLight"); },
 };
 
 function rule(

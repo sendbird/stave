@@ -28,6 +28,9 @@
   },
   "autoRoutingProfile": {
     "balanced": "Balanced",
+    "costSaver": "Cost-saver",
+    "qualityFirst": "Quality-first",
+    "safetyCritical": "Safety-critical",
     "sameModelsEachLevelRunsAt": "Same models; each level runs at the low end of its effort range.",
     "sameModelsEachLevelRunsAtVariant2ab0fa3e": "Same models; each level runs at its recommended effort.",
     "sameModelsEachLevelRunsAtVariantc38c22b1": "Same models; each level runs at the high end of its effort range.",
@@ -74,7 +77,9 @@
     "preferredProviderUnavailable": "The agent prefers {{provider}}, which can't run this now.",
     "staysOnProviderInsideTask": "Stays on {{provider}} inside this task; {{other}} applies from the next task.",
     "domainUi": "UI work",
-    "domainLogic": "Logic work"
+    "domainLogic": "Logic work",
+    "rolePrimary": "Primary",
+    "tierLight": "Light"
   },
   "autoRoutingWizard": {
     "ofYourTurnsRanOnFrontier": "{{value1}}% of your turns ran on frontier or flagship models",
@@ -511,8 +516,8 @@
     "rateWindow": "rate limit"
   },
   "providerStrengths": {
-    "title": "Provider strengths",
-    "description": "Which provider a task starts on, by the kind of work. The level still picks the model. A task changes provider only on its first turn, so a review → fix → review loop stays put.",
+    "title": "Provider switching",
+    "description": "Which provider runs a task, by the kind of work. The level still picks the model.",
     "preset": "Preset",
     "presets": {
       "confident": "Confident only",
@@ -520,8 +525,8 @@
       "planBuildReview": "Claude builds, Codex reviews"
     },
     "custom": "Custom",
-    "enable": "Use provider strengths",
-    "enableDescription": "Off by default. Switching provider sends at most 12,000 characters of the conversation to the other provider, and that provider's own skills, hooks and MCP servers apply.",
+    "enable": "Start on the stronger provider",
+    "enableDescription": "On a task's first turn, start it on the provider the table lists for its kind of work. Off by default.",
     "work": "Work",
     "startsOn": "Starts on",
     "keep": "Keep the task's provider",
@@ -549,6 +554,10 @@
       "research": "Claude answers codebase questions slightly better in one independent comparison, at a higher cost."
     },
     "hypothesisNote": "Seeded from public benchmarks, GitHub and blog comparisons as of {{date}}. These are claims about providers in general, not measurements of your work. Edit any row.",
-    "ruleReason": "{{task}} starts on {{provider}} (provider strengths)."
+    "ruleReason": "{{task}} starts on {{provider}} (provider strengths).",
+    "offNote": "Off: the table below does not apply until you turn this on.",
+    "midTask": "Switch provider mid-task",
+    "midTaskDescription": "Let provider rules, including the table above, move a task that has already started. Off, a task changes provider only on its first turn. A provider that cannot run the turn hands over either way.",
+    "privacyNote": "Switching provider sends at most 12,000 characters of the conversation to the other provider, and that provider's own skills, hooks and MCP servers apply."
   }
 }

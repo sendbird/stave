@@ -48,12 +48,12 @@ classification is unavailable (in place of local keyword matching). A safety
 escalation always wins.
 
 The current provider stays selected inside a task. A rule that names a
-provider, a [provider strength](#provider-strengths), or an agent's preferred
+provider, a [provider strength](#provider-switching), or an agent's preferred
 provider moves a task only at a task boundary: its first turn, or a delegated
 task. Later turns stay on the provider that answered last, and the route line
 says the named provider applies from the next task, so a review → fix → review
-loop does not bounce between providers. With **Provider switch** on, a rule
-that names a provider may also move a task mid-way. Reviews and skill commands
+loop does not bounce between providers. With **Switch provider mid-task** on, a
+rule that names a provider may also move a task mid-way. Reviews and skill commands
 (`/ship` or `$ship`) do not automatically change providers or force a light
 model.
 
@@ -62,11 +62,14 @@ provider and the level still picks the rung, so a Simple task runs on the
 light model and an Expert task on the frontier one. A rule with no rung and no
 model keeps its older meaning, the provider's default model.
 
-## Provider strengths
+## Provider switching
 
-Settings → Auto → **Provider strengths** sets which provider each area of work
-(plan, UI & frontend, logic & backend, other implementation, quick edit,
-debug, review, CI fix, docs, research) starts on.
+Settings → Auto → Advanced settings → **Provider switching** holds both
+provider switches. **Start on the stronger provider** turns on the strength
+table, which sets which provider each area of work (plan, UI & frontend, logic
+& backend, other implementation, quick edit, debug, review, CI fix, docs,
+research) starts on. **Switch provider mid-task** lets provider rules,
+including this table, move a task that has already started.
 Each row is a provider-only rule (`strength-<area>`) that follows the level,
 placed after the user's own task-, skill- and usage-specific rules and before
 the level rules. Safety-critical work keeps its own rule.
@@ -172,13 +175,16 @@ failing to produce a route at all.
 Settings → Auto → **Routing decision model** controls classification for both
 Auto sends and Agent runs. The default is **Automatic**: try available,
 signed-in Luna first, then Haiku. This setting is independent of Background
-AI's text utility model. Advanced settings can disable classification for
-local-only routing.
+AI's text utility model. The **Model classification** switch in the same card
+turns classification off for local-only routing. A line under the field names
+the model in use and the
+order Stave falls back through, or says the choice is not in use while Auto or
+model classification is off.
 
 To use Jev, save a Vercel AI Gateway key in Secrets, add an API connection in
 Settings → Accounts, enable Auto, then choose that connection and Jev under Routing decision
-model. Decision models have their own searchable list, separate from the coding
-models pinned on the connection. Jev is opt-in; adding a connection does not
+model. Both pickers search inside their own list. Decision models are listed
+separately from the coding models pinned on the connection. Jev is opt-in; adding a connection does not
 change the default. An Agent's Auto-routing settings can override the global
 Decision model, or inherit it. Saved Agent snapshots keep their overrides.
 Fixed or composer-pinned models bypass classification. Saved-Agent delegates and
@@ -243,22 +249,25 @@ one keeps the agent. The composer button names the preference, such as
 as `Auto → Opus 5.5 · Medium`. It shows no effort setting of its own, because
 Auto chooses the effort on every turn.
 
-Settings → Auto shows, in order: the enable switch and preference; **Routing
+Settings → Auto shows, in order: the enable switch and preference, with a
+notice while Auto is off; **Routing decision model**, with the **Model
+classification** switch and the model that classifies work; **Routing
 levels**, a live table of what each level runs on for Claude and Codex under
 the current preference and allowed models (a level with no allowed model reads
 "No allowed model"); each level's edit button opens its model tier and the
 effort each preference runs, and a changed level is marked **Custom** until
-**Reset level**; and **Allowed models**, where **Default** allows every
-listed catalog model. Advanced settings holds classification
-and signal switches, the usage budget, the usage wizard, the rules, and a local
-rule preview. Each rule is one summary line (`complex level → Flagship · High
+**Reset level**; and **Allowed models**, where **All (default)** allows every
+listed catalog model. Advanced settings holds the usage wizard, routing signal
+switches, the usage budget, provider switching, the rules, and a local rule
+preview. Each rule is one summary line (`Complex level → Flagship · High
 effort`) that expands for editing. The preview makes no AI call and can differ
 from a classifier result.
 
 Changing preference preserves saved rules, signals, allowed models, and
 manually customized budget thresholds. Existing saved rules survive profile
-validation. **Reset to defaults** explicitly replaces them with the current
-table while preserving other settings.
+validation. **Reset to defaults** asks for confirmation, then replaces them,
+including the provider switching table, with the current table while
+preserving level edits and other settings.
 
 The table has one rule per level, ordered Extreme, Expert, sensitive, Complex,
 Standard, Simple, plus a delegated-task default (the flagship at medium

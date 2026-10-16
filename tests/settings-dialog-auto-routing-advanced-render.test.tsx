@@ -88,4 +88,20 @@ describe("Auto settings routing levels", () => {
     // Expert keeps the built-in ceiling.
     expect(table).toContain("Fable 5.1 · Medium");
   });
+
+  test("the decision model comes before the levels it feeds, with its classification switch", async () => {
+    const html = await renderSection();
+    const at = (text: string) => html.indexOf(text);
+    expect(at("Routing decision model")).toBeGreaterThan(at("Preference"));
+    expect(at("Model classification")).toBeGreaterThan(at("Routing decision model"));
+    expect(at("Routing levels")).toBeGreaterThan(at("Model classification"));
+    expect(at("Allowed models")).toBeGreaterThan(at("Routing levels"));
+    expect(html).toContain("All (default)");
+  });
+
+  test("Auto off says the settings below wait for it instead of repeating the switch in a badge", async () => {
+    // The default settings start with Auto off.
+    const html = await renderSection();
+    expect(html).toContain("Auto is off. These settings are kept and apply once you turn it on.");
+  });
 });
