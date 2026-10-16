@@ -781,6 +781,7 @@ export function InlineWorkspaceLabel(args: {
         canEdit && focusRing.ring,
       )}
       title={canEdit ? tI18n("workspace:workspaceSidebarRows.editWorkspaceLabel") : String(displayName)}
+      role={canEdit ? "button" : undefined}
       tabIndex={canEdit ? 0 : undefined}
       onClick={(event) => {
         if (!canEdit) {
