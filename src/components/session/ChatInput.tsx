@@ -1,5 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
+import { useAccountRuntimeOptions, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import { accountSwitchForSelection, buildConnectionModelSelectorOptions, subscriptionAccountSelection } from "@/lib/providers/account-model-options";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import {
   useDeferredValue,
@@ -474,6 +475,21 @@ function BaseChatInput() {
     cwd: workspaceCwd,
     runtimeOptions: catalogRuntimeOptions,
   });
+  const accountProfiles = useProviderAccounts((state) => state.profiles);
+  // The picker lists each runtime's own models next to its API connections,
+  // even while a connection is the selected account.
+  const subscriptionCatalogRuntimeOptions = useMemo(
+    () => ({ ...catalogRuntimeOptions, ...subscriptionAccountSelection(accountOptions, accountProfiles) }),
+    [accountOptions, accountProfiles, catalogRuntimeOptions],
+  );
+  const subscriptionModelCatalogs = useProviderModelCatalogs({
+    enabled: true,
+    cwd: workspaceCwd,
+    runtimeOptions: subscriptionCatalogRuntimeOptions,
+  });
+  const activeConnectionAccountId = accountProfiles.some((profile) =>
+    profile.providerId === activeProvider && profile.id === commandAccountId && Boolean(profile.gateway))
+    ? commandAccountId : undefined;
   const isEmpty = activeMessageCount === 0;
   const activeProviderAvailable = providerAvailability[activeProvider];
   const isAutoRoutingSelected =
@@ -519,6 +535,7 @@ function BaseChatInput() {
         ].entries.find((entry) => entry.model === activeModel)?.displayName,
         description: providerModelCatalogs.catalogs[activeProvider].entries.find((entry) => entry.model === activeModel)?.description,
         available: activeProviderAvailable,
+        accountProfileId: activeConnectionAccountId,
       });
   const modelEnrichment = useMemo(
     () => buildModelEnrichmentFromCatalogs(providerModelCatalogs.catalogs),
@@ -546,6 +563,25 @@ function BaseChatInput() {
       providerModelCatalogs.catalogs,
       providerAvailability,
     ],
+  );
+  const pickerModelOptions = useMemo<ModelSelectorOption[]>(
+    () => [
+      autoModelOption,
+      ...buildModelSelectorOptions({
+        providerIds: PROVIDER_IDS,
+        availabilityByProvider: providerAvailability,
+        modelsByProvider: {
+          "claude-code": subscriptionModelCatalogs.catalogs["claude-code"].models,
+          codex: subscriptionModelCatalogs.catalogs.codex.models,
+          cursor: subscriptionModelCatalogs.catalogs.cursor.models,
+          kiro: subscriptionModelCatalogs.catalogs.kiro.models,
+          opencode: subscriptionModelCatalogs.catalogs.opencode.models,
+        },
+        enrichmentByModel: buildModelEnrichmentFromCatalogs(subscriptionModelCatalogs.catalogs),
+      }),
+      ...buildConnectionModelSelectorOptions({ profiles: accountProfiles, availabilityByProvider: providerAvailability }),
+    ],
+    [accountProfiles, autoModelOption, providerAvailability, subscriptionModelCatalogs.catalogs],
   );
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(modelShortcutKeys),
@@ -1024,7 +1060,7 @@ function BaseChatInput() {
           });
       }}
       selectedModelOption={selectedModelOption}
-      modelOptions={modelOptions}
+      modelOptions={pickerModelOptions}
       modelCatalogs={providerModelCatalogs.catalogs}
       onRefreshModelCatalogs={providerModelCatalogs.refresh}
       modelShortcutKeys={normalizedModelShortcutKeys}
@@ -1057,6 +1093,8 @@ function BaseChatInput() {
           });
           return;
         }
+        const accountSwitch = accountSwitchForSelection({ option: selection, selection: accountOptions, profiles: accountProfiles });
+        if (accountSwitch) updateSettings({ patch: accountSwitch });
         const nextModel = normalizeModelSelection({
           value: selection.model,
           fallback: getDefaultModelForProvider({
