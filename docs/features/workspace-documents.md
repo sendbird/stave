@@ -4,10 +4,11 @@
 
 A workspace document is a Markdown file an agent writes for you to read and
 revise: a plan, a report, a spec, or a proposal. The agent keeps it in the
-workspace and edits the same file when you ask for changes, so the chat holds
-a short summary instead of the whole text again. Stave records every version
-of each document, shows which documents a turn changed, and tells the agent
-when you edited one of its documents between turns.
+workspace and edits the same file when you ask for changes. The chat reply
+still states the conclusion, the recommended actions and any decision you need
+to make, then links the document instead of repeating the whole text. Stave
+records every version of each document, shows which documents a turn changed,
+and tells the agent when you edited one of its documents between turns.
 
 ## When To Use It
 
@@ -20,7 +21,8 @@ when you edited one of its documents between turns.
 - You want to check finished work against the plan, or reuse a document from
   another workspace, even one you have deleted.
 
-For a quick answer that does not need revising, ask in the chat as usual.
+For a quick answer or an analysis that does not need revising, ask in the chat
+as usual; the agent answers there without writing a document.
 
 ## Before You Start
 
@@ -35,8 +37,9 @@ For a quick answer that does not need revising, ask in the chat as usual.
 
 1. Ask for the document, for example
    `Write a plan for the retry change as a document. Do not edit code yet.`
-2. The agent writes `.stave/context/plans/<name>.md` and replies with a short
-   summary. Under its reply, **Document updated** lists the file.
+2. The agent writes `.stave/context/plans/<name>.md` and replies with the
+   conclusion, the next actions and any decision you need to make. Under its
+   reply, **Document updated** lists the file.
 3. Select **Open** to read it in the editor, or ask for changes in the chat:
    `Make step 3 more specific.` The agent edits the same file.
 4. When it is right, send `Implement the plan.`

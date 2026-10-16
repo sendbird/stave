@@ -177,8 +177,9 @@ describe("canonical request builder", () => {
       "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace",
     );
     expect(prompt).toContain(
-      "workspaceDocuments: write a plan, report, spec, or proposal the user may revise as a Markdown document in .stave/context/plans/",
+      "workspaceDocuments: when the user asks for a plan, spec, report, or proposal they can revise, write it to .stave/context/plans/",
     );
+    expect(prompt).toContain("never reply with only a path");
     expect(prompt).toContain("decisionCheckpoints: ");
     expect(prompt).toContain("[Task Shared Context]");
     expect(prompt).toContain("assistant: 1. Check git status");

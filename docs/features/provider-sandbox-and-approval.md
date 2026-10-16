@@ -286,8 +286,9 @@ Stave has no plan mode; ask for the plan in the prompt.
 
 1. Write the request as a plan, for example
    `Write a plan for the retry change as a document; do not edit code yet.`
-2. The agent writes it as a document and replies with a short summary. Read or
-   edit the document, then ask for changes in the next message.
+2. The agent writes it as a document and replies with the conclusion, the next
+   actions and any decision you need to make. Read or edit the document, then
+   ask for changes in the next message.
 3. When the plan is right, send `Implement the plan.`
 
 For a turn that must not edit anything, pick a read-only setup instead: Codex

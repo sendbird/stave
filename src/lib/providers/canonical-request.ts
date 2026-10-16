@@ -355,7 +355,7 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
                   "workspacePlanDirectory: .stave/context/plans",
                   "newWorkspacePlanFiles: .stave/context/plans/<taskIdPrefix>_<timestamp>.md",
                   "handoffConvention: write plan files (not workspace notes) when handing off to a new workspace; notes carry only a pointer to the plan file, and the source workspace's plan/notes/todos must not be copied verbatim into the target.",
-                  "workspaceDocuments: write a plan, report, spec, or proposal the user may revise as a Markdown document in .stave/context/plans/<descriptive-name>.md, edit that same file when asked for changes, and reply with a short summary and its path instead of repeating the document in chat. Stave records each revision and tells you when the user edits one of your documents between turns.",
+                  "workspaceDocuments: when the user asks for a plan, spec, report, or proposal they can revise, write it to .stave/context/plans/<descriptive-name>.md and edit that same file on later changes. Your reply must still stand on its own: state the conclusion, the recommended actions, and any decision the user has to make, then give the document's path; never reply with only a path. Answer a question or analysis that needs no revising in chat, without a document. Stave records each revision and tells you when the user edits one of your documents between turns.",
                   "decisionCheckpoints: before a change that is hard to reverse or has several reasonable directions, ask the user instead of choosing silently.",
                 ]
               : []),
