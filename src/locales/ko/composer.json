@@ -332,7 +332,7 @@
     "ariaLabel10": "입력창 추가 컨트롤 ({{value1}})",
     "title3": "입력창 추가 컨트롤",
     "ariaLabel11": "제안",
-    "composerCard": "다음",
+    "composerCard": ">",
     "composerCard2": "개선 중",
     "composerCard3": "적용 중",
     "composerCard4": "프롬프트 개선 — 초안을 더 명확하고 바로 실행할 수 있는 프롬프트로 다시 작성합니다.",

@@ -1055,7 +1055,7 @@
   },
   "settingsDialogModelVisibility": {
     "noModelsAreAvailableYetSign": "No {{value1}} models are available yet. Sign in to the runtime, then reopen this section.",
-    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings &gt; Tooling to verify these models.",
+    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings > Tooling to verify these models.",
     "shownByDefault": "shown by default",
     "showInTheModelSelector": "Show {{value1}} in the model selector"
   },

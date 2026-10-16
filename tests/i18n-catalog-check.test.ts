@@ -16,6 +16,10 @@ describe("i18n catalog check", () => {
     expect(issues.some((issue) => issue.message.includes("interpolation mismatch"))).toBe(true);
     expect(issues.some((issue) => issue.message.includes("markup mismatch"))).toBe(true);
   });
+  test("rejects HTML entities that would render literally", () => {
+    const issues = check({ hint: "Stave&apos;s list" }, { hint: "Stave 목록" });
+    expect(issues.some((issue) => issue.locale === "en" && issue.message.includes("HTML entity"))).toBe(true);
+  });
   test("accepts complete English and Korean catalogs with Korean plural forms", () => {
     const issues = check(
       {

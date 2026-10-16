@@ -169,7 +169,7 @@
     "createANewWorkspace": "Create a new workspace",
     "useAnExistingWorkspace": "Use an existing workspace",
     "branchName": "Branch name",
-    "basedOnTheSelectedRepositoryAposS": "Based on the selected repository&apos;s remote default branch.",
+    "basedOnTheSelectedRepositoryAposS": "Based on the selected repository's remote default branch.",
     "workspaceLabel": "Workspace label",
     "shownInTheRepositoryWorkspaceListPrefilled": "Shown in the repository workspace list. Prefilled from the issue title.",
     "existingWorkspace": "Existing workspace",

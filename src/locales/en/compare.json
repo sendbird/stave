@@ -84,7 +84,7 @@
     "runsAfterEveryCandidateFinishesWith": "Runs after every candidate finishes with fresh context and read-only access.",
     "independentJudgeModelAndEffort": "Independent judge model and effort: {{value1}}{{value2}}",
     "reviewContract": "Review contract",
-    "oneCriterionPerLineTheseRemain": "One criterion per line. These remain visible in the Review stage. Leave this empty to use Stave&apos;s default rubric.",
+    "oneCriterionPerLineTheseRemain": "One criterion per line. These remain visible in the Review stage. Leave this empty to use Stave's default rubric.",
     "compareReviewCriteria": "Compare review criteria",
     "keepingACandidatePreservesItsWorkspace": "Keeping a candidate preserves its workspace. Stave closes the other compare workspaces only after your explicit Keep choice. Keeping does not merge code.",
     "prepareRunJudgeReviewKeep": "Prepare → Run → Judge → Review → Keep",

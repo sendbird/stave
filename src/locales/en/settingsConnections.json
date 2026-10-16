@@ -419,7 +419,7 @@
     "isAlreadyMapped": "{{value1}} is already mapped.",
     "credentialStored": "Credential stored",
     "notConnected": "Not connected",
-    "readYourAssignedIssuesOverOutbound": "Read your assigned issues over outbound HTTPS. The API token stays in this machine&apos;s credential vault and is never readable here.",
+    "readYourAssignedIssuesOverOutbound": "Read your assigned issues over outbound HTTPS. The API token stays in this machine's credential vault and is never readable here.",
     "enableJiraAsATaskSource": "Enable Jira as a task source",
     "siteURL": "Site URL",
     "jiraSiteURL": "Jira site URL",
