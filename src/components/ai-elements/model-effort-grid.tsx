@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Minus } from "lucide-react";
-import { type CSSProperties, type KeyboardEvent, useMemo, useRef } from "react";
+import { type CSSProperties, Fragment, type KeyboardEvent, type ReactNode, useMemo, useRef } from "react";
 import { getProviderAccentColor } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cx, sx } from "@/components/ads/utils/stylex";
@@ -59,6 +59,8 @@ export function ModelEffortGrid(args: {
   selectedModelKey?: string;
   selectedEffort?: ModelEffortValue;
   disabled?: boolean;
+  /** A full-width row drawn above the option with that key, such as an API connection's name. */
+  headings?: ReadonlyMap<string, ReactNode>;
   onChoose: (option: ModelSelectorOption, effort: ModelEffortValue) => void;
 }) {
   useTranslation();
@@ -170,7 +172,7 @@ export function ModelEffortGrid(args: {
         role="grid"
         aria-label={i18n.t("composer:modelEffortGrid.ariaLabel")}
         aria-colcount={scale.length + 1}
-        aria-rowcount={effortfulOptions.length + 1}
+        aria-rowcount={effortfulOptions.length + 1 + effortfulOptions.filter((option) => args.headings?.has(option.key)).length}
         className={sx(styles.grid)}
         style={
           {
@@ -201,8 +203,15 @@ export function ModelEffortGrid(args: {
               (effort) => effort.value,
             ),
           );
+          const heading = args.headings?.get(option.key);
           return (
-            <div key={option.key} role="row" className={sx(styles.contents)}>
+            <Fragment key={option.key}>
+            {heading ? (
+              <div role="row" className={sx(styles.contents)}>
+                <div role="gridcell" aria-colspan={scale.length + 1} className={sx(styles.sectionHeading)}>{heading}</div>
+              </div>
+            ) : null}
+            <div role="row" className={sx(styles.contents)}>
               <span
                 role="rowheader"
                 title={option.model}
@@ -296,6 +305,7 @@ export function ModelEffortGrid(args: {
                 );
               })}
             </div>
+            </Fragment>
           );
         })}
       </div>

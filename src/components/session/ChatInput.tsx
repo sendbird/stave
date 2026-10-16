@@ -1,5 +1,14 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
+import { useAccountRuntimeOptions, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
+import {
+  accountSwitchForSelection,
+  buildConnectionModelSelectorOptions,
+  readRememberedSubscriptionAccounts,
+  rememberSubscriptionAccounts,
+  selectedConnectionAccount,
+  subscriptionAccountSelection,
+  tagSelectedConnectionOptions,
+} from "@/lib/providers/account-model-options";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import {
   useDeferredValue,
@@ -474,6 +483,22 @@ function BaseChatInput() {
     cwd: workspaceCwd,
     runtimeOptions: catalogRuntimeOptions,
   });
+  const accountProfiles = useProviderAccounts((state) => state.profiles);
+  // The picker lists each runtime's own models next to its API connections,
+  // even while a connection is the selected account.
+  useEffect(() => {
+    rememberSubscriptionAccounts(accountOptions, accountProfiles);
+  }, [accountOptions, accountProfiles]);
+  const subscriptionCatalogRuntimeOptions = useMemo(
+    () => ({ ...catalogRuntimeOptions, ...subscriptionAccountSelection(accountOptions, accountProfiles, readRememberedSubscriptionAccounts()) }),
+    [accountOptions, accountProfiles, catalogRuntimeOptions],
+  );
+  const subscriptionModelCatalogs = useProviderModelCatalogs({
+    enabled: true,
+    cwd: workspaceCwd,
+    runtimeOptions: subscriptionCatalogRuntimeOptions,
+  });
+  const activeConnectionAccountId = selectedConnectionAccount(activeProvider, accountOptions, accountProfiles);
   const isEmpty = activeMessageCount === 0;
   const activeProviderAvailable = providerAvailability[activeProvider];
   const isAutoRoutingSelected =
@@ -519,6 +544,7 @@ function BaseChatInput() {
         ].entries.find((entry) => entry.model === activeModel)?.displayName,
         description: providerModelCatalogs.catalogs[activeProvider].entries.find((entry) => entry.model === activeModel)?.description,
         available: activeProviderAvailable,
+        accountProfileId: activeConnectionAccountId,
       });
   const modelEnrichment = useMemo(
     () => buildModelEnrichmentFromCatalogs(providerModelCatalogs.catalogs),
@@ -546,6 +572,32 @@ function BaseChatInput() {
       providerModelCatalogs.catalogs,
       providerAvailability,
     ],
+  );
+  const accountModelOptions = useMemo(
+    () => tagSelectedConnectionOptions(modelOptions, accountOptions, accountProfiles),
+    [accountOptions, accountProfiles, modelOptions],
+  );
+  const pickerModelOptions = useMemo<ModelSelectorOption[]>(
+    () => [
+      autoModelOption,
+      ...buildModelSelectorOptions({
+        providerIds: PROVIDER_IDS,
+        // While a runtime's account is a connection, its own models are on
+        // another account: offer them, and picking one switches back.
+        availabilityByProvider: Object.fromEntries(PROVIDER_IDS.map((providerId) => [providerId,
+          selectedConnectionAccount(providerId, accountOptions, accountProfiles) ? true : providerAvailability[providerId]])),
+        modelsByProvider: {
+          "claude-code": subscriptionModelCatalogs.catalogs["claude-code"].models,
+          codex: subscriptionModelCatalogs.catalogs.codex.models,
+          cursor: subscriptionModelCatalogs.catalogs.cursor.models,
+          kiro: subscriptionModelCatalogs.catalogs.kiro.models,
+          opencode: subscriptionModelCatalogs.catalogs.opencode.models,
+        },
+        enrichmentByModel: buildModelEnrichmentFromCatalogs(subscriptionModelCatalogs.catalogs),
+      }),
+      ...buildConnectionModelSelectorOptions({ profiles: accountProfiles, selection: accountOptions, availabilityByProvider: providerAvailability }),
+    ],
+    [accountOptions, accountProfiles, autoModelOption, providerAvailability, subscriptionModelCatalogs.catalogs],
   );
   const normalizedModelShortcutKeys = useMemo(
     () => normalizeModelShortcutKeys(modelShortcutKeys),
@@ -1024,7 +1076,8 @@ function BaseChatInput() {
           });
       }}
       selectedModelOption={selectedModelOption}
-      modelOptions={modelOptions}
+      modelOptions={pickerModelOptions}
+      accountModelOptions={accountModelOptions}
       modelCatalogs={providerModelCatalogs.catalogs}
       onRefreshModelCatalogs={providerModelCatalogs.refresh}
       modelShortcutKeys={normalizedModelShortcutKeys}
@@ -1057,6 +1110,8 @@ function BaseChatInput() {
           });
           return;
         }
+        const accountSwitch = accountSwitchForSelection({ option: selection, selection: accountOptions, profiles: accountProfiles, remembered: readRememberedSubscriptionAccounts() });
+        if (accountSwitch) updateSettings({ patch: accountSwitch });
         const nextModel = normalizeModelSelection({
           value: selection.model,
           fallback: getDefaultModelForProvider({

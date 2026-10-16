@@ -171,7 +171,13 @@ interface ChatInputComposerProps {
   canTakeOverManagedTask: boolean;
   onTakeOverManagedTask: () => void;
   selectedModelOption: ModelSelectorOption;
+  /** The model picker's rows: every runtime's own models and every API connection's. */
   modelOptions: ModelSelectorOption[];
+  /**
+   * Only the models of each runtime's selected account. Agent choice and the
+   * queue resolve models here, so they never pick a row on another account.
+   */
+  accountModelOptions?: ModelSelectorOption[];
   modelCatalogs?: Partial<
     Record<
       ModelSelectorOption["providerId"],
@@ -404,7 +410,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const agentChoice = useTaskAgentChoice({
     taskId: args.activeTaskId,
     selectedModel: args.selectedModelOption,
-    modelOptions: args.modelOptions,
+    modelOptions: args.accountModelOptions ?? args.modelOptions,
     onModelSelect: (selectionArgs) => {
       commitCurrentDraftText();
       args.onModelSelect(selectionArgs);
@@ -1029,7 +1035,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     isTurnActive: args.isTurnActive,
     canSteerQueuedTurn: canSteerQueuedTurns,
     selectedModel: args.selectedModelOption,
-    modelOptions: args.modelOptions,
+    modelOptions: args.accountModelOptions ?? args.modelOptions,
     onSteer: (itemId) => void steerQueuedTurnNow(itemId),
     onSend: (itemId) => void sendQueuedTurnNow(itemId),
     onUpdate: updateQueuedTurn,

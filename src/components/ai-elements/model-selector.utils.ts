@@ -23,6 +23,8 @@ export interface ModelSelectorOption {
   group?: string;
   /** Short tag beside the label, such as "experimental". */
   badge?: string;
+  /** The API connection this model runs on; picking it selects that connection. */
+  accountProfileId?: string;
 }
 
 export function shouldOpenModelSelector(args: {
@@ -78,9 +80,11 @@ export function buildModelSelectorValue(args: {
   label?: string;
   description?: string;
   available?: boolean;
+  /** Set when the value runs on an API connection, so it matches that connection's row. */
+  accountProfileId?: string;
 }): ModelSelectorOption {
   const model = args.model.trim();
-  return buildModelSelectorOption({
+  const option = buildModelSelectorOption({
     providerId:
       args.providerId ??
       (model ? inferProviderIdFromModel({ model }) : "claude-code"),
@@ -91,6 +95,9 @@ export function buildModelSelectorValue(args: {
     available: args.available,
     description: args.description,
   });
+  return args.accountProfileId
+    ? { ...option, key: `${option.key}@${args.accountProfileId}`, accountProfileId: args.accountProfileId }
+    : option;
 }
 
 export function buildAutoModelSelectorOption(args: {
