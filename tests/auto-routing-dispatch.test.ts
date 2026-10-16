@@ -5,6 +5,7 @@ import {
   buildAutoRoutingModelResolution,
   cancelPendingAutoRouting,
   resolveAutoRoutingForSend,
+  resolveComposerSelection,
   shouldClassifyAutoRoute,
   skipPendingAutoRoutingClassifier,
 } from "../src/store/auto-routing-dispatch";
@@ -215,4 +216,19 @@ test("the composer path holds the warm model and releases it after a compaction"
     { type: "system_event", content: "Context compacted (auto).", compactBoundary: { trigger: "auto" } },
   ])]);
   expect(compacted?.model).toBe("claude-haiku-5-5");
+});
+
+test("a send tells an Agent run whether the composer pinned its model and effort or Auto picked them", () => {
+  const routed = { source: "classifier", rationale: "implement, medium complexity → standard" } as unknown as Parameters<typeof resolveComposerSelection>[0]["decision"];
+  expect(resolveComposerSelection({ provider: "claude-code", runtimeOverrides: { autoRouting: true }, decision: routed }))
+    .toEqual({ model: "auto", effortPinned: false, rationale: "implement, medium complexity → standard" });
+  expect(resolveComposerSelection({ provider: "claude-code", runtimeOverrides: { autoRouting: true, model: "claude-opus-5-5", claudeEffort: "high" }, decision: null }))
+    .toEqual({ model: "pinned", effortPinned: true, effort: "high" });
+  // Auto turned off in the composer pins the current model, as a run's start freezes it.
+  expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: { autoRouting: false }, decision: null })).toEqual({ model: "pinned", effortPinned: false });
+  // An effort pinned for the other provider does not pin this one.
+  expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: { autoRouting: true, claudeEffort: "high" }, decision: routed }).effortPinned).toBe(false);
+  expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: undefined, decision: null })).toEqual({ model: "default", effortPinned: false });
+  expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: { autoRouting: true },
+    decision: { source: "disabled", rationale: "Auto is off" } as unknown as Parameters<typeof resolveComposerSelection>[0]["decision"] }).model).toBe("default");
 });

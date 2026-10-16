@@ -1,7 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import { formatDecisionElapsed, formatRoutingDecision } from "@/lib/providers/routing-decision-label";
 import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-profile";
-import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
+import type { AgentRunRouteCause, AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "@/lib/routing/auto-routing";
 import type { PendingAutoRoute } from "@/store/pending-auto-routing-store";
@@ -33,6 +33,12 @@ type RouteLineMessage = Pick<ChatMessage, "providerId" | "model" | "modelInfo">;
  * Reads only what the turn persisted, so a reloaded transcript draws the same
  * line the live one did.
  */
+/** Locale key for each reason an Agent run reply ran on another model. */
+const AGENT_RUN_ROUTE_KEYS = {
+  evidence: "evidence", catalog: "catalog", pinned: "pinned", "composer-pin": "composerPin", effort: "effort",
+  "change-limit": "changeLimit", cooldown: "cooldown", mechanical: "mechanical", current: "current", request: "request", route: "route",
+} as const satisfies Record<AgentRunRouteCause, string>;
+
 export function buildAutoRouteLineView(args: {
   resolution: AutoRoutingModelResolution;
   message: RouteLineMessage;
@@ -84,6 +90,7 @@ export function buildAutoRouteLineView(args: {
     `${lead}: ${modelLabel}`,
     taskLabel ? i18n.t("session:remaining.presentationCopy300", { v1: taskLabel }) : null,
     ranLabel ? i18n.t("session:autoRouteLineUtils.extraCopy138", { value1: ranLabel }) : null,
+    resolution.agentRunRoute ? i18n.t(`session:autoRouteLineUtils.agentRunRoute.${AGENT_RUN_ROUTE_KEYS[resolution.agentRunRoute.cause]}`) : null,
     resolution.routingDecision ? formatRoutingDecision(resolution.routingDecision) : null,
   ]
     .filter(Boolean)

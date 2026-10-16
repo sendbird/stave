@@ -35,9 +35,99 @@ test("automatic Decision proposals share pins, same-provider catalog, cooldown a
   expect(selectAdaptiveRoute({ ...policy, modelLocked: true }, aggregate(0), [], null, proposal).decision).toMatchObject({ accepted: false, reason: "The model is pinned." });
   expect(selectAdaptiveRoute(policy, aggregate(0), [], null, { ...proposal, model: "anthropic/claude-opus-5.5" }).decision?.accepted).toBe(false);
   const automatic = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, model: "gpt-6-luna", effort: "low" });
-  expect(selectAdaptiveRoute(policy, aggregate(1), [automatic], null, { ...proposal, model: "gpt-6.1-sol" }).decision).toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
+  // A step-up the work needs is not held; a step-down waits for the cooldown.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [automatic], null, { ...proposal, model: "gpt-6.1-sol" }).decision).toMatchObject({ accepted: true, model: "gpt-6.1-sol" });
+  const strong = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, model: "gpt-6-astra", effort: "high" });
+  const down = selectAdaptiveRoute(policy, aggregate(1), [strong], null, { ...proposal, model: "gpt-5.6-terra" });
+  expect(down.decision).toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
+  expect(down.cause).toBe("cooldown");
   const pending = request(3, "gpt-6.1-sol");
   expect(selectAdaptiveRoute(policy, aggregate(3), [linked, automatic, pending], null, proposal).requestSequence).toBe(3);
+});
+test("the cooldown counts every turn linked since the change, the user's replies included", () => {
+  const placement = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, linkedTurnCount: 0, model: "gpt-6-astra", effort: "high" });
+  const reply = event(4, "turn-linked", { stageId: "work", attempt: 1, turnId: "reply-1", reason: "user-reply" });
+  // A change that is not a step-up stays under the cooldown.
+  const lateral = event(5, "resource-request", { stageId: "work", attempt: 1,
+    request: { model: "gpt-5.6-terra", reason: "capability-mismatch", rationale: "A heavier model is not needed", evidenceRefs: ["t1"] } });
+  // One supervised turn ran on the placement: too soon.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, placement, lateral]).decision)
+    .toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
+  // A supervised turn and a reply ran on it: the change is due, though only one supervised turn started.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, placement, reply, lateral]).decision)
+    .toMatchObject({ accepted: true, model: "gpt-5.6-terra", linkedTurnCount: 2 });
+  // A decision saved before linked turns were counted keeps the supervised-turn rule.
+  const { linkedTurnCount: _unsaved, ...legacy } = placement.detail;
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, { ...placement, detail: legacy }, reply, lateral]).decision)
+    .toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
+});
+test("the user's explicit request and a needed step-up are not held by the cooldown or the change limit", () => {
+  const placement = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, linkedTurnCount: 0, model: "gpt-6-luna", effort: "low" });
+  const ask = (sequence: number, request: Record<string, unknown>) => event(sequence, "resource-request", { stageId: "work", attempt: 1,
+    request: { rationale: "Cited turn", evidenceRefs: ["t1"], ...request } });
+  // Right after the placement: a step-up for a capability gap and the user's request both go through.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, placement, ask(3, { model: "gpt-6.1-sol", reason: "capability-mismatch" })]).decision)
+    .toMatchObject({ accepted: true, model: "gpt-6.1-sol" });
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, placement, ask(3, { model: "gpt-6.1-sol", reason: "user-request" })]).decision)
+    .toMatchObject({ accepted: true, model: "gpt-6.1-sol", reason: "user-request" });
+  // Two changes spent: a user request may still step down, a capability step-up may still go up, a mechanical step may not.
+  const changed = [linked, placement,
+    event(3, "resource-decision", { accepted: true, requestSequence: 3, turnCount: 1, linkedTurnCount: 1, model: "gpt-6.1-sol", effort: "high" })];
+  expect(selectAdaptiveRoute(policy, aggregate(1), [...changed, ask(4, { model: "gpt-6-luna", effort: "low", reason: "user-request" })]).decision)
+    .toMatchObject({ accepted: true, model: "gpt-6-luna" });
+  expect(selectAdaptiveRoute(policy, aggregate(1), [...changed, ask(4, { effort: "xhigh", reason: "capability-mismatch" })]).decision)
+    .toMatchObject({ accepted: true, effort: "xhigh" });
+  expect(selectAdaptiveRoute(policy, aggregate(5), [...changed, ask(4, { model: "gpt-5.6-terra", reason: "mechanical-step" })]).decision)
+    .toMatchObject({ accepted: false, reason: "The change limit is reached." });
+  // Pins and the eligible catalog still bound a user request relayed by the Agent.
+  expect(selectAdaptiveRoute({ ...policy, modelLocked: true }, aggregate(1), [linked, ask(3, { model: "gpt-6-luna", reason: "user-request" })]).decision)
+    .toMatchObject({ accepted: false, reason: "The model is pinned." });
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, ask(3, { model: "claude-opus-5-5", reason: "user-request" })]).decision)
+    .toMatchObject({ accepted: false, reason: "The model is outside this Run's same-provider eligible catalog." });
+});
+test("a composer pin overrides the route, frozen pins and proposals until the composer returns to Auto", () => {
+  const locked = { ...policy, allowedModels: ["gpt-6-luna"], modelLocked: true };
+  const placement = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, linkedTurnCount: 0, model: "gpt-6-luna", effort: "low" });
+  const pinSol = { modelPinned: true, effortPinned: false, model: "gpt-6.1-sol" };
+  // A pin replaces the run's frozen model, even outside its frozen catalog.
+  const pinned = selectAdaptiveRoute(locked, aggregate(1), [linked, placement], null, undefined, pinSol);
+  expect(pinned).toMatchObject({ model: "gpt-6.1-sol", composerPin: { model: true, effort: false }, composerRefusal: null });
+  expect(pinned.composerDecision).toMatchObject({ source: "composer", accepted: true, model: "gpt-6.1-sol", modelPinned: true });
+  const saved = event(3, "resource-decision", pinned.composerDecision!);
+  // The same pin on the next reply records nothing new.
+  expect(selectAdaptiveRoute(locked, aggregate(1), [linked, placement, saved], null, undefined, pinSol).composerDecision).toBeNull();
+  // While pinned, the automatic proposal and the Agent's request are refused, and supervised turns keep the pin.
+  const automatic = selectAdaptiveRoute(policy, aggregate(4), [linked, placement, saved], null, { model: "gpt-6-luna", rationale: "Low" });
+  expect(automatic).toMatchObject({ model: "gpt-6.1-sol", cause: "composer-pin" });
+  const asked = event(4, "resource-request", { stageId: "work", attempt: 1, request: { model: "gpt-6-astra", reason: "user-request", rationale: "x", evidenceRefs: ["t1"] } });
+  expect(selectAdaptiveRoute(policy, aggregate(4), [linked, placement, saved, asked]).decision).toMatchObject({ accepted: false, reason: "The model is pinned in the composer." });
+  // Back on Auto: the release is recorded once, the model stays, and adaptation resumes from it.
+  const released = selectAdaptiveRoute(policy, aggregate(4), [linked, placement, saved], null, undefined, { modelPinned: false, effortPinned: false });
+  expect(released).toMatchObject({ model: "gpt-6.1-sol", composerPin: null });
+  expect(released.composerDecision).toMatchObject({ source: "composer", modelPinned: false, model: "gpt-6.1-sol" });
+  const free = event(5, "resource-decision", released.composerDecision!);
+  expect(selectAdaptiveRoute(policy, aggregate(4), [linked, placement, saved, free], null, { model: "gpt-6-astra", effort: "xhigh", rationale: "Harder" }).decision)
+    .toMatchObject({ accepted: true, model: "gpt-6-astra" });
+  expect(selectAdaptiveRoute(policy, aggregate(4), [linked, placement, saved, free], null, undefined, { modelPinned: false, effortPinned: false }).composerDecision).toBeNull();
+  // A run that froze its model at start gets it back when the pin is released, instead of staying on the pin.
+  const restored = selectAdaptiveRoute(locked, aggregate(4), [linked, placement, saved], null, undefined, { modelPinned: false, effortPinned: false });
+  expect(restored).toMatchObject({ model: "gpt-6-luna", composerPin: null });
+  expect(restored.composerDecision).toMatchObject({ source: "composer", modelPinned: false, model: "gpt-6-luna" });
+  // A pin this provider cannot run, or one the account catalog lacks, refuses the reply.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked], null, undefined, { ...pinSol, model: "claude-opus-5-5" }).composerRefusal).toContain("not available");
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked], [{ model: "gpt-6-luna", supportedEfforts: [] }], undefined, pinSol).composerRefusal).toContain("not available");
+  // Without a cached catalog, a model the built-in catalog does not know is taken as the composer offered it.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked], null, undefined, { ...pinSol, model: "gpt-7-preview" }).composerRefusal).toBeNull();
+  // A model only the fresh account catalog knows can be pinned.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked], [{ model: "gpt-7-preview", supportedEfforts: ["high"] }], undefined,
+    { ...pinSol, model: "gpt-7-preview" })).toMatchObject({ model: "gpt-7-preview", composerRefusal: null });
+  // A pinned effort the pinned model does not support refuses it too.
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked], [{ model: "gpt-6.1-sol", supportedEfforts: ["medium"] }], undefined,
+    { ...pinSol, effortPinned: true, effort: "ultra" }).composerRefusal).toContain("effort");
+});
+test("an explicit request outranks the automatic proposal and says so", () => {
+  const pending = event(3, "resource-request", { stageId: "work", attempt: 1, request: { model: "gpt-6-astra", reason: "user-request", rationale: "Asked", evidenceRefs: ["t1"] } });
+  expect(selectAdaptiveRoute(policy, aggregate(1), [linked, pending], null, { model: "gpt-6-luna", rationale: "Low" })).toMatchObject({ model: "gpt-6-astra", cause: "request" });
 });
 test("explicit model and effort pins are frozen without taking a caller authority field", () => {
   const p = freezeAdaptivePolicy({ providerId: "codex", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 100,

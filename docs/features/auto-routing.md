@@ -193,10 +193,15 @@ change the default. An Agent's Auto-routing settings can override the global
 Decision model, or inherit it. Saved Agent snapshots keep their overrides.
 Fixed or composer-pinned models bypass classification. Saved-Agent delegates and
 Agent runs use the same Decision setting within their admitted provider
-and model catalog. A run's recommendations still obey its [team limits](./agents.md#team-limits):
-model/effort pins, the two-change limit, two-turn cooldown and shared turn budget. Explicit resource
-requests take priority over automatic recommendations. A classification that
-requires a model outside the allowed catalog cannot widen that catalog.
+and model catalog, and so does your reply in a run: the route Auto picks for
+it is the run's recommendation for that turn. A run's recommendations still
+obey its [team limits](./agents.md#team-limits): model/effort pins and the
+shared turn budget always, and the two-change limit and two-turn cooldown
+except for a step-up to a stronger model. Explicit resource requests take
+priority over automatic recommendations, and a model pinned in the composer
+takes priority over both. A classification that requires a model outside the
+allowed catalog cannot widen that catalog. When a run reply runs on another
+model than Auto picked, its route line names the model it ran on and why.
 
 Gateway classification uses the Decision HTTP API without a coding CLI or
 tools. A missing key, rejected request, exhausted budget, invalid response or

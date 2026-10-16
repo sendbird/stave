@@ -234,6 +234,24 @@ export async function resolveAutoRoutingForSend(args: {
 }
 
 
+/**
+ * How the composer chose a send's model and effort, so an Agent run reply can
+ * follow a pin and weigh an Auto pick. A pin is the model or effort set in the
+ * composer, or Auto turned off there; the same rule freezes a run's pins at start.
+ */
+export function resolveComposerSelection(args: {
+  provider: ProviderId;
+  runtimeOverrides: PromptDraft["runtimeOverrides"];
+  decision: AutoRoutingDecision | null;
+}): NonNullable<import("@/lib/providers/provider.types").ProviderRuntimeOptions["composerSelection"]> {
+  const overrides = args.runtimeOverrides;
+  const modelPinned = Boolean(overrides?.model?.trim()) || overrides?.autoRouting === false || args.decision?.source === "manual";
+  const routed = !modelPinned && args.decision !== null && args.decision.source !== "disabled";
+  const effort = args.provider === "codex" ? overrides?.codexReasoningEffort : args.provider === "claude-code" ? overrides?.claudeEffort : undefined;
+  const rationale = routed ? args.decision?.rationale.trim().slice(0, 1_000) : undefined;
+  return { model: modelPinned ? "pinned" : routed ? "auto" : "default", effortPinned: Boolean(effort), ...(effort ? { effort } : {}), ...(rationale ? { rationale } : {}) };
+}
+
 /** The `model_resolved` event a routed send records first on its turn; null when nothing was routed. */
 export function buildAutoRoutingModelResolvedEvent(args: {
   decision: AutoRoutingDecision | null;

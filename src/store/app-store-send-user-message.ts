@@ -29,6 +29,7 @@ import {
   buildAutoRoutingModelResolvedEvent,
   isAutoRoutingUnavailableForSend,
   resolveAutoRoutingForSend,
+  resolveComposerSelection,
 } from "@/store/auto-routing-dispatch";
 import { partitionStalePrContexts } from "@/lib/pr-context";
 import { isTaskManaged } from "@/lib/tasks";
@@ -1616,7 +1617,8 @@ export function createSendUserMessageAction(args: {
         workspaceId: taskWorkspaceId,
         cwd: workspaceCwd,
         runtimeOptions: applyRepositoryBasePromptToRuntimeOptions({
-          runtimeOptions: providerRuntimeOptions,
+          runtimeOptions: { ...providerRuntimeOptions,
+            composerSelection: resolveComposerSelection({ provider, runtimeOverrides: promptDraft.runtimeOverrides, decision: autoRoutingDecision }) },
           repositoryBasePrompt: resolveRepositoryBasePrompt({
             repositoryPath: get().repositoryPath,
             recentRepositories: get().recentRepositories,

@@ -6,6 +6,8 @@ import {
   formatRouteElapsed,
 } from "../src/components/session/auto-route-line.utils";
 import type { AutoRoutingModelResolution } from "../src/lib/providers/provider.types";
+import { AutoRoutingModelResolutionSchema } from "../src/lib/providers/model-resolution";
+import { appendProviderEventToAssistant } from "../src/lib/session/provider-event-replay";
 import {
   AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE,
   AUTO_ROUTING_CLASSIFIER_UNAVAILABLE_RATIONALE,
@@ -46,6 +48,26 @@ describe("buildAutoRouteLineView", () => {
     expect(view.description).toContain("gpt-6-luna");
     expect(view.description).toContain("budget exhausted");
     expect(view.description).toContain("unknown");
+  });
+  test("an Agent run reply that ran elsewhere names the model and the run's reason", () => {
+    const view = buildAutoRouteLineView({
+      resolution: { ...RESOLUTION, selectedModel: "gpt-6-luna", agentRunRoute: { cause: "cooldown" } },
+      message: { ...MESSAGE, model: "gpt-6.1-sol" },
+    });
+    expect(view.ranLabel).not.toBeNull();
+    expect(view.description).toContain("ran on");
+    expect(view.description).toContain("the Agent run kept its route during the two-turn cooldown");
+  });
+  test("an Agent run correction keeps Auto's pick on the line and adds the run's reason", () => {
+    const routed = { ...MESSAGE, id: "m1", role: "assistant", content: "", isStreaming: true, parts: [], modelResolution: RESOLUTION } as unknown as ChatMessage;
+    const corrected = appendProviderEventToAssistant({ message: routed,
+      event: { type: "model_resolved", resolvedProviderId: "codex", resolvedModel: "gpt-6.1-sol", agentRunRoute: { cause: "change-limit" } } });
+    expect(corrected.model).toBe("gpt-6.1-sol");
+    expect(corrected.modelResolution).toMatchObject({ selectedModel: RESOLUTION.selectedModel, agentRunRoute: { cause: "change-limit" } });
+    expect(AutoRoutingModelResolutionSchema.safeParse(corrected.modelResolution).success).toBe(true);
+    // A provider's own model report without a run reason keeps the recorded route as it was.
+    const plain = appendProviderEventToAssistant({ message: routed, event: { type: "model_resolved", resolvedProviderId: "codex", resolvedModel: "gpt-6-astra" } });
+    expect(plain.modelResolution).toEqual(RESOLUTION);
   });
   test("reads a classifier decision as model, effort, task class and wait", () => {
     const view = buildAutoRouteLineView({ resolution: RESOLUTION, message: MESSAGE });

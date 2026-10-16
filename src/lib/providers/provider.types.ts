@@ -23,6 +23,11 @@ export type ClaudeSettingSource = "user" | "project" | "local";
  * Evidence emitted only when Stave selected a primary model through automatic
  * routing. Explicit user selections deliberately carry no inferred rationale.
  */
+/** Why an Agent run reply ran on another model than its route chose. */
+export type AgentRunRouteCause =
+  | "evidence" | "catalog" | "pinned" | "composer-pin" | "effort" | "change-limit" | "cooldown" | "mechanical" | "current"
+  | "request" | "route";
+
 export interface AutoRoutingModelResolution {
   routingDecision?: import("./routing-decision").RoutingDecisionObservation;
   /** Target selected by automatic routing before the runtime confirms execution. */
@@ -47,6 +52,8 @@ export interface AutoRoutingModelResolution {
   stance?: string;
   /** Wall time spent waiting on the classifier, when one ran for this turn. */
   classifierElapsedMs?: number;
+  /** Set when the turn was an Agent run reply that the run moved to another model. */
+  agentRunRoute?: { cause: AgentRunRouteCause };
 }
 
 export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";
@@ -1058,6 +1065,8 @@ export type NormalizedProviderEvent =
       modelExecution?: ModelExecution;
       /** Present only for Stave's automatic primary-model routing decision. */
       modelResolution?: AutoRoutingModelResolution;
+      /** An Agent run reply ran on this model instead of the routed one, for this reason. */
+      agentRunRoute?: { cause: AgentRunRouteCause };
     }
   | { type: "error"; message: string; recoverable: boolean }
   | {
@@ -1263,6 +1272,18 @@ export interface ProviderRuntimeOptions {
   agentInstructions?: string;
   /** Host-owned opt-in for the assigned primary agent; caller values are dropped at turn entry. */
   nativePlanTools?: boolean;
+  /**
+   * How the composer chose this turn's model and effort. An Agent run reply
+   * follows a pin and weighs an Auto pick; the turn entry drops it before any
+   * provider sees the options.
+   */
+  composerSelection?: {
+    model: "auto" | "pinned" | "default";
+    effortPinned: boolean;
+    /** The pinned effort itself: Auto may replace the turn's effort option with its own pick. */
+    effort?: string;
+    rationale?: string;
+  };
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */
   responseStylePrompt?: string;

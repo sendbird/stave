@@ -10,5 +10,5 @@ export function teamLimitsContextPart(policy: AdaptiveRunPolicy, budget: AgentRe
       currentTurnKey: turnKey,
       instruction: "Complete and verify this stage within the shared turn budget. A supervised saved-Agent helper reserves turns from it; one-turn and detached helpers do not. "
         + (helperKeepsParentProvider(policy) ? "Helpers stay on this run's provider. " : "A helper Agent may run on its own provider. ")
-        + "Read stave_get_agent_run for linked stage turn ids. If another same-provider model or effort is justified by these turns, propose it with stave_request_agent_resources for the next turn. Permissions and pinned settings do not change. Environment/permission failures are blockers, not capability escalation evidence." }) };
+        + "Read stave_get_agent_run for linked stage turn ids. If another same-provider model or effort is justified by these turns, propose it with stave_request_agent_resources for the next turn. When the user explicitly asks for a model or effort, propose it at once with reason user-request, citing the turn where they asked. Permissions and pinned settings do not change. Environment/permission failures are blockers, not capability escalation evidence." }) };
 }
