@@ -9,6 +9,7 @@ import type { ResolvedWorkspaceScriptOrbitConfig } from "../../../src/lib/worksp
 
 export const ORBIT_URL_MARKER = "__STAVE_ORBIT_URL__=";
 export const DEFAULT_ORBIT_PROXY_PORT = 1355;
+const ORBIT_OUTPUT_BUFFER_MAX_CHARS = 64 * 1024;
 const UNSUPPORTED_SHELL_META_CHARS = new Set([
   "|",
   "&",
@@ -251,7 +252,11 @@ export function extractOrbitOutput(args: { buffer: string; chunk: string }) {
   if (combined.endsWith("\n")) {
     lines.pop();
   }
-  const nextBuffer = combined.endsWith("\n") ? "" : (lines.pop() ?? "");
+  let nextBuffer = combined.endsWith("\n") ? "" : (lines.pop() ?? "");
+  // Output that never ends a line (a spinner redrawing with \r) cannot hold
+  // the short URL marker; pass it through unchanged instead of growing.
+  const overflow = nextBuffer.length > ORBIT_OUTPUT_BUFFER_MAX_CHARS ? nextBuffer : "";
+  if (overflow) nextBuffer = "";
   const orbitUrls: string[] = [];
   const passthroughLines: string[] = [];
 
@@ -270,6 +275,6 @@ export function extractOrbitOutput(args: { buffer: string; chunk: string }) {
     buffer: nextBuffer,
     orbitUrls,
     output:
-      passthroughLines.length > 0 ? `${passthroughLines.join("\n")}\n` : "",
+      (passthroughLines.length > 0 ? `${passthroughLines.join("\n")}\n` : "") + overflow,
   };
 }

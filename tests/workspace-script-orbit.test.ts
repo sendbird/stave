@@ -157,4 +157,20 @@ describe("extractOrbitOutput", () => {
     expect(second.output).toBe("partial\n");
     expect(second.buffer).toBe("");
   });
+
+  test("passes through a tail that never ends a line once it exceeds 64KB", () => {
+    const frame = "\r⠋ building";
+    let buffer = "ready\n";
+    let output = "";
+    let chunks = 0;
+    while (output.length === 0 || buffer.length > 0) {
+      const parsed = extractOrbitOutput({ buffer, chunk: frame.repeat(512) });
+      buffer = parsed.buffer;
+      output += parsed.output;
+      chunks += 1;
+      expect(buffer.length).toBeLessThanOrEqual(64 * 1024);
+      if (chunks > 100) throw new Error("orbit buffer never flushed");
+    }
+    expect(output).toBe(`ready\n${frame.repeat(512 * chunks)}`);
+  });
 });
