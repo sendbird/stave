@@ -103,6 +103,12 @@ export function describeRuleConditions(rule: RouteRule): string[] {
   return parts.length > 0 ? parts : [i18n.t("settingsConnections:flow.always")];
 }
 
+/** The conditions as one line that starts like a sentence: `Plan · sensitive`, `Always`. */
+export function formatRuleConditions(rule: RouteRule): string {
+  const line = describeRuleConditions(rule).join(" · ");
+  return line.charAt(0).toLocaleUpperCase(i18n.language) + line.slice(1);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Signals                                                                    */
 /* -------------------------------------------------------------------------- */
@@ -531,7 +537,7 @@ export function RouteFlow(props: RouteFlowProps) {
                 <span className={sx(styles.ruleId, !lit && styles.ruleIdMuted)}>{rule.id}</span>
               </span>
               <span className={sx(styles.caption)}>
-                {describeRuleConditions(rule).join(" · ")}
+                {formatRuleConditions(rule)}
               </span>
               {skipped && !compact ? (
                 <span className={sx(styles.caption)} data-rule-miss>

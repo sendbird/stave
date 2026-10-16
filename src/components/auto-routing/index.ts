@@ -1,6 +1,7 @@
 export {
   describeRuleConditions,
   explainRuleMiss,
+  formatRuleConditions,
   RouteFlow,
   type RouteFlowProps,
 } from "./RouteFlow";

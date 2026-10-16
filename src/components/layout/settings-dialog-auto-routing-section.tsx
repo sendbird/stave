@@ -5,8 +5,11 @@ import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { describeRuleConditions, RouteFlow } from "@/components/auto-routing";
+import { formatRuleConditions, RouteFlow } from "@/components/auto-routing";
+import { formatEffortLabel } from "@/lib/delegation/format";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { accountStyles } from "./provider-accounts.styles";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -133,7 +136,7 @@ function describeRuleTarget(rule: RouteRule) {
         ? ROUTE_TIER_LABELS[rule.then.tier]
         : i18n.t("settingsConnections:settingsDialogAutoRoutingSection.providerDefault");
   const effort = rule.then.effort
-    ? i18n.t("settingsConnections:settingsDialogAutoRoutingSection.effort", { value1: rule.then.effort.slice(0, 1).toUpperCase(), value2: rule.then.effort.slice(1) })
+    ? i18n.t("settingsConnections:settingsDialogAutoRoutingSection.effort", { effort: formatEffortLabel(rule.then.effort) })
     : null;
   return [provider, target, effort].filter(Boolean).join(" · ");
 }
@@ -428,7 +431,7 @@ function RuleRow(args: {
           />
           <span className={sx(styles.ruleSummary)}>
             <span className={sx(styles.ruleWhen)}>
-              {describeRuleConditions(rule).join(" · ")}
+              {formatRuleConditions(rule)}
             </span>
             <span className={sx(styles.ruleArrow)} aria-hidden="true">→</span>
             <span className={sx(styles.ruleThen)}>{describeRuleTarget(rule)}</span>
@@ -717,6 +720,7 @@ export function SettingsAutoRoutingSection(props: {
 
   const roleGroups = useMemo(() => buildRoleTableGroups(profile.rules), [profile.rules]);
 
+  const [confirmingRulesReset, setConfirmingRulesReset] = useState(false);
   const [testPrompt, setTestPrompt] = useState("");
   const [testRole, setTestRole] = useState<RouterRole>("primary");
   const [testProvider, setTestProvider] = useState<ProviderId>("claude-code");
@@ -751,11 +755,6 @@ export function SettingsAutoRoutingSection(props: {
         tabIndex={-1}
         title={t("settings:sections.autoRouting.label")}
         description={t("settingsConnections:settingsDialogAutoRoutingSection.autoReadsEachRequestRatesHow")}
-        titleAccessory={
-          <Badge variant={autoRoutingEnabled ? "secondary" : "outline"}>
-            {autoRoutingEnabled ? t("common:status.on") : t("common:status.off")}
-          </Badge>
-        }
       >
         <SwitchField
           title={t("settings:sections.fields.autoRoutingEnabled.title")}
@@ -763,6 +762,11 @@ export function SettingsAutoRoutingSection(props: {
           checked={autoRoutingEnabled}
           onCheckedChange={(checked) => updateSettings({ patch: { autoRoutingEnabled: checked } })}
         />
+        {autoRoutingEnabled ? null : (
+          <p role="status" className={sx(accountStyles.attention)}>
+            {t("settingsConnections:settingsDialogAutoRoutingSection.autoOffNotice")}
+          </p>
+        )}
         <LabeledField layout="stacked"
           title={t("settingsConnections:settingsDialogAutoRoutingSection.preference")}
           description={t("settingsConnections:settingsDialogAutoRoutingSection.setsTheEffortInsideEachLevel")}
@@ -779,6 +783,17 @@ export function SettingsAutoRoutingSection(props: {
           <p className={sx(styles.stanceNote)}>{STANCE_DESCRIPTIONS[profile.stance]}</p>
         </LabeledField>
       </SettingsCard>
+      <SettingsCard id={ROUTING_DECISION_SETTING_FIELD_ID} title={t("settingsProviders:routingDecision.title")} description={t("settingsProviders:routingDecision.description")}>
+        <SwitchField
+          title={t("settingsConnections:settingsDialogAutoRoutingSection.modelClassification")}
+          description={t("settingsConnections:settingsDialogAutoRoutingSection.theUtilityModelRatesIntentLevel")}
+          checked={profile.signals.classifier}
+          onCheckedChange={(classifier) =>
+            edit((draft) => ({ ...draft, signals: { ...draft.signals, classifier } }))
+          }
+        />
+        <GlobalRoutingDecisionField />
+      </SettingsCard>
       <SettingsCard
         title={t("settingsConnections:settingsDialogAutoRoutingSection.routingLevels")}
         description={t("settingsConnections:settingsDialogAutoRoutingSection.mostWorkIsStandardExpertAnd")}
@@ -789,9 +804,6 @@ export function SettingsAutoRoutingSection(props: {
           exclusiveModelsByProvider={exclusiveModelsByProvider}
           onLevelChange={(complexity, setting) => edit((draft) => withRouteLevel(draft, complexity, setting))}
         />
-      </SettingsCard>
-      <SettingsCard id={ROUTING_DECISION_SETTING_FIELD_ID} title={t("settingsProviders:routingDecision.title")} description={t("settingsProviders:routingDecision.description")}>
-        <GlobalRoutingDecisionField />
       </SettingsCard>
       <SettingsCard
         title={t("settingsConnections:settingsDialogAutoRoutingSection.allowedModels")}
@@ -806,7 +818,7 @@ export function SettingsAutoRoutingSection(props: {
                 title={getProviderLabel({ providerId })}
               >
                 <ToggleChipGroup
-                  allLabel={i18n.t("common:labels.default")}
+                  allLabel={t("settingsConnections:settingsDialogAutoRoutingSection.allModelsDefault")}
                   onSelectAll={() =>
                     edit((draft) => {
                       const { [providerId]: _dropped, ...rest } = draft.eligibleModelsByProvider;
@@ -843,16 +855,10 @@ export function SettingsAutoRoutingSection(props: {
         title={t("settingsConnections:settingsDialogAutoRoutingSection.advancedSettings")}
       >
             <SectionStack>
-      <SettingsCard title={t("settingsConnections:settingsDialogAutoRoutingSection.classificationAndSignals")} description={t("settingsConnections:settingsDialogAutoRoutingSection.whatAutoMayReadBeforeIt")}>
+      <SettingsAutoRoutingWizard samplesOverride={props.wizardSamples} />
+
+      <SettingsCard title={t("settingsConnections:settingsDialogAutoRoutingSection.routingSignals")} description={t("settingsConnections:settingsDialogAutoRoutingSection.whatAutoMayReadBeforeIt")}>
         <div className={sx(styles.signalsList)}>
-          <SwitchField
-            title={t("settingsConnections:settingsDialogAutoRoutingSection.modelClassification")}
-            description={t("settingsConnections:settingsDialogAutoRoutingSection.theUtilityModelRatesIntentLevel")}
-            checked={profile.signals.classifier}
-            onCheckedChange={(classifier) =>
-              edit((draft) => ({ ...draft, signals: { ...draft.signals, classifier } }))
-            }
-          />
           <SwitchField
             title={t("settingsConnections:settingsDialogAutoRoutingSection.safetyEscalation")}
             description={t("settingsConnections:settingsDialogAutoRoutingSection.changesToAuthSecretsPaymentsOr")}
@@ -867,14 +873,6 @@ export function SettingsAutoRoutingSection(props: {
             checked={profile.signals.skillRouting}
             onCheckedChange={(skillRouting) =>
               edit((draft) => ({ ...draft, signals: { ...draft.signals, skillRouting } }))
-            }
-          />
-          <SwitchField
-            title={t("settingsConnections:settingsDialogAutoRoutingSection.providerSwitch")}
-            description={t("settingsConnections:settingsDialogAutoRoutingSection.letAutoMoveATaskTo")}
-            checked={profile.signals.providerSwitch}
-            onCheckedChange={(providerSwitch) =>
-              edit((draft) => ({ ...draft, signals: { ...draft.signals, providerSwitch } }))
             }
           />
         </div>
@@ -895,6 +893,7 @@ export function SettingsAutoRoutingSection(props: {
             <DraftInput
               xstyle={styles.thresholdInput}
               inputMode="numeric"
+              disabled={!profile.signals.budgetGuard}
               aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.stepDownThresholdPercent")}
               value={String(profile.budgetGuard.stepDownAt)}
               onCommit={(value) => {
@@ -913,6 +912,7 @@ export function SettingsAutoRoutingSection(props: {
             <DraftInput
               xstyle={styles.thresholdInput}
               inputMode="numeric"
+              disabled={!profile.signals.budgetGuard}
               aria-label={t("settingsConnections:settingsDialogAutoRoutingSection.cheapestThresholdPercent")}
               value={String(profile.budgetGuard.cheapestAt)}
               onCommit={(value) => {
@@ -929,8 +929,6 @@ export function SettingsAutoRoutingSection(props: {
         </div>
       </SettingsCard>
 
-      <SettingsAutoRoutingWizard samplesOverride={props.wizardSamples} />
-
       <SettingsProviderStrengths profile={profile} edit={edit} />
 
       <SettingsCard
@@ -938,7 +936,7 @@ export function SettingsAutoRoutingSection(props: {
         description={t("settingsConnections:settingsDialogAutoRoutingSection.theLevelsAboveAreTheseRules")}
         titleAccessory={
           <Button type="button" variant="quiet" size="sm"
-            onClick={() => edit((draft) => ({ ...draft, rules: buildStarterRules() }))}>
+            onClick={() => setConfirmingRulesReset(true)}>
             {t("settingsConnections:settingsDialogAutoRoutingSection.resetToDefaults")}</Button>
         }
       >
@@ -1101,6 +1099,17 @@ export function SettingsAutoRoutingSection(props: {
       </SettingsCard>
             </SectionStack>
       </SettingsAdvancedDisclosure>
+      <ConfirmDialog
+        open={confirmingRulesReset}
+        title={t("settingsConnections:settingsDialogAutoRoutingSection.resetRulesTitle")}
+        description={t("settingsConnections:settingsDialogAutoRoutingSection.resetRulesDescription")}
+        confirmLabel={t("settingsConnections:settingsDialogAutoRoutingSection.resetToDefaults")}
+        onConfirm={() => {
+          edit((draft) => ({ ...draft, rules: buildStarterRules() }));
+          setConfirmingRulesReset(false);
+        }}
+        onCancel={() => setConfirmingRulesReset(false)}
+      />
     </SectionStack>
   );
 }

@@ -27,7 +27,8 @@ import {
   type StrengthProviderId,
   type StrengthArea,
 } from "@/lib/providers/provider-strength-presets";
-import { SettingsCard, SwitchField } from "./settings-dialog.shared";
+import { LabeledField, SettingsCard, SwitchField } from "./settings-dialog.shared";
+import { accountStyles } from "./provider-accounts.styles";
 import { autoRoutingSectionStyles as styles } from "./settings-dialog-auto-routing-section.styles";
 
 const KEEP_VALUE = "keep";
@@ -50,10 +51,12 @@ const CONFIDENCE_LABELS: Readonly<Record<StrengthConfidence, string>> = {
 };
 
 /**
- * Settings → Auto: which provider each kind of work starts on. A row is a
- * provider-only rule whose model follows the level; nothing is stored until
- * the user turns the table on or edits a row, and until then the table shows
- * the cautious preset as a suggestion.
+ * Settings → Auto: which provider runs a task. The table picks the provider a
+ * task starts on by the kind of work; a row is a provider-only rule whose
+ * model follows the level. Nothing is stored until the user turns the table
+ * on or edits a row, and until then it shows the cautious preset as a
+ * suggestion. The mid-task switch lives here too because it decides whether
+ * those same rules may move a task that has already started.
  */
 export function SettingsProviderStrengths(props: {
   profile: AutoRoutingProfile;
@@ -84,7 +87,17 @@ export function SettingsProviderStrengths(props: {
     <SettingsCard
       title={t("providers:providerStrengths.title")}
       description={t("providers:providerStrengths.description")}
-      titleAccessory={
+    >
+      <SwitchField
+        title={t("providers:providerStrengths.enable")}
+        description={t("providers:providerStrengths.enableDescription")}
+        checked={stored.enabled}
+        onCheckedChange={(enabled) => write({ enabled })}
+      />
+      {stored.enabled ? null : (
+        <p role="status" className={sx(accountStyles.attention)}>{t("providers:providerStrengths.offNote")}</p>
+      )}
+      <LabeledField layout="stacked" title={t("providers:providerStrengths.preset")}>
         <Select
           value={preset?.id ?? CUSTOM_PRESET_VALUE}
           onValueChange={(value) => {
@@ -108,14 +121,7 @@ export function SettingsProviderStrengths(props: {
             )}
           </SelectContent>
         </Select>
-      }
-    >
-      <SwitchField
-        title={t("providers:providerStrengths.enable")}
-        description={t("providers:providerStrengths.enableDescription")}
-        checked={stored.enabled}
-        onCheckedChange={(enabled) => write({ enabled })}
-      />
+      </LabeledField>
       <table className={sx(styles.levelTable)} data-testid="provider-strengths">
         <thead>
           <tr>
@@ -144,6 +150,17 @@ export function SettingsProviderStrengths(props: {
       <p className={sx(styles.stanceNote)}>
         {t("providers:providerStrengths.hypothesisNote", { date: (preset ?? suggested).asOf })}
       </p>
+      <div className={sx(accountStyles.section)}>
+        <SwitchField
+          title={t("providers:providerStrengths.midTask")}
+          description={t("providers:providerStrengths.midTaskDescription")}
+          checked={props.profile.signals.providerSwitch}
+          onCheckedChange={(providerSwitch) =>
+            props.edit((draft) => ({ ...draft, signals: { ...draft.signals, providerSwitch } }))
+          }
+        />
+      </div>
+      <p className={sx(styles.stanceNote)}>{t("providers:providerStrengths.privacyNote")}</p>
     </SettingsCard>
   );
 }

@@ -25,7 +25,7 @@ async function render(profile = buildStarterProfile("starter-balanced")) {
 describe("Provider strengths card", () => {
   test("an untouched profile shows the cautious preset as a suggestion, off, with sources", async () => {
     const html = await render();
-    expect(html).toContain("Provider strengths");
+    expect(html).toContain("Provider switching");
     expect(html).toContain("data-testid=\"provider-strengths\"");
     expect(html).toContain("Confident only");
     expect(html).toContain("aria-checked=\"false\"");
@@ -47,5 +47,13 @@ describe("Provider strengths card", () => {
     const html = await render(profile);
     expect(html).toContain("Custom");
     expect(html).toContain("aria-checked=\"true\"");
+  });
+
+  test("both provider switches live in one card, and an off table says it does not apply", async () => {
+    const html = await render();
+    expect(html).toContain("Start on the stronger provider");
+    expect(html).toContain("Off: the table below does not apply until you turn this on.");
+    expect(html).toContain("Switch provider mid-task");
+    expect(html).toContain("at most 12,000 characters");
   });
 });

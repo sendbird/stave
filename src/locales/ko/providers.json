@@ -28,6 +28,9 @@
   },
   "autoRoutingProfile": {
     "balanced": "균형",
+    "costSaver": "비용 절약",
+    "qualityFirst": "품질 우선",
+    "safetyCritical": "안전 민감",
     "sameModelsEachLevelRunsAt": "같은 모델을 사용하며 각 수준에서 추론 범위의 낮은 값을 적용합니다.",
     "sameModelsEachLevelRunsAtVariant2ab0fa3e": "같은 모델을 사용하며 각 수준에서 권장 추론 수준을 적용합니다.",
     "sameModelsEachLevelRunsAtVariantc38c22b1": "같은 모델을 사용하며 각 수준에서 추론 범위의 높은 값을 적용합니다.",
@@ -74,7 +77,9 @@
     "preferredProviderUnavailable": "에이전트가 선호하는 {{provider}}을(를) 지금 쓸 수 없습니다.",
     "staysOnProviderInsideTask": "이 작업 안에서는 {{provider}}을(를) 유지합니다. {{other}}은(는) 다음 작업부터 적용됩니다.",
     "domainUi": "UI 작업",
-    "domainLogic": "로직 작업"
+    "domainLogic": "로직 작업",
+    "rolePrimary": "기본",
+    "tierLight": "경량"
   },
   "autoRoutingWizard": {
     "ofYourTurnsRanOnFrontier": "턴의 {{value1}}%를 최상위 또는 주력 모델로 실행했습니다.",
@@ -506,8 +511,8 @@
     "rateWindow": "요청 한도"
   },
   "providerStrengths": {
-    "title": "프로바이더 강점",
-    "description": "작업 종류별로 작업이 시작할 프로바이더를 정합니다. 모델은 계속 레벨이 고릅니다. 프로바이더는 작업의 첫 턴에서만 바뀌므로 리뷰 → 수정 → 리뷰가 오가지 않습니다.",
+    "title": "프로바이더 전환",
+    "description": "작업 종류에 따라 어느 프로바이더가 작업을 실행할지 정합니다. 모델은 계속 수준이 고릅니다.",
     "preset": "프리셋",
     "presets": {
       "confident": "근거가 확실한 것만",
@@ -515,8 +520,8 @@
       "planBuildReview": "Claude 작성, Codex 리뷰"
     },
     "custom": "사용자 지정",
-    "enable": "프로바이더 강점 사용",
-    "enableDescription": "기본은 꺼짐입니다. 프로바이더를 바꾸면 대화 중 최대 12,000자가 다른 프로바이더로 전달되고, 그 프로바이더의 skill·hook·MCP 서버 설정이 적용됩니다.",
+    "enable": "강점이 있는 프로바이더에서 시작",
+    "enableDescription": "작업의 첫 턴을 표에서 작업 종류별로 정한 프로바이더에서 시작합니다. 기본은 꺼짐입니다.",
     "work": "작업",
     "startsOn": "시작 프로바이더",
     "keep": "작업의 프로바이더 유지",
@@ -544,6 +549,10 @@
       "research": "독립 비교 하나에서 Claude가 코드베이스 질문에 조금 더 잘 답하지만 비용은 더 높습니다."
     },
     "hypothesisNote": "{{date}} 기준 공개 벤치마크, GitHub, 블로그 비교를 참고한 값입니다. 일반적인 프로바이더 평가일 뿐 사용자의 작업을 측정한 값이 아니므로 자유롭게 바꾸세요.",
-    "ruleReason": "{{task}} 작업은 {{provider}}에서 시작합니다 (프로바이더 강점)."
+    "ruleReason": "{{task}} 작업은 {{provider}}에서 시작합니다 (프로바이더 강점).",
+    "offNote": "꺼짐: 켜기 전까지 아래 표는 적용되지 않습니다.",
+    "midTask": "작업 도중 프로바이더 전환",
+    "midTaskDescription": "위 표를 포함한 프로바이더 규칙이 이미 시작한 작업도 다른 프로바이더로 옮길 수 있게 합니다. 끄면 작업의 첫 턴에서만 프로바이더가 바뀝니다. 어느 경우든 턴을 실행할 수 없는 프로바이더는 작업을 넘깁니다.",
+    "privacyNote": "프로바이더를 바꾸면 대화 중 최대 12,000자가 다른 프로바이더로 전달되고, 그 프로바이더의 skill·hook·MCP 서버 설정이 적용됩니다."
   }
 }
