@@ -27,13 +27,19 @@ class FakeChild extends EventEmitter {
     },
   };
 
+  killed = false;
+
   kill() {
-    this.emit("exit", 0, null);
+    this.killed = true;
+    if (!deferExitOnKill) {
+      this.emit("exit", 0, null);
+    }
     return true;
   }
 }
 
 const fakeChildren: FakeChild[] = [];
+let deferExitOnKill = false;
 
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
@@ -78,6 +84,7 @@ class FakeSender extends EventEmitter {
 }
 
 afterEach(async () => {
+  deferExitOnKill = false;
   await stopLspSessions({});
   fakeChildren.length = 0;
   mock.restore();
@@ -106,5 +113,39 @@ describe("lsp session manager subscriptions", () => {
     expect(first.ok).toBe(true);
     expect(second.ok).toBe(true);
     expect(sender.listenerCount("destroyed")).toBe(1);
+  });
+});
+
+describe("lsp session manager lifecycle", () => {
+  test("keeps a restarted session when the previous server exits late", async () => {
+    const sender = new FakeSender(2001);
+    const baseArgs = {
+      rootPath: "/tmp/workspace-restart",
+      languageId: "typescript" as const,
+      sender,
+      filePath: "/tmp/workspace-restart/src/index.ts",
+      documentLanguageId: "typescript",
+      text: "const x = 1;\n",
+      version: 1,
+    };
+
+    expect((await syncLspDocument(baseArgs)).ok).toBe(true);
+    const oldChild = fakeChildren[0]!;
+
+    deferExitOnKill = true;
+    await stopLspSessions({ rootPath: baseArgs.rootPath });
+    expect(oldChild.killed).toBe(true);
+
+    expect((await syncLspDocument(baseArgs)).ok).toBe(true);
+    expect(fakeChildren).toHaveLength(2);
+    const newChild = fakeChildren[1]!;
+
+    oldChild.emit("exit", 0, "SIGTERM");
+
+    expect((await syncLspDocument({ ...baseArgs, version: 2 })).ok).toBe(true);
+    expect(fakeChildren).toHaveLength(2);
+
+    await stopLspSessions({ rootPath: baseArgs.rootPath });
+    expect(newChild.killed).toBe(true);
   });
 });

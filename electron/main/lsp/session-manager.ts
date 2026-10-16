@@ -315,7 +315,11 @@ async function createSession(args: {
   });
 
   child.on("exit", (code, signal) => {
-    sessions.delete(key);
+    // stopLspSessions removes the entry before killing, and a new session may
+    // already own this key by the time the old process reports its exit.
+    if (sessions.get(key) === session) {
+      sessions.delete(key);
+    }
     for (const pending of session.pendingRequests.values()) {
       pending.reject(new Error(`LSP session exited (${code ?? "null"}${signal ? `, ${signal}` : ""}).`));
     }
@@ -337,7 +341,9 @@ async function createSession(args: {
     const detail = error instanceof Error ? error.message : "Failed to initialize language server.";
     updateSessionStatus(session, "error", detail);
     child.kill();
-    sessions.delete(key);
+    if (sessions.get(key) === session) {
+      sessions.delete(key);
+    }
     return {
       ok: false as const,
       detail,
