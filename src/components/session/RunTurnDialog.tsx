@@ -10,7 +10,9 @@ import {
   TurnModelChip,
 } from "@/components/ai-elements";
 import {
-  AgentRunInstructions,
+  AgentRunBubbleFrame,
+  AgentRunPromptRow,
+  agentRunPromptLayout,
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
@@ -135,6 +137,7 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
     taskId,
     turnId: message.role === "user" ? props.startedTurnId : undefined,
     text,
+    provenance: message.role === "user" ? message.agentRunPrompt : undefined,
   });
   const bodyMessage = useMemo(
     () =>
@@ -149,27 +152,31 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
         : message,
     [agentRunPrompt?.assignment, message],
   );
+  const promptLayout = agentRunPromptLayout(agentRunPrompt);
   const assistant = message.role === "assistant";
   return (
     <li className={sx(styles.row)} data-message-id={message.id}>
       <Message from={message.role}>
         <div className={sx(assistant ? styles.assistant : styles.user)}>
-          <MessageContent>
-            {!(agentRunPrompt && !agentRunPrompt.assignment) ? (
-              <AssistantMessageBody
-                message={bodyMessage}
-                taskId={taskId}
-                messageId={message.id}
-                streamingEnabled={false}
-                traceExpansionMode="manual"
-                showInterimMessages={props.showInterimMessages}
-                readOnly
-              />
-            ) : null}
-            {agentRunPrompt ? (
-              <AgentRunInstructions text={agentRunPrompt.instructions} />
-            ) : null}
-          </MessageContent>
+          {/* As in the conversation: the bubble holds only what the person wrote. */}
+          {promptLayout.bubble ? (
+            <AgentRunBubbleFrame framed={promptLayout.row !== null}>
+              <MessageContent>
+                <AssistantMessageBody
+                  message={bodyMessage}
+                  taskId={taskId}
+                  messageId={message.id}
+                  streamingEnabled={false}
+                  traceExpansionMode="manual"
+                  showInterimMessages={props.showInterimMessages}
+                  readOnly
+                />
+              </MessageContent>
+            </AgentRunBubbleFrame>
+          ) : null}
+          {agentRunPrompt && promptLayout.row ? (
+            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} />
+          ) : null}
           {assistant && message.providerId !== "user" && message.model ? (
             <TurnModelChip
               providerId={message.providerId}

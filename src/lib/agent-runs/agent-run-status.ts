@@ -454,7 +454,8 @@ export interface AgentRunPromptView {
  * one. The host marks the rows a run writes (`agentRunPrompt`), so they split
  * from their first frame. A row written before the mark is found through the
  * run that started its turn (`runAssignment`). A send still waiting on its
- * run (`pending`) draws the assignment, the instructions to come.
+ * run (`pending`) draws the assignment, the instructions to come; a blank
+ * one is not a run prompt yet.
  */
 export function resolveAgentRunPrompt(args: {
   text: string;
@@ -462,7 +463,12 @@ export function resolveAgentRunPrompt(args: {
   runAssignment?: string | null;
   pending?: boolean;
 }): AgentRunPromptView | null {
-  if (args.pending) return { assignment: args.text.trim() || null, instructions: null };
+  if (args.pending) {
+    // A send with no words (attachments only) has nothing to split: it stays
+    // the user's own message rather than read as a prompt from Stave.
+    const assignment = args.text.trim();
+    return assignment ? { assignment, instructions: null } : null;
+  }
   if (args.provenance) return { assignment: args.provenance.assignment?.trim() || null, instructions: args.text };
   if (typeof args.runAssignment === "string") {
     return { assignment: extractRunAssignment(args.text, args.runAssignment), instructions: args.text };

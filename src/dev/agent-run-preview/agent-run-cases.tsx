@@ -3,14 +3,14 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { Message, MessageContent } from "@/components/ai-elements/message";
-import { AgentRunInstructions } from "@/components/agent-runs/AgentRunPrompt";
+import { AgentRunBubbleFrame, AgentRunPromptRow } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCardView } from "@/components/agent-runs/AgentRunResultCard";
 import { FleetAgentRunStrip } from "@/components/agent-runs/FleetAgentRunStrip";
 import { AgentRunBarView } from "@/components/agent-runs/AgentRunBar";
 import { ComposerShelfSurface } from "@/components/session/composer-shelf/ComposerShelf";
 import type { ShelfTurnAlert } from "@/components/session/composer-shelf/composer-shelf.utils";
 import { AgentRunDetailView } from "@/components/agent-runs/AgentRunPanel";
-import { compileAgentRunStagePrompt } from "@/lib/agent-runs/briefing";
+import { buildStageNudgePrompt, compileAgentRunStagePrompt } from "@/lib/agent-runs/briefing";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { AGENT_RUN_ASSIGNMENT, buildAgentRunFixtures } from "./agent-run-fixtures";
 
@@ -89,16 +89,42 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
       parentReserve: 1, maxChanges: 2, cooldownTurns: 2 },
     spent: 12, reserved: 9, remaining: 19, helpersLaunched: 2, activeHelpers: 1, reservations: [] } };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
+  const nudge = buildStageNudgePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   return (
     <div className={sx(styles.cases)} style={width ? { maxWidth: width } : undefined}>
       <section className={sx(styles.case)} data-preview-case="Agent run bubble">
-        <p className={sx(styles.caption)}>Conversation · the user's bubble for a run, instructions folded</p>
+        <p className={sx(styles.caption)}>Conversation · a run's first prompt: the bubble holds only the user's words; the full prompt Stave built folds in a row below</p>
         <Message from="user">
           <div className={sx(styles.shellUser)}>
-            <MessageContent>
-              <span>{AGENT_RUN_ASSIGNMENT}</span>
-              <AgentRunInstructions text={prompt} />
-            </MessageContent>
+            <AgentRunBubbleFrame framed>
+              <MessageContent>
+                <span>{AGENT_RUN_ASSIGNMENT}</span>
+              </MessageContent>
+            </AgentRunBubbleFrame>
+            <AgentRunPromptRow text={prompt} kind="assignment" />
+          </div>
+        </Message>
+      </section>
+
+      <section className={sx(styles.case)} data-preview-case="Agent run follow-up">
+        <p className={sx(styles.caption)}>Conversation · a run prompt with no words of the user's (the reminder to report): no bubble, only the row</p>
+        <Message from="user">
+          <div className={sx(styles.shellUser)}>
+            <AgentRunPromptRow text={nudge} kind="followUp" />
+          </div>
+        </Message>
+      </section>
+
+      <section className={sx(styles.case)} data-preview-case="Agent run pending bubble">
+        <p className={sx(styles.caption)}>Conversation · a send waiting on its run: the assignment, the prompt still being prepared</p>
+        <Message from="user">
+          <div className={sx(styles.shellUser)}>
+            <AgentRunBubbleFrame framed>
+              <MessageContent>
+                <span>{AGENT_RUN_ASSIGNMENT}</span>
+              </MessageContent>
+            </AgentRunBubbleFrame>
+            <AgentRunPromptRow text={null} kind="assignment" />
           </div>
         </Message>
       </section>
@@ -200,7 +226,8 @@ const styles = stylex.create({
   case: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
   caption: { margin: 0, color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
   stack: { display: "flex", flexDirection: "column" },
-  shellUser: { minWidth: 0, maxWidth: "88%", width: "fit-content" },
+  // Mirrors the conversation's user shell (`chat-panel.styles.ts` `shell` + `shellUser`).
+  shellUser: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--ads-space-4"], minWidth: 0, maxWidth: "88%", width: "fit-content" },
   composer: {
     position: "relative",
     zIndex: 10,
