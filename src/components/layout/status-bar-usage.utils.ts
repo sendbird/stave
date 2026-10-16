@@ -270,6 +270,15 @@ export interface StatusBarAccountView {
 }
 
 /**
+ * The connection whose balance the meter shows: only a Vercel AI Gateway
+ * connection has one to read. A custom gateway, or a sign-in, gives null.
+ */
+export function apiConnectionCreditsId(account: StatusBarAccountView | null): string | null {
+  const selected = account?.selected;
+  return selected?.gateway && selected.apiConnection?.kind === "vercel-ai-gateway" ? selected.id : null;
+}
+
+/**
  * The account the next turns use, as the status bar shows it. Usage limits
  * belong to an account, so the meter is where the account is named and
  * switched — not every composer.

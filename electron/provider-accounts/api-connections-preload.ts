@@ -12,4 +12,5 @@ export const apiConnectionsApi: ApiConnectionsBridgeApi = {
   remove: (args) => ipcRenderer.invoke(API_CONNECTION_IPC.remove, args),
   check: (args) => ipcRenderer.invoke(API_CONNECTION_IPC.check, args),
   discoverModels: (args) => ipcRenderer.invoke(API_CONNECTION_IPC.discoverModels, args),
+  credits: (args) => ipcRenderer.invoke(API_CONNECTION_IPC.credits, args),
 };

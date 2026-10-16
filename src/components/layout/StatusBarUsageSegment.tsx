@@ -11,6 +11,7 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { StatusBarAccountSection } from "@/components/layout/StatusBarAccountSection";
+import { GatewayCreditsDetail, GatewayCreditsItem } from "@/components/layout/StatusBarGatewayCredits";
 import {
   AccountDetail,
   ClaudeDetail,
@@ -30,6 +31,7 @@ import {
   usageStripVisibility,
 } from "@/components/layout/status-bar-usage-strip.styles";
 import {
+  apiConnectionCreditsId,
   headlineUsagePercent,
   statusBarAccountProviderId,
   STATUS_BAR_USAGE_PROVIDER_IDS,
@@ -46,6 +48,7 @@ import {
   noteRateLimitsMeterOpen,
 } from "@/lib/providers/rate-limits-poll-policy";
 import { useTurnSpend } from "@/lib/providers/use-turn-spend";
+import { useApiConnectionCredits } from "@/lib/providers/use-api-connection-credits";
 import { useAppStore } from "@/store/app.store";
 
 const TONE_DOT = {
@@ -105,6 +108,7 @@ export function StatusBarUsageSegment({
   // Name whose numbers these are only when there is another account they could be.
   const accountLabel = multipleAccounts ? (account?.selected?.label ?? null) : null;
   const gateway = segment.gateway;
+  const creditsId = apiConnectionCreditsId(account);
 
   return (
     <Popover
@@ -119,6 +123,8 @@ export function StatusBarUsageSegment({
           noteRateLimitsMeterOpen(providerId);
           // Tokens and cost are a local read, so the popover can simply ask for them.
           void useTurnSpend.getState().refresh();
+          // Main answers from its one-minute cache, so opening often costs nothing.
+          if (creditsId) void useApiConnectionCredits.getState().refresh(creditsId);
         } else {
           noteRateLimitsMeterClosed(providerId);
         }
@@ -149,7 +155,9 @@ export function StatusBarUsageSegment({
           {segment.name}
           {stale ? i18n.t("shell:statusBarUsageSegment.unverified") : ""}
         </span>
-        {gateway ? null : segment.windows.length === 0 ? (
+        {gateway ? (
+          <GatewayCreditsItem credits={segment.credits} visibility={visibility} />
+        ) : segment.windows.length === 0 ? (
           segment.pending ? (
             <Loader aria-hidden size="xs" variant="spinner" />
           ) : (
@@ -217,9 +225,12 @@ export function StatusBarUsageSegment({
         </div>
         <div className={sx(statusBarUsageStyles.popoverBody)}>
           {gateway ? (
-            <p className={sx(statusBarUsageStyles.note)}>
-              {i18n.t("shell:statusBarUsageSegment.usageAndChargesAreManagedByYour")}
-            </p>
+            <>
+              <GatewayCreditsDetail credits={segment.credits} />
+              <p className={sx(statusBarUsageStyles.note)}>
+                {i18n.t("shell:statusBarUsageSegment.usageAndChargesAreManagedByYour")}
+              </p>
+            </>
           ) : segment.pending ? (
             <UsageReadPending providerName={providerName} accountLabel={accountLabel} />
           ) : (
