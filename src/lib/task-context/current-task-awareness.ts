@@ -282,7 +282,7 @@ const WORKSPACE_CONVENTION_LINES = [
 
 const TOKEN_BUDGET_LINES = [
   "- Treat this injected context as current. Do not call `stave_get_workspace_information` just to re-read fields already shown here.",
-  "- Keep Information panel notes and todos compact. Put long handoff or execution details in `.stave/context/plans/` and reference the plan path instead.",
+  "- Keep Information panel notes and todos compact. Put long handoff or execution details in `.stave/context/plans/` and reference the plan path instead. This applies to notes and todos, not to your reply.",
   "- For Lens inspection, prefer `stave_lens_snapshot`, scoped `stave_lens_get_text`, or screenshots before raw HTML, console, or network dumps.",
   "- After changing code that a Lens page renders, reload the page before verifying unless the dev server has hot reload; a Lens read taken against the pre-change bundle looks like the fix did not work. Never `stave_lens_navigate` to the URL a tab is already on — that destroys in-progress page state such as a filled form or an open dialog; use `stave_lens_reload` instead.",
   "- Address Lens elements by the `ref` a snapshot gave them (`d1e12`, `d1f1e3`), not by CSS selector. A ref is keyed to the element the snapshot described, so a page that changed underneath fails loudly; a selector silently matches whatever is there now. Take a fresh snapshot after any action that changes the page, and use a selector only for something a snapshot cannot name.",

@@ -1166,7 +1166,7 @@ function createToolServer(options?: {
     "stave_write_plan_file",
     {
       description:
-        "Write or replace one markdown plan file in this workspace's plan store, .stave/context/plans/<fileName>, which Stave lists in the Information panel. Works under read-only permissions, where file edit tools are blocked; it writes nothing else. Name it <taskIdPrefix>_<timestamp>.md.",
+        "Write or replace one markdown plan file in this workspace's plan store, .stave/context/plans/<fileName>, which Stave lists in the Information panel. Works under read-only permissions, where file edit tools are blocked; it writes nothing else. Name it <taskIdPrefix>_<timestamp>.md. Your reply must still state the conclusion and recommended actions; the file holds the long form.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         fileName: z
