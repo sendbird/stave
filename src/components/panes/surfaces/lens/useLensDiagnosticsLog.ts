@@ -25,6 +25,7 @@ import {
 import {
   LENS_LOG_LIMIT,
   appendLimited,
+  appendPendingEntriesLimited,
   formatConsoleEntries,
   formatNetworkEntries,
   formatNetworkEntryDetails,
@@ -213,7 +214,11 @@ export function useLensDiagnosticsLog(args: {
         if (payload.entry.text.startsWith("Navigation failed:")) {
           setLastLoadError(payload.entry.text);
         }
-        pendingConsoleEntries.push(payload.entry);
+        pendingConsoleEntries = appendPendingEntriesLimited(
+          pendingConsoleEntries,
+          [payload.entry],
+          (entry) => entry.id,
+        );
         if (consoleFrame === null) {
           consoleFrame = requestAnimationFrame(flushConsoleEntries);
         }
@@ -278,7 +283,11 @@ export function useLensDiagnosticsLog(args: {
         if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
-        pendingNetworkEntries.push(...(payload.entries ?? [payload.entry]));
+        pendingNetworkEntries = appendPendingEntriesLimited(
+          pendingNetworkEntries,
+          payload.entries ?? [payload.entry],
+          (entry) => entry.entryId,
+        );
         if (networkFrame === null) {
           networkFrame = requestAnimationFrame(flushNetworkEntries);
         }

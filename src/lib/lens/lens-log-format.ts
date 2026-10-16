@@ -58,6 +58,28 @@ export function upsertNetworkEntriesLimited(
   return [...byEntryId.values()].slice(-LENS_LOG_LIMIT);
 }
 
+/**
+ * Adds live events to a buffer that waits for the next animation frame. Frames
+ * stop while the window is hidden, so the buffer is compacted once it holds
+ * twice the log limit: entries are merged by id (latest value, first position,
+ * like the flush upsert) and only the newest `LENS_LOG_LIMIT` are kept.
+ */
+export function appendPendingEntriesLimited<T>(
+  pending: readonly T[],
+  incoming: readonly T[],
+  getId: (entry: T) => string,
+): T[] {
+  const next = [...pending, ...incoming];
+  if (next.length <= LENS_LOG_LIMIT * 2) {
+    return next;
+  }
+  const byEntryId = new Map<string, T>();
+  for (const entry of next) {
+    byEntryId.set(getId(entry), entry);
+  }
+  return [...byEntryId.values()].slice(-LENS_LOG_LIMIT);
+}
+
 export function matchesSession(
   payload: { workspaceId: string; lensSessionId?: string },
   workspaceId: string,
