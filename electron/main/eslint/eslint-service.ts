@@ -170,14 +170,24 @@ function scheduleIdleStop(rootPath: string, state: WorkerState) {
   state.idleTimer.unref?.();
 }
 
-function evictIdleWorkersOverCap() {
+// Stops least recently used idle workers until at most `limit` remain. Busy
+// workers are never stopped, so the count can exceed the cap while every
+// worker has a request in flight; settling a request trims it back.
+function evictIdleWorkersOverLimit(limit: number) {
   for (const [rootPath, state] of workers) {
-    if (workers.size < ESLINT_WORKER_MAX_COUNT) {
+    if (workers.size <= limit) {
       return;
     }
     if (state.pending.size === 0) {
       stopWorker(rootPath, state);
     }
+  }
+}
+
+function settleRequest(state: WorkerState, id: number) {
+  state.pending.delete(id);
+  if (state.pending.size === 0) {
+    evictIdleWorkersOverLimit(ESLINT_WORKER_MAX_COUNT);
   }
 }
 
@@ -198,7 +208,7 @@ function getOrSpawnWorker(rootPath: string): WorkerState {
     stopWorker(rootPath, existing);
   }
 
-  evictIdleWorkersOverCap();
+  evictIdleWorkersOverLimit(ESLINT_WORKER_MAX_COUNT - 1);
 
   const child = spawn(process.execPath, [getWorkerScriptPath()], {
     cwd: rootPath,
@@ -242,7 +252,7 @@ function getOrSpawnWorker(rootPath: string): WorkerState {
         const req = state.pending.get(msg.id);
         if (req) {
           clearTimeout(req.timer);
-          state.pending.delete(msg.id);
+          settleRequest(state, msg.id);
           req.resolve({
             ok: msg.ok,
             diagnostics: msg.diagnostics,
@@ -283,7 +293,7 @@ function sendRequest(rootPath: string, type: "lint" | "fix", filePath: string, t
     const worker = getOrSpawnWorker(rootPath);
     const id = worker.nextId++;
     const timer = setTimeout(() => {
-      worker.pending.delete(id);
+      settleRequest(worker, id);
       resolve({ ok: false, detail: "ESLint timed out" });
     }, ESLINT_REQUEST_TIMEOUT_MS);
 

@@ -16,13 +16,28 @@ class FakeWorker extends EventEmitter {
   stderr = new FakeStream();
   exitCode: number | null = null;
   killed = false;
+  deferred: number[] = [];
   stdin = {
     write: (payload: string) => {
       const request = JSON.parse(payload) as { id: number };
-      this.stdout.emit("data", `${JSON.stringify({ id: request.id, ok: true, diagnostics: [] })}\n`);
+      if (deferResponses) {
+        this.deferred.push(request.id);
+        return true;
+      }
+      this.respond(request.id);
       return true;
     },
   };
+
+  respond(id: number) {
+    this.stdout.emit("data", `${JSON.stringify({ id, ok: true, diagnostics: [] })}\n`);
+  }
+
+  flushDeferred() {
+    for (const id of this.deferred.splice(0)) {
+      this.respond(id);
+    }
+  }
 
   constructor(readonly rootPath: string) {
     super();
@@ -37,6 +52,7 @@ class FakeWorker extends EventEmitter {
 }
 
 const spawned: FakeWorker[] = [];
+let deferResponses = false;
 
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
@@ -69,6 +85,7 @@ function workerFor(rootPath: string) {
 }
 
 afterEach(() => {
+  deferResponses = false;
   jest.useRealTimers();
   stopWorkers();
   spawned.length = 0;
@@ -109,5 +126,24 @@ describe("eslint service worker lifecycle", () => {
 
     expect(spawned).toHaveLength(4);
     expect(spawned.filter((worker) => worker.killed).map((worker) => worker.rootPath)).toEqual([second!]);
+  });
+
+  test("trims back to three workers once overlapping requests settle", async () => {
+    const roots = ["a", "b", "c", "d"].map((name) => createProjectRoot(`busy-${name}`));
+    deferResponses = true;
+
+    const results = Promise.all(roots.map((rootPath) => lint(rootPath)));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    while (spawned.length < roots.length) {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    }
+    expect(spawned.every((worker) => !worker.killed)).toBe(true);
+
+    for (const worker of spawned) {
+      worker.flushDeferred();
+    }
+    expect((await results).every((result) => result.ok)).toBe(true);
+    expect(spawned.filter((worker) => !worker.killed)).toHaveLength(3);
+    expect(spawned[0]!.killed).toBe(true);
   });
 });
