@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import MonacoEditor, { DiffEditor } from "@monaco-editor/react";
 import { useBundledMonaco, type Monaco } from "@/lib/monaco/bundled-monaco";
@@ -972,6 +973,10 @@ function EditorTabSurface({
     // The panel is about to be reconciled away (tab closed in the store).
     return null;
   }
+  const imageName = resolvePathBaseName({
+    path: tab.filePath,
+    fallback: tab.filePath,
+  });
   // Matches the not-ready host below, so a remount after the panel is shown
   // again does not flash the library's "Loading..." text.
   const monacoLoadingHost = (
@@ -1070,14 +1075,15 @@ function EditorTabSurface({
           ) : tabIsImage ? (
             <div className={sx(styles.imageHost)}>
               {tab.content ? (
-                <img
-                  src={tab.content}
-                  alt={resolvePathBaseName({
-                    path: tab.filePath,
-                    fallback: tab.filePath,
-                  })}
-                  className={sx(styles.image)}
+                <AdsButton
+                  layout="host"
+                  nativeButton={false}
+                  render={<img src={tab.content} alt={imageName} />}
+                  xstyle={styles.image}
                   title={i18n.t("panes:editorSurfacePanel.clickToOpenFullScreen")}
+                  aria-label={i18n.t("panes:editorSurfacePanel.openImageFullScreen", {
+                    name: imageName,
+                  })}
                   onClick={() => setImagePreviewOpen(true)}
                 />
               ) : (
@@ -1291,10 +1297,7 @@ function EditorTabSurface({
       <EditorImagePreviewOverlay
         open={Boolean(imagePreviewOpen && tabIsImage)}
         imageSrc={tab.content ?? ""}
-        alt={resolvePathBaseName({
-          path: tab.filePath,
-          fallback: tab.filePath,
-        })}
+        alt={imageName}
         onClose={() => setImagePreviewOpen(false)}
       />
       <ConfirmDialog
@@ -1327,6 +1330,6 @@ title: {fontSize:vars["--ads-font-size-heading"],lineHeight:vars["--ads-line-hei
 // `maxInlineSize`, again matching the logical box ADS's description owns.
 description: {maxInlineSize:448,fontSize:vars["--ads-font-size-body"]},
 imageHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",overflow:"auto",backgroundColor:"var(--editor)",padding:16},
-image: {maxHeight:"100%",maxWidth:"100%",cursor:"zoom-in",objectFit:"contain"},
+image: {maxHeight:"100%",maxWidth:"100%",cursor:"zoom-in",objectFit:"contain",backgroundColor:"transparent",borderRadius:0},
 note: {fontSize:vars["--ads-font-size-body"],color:vars["--ads-color-text-muted"]}
 });

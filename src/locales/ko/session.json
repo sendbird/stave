@@ -596,6 +596,7 @@
     "referencedFilesBlock3": "열기",
     "copy5": "편집기에서 열기",
     "title": "클릭하여 원본 크기로 보기",
+    "openImage": "{{label}} 크게 보기",
     "alt": "이미지 미리보기",
     "fileChangeSummaryBlock_other": "{{value1}} 파일 변경됨"
   },

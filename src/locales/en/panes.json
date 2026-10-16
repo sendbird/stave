@@ -108,6 +108,7 @@
     "loadingTab": "Loading tab…",
     "restoringThisEditorTabWithoutBlockingThe": "Restoring this editor tab without blocking the rest of the workspace.",
     "clickToOpenFullScreen": "Click to open full screen",
+    "openImageFullScreen": "Open {{name}} full screen",
     "unableToLoadImagePreview": "Unable to load image preview.",
     "closeTabs": "Close Tabs"
   },

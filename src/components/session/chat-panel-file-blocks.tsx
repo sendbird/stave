@@ -571,11 +571,15 @@ export function ImageAttachmentBlock(args: { parts: ImageContextPart[] }) {
       <div className={sx(styles.imageGrid)}>
         {args.parts.map((part, index) => (
           <div key={index} className={sx(styles.imageCard)}>
-            <img
-              src={part.dataUrl}
-              alt={part.label}
-              className={sx(styles.image)}
+            <AdsButton
+              layout="host"
+              nativeButton={false}
+              render={<img src={part.dataUrl} alt={part.label} />}
+              xstyle={styles.image}
               title={i18n.t("session:chatPanelFileBlocks.title")}
+              aria-label={i18n.t("session:chatPanelFileBlocks.openImage", {
+                label: part.label,
+              })}
               onClick={() =>
                 setPreviewSrc({ dataUrl: part.dataUrl, label: part.label })
               }

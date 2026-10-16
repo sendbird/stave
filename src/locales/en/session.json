@@ -601,6 +601,7 @@
     "referencedFilesBlock3": "Open",
     "copy5": "Open in Editor",
     "title": "Click to view full size",
+    "openImage": "Open {{label}} full size",
     "alt": "Image preview",
     "fileChangeSummaryBlock_one": "{{value1}} file changed",
     "fileChangeSummaryBlock_other": "{{value1}} files changed"
