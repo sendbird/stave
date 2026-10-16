@@ -38,8 +38,9 @@ import {
   type McpAppDisplayMode,
   type McpAppViewReference,
 } from "@/lib/mcp-app/mcp-app-view";
+import { layers } from "@/lib/ui-layers.stylex";
 import { useAppStore } from "@/store/app.store";
-import { inlineHtmlRenderStyles as styles } from "./inline-html-render.styles";
+import { expandedNoDragStyle, inlineHtmlRenderStyles as styles } from "./inline-html-render.styles";
 import { useInlineRenderTheme } from "./inline-render-theme";
 import { McpAppViewConfirm, type McpAppConfirmRequest } from "./mcp-app-view-confirm";
 
@@ -281,16 +282,18 @@ export const McpAppView = memo(function McpAppView(props: {
       {fullscreen ? (
         <div
           aria-hidden
-          className={sx(overlaySurface.backdrop)}
+          className={sx(overlaySurface.backdrop, layers.lightbox)}
+          style={expandedNoDragStyle}
           onClick={() => changeDisplayMode("inline")}
         />
       ) : null}
       <figure
-        className={sx(styles.figure, fullscreen && styles.figureExpanded)}
+        className={sx(styles.figure, fullscreen && [styles.figureExpanded, layers.lightbox])}
+        style={fullscreen ? expandedNoDragStyle : undefined}
         aria-label={title}
         data-mcp-app-view={reference.viewId}
       >
-        <figcaption className={sx(styles.header)}>
+        <figcaption className={sx(styles.header, fullscreen && styles.headerExpanded)}>
           <span className={sx(styles.title)} title={title}>
             {title}
           </span>
@@ -310,30 +313,32 @@ export const McpAppView = memo(function McpAppView(props: {
             </Tooltip>
           </span>
         </figcaption>
-        {availability === "ready" && view ? (
-          <iframe
-            ref={frameRef}
-            title={title}
-            src={frameSrc}
-            srcDoc={frameSrcDoc}
-            sandbox={INLINE_RENDER_FRAME_SANDBOX}
-            referrerPolicy="no-referrer"
-            allow={buildMcpAppFrameAllow(view.permissions)}
-            {...stylex.props(
-              styles.frame,
-              fullscreen ? styles.frameExpanded : dynamic.frameHeight(height),
-              dynamic.colorScheme(theme.appearance),
-            )}
-          />
-        ) : (
-          <p className={sx(styles.notice)}>
-            {availability === "checking"
-              ? i18n.t("session:mcpAppView.loading")
-              : availability === "missing"
-                ? i18n.t("session:mcpAppView.missing")
-                : i18n.t("session:mcpAppView.unavailable")}
-          </p>
-        )}
+        <div className={sx(styles.canvas, fullscreen && styles.canvasExpanded)}>
+          {availability === "ready" && view ? (
+            <iframe
+              ref={frameRef}
+              title={title}
+              src={frameSrc}
+              srcDoc={frameSrcDoc}
+              sandbox={INLINE_RENDER_FRAME_SANDBOX}
+              referrerPolicy="no-referrer"
+              allow={buildMcpAppFrameAllow(view.permissions)}
+              {...stylex.props(
+                styles.frame,
+                fullscreen ? styles.frameExpanded : dynamic.frameHeight(height),
+                dynamic.colorScheme(theme.appearance),
+              )}
+            />
+          ) : (
+            <p className={sx(styles.notice)}>
+              {availability === "checking"
+                ? i18n.t("session:mcpAppView.loading")
+                : availability === "missing"
+                  ? i18n.t("session:mcpAppView.missing")
+                  : i18n.t("session:mcpAppView.unavailable")}
+            </p>
+          )}
+        </div>
       </figure>
       <McpAppViewConfirm request={confirmRequest} onResolve={resolveConfirm} />
     </div>

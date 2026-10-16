@@ -536,9 +536,15 @@ const BOOTSTRAP_SCRIPT = `(function () {
  * Base rules sit before the page's own styles, so any rule the page writes
  * wins. The page background stays transparent so the conversation shows
  * through.
+ *
+ * The body carries the frame's inset: 16px in a chat column, growing to 24px
+ * in a wide frame such as the expanded view (`vw` is the frame's width). A
+ * page that sets its own body padding keeps it, while a universal reset such
+ * as `*{padding:0}` does not remove it, since `body` is more specific.
  */
-const BASE_STYLE =
-  "html{background:transparent;color:var(--foreground,CanvasText);font-family:var(--font-sans,system-ui,sans-serif);-webkit-font-smoothing:antialiased}body{margin:0}a{color:var(--primary,LinkText)}";
+export const INLINE_RENDER_BODY_INSET = "clamp(16px,2.5vw,24px)";
+
+const BASE_STYLE = `html{background:transparent;color:var(--foreground,CanvasText);font-family:var(--font-sans,system-ui,sans-serif);-webkit-font-smoothing:antialiased}body{margin:0;padding:${INLINE_RENDER_BODY_INSET}}a{color:var(--primary,LinkText)}`;
 
 /**
  * What shows through a transparent page in the conversation, for a window
