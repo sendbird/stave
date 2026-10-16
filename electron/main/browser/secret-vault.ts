@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { z } from "zod";
 import {
   buildSecretPreview,
@@ -13,6 +11,7 @@ import {
   type SecretRevealResult,
   type SecretUpsertInput,
 } from "../../../src/lib/secrets/secrets";
+import { OsKeychainVaultFile, type OsKeychainCrypto } from "./os-keychain-vault";
 
 const VAULT_VERSION = 1;
 
@@ -44,13 +43,9 @@ const VaultDocumentSchema = z
   .strict();
 
 type StoredSecret = z.infer<typeof StoredSecretSchema>;
+type VaultDocument = z.infer<typeof VaultDocumentSchema>;
 
-export interface SecretVaultCrypto {
-  isEncryptionAvailable(): boolean;
-  isInsecureBackend(): boolean;
-  encryptString(value: string): Buffer;
-  decryptString(value: Buffer): string;
-}
+export type SecretVaultCrypto = OsKeychainCrypto;
 
 function toMetadata(entry: StoredSecret): SecretMetadata {
   return {
@@ -65,7 +60,7 @@ function toMetadata(entry: StoredSecret): SecretMetadata {
 }
 
 export class SecretVault {
-  private mutationQueue: Promise<void> = Promise.resolve();
+  private readonly file: OsKeychainVaultFile<VaultDocument>;
 
   constructor(
     private readonly args: {
@@ -74,11 +69,23 @@ export class SecretVault {
       now?: () => string;
       createId?: () => string;
     },
-  ) {}
+  ) {
+    this.file = new OsKeychainVaultFile({
+      filePath: args.filePath,
+      crypto: args.crypto,
+      storageLabel: "Secret storage",
+      documentLabel: "secret vault",
+      emptyDocument: () => ({ version: VAULT_VERSION, secrets: [] }),
+      parseDocument: (parsed) => {
+        const result = VaultDocumentSchema.safeParse(parsed);
+        return result.success ? result.data : null;
+      },
+    });
+  }
 
   async list(): Promise<SecretMetadata[]> {
-    this.assertSecureEncryption();
-    const document = await this.readDocument();
+    this.file.assertSecureEncryption();
+    const document = await this.file.readDocument();
     return document.secrets
       .map(toMetadata)
       .sort(
@@ -89,8 +96,8 @@ export class SecretVault {
   }
 
   async upsert(input: SecretUpsertInput): Promise<SecretMetadata> {
-    return this.enqueueMutation(async () => {
-      this.assertSecureEncryption();
+    return this.file.enqueueMutation(async () => {
+      this.file.assertSecureEncryption();
       const name = normalizeSecretName(input.name);
       if (!name) {
         throw new Error("A name is required for the secret.");
@@ -100,7 +107,7 @@ export class SecretVault {
       // means the secret keeps no env-var name and is not injectable.
       const envVarName = normalizeEnvVarName(input.envVarName);
 
-      const document = await this.readDocument();
+      const document = await this.file.readDocument();
       const existingIndex = input.id
         ? document.secrets.findIndex((entry) => entry.id === input.id)
         : -1;
@@ -150,9 +157,7 @@ export class SecretVault {
       let valueCiphertext = existing?.valueCiphertext;
       let valuePreview = existing?.valuePreview ?? "";
       if (value !== undefined) {
-        valueCiphertext = this.args.crypto
-          .encryptString(value)
-          .toString("base64");
+        valueCiphertext = this.file.encryptToBase64(value);
         valuePreview = buildSecretPreview(value);
       }
       if (!valueCiphertext) {
@@ -175,19 +180,19 @@ export class SecretVault {
       } else {
         document.secrets.push(next);
       }
-      await this.writeDocument(document);
+      await this.file.writeDocument(document);
       return toMetadata(next);
     });
   }
 
   async delete(id: string): Promise<boolean> {
-    return this.enqueueMutation(async () => {
-      const document = await this.readDocument();
+    return this.file.enqueueMutation(async () => {
+      const document = await this.file.readDocument();
       const nextSecrets = document.secrets.filter((entry) => entry.id !== id);
       if (nextSecrets.length === document.secrets.length) {
         return false;
       }
-      await this.writeDocument({
+      await this.file.writeDocument({
         version: VAULT_VERSION,
         secrets: nextSecrets,
       });
@@ -196,8 +201,8 @@ export class SecretVault {
   }
 
   async reveal(id: string): Promise<SecretRevealResult | null> {
-    this.assertSecureEncryption();
-    const document = await this.readDocument();
+    this.file.assertSecureEncryption();
+    const document = await this.file.readDocument();
     const entry = document.secrets.find((candidate) => candidate.id === id);
     if (!entry) {
       return null;
@@ -225,8 +230,8 @@ export class SecretVault {
     if (ids.length === 0) {
       return { env, skipped };
     }
-    this.assertSecureEncryption();
-    const document = await this.readDocument();
+    this.file.assertSecureEncryption();
+    const document = await this.file.readDocument();
     const byId = new Map(document.secrets.map((entry) => [entry.id, entry]));
     const seenNames = new Set<string>();
     // De-duplicate ids while preserving first-seen order.
@@ -258,75 +263,9 @@ export class SecretVault {
 
   private decryptValue(entry: StoredSecret): string {
     try {
-      return this.args.crypto.decryptString(
-        Buffer.from(entry.valueCiphertext, "base64"),
-      );
+      return this.file.decryptFromBase64(entry.valueCiphertext);
     } catch {
       throw new Error(`The secret "${entry.name}" cannot be decrypted.`);
     }
-  }
-
-  private assertSecureEncryption(): void {
-    if (!this.args.crypto.isEncryptionAvailable()) {
-      throw new Error(
-        "OS credential encryption is unavailable. Unlock the system credential store and retry.",
-      );
-    }
-    if (this.args.crypto.isInsecureBackend()) {
-      throw new Error(
-        "Secret storage requires an OS credential store; Electron basic_text encryption is not accepted.",
-      );
-    }
-  }
-
-  private async readDocument(): Promise<z.infer<typeof VaultDocumentSchema>> {
-    let raw: string;
-    try {
-      raw = await fs.readFile(this.args.filePath, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return { version: VAULT_VERSION, secrets: [] };
-      }
-      throw error;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new Error("The secret vault is not valid JSON.");
-    }
-    const result = VaultDocumentSchema.safeParse(parsed);
-    if (result.success) {
-      return result.data;
-    }
-    throw new Error("The secret vault has an unsupported format.");
-  }
-
-  private async writeDocument(
-    document: z.infer<typeof VaultDocumentSchema>,
-  ): Promise<void> {
-    const directory = path.dirname(this.args.filePath);
-    await fs.mkdir(directory, { recursive: true });
-    const tempPath = `${this.args.filePath}.${process.pid}.${randomUUID()}.tmp`;
-    try {
-      await fs.writeFile(tempPath, `${JSON.stringify(document, null, 2)}\n`, {
-        encoding: "utf8",
-        mode: 0o600,
-      });
-      await fs.rename(tempPath, this.args.filePath);
-      await fs.chmod(this.args.filePath, 0o600);
-    } finally {
-      await fs.rm(tempPath, { force: true }).catch(() => undefined);
-    }
-  }
-
-  private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.mutationQueue.then(operation, operation);
-    this.mutationQueue = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
   }
 }
