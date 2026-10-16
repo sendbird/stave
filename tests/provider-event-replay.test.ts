@@ -934,6 +934,46 @@ describe("subagent progress integration", () => {
     expect(part.progressMessages).toEqual(["Step 1", "Step 2"]);
   });
 
+  test("bounds progress like the live activity row: dedupe, truncate, keep 6", () => {
+    let message = createMessage({
+      parts: [
+        {
+          type: "tool_use",
+          toolUseId: "toolu_1",
+          toolName: "agent",
+          input: "{}",
+          state: "input-streaming",
+        },
+      ],
+    });
+    const append = (content: string) => {
+      message = appendProviderEventToAssistant({
+        message,
+        event: { type: "subagent_progress", toolUseId: "toolu_1", content },
+      });
+    };
+    append("Step 0");
+    append("Step 0");
+    expect(
+      (message.parts[0] as import("@/types/chat").ToolUsePart).progressMessages,
+    ).toEqual(["Step 0"]);
+    for (let index = 1; index <= 10; index += 1) {
+      append(`Step ${index}`);
+    }
+    append("x".repeat(1_000));
+    const part = message.parts[0] as import("@/types/chat").ToolUsePart;
+    expect(part.progressMessages).toHaveLength(6);
+    expect(part.progressMessages?.slice(0, 5)).toEqual([
+      "Step 6",
+      "Step 7",
+      "Step 8",
+      "Step 9",
+      "Step 10",
+    ]);
+    expect(part.progressMessages?.at(-1)).toHaveLength(240);
+    expect(part.progressMessages?.at(-1)?.endsWith("…")).toBe(true);
+  });
+
   test("degrades to system_event when no Agent tool_use exists", () => {
     const message = createMessage({
       parts: [

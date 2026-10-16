@@ -11,6 +11,7 @@ import type {
 } from "@/lib/providers/provider.types";
 import {
   formatToolDisplayName,
+  appendWorkProgressMessage,
   isSubagentToolName,
   parseToolInput,
   PROVIDER_TURN_WORK_TEXT_LIMIT,
@@ -110,7 +111,6 @@ export const PROVIDER_TURN_WORK_ITEM_LIMIT = 12;
  * capped tightly so they never crowd out subagent work.
  */
 export const PROVIDER_TURN_GENERAL_TOOL_LIMIT = 3;
-const PROVIDER_TURN_WORK_PROGRESS_LIMIT = 6;
 
 export interface ProviderTurnActivitySnapshot {
   turnId: string;
@@ -650,14 +650,6 @@ function resolveToolResultDetail(output: string) {
   );
 }
 
-function appendProgressMessage(messages: string[], content: string) {
-  const nextMessage = truncateWorkText(content);
-  if (!nextMessage || messages.at(-1) === nextMessage) {
-    return messages;
-  }
-  return [...messages, nextMessage].slice(-PROVIDER_TURN_WORK_PROGRESS_LIMIT);
-}
-
 function resolveToolStatus(
   state: Extract<NormalizedProviderEvent, { type: "tool" }>["state"],
 ): ProviderTurnWorkStatus {
@@ -853,7 +845,7 @@ function applyTurnWorkEvents(args: {
       if (!currentItem) {
         continue;
       }
-      const progressMessages = appendProgressMessage(
+      const progressMessages = appendWorkProgressMessage(
         currentItem.progressMessages,
         event.content,
       );

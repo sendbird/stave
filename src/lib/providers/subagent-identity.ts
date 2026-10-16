@@ -38,6 +38,26 @@ export function truncateWorkText(value: unknown) {
   return `${normalized.slice(0, PROVIDER_TURN_WORK_TEXT_LIMIT - 1).trimEnd()}…`;
 }
 
+/** Most recent progress lines a subagent work row keeps. */
+export const PROVIDER_TURN_WORK_PROGRESS_LIMIT = 6;
+
+/**
+ * Appends one subagent progress line: normalized and truncated like other work
+ * text, skipped when it repeats the previous line, and capped to the newest
+ * `PROVIDER_TURN_WORK_PROGRESS_LIMIT` lines. Returns the input array unchanged
+ * when nothing is added.
+ */
+export function appendWorkProgressMessage(
+  messages: string[],
+  content: unknown,
+): string[] {
+  const nextMessage = truncateWorkText(content);
+  if (!nextMessage || messages.at(-1) === nextMessage) {
+    return messages;
+  }
+  return [...messages, nextMessage].slice(-PROVIDER_TURN_WORK_PROGRESS_LIMIT);
+}
+
 export function parseToolInput(input: string): Record<string, unknown> | null {
   try {
     const parsed = JSON.parse(input);

@@ -12,6 +12,7 @@ import {
   rememberProviderSession,
 } from "@/lib/providers/provider-sessions";
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
+import { appendWorkProgressMessage } from "@/lib/providers/subagent-identity";
 import type {
   DelegatedExecutionUsage,
   NormalizedProviderEvent,
@@ -287,10 +288,12 @@ function appendSubagentProgressToPart(args: {
   }
 
   const target = parts[targetIndex] as ToolUsePart;
-  const updatedPart: ToolUsePart = {
-    ...target,
-    progressMessages: [...(target.progressMessages ?? []), content],
-  };
+  const currentMessages = target.progressMessages ?? [];
+  const progressMessages = appendWorkProgressMessage(currentMessages, content);
+  if (progressMessages === currentMessages) {
+    return parts;
+  }
+  const updatedPart: ToolUsePart = { ...target, progressMessages };
   const result = [...parts];
   result[targetIndex] = updatedPart;
   return result;
