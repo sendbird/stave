@@ -1,3 +1,27 @@
+## [0.27.3](https://github.com/sendbird/stave/compare/v0.27.2...v0.27.3) (2026-10-16)
+
+This patch release improves model and account selection, makes routing decisions easier to understand, gives Agent Runs clearer controls, and keeps conclusions in task replies.
+
+### Features and Fixes
+
+- The composer keeps each runtime's sign-in models beside its API connections. Choosing a connection model selects that account; choosing a runtime model returns to the sign-in account remembered for the current session (System default after a restart). Agents and queued messages resolve models on the selected account.
+- The status bar shows the balance and total spend for a selected Vercel AI Gateway connection. If the balance cannot be read, Stave reports that state instead of showing a guessed amount; the API key stays in the main process.
+- Route details show recorded decision models, timing, gateway failure reasons and costs. Agent Run progress also shows its route and resource decisions, while delegated task rows show the model that ran.
+- Agent Run transcripts separate the user's message from Stave's compiled prompt. The prompt can be expanded, read as Markdown and copied; instruction-only follow-ups no longer create an empty user bubble.
+- Task replies keep their conclusions and recommended actions in chat. Plan documents are used for analysis only when the user asks for a document they can revise.
+- Agent Runs honor explicit model and effort choices, and capability step-ups can take effect without the discretionary-change cooldown. Provider, account, start pins and the eligible model catalog continue to constrain routing.
+
+### Upgrade Notes
+
+- No data migration, setting reset or dependency change. No registered temporary migration expires in this release.
+
+### Known Limits
+
+- The gateway balance was not checked in the app with a live key, and a packaged desktop upgrade was not exercised. Agent Run prompt and route changes were not verified in a live rebuilt app.
+
+### References
+
+- [PR #775](https://github.com/sendbird/stave/pull/775), [PR #776](https://github.com/sendbird/stave/pull/776), [PR #777](https://github.com/sendbird/stave/pull/777), [PR #778](https://github.com/sendbird/stave/pull/778), [PR #779](https://github.com/sendbird/stave/pull/779), [PR #780](https://github.com/sendbird/stave/pull/780)
 ## [0.27.2](https://github.com/sendbird/stave/compare/v0.27.1...v0.27.2) (2026-10-16)
 
 This patch release polishes the interface: clearer Agent run limits, auto-routing settings, conversation times and question cards, plus layout fixes for panes and inline pages. It ships four `feat:` changes that are UI refinements with no new provider, data format or setting that needs migration, so it stays a patch.
