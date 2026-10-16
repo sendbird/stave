@@ -66,6 +66,75 @@ describe("local MCP workspace Information owner", () => {
     expect(state.get("alpha")?.jiraIssues[0]?.status).toBe("In Progress");
   });
 
+  test("a URL-only generic resource add reads its labels from the URL", async () => {
+    const { api } = createHarness();
+    const add = (kind: string, url: string) =>
+      api.addWorkspaceResource({ workspaceId: "alpha", kind, url });
+
+    await add("jira", "https://acme.atlassian.net/browse/ABC-7");
+    await add("jira", "https://acme.atlassian.net/projects/no-key");
+    await add("crane", "https://atelier.acme.dev/apps/crane/w/TEAM/task/CRN-42");
+    await add("confluence", "https://acme.atlassian.net/wiki/spaces/ENG/pages/12345/Release+Plan");
+    await add("figma", "https://www.figma.com/design/AbC123/Checkout-Flow?node-id=12-34");
+    await add("storybook", "https://storybook.acme.dev/?path=/story/forms-button--primary");
+    await add("slack", "https://acme.slack.com/archives/C0123ABC/p1700000000000100");
+    const last = await add("amplify", "https://feature-x.d1abcdef.amplifyapp.com/");
+
+    const info = last.workspaceInformation;
+    expect(info.jiraIssues.map(({ issueKey, title }) => ({ issueKey, title }))).toEqual([
+      { issueKey: "ABC-7", title: "ABC-7" },
+      { issueKey: "", title: "Jira issue" },
+    ]);
+    expect(info.craneIssues?.map(({ issueKey, title }) => ({ issueKey, title }))).toEqual([
+      { issueKey: "CRN-42", title: "CRN-42" },
+    ]);
+    expect(info.confluencePages.map(({ title, spaceKey }) => ({ title, spaceKey }))).toEqual([
+      { title: "Release Plan", spaceKey: "ENG" },
+    ]);
+    expect(info.figmaResources.map(({ title, nodeId }) => ({ title, nodeId }))).toEqual([
+      { title: "Checkout Flow", nodeId: "12-34" },
+    ]);
+    expect(info.storybookResources?.map(({ title }) => title)).toEqual(["forms button primary"]);
+    expect(info.slackThreads.map(({ channelName }) => channelName)).toEqual(["C0123ABC"]);
+    expect(info.amplifyLinks?.map(({ label }) => label)).toEqual(["feature-x"]);
+  });
+
+  test("caller fields win over URL labels, and Storybook access fields are stored", async () => {
+    const { api } = createHarness();
+    await api.addWorkspaceResource({
+      workspaceId: "alpha",
+      kind: "confluence",
+      url: "https://acme.atlassian.net/wiki/spaces/ENG/pages/12345/Release+Plan",
+      title: "Q3 plan",
+      spaceKey: "OPS",
+    });
+    await api.addWorkspaceResource({
+      workspaceId: "alpha",
+      kind: "amplify",
+      url: "https://feature-x.d1abcdef.amplifyapp.com/",
+      title: "staging",
+    });
+    const result = await api.addWorkspaceResource({
+      workspaceId: "alpha",
+      kind: "storybook",
+      url: "https://storybook.acme.dev/?path=/story/forms-button--primary",
+      storybookAccessKind: "requires_github_auth",
+      storybookExternalRepo: "acme/design-system",
+      storybookReadableVia: "github_cli",
+      storybookSourceHint: "storybook-static artifact",
+    });
+
+    const info = result.workspaceInformation;
+    expect(info.confluencePages[0]).toMatchObject({ title: "Q3 plan", spaceKey: "OPS" });
+    expect(info.amplifyLinks?.[0]?.label).toBe("staging");
+    expect(info.storybookResources?.[0]?.access).toMatchObject({
+      kind: "requires_github_auth",
+      externalRepo: "acme/design-system",
+      readableVia: "github_cli",
+      sourceHint: "storybook-static artifact",
+    });
+  });
+
   test("invalid input and updater rejection propagate without persisting", async () => {
     const { api, calls, state, failWith } = createHarness();
     await expect(api.appendWorkspaceNotes({ workspaceId: "alpha", text: "  " }))

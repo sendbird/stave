@@ -96,15 +96,8 @@ import {
 } from "./wake-up-service";
 import { ensurePersistenceReady } from "./state";
 import {
-  addWorkspaceAmplifyLink,
   addWorkspaceCustomField,
-  addWorkspaceConfluencePage,
-  addWorkspaceCraneIssue,
-  addWorkspaceFigmaResource,
-  addWorkspaceJiraIssue,
   addWorkspaceResource,
-  addWorkspaceSlackThread,
-  addWorkspaceStorybookResource,
   addWorkspaceTodo,
   appendWorkspaceNotes,
   clearWorkspaceNotes,
@@ -1438,7 +1431,7 @@ function createToolServer(options?: {
     "stave_add_workspace_resource",
     {
       description:
-        "Add a Jira issue, PR, Confluence page, Storybook resource, Slack thread, or Figma resource to the workspace Information panel. Idempotent: a resource already registered under the same canonical identity (e.g. Jira issue key, PR number, normalized URL) is merged into the existing entry (the result sets `deduplicated: true`).",
+        'Add a Jira issue, Crane issue, PR, Confluence page, Storybook resource, Slack thread, Figma resource, or AWS Amplify deploy URL to the workspace Information panel. Fields the call leaves out are read from the URL where it carries them (issue key, title, Confluence space, Figma node, Slack channel, Amplify branch). Crane task links use kind `crane`: Crane keys such as `CRN-42` look like Jira keys, and a Crane URL sent as kind `jira` is filed under Crane (the result sets `kind: "crane"` and `reroutedFrom: "jira"`). Idempotent: a resource already registered under the same canonical identity (e.g. Jira issue key, Crane host and key, PR number, normalized URL) is merged into the existing entry (the result sets `deduplicated: true`).',
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         kind: z
@@ -1454,7 +1447,12 @@ function createToolServer(options?: {
           ])
           .describe("Resource kind."),
         url: z.string().url().describe("Resource URL."),
-        title: z.string().optional().describe("Optional display title."),
+        title: z
+          .string()
+          .optional()
+          .describe(
+            "Optional display title. For kind=`amplify`, the branch/environment label.",
+          ),
         issueKey: z
           .string()
           .optional()
@@ -1462,8 +1460,11 @@ function createToolServer(options?: {
         status: z
           .string()
           .optional()
-          .describe("Optional status, used by Jira and PR links."),
-        note: z.string().optional().describe("Optional note."),
+          .describe("Optional status, used by Jira, Crane and PR links."),
+        note: z
+          .string()
+          .optional()
+          .describe("Optional note stored with the link."),
         nodeId: z.string().optional().describe("Optional Figma node id."),
         channelName: z
           .string()
@@ -1619,163 +1620,6 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_add_workspace_jira_issue",
-    {
-      description:
-        'Register a Jira issue in the Stave Workspace Information panel. Jira issues only: a Crane task URL passed here is rerouted to the Crane section (the result sets `reroutedTo: "crane"`), so use `stave_add_workspace_crane_issue` for Crane links. Idempotent: an issue already registered under the same issue key is merged into the existing entry (the result sets `deduplicated: true`).',
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z.string().min(1).describe("Jira issue URL."),
-        issueKey: z
-          .string()
-          .optional()
-          .describe("Optional Jira issue key override."),
-        title: z.string().optional().describe("Optional title override."),
-        status: z.string().optional().describe("Optional status label."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-      },
-    },
-    async ({ workspaceId, url, issueKey, title, status, note }) =>
-      toStructuredResult(
-        await addWorkspaceJiraIssue({
-          workspaceId,
-          url,
-          issueKey,
-          title,
-          status,
-          note,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "stave_add_workspace_crane_issue",
-    {
-      description:
-        "Register a Crane issue in the Stave Workspace Information panel. Use this — never `stave_add_workspace_jira_issue` — for Crane task links: Crane keys such as `CRN-42` look like Jira keys but belong in the Crane section, so the Jira section keeps holding only the product's tracked Jira issue. Idempotent: an issue already registered under the same Crane host and key is merged into the existing entry (the result sets `deduplicated: true`).",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z
-          .string()
-          .min(1)
-          .describe(
-            "Crane issue URL, e.g. https://<host>/apps/crane/w/TEAM/task/CRN-42.",
-          ),
-        issueKey: z
-          .string()
-          .optional()
-          .describe("Optional Crane issue key override."),
-        title: z.string().optional().describe("Optional title override."),
-        status: z.string().optional().describe("Optional status label."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-      },
-    },
-    async ({ workspaceId, url, issueKey, title, status, note }) =>
-      toStructuredResult(
-        await addWorkspaceCraneIssue({
-          workspaceId,
-          url,
-          issueKey,
-          title,
-          status,
-          note,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "stave_add_workspace_confluence_page",
-    {
-      description:
-        "Register a Confluence page in the Stave Workspace Information panel.",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z.string().min(1).describe("Confluence page URL."),
-        title: z.string().optional().describe("Optional title override."),
-        spaceKey: z
-          .string()
-          .optional()
-          .describe("Optional space key override."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-      },
-    },
-    async ({ workspaceId, url, title, spaceKey, note }) =>
-      toStructuredResult(
-        await addWorkspaceConfluencePage({
-          workspaceId,
-          url,
-          title,
-          spaceKey,
-          note,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "stave_add_workspace_storybook_resource",
-    {
-      description:
-        "Register a Storybook resource in the Stave Workspace Information panel.",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z.string().min(1).describe("Storybook URL."),
-        title: z.string().optional().describe("Optional title override."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-        accessKind: z
-          .enum(["unknown", "public", "requires_github_auth"])
-          .optional()
-          .describe("Optional Storybook access classification."),
-        externalRepo: z
-          .string()
-          .optional()
-          .describe("Optional GitHub owner/repo that backs the Storybook."),
-        readableVia: z
-          .enum(["unknown", "web", "github_cli"])
-          .optional()
-          .describe("Optional route an agent should use to read Storybook."),
-        sourceHint: z
-          .string()
-          .optional()
-          .describe("Optional source or artifact hint for the Storybook."),
-      },
-    },
-    async ({
-      workspaceId,
-      url,
-      title,
-      note,
-      accessKind,
-      externalRepo,
-      readableVia,
-      sourceHint,
-    }) =>
-      toStructuredResult(
-        await addWorkspaceStorybookResource({
-          workspaceId,
-          url,
-          title,
-          note,
-          accessKind,
-          externalRepo,
-          readableVia,
-          sourceHint,
-        }),
-      ),
-  );
-
-  server.registerTool(
     "stave_update_workspace_storybook_resource_access",
     {
       description:
@@ -1828,97 +1672,6 @@ function createToolServer(options?: {
           sourceHint,
         }),
       }),
-  );
-
-  server.registerTool(
-    "stave_add_workspace_figma_resource",
-    {
-      description:
-        "Register a Figma resource in the Stave Workspace Information panel.",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z.string().min(1).describe("Figma URL."),
-        title: z.string().optional().describe("Optional title override."),
-        nodeId: z.string().optional().describe("Optional node id override."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-      },
-    },
-    async ({ workspaceId, url, title, nodeId, note }) =>
-      toStructuredResult(
-        await addWorkspaceFigmaResource({
-          workspaceId,
-          url,
-          title,
-          nodeId,
-          note,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "stave_add_workspace_slack_thread",
-    {
-      description:
-        "Register a Slack thread in the Stave Workspace Information panel.",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z.string().min(1).describe("Slack thread URL."),
-        channelName: z
-          .string()
-          .optional()
-          .describe("Optional channel label override."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-      },
-    },
-    async ({ workspaceId, url, channelName, note }) =>
-      toStructuredResult(
-        await addWorkspaceSlackThread({
-          workspaceId,
-          url,
-          channelName,
-          note,
-        }),
-      ),
-  );
-
-  server.registerTool(
-    "stave_add_workspace_amplify_link",
-    {
-      description:
-        "Register an AWS Amplify deploy URL in the Stave Workspace Information panel.",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        url: z
-          .string()
-          .min(1)
-          .describe(
-            "Amplify deploy URL, e.g. https://<branch>.<appid>.amplifyapp.com.",
-          ),
-        label: z
-          .string()
-          .optional()
-          .describe("Optional branch/environment label."),
-        note: z
-          .string()
-          .optional()
-          .describe("Optional note stored with the link."),
-      },
-    },
-    async ({ workspaceId, url, label, note }) =>
-      toStructuredResult(
-        await addWorkspaceAmplifyLink({
-          workspaceId,
-          url,
-          label,
-          note,
-        }),
-      ),
   );
 
   // `stave_respond_approval` is not served: every MCP client shares one local

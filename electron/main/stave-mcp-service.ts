@@ -296,54 +296,6 @@ export async function addWorkspaceJiraIssue(args: {
   }>("add-workspace-jira-issue", args);
 }
 
-export async function addWorkspaceConfluencePage(args: {
-  workspaceId: string;
-  url: string;
-  title?: string;
-  spaceKey?: string;
-  note?: string;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    added: import("../../src/lib/workspace-information").WorkspaceConfluencePage;
-    deduplicated: boolean;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("add-workspace-confluence-page", args);
-}
-
-export async function addWorkspaceFigmaResource(args: {
-  workspaceId: string;
-  url: string;
-  title?: string;
-  nodeId?: string;
-  note?: string;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    added: import("../../src/lib/workspace-information").WorkspaceFigmaResource;
-    deduplicated: boolean;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("add-workspace-figma-resource", args);
-}
-
-export async function addWorkspaceStorybookResource(args: {
-  workspaceId: string;
-  url: string;
-  title?: string;
-  note?: string;
-  accessKind?: string;
-  externalRepo?: string;
-  readableVia?: string;
-  sourceHint?: string;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    added: import("../../src/lib/workspace-information").WorkspaceStorybookResource;
-    deduplicated: boolean;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("add-workspace-storybook-resource", args);
-}
-
 export async function updateWorkspaceStorybookResourceAccess(args: {
   workspaceId: string;
   resourceId?: string;
@@ -357,34 +309,6 @@ export async function updateWorkspaceStorybookResourceAccess(args: {
     workspaceId: string;
     workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
   }>("update-workspace-storybook-resource-access", args);
-}
-
-export async function addWorkspaceSlackThread(args: {
-  workspaceId: string;
-  url: string;
-  channelName?: string;
-  note?: string;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    added: import("../../src/lib/workspace-information").WorkspaceSlackThread;
-    deduplicated: boolean;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("add-workspace-slack-thread", args);
-}
-
-export async function addWorkspaceAmplifyLink(args: {
-  workspaceId: string;
-  url: string;
-  label?: string;
-  note?: string;
-}) {
-  return invokeLocalMcp<{
-    workspaceId: string;
-    added: import("../../src/lib/workspace-information").WorkspaceAmplifyLink;
-    deduplicated: boolean;
-    workspaceInformation: import("../../src/lib/workspace-information").WorkspaceInformationState;
-  }>("add-workspace-amplify-link", args);
 }
 
 export async function registerRepository(args: {

@@ -147,14 +147,9 @@ For workspace Information panel management, also use:
 - `stave_add_workspace_todo`
 - `stave_update_workspace_todo`
 - `stave_remove_workspace_todo`
-- `stave_add_workspace_resource`
+- `stave_add_workspace_resource` — `{ workspaceId, kind, url, ... }`; one tool for every linked resource: `kind` is `jira`, `crane`, `pull_request`, `confluence`, `storybook`, `slack`, `figma` or `amplify`. Fields left out (issue key, title, Confluence space, Figma node, Slack channel, Amplify branch) are read from the URL, and a resource already linked under the same identity is merged instead of added twice
 - `stave_remove_workspace_resource`
-- `stave_add_workspace_jira_issue`
-- `stave_add_workspace_confluence_page`
-- `stave_add_workspace_storybook_resource`
 - `stave_update_workspace_storybook_resource_access`
-- `stave_add_workspace_figma_resource`
-- `stave_add_workspace_slack_thread`
 - `stave_add_workspace_custom_field`
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
