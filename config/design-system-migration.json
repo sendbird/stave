@@ -124,10 +124,6 @@
       "legacyRecipeCount": 0,
       "requiresCanonicalSource": true
     },
-    "src/components/system/NavigationItem.tsx": {
-      "legacyRecipeCount": 0,
-      "requiresCanonicalSource": true
-    },
     "src/components/system/ChoiceChips.tsx": {
       "legacyRecipeCount": 0,
       "requiresCanonicalSource": true
