@@ -45,6 +45,129 @@ describe("UserInputCard", () => {
     expect(html.indexOf("Focused")).toBeLessThan(html.indexOf("Broad"));
   });
 
+  test("leads with the question and numbered choices instead of chrome", () => {
+    const html = renderToStaticMarkup(
+      createElement(UserInputCard, {
+        toolName: "request_user_input",
+        questions: [
+          {
+            key: "timestamps",
+            header: "",
+            question: "Where should timestamps appear?",
+            options: [
+              { label: "Day dividers and message details (추천)" },
+              { label: "Next to every message" },
+              { label: "Only when opened" },
+            ],
+          },
+        ],
+        state: "input-requested",
+        presentation: "composer",
+      }),
+    );
+
+    // No visible count line, and no single-choice hint taking a row of its own.
+    expect(html).not.toContain("1 question");
+    expect(html).not.toMatch(/Select one(?! or more)/);
+    expect(html).not.toContain("Required");
+    // The form stays named for assistive technology.
+    expect(html).toContain("Agent needs your input");
+    expect(html).toMatch(/aria-hidden="true">1<\/span>/);
+    expect(html).toMatch(/aria-hidden="true">3<\/span>/);
+    // A Korean recommendation suffix becomes the badge instead of label text.
+    expect(html).toContain("Day dividers and message details<");
+    // The submitted value keeps the agent's original label.
+    expect(html).toContain('value="Day dividers and message details (추천)"');
+    expect(html).not.toMatch(/>[^<]*\(추천\)[^<]*</);
+    expect(html).toContain("Recommended");
+    // The different answer is typed in the last row, not behind a toggle.
+    expect(html).toMatch(/<textarea[^>]*placeholder="Write a different answer"/);
+    expect(html).not.toContain("aria-expanded");
+    expect(html).toContain("to choose");
+    expect(html.indexOf("Decline to answer")).toBeLessThan(
+      html.indexOf("Continue"),
+    );
+  });
+
+  test("shows the header and multi-select hint only when they carry information", () => {
+    const html = renderToStaticMarkup(
+      createElement(UserInputCard, {
+        toolName: "AskUserQuestion",
+        questions: [{ ...QUESTIONS[0]!, multiSelect: true }],
+        state: "input-requested",
+        presentation: "composer",
+      }),
+    );
+
+    expect(html).toContain("Scope");
+    expect(html).toContain("Select one or more");
+    expect(html).toContain('type="checkbox"');
+    expect(html).toMatch(/<textarea[^>]*placeholder="Add another answer"/);
+  });
+
+  test("answers several questions one step at a time", () => {
+    const html = renderToStaticMarkup(
+      createElement(UserInputCard, {
+        toolName: "AskUserQuestion",
+        questions: [
+          QUESTIONS[0]!,
+          {
+            key: "rollout",
+            header: "Rollout",
+            question: "How should it ship?",
+            options: [{ label: "Single PR" }, { label: "Behind a flag" }],
+          },
+          {
+            key: "notes",
+            header: "",
+            question: "Anything else?",
+            options: [],
+            required: false,
+          },
+        ],
+        state: "input-requested",
+        presentation: "composer",
+      }),
+    );
+
+    expect(html).toContain('aria-label="Question 1 of 3: Scope"');
+    expect(html).toContain('aria-label="Question 2 of 3: Rollout"');
+    expect(html).toContain('aria-label="Question 3 of 3: Question 3"');
+    expect(html).toMatch(
+      /aria-current="step"[^>]*aria-label="Question 1 of 3: Scope"/,
+    );
+    expect(html.match(/<fieldset/g)).toHaveLength(1);
+    expect(html).toContain("Which scope should be used?");
+    expect(html).not.toContain("How should it ship?");
+    expect(html).toContain(">Next<");
+    expect(html).not.toContain(">Continue<");
+    expect(html).toContain("for the next question");
+  });
+
+  test("keeps every answered question visible in the record without steps", () => {
+    const html = renderToStaticMarkup(
+      createElement(UserInputCard, {
+        toolName: "AskUserQuestion",
+        questions: [
+          QUESTIONS[0]!,
+          {
+            key: "rollout",
+            header: "Rollout",
+            question: "How should it ship?",
+            options: [{ label: "Single PR" }, { label: "Behind a flag" }],
+          },
+        ],
+        state: "input-responded",
+        answers: { scope: "Focused", rollout: "Single PR" },
+      }),
+    );
+
+    expect(html.match(/<fieldset/g)).toHaveLength(2);
+    expect(html).toContain("How should it ship?");
+    expect(html).not.toContain('aria-current="step"');
+    expect(html).not.toContain(">Next<");
+  });
+
   test("does not mark the first option as recommended when no option is flagged", () => {
     const html = renderToStaticMarkup(
       createElement(UserInputCard, {

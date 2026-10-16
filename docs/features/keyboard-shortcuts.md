@@ -89,6 +89,8 @@ choice.
 | Stop active turn | `Esc` | Task pane or composer |
 | Approve request | `Enter` | Active task with a pending request, not while typing |
 | Answer with guidance | `Tab` | Active task with a pending request, not while typing |
+| Choose an answer | `1..9` | An agent question in the composer, not while typing |
+| Next question or send answers | `Enter` | An agent question in the composer; Shift+Enter adds a line to a written answer |
 | Open model selector | `Alt+P` | Active task |
 | Model shortcut slots | `Alt+1..0` | Active task; assign them in Settings → Command Palette |
 | Preset shortcut slots | `Ctrl+1..9` | Anywhere; the first nine presets in Settings → Presets |

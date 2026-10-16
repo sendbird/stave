@@ -110,7 +110,8 @@ export const userInputCardStyles = stylex.create({
     lineHeight: "20px",
     color: vars["--ads-color-text-muted"],
   },
-  questionsWrap: { marginTop: vars["--ads-space-16"] },
+  questionsWrap: {},
+  questionsWrapAfterHeader: { marginTop: vars["--ads-space-12"] },
   questionsWrapComposer: {
     marginInline: `calc(-1 * ${vars["--ads-space-4"]})`,
     minHeight: 0,
@@ -119,7 +120,76 @@ export const userInputCardStyles = stylex.create({
     overscrollBehavior: "contain",
     paddingInline: vars["--ads-space-4"],
   },
-  questionBlock: {},
+  // Programmatic focus target for keyboard shortcuts; the controls inside
+  // carry the visible focus indicators.
+  formFocusTarget: { outlineStyle: "none" },
+
+  // ── Steps (several questions) ────────────────────────────────
+  steps: {
+    display: "flex",
+    flexShrink: 0,
+    flexWrap: "wrap",
+    gap: vars["--ads-space-4"],
+    marginBottom: vars["--ads-space-12"],
+  },
+  step: {
+    display: "inline-flex",
+    minWidth: 0,
+    maxWidth: "100%",
+    alignItems: "center",
+    gap: "0.375rem",
+    borderWidth: 0,
+    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: {
+      default: "transparent",
+      ":hover": softHover,
+    },
+    paddingBlock: vars["--ads-space-4"],
+    paddingInlineStart: "0.375rem",
+    paddingInlineEnd: "0.625rem",
+    cursor: "pointer",
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "16px",
+    color: {
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
+    },
+  },
+  stepCurrent: {
+    backgroundColor: {
+      default: `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--ads-color-accent"]} 14%, transparent)`,
+    },
+    color: {
+      default: vars["--ads-color-text"],
+      ":hover": vars["--ads-color-text"],
+    },
+    fontWeight: vars["--ads-font-weight-semibold"],
+  },
+  stepMark: {
+    display: "inline-flex",
+    width: 16,
+    height: 16,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text"]} 7%, transparent)`,
+    fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: vars["--ads-font-weight-medium"],
+  },
+  stepMarkAnswered: {
+    backgroundColor: vars["--ads-color-accent"],
+    color: vars["--ads-color-accent-text"],
+  },
+  stepLabel: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
+  // ── Question ─────────────────────────────────────────────────
   questionBlockDivided: {
     marginTop: vars["--ads-space-16"],
     borderTopWidth: vars["--ads-border-width-hairline"],
@@ -129,73 +199,84 @@ export const userInputCardStyles = stylex.create({
   },
   fieldset: { minWidth: 0 },
   legend: { width: "100%" },
-  legendHeaderRow: {
+  eyebrow: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
-    justifyContent: "space-between",
-    gap: vars["--ads-space-12"],
+    gap: "0.375rem",
+    marginBottom: vars["--ads-space-4"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: "16px",
     color: vars["--ads-color-text-muted"],
   },
-  legendHeader: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontWeight: vars["--ads-font-weight-medium"],
+  eyebrowHeader: {
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    letterSpacing: "0.02em",
+    textTransform: "uppercase",
   },
-  legendHint: { flexShrink: 0 },
-  legendQuestion: {
-    marginTop: "0.375rem",
+  questionTitle: {
     display: "block",
     maxWidth: "48rem",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: "24px",
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     color: vars["--ads-color-text"],
   },
-
-  optionsGrid: {
-    marginTop: vars["--ads-space-12"],
-    display: "grid",
-    gap: vars["--ads-space-8"],
-    gridTemplateColumns: {
-      default: "1fr",
-      "@media (min-width: 640px)": "repeat(2, minmax(0, 1fr))",
-    },
+  // Transcript records and inline cards sit among messages, not in place of
+  // the composer, so their titles stay at body size.
+  questionTitleCompact: {
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-control"],
   },
-  option: {
+
+  // ── Options ──────────────────────────────────────────────────
+  optionList: {
+    marginTop: vars["--ads-space-12"],
+    overflow: "hidden",
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 90%, transparent)`,
+  },
+  optionRow: {
     position: "relative",
     display: "flex",
-    minHeight: 44,
     minWidth: 0,
     cursor: "pointer",
     alignItems: "flex-start",
     gap: vars["--ads-space-12"],
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: {
-      default: `color-mix(in oklch, ${vars["--ads-color-border"]} 80%, transparent)`,
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-text"]} 20%, transparent)`,
-    },
     backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 45%, transparent)`,
-      ":hover": softHover,
+      default: "transparent",
+      ":hover": `color-mix(in oklch, ${vars["--ads-color-canvas"]} 70%, transparent)`,
     },
     paddingInline: vars["--ads-space-12"],
     paddingBlock: "0.625rem",
-    transitionProperty: "background-color, border-color, box-shadow",
+    transitionProperty: "background-color",
     transitionDuration: {
       default: "150ms",
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
   },
-  optionSelected: {
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-accent"]} 45%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-accent"]} 6%, transparent)`,
-    boxShadow: `inset 0 0 0 1px color-mix(in oklch, ${vars["--ads-color-accent"]} 12%, transparent)`,
+  optionRowDivided: {
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopStyle: "solid",
+    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
+  },
+  // The list clips its rows to the rounded corners, so the keyboard ring is
+  // drawn inside each row instead of outside it.
+  optionRowFocusInset: {
+    outlineOffset: {
+      default: 0,
+      ":has(:focus-visible)": `calc(-1 * (${vars["--ads-focus-ring-offset"]} + ${vars["--ads-focus-ring-width"]}))`,
+    },
+  },
+  optionRowSelected: {
+    backgroundColor: {
+      default: `color-mix(in oklch, ${vars["--ads-color-accent"]} 7%, transparent)`,
+      ":hover": `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`,
+    },
   },
   optionDisabled: {
     pointerEvents: "none",
@@ -203,6 +284,25 @@ export const userInputCardStyles = stylex.create({
     opacity: 0.45,
   },
   optionReadOnly: { pointerEvents: "none", cursor: "default" },
+  optionIndex: {
+    marginTop: 1,
+    display: "flex",
+    width: 18,
+    height: 18,
+    flexShrink: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text"]} 6%, transparent)`,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: vars["--ads-font-weight-medium"],
+  },
+  optionIndexSelected: {
+    backgroundColor: vars["--ads-color-accent"],
+    color: vars["--ads-color-accent-text"],
+  },
   recordedAnswer: {
     marginTop: vars["--ads-space-12"],
     color: vars["--ads-color-text"],
@@ -220,35 +320,7 @@ export const userInputCardStyles = stylex.create({
     whiteSpace: "nowrap",
     borderWidth: 0,
   },
-  optionMark: {
-    marginTop: vars["--ads-space-2"],
-    display: "flex",
-    width: 16,
-    height: 16,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-  },
-  optionMarkCheckbox: { borderRadius: 4 },
-  optionMarkRadio: { borderRadius: vars["--ads-radius-full"] },
-  optionMarkSelected: {
-    borderColor: vars["--ads-color-accent"],
-    backgroundColor: vars["--ads-color-accent"],
-    color: vars["--ads-color-accent-text"],
-  },
-  optionMarkUnselected: {
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-canvas"],
-  },
   iconXs: { width: 12, height: 12 },
-  radioDot: {
-    width: 6,
-    height: 6,
-    borderRadius: vars["--ads-radius-full"],
-    backgroundColor: vars["--ads-color-accent-text"],
-  },
   optionBody: { minWidth: 0, flex: 1 },
   optionLabelRow: {
     display: "flex",
@@ -271,8 +343,32 @@ export const userInputCardStyles = stylex.create({
     marginTop: vars["--ads-space-2"],
     display: "block",
     fontSize: vars["--ads-font-size-caption"],
-    lineHeight: "20px",
+    lineHeight: "18px",
     color: vars["--ads-color-text-muted"],
+  },
+  customRow: {
+    alignItems: "center",
+    cursor: "text",
+  },
+  customInlineField: {
+    minWidth: 0,
+    flex: 1,
+    appearance: "none",
+    borderWidth: 0,
+    backgroundColor: "transparent",
+    padding: 0,
+    outlineStyle: "none",
+    fontFamily: "inherit",
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: "20px",
+    color: vars["--ads-color-text"],
+    "::placeholder": { color: vars["--ads-color-text-muted"] },
+  },
+  customInlineTextarea: {
+    display: "block",
+    maxHeight: 160,
+    resize: "none",
+    fieldSizing: "content",
   },
 
   urlNotice: {
@@ -306,11 +402,6 @@ export const userInputCardStyles = stylex.create({
     },
   },
 
-  customToggle: {
-    marginTop: "0.625rem",
-    marginLeft: `calc(-1 * ${vars["--ads-space-8"]})`,
-    fontSize: vars["--ads-font-size-caption"],
-  },
   customInputWrap: { marginTop: vars["--ads-space-8"] },
   customTextarea: {
     minHeight: 80,
@@ -325,11 +416,32 @@ export const userInputCardStyles = stylex.create({
     flexShrink: 0,
     flexWrap: "wrap",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: vars["--ads-space-8"],
-    borderTopWidth: vars["--ads-border-width-hairline"],
-    borderTopStyle: "solid",
-    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 60%, transparent)`,
-    paddingTop: vars["--ads-space-16"],
+  },
+  // Pull the ghost button's padding into the gutter so its label lines up
+  // with the question text above it.
+  declineButton: {
+    marginInlineStart: `calc(-1 * ${vars["--ads-space-8"]})`,
+  },
+  footerActions: {
+    display: "flex",
+    minWidth: 0,
+    alignItems: "center",
+    gap: vars["--ads-space-12"],
+    marginInlineStart: "auto",
+  },
+  keyboardHint: {
+    display: {
+      default: "none",
+      "@media (min-width: 640px)": "inline-flex",
+    },
+    alignItems: "center",
+    gap: vars["--ads-space-4"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "16px",
+    color: vars["--ads-color-text-muted"],
+    whiteSpace: "nowrap",
   },
   disabledReason: {
     flexBasis: "100%",

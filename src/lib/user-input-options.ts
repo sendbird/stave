@@ -1,6 +1,8 @@
 import type { UserInputOption } from "@/types/chat";
 
-const RECOMMENDED_LABEL_SUFFIX = /\s*\(\s*recommended\s*\)\s*$/i;
+// Agents writing in Korean mark their pick with 추천 or 권장 instead of
+// "Recommended"; all three read as the same recommendation.
+const RECOMMENDED_LABEL_SUFFIX = /\s*\(\s*(?:recommended|추천|권장)\s*\)\s*$/i;
 
 export function isRecommendedUserInputFlag(value: unknown): boolean {
   return value === true || value === "true" || value === 1 || value === "1";

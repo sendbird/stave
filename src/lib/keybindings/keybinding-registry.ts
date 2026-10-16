@@ -89,6 +89,7 @@ export const APP_SHELL_KEYBINDING_OWNER =
 const APP_SHELL = APP_SHELL_KEYBINDING_OWNER;
 const MAIN_WINDOW = "electron/main/window.ts";
 const PROMPT_INPUT = "src/components/ai-elements/prompt-input.tsx";
+const USER_INPUT_CARD = "src/components/ai-elements/user-input-card.tsx";
 
 /** A `Cmd/Ctrl+K` chord whose second key the user can change in Settings. */
 function appChord<TId extends AppShortcutCommandId>(
@@ -447,6 +448,28 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:keybindings.entries.approvalGuidance.description",
     section: "composer",
     handledBy: ["src/components/session/ChatInputComposer.tsx"],
+  },
+  {
+    id: "user-input.choose-option",
+    keys: ["1-9"],
+    scope: "composer",
+    focus: true,
+    editable: "block",
+    titleKey: "shell:keybindings.entries.userInputChoose.title",
+    descriptionKey: "shell:keybindings.entries.userInputChoose.description",
+    section: "composer",
+    handledBy: [USER_INPUT_CARD],
+  },
+  {
+    id: "user-input.advance",
+    keys: ["enter"],
+    scope: "composer",
+    focus: true,
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.userInputAdvance.title",
+    descriptionKey: "shell:keybindings.entries.userInputAdvance.description",
+    section: "composer",
+    handledBy: [USER_INPUT_CARD],
   },
 
   // ── models ──────────────────────────────────────────────────────────────
