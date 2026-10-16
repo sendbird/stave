@@ -80,6 +80,21 @@ export function appendPendingEntriesLimited<T>(
   return [...byEntryId.values()].slice(-LENS_LOG_LIMIT);
 }
 
+/** Frame-batched live events, bounded by `appendPendingEntriesLimited`. */
+export function createPendingEntryBuffer<T>(getId: (entry: T) => string) {
+  let pending: T[] = [];
+  return {
+    push(incoming: readonly T[]) {
+      pending = appendPendingEntriesLimited(pending, incoming, getId);
+    },
+    drain(): T[] {
+      const entries = pending;
+      pending = [];
+      return entries;
+    },
+  };
+}
+
 export function matchesSession(
   payload: { workspaceId: string; lensSessionId?: string },
   workspaceId: string,

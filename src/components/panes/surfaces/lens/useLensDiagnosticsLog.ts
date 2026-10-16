@@ -25,7 +25,7 @@ import {
 import {
   LENS_LOG_LIMIT,
   appendLimited,
-  appendPendingEntriesLimited,
+  createPendingEntryBuffer,
   formatConsoleEntries,
   formatNetworkEntries,
   formatNetworkEntryDetails,
@@ -163,12 +163,11 @@ export function useLensDiagnosticsLog(args: {
     }
 
     let cancelled = false;
-    let pendingConsoleEntries: BrowserConsoleEntry[] = [];
+    const pendingConsoleEntries = createPendingEntryBuffer<BrowserConsoleEntry>((entry) => entry.id);
     let consoleFrame: number | null = null;
     const flushConsoleEntries = () => {
       consoleFrame = null;
-      const entries = pendingConsoleEntries;
-      pendingConsoleEntries = [];
+      const entries = pendingConsoleEntries.drain();
       if (cancelled || entries.length === 0) {
         return;
       }
@@ -214,11 +213,7 @@ export function useLensDiagnosticsLog(args: {
         if (payload.entry.text.startsWith("Navigation failed:")) {
           setLastLoadError(payload.entry.text);
         }
-        pendingConsoleEntries = appendPendingEntriesLimited(
-          pendingConsoleEntries,
-          [payload.entry],
-          (entry) => entry.id,
-        );
+        pendingConsoleEntries.push([payload.entry]);
         if (consoleFrame === null) {
           consoleFrame = requestAnimationFrame(flushConsoleEntries);
         }
@@ -246,12 +241,11 @@ export function useLensDiagnosticsLog(args: {
     }
 
     let cancelled = false;
-    let pendingNetworkEntries: BrowserNetworkEntry[] = [];
+    const pendingNetworkEntries = createPendingEntryBuffer<BrowserNetworkEntry>((entry) => entry.entryId);
     let networkFrame: number | null = null;
     const flushNetworkEntries = () => {
       networkFrame = null;
-      const entries = pendingNetworkEntries;
-      pendingNetworkEntries = [];
+      const entries = pendingNetworkEntries.drain();
       if (cancelled || entries.length === 0) {
         return;
       }
@@ -283,11 +277,7 @@ export function useLensDiagnosticsLog(args: {
         if (!matchesSession(payload, workspaceId, lensSessionId)) {
           return;
         }
-        pendingNetworkEntries = appendPendingEntriesLimited(
-          pendingNetworkEntries,
-          payload.entries ?? [payload.entry],
-          (entry) => entry.entryId,
-        );
+        pendingNetworkEntries.push(payload.entries ?? [payload.entry]);
         if (networkFrame === null) {
           networkFrame = requestAnimationFrame(flushNetworkEntries);
         }

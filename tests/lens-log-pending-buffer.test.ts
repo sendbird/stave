@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   LENS_LOG_LIMIT,
   appendPendingEntriesLimited,
+  createPendingEntryBuffer,
 } from "@/lib/lens/lens-log-format";
 
 type Entry = { id: string; value: number };
@@ -55,5 +56,16 @@ describe("appendPendingEntriesLimited", () => {
       { id: "request", value: LENS_LOG_LIMIT * 2 - 1 },
     ]);
     expect(new Set(pending.map(getId)).size).toBe(pending.length);
+  });
+
+  test("the frame buffer stays bounded until drained, then starts empty", () => {
+    const buffer = createPendingEntryBuffer<Entry>(getId);
+    for (let index = 0; index < LENS_LOG_LIMIT * 10; index += 1) {
+      buffer.push([{ id: `entry-${index}`, value: index }]);
+    }
+    const drained = buffer.drain();
+    expect(drained.length).toBeLessThanOrEqual(LENS_LOG_LIMIT * 2);
+    expect(drained.at(-1)?.value).toBe(LENS_LOG_LIMIT * 10 - 1);
+    expect(buffer.drain()).toEqual([]);
   });
 });
