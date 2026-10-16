@@ -335,6 +335,13 @@ A quiet divider marks every turn an agent run started, with the reason, such as
 **Stage 3 · Verify** — started automatically after Build reported done. An
 agent run with a workflow gets the same dividers; a one-stage run has none.
 
+For a user message that starts a run, the bubble shows the words you wrote and
+a folded **Full prompt sent to the agent** row shows the complete prompt Stave
+assembled, including its instructions. A run follow-up with no user wording
+appears in its own **Stave's follow-up to the agent** row. Open either row to
+read the Markdown prompt or copy it; the row says when the prompt is still
+being prepared.
+
 ### Agent run report
 
 When an agent run ends, its report is shown in the Task panel's **Progress** tab
