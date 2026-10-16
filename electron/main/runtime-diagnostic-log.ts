@@ -5,6 +5,7 @@ import { app } from "electron";
 const RUNTIME_ISSUE_LOG_NAME = "renderer-errors.log";
 const RUNTIME_ISSUE_LOG_MAX_BYTES = 2 * 1024 * 1024;
 const DUPLICATE_WINDOW_MS = 2_000;
+const DUPLICATE_FINGERPRINT_PRUNE_SIZE = 256;
 const lastReportAtByFingerprint = new Map<string, number>();
 
 export async function appendRuntimeDiagnostic(args: {
@@ -26,6 +27,11 @@ export async function appendRuntimeDiagnostic(args: {
     return;
   }
   lastReportAtByFingerprint.set(fingerprint, now);
+  if (lastReportAtByFingerprint.size > DUPLICATE_FINGERPRINT_PRUNE_SIZE) {
+    for (const [key, reportedAt] of lastReportAtByFingerprint) {
+      if (now - reportedAt >= DUPLICATE_WINDOW_MS) lastReportAtByFingerprint.delete(key);
+    }
+  }
 
   const userDataPath = app.getPath("userData");
   await mkdir(userDataPath, { recursive: true });
@@ -49,3 +55,7 @@ export async function appendRuntimeDiagnostic(args: {
     `message=${JSON.stringify(args.message)} metadata=${metadata}${stack}\n`;
   await appendFile(logPath, line, "utf8");
 }
+
+export const __runtimeDiagnosticLogTest = {
+  fingerprintCount: () => lastReportAtByFingerprint.size,
+};
