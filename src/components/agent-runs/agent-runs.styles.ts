@@ -297,6 +297,45 @@ export const agentRunStyles = stylex.create({
     color: vars["--ads-color-text"],
   },
   decisionReason: { fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"], color: vars["--ads-color-text-muted"] },
+  /**
+   * Wraps an agent run's user bubble so it keeps its own width: the prompt row
+   * under it may open wider (up to the column), and `MessageContent` fills its
+   * parent (`width: 100%`), so the bubble would stretch with it otherwise.
+   */
+  promptBubble: { alignSelf: "flex-end", display: "flex", flexDirection: "column", minInlineSize: 0, maxInlineSize: "100%" },
+  /** The prompt row under the bubble: the column's full width once open. */
+  promptRow: { minInlineSize: 0 },
+  /** The trigger sits under the bubble's end edge, beside the message actions. */
+  promptHeader: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: vars["--ads-space-4"],
+    minInlineSize: 0,
+  },
+  promptTrigger: { minInlineSize: 0 },
+  promptLabel: {
+    minInlineSize: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+  },
+  /**
+   * Holds the row's place until the run writes the prompt: `agentSurface.row`
+   * laid out like the trigger, so the glyph and label land where they will.
+   */
+  promptPending: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-end",
+    columnGap: vars["--ads-space-8"],
+    color: vars["--ads-color-text-muted"],
+  },
+  promptBody: { padding: vars["--ads-space-12"] },
+  /** Stave's words in muted ink, so they never read as the user's own. */
+  promptMarkdown: { minInlineSize: 0, color: vars["--ads-color-text-muted"] },
   disclosure: { minWidth: 0 },
   disclosureSummary: {
     alignSelf: "flex-start",

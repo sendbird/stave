@@ -114,7 +114,10 @@
     "ariaLabel": "Plan"
   },
   "agentRunPrompt": {
-    "label": "Run instructions"
+    "label": "Full prompt sent to the agent",
+    "followUp": "Stave's follow-up to the agent",
+    "pending": "Preparing the prompt for the agent…",
+    "copy": "Copy prompt"
   },
   "agentRunReportView": {
     "title": "Run complete",

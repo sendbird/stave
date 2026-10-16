@@ -187,6 +187,8 @@ describe("agent run prompt", () => {
 
   test("a send still waiting on its run draws the assignment, its instructions to come", () => {
     expect(resolveAgentRunPrompt({ text: " Add CSV export. ", pending: true })).toEqual({ assignment: "Add CSV export.", instructions: null });
+    // A blank send keeps its own body instead of reading as Stave's follow-up.
+    expect(resolveAgentRunPrompt({ text: "  ", pending: true })).toBeNull();
   });
 });
 

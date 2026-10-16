@@ -49,7 +49,7 @@ export function InstructionDisclosure(props: { label: string; text: string; disa
         xstyle={styles.disclosureSummary}
         disabled={props.disabled}
         aria-expanded={open}
-        aria-controls={panelId}
+        aria-controls={open ? panelId : undefined}
         onClick={() => setOpen((value) => !value)}
       >
         <ChevronRight aria-hidden className={sx(styles.chevronSm, open && styles.chevronOpen)} />

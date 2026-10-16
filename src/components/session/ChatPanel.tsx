@@ -95,7 +95,9 @@ import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segment
 import { TaskStartGuide } from "./TaskStartGuide";
 import { SessionLoadingState } from "./SessionLoadingState";
 import {
-  AgentRunInstructions,
+  AgentRunBubbleFrame,
+  AgentRunPromptRow,
+  agentRunPromptLayout,
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCard } from "@/components/agent-runs/AgentRunResultCard";
@@ -282,6 +284,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     pending: isUser && pendingAgentRun,
   });
   const userMessageSourceText = agentRunPrompt?.assignment ?? messageText;
+  const promptLayout = agentRunPromptLayout(agentRunPrompt);
   const bodyMessage = useMemo(
     () =>
       agentRunPrompt?.assignment
@@ -438,31 +441,35 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               message={message}
             />
           ) : null}
-          <MessageContent
-            className={
-              message.role === "assistant"
-                ? sx(styles.assistantContent)
-                : undefined
-            }
-            onCopy={handleUserMessageCopy}
-          >
-            {!(agentRunPrompt && !agentRunPrompt.assignment) ? (
-              <MemoizedAssistantMessageBody
-                message={bodyMessage}
-                taskId={taskId}
-                messageId={message.id}
-                streamingEnabled={chatStreamingEnabled}
-                traceExpansionMode={traceExpansionMode}
-                showInterimMessages={showInterimMessages}
-              />
-            ) : null}
-            {agentRunPrompt ? (
-              <AgentRunInstructions text={agentRunPrompt.instructions} />
-            ) : null}
-            {message.role === "assistant" && args.documentTurnId ? (
-              <TurnDocumentRevisions turnId={args.documentTurnId} />
-            ) : null}
-          </MessageContent>
+          {/* A run prompt with no words of the user's draws no bubble: the
+              bubble holds only what the person wrote. */}
+          {promptLayout.bubble ? (
+            <AgentRunBubbleFrame framed={promptLayout.row !== null}>
+              <MessageContent
+                className={
+                  message.role === "assistant"
+                    ? sx(styles.assistantContent)
+                    : undefined
+                }
+                onCopy={handleUserMessageCopy}
+              >
+                <MemoizedAssistantMessageBody
+                  message={bodyMessage}
+                  taskId={taskId}
+                  messageId={message.id}
+                  streamingEnabled={chatStreamingEnabled}
+                  traceExpansionMode={traceExpansionMode}
+                  showInterimMessages={showInterimMessages}
+                />
+                {message.role === "assistant" && args.documentTurnId ? (
+                  <TurnDocumentRevisions turnId={args.documentTurnId} />
+                ) : null}
+              </MessageContent>
+            </AgentRunBubbleFrame>
+          ) : null}
+          {agentRunPrompt && promptLayout.row ? (
+            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} />
+          ) : null}
           {message.role === "user" && steerDeliveryLabel ? (
             <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
