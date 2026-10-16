@@ -15,6 +15,7 @@ import {
   displayUserInputOptionLabel,
   shouldShowUserInputRecommendedBadge,
 } from "@/lib/user-input-options";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
@@ -544,14 +545,11 @@ export function UserInputCard(args: UserInputCardProps) {
                 index: index + 1,
               });
             return (
-              <button
+              <AdsButton
                 key={getQuestionKey(question)}
+                layout="host"
                 type="button"
-                className={sx(
-                  styles.step,
-                  focusRing.ring,
-                  isCurrent && styles.stepCurrent,
-                )}
+                xstyle={[styles.step, isCurrent && styles.stepCurrent]}
                 aria-current={isCurrent ? "step" : undefined}
                 aria-label={i18n.t(
                   answered
@@ -575,7 +573,7 @@ export function UserInputCard(args: UserInputCardProps) {
                   )}
                 </span>
                 <span className={sx(styles.stepLabel)}>{label}</span>
-              </button>
+              </AdsButton>
             );
           })}
         </div>

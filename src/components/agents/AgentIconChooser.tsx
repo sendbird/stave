@@ -148,7 +148,7 @@ const styles = stylex.create({
    * in every built-in theme (`tests/agent-appearance.test.tsx`).
    */
   cellSelected: {
-    backgroundColor: { default: vars["--ads-color-accent-soft"], ":hover": vars["--ads-color-accent-soft"] },
+    backgroundColor: vars["--ads-color-accent-soft"],
     boxShadow: `inset 0 0 0 ${vars["--ads-ring-width-sm"]} ${vars["--ads-color-border-strong"]}`,
   },
   empty: {

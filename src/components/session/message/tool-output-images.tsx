@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { i18n, useTranslation } from "@/i18n";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import type { ToolOutputImage } from "@/lib/tool-images/tool-images";
 
@@ -54,14 +54,15 @@ function ToolImageThumbnail(props: { image: ToolOutputImage; index: number }) {
   }
   return (
     <>
-      <button
+      <AdsButton
+        layout="host"
         type="button"
-        className={sx(styles.thumbButton, focusRing.ring)}
+        xstyle={styles.thumbButton}
         aria-label={i18n.t("session:toolOutputImages.open", { label })}
         onClick={() => setOpen(true)}
       >
         <img src={loaded.src} alt={label} className={sx(styles.thumb)} />
-      </button>
+      </AdsButton>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent xstyle={styles.dialog}>
           <DialogTitle>{label}</DialogTitle>
