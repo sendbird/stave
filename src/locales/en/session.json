@@ -972,5 +972,11 @@
     "openAccounts": "Open Accounts",
     "switchAccount": "Switch account",
     "addAccount": "Add an account"
+  },
+  "conversationTime": {
+    "details": "Message details",
+    "sent": "Sent",
+    "started": "Response started",
+    "completed": "Response completed"
   }
 }

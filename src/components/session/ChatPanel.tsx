@@ -1,5 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
+import { formatDate } from "@/i18n/format";
+import { MessageTimeDetails } from "./MessageTimeDetails";
+import { buildConversationDateSeparators } from "./conversation-time";
 import {
   memo,
   useEffect,
@@ -147,6 +149,7 @@ interface MessageRowProps {
   activeTurnId?: string;
   chatStreamingEnabled: boolean;
   isFirst?: boolean;
+  dateSeparator?: string;
   liveStreamingMessageId?: string;
   showInterimMessages: boolean;
   traceExpansionMode: "auto" | "manual";
@@ -226,6 +229,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     "preview" | "rewind" | null
   >(null);
   const [rewindDialogOpen, setRewindDialogOpen] = useState(false);
+  const [timeDetailsOpen, setTimeDetailsOpen] = useState(false);
   const [rewindPreview, setRewindPreview] =
     useState<ClaudeFileRewindResponse | null>(null);
   const [rewindClaudeFilesFromMessage, capabilities] = useAppStore(
@@ -408,6 +412,13 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
       }
       className={sx(isFirst && styles.rowFirst)}
     >
+      {args.dateSeparator ? (
+        <div className={sx(styles.dateSeparator)} data-conversation-date>
+          <time dateTime={args.dateSeparator}>
+            {formatDate(args.dateSeparator, { dateStyle: "long" })}
+          </time>
+        </div>
+      ) : null}
       {message.role === "user" ? (
         <StageDivider taskId={taskId} turnId={startedTurnId} />
       ) : null}
@@ -415,6 +426,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
         <div
           className={sx(
             styles.shell,
+            timeDetailsOpen && styles.shellDetailsOpen,
             message.role === "assistant"
               ? styles.shellAssistant
               : styles.shellUser,
@@ -454,12 +466,6 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           {message.role === "user" && steerDeliveryLabel ? (
             <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
-          <div className={sx(message.role === "user" && styles.timestampUser)}>
-            <ActivityTimestamp
-              value={message.role === "user" ? message.startedAt : (message.completedAt ?? message.startedAt)}
-              kind={message.role === "user" ? "sent" : message.completedAt ? "completed" : "started"}
-            />
-          </div>
           <MessageActions
             className={sx(
               message.role === "user" && styles.actionsUser,
@@ -513,6 +519,11 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               <CopyButton
                 key="copy-action"
                 text={userMessageSourceText}
+              />
+              <MessageTimeDetails
+                message={message}
+                onOpenChange={setTimeDetailsOpen}
+                className={sx(styles.turnActionsReveal)}
               />
               {canRewindFiles ? (
                 <MessageAction
@@ -655,6 +666,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
 function PendingAutoRouteTurn(props: {
   /** The task's first row, inside the empty transcript's padded layout. */
   first?: boolean;
+  previousDate?: string;
   taskId: string;
   chatStreamingEnabled: boolean;
   showInterimMessages: boolean;
@@ -677,6 +689,10 @@ function PendingAutoRouteTurn(props: {
     >
       <MessageRow
         taskId={props.taskId}
+        dateSeparator={buildConversationDateSeparators([
+          { id: "previous", startedAt: props.previousDate },
+          pending.userMessage,
+        ]).get(pending.userMessage.id)}
         chatStreamingEnabled={props.chatStreamingEnabled}
         showInterimMessages={props.showInterimMessages}
         traceExpansionMode={props.traceExpansionMode}
@@ -784,6 +800,10 @@ function ChatPanelMessageList(props: {
   const previousActiveTurnIdRef = useRef<string | undefined>(activeTurnId);
 
   const visibleMessages = useMemo(() => visibleSteerMessageSegments(messages), [messages]);
+  const dateSeparators = useMemo(
+    () => buildConversationDateSeparators(visibleMessages),
+    [visibleMessages],
+  );
   const threadActionStateByMessageId = useMemo(
     () =>
       buildConversationTurnActionStateByMessageId({
@@ -1181,6 +1201,7 @@ function ChatPanelMessageList(props: {
                 activeTurnId={activeTurnId}
                 chatStreamingEnabled={chatStreamingEnabled}
                 isFirst={index === 0}
+                dateSeparator={dateSeparators.get(message.id)}
                 liveStreamingMessageId={liveStreamingMessageId}
                 showInterimMessages={showInterimMessages}
                 traceExpansionMode={traceExpansionMode}
@@ -1200,6 +1221,7 @@ function ChatPanelMessageList(props: {
           <FailedOutgoingMessages taskId={taskId} />
           <PendingAutoRouteTurn
             first={pendingIsFirstRow}
+            previousDate={Array.from(dateSeparators.values()).at(-1)}
             taskId={taskId}
             chatStreamingEnabled={chatStreamingEnabled}
             showInterimMessages={showInterimMessages}
@@ -1241,24 +1263,11 @@ function ChatPanelMessageList(props: {
 
 const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 
-function TaskActivityTimestamp() {
-  const taskId = useScopedTaskId();
-  const updatedAt = useAppStore((state) =>
-    state.tasks.find((task) => task.id === taskId)?.updatedAt,
-  );
-  return (
-    <div className={sx(styles.taskTimestamp)}>
-      <ActivityTimestamp value={updatedAt} kind="updated" />
-    </div>
-  );
-}
-
 export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   useTranslation();
   return (
     <Conversation>
       <div className={sx(styles.panelColumn)}>
-        <TaskActivityTimestamp />
         <MemoizedChatPanelMessageList
           scrollActivationKey={props.scrollActivationKey}
         />

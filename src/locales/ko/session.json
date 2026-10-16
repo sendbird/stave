@@ -961,5 +961,11 @@
     "openAccounts": "계정 열기",
     "switchAccount": "다른 계정으로 바꾸기",
     "addAccount": "계정 추가"
+  },
+  "conversationTime": {
+    "details": "메시지 상세",
+    "sent": "전송 시각",
+    "started": "응답 시작",
+    "completed": "응답 완료"
   }
 }
