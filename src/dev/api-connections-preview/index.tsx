@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { ModelEffortSelector } from "@/components/ai-elements/model-effort-selector";
 import {
-  buildModelEnrichmentFromCatalogs,
   buildModelSelectorOptions,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector.utils";
@@ -16,7 +15,7 @@ import { useAppStore } from "@/store/app.store";
 import { SettingsAutoRoutingSection } from "@/components/layout/settings-dialog-auto-routing-section";
 import { formatRoutingDecision } from "@/lib/providers/routing-decision-label";
 import { Toaster } from "@/components/ui";
-import { buildApiConnectionCatalogEntries } from "@/lib/providers/api-connection-models";
+import { buildConnectionModelSelectorOptions } from "@/lib/providers/account-model-options";
 import { VERCEL_AI_GATEWAY, type ApiConnection, type ApiConnectionCatalogModel } from "@/lib/providers/api-connections";
 import { getSdkModelOptions } from "@/lib/providers/model-catalog";
 import * as stylex from "@stylexjs/stylex";
@@ -69,21 +68,24 @@ useProviderAccounts.setState({ profiles: ["claude-code", "codex"].map((providerI
 useAppStore.setState((state) => ({ settings: { ...state.settings, autoRoutingEnabled: true, codexAccountProfileId: connection.id, claudeAccountProfileId: connection.id },
   providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false, opencode: false } }));
 
-/** The settings card and the composer picker for one connection selected under Claude Code. */
+/** The settings card and the composer picker, with the connection selected under both runtimes. */
 export function ApiConnectionsPreview() {
   const { t } = useTranslation("settingsProviders");
   const [decision, setDecision] = useState<RoutingDecisionConfig>({ mode: "automatic" });
   const [agentDecision, setAgentDecision] = useState<RoutingDecisionConfig>();
-  const claudeEntries = useMemo(() => buildApiConnectionCatalogEntries({
-    runtime: "claude-code",
-    profile: { label: connection.label, apiConnection: { label: connection.label, kind: connection.kind, models: connection.models } },
-  }), []);
-  const options = useMemo<ModelSelectorOption[]>(() => buildModelSelectorOptions({
-    providerIds: ["claude-code", "codex"],
-    modelsByProvider: { "claude-code": claudeEntries.map((entry) => entry.model), codex: getSdkModelOptions({ providerId: "codex" }) },
-    enrichmentByModel: buildModelEnrichmentFromCatalogs({ "claude-code": { entries: claudeEntries } }),
-  }), [claudeEntries]);
-  const [value, setValue] = useState<ModelSelectorOption>(() => options[0]!);
+  // As the composer builds it: each runtime's own models, then the connection's group.
+  const options = useMemo<ModelSelectorOption[]>(() => [
+    ...buildModelSelectorOptions({
+      providerIds: ["claude-code", "codex"],
+      modelsByProvider: { "claude-code": getSdkModelOptions({ providerId: "claude-code" }), codex: getSdkModelOptions({ providerId: "codex" }) },
+    }),
+    ...buildConnectionModelSelectorOptions({
+      profiles: useProviderAccounts.getState().profiles,
+      selection: { claudeAccountProfileId: connection.id, codexAccountProfileId: connection.id },
+      availabilityByProvider: { "claude-code": true, codex: true },
+    }),
+  ], []);
+  const [value, setValue] = useState<ModelSelectorOption>(() => options.find((option) => option.accountProfileId) ?? options[0]!);
   return <div className={sx(styles.page)}>
     <h1 className={sx(styles.heading)}>API connections</h1>
     <div data-preview="decision-settings" className={sx(local.card)}>
@@ -98,7 +100,7 @@ export function ApiConnectionsPreview() {
     <p data-preview="decision-diagnostic">{formatRoutingDecision({ providerId: "codex", model: "gpt-6-luna", preferred: { mode: "gateway", connectionId: connection.id, model: "typesafe-ai/jev" }, fallback: true, elapsedMs: 1800, failure: "budget", reportedCostUsd: null })}</p>
     <div data-preview="settings-card" className={sx(local.card)}><ApiConnectionsSettings /></div>
     <div data-preview="model-picker" className={sx(styles.stage)}>
-      <ModelEffortSelector value={value} options={options} onSelect={({ selection }) => setValue(selection)} />
+      <ModelEffortSelector accountActions value={value} options={options} onSelect={({ selection }) => setValue(selection)} />
     </div>
     <Toaster />
   </div>;

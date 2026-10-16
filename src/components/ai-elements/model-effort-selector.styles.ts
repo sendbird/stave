@@ -423,6 +423,10 @@ export const modelEffortSelectorStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-text-muted"],
   },
+  /** Inside the effort grid, whose cells already sit inside the grid's padding. */
+  modelGroupHeadingInGrid: {
+    paddingInline: vars["--ads-space-8"],
+  },
   /** An API connection's heading with its "Edit models" action at the end. */
   modelGroupHeadingRow: {
     alignItems: "center",

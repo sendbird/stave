@@ -94,9 +94,11 @@ export function ModelPickerAccountFooterView(props: {
  * connection's edit form. The group the picker shows is the provider's
  * selected account, so the selected account is the connection.
  */
-export function ModelGroupEditButton(props: { providerId: ProviderId; onNavigate: () => void }) {
+/** "Edit models" for a connection's group: the one given, else the runtime's selected account. */
+export function ModelGroupEditButton(props: { providerId: ProviderId; accountProfileId?: string; onNavigate: () => void }) {
   useTranslation();
-  const selectedId = useAppStore((state) => selectedProviderAccount(props.providerId, state.settings));
+  const selectedAccountId = useAppStore((state) => selectedProviderAccount(props.providerId, state.settings));
+  const selectedId = props.accountProfileId ?? selectedAccountId;
   const isConnection = useProviderAccounts((state) =>
     state.profiles.some((profile) => profile.providerId === props.providerId && profile.id === selectedId && Boolean(profile.apiConnection)),
   );

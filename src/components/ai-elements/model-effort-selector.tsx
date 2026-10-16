@@ -4,6 +4,7 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { AlertCircle, Bot, ChevronDown, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
+  Fragment,
   type KeyboardEvent,
   type ReactNode,
   useEffect,
@@ -49,6 +50,7 @@ import {
 } from "./cursor-model-runtime";
 import {
   collapseClaudeContextOptions,
+  groupModelSections,
   getClaudeContextBaseLabel,
   getClaudeContextBaseModel,
   getCursorModelPresentation,
@@ -491,20 +493,24 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   ]);
   const hideCursorVariantList =
     providerId === "cursor" && cursorParameterized;
-  // An API connection's models are the whole list; name the connection above them.
-  const visibleGroup = visibleOptions.length > 0 &&
-    visibleOptions.every((option) => option.group === visibleOptions[0]?.group)
-    ? visibleOptions[0]?.group
-    : undefined;
-  const effortfulOptions = visibleOptions.filter(
-    (option) =>
-      (providerId !== "cursor" || cursorParameterized) &&
-      listModelEfforts(option).length > 0,
-  );
-  const effortlessOptions = visibleOptions.filter(
-    (option) =>
-      (providerId !== "cursor" || cursorParameterized) &&
-      listModelEfforts(option).length === 0,
+  // The runtime's own models first, then one section per API connection,
+  // each named above its rows with that connection's "Edit models".
+  const modelSections = useMemo(() => {
+    const listed = providerId !== "cursor" || cursorParameterized;
+    return groupModelSections(visibleOptions).map((section) => ({
+      ...section,
+      effortful: section.options.filter((option) => listed && listModelEfforts(option).length > 0),
+      effortless: section.options.filter((option) => listed && listModelEfforts(option).length === 0),
+    }));
+  }, [cursorParameterized, providerId, visibleOptions]);
+  // In the grid the name lines up with its "Model" column header.
+  const renderSectionHeading = (section: { heading?: string; accountProfileId?: string }, inGrid = false) => (
+    <div className={sx(styles.modelGroupHeading, styles.modelGroupHeadingRow, inGrid && styles.modelGroupHeadingInGrid)}>
+      <span>{section.heading}</span>
+      {args.accountActions ? (
+        <ModelGroupEditButton providerId={providerId} accountProfileId={section.accountProfileId} onNavigate={() => setOpen(false)} />
+      ) : null}
+    </div>
   );
   const canToggleAllModels =
     query.trim().length === 0 &&
@@ -920,17 +926,15 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                         onChoose={chooseModel}
                       />
                     ) : null}
-                    {visibleGroup ? (
-                      <div className={sx(styles.modelGroupHeading, styles.modelGroupHeadingRow)}>
-                        <span>{visibleGroup}</span>
-                        {args.accountActions ? (
-                          <ModelGroupEditButton providerId={providerId} onNavigate={() => setOpen(false)} />
-                        ) : null}
-                      </div>
-                    ) : null}
+                    {/* One grid for every section, so all rows share the
+                        effort columns; a connection's name heads its rows. */}
                     <ModelEffortGrid
                       providerId={providerId}
-                      options={effortfulOptions}
+                      options={modelSections.flatMap((section) => section.effortful)}
+                      headings={new Map(modelSections.flatMap((section) =>
+                        section.heading && section.effortful[0]
+                          ? [[section.effortful[0].key, renderSectionHeading(section, true)] as const]
+                          : []))}
                       selectedModelKey={
                         !args.value.isAuto &&
                         args.value.providerId === providerId
@@ -945,9 +949,13 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       disabled={args.disabled}
                       onChoose={chooseModel}
                     />
+                    {modelSections.map((section) => section.effortless.length > 0 ? (
+                    <Fragment key={section.key}>
+                    {section.heading && (section.accountProfileId || section.effortful.length === 0)
+                      ? renderSectionHeading(section) : null}
                     <ModelOnlyList
                       providerId={providerId}
-                      options={effortlessOptions}
+                      options={section.effortless}
                       selectedModelKey={
                         !args.value.isAuto &&
                         args.value.providerId === providerId
@@ -957,6 +965,8 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       disabled={args.disabled}
                       onChoose={chooseModel}
                     />
+                    </Fragment>
+                    ) : null)}
                   </>
                 )
               ) : null}
