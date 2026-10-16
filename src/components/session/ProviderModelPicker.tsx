@@ -159,6 +159,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
           searchPlaceholder={i18n.t("session:providerModelPicker.searchPlaceholder")}
           emptyText={i18n.t("session:providerModelPicker.empty")}
           disabled={args.disabled || !providerAvailable}
+          size="md"
           triggerXstyle={styles.searchTrigger}
         />
       </div>

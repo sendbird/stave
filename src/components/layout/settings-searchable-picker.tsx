@@ -50,9 +50,12 @@ export function SearchablePicker(props: {
   loading?: boolean;
   loadingText?: string;
   disabled?: boolean;
+  /** Control scale of the trigger; match it to neighbouring controls. */
+  size?: "sm" | "md";
   /** Matches the trigger to neighbouring controls in a compact row. */
   triggerXstyle?: StyleXValue;
 }) {
+  const size = props.size ?? "sm";
   const valueId = useId();
   const [open, setOpen] = useState(false);
   const current = props.options.find((option) => option.value === props.value);
@@ -66,13 +69,13 @@ export function SearchablePicker(props: {
         aria-busy={props.loading || undefined}
         className={sx(
           selectStyles.trigger,
-          triggerStylesBySize.sm,
+          triggerStylesBySize[size],
           controlChrome.trigger,
           controlChrome.triggerFocusBorder,
           controlChrome.field,
           transition.colors,
           focusRing.borderOnly,
-          triggerHeightsBySize.sm,
+          triggerHeightsBySize[size],
           props.triggerXstyle,
           open && selectStyles.triggerOpen,
           props.disabled && controlChrome.disabledField,
