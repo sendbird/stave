@@ -275,37 +275,3 @@ export function createCraneTrackerSource(
     },
   };
 }
-
-/**
- * Default wiring against the main-process singletons. Kept in a factory with
- * lazy imports so merely importing this module does not pull Electron, the
- * connector runtime, or the persistence layer into a test process.
- */
-export async function createDefaultCraneTrackerSource(): Promise<CraneTrackerSource> {
-  const [{ app }, connector, vaultService, { AtelierConnectorHttpClient }] =
-    await Promise.all([
-      import("electron"),
-      import("../crane-connector/service"),
-      import("../atelier-connector/credential-service"),
-      import("../atelier-connector/http-client"),
-    ]);
-  const vault = vaultService.getAtelierConnectorCredentialVault();
-  const allowInsecureLocalhost =
-    process.env.STAVE_DEV === "1" && !app.isPackaged;
-
-  return createCraneTrackerSource({
-    // The connector's enabled flag is pushed from the renderer into the runtime
-    // and never persisted separately in the main process, so the runtime state
-    // is the only main-process source of truth for it.
-    getSettings: () => ({
-      enabled: connector.getCraneConnectorStatus().runtimeState !== "disabled",
-    }),
-    getCredential: () => vault.getCredential(),
-    getSecureStorageStatus: () => ({
-      available: vault.isSecureStorageAvailable(),
-    }),
-    getTasksEnabled: () => connector.getCraneTasksEnabled(),
-    httpClient: (baseUrl) =>
-      new AtelierConnectorHttpClient({ baseUrl, allowInsecureLocalhost }),
-  });
-}

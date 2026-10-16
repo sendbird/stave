@@ -488,10 +488,3 @@ export function createCodexMcpConfigManagement(
 
   return { listConfigs, previewMutation, applyMutation, readShareDraft };
 }
-
-export const __codexMcpConfigManagementTest = {
-  buildCodexServerEntry,
-  parseCodexUserLayer,
-  toCodexConfigSnapshot,
-  toCodexShareDraft,
-};

@@ -10,5 +10,3 @@
  * "Commit message generation is unavailable — Advisor was aborted."
  */
 export const DEFAULT_READ_ONLY_PROMPT_LABEL = "Read-only analysis";
-
-export const ADVISOR_READ_ONLY_PROMPT_LABEL = "Advisor";

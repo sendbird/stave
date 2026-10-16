@@ -102,10 +102,6 @@ export function getCraneConnectorStatus() {
   return getCraneConnectorRuntime().getStatus();
 }
 
-export function getCraneTasksEnabled() {
-  return getCraneConnectorRuntime().getTasksEnabled();
-}
-
 export function configureCraneConnector(input: CraneConnectorConfigInput) {
   return getCraneConnectorRuntime().configure(input);
 }

@@ -11,13 +11,6 @@ import { SecretRequestError, type SecretRequestBroker } from "./secret-request-b
 
 export const SECRET_REQUEST_TOOL_NAME = "stave_request_secret";
 
-/**
- * The only arguments the tool accepts. Strict, so a stray `value` (or any
- * other key) is rejected instead of silently dropped: the value never travels
- * through the tool, and the request log keeps only these keys.
- */
-export const SECRET_REQUEST_TOOL_ARGUMENT_KEYS = ["envVar", "reason", "label"] as const;
-
 export const SecretRequestToolInputSchema = z
   .object({
     envVar: z

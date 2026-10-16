@@ -1,5 +1,4 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
-import { randomUUID } from "node:crypto";
 import { z, type ZodType } from "zod";
 import { describeJsonRpcLinePrefix } from "../../shared/json-rpc-line";
 import { Utf8LineBuffer } from "../../shared/utf8-line-buffer";
@@ -592,8 +591,4 @@ export class AcpProtocolClient {
       this.child.kill("SIGTERM");
     }
   }
-}
-
-export function createAcpRequestId() {
-  return randomUUID();
 }

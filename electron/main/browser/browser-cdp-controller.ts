@@ -353,8 +353,3 @@ export function getCdpInFlightCommandCount(webContentsId: number): number {
       .inFlightCommands ?? 0
   );
 }
-
-export function isCdpAttached(webContentsId: number): boolean {
-  const wc = webContents.fromId(webContentsId);
-  return Boolean(wc && !wc.isDestroyed() && wc.debugger.isAttached());
-}
