@@ -27,10 +27,7 @@ import { createProviderInteractionActions } from "@/store/app-store-provider-int
 import { createFailedSendActions } from "@/store/app-store-failed-send-actions";
 import { createTaskPauseActions } from "@/store/app-store-task-pause-actions";
 import { pauseQueueOnUsageLimitRefusal, resolvePausedQueueHold, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
-import {
-  createAppStorePersistenceOptions,
-  normalizeSharedSkillsHomeSetting,
-} from "@/store/app-store-persistence";
+import { createAppStorePersistenceOptions, normalizeSharedSkillsHomeSetting } from "@/store/app-store-persistence";
 import { createAppStoreNotificationRuntime } from "@/store/app-store-notification-runtime";
 import { createWorkspaceTurnSummaryGenerator } from "@/store/workspace-turn-summary-runtime";
 import {
@@ -99,6 +96,8 @@ import {
   defaultSettings,
 } from "@/store/app-settings";
 import { createDefaultProviderRuntimeCapabilities } from "@/lib/providers/runtime-capabilities";
+// temporary-migration: aux-lane-single-switch (also wraps the persistence options at the end of this file)
+import { withAuxLaneSingleSwitchMigration } from "@/lib/providers/aux-lane-single-switch-migration";
 
 const LOCAL_ABORT_SYSTEM_EVENT_CONTENT =
   // i18n-ignore: canonical transcript marker; renderer translates its presentation.
@@ -1399,5 +1398,6 @@ export const useAppStore = create<AppState>()(
       ...providerInteractionActions,
       ...editorActions,
     };
-  }, createAppStorePersistenceOptions()),
+    // temporary-migration: aux-lane-single-switch (at expiry pass createAppStorePersistenceOptions() directly)
+  }, withAuxLaneSingleSwitchMigration(createAppStorePersistenceOptions())),
 );

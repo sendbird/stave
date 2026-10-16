@@ -99,6 +99,19 @@
       "tests": [
         "tests/agent-run-adaptive-draft-key-migration.test.ts"
       ]
+    },
+    {
+      "id": "aux-lane-single-switch",
+      "description": "Through 0.27.3 pre-PR review ran only when prePrReviewEnabled and its Background AI lane's enabled were both on, and inline completion only when editorAiCompletions and its lane's enabled were both on. After 0.27.3 pre-PR review uses only its lane enabled and inline completion only editorAiCompletions. Settings rehydration writes the old AND into the switch that stays (a pre-PR review lane saved without enabled counts as on, the old lane default), drops prePrReviewEnabled and the inline-completion lane's enabled, and runs only while one of them is still saved. At expiry, delete the marked blocks and the wrapper call in app.store.ts; a profile that skipped these releases keeps its pre-PR review lane value (on unless it was turned off there) and its editorAiCompletions value, so a lane that was off through only its other switch turns on.",
+      "introducedAfter": "0.27.3",
+      "removeInVersion": "0.30.0",
+      "files": [
+        "src/lib/providers/aux-lane-single-switch-migration.ts",
+        "src/store/app.store.ts"
+      ],
+      "tests": [
+        "tests/aux-lane-single-switch-migration.test.ts"
+      ]
     }
   ]
 }

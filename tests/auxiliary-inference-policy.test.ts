@@ -4,6 +4,7 @@ import {
   buildReadOnlyAuxRuntimeOptions,
   DEFAULT_AUX_INFERENCE_DEFAULT,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
+  isFeatureSwitchedAuxLane,
   normalizeAuxInferenceDefault,
   migrateLegacyTurnSummaryModels,
   normalizeAuxiliaryInferencePolicy,
@@ -23,10 +24,22 @@ describe("auxiliary inference policy defaults", () => {
       // A resolved model is a light-tier pick; `null` defers to the runtime's
       // own (already cheap) default. Neither reads the primary model setting.
       expect(runtime.model === null || runtime.model.length > 0).toBe(true);
-      // Inline completion is the one lane that is opt-in: it fires on every
-      // typing pause with no reusable prompt prefix.
-      expect(runtime.enabled).toBe(lane !== "inlineCompletion");
+      // Pre-PR review is opt-in: it runs a full model turn on every Create
+      // PR. Inline completion has no lane switch; `editorAiCompletions`
+      // (off by default) decides before the lane resolves.
+      expect(runtime.enabled).toBe(lane !== "prePrReview");
     }
+    expect("enabled" in DEFAULT_AUXILIARY_INFERENCE_POLICY.inlineCompletion).toBe(false);
+  });
+
+  test("drops a saved inline-completion enabled and keeps every other lane switch", () => {
+    const policy = normalizeAuxiliaryInferencePolicy({
+      inlineCompletion: { enabled: true, model: "claude-haiku-5-5" },
+      prePrReview: { enabled: true },
+    });
+    expect(policy.inlineCompletion).toEqual({ model: "claude-haiku-5-5" });
+    expect(policy.prePrReview.enabled).toBe(true);
+    expect(policy.turnSummary.enabled).toBe(true);
   });
 
   test("background lanes never request premium fast mode", () => {
@@ -286,7 +299,10 @@ describe("normalization and migration", () => {
     const policy = normalizeAuxiliaryInferencePolicy(undefined);
     for (const lane of AUX_LANES) {
       expect(policy[lane]).toBeDefined();
-      expect(typeof policy[lane].enabled).toBe("boolean");
+      const config: { enabled?: boolean } = policy[lane];
+      expect(typeof config.enabled).toBe(
+        isFeatureSwitchedAuxLane(lane) ? "undefined" : "boolean",
+      );
     }
   });
 

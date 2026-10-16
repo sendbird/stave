@@ -421,12 +421,6 @@ export function configureInlineCompletions(args: {
         if (!currentSettings.enabled) {
           return { items: [] };
         }
-        if (
-          !useAppStore.getState().settings.auxiliaryInferencePolicy
-            .inlineCompletion.enabled
-        ) {
-          return { items: [] };
-        }
 
         const requestFn = window.api?.inlineCompletion?.request;
         if (!requestFn) {

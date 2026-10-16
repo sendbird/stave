@@ -307,7 +307,6 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   visualCommentShortcut: VisualCommentShortcut;
   /** When enabled, visual comment screenshots are included as provider image context. */
   lensVisualCommentScreenshotsAsImageContext: boolean;
-  prePrReviewEnabled: boolean;
   /** Composer reviews that run as a separate read-only task. */
   reviewTask: ReviewTaskSettings;
   /** Queue the created ready PR for automatic merging. */
@@ -330,6 +329,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   editorLineNumbers: "on" | "off" | "relative";
   editorTabSize: number;
   editorLspEnabled: boolean;
+  /**
+   * The on/off for AI inline completions (Settings → Editor) and the only
+   * switch of the Background AI `inlineCompletion` lane.
+   */
   editorAiCompletions: boolean;
   editorEslintEnabled: boolean;
   editorFormatOnSave: boolean;
@@ -717,7 +720,6 @@ export const defaultSettings: AppSettings = {
   midTurnSteeringEnabled: false,
   visualCommentShortcut: DEFAULT_VISUAL_COMMENT_SHORTCUT,
   lensVisualCommentScreenshotsAsImageContext: false,
-  prePrReviewEnabled: false,
   reviewTask: DEFAULT_REVIEW_TASK_SETTINGS,
   createPrAutoMergeEnabled: true,
   createPrMergeMethod: "default",
@@ -733,6 +735,9 @@ export const defaultSettings: AppSettings = {
   editorLineNumbers: "on" as const,
   editorTabSize: 2,
   editorLspEnabled: false,
+  // Off by default: it fires on a ~100-200 ms typing pause with up to 12K
+  // characters of surrounding code and no reusable prompt prefix, so on a
+  // metered plan it is the one lane that can outspend the user's own turns.
   editorAiCompletions: false,
   editorEslintEnabled: false,
   editorFormatOnSave: false,

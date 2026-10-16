@@ -45,54 +45,47 @@ function render<P extends object>(component: ComponentType<P>, props: P) {
 const navigate = () => {};
 
 describe("lane enablement helpers", () => {
-  test("pre-PR review and inline completion are on only when both keys are on", async () => {
+  test("pre-PR review reads its lane switch and inline completion reads the Editor setting", async () => {
     const { selectAuxLaneEnabled } = await import(
       "../src/components/layout/settings-dialog-aux-lane-enablement"
     );
     const settings = (await store()).getState().settings;
-    const on = { ...settings.auxiliaryInferencePolicy.prePrReview, enabled: true };
     const policy = {
       ...settings.auxiliaryInferencePolicy,
-      prePrReview: on,
-      inlineCompletion: { ...on },
+      prePrReview: { ...settings.auxiliaryInferencePolicy.prePrReview, enabled: true },
     };
     expect(
-      selectAuxLaneEnabled(
-        { auxiliaryInferencePolicy: policy, prePrReviewEnabled: false, editorAiCompletions: true },
-        "prePrReview",
-      ),
-    ).toBe(false);
-    expect(
-      selectAuxLaneEnabled(
-        { auxiliaryInferencePolicy: policy, prePrReviewEnabled: true, editorAiCompletions: false },
-        "inlineCompletion",
-      ),
-    ).toBe(false);
-    expect(
-      selectAuxLaneEnabled(
-        { auxiliaryInferencePolicy: policy, prePrReviewEnabled: true, editorAiCompletions: true },
-        "prePrReview",
-      ),
+      selectAuxLaneEnabled({ auxiliaryInferencePolicy: policy, editorAiCompletions: false }, "prePrReview"),
     ).toBe(true);
+    expect(
+      selectAuxLaneEnabled(
+        { auxiliaryInferencePolicy: settings.auxiliaryInferencePolicy, editorAiCompletions: true },
+        "prePrReview",
+      ),
+    ).toBe(false);
+    expect(
+      selectAuxLaneEnabled({ auxiliaryInferencePolicy: policy, editorAiCompletions: true }, "inlineCompletion"),
+    ).toBe(true);
+    expect(
+      selectAuxLaneEnabled({ auxiliaryInferencePolicy: policy, editorAiCompletions: false }, "inlineCompletion"),
+    ).toBe(false);
   });
 
-  test("one switch writes every key that gates the lane", async () => {
+  test("one switch writes the one key that gates the lane", async () => {
     const { buildAuxLaneEnablementPatch } = await import(
       "../src/components/layout/settings-dialog-aux-lane-enablement"
     );
     const settings = (await store()).getState().settings;
     const prePr = buildAuxLaneEnablementPatch({ settings, lane: "prePrReview", enabled: true });
-    expect(prePr.prePrReviewEnabled).toBe(true);
+    expect(Object.keys(prePr)).toEqual(["auxiliaryInferencePolicy"]);
     expect(prePr.auxiliaryInferencePolicy?.prePrReview.enabled).toBe(true);
-    expect(prePr).not.toHaveProperty("editorAiCompletions");
-
-    const inline = buildAuxLaneEnablementPatch({ settings, lane: "inlineCompletion", enabled: true });
-    expect(inline.editorAiCompletions).toBe(true);
-    expect(inline.auxiliaryInferencePolicy?.inlineCompletion.enabled).toBe(true);
     // Other lanes are carried through untouched.
-    expect(inline.auxiliaryInferencePolicy?.turnSummary).toEqual(
+    expect(prePr.auxiliaryInferencePolicy?.turnSummary).toEqual(
       settings.auxiliaryInferencePolicy.turnSummary,
     );
+
+    const inline = buildAuxLaneEnablementPatch({ settings, lane: "inlineCompletion", enabled: true });
+    expect(inline).toEqual({ editorAiCompletions: true });
 
     const turnSummary = buildAuxLaneEnablementPatch({ settings, lane: "turnSummary", enabled: false });
     expect(Object.keys(turnSummary)).toEqual(["auxiliaryInferencePolicy"]);

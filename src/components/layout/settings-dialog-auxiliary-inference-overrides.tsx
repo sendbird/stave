@@ -15,7 +15,7 @@ import {
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
   resolveAuxLaneRuntime,
   type AuxLane,
-  type AuxLaneConfig,
+  type AuxLaneTuning,
   type AuxLaneProviderId,
 } from "@/lib/providers/auxiliary-inference-policy";
 import { inferProviderIdFromModel } from "@/lib/providers/model-catalog";
@@ -29,11 +29,11 @@ const OVERRIDE_KEYS = ["providerId", "model", "fallbackModel"] as const;
 /** Replace one lane's override fields, keeping its switch and lane-specific knobs. */
 function patchLaneOverride(
   lane: AuxLane,
-  patch: Partial<Pick<AuxLaneConfig, (typeof OVERRIDE_KEYS)[number]>> | "reset",
+  patch: Partial<Pick<AuxLaneTuning, (typeof OVERRIDE_KEYS)[number]>> | "reset",
 ) {
   const { settings, updateSettings } = useAppStore.getState();
   const policy = settings.auxiliaryInferencePolicy;
-  const next: AuxLaneConfig = { ...policy[lane] };
+  const next: AuxLaneTuning = { ...policy[lane] };
   for (const key of OVERRIDE_KEYS) {
     if (patch === "reset") {
       delete next[key];

@@ -54,7 +54,13 @@ useAppStore.setState({
   activeTurnIdsByTask: {},
   settings: {
     ...state.settings,
-    prePrReviewEnabled: params.get("review") === "1",
+    auxiliaryInferencePolicy: {
+      ...state.settings.auxiliaryInferencePolicy,
+      prePrReview: {
+        ...state.settings.auxiliaryInferencePolicy.prePrReview,
+        enabled: params.get("review") === "1",
+      },
+    },
     promptPrDescription: "",
     createPrAutoMergeEnabled: false,
   },
