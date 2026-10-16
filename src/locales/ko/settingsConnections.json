@@ -12,7 +12,8 @@
     "why": "이유",
     "unavailable": "{{value1}} 사용 불가",
     "via": "{{value2}}를 통한 {{value1}} → {{value3}}{{value4}}",
-    "ruleVariantcb226f84": "규칙 {{value1}}"
+    "ruleVariantcb226f84": "규칙 {{value1}}",
+    "decision": "판단"
   },
   "settingsDialogSecrets": {
     "copy": "{{value1}} 복사",

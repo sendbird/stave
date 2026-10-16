@@ -32,7 +32,14 @@ import {
   useDelegatedTaskRowController,
 } from "@/components/session/DelegatedTaskRows";
 import { DelegationsBlock } from "@/components/delegation/DelegationsBlock";
-import { isRoutedDecision, RouteTrace } from "@/components/auto-routing";
+import {
+  isRoutedDecision,
+  RouteTrace,
+  routeTraceEntryFromRecord,
+  routeTraceEntryFromResolution,
+  type RouteTraceEntry,
+} from "@/components/auto-routing";
+import { findRecordedTurnRoute } from "./turn-route-trace";
 import { isDelegatedTaskInTurn } from "@/lib/work-graph/delegated-task-scope";
 import type { AutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import {
@@ -563,7 +570,7 @@ export function useTurnActivityModel(args: {
   // The task keeps only its latest decision. A retained turn replayed after a
   // newer send would otherwise show the newer route, so the record has to
   // predate the turn it is drawn under.
-  const turnAutoRouting = useMemo<AutoRoutingDecisionRecord | null>(() => {
+  const liveAutoRouting = useMemo<AutoRoutingDecisionRecord | null>(() => {
     if (!isRoutedDecision(autoRoutingRecord)) {
       return null;
     }
@@ -576,6 +583,25 @@ export function useTurnActivityModel(args: {
       ? autoRoutingRecord
       : null;
   }, [autoRoutingRecord, currentActivity?.startedAt]);
+  // The saved decision for the turn on screen wins, so a restart or a later
+  // send cannot change the route a turn shows; the in-memory record only fills
+  // in while nothing was saved yet. Keyed on the saved fields rather than the
+  // message, which is replaced on every streamed delta.
+  const recordedRoute = findRecordedTurnRoute(messages, currentActivity?.turnId ?? activeTurnId);
+  const recordedResolution = recordedRoute?.resolution;
+  const recordedModelInfo = recordedRoute?.modelInfo;
+  const recordedPrompt = recordedRoute?.prompt ?? "";
+  const turnAutoRouting = useMemo<RouteTraceEntry | null>(() => {
+    if (recordedResolution) {
+      return routeTraceEntryFromResolution({
+        resolution: recordedResolution,
+        message: { modelInfo: recordedModelInfo },
+        prompt: recordedPrompt,
+        live: liveAutoRouting,
+      });
+    }
+    return liveAutoRouting ? routeTraceEntryFromRecord(liveAutoRouting) : null;
+  }, [liveAutoRouting, recordedModelInfo, recordedPrompt, recordedResolution]);
 
   const surfaceProps = useMemo<TurnActivitySurfaceProps | null>(() => {
     if (!shouldShow) {
@@ -841,7 +867,7 @@ export interface TurnActivitySurfaceProps {
    * Drawn as the Route block so the shelf says who is running and why before
    * it lists what they are doing.
    */
-  autoRouting?: AutoRoutingDecisionRecord | null;
+  autoRouting?: RouteTraceEntry | null;
   /** Usage percent at which the budget guard steps down; marks the chip. */
   autoRoutingBudgetStepDownAt?: number;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
@@ -1373,7 +1399,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               {/* The model decision opens on demand so current activity stays visible. */}
               {props.autoRouting ? (
                 <RouteTrace
-                  record={props.autoRouting}
+                  entry={props.autoRouting}
                   budgetStepDownAt={props.autoRoutingBudgetStepDownAt}
                   providerAvailability={props.providerAvailability}
                   defaultCollapsed

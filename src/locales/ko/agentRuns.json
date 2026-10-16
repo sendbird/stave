@@ -1,4 +1,8 @@
 {
+  "delegateRoute": {
+    "routed": "→ 실행: {{model}}",
+    "title": "요청: {{requested}} · 라우팅 후 실행: {{routed}}"
+  },
   "workspaceCheck": {
     "criterion": "워크스페이스 검사 통과",
     "unknownRevision": "{{phase}} 리비전을 검증할 수 없습니다: {{reason}}.",
@@ -960,5 +964,48 @@
     "reportingUnavailable": "로컬 보고 도구를 사용할 수 있어야 답변을 전달할 수 있습니다.",
     "alreadyAnswered": "이미 답변했거나 더 이상 답변을 기다리는 질문이 아닙니다.",
     "deliveryFailed": "답변을 전달하지 못했습니다: {{reason}}"
+  },
+  "decisionLog": {
+    "title": "결정 기록",
+    "ariaLabel": "결정 기록",
+    "count_other": "{{count}}개",
+    "showAll": "{{count}}개 모두 보기",
+    "showLatest": "최근 항목만 보기",
+    "routed": "턴 라우팅: {{model}}",
+    "routedChanged": "턴 라우팅: {{previous}} → {{model}}",
+    "inStage": "{{stage}}: {{sentence}}",
+    "fact": "{{label}}: {{value}}",
+    "changed": "모델·추론 수준 변경: {{model}}",
+    "kept": "변경 거절, {{model}} 유지",
+    "byAgent": "에이전트가 요청함",
+    "byStave": "Stave가 선택함",
+    "retried": "단계 다시 시도함",
+    "sources": {
+      "pinned": "고정 모델",
+      "agentFixed": "에이전트 지정 모델",
+      "taskModel": "작업 모델",
+      "disabled": "Auto 꺼짐",
+      "manual": "직접 선택",
+      "heuristic": "로컬 규칙",
+      "classifier": "판단 모델이 선택함",
+      "classifierFallback": "판단 모델 실패 후 로컬 규칙",
+      "adaptive": "적응형 변경"
+    },
+    "changeReasons": {
+      "capabilityMismatch": "모델이 작업에 맞지 않음",
+      "mechanicalStep": "기계적인 단계"
+    },
+    "declined": {
+      "evidence": "근거가 이 단계의 턴을 가리키지 않음",
+      "outsideCatalog": "이 실행에서 쓸 수 없는 모델",
+      "modelPinned": "모델이 고정됨",
+      "effortPinned": "추론 수준이 고정됨",
+      "unsupportedEffort": "모델이 그 추론 수준을 지원하지 않음",
+      "changeLimit": "변경 한도에 도달함",
+      "cooldown": "두 턴 대기 중",
+      "mechanicalEffort": "기계적인 단계는 추론 수준을 올릴 수 없음",
+      "mechanicalModel": "기계적인 단계는 모델 등급을 올릴 수 없음",
+      "alreadyCurrent": "이미 현재 경로임"
+    }
   }
 }

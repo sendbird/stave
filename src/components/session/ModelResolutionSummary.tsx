@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { Fragment } from "react";
 import type { ModelExecution } from "@/lib/providers/model-execution";
 import type { AgentTurnProvenance } from "@/lib/agents/turn-provenance";
 import { sx } from "../ads/utils/stylex";
@@ -9,6 +10,7 @@ import type {
 } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
+import { describeRoutingDecisionFacts } from "@/lib/providers/routing-decision-label";
 import type { TurnModelInfo } from "@/types/chat";
 
 const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
@@ -191,6 +193,18 @@ export function ModelResolutionSummary(props: {
           <dd className={sx(styles.modelSource)}>
             {toSourceLabel(props.resolution.source)}
           </dd>
+          {describeRoutingDecisionFacts(props.resolution.routingDecision).map((fact) => (
+            <Fragment key={fact.key}>
+              <dt className={sx(styles.muted)}>{fact.label}</dt>
+              <dd
+                className={sx(styles.modelValue, fact.warn && styles.modelWarn)}
+                title={fact.title}
+                data-decision-fact={fact.key}
+              >
+                {fact.value}
+              </dd>
+            </Fragment>
+          ))}
           {props.resolution.ruleReason ? (
             <>
               <dt className={sx(styles.muted)}>{i18n.t("session:modelResolutionSummary.modelResolutionSummary24")}</dt>

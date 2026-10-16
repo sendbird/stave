@@ -185,6 +185,22 @@ export const routeTraceStyles = stylex.create({
     minWidth: 0,
     overflowWrap: "anywhere",
   },
+  facts: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-2"],
+    minWidth: 0,
+  },
+  factValue: {
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  },
+  factWarn: {
+    color: vars["--ads-color-warning-text"],
+  },
   row: {
     alignItems: "center",
     display: "flex",

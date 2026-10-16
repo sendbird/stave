@@ -261,6 +261,7 @@ export const resultStyles = stylex.create({
     color: vars["--ads-color-text"],
   },
   modelSource: { color: vars["--ads-color-text"] },
+  modelWarn: { color: vars["--ads-color-warning-text"] },
   modelReason: {
     whiteSpace: "pre-wrap",
     overflowWrap: "break-word",

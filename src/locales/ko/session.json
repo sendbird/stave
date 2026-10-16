@@ -955,7 +955,13 @@
       "rateLimit": "호출 제한",
       "invalidResponse": "잘못된 응답"
     },
-    "heading": "라우팅 판단 기록"
+    "heading": "라우팅 판단 기록",
+    "facts": {
+      "model": "판단 모델",
+      "elapsed": "판단 시간",
+      "failure": "판단 실패 사유",
+      "cost": "Gateway 보고 비용"
+    }
   },
   "providerErrorAccountAction": {
     "openAccounts": "계정 열기",

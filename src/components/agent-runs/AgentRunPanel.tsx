@@ -36,6 +36,7 @@ import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { AgentRunOverview } from "./AgentRunOverview";
 import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
+import { AgentRunDecisionLog } from "./AgentRunDecisionLog";
 import { AgentRunReportView } from "./AgentRunReportView";
 import { useAgentRunReportActions, type AgentRunReportActions } from "./useAgentRunReportActions";
 import { AgentRunSummary } from "./AgentRunSummary";
@@ -286,6 +287,8 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
           ))}
         </StepRail>
       </section>
+
+      <AgentRunDecisionLog detail={detail} />
 
       {detail.report ? (
         <AgentRunReportView report={detail.report} actions={props.reportActions} context="panel" />

@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import { formatRoutingDecision } from "@/lib/providers/routing-decision-label";
+import { formatDecisionElapsed, formatRoutingDecision } from "@/lib/providers/routing-decision-label";
 import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-profile";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
@@ -10,11 +10,8 @@ import type { ChatMessage } from "@/types/chat";
 /** Classifier waits shorter than this draw nothing, so a fast answer never flickers. */
 export const PENDING_AUTO_ROUTE_REVEAL_DELAY_MS = 500;
 
-/** `840ms` under a second, `2.4s` above it. */
-export function formatRouteElapsed(ms: number): string {
-  const safe = Math.max(0, Math.round(ms));
-  return safe < 1_000 ? `${safe}ms` : `${(safe / 1_000).toFixed(1)}s`;
-}
+/** `840ms` under a second, `2.4s` above it; shared with the decision facts. */
+export { formatDecisionElapsed as formatRouteElapsed };
 
 export interface AutoRouteLineView {
   /** `Opus 5 · High` — the routed target with the effort the turn ran at. */
@@ -60,7 +57,7 @@ export function buildAutoRouteLineView(args: {
         : "unavailable";
   const elapsedLabel =
     resolution.classifierElapsedMs !== undefined
-      ? formatRouteElapsed(resolution.classifierElapsedMs)
+      ? formatDecisionElapsed(resolution.classifierElapsedMs)
       : null;
   // Compared by display name: a runtime may confirm the routed model under a
   // longer id (a dated or context-suffixed alias) that is still the same model.

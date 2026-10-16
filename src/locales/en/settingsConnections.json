@@ -12,7 +12,8 @@
     "why": "Why",
     "unavailable": "{{value1}} unavailable",
     "via": "{{value1}} via {{value2}} → {{value3}}{{value4}}",
-    "ruleVariantcb226f84": "rule {{value1}}"
+    "ruleVariantcb226f84": "rule {{value1}}",
+    "decision": "Decision"
   },
   "settingsDialogSecrets": {
     "copy": "Copy {{value1}}",

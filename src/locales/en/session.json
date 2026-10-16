@@ -966,7 +966,13 @@
       "rateLimit": "rate limited",
       "invalidResponse": "invalid response"
     },
-    "heading": "Routing decisions"
+    "heading": "Routing decisions",
+    "facts": {
+      "model": "Decision model",
+      "elapsed": "Decision time",
+      "failure": "Decision failure",
+      "cost": "Gateway-reported cost"
+    }
   },
   "providerErrorAccountAction": {
     "openAccounts": "Open Accounts",
