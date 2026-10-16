@@ -2,13 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
-// A row that mounts once as a new trace entry appears. `legacy` agent style
-// uses the gentler step-in; the current style uses the springier row-in.
-const cotStepIn = stylex.keyframes({
-  from: { opacity: 0, transform: "translateY(4px)" },
-  to: { opacity: 1, transform: "translateY(0)" },
-});
-
+// A row that mounts once as a new trace entry appears.
 const traceRowIn = stylex.keyframes({
   from: { opacity: 0, transform: "translateY(6px)" },
   to: { opacity: 1, transform: "translateY(0)" },
@@ -42,16 +36,6 @@ export const assistantTraceStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
   },
   // Assistant-text bullet row.
-  rowMotionLegacy: {
-    animationName: {
-      default: cotStepIn,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    animationDuration: "200ms",
-    animationTimingFunction: "cubic-bezier(0.2, 0.8, 0.2, 1)",
-    // Match the global `animate-cot-step-in` transform-origin.
-    transformOrigin: "top",
-  },
   rowMotion: {
     animationName: {
       default: traceRowIn,

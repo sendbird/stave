@@ -41,11 +41,6 @@ const cotStepIn = stylex.keyframes({
   to: { opacity: 1, transform: "translateY(0)" },
 });
 
-const cotContentIn = stylex.keyframes({
-  from: { opacity: 0, transform: "translateY(-4px)" },
-  to: { opacity: 1, transform: "translateY(0)" },
-});
-
 const traceReveal = stylex.keyframes({
   from: {
     opacity: 0,
@@ -144,15 +139,6 @@ export const chainOfThoughtStyles = stylex.create({
    * a gap between two unrelated blocks rather than a header and its panel.
    */
   content: { marginTop: vars["--ads-space-4"] },
-  contentLegacyMotion: {
-    animationName: { default: cotContentIn, [reduced]: "none" },
-    animationDuration: {
-      default: vars["--ads-motion-duration-emphasis"],
-      [reduced]: "0ms",
-    },
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
-    transformOrigin: "top",
-  },
   contentTraceMotion: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {
@@ -187,12 +173,6 @@ export const chainOfThoughtStyles = stylex.create({
   stepDone: { color: vars["--ads-color-text-muted"] },
   stepPending: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
-  },
-  stepMotionRowLegacy: {
-    animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
-    transformOrigin: "top",
   },
   stepMotionRowTrace: {
     animationName: { default: traceRowIn, [reduced]: "none" },
@@ -238,12 +218,6 @@ export const chainOfThoughtStyles = stylex.create({
   },
   description: { marginTop: "0.25em", color: vars["--ads-color-text-muted"] },
   reveal: { marginTop: "0.5em" },
-  revealMotionLegacy: {
-    animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },
-    animationTimingFunction: vars["--ads-motion-ease-standard"],
-    transformOrigin: "top",
-  },
   revealMotionTrace: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {

@@ -28,7 +28,6 @@ import {
   getRandomCompletionPhraseKey,
   getSeededCompletionPhraseKey,
 } from "@/lib/completion-phrases";
-import { useAgentStyle } from "./agent-style-context";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
 import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
 
@@ -408,7 +407,6 @@ export function ChainOfThoughtContent({
 }: HTMLAttributes<HTMLDivElement>) {
   useTranslation();
   const { open } = useChainOfThoughtContext();
-  const agentStyle = useAgentStyle();
   if (!open) return null;
 
   /*
@@ -431,13 +429,7 @@ export function ChainOfThoughtContent({
       className={className}
       rail={false}
       density="compact"
-      xstyle={[
-        s.content,
-        agentStyle === "legacy"
-          ? /* TODO(agent-style-legacy): remove with the legacy trace visual. */
-            s.contentLegacyMotion
-          : s.contentTraceMotion,
-      ]}
+      xstyle={[s.content, s.contentTraceMotion]}
       {...args}
     />
   );
@@ -503,7 +495,6 @@ export function ChainOfThoughtStep({
   useTranslation();
   const [open, setOpen] = useState(defaultOpen);
   const collapseSeenRef = useRef(false);
-  const agentStyle = useAgentStyle();
 
   useEffect(() => {
     setOpen(defaultOpen);
@@ -527,10 +518,6 @@ export function ChainOfThoughtStep({
 
   const hasContent = children != null;
   const resolvedTitle = titleContent ?? title;
-  const rowMotionStyle =
-    agentStyle === "legacy" ? s.stepMotionRowLegacy : s.stepMotionRowTrace;
-  const revealMotionStyle =
-    agentStyle === "legacy" ? s.revealMotionLegacy : s.revealMotionTrace;
 
   /*
    * The step's rail is ADS `StepRail.Step`, and the status mark moves inline
@@ -552,7 +539,7 @@ export function ChainOfThoughtStep({
         status === "active" && s.stepActive,
         status === "done" && s.stepDone,
         status === "pending" && s.stepPending,
-        rowMotionStyle,
+        s.stepMotionRowTrace,
       ]}
       {...props}
     >
@@ -586,7 +573,7 @@ export function ChainOfThoughtStep({
         ) : null}
 
         {hasContent && open ? (
-          <div className={sx(s.reveal, revealMotionStyle)}>{children}</div>
+          <div className={sx(s.reveal, s.revealMotionTrace)}>{children}</div>
         ) : null}
       </div>
     </StepRail.Step>

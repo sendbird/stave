@@ -9,27 +9,25 @@ reference.
 
 Open the dev-only [Agent trace Preview](http://localhost:5173/?stavePreview=agent-messages)
 while the Vite development server is running. The Preview uses the same
-`AssistantMessageBody` path as production chat and puts the current treatment
-beside the legacy comparison for visual QA.
+`AssistantMessageBody` path as production chat for visual QA.
 
 The documented baseline is:
 
 - `Streaming` enabled
 - `Dark` enabled
 - `18px` font size
-- `cascade` phrase animation
-- the `Current` column selected for inspection
+- `cascade` phrase animation (the production default)
 
 ![Current Agent trace Preview showing the orb, trace rows, tool states, system notices, and changed-file summary](../screenshots/agent-message-preview-current.png)
 
-This screenshot is a durable visual reference for the current column. Use the
+This screenshot is a durable visual reference for the current rendering. Use the
 live Preview for interaction and motion checks.
 
 The Preview controls intentionally expose the variables most likely to change
 the trace geometry: streaming versus completed state, light versus dark theme,
-font size, and `cascade` / `swap` / `scramble` reasoning-label animation.
+and font size.
 
-The current column exercises these visible cases in one trace:
+The Preview exercises these visible cases in one trace:
 
 - thinking orb and streaming reasoning viewport
 - Read, Grep, Bash, Edit, and Stave-owned MCP rows

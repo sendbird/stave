@@ -30,7 +30,6 @@ import {
   MessageResponse,
   parseSubagentToolInput,
 } from "@/components/ai-elements";
-import { useAgentStyle } from "@/components/ai-elements/agent-style-context";
 import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
 import {
   ChangedFilesBlock,
@@ -355,18 +354,14 @@ function AssistantTraceEntryView(args: {
     terminalStopReason,
     readOnly,
   } = args;
-  const agentStyle = useAgentStyle();
   const icon = getEntryIcon(entry);
-  /* TODO(agent-style-legacy): collapse to `rowMotion` once signed off. */
-  const rowMotionStyle =
-    agentStyle === "legacy" ? styles.rowMotionLegacy : styles.rowMotion;
 
   switch (entry.kind) {
     case "reasoning":
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <ReasoningRow
             durationMs={toMeasuredDurationMs(
@@ -383,7 +378,7 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <div className={sx(styles.assistantTextBody)}>
             {entry.parts.map((part, index) => (
@@ -454,7 +449,7 @@ function AssistantTraceEntryView(args: {
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
           tabIndex={entry.part.toolUseId ? -1 : undefined}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <ToolRun
             /* Remounts when a captured view arrives, so the row opens to show it. */
@@ -522,7 +517,7 @@ function AssistantTraceEntryView(args: {
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
           tabIndex={entry.part.toolUseId ? -1 : undefined}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <ToolRun
             /*
@@ -566,7 +561,7 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <ToolRun
             count={planProgressCount(entry.part.input)}
@@ -607,7 +602,7 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <ToolRun
             /* `+N −M`, already in the diff's own semantic ink. It reads in the
@@ -642,7 +637,7 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <TraceApproval
             messageId={messageId}
@@ -656,7 +651,7 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <TraceClarification
             messageId={messageId}
@@ -690,7 +685,7 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
-          xstyle={[styles.railStep, rowMotionStyle]}
+          xstyle={[styles.railStep, styles.rowMotion]}
         >
           <TraceSystemNotice
             attention={

@@ -4,13 +4,12 @@ import { coreStyles } from "./ai-element-core.styles";
 import { cx, sx } from "../ads/utils/stylex";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { useRotatingThinkingPhrase } from "@/lib/thinking-phrases";
-import { useAgentPhraseVariant, useAgentStyle } from "./agent-style-context";
 import { ReasoningText, type ReasoningTextVariant } from "./reasoning-text";
 
 interface ThinkingPhraseLabelProps {
   active: boolean;
   className?: string;
-  /** Overrides the style-derived variant (used by the dev preview controls). */
+  /** Overrides the default `cascade` variant. */
   variant?: ReasoningTextVariant;
 }
 
@@ -27,19 +26,8 @@ interface ThinkingAnimatedTextProps {
 const ACTIVE_REPLAY_INTERVAL_MS = 2200;
 const SETTLE_DURATION_MS = 220;
 
-/** `legacy` keeps the previous single-span fade; `beui` cascades per character. */
-function useStyleVariant(explicit?: ReasoningTextVariant): ReasoningTextVariant {
-  const style = useAgentStyle();
-  const previewVariant = useAgentPhraseVariant();
-  if (explicit) {
-    return explicit;
-  }
-  /* TODO(agent-style-legacy): drop once the new trace visual is signed off. */
-  if (style === "legacy") {
-    return "swap";
-  }
-  return previewVariant ?? "cascade";
-}
+/** Thinking phrases cascade per character unless a caller picks a variant. */
+const DEFAULT_VARIANT: ReasoningTextVariant = "cascade";
 
 function ThinkingAnimatedTextComponent({
   text,
@@ -52,7 +40,7 @@ function ThinkingAnimatedTextComponent({
 }: ThinkingAnimatedTextProps) {
   useTranslation();
   const prefersReducedMotion = usePrefersReducedMotion();
-  const resolvedVariant = useStyleVariant(variant);
+  const resolvedVariant = variant ?? DEFAULT_VARIANT;
   const wasActiveRef = useRef(active);
   const [replayTick, setReplayTick] = useState(0);
   const [isSettling, setIsSettling] = useState(false);
@@ -104,7 +92,7 @@ function ThinkingPhraseLabelComponent({
 }: ThinkingPhraseLabelProps) {
   useTranslation();
   const phrase = useRotatingThinkingPhrase(active);
-  const resolvedVariant = useStyleVariant(variant);
+  const resolvedVariant = variant ?? DEFAULT_VARIANT;
   return (
     <ReasoningText
       key={phrase}
