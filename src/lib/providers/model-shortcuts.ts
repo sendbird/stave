@@ -256,8 +256,12 @@ export function findModelShortcutOption<
     return null;
   }
 
+  // A shortcut saved as `provider:model` also reaches that model on an API
+  // connection, whose picker row adds `@<connection>` to the key.
   const option =
-    args.options.find((candidate) => candidate.key === shortcutKey) ?? null;
+    args.options.find((candidate) => candidate.key === shortcutKey) ??
+    args.options.find((candidate) => candidate.key.startsWith(`${shortcutKey}@`)) ??
+    null;
   if (!option) {
     return null;
   }

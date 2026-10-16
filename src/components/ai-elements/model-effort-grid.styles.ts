@@ -124,4 +124,6 @@ export const modelEffortGridStyles = stylex.create({
   cellVisualSelected: { transform: "scale(1.05)" },
   checkIcon: { width: vars["--ads-control-icon-size-md"], height: vars["--ads-control-icon-size-md"] },
   contents: { display: "contents" },
+  /** A section's name across every column; the heading brings its own type and spacing. */
+  sectionHeading: { gridColumn: "1 / -1" },
 });

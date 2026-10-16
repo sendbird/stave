@@ -516,24 +516,54 @@ export type ClaudeContext1MState =
   | boolean
   | ((baseModel: string) => boolean | undefined);
 
+export interface ModelSection {
+  /** Stable React key: "" for the runtime's own models, else the connection id. */
+  key: string;
+  heading?: string;
+  /** The API connection the section's rows run on. */
+  accountProfileId?: string;
+  options: ModelSelectorOption[];
+}
+
+/**
+ * The runtime's own models first, then one section per API connection, each
+ * named by its group. The runtime's section keeps a heading only when all its
+ * rows share one group, as an OpenCode provider list does.
+ */
+export function groupModelSections(options: readonly ModelSelectorOption[]): ModelSection[] {
+  const own = options.filter((option) => !option.accountProfileId);
+  const ownGroup = own.length > 0 && own.every((option) => option.group === own[0]?.group) ? own[0]?.group : undefined;
+  const connections = [...new Set(options.flatMap((option) => (option.accountProfileId ? [option.accountProfileId] : [])))];
+  return [
+    ...(own.length > 0 ? [{ key: "", ...(ownGroup ? { heading: ownGroup } : {}), options: own }] : []),
+    ...connections.map((accountProfileId) => {
+      const rows = options.filter((option) => option.accountProfileId === accountProfileId);
+      return { key: accountProfileId, ...(rows[0]?.group ? { heading: rows[0].group } : {}), accountProfileId, options: rows };
+    }),
+  ];
+}
+
 export function collapseClaudeContextOptions(args: {
   options: readonly ModelSelectorOption[];
   context1M: ClaudeContext1MState;
 }) {
+  // Rows collapse within one account: a connection pinning a runtime model's
+  // ID is a different row, billed elsewhere.
+  const scoped = (option: ModelSelectorOption, model: string) => `${option.accountProfileId ?? ""}\u0000${model}`;
   const optionByModel = new Map(
-    args.options.map((option) => [option.model.toLowerCase(), option] as const),
+    args.options.map((option) => [scoped(option, option.model.toLowerCase()), option] as const),
   );
   const seen = new Set<string>();
   const collapsed: ModelSelectorOption[] = [];
 
   for (const option of args.options) {
     const baseModel = getClaudeContextBaseModel(option.model).toLowerCase();
-    if (seen.has(baseModel)) {
+    if (seen.has(scoped(option, baseModel))) {
       continue;
     }
-    seen.add(baseModel);
-    const base = optionByModel.get(baseModel);
-    const context = optionByModel.get(`${baseModel}[1m]`);
+    seen.add(scoped(option, baseModel));
+    const base = optionByModel.get(scoped(option, baseModel));
+    const context = optionByModel.get(scoped(option, `${baseModel}[1m]`));
     const wants1M =
       typeof args.context1M === "function"
         ? args.context1M(baseModel)
