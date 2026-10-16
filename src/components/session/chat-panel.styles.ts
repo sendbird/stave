@@ -13,11 +13,12 @@ const REVEAL_OPACITY = "--messageActionsOpacity";
 const REVEAL_POINTER = "--messageActionsPointerEvents";
 
 export const chatPanelStyles = stylex.create({
-  timestampUser: { alignSelf: "flex-end" },
-  taskTimestamp: {
-    flexShrink: 0,
+  dateSeparator: {
+    textAlign: "center",
     paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-16"],
+    marginBottom: vars["--ads-space-12"],
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   rowFirst: {
     paddingTop: {
@@ -31,14 +32,20 @@ export const chatPanelStyles = stylex.create({
     alignItems: "stretch",
     [REVEAL_OPACITY]: {
       default: 0,
+      "@media (hover: none)": 1,
       ":hover": 1,
       ":focus-within": 1,
     },
     [REVEAL_POINTER]: {
       default: "none",
+      "@media (hover: none)": "auto",
       ":hover": "auto",
       ":focus-within": "auto",
     },
+  },
+  shellDetailsOpen: {
+    [REVEAL_OPACITY]: 1,
+    [REVEAL_POINTER]: "auto",
   },
   shellAssistant: {
     width: "100%",
