@@ -610,6 +610,11 @@ async function ensureRepositoryRegistryEntry(args: {
   };
 }
 
+function residentMessagesForShellTasks(messagesByTask: Record<string, ChatMessage[]>, tasks: readonly { id: string }[]) {
+  const taskIds = new Set(tasks.map((task) => task.id));
+  return Object.fromEntries(Object.entries(messagesByTask).filter(([taskId]) => taskIds.has(taskId)));
+}
+
 async function loadWorkspaceSession(workspaceId: string, refresh = false) {
   const cached = workspaceSessionCacheById.get(workspaceId);
   if (cached && !refresh) {
@@ -630,8 +635,9 @@ async function loadWorkspaceSession(workspaceId: string, refresh = false) {
   const session = buildWorkspaceSessionStateFromShell({
     shell: shell as never,
     latestTurns: latestTurns as never,
-    // Refresh task metadata without dropping bounded resident message windows.
-    ...(cached ? { messagesByTask: cached.messagesByTask } : {}),
+    // Refresh task metadata without dropping bounded resident message windows,
+    // except those of tasks the shell no longer lists.
+    ...(cached ? { messagesByTask: residentMessagesForShellTasks(cached.messagesByTask, shell.tasks) } : {}),
   });
   return cacheWorkspaceSession(workspaceId, session);
 }
@@ -1348,7 +1354,7 @@ async function handleProviderEvent(args: {
   // Write only what this event touched. The renderer re-reads the durable page
   // when it sees `local-mcp.task-turn-updated`, so the write still has to land
   // before that event is emitted — it is just far smaller now.
-  await queueWorkspaceSessionPersist({
+  const persisted = await queueWorkspaceSessionPersist({
     workspaceId: args.workspaceId,
     workspaceName: args.workspaceName,
     session: appliedSession,
@@ -1359,7 +1365,8 @@ async function handleProviderEvent(args: {
         after: appliedSession.messagesByTask[args.taskId] ?? [],
       }),
     },
-  });
+    rejectOnError: true,
+  }).then(() => true, () => false);
   appliedSession = trimResidentTaskMessages({
     workspaceId: args.workspaceId,
     taskId: args.taskId,
@@ -1404,7 +1411,24 @@ async function handleProviderEvent(args: {
       event: args.event,
       session: appliedSession,
     });
+    if (persisted) releaseIdleTaskMessages(args.workspaceId, args.taskId);
   }
+}
+
+/**
+ * Drop a settled task's resident window once its final turn state is durable.
+ * Every reader that needs it again goes through `ensureResidentTaskMessages`,
+ * which reloads the bounded tail from SQLite.
+ */
+function releaseIdleTaskMessages(workspaceId: string, taskId: string) {
+  // Re-read the cache: a turn may have started on this task while the
+  // completion notification was being written.
+  const session = workspaceSessionCacheById.get(workspaceId);
+  const messages = session?.messagesByTask[taskId];
+  if (!session || !messages || session.activeTurnIdsByTask[taskId]) return;
+  if (findPendingApprovals(messages).length > 0 || findPendingUserInputs(messages).length > 0) return;
+  const { [taskId]: _released, ...messagesByTask } = session.messagesByTask;
+  workspaceSessionCacheById.set(workspaceId, { ...session, messagesByTask });
 }
 
 export async function registerRepository(args: {

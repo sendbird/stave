@@ -216,6 +216,7 @@ const fakeStore = {
     recordCall("getStreamEvents");
     return persistedTurnEventsById.get(turnId) ?? [];
   },
+  getTurnReceipt: () => null,
   createNotification: ({ notification }: { notification: unknown }) => {
     recordCall("createNotification");
     return { inserted: true, notification };
@@ -478,5 +479,30 @@ describe("host-service turn path on a very large task", () => {
 
     expect(largestWrite).toBeGreaterThan(0);
     expect(largestWrite).toBeLessThanOrEqual(RESIDENT_MESSAGE_CAP + 2);
+  });
+
+  test("a finished turn releases its resident window and the next turn reloads it from disk", async () => {
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      taskId: TASK_ID,
+      prompt: "Continue the long task",
+    });
+    const handlers = startTurnStreamHandlers.at(-1);
+    handlers?.onEvent?.({ type: "text", text: "first turn answer" });
+    handlers?.onEvent?.({ type: "done" });
+    await drainMicrotasks(100);
+    storeCalls.clear();
+
+    await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      taskId: TASK_ID,
+      prompt: "And the next step",
+    });
+
+    expect(callCount("loadTaskMessagesPage")).toBe(1);
+    expect(callCount("loadAllTaskMessages")).toBe(0);
+    const history = startTurnStreamCalls.at(-1)?.conversation?.history ?? [];
+    expect(history.length).toBeLessThanOrEqual(RESIDENT_MESSAGE_CAP + 2);
+    expect(JSON.stringify(history)).toContain("first turn answer");
   });
 });
