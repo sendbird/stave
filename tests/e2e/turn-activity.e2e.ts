@@ -396,9 +396,22 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   const userInputComposer = page.getByTestId("user-input-composer");
   await expect(userInputComposer).toBeVisible();
   await expect(page.getByText("Keep the change focused.").last()).toBeVisible();
+  // Two questions are answered one step at a time, so the first step offers
+  // Next and the optional follow-up is not on screen yet.
   await expect(
-    page.getByRole("button", { name: "Continue" }).last(),
+    userInputComposer.getByRole("button", { name: "Next" }),
   ).toBeVisible();
+  await expect(
+    userInputComposer.getByRole("button", { name: "Continue" }),
+  ).toHaveCount(0);
+  await expect(
+    userInputComposer.getByRole("button", {
+      name: "Question 1 of 2: Scope",
+    }),
+  ).toHaveAttribute("aria-current", "step");
+  await expect(
+    userInputComposer.getByText("Anything else the agent should know?"),
+  ).toHaveCount(0);
 
   const focusedOption = userInputComposer.getByRole("radio", {
     name: /Focused/,
@@ -409,6 +422,9 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await focusedOption.focus();
   await page.keyboard.press("ArrowDown");
   await expect(broaderOption).toBeChecked();
+  // Browsing with arrow keys must not jump to the next question.
+  await page.waitForTimeout(400);
+  await expect(broaderOption).toBeVisible();
 
   const questionLayout = await page.evaluate(() => {
     const activityElement = document.querySelector<HTMLElement>(
@@ -425,36 +441,30 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
     const questionFieldsets = Array.from(
       composerElement?.querySelectorAll<HTMLElement>("fieldset") ?? [],
     );
+    const stepButtons = Array.from(
+      composerElement?.querySelectorAll<HTMLElement>(
+        'button[aria-label^="Question "]',
+      ) ?? [],
+    );
     if (!activityElement || !composerElement) {
       return null;
     }
     const activityBox = activityElement.getBoundingClientRect();
     const composerBox = composerElement.getBoundingClientRect();
-    const firstQuestionBox = questionFieldsets[0]?.getBoundingClientRect();
-    const contextSection = questionFieldsets[1]?.parentElement;
-    const contextSectionBox = contextSection?.getBoundingClientRect();
-    const contextLegendBox =
-      questionFieldsets[1]?.querySelector("legend")?.getBoundingClientRect() ??
+    const firstStepBox = stepButtons[0]?.getBoundingClientRect();
+    const questionLegendBox =
+      questionFieldsets[0]?.querySelector("legend")?.getBoundingClientRect() ??
       null;
-    const contextBorderWidth = contextSection
-      ? Number.parseFloat(
-          window.getComputedStyle(contextSection).borderTopWidth,
-        )
-      : 0;
     return {
       overlap: Math.round(activityBox.bottom - composerBox.top),
       composerWidth: composerBox.width,
       composerClientWidth: composerElement.clientWidth,
       composerScrollWidth: composerElement.scrollWidth,
-      contextDividerGapBefore:
-        firstQuestionBox && contextSectionBox
-          ? Math.round(contextSectionBox.top - firstQuestionBox.bottom)
-          : null,
-      contextDividerGapAfter:
-        contextSectionBox && contextLegendBox
-          ? Math.round(
-              contextLegendBox.top - contextSectionBox.top - contextBorderWidth,
-            )
+      visibleQuestionCount: questionFieldsets.length,
+      stepLabels: stepButtons.map((element) => element.textContent?.trim()),
+      stepGapToQuestion:
+        firstStepBox && questionLegendBox
+          ? Math.round(questionLegendBox.top - firstStepBox.bottom)
           : null,
       optionHeights: optionElements.map(
         (element) => element.getBoundingClientRect().height,
@@ -470,8 +480,11 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   expect(questionLayout?.optionHeights.every((height) => height >= 44)).toBe(
     true,
   );
-  expect(questionLayout?.contextDividerGapBefore).toBe(16);
-  expect(questionLayout?.contextDividerGapAfter).toBe(16);
+  expect(questionLayout?.visibleQuestionCount).toBe(1);
+  // The arrow key above answered the first step, so it shows a check mark
+  // instead of its number.
+  expect(questionLayout?.stepLabels).toEqual(["Scope", "2Additional context"]);
+  expect(questionLayout?.stepGapToQuestion).toBe(12);
   expect(questionLayout?.shadow).not.toBe("none");
 
   await page.evaluate(() => {
@@ -512,6 +525,24 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
   await userInputComposer.screenshot({
     path: testInfo.outputPath("ask-user-question-dark-375.png"),
   });
+
+  // A number key picks the matching option, and a single choice moves on to
+  // the next question by itself.
+  await broaderOption.focus();
+  await page.keyboard.press("1");
+  await expect(
+    userInputComposer.getByRole("button", {
+      name: "Question 1 of 2: Scope (answered)",
+    }),
+  ).toBeVisible();
+  await expect(
+    userInputComposer.getByRole("textbox", {
+      name: "Answer: Anything else the agent should know?",
+    }),
+  ).toBeVisible();
+  await expect(
+    userInputComposer.getByRole("button", { name: "Continue" }),
+  ).toBeEnabled();
 });
 
 test("keeps activity rows mounted while their status changes", async ({

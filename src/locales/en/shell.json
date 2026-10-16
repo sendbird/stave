@@ -846,6 +846,14 @@
         "title": "Answer with guidance",
         "description": "Move to the guidance field of the pending request."
       },
+      "userInputChoose": {
+        "title": "Choose an answer",
+        "description": "Pick the option with that number in the agent's question."
+      },
+      "userInputAdvance": {
+        "title": "Next question or send answers",
+        "description": "Go to the next question, or send the answers from the last one. Shift+Enter starts a new line in a written answer."
+      },
       "undo": {
         "title": "Undo settle or snooze",
         "description": "Undo the Work queue change whose Undo toast is still showing. Text fields keep their own undo."

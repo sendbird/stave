@@ -6,7 +6,9 @@ import {
 } from "../electron/providers/cursor/cursor-acp-extensions";
 import { NormalizedProviderEventSchema } from "@/lib/providers/schemas";
 import {
+  displayUserInputOptionLabel,
   markRecommendedUserInputOptions,
+  optionLabelHasRecommendedSuffix,
   recommendedOptionDefaultValue,
   resolveRecommendedOptionIndex,
   shouldShowUserInputRecommendedBadge,
@@ -237,5 +239,25 @@ describe("user-input recommend contracts", () => {
     }
     expect(parsed.questions[0]?.options[0]?.recommended).toBeUndefined();
     expect(parsed.questions[0]?.options[1]?.recommended).toBe(true);
+  });
+});
+
+describe("recommended label suffix", () => {
+  test("reads English and Korean recommendation suffixes the same way", () => {
+    for (const label of [
+      "Switch approach (Recommended)",
+      "Switch approach (추천)",
+      "Switch approach ( 권장 )",
+    ]) {
+      expect(optionLabelHasRecommendedSuffix(label)).toBe(true);
+      expect(displayUserInputOptionLabel(label)).toBe("Switch approach");
+    }
+  });
+
+  test("leaves labels that only mention a recommendation untouched", () => {
+    for (const label of ["추천 알고리즘 개선", "Use (recommended) defaults"]) {
+      expect(optionLabelHasRecommendedSuffix(label)).toBe(false);
+      expect(displayUserInputOptionLabel(label)).toBe(label);
+    }
   });
 });

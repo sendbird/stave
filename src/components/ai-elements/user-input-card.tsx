@@ -1,7 +1,16 @@
-import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useId, useMemo, useState } from "react";
+import { i18n, Trans, useTranslation } from "@/i18n";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
+} from "react";
 import { Check, CircleHelp, ExternalLink, PencilLine } from "lucide-react";
-import { Badge, Button, Input, Textarea } from "@/components/ui";
+import { Badge, Button, Input, Kbd, Textarea } from "@/components/ui";
 import {
   displayUserInputOptionLabel,
   shouldShowUserInputRecommendedBadge,
@@ -42,8 +51,34 @@ interface QuestionSelection {
   custom: string;
 }
 
+const EMPTY_SELECTION: QuestionSelection = { selected: [], custom: "" };
+
+/**
+ * A single-choice pick moves to the next question after this pause, so the
+ * chosen row registers visually before the step changes and a quick second
+ * click can still land on the same question.
+ */
+const AUTO_ADVANCE_DELAY_MS = 200;
+
+/** Number keys 1-9 pick the matching option of the visible question. */
+const SHORTCUT_OPTION_LIMIT = 9;
+
 function getQuestionKey(question: UserInputQuestion) {
   return question.key?.trim() || question.question;
+}
+
+function getOptionValue(option: UserInputQuestion["options"][number]) {
+  return option.value ?? option.label;
+}
+
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (target instanceof HTMLTextAreaElement) {
+    return true;
+  }
+  if (target instanceof HTMLInputElement) {
+    return target.type !== "radio" && target.type !== "checkbox";
+  }
+  return target instanceof HTMLElement && target.isContentEditable;
 }
 
 function parseAnswerValue(args: {
@@ -167,40 +202,60 @@ export function UserInputCard(args: UserInputCardProps) {
               answers?.[question.header] ??
               (readOnly ? undefined : question.defaultValue),
             multiSelect: question.multiSelect,
-            optionValues: question.options.map(
-              (option) => option.value ?? option.label,
-            ),
+            optionValues: question.options.map(getOptionValue),
           });
           return [getQuestionKey(question), parsed];
         }),
       ) as Record<string, QuestionSelection>,
     [answers, questions, readOnly],
   );
-  const initialCustomOpenByQuestion = useMemo(
-    () =>
-      Object.fromEntries(
-        questions.map((question) => {
-          const selection =
-            initialSelectionByQuestion[getQuestionKey(question)];
-          return [
-            getQuestionKey(question),
-            question.options.length === 0 || Boolean(selection?.custom),
-          ];
-        }),
-      ) as Record<string, boolean>,
-    [initialSelectionByQuestion, questions],
-  );
   const [selectionByQuestion, setSelectionByQuestion] = useState(
     initialSelectionByQuestion,
-  );
-  const [customOpenByQuestion, setCustomOpenByQuestion] = useState(
-    initialCustomOpenByQuestion,
   );
 
   useEffect(() => {
     setSelectionByQuestion(initialSelectionByQuestion);
-    setCustomOpenByQuestion(initialCustomOpenByQuestion);
-  }, [initialCustomOpenByQuestion, initialSelectionByQuestion]);
+  }, [initialSelectionByQuestion]);
+
+  // Several questions are answered one step at a time; the step resets only
+  // when the request itself changes, not when the parent re-renders.
+  const questionSetKey = questions.map(getQuestionKey).join("\u0000");
+  const [activeIndex, setActiveIndex] = useState(0);
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [questionSetKey]);
+
+  const formRef = useRef<HTMLElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const customFieldRefs = useRef(
+    new Map<string, HTMLTextAreaElement | HTMLInputElement>(),
+  );
+  const advanceTimerRef = useRef<number | null>(null);
+  // Arrow keys move the checked radio natively; that is browsing, not a
+  // decision, so it must not advance to the next question.
+  const arrowNavigationRef = useRef(false);
+
+  const clearAdvanceTimer = useCallback(() => {
+    if (advanceTimerRef.current !== null) {
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => clearAdvanceTimer, [clearAdvanceTimer]);
+
+  // The card takes the prompt input's place, so the input's focus is lost when
+  // it appears. Reclaim only that lost focus so number keys work at once,
+  // without pulling focus away from a terminal or editor the user is typing in.
+  const claimsLostFocus = !readOnly && presentation === "composer";
+  useEffect(() => {
+    if (!claimsLostFocus) {
+      return;
+    }
+    const active = document.activeElement;
+    if (active === null || active === document.body) {
+      formRef.current?.focus({ preventScroll: true });
+    }
+  }, [claimsLostFocus, questionSetKey]);
 
   const compiledAnswers = useMemo(
     () =>
@@ -210,10 +265,7 @@ export function UserInputCard(args: UserInputCardProps) {
           if (question.inputType === "url_notice") {
             return [];
           }
-          const selection = selectionByQuestion[questionKey] ?? {
-            selected: [],
-            custom: "",
-          };
+          const selection = selectionByQuestion[questionKey] ?? EMPTY_SELECTION;
           const values = [...selection.selected];
           if (selection.custom.trim()) {
             values.push(selection.custom.trim());
@@ -227,15 +279,13 @@ export function UserInputCard(args: UserInputCardProps) {
     [questions, selectionByQuestion],
   );
 
-  const isReady = questions.every((question) => {
-    if (question.inputType === "url_notice") {
-      return true;
-    }
-    if (question.required === false) {
-      return true;
-    }
-    return Boolean(compiledAnswers[getQuestionKey(question)]?.trim());
-  });
+  const hasAnswer = (question: UserInputQuestion) =>
+    Boolean(compiledAnswers[getQuestionKey(question)]?.trim());
+  const isQuestionSatisfied = (question: UserInputQuestion) =>
+    question.inputType === "url_notice" ||
+    question.required === false ||
+    hasAnswer(question);
+  const isReady = questions.every(isQuestionSatisfied);
 
   if (
     (!readOnly && presentation === "summary") ||
@@ -245,14 +295,168 @@ export function UserInputCard(args: UserInputCardProps) {
     return <UserInputSummary questions={questions} state={state} />;
   }
 
-  const questionCountLabel =
-    questions.length === 1
-      ? i18n.t("composer:userInputCard.questionCountLabel")
-      : questions.length > 1
-        ? i18n.t("composer:userInputCard.questionCountLabel2", {
-            value1: questions.length,
-          })
-        : i18n.t("composer:userInputCard.questionCountLabel3");
+  const stepped = !readOnly && questions.length > 1;
+  const lastIndex = questions.length - 1;
+  const currentIndex = stepped ? Math.min(activeIndex, lastIndex) : 0;
+  const currentQuestion = questions[currentIndex];
+  const onLastStep = !stepped || currentIndex === lastIndex;
+  const visibleQuestionIndexes = stepped
+    ? [currentIndex]
+    : questions.map((_, index) => index);
+
+  // A control inside the question panel unmounts when the step changes; park
+  // focus on the form first so number keys keep working on the next step.
+  const keepFocusInForm = () => {
+    const active = document.activeElement;
+    if (active && panelRef.current?.contains(active)) {
+      formRef.current?.focus({ preventScroll: true });
+    }
+  };
+
+  const goToQuestion = (index: number) => {
+    clearAdvanceTimer();
+    keepFocusInForm();
+    setActiveIndex(index);
+  };
+
+  const scheduleAdvance = (fromIndex: number) => {
+    clearAdvanceTimer();
+    advanceTimerRef.current = window.setTimeout(() => {
+      advanceTimerRef.current = null;
+      keepFocusInForm();
+      setActiveIndex((current) =>
+        current === fromIndex ? fromIndex + 1 : current,
+      );
+    }, AUTO_ADVANCE_DELAY_MS);
+  };
+
+  const selectOption = (
+    question: UserInputQuestion,
+    questionIndex: number,
+    optionValue: string,
+    autoAdvance: boolean,
+  ) => {
+    const questionKey = getQuestionKey(question);
+    setSelectionByQuestion((current) => {
+      const previous = current[questionKey] ?? EMPTY_SELECTION;
+      const wasSelected = previous.selected.includes(optionValue);
+      const nextSelected = question.multiSelect
+        ? wasSelected
+          ? previous.selected.filter((value) => value !== optionValue)
+          : [...previous.selected, optionValue]
+        : [optionValue];
+      return {
+        ...current,
+        [questionKey]: {
+          selected: nextSelected,
+          custom: question.multiSelect ? previous.custom : "",
+        },
+      };
+    });
+    if (
+      autoAdvance &&
+      stepped &&
+      !question.multiSelect &&
+      questionIndex < lastIndex
+    ) {
+      scheduleAdvance(questionIndex);
+    }
+  };
+
+  const setCustomAnswer = (question: UserInputQuestion, value: string) => {
+    const questionKey = getQuestionKey(question);
+    setSelectionByQuestion((current) => {
+      const previous = current[questionKey] ?? EMPTY_SELECTION;
+      return {
+        ...current,
+        [questionKey]: {
+          // Typing a different answer replaces a single choice.
+          selected:
+            question.multiSelect || value === "" ? previous.selected : [],
+          custom: value,
+        },
+      };
+    });
+  };
+
+  const advanceOrSubmit = () => {
+    if (readOnly || disabled) {
+      return;
+    }
+    clearAdvanceTimer();
+    if (stepped && currentQuestion && currentIndex < lastIndex) {
+      if (isQuestionSatisfied(currentQuestion)) {
+        goToQuestion(currentIndex + 1);
+      }
+      return;
+    }
+    if (isReady) {
+      onSubmit?.(compiledAnswers);
+      return;
+    }
+    const firstMissing = questions.findIndex(
+      (question) => !isQuestionSatisfied(question),
+    );
+    if (stepped && firstMissing >= 0) {
+      goToQuestion(firstMissing);
+    }
+  };
+
+  const handleKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (readOnly || disabled || event.defaultPrevented) {
+      return;
+    }
+    if (
+      event.nativeEvent.isComposing ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    if (event.key.startsWith("Arrow")) {
+      arrowNavigationRef.current = true;
+      return;
+    }
+    arrowNavigationRef.current = false;
+    const textEntry = isTextEntryTarget(event.target);
+    if (event.key === "Enter") {
+      if (
+        event.target instanceof HTMLButtonElement ||
+        event.target instanceof HTMLAnchorElement ||
+        (textEntry && event.shiftKey)
+      ) {
+        return;
+      }
+      event.preventDefault();
+      advanceOrSubmit();
+      return;
+    }
+    if (textEntry || !currentQuestion || !/^[1-9]$/.test(event.key)) {
+      return;
+    }
+    const optionIndex = Number(event.key) - 1;
+    const option = currentQuestion.options[optionIndex];
+    if (option) {
+      event.preventDefault();
+      selectOption(
+        currentQuestion,
+        currentIndex,
+        getOptionValue(option),
+        true,
+      );
+      return;
+    }
+    if (optionIndex === currentQuestion.options.length) {
+      const field = customFieldRefs.current.get(
+        getQuestionKey(currentQuestion),
+      );
+      if (field) {
+        event.preventDefault();
+        field.focus();
+      }
+    }
+  };
 
   const formPresentationStyle =
     readOnly || presentation === "inline"
@@ -266,106 +470,214 @@ export function UserInputCard(args: UserInputCardProps) {
     !readOnly && (presentation === "composer" || presentation === "embedded")
       ? styles.questionsWrapComposer
       : null;
+  const compactTitles = readOnly || presentation === "inline";
   const Container = readOnly ? "section" : "form";
   const copy = getRequestStateCopy(state);
+  const shortcutOptionCount = Math.min(
+    currentQuestion?.options.length ?? 0,
+    SHORTCUT_OPTION_LIMIT,
+  );
 
   return (
     <Container
+      ref={(node: HTMLElement | null) => {
+        formRef.current = node;
+      }}
       aria-labelledby={`${formId}-title`}
-      className={sx(styles.formBase, formPresentationStyle)}
+      className={sx(
+        styles.formBase,
+        formPresentationStyle,
+        !readOnly && styles.formFocusTarget,
+      )}
       data-user-input-state={state}
+      tabIndex={readOnly ? undefined : -1}
+      onKeyDown={readOnly ? undefined : handleKeyDown}
+      onPointerDown={
+        readOnly
+          ? undefined
+          : () => {
+              arrowNavigationRef.current = false;
+            }
+      }
       onSubmit={(event) => {
         event.preventDefault();
-        if (!readOnly && !disabled && isReady) {
-          onSubmit?.(compiledAnswers);
-        }
+        advanceOrSubmit();
       }}
     >
-      <header className={sx(styles.header)}>
-        <span className={sx(styles.headerBadge)}>
-          {readOnly ? (
+      {readOnly ? (
+        <header className={sx(styles.header)}>
+          <span className={sx(styles.headerBadge)}>
             <Check className={sx(styles.iconMd)} aria-hidden />
-          ) : (
-            <CircleHelp className={sx(styles.iconMd)} aria-hidden />
-          )}
-        </span>
+          </span>
+          <div
+            className={sx(styles.headerBody, focusRing.ring)}
+            role="status"
+            aria-live="polite"
+            tabIndex={-1}
+          >
+            <h3 id={`${formId}-title`} className={sx(styles.headerTitle)}>
+              {copy.title}
+            </h3>
+            <p className={sx(styles.headerDetail)}>{copy.detail}</p>
+          </div>
+        </header>
+      ) : (
+        // The question itself is the visible title; this names the form for
+        // assistive technology.
+        <h3 id={`${formId}-title`} className={sx(styles.srOnly)}>
+          {i18n.t("composer:userInputCard.userInputCard")}
+        </h3>
+      )}
+
+      {stepped ? (
         <div
-          className={sx(styles.headerBody, readOnly && focusRing.ring)}
-          role={readOnly ? "status" : undefined}
-          aria-live={readOnly ? "polite" : undefined}
-          tabIndex={readOnly ? -1 : undefined}
+          className={sx(styles.steps)}
+          role="group"
+          aria-label={i18n.t("composer:userInputCard.stepsLabel")}
         >
-          <h3 id={`${formId}-title`} className={sx(styles.headerTitle)}>
-            {readOnly
-              ? copy.title
-              : i18n.t("composer:userInputCard.userInputCard")}
-          </h3>
-          <p className={sx(styles.headerDetail)}>
-            {readOnly ? copy.detail : questionCountLabel}
-          </p>
+          {questions.map((question, index) => {
+            const answered = hasAnswer(question);
+            const isCurrent = index === currentIndex;
+            const label =
+              question.header?.trim() ||
+              i18n.t("composer:userInputCard.stepFallback", {
+                index: index + 1,
+              });
+            return (
+              <button
+                key={getQuestionKey(question)}
+                type="button"
+                className={sx(
+                  styles.step,
+                  focusRing.ring,
+                  isCurrent && styles.stepCurrent,
+                )}
+                aria-current={isCurrent ? "step" : undefined}
+                aria-label={i18n.t(
+                  answered
+                    ? "composer:userInputCard.stepAriaAnswered"
+                    : "composer:userInputCard.stepAria",
+                  { index: index + 1, total: questions.length, label },
+                )}
+                onClick={() => goToQuestion(index)}
+              >
+                <span
+                  className={sx(
+                    styles.stepMark,
+                    answered && styles.stepMarkAnswered,
+                  )}
+                  aria-hidden
+                >
+                  {answered ? (
+                    <Check className={sx(styles.iconXs)} />
+                  ) : (
+                    index + 1
+                  )}
+                </span>
+                <span className={sx(styles.stepLabel)}>{label}</span>
+              </button>
+            );
+          })}
         </div>
-      </header>
+      ) : null}
 
       {questions.length > 0 ? (
         <div
+          ref={panelRef}
           className={sx(
             styles.questionsWrap,
+            readOnly && styles.questionsWrapAfterHeader,
             // The composer is height-capped, so long question sets have to scroll
             // here instead of pushing the footer actions out of the viewport.
             questionsWrapComposerStyle,
           )}
         >
-          {questions.map((question, questionIndex) => {
+          {visibleQuestionIndexes.map((questionIndex, position) => {
+            const question = questions[questionIndex]!;
             const questionKey = getQuestionKey(question);
             const selections = readOnly
               ? initialSelectionByQuestion
               : selectionByQuestion;
-            const selection = selections[questionKey] ?? {
-              selected: [],
-              custom: "",
-            };
+            const selection = selections[questionKey] ?? EMPTY_SELECTION;
             const inputType = question.inputType ?? "text";
+            const numeric = inputType === "number" || inputType === "integer";
             const supportsCustom =
               question.allowCustom !== false &&
               inputType !== "boolean" &&
               inputType !== "url_notice";
-            const customOpen =
-              customOpenByQuestion[questionKey] ||
-              question.options.length === 0;
-            const selectionHint = question.multiSelect
-              ? i18n.t("composer:userInputCard.selectionHint")
-              : question.options.length > 0
-                ? i18n.t("composer:userInputCard.selectionHint2")
-                : question.required === false
-                  ? i18n.t("composer:userInputCard.selectionHint3")
-                  : i18n.t("composer:userInputCard.selectionHint4");
+            const hasOptions = question.options.length > 0;
+            const hasCustom = selection.custom.trim().length > 0;
+            const customLabel = i18n.t("composer:userInputCard.ariaLabel", {
+              value1: question.question,
+            });
+            const registerCustomField = (
+              node: HTMLTextAreaElement | HTMLInputElement | null,
+            ) => {
+              if (node) {
+                customFieldRefs.current.set(questionKey, node);
+              } else {
+                customFieldRefs.current.delete(questionKey);
+              }
+            };
+
+            const eyebrow: ReactNode[] = [];
+            const header = question.header?.trim();
+            if (header && !stepped) {
+              eyebrow.push(
+                <span key="header" className={sx(styles.eyebrowHeader)}>
+                  {header}
+                </span>,
+              );
+            }
+            if (!readOnly && question.multiSelect) {
+              eyebrow.push(
+                <span key="hint">
+                  {i18n.t("composer:userInputCard.selectionHint")}
+                </span>,
+              );
+            } else if (!readOnly && question.required === false) {
+              eyebrow.push(
+                <span key="hint">
+                  {i18n.t("composer:userInputCard.selectionHint3")}
+                </span>,
+              );
+            }
 
             return (
               <div
                 key={questionKey}
-                className={sx(questionIndex > 0 && styles.questionBlockDivided)}
+                className={sx(position > 0 && styles.questionBlockDivided)}
               >
                 <fieldset className={sx(styles.fieldset)}>
                   <legend className={sx(styles.legend)}>
-                    <span className={sx(styles.legendHeaderRow)}>
-                      <span className={sx(styles.legendHeader)}>
-                        {question.header}
+                    {eyebrow.length > 0 ? (
+                      <span className={sx(styles.eyebrow)}>
+                        {eyebrow.flatMap((part, index) =>
+                          index === 0
+                            ? [part]
+                            : [
+                                <span key={`separator-${index}`} aria-hidden>
+                                  ·
+                                </span>,
+                                part,
+                              ],
+                        )}
                       </span>
-                      {readOnly ? null : (
-                        <span className={sx(styles.legendHint)}>
-                          {selectionHint}
-                        </span>
+                    ) : null}
+                    <span
+                      className={sx(
+                        styles.questionTitle,
+                        compactTitles && styles.questionTitleCompact,
                       )}
-                    </span>
-                    <span className={sx(styles.legendQuestion)}>
+                    >
                       {question.question}
                     </span>
                   </legend>
 
-                  {question.options.length > 0 ? (
-                    <div className={sx(styles.optionsGrid)}>
-                      {question.options.map((option) => {
-                        const optionValue = option.value ?? option.label;
+                  {hasOptions ? (
+                    <div className={sx(styles.optionList)}>
+                      {question.options.map((option, optionIndex) => {
+                        const optionValue = getOptionValue(option);
                         const isSelected =
                           selection.selected.includes(optionValue);
                         const isRecommended =
@@ -377,9 +689,11 @@ export function UserInputCard(args: UserInputCardProps) {
                           <label
                             key={optionValue}
                             className={sx(
-                              styles.option,
+                              styles.optionRow,
+                              optionIndex > 0 && styles.optionRowDivided,
                               focusRing.ringWithin,
-                              isSelected && styles.optionSelected,
+                              styles.optionRowFocusInset,
+                              isSelected && styles.optionRowSelected,
                               readOnly && styles.optionReadOnly,
                               !readOnly && disabled && styles.optionDisabled,
                             )}
@@ -392,55 +706,28 @@ export function UserInputCard(args: UserInputCardProps) {
                               checked={isSelected}
                               disabled={readOnly || disabled}
                               onChange={() => {
-                                setSelectionByQuestion((current) => {
-                                  const previous = current[questionKey] ?? {
-                                    selected: [],
-                                    custom: "",
-                                  };
-                                  const nextSelected = question.multiSelect
-                                    ? isSelected
-                                      ? previous.selected.filter(
-                                          (value) => value !== optionValue,
-                                        )
-                                      : [...previous.selected, optionValue]
-                                    : [optionValue];
-                                  return {
-                                    ...current,
-                                    [questionKey]: {
-                                      selected: nextSelected,
-                                      custom: question.multiSelect
-                                        ? previous.custom
-                                        : "",
-                                    },
-                                  };
-                                });
-                                if (!question.multiSelect) {
-                                  setCustomOpenByQuestion((current) => ({
-                                    ...current,
-                                    [questionKey]: false,
-                                  }));
-                                }
+                                const autoAdvance = !arrowNavigationRef.current;
+                                arrowNavigationRef.current = false;
+                                selectOption(
+                                  question,
+                                  questionIndex,
+                                  optionValue,
+                                  autoAdvance,
+                                );
                               }}
                             />
                             <span
                               className={sx(
-                                styles.optionMark,
-                                question.multiSelect
-                                  ? styles.optionMarkCheckbox
-                                  : styles.optionMarkRadio,
-                                isSelected
-                                  ? styles.optionMarkSelected
-                                  : styles.optionMarkUnselected,
+                                styles.optionIndex,
+                                isSelected && styles.optionIndexSelected,
                               )}
                               aria-hidden
                             >
                               {isSelected ? (
-                                question.multiSelect ? (
-                                  <Check className={sx(styles.iconXs)} />
-                                ) : (
-                                  <span className={sx(styles.radioDot)} />
-                                )
-                              ) : null}
+                                <Check className={sx(styles.iconXs)} />
+                              ) : (
+                                optionIndex + 1
+                              )}
                             </span>
                             <span className={sx(styles.optionBody)}>
                               <span className={sx(styles.optionLabelRow)}>
@@ -465,6 +752,70 @@ export function UserInputCard(args: UserInputCardProps) {
                           </label>
                         );
                       })}
+
+                      {!readOnly && supportsCustom ? (
+                        <label
+                          className={sx(
+                            styles.optionRow,
+                            styles.optionRowDivided,
+                            styles.customRow,
+                            focusRing.ringWithin,
+                            styles.optionRowFocusInset,
+                            hasCustom && styles.optionRowSelected,
+                            disabled && styles.optionDisabled,
+                          )}
+                        >
+                          <span
+                            className={sx(
+                              styles.optionIndex,
+                              hasCustom && styles.optionIndexSelected,
+                            )}
+                            aria-hidden
+                          >
+                            <PencilLine className={sx(styles.iconXs)} />
+                          </span>
+                          {numeric ? (
+                            <input
+                              ref={registerCustomField}
+                              type="number"
+                              className={sx(styles.customInlineField)}
+                              value={selection.custom}
+                              disabled={disabled}
+                              aria-label={customLabel}
+                              placeholder={
+                                question.placeholder ||
+                                i18n.t(
+                                  "composer:userInputCard.numberPlaceholder",
+                                )
+                              }
+                              onChange={(event) =>
+                                setCustomAnswer(question, event.target.value)
+                              }
+                            />
+                          ) : (
+                            <textarea
+                              ref={registerCustomField}
+                              rows={1}
+                              className={sx(
+                                styles.customInlineField,
+                                styles.customInlineTextarea,
+                              )}
+                              value={selection.custom}
+                              disabled={disabled}
+                              aria-label={customLabel}
+                              placeholder={
+                                question.placeholder ||
+                                (question.multiSelect
+                                  ? i18n.t("composer:userInputCard.copy3")
+                                  : i18n.t("composer:userInputCard.copy4"))
+                              }
+                              onChange={(event) =>
+                                setCustomAnswer(question, event.target.value)
+                              }
+                            />
+                          )}
+                        </label>
+                      ) : null}
                     </div>
                   ) : null}
 
@@ -500,93 +851,36 @@ export function UserInputCard(args: UserInputCardProps) {
                     </p>
                   ) : null}
 
-                  {!readOnly &&
-                  supportsCustom &&
-                  question.options.length > 0 ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className={sx(styles.customToggle)}
-                      disabled={disabled}
-                      aria-expanded={customOpen}
-                      onClick={() => {
-                        setCustomOpenByQuestion((current) => ({
-                          ...current,
-                          [questionKey]: !customOpen,
-                        }));
-                        if (!customOpen && !question.multiSelect) {
-                          setSelectionByQuestion((current) => ({
-                            ...current,
-                            [questionKey]: {
-                              ...(current[questionKey] ?? {
-                                selected: [],
-                                custom: "",
-                              }),
-                              selected: [],
-                            },
-                          }));
-                        }
-                      }}
-                    >
-                      <PencilLine className={sx(styles.iconSm)} />
-                      {question.multiSelect
-                        ? i18n.t("composer:userInputCard.copy3")
-                        : i18n.t("composer:userInputCard.copy4")}
-                    </Button>
-                  ) : null}
-
-                  {!readOnly && supportsCustom && customOpen ? (
+                  {!readOnly && supportsCustom && !hasOptions ? (
                     <div className={sx(styles.customInputWrap)}>
-                      {inputType === "number" || inputType === "integer" ? (
+                      {numeric ? (
                         <Input
+                          ref={registerCustomField}
                           type="number"
                           value={selection.custom}
                           disabled={disabled}
-                          aria-label={i18n.t(
-                            "composer:userInputCard.ariaLabel",
-                            { value1: question.question },
-                          )}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setSelectionByQuestion((current) => ({
-                              ...current,
-                              [questionKey]: {
-                                selected: question.multiSelect
-                                  ? (current[questionKey]?.selected ?? [])
-                                  : [],
-                                custom: value,
-                              },
-                            }));
-                          }}
-                          placeholder={question.placeholder || "Enter a number"}
+                          aria-label={customLabel}
+                          onChange={(event) =>
+                            setCustomAnswer(question, event.target.value)
+                          }
+                          placeholder={
+                            question.placeholder ||
+                            i18n.t("composer:userInputCard.numberPlaceholder")
+                          }
                         />
                       ) : (
                         <Textarea
+                          ref={registerCustomField}
                           value={selection.custom}
                           disabled={disabled}
-                          aria-label={i18n.t(
-                            "composer:userInputCard.ariaLabel2",
-                            { value1: question.question },
-                          )}
+                          aria-label={customLabel}
                           className={sx(styles.customTextarea)}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setSelectionByQuestion((current) => ({
-                              ...current,
-                              [questionKey]: {
-                                selected: question.multiSelect
-                                  ? (current[questionKey]?.selected ?? [])
-                                  : [],
-                                custom: value,
-                              },
-                            }));
-                          }}
+                          onChange={(event) =>
+                            setCustomAnswer(question, event.target.value)
+                          }
                           placeholder={
                             question.placeholder ||
-                            (question.options.length > 0
-                              ? i18n.t("composer:userInputCard.placeholder")
-                              : i18n.t("composer:userInputCard.placeholder2"))
+                            i18n.t("composer:userInputCard.placeholder2")
                           }
                         />
                       )}
@@ -601,18 +895,59 @@ export function UserInputCard(args: UserInputCardProps) {
 
       {!readOnly ? (
         <div className={sx(styles.footer)}>
-          <Button type="submit" size="sm" disabled={disabled || !isReady}>
-            {i18n.t("composer:userInputCard.userInputCard2")}
-          </Button>
           <Button
             type="button"
             size="sm"
             variant="ghost"
+            className={sx(styles.declineButton)}
             disabled={disabled}
             onClick={onDeny}
           >
             {i18n.t("composer:userInputCard.userInputCard3")}
           </Button>
+          <div className={sx(styles.footerActions)}>
+            {shortcutOptionCount >= 2 ? (
+              <span className={sx(styles.keyboardHint)} aria-hidden>
+                <Trans
+                  i18n={i18n}
+                  ns="composer"
+                  i18nKey={
+                    onLastStep
+                      ? "userInputCard.keyboardHint"
+                      : "userInputCard.keyboardHintNext"
+                  }
+                  values={{ last: shortcutOptionCount }}
+                  components={{ key: <Kbd /> }}
+                />
+              </span>
+            ) : null}
+            {onLastStep ? (
+              // Distinct keys keep React from turning the Next button into a
+              // submit button during its own click.
+              <Button
+                key="continue"
+                type="submit"
+                size="sm"
+                disabled={disabled || !isReady}
+              >
+                {i18n.t("composer:userInputCard.userInputCard2")}
+              </Button>
+            ) : (
+              <Button
+                key="next"
+                type="button"
+                size="sm"
+                disabled={
+                  disabled ||
+                  !currentQuestion ||
+                  !isQuestionSatisfied(currentQuestion)
+                }
+                onClick={advanceOrSubmit}
+              >
+                {i18n.t("composer:userInputCard.next")}
+              </Button>
+            )}
+          </div>
           {disabledReason ? (
             <p className={sx(styles.disabledReason)} role="status">
               {disabledReason}
