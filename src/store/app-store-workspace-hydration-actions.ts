@@ -870,6 +870,7 @@ export function createWorkspaceHydrationActions(args: {
             }),
             workspacePath: preferredWorkspacePath,
             files: repositoryFiles,
+            retainPaths: [state.repositoryPath],
           }),
           workspaceRuntimeCacheById: nextRuntimeCacheById,
           taskWorkspaceIdById: registerTaskWorkspaceOwnership({

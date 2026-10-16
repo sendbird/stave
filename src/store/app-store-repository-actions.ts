@@ -109,6 +109,15 @@ export function createRepositoryActions(args: {
       workspaceFileCacheByPath: stateBeforeSwitch.workspaceFileCacheByPath,
       workspacePath: args.repositoryRootPath,
       files: args.files,
+      // Re-activating the current repository keeps its active workspace.
+      retainPaths: [
+        resolveWorkspacePathForId({
+          activeWorkspaceId: stateBeforeSwitch.activeWorkspaceId,
+          workspacePathById: stateBeforeSwitch.workspacePathById,
+          workspaceDefaultById: stateBeforeSwitch.workspaceDefaultById,
+          repositoryPath: stateBeforeSwitch.repositoryPath,
+        }),
+      ],
     });
 
     if (stateBeforeSwitch.repositoryPath === args.repositoryRootPath) {

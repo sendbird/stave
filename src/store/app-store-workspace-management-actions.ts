@@ -129,6 +129,7 @@ export function createRefreshWorkspaceFilesInBackground(args: {
             workspaceFileCacheByPath: state.workspaceFileCacheByPath,
             workspacePath: args.workspacePath,
             files,
+            retainPaths: [state.repositoryPath],
           });
           const activeWorkspacePath = resolveWorkspacePathForId({
             activeWorkspaceId: state.activeWorkspaceId,
