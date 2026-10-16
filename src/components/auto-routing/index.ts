@@ -12,3 +12,9 @@ export {
   type RouteTraceProps,
   type RouteTraceSignalChip,
 } from "./RouteTrace";
+export {
+  routeTraceEntryFromRecord,
+  routeTraceEntryFromResolution,
+  toRoutePromptPreview,
+  type RouteTraceEntry,
+} from "./route-trace-entry";

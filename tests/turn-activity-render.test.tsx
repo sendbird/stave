@@ -6,6 +6,7 @@ import { turnActivityStyles } from "@/components/session/turn-activity.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { buildAutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
+import { routeTraceEntryFromRecord } from "@/components/auto-routing";
 
 describe("TurnActivity", () => {
   test("pins changes and verification while optional usage and limits start folded", () => {
@@ -1204,7 +1205,7 @@ describe("TurnActivity", () => {
 });
 
 describe("TurnActivity route block", () => {
-  const routedRecord = buildAutoRoutingDecisionRecord({
+  const routedRecord = routeTraceEntryFromRecord(buildAutoRoutingDecisionRecord({
     decision: {
       providerId: "claude-code",
       model: "claude-sonnet-5",
@@ -1230,7 +1231,7 @@ describe("TurnActivity route block", () => {
       claudeEffort: "high",
     },
     prompt: "Fix the terminal host close ordering.",
-  });
+  }));
   const baseProps = {
     activeTurnId: "turn-route",
     activity: {

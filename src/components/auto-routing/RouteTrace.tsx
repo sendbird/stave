@@ -8,14 +8,17 @@ import {
   ROUTE_COMPLEXITY_LABELS,
   STANCE_LABELS,
   TASK_CLASS_LABELS,
+  type Stance,
   type TaskClass,
 } from "@/lib/providers/auto-routing-profile";
 import { getProviderLabel, listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { describeRoutingDecisionFacts } from "@/lib/providers/routing-decision-label";
 import type {
   AutoRoutingDecision,
   AutoRoutingDecisionRecord,
 } from "@/lib/routing/auto-routing";
+import type { RouteTraceEntry } from "./route-trace-entry";
 import { routeTraceStyles as styles } from "./route-trace.styles";
 
 /* -------------------------------------------------------------------------- */
@@ -35,7 +38,7 @@ export interface RouteTraceSignalChip {
  * live rate-limit snapshot to redraw a decision the router already made.
  */
 export function buildRouteTraceSignals(args: {
-  decision: AutoRoutingDecision;
+  decision: Pick<AutoRoutingDecision, "signals">;
   budgetStepDownAt?: number;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
 }): RouteTraceSignalChip[] {
@@ -85,7 +88,7 @@ export function buildRouteTraceSignals(args: {
   return chips;
 }
 
-function toSourceLabel(source: AutoRoutingDecision["source"]) {
+function toSourceLabel(source: RouteTraceEntry["source"]) {
   switch (source) {
     case "classifier":
       return i18n.t("settingsConnections:messages.sourceClassifier");
@@ -116,7 +119,7 @@ export function isRoutedDecision(
 /* -------------------------------------------------------------------------- */
 
 export interface RouteTraceProps {
-  record: AutoRoutingDecisionRecord;
+  entry: RouteTraceEntry;
   /** Usage percent at which the budget guard steps down; marks the chip. */
   budgetStepDownAt?: number;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
@@ -134,67 +137,100 @@ interface Hop {
 }
 
 /**
- * The route one turn actually took, top to bottom: prompt → signals → task
- * class → rule → model. Every hop is the node that lit; nothing the router
+ * The route one turn actually took, top to bottom: prompt → signals →
+ * decision model → task class → rule → model. Every hop is the node that lit; nothing the router
  * passed over is drawn, so the chain reads as "what is running and why"
  * while the turn is live rather than as a table to study afterwards.
  */
 export function RouteTrace(props: RouteTraceProps) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const { record } = props;
-  const { decision } = record;
+  const { entry } = props;
   const [collapsed, setCollapsed] = useState(props.defaultCollapsed ?? false);
-  const effort = decision.claudeEffort ?? decision.codexReasoningEffort ?? null;
-  const chips = buildRouteTraceSignals({
-    decision,
-    budgetStepDownAt: props.budgetStepDownAt,
-    providerAvailability: props.providerAvailability,
-  });
+  const effort = entry.effort;
+  const chips = entry.signals
+    ? buildRouteTraceSignals({
+        decision: { signals: entry.signals },
+        budgetStepDownAt: props.budgetStepDownAt,
+        providerAvailability: props.providerAvailability,
+      })
+    : [];
   const decisive = chips.some((chip) => chip.decisive);
-  const taskLabel = TASK_CLASS_LABELS[decision.taskClass as TaskClass] ?? decision.taskClass;
-  const ruleLabel = decision.ruleId ?? "fallback";
+  const facts = describeRoutingDecisionFacts(entry.routingDecision);
+  const taskLabel = entry.taskClass
+    ? (TASK_CLASS_LABELS[entry.taskClass as TaskClass] ?? entry.taskClass)
+    : null;
+  const ruleLabel = entry.ruleId ?? "fallback";
+  const stanceLabel = entry.stance
+    ? (STANCE_LABELS[entry.stance as Stance] ?? entry.stance)
+    : null;
 
   const hops: Hop[] = [
     {
       id: "prompt",
       label: t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label"),
       body: (
-        <span className={sx(styles.prompt)} title={record.promptPreview}>
-          {record.promptPreview || t("settingsConnections:routeFlow.emptyPrompt")}
+        <span className={sx(styles.prompt)} title={entry.promptPreview}>
+          {entry.promptPreview || t("settingsConnections:routeFlow.emptyPrompt")}
         </span>
       ),
     },
-    {
-      id: "signals",
-      label: t("settingsConnections:routeTrace.signals"),
-      warn: decisive,
-      body: (
-        <span className={sx(styles.chips)}>
-          {chips.map((chip) => (
-            <span
-              key={chip.id}
-              className={sx(styles.chip, chip.decisive && styles.chipWarn)}
-              data-signal={chip.id}
-              data-decisive={chip.decisive ? "true" : undefined}
-            >
-              {chip.label}
+    ...(chips.length > 0
+      ? [{
+          id: "signals",
+          label: t("settingsConnections:routeTrace.signals"),
+          warn: decisive,
+          body: (
+            <span className={sx(styles.chips)}>
+              {chips.map((chip) => (
+                <span
+                  key={chip.id}
+                  className={sx(styles.chip, chip.decisive && styles.chipWarn)}
+                  data-signal={chip.id}
+                  data-decisive={chip.decisive ? "true" : undefined}
+                >
+                  {chip.label}
+                </span>
+              ))}
             </span>
-          ))}
-        </span>
-      ),
-    },
+          ),
+        }]
+      : []),
+    ...(facts.length > 0
+      ? [{
+          id: "decision",
+          label: t("settingsConnections:routeTrace.decision"),
+          warn: facts.some((fact) => fact.warn),
+          body: (
+            <span className={sx(styles.facts)}>
+              {facts.map((fact) => (
+                <span key={fact.key} className={sx(styles.row)} data-decision-fact={fact.key}>
+                  <span className={sx(styles.caption)}>{fact.label}</span>
+                  <span
+                    className={sx(styles.factValue, fact.warn && styles.factWarn)}
+                    title={fact.title}
+                  >
+                    {fact.value}
+                  </span>
+                </span>
+              ))}
+            </span>
+          ),
+        }]
+      : []),
     {
       id: "task",
       label: t("settingsConnections:routeTrace.task"),
       body: (
         <span className={sx(styles.row)}>
-          <span className={sx(styles.hopValue)} data-task-class={decision.taskClass}>
-            {taskLabel}
-          </span>
+          {taskLabel ? (
+            <span className={sx(styles.hopValue)} data-task-class={entry.taskClass ?? undefined}>
+              {taskLabel}
+            </span>
+          ) : null}
           <span className={sx(styles.caption)}>
-            {toSourceLabel(decision.source)}
-            {decision.confidence !== null && decision.source === "classifier" && decision.confidence < 1
-              ? t("settingsConnections:routeTrace.sure", { value1: Math.round(decision.confidence * 100) })
+            {toSourceLabel(entry.source)}
+            {entry.confidence !== null && entry.source === "classifier" && entry.confidence < 1
+              ? t("settingsConnections:routeTrace.sure", { value1: Math.round(entry.confidence * 100) })
               : null}
           </span>
         </span>
@@ -209,11 +245,13 @@ export function RouteTrace(props: RouteTraceProps) {
             <span className={sx(styles.mono)} data-rule-id={ruleLabel}>
               {ruleLabel}
             </span>
-            <span className={sx(styles.caption)}>{t("settingsConnections:messages.stance", { stance: STANCE_LABELS[decision.stance] })}</span>
+            {stanceLabel ? (
+              <span className={sx(styles.caption)}>{t("settingsConnections:messages.stance", { stance: stanceLabel })}</span>
+            ) : null}
           </span>
-          {decision.ruleReason ? (
+          {entry.ruleReason ? (
             <span className={sx(styles.caption)} data-testid="route-trace-reason">
-              {decision.ruleReason}
+              {entry.ruleReason}
             </span>
           ) : null}
         </>
@@ -224,8 +262,8 @@ export function RouteTrace(props: RouteTraceProps) {
       label: t("settingsProviders:auxiliaryInference.model.title"),
       body: (
         <AgentIdentity
-          providerId={decision.providerId}
-          model={decision.model}
+          providerId={entry.providerId}
+          model={entry.model}
           effort={effort}
           compact
         />
@@ -233,7 +271,7 @@ export function RouteTrace(props: RouteTraceProps) {
     },
   ];
 
-  const summary = t(decision.ruleId ? "settingsConnections:messages.traceRuleSummary" : "settingsConnections:messages.traceFallbackSummary", { taskClass: taskLabel, rule: decision.ruleId, model: decision.model, effort: effort ? ` · ${effort}` : "" });
+  const summary = t(entry.ruleId ? "settingsConnections:messages.traceRuleSummary" : "settingsConnections:messages.traceFallbackSummary", { taskClass: taskLabel ?? toSourceLabel(entry.source), rule: entry.ruleId, model: entry.model, effort: effort ? ` · ${effort}` : "" });
 
   return (
     <section
@@ -241,6 +279,7 @@ export function RouteTrace(props: RouteTraceProps) {
       aria-label={t("settingsConnections:routeTrace.route")}
       data-testid={props["data-testid"] ?? "route-trace"}
       data-collapsed={collapsed ? "true" : undefined}
+      data-route-origin={entry.origin}
     >
       <div className={sx(styles.header)} data-testid="route-trace-header">
         <h3 className={sx(styles.title)}>
@@ -251,8 +290,8 @@ export function RouteTrace(props: RouteTraceProps) {
           <span className={sx(styles.titleMuted)}>
             <span className={sx(styles.titleIdentity)}>
               <AgentIdentity
-                providerId={decision.providerId}
-                model={decision.model}
+                providerId={entry.providerId}
+                model={entry.model}
                 effort={effort}
                 compact
               />

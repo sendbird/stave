@@ -5,6 +5,8 @@ import {
   buildRouteTraceSignals,
   isRoutedDecision,
   RouteTrace,
+  routeTraceEntryFromRecord,
+  routeTraceEntryFromResolution,
 } from "@/components/auto-routing";
 import { routeTraceStyles } from "@/components/auto-routing/route-trace.styles";
 import { sx } from "@/components/ads/utils/stylex";
@@ -49,7 +51,7 @@ function render(decision: AutoRoutingDecision, props: { defaultCollapsed?: boole
   const record = buildAutoRoutingDecisionRecord({ decision, prompt: PROMPT });
   return renderToStaticMarkup(
     createElement(RouteTrace, {
-      record,
+      entry: routeTraceEntryFromRecord(record),
       budgetStepDownAt: 80,
       providerAvailability: { kiro: false },
       ...props,
@@ -133,5 +135,93 @@ describe("RouteTrace", () => {
     expect(isRoutedDecision(manual)).toBe(false);
     expect(isRoutedDecision(disabled)).toBe(false);
     expect(isRoutedDecision(null)).toBe(false);
+  });
+});
+
+describe("RouteTrace from a saved turn", () => {
+  const gatewayDecision = {
+    providerId: "gateway" as const,
+    model: "claude-sonnet-5",
+    preferred: { mode: "gateway" as const, connectionId: "6f1d1c8e-8a4b-4c6f-9a55-0c0f0b7d6a10", model: "anthropic/claude-sonnet-5" },
+    fallback: false,
+    elapsedMs: 1_840,
+    reportedCostUsd: 0.000_42,
+  };
+  const resolution = {
+    selectedProviderId: "claude-code" as const,
+    selectedModel: "claude-sonnet-5",
+    source: "classifier" as const,
+    rationale: "implement · medium complexity · 3 files · budget 86%",
+    confidence: 0.82,
+    taskType: "implementation" as const,
+    ruleId: "implement",
+    ruleReason: "Implementation runs on Sonnet 5 at high effort",
+    taskClass: "implement",
+    stance: "balanced",
+    routingDecision: gatewayDecision,
+  };
+
+  function renderEntry(entry: ReturnType<typeof routeTraceEntryFromResolution>) {
+    return renderToStaticMarkup(createElement(RouteTrace, { entry, budgetStepDownAt: 80 }));
+  }
+
+  test("draws the saved decision without the signals only memory kept", () => {
+    const html = renderEntry(routeTraceEntryFromResolution({
+      resolution,
+      message: { modelInfo: { effort: "high" } },
+      prompt: `  ${PROMPT}\n`,
+    }));
+    expect(html).toContain('data-route-origin="recorded"');
+    expect(html).toContain(PROMPT);
+    expect(html).not.toContain('data-hop="signals"');
+    const order = ["prompt", "decision", "task", "rule", "model"].map((hop) => html.indexOf(`data-hop="${hop}"`));
+    expect(order.every((index) => index >= 0)).toBe(true);
+    expect([...order].sort((a, b) => a - b)).toEqual(order);
+    // Display name, with the raw id kept for the hover title.
+    expect(html).toContain('title="claude-sonnet-5"');
+    expect(html).toContain("1.8s");
+    expect(html).toContain('data-decision-fact="cost"');
+    expect(html).not.toContain('data-decision-fact="failure"');
+  });
+
+  test("adds the live signals only when memory holds the same decision", () => {
+    const live = buildAutoRoutingDecisionRecord({
+      decision: buildDecision({ source: "classifier", rationale: resolution.rationale }),
+      prompt: PROMPT,
+    });
+    const same = routeTraceEntryFromResolution({ resolution, message: {}, prompt: PROMPT, live });
+    expect(renderEntry(same)).toContain('data-hop="signals"');
+    const newer = buildAutoRoutingDecisionRecord({
+      decision: buildDecision({ source: "classifier", rationale: "plan · high complexity", taskClass: "plan" }),
+      prompt: "Plan the migration",
+    });
+    const other = routeTraceEntryFromResolution({ resolution, message: {}, prompt: PROMPT, live: newer });
+    const html = renderEntry(other);
+    expect(html).not.toContain('data-hop="signals"');
+    expect(html).toContain('data-task-class="implement"');
+  });
+
+  test("names a Gateway failure only when it carries its own reason", () => {
+    const failed = routeTraceEntryFromResolution({
+      resolution: { ...resolution, routingDecision: { ...gatewayDecision, providerId: "codex", model: "gpt-6-luna", fallback: true, failure: "budget", reportedCostUsd: null } },
+      message: {},
+      prompt: PROMPT,
+    });
+    const html = renderEntry(failed);
+    expect(html).toContain('data-decision-fact="failure"');
+    expect(html).toContain("budget exhausted");
+    expect(html).not.toContain('data-decision-fact="cost"');
+    const vague = renderEntry(routeTraceEntryFromResolution({
+      resolution: { ...resolution, routingDecision: { ...gatewayDecision, fallback: true, failure: "unavailable", reportedCostUsd: null } },
+      message: {},
+      prompt: PROMPT,
+    }));
+    expect(vague).not.toContain('data-decision-fact="failure"');
+  });
+
+  test("a saved turn without decision facts draws no decision hop", () => {
+    const { routingDecision: _omit, ...plain } = resolution;
+    const html = renderEntry(routeTraceEntryFromResolution({ resolution: plain, message: {}, prompt: "" }));
+    expect(html).not.toContain('data-hop="decision"');
   });
 });
