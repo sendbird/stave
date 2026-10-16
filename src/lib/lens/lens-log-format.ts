@@ -80,16 +80,41 @@ export function appendPendingEntriesLimited<T>(
   return [...byEntryId.values()].slice(-LENS_LOG_LIMIT);
 }
 
-/** Frame-batched live events, bounded by `appendPendingEntriesLimited`. */
+/**
+ * Frame-batched live events, bounded by `appendPendingEntriesLimited`. Later
+ * updates for an id dropped by compaction are ignored until the next drain, so
+ * an old request that completes does not come back as the newest row. The
+ * dropped-id memory is itself capped.
+ */
 export function createPendingEntryBuffer<T>(getId: (entry: T) => string) {
   let pending: T[] = [];
+  let droppedIds = new Set<string>();
   return {
     push(incoming: readonly T[]) {
-      pending = appendPendingEntriesLimited(pending, incoming, getId);
+      const accepted = droppedIds.size === 0
+        ? incoming
+        : incoming.filter((entry) => !droppedIds.has(getId(entry)));
+      const merged = [...pending, ...accepted];
+      const next = appendPendingEntriesLimited(pending, accepted, getId);
+      if (next.length < merged.length) {
+        const keptIds = new Set(next.map(getId));
+        for (const entry of merged) {
+          const id = getId(entry);
+          if (!keptIds.has(id)) {
+            droppedIds.delete(id);
+            droppedIds.add(id);
+          }
+        }
+        if (droppedIds.size > LENS_LOG_LIMIT * 4) {
+          droppedIds = new Set([...droppedIds].slice(-LENS_LOG_LIMIT * 4));
+        }
+      }
+      pending = next;
     },
     drain(): T[] {
       const entries = pending;
       pending = [];
+      droppedIds = new Set();
       return entries;
     },
   };

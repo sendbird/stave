@@ -58,6 +58,19 @@ describe("appendPendingEntriesLimited", () => {
     expect(new Set(pending.map(getId)).size).toBe(pending.length);
   });
 
+  test("an update for a compacted-away request does not return as the newest row", () => {
+    const buffer = createPendingEntryBuffer<Entry>(getId);
+    for (let index = 0; index <= LENS_LOG_LIMIT * 2; index += 1) {
+      buffer.push([{ id: `request-${index}`, value: index }]);
+    }
+    buffer.push([{ id: "request-0", value: -1 }]);
+    const drained = buffer.drain();
+    expect(drained.some((entry) => entry.id === "request-0")).toBe(false);
+    expect(drained.at(-1)?.id).toBe(`request-${LENS_LOG_LIMIT * 2}`);
+    buffer.push([{ id: "request-0", value: -2 }]);
+    expect(buffer.drain()).toEqual([{ id: "request-0", value: -2 }]);
+  });
+
   test("the frame buffer stays bounded until drained, then starts empty", () => {
     const buffer = createPendingEntryBuffer<Entry>(getId);
     for (let index = 0; index < LENS_LOG_LIMIT * 10; index += 1) {
