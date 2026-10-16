@@ -47,7 +47,7 @@ Use alongside `the-ipc-contract-audit` when the change also crosses IPC.
 | `electron/providers/runtime.ts`                  | Shared provider runtime entry                       |
 | `electron/providers/executable-path.ts`          | CLI binary lookup                                   |
 | `electron/providers/cli-path-env.ts`             | Env-builder (PATH, config homes)                    |
-| `src/lib/providers/adapter.factory.ts`           | Event normalization entry (`parseNormalizedEvent`)  |
+| `src/lib/providers/index.ts`                     | Renderer bridge adapter (`parseNormalizedEvent`)    |
 | `electron/main/utils/tooling-status.ts`          | Provider availability probes                        |
 | `electron/providers/types.ts`                    | Shared runtime option types                         |
 | `src/lib/providers/provider.types.ts`            | Renderer-facing TS union                            |
