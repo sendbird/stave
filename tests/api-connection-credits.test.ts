@@ -126,7 +126,7 @@ describe("credits: the stored connection", () => {
     expect(seen).toHaveLength(2);
   });
 
-  test("a failure is not kept, and a new key reference reads again", async () => {
+  test("a failure is not kept, and a new key reads again", async () => {
     const connection = createVercel();
     let status = 429;
     const { request, seen } = answering(() => (status === 200 ? json({ balance: "10", total_used: "1" })() : json({}, status)()));
@@ -134,9 +134,26 @@ describe("credits: the stored connection", () => {
     status = 200;
     expect(await readStoredApiConnectionCredits(connection.id, resolveKey, request, 1)).toEqual({ ok: true, balanceUsd: "10", totalUsedUsd: "1" });
     expect(seen).toHaveLength(2);
+    // Another Secrets entry holding a different key.
     registry.updateApiConnection({ id: connection.id, secretId: otherSecretId });
-    await readStoredApiConnectionCredits(connection.id, resolveKey, request, 2);
+    await readStoredApiConnectionCredits(connection.id, async (id) => ({ value: id === otherSecretId ? "other-key" : KEY }), request, 2);
     expect(seen).toHaveLength(3);
+  });
+
+  test("replacing the key's value in Secrets, or removing it, never answers from the old key's cache", async () => {
+    const connection = createVercel();
+    let value: string | null = KEY;
+    const resolve = async () => (value ? { value } : null);
+    const { request, seen } = answering(() => json({ balance: "10", total_used: "1" })());
+    expect(await readStoredApiConnectionCredits(connection.id, resolve, request, 0)).toMatchObject({ ok: true });
+    // Same Secrets reference, new value: read again within the minute.
+    value = "replaced-key";
+    expect(await readStoredApiConnectionCredits(connection.id, resolve, request, 1)).toMatchObject({ ok: true });
+    expect(seen).toHaveLength(2);
+    // Removed: no amount from the cache.
+    value = null;
+    expect(await readStoredApiConnectionCredits(connection.id, resolve, request, 2)).toEqual({ ok: false, reason: "missing-key" });
+    expect(seen).toHaveLength(2);
   });
 
   test("only Vercel connections are read; a missing or locked key never reaches the network", async () => {

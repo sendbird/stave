@@ -335,6 +335,15 @@ const USD_FORMAT: Intl.NumberFormatOptions = {
  * failed read, null while the first read is on its way. Amounts are the
  * gateway's own, in the display language's number format; never estimated.
  */
+/** The compact meter's form: the balance alone, `$95.50 left`; null unless a read answered. */
+export function describeApiConnectionBalance(credits: ApiConnectionCreditsView | null): string | null {
+  if (credits?.status !== "ok") return null;
+  const balance = Number(credits.balanceUsd);
+  return Number.isFinite(balance)
+    ? i18n.t("shell:statusBarUsageStripUtils.creditsLeft", { balance: formatNumber(balance, USD_FORMAT) })
+    : null;
+}
+
 export function describeApiConnectionCredits(credits: ApiConnectionCreditsView | null): string | null {
   if (!credits || credits.status === "loading") return null;
   const balance = credits.status === "ok" ? Number(credits.balanceUsd) : Number.NaN;

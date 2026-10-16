@@ -156,7 +156,7 @@ export function StatusBarUsageSegment({
           {stale ? i18n.t("shell:statusBarUsageSegment.unverified") : ""}
         </span>
         {gateway ? (
-          <GatewayCreditsItem credits={segment.credits} />
+          <GatewayCreditsItem credits={segment.credits} visibility={visibility} />
         ) : segment.windows.length === 0 ? (
           segment.pending ? (
             <Loader aria-hidden size="xs" variant="spinner" />

@@ -40,17 +40,33 @@ export const useApiConnectionCredits = create<{
   },
 }));
 
-/** Reads each connection's balance now, then every minute while the window is visible. */
+/**
+ * Reads each connection's balance now, every minute while the window is
+ * visible, and again when it becomes visible, so a window brought back after a
+ * while does not show an old balance until the next minute.
+ */
 export function useApiConnectionCreditsPolling(ids: readonly string[]) {
   const key = [...new Set(ids)].sort().join(",");
-  useEffect(() => {
-    if (!key) return;
-    const refresh = () => {
-      if (document.visibilityState === "hidden") return;
-      for (const id of key.split(",")) void useApiConnectionCredits.getState().refresh(id);
-    };
-    refresh();
-    const timer = setInterval(refresh, API_CONNECTION_CREDITS_REFRESH_MS);
-    return () => clearInterval(timer);
-  }, [key]);
+  useEffect(() => (key ? startApiConnectionCreditsPolling(key.split(",")) : undefined), [key]);
+}
+
+/** The polling behind the hook; returns the function that stops it. */
+export function startApiConnectionCreditsPolling(ids: readonly string[], options: {
+  doc?: Pick<Document, "visibilityState" | "addEventListener" | "removeEventListener">;
+  intervalMs?: number;
+  refresh?: (id: string) => unknown;
+} = {}) {
+  const doc = options.doc ?? document;
+  const read = options.refresh ?? ((id: string) => useApiConnectionCredits.getState().refresh(id));
+  const refresh = () => {
+    if (doc.visibilityState === "hidden") return;
+    for (const id of ids) void read(id);
+  };
+  refresh();
+  const timer = setInterval(refresh, options.intervalMs ?? API_CONNECTION_CREDITS_REFRESH_MS);
+  doc.addEventListener("visibilitychange", refresh);
+  return () => {
+    clearInterval(timer);
+    doc.removeEventListener("visibilitychange", refresh);
+  };
 }

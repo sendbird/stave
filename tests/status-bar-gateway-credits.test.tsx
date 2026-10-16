@@ -15,6 +15,7 @@ import {
 import type { ApiConnectionKind } from "@/lib/providers/api-connections";
 import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import {
+  startApiConnectionCreditsPolling,
   useApiConnectionCredits,
   type ApiConnectionCreditsView,
 } from "@/lib/providers/use-api-connection-credits";
@@ -86,6 +87,11 @@ describe("status bar meter: Vercel AI Gateway balance", () => {
 
     const large = await inLanguage("en", () => meter("vercel-ai-gateway", { status: "ok", balanceUsd: "1234.5", totalUsedUsd: "0" }));
     expect(large.html).toContain("$1,234.50 left · $0.00 used");
+    // The compact strip keeps the balance alone, next to the full form.
+    expect(en.html).toContain(">$95.50 left<");
+    expect(ko.html).toContain(">잔액 $95.50<");
+    const overdrawn = await inLanguage("en", () => meter("vercel-ai-gateway", { status: "ok", balanceUsd: "-5", totalUsedUsd: "105" }));
+    expect(overdrawn.html).toContain("-$5.00 left · $105.00 used");
   });
 
   test("a custom connection keeps API billing with no figures", async () => {
@@ -134,5 +140,36 @@ describe("balance store", () => {
     await refresh(CONNECTION_ID);
     expect(useApiConnectionCredits.getState().byId[CONNECTION_ID]).toEqual({ status: "unavailable" });
     expect(asked).toEqual([CONNECTION_ID, CONNECTION_ID, CONNECTION_ID]);
+  });
+
+  test("a window without the bridge shows the balance as unavailable", async () => {
+    (globalThis as { window?: unknown }).window = { api: {} };
+    await useApiConnectionCredits.getState().refresh(CONNECTION_ID);
+    expect(useApiConnectionCredits.getState().byId[CONNECTION_ID]).toEqual({ status: "unavailable" });
+  });
+
+  test("polls now, on its interval and when the window shows again, never while hidden, and stops", async () => {
+    const listeners = new Set<() => void>();
+    const doc = {
+      visibilityState: "visible" as DocumentVisibilityState,
+      addEventListener: (_type: string, listener: () => void) => { listeners.add(listener); },
+      removeEventListener: (_type: string, listener: () => void) => { listeners.delete(listener); },
+    };
+    const asked: string[] = [];
+    const stop = startApiConnectionCreditsPolling([CONNECTION_ID], { doc: doc as never, intervalMs: 20, refresh: (id) => asked.push(id) });
+    expect(asked).toHaveLength(1);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const afterInterval = asked.length;
+    expect(afterInterval).toBeGreaterThanOrEqual(2);
+    doc.visibilityState = "hidden";
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(asked).toHaveLength(afterInterval);
+    doc.visibilityState = "visible";
+    for (const listener of listeners) listener();
+    expect(asked).toHaveLength(afterInterval + 1);
+    stop();
+    expect(listeners.size).toBe(0);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(asked).toHaveLength(afterInterval + 1);
   });
 });

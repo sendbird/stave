@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import {
   VERCEL_AI_GATEWAY,
@@ -220,8 +221,11 @@ export async function fetchApiConnectionCredits(token: string, request: Fetch = 
 }
 
 type CreditsSuccess = Extract<ApiConnectionCreditsResult, { ok: true }>;
-const creditsCache = new Map<string, { secretId: string; result: CreditsSuccess; fetchedAt: number }>();
-const creditsInFlight = new Map<string, { secretId: string; read: Promise<ApiConnectionCreditsResult> }>();
+// Keyed by the key's value, not its Secrets reference: replacing the value in
+// Secrets keeps the reference, and must not keep the old key's balance.
+const creditsCache = new Map<string, { keyHash: string; result: CreditsSuccess; fetchedAt: number }>();
+const creditsInFlight = new Map<string, { keyHash: string; read: Promise<ApiConnectionCreditsResult> }>();
+const hashKey = (token: string) => createHash("sha256").update(token).digest("hex");
 
 export function resetApiConnectionCreditsCache() {
   creditsCache.clear();
@@ -244,20 +248,24 @@ export async function readStoredApiConnectionCredits(
   const connection = findApiConnection(id);
   if (!connection) return { ok: false, reason: "unexpected" };
   if (connection.kind !== "vercel-ai-gateway") return { ok: false, reason: "unsupported" };
-  const { secretId } = connection;
+  // The key is read on every request (a local lookup), so a removed or
+  // replaced key is never answered from the cache.
+  const token = await resolveApiConnectionToken(connection.secretId, resolveSecret);
+  if (!token) {
+    creditsCache.delete(id);
+    return { ok: false, reason: "missing-key" };
+  }
+  const keyHash = hashKey(token);
   const cached = creditsCache.get(id);
-  if (cached && cached.secretId === secretId && now - cached.fetchedAt < CREDITS_TTL_MS) return cached.result;
+  if (cached && cached.keyHash === keyHash && now - cached.fetchedAt < CREDITS_TTL_MS) return cached.result;
   const pending = creditsInFlight.get(id);
-  if (pending && pending.secretId === secretId) return pending.read;
-  const read = (async (): Promise<ApiConnectionCreditsResult> => {
-    const token = await resolveApiConnectionToken(secretId, resolveSecret);
-    if (!token) return { ok: false, reason: "missing-key" };
-    const answer = await fetchApiConnectionCredits(token, request);
-    if (answer.ok) creditsCache.set(id, { secretId, result: answer, fetchedAt: now });
+  if (pending && pending.keyHash === keyHash) return pending.read;
+  const read = fetchApiConnectionCredits(token, request).then((answer) => {
+    if (answer.ok) creditsCache.set(id, { keyHash, result: answer, fetchedAt: now });
     return answer;
-  })().finally(() => {
+  }).finally(() => {
     if (creditsInFlight.get(id)?.read === read) creditsInFlight.delete(id);
   });
-  creditsInFlight.set(id, { secretId, read });
+  creditsInFlight.set(id, { keyHash, read });
   return read;
 }
