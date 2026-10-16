@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { useLoadTurnSpend, useTurnSpend } from "@/lib/providers/use-turn-spend";
+import { useApiConnectionCredits, useApiConnectionCreditsPolling } from "@/lib/providers/use-api-connection-credits";
 import { StatusBarMemorySegment } from "@/components/layout/StatusBarMemorySegment";
 import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
 import {
+  apiConnectionCreditsId,
   buildUsageHeadlineWindows,
   listCliConnectedUsageProviders,
   resolveStatusBarAccountView,
@@ -76,6 +78,7 @@ export function StatusBar() {
   const codexAccountProfileId = useAppStore((state) => state.settings.codexAccountProfileId);
   const profiles = useProviderAccounts((state) => state.profiles);
   const spendByProvider = useTurnSpend((state) => state.byProvider);
+  const creditsById = useApiConnectionCredits((state) => state.byId);
   const rateLimitsUpdatedAtByProvider = useAppStore((state) => state.rateLimitsUpdatedAtByProvider);
   const rateLimitsInFlightByProvider = useAppStore((state) => state.rateLimitsInFlightByProvider);
   // Every segment is described here, not inside each one, because the full
@@ -93,6 +96,7 @@ export function StatusBar() {
             }),
           })
         : null;
+    const creditsId = apiConnectionCreditsId(account);
     const segment = buildUsageStripSegment({
       provider,
       providerName: STATUS_BAR_USAGE_PROVIDER_NAMES[provider],
@@ -105,6 +109,7 @@ export function StatusBar() {
       }),
       account,
       spend: spendByProvider[STATUS_BAR_USAGE_PROVIDER_IDS[provider]],
+      credits: creditsId ? (creditsById[creditsId] ?? { status: "loading" }) : null,
       stale:
         (provider === "cursor" || provider === "kiro") &&
         readiness[provider]?.stale === true,
@@ -116,8 +121,13 @@ export function StatusBar() {
         STATUS_BAR_USAGE_PROVIDER_IDS[provider],
       ),
     });
-    return { segment, account };
+    return { segment, account, creditsId };
   });
+  // Only a Vercel AI Gateway account has a balance to read; Claude and Codex
+  // on the same connection share one read.
+  useApiConnectionCreditsPolling(
+    usageSegments.flatMap(({ creditsId }) => (creditsId ? [creditsId] : [])),
+  );
   const stripBreakpoint = resolveUsageStripBreakpoint(
     usageSegments.map(({ segment }) => segment),
   );

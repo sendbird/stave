@@ -1,3 +1,4 @@
+import { z } from "zod";
 import {
   VERCEL_AI_GATEWAY,
   apiConnectionRoutingModelId,
@@ -8,6 +9,7 @@ import {
   type ApiConnectionCatalogFailure,
   type ApiConnectionCatalogResult,
   type ApiConnectionCheckResult,
+  type ApiConnectionCreditsResult,
   type ApiConnectionRequestFailure,
 } from "../../src/lib/providers/api-connections";
 import { filterApiConnectionCatalog } from "../../src/lib/providers/api-connection-catalog";
@@ -17,6 +19,8 @@ import { checkClaudeGateway } from "./claude-gateway-check";
 const CATALOG_MAX_BYTES = 8_000_000;
 const CATALOG_TTL_MS = 10 * 60 * 1000;
 const REQUEST_TIMEOUT_MS = 15_000;
+const CREDITS_MAX_BYTES = 64_000;
+const CREDITS_TTL_MS = 60_000;
 
 type Fetch = typeof fetch;
 
@@ -97,10 +101,19 @@ const REQUEST_FAILURE_MESSAGE: Record<ApiConnectionRequestFailure, string> = {
   "certificate-untrusted": "The gateway's TLS certificate is not trusted on this network. A proxy that inspects traffic can cause this.",
 };
 
+function requestFailureStatus(error: unknown): ApiConnectionRequestFailure {
+  return classifyApiConnectionRequestError(error) ?? "unreachable";
+}
+
 /** The request got no usable answer; the message is fixed, never the raw error. */
 function requestFailure(error: unknown) {
-  const status = classifyApiConnectionRequestError(error) ?? "unreachable";
+  const status = requestFailureStatus(error);
   return result(status, REQUEST_FAILURE_MESSAGE[status]);
+}
+
+/** Bearer key, no redirects (the key must not follow one), and a bounded wait. */
+function authorizedRequest(token: string) {
+  return { headers: { Authorization: `Bearer ${token}` }, redirect: "error" as const, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) };
 }
 
 const LISTED = "The key works and the gateway lists every pinned model. Send a turn to confirm tools and streaming work.";
@@ -118,7 +131,7 @@ export async function checkApiConnection(args: { connection: ApiConnection; toke
   const request = args.request ?? fetch;
   const { connection } = args;
   const pinned = connection.models.map((model) => model.id);
-  const authorized = { headers: { Authorization: `Bearer ${args.token}` }, redirect: "error" as const, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) };
+  const authorized = authorizedRequest(args.token);
   try {
     if (connection.kind === "vercel-ai-gateway") {
       const credits = await request(VERCEL_AI_GATEWAY.creditsUrl, authorized);
@@ -155,19 +168,96 @@ export async function checkApiConnection(args: { connection: ApiConnection; toke
   }
 }
 
-/** Resolves the key in main for one check; the value never leaves this function. */
-export async function checkStoredApiConnection(
-  id: string,
-  resolveSecret: (secretId: string) => Promise<{ value: string } | null | undefined>,
-  request?: Fetch,
-): Promise<ApiConnectionCheckResult> {
-  let connection: ApiConnection | undefined;
-  try { connection = getProviderAccountRegistry().listApiConnections().find((candidate) => candidate.id === id); }
-  catch { connection = undefined; }
-  if (!connection) return result("unexpected", "The API connection no longer exists.");
+type ResolveSecret = (secretId: string) => Promise<{ value: string } | null | undefined>;
+
+function findApiConnection(id: string): ApiConnection | undefined {
+  try { return getProviderAccountRegistry().listApiConnections().find((candidate) => candidate.id === id); }
+  catch { return undefined; }
+}
+
+/** The usable key value, or null when it is missing, locked, or not a single header line. */
+async function resolveApiConnectionToken(secretId: string, resolveSecret: ResolveSecret): Promise<string | null> {
   let token: string | undefined;
-  try { token = (await resolveSecret(connection.secretId))?.value.trim(); } catch { token = undefined; }
-  if (!token || /[\r\n\0]/.test(token))
-    return result("missing-key", "The connection's key is missing or locked. Check it in Settings > Secrets.");
+  try { token = (await resolveSecret(secretId))?.value.trim(); } catch { token = undefined; }
+  return !token || /[\r\n\0]/.test(token) ? null : token;
+}
+
+/** Resolves the key in main for one check; the value never leaves this function. */
+export async function checkStoredApiConnection(id: string, resolveSecret: ResolveSecret, request?: Fetch): Promise<ApiConnectionCheckResult> {
+  const connection = findApiConnection(id);
+  if (!connection) return result("unexpected", "The API connection no longer exists.");
+  const token = await resolveApiConnectionToken(connection.secretId, resolveSecret);
+  if (!token) return result("missing-key", "The connection's key is missing or locked. Check it in Settings > Secrets.");
   return checkApiConnection({ connection, token, request });
+}
+
+/** A USD amount as the gateway answers it: a plain decimal string, or a number that prints as one. */
+const UsdDecimalSchema = z.string().trim().max(32).regex(/^-?\d+(?:\.\d+)?$/);
+const UsdAmountSchema = z.union([UsdDecimalSchema, z.number().transform(String).pipe(UsdDecimalSchema)]);
+const CreditsResponseSchema = z.object({ balance: UsdAmountSchema, total_used: UsdAmountSchema });
+
+/**
+ * Reads a Vercel AI Gateway balance with the key. Only the two amounts or a
+ * reason leave this function: never the key, a header, or the raw body.
+ */
+export async function fetchApiConnectionCredits(token: string, request: Fetch = fetch): Promise<ApiConnectionCreditsResult> {
+  let response: Response;
+  try { response = await request(VERCEL_AI_GATEWAY.creditsUrl, authorizedRequest(token)); }
+  catch (error) { return { ok: false, reason: requestFailureStatus(error) }; }
+  try {
+    if (!response.ok) {
+      await response.body?.cancel();
+      return { ok: false, reason: classifyApiConnectionHttpStatus(response.status) };
+    }
+    const parsed = CreditsResponseSchema.safeParse(await readBoundedJson(response, CREDITS_MAX_BYTES));
+    return parsed.success
+      ? { ok: true, balanceUsd: parsed.data.balance, totalUsedUsd: parsed.data.total_used }
+      : { ok: false, reason: "unexpected" };
+  } catch (error) {
+    // A body cut off by the timeout is a timeout; one that is not JSON is unexpected.
+    return { ok: false, reason: classifyApiConnectionRequestError(error) ?? "unexpected" };
+  }
+}
+
+type CreditsSuccess = Extract<ApiConnectionCreditsResult, { ok: true }>;
+const creditsCache = new Map<string, { secretId: string; result: CreditsSuccess; fetchedAt: number }>();
+const creditsInFlight = new Map<string, { secretId: string; read: Promise<ApiConnectionCreditsResult> }>();
+
+export function resetApiConnectionCreditsCache() {
+  creditsCache.clear();
+  creditsInFlight.clear();
+}
+
+/**
+ * A Vercel connection's balance for the status bar meters. Kept in main so
+ * every meter and window shares one budget: concurrent reads of a connection
+ * share one request, and a success is reused for a minute, so the gateway is
+ * asked at most once a minute per connection and key. Failures are not kept,
+ * so the next read tries again.
+ */
+export async function readStoredApiConnectionCredits(
+  id: string,
+  resolveSecret: ResolveSecret,
+  request?: Fetch,
+  now = Date.now(),
+): Promise<ApiConnectionCreditsResult> {
+  const connection = findApiConnection(id);
+  if (!connection) return { ok: false, reason: "unexpected" };
+  if (connection.kind !== "vercel-ai-gateway") return { ok: false, reason: "unsupported" };
+  const { secretId } = connection;
+  const cached = creditsCache.get(id);
+  if (cached && cached.secretId === secretId && now - cached.fetchedAt < CREDITS_TTL_MS) return cached.result;
+  const pending = creditsInFlight.get(id);
+  if (pending && pending.secretId === secretId) return pending.read;
+  const read = (async (): Promise<ApiConnectionCreditsResult> => {
+    const token = await resolveApiConnectionToken(secretId, resolveSecret);
+    if (!token) return { ok: false, reason: "missing-key" };
+    const answer = await fetchApiConnectionCredits(token, request);
+    if (answer.ok) creditsCache.set(id, { secretId, result: answer, fetchedAt: now });
+    return answer;
+  })().finally(() => {
+    if (creditsInFlight.get(id)?.read === read) creditsInFlight.delete(id);
+  });
+  creditsInFlight.set(id, { secretId, read });
+  return read;
 }

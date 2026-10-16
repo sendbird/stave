@@ -21,6 +21,12 @@ import { VERCEL_AI_GATEWAY, type ApiConnection, type ApiConnectionCatalogModel }
 import { getSdkModelOptions } from "@/lib/providers/model-catalog";
 import * as stylex from "@stylexjs/stylex";
 import { previewStyles as styles } from "@/dev/model-auto-tab-preview/preview.styles";
+import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
+import { resolveStatusBarAccountView } from "@/components/layout/status-bar-usage.utils";
+import { buildUsageStripSegment } from "@/components/layout/status-bar-usage-strip.utils";
+import { usageStripStyles } from "@/components/layout/status-bar-usage-strip.styles";
+import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
+import type { ApiConnectionCreditsView } from "@/lib/providers/use-api-connection-credits";
 
 const local = stylex.create({ card: { maxWidth: 760 } });
 
@@ -54,6 +60,8 @@ window.api = {
     remove: async () => ({ ok: false, message: "Preview: removing is disabled." }),
     check: async () => ({ ok: false, status: "budget-exhausted", missingModels: [],
       message: "This key's budget on the gateway is used up (HTTP 402). Ask whoever manages the gateway to raise it, or wait until it resets." }),
+    // Shaped like GET https://ai-gateway.vercel.sh/v1/credits (vercel.com/docs, 2026-10-16).
+    credits: async () => ({ ok: true, balanceUsd: "95.50", totalUsedUsd: "4.50" }),
     discoverModels: async (args) => ({ ok: true, models: args?.purpose === "decision" ? [{ id: "typesafe-ai/jev", name: "Jev", tags: [] }, { id: "liquid/d1", name: "Liquid d1", tags: [] }] : catalog }),
   },
   secrets: {
@@ -68,6 +76,25 @@ useProviderAccounts.setState({ profiles: ["claude-code", "codex"].map((providerI
 })), loaded: true });
 useAppStore.setState((state) => ({ settings: { ...state.settings, autoRoutingEnabled: true, codexAccountProfileId: connection.id, claudeAccountProfileId: connection.id },
   providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false, opencode: false } }));
+
+/** The status bar meter for a Vercel connection (read and unreadable) and a custom one. */
+function StatusBarCreditsPreview() {
+  const meters: Array<{ key: string; kind: ApiConnection["kind"]; credits: ApiConnectionCreditsView | null }> = [
+    { key: "vercel", kind: "vercel-ai-gateway", credits: { status: "ok", balanceUsd: "95.50", totalUsedUsd: "4.50" } },
+    { key: "unavailable", kind: "vercel-ai-gateway", credits: { status: "unavailable" } },
+    { key: "custom", kind: "custom", credits: null },
+  ];
+  return <>{meters.map(({ key, kind, credits }) => {
+    const profiles = useProviderAccounts.getState().profiles.map((profile) => ({ ...profile, apiConnection: { ...profile.apiConnection!, kind } }));
+    const account = resolveStatusBarAccountView({ providerId: "claude-code", profiles, selectedId: connection.id });
+    const segment = buildUsageStripSegment({ provider: "claude", providerName: "Claude", windows: [], account, spend: undefined, credits, stale: false, pending: false });
+    return <div key={key} data-preview={`status-bar-${key}`} {...stylex.props(layoutShellStyles.statusBar)}>
+      <div {...stylex.props(usageStripStyles.container)}>
+        <StatusBarUsageSegment segment={segment} account={account} breakpoint={24} tokensBreakpoint={24} now={Date.now()} />
+      </div>
+    </div>;
+  })}</>;
+}
 
 /** The settings card and the composer picker for one connection selected under Claude Code. */
 export function ApiConnectionsPreview() {
@@ -97,6 +124,7 @@ export function ApiConnectionsPreview() {
     <div data-preview="auto-settings" className={sx(local.card)}><SettingsAutoRoutingSection /></div>
     <p data-preview="decision-diagnostic">{formatRoutingDecision({ providerId: "codex", model: "gpt-6-luna", preferred: { mode: "gateway", connectionId: connection.id, model: "typesafe-ai/jev" }, fallback: true, elapsedMs: 1800, failure: "budget", reportedCostUsd: null })}</p>
     <div data-preview="settings-card" className={sx(local.card)}><ApiConnectionsSettings /></div>
+    <StatusBarCreditsPreview />
     <div data-preview="model-picker" className={sx(styles.stage)}>
       <ModelEffortSelector value={value} options={options} onSelect={({ selection }) => setValue(selection)} />
     </div>

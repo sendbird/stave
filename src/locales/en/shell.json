@@ -653,6 +653,8 @@
     "linkedExecution_other": "{{count}} linked executions"
   },
   "statusBarUsageStripUtils": {
+    "creditsLeftUsed": "{{balance}} left · {{used}} used",
+    "balanceUnavailable": "Balance unavailable",
     "countsInputAndOutputTokensPromptTokens": "Counts input and output tokens. Prompt tokens read from the cache are left out.",
     "countsInputAndOutputTokensAsReports": "Counts input and output tokens as {{value1}} reports them.",
     "tokensInTurnsRunInStave": "Tokens in turns run in Stave",

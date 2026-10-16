@@ -1,5 +1,7 @@
 import { i18n, getIntlLocale } from "@/i18n";
+import { formatNumber } from "@/i18n/format";
 import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
+import type { ApiConnectionCreditsView } from "@/lib/providers/use-api-connection-credits";
 import type { ProviderTurnSpend } from "@/lib/providers/turn-spend";
 import type {
   StatusBarAccountView,
@@ -270,6 +272,8 @@ export interface UsageStripSegmentModel {
   /** Shown in the usage details only; null unless the provider reported a cost. */
   cost: UsageStripCost | null;
   gateway: boolean;
+  /** A Vercel AI Gateway account's balance; null for every other account, a custom gateway included. */
+  credits: ApiConnectionCreditsView | null;
   stale: boolean;
   /** Nothing to show yet: the first reading for the current account is on its way. */
   pending: boolean;
@@ -281,6 +285,7 @@ export function buildUsageStripSegment(args: {
   windows: UsageHeadlineWindow[];
   account: StatusBarAccountView | null;
   spend: ProviderTurnSpend | undefined;
+  credits?: ApiConnectionCreditsView | null;
   stale: boolean;
   pending: boolean;
 }): UsageStripSegmentModel {
@@ -310,10 +315,37 @@ export function buildUsageStripSegment(args: {
           }
         : null,
     gateway,
+    credits: gateway ? (args.credits ?? null) : null,
     stale: args.stale,
     // Only when there is nothing to show yet; a gateway is never read at all.
     pending: !gateway && args.pending && args.windows.length === 0,
   };
+}
+
+const USD_FORMAT: Intl.NumberFormatOptions = {
+  style: "currency",
+  currency: "USD",
+  currencyDisplay: "narrowSymbol",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+};
+
+/**
+ * `$95.50 left · $4.50 used` for a read balance, `Balance unavailable` for a
+ * failed read, null while the first read is on its way. Amounts are the
+ * gateway's own, in the display language's number format; never estimated.
+ */
+export function describeApiConnectionCredits(credits: ApiConnectionCreditsView | null): string | null {
+  if (!credits || credits.status === "loading") return null;
+  const balance = credits.status === "ok" ? Number(credits.balanceUsd) : Number.NaN;
+  const used = credits.status === "ok" ? Number(credits.totalUsedUsd) : Number.NaN;
+  if (!Number.isFinite(balance) || !Number.isFinite(used)) {
+    return i18n.t("shell:statusBarUsageStripUtils.balanceUnavailable");
+  }
+  return i18n.t("shell:statusBarUsageStripUtils.creditsLeftUsed", {
+    balance: formatNumber(balance, USD_FORMAT),
+    used: formatNumber(used, USD_FORMAT),
+  });
 }
 
 /**
@@ -376,7 +408,10 @@ export function estimateUsageStripSegmentRem(
 ): number {
   let rem = SEGMENT_INSET_REM + textRem(segment.name);
   if (segment.stale) rem += textRem(" (unverified)");
-  if (segment.windows.length === 0 && !segment.gateway) {
+  const credits = segment.credits?.status === "ok" ? describeApiConnectionCredits(segment.credits) : null;
+  if (credits) {
+    rem += PART_GAP_REM + textRem(credits);
+  } else if (segment.windows.length === 0 && (!segment.gateway || segment.credits)) {
     // A dash, or a spinner while the first reading is on its way.
     rem += PART_GAP_REM + GLYPH_REM;
   }
@@ -447,6 +482,9 @@ export function describeUsageSegmentForAssistiveTech(
       ? i18n.t("shell:usageUnits.windowUsedReset", { title: window.title, percent: formatUsagePercent(window.usedPercent), time: countdown })
       : i18n.t("shell:usageUnits.windowUsed", { title: window.title, percent: formatUsagePercent(window.usedPercent) });
   });
+  const credits = describeApiConnectionCredits(segment.credits);
+  if (credits) parts.push(credits);
+  else if (segment.credits) parts.push(i18n.t("shell:usageUnits.reading"));
   if (segment.tokens) {
     parts.push(i18n.t("shell:statusBarUsageStripUtils.tokensToday", { value1: formatTokenCount(segment.tokens.todayTokens) }));
   }

@@ -8,7 +8,7 @@ import {
 } from "../../../src/lib/providers/api-connections";
 import { getProviderAccountRegistry } from "../../provider-accounts/registry";
 import { revealSecret } from "../browser/secret-service";
-import { checkStoredApiConnection, discoverApiConnectionModels } from "../api-connection-check";
+import { checkStoredApiConnection, discoverApiConnectionModels, readStoredApiConnectionCredits } from "../api-connection-check";
 
 function failure(error: unknown, fallback: string) {
   return { ok: false as const, message: error instanceof Error ? error.message : fallback };
@@ -41,6 +41,11 @@ export function registerApiConnectionHandlers() {
     const parsed = ApiConnectionIdArgsSchema.safeParse(input);
     if (!parsed.success) return { ok: false, status: "unexpected", missingModels: [], message: "Invalid API connection id." };
     return checkStoredApiConnection(parsed.data.id, revealSecret);
+  });
+  ipcMain.handle(API_CONNECTION_IPC.credits, async (_event, input: unknown) => {
+    const parsed = ApiConnectionIdArgsSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, reason: "unexpected" };
+    return readStoredApiConnectionCredits(parsed.data.id, revealSecret);
   });
   ipcMain.handle(API_CONNECTION_IPC.discoverModels, (_event, input: unknown) => {
     const parsed = z.object({ purpose: z.enum(["coding", "decision"]) }).strict().optional().safeParse(input);

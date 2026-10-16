@@ -22,7 +22,11 @@ export const VERCEL_AI_GATEWAY = {
   },
   /** Public catalog; no key required. */
   modelsUrl: "https://ai-gateway.vercel.sh/v1/models",
-  /** Authenticated; proves the key without running inference. */
+  /**
+   * Authenticated; proves the key without running inference and answers the
+   * team's balance and lifetime spend as USD decimal strings
+   * (`{ "balance": "95.50", "total_used": "4.50" }`, checked 2026-10-16).
+   */
   creditsUrl: "https://ai-gateway.vercel.sh/v1/credits",
 } as const;
 
@@ -145,6 +149,16 @@ export type ApiConnectionCatalogResult =
   | { ok: true; models: ApiConnectionCatalogModel[] }
   | { ok: false; models: []; message: string; reason?: ApiConnectionCatalogFailure };
 
+/**
+ * Why a Vercel connection's balance could not be read: the same words as a
+ * check, or `unsupported` for a connection that is not Vercel AI Gateway.
+ */
+export type ApiConnectionCreditsFailure = Exclude<ApiConnectionCheckStatus, "ok" | "models-missing"> | "unsupported";
+/** Balance and lifetime spend in USD, as the decimal strings the gateway answered. */
+export type ApiConnectionCreditsResult =
+  | { ok: true; balanceUsd: string; totalUsedUsd: string }
+  | { ok: false; reason: ApiConnectionCreditsFailure };
+
 export interface ApiConnectionsBridgeApi {
   list: () => Promise<ApiConnectionListResult>;
   create: (args: ApiConnectionCreateArgs) => Promise<ApiConnectionSaveResult>;
@@ -154,6 +168,8 @@ export interface ApiConnectionsBridgeApi {
   check: (args: ApiConnectionIdArgs) => Promise<ApiConnectionCheckResult>;
   /** The Vercel AI Gateway public catalog, filtered to coding-capable models. */
   discoverModels: (args?: { purpose: "coding" | "decision" }) => Promise<ApiConnectionCatalogResult>;
+  /** A Vercel AI Gateway connection's balance; the key is resolved and used in main only. */
+  credits: (args: ApiConnectionIdArgs) => Promise<ApiConnectionCreditsResult>;
 }
 
 export const API_CONNECTION_IPC = {
@@ -163,6 +179,7 @@ export const API_CONNECTION_IPC = {
   remove: "api-connections:remove",
   check: "api-connections:check",
   discoverModels: "api-connections:discover-models",
+  credits: "api-connections:credits",
 } as const;
 
 /** The routing form of a model ID: picker prefix and context marker removed. */
