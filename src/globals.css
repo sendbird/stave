@@ -665,6 +665,12 @@
   --dv-tab-group-line-opacity: 0.6;
 }
 
+/* Dockview paints its own grid background over the host. Color the grid that
+ * owns the gaps so dividers remain outside the Lens guest bounds. */
+.dockview-theme-stave .dv-dockview {
+  background-color: var(--dv-separator-border);
+}
+
 /* Group gaps paint the divider outside the Lens guest bounds; avoid a second
  * line over the content from Dockview's default separator pseudo-element. */
 .dockview-theme-stave .dv-split-view-container.dv-separator-border .dv-view::before {

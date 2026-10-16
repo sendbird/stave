@@ -300,7 +300,7 @@ test("host pointer passthrough waits for every active pointer", async () => {
 
 test("a sidebar resize can end after crossing the guest", async () => {
   const sidebar = stave.page.getByTestId("project-workspace-sidebar");
-  const resizer = stave.page.locator(".cursor-col-resize:visible").first();
+  const resizer = stave.page.getByTitle("Drag to resize · Double-click to reset").first();
   const resizerBox = await resizer.boundingBox();
   const geometry = await guestGeometry();
   expect(resizerBox).not.toBeNull();
@@ -563,4 +563,92 @@ test("pane chrome that must be seen shares the guest's plane, not the pane's", a
   // elements a panel puts inside it opt back in.
   expect(chrome!.pointerEvents).toBe("none");
   expect(chrome!.rect).toEqual(chrome!.guestRect);
+});
+
+test("split dividers remain visible beside a real Lens guest in both themes", async () => {
+  await stave.page.getByRole("button", { name: "Create new pane tab" }).click();
+  await stave.page.getByRole("menuitem", { name: "New Task", exact: true }).click();
+  const taskTab = stave.page.locator('[data-pane-tab-chip^="task:"]');
+  const lensTab = stave.page.locator('[data-pane-tab-chip^="lens:"]');
+  await expect(taskTab).toHaveCount(1);
+
+  for (const placement of ["left", "right", "below"] as const) {
+    if (placement !== "left") {
+      await taskTab.dragTo(lensTab);
+      await expect(stave.page.locator(".dv-groupview")).toHaveCount(1);
+    }
+    await (placement === "left" ? taskTab : lensTab).click({ button: "right" });
+    await stave.page
+      .getByText(placement === "below" ? "Split Down" : "Split Right", { exact: true })
+      .click();
+    await expect(stave.page.locator(".dv-groupview")).toHaveCount(2);
+
+    for (const dark of [false, true]) {
+      await stave.page.evaluate(async (enabled) => {
+        document.documentElement.classList.add("theme-changing");
+        void document.documentElement.offsetWidth;
+        document.documentElement.classList.toggle("dark", enabled);
+        await new Promise(requestAnimationFrame);
+        await new Promise(requestAnimationFrame);
+        document.documentElement.classList.remove("theme-changing");
+      }, dark);
+      await expect
+        .poll(async () => {
+          const geometry = await guestGeometry();
+          return geometry !== null &&
+            JSON.stringify(geometry.guest) === JSON.stringify(geometry.placeholder);
+        })
+        .toBe(true);
+
+      const boundary = await stave.page.evaluate((vertical) => {
+        const groups = Array.from(document.querySelectorAll(".dv-groupview"))
+          .map((group) => group.getBoundingClientRect())
+          .sort((a, b) => (vertical ? a.top - b.top : a.left - b.left));
+        const grid = document.querySelector(".dockview-theme-stave .dv-dockview")!;
+        const style = getComputedStyle(grid);
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 1;
+        const context = canvas.getContext("2d")!;
+        context.fillStyle = style.getPropertyValue("--border").trim();
+        context.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+        return {
+          gapStart: vertical ? groups[0]!.bottom : groups[0]!.right,
+          gapEnd: vertical ? groups[1]!.top : groups[1]!.left,
+          crossStart: vertical ? groups[0]!.left : groups[0]!.top,
+          crossEnd: vertical ? groups[0]!.right : groups[0]!.bottom,
+          viewport: { width: innerWidth, height: innerHeight },
+          expected: { r, g, b, a },
+        };
+      }, placement === "below");
+      expect(boundary.gapEnd - boundary.gapStart).toBe(1);
+      const guest = await guestGeometry();
+      if (placement === "left") {
+        expect(guest!.guest.x + guest!.guest.width).toBeLessThanOrEqual(
+          boundary.gapStart,
+        );
+      } else if (placement === "right") {
+        expect(guest!.guest.x).toBeGreaterThanOrEqual(boundary.gapEnd);
+      } else {
+        expect(guest!.guest.y).toBeGreaterThanOrEqual(boundary.gapEnd);
+      }
+
+      const screenshot = decodePng(await stave.page.screenshot({
+        path: test.info().outputPath(
+          `lens-divider-${placement}-${dark ? "dark" : "light"}.png`,
+        ),
+      }));
+      const scaleX = screenshot.width / boundary.viewport.width;
+      const scaleY = screenshot.height / boundary.viewport.height;
+      // Sample the rasterized gap, away from the resize sash.
+      for (const fraction of [0.2, 0.5, 0.8]) {
+        const gap = (boundary.gapStart + boundary.gapEnd) / 2;
+        const cross = boundary.crossStart +
+          (boundary.crossEnd - boundary.crossStart) * fraction;
+        const x = Math.floor((placement === "below" ? cross : gap) * scaleX);
+        const y = Math.floor((placement === "below" ? gap : cross) * scaleY);
+        expect(pixelAt(screenshot, x, y)).toEqual(boundary.expected);
+      }
+    }
+  }
 });

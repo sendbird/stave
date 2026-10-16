@@ -1201,6 +1201,5 @@ root: {
   minHeight: 0,
   width: "100%",
   minWidth: 0,
-  backgroundColor: vars["--ads-color-border"],
 }
 });
