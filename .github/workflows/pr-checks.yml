@@ -20,6 +20,7 @@ jobs:
       - run: bun run check:temporary-migrations
       - run: bun run check:i18n
       - run: bun run check:doc-paths
+      - run: bun run check:design-system
       - name: Build Pages site
         run: bun run build:pages
       - run: bun run check:max-lines-ratchet
