@@ -1011,7 +1011,7 @@
       "disabled": "Auto off",
       "manual": "Chosen by hand",
       "heuristic": "Local rules",
-      "classifier": "Decision model",
+      "classifier": "Chosen by the decision model",
       "classifierFallback": "Local rules after the decision model failed",
       "adaptive": "Adaptive change"
     },

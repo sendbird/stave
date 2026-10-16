@@ -987,7 +987,7 @@
       "disabled": "Auto 꺼짐",
       "manual": "직접 선택",
       "heuristic": "로컬 규칙",
-      "classifier": "판단 모델",
+      "classifier": "판단 모델이 선택함",
       "classifierFallback": "판단 모델 실패 후 로컬 규칙",
       "adaptive": "적응형 변경"
     },

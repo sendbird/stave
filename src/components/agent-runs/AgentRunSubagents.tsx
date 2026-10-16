@@ -52,8 +52,10 @@ const localStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-text"],
   },
+  // Wraps so the routed model moves under the request instead of truncating.
   identity: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: vars["--ads-space-4"],
     minWidth: 0,
