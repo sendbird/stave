@@ -24,6 +24,7 @@ import {
 import {
   CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_HAIKU_MODEL,
+  DEFAULT_CLAUDE_OPUS_1M_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   formatModelPrice,
@@ -435,96 +436,135 @@ test("model-first migration preserves custom routing and respects subsequent opt
   expect(migrateLegacyAutoSettings({ autoRoutingUseClassifier: false }).signals.classifier).toBe(true);
 });
 
-describe("cache hold: model changes wait for a boundary", () => {
+describe("cache hold: step-downs and same-rung switches wait for a boundary", () => {
   const NOW = Date.parse("2026-10-14T12:00:00Z");
   const MINUTE = 60_000;
-  /** A continuing Claude task whose last turn finished `ago` ms before `NOW`. */
-  const continuing = (lastModel: string, overrides: Partial<RouterSignals> = {}, ago = 5 * MINUTE) =>
+  /** A continuing task on `providerId` whose last turn finished `ago` ms before `NOW`. */
+  const continuingOn = (
+    providerId: "claude-code" | "codex",
+    lastModel: string,
+    overrides: Partial<RouterSignals> = {},
+    ago = 5 * MINUTE,
+  ) =>
     signals({
-      lastAssistantProvider: "claude-code",
+      currentProviderId: providerId,
+      lastAssistantProvider: providerId,
       lastAssistantModel: lastModel,
       lastAssistantCompletedAt: NOW - ago,
       ...overrides,
     });
+  /** A continuing Claude task whose last turn finished `ago` ms before `NOW`. */
+  const continuing = (lastModel: string, overrides: Partial<RouterSignals> = {}, ago = 5 * MINUTE) =>
+    continuingOn("claude-code", lastModel, overrides, ago);
   const route = (routeSignals: RouterSignals, extra: Partial<Parameters<typeof resolveRoute>[0]> = {}) =>
     resolveRoute({ profile: balanced, role: "primary", signals: routeSignals, now: NOW, ...extra });
+  /**
+   * Per provider: its light, flagship and balanced picks, a second flagship
+   * model on the same rung, and the cache window. Codex lists GPT-6 Sol only
+   * as a runtime model, so the lane passes it in.
+   */
+  const LANES = [
+    {
+      providerId: "claude-code",
+      light: DEFAULT_CLAUDE_HAIKU_MODEL,
+      balancedModel: DEFAULT_CLAUDE_SONNET_MODEL,
+      flagship: DEFAULT_CLAUDE_OPUS_MODEL,
+      sameRung: DEFAULT_CLAUDE_OPUS_1M_MODEL,
+      warmMs: CLAUDE_PROMPT_CACHE_WARM_MS,
+      extra: {},
+    },
+    {
+      providerId: "codex",
+      light: "gpt-6-luna",
+      balancedModel: "gpt-5.6-terra",
+      flagship: "gpt-6.1-sol",
+      sameRung: "gpt-6-sol",
+      warmMs: CODEX_PROMPT_CACHE_WARM_MS,
+      extra: { runtimeModelsByProvider: { codex: ["gpt-6-sol"] } },
+    },
+  ] as const;
+  const harderWork = { taskClass: "plan" as const, complexity: "high" as const };
+  const lighterWork = { taskClass: "docs" as const, complexity: "low" as const };
 
-  test("a step-down keeps the previous model while the cache is warm", () => {
-    const held = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, { taskClass: "docs", complexity: "low" }));
-    expect(held).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: true });
-    expect(held.reason).toContain("deferred until the cache cools or a new task starts");
-  });
-
-  test("a step-up is deferred while the cache is warm and goes through once it cools", () => {
-    const work = { taskClass: "plan" as const, complexity: "high" as const };
-    const warm = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work));
-    expect(warm).toMatchObject({ model: DEFAULT_CLAUDE_HAIKU_MODEL, cacheHeldModel: true });
-    expect(warm.reason).toContain("deferred");
-
-    const atEdge = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work, CLAUDE_PROMPT_CACHE_WARM_MS));
-    expect(atEdge.cacheHeldModel).toBe(true);
-
-    const cold = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work, CLAUDE_PROMPT_CACHE_WARM_MS + MINUTE));
-    expect(cold.cacheHeldModel).toBe(false);
-    expect(cold.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
-    expect(cold.reason).not.toContain("deferred");
-  });
-
-  test("Codex uses its own, shorter warm window", () => {
-    const codexTask = (ago: number) =>
-      signals({
-        taskClass: "plan", complexity: "high",
-        currentProviderId: "codex",
-        lastAssistantProvider: "codex",
-        lastAssistantModel: "gpt-6-luna",
-        lastAssistantCompletedAt: NOW - ago,
-      });
-    expect(route(codexTask(CODEX_PROMPT_CACHE_WARM_MS - MINUTE))).toMatchObject({
-      providerId: "codex", model: "gpt-6-luna", cacheHeldModel: true,
+  for (const lane of LANES) {
+    test(`${lane.providerId}: a step-up to a stronger rung switches at once while the cache is warm`, () => {
+      const warm = route(continuingOn(lane.providerId, lane.light, harderWork), lane.extra);
+      expect(warm).toMatchObject({ providerId: lane.providerId, model: lane.flagship, tier: "flagship", cacheHeldModel: false });
+      expect(warm.reason).toContain("despite the warm prompt cache because the work needs a stronger model");
+      expect(warm.reason).not.toContain("deferred");
     });
-    const cold = route(codexTask(CODEX_PROMPT_CACHE_WARM_MS + MINUTE));
-    expect(cold).toMatchObject({ providerId: "codex", cacheHeldModel: false });
-    expect(cold.model).not.toBe("gpt-6-luna");
+
+    test(`${lane.providerId}: a step-down keeps the previous model while warm and goes through once it cools`, () => {
+      const warm = route(continuingOn(lane.providerId, lane.flagship, lighterWork), lane.extra);
+      expect(warm).toMatchObject({ providerId: lane.providerId, model: lane.flagship, tier: "flagship", cacheHeldModel: true });
+      expect(warm.reason).toContain("deferred until the cache cools or a new task starts");
+
+      const atEdge = route(continuingOn(lane.providerId, lane.flagship, lighterWork, lane.warmMs), lane.extra);
+      expect(atEdge.cacheHeldModel).toBe(true);
+
+      const cold = route(continuingOn(lane.providerId, lane.flagship, lighterWork, lane.warmMs + MINUTE), lane.extra);
+      expect(cold).toMatchObject({ model: lane.light, cacheHeldModel: false });
+      expect(cold.reason).not.toContain("deferred");
+    });
+
+    test(`${lane.providerId}: a switch to another model on the same rung waits while warm`, () => {
+      const warm = route(continuingOn(lane.providerId, lane.sameRung), lane.extra);
+      expect(warm).toMatchObject({ providerId: lane.providerId, model: lane.sameRung, tier: "flagship", cacheHeldModel: true });
+      expect(warm.reason).toContain("deferred");
+
+      const cold = route(continuingOn(lane.providerId, lane.sameRung, {}, lane.warmMs + MINUTE), lane.extra);
+      expect(cold).toMatchObject({ model: lane.flagship, cacheHeldModel: false });
+    });
+
+    test(`${lane.providerId}: the hard budget ceiling's step-down waits while warm and applies once the cache cools`, () => {
+      const pressured = { taskClass: "implement" as const, budgetUsedPercent: 98 };
+      const warm = route(continuingOn(lane.providerId, lane.flagship, pressured), lane.extra);
+      expect(warm).toMatchObject({ model: lane.flagship, budgetShift: -2, cacheHeldModel: true });
+      expect(warm.reason).toContain("Usage is at 98%");
+      expect(warm.reason).toContain("deferred");
+      // The cheapest model that still meets the Standard level's floor.
+      const cold = route(continuingOn(lane.providerId, lane.flagship, pressured, 2 * lane.warmMs), lane.extra);
+      expect(cold).toMatchObject({ budgetShift: -2, cacheHeldModel: false, model: lane.balancedModel });
+    });
+  }
+
+  test("the Codex warm window is shorter than Claude's", () => {
+    const between = CODEX_PROMPT_CACHE_WARM_MS + MINUTE;
+    expect(between).toBeLessThan(CLAUDE_PROMPT_CACHE_WARM_MS);
+    expect(route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, lighterWork, between)).cacheHeldModel).toBe(true);
+    expect(route(continuingOn("codex", "gpt-6.1-sol", lighterWork, between)).cacheHeldModel).toBe(false);
   });
 
-  test("a compaction, a new task or an unknown finish time releases the hold", () => {
-    const work = { taskClass: "plan" as const, complexity: "high" as const };
-    for (const released of [
-      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, compactedSinceLastAssistant: true }),
-      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, newTask: true }),
-      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantCompletedAt: null }),
-      continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantModel: null }),
-    ]) {
-      const result = route(released);
-      expect(result.cacheHeldModel).toBe(false);
-      expect(result.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
-    }
-  });
-
-  test("the hard budget ceiling waits while warm and applies once the cache cools", () => {
+  test("a held Opus still steps its effort down under the hard budget ceiling", () => {
     const pressured = { taskClass: "implement" as const, budgetUsedPercent: 98 };
-    const warm = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, pressured));
-    expect(warm).toMatchObject({
-      model: DEFAULT_CLAUDE_OPUS_MODEL, budgetShift: -2, cacheHeldModel: true,
-    });
-    expect(warm.reason).toContain("Usage is at 98%");
-    expect(warm.reason).toContain("deferred");
     // Opus keeps its cache across effort changes, so effort still steps down.
+    const warm = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, pressured));
     const cold = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, pressured, 2 * CLAUDE_PROMPT_CACHE_WARM_MS));
-    // The cheapest model that still meets the Standard level's floor.
-    expect(cold).toMatchObject({ budgetShift: -2, cacheHeldModel: false, model: DEFAULT_CLAUDE_SONNET_MODEL });
+    expect(warm).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: true, budgetHeldModel: true });
     expect(warm.effort).toBe("low");
     expect(cold.effort).toBe("medium");
   });
 
-  test("an inferred previous model never holds, even while a turn's cache is warm", () => {
-    const work = { taskClass: "plan" as const, complexity: "high" as const };
-    const stepUp = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...work, lastAssistantModelInferred: true, uncertain: true }));
-    expect(stepUp).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
+  test("a compaction, a new task or an unknown finish time releases the hold", () => {
+    for (const released of [
+      continuing(DEFAULT_CLAUDE_OPUS_MODEL, { ...lighterWork, compactedSinceLastAssistant: true }),
+      continuing(DEFAULT_CLAUDE_OPUS_MODEL, { ...lighterWork, newTask: true }),
+      continuing(DEFAULT_CLAUDE_OPUS_MODEL, { ...lighterWork, lastAssistantCompletedAt: null }),
+      continuing(DEFAULT_CLAUDE_OPUS_MODEL, { ...lighterWork, lastAssistantModel: null }),
+    ]) {
+      const result = route(released);
+      expect(result.cacheHeldModel).toBe(false);
+      expect(result.model).toBe(DEFAULT_CLAUDE_HAIKU_MODEL);
+    }
+  });
 
-    const stepDown = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, {
-      taskClass: "docs", complexity: "low", lastAssistantModelInferred: true,
-    }));
+  test("an inferred previous model never holds, even while a turn's cache is warm", () => {
+    const stepUp = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...harderWork, lastAssistantModelInferred: true, uncertain: true }));
+    expect(stepUp).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
+    // A guessed previous model is not a warm cache, so the route line does not claim one.
+    expect(stepUp.reason).not.toContain("warm prompt cache");
+
+    const stepDown = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, { ...lighterWork, lastAssistantModelInferred: true }));
     expect(stepDown.cacheHeldModel).toBe(false);
     expect(stepDown.model).not.toBe(DEFAULT_CLAUDE_OPUS_MODEL);
 
@@ -536,13 +576,14 @@ describe("cache hold: model changes wait for a boundary", () => {
   });
 
   test("a held model that loses its cache on effort changes keeps its effort under budget pressure", () => {
-    const held = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, {
-      taskClass: "plan", complexity: "high", budgetUsedPercent: 85,
-    }));
+    // GPT-6.1 Sol does not keep its cache across effort changes, so the budget
+    // guard's step-down to a balanced model waits and effort stays put.
+    const held = route(continuingOn("codex", "gpt-6.1-sol", { budgetUsedPercent: 85 }));
     expect(held).toMatchObject({
-      model: DEFAULT_CLAUDE_HAIKU_MODEL, budgetShift: -1, budgetHeldModel: false, cacheHeldModel: true,
+      providerId: "codex", model: "gpt-6.1-sol", budgetShift: -1, budgetHeldModel: false, cacheHeldModel: true,
     });
-    const unpressured = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { taskClass: "plan", complexity: "high" }));
+    const unpressured = route(continuingOn("codex", "gpt-6.1-sol"));
+    expect(unpressured).toMatchObject({ model: "gpt-6.1-sol", cacheHeldModel: false });
     expect(held.effort).toBe(unpressured.effort);
     expect(held.reason).toContain("Usage is at 85%");
     expect(held.reason).toContain("deferred");
@@ -558,26 +599,34 @@ describe("cache hold: model changes wait for a boundary", () => {
     });
   });
 
-  test("a safety escalation steps up at once; without escalation the step-up waits", () => {
+  test("a budget-guarded step-up still switches at once and lowers effort on a cache-preserving pick", () => {
+    const stepped = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { ...harderWork, budgetUsedPercent: 85 }));
+    expect(stepped).toMatchObject({
+      model: DEFAULT_CLAUDE_OPUS_MODEL, budgetShift: -1, budgetHeldModel: true, cacheHeldModel: false,
+    });
+    expect(stepped.reason).toContain("Usage is at 85%");
+    expect(stepped.reason).toContain("despite the warm prompt cache");
+  });
+
+  test("a step-up switches at once with or without a safety escalation", () => {
     const escalated = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { complexity: "low", sensitive: true }));
-    expect(escalated.cacheHeldModel).toBe(false);
-    expect(escalated.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+    expect(escalated).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
 
     const noEscalation = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, { complexity: "high", sensitive: true }), {
       profile: { ...balanced, signals: { ...balanced.signals, safetyEscalation: false } },
     });
-    expect(noEscalation).toMatchObject({ model: DEFAULT_CLAUDE_HAIKU_MODEL, cacheHeldModel: true });
+    expect(noEscalation).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
+    expect(noEscalation.reason).toContain("despite the warm prompt cache");
   });
 
   test("an unavailable provider or a model no longer allowed switches at once", () => {
-    const work = { taskClass: "plan" as const, complexity: "high" as const };
-    const notAllowed = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, work), {
-      exclusiveModelsByProvider: { "claude-code": [DEFAULT_CLAUDE_OPUS_MODEL, CLAUDE_FABLE_MODEL] },
+    const notAllowed = route(continuing(CLAUDE_FABLE_MODEL), {
+      exclusiveModelsByProvider: { "claude-code": [DEFAULT_CLAUDE_OPUS_MODEL, DEFAULT_CLAUDE_SONNET_MODEL] },
     });
     expect(notAllowed).toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, cacheHeldModel: false });
 
-    const unavailable = route(continuing(DEFAULT_CLAUDE_HAIKU_MODEL, {
-      ...work,
+    const unavailable = route(continuing(DEFAULT_CLAUDE_OPUS_MODEL, {
+      ...lighterWork,
       providerAvailability: { "claude-code": false, codex: true },
     }));
     expect(unavailable).toMatchObject({ providerId: "codex", cacheHeldModel: false });

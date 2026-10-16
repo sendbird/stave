@@ -133,13 +133,16 @@ says so on the route line, whether or not provider switching is enabled. Only
 when no available provider has a capable allowed model does Auto report a
 routing error instead of silently using an underpowered or disallowed model.
 
-Auto does not change the model in the middle of a task while the prompt cache
-is warm. Each model has its own cache, so a mid-task switch re-reads the whole
-conversation at the cache-write rate instead of the much cheaper cache-read
-rate. On the same provider, while the previous model is still allowed, Auto
-keeps it for a turn that would step up a level, step down, or follow a usage
-threshold (the hardest one included), and the route line says the switch was
-deferred. The switch happens at the next boundary:
+Auto does not move a task to a weaker or same-level model while the prompt
+cache is warm. Each model has its own cache, so a mid-task switch re-reads the
+whole conversation at the cache-write rate instead of the much cheaper
+cache-read rate. A step-up is the exception: when the work gets harder or
+needs more than the current model can do, the turn switches to the stronger
+model at once, warm cache or not, and the route line says so. On the same
+provider, while the previous model is still allowed, Auto keeps it for a turn
+that would step down, move to another model at the same level, or follow a
+usage threshold down (the hardest one included), and the route line says the
+switch was deferred. That switch happens at the next boundary:
 
 - the classifier marks the prompt as a new task;
 - the cache has cooled: more time has passed since the last answer finished
@@ -149,12 +152,13 @@ deferred. The switch happens at the next boundary:
 - the conversation was compacted after the last answer;
 - Auto cannot tell which model answered last or when it finished.
 
-Some changes never wait: a provider that cannot run the turn (its CLI
-unavailable or its usage exhausted), a previous model that is no longer
-allowed, a sensitive change that safety escalation moves to a stronger model,
-and a model pinned in the composer or fixed by an agent. Under a usage
-threshold, a held model that keeps its cache across effort changes (Opus and
-Fable) still lowers its effort. Agent Run turns follow the same rule.
+Some changes never wait: a step-up to a stronger level, including a sensitive
+change that safety escalation moves to a stronger model; a provider that
+cannot run the turn (its CLI unavailable or its usage exhausted); a previous
+model that is no longer allowed; and a model pinned in the composer or fixed
+by an agent. Under a usage threshold, a held model that keeps its cache across
+effort changes (Opus and Fable) still lowers its effort. Agent Run turns follow
+the same rule.
 
 ## Provider failover
 

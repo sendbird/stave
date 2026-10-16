@@ -268,7 +268,8 @@ const CACHE_PRESERVING_EFFORT_MODELS: ReadonlySet<string> = new Set([
  * How long after a turn finishes its model's prompt cache is treated as warm.
  * Each model has its own cache, so a model change inside that window re-reads
  * the whole conversation at the cache-write rate (1.25-2x input price) instead
- * of the cache-read rate (0.05-0.1x); Auto holds the model until then.
+ * of the cache-read rate (0.05-0.1x); Auto holds a step-down or same-rung
+ * switch until then. A step-up to a stronger rung never waits.
  *
  * - Claude: 60 minutes. Claude Code's main conversation on a subscription
  *   writes its cache with the one-hour TTL.
@@ -1247,8 +1248,9 @@ export interface ResolvedRoute {
   /**
    * True when the primary kept the previous turn's model instead of the
    * level's or the budget guard's pick, because the previous model's prompt
-   * cache is still warm. The switch waits for the next boundary: a new task,
-   * a compaction, or the cache cooling.
+   * cache is still warm and the pick steps down or stays on the same rung.
+   * The switch waits for the next boundary: a new task, a compaction, or the
+   * cache cooling. A pick on a stronger rung is never held.
    */
   cacheHeldModel: boolean;
 }
@@ -1754,44 +1756,45 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
 
     // Cache hold. Each model has its own prompt cache, so a model change
     // mid-task re-reads the whole conversation at the cache-write rate, which
-    // for a long task outweighs what a better or cheaper model saves on one
-    // turn. While the previous turn's cache is warm the primary keeps its
-    // model, whether the pick steps down, steps up or follows the budget
-    // guard (the -2 ceiling included); the switch waits for the next
-    // boundary: a new task, a compaction, or the cache cooling. Still
+    // for a long task outweighs what a cheaper or same-rung model saves on
+    // one turn. A step-up is different: a final pick (after the budget guard)
+    // on a stronger rung than the previous model means that model is not
+    // capable enough for the work, so it switches now, warm cache or not,
+    // with or without a safety escalation. While the previous turn's cache
+    // is warm the primary keeps its model only when the final pick steps
+    // down (the budget guard's steps and the -2 ceiling included) or moves
+    // to another model on the same rung; that switch waits for the next
+    // boundary: a new task, a compaction, or the cache cooling. Also
     // immediate: a provider change (availability or capability failover), a
-    // previous model no longer allowed, a safety escalation that needs a
-    // stronger model, and pins, which never reach Auto.
+    // previous model no longer allowed, and pins, which never reach Auto.
     const lastModel = signals.lastAssistantModel?.trim();
     const lastTier = lastModel ? resolveRouteTierForModel(lastModel) : null;
-    const safetyStepUp =
-      lastTier !== null &&
-      routeTierIndex(tier) < routeTierIndex(lastTier) &&
-      signals.sensitive &&
-      profile.signals.safetyEscalation;
+    // Rungs run strongest-first, so a lower index is a stronger rung.
+    const stepsUp = lastTier !== null && routeTierIndex(tier) < routeTierIndex(lastTier);
     // An inferred previous model (classifier fallback) is a guess, not the
     // model whose cache is warm, so it never holds; an unknown previous model
     // is a boundary. The uncertain floor in the complexity still keeps the
     // route from dropping to a light model.
-    const holdQualifies =
+    const lastCacheWarm =
       !signals.lastAssistantModelInferred &&
       Boolean(lastModel && allowedModels.includes(lastModel)) &&
-      !safetyStepUp &&
       isPromptCacheWarm({
         providerId,
         lastCompletedAt: signals.lastAssistantCompletedAt,
         compactedSince: signals.compactedSinceLastAssistant,
         now: args.now ?? Date.now(),
       });
-    const cacheHeldModel = Boolean(
+    // A model change inside the task while the previous model's cache is warm.
+    const warmModelChange = Boolean(
       role === "primary" &&
       !signals.newTask &&
       lastModel &&
       lastTier &&
       lastModel !== model &&
       signals.lastAssistantProvider === providerId &&
-      holdQualifies,
+      lastCacheWarm,
     );
+    const cacheHeldModel = warmModelChange && !stepsUp;
     if (cacheHeldModel && lastModel && lastTier) {
       const target = toHumanModelName({ model });
       const kept = toHumanModelName({ model: lastModel });
@@ -1817,8 +1820,18 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       } else {
         reasonParts.push(i18n.t("providers:autoRoutingProfile.cacheHoldDeferredSwitch", { kept, target }));
       }
-    } else if (budgetReason) {
-      reasonParts.push(budgetReason);
+    } else {
+      if (budgetReason) {
+        reasonParts.push(budgetReason);
+      }
+      if (warmModelChange && lastModel) {
+        reasonParts.push(
+          i18n.t("providers:autoRoutingProfile.cacheWarmStepUp", {
+            previous: toHumanModelName({ model: lastModel }),
+            target: toHumanModelName({ model }),
+          }),
+        );
+      }
     }
 
     if (failedOver) {
