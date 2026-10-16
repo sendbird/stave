@@ -185,7 +185,7 @@ describe("Commit graph toolbar", () => {
     expect(html).toContain(sx(gitGraphCanvasStyles.svg));
     expect(html).not.toContain("stroke-dasharray");
     expect(html.match(/<circle/g)).toHaveLength(3);
-    expect(html).toContain('stroke="#808080"');
+    expect(html).toContain('stroke="var(--muted-foreground)"');
     expect(html.match(/<circle[^>]+fill="#2B6FE8"/g)).toHaveLength(2);
   });
 });
