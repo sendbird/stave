@@ -3,6 +3,8 @@ import * as stylex from "@stylexjs/stylex";
 import { Bot } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
+import { AgentIdentity } from "@/components/delegation/AgentIdentity";
+import { DelegateRoute } from "@/components/delegation/DelegateRoute";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import { describeSubagentState, subagentResultLine } from "@/lib/delegation/subagent-summary";
 import { agentRunStyles as styles } from "./agent-runs.styles";
@@ -21,6 +23,18 @@ export function AgentRunSubagents({ rows }: { rows: readonly DelegationExchange[
           <li key={row.id} className={sx(localStyles.row)}>
             <div className={sx(styles.checkText)}>
               <span>{row.title} · {describeSubagentState(row)}</span>
+              {row.kind === "delegated-task" ? (
+                <span className={sx(localStyles.identity)}>
+                  <AgentIdentity
+                    compact
+                    providerId={row.identity.providerId}
+                    model={row.identity.model}
+                    effort={row.identity.effort}
+                    modelEvidence={row.identity.modelEvidence}
+                  />
+                  <DelegateRoute exchange={row} />
+                </span>
+              ) : null}
               {row.outcome.progress?.at(-1) ? <p className={sx(styles.notice)}>{row.outcome.progress.at(-1)}</p> : null}
               {subagentResultLine(row) ? <p className={sx(styles.notice)} title={row.outcome.error ?? row.outcome.result}>{subagentResultLine(row)}</p> : null}
             </div>
@@ -37,5 +51,11 @@ const localStyles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-text"],
+  },
+  identity: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
   },
 });

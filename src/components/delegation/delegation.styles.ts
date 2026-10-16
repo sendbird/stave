@@ -69,6 +69,16 @@ export const delegationStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontWeight: vars["--ads-font-weight-regular"],
   },
+  // The routed model beside the requested one: quieter than the identity it
+  // qualifies, and the first thing to truncate on a narrow row.
+  identityRouted: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   identityChip: {
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],

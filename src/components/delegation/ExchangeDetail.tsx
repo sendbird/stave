@@ -15,6 +15,7 @@ import {
   formatExchangeDuration,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
+import { DelegateRoute } from "./DelegateRoute";
 import { ExchangeStatusBadge } from "./ExchangeStatusBadge";
 import { KeyValueGrid, type KeyValueItem } from "./KeyValueGrid";
 import { StageTimeline } from "./StageTimeline";
@@ -232,6 +233,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
             source={exchange.identity.source}
             showSource
           />
+          <DelegateRoute exchange={exchange} />
           {primary ? (
             <span className={sx(styles.meta)}>{i18n.t("agentRuns:exchangeDetail.sentence34", { value1: " ", value2: describeAgentIdentity({
                 providerId: primary.providerId,

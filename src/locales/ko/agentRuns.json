@@ -1,4 +1,8 @@
 {
+  "delegateRoute": {
+    "routed": "→ 실행: {{model}}",
+    "title": "요청: {{requested}} · 라우팅 후 실행: {{routed}}"
+  },
   "workspaceCheck": {
     "criterion": "워크스페이스 검사 통과",
     "unknownRevision": "{{phase}} 리비전을 검증할 수 없습니다: {{reason}}.",

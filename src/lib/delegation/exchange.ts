@@ -115,6 +115,8 @@ export interface DelegationExchangeRef {
   delegationKey?: string;
   delegatedTaskId?: string;
   delegatedWorkspaceId?: string;
+  /** The delegated task's own latest turn; `turnId` is the parent's turn. */
+  delegatedTurnId?: string;
   turnId?: string;
   nodeKey?: string;
   agentId?: string;
@@ -202,6 +204,7 @@ export function fromDelegatedTask(
       delegationKey: child.delegationKey,
       delegatedTaskId: child.delegatedTaskId,
       delegatedWorkspaceId: child.delegatedWorkspaceId,
+      ...(child.delegatedTurnId ? { delegatedTurnId: child.delegatedTurnId } : {}),
     },
   };
 }

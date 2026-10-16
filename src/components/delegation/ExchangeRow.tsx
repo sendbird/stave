@@ -24,6 +24,7 @@ import {
   type ExchangeStatus,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
+import { DelegateRoute } from "./DelegateRoute";
 import { ExchangeDetail } from "./ExchangeDetail";
 import { delegationStyles as styles } from "./delegation.styles";
 
@@ -147,6 +148,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
               effort={exchange.identity.effort}
               modelEvidence={exchange.identity.modelEvidence}
             />
+            <DelegateRoute exchange={exchange} />
           </span>
           <span
             className={sx(

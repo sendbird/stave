@@ -1,4 +1,8 @@
 {
+  "delegateRoute": {
+    "routed": "→ ran {{model}}",
+    "title": "Requested {{requested}}; routing ran {{routed}}"
+  },
   "workspaceCheck": {
     "criterion": "Workspace checks pass",
     "unknownRevision": "The {{phase}} revision cannot be verified: {{reason}}.",
