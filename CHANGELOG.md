@@ -1,3 +1,29 @@
+## [0.27.2](https://github.com/sendbird/stave/compare/v0.27.1...v0.27.2) (2026-10-16)
+
+This patch release polishes the interface: clearer Agent run limits, auto-routing settings, conversation times and question cards, plus layout fixes for panes and inline pages. It ships four `feat:` changes that are UI refinements with no new provider, data format or setting that needs migration, so it stays a patch.
+
+### Features and Fixes
+
+- Agent Runs show the shared team turn budget as a compact meter with used, reserved and available turns; helper limits, model policy and accounting details open on demand. English and Korean labels are included.
+- Auto-routing settings are easier to follow: the API connection and decision model pickers search inside their dropdowns, the active model and fallback order are visible, controls follow the routing flow, budget thresholds are disabled while the guard is off, and rule resets confirm their full scope. The same picker is used for Agent decision-model overrides.
+- Conversations are grouped by date, the persistent time in the task header is gone, and precise message times appear on hover or focus and can be pinned by click or touch.
+- The Ask User Question card puts the question first, lists choices as a compact numbered list, walks through multi-question requests one at a time, adds keyboard selection and navigation shortcuts, and marks a choice as recommended only when it is explicitly marked.
+- Inline HTML and MCP App pages get a caption, a framed canvas and a default body inset. Expanded views stay below the title bar and above pane dividers, and the window cannot be dragged across the overlay. The inline-render tool description now tells agents not to add their own outer card, border or title.
+- The divider between a Lens panel and neighboring workspace panes is visible again, in light and dark themes.
+
+### Upgrade Notes
+
+- No data migration, setting reset or dependency change. No registered temporary migration expires in this release.
+- Inline HTML pages that already add their own outer padding may show extra space, because rendered pages now get a default 16-24px body inset; set body padding to `0` to remove it.
+
+### Known Limits
+
+- The expanded inline-render layout was not smoke-tested in a packaged window with native controls, and the two PR-level Electron runs for the Lens dividers and the question card did not reach their assertions in preparation environments (see the release PR for details). A packaged desktop upgrade was not exercised.
+
+### References
+
+- [PR #768](https://github.com/sendbird/stave/pull/768), [PR #769](https://github.com/sendbird/stave/pull/769), [PR #770](https://github.com/sendbird/stave/pull/770), [PR #771](https://github.com/sendbird/stave/pull/771), [PR #772](https://github.com/sendbird/stave/pull/772), [PR #773](https://github.com/sendbird/stave/pull/773)
+
 ## [0.27.1](https://github.com/sendbird/stave/compare/v0.27.0...v0.27.1) (2026-10-15)
 
 This patch release improves Agent run reliability and review, adds account setup and agent customization, and fixes provider networking and large-response handling.
