@@ -15,6 +15,20 @@ export const layers = stylex.create({
   appMenu: { zIndex: 100 },
   lightbox: { zIndex: 110 },
 });
+/**
+ * Sibling order inside one local stacking context — a pane, a card, the
+ * isolated composer frame. These are not host bands: the element that
+ * establishes the context is what a `layers` band positions, and nothing in
+ * here can climb past it. `overlay` lifts a drawn layer over in-flow siblings
+ * (the commit-graph lines over their rows); `raised` is a sticky header, a
+ * hover action tray, a boot cover or the frame's card over its wings;
+ * `floating` is a banner, toast or peek panel over raised content.
+ */
+export const localStack = stylex.defineVars({
+  "--stave-stack-overlay": "2",
+  "--stave-stack-raised": "10",
+  "--stave-stack-floating": "20",
+});
 export const elevations = stylex.create({
   surface: { boxShadow: vars["--ads-elevation-raised"] },
   raised: { boxShadow: vars["--ads-elevation-lift"] },

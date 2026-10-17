@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
+import { localStack } from "../../lib/ui-layers.stylex";
 
 /**
  * Measured composer tracks and tuck are host geometry, not control density.
@@ -27,7 +28,7 @@ export const frameStyles = stylex.create({
   rightTrack: { gridColumnStart: 3 },
   leftInset: { position: "absolute", left: 0, right: "-0.75rem", insetBlock: "0.75rem", display: "flex", justifyContent: "flex-end" },
   rightInset: { position: "absolute", left: "-0.75rem", right: 0, insetBlock: "0.75rem", display: "flex", justifyContent: "flex-start" },
-  card: { position: "relative", zIndex: 10, gridRowStart: 2, minWidth: 0 },
+  card: { position: "relative", zIndex: localStack["--stave-stack-raised"], gridRowStart: 2, minWidth: 0 },
   wing: { display: "flex", height: "100%", maxHeight: "100%", minHeight: 0, flexShrink: 0, flexDirection: "column", gap: vars["--ads-space-8"], overflowX: "hidden", overflowY: "auto", overscrollBehavior: "contain", paddingBlock: vars["--ads-space-8"], justifyContent: "safe center", scrollbarWidth: "none" },
   leftWing: { alignItems: "flex-end", paddingLeft: vars["--ads-space-2"], paddingRight: "calc(0.75rem + 4px)" },
   rightWing: { alignItems: "flex-start", paddingLeft: "calc(0.75rem + 4px)", paddingRight: vars["--ads-space-2"] },

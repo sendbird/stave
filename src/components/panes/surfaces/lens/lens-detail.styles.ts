@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../../../ads/tokens/tokens.stylex";
+import { localStack } from "../../../../lib/ui-layers.stylex";
 
 export const detailStyles = stylex.create({
   label: { fontSize: vars["--ads-font-size-micro"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text-muted"] },
@@ -48,7 +49,7 @@ export const detailStyles = stylex.create({
   stopIcon: { width: 12, height: 12, fill: "currentColor" },
   icon: { width: 14, height: 14 },
   inspector: { order: 9999, height: "100%", minHeight: 0, width: "min(38%, 34rem)", minWidth: "min(18rem, 48%)", maxWidth: "48%", flexShrink: 0, overflow: "auto", borderLeftWidth: 1, borderLeftStyle: "solid", borderLeftColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-surface"] },
-  sticky: { position: "sticky", top: 0, zIndex: 10, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-surface"] },
+  sticky: { position: "sticky", top: 0, zIndex: localStack["--stave-stack-raised"], borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-surface"] },
   header: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-12"], paddingInline: vars["--ads-space-12"], paddingBlock: vars["--ads-space-8"] },
   title: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text"] },
   actions: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"] },

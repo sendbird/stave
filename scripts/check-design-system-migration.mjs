@@ -3,6 +3,7 @@ import { sep } from "node:path";
 import ts from "typescript";
 import { inventory } from "./style-utility-inventory.mjs";
 import { motionlessInteractive } from "./motionless-interactive.mjs";
+import { layerLiterals } from "./stylex-layer-literals.mjs";
 
 const manifest = JSON.parse(
   readFileSync(
@@ -139,6 +140,17 @@ for (const relative of readdirSync(srcRoot, { recursive: true })) {
 }
 
 /*
+ * Stacking order is named, not numbered. `stylex-layer-literals.mjs` explains
+ * the rule and the `// layer-ok: <reason>` escape; allowed uses are printed
+ * with the summary so they stay visible.
+ */
+const { violations: layerViolations, allowed: layerAllowed } = layerLiterals(srcRoot);
+for (const literal of layerViolations)
+  failures.push(
+    `${literal.path}:${literal.line}: \`zIndex: ${literal.value}\` is a raw stacking number; name a \`layers\` band or a \`localStack\` rung from src/lib/ui-layers.stylex.ts (or an \`--ads-z-index-*\` token), or justify it with \`// layer-ok: <reason>\``,
+  );
+
+/*
  * The hard-cut ratchet. The analysis lives in `motionless-interactive.mjs`,
  * which documents why an ADS-control call site is not a finding;
  * `motionlessInteractive` in the manifest is the list of groups that were still
@@ -203,6 +215,8 @@ if (failures.length) {
 } else {
   const pending = Object.keys(remaining).filter((path) => !(path in dataLiterals));
   console.log(
-    `Design system ratchet passed (${Object.keys(manifest.files).length} adapters; ${pending.length} files still contain utility syntax; ${Object.keys(dataLiterals).length} documented non-authoring literals).`,
+    `Design system ratchet passed (${Object.keys(manifest.files).length} adapters; ${pending.length} files still contain utility syntax; ${Object.keys(dataLiterals).length} documented non-authoring literals; ${layerAllowed.length} justified raw z-index values).`,
   );
+  for (const literal of layerAllowed)
+    console.log(`  layer-ok  ${literal.path}:${literal.line} zIndex: ${literal.value} — ${literal.reason}`);
 }

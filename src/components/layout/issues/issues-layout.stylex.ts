@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../../ads/tokens/tokens.stylex";
+import { localStack } from "../../../lib/ui-layers.stylex";
 
 /** Layout ownership for the Issues surface. Component primitives keep their own states. */
 export const taskLayoutStyles = stylex.create({
@@ -396,7 +397,7 @@ export const taskLayoutStyles = stylex.create({
     width: 24,
   },
   list: { height: "100%", overflowY: "auto" },
-  listGroup: { position: "sticky", top: 0, zIndex: 10 },
+  listGroup: { position: "sticky", top: 0, zIndex: localStack["--stave-stack-raised"] },
   listHeader: {
     alignItems: "center",
     backdropFilter: "blur(4px)",
@@ -440,7 +441,7 @@ export const taskLayoutStyles = stylex.create({
       inset: 0,
       position: "absolute",
       width: "100%",
-      zIndex: 20,
+      zIndex: localStack["--stave-stack-floating"],
     },
   },
   peekSplit: {
@@ -460,7 +461,7 @@ export const taskLayoutStyles = stylex.create({
     insetInlineEnd: 0,
     position: "absolute",
     width: "min(var(--stave-peek-width), 100%)",
-    zIndex: 20,
+    zIndex: localStack["--stave-stack-floating"],
   },
   peekClosedSplit: {
     marginInlineEnd: "calc(-1 * var(--stave-peek-width))",
@@ -483,7 +484,7 @@ export const taskLayoutStyles = stylex.create({
     position: "absolute",
     transform: "translateX(-50%)",
     width: 12,
-    zIndex: 10,
+    zIndex: localStack["--stave-stack-raised"],
     "@media (max-width: 48rem)": { display: "none" },
   },
   peekHeader: {

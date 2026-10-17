@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
+import { localStack } from "../../lib/ui-layers.stylex";
 
 export const cliSessionPanelStyles = stylex.create({
   panel: {
@@ -138,7 +139,7 @@ export const cliSessionPanelStyles = stylex.create({
     inset: 0,
     justifyContent: "center",
     position: "absolute",
-    zIndex: 10,
+    zIndex: localStack["--stave-stack-raised"],
   },
   bootLabel: {
     alignItems: "center",

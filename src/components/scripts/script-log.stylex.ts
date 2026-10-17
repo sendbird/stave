@@ -1,12 +1,13 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
+import { localStack } from "../../lib/ui-layers.stylex";
 
 export const logMarker = stylex.defineMarker();
 export const logStyles = stylex.create({
   root: { marginTop: 10, display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
   viewport: { position: "relative", overflow: "hidden", borderRadius: vars["--ads-radius-control"], borderWidth: 1, borderStyle: "solid", borderColor: vars["--ads-color-border"] },
   actions: {
-    pointerEvents: "none", position: "absolute", right: 6, top: 6, zIndex: 10,
+    pointerEvents: "none", position: "absolute", right: 6, top: 6, zIndex: localStack["--stave-stack-raised"],
     display: "flex", alignItems: "center", gap: vars["--ads-space-4"],
     opacity: { default: 0, [stylex.when.ancestor(":is(:hover, :focus-within)", logMarker)]: 1, "@media (hover: none)": 1 },
     transitionProperty: "opacity", transitionDuration: { default: vars["--ads-motion-duration-fast"], "@media (prefers-reduced-motion: reduce)": "0s" },
