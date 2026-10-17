@@ -7,6 +7,7 @@ import {
 import {
   disposeTextModelIfUnused,
   reconcileEditorModelContent,
+  syncRetainedEditorModels,
 } from "@/components/panes/surfaces/editor-model-retention";
 
 function createManualTimers() {
@@ -212,5 +213,117 @@ describe("editor model retention", () => {
     });
     expect(model.value).toBe("snapshot");
     expect(editor.calls).toEqual(["setValue"]);
+  });
+});
+
+function createRetainedModel(value: string) {
+  // Extend in place: the base model's methods close over that object.
+  const model = Object.assign(createFakeModel(value), {
+    calls: [] as string[],
+    setValue: (next: string) => {
+      model.calls.push("setValue");
+      model.value = next;
+    },
+    pushEditOperations: (
+      _before: unknown,
+      edits: Array<{ text: string }>,
+    ) => {
+      model.calls.push("pushEditOperations");
+      model.value = edits[0]!.text;
+      return null;
+    },
+    pushStackElement: () => {
+      model.calls.push("pushStackElement");
+    },
+  });
+  return model;
+}
+
+type RetainedModel = ReturnType<typeof createRetainedModel>;
+
+function syncArgs(overrides: {
+  editorMounted?: boolean;
+  codeModel?: RetainedModel | null;
+  diffModels?: { original: RetainedModel; modified: RetainedModel } | null;
+  content?: string;
+  originalContent?: string;
+  readOnly?: boolean;
+  liveEditors?: Array<{ getModel: () => unknown }>;
+}) {
+  return {
+    editorMounted: false,
+    codeModel: null,
+    diffModels: null,
+    content: "reloaded from disk",
+    originalContent: "",
+    readOnly: false,
+    liveEditors: [],
+    ...overrides,
+  } as unknown as Parameters<typeof syncRetainedEditorModels>[0];
+}
+
+describe("retained model sync while hidden", () => {
+  test("applies a store change to the kept model while the panel is hidden", () => {
+    const model = createRetainedModel("stale");
+    expect(syncRetainedEditorModels(syncArgs({ codeModel: model }))).toBe(true);
+    expect(model.value).toBe("reloaded from disk");
+    // One undoable edit on the model's own undo stack.
+    expect(model.calls).toEqual([
+      "pushStackElement",
+      "pushEditOperations",
+      "pushStackElement",
+    ]);
+    // Already in sync: nothing to do.
+    expect(syncRetainedEditorModels(syncArgs({ codeModel: model }))).toBe(false);
+  });
+
+  test("resets a read-only kept model and both diff sides", () => {
+    const code = createRetainedModel("stale");
+    syncRetainedEditorModels(
+      syncArgs({ codeModel: code, content: "snapshot", readOnly: true }),
+    );
+    expect(code.calls).toEqual(["setValue"]);
+
+    const original = createRetainedModel("old base");
+    const modified = createRetainedModel("old working");
+    expect(
+      syncRetainedEditorModels(
+        syncArgs({
+          diffModels: { original, modified },
+          content: "new working",
+          originalContent: "new base",
+        }),
+      ),
+    ).toBe(true);
+    expect(original.value).toBe("new base");
+    expect(original.calls).toEqual(["setValue"]);
+    expect(modified.value).toBe("new working");
+  });
+
+  test("does nothing while an editor is mounted, for a disposed model, or for a model a live editor shows", () => {
+    const mounted = createRetainedModel("stale");
+    expect(
+      syncRetainedEditorModels(
+        syncArgs({ codeModel: mounted, editorMounted: true }),
+      ),
+    ).toBe(false);
+    expect(mounted.value).toBe("stale");
+
+    const disposed = createRetainedModel("stale");
+    disposed.dispose();
+    expect(syncRetainedEditorModels(syncArgs({ codeModel: disposed }))).toBe(
+      false,
+    );
+
+    const shared = createRetainedModel("edited in the other tab");
+    expect(
+      syncRetainedEditorModels(
+        syncArgs({
+          codeModel: shared,
+          liveEditors: [{ getModel: () => shared }],
+        }),
+      ),
+    ).toBe(false);
+    expect(shared.value).toBe("edited in the other tab");
   });
 });

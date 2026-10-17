@@ -78,6 +78,7 @@ import { useEditorPanelMountGate } from "@/components/panes/surfaces/editor-pane
 import {
   disposeTextModelIfUnused,
   reconcileEditorModelContent,
+  syncRetainedEditorModels,
 } from "@/components/panes/surfaces/editor-model-retention";
 import {
   Empty,
@@ -917,6 +918,24 @@ function EditorTabSurface({
       disposeKeptDiffModels();
     }
   }, [diffSessionKey, disposeKeptDiffModels]);
+  // While hidden, apply store content changes (e.g. a reload from disk) to the
+  // kept models so LSP analyzes the current text, not the text at hide time.
+  const tabContent = tab && !tabContentUnavailable ? tab.content : null;
+  const tabOriginalContent = tab?.originalContent ?? "";
+  useEffect(() => {
+    if (tabContent === null) {
+      return;
+    }
+    syncRetainedEditorModels({
+      editorMounted,
+      codeModel: keptCodeModelRef.current,
+      diffModels: keptDiffModelsRef.current,
+      content: tabContent,
+      originalContent: tabOriginalContent,
+      readOnly: tabIsReadOnly,
+      liveEditors: monacoRef.current?.editor.getEditors() ?? [],
+    });
+  }, [editorMounted, tabContent, tabOriginalContent, tabIsReadOnly]);
 
   // Drop preserved view state once the tab itself is closed, and any models
   // kept for a hidden panel once the surface unmounts.
