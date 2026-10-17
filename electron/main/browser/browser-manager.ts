@@ -1606,22 +1606,21 @@ export function destroyBrowserSession(
   lensSessionId?: string,
   reason: LensSessionCloseReason = "closed",
 ): Promise<void> {
-  const closingKey = sessionKey(
-    workspaceId,
-    normalizeLensSessionId(lensSessionId),
-  );
-  const pendingClose = closingSessions.get(closingKey);
-  if (pendingClose) return pendingClose;
+  const normalizedLensSessionId = normalizeLensSessionId(lensSessionId);
+  const closingKey = sessionKey(workspaceId, normalizedLensSessionId);
   /*
-   * An evicted tab survives and keeps its direct-interaction pause; a
-   * deliberate close forgets it, even when the guest was already evicted.
+   * A deliberate close forgets the tab's state even when the page is already
+   * gone or an eviction is still closing it; an evicted tab survives and keeps
+   * both. Session ids are reused — the first Lens tab in every workspace is
+   * `default` — so a kept pause or remembered URL would leak into the next
+   * fresh tab.
    */
   if (reason !== "evicted") {
-    forgetLensAutomation({
-      workspaceId,
-      lensSessionId: normalizeLensSessionId(lensSessionId),
-    });
+    forgetLensAutomation({ workspaceId, lensSessionId: normalizedLensSessionId });
+    forgetLensSessionUrl(workspaceId, normalizedLensSessionId);
   }
+  const pendingClose = closingSessions.get(closingKey);
+  if (pendingClose) return pendingClose;
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session || session.closing) return Promise.resolve();
 
@@ -1632,15 +1631,6 @@ export function destroyBrowserSession(
   // cannot enqueue more renderer IPC while the page is closing.
   const key = sessionKey(session.workspaceId, session.lensSessionId);
   sessions.delete(key);
-  /*
-   * A deliberate close forgets where the page was. Only a session whose page
-   * *died* is restored, and session ids are reused — the first Lens tab in
-   * every workspace is `default` — so keeping the record here would open the
-   * next fresh tab on the page the closed one happened to be showing.
-   */
-  if (reason !== "evicted") {
-    forgetLensSessionUrl(session.workspaceId, session.lensSessionId);
-  }
   clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   if (webContentsSessionIndex.get(session.webContentsId) === session) {
     webContentsSessionIndex.delete(session.webContentsId);

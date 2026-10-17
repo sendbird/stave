@@ -139,3 +139,26 @@ test("a deliberate close forgets the session's automation pause; eviction keeps 
   await manager.destroyBrowserSession(args.workspaceId, "default");
   expect(automation.getLensAutomation(target).paused).toBe(false);
 });
+
+test("closing a tab while its eviction is still closing forgets the automation pause", async () => {
+  drain = new Promise((resolve) => {
+    finishDrain = resolve;
+  });
+  guests.set(30, new FakeGuest(30));
+  const args = {
+    workspaceId: "automation-evicting-test",
+    lensSessionId: "default",
+    guestWebContentsId: 30,
+  };
+  const target = { workspaceId: args.workspaceId, lensSessionId: "default" };
+  expect(manager.bindBrowserSessionGuest(args).ok).toBe(true);
+  automation.pauseLensAutomation(target, true);
+
+  const evicting = manager.destroyBrowserSession(args.workspaceId, "default", "evicted");
+  const closing = manager.destroyBrowserSession(args.workspaceId, "default");
+  expect(closing).toBe(evicting);
+  finishDrain("drained");
+  await closing;
+
+  expect(automation.getLensAutomation(target).paused).toBe(false);
+});
