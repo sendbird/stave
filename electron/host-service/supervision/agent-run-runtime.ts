@@ -1,4 +1,5 @@
 import { i18n } from "../../../src/i18n/runtime";
+import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks } from "../../../src/lib/agent-runs/acceptance";
 import type { RunQuestionAnswer } from "../run-question-answer";
 import { admitWorkspaceCheck } from "./workspace-check-admission";
 import { createStageScriptRunner, type WorkspaceCheckDependencies, type WorkspaceScriptReceipt } from "./agent-run-workspace-script";
@@ -76,6 +77,7 @@ import {
   buildAgentRunTurnContextPart,
   buildEventWakePrompt,
   buildStageNudgePrompt,
+  buildChecksRepairPrompt,
   buildWaitExpiredPrompt,
   compileAgentRunStagePrompt,
   describeAgentRunExecutionContext,
@@ -124,6 +126,7 @@ import {
 import {
   applyAgentRunDecision,
   decideAgentRunAction,
+  turnCapPause,
   type ActionOutcome,
   type AgentRunDecision,
   type AgentRunObservation,
@@ -629,7 +632,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     if (read && (change.agentRun.state !== "running" || change.agentRun.eventWait?.id !== read.waitId))
       dropPullRequestRead(change.agentRun.id);
     const owned = actionControllers.get(change.agentRun.id);
-    if (owned && (!isActiveAgentRunState(change.agentRun.state) || change.upserts.some((stage) =>
+    if (owned && (change.agentRun.state !== "running" || change.upserts.some((stage) =>
       stageKey(stage) === owned.key && ["completed", "skipped", "cancelled"].includes(stage.status)))) {
       owned.controller.abort();
       actionControllers.delete(change.agentRun.id);
@@ -941,7 +944,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       facts = { ...facts, ...(record.facts?.workspaceCheckNotice ? { workspaceCheckNotice: record.facts.workspaceCheckNotice } : {}), ...(record.facts?.workspaceScripts ? { workspaceScripts: record.facts.workspaceScripts } : {}), currentTurnId: last.turnId, ...(!facts.plan && previousPlan ? { plan: previousPlan } : {}) };
     } catch (error) {
       console.warn("[agent-runs] failed to collect stage facts", error, { agentRunId: agentRun.id });
-      return aggregate;
+      // Keep useful history, but it is not evidence of the workspace after this turn.
+      return applyChange({ agentRun, upserts: [{ ...record, facts: { ...(record.facts ?? EMPTY_STAGE_FACTS),
+        workspaceRevision: { status: "unknown", reason: "unavailable" } } }], events: [] });
     }
     factsCollectedThrough.set(key, last.turnId);
     return applyChange({ agentRun, upserts: [{ ...record, facts }], events: [] });
@@ -1313,7 +1318,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
         retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey)] : [])],
-        ...(actionPrompt === undefined || userReply ? { agentRunStage: identity } : {}),
+        ...(actionPrompt === undefined || userReply || reason === "repair-checks" ? { agentRunStage: identity } : {}),
         ...(reason === "resume-after-account-switch" ? { freshSession: true } : {}),
         ...(hasAgentOrigin(agentRun)
           ? { agentRunPrompt: { agentRunId: agentRun.id, assignment: extractRunAssignment(prompt, agentRun.assignment) } }
@@ -1350,7 +1355,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     // Consumed here, so the finished turn leads back to the action instead of
     // asking for another turn.
     actionOutcomes.set(key, { status: "in-progress" });
-    await startAgentRunTurn(aggregate, decision, requested.reason, requested.prompt);
+    await startAgentRunTurn(aggregate, decision, requested.reason, buildChecksRepairPrompt(aggregate, requested.prompt));
   }
 
   async function executeAction(
@@ -1369,8 +1374,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const current = hasEffect(change, aggregate) ? applyChange(change) : aggregate;
     const record = currentStageRecord(current);
     const stage = workflowStageAt(current.agentRun, current.agentRun.currentStageIndex);
-    if (delegation && isReadOnlyDelegationPolicy(delegation.permissionPolicy.providerId, delegation.permissionPolicy)) {
-      const denied: ActionOutcome = { status: "failed", detail: "This delegated Agent is read-only and cannot execute host action stages. Use an AI stage within its permission policy." };
+    if (deps.taskAgent?.(current.agentRun.leadTaskId)?.permission === "read-only" ||
+        delegation && isReadOnlyDelegationPolicy(delegation.permissionPolicy.providerId, delegation.permissionPolicy)) {
+      const denied: ActionOutcome = { status: "failed", detail: "This Agent is read-only and cannot execute host action stages. Use an AI stage within its permission policy." };
       actionOutcomes.set(stageKey(record), denied);
       return denied;
     }
@@ -1383,7 +1389,23 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       owned = { key: stageKey(record), controller: new AbortController() };
       actionControllers.set(current.agentRun.id, owned);
     }
-    const outcome: ActionOutcome = deps.performAction
+    if (stage.kind === "action" && stage.action.type !== "run-script" && hasInheritedWorkspaceChecks(current)) {
+      const cwd = await deps.resolveWorkspacePath(current.agentRun.workspaceId).catch(() => null);
+      const workspaceRevision = cwd && deps.readWorkspaceRevision
+        ? await deps.readWorkspaceRevision(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const }))
+        : { status: "unknown" as const, reason: "unavailable" as const };
+      if (unmetInheritedWorkspaceChecks(current, { ...record, facts: { ...(record.facts ?? EMPTY_STAGE_FACTS), workspaceRevision } })) {
+        const failed: ActionOutcome = { status: "failed", detail: i18n.t("agentRuns:policy.actionNeedsCurrentCheck") };
+        actionOutcomes.set(stageKey(record), failed);
+        return failed;
+      }
+    }
+    if (owned.controller.signal.aborted) {
+      const interrupted: ActionOutcome = { status: "failed", detail: "The action was interrupted. Inspect any side effects before retrying the stage." };
+      actionOutcomes.set(stageKey(record), interrupted);
+      return interrupted;
+    }
+    let outcome: ActionOutcome = deps.performAction
       ? await deps.performAction({ aggregate: current, signal: owned.controller.signal }).catch((error: unknown) => ({
           status: "failed" as const,
           detail: describeError(error, "The Stave action failed."),
@@ -1392,11 +1414,17 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           status: "failed",
           detail: `This version of Stave cannot run the "${stage.title}" action yet. Skip the stage or cancel the run.`,
         };
+    if (owned.controller.signal.aborted) outcome = { status: "failed", detail: "The action was interrupted. Inspect any side effects before retrying the stage." };
     actionOutcomes.set(stageKey(record), outcome);
     if (lastSequence() !== sequenceBefore) emit(current.agentRun);
     if (outcome.status === "succeeded") {
       const cwd = await deps.resolveWorkspacePath(current.agentRun.workspaceId);
       const workspaceRevision = cwd && deps.readWorkspaceRevision ? await deps.readWorkspaceRevision(cwd) : { status: "unknown" as const, reason: "unavailable" as const };
+      if (owned.controller.signal.aborted) {
+        const interrupted: ActionOutcome = { status: "failed", detail: "The action was interrupted. Inspect any side effects before retrying the stage." };
+        actionOutcomes.set(stageKey(record), interrupted);
+        return interrupted;
+      }
       // The report reads the result from the stage's facts, as verified evidence.
       applyChange({
         agentRun: current.agentRun,
@@ -1468,11 +1496,13 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const decision = decideAgentRunAction({ aggregate, observation, now: now() });
       if (decision.action === "complete-stage" && !store.resourceConfig?.(agentRunId)?.link && store.resourceConfig?.(agentRunId)) {
         if ((store.readResources?.(agentRunId)?.activeHelpers ?? 0) > 0) return;
-        const events = store.listEventsByKind(agentRunId, ["resource-budget", "turn-started", "turn-linked"]);
+        const record = currentStageRecord(aggregate);
+        const events = store.listEventsByKind(agentRunId, ["resource-budget", "report"]);
         const lastRelease = events.filter((event) => event.kind === "resource-budget" && event.detail.operation === "release").at(-1)?.sequence ?? 0;
-        const lastParentTurn = events.filter((event) => event.kind === "turn-started" || (event.kind === "turn-linked" && event.detail.reason === "user-reply")).at(-1)?.sequence ?? 0;
-        if (lastRelease > lastParentTurn && workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind === "ai") {
-          const record = currentStageRecord(aggregate);
+        const lastReport = events.filter((event) => event.kind === "report" && event.detail.stageId === record.stageId && event.detail.attempt === record.attempt && event.detail.outcome === "complete").at(-1)?.sequence ?? 0;
+        if (lastRelease > lastReport && workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind === "ai") {
+          const capped = turnCapPause(aggregate.agentRun, observation);
+          if (capped) { applyChange(applyAgentRunDecision({ aggregate, decision: capped, now: now() })); return; }
           await startAgentRunTurn(aggregate, { action: "start-stage-turn", stageIndex: aggregate.agentRun.currentStageIndex, attempt: record.attempt, reason: "stage-start" },
             "stage-start", `${compileAgentRunStagePrompt(aggregate, deps.agentNames?.())}\nIntegrate the final helper outcomes, verify the complete assignment, then report this stage again. An earlier report predates those helper outcomes.`, true);
           return;
@@ -1678,6 +1708,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
 
   function stop() {
     scriptRunner.stop();
+    for (const owned of actionControllers.values()) owned.controller.abort();
     for (const controller of preparationControllers.values()) controller.abort();
     for (const agentRunId of [...pullRequestReads.keys()]) dropPullRequestRead(agentRunId);
     if (intervalHandle) {
@@ -1751,7 +1782,16 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     };
   }
 
-  const scriptRunner = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange, isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null });
+  const scriptRunner = createStageScriptRunner({ ...deps, enqueue, requireGrant, applyChange,
+    isDelegated: (aggregate) => delegatedAuthority(aggregate.agentRun) !== null,
+    isChecksRepairTurn: (grant) => {
+      const events = store.listEventsByKind(grant.agentRunId, ["turn-started", "turn-linked"])
+        .filter((event) => event.detail.stageId === grant.stageId && event.detail.attempt === grant.attempt);
+      return events.some((started) => started.kind === "turn-started" && started.detail.reason === "repair-checks" &&
+        started.idempotencyKey && events.some((linked) => linked.kind === "turn-linked" && linked.detail.turnId === grant.turnId &&
+          linked.idempotencyKey === buildAgentRunTurnOutcomeKey(started.idempotencyKey!, "linked")));
+    },
+  });
   return {
     runWorkspaceScript: scriptRunner.run,
     reserveChildResources: (args) => store.reserveChildResources?.({ ...args, now: now() }) ?? null,
@@ -2143,6 +2183,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         retryStage({ aggregate, expected: stageIdentity(args), now: now() }),
       ),
     pause: ({ agentRunId }) => {
+      actionControllers.get(agentRunId)?.controller.abort();
       scriptRunner.abort(agentRunId);
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
@@ -2157,6 +2198,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     extend: ({ agentRunId, additionalTurns }) =>
       command(agentRunId, (aggregate) => extendAgentRun({ aggregate, additionalTurns, now: now() })),
     takeOver: ({ agentRunId }) => {
+      actionControllers.get(agentRunId)?.controller.abort();
       scriptRunner.abort(agentRunId);
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
@@ -2180,8 +2222,14 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }),
     // Records the composer's choice only. The reply itself is counted once, by
     // turn id, when the runtime sees the user's turn end.
-    noteUserTurn: ({ agentRunId, intent }) =>
-      command(agentRunId, (aggregate) => {
+    noteUserTurn: ({ agentRunId, intent }) => {
+      if (intent === "take-over") {
+        actionControllers.get(agentRunId)?.controller.abort();
+        scriptRunner.abort(agentRunId);
+        preparationControllers.get(agentRunId)?.abort();
+        dropPullRequestRead(agentRunId);
+      }
+      return command(agentRunId, (aggregate) => {
         if (intent === "take-over") {
           userTurnIntents.delete(agentRunId);
           return pauseAgentRun({ aggregate, reason: "taken-over", now: now() });
@@ -2191,8 +2239,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         }
         userTurnIntents.set(agentRunId, intent);
         return { agentRun: aggregate.agentRun, upserts: [], events: [] };
-      }),
+      });
+    },
     cancel: ({ agentRunId }) => {
+      actionControllers.get(agentRunId)?.controller.abort();
       scriptRunner.abort(agentRunId);
       preparationControllers.get(agentRunId)?.abort();
       dropPullRequestRead(agentRunId);
@@ -2215,7 +2265,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageCompleteReportInputSchema.parse(report);
         const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
-        const needsRevision = stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check");
+        if (stage.kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
+        const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check");
         const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
         const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
         const next = applyChange(
@@ -2237,6 +2288,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       enqueue(() => {
         const { grant, aggregate } = requireGrant(agentRunKey);
         const input = StageBlockInputSchema.parse(block);
+        if (workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
         const next = applyChange(
           recordStageReport({
             aggregate,
@@ -2256,6 +2308,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const { grant, aggregate } = requireGrant(agentRunKey);
         const { agentRun } = aggregate;
         const record = currentStageRecord(aggregate);
+        if (workflowStageAt(agentRun, agentRun.currentStageIndex).kind !== "ai") refuse("Stave action stages wait through their host action, not an event-wait request.");
         if (record.stageId !== grant.stageId || record.attempt !== grant.attempt) {
           throw new AgentRunCommandError("stale-identity", "The run has moved on from this turn's stage.");
         }

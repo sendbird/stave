@@ -56,13 +56,13 @@ describe("stage prompt", () => {
   });
 
   test("tells only the last stage which criteria it must still report met", () => {
-    const rule = "This is the last stage. The run finishes only when your report marks met every criterion this stage defines";
+    const rule = "This is the last stage. The run finishes only when your report marks met every required criterion this stage defines";
     expect(compileStagePrompt(input())).not.toContain(rule);
     const lastAi = slack.stages.findLastIndex((stage) => stage.kind === "ai");
     const twoStage = { ...slack, stages: [slack.stages[0]!, slack.stages[lastAi]!] };
     expect(compileStagePrompt(input({ workflow: twoStage, stageIndex: 1 }))).toContain(rule);
-    // A one-stage run has no earlier criteria to restate.
-    expect(compileStagePrompt(input({ workflow: { ...slack, stages: [slack.stages[lastAi]!] }, stageIndex: 0 }))).not.toContain(rule);
+    // A one-stage run can still report its own criteria and needs the same completion contract.
+    expect(compileStagePrompt(input({ workflow: { ...slack, stages: [slack.stages[lastAi]!] }, stageIndex: 0, acceptanceCriteria: [] }))).toContain(rule);
   });
 
   test("states the reporting contract", () => {
@@ -71,6 +71,15 @@ describe("stage prompt", () => {
     expect(prompt).toContain("`stave_block_stage`");
     expect(prompt).toContain("Never report unverified work as complete.");
     expect(prompt).toContain("do not begin later stages in this turn");
+  });
+
+  test("keeps optional verification distinct from required completion", () => {
+    const lastAi = slack.stages.findLastIndex((stage) => stage.kind === "ai");
+    const prompt = compileStagePrompt(input({ workflow: { ...slack, stages: [slack.stages[0]!, slack.stages[lastAi]!] }, stageIndex: 1,
+      acceptanceCriteria: [{ text: "Live browser check", status: "unverified", required: false }] }));
+    expect(prompt).toContain("- [unverified] Live browser check (optional)");
+    expect(prompt).toContain("Optional criteria do not block completion");
+    expect(prompt).toContain("required: false");
   });
 
   test("never names the run, workflow or stage ids", () => {

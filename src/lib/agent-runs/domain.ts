@@ -27,6 +27,8 @@ import { ScriptVerificationSchema, WorkspaceRevisionSchema } from "./verificatio
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
 import {
   CHECK_INS,
+  MAX_WORKFLOW_STAGES,
+  MAX_STAGE_ACCEPTANCE_CRITERIA,
   WorkflowSchema,
   type Workflow,
   type WorkflowStage,
@@ -60,7 +62,7 @@ export const AGENT_RUN_LIMITS = Object.freeze({
     artifactLabel: 160,
     // A last stage restates the criteria it inherits as well as its own (up
     // to 20 per stage), and a criterion's text can be a stage's Done when.
-    criteria: 40,
+    criteria: MAX_WORKFLOW_STAGES * MAX_STAGE_ACCEPTANCE_CRITERIA,
     criterionText: 500,
     missing: 600,
     suggestedAction: 300,
@@ -241,6 +243,8 @@ export const AcceptanceCriterionSchema = z
 export const StageCompleteReportInputSchema = z
   .object({
     summary: z.string().trim().min(1).max(limits.summary),
+    /** Reported only after an independent review completed; missing preserves the repair stage. */
+    reviewVerdict: z.enum(["passed", "changes-requested"]).optional(),
     decisions: z
       .array(
         z

@@ -56,7 +56,10 @@ check passes, not that the change is right: a change can satisfy a check
 without fixing its cause. An agent that edits files and has no workflow of its
 own, such as Implementer, does this by itself: its **Review before done**
 setting (Agents → the agent → **Workflow**, on **When behavior changes** by
-default) makes every run Work → Review → Fix review findings. To shape the
+default) adds Work → Review → Fix review findings. The independent review stays;
+the final repair is skipped only after a passing review of unchanged work with
+no required checks or sign-off left. Research conclusions and artifacts are
+reviewed even when there are no code commits. To shape the
 stages yourself, give the agent three stages (Agents → the agent →
 **Workflow** → **Add stage**):
 
@@ -120,8 +123,9 @@ agents and checks each result before it reports.
    the checks** on the status line and Fleet, between turns too. Until the
    first plan arrives the line says **Planning…**. A single step counts.
    **Progress** updates the checklist as the agent works and keeps the saved
-   plan between turns; the report carries the final plan. Agent runs require
-   the agent to write and maintain a plan with one step in progress.
+   plan between turns; the report carries the final plan. Multi-step work uses
+   the provider's plan tool when available, otherwise a short written plan.
+   A missing plan tool does not block work, and a simple answer needs no plan.
 4. The shelf summarizes the task's subagents, for example **Implementer
    running · Reviewer done**, or **Reviewer needs you** when a delegated Agent
    waits for a person (a question, an approval, or its own run halted or
@@ -288,7 +292,10 @@ that stage must be reported **Met**. Criteria for the overall goal are checked
 at the final stage; a Build stage can pass to Test while future checks are
 still pending. At the final stage a goal criterion an earlier stage already
 met stands unless the final report says otherwise; the others must be
-reported **Met** there. A report holds up to 40 criteria. A simple answer or documentation stage requires no shell check
+reported **Met** there. Host checks from earlier stages remain valid only for
+the current workspace revision; edits require another admitted check. A report
+holds up to 240 criteria, covering all 12 stages' 20 criteria. Optional checks
+can stay unverified without blocking required work. A simple answer or documentation stage requires no shell check
 unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 
@@ -298,6 +305,11 @@ assessment, or `stave-check` for a host workspace script result. A required
 `stave-check` cannot be satisfied by an agent-reported **Met**. Run script
 action stages keep the same check behavior, including when verification is
 omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
+
+Read-only Agents cannot execute host action stages. Pausing, taking over or
+cancelling interrupts an action script and prevents further source-control
+operations. A command already sent may finish; inspect any side effects before
+retrying. Resuming does not automatically replay an interrupted action.
 
 A primary write agent's implicit Work stage, and the last AI stage of the
 built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
@@ -314,8 +326,19 @@ output, the definition hash, the executed commands and before/after revisions on
 in its evidence. Required checks need exit 0 and known matching source,
 completed, report and final workspace revisions. A missing, failing or stale
 check blocks completion with the script ID and tool to run before reporting
-again. Only write-capable primary AI-stage turns may run it; read-only,
-non-run and action-stage callers are refused. Each run allows one script at
+again. Write-capable primary AI-stage turns and the exact CI repair turn started
+by **Watch checks** may run it; read-only, delegated, non-run and other action
+callers are refused. A CI repair commits its fix, reruns the inherited frozen
+checks, then ends without a stage report. Stave checks that evidence before
+continuing publication. Later stages can reuse a successful check across staging
+or a commit only when the fingerprint proves that paths, modes and file contents
+are unchanged. Unknown, conflicted or unsupported content cannot establish that
+equivalence. Content fingerprints use actual worktree bytes, including line endings,
+rather than normalized Git blobs. They are bounded to 20,000 paths and 128 MiB;
+larger trees need the final commit before the check instead of reusing a pre-commit
+result. The original check itself still needs matching source and completed
+revisions; an AI report and independent review still require strict revision matches.
+Each run allows one script at
 a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation, and a report whose revision cannot be read stays blocked with that reason. Admission reads no git snapshot, so the default check is never dropped because of the workspace state; only an invalid default-criterion insertion is skipped with a timeline/report notice, and that notice survives stage retry. Workspace renames do not change a script definition hash.
 
 Check evidence separates **Provider result** and **Agent reported** claims from

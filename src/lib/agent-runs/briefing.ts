@@ -31,9 +31,10 @@ import {
 import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { currentEventWait, type AgentRunEventWait } from "./event-wait";
-import { workspaceCheckInstruction, workspaceCheckMet } from "./workspace-check";
+import { inheritedWorkspaceChecks, workspaceActionCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
 import type { EventWaitWake } from "./event-wait-observe";
 import type { StageTurnReason } from "./policy";
+import { revisionsMatch } from "./verification-contract";
 
 export const AGENT_RUN_TOOL_NAMES = Object.freeze({
   get: "stave_get_agent_run",
@@ -78,6 +79,23 @@ const STAGE_TURN_CLOSING = `Before this turn ends, report through \`${AGENT_RUN_
 const ACTION_TURN_CLOSING =
   "Commit your fix before this turn ends. Stave pushes the branch and watches the checks again afterwards; this turn reports no stage. Do not ask a question you cannot get answered.";
 
+function checksRepairClosing(aggregate: AgentRunAggregate): string {
+  const criteria = inheritedWorkspaceCheckCriteria(aggregate);
+  return [
+    ACTION_TURN_CLOSING,
+    ...(criteria.length ? [
+      "Commit the finished fix first, then rerun every required inherited host check on that committed revision with `stave_run_workspace_script`. Use one frozen script from each check below; every required check must return verified: true before you end the turn. Shell test output does not replace these host checks. If a check fails, fix the cause, commit again and rerun it. If the check cannot run, explain the blocker without claiming verification.",
+      ...criteria.map((criterion) => `- ${criterion.text}: ${criterion.scriptIds?.map((id) => `\`${id}\``).join(" or ") ?? "its frozen configured script"}`),
+      "Do not call `stave_report_stage`, `stave_block_stage` or `stave_wait_for_event` for this action repair turn. End the turn after the repair and its host checks; Stave resumes the action.",
+    ] : []),
+  ].join("\n");
+}
+
+/** Action repairs keep their closing contract even though they now carry a script grant. */
+export function buildChecksRepairPrompt(aggregate: AgentRunAggregate, prompt: string): string {
+  return `${prompt}\n\n${checksRepairClosing(aggregate)}`;
+}
+
 /** Summaries of the stages before the current one, in workflow order. */
 export function collectPriorStageSummaries(
   aggregate: AgentRunAggregate,
@@ -89,7 +107,7 @@ export function collectPriorStageSummaries(
     const record = latestStageRecord(stages, stage.id);
     if (record?.status === "skipped") {
       // i18n-ignore: model-facing run briefing context
-      summaries.push({ title: stage.title, summary: "Skipped by the user." });
+      summaries.push({ title: stage.title, summary: record.detail ?? "Skipped by the user." });
       continue;
     }
     if (record?.status !== "completed") continue;
@@ -119,16 +137,46 @@ export function collectAcceptanceCriteria(
 ): AcceptanceCriterion[] {
   const { agentRun, stages } = aggregate;
   let criteria: AcceptanceCriterion[] = [];
+  const hostCriteria = new Map<string, WorkspaceCheckCriterion>();
+  const currentStageId = agentRun.workflow.stages[agentRun.currentStageIndex]?.id;
+  const currentRevision = currentStageId ? latestStageRecord(stages, currentStageId)?.facts?.workspaceRevision : undefined;
   for (let index = 0; index < agentRun.currentStageIndex + Number(includeCurrent); index += 1) {
     const record = latestStageRecord(stages, workflowStageAt(agentRun, index).id);
     const stage = workflowStageAt(agentRun, index);
     const observed = stage.kind === "action" && record?.facts?.action?.type === "run-script"
-      ? (stage.acceptanceCriteria ?? []).map((criterion) => ({ text: criterion.text, required: criterion.required, status: isVerifiedEvidence(describeActionEvidence(record.facts!.action!, record.facts)) ? "met" as const : "unverified" as const })) : [];
+      ? (stage.acceptanceCriteria ?? []).map((criterion) => {
+        const action = record.facts!.action!;
+        const verified = index < agentRun.currentStageIndex && action.type === "run-script"
+          ? action.exitCode === 0 && revisionsMatch(action.verification?.sourceRevision, action.verification?.completedRevision) &&
+            workspaceCheckRevisionMatches(action.verification?.completedRevision, currentRevision ?? record.facts?.workspaceRevision)
+          : isVerifiedEvidence(describeActionEvidence(action, record.facts));
+        return { text: criterion.text, required: criterion.required, status: verified ? "met" as const : "unverified" as const };
+      }) : [];
     const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
-    const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => ({ text: criterion.text, required: criterion.required, status: workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions) ? "met" as const : "unverified" as const })) : [];
-    const updates = [...reported, ...observed, ...checks];
+    const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => {
+      const verified = index < agentRun.currentStageIndex
+        ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions), currentRevision ?? record.facts?.workspaceRevision)
+        : workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions);
+      return { text: criterion.text, required: criterion.required, status: verified ? "met" as const : "unverified" as const };
+    }) : [];
+    const repaired = stage.kind === "action" && stage.action.type === "watch-checks" && record
+      ? [...hostCriteria.values()].flatMap((criterion) => {
+        const verifiedRevision = workspaceActionCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions);
+        if (!verifiedRevision) return [];
+        return [{ text: criterion.text, required: criterion.required, status: workspaceCheckRevisionMatches(verifiedRevision, currentRevision ?? record.facts?.workspaceRevision) ? "met" as const : "unverified" as const }];
+      }) : [];
+    const updates = [...reported, ...observed, ...checks, ...repaired];
     if (updates.length) {
-      if (stage.kind === "ai" && stage.role === "plan") criteria = [];
+      if (stage.kind === "ai" && stage.role === "plan") {
+        criteria = [];
+        hostCriteria.clear();
+      }
+      if (stage.kind === "ai" && record) for (const criterion of stage.acceptanceCriteria ?? []) {
+        if (criterion.verification === "stave-check") hostCriteria.set(criterion.text.trim(), criterion);
+      }
+      if (stage.kind === "action" && stage.action.type === "run-script" && record) for (const criterion of stage.acceptanceCriteria ?? []) {
+        hostCriteria.set(criterion.text.trim(), criterion);
+      }
       for (const incoming of updates) {
         const position = criteria.findIndex((criterion) => criterion.text.trim() === incoming.text.trim());
         if (position < 0) criteria.push(incoming);
@@ -137,6 +185,12 @@ export function collectAcceptanceCriteria(
     }
   }
   return criteria;
+}
+
+/** Frozen check authority and instructions a host-issued repair may inherit. */
+export function inheritedWorkspaceCheckCriteria(aggregate: AgentRunAggregate): WorkspaceCheckCriterion[] {
+  const required = new Set(collectAcceptanceCriteria(aggregate).filter((criterion) => criterion.required !== false).map((criterion) => criterion.text.trim()));
+  return [...inheritedWorkspaceChecks(aggregate)].filter(([text]) => required.has(text)).map(([, check]) => check.criterion);
 }
 
 /** Execution feedback shared by every role, for routing and strategy decisions. */
@@ -247,7 +301,7 @@ export function buildAgentRunTurnContextPart(args: {
       // Stage prompts already include the implicit workflow's plan instruction.
       ...(hasAgentOrigin(agentRun) && (args.reason === "nudge" || args.reason === "repair-checks" ||
         stage.kind !== "ai" || !stage.instruction.includes(AGENT_RUN_PLAN_INSTRUCTION)) ? [AGENT_RUN_PLAN_INSTRUCTION] : []),
-      args.reason === "repair-checks" ? ACTION_TURN_CLOSING : STAGE_TURN_CLOSING,
+      args.reason === "repair-checks" ? checksRepairClosing(args.aggregate) : STAGE_TURN_CLOSING,
     ].join("\n"),
   };
 }

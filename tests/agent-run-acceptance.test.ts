@@ -2,16 +2,18 @@ import { expect, test } from "bun:test";
 import { unmetStageAcceptance } from "../src/lib/agent-runs/acceptance";
 import { currentStageRecord, createStageRecord, StageCompleteReportInputSchema } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction } from "../src/lib/agent-runs/policy";
-import { WorkflowSchema, WORKFLOW_LIMITS } from "../src/lib/workflows/schema";
+import { WorkflowSchema, WORKFLOW_LIMITS, MAX_WORKFLOW_STAGES, MAX_STAGE_ACCEPTANCE_CRITERIA } from "../src/lib/workflows/schema";
 import { COMPLETE_REPORT, AGENT_RUN_NOW, agentRunFixture, observe, patchCurrent, turn } from "./fixtures/agent-run-fixtures";
 
 const ai = (id: string) => ({ id, title: id, kind: "ai" as const, instruction: "Do this stage.", doneWhen: "This stage is done." });
 
-test("a last-stage report can restate two full stages of criteria, each as long as a Done when", () => {
+test("a last-stage report can restate the full workflow's criteria, each as long as a Done when", () => {
   const text = (index: number) => `${index} ${"x".repeat(WORKFLOW_LIMITS.doneWhen - 4)}`;
   const report = (count: number) => ({ summary: "Done", acceptanceCriteria: Array.from({ length: count }, (_, index) => ({ text: text(index), status: "met" as const })) });
-  expect(StageCompleteReportInputSchema.safeParse(report(40)).success).toBe(true);
-  expect(StageCompleteReportInputSchema.safeParse(report(41)).success).toBe(false);
+  const capacity = MAX_WORKFLOW_STAGES * MAX_STAGE_ACCEPTANCE_CRITERIA;
+  expect(capacity).toBe(240);
+  expect(StageCompleteReportInputSchema.safeParse(report(capacity)).success).toBe(true);
+  expect(StageCompleteReportInputSchema.safeParse(report(capacity + 1)).success).toBe(false);
 });
 function aggregateFor(stages: unknown[]) {
   const base = agentRunFixture();

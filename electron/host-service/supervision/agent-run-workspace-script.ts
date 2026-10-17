@@ -2,6 +2,7 @@ import { z } from "zod";
 import { i18n } from "../../../src/i18n/runtime";
 import { AgentRunCommandError, currentStageRecord, EMPTY_STAGE_FACTS, workflowStageAt, type AgentRunAggregate, type AgentRunChange } from "../../../src/lib/agent-runs/domain";
 import { scriptVerificationProblem } from "../../../src/lib/agent-runs/workspace-check";
+import { inheritedWorkspaceCheckCriteria } from "../../../src/lib/agent-runs/briefing";
 import { WORKSPACE_SCRIPT_TIMEOUT_MS, type FrozenWorkspaceScript, type ScriptVerification } from "../../../src/lib/agent-runs/verification-contract";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import type { AgentRunStageGrant } from "../../providers/agent-run-grants";
@@ -28,6 +29,8 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
   enqueue: <T>(operation: () => T | Promise<T>) => Promise<T>;
   requireGrant: (key: string) => { grant: AgentRunStageGrant; aggregate: AgentRunAggregate };
   isDelegated: (aggregate: AgentRunAggregate) => boolean;
+  /** Checks persisted host turn identity, never a caller-supplied repair flag. */
+  isChecksRepairTurn?: (grant: AgentRunStageGrant) => boolean;
   applyChange: (change: AgentRunChange) => unknown;
   setTimeout?: typeof globalThis.setTimeout;
   clearTimeout?: typeof globalThis.clearTimeout;
@@ -44,8 +47,10 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
     const agent = deps.taskAgent?.(grant.taskId);
     if (!agent) return refuse("Assign a write-capable agent before running a workspace script.");
     if (agent.permission === "read-only") refuse("A read-only agent cannot run workspace scripts.");
-    if (workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind !== "ai") refuse("Workspace scripts require an AI Work stage, not an action stage.");
-    return { ...current, record };
+    const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
+    const repair = stage.kind === "action" && stage.action.type === "watch-checks" && deps.isChecksRepairTurn?.(grant) === true;
+    if (stage.kind !== "ai" && !repair) refuse("Workspace scripts require an AI Work stage or its host-issued checks repair turn.");
+    return { ...current, record, repair };
   }
   function abort(agentRunId: string) {
     running.get(agentRunId)?.controller.abort(new Error("The workspace script was stopped with its run."));
@@ -59,7 +64,10 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
       const scripts = await deps.listWorkspaceActionScripts!(current.aggregate.agentRun.workspaceId);
       const script = scripts.find((entry) => entry.scriptId === input.scriptId);
       if (!script) return refuse(`Unknown workspace action script: ${input.scriptId}.`);
-      const definitions = current.aggregate.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).flatMap((criterion) => criterion.scriptDefinitions ?? []) : []);
+      const definitions = current.repair
+        ? inheritedWorkspaceCheckCriteria(current.aggregate).flatMap((criterion) => criterion.scriptDefinitions ?? [])
+        : current.aggregate.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" || stage.action.type === "run-script"
+          ? (stage.acceptanceCriteria ?? []).flatMap((criterion) => criterion.scriptDefinitions ?? []) : []);
       const frozen = definitions.find((entry) => entry.scriptId === input.scriptId);
       if (!frozen) return refuse(`Script ${input.scriptId} has no definition frozen at admission. Start a new run with a readable workspace revision.`);
       if (script.definitionHash !== frozen.definitionHash) return refuse(`Script ${input.scriptId} definition changed after this run started. Restore the admitted definition or start a new run.`);

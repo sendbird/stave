@@ -1,8 +1,63 @@
 import { i18n } from "@/i18n/runtime";
-import type { AgentRunAggregate, AgentRunStageRecord } from "./domain";
-import { collectAcceptanceCriteria } from "./briefing";
+import { latestStageRecord, type AgentRunAggregate, type AgentRunStageRecord } from "./domain";
+import { collectAcceptanceCriteria, inheritedWorkspaceCheckCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
-import { workspaceCheckBlock, workspaceCheckMet } from "./workspace-check";
+import { inheritedWorkspaceChecks, workspaceActionCheckMet, workspaceActionCheckRevision, workspaceCheckBlock, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches, type InheritedWorkspaceCheck } from "./workspace-check";
+export { inheritedWorkspaceCheckCriteria } from "./briefing";
+
+/** The final AI report also needs a revision when its host checks came from an earlier stage. */
+export function hasInheritedWorkspaceChecks(aggregate: AgentRunAggregate): boolean {
+  return inheritedWorkspaceCheckCriteria(aggregate).length > 0;
+}
+
+function actionCheckMet(record: AgentRunStageRecord, scriptId: string): boolean {
+  const action = record.facts?.action;
+  return action?.type === "run-script" && action.scriptId === scriptId && action.exitCode === 0 &&
+    revisionsMatch(action.verification?.sourceRevision, action.verification?.completedRevision) &&
+    revisionsMatch(action.verification?.completedRevision, record.facts?.workspaceRevision);
+}
+
+function inheritedWorkspaceCheckMet(aggregate: AgentRunAggregate, record: AgentRunStageRecord, check: InheritedWorkspaceCheck): boolean {
+  const currentStage = aggregate.agentRun.workflow.stages[aggregate.agentRun.currentStageIndex]!;
+  const currentRevision = record.facts?.workspaceRevision;
+  // A final AI report cannot claim a tree different from the one observed after its turn.
+  if (currentStage.kind === "ai" && !revisionsMatch(record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined, currentRevision)) return false;
+  const priorRevision = check.actionScriptId && check.record.facts?.action?.type === "run-script"
+    ? check.record.facts.action.exitCode === 0 && revisionsMatch(check.record.facts.action.verification?.sourceRevision, check.record.facts.action.verification?.completedRevision)
+      ? check.record.facts.action.verification?.completedRevision : undefined
+    : workspaceCheckRevision(check.record, check.criterion.scriptIds, check.criterion.scriptDefinitions);
+  if (workspaceCheckRevisionMatches(priorRevision, currentRevision)) return true;
+  const repairCheckMet = (candidate: AgentRunStageRecord) => workspaceActionCheckMet(candidate, check.criterion.scriptIds, check.criterion.scriptDefinitions);
+  if (currentStage.kind === "action" && currentStage.action.type === "watch-checks" && repairCheckMet(record)) return true;
+  // A later publication stage may reuse the last strict, host-verified repair;
+  // an earlier attempt or an unverified change never supplies this evidence.
+  for (const stage of aggregate.agentRun.workflow.stages.slice(0, aggregate.agentRun.currentStageIndex)) {
+    if (stage.kind !== "action" || stage.action.type !== "watch-checks") continue;
+    const repaired = latestStageRecord(aggregate.stages, stage.id);
+    if (repaired?.status !== "completed") continue;
+    const repairRevision = workspaceActionCheckRevision(repaired, check.criterion.scriptIds, check.criterion.scriptDefinitions);
+    if (workspaceCheckRevisionMatches(repairRevision, currentRevision)) return true;
+  }
+  if (!check.actionScriptId) return workspaceCheckMet(record, check.criterion.scriptIds, check.criterion.scriptDefinitions);
+  if (actionCheckMet(record, check.actionScriptId)) return true;
+  if (workspaceCheckMet(record, check.criterion.scriptIds, check.criterion.scriptDefinitions)) return true;
+  // Older Run script snapshots may have no frozen binding. A later AI check
+  // can supply one only if that script was already admitted for this workflow.
+  return aggregate.agentRun.workflow.stages.some((stage) => stage.kind === "ai" && stage.acceptanceCriteria?.some((criterion) =>
+    criterion.verification === "stave-check" && criterion.scriptDefinitions?.some((definition) => definition.scriptId === check.actionScriptId) &&
+    workspaceCheckMet(record, [check.actionScriptId!], criterion.scriptDefinitions)));
+}
+
+/** Also guards completion paths that safely omit a final stage. */
+export function unmetInheritedWorkspaceChecks(aggregate: AgentRunAggregate, record: AgentRunStageRecord): string | null {
+  const checks = inheritedWorkspaceChecks(aggregate);
+  for (const criterion of collectAcceptanceCriteria(aggregate).filter((entry) => entry.required !== false)) {
+    const check = checks.get(criterion.text.trim());
+    if (check && !inheritedWorkspaceCheckMet(aggregate, record, check)) return check.actionScriptId
+      ? i18n.t("agentRuns:acceptance.extraCopy211") : workspaceCheckBlock(record, check.criterion);
+  }
+  return null;
+}
 
 /** Reports and successful children do not satisfy an unresolved explicit requirement. */
 export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: AgentRunStageRecord): string | null {
@@ -13,8 +68,12 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   const inheritedTexts = new Set(inheritedCriteria.map((criterion) => criterion.text.trim()));
   const optionalTexts = new Set([...inheritedCriteria, ...(stage.acceptanceCriteria ?? [])].filter((criterion) => criterion.required === false).map((criterion) => criterion.text.trim()));
   const goalCriteria = finalStage ? inheritedCriteria.filter((criterion) => criterion.required !== false) : [];
+  const inheritedChecks = inheritedWorkspaceChecks(aggregate);
+  const unmetInherited = finalStage ? unmetInheritedWorkspaceChecks(aggregate, record) : null;
+  if (unmetInherited) return unmetInherited;
+  const verifiedInherited = new Set(goalCriteria.map((criterion) => criterion.text.trim()).filter((text) => inheritedChecks.has(text)));
   if (stage.kind === "action") {
-    const unresolved = goalCriteria.find((criterion) => criterion.status !== "met" && !explicit.some((current) => current.text.trim() === criterion.text.trim()));
+    const unresolved = goalCriteria.find((criterion) => criterion.status !== "met" && !verifiedInherited.has(criterion.text.trim()) && !explicit.some((current) => current.text.trim() === criterion.text.trim()));
     if (unresolved) return i18n.t("agentRuns:acceptance.extraCopy212", { value1: unresolved.text });
     if (!explicit.length) return null;
     const action = record.facts?.action;
@@ -38,7 +97,7 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
       const ownCheck = stage.acceptanceCriteria?.find((entry) => entry.verification === "stave-check" && entry.text.trim() === text);
       const current = ownCheck
         ? (workspaceCheckMet(record, "scriptIds" in ownCheck ? ownCheck.scriptIds : undefined, "scriptDefinitions" in ownCheck ? ownCheck.scriptDefinitions : undefined) ? "met" : "unverified")
-        : report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text)?.status ?? criterion.status;
+        : report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text)?.status ?? (verifiedInherited.has(text) ? "met" : criterion.status);
       if (current !== "met") required.set(text, ownCheck ? { ...ownCheck, required: true } : { text: criterion.text });
     }
     for (const criterion of report?.acceptanceCriteria ?? []) {

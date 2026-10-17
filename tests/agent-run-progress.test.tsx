@@ -53,7 +53,8 @@ test("the plan requirement reaches implicit and custom workflows on run turns", 
     const custom = { ...detail, agentRun: { ...detail.agentRun, workflow: { ...workflow, stages: [{ ...workflow.stages[0]!, instruction: "Read only." }] } } };
     const context = buildAgentRunTurnContextPart({ aggregate: custom, reason });
     expect(context.content).toContain("TodoWrite or update_plan");
-    expect(context.content).toContain("exactly one step in progress");
+    expect(context.content).toContain("when available");
+    expect(context.content).toContain("A missing plan tool does not block");
     expect(context.content).toContain("plan-mode limits");
   }
 });

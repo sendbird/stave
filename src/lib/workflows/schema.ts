@@ -25,6 +25,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 export const WORKFLOW_VERSION = 1;
 export const MAX_WORKFLOWS = 50;
 export const MAX_WORKFLOW_STAGES = 12;
+export const MAX_STAGE_ACCEPTANCE_CRITERIA = 20;
 /** Budget for the purpose, constraints and every stage's authored text. */
 export const MAX_WORKFLOW_TEXT_LENGTH = 14_000;
 
@@ -145,7 +146,7 @@ const AiStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("ai"),
-    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.enum(["agent-report", "stave-check"]).optional(), scriptIds: z.array(z.string().trim().min(1).max(120)).optional(), scriptDefinitions: z.array(FrozenWorkspaceScriptSchema).optional() }).strict()).max(20).optional(),
+    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.enum(["agent-report", "stave-check"]).optional(), scriptIds: z.array(z.string().trim().min(1).max(120)).optional(), scriptDefinitions: z.array(FrozenWorkspaceScriptSchema).optional() }).strict()).max(MAX_STAGE_ACCEPTANCE_CRITERIA).optional(),
     get instruction() { return text(i18n.t("agentRuns:schema.extraCopy425"), WORKFLOW_LIMITS.instruction); },
     get doneWhen() { return text(i18n.t("agentRuns:schema.extraCopy426"), WORKFLOW_LIMITS.doneWhen); },
     role: z.enum(AI_STAGE_ROLES).optional(),
@@ -160,6 +161,8 @@ const AiStageSchema = z
      * when it starts, so a review never reports on a later commit.
      */
     pinCommit: z.boolean().optional(),
+    /** A final repair stage may be omitted after an unchanged, successful independent review. */
+    skipIfReviewPassed: z.boolean().optional(),
   })
   .strict();
 
@@ -167,7 +170,12 @@ const ActionStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("action"),
-    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.literal("stave-check").optional() }).strict()).max(20).optional(),
+    acceptanceCriteria: z.array(z.object({
+      ...criterionIdentity, verification: z.literal("stave-check").optional(),
+      /** Host admission replaces these bindings with the Run script action's exact definition. */
+      scriptIds: z.array(z.string().trim().min(1).max(120)).optional(),
+      scriptDefinitions: z.array(FrozenWorkspaceScriptSchema).optional(),
+    }).strict()).max(MAX_STAGE_ACCEPTANCE_CRITERIA).optional(),
     action: StaveActionSchema,
   })
   .strict();
