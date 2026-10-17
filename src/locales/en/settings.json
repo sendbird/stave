@@ -232,7 +232,10 @@
       "userBadge": "User",
       "active": "Active",
       "byAuthor": "by {{author}}",
-      "byAuthorWithVersion": "by {{author}} · v{{version}}"
+      "byAuthorWithVersion": "by {{author}} · v{{version}}",
+      "searchPlaceholder": "Search themes by name, ID, or light / dark",
+      "searchClear": "Clear theme search",
+      "noMatches": "No themes match \"{{query}}\"."
     },
     "baseModes": {
       "light": "light",
