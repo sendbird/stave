@@ -103,6 +103,13 @@ describe("archive task regression", () => {
       promptDraftByTask: {},
       nativeSessionReadyByTask: {},
       providerSessionByTask: {},
+      autoRoutingDecisionByTask: {
+        "task-1": {
+          decision: {} as never,
+          resolvedAt: "2026-03-10T00:00:00.000Z",
+          promptPreview: "Plan",
+        },
+      },
     });
 
     useAppStore.getState().archiveTask({ taskId: "task-1" });
@@ -116,6 +123,7 @@ describe("archive task regression", () => {
 
     expect(state.activeTaskId).toBe("");
     expect(state.activeTurnIdsByTask["task-1"]).toBeUndefined();
+    expect(state.autoRoutingDecisionByTask["task-1"]).toBeUndefined();
     expect(archivedTask?.archivedAt).toBeString();
     expect(previousAssistant?.isStreaming).toBe(false);
     expect(lastMessage).toMatchObject({

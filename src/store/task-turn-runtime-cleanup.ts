@@ -1,5 +1,6 @@
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
+import type { AutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import type {
   ProviderTurnActivitySnapshot,
   RetainedTurnActivityByTask,
@@ -35,6 +36,8 @@ export interface TaskTurnRuntimeEntries {
   /** A paused task that left the app has nothing left to resume. */
   usageLimitPauseByTask: UsageLimitPauseByTask;
   restoredQueueReleasedByTask: Record<string, true | undefined>;
+  /** The last auto-routing decision shown for a task that is gone. */
+  autoRoutingDecisionByTask: Record<string, AutoRoutingDecisionRecord>;
 }
 
 /**
@@ -109,6 +112,13 @@ export function removeTaskTurnRuntimeEntries(args: {
   );
   if (restoredQueueReleasedByTask) {
     patch.restoredQueueReleasedByTask = restoredQueueReleasedByTask;
+  }
+  const autoRoutingDecisionByTask = removeRecordEntries(
+    args.state.autoRoutingDecisionByTask,
+    args.taskIds,
+  );
+  if (autoRoutingDecisionByTask) {
+    patch.autoRoutingDecisionByTask = autoRoutingDecisionByTask;
   }
   return patch;
 }

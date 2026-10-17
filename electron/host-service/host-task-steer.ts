@@ -36,7 +36,7 @@ export function createHostTaskSteerCoordinator(deps: {
   persist: (turn: HostTurn, session: WorkspaceSessionState, changed: ChatMessage[]) => Promise<void>;
 }) {
   const handlers = new Map<string, SteerHandler>();
-  return {
+  const coordinator = {
     register(turn: HostTurn) {
       const receipts = new Map<string, Promise<ProviderSteerTurnResponse>>();
       const deliver: SteerHandler = (request) => deps.serialize(turn.workspaceId, async () => {
@@ -93,5 +93,17 @@ export function createHostTaskSteerCoordinator(deps: {
     steer(request: ProviderSteerTurnRequest) {
       return (handlers.get(request.turnId) ?? deps.send)(request);
     },
+    /** Routes steers to `turn` while it starts; a start that throws or fails releases the route. */
+    startTurn<T extends { ok: boolean }>(turn: HostTurn, start: () => T): T {
+      coordinator.register(turn);
+      let started: T | undefined;
+      try {
+        started = start();
+        return started;
+      } finally {
+        if (!started?.ok) coordinator.unregister(turn.turnId);
+      }
+    },
   };
+  return coordinator;
 }

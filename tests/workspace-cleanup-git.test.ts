@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { startWorkspaceArchiveCleanup, waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
+import { useWorkspaceDocumentsStore } from "@/store/workspace-documents-store";
 
 const originalWindow = globalThis.window;
 let fixtureRoot: string | undefined;
@@ -36,7 +37,9 @@ function fixture() {
 
 test("cleanup removes a real clean worktree with literal special characters and keeps its branch", async () => {
   const { root, worktree, git } = fixture();
+  useWorkspaceDocumentsStore.setState({ activityByWorkspace: { fixture: { documentsByPath: {}, linksByTurn: {} } } });
   startWorkspaceArchiveCleanup({ workspaceId: "fixture", repositoryPath: root, workspacePath: worktree, deleteBranch: false });
+  expect(useWorkspaceDocumentsStore.getState().activityByWorkspace.fixture).toBeUndefined();
   await waitForPendingWorkspaceArchiveCleanups();
   expect(existsSync(worktree)).toBe(false);
   expect(git("branch", "--list", "feature").trim()).toBe("feature");

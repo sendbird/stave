@@ -1,5 +1,6 @@
 import { lensMemoryBudgetKB, lensReopenCooldownUntil } from "../../../src/lib/lens/lens-memory-policy";
 import { isCdpPageSleeping, setCdpPageSleeping } from "./browser-cdp-controller";
+import { forgetLensAutomation } from "./browser-automation-control";
 import { LensResourceHistory, type LensResourceEvent } from "../../../src/lib/lens/lens-resource-history";
 import { isLensKeptActive, setLensKeptActive } from "./lens-resource-preferences";
 // ---------------------------------------------------------------------------
@@ -1605,10 +1606,19 @@ export function destroyBrowserSession(
   lensSessionId?: string,
   reason: LensSessionCloseReason = "closed",
 ): Promise<void> {
-  const closingKey = sessionKey(
-    workspaceId,
-    normalizeLensSessionId(lensSessionId),
-  );
+  const normalizedLensSessionId = normalizeLensSessionId(lensSessionId);
+  const closingKey = sessionKey(workspaceId, normalizedLensSessionId);
+  /*
+   * A deliberate close forgets the tab's state even when the page is already
+   * gone or an eviction is still closing it; an evicted tab survives and keeps
+   * both. Session ids are reused — the first Lens tab in every workspace is
+   * `default` — so a kept pause or remembered URL would leak into the next
+   * fresh tab.
+   */
+  if (reason !== "evicted") {
+    forgetLensAutomation({ workspaceId, lensSessionId: normalizedLensSessionId });
+    forgetLensSessionUrl(workspaceId, normalizedLensSessionId);
+  }
   const pendingClose = closingSessions.get(closingKey);
   if (pendingClose) return pendingClose;
   const session = getBrowserSession(workspaceId, lensSessionId);
@@ -1621,15 +1631,6 @@ export function destroyBrowserSession(
   // cannot enqueue more renderer IPC while the page is closing.
   const key = sessionKey(session.workspaceId, session.lensSessionId);
   sessions.delete(key);
-  /*
-   * A deliberate close forgets where the page was. Only a session whose page
-   * *died* is restored, and session ids are reused — the first Lens tab in
-   * every workspace is `default` — so keeping the record here would open the
-   * next fresh tab on the page the closed one happened to be showing.
-   */
-  if (reason !== "evicted") {
-    forgetLensSessionUrl(session.workspaceId, session.lensSessionId);
-  }
   clearNetworkIpcBatch(session.workspaceId, session.lensSessionId);
   if (webContentsSessionIndex.get(session.webContentsId) === session) {
     webContentsSessionIndex.delete(session.webContentsId);

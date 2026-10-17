@@ -7,6 +7,7 @@ import {
   normalizeCompareReviewCriteria,
   normalizeCompareVariants,
   patchCompareRunVariant,
+  pruneCompareRunHistory,
   type CompareRunVariant,
 } from "@/lib/compare-runs";
 import { WORKSPACE_APP_SURFACE } from "@/store/app-surface";
@@ -172,10 +173,12 @@ export function createCompareActions(args: {
       });
 
       set((state) => ({
-        compareRunsById: {
-          ...state.compareRunsById,
-          [compareRunId]: compareRun,
-        },
+        compareRunsById: pruneCompareRunHistory({
+          runsById: {
+            ...state.compareRunsById,
+            [compareRunId]: compareRun,
+          },
+        }),
         activeCompareRunId: compareRunId,
       }));
 

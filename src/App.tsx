@@ -30,7 +30,7 @@ import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { bootstrapTrackerIssuesClient } from "@/lib/tracker-issues/bootstrap";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
-import { refreshWorkspaceDocumentActivity } from "@/store/workspace-documents-store";
+import { refreshRegisteredWorkspaceDocumentActivity } from "@/store/workspace-documents-store";
 import { primeProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
 
 function buildLensSecurityConfig(): LensSecurityConfig {
@@ -110,7 +110,12 @@ export default function App() {
     const unsubscribe = subscribeTaskTurnUpdates((update) => {
       if (update.done) {
         // The host recorded the turn's document revisions before this update.
-        void refreshWorkspaceDocumentActivity(update.workspaceId);
+        const { workspaces, recentRepositories } = useAppStore.getState();
+        void refreshRegisteredWorkspaceDocumentActivity({
+          workspaceId: update.workspaceId,
+          workspaces,
+          recentRepositories,
+        });
       }
       const key = `${update.workspaceId}:${update.taskId}:${update.turnId}`;
       pendingByTaskTurn.set(

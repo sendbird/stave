@@ -747,6 +747,71 @@ export function normalizePersistedCompareRuns(args: {
   );
 }
 
+/**
+ * Decided comparisons kept in history. Runs still waiting on the user (active,
+ * judging, or finished without a Keep/Discard decision) never count toward it.
+ */
+export const MAX_RETAINED_COMPARE_RUNS = 50;
+
+/**
+ * Whether the user has settled the comparison: a candidate was kept, or the
+ * run was discarded, which marks every candidate `kept` or `discarded`.
+ */
+export function isCompareRunDecided(run: CompareRun) {
+  if (run.keptVariantId) {
+    return true;
+  }
+  return (
+    run.variants.length > 0 &&
+    run.variants.every(
+      (variant) => variant.status === "kept" || variant.status === "discarded",
+    )
+  );
+}
+
+/**
+ * Bounds the persisted comparison history. Nothing else ever removes a run, so
+ * every comparison a user starts would otherwise stay in memory and in the
+ * persisted store forever. Only decided runs are capped, to the `limit` most
+ * recently updated; every undecided run is kept however many there are.
+ * Returns the input map unchanged when nothing is dropped.
+ */
+export function pruneCompareRunHistory(args: {
+  runsById: Record<string, CompareRun | undefined>;
+  limit?: number;
+}): Record<string, CompareRun | undefined> {
+  const limit = args.limit ?? MAX_RETAINED_COMPARE_RUNS;
+  const entries = Object.entries(args.runsById);
+  if (entries.length <= limit && entries.every(([, run]) => run)) {
+    return args.runsById;
+  }
+  const retainedIds = new Set<string>();
+  const decided: Array<[string, CompareRun]> = [];
+  for (const [compareRunId, run] of entries) {
+    if (!run) {
+      continue;
+    }
+    if (isCompareRunDecided(run)) {
+      decided.push([compareRunId, run]);
+    } else {
+      retainedIds.add(compareRunId);
+    }
+  }
+  decided.sort(([, left], [, right]) =>
+    (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""),
+  );
+  for (const [compareRunId] of decided.slice(0, limit)) {
+    retainedIds.add(compareRunId);
+  }
+  if (retainedIds.size === entries.length) {
+    return args.runsById;
+  }
+  // Preserve insertion order so persisted output stays stable.
+  return Object.fromEntries(
+    entries.filter(([compareRunId]) => retainedIds.has(compareRunId)),
+  );
+}
+
 export function buildCompareRunVariantId(args: {
   compareRunId: string;
   index: number;
