@@ -63,6 +63,7 @@ function ConnectionRow(props: {
       clearSettingsFocus(editRequest);
     });
     return () => window.cancelAnimationFrame(frame);
+    // Only a new edit request reopens the form; `startEditing` is this render's.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editRequest]);
   return <div ref={rowRef} id={apiConnectionFieldId(connection.id)} tabIndex={-1} data-focus-first-control="" className={sx(styles.connection)}>

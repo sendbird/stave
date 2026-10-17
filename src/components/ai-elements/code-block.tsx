@@ -110,7 +110,6 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
         className={sx(styles.content)}
         style={{ fontSize: `${messageCodeFontSize}px` }}
         // Shiki output is sanitised — no user content reaches dangerouslySetInnerHTML
-        // eslint-disable-next-line react/no-danger
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
