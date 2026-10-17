@@ -54,6 +54,7 @@ export function createFailedSendActions(args: {
         const result = await get().sendUserMessage({
           taskId,
           content: send.text,
+          questionReply: send.questionReply,
           // The payload comes off the bubble, so the composer draft — which
           // the user may have typed into since the failure — stays as it is.
           preservePromptDraft: true,

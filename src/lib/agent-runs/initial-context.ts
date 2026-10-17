@@ -1,7 +1,9 @@
+import { QuestionReplySchema } from "@/lib/question-reply";
 import { z } from "zod";
 
 /** A bounded snapshot captured at run start, replayed without resolving sources again. */
 export const AgentRunInitialContextSchema = z.object({
+  questionReply: QuestionReplySchema.optional(),
   fileContexts: z.array(z.object({
     filePath: z.string().max(4096),
     content: z.string().max(500_000),

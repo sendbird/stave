@@ -1,3 +1,4 @@
+import { QuestionReplySchema } from "@/lib/question-reply";
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
@@ -396,6 +397,7 @@ const PromptDraftQueuedNextTurnSchema = z
 
 const PromptDraftQueuedTurnSchema = z
   .object({
+    questionReply: QuestionReplySchema.optional(),
     claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     id: z.string(),
@@ -508,6 +510,7 @@ export const ChatMessageSchema = z.object({
     .optional(),
   content: z.string(),
   displayContent: z.string().optional(),
+  questionReply: QuestionReplySchema.optional(),
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   isStreaming: z.boolean().optional(),
@@ -953,6 +956,7 @@ export const WorkspaceSnapshotSchema = z.object({
       z.string(),
       z.object({
         text: z.string(),
+        questionReply: QuestionReplySchema.optional(),
         attachedFilePaths: z.array(z.string()).optional().default([]),
         attachments: z.array(AttachmentSchema).optional().default([]),
         runtimeOverrides: LegacyPromptDraftRuntimeOverridesSchema.optional(),

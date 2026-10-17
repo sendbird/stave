@@ -153,6 +153,8 @@ export interface ProviderAvailabilityResponse {
 }
 
 export interface ProviderSteerTurnRequest {
+  /** UI provenance retained by the host; provider text remains unchanged. */
+  questionReply?: import("@/lib/question-reply").QuestionReply;
   turnId: string;
   text: string;
   enabled?: boolean;

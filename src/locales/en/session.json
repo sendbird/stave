@@ -1,4 +1,15 @@
 {
+  "questionReply": {
+    "label_one": "Reply to agent question · {{count}} question",
+    "label_other": "Reply to agent questions · {{count}} questions",
+    "declined_one": "Declined to answer · {{count}} question",
+    "declined_other": "Declined to answer · {{count}} questions",
+    "questionNumber_other": "Question {{count}}",
+    "questionNumber_one": "Question {{count}}",
+    "answer": "Answer: {{answer}}",
+    "noAnswer": "No answer",
+    "declinedAnswer": "Declined to answer"
+  },
   "activityDetailDialog": {
     "live": "Live turn",
     "saved": "Saved transcript",

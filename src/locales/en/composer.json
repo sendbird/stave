@@ -474,7 +474,7 @@
   },
   "userInputCard": {
     "title": "Answered",
-    "detail": "Your response was sent to the agent.",
+    "detail": "Your submitted answer is shown below.",
     "title2": "Answer declined",
     "detail2": "The agent will continue without a response when possible.",
     "title3": "Question expired",

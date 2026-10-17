@@ -11,6 +11,7 @@ type SendArgs = Parameters<AppState["sendUserMessage"]>[0];
 function buildHarness(args: {
   sendUserMessage: (sendArgs: SendArgs) => Promise<SendUserMessageResult>;
   runtimeOverrides?: Record<string, unknown>;
+  questionReply?: SendArgs["questionReply"];
 }) {
   const parked = buildFailedOutgoingSend({
     id: "failed-1",
@@ -18,6 +19,7 @@ function buildHarness(args: {
     failedAt: "2026-09-04T00:00:00.000Z",
     draft: {
       text: "Fix the login form",
+      questionReply: args.questionReply,
       attachedFilePaths: ["src/app.ts"],
       attachments: [{ kind: "file", filePath: "src/app.ts" }],
       runtimeOverrides: args.runtimeOverrides ?? { thinking: true },
@@ -61,6 +63,17 @@ describe("retryFailedSend", () => {
     });
     await actions.retryFailedSend({ taskId: "task-1", id: "failed-1" });
     expect(sent[0]?.runtimeOverrides).toEqual({ thinking: true, autoRouting: true });
+  });
+
+  test("an explicit retry retains question authorship with the full provider text", async () => {
+    const questionReply = { requestId: "question-1", questions: [{ header: "Scope", question: "Which scope?", answer: "This task" }] };
+    const sent: SendArgs[] = [];
+    const { actions } = buildHarness({ questionReply, sendUserMessage: async (args) => {
+      sent.push(args);
+      return { status: "started", taskId: "task-1", workspaceId: "ws-1", turnId: "turn-1" };
+    } });
+    await actions.retryFailedSend({ taskId: "task-1", id: "failed-1" });
+    expect(sent[0]).toMatchObject({ content: "Fix the login form", questionReply, preservePromptDraft: true });
   });
 
   test("resends the same text and attachments without touching the composer", async () => {

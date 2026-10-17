@@ -1,3 +1,4 @@
+import { buildQuestionReply } from "@/lib/question-reply";
 import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
 import { cancelAgentRunBeforeStop } from "./agent-run-send";
@@ -746,6 +747,8 @@ export function createProviderInteractionActions(args: {
           get().sendUserMessage({
             taskId,
             content,
+            questionReply: buildQuestionReply({ requestId: asyncRequestId, sourceMessageId: messageId,
+              questions: userInputPart.questions, answers, denied }),
             turnOrigin: "conversation",
             preservePromptDraft: true,
             submitIntent,

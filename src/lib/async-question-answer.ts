@@ -19,7 +19,8 @@ export function asyncQuestionTextSegmentId(part: { requestId: string; delivery?:
  *
  * The question did not pause the provider, so the answer travels as an
  * ordinary user message. Each question is quoted above its answer so the
- * provider can match them and the message reads naturally in the transcript.
+ * provider can match them. Explicit reply metadata supplies the transcript
+ * presentation independently.
  * This is model-facing text and stays untranslated.
  */
 export function formatAsyncQuestionAnswer(args: {

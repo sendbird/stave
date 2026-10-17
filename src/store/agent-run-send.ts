@@ -67,7 +67,7 @@ type AgentRunSendArgs = {
   taskId: string;
   providerId: string;
   prompt: string;
-  promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch" | "runtimeOverrides">;
+  promptDraft: Pick<PromptDraft, "attachedFilePaths" | "attachments"> & Pick<Partial<PromptDraft>, "promptBatch" | "runtimeOverrides" | "questionReply">;
   resolveInitialContext?: () => Promise<import("@/lib/agent-runs/initial-context").AgentRunInitialContext>;
   turnActive: boolean;
   queued: boolean;
@@ -185,6 +185,7 @@ export function recoverUnsentAgentRunPrompt(
         failedAt: buildRecentTimestamp(),
         draft: {
           text: args.prompt,
+          questionReply: recoveryDraft?.questionReply,
           attachedFilePaths: [...(recoveryDraft?.attachedFilePaths ?? []), ...(recoveryDraft?.promptBatch ?? []).flatMap((item) => item.attachedFilePaths ?? [])],
           attachments: [...(recoveryDraft?.attachments ?? []), ...(recoveryDraft?.promptBatch ?? []).flatMap((item) => item.attachments ?? [])],
           ...(recoveryDraft?.runtimeOverrides ? { runtimeOverrides: recoveryDraft.runtimeOverrides } : {}),
@@ -240,7 +241,7 @@ export function prepareAgentRunForSend(
     id: pendingId,
     taskId: args.taskId,
     startedAt: Date.now(),
-    userMessage: buildOutgoingUserMessage({ id: `pending-${pendingId}`, content: args.prompt.trim() }),
+    userMessage: buildOutgoingUserMessage({ id: `pending-${pendingId}`, content: args.prompt.trim(), questionReply: args.promptDraft.questionReply }),
   });
   return async () => {
     const response = await Promise.resolve().then(async () => activeBridge.start(

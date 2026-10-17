@@ -35,6 +35,7 @@ export async function resolveAgentRunInitialContext(args: {
     messagesByTask: args.session.messagesByTask,
   });
   return structuredClone({
+    ...(args.promptDraft.questionReply ? { questionReply: args.promptDraft.questionReply } : {}),
     fileContexts: args.fileContexts ?? [],
     imageContexts: getDraftImageContexts(args),
     retrievedContextParts: [...(information ? [information] : []), ...references],

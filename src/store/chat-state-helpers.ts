@@ -1,3 +1,4 @@
+import { questionReplyPresentation, type QuestionReply } from "@/lib/question-reply";
 import { i18n } from "@/i18n/runtime";
 import { createTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { sanitizeFileContextPayload } from "@/lib/file-context-sanitization";
@@ -246,6 +247,7 @@ export function buildOutgoingUserMessage(args: {
   }>;
   dispatchedFromQueue?: boolean;
   agentRunPrompt?: AgentRunPromptProvenance;
+  questionReply?: QuestionReply;
 }): ChatMessage {
   const userParts: MessagePart[] = [];
 
@@ -311,6 +313,7 @@ export function buildOutgoingUserMessage(args: {
     ...(displayParts && displayParts.length > 0 ? { displayParts } : {}),
     ...(args.dispatchedFromQueue ? { dispatchedFromQueue: true } : {}),
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),
+    ...(args.questionReply ? questionReplyPresentation(args.questionReply) : {}),
   };
 }
 
@@ -343,6 +346,7 @@ export function buildPendingProviderTurnState(args: {
   }>;
   dispatchedFromQueue?: boolean;
   agentRunPrompt?: AgentRunPromptProvenance;
+  questionReply?: QuestionReply;
 }) {
   const current = args.messagesByTask[args.taskId] ?? [];
   // Anchor new IDs to the durable total; `current` may be a trimmed tail window.
@@ -367,6 +371,7 @@ export function buildPendingProviderTurnState(args: {
     imageContexts: args.imageContexts,
     dispatchedFromQueue: args.dispatchedFromQueue,
     agentRunPrompt: args.agentRunPrompt,
+    questionReply: args.questionReply,
   });
 
   const assistantMessage: ChatMessage = {
@@ -430,6 +435,7 @@ export function buildSteeredUserMessageState(args: {
   messageCountByTask: Record<string, number>;
   taskId: string;
   content: string;
+  questionReply?: QuestionReply;
   steeredIntoTurnId: string;
   clientMessageId: string;
   provider: ProviderId;
@@ -473,6 +479,7 @@ export function buildSteeredUserMessageState(args: {
     parts: [createUserTextPart({ text: args.content })],
     steeredIntoTurnId: args.steeredIntoTurnId,
     steerDeliveryState: "accepted",
+    ...(args.questionReply ? questionReplyPresentation(args.questionReply) : {}),
   };
   const assistantMessage: ChatMessage | null = args.turnStillActive
     ? {

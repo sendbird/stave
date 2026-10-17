@@ -49,6 +49,7 @@ export function createHostTaskSteerCoordinator(deps: {
             messageCountByTask: current.messageCountByTask,
             taskId: turn.taskId,
             content: request.text,
+            questionReply: request.questionReply,
             steeredIntoTurnId: turn.turnId,
             clientMessageId: request.clientMessageId ?? randomUUID(),
             provider: turn.provider,

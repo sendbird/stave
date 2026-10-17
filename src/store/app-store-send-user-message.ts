@@ -275,6 +275,7 @@ export function createSendUserMessageAction(args: {
   return async ({
     taskId,
     content,
+    questionReply,
     providerOverride,
     runtimeOverrides,
     preservePromptDraft,
@@ -455,6 +456,7 @@ export function createSendUserMessageAction(args: {
       taskWorkspaceSession.promptDraftByTask[resolvedTaskId];
     const promptDraftSendState = resolvePromptDraftSendState({
       content,
+      questionReply,
       preservePromptDraft,
       runtimeOverrides,
       sourceDraft: sourcePromptDraft,
@@ -508,8 +510,7 @@ export function createSendUserMessageAction(args: {
       turnId,
     });
     const promptContent = buildPromptDraftContentForSend(promptDraft);
-    const promptDisplayContent =
-      buildPromptDraftDisplayContentForSend(promptDraft);
+    const promptDisplayContent = buildPromptDraftDisplayContentForSend(promptDraft);
     const promptDisplayParts = buildPromptDraftDisplayPartsForSend(promptDraft);
     const activeTurnId =
       taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
@@ -646,6 +647,7 @@ export function createSendUserMessageAction(args: {
           text: promptContent,
           enabled: get().settings.midTurnSteeringEnabled,
           clientMessageId,
+          questionReply: promptDraft.questionReply,
         },
       });
       if (!steerResult.ok) {
@@ -899,6 +901,7 @@ export function createSendUserMessageAction(args: {
         workspaceCwd,
         // The classifier can take seconds; the transcript shows the prompt meanwhile.
         pendingRow: { turnId, message: { content: promptContent, displayContent: promptDisplayContent, displayParts: promptDisplayParts,
+          questionReply: promptDraft.questionReply,
           fileContexts: resolvedFileContexts, imageContexts: resolvedImageContexts, dispatchedFromQueue: Boolean(queuedTurnToSend) } },
       });
       const afterRouting = get();
@@ -1166,6 +1169,7 @@ export function createSendUserMessageAction(args: {
             content: promptContent,
             displayContent: promptDisplayContent,
             displayParts: promptDisplayParts,
+            questionReply: promptDraft.questionReply,
             fileContexts:
               resolvedFileContexts.length > 0
                 ? resolvedFileContexts
@@ -1223,6 +1227,7 @@ export function createSendUserMessageAction(args: {
             content: promptContent,
             displayContent: promptDisplayContent,
             displayParts: promptDisplayParts,
+            questionReply: promptDraft.questionReply,
             fileContexts:
               resolvedFileContexts.length > 0
                 ? resolvedFileContexts

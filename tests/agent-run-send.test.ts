@@ -6,6 +6,7 @@ import {
   recoverUnsentAgentRunPrompt,
   registerAgentRunBridge,
   startAgentRunForSend,
+  prepareAgentRunForSend,
   type AgentRunBridge,
   type AgentRunFirstPromptEnd,
 } from "../src/store/agent-run-send";
@@ -83,6 +84,16 @@ describe("agent run send path", () => {
     const { args } = sendArgs();
     expect(await startAgentRunForSend(args)).toBeNull();
     expect(bridge.started).toEqual([]);
+  });
+
+  test("an async answer awaiting Run startup displays the answer with its question provenance", () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    fakeBridge();
+    const questionReply = { requestId: "question-1", questions: [{ header: "Scope", question: "Which scope?", answer: "This task" }] };
+    const { args } = sendArgs({ prompt: "> Which scope?\n\nThis task", preservePromptDraft: true,
+      promptDraft: { attachedFilePaths: [], attachments: [], questionReply } });
+    expect(prepareAgentRunForSend(args)).not.toBeNull();
+    expect(pendingRow()?.userMessage).toMatchObject({ displayContent: "This task", questionReply });
   });
 
   test("an Agent task without a run starts one with the implicit workflow and clears the draft", async () => {

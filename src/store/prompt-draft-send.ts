@@ -13,6 +13,7 @@ import type {
 
 export function buildPromptDraftForSend(args: {
   content: string;
+  questionReply?: PromptDraft["questionReply"];
   preservePromptDraft?: boolean;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
   sourceDraft: PromptDraft;
@@ -27,6 +28,7 @@ export function buildPromptDraftForSend(args: {
     // caller — a retried send passes the attachments the failed attempt had.
     return normalizePromptDraftForStorage({
       text: args.content,
+      questionReply: args.questionReply,
       attachedFilePaths: args.payloadAttachedFilePaths ?? [],
       attachments: args.payloadAttachments ?? [],
       runtimeOverrides: args.runtimeOverrides,
@@ -39,6 +41,7 @@ export function buildPromptDraftForSend(args: {
       ? {
           // A queued turn supplies the payload while the composer stays stored.
           text: args.queuedTurn.content,
+          questionReply: args.queuedTurn.questionReply,
           attachedFilePaths: args.queuedTurn.attachedFilePaths,
           attachments: args.queuedTurn.attachments,
           promptBatch: undefined,
@@ -46,6 +49,7 @@ export function buildPromptDraftForSend(args: {
         }
       : {
           text: args.content,
+          questionReply: args.questionReply,
           queuedTurns: args.storedDraft?.queuedTurns,
         }),
     ...(args.runtimeOverrides
@@ -113,6 +117,7 @@ function queuedTurnDispatchOverrides(args: {
 
 export function resolvePromptDraftSendState(args: {
   content: string;
+  questionReply?: PromptDraft["questionReply"];
   preservePromptDraft?: boolean;
   runtimeOverrides?: PromptDraftRuntimeOverrides;
   sourceDraft: PromptDraft;

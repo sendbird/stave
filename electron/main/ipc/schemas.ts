@@ -1,3 +1,4 @@
+import { QuestionReplySchema } from "../../../src/lib/question-reply";
 import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
 export { ClassifyRouteArgsSchema } from "./provider-route-classification-schema";
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
@@ -1239,6 +1240,7 @@ export const UserInputResponseArgsSchema = z
 
 export const SteerTurnArgsSchema = z
   .object({
+    questionReply: QuestionReplySchema.optional(),
     turnId: z.string().min(1).max(200),
     text: z.string().min(1).max(500_000),
     /**

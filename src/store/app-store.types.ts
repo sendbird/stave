@@ -629,6 +629,7 @@ export interface AppState
     taskId: string;
   }) => Promise<SendUserMessageResult>;
   sendUserMessage: (args: {
+    questionReply?: ChatMessage["questionReply"];
     taskId: string;
     content: string;
     /** Run this turn with a provider without changing the task's provider. */

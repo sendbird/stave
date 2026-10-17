@@ -30,7 +30,11 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "kickoff") {
+if (preview === "question-reply") {
+  void import("@/dev/question-reply-preview").then(({ QuestionReplyPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><QuestionReplyPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "kickoff") {
   void import("@/dev/kickoff-preview").then(({ KickoffPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><KickoffPreview /></StaveDesignProvider></StrictMode>);
   });
