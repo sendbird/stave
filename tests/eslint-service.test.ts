@@ -1,6 +1,6 @@
 import { afterAll, afterEach, describe, expect, jest, mock, test } from "bun:test";
 import { EventEmitter } from "node:events";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -61,6 +61,21 @@ mock.module("node:child_process", () => ({
     spawned.push(worker);
     return worker;
   },
+}));
+
+// Answer the ESLint presence check without real filesystem I/O. Real async
+// fs work does not settle under fake timers on every platform, which hung the
+// idle-timeout test (and every test after it) on Linux CI.
+const actualFsPromises = await import("node:fs/promises");
+const accessWithoutIo = async (target: Parameters<typeof actualFsPromises.access>[0]) => {
+  if (!existsSync(target)) {
+    throw Object.assign(new Error(`ENOENT: ${String(target)}`), { code: "ENOENT" });
+  }
+};
+mock.module("node:fs/promises", () => ({
+  ...actualFsPromises,
+  access: accessWithoutIo,
+  default: { ...actualFsPromises, access: accessWithoutIo },
 }));
 
 mock.module("electron", () => ({
