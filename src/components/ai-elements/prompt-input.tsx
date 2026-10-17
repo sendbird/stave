@@ -22,15 +22,10 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import type { Attachment } from "@/types/chat";
 import {
   Fragment,
   type FormEvent,
-  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
-  useCallback,
-  useDeferredValue,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -66,15 +61,6 @@ import {
 } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import { UserInputCard } from "./user-input-card";
-import type {
-  CommandPaletteItem,
-  SlashCommandTokenMatch,
-} from "@/lib/commands";
-import {
-  filterCommandPaletteItems,
-  getActiveSlashCommandTokenMatch,
-  replaceSlashCommandToken,
-} from "@/lib/commands";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import {
   COMPOSER_CONTROL_LABELS,
@@ -85,65 +71,21 @@ import {
   type ComposerControlId,
 } from "@/lib/composer-controls";
 import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
-import {
-  filterSkillEntries,
-  getActiveSkillTokenMatch,
-  replaceSkillToken,
-} from "@/lib/skills/catalog";
-import type { SkillCatalogEntry, SkillTokenMatch } from "@/lib/skills/types";
-import {
-  filterMacroEntries,
-  getActiveMacroTokenMatch,
-} from "@/lib/macros/token";
-import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
-import { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry } from "@/components/session/assign-palette-entry";
-import { useAgentsUiStore } from "@/store/agents-ui-store";
+import type { SkillCatalogEntry } from "@/lib/skills/types";
+import { isAssignPaletteEntry } from "@/components/session/assign-palette-entry";
 import { sx, cx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
-  collectClipboardFiles,
-  createClipboardReadQueue,
-  readClipboardImage,
-  mergeClipboardImageAttachments,
-  partitionClipboardFiles,
-} from "./prompt-input.clipboard";
-import {
-  getAcceptedCommandPaletteItem,
-  getAcceptedPaletteItem,
-  getNextCommandSelectionIndex,
-  isPromptHistoryBoundaryReached,
   isShortcutEchoInsertion,
-  navigatePromptHistory,
-  NO_COMMAND_SELECTION,
   NO_PROMPT_HISTORY_SELECTION,
 } from "./prompt-input.utils";
-import {
-  findModelShortcutEffort,
-  findModelShortcutOption,
-  resolveModelShortcutSlot,
-  type ModelShortcutEffort,
-} from "@/lib/providers/model-shortcuts";
-import {
-  DEFAULT_PROMPT_COMMENT_SHORTCUT,
-  isPromptCommentShortcut,
-} from "@/lib/prompt-comment-shortcuts";
+import { type ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
+import { DEFAULT_PROMPT_COMMENT_SHORTCUT } from "@/lib/prompt-comment-shortcuts";
 import {
   DEFAULT_STEER_QUEUE_ENTER_ACTION,
   formatSteerQueueEnterActionLabel,
-  tabActionForSteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
-import type {
-  LensAnnotationFeedback,
-  LensAnnotation,
-  LensStyleEdit,
-  LensSourceMappingConfig,
-} from "@/lib/lens/lens.types";
-import {
-  buildLensAnnotationsAttachment,
-  getLensCommentImageId,
-  isAnyLensCommentImageAttachment,
-  removeLensCommentImageAttachments,
-} from "@/lib/lens/lens-annotation-attachment";
+import { getLensCommentImageId } from "@/lib/lens/lens-annotation-attachment";
 import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
 import { ModelEffortSelector } from "./model-effort-selector";
 import { PromptInputProviderModePill } from "./prompt-input-provider-mode";
@@ -156,31 +98,19 @@ import { Suggestion, Suggestions } from "./suggestion";
 import {
   PromptLexicalEditor,
   type PromptLexicalEditorHandle,
-  type PromptLexicalEditorSelectionRange,
 } from "./prompt-lexical-editor";
 import { hasPromptSubmitPayload } from "./prompt-input-submit";
-import {
-  getActiveWorkspaceInformationTokenMatch,
-  replaceWorkspaceInformationToken,
-  type WorkspaceInformationReferenceOption,
-} from "@/lib/workspace-information-references";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import { TaskContextDraftChip } from "@/components/task-context-draft-chip";
 import {
   DocumentContextChip,
   openAttachedDocument,
 } from "@/components/document-context-chip";
-import type { DocumentContextAttachment } from "@/lib/documents/attached-document-context";
 import {
-  buildMentionPaletteItems,
   documentMentionKey,
   readDroppedTask,
-  type MentionPaletteItem,
 } from "./prompt-input-mentions";
-import {
-  TASK_DRAG_MIME,
-  type TaskContextAttachment,
-} from "@/lib/task-context/attached-task-context";
+import { TASK_DRAG_MIME } from "@/lib/task-context/attached-task-context";
 import { isReviewTaskDelegationAvailable } from "@/store/review-task-runtime";
 import { openAttachedTask } from "@/components/open-attached-task";
 import { LocalChangeReviewDialog } from "./local-change-review-dialog";
@@ -201,9 +131,6 @@ import {
   ComposerFrameStatusBar,
   ComposerFrameWing,
 } from "./composer-frame";
-import { listProviderIds } from "@/lib/providers/model-catalog";
-import { STAVE_OPEN_MODEL_SELECTOR_EVENT, registerComposerModelSelectorReceiver } from "@/lib/providers/accounts-navigation";
-import type { ModelSelectorOpenRequest } from "./model-selector-open-request";
 import type { PromptInputProps } from "./prompt-input.types";
 import {
   PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
@@ -226,22 +153,15 @@ import {
   LensAnnotationStylePopover,
   formatLensFeedbackOption,
 } from "./prompt-input-lens-annotation";
-
-const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
-/**
- * How long a claimed keyboard chord keeps rejecting a stray one-character
- * insertion. Long enough to cover the input method echo that follows the
- * `keydown`, short enough that the next real keystroke is never swallowed.
- */
-const SHORTCUT_ECHO_GUARD_WINDOW_MS = 120;
-
-type WorkspaceInformationTokenMatch = NonNullable<
-  ReturnType<typeof getActiveWorkspaceInformationTokenMatch>
->;
-
-function getPaletteItemSelector(index: number) {
-  return `[${PALETTE_ITEM_INDEX_ATTRIBUTE}="${index}"]`;
-}
+import { usePromptInputClipboardPaste } from "./prompt-input-paste";
+import { usePromptInputAttachmentGroups } from "./prompt-input-attachment-groups";
+import { usePromptInputCaret } from "./prompt-input-caret";
+import { usePromptInputWindowShortcuts } from "./prompt-input-shortcuts";
+import { usePromptInputHistory } from "./prompt-input-history";
+import { usePromptInputPaletteState } from "./prompt-input-palette-state";
+import { usePromptInputPaletteSelection } from "./prompt-input-palette-selection";
+import { usePromptInputLensAnnotationActions } from "./prompt-input-lens-actions";
+import { handlePromptEditorKeyDown } from "./prompt-input-keyboard";
 
 export function PromptInput(args: PromptInputProps) {
   useTranslation();
@@ -351,184 +271,44 @@ export function PromptInput(args: PromptInputProps) {
     value,
     onComplete: onPromptEnhancementRevealComplete,
   });
-  const clipboardReadQueue = useMemo(
-    () => createClipboardReadQueue(),
-    [args.attachmentScopeId, args.workspaceCwd],
-  );
-  useEffect(() => () => clipboardReadQueue.cancel(), [clipboardReadQueue]);
+  const { clipboardReadQueue, handlePaste } = usePromptInputClipboardPaste({
+    attachmentScopeId: args.attachmentScopeId,
+    workspaceCwd: args.workspaceCwd,
+    onAttachmentsChange,
+    onPasteFiles,
+  });
 
-  const imageAttachments = useMemo(
-    () =>
-      (attachments ?? []).filter(
-        (a): a is Extract<Attachment, { kind: "image" }> => a.kind === "image",
-      ),
-    [attachments],
-  );
-  const standaloneImageAttachments = useMemo(
-    () => imageAttachments.filter((a) => !isAnyLensCommentImageAttachment(a)),
-    [imageAttachments],
-  );
-  const imageAttachmentsById = useMemo(
-    () =>
-      new Map(
-        imageAttachments.map((attachment) => [attachment.id, attachment]),
-      ),
-    [imageAttachments],
-  );
-  const lensAnnotationAttachments = useMemo(
-    () =>
-      (attachments ?? []).filter(
-        (
-          attachment,
-        ): attachment is Extract<Attachment, { kind: "lens-annotations" }> =>
-          attachment.kind === "lens-annotations",
-      ),
-    [attachments],
-  );
-  const workspaceInformationAttachments = useMemo(
-    () =>
-      (attachments ?? []).filter(
-        (
-          attachment,
-        ): attachment is Extract<
-          Attachment,
-          { kind: "workspace-information" }
-        > => attachment.kind === "workspace-information",
-      ),
-    [attachments],
-  );
-  const taskContextAttachments = useMemo(
-    () =>
-      (attachments ?? []).filter(
-        (attachment): attachment is TaskContextAttachment =>
-          attachment.kind === "task-context",
-      ),
-    [attachments],
-  );
-  const documentContextAttachments = useMemo(
-    () =>
-      (attachments ?? []).filter(
-        (attachment): attachment is DocumentContextAttachment =>
-          attachment.kind === "document-context",
-      ),
-    [attachments],
-  );
-  const referenceAttachments = useMemo(
-    () => [
-      ...workspaceInformationAttachments,
-      ...taskContextAttachments,
-      ...documentContextAttachments,
-    ],
-    [documentContextAttachments, taskContextAttachments, workspaceInformationAttachments],
-  );
+  const {
+    imageAttachments,
+    standaloneImageAttachments,
+    imageAttachmentsById,
+    lensAnnotationAttachments,
+    workspaceInformationAttachments,
+    taskContextAttachments,
+    documentContextAttachments,
+    referenceAttachments,
+    currentAttachmentCount,
+    commentItemCount,
+  } = usePromptInputAttachmentGroups({
+    attachments,
+    attachedFilePaths,
+    promptBatch,
+  });
   const [taskDropActive, setTaskDropActive] = useState(false);
-  const currentAttachmentCount =
-    attachedFilePaths.length +
-    standaloneImageAttachments.length +
-    referenceAttachments.length;
-  const lensCommentCount = lensAnnotationAttachments.reduce(
-    (count, attachment) =>
-      count + (attachment.annotations?.length ?? attachment.count),
-    0,
-  );
-  const commentItemCount = promptBatch.length + lensCommentCount;
   const [imagePreviewSrc, setImagePreviewSrc] = useState<{
     dataUrl: string;
     label: string;
   } | null>(null);
-  const [dismissedCommandToken, setDismissedCommandToken] = useState<
-    string | null
-  >(null);
-  const [suppressedAutocompleteValue, setSuppressedAutocompleteValue] =
-    useState<{
-      palette: "command" | "skill" | "info" | "macro";
-      value: string;
-    } | null>(null);
-  const [selectedCommandIndex, setSelectedCommandIndex] =
-    useState(NO_COMMAND_SELECTION);
-  const [dismissedSkillToken, setDismissedSkillToken] = useState<string | null>(
-    null,
-  );
-  const [selectedSkillIndex, setSelectedSkillIndex] =
-    useState(NO_COMMAND_SELECTION);
-  const [dismissedMacroToken, setDismissedMacroToken] = useState<string | null>(
-    null,
-  );
-  const [selectedMacroIndex, setSelectedMacroIndex] =
-    useState(NO_COMMAND_SELECTION);
-  const [
-    dismissedWorkspaceInformationToken,
-    setDismissedWorkspaceInformationToken,
-  ] = useState<string | null>(null);
-  const [
-    selectedWorkspaceInformationIndex,
-    setSelectedWorkspaceInformationIndex,
-  ] = useState(NO_COMMAND_SELECTION);
-  const [selectedPromptHistoryIndex, setSelectedPromptHistoryIndex] = useState(
-    NO_PROMPT_HISTORY_SELECTION,
-  );
-  const [draftBeforeHistory, setDraftBeforeHistory] = useState("");
-  const [caretIndex, setCaretIndex] = useState(value.length);
-  const editorSelectionRange = useMemo(
-    () => ({ start: caretIndex, end: caretIndex }),
-    [caretIndex],
-  );
-  // The enhanced draft replaces the whole document, so the caret the composer
-  // was tracking no longer points anywhere meaningful; park it at the end,
-  // which is where the user resumes typing once the reveal unlocks the editor.
-  const promptEditorSelectionRange = useMemo(
-    () =>
-      promptEnhancementRevealing
-        ? { start: value.length, end: value.length }
-        : editorSelectionRange,
-    [editorSelectionRange, promptEnhancementRevealing, value.length],
-  );
-  const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
-  const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
-  const [modelSelectorOpenRequest, setModelSelectorOpenRequest] = useState<ModelSelectorOpenRequest | undefined>(undefined);
-  // "Assign to an agent…" opens the selector on its Agents section.
-  const agentSelectorNonce = useAgentsUiStore((state) => state.agentSelectorNonce);
-  const handledAgentSelectorNonce = useRef(agentSelectorNonce);
-  const [agentsOpenToken, setAgentsOpenToken] = useState<number | undefined>(undefined);
   const promptEditorRef = useRef<PromptLexicalEditorHandle | null>(null);
   usePromptEnhancementScrollReset({
     editorRef: promptEditorRef,
     revealing: promptEnhancementRevealing,
   });
   const valueRef = useRef(value);
-  const caretIndexRef = useRef(caretIndex);
-  const pendingCommandTokenRef = useRef<SlashCommandTokenMatch | null>(null);
-  const pendingSkillTokenRef = useRef<SkillTokenMatch | null>(null);
-  const pendingMacroTokenRef = useRef<MacroTokenMatch | null>(null);
-  const pendingWorkspaceInformationTokenRef =
-    useRef<WorkspaceInformationTokenMatch | null>(null);
-  const commandListRef = useRef<HTMLDivElement | null>(null);
-  const wasTurnActiveRef = useRef(Boolean(isTurnActive));
-  // See `isShortcutEchoInsertion`: a claimed Option chord can still leak one
-  // composed character into the editor, so claiming one arms a brief guard that
-  // rejects exactly that insertion and re-syncs the editor from `value`.
-  const shortcutEchoGuardRef = useRef<{
-    value: string;
-    expiresAt: number;
-  } | null>(null);
   const [editorSyncNonce, setEditorSyncNonce] = useState(0);
   valueRef.current = value;
-  caretIndexRef.current = caretIndex;
   const modelVisibility = useAppStore(
     (state) => state.settings.modelVisibility,
-  );
-  const lensSourceMappingHeuristic = useAppStore(
-    (state) => state.settings.lensSourceMappingHeuristic,
-  );
-  const lensSourceMappingReactDebugSource = useAppStore(
-    (state) => state.settings.lensSourceMappingReactDebugSource,
-  );
-  const lensSourceMappingConfig = useMemo(
-    (): LensSourceMappingConfig => ({
-      heuristic: lensSourceMappingHeuristic,
-      reactDebugSource: lensSourceMappingReactDebugSource,
-    }),
-    [lensSourceMappingHeuristic, lensSourceMappingReactDebugSource],
   );
   const interactionsDisabled = Boolean(disabled);
   const promptEnhancementBusy =
@@ -561,248 +341,6 @@ export function PromptInput(args: PromptInputProps) {
         : "Ctrl",
     [],
   );
-  const normalizedPromptHistoryEntries = useMemo(
-    () =>
-      (promptHistoryEntries ?? []).filter((entry) => entry.trim().length > 0),
-    [promptHistoryEntries],
-  );
-  const activeCommandToken = useMemo(
-    () =>
-      getActiveSlashCommandTokenMatch({
-        value,
-        caretIndex,
-      }),
-    [caretIndex, value],
-  );
-  const deferredCommandQuery = useDeferredValue(
-    activeCommandToken?.query ?? "",
-  );
-  const activeSkillToken = useMemo(
-    () =>
-      skillsEnabled
-        ? getActiveSkillTokenMatch({
-            value,
-            caretIndex,
-          })
-        : null,
-    [caretIndex, skillsEnabled, value],
-  );
-  const activeWorkspaceInformationToken = useMemo(
-    () =>
-      getActiveWorkspaceInformationTokenMatch({
-        text: value,
-        caretIndex,
-      }),
-    [caretIndex, value],
-  );
-  const deferredWorkspaceInformationQuery = useDeferredValue(
-    activeWorkspaceInformationToken?.query ?? "",
-  );
-  const filteredCommandItems = useMemo(
-    () =>
-      filterCommandPaletteItems({
-        items: commandPaletteItems ?? [],
-        query: deferredCommandQuery,
-      }),
-    [commandPaletteItems, deferredCommandQuery],
-  );
-  const filteredSkillItems = useMemo(
-    () =>
-      filterSkillEntries({
-        skills: skillPaletteItems ?? [],
-        providerId: selectedModel.providerId,
-        query: activeSkillToken?.query ?? "",
-      }),
-    [activeSkillToken?.query, selectedModel.providerId, skillPaletteItems],
-  );
-  const activeMacroToken = useMemo(
-    () =>
-      getActiveMacroTokenMatch({
-        value,
-        caretIndex,
-      }),
-    [caretIndex, value],
-  );
-  const paletteMacros = useMemo(() => [...(macros ?? []), ASSIGN_PALETTE_ENTRY], [macros]);
-  const filteredMacroItems = useMemo(
-    () =>
-      filterMacroEntries({
-        macros: paletteMacros,
-        query: activeMacroToken?.query ?? "",
-      }),
-    [activeMacroToken?.query, paletteMacros],
-  );
-  const filteredWorkspaceInformationItems = useMemo(
-    () =>
-      buildMentionPaletteItems({
-        query: deferredWorkspaceInformationQuery,
-        informationOptions: workspaceInformationReferenceOptions ?? [],
-        taskOptions: taskMentionOptions ?? [],
-        documentOptions: documentMentionOptions ?? [],
-      }),
-    [
-      deferredWorkspaceInformationQuery,
-      documentMentionOptions,
-      taskMentionOptions,
-      workspaceInformationReferenceOptions,
-    ],
-  );
-  const indexedCommandItems = useMemo(
-    () => filteredCommandItems.map((item, index) => ({ item, index })),
-    [filteredCommandItems],
-  );
-  const indexedSkillItems = useMemo(
-    () => filteredSkillItems.map((item, index) => ({ item, index })),
-    [filteredSkillItems],
-  );
-  const indexedMacroItems = useMemo(
-    () => filteredMacroItems.map((item, index) => ({ item, index })),
-    [filteredMacroItems],
-  );
-  const indexedWorkspaceInformationItems = useMemo(
-    () =>
-      filteredWorkspaceInformationItems.map((item, index) => ({
-        item,
-        index,
-      })),
-    [filteredWorkspaceInformationItems],
-  );
-  const providerCommandItems = useMemo(
-    () =>
-      indexedCommandItems.filter(
-        ({ item }) => item.source === "provider_native",
-      ),
-    [indexedCommandItems],
-  );
-  const localSkillItems = useMemo(
-    () => indexedSkillItems.filter(({ item }) => item.scope === "local"),
-    [indexedSkillItems],
-  );
-  const userSkillItems = useMemo(
-    () => indexedSkillItems.filter(({ item }) => item.scope === "user"),
-    [indexedSkillItems],
-  );
-  const globalSkillItems = useMemo(
-    () => indexedSkillItems.filter(({ item }) => item.scope === "global"),
-    [indexedSkillItems],
-  );
-  const workspaceInformationSectionItems = useMemo(
-    () =>
-      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
-        item.kind === "information" && item.option.kind === "section"
-          ? [{ item: item.option, index }]
-          : [],
-      ),
-    [indexedWorkspaceInformationItems],
-  );
-  const taskMentionItems = useMemo(
-    () =>
-      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
-        item.kind === "task" ? [{ item: item.option, index }] : [],
-      ),
-    [indexedWorkspaceInformationItems],
-  );
-  const documentMentionItems = useMemo(
-    () =>
-      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
-        item.kind === "document" ? [{ item: item.option, index }] : [],
-      ),
-    [indexedWorkspaceInformationItems],
-  );
-  const workspaceInformationEntryItems = useMemo(
-    () =>
-      indexedWorkspaceInformationItems.flatMap(({ item, index }) =>
-        item.kind === "information" && item.option.kind === "item"
-          ? [{ item: item.option, index }]
-          : [],
-      ),
-    [indexedWorkspaceInformationItems],
-  );
-  const commandPaletteOpen = Boolean(
-    activeCommandToken &&
-    !(
-      suppressedAutocompleteValue?.palette === "command" &&
-      suppressedAutocompleteValue.value === value
-    ) &&
-    dismissedCommandToken !== activeCommandToken.token &&
-    (filteredCommandItems.length > 0 || commandPaletteProviderNote),
-  );
-  const skillPaletteOpen = Boolean(
-    skillsEnabled &&
-    skillsAutoSuggest &&
-    activeSkillToken &&
-    !(
-      suppressedAutocompleteValue?.palette === "skill" &&
-      suppressedAutocompleteValue.value === value
-    ) &&
-    dismissedSkillToken !== activeSkillToken.token,
-  );
-  const workspaceInformationPaletteOpen = Boolean(
-    activeWorkspaceInformationToken &&
-    !(
-      suppressedAutocompleteValue?.palette === "info" &&
-      suppressedAutocompleteValue.value === value
-    ) &&
-    dismissedWorkspaceInformationToken !==
-      activeWorkspaceInformationToken.token,
-  );
-  const macroPaletteOpen = Boolean(
-    activeMacroToken &&
-    !(
-      suppressedAutocompleteValue?.palette === "macro" &&
-      suppressedAutocompleteValue.value === value
-    ) &&
-    dismissedMacroToken !== activeMacroToken.token,
-  );
-  const activePalette = workspaceInformationPaletteOpen
-    ? "info"
-    : skillPaletteOpen
-      ? "skill"
-      : macroPaletteOpen
-        ? "macro"
-        : commandPaletteOpen
-          ? "command"
-          : null;
-  const paletteValue = useMemo(() => {
-    if (
-      activePalette === "info" &&
-      selectedWorkspaceInformationIndex !== NO_COMMAND_SELECTION
-    ) {
-      return (
-        filteredWorkspaceInformationItems[selectedWorkspaceInformationIndex]
-          ?.key ?? ""
-      );
-    }
-    if (
-      activePalette === "skill" &&
-      selectedSkillIndex !== NO_COMMAND_SELECTION
-    ) {
-      return filteredSkillItems[selectedSkillIndex]?.slug ?? "";
-    }
-    if (
-      activePalette === "macro" &&
-      selectedMacroIndex !== NO_COMMAND_SELECTION
-    ) {
-      return filteredMacroItems[selectedMacroIndex]?.slug ?? "";
-    }
-    if (
-      activePalette === "command" &&
-      selectedCommandIndex !== NO_COMMAND_SELECTION
-    ) {
-      return filteredCommandItems[selectedCommandIndex]?.command ?? "";
-    }
-    return "";
-  }, [
-    activePalette,
-    selectedWorkspaceInformationIndex,
-    selectedSkillIndex,
-    selectedMacroIndex,
-    selectedCommandIndex,
-    filteredWorkspaceInformationItems,
-    filteredSkillItems,
-    filteredMacroItems,
-    filteredCommandItems,
-  ]);
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
   const runtimeProfile = useMemo(
     () => getPromptInputRuntimeProfile(runtimeStatusItems ?? []),
@@ -815,359 +353,132 @@ export function PromptInput(args: PromptInputProps) {
     Boolean(onEnhancePrompt) &&
     (promptEnhancementBusy || value.trim().length > 0);
 
-  useEffect(() => {
-    if (interactionsDisabled) {
-      return;
-    }
-    const frameId = window.requestAnimationFrame(() => {
-      promptEditorRef.current?.focus();
-    });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [focusToken, interactionsDisabled]);
-
-  useEffect(() => {
-    const wasTurnActive = wasTurnActiveRef.current;
-    const isTurnNowActive = Boolean(isTurnActive);
-    if (wasTurnActive && !isTurnNowActive) {
-      promptEditorRef.current?.focus();
-    }
-    wasTurnActiveRef.current = isTurnNowActive;
-  }, [isTurnActive]);
-
-  const focusComposer = useCallback(() => {
-    const editor = promptEditorRef.current;
-    if (!editor) {
-      return;
-    }
-    editor.focus();
-    const nextCaretIndex = value.length;
-    editor.setSelectionRange(nextCaretIndex, nextCaretIndex);
-    caretIndexRef.current = nextCaretIndex;
-    setCaretIndex(nextCaretIndex);
-  }, [value.length]);
-
-  const syncComposerFocus = useCallback(() => {
-    const rootElement = promptEditorRef.current?.getRootElement();
-    setIsPromptInputFocused(
-      typeof document !== "undefined" &&
-        Boolean(
-          rootElement &&
-          document.activeElement &&
-          rootElement.contains(document.activeElement),
-        ),
-    );
-  }, []);
-
-  const armShortcutEchoGuard = useCallback(() => {
-    shortcutEchoGuardRef.current = {
-      value: valueRef.current,
-      expiresAt: Date.now() + SHORTCUT_ECHO_GUARD_WINDOW_MS,
-    };
-  }, []);
-
-  const handleModelShortcut = useCallback(
-    (event: KeyboardEvent | ReactKeyboardEvent<HTMLElement>) => {
-      if (
-        event.defaultPrevented ||
-        interactionsDisabled ||
-        !windowShortcutsEnabled
-      ) {
-        return false;
-      }
-
-      const modelShortcutSlot = resolveModelShortcutSlot({
-        key: event.key,
-        code: event.code,
-        altKey: event.altKey,
-        ctrlKey: event.ctrlKey,
-        metaKey: event.metaKey,
-        shiftKey: event.shiftKey,
-      });
-      if (modelShortcutSlot === null) {
-        return false;
-      }
-
-      const shortcutOption = findModelShortcutOption({
-        slotIndex: modelShortcutSlot,
-        shortcutKeys: modelShortcutKeys,
-        options: modelOptions,
-      });
-      if (!shortcutOption) {
-        return false;
-      }
-
-      event.preventDefault();
-      armShortcutEchoGuard();
-      onModelSelect({
-        selection: shortcutOption,
-        effort: findModelShortcutEffort({
-          slotIndex: modelShortcutSlot,
-          shortcutKeys: modelShortcutKeys,
-          shortcutEfforts: modelShortcutEfforts,
-        }),
-      });
-      window.requestAnimationFrame(() => focusComposer());
-      return true;
-    },
-    [
-      armShortcutEchoGuard,
-      focusComposer,
-      interactionsDisabled,
-      modelOptions,
-      modelShortcutEfforts,
-      modelShortcutKeys,
-      onModelSelect,
-      windowShortcutsEnabled,
-    ],
-  );
-
-  // Settings > Accounts ("Pick a model", "Use in Codex") opens this selector.
-  // The frame delay lets Settings close first, so the popover is not behind it.
-  useEffect(() => {
-    if (interactionsDisabled || !windowShortcutsEnabled) return;
-    let frame = 0;
-    const onOpenModelSelector = (event: Event) => {
-      const detail = (event as CustomEvent<{ providerId?: string; group?: string }>).detail;
-      window.cancelAnimationFrame(frame);
-      frame = window.requestAnimationFrame(() => {
-        const known = listProviderIds().find((candidate) => candidate === detail?.providerId);
-        setModelSelectorOpenRequest(known ? { providerId: known, ...(detail?.group ? { group: detail.group } : {}) } : undefined);
-        setModelSelectorOpenNonce((current) => current + 1);
-      });
-    };
-    window.addEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
-    // Settings asks whether a composer can take the request before sending it.
-    const unregister = registerComposerModelSelectorReceiver();
-    return () => {
-      unregister();
-      window.cancelAnimationFrame(frame);
-      window.removeEventListener(STAVE_OPEN_MODEL_SELECTOR_EVENT, onOpenModelSelector);
-    };
-  }, [interactionsDisabled, windowShortcutsEnabled]);
-
-  useEffect(() => {
-    if (agentSelectorNonce === handledAgentSelectorNonce.current) return;
-    handledAgentSelectorNonce.current = agentSelectorNonce;
-    if (interactionsDisabled || !windowShortcutsEnabled) return;
-    setAgentsOpenToken(agentSelectorNonce);
-  }, [agentSelectorNonce, interactionsDisabled, windowShortcutsEnabled]);
-
-  useEffect(() => {
-    if (interactionsDisabled || !windowShortcutsEnabled) {
-      return;
-    }
-
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-
-      const hasMod = event.ctrlKey || event.metaKey;
-      if (
-        hasMod &&
-        !event.altKey &&
-        !event.shiftKey &&
-        (event.key.toLowerCase() === "l" || event.key.toLowerCase() === "j")
-      ) {
-        const rootElement = promptEditorRef.current?.getRootElement();
-        if (
-          !rootElement ||
-          (document.activeElement &&
-            rootElement.contains(document.activeElement))
-        ) {
-          return;
-        }
-        event.preventDefault();
-        focusComposer();
-        return;
-      }
-
-      const isAltP =
-        !event.ctrlKey &&
-        !event.metaKey &&
-        event.altKey &&
-        !event.shiftKey &&
-        (event.code === "KeyP" || event.key.toLowerCase() === "p");
-      if (isAltP) {
-        event.preventDefault();
-        armShortcutEchoGuard();
-        setModelSelectorOpenRequest(undefined);
-        setModelSelectorOpenNonce((current) => current + 1);
-        return;
-      }
-
-      handleModelShortcut(event);
-    };
-
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [
-    armShortcutEchoGuard,
+  // Effects run in the order these hooks are called. Each hook keeps its
+  // effects in the order the component declared them: focus, then window
+  // shortcuts, then prompt history, then the palettes.
+  const {
+    caretIndex,
+    promptEditorSelectionRange,
+    isPromptInputFocused,
     focusComposer,
+    syncComposerFocus,
+    syncCaretPosition,
+    restoreComposerSelection,
+    getLiveCaretIndex,
+  } = usePromptInputCaret({
+    value,
+    promptEditorRef,
+    promptEnhancementRevealing,
+    focusToken,
+    interactionsDisabled,
+    isTurnActive,
+  });
+
+  const {
+    modelSelectorOpenNonce,
+    modelSelectorOpenRequest,
+    agentsOpenToken,
+    shortcutEchoGuardRef,
     handleModelShortcut,
+  } = usePromptInputWindowShortcuts({
     interactionsDisabled,
     windowShortcutsEnabled,
-  ]);
+    modelOptions,
+    modelShortcutKeys,
+    modelShortcutEfforts,
+    onModelSelect,
+    focusComposer,
+    valueRef,
+    promptEditorRef,
+  });
 
-  useEffect(() => {
-    setSelectedPromptHistoryIndex(NO_PROMPT_HISTORY_SELECTION);
-    setDraftBeforeHistory("");
-  }, [focusToken]);
+  const {
+    setSelectedPromptHistoryIndex,
+    setDraftBeforeHistory,
+    applyPromptHistoryNavigation,
+  } = usePromptInputHistory({
+    promptHistoryEntries,
+    focusToken,
+    value,
+    valueRef,
+    promptEditorRef,
+    onValueChange,
+    restoreComposerSelection,
+  });
 
-  useEffect(() => {
-    if (selectedPromptHistoryIndex === NO_PROMPT_HISTORY_SELECTION) {
-      return;
-    }
-    if (normalizedPromptHistoryEntries.length === 0) {
-      setSelectedPromptHistoryIndex(NO_PROMPT_HISTORY_SELECTION);
-      setDraftBeforeHistory("");
-      return;
-    }
-    if (selectedPromptHistoryIndex >= normalizedPromptHistoryEntries.length) {
-      setSelectedPromptHistoryIndex(normalizedPromptHistoryEntries.length - 1);
-    }
-  }, [normalizedPromptHistoryEntries.length, selectedPromptHistoryIndex]);
-
-  useEffect(() => {
-    if (
-      suppressedAutocompleteValue &&
-      suppressedAutocompleteValue.value !== value
-    ) {
-      setSuppressedAutocompleteValue(null);
-    }
-  }, [suppressedAutocompleteValue, value]);
-
-  useEffect(() => {
-    if (
-      dismissedCommandToken &&
-      activeCommandToken?.token !== dismissedCommandToken
-    ) {
-      setDismissedCommandToken(null);
-    }
-  }, [activeCommandToken?.token, dismissedCommandToken]);
-
-  useEffect(() => {
-    if (
-      dismissedSkillToken &&
-      activeSkillToken?.token !== dismissedSkillToken
-    ) {
-      setDismissedSkillToken(null);
-    }
-  }, [activeSkillToken?.token, dismissedSkillToken]);
-
-  useEffect(() => {
-    if (
-      dismissedWorkspaceInformationToken &&
-      activeWorkspaceInformationToken?.token !==
-        dismissedWorkspaceInformationToken
-    ) {
-      setDismissedWorkspaceInformationToken(null);
-    }
-  }, [
-    activeWorkspaceInformationToken?.token,
-    dismissedWorkspaceInformationToken,
-  ]);
-
-  useEffect(() => {
-    setSelectedCommandIndex(NO_COMMAND_SELECTION);
-  }, [activeCommandToken?.token]);
-
-  useEffect(() => {
-    setSelectedSkillIndex(NO_COMMAND_SELECTION);
-  }, [activeSkillToken?.token]);
-
-  useEffect(() => {
-    setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
-  }, [activeWorkspaceInformationToken?.token]);
-
-  useEffect(() => {
-    if (!commandPaletteOpen) {
-      setSelectedCommandIndex(NO_COMMAND_SELECTION);
-      return;
-    }
-    setSelectedCommandIndex((current) => {
-      if (current === NO_COMMAND_SELECTION) {
-        return NO_COMMAND_SELECTION;
-      }
-      return Math.min(current, Math.max(filteredCommandItems.length - 1, 0));
-    });
-  }, [commandPaletteOpen, filteredCommandItems.length]);
-
-  useEffect(() => {
-    if (!skillPaletteOpen) {
-      setSelectedSkillIndex(NO_COMMAND_SELECTION);
-      return;
-    }
-    setSelectedSkillIndex((current) => {
-      if (current === NO_COMMAND_SELECTION) {
-        return NO_COMMAND_SELECTION;
-      }
-      return Math.min(current, Math.max(filteredSkillItems.length - 1, 0));
-    });
-  }, [filteredSkillItems.length, skillPaletteOpen]);
-
-  useEffect(() => {
-    if (!macroPaletteOpen) {
-      setSelectedMacroIndex(NO_COMMAND_SELECTION);
-      return;
-    }
-    setSelectedMacroIndex((current) => {
-      if (current === NO_COMMAND_SELECTION) {
-        return NO_COMMAND_SELECTION;
-      }
-      return Math.min(current, Math.max(filteredMacroItems.length - 1, 0));
-    });
-  }, [filteredMacroItems.length, macroPaletteOpen]);
-
-  useEffect(() => {
-    if (!workspaceInformationPaletteOpen) {
-      setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
-      return;
-    }
-    setSelectedWorkspaceInformationIndex((current) => {
-      if (current === NO_COMMAND_SELECTION) {
-        return NO_COMMAND_SELECTION;
-      }
-      return Math.min(
-        current,
-        Math.max(filteredWorkspaceInformationItems.length - 1, 0),
-      );
-    });
-  }, [
-    filteredWorkspaceInformationItems.length,
-    workspaceInformationPaletteOpen,
-  ]);
-
-  useEffect(() => {
-    const list = commandListRef.current;
-    if (!list || activePalette === null) {
-      return;
-    }
-    const selectedIndex =
-      activePalette === "info"
-        ? selectedWorkspaceInformationIndex
-        : activePalette === "skill"
-          ? selectedSkillIndex
-          : activePalette === "macro"
-            ? selectedMacroIndex
-            : selectedCommandIndex;
-    if (selectedIndex === NO_COMMAND_SELECTION) {
-      return;
-    }
-    const frameId = window.requestAnimationFrame(() => {
-      const selectedItem = list.querySelector<HTMLElement>(
-        getPaletteItemSelector(selectedIndex),
-      );
-      selectedItem?.scrollIntoView({ block: "nearest" });
-    });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [
-    activePalette,
-    selectedCommandIndex,
-    selectedSkillIndex,
-    selectedMacroIndex,
+  const palette = usePromptInputPaletteState({
+    value,
+    caretIndex,
+    selectedModel,
+    commandPaletteItems,
+    commandPaletteProviderNote,
+    skillsEnabled,
+    skillsAutoSuggest,
+    skillPaletteItems,
+    macros,
+    workspaceInformationReferenceOptions,
+    taskMentionOptions,
+    documentMentionOptions,
+  });
+  const {
+    commandListRef,
+    setDismissedCommandToken,
+    setSelectedCommandIndex,
+    setDismissedSkillToken,
+    setSelectedSkillIndex,
+    setDismissedMacroToken,
+    setSelectedMacroIndex,
+    setDismissedWorkspaceInformationToken,
     selectedWorkspaceInformationIndex,
-  ]);
+    setSelectedWorkspaceInformationIndex,
+    activeCommandToken,
+    activeSkillToken,
+    activeMacroToken,
+    activeWorkspaceInformationToken,
+    filteredCommandItems,
+    filteredSkillItems,
+    paletteMacros,
+    filteredMacroItems,
+    filteredWorkspaceInformationItems,
+    indexedMacroItems,
+    providerCommandItems,
+    localSkillItems,
+    userSkillItems,
+    globalSkillItems,
+    workspaceInformationSectionItems,
+    taskMentionItems,
+    documentMentionItems,
+    workspaceInformationEntryItems,
+    activePalette,
+    paletteValue,
+  } = palette;
+  const paletteSelection = usePromptInputPaletteSelection({
+    palette,
+    valueRef,
+    onValueChange,
+    onMacroSelect,
+    onAttachTask,
+    onAttachDocument,
+    getLiveCaretIndex,
+    restoreComposerSelection,
+  });
+  const {
+    rememberActivePaletteTokenSelection,
+    applyCommandSelection,
+    applySkillSelection,
+    applyMacroSelection,
+    applyMentionSelection,
+    applyWorkspaceInformationSelection,
+  } = paletteSelection;
+
+  const {
+    applyLensAnnotationFeedback,
+    removeLensAnnotation,
+    applyLensAnnotationStyle,
+  } = usePromptInputLensAnnotationActions({
+    attachments,
+    onAttachmentsChange,
+  });
 
   async function submitCurrentMessage(intent?: "steer" | "queue") {
     if (clipboardReadQueue.isPending()) {
@@ -1194,174 +505,6 @@ export function PromptInput(args: PromptInputProps) {
     setDraftBeforeHistory("");
   }
 
-  const updateLensAnnotationAttachment = useCallback(
-    (args: {
-      attachment: Extract<Attachment, { kind: "lens-annotations" }>;
-      annotations: readonly LensAnnotation[];
-      removeImageAnnotationIds?: readonly string[];
-    }) => {
-      if (!args.attachment.workspaceId || !onAttachmentsChange) {
-        return;
-      }
-      const currentAttachments = attachments ?? [];
-      const retainedAttachments = removeLensCommentImageAttachments({
-        attachments: currentAttachments,
-        workspaceId: args.attachment.workspaceId,
-        lensSessionId: args.attachment.lensSessionId,
-        annotationIds: args.removeImageAnnotationIds ?? [],
-      });
-      const nextAttachment =
-        args.annotations.length > 0
-          ? buildLensAnnotationsAttachment({
-              id: args.attachment.id,
-              workspaceId: args.attachment.workspaceId,
-              lensSessionId: args.attachment.lensSessionId,
-              annotations: args.annotations,
-              sourceMappingConfig: lensSourceMappingConfig,
-            })
-          : null;
-      onAttachmentsChange({
-        attachments: retainedAttachments.flatMap((candidate) => {
-          if (
-            candidate.kind === "lens-annotations" &&
-            candidate.id === args.attachment.id
-          ) {
-            return nextAttachment ? [nextAttachment] : [];
-          }
-          return [candidate];
-        }),
-      });
-    },
-    [attachments, lensSourceMappingConfig, onAttachmentsChange],
-  );
-
-  const applyLensAnnotationFeedback = useCallback(
-    (
-      attachment: Extract<Attachment, { kind: "lens-annotations" }>,
-      annotation: LensAnnotation,
-      feedback: LensAnnotationFeedback,
-    ) => {
-      updateLensAnnotationAttachment({
-        attachment,
-        annotations: (attachment.annotations ?? []).map((candidate) => {
-          if (candidate.id !== annotation.id) {
-            return candidate;
-          }
-          const review = resolveLensAnnotationReview(candidate);
-          return {
-            ...candidate,
-            comment: feedback.comment,
-            review: {
-              ...review,
-              feedback,
-            },
-          };
-        }),
-      });
-    },
-    [updateLensAnnotationAttachment],
-  );
-
-  const removeLensAnnotation = useCallback(
-    async (
-      attachment: Extract<Attachment, { kind: "lens-annotations" }>,
-      annotation: LensAnnotation,
-    ) => {
-      if (attachment.workspaceId) {
-        const result = await window.api?.lens?.removeAnnotation?.({
-          workspaceId: attachment.workspaceId,
-          lensSessionId: attachment.lensSessionId,
-          annotationId: annotation.id,
-          documentId: resolveLensAnnotationReview(annotation).page.documentId,
-        });
-        if (!result?.ok) {
-          toast.error(i18n.t("composer:promptInput.copy"), {
-            description:
-              result?.message ?? i18n.t("composer:promptInput.description"),
-          });
-        }
-      }
-      updateLensAnnotationAttachment({
-        attachment,
-        annotations: (attachment.annotations ?? []).filter(
-          (candidate) => candidate.id !== annotation.id,
-        ),
-        removeImageAnnotationIds: [annotation.id],
-      });
-    },
-    [updateLensAnnotationAttachment, i18n.language],
-  );
-
-  const applyLensAnnotationStyle = useCallback(
-    async (
-      attachment: Extract<Attachment, { kind: "lens-annotations" }>,
-      annotation: LensAnnotation,
-      patch: Record<string, string>,
-    ) => {
-      if (!attachment.workspaceId || !annotation.selector) {
-        return;
-      }
-
-      const result = await window.api?.lens?.setElementStyle?.({
-        workspaceId: attachment.workspaceId,
-        lensSessionId: attachment.lensSessionId,
-        annotationId: annotation.id,
-        selector: annotation.selector,
-        patch,
-        documentId: resolveLensAnnotationReview(annotation).page.documentId,
-      });
-
-      if (!result?.ok || !result.edits) {
-        toast.error(i18n.t("composer:promptInput.copy2"), {
-          description: result?.message ?? i18n.t("composer:promptInput.description2"),
-        });
-        return;
-      }
-
-      const edits: LensStyleEdit[] = result.edits;
-      updateLensAnnotationAttachment({
-        attachment,
-        annotations: (attachment.annotations ?? []).map((candidate) => {
-          if (candidate.id !== annotation.id) {
-            return candidate;
-          }
-          const nextComputedStyles = {
-            ...(candidate.computedStyles ?? {}),
-            ...Object.fromEntries(
-              edits.map((edit) => [edit.property, edit.after]),
-            ),
-          };
-          const nextStyleEdits = [...(candidate.styleEdits ?? []), ...edits];
-          return {
-            ...candidate,
-            computedStyles: nextComputedStyles,
-            styleEdits: nextStyleEdits,
-            ...(candidate.review
-              ? {
-                  review: {
-                    ...candidate.review,
-                    anchor: {
-                      ...candidate.review.anchor,
-                      computedStyles: nextComputedStyles,
-                    },
-                    evidence: {
-                      ...candidate.review.evidence,
-                      styleEdits: nextStyleEdits,
-                    },
-                  },
-                }
-              : {}),
-          };
-        }),
-      });
-
-      toast.success(i18n.t("composer:promptInput.copy3"), {
-        description: i18n.t("composer:promptInput.description3", { value1: edits.length, count: edits.length }),
-      });
-    },
-    [updateLensAnnotationAttachment, i18n.language],
-  );
-
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     // The submit button mirrors Enter's configured action; the secondary
@@ -1369,346 +512,6 @@ export function PromptInput(args: PromptInputProps) {
     await submitCurrentMessage(
       isSteerOrQueueMode ? steerQueueEnterAction : undefined,
     );
-  }
-
-  function syncCaretPosition(
-    nextRange?: PromptLexicalEditorSelectionRange | null,
-  ) {
-    const nextCaretIndex = nextRange?.end ?? 0;
-    caretIndexRef.current = nextCaretIndex;
-    setCaretIndex(nextCaretIndex);
-  }
-
-  function restoreComposerSelection(nextCaretIndex: number) {
-    caretIndexRef.current = nextCaretIndex;
-    setCaretIndex(nextCaretIndex);
-    window.requestAnimationFrame(() => {
-      const editor = promptEditorRef.current;
-      if (!editor) {
-        return;
-      }
-      editor.focus();
-      editor.setSelectionRange(nextCaretIndex, nextCaretIndex);
-    });
-  }
-
-  function getLiveCaretIndex(currentValue: string) {
-    const liveRange = promptEditorRef.current?.getSelectionRange();
-    const nextCaretIndex = liveRange?.end ?? caretIndexRef.current;
-    return Math.max(0, Math.min(nextCaretIndex, currentValue.length));
-  }
-
-  function isCurrentTokenMatch(
-    currentValue: string,
-    match:
-      | SlashCommandTokenMatch
-      | SkillTokenMatch
-      | WorkspaceInformationTokenMatch
-      | null,
-  ) {
-    return Boolean(
-      match &&
-      match.start >= 0 &&
-      match.end <= currentValue.length &&
-      currentValue.slice(match.start, match.end) === match.token,
-    );
-  }
-
-  function resolveCommandTokenSelection() {
-    const currentValue = valueRef.current;
-    const pendingToken = pendingCommandTokenRef.current;
-    if (isCurrentTokenMatch(currentValue, pendingToken)) {
-      return pendingToken;
-    }
-    const liveToken = getActiveSlashCommandTokenMatch({
-      value: currentValue,
-      caretIndex: getLiveCaretIndex(currentValue),
-    });
-    if (liveToken) {
-      return liveToken;
-    }
-    if (isCurrentTokenMatch(currentValue, activeCommandToken)) {
-      return activeCommandToken;
-    }
-    return getActiveSlashCommandTokenMatch({
-      value: currentValue,
-      caretIndex: currentValue.length,
-    });
-  }
-
-  function resolveSkillTokenSelection() {
-    const currentValue = valueRef.current;
-    const pendingToken = pendingSkillTokenRef.current;
-    if (isCurrentTokenMatch(currentValue, pendingToken)) {
-      return pendingToken;
-    }
-    const liveToken = getActiveSkillTokenMatch({
-      value: currentValue,
-      caretIndex: getLiveCaretIndex(currentValue),
-    });
-    if (liveToken) {
-      return liveToken;
-    }
-    if (isCurrentTokenMatch(currentValue, activeSkillToken)) {
-      return activeSkillToken;
-    }
-    return getActiveSkillTokenMatch({
-      value: currentValue,
-      caretIndex: currentValue.length,
-    });
-  }
-
-  function resolveMacroTokenSelection() {
-    const currentValue = valueRef.current;
-    const pendingToken = pendingMacroTokenRef.current;
-    if (isCurrentTokenMatch(currentValue, pendingToken)) {
-      return pendingToken;
-    }
-    const liveToken = getActiveMacroTokenMatch({
-      value: currentValue,
-      caretIndex: getLiveCaretIndex(currentValue),
-    });
-    if (liveToken) {
-      return liveToken;
-    }
-    if (isCurrentTokenMatch(currentValue, activeMacroToken)) {
-      return activeMacroToken;
-    }
-    return getActiveMacroTokenMatch({
-      value: currentValue,
-      caretIndex: currentValue.length,
-    });
-  }
-
-  function resolveWorkspaceInformationTokenSelection() {
-    const currentValue = valueRef.current;
-    const pendingToken = pendingWorkspaceInformationTokenRef.current;
-    if (isCurrentTokenMatch(currentValue, pendingToken)) {
-      return pendingToken;
-    }
-    const liveToken = getActiveWorkspaceInformationTokenMatch({
-      text: currentValue,
-      caretIndex: getLiveCaretIndex(currentValue),
-    });
-    if (liveToken) {
-      return liveToken;
-    }
-    if (isCurrentTokenMatch(currentValue, activeWorkspaceInformationToken)) {
-      return activeWorkspaceInformationToken;
-    }
-    return getActiveWorkspaceInformationTokenMatch({
-      text: currentValue,
-      caretIndex: currentValue.length,
-    });
-  }
-
-  function rememberActivePaletteTokenSelection() {
-    const currentValue = valueRef.current;
-    const caretPosition = getLiveCaretIndex(currentValue);
-    pendingCommandTokenRef.current =
-      activePalette === "command"
-        ? (getActiveSlashCommandTokenMatch({
-            value: currentValue,
-            caretIndex: caretPosition,
-          }) ?? activeCommandToken)
-        : null;
-    pendingSkillTokenRef.current =
-      activePalette === "skill"
-        ? (getActiveSkillTokenMatch({
-            value: currentValue,
-            caretIndex: caretPosition,
-          }) ?? activeSkillToken)
-        : null;
-    pendingMacroTokenRef.current =
-      activePalette === "macro"
-        ? (getActiveMacroTokenMatch({
-            value: currentValue,
-            caretIndex: caretPosition,
-          }) ?? activeMacroToken)
-        : null;
-    pendingWorkspaceInformationTokenRef.current =
-      activePalette === "info"
-        ? (getActiveWorkspaceInformationTokenMatch({
-            text: currentValue,
-            caretIndex: caretPosition,
-          }) ?? activeWorkspaceInformationToken)
-        : null;
-  }
-
-  function applyCommandSelection(item: CommandPaletteItem) {
-    const match = resolveCommandTokenSelection();
-    pendingCommandTokenRef.current = null;
-    if (!match) {
-      return;
-    }
-    const currentValue = valueRef.current;
-    const nextValue = replaceSlashCommandToken({
-      value: currentValue,
-      match,
-      command: item,
-    });
-    const nextCaretIndex = match.start + item.command.length + 1;
-    valueRef.current = nextValue;
-    onValueChange(nextValue);
-    setSuppressedAutocompleteValue({ palette: "command", value: nextValue });
-    setDismissedCommandToken(item.command);
-    setSelectedCommandIndex(NO_COMMAND_SELECTION);
-    restoreComposerSelection(nextCaretIndex);
-  }
-
-  function applySkillSelection(item: SkillCatalogEntry) {
-    const match = resolveSkillTokenSelection();
-    pendingSkillTokenRef.current = null;
-    if (!match) {
-      return;
-    }
-    const currentValue = valueRef.current;
-    const nextValue = replaceSkillToken({
-      value: currentValue,
-      match,
-      skill: item,
-    });
-    const nextCaretIndex = match.start + item.slug.length + 2;
-    valueRef.current = nextValue;
-    onValueChange(nextValue);
-    setSuppressedAutocompleteValue({ palette: "skill", value: nextValue });
-    setDismissedSkillToken(`$${item.slug}`);
-    setSelectedSkillIndex(NO_COMMAND_SELECTION);
-    restoreComposerSelection(nextCaretIndex);
-  }
-
-  function applyMacroSelection(item: Macro) {
-    const match = resolveMacroTokenSelection();
-    pendingMacroTokenRef.current = null;
-    if (isAssignPaletteEntry(item)) {
-      // The rest of the draft becomes the assignment; the token goes away.
-      const currentValue = valueRef.current;
-      const nextValue = match
-        ? `${currentValue.slice(0, match.start)}${currentValue.slice(match.end)}`.trim()
-        : currentValue;
-      valueRef.current = nextValue;
-      onValueChange(nextValue);
-      setSuppressedAutocompleteValue({ palette: "macro", value: nextValue });
-      setDismissedMacroToken(match?.token ?? `!${item.slug}`);
-      setSelectedMacroIndex(NO_COMMAND_SELECTION);
-      useAgentsUiStore.getState().openKickoffWithAgent({ text: nextValue });
-      return;
-    }
-    if (!onMacroSelect) {
-      return;
-    }
-    const currentValue = valueRef.current;
-    const result = onMacroSelect({
-      macro: item,
-      match,
-      draftText: currentValue,
-    });
-    if (!result) {
-      return;
-    }
-    valueRef.current = result.text;
-    setSuppressedAutocompleteValue({ palette: "macro", value: result.text });
-    setDismissedMacroToken(match?.token ?? `!${item.slug}`);
-    setSelectedMacroIndex(NO_COMMAND_SELECTION);
-    if (result.instantRun) {
-      // The host already adopted the expanded draft and started the send.
-      // Skip onValueChange so a pending draft save cannot restore the text.
-      return;
-    }
-    onValueChange(result.text);
-    restoreComposerSelection(result.caretIndex);
-  }
-
-  function applyMentionSelection(item: MentionPaletteItem) {
-    if (item.kind === "information") {
-      applyWorkspaceInformationSelection(item.option);
-      return;
-    }
-    const match = resolveWorkspaceInformationTokenSelection();
-    pendingWorkspaceInformationTokenRef.current = null;
-    if (!match) {
-      return;
-    }
-    // The task or document becomes a chip under the prompt, so the typed `@query` goes.
-    const currentValue = valueRef.current;
-    const nextValue = `${currentValue.slice(0, match.start)}${currentValue
-      .slice(match.end)
-      .replace(/^ /, "")}`;
-    valueRef.current = nextValue;
-    onValueChange(nextValue);
-    setSuppressedAutocompleteValue({ palette: "info", value: nextValue });
-    setDismissedWorkspaceInformationToken(null);
-    setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
-    if (item.kind === "document") {
-      onAttachDocument?.(item.option);
-    } else {
-      onAttachTask?.(item.option);
-    }
-    restoreComposerSelection(match.start);
-  }
-
-  function applyWorkspaceInformationSelection(
-    item: WorkspaceInformationReferenceOption,
-  ) {
-    const match = resolveWorkspaceInformationTokenSelection();
-    pendingWorkspaceInformationTokenRef.current = null;
-    if (!match) {
-      return;
-    }
-    const currentValue = valueRef.current;
-    const nextValue = replaceWorkspaceInformationToken({
-      text: currentValue,
-      match,
-      reference: item.reference,
-    });
-    const nextCaretIndex = match.start + item.reference.token.length + 1;
-    valueRef.current = nextValue;
-    onValueChange(nextValue);
-    setSuppressedAutocompleteValue({ palette: "info", value: nextValue });
-    setDismissedWorkspaceInformationToken(item.reference.token);
-    setSelectedWorkspaceInformationIndex(NO_COMMAND_SELECTION);
-    restoreComposerSelection(nextCaretIndex);
-  }
-
-  function applyPromptHistoryNavigation(direction: "previous" | "next") {
-    const editor = promptEditorRef.current;
-    const shouldUseBoundaryCheck =
-      selectedPromptHistoryIndex === NO_PROMPT_HISTORY_SELECTION;
-
-    if (shouldUseBoundaryCheck) {
-      if (!editor) {
-        return false;
-      }
-      const selection = editor.getSelectionRange();
-      const boundaryReached = isPromptHistoryBoundaryReached({
-        value,
-        selectionStart: selection.start,
-        selectionEnd: selection.end,
-        direction,
-      });
-      if (!boundaryReached) {
-        return false;
-      }
-    }
-
-    const navigation = navigatePromptHistory({
-      entries: normalizedPromptHistoryEntries,
-      selectedIndex: selectedPromptHistoryIndex,
-      direction,
-      draftBeforeHistory,
-      currentValue: value,
-    });
-    if (!navigation) {
-      return false;
-    }
-
-    onValueChange(navigation.value);
-    valueRef.current = navigation.value;
-    setSelectedPromptHistoryIndex(navigation.selectedIndex);
-    setDraftBeforeHistory(navigation.draftBeforeHistory);
-    const nextCaretIndex = navigation.value.length;
-    restoreComposerSelection(nextCaretIndex);
-    return true;
   }
 
   function renderSkillScopeIcon(scope: SkillCatalogEntry["scope"]) {
@@ -2344,398 +1147,22 @@ export function PromptInput(args: PromptInputProps) {
                         onFocus?.();
                       }}
                       onBlur={() => onBlur?.()}
-                      onPaste={(event) => {
-                        const clipboardData = event.clipboardData;
-                        if (!clipboardData) {
-                          return;
-                        }
-                        const { imageFiles, nonImageFiles: pastedFiles } =
-                          partitionClipboardFiles(
-                            collectClipboardFiles({
-                              items: clipboardData.items,
-                              files: clipboardData.files,
-                            }),
-                          );
-                        const shouldHandleImages =
-                          imageFiles.length > 0 && Boolean(onAttachmentsChange);
-                        const shouldHandleFiles =
-                          pastedFiles.length > 0 && Boolean(onPasteFiles);
-                        if (!shouldHandleImages && !shouldHandleFiles) {
-                          return;
-                        }
-                        event.preventDefault();
-                        if (shouldHandleFiles) {
-                          void onPasteFiles?.({ files: pastedFiles });
-                        }
-                        if (shouldHandleImages) {
-                          void clipboardReadQueue
-                            .enqueue(
-                              () =>
-                                Promise.all(
-                                  imageFiles.map(async (file) => ({
-                                    kind: "image" as const,
-                                    id: crypto.randomUUID(),
-                                    dataUrl: await readClipboardImage(file),
-                                    label: file.name || i18n.t("composer:promptInput.label"),
-                                    mimeType: file.type || "image/png",
-                                  })),
-                                ),
-                              (newImages) =>
-                                onAttachmentsChange?.({
-                                  attachments: (current) => [
-                                    ...current.filter(
-                                      (attachment) => attachment.kind !== "image",
-                                    ),
-                                    ...mergeClipboardImageAttachments({
-                                      existing: current.filter(
-                                        (
-                                          attachment,
-                                        ): attachment is Extract<
-                                          Attachment,
-                                          { kind: "image" }
-                                        > => attachment.kind === "image",
-                                      ),
-                                      incoming: newImages,
-                                    }),
-                                  ],
-                                }),
-                            )
-                            .catch((error: unknown) => {
-                              toast.error(i18n.t("composer:promptInput.copy4"), {
-                                description:
-                                  error instanceof Error
-                                    ? error.message
-                                    : String(error),
-                              });
-                            });
-                        }
-                      }}
-                      onKeyDown={(event) => {
-                        if (handleModelShortcut(event)) {
-                          return;
-                        }
-                        if (
-                          activePalette === "info" &&
-                          filteredWorkspaceInformationItems.length > 0 &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.ctrlKey &&
-                          !event.metaKey
-                        ) {
-                          if (event.key === "ArrowDown") {
-                            event.preventDefault();
-                            setSelectedWorkspaceInformationIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount:
-                                  filteredWorkspaceInformationItems.length,
-                                direction: "next",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "ArrowUp") {
-                            event.preventDefault();
-                            setSelectedWorkspaceInformationIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount:
-                                  filteredWorkspaceInformationItems.length,
-                                direction: "previous",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "Enter" || event.key === "Tab") {
-                            if (event.nativeEvent.isComposing) {
-                              return;
-                            }
-                            const selectedItem = getAcceptedPaletteItem({
-                              items: filteredWorkspaceInformationItems,
-                              selectedIndex: selectedWorkspaceInformationIndex,
-                              triggerKey: event.key,
-                            });
-                            if (selectedItem) {
-                              event.preventDefault();
-                              applyMentionSelection(selectedItem);
-                              return;
-                            }
-                          }
-                        }
-                        if (
-                          activePalette === "skill" &&
-                          filteredSkillItems.length > 0 &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.ctrlKey &&
-                          !event.metaKey
-                        ) {
-                          if (event.key === "ArrowDown") {
-                            event.preventDefault();
-                            setSelectedSkillIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount: filteredSkillItems.length,
-                                direction: "next",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "ArrowUp") {
-                            event.preventDefault();
-                            setSelectedSkillIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount: filteredSkillItems.length,
-                                direction: "previous",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "Enter" || event.key === "Tab") {
-                            if (event.nativeEvent.isComposing) {
-                              return;
-                            }
-                            const selectedItem = getAcceptedPaletteItem({
-                              items: filteredSkillItems,
-                              selectedIndex: selectedSkillIndex,
-                              triggerKey: event.key,
-                            });
-                            if (selectedItem) {
-                              event.preventDefault();
-                              applySkillSelection(selectedItem);
-                              return;
-                            }
-                          }
-                        }
-                        if (
-                          activePalette === "macro" &&
-                          filteredMacroItems.length > 0 &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.ctrlKey &&
-                          !event.metaKey
-                        ) {
-                          if (event.key === "ArrowDown") {
-                            event.preventDefault();
-                            setSelectedMacroIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount: filteredMacroItems.length,
-                                direction: "next",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "ArrowUp") {
-                            event.preventDefault();
-                            setSelectedMacroIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount: filteredMacroItems.length,
-                                direction: "previous",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "Enter" || event.key === "Tab") {
-                            if (event.nativeEvent.isComposing) {
-                              return;
-                            }
-                            const selectedItem = getAcceptedPaletteItem({
-                              items: filteredMacroItems,
-                              selectedIndex: selectedMacroIndex,
-                              triggerKey: event.key,
-                            });
-                            if (selectedItem) {
-                              event.preventDefault();
-                              applyMacroSelection(selectedItem);
-                              return;
-                            }
-                          }
-                        }
-                        if (
-                          activePalette === "command" &&
-                          filteredCommandItems.length > 0 &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.ctrlKey &&
-                          !event.metaKey
-                        ) {
-                          if (event.key === "ArrowDown") {
-                            event.preventDefault();
-                            setSelectedCommandIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount: filteredCommandItems.length,
-                                direction: "next",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "ArrowUp") {
-                            event.preventDefault();
-                            setSelectedCommandIndex((current) =>
-                              getNextCommandSelectionIndex({
-                                currentIndex: current,
-                                itemCount: filteredCommandItems.length,
-                                direction: "previous",
-                              }),
-                            );
-                            return;
-                          }
-                          if (event.key === "Enter" || event.key === "Tab") {
-                            if (event.nativeEvent.isComposing) {
-                              return;
-                            }
-                            const selectedItem = getAcceptedCommandPaletteItem({
-                              items: filteredCommandItems,
-                              selectedIndex: selectedCommandIndex,
-                              triggerKey: event.key,
-                            });
-                            if (selectedItem) {
-                              event.preventDefault();
-                              applyCommandSelection(selectedItem);
-                              return;
-                            }
-                          }
-                        }
-                        if (
-                          activePalette === "info" &&
-                          event.key === "Escape"
-                        ) {
-                          event.preventDefault();
-                          setDismissedWorkspaceInformationToken(
-                            activeWorkspaceInformationToken?.token ?? null,
-                          );
-                          return;
-                        }
-                        if (
-                          activePalette === "skill" &&
-                          event.key === "Escape"
-                        ) {
-                          event.preventDefault();
-                          setDismissedSkillToken(
-                            activeSkillToken?.token ?? null,
-                          );
-                          return;
-                        }
-                        if (
-                          activePalette === "macro" &&
-                          event.key === "Escape"
-                        ) {
-                          event.preventDefault();
-                          setDismissedMacroToken(
-                            activeMacroToken?.token ?? null,
-                          );
-                          return;
-                        }
-                        if (
-                          activePalette === "command" &&
-                          event.key === "Escape"
-                        ) {
-                          event.preventDefault();
-                          setDismissedCommandToken(
-                            activeCommandToken?.token ?? null,
-                          );
-                          return;
-                        }
-                        if (
-                          activePalette === null &&
-                          isTurnActive &&
-                          event.key === "Escape" &&
-                          !event.nativeEvent.isComposing
-                        ) {
-                          event.preventDefault();
-                          onAbort?.();
-                          return;
-                        }
-                        if (
-                          activePalette === null &&
-                          (event.key === "ArrowUp" ||
-                            event.key === "ArrowDown") &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.ctrlKey &&
-                          !event.metaKey &&
-                          !event.nativeEvent.isComposing
-                        ) {
-                          const consumed = applyPromptHistoryNavigation(
-                            event.key === "ArrowUp" ? "previous" : "next",
-                          );
-                          if (consumed) {
-                            event.preventDefault();
-                            return;
-                          }
-                        }
-                        if (
-                          isSteerOrQueueMode &&
-                          activePalette === null &&
-                          event.key === "Tab" &&
-                          !event.shiftKey &&
-                          !event.altKey &&
-                          !event.ctrlKey &&
-                          !event.metaKey &&
-                          !event.nativeEvent.isComposing
-                        ) {
-                          event.preventDefault();
-                          void submitCurrentMessage(
-                            tabActionForSteerQueueEnterAction(
-                              steerQueueEnterAction,
-                            ),
-                          );
-                          return;
-                        }
-                        if (event.key !== "Enter") {
-                          return;
-                        }
-                        if (
-                          isPromptCommentShortcut({
-                            shortcut: promptCommentShortcut,
-                            key: event.key,
-                            shiftKey: event.shiftKey,
-                            altKey: event.altKey,
-                            ctrlKey: event.ctrlKey,
-                            metaKey: event.metaKey,
-                            isComposing: event.nativeEvent.isComposing,
-                          })
-                        ) {
-                          event.preventDefault();
-                          onStagePromptBatch?.();
-                          return;
-                        }
-                        if (
-                          event.shiftKey ||
-                          event.altKey ||
-                          event.ctrlKey ||
-                          event.metaKey
-                        ) {
-                          return;
-                        }
-                        if (event.nativeEvent.isComposing) {
-                          return;
-                        }
-                        const paletteHasAcceptedItems =
-                          activePalette === "info"
-                            ? filteredWorkspaceInformationItems.length > 0
-                            : activePalette === "skill"
-                              ? filteredSkillItems.length > 0
-                              : activePalette === "macro"
-                                ? filteredMacroItems.length > 0
-                                : activePalette === "command"
-                                  ? filteredCommandItems.length > 0
-                                  : false;
-                        if (paletteHasAcceptedItems) {
-                          event.preventDefault();
-                          return;
-                        }
-                        event.preventDefault();
-                        void submitCurrentMessage(
-                          isSteerOrQueueMode
-                            ? steerQueueEnterAction
-                            : undefined,
-                        );
-                      }}
+                      onPaste={handlePaste}
+                      onKeyDown={(event) =>
+                        handlePromptEditorKeyDown(event, {
+                          palette,
+                          selection: paletteSelection,
+                          handleModelShortcut,
+                          applyPromptHistoryNavigation,
+                          submitCurrentMessage,
+                          isTurnActive,
+                          isSteerOrQueueMode,
+                          steerQueueEnterAction,
+                          promptCommentShortcut,
+                          onAbort,
+                          onStagePromptBatch,
+                        })
+                      }
                       placeholder={
                         minimal && isPromptInputFocused
                           ? ""
