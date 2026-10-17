@@ -240,14 +240,6 @@ export function PromptInput(args: PromptInputProps) {
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
   const isQueueNextMode = submitMode === "queue-next";
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
-  const modifierLabel = useMemo(
-    () =>
-      typeof navigator !== "undefined" &&
-      /(Mac|iPhone|iPad)/i.test(navigator.platform || navigator.userAgent)
-        ? "Cmd"
-        : "Ctrl",
-    [],
-  );
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
   const runtimeProfile = useMemo(
     () => getPromptInputRuntimeProfile(runtimeStatusItems ?? []),

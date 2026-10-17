@@ -292,7 +292,6 @@ export function createAppStorePersistenceOptions() {
         }
       ).appShellMode;
       // Migrate legacy fastModeVisible → per-provider fields.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const raw = state.settings as any;
       state.settings.craneConnector = normalizeCraneConnectorSettings(
         raw.craneConnector,
