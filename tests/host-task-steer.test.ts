@@ -170,4 +170,26 @@ describe("host task steering", () => {
     await h.coordinator.steer(h.request);
     expect(h.counts()).toEqual({ sendCount: 1, persistCount: 0 });
   });
+
+  test("a start that throws or fails releases the turn's steer route", async () => {
+    const h = harness();
+    h.coordinator.unregister(h.turn.turnId);
+    expect(() => h.coordinator.startTurn(h.turn, () => {
+      throw new Error("Workspace execution is stopped.");
+    })).toThrow("stopped");
+    await h.coordinator.steer(h.request);
+    expect(h.counts()).toEqual({ sendCount: 1, persistCount: 0 });
+
+    expect(h.coordinator.startTurn(h.turn, () => ({ ok: false }))).toEqual({ ok: false });
+    await h.coordinator.steer({ ...h.request, clientMessageId: "client-2" });
+    expect(h.counts()).toEqual({ sendCount: 2, persistCount: 0 });
+  });
+
+  test("a started turn keeps its steer route", async () => {
+    const h = harness();
+    h.coordinator.unregister(h.turn.turnId);
+    expect(h.coordinator.startTurn(h.turn, () => ({ ok: true }))).toEqual({ ok: true });
+    await h.coordinator.steer(h.request);
+    expect(h.counts()).toEqual({ sendCount: 1, persistCount: 1 });
+  });
 });

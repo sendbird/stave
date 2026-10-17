@@ -2051,8 +2051,9 @@ async function runTaskImpl(args: {
   taskControlGate.assertCurrent(task.id, controlGeneration);
   // Edits made since the last turn are not this turn's work.
   await recordTurnWorkspaceDocuments({ workspaceId: args.workspaceId, workspacePath, author: "external" });
-  hostTaskSteers.register({ turnId, workspaceId: args.workspaceId, workspaceName, taskId: task.id, provider, model });
-  const started = providerRuntime.startTurnStream(
+  const started = hostTaskSteers.startTurn(
+    { turnId, workspaceId: args.workspaceId, workspaceName, taskId: task.id, provider, model },
+    () => providerRuntime.startTurnStream(
     {
       turnId,
       providerId: provider,
@@ -2088,18 +2089,22 @@ async function runTaskImpl(args: {
         const activityEvent = repositoryLocalMcpTaskTurnActivityEvent(event);
         void workspaceProviderEventQueue
           .enqueue(args.workspaceId, async () => {
-            await handleProviderEvent({
-              workspaceId: args.workspaceId,
-              workspaceName,
-              taskId: task.id,
-              provider,
-              model,
-              turnId,
-              sequence: eventSequence,
-              event,
-            });
+            try {
+              await handleProviderEvent({
+                workspaceId: args.workspaceId,
+                workspaceName,
+                taskId: task.id,
+                provider,
+                model,
+                turnId,
+                sequence: eventSequence,
+                event,
+              });
+            } finally {
+              // A done event that fails to apply still ends the turn's steer route.
+              if (event.type === "done") hostTaskSteers.unregister(turnId);
+            }
             if (event.type === "done") {
-              hostTaskSteers.unregister(turnId);
               // Before the done update, so the renderer's refresh sees the revisions.
               await recordTurnWorkspaceDocuments({
                 workspaceId: args.workspaceId,
@@ -2133,10 +2138,9 @@ async function runTaskImpl(args: {
           });
       },
     },
-  );
+  ));
 
   if (!started.ok) {
-    hostTaskSteers.unregister(turnId);
     throw new Error("Failed to start provider turn.");
   }
 

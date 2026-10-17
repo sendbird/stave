@@ -511,6 +511,38 @@ describe("local MCP runtime runTask", () => {
     expect(lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[result.taskId]?.at(-1)).toMatchObject({ id: "host-steer-client-assistant", isStreaming: false, content: "Steered work" });
   }, 5000);
 
+  test("a done event that fails to apply still releases the host steer route", async () => {
+    const result = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Fail while finishing", provider: "codex" });
+    const handler = startTurnStreamHandlers.at(-1);
+    const originalCompleteTurn = fakeStore.completeTurn;
+    const originalConsoleError = console.error;
+    let doneAttempted: () => void = () => {};
+    const attempted = new Promise<void>((resolve) => { doneAttempted = resolve; });
+    fakeStore.completeTurn = () => {
+      doneAttempted();
+      throw new Error("disk unavailable");
+    };
+    console.error = () => {};
+    try {
+      handler?.onEvent?.({ type: "done", stop_reason: "end_turn" });
+      await attempted;
+      await Bun.sleep(0);
+    } finally {
+      fakeStore.completeTurn = originalCompleteTurn;
+      console.error = originalConsoleError;
+    }
+    let directSends = 0;
+    providerRuntime.steerTurn = async () => {
+      directSends += 1;
+      return { ok: true, delivery: "accepted" };
+    };
+    const before = lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID);
+    await runtime.steerTaskTurn({ turnId: result.turnId, text: "Too late", enabled: true, clientMessageId: "late-steer-client" });
+    expect(directSends).toBe(1);
+    // A still-registered route would have persisted the steer into the transcript.
+    expect(lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)).toBe(before);
+  });
+
   test("delegated creation, start and completion preserve the parent's selected task", async () => {
     const result = await runtime.runTask({ workspaceId: RELEASE_WORKSPACE_ID, parentTaskId: RELEASE_TASK_ID,
       taskId: "child-foreground-regression", prompt: "Read the fixture", provider: "codex" });
