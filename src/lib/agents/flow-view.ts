@@ -536,7 +536,7 @@ export function buildFlow(args: {
       windows.push({ start: first, end: latest?.status === "running" ? null : (latest?.endedAt ?? null) });
       if (latest?.status === "running") runningIndex = index;
       const complete = latest?.report?.outcome === "complete" ? latest.report : null;
-      const classified = complete ? classifyStageEvidence(complete, latest?.facts ?? null) : [];
+      const classified = complete ? classifyStageEvidence(complete, latest?.facts ?? null, { inherited: index < agentRun.agentRun.currentStageIndex }) : [];
       return {
         id: `stage:${stage.id}`,
         kind: "stage" as const,

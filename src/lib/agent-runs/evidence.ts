@@ -11,7 +11,7 @@ import type {
   StageFacts,
 } from "./domain";
 import { revisionsMatch } from "./verification-contract";
-import { workspaceCheckRevisionMatches } from "./workspace-check";
+import { latestWorkspaceScriptResults, workspaceCheckRevisionMatches } from "./workspace-check";
 
 export type EvidenceSource = "stave" | "provider" | "agent";
 
@@ -67,11 +67,13 @@ export function classifyStageEvidence(
   facts: StageFacts | null,
   options: { inherited?: boolean } = {},
 ): ClassifiedEvidence[] {
+  const latest = new Map(latestWorkspaceScriptResults({ facts }).map((check) => [check.scriptId, check]));
   const hostChecks = (facts?.workspaceScripts ?? []).map((check) => {
     const evidence: ClassifiedEvidence = { ...describeActionEvidence(check, facts), scriptId: check.scriptId, ...(check.executedCommands ? { command: check.commandsTruncated ? `${check.executedCommands.slice(0, 1_999)}…` : check.executedCommands } : {}) };
     const acknowledged = report ? revisionsMatch(check.verification.completedRevision, report.workspaceRevision) : facts?.action?.type === "watch-checks";
     const matches = options.inherited ? workspaceCheckRevisionMatches : revisionsMatch;
-    if (acknowledged && revisionsMatch(check.verification.sourceRevision, check.verification.completedRevision) && matches(check.verification.completedRevision, facts?.workspaceRevision)) evidence.freshness = "current";
+    if (latest.get(check.scriptId) !== check) evidence.freshness = "stale";
+    else if (acknowledged && revisionsMatch(check.verification.sourceRevision, check.verification.completedRevision) && matches(check.verification.completedRevision, facts?.workspaceRevision)) evidence.freshness = "current";
     else if (evidence.freshness === "current" && !acknowledged)
       evidence.freshness = report?.workspaceRevision?.status === "known" ? "stale" : "unknown";
     return evidence;

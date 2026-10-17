@@ -8,6 +8,7 @@ import { describeDoneWhen } from "../src/lib/agent-runs/agent-run-status";
 import { projectAgentRunStages } from "../src/lib/agent-runs/agent-run-view";
 import { buildAgentRunReport } from "../src/lib/agent-runs/report";
 import { readWorkspaceRevision } from "../electron/host-service/supervision/workspace-revision";
+import { createAgentRunActionExecutor, type AgentRunScmPort } from "../electron/host-service/supervision/agent-run-actions";
 import { revisionsMatch } from "../src/lib/agent-runs/verification-contract";
 import { createStageRecord, currentStageRecord, EMPTY_STAGE_FACTS } from "../src/lib/agent-runs/domain";
 import { decideAgentRunAction } from "../src/lib/agent-runs/policy";
@@ -111,7 +112,7 @@ test("metadata-only publication keeps action-check evidence consistent in goals,
   expect(describeDoneWhen(detail)).toContainEqual(expect.objectContaining({ text: criterion.text, status: "met-verified" }));
   expect(projectAgentRunStages(detail, AGENT_RUN_NOW)[0]?.evidence[0]?.freshness).toBe("current");
   expect(report.stages[0]?.evidence[0]?.freshness).toBe("current");
-  record.facts.workspaceRevision = { ...committed, contentRevision: "changed" };
+  for (const stage of aggregate.stages) stage.facts.workspaceRevision = { ...committed, contentRevision: "changed" };
   expect(describeDoneWhen(detail)).toContainEqual(expect.objectContaining({ text: criterion.text, status: "unverified" }));
   expect(projectAgentRunStages(detail, AGENT_RUN_NOW)[0]?.evidence[0]?.freshness).toBe("stale");
 });
@@ -145,15 +146,35 @@ for (const hookChangesContents of [false, true]) {
         writeFileSync(hook, "#!/bin/sh\nprintf '%s' 'untested hook modification' > code.txt\ngit add code.txt\n");
         chmodSync(hook, 0o755);
       }
-      git("add", "."); commit();
+      let pushes = 0, opened = 0;
+      const executor = createAgentRunActionExecutor({
+        store: { recordEvent: () => true, listEventsByKind: () => [] }, resolveWorkspacePath: async () => cwd,
+        scm: {
+          currentBranch: async () => "feature", readBaseBranch: async () => "main", readPullRequest: async () => ({ ok: true, value: null }),
+          hasUncommittedChanges: async () => true,
+          commitAll: async () => { git("add", "."); commit(); return { ok: true, value: true }; },
+          hasUnpushedCommits: async () => true,
+          push: async () => { pushes += 1; return { ok: true, value: true }; },
+          readCommitLog: async () => ({ baseBranch: "main", log: "test: save work" }),
+          createDraftPullRequest: async () => { opened += 1; return { ok: true, value: { url: "https://github.com/acme/app/pull/1", created: true } }; },
+        } as AgentRunScmPort,
+      });
+      const outcome = await executor({ aggregate, verifyWorkspace: async () => {
+        const current = await readWorkspaceRevision(cwd);
+        return unmetInheritedWorkspaceChecks(aggregate, { ...currentStageRecord(aggregate), facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: current } });
+      } });
       const completed = await readWorkspaceRevision(cwd);
       if (completed.status !== "known") throw new Error("Expected committed revision");
       expect(revisionsMatch(checked, completed)).toBe(false);
       const final = patchCurrent(aggregate, { facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: completed } });
       if (hookChangesContents) {
+        expect(outcome.status).toBe("failed");
+        expect(pushes).toBe(0); expect(opened).toBe(0);
         expect(completed.contentRevision).not.toBe(checked.contentRevision);
         expect(unmetStageAcceptance(final, currentStageRecord(final))).not.toBeNull();
       } else {
+        expect(outcome.status).toBe("succeeded");
+        expect(pushes).toBe(1); expect(opened).toBe(1);
         expect(completed.contentRevision).toBe(checked.contentRevision);
         expect(unmetStageAcceptance(final, currentStageRecord(final))).toBeNull();
       }

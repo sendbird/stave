@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { withWorkspaceCheck } from "../src/lib/agent-runs/workspace-check";
+import { withWorkspaceCheck, workspaceActionCheckMet, workspaceCheckMet } from "../src/lib/agent-runs/workspace-check";
 import { unmetStageAcceptance } from "../src/lib/agent-runs/acceptance";
 import { classifyStageEvidence } from "../src/lib/agent-runs/evidence";
 import { workspaceCheckBlock } from "../src/lib/agent-runs/workspace-check";
@@ -15,6 +15,26 @@ const other = { status: "known" as const, revision: "edited" };
 const definitionHash = "a".repeat(64);
 const frozen = (scriptId: string) => ({ scriptId, definitionHash });
 const criterion = { text: "Workspace checks pass", required: true, verification: "stave-check" as const, scriptIds: ["check"], scriptDefinitions: [frozen("check")] };
+
+test("latest results supersede each admitted script independently and preserve alternative-script OR semantics", () => {
+  const record = currentStageRecord(agentRunFixture());
+  record.report = { ...COMPLETE_REPORT, workspaceRevision: revision };
+  const result = (scriptId: string, exitCode: number) => ({
+    source: "stave" as const, type: "run-script" as const, scriptId, definitionHash, exitCode, durationMs: 1, outputTail: "checked",
+    verification: { sourceRevision: revision, completedRevision: revision },
+  });
+  const results = (checks: ReturnType<typeof result>[]) => {
+    record.facts = { ...EMPTY_STAGE_FACTS, workspaceRevision: revision, workspaceScripts: checks };
+    return [workspaceCheckMet(record, ["check", "alternative"], [frozen("check"), frozen("alternative")]),
+      workspaceActionCheckMet(record, ["check", "alternative"], [frozen("check"), frozen("alternative")])];
+  };
+  expect(results([result("check", 0), result("check", 1)])).toEqual([false, false]);
+  expect(results([result("check", 0), result("check", 1), result("check", 0)])).toEqual([true, true]);
+  expect(results([result("check", 0), result("alternative", 1)])).toEqual([true, true]);
+  expect(results([result("check", 1), result("alternative", 0)])).toEqual([true, true]);
+  expect(results([result("check", 0), result("unrelated", 1)])).toEqual([true, true]);
+  expect(results([result("check", 0), { ...result("check", 0), definitionHash: "b".repeat(64) }])).toEqual([false, false]);
+});
 
 test("inherited check evidence accepts metadata-only commits without weakening current AI checks", () => {
   const checked = { ...revision, contentRevision: "content" }, committed = { ...other, contentRevision: "content" };

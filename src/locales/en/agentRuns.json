@@ -598,6 +598,7 @@
     "providerRetriesSpent": "The provider kept failing: {{count}} retries ended with “{{message}}”. Retry when the provider is back.",
     "teamDetail": "This run and its helper Agents used all {{value1}} shared turns.",
     "reviewPassed": "Skipped: the independent review passed, the workspace is unchanged, and no required verification remains.",
+    "publicationNeedsCurrentCheck": "Required workspace checks no longer verify the current files. Stave stopped before the next remote update. Restore the checked work before retrying, or start a new run to verify the changed work.",
     "actionNeedsCurrentCheck": "Required workspace checks do not match the current work, so this action has not run. Restore the checked work and retry, or start a new run to verify the changed work."
   },
   "reportMarkdown": {

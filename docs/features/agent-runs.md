@@ -306,9 +306,11 @@ assessment, or `stave-check` for a host workspace script result. A required
 action stages keep the same check behavior, including when verification is
 omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
 
-Read-only Agents cannot execute host action stages. Pausing, taking over or
-cancelling interrupts an action script and prevents further source-control
-operations. A command already sent may finish; inspect any side effects before
+Read-only Agents cannot execute host action stages. Pausing, taking over,
+cancelling or releasing the Agent withdraws permission for further work as soon
+as the request arrives, including while the host is still reading task state.
+It interrupts an action script and prevents further source-control operations.
+A command already sent may finish; inspect any side effects before
 retrying. Resuming does not automatically replay an interrupted action.
 
 A primary write agent's implicit Work stage, and the last AI stage of the
@@ -330,7 +332,12 @@ again. Write-capable primary AI-stage turns and the exact CI repair turn started
 by **Watch checks** may run it; read-only, delegated, non-run and other action
 callers are refused. A CI repair commits its fix, reruns the inherited frozen
 checks, then ends without a stage report. Stave checks that evidence before
-continuing publication. Later stages can reuse a successful check across staging
+continuing publication. The latest result for each admitted script supersedes
+its earlier results, including a later failure. Where a criterion allows
+alternative scripts, another current passing alternative can still satisfy it.
+A later AI stage can renew inherited evidence with the same admitted script;
+completion, stage briefings and **Done when** use the same evidence.
+Later stages can reuse a successful check across staging
 or a commit only when the fingerprint proves that paths, modes and file contents
 are unchanged. Unknown, conflicted or unsupported content cannot establish that
 equivalence. Content fingerprints use actual worktree bytes, including line endings,
@@ -338,6 +345,10 @@ rather than normalized Git blobs. They are bounded to 20,000 paths and 128 MiB;
 larger trees need the final commit before the check instead of reusing a pre-commit
 result. The original check itself still needs matching source and completed
 revisions; an AI report and independent review still require strict revision matches.
+Before each push, pull request creation or ready-for-review update, Stave
+rechecks inherited required checks against the current files. If a local commit
+hook changed those files, it stops before the next remote update. Restore the
+checked work before retrying, or start a new run to verify the changed work.
 Each run allows one script at
 a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation, and a report whose revision cannot be read stays blocked with that reason. Admission reads no git snapshot, so the default check is never dropped because of the workspace state; only an invalid default-criterion insertion is skipped with a timeline/report notice, and that notice survives stage retry. Workspace renames do not change a script definition hash.
 

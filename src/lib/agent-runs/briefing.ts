@@ -31,7 +31,7 @@ import {
 import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { currentEventWait, type AgentRunEventWait } from "./event-wait";
-import { inheritedWorkspaceChecks, workspaceActionCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
+import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
 import type { EventWaitWake } from "./event-wait-observe";
 import type { StageTurnReason } from "./policy";
 import { revisionsMatch } from "./verification-contract";
@@ -137,9 +137,9 @@ export function collectAcceptanceCriteria(
 ): AcceptanceCriterion[] {
   const { agentRun, stages } = aggregate;
   let criteria: AcceptanceCriterion[] = [];
-  const hostCriteria = new Map<string, WorkspaceCheckCriterion>();
   const currentStageId = agentRun.workflow.stages[agentRun.currentStageIndex]?.id;
-  const currentRevision = currentStageId ? latestStageRecord(stages, currentStageId)?.facts?.workspaceRevision : undefined;
+  const currentRecord = currentStageId ? latestStageRecord(stages, currentStageId) : undefined;
+  const currentRevision = currentRecord?.facts?.workspaceRevision;
   for (let index = 0; index < agentRun.currentStageIndex + Number(includeCurrent); index += 1) {
     const record = latestStageRecord(stages, workflowStageAt(agentRun, index).id);
     const stage = workflowStageAt(agentRun, index);
@@ -147,35 +147,26 @@ export function collectAcceptanceCriteria(
       ? (stage.acceptanceCriteria ?? []).map((criterion) => {
         const action = record.facts!.action!;
         const verified = index < agentRun.currentStageIndex && action.type === "run-script"
-          ? action.exitCode === 0 && revisionsMatch(action.verification?.sourceRevision, action.verification?.completedRevision) &&
-            workspaceCheckRevisionMatches(action.verification?.completedRevision, currentRevision ?? record.facts?.workspaceRevision)
+          ? currentRecord && currentRevision
+            ? inheritedWorkspaceCheckRevision(aggregate, currentRecord, { record, criterion, actionScriptId: action.scriptId }) !== undefined
+            : action.exitCode === 0 && revisionsMatch(action.verification?.sourceRevision, action.verification?.completedRevision) &&
+              workspaceCheckRevisionMatches(action.verification?.completedRevision, record.facts?.workspaceRevision)
           : isVerifiedEvidence(describeActionEvidence(action, record.facts));
         return { text: criterion.text, required: criterion.required, status: verified ? "met" as const : "unverified" as const };
       }) : [];
     const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
     const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => {
       const verified = index < agentRun.currentStageIndex
-        ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions), currentRevision ?? record.facts?.workspaceRevision)
+        ? currentRecord && currentRevision
+          ? inheritedWorkspaceCheckRevision(aggregate, currentRecord, { record, criterion }) !== undefined
+          : workspaceCheckRevisionMatches(workspaceCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions), record.facts?.workspaceRevision)
         : workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions);
       return { text: criterion.text, required: criterion.required, status: verified ? "met" as const : "unverified" as const };
     }) : [];
-    const repaired = stage.kind === "action" && stage.action.type === "watch-checks" && record
-      ? [...hostCriteria.values()].flatMap((criterion) => {
-        const verifiedRevision = workspaceActionCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions);
-        if (!verifiedRevision) return [];
-        return [{ text: criterion.text, required: criterion.required, status: workspaceCheckRevisionMatches(verifiedRevision, currentRevision ?? record.facts?.workspaceRevision) ? "met" as const : "unverified" as const }];
-      }) : [];
-    const updates = [...reported, ...observed, ...checks, ...repaired];
+    const updates = [...reported, ...observed, ...checks];
     if (updates.length) {
       if (stage.kind === "ai" && stage.role === "plan") {
         criteria = [];
-        hostCriteria.clear();
-      }
-      if (stage.kind === "ai" && record) for (const criterion of stage.acceptanceCriteria ?? []) {
-        if (criterion.verification === "stave-check") hostCriteria.set(criterion.text.trim(), criterion);
-      }
-      if (stage.kind === "action" && stage.action.type === "run-script" && record) for (const criterion of stage.acceptanceCriteria ?? []) {
-        hostCriteria.set(criterion.text.trim(), criterion);
       }
       for (const incoming of updates) {
         const position = criteria.findIndex((criterion) => criterion.text.trim() === incoming.text.trim());

@@ -200,6 +200,29 @@ describe("deriveFlowBase", () => {
 });
 
 describe("buildFlow", () => {
+  test("inherited host evidence stays verified after a content-preserving commit", () => {
+    const detail = agentRun();
+    const checked = { status: "known" as const, revision: "checked", contentRevision: "same-files" };
+    const current = { status: "known" as const, revision: "committed", contentRevision: "same-files" };
+    const record = detail.stages[0]!;
+    if (record.report?.outcome !== "complete" || !record.facts) throw new Error("Expected complete stage");
+    record.report = { ...record.report, workspaceRevision: checked, evidence: [] };
+    record.facts = { ...record.facts, workspaceRevision: current, workspaceScripts: [{
+      type: "run-script", source: "stave", scriptId: "test", definitionHash: "a".repeat(64),
+      exitCode: 0, durationMs: 1, outputTail: "ok",
+      verification: { sourceRevision: checked, completedRevision: checked },
+    }] };
+    const evidence = () => buildFlow({ taskTitle: "Fix", assignment: null, agentRun: detail, delegates: [], base: EMPTY_BASE })
+      .find((node) => node.id === "stage:plan")?.evidence;
+    detail.agentRun.currentStageIndex = 1;
+    expect(evidence()).toEqual({ verified: 1, reported: 0 });
+    detail.agentRun.currentStageIndex = 0;
+    expect(evidence()?.verified).toBe(0);
+    detail.agentRun.currentStageIndex = 1;
+    record.facts.workspaceRevision = { ...current, contentRevision: "changed-files" };
+    expect(evidence()?.verified).toBe(0);
+  });
+
   test("a plain task shows its base steps and delegated tasks", () => {
     const nodes = buildFlow({
       taskTitle: "Fix",

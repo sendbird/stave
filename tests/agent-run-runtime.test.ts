@@ -2558,18 +2558,27 @@ describe("primary write run workspace checks", () => {
   });
   test.each(["commit-only", "changed-before-action", "changed-by-action"])("publication checks its input and preserves content-bound verification: %s", async (mode) => {
     let currentRevision: WorkspaceRevision = { status: "known", revision: "checked", contentRevision: "a".repeat(64) };
-    let actions = 0;
+    let actions = 0, publications = 0;
+    let executor!: ReturnType<typeof createAgentRunActionExecutor>;
     const custom = { ...agent, id: "custom-checker", workflow: [
       { ...DRAFT, acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check", scriptIds: ["check"] }] }, OPEN_PR,
     ] } as AgentConfig;
     const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => currentRevision,
       runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
-      performAction: async () => {
+      performAction: (args) => executor(args),
+    });
+    executor = createAgentRunActionExecutor({ store: h.store, resolveWorkspacePath: async () => "/tmp/workspace", scm: {
+      currentBranch: async () => "feature", readBaseBranch: async () => "main", readPullRequest: async () => ({ ok: true, value: null }),
+      hasUncommittedChanges: async () => true,
+      commitAll: async () => {
         actions += 1;
         currentRevision = { status: "known", revision: "committed", contentRevision: (mode === "changed-by-action" ? "b" : "a").repeat(64) };
-        return { status: "succeeded", result: { type: "open-draft-pr", prUrl: "https://github.com/acme/app/pull/1", prNumber: 1, created: true } };
+        return { ok: true, value: true };
       },
-    });
+      push: async () => { publications += 1; return { ok: true, value: true }; },
+      readCommitLog: async () => ({ baseBranch: "main", log: "fix: change" }),
+      createDraftPullRequest: async () => { publications += 1; return { ok: true, value: { url: "https://github.com/acme/app/pull/1", created: true } }; },
+    } as AgentRunScmPort });
     h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: currentRevision });
     const id = await startedAgentRun(h, buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: custom, assignment: "Check then publish", now: new Date(START) }));
     await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
@@ -2577,6 +2586,7 @@ describe("primary write run workspace checks", () => {
     if (mode === "changed-before-action") currentRevision = { status: "known", revision: "unverified-edit", contentRevision: "b".repeat(64) };
     h.endTurn("turn-1"); await h.tick();
     expect(actions).toBe(mode === "changed-before-action" ? 0 : 1);
+    expect(publications).toBe(mode === "commit-only" ? 2 : 0);
     expect(h.aggregate(id).agentRun.state).toBe(mode === "commit-only" ? "completed" : "running");
     if (mode !== "commit-only") expect(h.current(id).status).toBe("blocked");
     if (mode === "changed-before-action") expect(h.current(id).detail).toContain("this action has not run");
