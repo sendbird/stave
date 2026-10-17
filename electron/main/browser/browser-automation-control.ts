@@ -6,14 +6,25 @@ type Lease = { state?: State; generation?: number; acquired: boolean; tool: stri
 const states = new Map<string, State>();
 const MAX_PREVIEWS = 8;
 const context = new AsyncLocalStorage<Lease>();
+function stateKey(target: LensReviewTarget): string {
+  return JSON.stringify([target.workspaceId, target.lensSessionId ?? "default"]);
+}
 function stateFor(target: LensReviewTarget): State {
-  const key = JSON.stringify([target.workspaceId, target.lensSessionId ?? "default"]);
+  const key = stateKey(target);
   let state = states.get(key);
   if (!state) {
     state = { workspaceId: target.workspaceId, lensSessionId: target.lensSessionId, paused: false, running: 0, generation: 0 };
     states.set(key, state);
   }
   return state;
+}
+/**
+ * Drop a deliberately closed session's automation state. Session ids are reused
+ * (every workspace's first tab is `default`), so a kept entry would both leak and
+ * open the next fresh tab paused. In-flight leases keep their own reference.
+ */
+export function forgetLensAutomation(target: LensReviewTarget): void {
+  states.delete(stateKey(target));
 }
 export function getLensAutomation(target: LensReviewTarget): LensAutomationState {
   const { generation: _, ...state } = stateFor(target);

@@ -1,5 +1,6 @@
 import { lensMemoryBudgetKB, lensReopenCooldownUntil } from "../../../src/lib/lens/lens-memory-policy";
 import { isCdpPageSleeping, setCdpPageSleeping } from "./browser-cdp-controller";
+import { forgetLensAutomation } from "./browser-automation-control";
 import { LensResourceHistory, type LensResourceEvent } from "../../../src/lib/lens/lens-resource-history";
 import { isLensKeptActive, setLensKeptActive } from "./lens-resource-preferences";
 // ---------------------------------------------------------------------------
@@ -1611,6 +1612,16 @@ export function destroyBrowserSession(
   );
   const pendingClose = closingSessions.get(closingKey);
   if (pendingClose) return pendingClose;
+  /*
+   * An evicted tab survives and keeps its direct-interaction pause; a
+   * deliberate close forgets it, even when the guest was already evicted.
+   */
+  if (reason !== "evicted") {
+    forgetLensAutomation({
+      workspaceId,
+      lensSessionId: normalizeLensSessionId(lensSessionId),
+    });
+  }
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session || session.closing) return Promise.resolve();
 

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   assertLensAutomationAllowed,
   bindLensAutomation,
+  forgetLensAutomation,
   getLensAutomation,
   pauseLensAutomation,
   runLensAutomation,
@@ -48,6 +49,15 @@ describe("Lens direct interaction", () => {
     const result = await runLensAutomation("click", async () => { bindLensAutomation(session); return 42; }, async () => { throw new Error("capture failed"); });
     expect(result).toBe(42);
     expect(getLensAutomation(session).running).toBe(0);
+  });
+  test("forgetting a closed session clears its pause and leaves other sessions alone", () => {
+    const session = target();
+    const other = { ...session, lensSessionId: "other" };
+    pauseLensAutomation(session, true);
+    pauseLensAutomation(other, true);
+    forgetLensAutomation(session);
+    expect(getLensAutomation(session).paused).toBe(false);
+    expect(getLensAutomation(other).paused).toBe(true);
   });
   test("state only exposes the public identity and discards previews on takeover", async () => {
     const session = { ...target(), secret: "must not enter IPC" };

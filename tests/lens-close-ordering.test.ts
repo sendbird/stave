@@ -70,6 +70,9 @@ mock.module("../electron/main/runtime-diagnostic-log", () => ({
   },
 }));
 const manager = await import("../electron/main/browser/browser-manager");
+const automation = await import(
+  "../electron/main/browser/browser-automation-control"
+);
 afterEach(async () => {
   finishDrain("drained");
   await manager.destroyAllBrowserSessions();
@@ -116,3 +119,23 @@ for (const outcome of ["drained", "timed-out"] as const) {
     expect(manager.bindBrowserSessionGuest(args).ok).toBe(true);
   });
 }
+
+test("a deliberate close forgets the session's automation pause; eviction keeps it", async () => {
+  guests.set(20, new FakeGuest(20));
+  const args = {
+    workspaceId: "automation-close-test",
+    lensSessionId: "default",
+    guestWebContentsId: 20,
+  };
+  const target = { workspaceId: args.workspaceId, lensSessionId: "default" };
+  expect(manager.bindBrowserSessionGuest(args).ok).toBe(true);
+  automation.pauseLensAutomation(target, true);
+
+  finishDrain("drained");
+  await manager.destroyBrowserSession(args.workspaceId, "default", "evicted");
+  expect(automation.getLensAutomation(target).paused).toBe(true);
+
+  // The evicted tab is closed later while it has no live guest.
+  await manager.destroyBrowserSession(args.workspaceId, "default");
+  expect(automation.getLensAutomation(target).paused).toBe(false);
+});
