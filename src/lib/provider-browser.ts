@@ -1,4 +1,3 @@
-import type { ProviderId } from "./providers/provider.types";
 
 const WEB_REFERENCE_PATTERN = /(^|[^A-Za-z0-9_@-])@web(?![A-Za-z0-9_-])/i;
 const CLAUDE_CHROME_TOOL_PREFIX = "mcp__claude-in-chrome__";

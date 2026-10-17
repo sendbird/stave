@@ -28,7 +28,6 @@ import {
 } from "./opencode/opencode-acp-profile";
 import {
   appendBoundedBridgeEvent,
-  createBoundedBridgeEventCollector,
   dropBufferedBridgeEvents,
 } from "./provider-buffering";
 import { getProviderConnectedToolStatus } from "./connected-tool-status";
@@ -67,7 +66,6 @@ const sdkTurnTimeoutMs = Number(
 );
 const COMPLETED_STREAM_TTL_MS = 60 * 1000;
 const ACTIVE_STREAM_RETAINED_BYTES_MAX = 512 * 1024;
-const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
 /**
  * A resumed Codex thread keeps the Local MCP connection and tool catalog it

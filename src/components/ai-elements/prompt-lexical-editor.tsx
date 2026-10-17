@@ -35,7 +35,6 @@ import {
   DecoratorNode,
   KEY_BACKSPACE_COMMAND,
   SELECTION_CHANGE_COMMAND,
-  type EditorConfig,
   type EditorState,
   type ElementNode,
   type LexicalEditor,

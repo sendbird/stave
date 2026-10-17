@@ -36,7 +36,6 @@ import {
   didActiveWorkspaceTurnEnd,
   getExplorerExpandedPathsAfterCreate,
   normalizeRelativeInputPath,
-  type SourceControlItemViewModel,
   type WorkspaceActiveTurnSnapshot,
 } from "./editor-panel.utils";
 
@@ -69,10 +68,6 @@ interface EditorPanelProps {
     repositoryPath?: string | null;
     section?: SectionId;
   }) => void;
-}
-
-function getParentDirectoryPath(args: { path: string }) {
-  return args.path.split("/").slice(0, -1).join("/");
 }
 
 function isAffectedByExplorerDelete(args: {

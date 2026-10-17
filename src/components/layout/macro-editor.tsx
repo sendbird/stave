@@ -26,7 +26,6 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { listModelsForPresetProvider } from "@/lib/task-presets";
 import {
   isMacroInstantRun,
-  MACRO_INSERT_MODES,
   type Macro,
   type MacroInsertMode,
 } from "@/lib/macros/types";

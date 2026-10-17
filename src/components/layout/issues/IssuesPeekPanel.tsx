@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { trackerVisualStyles } from "./tracker-visual.styles";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ChevronDown, ChevronUp, Maximize2, X } from "lucide-react";

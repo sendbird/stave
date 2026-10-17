@@ -3,7 +3,6 @@ import {
   buildClaudeEnv,
   resolveClaudeExecutablePath,
   resolveClaudeFallbackModel,
-  prewarmClaudeSdk,
 } from "./claude-sdk-runtime";
 import { claudeFastModeEnabled } from "../../src/lib/providers/claude-model-requirements";
 import { DEFAULT_CLAUDE_HAIKU_MODEL } from "../../src/lib/providers/model-catalog";

@@ -12,7 +12,6 @@ import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { ExternalAnchor } from "@/components/ui/external-anchor";
-import { LinkifiedText } from "@/components/ui/linkified-text";
 import { ServiceLinkBadge } from "@/components/ui/service-link-badge";
 import {
   formatFileLinkLocation,
@@ -569,7 +568,6 @@ export function MarkdownMessage({
           </TableCell>
         </MarkdownTableCellContext.Provider>
       ),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     }),
     [],
   );

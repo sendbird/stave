@@ -58,7 +58,6 @@ import {
 import {
   buildWorkspaceSessionState,
   buildWorkspaceSessionStateFromShell,
-  createWorkspaceSnapshot,
   defaultWorkspaceName,
   persistWorkspaceSnapshot,
 } from "@/store/workspace-session-state";

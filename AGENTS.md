@@ -287,6 +287,7 @@ Common commands:
 
 - `bun run check:licenses`
 - `bun run check:i18n`
+- `bun run lint`
 - `bun run typecheck`
 - `bun test`
 - `bun run build`

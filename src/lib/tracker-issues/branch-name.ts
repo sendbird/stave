@@ -51,10 +51,10 @@ function detectRulePrefix(namingRule?: string | null): string | null {
 }
 
 function cleanSegment(segment: string) {
-  let cleaned = segment.replace(/\.{2,}/g, ".").replace(/^[.\-]+|[.\-]+$/g, "");
+  let cleaned = segment.replace(/\.{2,}/g, ".").replace(/^[.-]+|[.-]+$/g, "");
   // A ref component may not end in `.lock`; stripping once can expose another.
   while (cleaned.toLowerCase().endsWith(".lock")) {
-    cleaned = cleaned.slice(0, -".lock".length).replace(/[.\-]+$/g, "");
+    cleaned = cleaned.slice(0, -".lock".length).replace(/[.-]+$/g, "");
   }
   return cleaned;
 }

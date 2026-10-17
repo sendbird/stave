@@ -1,0 +1,48 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  // `bun run lint` passes the linted roots (src, electron, server, scripts).
+  // unicorn and import stay off: on this codebase their correctness rules only
+  // reported intentional patterns (defensive `[...set]` snapshots, `then` keys
+  // in routing-rule data, Vite `?worker` default imports).
+  "plugins": ["typescript", "react", "oxc"],
+  "categories": { "correctness": "error" },
+  "env": { "browser": true, "node": true, "es2024": true },
+  "ignorePatterns": [
+    // Vendored design-system source bundle, updated from upstream as a unit.
+    "src/components/ads/**",
+    "**/node_modules/**",
+    "out/**",
+    "dist/**",
+    "release/**",
+    ".pages-dist/**",
+    "site/src/generated/**"
+  ],
+  "rules": {
+    "react-hooks/rules-of-hooks": "error",
+    // Warn only: adding every reported dependency can loop effects, so each
+    // one needs a manual decision.
+    "react-hooks/exhaustive-deps": "warn",
+    "no-unused-vars": [
+      "warn",
+      { "argsIgnorePattern": "^_", "varsIgnorePattern": "^_", "caughtErrorsIgnorePattern": "^_" }
+    ],
+    "no-self-compare": "error",
+    "no-case-declarations": "error",
+    "react/jsx-no-comment-textnodes": "error",
+
+    // Terminal, ANSI and input sanitizers match control characters on purpose.
+    "no-control-regex": "off",
+
+    // React Compiler rules. Stave does not build with the React Compiler, and
+    // these flag ordinary patterns (state sync in effects, ref reads in render,
+    // Date.now() in render, module-level lazy() components) rather than bugs.
+    "react/set-state-in-effect": "off",
+    "react/refs": "off",
+    "react/purity": "off",
+    "react/immutability": "off",
+    "react/preserve-manual-memoization": "off",
+    "react/use-memo": "off",
+    "react/static-components": "off",
+    "react/error-boundaries": "off"
+  }
+}

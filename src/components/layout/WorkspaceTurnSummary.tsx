@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Bot, ChevronDown, UserRound } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { focusRing } from "@/components/ads/recipes/focus-ring";

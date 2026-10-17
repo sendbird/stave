@@ -22,7 +22,7 @@ export function createDelegatedAgentRunPort(deps: {
   const run = async (args: DelegatedAgentRunStart & { onPrepared: () => Promise<boolean> }) => {
     const { onPrepared, ...start } = args;
     await deps.prepare(start);
-    if (!(await args.onPrepared())) {
+    if (!(await onPrepared())) {
       await stop(args);
       throw new DelegatedTaskTurnError("The delegation was stopped before activation.", "cancelled");
     }

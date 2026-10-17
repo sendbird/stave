@@ -488,10 +488,6 @@ export const useAppStore = create<AppState>()(
         });
     };
 
-    const workspaceTurnSummaryRequestIdByWorkspaceId = new Map<
-      string,
-      string
-    >();
     const kickoffResolver = createWorkspaceKickoffResolver({
       getState: get,
     });
@@ -1086,7 +1082,6 @@ export const useAppStore = create<AppState>()(
       incrementWorkspaceSnapshotVersion,
       incrementPromptDraftPersistenceVersion,
       shouldLoadLatestTaskMessages,
-      findTaskById,
     });
     const failedSendActions = createFailedSendActions({ set, get });
     const taskPauseActions = createTaskPauseActions({ set, get, dispatchNextQueuedTaskTurn });

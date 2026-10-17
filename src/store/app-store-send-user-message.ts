@@ -2,7 +2,7 @@ import { noteWorkspaceMessage } from "@/lib/fleet/workspace-settlement";
 import { i18n } from "@/i18n/runtime";
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
-import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/providers/provider.types";
+import { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";

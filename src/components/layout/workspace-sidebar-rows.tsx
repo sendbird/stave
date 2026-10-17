@@ -71,8 +71,6 @@ import { useAppStore } from "@/store/app.store";
 import { isDefaultWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
-const EMPTY_MESSAGES: ChatMessage[] = [];
-
 const EMPTY_TASKS: Task[] = [];
 
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};

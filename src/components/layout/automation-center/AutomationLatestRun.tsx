@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";

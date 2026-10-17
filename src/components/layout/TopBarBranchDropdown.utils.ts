@@ -29,7 +29,7 @@ export interface DefaultBranchDrift {
   actualBranch: string;
 }
 
-const INVALID_BRANCH_NAME_CHAR_PATTERN = /[~^:?\*\[\\]/;
+const INVALID_BRANCH_NAME_CHAR_PATTERN = /[~^:?*[\\]/;
 
 export function resolveDefaultBranchDrift(args: {
   isDefaultWorkspace: boolean;

@@ -19,7 +19,6 @@ import { AutomationCenterView } from "@/components/layout/automation-center/Auto
 import { AgentsView } from "@/components/agents/AgentsView";
 import { UsageView } from "@/components/usage/UsageView";
 import {
-  COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
 } from "@/components/layout/RepositoryWorkspaceSidebar";
 import { PresetBar } from "@/components/layout/PresetBar";

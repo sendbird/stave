@@ -193,7 +193,6 @@ export async function persistWorkspacePlanFile(args: {
       createResult.ok === false &&
       !("alreadyExists" in createResult && createResult.alreadyExists === true)
     ) {
-      // eslint-disable-next-line no-console
       console.warn("[plans] createDirectory failed while persisting plan", {
         filePath,
         stderr: createResult.stderr,
@@ -206,7 +205,6 @@ export async function persistWorkspacePlanFile(args: {
       content: args.planText,
     });
     if (writeResult && writeResult.ok === false) {
-      // eslint-disable-next-line no-console
       console.warn("[plans] writeFile failed while persisting plan", {
         filePath,
         stderr: writeResult.stderr,
@@ -215,7 +213,6 @@ export async function persistWorkspacePlanFile(args: {
     }
     return filePath;
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn("[plans] IPC threw while persisting plan", {
       filePath,
       error,
@@ -244,7 +241,6 @@ export async function deleteWorkspacePlanFile(args: {
     });
     return result.ok;
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn("[plans] IPC threw while deleting plan", {
       filePath: args.filePath,
       error,

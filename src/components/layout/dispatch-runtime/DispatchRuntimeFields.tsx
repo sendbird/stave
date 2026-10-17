@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import type { ReactNode } from "react";
 import { Accordion } from "@/components/ads/components/Accordion";
 import { Select } from "@/components/ads/components/Select";

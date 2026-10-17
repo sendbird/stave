@@ -941,7 +941,6 @@ export function WorkspacePaneHost() {
     reconcilePanels(api);
     focusActiveSurface(api);
     // desiredPanelKey encodes the collection state feeding the reconciler.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [desiredPanelKey, activeWorkspaceId, reconcilePanels, focusActiveSurface]);
 
   // Store activeSurface → active panel.

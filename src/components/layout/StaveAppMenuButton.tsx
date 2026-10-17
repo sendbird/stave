@@ -33,7 +33,7 @@ import {
 } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { STAVE_LOGO_URL } from "@/lib/providers/model-catalog";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { staveAppMenuStyles } from "./stave-app-menu.styles";
 

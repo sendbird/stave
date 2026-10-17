@@ -99,16 +99,6 @@ const STATUS_TEXT_STYLE: Record<
   cancelled: s.statusTextCancelled,
 };
 
-const STATUS_ICON_STYLE: Record<
-  ToolResultStatus,
-  (typeof s)[keyof typeof s]
-> = {
-  running: s.statusIconMuted,
-  success: s.statusIconSuccess,
-  error: s.statusIconError,
-  cancelled: s.statusIconCancelled,
-};
-
 export function ToolResultStatusIcon(args: {
   status: ToolResultStatus;
   className?: string;

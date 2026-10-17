@@ -22,7 +22,6 @@ import { assertCdpAllowedForWebContentsId } from "./browser-cdp-access";
 export { assertCdpAllowedForWebContentsId } from "./browser-cdp-access";
 import { getLensBoxModelScript } from "./browser-style-capture";
 import {
-  detachCdpController,
   ensureCdpAttached,
   sendCdpCommand,
   sendCdpCommandIfAttached,

@@ -585,7 +585,7 @@ export function useTerminalSessionManager<TTab extends { id: string }>(
     }
 
     return subscribeSessionOutput((payload) => {
-      const { sessionId, output } = payload;
+      const { sessionId } = payload;
       const tabKey = tabKeyBySessionIdRef.current[sessionId];
       if (!tabKey || !streamReadyByTabKeyRef.current[tabKey]) {
         return;

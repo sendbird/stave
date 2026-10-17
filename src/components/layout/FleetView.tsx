@@ -405,7 +405,7 @@ export function FleetView() {
           );
         });
     },
-    [markNotificationRead],
+    [markNotificationRead, tI18n],
   );
 
   const dismissNeed = useCallback(
@@ -449,7 +449,7 @@ export function FleetView() {
           );
         });
     },
-    [],
+    [tI18n],
   );
 
   const restoreSnoozedNeeds = useCallback(() => {
@@ -466,7 +466,7 @@ export function FleetView() {
         );
       },
     );
-  }, [snoozedItems]);
+  }, [snoozedItems, tI18n]);
 
   /**
    * Acknowledges the whole `Worth a look` group in one gesture.
@@ -543,7 +543,7 @@ export function FleetView() {
         );
       })
       .finally(() => setClearingReview(false));
-  }, [attentionTargets, markNotificationRead]);
+  }, [attentionTargets, markNotificationRead, tI18n]);
 
   const openAttentionItemPr = useCallback((target: FleetAttentionItem) => {
     if (!target.prUrl) {

@@ -20,7 +20,6 @@ import { i18n } from "@/i18n/runtime";
  */
 import { z } from "zod";
 import type { ProviderId } from "../providers/provider.types";
-import { AGENT_RUN_ACTIVE_WAKE_UP_DETAIL } from "./automatic-turn-owner";
 import {
   computeNextAutomationRunAt,
   AutomationScheduleSchema,

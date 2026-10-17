@@ -50,9 +50,6 @@ export default defineConfig({
                 ) {
                   return "monaco";
                 }
-                if (id.includes("react-diff-viewer-continued")) {
-                  return "diff-viewer";
-                }
                 if (id.includes("lucide-react")) {
                   return "lucide";
                 }

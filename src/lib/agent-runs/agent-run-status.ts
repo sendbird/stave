@@ -22,7 +22,7 @@ import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
 import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
-import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
+import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches } from "./workspace-check";
 import { formatAge, type AgentRunBadgeTone, type StageTone } from "./agent-run-view";
 import { describeUsageShort } from "./usage";

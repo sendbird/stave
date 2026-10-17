@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Plus, X } from "lucide-react";
 import { Button, Input } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";

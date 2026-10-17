@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { memo } from "react";

@@ -4,7 +4,6 @@ import path from "node:path";
 import type {
   McpConfigProvider,
   McpConfigScope,
-  McpHeaderEnvBinding,
   McpServerConfigDraft,
   McpServerConfigListRequest,
   McpServerConfigMutationApplyRequest,

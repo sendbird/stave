@@ -207,9 +207,9 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
             alert
               ? shelfTurnAlertParts(alert)
               : [
-                  state ? <span className={sx(stateInk)}>{state}</span> : null,
+                  state ? <span key="state" className={sx(stateInk)}>{state}</span> : null,
                   showNow && detailText ? (
-                    <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer>
+                    <TextShimmer key="detail" active={!props.reducedMotion}>{detailText}</TextShimmer>
                   ) : (
                     detailText
                   ),

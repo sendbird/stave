@@ -22,7 +22,6 @@ import {
   getResolvedTerminalThemeKey,
   resolveTerminalTheme,
 } from "@/components/layout/terminal-instance-theme";
-import { restoreTerminalScreenState } from "@/components/layout/terminal-instance-screen-state";
 
 // This module stays the public entry point for the terminal instance hook, so
 // helpers that moved into sibling modules are re-exported here unchanged.

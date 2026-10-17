@@ -1,6 +1,5 @@
 import { i18n } from "@/i18n/runtime";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
-import { classifyProviderTurnStopReason } from "./turn-stop-reason";
 import {
   createTurnReceipt, observeTurnEvent, finishTurnReceipt,
   type TurnTerminalReceipt,
@@ -14,7 +13,6 @@ import {
   appendWorkProgressMessage,
   isSubagentToolName,
   parseToolInput,
-  PROVIDER_TURN_WORK_TEXT_LIMIT,
   resolveSubagentBadge,
   resolveToolTitle,
   truncateWorkText,

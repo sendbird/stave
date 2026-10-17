@@ -96,7 +96,7 @@ import { resolvePathBaseName } from "@/lib/path-utils";
 import { useAppStore } from "@/store/app.store";
 import { canSendEditorContextToTask } from "@/store/editor.utils";
 import { isDiffEditorTab } from "@/store/layout.utils";
-import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
+import type { ReviewComment } from "@/types/review";
 
 const EMPTY_REVIEW_COMMENTS: ReviewComment[] = [];
 

@@ -41,11 +41,6 @@ interface InlineCompletionRequestSnapshot {
   suffix: string;
 }
 
-interface ReusedInlineCompletion {
-  text: string;
-  kind: "exact" | "tail" | "transformed";
-}
-
 interface InlineCompletionInteractionState {
   filePath: string;
   shouldRequest: boolean;
@@ -62,8 +57,6 @@ const MIN_PREFIX_LENGTH = 4;
 
 let registeredDisposable: IDisposable | null = null;
 let editorInteractionDisposable: IDisposable | null = null;
-let savedGetSettings: (() => InlineCompletionSettings) | null = null;
-let savedTriggerRefresh: (() => void) | null = null;
 let inFlightRequest: PendingInlineCompletionRequest | null = null;
 let cachedResolvedRequest:
   | {
@@ -399,8 +392,6 @@ export function configureInlineCompletions(args: {
   if (registeredDisposable) {
     return;
   }
-  savedGetSettings = args.getSettings;
-  savedTriggerRefresh = args.triggerInlineSuggestRefresh ?? null;
 
   if (!inlineCompletionChangeEmitter) {
     inlineCompletionChangeEmitter = new args.monaco.Emitter<void>();
@@ -756,6 +747,4 @@ export function disposeInlineCompletions() {
   lastLoggedInFlightRequest = null;
   latestObservedRequest = null;
   latestInteractionState = null;
-  savedGetSettings = null;
-  savedTriggerRefresh = null;
 }

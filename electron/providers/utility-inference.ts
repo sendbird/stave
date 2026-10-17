@@ -40,7 +40,6 @@ import { runAcpUtilityPrompt } from "./acp/acp-utility-prompt";
 import { runClaudeReadOnlyPrompt } from "./claude-sdk-runtime";
 import { runCodexReadOnlyPrompt } from "./codex-app-server-runtime";
 import { createUtilityReadinessCache } from "./utility-readiness-cache";
-import type { ProviderId } from "../../src/lib/providers/provider.types";
 
 type ReadOnlyPromptResult = {
   ok: boolean;

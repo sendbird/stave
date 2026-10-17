@@ -122,6 +122,7 @@ export function ServiceLinkBadge({
   label,
   onClick,
 }: ServiceLinkBadgeProps) {
+  useTranslation();
   const Icon = SERVICE_BADGE_ICONS[badge.kind];
   const displayLabel = label?.trim() || badge.label;
   const tooltipLabel = i18n.t("ui:serviceLinkBadge.openIn", { service: getServiceLinkName(badge.kind), href });

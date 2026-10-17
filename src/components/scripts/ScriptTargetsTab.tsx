@@ -1,4 +1,4 @@
-import { i18n, useTranslation, Trans } from "@/i18n";
+import { useTranslation, Trans } from "@/i18n";
 import { Plus, Trash2 } from "lucide-react";
 import {
   Badge,

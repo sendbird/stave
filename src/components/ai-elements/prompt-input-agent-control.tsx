@@ -100,7 +100,7 @@ export function useTaskAgentChoice(props: {
   useEffect(() => {
     latest.current = context;
   });
-  const actions = useMemo(() => createAgentChoiceActions(() => latest.current), [, i18n.language]);
+  const actions = useMemo(() => createAgentChoiceActions(() => latest.current), [i18n.language]);
 
   const route = current
     ? resolveAgentModelRoute({

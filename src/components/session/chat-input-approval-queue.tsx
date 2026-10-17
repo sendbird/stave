@@ -11,7 +11,7 @@ import {
   buildTrustedToolEntryForApproval,
   formatTrustedToolEntry,
 } from "@/lib/providers/trusted-tools";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { chatInputApprovalQueueStyles as styles } from "@/components/session/chat-input-approval-queue.styles";
 import type { ApprovalPart } from "@/types/chat";
 

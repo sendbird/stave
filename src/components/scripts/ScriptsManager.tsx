@@ -681,7 +681,7 @@ export function ScriptsManager(props: {
       };
     });
     setActiveTab("targets");
-  }, []);
+  }, [tI18n]);
 
   const updateTargetField = useCallback(
     (index: number, field: "id" | "label" | "shell", value: string) => {
@@ -761,7 +761,7 @@ export function ScriptsManager(props: {
       return;
     }
     await loadSelectedScope(selectedScope);
-  }, [isDirty, loadSelectedScope, selectedScope]);
+  }, [isDirty, loadSelectedScope, selectedScope, tI18n]);
 
   const discardChanges = useCallback(async () => {
     if (!selectedScope) {
@@ -849,6 +849,7 @@ export function ScriptsManager(props: {
     loadSelectedScope,
     props.onSaved,
     selectedScope,
+    tI18n,
   ]);
 
   const handleScopeChange = useCallback(

@@ -74,8 +74,6 @@ import {
   getProviderLabel,
   listProviderIds,
   listProviderIdsForCapability,
-  resolveDefaultClaudeEffortForModel,
-  resolveDefaultCodexEffortForModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {

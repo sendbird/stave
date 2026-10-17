@@ -1,6 +1,5 @@
 import type { StyleXValue } from "../ads/utils/stylex";
 import { inputGroupMarker, layout } from "./input-group.stylex";
-"use client"
 
 import * as React from "react"
 

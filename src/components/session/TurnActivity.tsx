@@ -130,12 +130,11 @@ const DELEGATED_TASKS_UNAVAILABLE = {
 const EMPTY_CHILD_SOURCE: DelegatedTaskListingSource = {
   children: [],
   actions: {
-    followUp: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
-    retry: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
-    stop: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
-    detach: async () => { useTranslation(); return DELEGATED_TASKS_UNAVAILABLE; },
-    refresh: () => {
-  useTranslation();},
+    followUp: async () => DELEGATED_TASKS_UNAVAILABLE,
+    retry: async () => DELEGATED_TASKS_UNAVAILABLE,
+    stop: async () => DELEGATED_TASKS_UNAVAILABLE,
+    detach: async () => DELEGATED_TASKS_UNAVAILABLE,
+    refresh: () => {},
   },
 };
 const TURN_ACTIVITY_FAILURE_LINGER_MS = 5_000;
@@ -988,7 +987,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.activity?.pendingInteraction,
       props.todos,
       props.workItems,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const elapsedLabel = formatProviderTurnElapsedDuration({
     activity: props.activity,
@@ -1039,7 +1039,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.todos,
       props.workItems,
       stalledIdleLabel,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const graphSummary = useMemo(
     () => (props.workGraph ? summarizeWorkGraph(props.workGraph) : null),

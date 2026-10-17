@@ -93,7 +93,6 @@ import type {
   ClaudeInstalledPluginsResponse,
   ClaudeMcpStatusResponse,
   ClaudePluginReloadResponse,
-  ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import type {
   AgentDefinition,
@@ -144,7 +143,6 @@ import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
 import {
   parseBooleanEnv,
   parsePositiveIntEnv,
-  parseSemverVersion,
   probeExecutableVersion,
   summarizePathHead,
 } from "./runtime-shared";
@@ -689,28 +687,6 @@ export const claudeWebFetchAuthWallPostToolUseHook: HookCallback = async (
     },
   };
 };
-
-
-function extractClaudeTerminalIssue(args: { stdoutTail: string }) {
-  const source = args.stdoutTail;
-  if (
-    source.includes('"error":"rate_limit"') ||
-    source.includes('"rate_limit_event"')
-  ) {
-    const quoted = source.match(/"You've hit your limit[^"]*"/);
-    if (quoted?.[0]) {
-      return quoted[0].slice(1, -1);
-    }
-    return null;
-  }
-  if (source.includes('"error":"authentication_failed"')) {
-    return "Claude authentication failed. Run `claude auth login` and retry.";
-  }
-  if (source.includes('"error":"billing_error"')) {
-    return "Claude billing/subscription issue detected. Check plan/payment status and retry.";
-  }
-  return null;
-}
 
 function summarizeClaudePermissionRequest(args: {
   toolName: string;
