@@ -1,4 +1,4 @@
-import { PromptInputRunAccountPoolControl, type PromptInputRunAccountPool } from "./prompt-input-run-account-pool";
+import { PromptInputRunAccountPoolControl } from "./prompt-input-run-account-pool";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip as AdsTooltip } from "@/components/ads/components/Tooltip";
@@ -10,7 +10,6 @@ import {
   Globe2,
   Info,
   Paperclip,
-  Pencil,
   Send,
   SlidersHorizontal,
   Sparkles,
@@ -23,18 +22,12 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import type {
-  Attachment,
-  PromptDraftBatchItem,
-  UserInputPart,
-} from "@/types/chat";
+import type { Attachment } from "@/types/chat";
 import {
   Fragment,
-  type CSSProperties,
   type FormEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
-  type RefObject,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -57,7 +50,6 @@ import {
   DrawerTitle,
   DrawerTrigger,
   ImageLightbox,
-  Input,
   Kbd,
   KbdGroup,
   Loader,
@@ -67,29 +59,17 @@ import {
   PopoverDescription,
   PopoverTrigger,
   PopoverTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Textarea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  buttonVariants,
   toast,
 } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import { UserInputCard } from "./user-input-card";
 import type {
   CommandPaletteItem,
-  CommandPaletteProviderNote,
   SlashCommandTokenMatch,
 } from "@/lib/commands";
-import type {
-  ProviderModePresetDefinition,
-  ProviderModePresetId,
-} from "@/lib/providers/provider-mode-presets";
 import {
   filterCommandPaletteItems,
   getActiveSlashCommandTokenMatch,
@@ -103,7 +83,6 @@ import {
   partitionComposerFrameToolbar,
   resolveComposerControlLayout,
   type ComposerControlId,
-  type ComposerControlPlacements,
 } from "@/lib/composer-controls";
 import { ComposerControlPlacementList } from "@/components/ai-elements/prompt-input-control-menu";
 import {
@@ -132,15 +111,12 @@ import {
   getAcceptedCommandPaletteItem,
   getAcceptedPaletteItem,
   getNextCommandSelectionIndex,
-  getPromptEnhancementRevealSegments,
-  getPromptEnhancementRevealTimings,
   isPromptHistoryBoundaryReached,
   isShortcutEchoInsertion,
   navigatePromptHistory,
   NO_COMMAND_SELECTION,
   NO_PROMPT_HISTORY_SELECTION,
 } from "./prompt-input.utils";
-import type { PromptEnhancementRevealSegment } from "./prompt-input.utils";
 import {
   findModelShortcutEffort,
   findModelShortcutOption,
@@ -150,13 +126,11 @@ import {
 import {
   DEFAULT_PROMPT_COMMENT_SHORTCUT,
   isPromptCommentShortcut,
-  type PromptCommentShortcut,
 } from "@/lib/prompt-comment-shortcuts";
 import {
   DEFAULT_STEER_QUEUE_ENTER_ACTION,
   formatSteerQueueEnterActionLabel,
   tabActionForSteerQueueEnterAction,
-  type SteerQueueEnterAction,
 } from "@/lib/steer-queue-shortcuts";
 import type {
   LensAnnotationFeedback,
@@ -165,36 +139,18 @@ import type {
   LensSourceMappingConfig,
 } from "@/lib/lens/lens.types";
 import {
-  LENS_FEEDBACK_INTENTS,
-  LENS_FEEDBACK_PRIORITIES,
-} from "@/lib/lens/lens.types";
-import {
   buildLensAnnotationsAttachment,
   getLensCommentImageId,
   isAnyLensCommentImageAttachment,
   removeLensCommentImageAttachments,
 } from "@/lib/lens/lens-annotation-attachment";
 import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
-import {
-  ModelEffortSelector,
-  type ModelPickerAgents,
-  type ModelSelectorCatalogState,
-} from "./model-effort-selector";
-import type { ProviderId } from "@/lib/providers/provider.types";
-import type { ModelSelectorOption } from "./model-selector";
-import {
-  PromptInputProviderModePill,
-  type PromptInputProviderModeStatus,
-} from "./prompt-input-provider-mode";
-import {
-  PromptInputGoalStatusStrip,
-  type PromptInputGoalStatus,
-} from "./prompt-input-goal-status";
+import { ModelEffortSelector } from "./model-effort-selector";
+import { PromptInputProviderModePill } from "./prompt-input-provider-mode";
+import { PromptInputGoalStatusStrip } from "./prompt-input-goal-status";
 import {
   getPromptInputRuntimeProfile,
   PromptInputRuntimeBar,
-  type PromptInputRuntimeProfile,
-  type PromptInputRuntimeStatusItem,
 } from "./prompt-input-runtime-bar";
 import { Suggestion, Suggestions } from "./suggestion";
 import {
@@ -214,10 +170,7 @@ import {
   DocumentContextChip,
   openAttachedDocument,
 } from "@/components/document-context-chip";
-import type {
-  DocumentContextAttachment,
-  DocumentMentionOption,
-} from "@/lib/documents/attached-document-context";
+import type { DocumentContextAttachment } from "@/lib/documents/attached-document-context";
 import {
   buildMentionPaletteItems,
   documentMentionKey,
@@ -227,14 +180,10 @@ import {
 import {
   TASK_DRAG_MIME,
   type TaskContextAttachment,
-  type TaskMentionOption,
 } from "@/lib/task-context/attached-task-context";
 import { isReviewTaskDelegationAvailable } from "@/store/review-task-runtime";
 import { openAttachedTask } from "@/components/open-attached-task";
-import {
-  LocalChangeReviewDialog,
-  type LocalChangeReviewRequest,
-} from "./local-change-review-dialog";
+import { LocalChangeReviewDialog } from "./local-change-review-dialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   COMPOSER_CONTROL_MENU_CONTENT,
@@ -255,159 +204,28 @@ import {
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import { STAVE_OPEN_MODEL_SELECTOR_EVENT, registerComposerModelSelectorReceiver } from "@/lib/providers/accounts-navigation";
 import type { ModelSelectorOpenRequest } from "./model-selector-open-request";
-import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
-
-const LENS_ANNOTATION_STYLE_FIELDS = [
-  "fontSize",
-  "fontWeight",
-  "color",
-  "backgroundColor",
-  "padding",
-  "margin",
-] as const;
-
-interface PromptInputProps {
-  value: string;
-  minimal?: boolean;
-  disabled?: boolean;
-  isTurnActive?: boolean;
-  /**
-   * "steer-or-queue" offers the user an explicit choice per Codex CLI's
-   * convention: one key steers into the live turn, the other explicitly
-   * queues for after it finishes. Which key does which is controlled by
-   * `steerQueueEnterAction`. Neither is a fallback for the other — see
-   * `submitCurrentMessage`'s `intent` param.
-   */
-  submitMode?: "send" | "queue-next" | "steer-or-queue";
-  promptBatch?: readonly PromptDraftBatchItem[];
-  promptCommentShortcut?: PromptCommentShortcut;
-  /**
-   * Which key (Enter or Tab) steers vs queues in "steer-or-queue" mode.
-   * Defaults to Enter=queue, Tab=steer.
-   */
-  steerQueueEnterAction?: SteerQueueEnterAction;
-  focusToken?: string;
-  selectedModel: ModelSelectorOption;
-  modelOptions: readonly ModelSelectorOption[];
-  modelCatalogs?: Partial<Record<ProviderId, ModelSelectorCatalogState>>;
-  onRefreshModelCatalogs?: () => void;
-  modelShortcutKeys?: readonly string[];
-  modelShortcutEfforts?: readonly ModelShortcutEffort[];
-  windowShortcutsEnabled?: boolean;
-  attachedFilePaths: string[];
-  attachments?: Attachment[];
-  attachmentScopeId?: string;
-  promptHistoryEntries?: readonly string[];
-  promptSuggestions?: readonly string[];
-  providerModeStatus?: PromptInputProviderModeStatus | null;
-  providerModePresets?: readonly ProviderModePresetDefinition[];
-  activeProviderModePresetId?: ProviderModePresetId | null;
-  goalStatus?: PromptInputGoalStatus | null;
-  contextMeter?: ReactNode;
-  runAccountPool?: PromptInputRunAccountPool | null;
-  /**
-   * Wrap the raised card in the four-bar composer frame and move toolbar
-   * controls into the side wings when the viewport is wide enough.
-   */
-  framed?: boolean;
-  frameTop?: ReactNode;
-  frameBottom?: ReactNode;
-  runtimeStatusItems?: readonly PromptInputRuntimeStatusItem[];
-  commandPaletteItems?: readonly CommandPaletteItem[];
-  commandPaletteProviderNote?: CommandPaletteProviderNote;
-  skillsEnabled?: boolean;
-  skillsAutoSuggest?: boolean;
-  skillPaletteItems?: readonly SkillCatalogEntry[];
-  macros?: readonly Macro[];
-  onMacroSelect?: (args: {
-    macro: Macro;
-    match: MacroTokenMatch | null;
-    draftText: string;
-  }) => { text: string; caretIndex: number; instantRun?: boolean } | null;
-  workspaceInformationReferenceOptions?: readonly WorkspaceInformationReferenceOption[];
-  /** Tasks `@` can attach as context, most recent first. */
-  taskMentionOptions?: readonly TaskMentionOption[];
-  /** Attach a task picked with `@` or dropped on the composer. */
-  onAttachTask?: (task: { taskId: string; workspaceId: string; title: string }) => void;
-  /** Documents from other workspaces `@` can attach as context, most recent first. */
-  documentMentionOptions?: readonly DocumentMentionOption[];
-  onAttachDocument?: (document: DocumentMentionOption) => void;
-  onValueChange: (value: string) => void;
-  onEnhancePrompt?: () => void | Promise<void>;
-  promptEnhancementPending?: boolean;
-  promptEnhancementRevealing?: boolean;
-  promptEnhancementRevealVersion?: number;
-  /** The draft the enhancement replaced; the reveal diffs against it. */
-  promptEnhancementSourceText?: string;
-  onPromptEnhancementRevealComplete?: () => void;
-  onSuggestionSelect?: (suggestion: string) => void;
-  onFocus?: () => void;
-  onBlur?: () => void;
-  onModelSelect: (args: {
-    selection: ModelSelectorOption;
-    effort?: Exclude<ModelShortcutEffort, "">;
-    fastMode?: boolean;
-  }) => void;
-  onAttachFilesChange: (args: { filePaths: string[] }) => void;
-  onOpenAttachedFile?: (args: { filePath: string }) => void | Promise<void>;
-  onOpenFileSelector?: () => void;
-  onAttachmentsChange?: (args: {
-    attachments: Attachment[] | ((current: Attachment[]) => Attachment[]);
-  }) => void;
-  onPasteFiles?: (args: { files: File[] }) => void | Promise<void>;
-  onProviderModeSelect?: (presetId: ProviderModePresetId) => void;
-  effortLabel?: string;
-  effortValue?: string;
-  fastMode?: boolean;
-  onFastModeChange?: (enabled: boolean) => void;
-  thinkingMode?: "adaptive" | "enabled" | "disabled";
-  onThinkingModeChange?: (value: "adaptive" | "enabled" | "disabled") => void;
-  pendingUserInput?: { messageId: string; part: UserInputPart } | null;
-  onUserInputSubmit?: (args: {
-    messageId: string;
-    answers: Record<string, string>;
-  }) => void;
-  onUserInputDeny?: (args: { messageId: string }) => void;
-  /**
-   * Agents offered inside the model picker, which splits into agent and model
-   * segments while an agent runs the task. Absent where the picker lists
-   * models only; no control moves.
-   */
-  modelPickerAgents?: ModelPickerAgents;
-  /** The next send assigns the task's agent: the send button reads Assign, then Send. */
-  assignOnSend?: boolean;
-  /**
-   * Secrets and Compare are separate slots rather than one fragment: placement
-   * is per-control, and a fragment cannot be routed to two different
-   * containers.
-   */
-  secretsControl?: ReactNode;
-  secretsActive?: boolean;
-  macroControl?: ReactNode;
-  /**
-   * Saved macros as one-click entries for the left wing. Framed layout only —
-   * the classic toolbar reaches them through the Macros control.
-   */
-  macroQuickPicks?: ReactNode;
-  compareControl?: ReactNode;
-  composerControlPlacements?: ComposerControlPlacements;
-  onComposerControlPlacementsChange?: (next: ComposerControlPlacements) => void;
-  workspaceCwd?: string;
-  reviewModelOptions?: readonly ModelSelectorOption[];
-  preferredReviewModelKey?: string;
-  onLocalChangeReview?: (
-    request: LocalChangeReviewRequest,
-  ) => boolean | Promise<boolean>;
-  onSubmit: (args: {
-    text: string;
-    filePaths: string[];
-    /** Present only in "steer-or-queue" mode; which key the user pressed. */
-    intent?: "steer" | "queue";
-  }) => void | Promise<void>;
-  onStagePromptBatch?: () => void;
-  onRemovePromptBatchItem?: (args: { itemId: string }) => void;
-  onAbort?: () => void;
-}
+import type { PromptInputProps } from "./prompt-input.types";
+import {
+  PROMPT_EDITOR_TYPOGRAPHY_DEFAULT,
+  PROMPT_EDITOR_TYPOGRAPHY_MINIMAL,
+  PROMPT_ENHANCEMENT_EDITOR_INSET,
+  PromptEnhancementRevealOverlay,
+  usePromptEnhancementReveal,
+  usePromptEnhancementScrollReset,
+} from "./prompt-input-enhancement";
+import {
+  PROMPT_SURFACE_PRIMARY_FOCUS,
+  PROMPT_TOOLBAR_ICON_BUTTON,
+  PromptInputRuntimeTriggerIcon,
+  getPromptToolbarAccentStyle,
+  getRuntimeProfileToneStyle,
+  tooltipTriggerButtonClassName,
+} from "./prompt-input-toolbar-parts";
+import {
+  LensAnnotationFeedbackPopover,
+  LensAnnotationStylePopover,
+  formatLensFeedbackOption,
+} from "./prompt-input-lens-annotation";
 
 const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
 /**
@@ -417,430 +235,12 @@ const PALETTE_ITEM_INDEX_ATTRIBUTE = "data-palette-index";
  */
 const SHORTCUT_ECHO_GUARD_WINDOW_MS = 120;
 
-const PROMPT_SURFACE_PRIMARY_FOCUS = sx(promptInputStyles.surfacePrimaryFocus);
-const PROMPT_FLOATING_SURFACE = sx(promptInputStyles.floatingSurface);
-const PROMPT_TOOLBAR_ICON_BUTTON = sx(promptInputStyles.toolbarIconButton);
 type WorkspaceInformationTokenMatch = NonNullable<
   ReturnType<typeof getActiveWorkspaceInformationTokenMatch>
 >;
 
-/*
- * Typography the enhancement reveal has to mirror exactly. The overlay is a
- * plain `div` drawn on top of the Lexical editable, so any difference in font,
- * size, leading or tracking would make it wrap on different words than the
- * editor it is standing in for.
- */
-const PROMPT_EDITOR_TYPOGRAPHY_MINIMAL = promptInputStyles.editorTypographyMinimal;
-const PROMPT_EDITOR_TYPOGRAPHY_DEFAULT = promptInputStyles.editorTypographyDefault;
-// Icon-only reservation. The busy chip overlays the draft instead of growing
-// this inset — expanding to a label-width pad reflowed the first line twice
-// (enter busy, leave busy) on top of the reveal animation.
-const PROMPT_ENHANCEMENT_EDITOR_INSET = promptInputStyles.enhancementEditorInset;
-
-/**
- * Drives the enhancement reveal.
- *
- * Enhancement is a single request/response - nothing streams - so there is no
- * honest progress to replay. What the reveal shows instead is the *diff*: the
- * words the rewrite left alone are already on screen, and only the new ones
- * fade in with an accent afterglow. That is the question the user actually
- * has after pressing Enhance ("what did it change?"), and it finishes in about
- * a second instead of holding the composer hostage for a typewriter.
- *
- * Returns `null` whenever nothing should be overlaid, which is also the
- * reduced-motion path: the enhanced draft is simply there, immediately.
- */
-function usePromptEnhancementReveal(args: {
-  active: boolean;
-  revealVersion: number;
-  sourceText: string;
-  value: string;
-  onComplete?: () => void;
-}) {
-  const prefersReducedMotion = usePrefersReducedMotion();
-  const [reveal, setReveal] = useState<{
-    segments: readonly PromptEnhancementRevealSegment[];
-    stepMs: number;
-  } | null>(null);
-  const onCompleteRef = useRef(args.onComplete);
-  onCompleteRef.current = args.onComplete;
-  const targetValueRef = useRef(args.value);
-  targetValueRef.current = args.value;
-  const sourceTextRef = useRef(args.sourceText);
-  sourceTextRef.current = args.sourceText;
-  const { active, revealVersion } = args;
-
-  useEffect(() => {
-    if (!active) {
-      setReveal(null);
-      return;
-    }
-
-    const targetValue = targetValueRef.current;
-    if (prefersReducedMotion || !targetValue) {
-      setReveal(null);
-      onCompleteRef.current?.();
-      return;
-    }
-
-    const segments = getPromptEnhancementRevealSegments({
-      previous: sourceTextRef.current,
-      next: targetValue,
-    });
-    const changedSegmentCount = segments.reduce(
-      (count, segment) => (segment.changed ? count + 1 : count),
-      0,
-    );
-    const { stepMs, durationMs } =
-      getPromptEnhancementRevealTimings(changedSegmentCount);
-    setReveal({ segments, stepMs });
-
-    const timeoutId = window.setTimeout(() => {
-      setReveal(null);
-      onCompleteRef.current?.();
-    }, durationMs);
-    return () => window.clearTimeout(timeoutId);
-  }, [active, revealVersion, prefersReducedMotion]);
-
-  return reveal;
-}
-
-/**
- * Puts the top of the enhanced prompt in view for the reveal.
- *
- * The overlay cannot scroll with the editor (it is not the editor), and the
- * changed words are worth reading from the start anyway, so both are pinned to
- * the top for the duration. Lexical does not do this itself: it scrolls the
- * caret into view only while the editable is editable, and it is not during an
- * enhancement.
- */
-function usePromptEnhancementScrollReset(args: {
-  editorRef: RefObject<PromptLexicalEditorHandle | null>;
-  revealing: boolean;
-}) {
-  const { editorRef, revealing } = args;
-
-  useEffect(() => {
-    if (!revealing) {
-      return;
-    }
-    // The enhanced text is written by a child effect and reconciled by Lexical
-    // asynchronously, so the scroll box only exists next frame.
-    const frameId = window.requestAnimationFrame(() => {
-      const element = editorRef.current?.getRootElement();
-      if (element) {
-        element.scrollTop = 0;
-      }
-    });
-    return () => window.cancelAnimationFrame(frameId);
-  }, [editorRef, revealing]);
-}
-
-/**
- * The reveal itself: a non-interactive mirror of the enhanced prompt, drawn
- * over the (hidden, locked) editor so the changed words can be individual
- * animated spans. Lexical owns its own DOM and renders prompt tokens as chips,
- * so per-word animation cannot live inside the editable.
- */
-function PromptEnhancementRevealOverlay(args: {
-  segments: readonly PromptEnhancementRevealSegment[];
-  stepMs: number;
-  className?: string;
-}) {
-  useTranslation();
-  return (
-    <div
-      aria-hidden="true"
-      data-prompt-enhancement-reveal="true"
-      className={cx(sx(promptInputStyles.revealOverlay), args.className)}
-      style={{ "--prompt-diff-step": `${args.stepMs}ms` } as CSSProperties}
-    >
-      {args.segments.map((segment, index) =>
-        segment.changed ? (
-          <span
-            key={index}
-            className={sx(promptInputStyles.revealWord)}
-            style={{ "--prompt-diff-i": segment.order } as CSSProperties}
-          >
-            {segment.text}
-          </span>
-        ) : (
-          <span key={index}>{segment.text}</span>
-        ),
-      )}
-    </div>
-  );
-}
-
-function tooltipTriggerButtonClassName(args: {
-  variant?:
-    "default" | "outline" | "secondary" | "ghost" | "destructive" | "link";
-  size?:
-    "default" | "xs" | "sm" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg";
-  className?: string;
-}) {
-  return buttonVariants({
-    variant: args.variant ?? "ghost",
-    size: args.size ?? "sm",
-    className: args.className,
-  });
-}
-
-function getPromptToolbarAccentStyle(_tone: "thinking") {
-  return promptInputStyles.accentThinking;
-}
-
-function getRuntimeProfileToneStyle(tone: PromptInputRuntimeProfile["tone"]) {
-  if (tone === "warning") {
-    return promptInputStyles.toneWarning;
-  }
-  if (tone === "custom") {
-    return promptInputStyles.tonePrimary;
-  }
-  return promptInputStyles.toneSuccess;
-}
-
-function PromptInputRuntimeTriggerIcon(args: {
-  profile: PromptInputRuntimeProfile;
-}) {
-  useTranslation();
-  return (
-    <span className={sx(promptInputStyles.runtimeTriggerIcon)}>
-      <SlidersHorizontal
-        aria-hidden="true"
-        className={sx(promptInputStyles.runtimeTriggerGlyph)}
-      />
-      <span
-        aria-hidden="true"
-        className={sx(
-          promptInputStyles.runtimeTriggerDot,
-          args.profile.tone === "warning"
-            ? promptInputStyles.runtimeDotWarning
-            : args.profile.tone === "custom"
-              ? promptInputStyles.runtimeDotCustom
-              : promptInputStyles.runtimeDotSuccess,
-        )}
-      />
-      <span className={sx(promptInputStyles.srOnly)}>{i18n.t("composer:promptInput.sentence29", { value1: args.profile.label })}</span>
-    </span>
-  );
-}
-
 function getPaletteItemSelector(index: number) {
   return `[${PALETTE_ITEM_INDEX_ATTRIBUTE}="${index}"]`;
-}
-
-function resolveLensAnnotationStyleValue(
-  annotation: LensAnnotation,
-  field: (typeof LENS_ANNOTATION_STYLE_FIELDS)[number],
-): string {
-  const edit = annotation.styleEdits
-    ?.slice()
-    .reverse()
-    .find((candidate) => candidate.property === field);
-  return edit?.after ?? annotation.computedStyles?.[field] ?? "";
-}
-
-function LensAnnotationStylePopover(args: {
-  annotation: LensAnnotation;
-  disabled: boolean;
-  onApply: (
-    annotation: LensAnnotation,
-    patch: Record<string, string>,
-  ) => Promise<void>;
-}) {
-  useTranslation();
-  const { annotation, disabled, onApply } = args;
-  const [draft, setDraft] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    const next: Record<string, string> = {};
-    for (const field of LENS_ANNOTATION_STYLE_FIELDS) {
-      next[field] = resolveLensAnnotationStyleValue(annotation, field);
-    }
-    setDraft(next);
-  }, [annotation]);
-
-  const patch = useMemo(
-    () =>
-      Object.fromEntries(
-        Object.entries(draft).filter(([field, value]) => {
-          const trimmed = value.trim();
-          return (
-            trimmed !== "" &&
-            trimmed !==
-              resolveLensAnnotationStyleValue(
-                annotation,
-                field as (typeof LENS_ANNOTATION_STYLE_FIELDS)[number],
-              )
-          );
-        }),
-      ),
-    [annotation, draft],
-  );
-
-  return (
-    <Popover>
-      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}>
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={disabled || !annotation.selector}
-              aria-label={i18n.t("composer:promptInput.ariaLabel", { value1: annotation.pin })}
-            />
-          }
-        >
-          <SlidersHorizontal className={sx(promptInputStyles.icon3)} />
-        </PopoverTrigger>
-      </AdsTooltip>
-      <PopoverContent align="end" xstyle={promptInputStyles.lensPopover72}>
-        <div>
-          <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationStylePopover")}</PopoverTitle>
-          <PopoverDescription>
-            {i18n.t("composer:promptInput.lensAnnotationStylePopover2")}</PopoverDescription>
-        </div>
-        <div className={sx(promptInputStyles.fieldGrid)}>
-          {LENS_ANNOTATION_STYLE_FIELDS.map((field) => (
-            <label key={field} className={sx(promptInputStyles.fieldLabel)}>
-              <span className={sx(promptInputStyles.fieldLabelText)}>{field}</span>
-              <Input
-                value={draft[field] ?? ""}
-                onChange={(event) =>
-                  setDraft((current) => ({
-                    ...current,
-                    [field]: event.target.value,
-                  }))
-                }
-                className={sx(promptInputStyles.inputField)}
-              />
-            </label>
-          ))}
-        </div>
-        <Button
-          type="button"
-          size="xs"
-          className={sx(promptInputStyles.fullWidth)}
-          disabled={saving || Object.keys(patch).length === 0}
-          onClick={() => {
-            setSaving(true);
-            void onApply(annotation, patch).finally(() => setSaving(false));
-          }}
-        >
-          {i18n.t("composer:promptInput.lensAnnotationStylePopover3")}</Button>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
-function formatLensFeedbackOption(value: string) {
-  return value.charAt(0).toUpperCase() + value.slice(1);
-}
-
-function LensAnnotationFeedbackPopover(args: {
-  annotation: LensAnnotation;
-  disabled: boolean;
-  onApply: (
-    annotation: LensAnnotation,
-    feedback: LensAnnotationFeedback,
-  ) => void;
-}) {
-  useTranslation();
-  const { annotation, disabled, onApply } = args;
-  const feedback = resolveLensAnnotationReview(annotation).feedback;
-  const [intent, setIntent] = useState(feedback.intent);
-  const [priority, setPriority] = useState(feedback.priority);
-
-  useEffect(() => {
-    setIntent(feedback.intent);
-    setPriority(feedback.priority);
-  }, [feedback.intent, feedback.priority]);
-
-  const changed = intent !== feedback.intent || priority !== feedback.priority;
-
-  return (
-    <Popover>
-      <AdsTooltip content={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}>
-        <PopoverTrigger
-          render={
-            <Button
-              type="button"
-              size="icon-xs"
-              variant="ghost"
-              disabled={disabled}
-              aria-label={i18n.t("composer:promptInput.ariaLabel2", { value1: annotation.pin })}
-            />
-          }
-        >
-          <Pencil className={sx(promptInputStyles.icon3)} />
-        </PopoverTrigger>
-      </AdsTooltip>
-      <PopoverContent align="end" xstyle={promptInputStyles.lensPopover64}>
-        <div>
-          <PopoverTitle>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover")}</PopoverTitle>
-          <PopoverDescription>
-            {i18n.t("composer:promptInput.lensAnnotationFeedbackPopover2")}</PopoverDescription>
-        </div>
-        <div className={sx(promptInputStyles.fieldGridCols2)}>
-          <label className={sx(promptInputStyles.fieldLabel)}>
-            <span className={sx(promptInputStyles.fieldLabelText)}>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover3")}</span>
-            <Select value={intent} onValueChange={setIntent}>
-              <SelectTrigger
-                size="sm"
-                className={sx(promptInputStyles.fullWidth)}
-                aria-label={i18n.t("composer:promptInput.ariaLabel3", { value1: annotation.pin })}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="start">
-                {LENS_FEEDBACK_INTENTS.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {formatLensFeedbackOption(value)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-          <label className={sx(promptInputStyles.fieldLabel)}>
-            <span className={sx(promptInputStyles.fieldLabelText)}>{i18n.t("composer:promptInput.lensAnnotationFeedbackPopover4")}</span>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger
-                size="sm"
-                className={sx(promptInputStyles.fullWidth)}
-                aria-label={i18n.t("composer:promptInput.ariaLabel4", { value1: annotation.pin })}
-              >
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent align="start">
-                {LENS_FEEDBACK_PRIORITIES.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {formatLensFeedbackOption(value)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-        <Button
-          type="button"
-          size="xs"
-          className={sx(promptInputStyles.fullWidth)}
-          disabled={!changed}
-          onClick={() =>
-            onApply(annotation, {
-              ...feedback,
-              intent,
-              priority,
-            })
-          }
-        >
-          {i18n.t("composer:promptInput.lensAnnotationFeedbackPopover5")}</Button>
-      </PopoverContent>
-    </Popover>
-  );
 }
 
 export function PromptInput(args: PromptInputProps) {
