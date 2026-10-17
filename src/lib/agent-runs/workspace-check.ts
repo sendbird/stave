@@ -1,7 +1,7 @@
 import { i18n } from "@/i18n/runtime";
 import type { AgentConfig } from "../agents/schema";
 import type { Workflow, AiStage } from "../workflows/schema";
-import { AgentRunCommandError, type AgentRunStageRecord } from "./domain";
+import { AgentRunCommandError, latestStageRecord, type AgentRunAggregate, type AgentRunStageRecord } from "./domain";
 import { revisionsMatch, type FrozenWorkspaceScript, type WorkspaceRevision, type ScriptVerification } from "./verification-contract";
 
 /** Explicit checks are bound regardless of whether this agent gets a default. */
@@ -9,7 +9,16 @@ export function freezeWorkspaceChecks(workflow: Workflow, scripts: readonly Froz
   const definitions = [...scripts].sort((left, right) => left.scriptId < right.scriptId ? -1 : left.scriptId > right.scriptId ? 1 : 0);
   let changed = false;
   const stages = workflow.stages.map((stage) => {
-    if (stage.kind !== "ai") return stage;
+    if (stage.kind === "action") {
+      if (stage.action.type !== "run-script" || !stage.acceptanceCriteria?.length) return stage;
+      const scriptId = stage.action.scriptId;
+      const definition = definitions.find((script) => script.scriptId === scriptId);
+      if (!definition) throw new AgentRunCommandError("refused", i18n.t("agentRuns:workspaceCheck.unknownAction", { scriptId }));
+      changed = true;
+      return { ...stage, acceptanceCriteria: stage.acceptanceCriteria.map(({ scriptIds: _incomingIds, scriptDefinitions: _incomingDefinitions, ...criterion }) => ({
+        ...criterion, scriptIds: [scriptId], scriptDefinitions: [definition],
+      })) };
+    }
     const criteria = stage.acceptanceCriteria?.map((criterion) => {
       if (criterion.verification !== "stave-check") return criterion;
       if (!definitions.length) throw new AgentRunCommandError("refused", i18n.t("agentRuns:workspaceCheck.noActions"));
@@ -53,13 +62,109 @@ export function withDefaultWorkspaceCheck(bound: Workflow, agent: Pick<AgentConf
 }
 
 export function workspaceCheckMet(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): boolean {
-  const reportRevision = record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined;
-  return (record.facts?.workspaceScripts ?? []).some((check) =>
+  return revisionsMatch(workspaceCheckRevision(record, scriptIds, definitions), record.facts?.workspaceRevision);
+}
+
+/** A host-issued checks-repair turn runs scripts without reporting its action stage. */
+export function workspaceActionCheckMet(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): boolean {
+  return revisionsMatch(workspaceActionCheckRevision(record, scriptIds, definitions), record.facts?.workspaceRevision);
+}
+
+/** A later result supersedes that script's earlier result, including a failure. */
+export function latestWorkspaceScriptResults(record: Pick<AgentRunStageRecord, "facts">) {
+  const latest = new Map<string, NonNullable<NonNullable<AgentRunStageRecord["facts"]>["workspaceScripts"]>[number]>();
+  for (const check of record.facts?.workspaceScripts ?? []) {
+    if (check.source === "stave") latest.set(check.scriptId, check);
+  }
+  return [...latest.values()];
+}
+
+function verifiedWorkspaceScripts(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]) {
+  return latestWorkspaceScriptResults(record).filter((check) =>
     check.source === "stave" && check.exitCode === 0 && (!scriptIds?.length || scriptIds.includes(check.scriptId)) &&
     Boolean(definitions?.some((definition) => definition.scriptId === check.scriptId && definition.definitionHash === check.definitionHash)) &&
-    revisionsMatch(check.verification.sourceRevision, check.verification.completedRevision) &&
-    revisionsMatch(check.verification.completedRevision, reportRevision) &&
-    revisionsMatch(reportRevision, record.facts?.workspaceRevision));
+    revisionsMatch(check.verification.sourceRevision, check.verification.completedRevision));
+}
+
+/** Original AI-check evidence, independent of a later display-only workspace refresh. */
+export function workspaceCheckRevision(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): WorkspaceRevision | undefined {
+  const reportRevision = record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined;
+  return verifiedWorkspaceScripts(record, scriptIds, definitions).find((check) => revisionsMatch(check.verification.completedRevision, reportRevision))?.verification.completedRevision;
+}
+
+/** Original repair evidence: host scripts do not require an action-stage report. */
+export function workspaceActionCheckRevision(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): WorkspaceRevision | undefined {
+  return verifiedWorkspaceScripts(record, scriptIds, definitions).at(-1)?.verification.completedRevision;
+}
+
+/** Only inherited evidence permits a metadata-only staging or commit change. */
+export function workspaceCheckRevisionMatches(verified?: WorkspaceRevision, current?: WorkspaceRevision): boolean {
+  return revisionsMatch(verified, current) || verified?.status === "known" && current?.status === "known" &&
+    verified.contentRevision !== undefined && verified.contentRevision === current.contentRevision;
+}
+
+export type WorkspaceCheckCriterion = NonNullable<AiStage["acceptanceCriteria"]>[number];
+export type InheritedWorkspaceCheck = { record: AgentRunStageRecord; criterion: WorkspaceCheckCriterion; actionScriptId?: string };
+
+/** One evidence decision for inherited acceptance, briefings and result status.
+ * Read latest attempts in workflow order; alternatives remain independent, but
+ * a later failed/unacknowledged result cannot fall back to an older success. */
+export function inheritedWorkspaceCheckRevision(aggregate: AgentRunAggregate, current: AgentRunStageRecord, inherited: InheritedWorkspaceCheck, options: { requireCurrentReport?: boolean } = {}): WorkspaceRevision | undefined {
+  const currentStage = aggregate.agentRun.workflow.stages[aggregate.agentRun.currentStageIndex];
+  if (options.requireCurrentReport && currentStage?.kind === "ai" && !revisionsMatch(current.report?.outcome === "complete" ? current.report.workspaceRevision : undefined, current.facts?.workspaceRevision)) return undefined;
+  const { criterion } = inherited;
+  const definitions = criterion.scriptDefinitions ?? (inherited.actionScriptId
+    ? aggregate.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" ? stage.acceptanceCriteria ?? [] : [])
+      .flatMap((entry) => entry.scriptDefinitions ?? []).filter((entry) => entry.scriptId === inherited.actionScriptId)
+    : []);
+  const ids = inherited.actionScriptId ? [inherited.actionScriptId] : criterion.scriptIds ?? definitions.map((entry) => entry.scriptId);
+  const latest = new Map<string, WorkspaceRevision | undefined>();
+  const firstIndex = aggregate.agentRun.workflow.stages.findIndex((stage) => stage.id === inherited.record.stageId);
+  for (let index = firstIndex; index >= 0 && index <= aggregate.agentRun.currentStageIndex; index += 1) {
+    const stage = aggregate.agentRun.workflow.stages[index]!;
+    const record = index === aggregate.agentRun.currentStageIndex ? current : latestStageRecord(aggregate.stages, stage.id);
+    if (!record || index < aggregate.agentRun.currentStageIndex && record.status !== "completed") continue;
+    const action = record.facts?.action;
+    // Ordinary action results carry no executed definition hash. Only the
+    // inherited source action may use its own result; later checks need receipts.
+    if (inherited.actionScriptId && record.stageId === inherited.record.stageId && record.attempt === inherited.record.attempt &&
+      stage.kind === "action" && stage.action.type === "run-script" && action?.type === "run-script" && stage.action.scriptId === action.scriptId && ids.includes(action.scriptId)) {
+      latest.set(action.scriptId, action.exitCode === 0 && revisionsMatch(action.verification?.sourceRevision, action.verification?.completedRevision)
+        ? action.verification?.completedRevision : undefined);
+    }
+    if (stage.kind !== "ai" && !(stage.kind === "action" && stage.action.type === "watch-checks")) continue;
+    for (const result of latestWorkspaceScriptResults(record)) {
+      if (!ids.includes(result.scriptId)) continue;
+      const acknowledged = stage.kind !== "ai" || record.report?.outcome === "complete" && revisionsMatch(result.verification.completedRevision, record.report.workspaceRevision) &&
+        (index < aggregate.agentRun.currentStageIndex || revisionsMatch(record.report.workspaceRevision, record.facts?.workspaceRevision));
+      latest.set(result.scriptId, result.exitCode === 0 && acknowledged &&
+        definitions.some((definition) => definition.scriptId === result.scriptId && definition.definitionHash === result.definitionHash) &&
+        revisionsMatch(result.verification.sourceRevision, result.verification.completedRevision) ? result.verification.completedRevision : undefined);
+    }
+  }
+  return [...latest.values()].find((revision) => workspaceCheckRevisionMatches(revision, current.facts?.workspaceRevision));
+}
+
+/** Preserve host verification authority when a later stage restates the same goal. */
+export function inheritedWorkspaceChecks(aggregate: AgentRunAggregate): Map<string, InheritedWorkspaceCheck> {
+  const checks = new Map<string, InheritedWorkspaceCheck>();
+  for (const stage of aggregate.agentRun.workflow.stages.slice(0, aggregate.agentRun.currentStageIndex)) {
+    const record = latestStageRecord(aggregate.stages, stage.id);
+    if (!record || record.status !== "completed") continue;
+    if (stage.kind === "ai" && stage.role === "plan") {
+      const updates = [...(record.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : []),
+        ...(stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check")];
+      if (updates.length) {
+        const retained = new Set(updates.map((criterion) => criterion.text.trim()));
+        for (const text of checks.keys()) if (!retained.has(text)) checks.delete(text);
+      }
+    }
+    for (const criterion of stage.acceptanceCriteria ?? []) {
+      if (stage.kind === "ai" && criterion.verification === "stave-check") checks.set(criterion.text.trim(), { record, criterion });
+      else if (stage.kind === "action" && stage.action.type === "run-script") checks.set(criterion.text.trim(), { record, criterion, actionScriptId: stage.action.scriptId });
+    }
+  }
+  return checks;
 }
 
 export function workspaceRevisionProblem(revision: WorkspaceRevision | undefined, phase: "source" | "completed" | "report" | "workspace"): string | undefined {

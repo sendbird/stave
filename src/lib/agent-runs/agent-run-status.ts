@@ -23,7 +23,7 @@ import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
-import { workspaceCheckMet } from "./workspace-check";
+import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches } from "./workspace-check";
 import { formatAge, type AgentRunBadgeTone, type StageTone } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 
@@ -277,7 +277,7 @@ function reportOf(detail: AgentRunDetail) {
   const stage = reported ?? ai.at(-1) ?? stages[0];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
   const report = record?.report?.outcome === "complete" ? record.report : null;
-  const evidence = report ? classifyStageEvidence(report, record?.facts ?? null) : [];
+  const evidence = report ? classifyStageEvidence(report, record?.facts ?? null, { inherited: stage !== undefined && stages.indexOf(stage) < detail.agentRun.currentStageIndex }) : [];
   return { stage, record, report, evidence };
 }
 
@@ -293,6 +293,21 @@ function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus |
   const key = text.trim();
   let status: DoneWhenStatus | null = null;
   const { agentRun } = detail;
+  const currentStage = agentRun.workflow.stages[agentRun.currentStageIndex];
+  const current = currentStage ? latestStageRecord(detail.stages, currentStage.id) : undefined;
+  const ownCheck = currentStage?.acceptanceCriteria?.find((criterion) => criterion.text.trim() === key);
+  if (current && ownCheck) {
+    if (currentStage?.kind === "ai" && ownCheck.verification === "stave-check")
+      return workspaceCheckMet(current, ownCheck.scriptIds, ownCheck.scriptDefinitions) ? "met-verified" : "unverified";
+    if (currentStage?.kind === "action" && currentStage.action.type === "run-script")
+      return current.facts?.action?.type === "run-script" && isVerifiedEvidence(describeActionEvidence(current.facts.action, current.facts)) ? "met-verified" : "unverified";
+  }
+  const inherited = inheritedWorkspaceChecks(detail).get(key);
+  if (current && inherited && !(currentStage?.kind === "ai" && currentStage.role === "plan")) {
+    const reported = current.report?.outcome === "complete" ? current.report.acceptanceCriteria?.find((criterion) => criterion.text.trim() === key) : undefined;
+    if (reported && reported.status !== "met") return null;
+    return inheritedWorkspaceCheckRevision(detail, current, inherited) ? "met-verified" : "unverified";
+  }
   for (let index = 0; index <= agentRun.currentStageIndex && index < agentRun.workflow.stages.length; index += 1) {
     const stage = agentRun.workflow.stages[index]!;
     const record = latestStageRecord(detail.stages, stage.id);
@@ -301,8 +316,10 @@ function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus |
     const scriptAction = stage.kind === "action" && record.facts?.action?.type === "run-script" && stage.acceptanceCriteria?.some((criterion) => criterion.text.trim() === key)
       ? record.facts.action : null;
     const hostCheck = stage.kind === "ai" ? stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check" && criterion.text.trim() === key) : undefined;
-    if (scriptAction) status = isVerifiedEvidence(describeActionEvidence(scriptAction, record.facts)) ? "met-verified" : "unverified";
-    else if (hostCheck) status = workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions) ? "met-verified" : "unverified";
+    if (scriptAction) status = isVerifiedEvidence(describeActionEvidence(scriptAction, record.facts, undefined, { inherited: index < agentRun.currentStageIndex })) ? "met-verified" : "unverified";
+    else if (hostCheck) status = (index < agentRun.currentStageIndex
+      ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, hostCheck.scriptIds, hostCheck.scriptDefinitions), record.facts?.workspaceRevision)
+      : workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions)) ? "met-verified" : "unverified";
     else if (reported) status = null;
   }
   return status;

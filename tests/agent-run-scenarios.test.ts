@@ -244,7 +244,8 @@ async function runRequestToPr(providerId: "claude-code" | "codex") {
   await harness.tickUntilQuiet(3);
   expect(harness.github.calls).toContain("create-pr");
   const repairTurn = harness.runCalls.at(-1)!;
-  expect(repairTurn.agentRunStage).toBeUndefined();
+  expect(repairTurn.agentRunStage).toEqual({ agentRunId, stageId: "watch-checks", attempt: 1 });
+  expect(repairTurn.prompt).toContain("this turn reports no stage");
   expect(repairTurn.prompt).toContain("unit tests");
   harness.github.dirty = true;
   harness.github.checks = PASSING;

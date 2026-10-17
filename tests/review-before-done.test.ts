@@ -28,10 +28,13 @@ describe("review before done", () => {
     expect(workflow.stages.map((stage) => stage.id)).toEqual(["work", "review", "fix-review"]);
     const [work, review, fix] = workflow.stages;
     expect(work).toMatchObject({ kind: "ai", doneWhen: "The export works." });
-    expect(work?.kind === "ai" ? work.instruction : "").toContain("commit it before you report the stage");
+    expect(work?.kind === "ai" ? work.instruction : "").toContain("commit only its changes");
+    expect(work?.kind === "ai" ? work.instruction : "").toContain("do not create an empty commit");
     expect(review).toMatchObject({ kind: "ai", agentConfigId: REVIEW_AGENT_ID, pinCommit: true });
     expect(review?.kind === "ai" ? review.instruction : "").toContain("only wording, formatting or comments");
     expect(fix?.kind === "ai" ? fix.instruction : "").toContain("If the review found none");
+    expect(fix).toMatchObject({ skipIfReviewPassed: true });
+    expect(review?.kind === "ai" ? review.instruction : "").toContain("verify conclusions, sources and artifacts");
     expect(getStageDisplayTitle(review!)).toBe("Review");
     expect(getStageDisplayTitle(fix!)).toBe("Fix review findings");
     const always = buildAgentRunWorkflow({ agent: { ...implementer(), reviewBeforeDone: "always" }, now });

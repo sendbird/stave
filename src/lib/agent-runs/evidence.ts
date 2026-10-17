@@ -11,6 +11,7 @@ import type {
   StageFacts,
 } from "./domain";
 import { revisionsMatch } from "./verification-contract";
+import { latestWorkspaceScriptResults, workspaceCheckRevisionMatches } from "./workspace-check";
 
 export type EvidenceSource = "stave" | "provider" | "agent";
 
@@ -64,10 +65,16 @@ function classify(evidence: StageEvidence, report: CompleteStageReport, facts: S
 export function classifyStageEvidence(
   report: CompleteStageReport | null,
   facts: StageFacts | null,
+  options: { inherited?: boolean } = {},
 ): ClassifiedEvidence[] {
+  const latest = new Map(latestWorkspaceScriptResults({ facts }).map((check) => [check.scriptId, check]));
   const hostChecks = (facts?.workspaceScripts ?? []).map((check) => {
     const evidence: ClassifiedEvidence = { ...describeActionEvidence(check, facts), scriptId: check.scriptId, ...(check.executedCommands ? { command: check.commandsTruncated ? `${check.executedCommands.slice(0, 1_999)}…` : check.executedCommands } : {}) };
-    if (evidence.freshness === "current" && !revisionsMatch(check.verification.completedRevision, report?.workspaceRevision))
+    const acknowledged = report ? revisionsMatch(check.verification.completedRevision, report.workspaceRevision) : facts?.action?.type === "watch-checks";
+    const matches = options.inherited ? workspaceCheckRevisionMatches : revisionsMatch;
+    if (latest.get(check.scriptId) !== check) evidence.freshness = "stale";
+    else if (acknowledged && revisionsMatch(check.verification.sourceRevision, check.verification.completedRevision) && matches(check.verification.completedRevision, facts?.workspaceRevision)) evidence.freshness = "current";
+    else if (evidence.freshness === "current" && !acknowledged)
       evidence.freshness = report?.workspaceRevision?.status === "known" ? "stale" : "unknown";
     return evidence;
   });
@@ -79,7 +86,8 @@ export function classifyStageEvidence(
 }
 
 /** Host actions record their origin; script checks also expose outcome and freshness. */
-export function describeActionEvidence(result: ActionResult, facts?: StageFacts | null, translate = i18n.t): ClassifiedEvidence {
+export function describeActionEvidence(result: ActionResult, facts?: StageFacts | null, translate = i18n.t, options: { inherited?: boolean } = {}): ClassifiedEvidence {
+  const matches = options.inherited ? workspaceCheckRevisionMatches : revisionsMatch;
   switch (result.type) {
     case "open-draft-pr":
       return {
@@ -111,7 +119,7 @@ export function describeActionEvidence(result: ActionResult, facts?: StageFacts 
         ...(result.url ? { label: translate("agentRuns:evidence.label5", { value1: result.scriptId }), kind: "link" as const, ref: result.url } : { label: translate("agentRuns:evidence.label6", { value1: result.scriptId, value2: result.exitCode }), kind: "check" as const }),
         source: "stave", exitCode: result.exitCode,
         outcome: result.exitCode === 0 ? "succeeded" : "failed",
-        freshness: revisionsMatch(result.verification?.sourceRevision, result.verification?.completedRevision) && revisionsMatch(result.verification?.sourceRevision, facts?.workspaceRevision) ? "current" : result.verification?.sourceRevision.status === "known" && result.verification.completedRevision.status === "known" && facts?.workspaceRevision?.status === "known" ? "stale" : "unknown",
+        freshness: revisionsMatch(result.verification?.sourceRevision, result.verification?.completedRevision) && matches(result.verification?.sourceRevision, facts?.workspaceRevision) ? "current" : result.verification?.sourceRevision.status === "known" && result.verification.completedRevision.status === "known" && facts?.workspaceRevision?.status === "known" ? "stale" : "unknown",
       };
   }
 }

@@ -40,7 +40,7 @@ export const AGENT_RUN_WORKFLOW_ID = "agent-run";
 export const AGENT_RUN_STAGE_ID = "work";
 export const AGENT_RUN_DEFAULT_DONE_WHEN = "The assignment is complete and verified.";
 
-export const AGENT_RUN_PLAN_INSTRUCTION = "Before working, write your steps with the provider's plan tool (TodoWrite or update_plan). Keep exactly one step in progress while working; complete steps as they finish and revise or add steps when scope changes. Respect plan-mode limits.";
+export const AGENT_RUN_PLAN_INSTRUCTION = "For work that needs multiple steps, keep a short plan with the provider's plan tool (TodoWrite or update_plan) when available, otherwise in your response or an authorized workspace plan file. A missing plan tool does not block the assignment. Update the plan as work finishes or scope changes; a simple answer needs no plan. Respect plan-mode limits.";
 
 const AGENT_RUN_INSTRUCTION = [
   "Complete the assignment.",

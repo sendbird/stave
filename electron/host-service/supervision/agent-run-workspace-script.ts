@@ -1,10 +1,12 @@
 import { z } from "zod";
 import { i18n } from "../../../src/i18n/runtime";
-import { AgentRunCommandError, currentStageRecord, EMPTY_STAGE_FACTS, workflowStageAt, type AgentRunAggregate, type AgentRunChange } from "../../../src/lib/agent-runs/domain";
+import { AGENT_RUN_LIMITS, AgentRunCommandError, currentStageRecord, EMPTY_STAGE_FACTS, workflowStageAt, type AgentRunAggregate, type AgentRunChange } from "../../../src/lib/agent-runs/domain";
 import { scriptVerificationProblem } from "../../../src/lib/agent-runs/workspace-check";
+import { inheritedWorkspaceCheckCriteria } from "../../../src/lib/agent-runs/briefing";
 import { WORKSPACE_SCRIPT_TIMEOUT_MS, type FrozenWorkspaceScript, type ScriptVerification } from "../../../src/lib/agent-runs/verification-contract";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import type { AgentRunStageGrant } from "../../providers/agent-run-grants";
+import { prepareRunTurn } from "./turn-preparation";
 
 export const RunWorkspaceScriptInputSchema = z.object({ scriptId: z.string().trim().min(1).max(120) }).strict();
 export interface WorkspaceScriptReceipt extends ScriptVerification {
@@ -28,11 +30,14 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
   enqueue: <T>(operation: () => T | Promise<T>) => Promise<T>;
   requireGrant: (key: string) => { grant: AgentRunStageGrant; aggregate: AgentRunAggregate };
   isDelegated: (aggregate: AgentRunAggregate) => boolean;
+  /** Checks persisted host turn identity, never a caller-supplied repair flag. */
+  isChecksRepairTurn?: (grant: AgentRunStageGrant) => boolean;
   applyChange: (change: AgentRunChange) => unknown;
   setTimeout?: typeof globalThis.setTimeout;
   clearTimeout?: typeof globalThis.clearTimeout;
 }) {
   const running = new Map<string, { controller: AbortController; stageId: string; attempt: number }>();
+  let stopGeneration = 0;
   const refuse = (message: string): never => { throw new AgentRunCommandError("refused", message); };
   function context(key: string) {
     const current = deps.requireGrant(key);
@@ -44,28 +49,45 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
     const agent = deps.taskAgent?.(grant.taskId);
     if (!agent) return refuse("Assign a write-capable agent before running a workspace script.");
     if (agent.permission === "read-only") refuse("A read-only agent cannot run workspace scripts.");
-    if (workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex).kind !== "ai") refuse("Workspace scripts require an AI Work stage, not an action stage.");
-    return { ...current, record };
+    const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
+    const repair = stage.kind === "action" && stage.action.type === "watch-checks" && deps.isChecksRepairTurn?.(grant) === true;
+    if (stage.kind !== "ai" && !repair) refuse("Workspace scripts require an AI Work stage or its host-issued checks repair turn.");
+    return { ...current, record, repair };
   }
   function abort(agentRunId: string) {
     running.get(agentRunId)?.controller.abort(new Error("The workspace script was stopped with its run."));
   }
   const run = async ({ agentRunKey, scriptId }: { agentRunKey: string; scriptId: string }): Promise<WorkspaceScriptReceipt> => {
     const input = RunWorkspaceScriptInputSchema.parse({ scriptId });
+    const generation = stopGeneration;
     const admitted = await deps.enqueue(async () => {
+      if (generation !== stopGeneration) refuse("Workspace script admission was stopped with its run.");
       const current = context(agentRunKey);
       if (running.has(current.aggregate.agentRun.id)) refuse("A workspace script is already running for this run. Wait for its result.");
       if (!deps.runWorkspaceScript || !deps.listWorkspaceActionScripts) refuse("Workspace script execution is unavailable.");
-      const scripts = await deps.listWorkspaceActionScripts!(current.aggregate.agentRun.workspaceId);
-      const script = scripts.find((entry) => entry.scriptId === input.scriptId);
-      if (!script) return refuse(`Unknown workspace action script: ${input.scriptId}.`);
-      const definitions = current.aggregate.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" ? (stage.acceptanceCriteria ?? []).flatMap((criterion) => criterion.scriptDefinitions ?? []) : []);
-      const frozen = definitions.find((entry) => entry.scriptId === input.scriptId);
-      if (!frozen) return refuse(`Script ${input.scriptId} has no definition frozen at admission. Start a new run with a readable workspace revision.`);
-      if (script.definitionHash !== frozen.definitionHash) return refuse(`Script ${input.scriptId} definition changed after this run started. Restore the admitted definition or start a new run.`);
+      const identities = new Set(current.record.facts?.workspaceScripts?.map((check) => check.scriptId));
+      if (!identities.has(input.scriptId) && identities.size >= AGENT_RUN_LIMITS.facts.checks)
+        refuse(`This stage already retains results for ${AGENT_RUN_LIMITS.facts.checks} different scripts. Use another stage for additional checks.`);
       const owned = { controller: new AbortController(), stageId: current.record.stageId, attempt: current.record.attempt };
       running.set(current.aggregate.agentRun.id, owned);
-      return { ...current, owned, frozen };
+      try {
+        const scripts = await prepareRunTurn(owned.controller.signal, () => deps.listWorkspaceActionScripts!(current.aggregate.agentRun.workspaceId));
+        owned.controller.signal.throwIfAborted();
+        context(agentRunKey);
+        const script = scripts.find((entry) => entry.scriptId === input.scriptId);
+        if (!script) return refuse(`Unknown workspace action script: ${input.scriptId}.`);
+        const definitions = current.repair
+          ? inheritedWorkspaceCheckCriteria(current.aggregate).flatMap((criterion) => criterion.scriptDefinitions ?? [])
+          : current.aggregate.agentRun.workflow.stages.flatMap((stage) => stage.kind === "ai" || stage.action.type === "run-script"
+            ? (stage.acceptanceCriteria ?? []).flatMap((criterion) => criterion.scriptDefinitions ?? []) : []);
+        const frozen = definitions.find((entry) => entry.scriptId === input.scriptId);
+        if (!frozen) return refuse(`Script ${input.scriptId} has no definition frozen at admission. Start a new run with a readable workspace revision.`);
+        if (script.definitionHash !== frozen.definitionHash) return refuse(`Script ${input.scriptId} definition changed after this run started. Restore the admitted definition or start a new run.`);
+        return { ...current, owned, frozen };
+      } catch (error) {
+        if (running.get(current.aggregate.agentRun.id) === owned) running.delete(current.aggregate.agentRun.id);
+        throw error;
+      }
     });
     const { controller } = admitted.owned;
     const { signal } = controller;
@@ -94,9 +116,15 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
         const { aggregate, record } = context(agentRunKey);
         if (record.stageId !== admitted.record.stageId || record.attempt !== admitted.record.attempt || aggregate.agentRun.id !== admitted.aggregate.agentRun.id)
           refuse("The run has moved on from this script's stage.");
+        const results = [...(record.facts?.workspaceScripts ?? []), check];
+        // Retain each script's latest verdict before filling remaining history;
+        // otherwise repeated checks can evict a failure and revive older proof.
+        const latest = new Map(results.map((result, index) => [result.scriptId, index]));
+        const keep = new Set(latest.values());
+        for (let index = results.length - 1; index >= 0 && keep.size < AGENT_RUN_LIMITS.facts.checks; index--) keep.add(index);
         deps.applyChange({ agentRun: aggregate.agentRun, events: [], upserts: [{ ...record, facts: {
           ...(record.facts ?? EMPTY_STAGE_FACTS),
-          workspaceScripts: [...(record.facts?.workspaceScripts ?? []), check].slice(-50),
+          workspaceScripts: results.filter((_, index) => keep.has(index)),
           workspaceRevision: check.verification.completedRevision,
         } }] });
       });
@@ -110,7 +138,7 @@ export function createStageScriptRunner(deps: WorkspaceCheckDependencies & {
   };
   return {
     run, abort,
-    stop: () => { for (const id of running.keys()) abort(id); },
+    stop: () => { stopGeneration++; for (const id of running.keys()) abort(id); },
     onChange: (change: AgentRunChange) => {
       const owned = running.get(change.agentRun.id);
       if (owned && (change.agentRun.state !== "running" || change.agentRun.workflow.stages[change.agentRun.currentStageIndex]?.id !== owned.stageId ||

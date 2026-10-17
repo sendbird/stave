@@ -25,6 +25,7 @@ import { i18n } from "@/i18n/runtime";
  */
 import { resolveStageSignOff } from "@/lib/workflows/sign-off";
 import { unmetStageAcceptance } from "./acceptance";
+import { canFinishAfterReview } from "./review-finalization";
 import type { SignOff } from "@/lib/workflows/schema";
 import {
   clampReason,
@@ -179,7 +180,7 @@ export type AgentRunDecision =
   | { action: "mark-stuck"; detail: string }
   | { action: "execute-action"; stageIndex: number }
   | { action: "start-action-turn"; stageIndex: number; attempt: number }
-  | { action: "complete-stage"; next: "sign-off" | "start" | "finish" };
+  | { action: "complete-stage"; next: "sign-off" | "start" | "finish"; skipReviewFix?: true };
 
 export type AgentRunDecisionAction = AgentRunDecision["action"];
 
@@ -269,6 +270,8 @@ function completeStage(aggregate: AgentRunAggregate, record: AgentRunStageRecord
         : { action: "mark-stuck", detail: attemptLimitDetail(error) };
     }
   }
+  if (canFinishAfterReview(aggregate) && resolveAgentRunStageSignOff(agentRun, nextIndex) !== "ask")
+    return { action: "complete-stage", next: "finish", skipReviewFix: true };
   return { action: "complete-stage", next: nextAfterCompletion(agentRun) };
 }
 
@@ -287,7 +290,7 @@ function isReplyAfterStuck(last: ObservedTurn, stuckAt: string | null | undefine
  * ends instead, as before: its parent reads a finished child, not a paused
  * one, and only the user could extend it.
  */
-function turnCapPause(agentRun: AgentRun, observation: Pick<AgentRunObservation, "delegated">): AgentRunDecision | null {
+export function turnCapPause(agentRun: AgentRun, observation: Pick<AgentRunObservation, "delegated">): AgentRunDecision | null {
   if (agentRun.turnCount < agentRun.maxTurns) return null;
   const detail = i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns });
   return observation.delegated
@@ -912,6 +915,17 @@ export function applyAgentRunDecision(args: {
       };
       let change: AgentRunChange;
       try {
+        if (decision.skipReviewFix && canFinishAfterReview(aggregate) && resolveAgentRunStageSignOff(agentRun, agentRun.currentStageIndex + 1) !== "ask") {
+          const advanced = { ...aggregate, agentRun: withAgentRun(withoutEventWait(agentRun, now), { currentStageIndex: agentRun.currentStageIndex + 1 }, now) };
+          const skipped = { ...enterStage({ aggregate: advanced, index: advanced.agentRun.currentStageIndex }), status: "skipped" as const,
+            detail: i18n.t("agentRuns:policy.reviewPassed"), endedAt: timestamp };
+          const finished = advanceAgentRun({ aggregate: advanced, completed: skipped, now });
+          return { ...finished, upserts: [completed, ...finished.upserts], events: [
+            { kind: "stage-completed", idempotencyKey: null, detail: { stageId: record.stageId, attempt: record.attempt } },
+            { kind: "stage-skipped", idempotencyKey: null, detail: { stageId: skipped.stageId, attempt: skipped.attempt, reason: "review-passed" } },
+            ...finished.events,
+          ] };
+        }
         change = advanceAgentRun({
           // A completed stage has nothing left to wait for.
           aggregate: { ...aggregate, agentRun: withoutEventWait(agentRun, now) },

@@ -184,11 +184,14 @@ Watch checks → Ready for review) come with a workflow.
   makes that one stage ask, or not.
 - **Review before done** (an agent that edits files and has no stages):
   **When behavior changes** (default), **Always** or **Off**. When it is on, a
-  run commits its verified change, the Reviewer reviews that commit (on the
-  other provider when it can) and the agent fixes what it found, so a run is
-  Work → Review → Fix review findings. Under **When behavior changes** a commit
-  that only changes wording, formatting or comments passes the review without
-  findings. Lead is **Off**: it asks for reviews of the parts it hands out. A
+  run commits its verified changes and the Reviewer checks the assignment's
+  result (on the other provider when it can). Research and answers are reviewed
+  through their conclusions, sources and artifacts without an empty commit.
+  Work → Review → Fix review findings remains the sequence. If the independent
+  review reports no findings, the workspace is unchanged and no required checks
+  or sign-off remain, Stave skips the final repair stage and records why.
+  Under **When behavior changes**, wording, formatting and comments receive a
+  brief correctness check. Lead is **Off**: it asks for reviews of the parts it hands out. A
   delegated helper's run is never reviewed this way; the run that called it
   decides. The workspace check, when there is one, gates the fix stage.
 - Each AI stage reports when it is done; the run card and the Task panel's

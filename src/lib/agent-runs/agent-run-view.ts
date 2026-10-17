@@ -64,8 +64,8 @@ export function projectAgentRunStages(detail: AgentRunDetail, now: Date): AgentR
     const started = record?.startedAt ? Date.parse(record.startedAt) : null;
     const ended = record?.endedAt ? Date.parse(record.endedAt) : null;
     const report = record?.report?.outcome === "complete" ? record.report : null;
-    const evidence = classifyStageEvidence(report, record?.facts ?? null);
-    if (record?.facts?.action) evidence.unshift(describeActionEvidence(record.facts.action, record.facts));
+    const evidence = classifyStageEvidence(report, record?.facts ?? null, { inherited: index < agentRun.currentStageIndex });
+    if (record?.facts?.action) evidence.unshift(describeActionEvidence(record.facts.action, record.facts, undefined, { inherited: index < agentRun.currentStageIndex }));
     // Verified by Stave first.
     evidence.sort((left, right) => Number(isVerifiedEvidence(right)) - Number(isVerifiedEvidence(left)));
     return {

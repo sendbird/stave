@@ -145,14 +145,14 @@ export function buildAgentRunReport(args: {
     }
   };
 
-  const stages = agentRun.workflow.stages.map((stage): AgentRunReportStage => {
+  const stages = agentRun.workflow.stages.map((stage, index): AgentRunReportStage => {
     const record = latestStageRecord(records, stage.id);
     const attempts = records.filter((candidate) => candidate.stageId === stage.id).length;
     const report = record?.report?.outcome === "complete" ? record.report : null;
-    const evidence: ClassifiedEvidence[] = classifyStageEvidence(report, record?.facts ?? null);
+    const evidence: ClassifiedEvidence[] = classifyStageEvidence(report, record?.facts ?? null, { inherited: index < agentRun.currentStageIndex });
     const action = record?.facts?.action ?? null;
     if (action) {
-      const actionEvidence = describeActionEvidence(action, record?.facts);
+      const actionEvidence = describeActionEvidence(action, record?.facts, undefined, { inherited: index < agentRun.currentStageIndex });
       evidence.unshift(actionEvidence);
       if (actionEvidence.ref) {
         addLink({ label: actionEvidence.label, url: actionEvidence.ref, source: "stave" });

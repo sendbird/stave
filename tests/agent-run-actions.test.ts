@@ -239,7 +239,7 @@ function createHarness() {
     state,
     calls,
     turnEndings,
-    perform: (aggregate: AgentRunAggregate) => perform({ aggregate }),
+    perform: (aggregate: AgentRunAggregate, verifyWorkspace?: () => Promise<string | null>) => perform({ aggregate, verifyWorkspace }),
     advance: (ms: number) => {
       clock = new Date(clock.getTime() + ms);
     },
@@ -249,6 +249,40 @@ function createHarness() {
         .map((event) => event.idempotencyKey),
   };
 }
+
+describe("publication verification boundaries", () => {
+  test("checks again before creating a pull request after a successful push", async () => {
+    const harness = createHarness();
+    let checks = 0;
+    const outcome = await harness.perform(agentRunAt(harness.store, 1), async () => ++checks === 1 ? null : "Files changed after push.");
+    expect(outcome).toEqual({ status: "failed", detail: "Files changed after push." });
+    expect(checks).toBe(2);
+    expect(harness.calls).toContain("push");
+    expect(harness.calls).not.toContain("create-pr");
+  });
+
+  for (const unpushed of [false, true]) {
+    test(`ready-for-review stops before its remote write (unpushed: ${unpushed})`, async () => {
+      const harness = createHarness();
+      harness.state.pr = pr({ headRefOid: unpushed ? "head-0" : "head-1" });
+      harness.state.unpushed = unpushed;
+      expect(await harness.perform(agentRunAt(harness.store, 3), async () => "Current files are unverified."))
+        .toEqual({ status: "failed", detail: "Current files are unverified." });
+      expect(harness.calls).not.toContain("push");
+      expect(harness.calls).not.toContain("mark-ready");
+    });
+  }
+
+  test("a repair commit is checked before publishing it", async () => {
+    const harness = createHarness();
+    const aggregate = agentRunAt(harness.store, 2);
+    recordRepairTurn(harness.store, aggregate.agentRun.id, "linked");
+    harness.state.dirty = true;
+    expect(await harness.perform(aggregate, async () => harness.state.commits.length ? "Commit changed tested files." : null))
+      .toEqual({ status: "failed", detail: "Commit changed tested files." });
+    expect(harness.calls).toEqual(["commit"]);
+  });
+});
 
 describe("Open draft PR", () => {
   test("commits what was left, pushes, and opens a draft from the run", async () => {

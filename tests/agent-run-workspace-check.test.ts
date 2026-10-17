@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { withWorkspaceCheck } from "../src/lib/agent-runs/workspace-check";
+import { withWorkspaceCheck, workspaceActionCheckMet, workspaceCheckMet } from "../src/lib/agent-runs/workspace-check";
 import { unmetStageAcceptance } from "../src/lib/agent-runs/acceptance";
 import { classifyStageEvidence } from "../src/lib/agent-runs/evidence";
 import { workspaceCheckBlock } from "../src/lib/agent-runs/workspace-check";
@@ -15,6 +15,38 @@ const other = { status: "known" as const, revision: "edited" };
 const definitionHash = "a".repeat(64);
 const frozen = (scriptId: string) => ({ scriptId, definitionHash });
 const criterion = { text: "Workspace checks pass", required: true, verification: "stave-check" as const, scriptIds: ["check"], scriptDefinitions: [frozen("check")] };
+
+test("latest results supersede each admitted script independently and preserve alternative-script OR semantics", () => {
+  const record = currentStageRecord(agentRunFixture());
+  record.report = { ...COMPLETE_REPORT, workspaceRevision: revision };
+  const result = (scriptId: string, exitCode: number) => ({
+    source: "stave" as const, type: "run-script" as const, scriptId, definitionHash, exitCode, durationMs: 1, outputTail: "checked",
+    verification: { sourceRevision: revision, completedRevision: revision },
+  });
+  const results = (checks: ReturnType<typeof result>[]) => {
+    record.facts = { ...EMPTY_STAGE_FACTS, workspaceRevision: revision, workspaceScripts: checks };
+    return [workspaceCheckMet(record, ["check", "alternative"], [frozen("check"), frozen("alternative")]),
+      workspaceActionCheckMet(record, ["check", "alternative"], [frozen("check"), frozen("alternative")])];
+  };
+  expect(results([result("check", 0), result("check", 1)])).toEqual([false, false]);
+  expect(results([result("check", 0), result("check", 1), result("check", 0)])).toEqual([true, true]);
+  expect(results([result("check", 0), result("alternative", 1)])).toEqual([true, true]);
+  expect(results([result("check", 1), result("alternative", 0)])).toEqual([true, true]);
+  expect(results([result("check", 0), result("unrelated", 1)])).toEqual([true, true]);
+  expect(results([result("check", 0), { ...result("check", 0), definitionHash: "b".repeat(64) }])).toEqual([false, false]);
+});
+
+test("inherited check evidence accepts metadata-only commits without weakening current AI checks", () => {
+  const checked = { ...revision, contentRevision: "content" }, committed = { ...other, contentRevision: "content" };
+  const report = { ...COMPLETE_REPORT, workspaceRevision: checked };
+  const facts = { ...EMPTY_STAGE_FACTS, workspaceRevision: committed, workspaceScripts: [{
+    source: "stave" as const, type: "run-script" as const, scriptId: "check", definitionHash, exitCode: 0, durationMs: 1, outputTail: "ok",
+    verification: { sourceRevision: checked, completedRevision: checked },
+  }] };
+  expect(classifyStageEvidence(report, facts)[0]?.freshness).toBe("stale");
+  expect(classifyStageEvidence(report, facts, { inherited: true })[0]?.freshness).toBe("current");
+  expect(classifyStageEvidence(report, { ...facts, workspaceRevision: { ...committed, contentRevision: "edited" } }, { inherited: true })[0]?.freshness).toBe("stale");
+});
 
 test("AI stave-check requires host success at both report and final workspace revisions", () => {
   const base = agentRunFixture();
@@ -98,6 +130,19 @@ test("admission replaces incoming hashes and preserves explicit script subsets",
   const admitted = admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check"), lint] });
   expect(admitted.workflow.stages[0]!.acceptanceCriteria).toEqual([{ ...criterion, scriptIds: ["lint"], scriptDefinitions: [lint] }]);
   expect(() => admitWorkspaceCheck({ workflow, agent, scripts: [frozen("check")] })).toThrow("'lint'");
+});
+
+test("action-only admission binds each Test criterion to its exact configured script and discards incoming authority", () => {
+  const base = agentRunFixture().agentRun.workflow;
+  const workflow = { ...base, stages: [{
+    id: "test", title: "Test", kind: "action" as const, action: { type: "run-script" as const, scriptId: "check" },
+    acceptanceCriteria: [{ text: "Tests pass", required: true, scriptIds: ["unrelated"], scriptDefinitions: [frozen("forged")] }],
+  }] };
+  const admitted = admitWorkspaceCheck({ workflow, agent: null, scripts: [frozen("check"), frozen("unrelated")] }).workflow;
+  expect(admitted.stages[0]!.acceptanceCriteria).toEqual([{ text: "Tests pass", required: true, scriptIds: ["check"], scriptDefinitions: [frozen("check")] }]);
+  const changed = { scriptId: "check", definitionHash: "b".repeat(64) };
+  expect(admitWorkspaceCheck({ workflow: admitted, agent: null, scripts: [changed] }).workflow.stages[0]!.acceptanceCriteria?.[0]?.scriptDefinitions).toEqual([changed]);
+  expect(() => admitWorkspaceCheck({ workflow, agent: null, scripts: [frozen("unrelated")] })).toThrow("'check'");
 });
 
 test("admission refuses explicit checks without actions instead of preserving stale client definitions", () => {

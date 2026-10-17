@@ -35,7 +35,7 @@ export function offersReviewBeforeDone(agent: Partial<Pick<AgentConfig, "permiss
 }
 
 // Model-facing stage text; the stage titles are localized for display by `stage-display.ts`.
-const COMMIT_FOR_REVIEW = "When the change is verified, commit it before you report the stage, and name in your report the commit the work started from: a Reviewer reviews every commit since then next.";
+const COMMIT_FOR_REVIEW = "If this assignment changes repository files, verify and commit only its changes, then name the actual starting commit and the resulting commits in your report. For research or an answer, identify the conclusions, sources and artifacts to review; do not create an empty commit. A Reviewer checks the assignment's result next.";
 
 /** The two stages that follow the work stage. */
 export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowStage[] {
@@ -47,11 +47,11 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
       agentConfigId: REVIEW_AGENT_ID,
       pinCommit: true,
       instruction: [
-        "Review every commit the previous stage made, from the commit it started from (its report names it) to the pinned commit, against the assignment, without changing any file.",
+        "Independently review the previous stage's result against the assignment without changing files. For code, review every commit the stage made from its actual starting commit to the pinned commit; exclude unrelated work. For research or answers, verify conclusions, sources and artifacts. An empty commit range is not evidence that a non-code result is correct.",
         mode === "behavior-changes"
-          ? "If those commits change only wording, formatting or comments, say so and report the review complete with no findings."
+          ? "If code commits change only wording, formatting or comments, a brief correctness check is enough; still verify requested research or conclusions."
           : "",
-        "For each defect give the file, the line, the reason and a failure scenario.",
+        "For each defect give its location, reason and failure scenario. Report reviewVerdict as passed only after the independent review completed with no unresolved findings, otherwise changes-requested. If the review could not run, block instead.",
       ].filter(Boolean).join(" "),
       doneWhen: "The review lists each defect with file, line and reason, or says it found none.",
     },
@@ -59,6 +59,7 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
       id: FIX_REVIEW_STAGE_ID,
       title: "Fix review findings", // i18n-ignore: canonical stage title, localized by stage-display.ts
       kind: "ai",
+      skipIfReviewPassed: true,
       instruction: "Fix each defect the review found at its cause, verify the fix the way you verified the work, and commit it. If the review found none, report the stage complete without changing anything.",
       doneWhen: "Every defect the review found is fixed and verified, or the review found none.",
     },

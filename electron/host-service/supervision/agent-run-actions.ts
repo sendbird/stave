@@ -23,6 +23,7 @@
  * - Missing GitHub authentication, a protected branch or a rejected push fail
  *   the action with Stave's own sentence, which blocks the stage.
  */
+import { i18n } from "../../../src/i18n/runtime";
 import {
   buildAgentRunActionKey,
   buildAgentRunTurnOutcomeKey,
@@ -158,12 +159,15 @@ function pullRequestNumber(url: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
+type PublicationCheck = () => Promise<string | null>;
+class PublicationCheckFailed extends Error {}
+
 export function createAgentRunActionExecutor(deps: {
   store: ActionStore;
   scm: AgentRunScmPort;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
   /** Runs an action from the workspace's scripts and resolves when it ends. */
-  runScript?: (args: { workspaceId: string; scriptId: string; signal?: AbortSignal }) => Promise<AgentRunScriptRun>;
+  runScript?: (args: { workspaceId: string; scriptId: string; signal?: AbortSignal; expectedDefinitionHash?: string }) => Promise<AgentRunScriptRun>;
   /**
    * How a turn that is no longer running ended. Absent: every repair turn
    * that started and was not interrupted counts as completed.
@@ -180,6 +184,21 @@ export function createAgentRunActionExecutor(deps: {
   /** Scripts this process started, per stage attempt, and their outcomes once they end. */
   const scriptRuns = new Set<string>();
   const scriptOutcomes = new Map<string, ActionOutcome>();
+
+  /** A command already sent may finish; an interrupted action starts no further SCM operation. */
+  async function scmStep<T>(signal: AbortSignal | undefined, operation: () => Promise<T>): Promise<T> {
+    signal?.throwIfAborted();
+    const result = await operation();
+    signal?.throwIfAborted();
+    return result;
+  }
+
+  /** A commit hook or an intervening edit must be checked before the next remote write. */
+  async function publicationStep<T>(signal: AbortSignal | undefined, verify: PublicationCheck | undefined, operation: () => Promise<T>): Promise<T> {
+    const problem = verify ? await scmStep(signal, verify) : null;
+    if (problem) throw new PublicationCheckFailed(problem);
+    return scmStep(signal, operation);
+  }
 
   /**
    * Starts the script once, reports it in progress on every tick while it
@@ -205,6 +224,9 @@ export function createAgentRunActionExecutor(deps: {
     }
     const run = deps.runScript;
     if (!run) return failed("This version of Stave cannot run workspace scripts from a run.");
+    const stage = workflowStageAt(args.aggregate.agentRun, args.aggregate.agentRun.currentStageIndex);
+    const expectedDefinitionHash = stage.acceptanceCriteria?.flatMap((criterion) => criterion.scriptDefinitions ?? [])
+      .find((definition) => definition.scriptId === scriptId)?.definitionHash;
     scriptRuns.add(actionKey);
     const timeoutController = new AbortController();
     const signal = args.signal ? AbortSignal.any([args.signal, timeoutController.signal]) : timeoutController.signal;
@@ -215,7 +237,7 @@ export function createAgentRunActionExecutor(deps: {
         SCRIPT_TIMEOUT_MS,
       )).unref?.(),
     );
-    void Promise.race([run({ workspaceId: args.aggregate.agentRun.workspaceId, scriptId, signal }), timeout])
+    void Promise.race([run({ workspaceId: args.aggregate.agentRun.workspaceId, scriptId, signal, ...(expectedDefinitionHash ? { expectedDefinitionHash } : {}) }), timeout])
       .catch((error: unknown): AgentRunScriptRun => ({
         ok: false,
         detail: error instanceof Error && error.message ? error.message : `“${scriptId}” could not run.`,
@@ -224,6 +246,10 @@ export function createAgentRunActionExecutor(deps: {
         clearTimeout(timeoutHandle);
         scriptRuns.delete(actionKey);
         if (args.signal?.aborted) return;
+        if (result.ok && result.exitCode === 0 && expectedDefinitionHash && result.definitionHash !== expectedDefinitionHash) {
+          scriptOutcomes.set(actionKey, failed(i18n.t("agentRuns:workspaceCheck.definitionMismatch")));
+          return;
+        }
         const output = ("output" in result ? result.output : undefined) ?? "";
         const tail = output.trim().slice(-300);
         scriptOutcomes.set(
@@ -247,38 +273,38 @@ export function createAgentRunActionExecutor(deps: {
     return { status: "in-progress" };
   }
 
-  async function openDraftPr(cwd: string, aggregate: AgentRunAggregate): Promise<ActionOutcome> {
-    const branch = await scm.currentBranch(cwd);
+  async function openDraftPr(cwd: string, aggregate: AgentRunAggregate, signal?: AbortSignal, verify?: PublicationCheck): Promise<ActionOutcome> {
+    const branch = await scmStep(signal, () => scm.currentBranch(cwd));
     if (!branch) {
       return failed("The workspace is not on a branch, so Stave cannot open a pull request from it.");
     }
     // Refused before anything is committed or pushed.
-    if (branch === (await scm.readBaseBranch(cwd))) {
+    if (branch === (await scmStep(signal, () => scm.readBaseBranch(cwd)))) {
       return failed(
         `The workspace is on ${branch}, the base branch, so Stave will not commit or push to it. Move the work to a feature branch, then retry this stage.`,
       );
     }
-    const existing = await scm.readPullRequest(cwd);
+    const existing = await scmStep(signal, () => scm.readPullRequest(cwd));
     if (!existing.ok) return failed(existing.detail);
     const open = existing.value?.state === "OPEN" ? existing.value : null;
     // What was left is committed and pushed even when the branch already has
     // a pull request: after "Ask for changes" the rerun's work belongs in it.
-    if (await scm.hasUncommittedChanges(cwd)) {
-      const committed = await scm.commitAll(cwd, buildAgentRunCommitMessage(aggregate));
+    if (await scmStep(signal, () => scm.hasUncommittedChanges(cwd))) {
+      const committed = await scmStep(signal, () => scm.commitAll(cwd, buildAgentRunCommitMessage(aggregate)));
       if (!committed.ok) return failed(`Stave could not commit the remaining changes: ${committed.detail}`);
     }
-    if (!open || (await scm.hasUnpushedCommits(cwd))) {
-      const pushed = await scm.push(cwd, branch);
+    if (!open || (await scmStep(signal, () => scm.hasUnpushedCommits(cwd)))) {
+      const pushed = await publicationStep(signal, verify, () => scm.push(cwd, branch));
       if (!pushed.ok) return failed(pushed.detail);
     }
     if (open) {
       return succeeded({ type: "open-draft-pr", prUrl: open.url, prNumber: open.number, created: false });
     }
-    const { baseBranch, log } = await scm.readCommitLog(cwd);
-    const created = await scm.createDraftPullRequest(
+    const { baseBranch, log } = await scmStep(signal, () => scm.readCommitLog(cwd));
+    const created = await publicationStep(signal, verify, () => scm.createDraftPullRequest(
       cwd,
       buildAgentRunPullRequestDraft({ aggregate, baseBranch, headBranch: branch, commitLog: log }),
-    );
+    ));
     if (!created.ok) return failed(created.detail);
     const prNumber = pullRequestNumber(created.value.url);
     if (!prNumber) return failed("GitHub did not return the pull request's address.");
@@ -290,20 +316,20 @@ export function createAgentRunActionExecutor(deps: {
     });
   }
 
-  async function markPrReady(cwd: string, startedAt: Date): Promise<ActionOutcome> {
-    const current = await scm.readPullRequest(cwd);
+  async function markPrReady(cwd: string, startedAt: Date, signal?: AbortSignal, verify?: PublicationCheck): Promise<ActionOutcome> {
+    const current = await scmStep(signal, () => scm.readPullRequest(cwd));
     if (!current.ok) return failed(current.detail);
     const pr = current.value;
     if (!pr || pr.state !== "OPEN") {
       return failed("This workspace has no open pull request to mark ready for review.");
     }
     // Reviewers are notified about the workspace's HEAD, not an older push.
-    const head = await scm.headSha(cwd);
+    const head = await scmStep(signal, () => scm.headSha(cwd));
     if (head && pr.headRefOid && pr.headRefOid !== head) {
-      if (await scm.hasUnpushedCommits(cwd)) {
-        const branch = await scm.currentBranch(cwd);
+      if (await scmStep(signal, () => scm.hasUnpushedCommits(cwd))) {
+        const branch = await scmStep(signal, () => scm.currentBranch(cwd));
         if (!branch) return failed("The workspace is not on a branch, so Stave cannot push it.");
-        const pushed = await scm.push(cwd, branch);
+        const pushed = await publicationStep(signal, verify, () => scm.push(cwd, branch));
         if (!pushed.ok) return failed(pushed.detail);
         return { status: "in-progress" };
       }
@@ -314,7 +340,7 @@ export function createAgentRunActionExecutor(deps: {
       );
     }
     if (!pr.isDraft) return succeeded({ type: "mark-pr-ready", prUrl: pr.url });
-    const ready = await scm.markReady(cwd);
+    const ready = await publicationStep(signal, verify, () => scm.markReady(cwd));
     if (!ready.ok) return failed(ready.detail);
     return succeeded({ type: "mark-pr-ready", prUrl: pr.url });
   }
@@ -367,8 +393,10 @@ export function createAgentRunActionExecutor(deps: {
     aggregate: AgentRunAggregate;
     action: Extract<StaveAction, { type: "watch-checks" }>;
     actionKey: string;
+    signal?: AbortSignal;
+    verify?: PublicationCheck;
   }): Promise<ActionOutcome> {
-    const { cwd, aggregate, action, actionKey } = args;
+    const { cwd, aggregate, action, actionKey, signal, verify } = args;
     const { agentRun } = aggregate;
     const record = currentStageRecord(aggregate);
     const events = eventsOfAttempt(
@@ -404,14 +432,14 @@ export function createAgentRunActionExecutor(deps: {
     if (repairsUsed > pushes.length) {
       const unfinished = unfinishedRepair(repairs.at(-1)!, events);
       if (unfinished) return { status: "stuck", detail: UNFINISHED_REPAIR[unfinished] };
-      const branch = await scm.currentBranch(cwd);
+      const branch = await scmStep(signal, () => scm.currentBranch(cwd));
       if (!branch) return failed("The workspace is not on a branch, so Stave cannot push the repair.");
-      if (await scm.hasUncommittedChanges(cwd)) {
-        const committed = await scm.commitAll(cwd, CHECKS_REPAIR_COMMIT_MESSAGE);
+      if (await scmStep(signal, () => scm.hasUncommittedChanges(cwd))) {
+        const committed = await scmStep(signal, () => scm.commitAll(cwd, CHECKS_REPAIR_COMMIT_MESSAGE));
         if (!committed.ok) return failed(`Stave could not commit the repair: ${committed.detail}`);
       }
-      if (await scm.hasUnpushedCommits(cwd)) {
-        const pushed = await scm.push(cwd, branch);
+      if (await scmStep(signal, () => scm.hasUnpushedCommits(cwd))) {
+        const pushed = await publicationStep(signal, verify, () => scm.push(cwd, branch));
         if (!pushed.ok) return failed(pushed.detail);
       }
       store.recordEvent(
@@ -424,7 +452,7 @@ export function createAgentRunActionExecutor(deps: {
             attempt: record.attempt,
             step: "repair-pushed",
             repair: repairsUsed,
-            headSha: await scm.headSha(cwd),
+            headSha: await scmStep(signal, () => scm.headSha(cwd)),
           },
         },
         now(),
@@ -444,7 +472,7 @@ export function createAgentRunActionExecutor(deps: {
     const latestPush = pushes.at(-1);
     const watchStartedAt = new Date(latestPush?.createdAt ?? started?.createdAt ?? at.toISOString());
 
-    const current = await scm.readPullRequest(cwd);
+    const current = await scmStep(signal, () => scm.readPullRequest(cwd));
     if (!current.ok) return readFailure(actionKey, current.detail);
     const pr = current.value;
     // GitHub can take a moment to move the pull request to a push, the
@@ -453,9 +481,9 @@ export function createAgentRunActionExecutor(deps: {
     const expectedHead =
       typeof latestPush?.detail.headSha === "string"
         ? latestPush.detail.headSha
-        : (await scm.hasUnpushedCommits(cwd))
+        : (await scmStep(signal, () => scm.hasUnpushedCommits(cwd)))
           ? null
-          : await scm.headSha(cwd);
+          : await scmStep(signal, () => scm.headSha(cwd));
     const headWaitMs = latestPush ? PUSHED_HEAD_WAIT_MS : LOCAL_HEAD_WAIT_MS;
     if (
       pr?.state === "OPEN" &&
@@ -468,7 +496,7 @@ export function createAgentRunActionExecutor(deps: {
     }
     let checks: PullRequestCheck[] = [];
     if (pr?.state === "OPEN") {
-      const read = await scm.readChecks(cwd, pr.number);
+      const read = await scmStep(signal, () => scm.readChecks(cwd, pr.number));
       if (!read.ok) return readFailure(actionKey, read.detail);
       checks = read.value;
     }
@@ -507,14 +535,15 @@ export function createAgentRunActionExecutor(deps: {
     actionKey: string,
     firstCall: boolean,
     signal?: AbortSignal,
+    verify?: PublicationCheck,
   ): Promise<ActionOutcome> {
     switch (action.type) {
       case "open-draft-pr":
-        return openDraftPr(cwd, aggregate);
+        return openDraftPr(cwd, aggregate, signal, verify);
       case "watch-checks":
-        return watchChecks({ cwd, aggregate, action, actionKey });
+        return watchChecks({ cwd, aggregate, action, actionKey, signal, verify });
       case "mark-pr-ready":
-        return markPrReady(cwd, actionStartedAt(aggregate.agentRun.id, actionKey));
+        return markPrReady(cwd, actionStartedAt(aggregate.agentRun.id, actionKey), signal, verify);
       case "run-script":
         return runWorkspaceScript({ aggregate, scriptId: action.scriptId, actionKey, firstCall, signal });
     }
@@ -523,6 +552,8 @@ export function createAgentRunActionExecutor(deps: {
   return async function performAction(args: {
     aggregate: AgentRunAggregate;
     signal?: AbortSignal;
+    /** Host-only check, rerun after local mutations and before each remote write. */
+    verifyWorkspace?: PublicationCheck;
   }): Promise<ActionOutcome> {
     const { aggregate } = args;
     if (args.signal?.aborted) return failed("The action was cancelled.");
@@ -547,7 +578,15 @@ export function createAgentRunActionExecutor(deps: {
     const cwd = await deps.resolveWorkspacePath(agentRun.workspaceId);
     if (!cwd) return failed("The workspace folder could not be found.");
     if (args.signal?.aborted) return failed("The action was cancelled.");
-    const outcome = await run(cwd, aggregate, stage.action, actionKey, firstCall, args.signal);
+    let outcome: ActionOutcome;
+    try {
+      outcome = await run(cwd, aggregate, stage.action, actionKey, firstCall, args.signal, args.verifyWorkspace);
+    } catch (error) {
+      if (error instanceof PublicationCheckFailed) outcome = failed(error.message);
+      else if (args.signal?.aborted) outcome = failed("The action was interrupted. Check the workspace, then retry the stage.");
+      else throw error;
+    }
+    if (args.signal?.aborted) outcome = failed("The action was interrupted. Check the workspace, then retry the stage.");
     if (outcome.status === "succeeded" || outcome.status === "failed" || outcome.status === "stuck") {
       store.recordEvent(
         agentRun.id,

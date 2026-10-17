@@ -39,7 +39,7 @@ import { createAgentRunActionExecutor, type AgentRunScmPort } from "../electron/
 import { runCommandArgs } from "../electron/main/utils/command";
 import { createAgentRunRouter } from "../electron/host-service/supervision/agent-run-route-host";
 import type { AgentConfig } from "../src/lib/agents/schema";
-import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
+import { buildAgentRunStartInput, buildAgentRunWorkflow } from "../src/lib/agent-runs/agent-run";
 import { agentRunWorkQueueLane } from "../src/lib/agent-runs/lanes";
 import { resolveTurnPolicy } from "../src/lib/policy/turn-policy";
 import { buildStarterProfile, DEFAULT_AUTO_ROUTING_PROFILE_ID } from "../src/lib/providers/auto-routing-profile";
@@ -47,7 +47,9 @@ import { AgentRouteSettingsSchema, routeAgentRunTurn } from "../src/lib/routing/
 import type { PromptDraftRuntimeOverrides } from "../src/types/chat";
 import type { AgentRunRouteSelection } from "../src/lib/agent-runs/route-observation";
 import { buildAgentRunTurnDividers } from "../src/lib/agent-runs/agent-run-view";
+import type { WorkspaceRevision } from "../src/lib/agent-runs/verification-contract";
 import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
+import { describeDoneWhen } from "../src/lib/agent-runs/agent-run-status";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -267,6 +269,47 @@ async function startedAgentRun(
   await harness.tick();
   return detail.agentRun.id;
 }
+
+test.each([false, true])("independent review completion captures revision and skips empty repair only for unchanged work (edited: %s)", async (edited) => {
+  let revision = "reviewed";
+  const h = createHarness({ extra: { readWorkspaceRevision: async () => ({ status: "known", revision }) } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: new Date(START) });
+  const id = await startedAgentRun(h, startInput({ workflow }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  h.endTurn("turn-1");
+  await h.tick();
+  expect(h.current(id).stageId).toBe("review");
+  expect(h.runCalls[1]!.prompt).toContain('agentConfigId: "reviewer"');
+  await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: { ...COMPLETE, reviewVerdict: "passed" } });
+  expect(h.current(id).report).toMatchObject({ workspaceRevision: { status: "known", revision: "reviewed" } });
+  if (edited) revision = "changed-after-report";
+  h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: { status: "known", revision } });
+  h.endTurn("turn-2");
+  await h.tick();
+  expect(h.aggregate(id).agentRun.state).toBe(edited ? "running" : "completed");
+  expect(h.current(id).status).toBe(edited ? "running" : "skipped");
+  expect(h.runCalls).toHaveLength(edited ? 3 : 2);
+});
+
+test("failed fact collection cannot reuse an earlier workspace snapshot to skip repair", async () => {
+  let fail = false;
+  const revision = { status: "known" as const, revision: "earlier-observation" };
+  const h = createHarness({ extra: {
+    readWorkspaceRevision: async () => revision,
+    collectStageFacts: async () => { if (fail) throw new Error("workspace unavailable"); return { ...EMPTY_STAGE_FACTS, workspaceRevision: revision }; },
+  } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: new Date(START) });
+  const id = await startedAgentRun(h, startInput({ workflow }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  h.endTurn("turn-1"); await h.tick();
+  h.store.apply({ agentRun: h.aggregate(id).agentRun, upserts: [{ ...h.current(id), facts: { ...EMPTY_STAGE_FACTS, workspaceRevision: revision } }], events: [] }, new Date(START));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: { ...COMPLETE, reviewVerdict: "passed" } });
+  fail = true;
+  h.endTurn("turn-2"); await h.tick();
+  expect(h.aggregate(id).agentRun.state).toBe("running");
+  expect(h.current(id).stageId).toBe("fix-review");
+  expect(h.aggregate(id).stages.find((stage) => stage.stageId === "review")?.facts?.workspaceRevision).toMatchObject({ status: "unknown" });
+});
 
 describe("run runtime: accounts a turn runs on", () => {
   const PERSONAL = "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b";
@@ -848,7 +891,7 @@ describe("run runtime: Stave action stages", () => {
       const observed = await observeWorkspaceScript({ cwd: "/tmp", readRevision: async () => ({ status: "unknown", reason: "unavailable" }), run: () => runCommandArgs({ cwd: "/tmp", command: process.execPath, commandArgs: ["-e", "console.log('all tests passed; exit 0'); process.exit(7)"] }) });
       return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
     } });
-    const harness = createHarness({ store, performAction });
+    const harness = createHarness({ store, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
     const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
     for (let attempt = 0; attempt < 30 && harness.current(id).status !== "blocked"; attempt++) {
       await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
@@ -866,9 +909,9 @@ describe("run runtime: Stave action stages", () => {
       const store = new AgentRunStore(new Database(":memory:"));
       const performAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
         const observed = await observeWorkspaceScript({ cwd, run: () => runCommandArgs({ cwd, command: process.execPath, commandArgs: ["-e", "process.exit(0)"] }) });
-        return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
+        return { ok: true, definitionHash: "a".repeat(64), exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
       } });
-      const harness = createHarness({ store, workspacePath: cwd, performAction });
+      const harness = createHarness({ store, workspacePath: cwd, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
       const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
       await harness.runtime.reportStage({ agentRunKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } });
       harness.endTurn("turn-1"); await harness.tick();
@@ -974,8 +1017,11 @@ describe("run runtime: turns an action asks for", () => {
     expect(actionCalls).toBe(1);
     expect(harness.runCalls).toHaveLength(2);
     const repair = harness.runCalls[1]!;
-    expect(repair.prompt).toBe("These checks fail on the pull request: unit tests.");
-    expect(repair.agentRunStage).toBeUndefined();
+    expect(repair.prompt).toContain("These checks fail on the pull request: unit tests.");
+    expect(repair.agentRunStage).toMatchObject({ agentRunId, stageId: "watch", attempt: 1 });
+    await expect(harness.runtime.reportStage({ agentRunKey: "key-turn-2", report: COMPLETE })).rejects.toThrow("host action result");
+    await expect(harness.runtime.blockStage({ agentRunKey: "key-turn-2", block: { missing: "wait", kind: "external" } })).rejects.toThrow("host action result");
+    await expect(harness.runtime.waitForEvent({ agentRunKey: "key-turn-2", request: { kind: "delegated_completion", target: "worker" } })).rejects.toThrow("host action");
     expect(repair.retrievedContextParts[0]?.content).toContain("Checks failed on the pull request");
     expect(harness.aggregate(agentRunId).agentRun.turnCount).toBe(2);
     expect(harness.current(agentRunId)).toMatchObject({ stageId: "watch", status: "running" });
@@ -1837,23 +1883,49 @@ describe("Agent run team limits", () => {
   });
 });
 
-test("a parent report predating helper settlement requires a fresh integration turn", async () => {
+test.each([false, true])("a parent report predating helper settlement requires a budgeted integration turn (at cap: %s)", async (atCap) => {
   const policy = { version: 1 as const, profile: "balanced" as const, providerId: "claude-code" as const,
     allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
   const h = createHarness({ extra: { freezeResources: () => policy } });
-  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]), ...(atCap ? { maxTurns: 1 } : {}) }));
   const reserved = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: id, childRunId: "helper", executionId: "exec", requestedTurns: 4, now: new Date(START) })!;
   await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
   h.endTurn("turn-1"); h.setActiveDelegated(1); await h.tick();
   expect(h.runCalls).toHaveLength(1);
   h.store.releaseResourceReservation(reserved.link, new Date(START)); h.setActiveDelegated(0); await h.tick();
+  if (atCap) {
+    expect(h.runCalls).toHaveLength(1);
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 1 });
+    await h.runtime.extend({ agentRunId: id });
+    await h.runtime.resume({ agentRunId: id });
+    await h.tick();
+  }
   expect(h.runCalls).toHaveLength(2);
   expect(h.runCalls[1]?.prompt).toContain("Integrate the final helper outcomes");
   expect(h.runCalls[1]?.agentRunStage).toMatchObject({ agentRunId: id, stageId: "draft", attempt: 1 });
   expect(h.aggregate(id).agentRun.state).toBe("running");
   await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: COMPLETE }); h.endTurn("turn-2"); await h.tick();
   expect(h.aggregate(id).agentRun.state).toBe("completed");
+});
+
+test.each([false, true])("a parent report after helper settlement completes without another turn (earlier report: %s)", async (earlierReport) => {
+  const policy = { version: 2 as const, profile: "balanced" as const, providerId: "claude-code" as const,
+    allowedModels: ["sonnet"], modelLocked: true, effortLocked: true, initialEffort: "medium", teamTurns: 30,
+    concurrentHelpers: 3, totalHelpers: 8, parentReserve: 1 as const, maxChanges: 2 as const, cooldownTurns: 2 as const };
+  const h = createHarness({ extra: { freezeResources: () => policy } });
+  const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));
+  const reserved = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: id, childRunId: "helper", executionId: "exec", requestedTurns: 4, now: new Date(START) })!;
+  if (earlierReport) await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  // The lead awaited its helper and incorporated the result in the same turn.
+  // Event sequence, not wall-clock timestamps, orders settlement and reporting.
+  h.store.releaseResourceReservation(reserved.link, new Date(START));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  h.endTurn("turn-1");
+  await h.tick();
+  expect(h.aggregate(id).agentRun.state).toBe("completed");
+  expect(h.runCalls).toHaveLength(1);
+  expect(h.store.readResources(id)?.spent).toBe(1);
 });
 
 test("root Stop cancels the exact child and releases unused capacity without refunding spent turns", async () => {
@@ -2440,6 +2512,152 @@ describe("primary write run workspace checks", () => {
   function input() {
     return buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent, assignment: "Make checks pass", now: new Date(START) });
   }
+  test.each([[false, false], [true, false], [true, true]])("CI repair can recheck its changed work before publication (checked: %s, action: %s)", async (checked, actionSource) => {
+    let currentRevision: WorkspaceRevision = { status: "known", revision: "original", contentRevision: "a".repeat(64) };
+    const actions: string[] = [];
+    const watch: WorkflowStage = { id: "watch", title: "Watch", kind: "action", action: { type: "watch-checks", repairAttempts: 2, timeoutMinutes: 30 } };
+    const ready: WorkflowStage = { id: "ready", title: "Ready", kind: "action", action: { type: "mark-pr-ready" } };
+    const custom = { ...agent, id: "custom-checker", workflow: [
+      ...(actionSource ? [DRAFT, { id: "test", title: "Test", kind: "action", action: { type: "run-script", scriptId: "check" }, acceptanceCriteria: [{ text: "Tests pass" }] }]
+        : [{ ...DRAFT, acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check", scriptIds: ["check"] }] }]), watch, ready,
+    ] } as AgentConfig;
+    const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => currentRevision,
+      runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
+      performAction: async ({ aggregate, verifyWorkspace }) => {
+        const stage = currentStageRecord(aggregate).stageId;
+        // Like the real executor, verify at publication, not while initially
+        // polling checks or asking for their repair.
+        if (stage !== "test" && (stage !== "watch" || actions.includes("watch"))) {
+          const problem = await verifyWorkspace?.();
+          if (problem) return { status: "failed", detail: problem };
+        }
+        actions.push(stage);
+        if (stage === "test") return { status: "succeeded", result: { type: "run-script", scriptId: "check", exitCode: 0, outputTail: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } } };
+        if (actions.filter((entry) => entry === "watch").length === 1) return { status: "needs-turn", reason: "repair-checks", prompt: "Fix CI failure.", detail: "CI failed." };
+        if (stage === "watch") return { status: "succeeded", result: { type: "watch-checks", outcome: "passed", checks: [{ name: "ci", state: "SUCCESS" }] } };
+        return { status: "succeeded", result: { type: "mark-pr-ready", prUrl: "https://github.com/acme/app/pull/1" } };
+      },
+    });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: currentRevision });
+    const id = await startedAgentRun(h, buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: custom, assignment: "Check and repair CI", now: new Date(START) }));
+    if (!actionSource) await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "Checked" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.current(id).stageId).toBe("watch");
+    expect(h.runCalls[1]?.prompt).toContain("stave_run_workspace_script");
+    await expect(h.runtime.reportStage({ agentRunKey: "key-turn-2", report: { summary: "Cannot self-complete an action" } })).rejects.toThrow();
+    await expect(h.runtime.blockStage({ agentRunKey: "key-turn-2", block: { missing: "Cannot replace host action state", kind: "environment" } })).rejects.toThrow();
+    h.grants.set("fake-repair", { ...h.grants.get("key-turn-2")!, turnId: "unrelated-turn" });
+    await expect(h.runtime.runWorkspaceScript({ agentRunKey: "fake-repair", scriptId: "check" })).rejects.toThrow();
+    currentRevision = { status: "known", revision: "repaired-commit", contentRevision: "b".repeat(64) };
+    if (checked) expect(await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-2", scriptId: "check" })).toMatchObject({ verified: true });
+    h.endTurn("turn-2"); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe(checked ? "completed" : "running");
+    expect(actions).toEqual([...(actionSource ? ["test"] : []), ...(checked ? ["watch", "watch", "ready"] : ["watch"])]);
+    if (checked) {
+      const detail = await h.runtime.get({ agentRunId: id });
+      expect(detail.report?.acceptanceCriteria).toContainEqual({ text: "Tests pass", status: "met" });
+      expect(describeDoneWhen(detail)).toContainEqual(expect.objectContaining({ text: "Tests pass", status: "met-verified" }));
+      expect(detail.report?.stages.find((stage) => stage.stageId === "watch")?.evidence).toContainEqual(expect.objectContaining({ scriptId: "check", freshness: "current", source: "stave" }));
+    }
+    else expect(h.current(id).status).toBe("blocked");
+  });
+  test.each(["watch-checks", "mark-pr-ready"] as const)("pure polling does not rehash or block on local edits, while completion still verifies: %s", async (type) => {
+    let currentRevision: WorkspaceRevision = { status: "known", revision: "checked", contentRevision: "a".repeat(64) };
+    let reads = 0, writes = 0, finished = false, clock = Date.parse(START);
+    let executor!: ReturnType<typeof createAgentRunActionExecutor>;
+    const custom = { ...agent, id: "custom-checker", workflow: [
+      { ...DRAFT, acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check", scriptIds: ["check"] }] },
+      { id: "poll", title: "Poll", kind: "action", action: type === "watch-checks" ? { type, repairAttempts: 1, timeoutMinutes: 30 } : { type } },
+    ] } as AgentConfig;
+    const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => { reads++; return currentRevision; },
+      runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
+      performAction: (args) => executor(args),
+    });
+    executor = createAgentRunActionExecutor({ store: h.store, resolveWorkspacePath: async () => "/tmp/workspace", now: () => new Date(clock), scm: {
+      readPullRequest: async () => ({ ok: true, value: { number: 1, url: "https://github.com/acme/app/pull/1", state: "OPEN", isDraft: true,
+        headRefOid: type === "mark-pr-ready" && !finished ? "older-head" : "head", mergeable: "MERGEABLE", mergeStateStatus: "BLOCKED", reviewDecision: "REVIEW_REQUIRED" } }),
+      headSha: async () => "head", hasUnpushedCommits: async () => false,
+      readChecks: async () => ({ ok: true, value: [{ name: "ci", state: finished ? "SUCCESS" : "PENDING" }] }),
+      markReady: async () => { writes++; return { ok: true, value: true }; },
+    } as AgentRunScmPort });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: currentRevision });
+    const id = await startedAgentRun(h, buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: custom, assignment: "Check and wait", now: new Date(START) }));
+    await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "Checked" } });
+    h.endTurn("turn-1"); await h.tick();
+    const before = reads;
+    for (const revision of [{ status: "unknown", reason: "changing" }, { status: "known", revision: "edited", contentRevision: "b".repeat(64) }] as WorkspaceRevision[]) {
+      currentRevision = revision;
+      await h.tick();
+      expect(h.current(id).status).toBe("running");
+      expect(reads).toBe(before);
+    }
+    finished = true; clock += 61_000;
+    await h.tick();
+    expect(reads).toBeGreaterThan(before);
+    expect(h.current(id).status).toBe("blocked");
+    expect(writes).toBe(0);
+    h.runtime.stop();
+  });
+  test.each(["commit-only", "changed-before-action", "changed-by-action"])("publication checks its input and preserves content-bound verification: %s", async (mode) => {
+    let currentRevision: WorkspaceRevision = { status: "known", revision: "checked", contentRevision: "a".repeat(64) };
+    let actions = 0, publications = 0;
+    let executor!: ReturnType<typeof createAgentRunActionExecutor>;
+    const custom = { ...agent, id: "custom-checker", workflow: [
+      { ...DRAFT, acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check", scriptIds: ["check"] }] }, OPEN_PR,
+    ] } as AgentConfig;
+    const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => currentRevision,
+      runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
+      performAction: (args) => executor(args),
+    });
+    executor = createAgentRunActionExecutor({ store: h.store, resolveWorkspacePath: async () => "/tmp/workspace", scm: {
+      currentBranch: async () => "feature", readBaseBranch: async () => "main", readPullRequest: async () => ({ ok: true, value: null }),
+      hasUncommittedChanges: async () => true,
+      commitAll: async () => {
+        actions += 1;
+        currentRevision = { status: "known", revision: "committed", contentRevision: (mode === "changed-by-action" ? "b" : "a").repeat(64) };
+        return { ok: true, value: true };
+      },
+      push: async () => { publications += 1; return { ok: true, value: true }; },
+      readCommitLog: async () => ({ baseBranch: "main", log: "fix: change" }),
+      createDraftPullRequest: async () => { publications += 1; return { ok: true, value: { url: "https://github.com/acme/app/pull/1", created: true } }; },
+    } as AgentRunScmPort });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: currentRevision });
+    const id = await startedAgentRun(h, buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: custom, assignment: "Check then publish", now: new Date(START) }));
+    await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "Checked" } });
+    if (mode === "changed-before-action") currentRevision = { status: "known", revision: "unverified-edit", contentRevision: "b".repeat(64) };
+    h.endTurn("turn-1"); await h.tick();
+    expect(actions).toBe(mode === "changed-before-action" ? 0 : 1);
+    expect(publications).toBe(mode === "commit-only" ? 2 : 0);
+    expect(h.aggregate(id).agentRun.state).toBe(mode === "commit-only" ? "completed" : "running");
+    if (mode !== "commit-only") expect(h.current(id).status).toBe("blocked");
+    if (mode === "changed-before-action") expect(h.current(id).detail).toContain("this action has not run");
+  });
+  test.each(["unchanged", "edited", "rechecked"])("final reports inherit current host checks through the runtime: %s", async (mode) => {
+    let currentRevision = revision;
+    const custom = { ...agent, id: "custom-checker", workflow: [
+      { ...DRAFT, acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check", scriptIds: ["check"] }] }, POLISH,
+    ] } as AgentConfig;
+    const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => currentRevision,
+      runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
+    });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: revision });
+    const id = await startedAgentRun(h, buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: custom, assignment: "Check then finish", now: new Date(START) }));
+    await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "Checked" } });
+    h.endTurn("turn-1"); await h.tick();
+    expect(h.current(id).stageId).toBe(POLISH.id);
+    if (mode !== "unchanged") currentRevision = { status: "known", revision: "polished" };
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: currentRevision });
+    if (mode === "rechecked") await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-2", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-2", report: { summary: "Finished" } });
+    expect(h.current(id).report).toMatchObject({ workspaceRevision: currentRevision });
+    h.endTurn("turn-2"); await h.tick();
+    expect(h.aggregate(id).agentRun.state).toBe(mode === "edited" ? "running" : "completed");
+    if (mode === "edited") expect(h.current(id)).toMatchObject({ status: "blocked", blockReason: "acceptance-unmet" });
+  });
   test("report without host check blocks; the next report after the check completes with persisted evidence", async () => {
     const h = checkedHarness();
     h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: revision });
@@ -2474,7 +2692,7 @@ describe("primary write run workspace checks", () => {
     aggregate.agentRun.workflow.stages = [OPEN_PR];
     h.store.apply({ agentRun: aggregate.agentRun, upserts: [{ ...h.current(id), stageId: OPEN_PR.id }], events: [] }, new Date(START));
     h.grants.set("action-key", { agentRunId: id, stageId: OPEN_PR.id, attempt: 1, taskId: "task-1", turnId: "turn-1" });
-    await expect(h.runtime.runWorkspaceScript({ agentRunKey: "action-key", scriptId: "check" })).rejects.toThrow("action stage");
+    await expect(h.runtime.runWorkspaceScript({ agentRunKey: "action-key", scriptId: "check" })).rejects.toThrow("host-issued checks repair");
   });
   test("failure records bounded host evidence; concurrent second invocation is refused", async () => {
     let release!: () => void;
