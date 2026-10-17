@@ -47,19 +47,25 @@ import { buildApiConnectionCatalogEntries } from "../src/lib/providers/api-conne
 import { ClaudeGatewaySchema } from "../src/lib/providers/claude-gateway";
 import { configuredGatewayCatalog } from "../src/lib/providers/use-provider-model-catalogs";
 import { useProviderAccounts } from "../src/lib/providers/use-provider-accounts";
+import { isolateCliEnvironment } from "./fixtures/isolated-cli-environment";
 
 const secretId = "11111111-1111-4111-8111-111111111111";
 const otherSecretId = "22222222-2222-4222-8222-222222222222";
 let root: string;
 let registry: ProviderAccountRegistry;
+let restoreCliEnvironment: () => void;
 const originalRoot = process.env.STAVE_USER_DATA_PATH;
 beforeEach(() => {
   root = realpathSync(mkdtempSync(path.join(tmpdir(), "stave-api-connection-")));
   process.env.STAVE_USER_DATA_PATH = root;
   registry = new ProviderAccountRegistry(root);
   resetVercelCatalogCache();
+  // CLI environments probe the login shell and read config under HOME; a
+  // fixture shell and home keep that instant and independent of the machine.
+  restoreCliEnvironment = isolateCliEnvironment(root).restore;
 });
 afterEach(() => {
+  restoreCliEnvironment();
   if (originalRoot === undefined) delete process.env.STAVE_USER_DATA_PATH;
   else process.env.STAVE_USER_DATA_PATH = originalRoot;
   rmSync(root, { recursive: true, force: true });

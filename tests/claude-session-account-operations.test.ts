@@ -6,12 +6,15 @@ import { spawnSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
 import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
 import { runClaudeSessionOperation } from "../electron/provider-accounts/claude-session-operations";
+import { isolateCliEnvironment } from "./fixtures/isolated-cli-environment";
 
 const originalUserData = process.env.STAVE_USER_DATA_PATH;
 const roots: string[] = [];
+const restores: Array<() => void> = [];
 afterEach(() => {
   if (originalUserData === undefined) delete process.env.STAVE_USER_DATA_PATH;
   else process.env.STAVE_USER_DATA_PATH = originalUserData;
+  for (const restore of restores.splice(0)) restore();
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
@@ -19,6 +22,11 @@ test("concurrent native session workers use their own account directory without 
   const root = mkdtempSync(path.join(tmpdir(), "stave-session-worker-"));
   roots.push(root);
   process.env.STAVE_USER_DATA_PATH = root;
+  // Answer login-shell probes from a fixture shell and home instead of the
+  // developer's (seconds per probe, machine-dependent).
+  const isolated = isolateCliEnvironment(root);
+  restores.push(isolated.restore);
+  const shellEnv = isolated.env;
   const registry = new ProviderAccountRegistry(root);
   const profiles = ["A", "B"].map(label => registry.create({ providerId: "claude-code", label }));
   const sdkPath = path.join(root, "sdk-fixture.mjs");
@@ -52,7 +60,7 @@ test("concurrent native session workers use their own account directory without 
   `);
   const bundle = await Bun.build({ entrypoints: [entry], target: "node", format: "esm", outdir: root, naming: "runner.mjs" });
   expect(bundle.success).toBe(true);
-  const child = spawnSync("node", [path.join(root, "runner.mjs")], { encoding: "utf8", timeout: 15_000, env: { ...process.env, STAVE_USER_DATA_PATH: root } });
+  const child = spawnSync("node", [path.join(root, "runner.mjs")], { encoding: "utf8", timeout: 15_000, env: { ...process.env, ...shellEnv, STAVE_USER_DATA_PATH: root } });
   expect(child.stderr).toBe("");
   expect(child.status).toBe(0);
   const outcome = JSON.parse(child.stdout);
@@ -63,6 +71,7 @@ test("concurrent native session workers use their own account directory without 
   expect(outcome.failed).toEqual({ ok: false, detail: "fixture failure" });
   registry.remove({ providerId: "claude-code", id: profiles[0]!.id });
   expect(() => runClaudeSessionOperation("fork", {
-    sessionId: "source", runtimeOptions: { claudeAccountProfileId: profiles[0]!.id },
+    sessionId: "source",
+    runtimeOptions: { claudeBinaryPath: process.execPath, claudeAccountProfileId: profiles[0]!.id },
   }, { sdkUrl })).toThrow();
 });
