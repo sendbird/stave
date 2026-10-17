@@ -851,7 +851,6 @@ export function AutomationEditor(props: {
                 })
               }
               onModelChange={applyModel}
-              providerSelectClassName={sx(editorStyles.providerSelect)}
             />
             <div className={sx(editorStyles.effortGroup)}>
               <span className={sx(editorStyles.formLabelText)}>{tI18n("automation:automationEditor.effort")}</span>

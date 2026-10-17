@@ -45,8 +45,6 @@ interface ProviderModelPickerProps {
   disabled?: boolean;
   /** Narrow control — when `false`, the provider select shows a destructive border. */
   providerAvailable?: boolean;
-  /** Width of the provider select. Keeps launcher/reviewer visually consistent. */
-  providerSelectClassName?: string;
   /** Width of the model select. Defaults to filling the remaining space. */
   modelSelectClassName?: string;
 }
@@ -110,13 +108,7 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
       >
         <SelectTrigger
           aria-label={i18n.t("session:providerModelPicker.ariaLabel", { value1: args.ariaLabel ?? i18n.t("session:providerModelPicker.extraCopy114") })}
-          className={cx(
-            sx(
-              styles.trigger,
-              args.providerSelectClassName ? null : styles.providerTriggerWidth,
-            ),
-            args.providerSelectClassName,
-          )}
+          className={sx(styles.trigger, styles.providerTriggerWidth)}
         >
           <SelectValue>
             <span className={sx(styles.itemInner)}>

@@ -112,6 +112,19 @@
       "tests": [
         "tests/aux-lane-single-switch-migration.test.ts"
       ]
+    },
+    {
+      "id": "jira-single-switch",
+      "description": "Through 0.27.3 Jira polled only when jiraConnector.enabled (default off) and trackerIssues.sourceEnabled.jira (default on) were both on. After 0.27.3 Jira uses only jiraConnector.enabled, the Settings → Integrations switch. Settings rehydration writes the old AND into jiraConnector.enabled (a saved sourceEnabled.jira that is not a boolean counts as on, the old default; a profile saved without jiraConnector stays off), drops sourceEnabled.jira, and runs only while sourceEnabled.jira is still saved. At expiry, delete the marked blocks; a profile that skipped these releases keeps its jiraConnector.enabled value, so Jira that was off only through the Issues source flag turns on.",
+      "introducedAfter": "0.27.3",
+      "removeInVersion": "0.30.0",
+      "files": [
+        "src/lib/tracker-issues/jira-single-switch-migration.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/jira-single-switch-migration.test.ts"
+      ]
     }
   ]
 }

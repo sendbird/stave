@@ -100,13 +100,9 @@ function buildCraneSource(): CraneTrackerSource {
 
 function buildJiraSource(): TrackerSourceAdapter {
   return createJiraTrackerSource({
-    getSettings: () => {
-      const connector = getJiraConnectorSettings();
-      return {
-        ...connector,
-        enabled: latestTasksSettings.sourceEnabled.jira && connector.enabled,
-      };
-    },
+    // Jira's only switch is the connector's own `enabled` (Settings →
+    // Integrations); its configure IPC refreshes source availability.
+    getSettings: () => getJiraConnectorSettings(),
     getStatus: () => loadJiraConnectorStatus(),
     listIssues: (args) => listJiraIssuesForCurrentUser(args),
     getIssue: (args) => getJiraIssue(args),
@@ -220,7 +216,6 @@ export async function configureTrackerIssues(
   const runtimeInstance = getTrackerIssuesRuntime();
   runtimeInstance.configure(settings);
   const sourcesChanged =
-    previous.sourceEnabled.jira !== settings.sourceEnabled.jira ||
     previous.sourceEnabled.crane !== settings.sourceEnabled.crane;
   if (sourcesChanged) {
     return runtimeInstance.refreshAvailability();

@@ -88,7 +88,7 @@ async function seedTasks(page: Page) {
               defaultView: "assigned-open",
               refreshIntervalSeconds: 60,
               defaultKickoffStartMode: "run",
-              sourceEnabled: { jira: true, crane: false },
+              sourceEnabled: { crane: false },
             },
           },
           ...workspaceSnapshot,

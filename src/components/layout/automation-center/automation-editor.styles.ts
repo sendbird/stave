@@ -285,7 +285,6 @@ export const editorStyles = stylex.create({
     maxInlineSize: "48rem",
   },
 
-  providerSelect: { flexShrink: 0, inlineSize: 118 },
   effortGroup: { display: "grid", gap: 6 },
 
   environmentPath: {

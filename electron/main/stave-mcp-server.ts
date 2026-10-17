@@ -11,13 +11,14 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { buildStaveLocalMcpServerInstructions } from "./stave-mcp-server-instructions";
 import { z } from "zod";
-import type {
-  StaveLocalMcpConfig,
-  StaveLocalMcpManifest,
-  StaveLocalMcpRequestLog,
-  StaveLocalMcpRequestLogPage,
-  StaveLocalMcpRequestLogQuery,
-  StaveLocalMcpStatus,
+import {
+  WORKSPACE_INFORMATION_RESOURCE_KINDS,
+  type StaveLocalMcpConfig,
+  type StaveLocalMcpManifest,
+  type StaveLocalMcpRequestLog,
+  type StaveLocalMcpRequestLogPage,
+  type StaveLocalMcpRequestLogQuery,
+  type StaveLocalMcpStatus,
 } from "../../src/lib/local-mcp";
 import {
   AutomationInformationResourceCreateInputSchema,
@@ -1435,16 +1436,7 @@ function createToolServer(options?: {
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         kind: z
-          .enum([
-            "jira",
-            "crane",
-            "pull_request",
-            "confluence",
-            "storybook",
-            "slack",
-            "figma",
-            "amplify",
-          ])
+          .enum(WORKSPACE_INFORMATION_RESOURCE_KINDS)
           .describe("Resource kind."),
         url: z.string().url().describe("Resource URL."),
         title: z
@@ -1502,19 +1494,11 @@ function createToolServer(options?: {
     "stave_remove_workspace_resource",
     {
       description:
-        "Remove a linked Jira issue, PR, Confluence page, Storybook resource, Slack thread, or Figma resource from the workspace Information panel.",
+        "Remove a linked Jira issue, Crane issue, PR, Confluence page, Storybook resource, Slack thread, Figma resource, or AWS Amplify deploy URL from the workspace Information panel.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
         kind: z
-          .enum([
-            "jira",
-            "pull_request",
-            "confluence",
-            "storybook",
-            "slack",
-            "figma",
-            "amplify",
-          ])
+          .enum(WORKSPACE_INFORMATION_RESOURCE_KINDS)
           .describe("Resource kind."),
         itemId: z.string().min(1).describe("Stored resource id."),
       },

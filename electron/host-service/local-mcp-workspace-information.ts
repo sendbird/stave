@@ -18,6 +18,10 @@ import {
   type WorkspaceResourceUpsertResult,
   type WorkspaceTodoStatus,
 } from "../../src/lib/workspace-information";
+import {
+  WORKSPACE_INFORMATION_RESOURCE_KINDS,
+  type WorkspaceInformationResourceKind,
+} from "../../src/lib/local-mcp";
 
 export interface WorkspaceInformationMutationResult {
   workspaceId: string;
@@ -32,33 +36,16 @@ export interface LocalMcpWorkspaceInformationDependencies {
   }) => Promise<WorkspaceInformationMutationResult>;
 }
 
-type WorkspaceInformationResourceKind =
-  | "jira"
-  | "crane"
-  | "pull_request"
-  | "confluence"
-  | "figma"
-  | "storybook"
-  | "slack"
-  | "amplify";
 
 type WorkspaceCustomFieldValueInput = string | number | boolean | null;
 
 function normalizeWorkspaceResourceKind(value: string): WorkspaceInformationResourceKind {
   const normalized = value.trim();
-  switch (normalized) {
-    case "jira":
-    case "crane":
-    case "pull_request":
-    case "confluence":
-    case "figma":
-    case "storybook":
-    case "slack":
-    case "amplify":
-      return normalized;
-    default:
-      throw new Error(`Unsupported workspace resource kind: ${value}`);
+  const kind = WORKSPACE_INFORMATION_RESOURCE_KINDS.find((candidate) => candidate === normalized);
+  if (!kind) {
+    throw new Error(`Unsupported workspace resource kind: ${value}`);
   }
+  return kind;
 }
 
 function normalizeWorkspaceFieldType(value: string): WorkspaceInfoFieldType {

@@ -45,6 +45,9 @@ import {
 // temporary-migration: auxiliary-inference-shared-default
 import { migrateAuxInferenceSharedDefault } from "@/lib/providers/auxiliary-inference-shared-default-migration";
 // end temporary-migration: auxiliary-inference-shared-default
+// temporary-migration: jira-single-switch
+import { migrateJiraSingleSwitch } from "@/lib/tracker-issues/jira-single-switch-migration";
+// end temporary-migration: jira-single-switch
 // temporary-migration: auto-routing-v1-settings-keys
 import { dropAutoRoutingV1SettingsKeys } from "@/lib/routing/auto-routing-v1-settings-migration";
 // end temporary-migration: auto-routing-v1-settings-keys
@@ -267,6 +270,13 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       const persistedSettings = state.settings;
+      // temporary-migration: jira-single-switch
+      // Before the merge and normalization below, which would drop the retired
+      // `trackerIssues.sourceEnabled.jira` before it is read.
+      if (persistedSettings) {
+        migrateJiraSingleSwitch(persistedSettings as unknown as Record<string, unknown>);
+      }
+      // end temporary-migration: jira-single-switch
       // temporary-migration: results-surface-to-agents-tab
       // Agent performance was its own surface (`{ kind: "results" }`) through
       // 0.25.2; a profile that last had it open reopens Agents on Performance.

@@ -157,32 +157,4 @@ describe("Integrations owns Jira on/off", () => {
     const html = render(IssueTrackerSettingsSection, { onNavigateSection: navigate });
     expect(html).toContain("Off. Turn Jira on in Settings → Integrations.");
   });
-
-  test("Jira is on only when the connector and the Issues source flag are both on", async () => {
-    const { buildJiraEnablementPatch, isJiraSourceEnabled } = await import(
-      "../src/lib/tracker-issues/jira-enablement"
-    );
-    const settings = (await store()).getState().settings;
-    const withFlags = (connector: boolean, source: boolean) => ({
-      jiraConnector: { ...settings.jiraConnector, enabled: connector },
-      trackerIssues: {
-        ...settings.trackerIssues,
-        sourceEnabled: { ...settings.trackerIssues.sourceEnabled, jira: source },
-      },
-    });
-    expect(isJiraSourceEnabled(withFlags(true, false))).toBe(false);
-    expect(isJiraSourceEnabled(withFlags(false, true))).toBe(false);
-    expect(isJiraSourceEnabled(withFlags(true, true))).toBe(true);
-
-    // The Integrations switch writes both flags, so a profile that had hidden
-    // Jira in Issues is not stranded once that switch is gone.
-    const patch = buildJiraEnablementPatch({
-      settings: withFlags(false, false),
-      enabled: true,
-    });
-    expect(isJiraSourceEnabled(patch)).toBe(true);
-    expect(patch.trackerIssues.sourceEnabled.crane).toBe(
-      settings.trackerIssues.sourceEnabled.crane,
-    );
-  });
 });
