@@ -58,6 +58,68 @@ export function upsertNetworkEntriesLimited(
   return [...byEntryId.values()].slice(-LENS_LOG_LIMIT);
 }
 
+/**
+ * Adds live events to a buffer that waits for the next animation frame. Frames
+ * stop while the window is hidden, so the buffer is compacted once it holds
+ * twice the log limit: entries are merged by id (latest value, first position,
+ * like the flush upsert) and only the newest `LENS_LOG_LIMIT` are kept.
+ */
+export function appendPendingEntriesLimited<T>(
+  pending: readonly T[],
+  incoming: readonly T[],
+  getId: (entry: T) => string,
+): T[] {
+  const next = [...pending, ...incoming];
+  if (next.length <= LENS_LOG_LIMIT * 2) {
+    return next;
+  }
+  const byEntryId = new Map<string, T>();
+  for (const entry of next) {
+    byEntryId.set(getId(entry), entry);
+  }
+  return [...byEntryId.values()].slice(-LENS_LOG_LIMIT);
+}
+
+/**
+ * Frame-batched live events, bounded by `appendPendingEntriesLimited`. Later
+ * updates for an id dropped by compaction are ignored until the next drain, so
+ * an old request that completes does not come back as the newest row. The
+ * dropped-id memory is itself capped.
+ */
+export function createPendingEntryBuffer<T>(getId: (entry: T) => string) {
+  let pending: T[] = [];
+  let droppedIds = new Set<string>();
+  return {
+    push(incoming: readonly T[]) {
+      const accepted = droppedIds.size === 0
+        ? incoming
+        : incoming.filter((entry) => !droppedIds.has(getId(entry)));
+      const merged = [...pending, ...accepted];
+      const next = appendPendingEntriesLimited(pending, accepted, getId);
+      if (next.length < merged.length) {
+        const keptIds = new Set(next.map(getId));
+        for (const entry of merged) {
+          const id = getId(entry);
+          if (!keptIds.has(id)) {
+            droppedIds.delete(id);
+            droppedIds.add(id);
+          }
+        }
+        if (droppedIds.size > LENS_LOG_LIMIT * 4) {
+          droppedIds = new Set([...droppedIds].slice(-LENS_LOG_LIMIT * 4));
+        }
+      }
+      pending = next;
+    },
+    drain(): T[] {
+      const entries = pending;
+      pending = [];
+      droppedIds = new Set();
+      return entries;
+    },
+  };
+}
+
 export function matchesSession(
   payload: { workspaceId: string; lensSessionId?: string },
   workspaceId: string,

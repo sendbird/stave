@@ -101,6 +101,10 @@ import {
   type AppSettings,
 } from "@/store/app-settings";
 import { AGENTS_APP_SURFACE, normalizeAppActiveSurface } from "@/store/app-surface";
+import {
+  createCoalescedPersistStorage,
+  type CoalescedPersistStorage,
+} from "@/store/app-store-persist-storage";
 import { useAgentsViewStore } from "@/store/agents-view-store";
 import type { AppState } from "@/store/app-store.types";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
@@ -143,9 +147,88 @@ export function normalizeAutoDefaultProviderModel(args: {
   return isAutoModelId({ model: trimmed }) ? "auto" : trimmed;
 }
 
+type CapturedRepositoryInputs = Parameters<
+  typeof captureCurrentRepositoryState
+>[0];
+
+/**
+ * How long a captured `recentRepositories` value is reused while its inputs
+ * stay reference-equal. The capture stamps the current repository with
+ * `lastOpenedAt: now`, so without reuse every store update would produce a
+ * new value and defeat the persist write skip; refreshing it once a minute
+ * keeps that stamp as fresh as the persisted snapshot needs.
+ */
+const CAPTURED_REPOSITORIES_REUSE_MS = 60_000;
+
+function createCapturedRepositoriesMemo() {
+  let lastInputs: CapturedRepositoryInputs | null = null;
+  let lastResult: ReturnType<typeof captureCurrentRepositoryState> | null =
+    null;
+  let lastCapturedAt = 0;
+  return (inputs: CapturedRepositoryInputs) => {
+    const now = Date.now();
+    if (
+      lastInputs &&
+      lastResult &&
+      now - lastCapturedAt < CAPTURED_REPOSITORIES_REUSE_MS &&
+      (Object.keys(inputs) as Array<keyof CapturedRepositoryInputs>).every(
+        (key) => Object.is(inputs[key], lastInputs?.[key]),
+      )
+    ) {
+      return lastResult;
+    }
+    lastInputs = inputs;
+    lastResult = captureCurrentRepositoryState(inputs);
+    lastCapturedAt = now;
+    return lastResult;
+  };
+}
+
+const appStorePersistStorages = new Set<CoalescedPersistStorage<unknown>>();
+
+/**
+ * Writes any app-store snapshot still waiting in the persist debounce window.
+ * Call it on quit/unload paths and in tests that read `localStorage` right
+ * after a store update. Returns `false` when a write failed; the snapshot then
+ * stays pending for the next flush.
+ */
+export function flushAppStorePersistence() {
+  let flushed = true;
+  appStorePersistStorages.forEach((storage) => {
+    flushed = storage.flush() && flushed;
+  });
+  return flushed;
+}
+
+/**
+ * Quit flush: writes the app-store snapshot, then awaits the other stores.
+ * Resolves `false` when the app-store write failed so the caller reports a
+ * failed flush to main (which keeps the quit confirmation path) instead of a
+ * success that would lose the settings. Rejects when `flushStores` rejects.
+ */
+export async function flushPersistenceForQuit(args: {
+  flushStores: () => Promise<unknown>;
+  flushAppStore?: () => boolean;
+}): Promise<boolean> {
+  const appStoreFlushed = (args.flushAppStore ?? flushAppStorePersistence)();
+  await args.flushStores();
+  if (!appStoreFlushed) {
+    console.error("[persistence] app store write failed during quit flush");
+  }
+  return appStoreFlushed;
+}
+
 export function createAppStorePersistenceOptions() {
+  const captureRecentRepositories = createCapturedRepositoriesMemo();
+  const storage = createCoalescedPersistStorage<unknown>({
+    getStorage: () => window.localStorage,
+  });
+  if (storage) {
+    appStorePersistStorages.add(storage);
+  }
   return {
     name: APP_STORE_KEY,
+    storage,
     partialize: (state: AppState) => ({
       // Keep localStorage limited to lightweight UI/session state.
       // Project/workspace history is mirrored into SQLite so this cache is not the only durable source.
@@ -153,7 +236,7 @@ export function createAppStorePersistenceOptions() {
       activeWorkspaceId: state.activeWorkspaceId,
       activeAppSurface: state.activeAppSurface,
       repositoryPath: state.repositoryPath,
-      recentRepositories: captureCurrentRepositoryState({
+      recentRepositories: captureRecentRepositories({
         recentRepositories: state.recentRepositories,
         repositoryPath: state.repositoryPath,
         repositoryName: state.repositoryName,

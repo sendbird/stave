@@ -133,13 +133,69 @@ interface WorkerState {
   nextId: number;
   lineBuffer: Utf8LineBuffer;
   exitDetail: string | null;
+  idleTimer: ReturnType<typeof setTimeout> | null;
 }
 
+const ESLINT_REQUEST_TIMEOUT_MS = 15_000;
+const ESLINT_WORKER_IDLE_TIMEOUT_MS = 5 * 60_000;
+const ESLINT_WORKER_MAX_COUNT = 3;
+
+// Insertion order doubles as recency: each request re-inserts its worker, so
+// the first entry is the least recently used.
 const workers = new Map<string, WorkerState>();
+
+function stopWorker(rootPath: string, state: WorkerState) {
+  if (state.idleTimer) {
+    clearTimeout(state.idleTimer);
+    state.idleTimer = null;
+  }
+  if (workers.get(rootPath) === state) {
+    workers.delete(rootPath);
+  }
+  state.child.kill();
+}
+
+function scheduleIdleStop(rootPath: string, state: WorkerState) {
+  if (state.idleTimer) {
+    clearTimeout(state.idleTimer);
+  }
+  state.idleTimer = setTimeout(() => {
+    state.idleTimer = null;
+    if (state.pending.size > 0) {
+      scheduleIdleStop(rootPath, state);
+      return;
+    }
+    stopWorker(rootPath, state);
+  }, ESLINT_WORKER_IDLE_TIMEOUT_MS);
+  state.idleTimer.unref?.();
+}
+
+// Stops least recently used idle workers until at most `limit` remain. Busy
+// workers are never stopped, so the count can exceed the cap while every
+// worker has a request in flight; settling a request trims it back.
+function evictIdleWorkersOverLimit(limit: number) {
+  for (const [rootPath, state] of workers) {
+    if (workers.size <= limit) {
+      return;
+    }
+    if (state.pending.size === 0) {
+      stopWorker(rootPath, state);
+    }
+  }
+}
+
+function settleRequest(state: WorkerState, id: number) {
+  state.pending.delete(id);
+  if (state.pending.size === 0) {
+    evictIdleWorkersOverLimit(ESLINT_WORKER_MAX_COUNT);
+  }
+}
 
 function getOrSpawnWorker(rootPath: string): WorkerState {
   const existing = workers.get(rootPath);
   if (existing && existing.child.exitCode === null) {
+    workers.delete(rootPath);
+    workers.set(rootPath, existing);
     return existing;
   }
 
@@ -149,8 +205,10 @@ function getOrSpawnWorker(rootPath: string): WorkerState {
       req.resolve({ ok: false, detail: "Worker exited" });
     }
     existing.pending.clear();
-    workers.delete(rootPath);
+    stopWorker(rootPath, existing);
   }
+
+  evictIdleWorkersOverLimit(ESLINT_WORKER_MAX_COUNT - 1);
 
   const child = spawn(process.execPath, [getWorkerScriptPath()], {
     cwd: rootPath,
@@ -168,6 +226,7 @@ function getOrSpawnWorker(rootPath: string): WorkerState {
       maxLineBytes: ESLINT_WORKER_STDOUT_LINE_MAX_BYTES,
     }),
     exitDetail: null,
+    idleTimer: null,
   };
 
   child.stdout!.setEncoding("utf8");
@@ -193,7 +252,7 @@ function getOrSpawnWorker(rootPath: string): WorkerState {
         const req = state.pending.get(msg.id);
         if (req) {
           clearTimeout(req.timer);
-          state.pending.delete(msg.id);
+          settleRequest(state, msg.id);
           req.resolve({
             ok: msg.ok,
             diagnostics: msg.diagnostics,
@@ -214,7 +273,15 @@ function getOrSpawnWorker(rootPath: string): WorkerState {
       req.resolve({ ok: false, detail });
     }
     state.pending.clear();
-    workers.delete(rootPath);
+    if (state.idleTimer) {
+      clearTimeout(state.idleTimer);
+      state.idleTimer = null;
+    }
+    // A replacement worker may already own this root when an evicted or
+    // stopped worker reports its exit.
+    if (workers.get(rootPath) === state) {
+      workers.delete(rootPath);
+    }
   });
 
   workers.set(rootPath, state);
@@ -226,11 +293,12 @@ function sendRequest(rootPath: string, type: "lint" | "fix", filePath: string, t
     const worker = getOrSpawnWorker(rootPath);
     const id = worker.nextId++;
     const timer = setTimeout(() => {
-      worker.pending.delete(id);
+      settleRequest(worker, id);
       resolve({ ok: false, detail: "ESLint timed out" });
-    }, 15_000);
+    }, ESLINT_REQUEST_TIMEOUT_MS);
 
     worker.pending.set(id, { resolve, timer });
+    scheduleIdleStop(rootPath, worker);
     worker.child.stdin!.write(JSON.stringify({ id, type, rootPath, filePath, text }) + "\n");
   });
 }
@@ -281,10 +349,9 @@ export async function fixFile(args: {
 }
 
 export function stopWorkers() {
-  for (const [, state] of workers) {
-    state.child.kill();
+  for (const [rootPath, state] of workers) {
+    stopWorker(rootPath, state);
   }
-  workers.clear();
 }
 
 app.on("will-quit", stopWorkers);

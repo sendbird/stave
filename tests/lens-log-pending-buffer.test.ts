@@ -1,0 +1,84 @@
+import { describe, expect, test } from "bun:test";
+import {
+  LENS_LOG_LIMIT,
+  appendPendingEntriesLimited,
+  createPendingEntryBuffer,
+} from "@/lib/lens/lens-log-format";
+
+type Entry = { id: string; value: number };
+const getId = (entry: Entry) => entry.id;
+
+describe("appendPendingEntriesLimited", () => {
+  test("keeps every entry while the buffer is small", () => {
+    const pending = appendPendingEntriesLimited<Entry>(
+      [{ id: "a", value: 1 }],
+      [
+        { id: "a", value: 2 },
+        { id: "b", value: 1 },
+      ],
+      getId,
+    );
+    expect(pending).toEqual([
+      { id: "a", value: 1 },
+      { id: "a", value: 2 },
+      { id: "b", value: 1 },
+    ]);
+  });
+
+  test("stays bounded when frames never flush", () => {
+    let pending: Entry[] = [];
+    const total = LENS_LOG_LIMIT * 50;
+    for (let index = 0; index < total; index += 1) {
+      pending = appendPendingEntriesLimited(
+        pending,
+        [{ id: `entry-${index}`, value: index }],
+        getId,
+      );
+      expect(pending.length).toBeLessThanOrEqual(LENS_LOG_LIMIT * 2);
+    }
+    expect(pending.at(-1)).toEqual({
+      id: `entry-${total - 1}`,
+      value: total - 1,
+    });
+  });
+
+  test("merges repeated ids to their latest value when compacting", () => {
+    let pending: Entry[] = [];
+    for (let index = 0; index <= LENS_LOG_LIMIT * 2; index += 1) {
+      pending = appendPendingEntriesLimited(
+        pending,
+        [{ id: index > 10 && index % 2 === 1 ? "request" : `other-${index}`, value: index }],
+        getId,
+      );
+    }
+    expect(pending.length).toBeLessThanOrEqual(LENS_LOG_LIMIT);
+    expect(pending.filter((entry) => entry.id === "request")).toEqual([
+      { id: "request", value: LENS_LOG_LIMIT * 2 - 1 },
+    ]);
+    expect(new Set(pending.map(getId)).size).toBe(pending.length);
+  });
+
+  test("an update for a compacted-away request does not return as the newest row", () => {
+    const buffer = createPendingEntryBuffer<Entry>(getId);
+    for (let index = 0; index <= LENS_LOG_LIMIT * 2; index += 1) {
+      buffer.push([{ id: `request-${index}`, value: index }]);
+    }
+    buffer.push([{ id: "request-0", value: -1 }]);
+    const drained = buffer.drain();
+    expect(drained.some((entry) => entry.id === "request-0")).toBe(false);
+    expect(drained.at(-1)?.id).toBe(`request-${LENS_LOG_LIMIT * 2}`);
+    buffer.push([{ id: "request-0", value: -2 }]);
+    expect(buffer.drain()).toEqual([{ id: "request-0", value: -2 }]);
+  });
+
+  test("the frame buffer stays bounded until drained, then starts empty", () => {
+    const buffer = createPendingEntryBuffer<Entry>(getId);
+    for (let index = 0; index < LENS_LOG_LIMIT * 10; index += 1) {
+      buffer.push([{ id: `entry-${index}`, value: index }]);
+    }
+    const drained = buffer.drain();
+    expect(drained.length).toBeLessThanOrEqual(LENS_LOG_LIMIT * 2);
+    expect(drained.at(-1)?.value).toBe(LENS_LOG_LIMIT * 10 - 1);
+    expect(buffer.drain()).toEqual([]);
+  });
+});

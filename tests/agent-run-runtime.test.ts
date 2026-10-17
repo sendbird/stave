@@ -1464,6 +1464,30 @@ test("cancelling a run aborts its owned script", async () => {
   expect(h.aggregate(id).agentRun.state).toBe("cancelled");
 });
 
+test("an ended run drops its cached turn ids and rebuilds them from events when read", async () => {
+  const store = new AgentRunStore(new Database(":memory:"));
+  const turnLinkedReads: string[] = [];
+  const listEventsByKind = store.listEventsByKind.bind(store);
+  store.listEventsByKind = ((agentRunId, kinds) => {
+    if (kinds.length === 1 && kinds[0] === "turn-linked") turnLinkedReads.push(agentRunId);
+    return listEventsByKind(agentRunId, kinds);
+  }) as typeof store.listEventsByKind;
+  const h = createHarness({ store, extra: { readTurnUsage: () => ({ completed: true, usage: { inputTokens: 10 } }) } });
+  const id = await startedAgentRun(h);
+
+  // While the run is active its turn ids stay cached across reads.
+  await h.runtime.get({ agentRunId: id });
+  const activeReads = turnLinkedReads.length;
+  await h.runtime.get({ agentRunId: id });
+  expect(turnLinkedReads).toHaveLength(activeReads);
+
+  // Ending the run forgets them; the next detail read rebuilds them from events.
+  await h.runtime.cancel({ agentRunId: id });
+  const detail = await h.runtime.get({ agentRunId: id });
+  expect(turnLinkedReads.length).toBeGreaterThan(activeReads);
+  expect(detail.usage).toMatchObject({ turns: 1, inputTokens: 10 });
+});
+
 test("user replies attach to the active agent stage without repeating the assignment", async () => {
   const h = createHarness({ extra: { taskRunsAsAgent: () => true } });
   const id = await startedAgentRun(h, startInput({ origin: "agent", workflow: workflow([DRAFT]) }));

@@ -74,6 +74,12 @@ import {
 } from "@/components/panes/editor-tab-actions";
 import { isGitGraphEditorTab } from "@/components/panes/editor-tab-presentation";
 import { EditorSurfaceToolbar } from "@/components/panes/surfaces/editor-surface-toolbar";
+import { useEditorPanelMountGate } from "@/components/panes/surfaces/editor-panel-mount-gate";
+import {
+  disposeTextModelIfUnused,
+  reconcileEditorModelContent,
+  syncRetainedEditorModels,
+} from "@/components/panes/surfaces/editor-model-retention";
 import {
   Empty,
   EmptyDescription,
@@ -95,8 +101,10 @@ const EMPTY_REVIEW_COMMENTS: ReviewComment[] = [];
 
 /**
  * Monaco view state (cursor, selection, scroll) preserved across panel
- * hide/show. Editor panels use Dockview's default renderer and unmount when
- * hidden, so the view state must outlive the component instance.
+ * hide/show. Dockview's default renderer only detaches a hidden panel's DOM,
+ * so the surface itself unmounts its Monaco editor once the panel stays
+ * hidden (see `useEditorPanelMountGate`), and the whole surface unmounts on
+ * close or workspace switch; the view state must outlive both.
  */
 const editorViewStateByTabId = new Map<
   string,
@@ -195,8 +203,8 @@ interface LanguageIntelligenceLifecycleState {
 /**
  * LSP session lifecycle is shared by every mounted editor panel: sessions are
  * stopped when the workspace root or the LSP commands change, NOT when an
- * individual panel unmounts (hidden panels unmount while siblings keep using
- * the sessions).
+ * individual editor unmounts (hidden panels unmount their editor while
+ * siblings keep using the sessions).
  */
 let lastLanguageIntelligenceState: LanguageIntelligenceLifecycleState | null =
   null;
@@ -264,6 +272,7 @@ function syncLanguageIntelligenceLifecycle(monaco: Monaco | null) {
  */
 export function EditorSurfacePanel(props: IDockviewPanelProps) {
   useTranslation();
+  const editorMounted = useEditorPanelMountGate(props.api);
   const surface = parsePanePanelId(props.api.id);
   if (surface?.kind !== "editor") {
     return null;
@@ -272,11 +281,19 @@ export function EditorSurfacePanel(props: IDockviewPanelProps) {
     <EditorTabSurface
       key={surface.editorTabId}
       editorTabId={surface.editorTabId}
+      editorMounted={editorMounted}
     />
   );
 }
 
-function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
+function EditorTabSurface({
+  editorTabId,
+  editorMounted,
+}: {
+  editorTabId: string;
+  /** False while the Dockview panel is hidden: Monaco stays unmounted. */
+  editorMounted: boolean;
+}) {
   useTranslation();
   const monacoReady = useBundledMonaco();
   const tab = useAppStore(
@@ -350,6 +367,16 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     null,
   );
   const diffReviewControllerRef = useRef<DiffReviewController | null>(null);
+  // Models kept while the editor is unmounted for a hidden panel, so a
+  // remount reuses them (undo history, LSP document) instead of rebuilding.
+  const keptCodeModelRef = useRef<MonacoEditorApi.ITextModel | null>(null);
+  const keptDiffModelsRef = useRef<MonacoEditorApi.IDiffEditorModel | null>(
+    null,
+  );
+  // Read by the unmount cleanups below: an editor that unmounts because its
+  // panel is hidden keeps its models; any other unmount disposes them.
+  const editorSuspendedRef = useRef(!editorMounted);
+  editorSuspendedRef.current = !editorMounted;
 
   const isActiveEditorTab = activeEditorTabId === editorTabId;
   const tabContentTooLarge = tab?.contentState === "too-large";
@@ -394,6 +421,8 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     !showMarkdownPreview &&
     !renderDiffEditor,
   );
+  const mountCodeEditor = showCodeEditor && editorMounted;
+  const mountedDiffSessionKey = editorMounted ? diffSessionKey : null;
   const absolutePath = tab
     ? resolveEditorTabAbsolutePath({
         filePath: tab.filePath,
@@ -789,12 +818,31 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     };
   }, [showMarkdownPreview]);
 
+  const disposeKeptCodeModel = useCallback(() => {
+    const model = keptCodeModelRef.current;
+    keptCodeModelRef.current = null;
+    disposeTextModelIfUnused({
+      model,
+      liveEditors: monacoRef.current?.editor.getEditors() ?? [],
+    });
+  }, []);
+
+  const disposeKeptDiffModels = useCallback(() => {
+    const models = keptDiffModelsRef.current;
+    keptDiffModelsRef.current = null;
+    const liveEditors = monacoRef.current?.editor.getEditors() ?? [];
+    disposeTextModelIfUnused({ model: models?.original, liveEditors });
+    disposeTextModelIfUnused({ model: models?.modified, liveEditors });
+  }, []);
+
   // Persist the code editor view state whenever the Monaco branch unmounts
-  // (panel hidden/closed or mode switch). Runs as a layout cleanup so it
-  // executes before @monaco-editor/react disposes the editor in its passive
-  // effect cleanup.
+  // (panel hidden, tab closed, or mode switch). Runs as a layout cleanup so
+  // it executes before @monaco-editor/react disposes the editor in its
+  // passive effect cleanup. The editor is created with `keepCurrentModel`,
+  // so this owns the model: kept while the panel is hidden, disposed
+  // otherwise, as the library did before.
   useLayoutEffect(() => {
-    if (!showCodeEditor) {
+    if (!mountCodeEditor) {
       return;
     }
     return () => {
@@ -811,16 +859,27 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
         if (lastFocusedCodeEditor === editor) {
           lastFocusedCodeEditor = null;
         }
+        const model = editor.getModel();
+        if (editorSuspendedRef.current) {
+          keptCodeModelRef.current = model;
+        } else {
+          disposeTextModelIfUnused({
+            model,
+            liveEditors: monacoRef.current?.editor.getEditors() ?? [],
+            exceptEditor: editor,
+          });
+        }
       }
       editorRef.current = null;
     };
-  }, [showCodeEditor, editorTabId]);
+  }, [mountCodeEditor, editorTabId]);
 
   // Same for the diff editor, plus the model-release workaround:
-  // @monaco-editor/react disposes diff models before disposing the widget, so
-  // reset the widget first so Monaco does not observe disposed models.
+  // disposing diff models before the widget lets Monaco observe disposed
+  // models, so reset the widget first. Kept models stay attached; the
+  // library is told to keep them and does not touch them.
   useLayoutEffect(() => {
-    if (!diffSessionKey) {
+    if (!mountedDiffSessionKey) {
       return;
     }
     return () => {
@@ -837,14 +896,53 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
       }
       diffReviewControllerRef.current?.dispose();
       diffReviewControllerRef.current = null;
-      releaseDiffEditorModels(diffEditorRef.current);
+      if (diffEditor && editorSuspendedRef.current) {
+        keptDiffModelsRef.current = diffEditor.getModel();
+      } else {
+        releaseDiffEditorModels(diffEditor);
+      }
       diffEditorRef.current = null;
     };
-  }, [diffSessionKey, editorTabId]);
+  }, [mountedDiffSessionKey, editorTabId]);
 
-  // Drop preserved view state once the tab itself is closed.
+  // A kept model is only reused by the same editor kind remounting; once the
+  // surface stops showing that editor (mode switch, content reload), drop it
+  // so the next mount starts from the store's content.
+  useEffect(() => {
+    if (!showCodeEditor) {
+      disposeKeptCodeModel();
+    }
+  }, [disposeKeptCodeModel, showCodeEditor]);
+  useEffect(() => {
+    if (!diffSessionKey) {
+      disposeKeptDiffModels();
+    }
+  }, [diffSessionKey, disposeKeptDiffModels]);
+  // While hidden, apply store content changes (e.g. a reload from disk) to the
+  // kept models so LSP analyzes the current text, not the text at hide time.
+  const tabContent = tab && !tabContentUnavailable ? tab.content : null;
+  const tabOriginalContent = tab?.originalContent ?? "";
+  useEffect(() => {
+    if (tabContent === null) {
+      return;
+    }
+    syncRetainedEditorModels({
+      editorMounted,
+      codeModel: keptCodeModelRef.current,
+      diffModels: keptDiffModelsRef.current,
+      content: tabContent,
+      originalContent: tabOriginalContent,
+      readOnly: tabIsReadOnly,
+      liveEditors: monacoRef.current?.editor.getEditors() ?? [],
+    });
+  }, [editorMounted, tabContent, tabOriginalContent, tabIsReadOnly]);
+
+  // Drop preserved view state once the tab itself is closed, and any models
+  // kept for a hidden panel once the surface unmounts.
   useEffect(
     () => () => {
+      disposeKeptCodeModel();
+      disposeKeptDiffModels();
       const stillOpen = useAppStore
         .getState()
         .editorTabs.some((item) => item.id === editorTabId);
@@ -853,7 +951,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
         diffEditorViewStateByTabId.delete(editorTabId);
       }
     },
-    [editorTabId],
+    [disposeKeptCodeModel, disposeKeptDiffModels, editorTabId],
   );
 
   useEffect(() => {
@@ -874,6 +972,11 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
     // The panel is about to be reconciled away (tab closed in the store).
     return null;
   }
+  // Matches the not-ready host below, so a remount after the panel is shown
+  // again does not flash the library's "Loading..." text.
+  const monacoLoadingHost = (
+    <div className={sx(styles.emptyHost)} aria-busy="true" />
+  );
 
   return (
     <section
@@ -993,10 +1096,16 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
             // The bundled editor is still loading; mounting now would make the
             // loader fetch its CDN build instead.
             <div className={sx(styles.emptyHost)} aria-busy="true" />
+          ) : !editorMounted ? (
+            // Hidden panel: Monaco is released until the panel shows again.
+            <div className={sx(styles.emptyHost)} aria-hidden="true" />
           ) : renderDiffEditor ? (
             <DiffEditor
               key={diffSessionKey ?? "diff-editor"}
               height="100%"
+              loading={monacoLoadingHost}
+              keepCurrentOriginalModel
+              keepCurrentModifiedModel
               language={tab.language}
               original={tab.originalContent}
               modified={tab.content}
@@ -1026,6 +1135,41 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               onMount={(editor, monaco) => {
                 editorRef.current = null;
                 diffEditorRef.current = editor;
+                const keptModels = keptDiffModelsRef.current;
+                keptDiffModelsRef.current = null;
+                const mountedModels = editor.getModel();
+                if (
+                  keptModels &&
+                  (keptModels.original !== mountedModels?.original ||
+                    keptModels.modified !== mountedModels?.modified)
+                ) {
+                  // The tab moved to new model paths while hidden.
+                  const liveEditors = monaco.editor.getEditors();
+                  disposeTextModelIfUnused({
+                    model: keptModels.original,
+                    liveEditors,
+                  });
+                  disposeTextModelIfUnused({
+                    model: keptModels.modified,
+                    liveEditors,
+                  });
+                }
+                if (keptModels && mountedModels) {
+                  const latestTab = useAppStore
+                    .getState()
+                    .editorTabs.find((item) => item.id === editorTabId);
+                  if (latestTab) {
+                    const originalContent = latestTab.originalContent ?? "";
+                    if (mountedModels.original.getValue() !== originalContent) {
+                      mountedModels.original.setValue(originalContent);
+                    }
+                    reconcileEditorModelContent({
+                      editor: editor.getModifiedEditor(),
+                      content: latestTab.content ?? "",
+                      readOnly: isSnapshotDiffEditorTab(latestTab),
+                    });
+                  }
+                }
                 const savedViewState =
                   diffEditorViewStateByTabId.get(editorTabId);
                 if (savedViewState) {
@@ -1065,6 +1209,8 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
           ) : (
             <MonacoEditor
               height="100%"
+              loading={monacoLoadingHost}
+              keepCurrentModel
               language={tab.language}
               value={tab.content}
               path={modelPath}
@@ -1072,6 +1218,27 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
               onMount={(editor, monaco) => {
                 editorRef.current = editor;
                 lastFocusedCodeEditor = editor;
+                const keptModel = keptCodeModelRef.current;
+                keptCodeModelRef.current = null;
+                if (keptModel && keptModel !== editor.getModel()) {
+                  // The tab's file moved to a new model path while hidden.
+                  disposeTextModelIfUnused({
+                    model: keptModel,
+                    liveEditors: monaco.editor.getEditors(),
+                  });
+                }
+                if (keptModel) {
+                  const latestTab = useAppStore
+                    .getState()
+                    .editorTabs.find((item) => item.id === editorTabId);
+                  if (latestTab) {
+                    reconcileEditorModelContent({
+                      editor,
+                      content: latestTab.content ?? "",
+                      readOnly: isSnapshotDiffEditorTab(latestTab),
+                    });
+                  }
+                }
                 const savedViewState = editorViewStateByTabId.get(editorTabId);
                 if (savedViewState) {
                   editor.restoreViewState(savedViewState);

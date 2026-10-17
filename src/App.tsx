@@ -18,6 +18,10 @@ import { TooltipProvider } from "@/components/ui";
 import type { LensSecurityConfig } from "@/lib/lens/lens.types";
 import { useAppStore } from "@/store/app.store";
 import {
+  flushAppStorePersistence,
+  flushPersistenceForQuit,
+} from "@/store/app-store-persistence";
+import {
   applyCraneDispatchJobUpdate,
   enqueueCraneDispatchApproval,
   setCraneConnectorClientStatus,
@@ -431,12 +435,15 @@ export default function App() {
       void (async () => {
         let success = false;
         try {
-          await Promise.all([
-            useAppStore.getState().flushActiveWorkspaceSnapshot(),
-            useAppStore.getState().flushRepositoryRegistry(),
-          ]);
-          await flushPendingSnapshotPersists();
-          success = true;
+          success = await flushPersistenceForQuit({
+            flushStores: async () => {
+              await Promise.all([
+                useAppStore.getState().flushActiveWorkspaceSnapshot(),
+                useAppStore.getState().flushRepositoryRegistry(),
+              ]);
+              await flushPendingSnapshotPersists();
+            },
+          });
         } catch (error) {
           console.error("[persistence] quit flush failed", error);
         } finally {
@@ -451,6 +458,7 @@ export default function App() {
   // and window closes that bypass the main-process quit path.
   useEffect(() => {
     const onBeforeUnload = () => {
+      flushAppStorePersistence();
       void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
       void flushPendingSnapshotPersists().catch(() => {});
       void useAppStore.getState().flushRepositoryRegistry().catch((error) => {

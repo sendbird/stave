@@ -279,10 +279,39 @@ function trackModel(monaco: Monaco, model: MonacoEditorApi.ITextModel) {
   }
 }
 
+function forgetModelDiagnostics(model: MonacoEditorApi.ITextModel) {
+  const filePath = toWorkspaceFilePath(model.uri);
+  const rootPath = runtimeRef.current?.getWorkspaceRootPath() ?? "";
+  if (!filePath || !rootPath) {
+    return;
+  }
+  for (const language of supportedLanguages) {
+    diagnosticsByFileKey.delete(toDiagnosticsKey({
+      rootPath,
+      languageId: language.lspLanguageId,
+      filePath,
+    }));
+  }
+}
+
+function forgetRootDiagnostics(rootPath?: string) {
+  if (!rootPath) {
+    diagnosticsByFileKey.clear();
+    return;
+  }
+  const prefix = `${rootPath}:`;
+  for (const key of diagnosticsByFileKey.keys()) {
+    if (key.startsWith(prefix)) {
+      diagnosticsByFileKey.delete(key);
+    }
+  }
+}
+
 function untrackModel(model: MonacoEditorApi.ITextModel) {
   const key = model.uri.toString();
   modelDisposables.get(key)?.dispose();
   modelDisposables.delete(key);
+  forgetModelDiagnostics(model);
 
   if (getSupportedLanguage(model.getLanguageId()) && toWorkspaceFilePath(model.uri)) {
     void closeModel(model);
@@ -562,7 +591,11 @@ function registerDiagnosticsSubscription(monaco: Monaco) {
       languageId: event.languageId,
       filePath: event.filePath,
     });
-    diagnosticsByFileKey.set(key, event.diagnostics ?? []);
+    if (event.diagnostics?.length) {
+      diagnosticsByFileKey.set(key, event.diagnostics);
+    } else {
+      diagnosticsByFileKey.delete(key);
+    }
 
     const model = monaco.editor.getModel(monaco.Uri.parse(`file:///${event.filePath.replaceAll("\\", "/").replace(/^\/+/, "")}`));
     if (model) {
@@ -588,6 +621,7 @@ export function configureMonacoLanguageIntelligence(args: {
 }
 
 export async function stopLanguageIntelligenceSessions(rootPath?: string) {
+  forgetRootDiagnostics(rootPath);
   await window.api?.lsp?.stopSessions?.({ rootPath });
 }
 

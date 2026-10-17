@@ -472,6 +472,7 @@ export function createSupportActions(args: {
           workspaceFileCacheByPath: current.workspaceFileCacheByPath,
           workspacePath,
           files,
+          retainPaths: [current.repositoryPath],
         });
         if (
           areStringArraysEqual(current.repositoryFiles, files) &&

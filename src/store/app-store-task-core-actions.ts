@@ -31,6 +31,7 @@ import {
   normalizePromptDraftForStorage,
 } from "@/store/prompt-draft-state";
 import { reduceTaskScrollToLatestRequest } from "@/store/task-scroll.utils";
+import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 import type { PromptDraft, Task } from "@/types/chat";
 
 type TaskCoreActionKey =
@@ -753,13 +754,13 @@ export function createTaskCoreActions(args: {
         sourceMessages ??
         (await loadAllTaskMessages({ workspaceId, taskId }));
 
+      const nextTaskId = crypto.randomUUID();
+      const duplicatedMessages = completeSourceMessages.map((message) => ({
+        ...message,
+        id: crypto.randomUUID(),
+        isStreaming: false,
+      }));
       set((state) => {
-        const nextTaskId = crypto.randomUUID();
-        const duplicatedMessages = completeSourceMessages.map((message) => ({
-          ...message,
-          id: crypto.randomUUID(),
-          isStreaming: false,
-        }));
         const duplicatedTask: Task = {
           ...sourceTask,
           id: nextTaskId,
@@ -800,6 +801,39 @@ export function createTaskCoreActions(args: {
             [duplicatedTask.id]: workspaceId,
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
+      });
+
+      // Snapshot writes are additive, so the full copy must be written before
+      // the resident window is trimmed like every other disk-loaded transcript.
+      const stateAfter = get();
+      if (
+        !stateAfter.hasHydratedWorkspaces ||
+        stateAfter.activeWorkspaceId !== workspaceId ||
+        !stateAfter.workspaces.some((workspace) => workspace.id === workspaceId)
+      ) {
+        return;
+      }
+      try {
+        await get().flushActiveWorkspaceSnapshot();
+      } catch {
+        return;
+      }
+      set((state) => {
+        if (state.messagesByTask[nextTaskId] !== duplicatedMessages) {
+          return state;
+        }
+        const residentMessages = trimPersistedMessageWindow({
+          messages: duplicatedMessages,
+        });
+        if (residentMessages === duplicatedMessages) {
+          return state;
+        }
+        return {
+          messagesByTask: {
+            ...state.messagesByTask,
+            [nextTaskId]: residentMessages,
+          },
         };
       });
     },

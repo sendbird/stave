@@ -40,22 +40,95 @@ export function resolveInitialWorkspaceFiles(args: {
   return [];
 }
 
+/**
+ * How many workspace file lists stay cached. Each list can hold up to the
+ * file-listing cap (tens of thousands of paths), and without a bound every
+ * worktree visited in a session stayed in renderer memory. Matches the
+ * workspace runtime cache, whose sessions are the ones a switch can restore
+ * instantly; an evicted list is simply listed again on the next visit.
+ */
+export const MAX_CACHED_WORKSPACE_FILE_LISTS = 10;
+
+/**
+ * Drop the least-recently-written file lists once the cache exceeds its cap,
+ * never evicting the retained paths (the active workspace and its repository
+ * root). Recency is the record's key order: `rememberCachedWorkspaceFiles`
+ * re-inserts the written path last, and path keys iterate in insertion order.
+ */
+export function evictColdWorkspaceFileCacheEntries(args: {
+  workspaceFileCacheByPath: Record<string, string[]>;
+  retainPaths?: Array<string | null | undefined>;
+  limit?: number;
+}) {
+  const limit = args.limit ?? MAX_CACHED_WORKSPACE_FILE_LISTS;
+  const paths = Object.keys(args.workspaceFileCacheByPath);
+  if (paths.length <= limit) {
+    return args.workspaceFileCacheByPath;
+  }
+  const retained = new Set(
+    (args.retainPaths ?? [])
+      .map((workspacePath) => normalizeComparablePath(workspacePath?.trim()))
+      .filter(Boolean),
+  );
+  let overflow = paths.length - limit;
+  const evicted = new Set<string>();
+  for (const workspacePath of paths) {
+    if (overflow === 0) {
+      break;
+    }
+    if (retained.has(normalizeComparablePath(workspacePath))) {
+      continue;
+    }
+    evicted.add(workspacePath);
+    overflow -= 1;
+  }
+  if (evicted.size === 0) {
+    return args.workspaceFileCacheByPath;
+  }
+  return Object.fromEntries(
+    Object.entries(args.workspaceFileCacheByPath).filter(
+      ([workspacePath]) => !evicted.has(workspacePath),
+    ),
+  );
+}
+
+/**
+ * Record a workspace's file list and mark it most recently used.
+ *
+ * Reads do not touch recency on their own: every path that reads a cached
+ * list to seed a switch then lists the files again and writes them here, so
+ * the write is what moves the path to the front.
+ */
 export function rememberCachedWorkspaceFiles(args: {
   workspaceFileCacheByPath: Record<string, string[]>;
   workspacePath?: string | null;
   files: string[];
+  /** Paths that must survive eviction besides the written one. */
+  retainPaths?: Array<string | null | undefined>;
+  limit?: number;
 }) {
   if (!args.workspacePath) {
     return args.workspaceFileCacheByPath;
   }
-  const currentFiles = args.workspaceFileCacheByPath[args.workspacePath];
-  if (currentFiles && areStringArraysEqual(currentFiles, args.files)) {
+  const workspacePath = args.workspacePath;
+  const currentFiles = args.workspaceFileCacheByPath[workspacePath];
+  const unchanged =
+    currentFiles !== undefined &&
+    areStringArraysEqual(currentFiles, args.files);
+  const paths = Object.keys(args.workspaceFileCacheByPath);
+  if (unchanged && paths[paths.length - 1] === workspacePath) {
     return args.workspaceFileCacheByPath;
   }
-  return {
-    ...args.workspaceFileCacheByPath,
-    [args.workspacePath]: args.files,
-  };
+  const { [workspacePath]: _previousFiles, ...otherEntries } =
+    args.workspaceFileCacheByPath;
+  return evictColdWorkspaceFileCacheEntries({
+    workspaceFileCacheByPath: {
+      ...otherEntries,
+      [workspacePath]: unchanged ? currentFiles : args.files,
+    },
+    retainPaths: [workspacePath, ...(args.retainPaths ?? [])],
+    limit: args.limit,
+  });
 }
 
 export function removeCachedWorkspaceFiles(args: {

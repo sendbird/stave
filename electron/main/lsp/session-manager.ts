@@ -22,6 +22,7 @@ type LspRequestResult<T> = LspRequestSuccess<T> | LspRequestFailure;
 interface PendingRequest {
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
 }
 
 interface LspDocumentState {
@@ -65,6 +66,10 @@ export interface LspEventPayload {
 
 const sessions = new Map<string, LspSession>();
 
+const LSP_REQUEST_TIMEOUT_MS = 15_000;
+const LSP_INITIALIZE_TIMEOUT_MS = 60_000;
+const JSON_RPC_METHOD_NOT_FOUND = -32601;
+
 function buildSessionKey(args: { rootPath: string; languageId: SupportedLspLanguageId }) {
   return `${args.languageId}:${args.rootPath}`;
 }
@@ -105,11 +110,28 @@ function writeJsonRpcMessage(session: LspSession, payload: unknown) {
   session.child.stdin.write(encodeJsonRpcMessage(payload), "utf8");
 }
 
-function sendRequest(session: LspSession, method: string, params: unknown): Promise<unknown> {
+function sendRequest(
+  session: LspSession,
+  method: string,
+  params: unknown,
+  timeoutMs = LSP_REQUEST_TIMEOUT_MS,
+): Promise<unknown> {
   return new Promise<unknown>((resolve, reject) => {
     const id = session.nextRequestId;
     session.nextRequestId += 1;
-    session.pendingRequests.set(id, { resolve, reject });
+    const timeout = setTimeout(() => {
+      if (!session.pendingRequests.delete(id)) {
+        return;
+      }
+      try {
+        sendNotification(session, "$/cancelRequest", { id });
+      } catch {
+        // The server may already be gone; the timeout still settles the caller.
+      }
+      reject(new Error(`LSP request ${method} timed out after ${timeoutMs}ms.`));
+    }, timeoutMs);
+    timeout.unref?.();
+    session.pendingRequests.set(id, { resolve, reject, timeout });
     writeJsonRpcMessage(session, {
       jsonrpc: "2.0",
       id,
@@ -125,6 +147,41 @@ function sendNotification(session: LspSession, method: string, params: unknown) 
     method,
     params,
   });
+}
+
+function respondToServerRequest(session: LspSession, request: {
+  id: number | string;
+  method: string;
+  params?: unknown;
+}) {
+  // Stave declares no configuration, dynamic registration, or progress
+  // capabilities, so answer with the neutral result each request allows
+  // instead of leaving the server waiting.
+  switch (request.method) {
+    case "window/workDoneProgress/create":
+    case "client/registerCapability":
+    case "client/unregisterCapability":
+      writeJsonRpcMessage(session, { jsonrpc: "2.0", id: request.id, result: null });
+      return;
+    case "workspace/configuration": {
+      const items = (request.params as { items?: unknown } | undefined)?.items;
+      writeJsonRpcMessage(session, {
+        jsonrpc: "2.0",
+        id: request.id,
+        result: Array.isArray(items) ? items.map(() => null) : [],
+      });
+      return;
+    }
+    default:
+      writeJsonRpcMessage(session, {
+        jsonrpc: "2.0",
+        id: request.id,
+        error: {
+          code: JSON_RPC_METHOD_NOT_FOUND,
+          message: `Unhandled method ${request.method}`,
+        },
+      });
+  }
 }
 
 function handlePublishDiagnostics(session: LspSession, params: Record<string, unknown>) {
@@ -168,12 +225,23 @@ function handleIncomingMessage(session: LspSession, message: unknown) {
     return;
   }
   const payload = message as {
-    id?: number;
+    id?: number | string;
     result?: unknown;
     error?: { message?: string };
     method?: string;
     params?: Record<string, unknown>;
   };
+
+  // A message with both `id` and `method` is a server-to-client request. Its
+  // id belongs to the server's id space and must never settle our requests.
+  if (typeof payload.method === "string" && (typeof payload.id === "number" || typeof payload.id === "string")) {
+    respondToServerRequest(session, {
+      id: payload.id,
+      method: payload.method,
+      params: payload.params,
+    });
+    return;
+  }
 
   if (typeof payload.id === "number") {
     const pending = session.pendingRequests.get(payload.id);
@@ -181,6 +249,7 @@ function handleIncomingMessage(session: LspSession, message: unknown) {
       return;
     }
     session.pendingRequests.delete(payload.id);
+    clearTimeout(pending.timeout);
     if (payload.error) {
       pending.reject(new Error(payload.error.message ?? "Unknown LSP error"));
       return;
@@ -235,7 +304,7 @@ async function initializeSession(session: LspSession) {
       uri: rootUri,
       name: session.rootPath.split(/[\\/]/).filter(Boolean).at(-1) ?? "workspace",
     }],
-  });
+  }, LSP_INITIALIZE_TIMEOUT_MS);
 
   sendNotification(session, "initialized", {});
   updateSessionStatus(session, "ready", `${session.languageId} language server ready.`);
@@ -315,8 +384,13 @@ async function createSession(args: {
   });
 
   child.on("exit", (code, signal) => {
-    sessions.delete(key);
+    // stopLspSessions removes the entry before killing, and a new session may
+    // already own this key by the time the old process reports its exit.
+    if (sessions.get(key) === session) {
+      sessions.delete(key);
+    }
     for (const pending of session.pendingRequests.values()) {
+      clearTimeout(pending.timeout);
       pending.reject(new Error(`LSP session exited (${code ?? "null"}${signal ? `, ${signal}` : ""}).`));
     }
     session.pendingRequests.clear();
@@ -337,7 +411,9 @@ async function createSession(args: {
     const detail = error instanceof Error ? error.message : "Failed to initialize language server.";
     updateSessionStatus(session, "error", detail);
     child.kill();
-    sessions.delete(key);
+    if (sessions.get(key) === session) {
+      sessions.delete(key);
+    }
     return {
       ok: false as const,
       detail,

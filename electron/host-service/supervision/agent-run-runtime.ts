@@ -671,9 +671,24 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           } else store.releaseResourceReservation?.({ rootRunId: change.agentRun.id, reservationId: reservation.reservationId, executionId: reservation.executionId }, now());
         }
       }
+      forgetEndedRun(change.agentRun.id);
     }
     emit(change.agentRun);
     return requireAggregate(change.agentRun.id);
+  }
+
+  /**
+   * An ended run never ticks again, so its per-attempt state goes. The turn id
+   * sets are rebuilt from events if its detail is read later.
+   */
+  function forgetEndedRun(agentRunId: string) {
+    agentRunTurnIds.delete(agentRunId);
+    interruptedTurnIds.delete(agentRunId);
+    userTurnIds.delete(agentRunId);
+    userTurnIntents.delete(agentRunId);
+    const attemptPrefix = `${agentRunId}:`;
+    for (const key of [...factsCollectedThrough.keys()]) if (key.startsWith(attemptPrefix)) factsCollectedThrough.delete(key);
+    for (const key of [...actionOutcomes.keys()]) if (key.startsWith(attemptPrefix)) actionOutcomes.delete(key);
   }
 
   /** Records an event outside a transition and tells the surface it changed. */
@@ -695,6 +710,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           .listEventsByKind(agentRunId, [kind])
           .flatMap((event) => (typeof event.detail.turnId === "string" ? [event.detail.turnId] : [])),
       );
+      // Every id here is also an event, so an evicted run's set is rebuilt on its next read.
+      if (cache.size >= 500) cache.delete(cache.keys().next().value!);
       cache.set(agentRunId, ids);
     }
     return ids;
@@ -768,7 +785,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const row = endedTurnUsage.has(turnId)
         ? { completed: true, usage: endedTurnUsage.get(turnId)! }
         : read({ workspaceId: agentRun.workspaceId, taskId: agentRun.leadTaskId, turnId });
-      if (row?.completed) endedTurnUsage.set(turnId, row.usage);
+      if (row?.completed && !endedTurnUsage.has(turnId)) {
+        if (endedTurnUsage.size >= 500) endedTurnUsage.delete(endedTurnUsage.keys().next().value!);
+        endedTurnUsage.set(turnId, row.usage);
+      }
       if (row) turns.set(turnId, row);
       return row?.usage ?? null;
     });
