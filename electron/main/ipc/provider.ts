@@ -1,5 +1,9 @@
 import { ipcMain, webContents } from "electron";
-import { invokeHostService, onHostServiceEvent } from "../host-service-client";
+import {
+  invokeHostService,
+  onHostServiceDisconnect,
+  onHostServiceEvent,
+} from "../host-service-client";
 import {
   AgentHistoryRequestSchema,
   AbortTurnArgsSchema,
@@ -163,6 +167,13 @@ function registerProviderEventBridge() {
     }
 
     owner.send("provider:stream-event", payload);
+  });
+  // Streams live in the host process. When it dies their `done` never
+  // arrives, and a respawned host mints new stream ids, so every owner
+  // recorded for the old process is unreachable.
+  onHostServiceDisconnect(() => {
+    providerOwnerWebContentsIdByStreamId.clear();
+    providerStreamIdsByWebContentsId.clear();
   });
 }
 
