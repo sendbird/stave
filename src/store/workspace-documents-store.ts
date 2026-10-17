@@ -42,6 +42,12 @@ export const useWorkspaceDocumentsStore = create<WorkspaceDocumentsState>(
 );
 
 const refreshes = new Map<string, Promise<void>>();
+/**
+ * Document syncs in flight per workspace. Forgetting a workspace cancels them,
+ * so a `record()` that answers after the close cannot start a new refresh that
+ * re-adds the closed workspace's activity.
+ */
+const syncsInFlight = new Map<string, Set<{ cancelled: boolean }>>();
 
 /** Reloads one workspace's revision activity; concurrent calls share one read. */
 export function refreshWorkspaceDocumentActivity(
@@ -90,6 +96,10 @@ export function forgetWorkspaceDocumentActivity(
 ): void {
   for (const workspaceId of workspaceIds) {
     refreshes.delete(workspaceId);
+    for (const sync of syncsInFlight.get(workspaceId) ?? []) {
+      sync.cancelled = true;
+    }
+    syncsInFlight.delete(workspaceId);
   }
   useWorkspaceDocumentsStore.setState((state) => {
     if (!workspaceIds.some((id) => id in state.activityByWorkspace)) {
@@ -119,23 +129,59 @@ export async function syncWorkspaceDocuments(args: {
   if (!record || !args.workspaceId || !args.rootPath) {
     return [];
   }
-  const documents = await readWorkspaceDocuments(args.rootPath);
-  if (documents.length === 0) {
-    return [];
+  const sync = { cancelled: false };
+  let workspaceSyncs = syncsInFlight.get(args.workspaceId);
+  if (!workspaceSyncs) {
+    workspaceSyncs = new Set();
+    syncsInFlight.set(args.workspaceId, workspaceSyncs);
   }
-  const response = await record({
-    workspaceId: args.workspaceId,
-    author: args.author,
-    ...(args.taskId ? { taskId: args.taskId } : {}),
-    ...(args.turnId ? { turnId: args.turnId } : {}),
-    ...(args.relevantTaskId ? { relevantTaskId: args.relevantTaskId } : {}),
-    documents,
-  }).catch(() => null);
-  const changes = response?.ok ? response.changes : [];
-  if (changes.length > 0) {
-    void refreshWorkspaceDocumentActivity(args.workspaceId);
+  workspaceSyncs.add(sync);
+  try {
+    const documents = await readWorkspaceDocuments(args.rootPath);
+    if (documents.length === 0) {
+      return [];
+    }
+    const response = await record({
+      workspaceId: args.workspaceId,
+      author: args.author,
+      ...(args.taskId ? { taskId: args.taskId } : {}),
+      ...(args.turnId ? { turnId: args.turnId } : {}),
+      ...(args.relevantTaskId ? { relevantTaskId: args.relevantTaskId } : {}),
+      documents,
+    }).catch(() => null);
+    const changes = response?.ok ? response.changes : [];
+    if (changes.length > 0 && !sync.cancelled) {
+      void refreshWorkspaceDocumentActivity(args.workspaceId);
+    }
+    return changes;
+  } finally {
+    const current = syncsInFlight.get(args.workspaceId);
+    current?.delete(sync);
+    if (current?.size === 0) {
+      syncsInFlight.delete(args.workspaceId);
+    }
   }
-  return changes;
+}
+
+/**
+ * Refreshes after a host turn finished, but only for a workspace the app still
+ * has: a turn of a closed workspace can finish after the close.
+ */
+export function refreshRegisteredWorkspaceDocumentActivity(args: {
+  workspaceId: string;
+  workspaces: readonly { id: string }[];
+  recentRepositories: readonly { workspaces: readonly { id: string }[] }[];
+}): Promise<void> {
+  const registered =
+    args.workspaces.some((workspace) => workspace.id === args.workspaceId) ||
+    args.recentRepositories.some((repository) =>
+      repository.workspaces.some(
+        (workspace) => workspace.id === args.workspaceId,
+      ),
+    );
+  return registered
+    ? refreshWorkspaceDocumentActivity(args.workspaceId)
+    : Promise.resolve();
 }
 
 /**
