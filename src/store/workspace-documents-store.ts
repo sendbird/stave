@@ -51,11 +51,14 @@ export function refreshWorkspaceDocumentActivity(
   if (pending) {
     return pending;
   }
-  const next = (async () => {
+  // Assigned before the read resolves; the callback compares identity later.
+  let next!: Promise<void>;
+  next = (async () => {
     const response = await window.api?.persistence
       ?.workspaceDocumentActivity?.({ workspaceId })
       .catch(() => null);
-    if (!response?.ok) {
+    // A workspace forgotten while this read was in flight stays forgotten.
+    if (!response?.ok || refreshes.get(workspaceId) !== next) {
       return;
     }
     const documentsByPath: Record<string, WorkspaceDocumentSummary> = {};
@@ -73,10 +76,31 @@ export function refreshWorkspaceDocumentActivity(
       },
     }));
   })().finally(() => {
-    refreshes.delete(workspaceId);
+    if (refreshes.get(workspaceId) === next) {
+      refreshes.delete(workspaceId);
+    }
   });
   refreshes.set(workspaceId, next);
   return next;
+}
+
+/** Drops closed or removed workspaces' revision activity. */
+export function forgetWorkspaceDocumentActivity(
+  workspaceIds: readonly string[],
+): void {
+  for (const workspaceId of workspaceIds) {
+    refreshes.delete(workspaceId);
+  }
+  useWorkspaceDocumentsStore.setState((state) => {
+    if (!workspaceIds.some((id) => id in state.activityByWorkspace)) {
+      return state;
+    }
+    const activityByWorkspace = { ...state.activityByWorkspace };
+    for (const workspaceId of workspaceIds) {
+      delete activityByWorkspace[workspaceId];
+    }
+    return { activityByWorkspace };
+  });
 }
 
 /**

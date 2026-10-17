@@ -48,6 +48,7 @@ import {
   persistWorkspaceSnapshot,
 } from "@/store/workspace-session-state";
 import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-cleanup";
+import { forgetWorkspaceDocumentActivity } from "@/store/workspace-documents-store";
 
 type RepositoryActionKey =
   | "createRepository"
@@ -595,6 +596,7 @@ export function createRepositoryActions(args: {
       await get().purgeWorkspaceNotifications({
         workspaceIds: workspaceIdsForCleanup,
       });
+      forgetWorkspaceDocumentActivity(workspaceIdsForCleanup);
 
       set((state) => {
         const matchingRepository = state.recentRepositories.find(

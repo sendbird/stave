@@ -18,6 +18,7 @@ import {
   type RecentRepositoryState,
 } from "@/store/repository.utils";
 import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-cleanup";
+import { forgetWorkspaceDocumentActivity } from "@/store/workspace-documents-store";
 
 const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
 
@@ -186,6 +187,7 @@ export function startWorkspaceArchiveCleanup(args: {
   isLinkedWorktree?: boolean;
   deleteBranch?: boolean;
 }): void {
+  forgetWorkspaceDocumentActivity([args.workspaceId]);
   // Tombstone the path synchronously so a refresh racing the detached cleanup
   // below does not re-register the workspace being archived.
   if (args.workspacePath) {

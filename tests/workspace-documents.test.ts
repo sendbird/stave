@@ -8,6 +8,8 @@ import {
 } from "@/lib/documents/workspace-documents";
 import {
   collectWorkspaceDocumentEditContextParts,
+  forgetWorkspaceDocumentActivity,
+  refreshWorkspaceDocumentActivity,
   useWorkspaceDocumentsStore,
 } from "@/store/workspace-documents-store";
 import { documentRevisionDiffTabId, isSnapshotDiffEditorTab } from "@/lib/editor/snapshot-diff-tabs";
@@ -160,6 +162,45 @@ describe("workspace document sync", () => {
     });
     expect(parts).toHaveLength(1);
     expect(parts[0]?.sourceId).toBe(WORKSPACE_DOCUMENT_EDITS_SOURCE_ID);
+  });
+});
+
+describe("workspace document activity lifetime", () => {
+  function installActivity(read: () => Promise<unknown>) {
+    (globalThis as { window: unknown }).window = {
+      api: { persistence: { workspaceDocumentActivity: read } },
+    };
+  }
+  const emptyActivity = { ok: true, documents: [], turnLinks: [] };
+
+  test("forgetting a closed workspace drops only its activity", async () => {
+    installActivity(async () => emptyActivity);
+    await refreshWorkspaceDocumentActivity("ws-closed");
+    await refreshWorkspaceDocumentActivity("ws-open");
+
+    forgetWorkspaceDocumentActivity(["ws-closed"]);
+
+    const { activityByWorkspace } = useWorkspaceDocumentsStore.getState();
+    expect(Object.keys(activityByWorkspace)).toEqual(["ws-open"]);
+  });
+
+  test("a read still in flight when the workspace closes does not re-add it", async () => {
+    let finishRead!: (value: unknown) => void;
+    installActivity(
+      () => new Promise((resolve) => {
+        finishRead = resolve;
+      }),
+    );
+    const pending = refreshWorkspaceDocumentActivity("ws-closed");
+    await Promise.resolve();
+
+    forgetWorkspaceDocumentActivity(["ws-closed"]);
+    finishRead(emptyActivity);
+    await pending;
+
+    expect(
+      useWorkspaceDocumentsStore.getState().activityByWorkspace["ws-closed"],
+    ).toBeUndefined();
   });
 });
 
