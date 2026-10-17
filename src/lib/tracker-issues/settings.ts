@@ -5,7 +5,6 @@ import {
   type TrackerIssueView,
 } from "@/lib/tracker-issues/filter";
 import {
-  TRACKER_SOURCE_IDS,
   TRACKER_ISSUE_START_MODES,
   type TrackerSourceId,
   type TrackerIssueStartMode,
@@ -31,14 +30,19 @@ const RefreshIntervalSecondsSchema = z
 
 const DefaultKickoffStartModeSchema = z.enum(TRACKER_ISSUE_START_MODES);
 
+/**
+ * Sources whose Issues switch lives here. Jira has none: its only switch is
+ * `jiraConnector.enabled` in Settings → Integrations.
+ */
+export const TRACKER_SOURCES_WITH_ISSUES_SWITCH = ["crane"] as const satisfies readonly TrackerSourceId[];
+export type TrackerSourceWithIssuesSwitch = (typeof TRACKER_SOURCES_WITH_ISSUES_SWITCH)[number];
+
 export const DEFAULT_TRACKER_SOURCE_ENABLED = Object.freeze({
-  jira: true,
   crane: true,
-}) satisfies Record<TrackerSourceId, boolean>;
+}) satisfies Record<TrackerSourceWithIssuesSwitch, boolean>;
 
 const SourceEnabledSchema = z
   .object({
-    jira: z.boolean(),
     crane: z.boolean(),
   })
   .strict()
@@ -106,7 +110,7 @@ export function normalizeTrackerIssuesSettings(
       ? (record.sourceEnabled as Record<string, unknown>)
       : {};
   const sourceEnabled = Object.fromEntries(
-    TRACKER_SOURCE_IDS.map((source) => {
+    TRACKER_SOURCES_WITH_ISSUES_SWITCH.map((source) => {
       const parsed = z.boolean().safeParse(sourceEnabledRecord[source]);
       return [
         source,
@@ -115,7 +119,7 @@ export function normalizeTrackerIssuesSettings(
           : DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled[source],
       ];
     }),
-  ) as Record<TrackerSourceId, boolean>;
+  ) as Record<TrackerSourceWithIssuesSwitch, boolean>;
 
   return {
     defaultView: defaultView.success

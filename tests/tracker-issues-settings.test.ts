@@ -72,8 +72,8 @@ describe("DEFAULT_TRACKER_ISSUES_SETTINGS", () => {
     ).toBe(true);
     expect(DEFAULT_TRACKER_ISSUES_SETTINGS.refreshIntervalSeconds).toBe(300);
     expect(DEFAULT_TRACKER_ISSUES_SETTINGS.defaultKickoffStartMode).toBe("run");
+    // Jira has no Issues switch; jiraConnector.enabled is its only one.
     expect(DEFAULT_TRACKER_ISSUES_SETTINGS.sourceEnabled).toEqual({
-      jira: true,
       crane: true,
     });
   });
@@ -85,7 +85,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       defaultView: "in-stave" as const,
       refreshIntervalSeconds: 600,
       defaultKickoffStartMode: "stage" as const,
-      sourceEnabled: { jira: false, crane: true },
+      sourceEnabled: { crane: false },
     };
     expect(normalizeTrackerIssuesSettings(value)).toEqual(value);
   });
@@ -173,7 +173,7 @@ describe("normalizeTrackerIssuesSettings", () => {
     });
   });
 
-  it("salvages per source: one bad flag does not reset the other", () => {
+  it("salvages source flags: a bad flag falls back and a source without an Issues switch is dropped", () => {
     expect(
       normalizeTrackerIssuesSettings({
         defaultView: "all-open",
@@ -185,7 +185,7 @@ describe("normalizeTrackerIssuesSettings", () => {
       defaultView: "all-open",
       refreshIntervalSeconds: 120,
       defaultKickoffStartMode: "stage",
-      sourceEnabled: { jira: false, crane: true },
+      sourceEnabled: { crane: true },
     });
   });
 });

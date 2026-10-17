@@ -14,7 +14,6 @@ import {
 import { useTrackerSourceStatuses } from "@/lib/tracker-issues/client-state";
 import { TRACKER_ISSUE_VIEWS } from "@/lib/tracker-issues/filter";
 import { describeTrackerSources } from "@/lib/tracker-issues/source-status";
-import { isJiraSourceEnabled } from "@/lib/tracker-issues/jira-enablement";
 import {
   DEFAULT_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
   MAX_TRACKER_ISSUES_REFRESH_INTERVAL_SECONDS,
@@ -58,7 +57,7 @@ export function IssueTrackerSettingsSection(args: {
 } = {}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const tasks = useAppStore((state) => state.settings.trackerIssues);
-  const jiraEnabled = useAppStore((state) => isJiraSourceEnabled(state.settings));
+  const jiraEnabled = useAppStore((state) => state.settings.jiraConnector.enabled);
   const updateSettings = useAppStore((state) => state.updateSettings);
   // Live status rather than the enabled switches: a connector turned on but
   // never given a credential used to render as an enabled source next to a
@@ -215,12 +214,13 @@ export function IssueTrackerSettingsSection(args: {
               const summary = summaries.find(
                 (entry) => entry.source === source,
               );
-              // Jira's on/off is owned by Integrations; this row shows its
-              // effective state and links there instead of a second switch.
-              const ownedByIntegrations = source === "jira";
-              const enabled = ownedByIntegrations
+              // Jira's on/off is owned by Integrations; this row shows it and
+              // links there instead of a second switch.
+              const issuesSwitch = source === "jira" ? null : source;
+              const ownedByIntegrations = issuesSwitch === null;
+              const enabled = issuesSwitch === null
                 ? jiraEnabled
-                : tasks.sourceEnabled[source];
+                : tasks.sourceEnabled[issuesSwitch];
               return (
                 <li key={source} className={sx(styles.sourceRow)}>
                   <div className={sx(styles.sourceMain)}>
@@ -288,7 +288,7 @@ export function IssueTrackerSettingsSection(args: {
                             save({
                               sourceEnabled: {
                                 ...tasks.sourceEnabled,
-                                [source]: checked,
+                                [issuesSwitch]: checked,
                               },
                             })
                           }
