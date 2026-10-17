@@ -15,11 +15,15 @@ import type { PersistStorage, StorageValue } from "zustand/middleware";
  * - flushes synchronously on `pagehide` / `beforeunload`, before any read,
  *   and on demand through `flush()`, which reports whether the write landed;
  *   a failed write (quota, for example) stays pending for the next flush;
- * - drops a pending write when something else replaced the stored value
- *   after this storage last read or wrote it. With synchronous writes that
- *   outside value would have landed after ours, so it keeps winning (the e2e
- *   harness seeds `stave-store` this way and then reloads). The next store
- *   update writes the full state again, as it always did.
+ * - orders local changes against outside writes (another window or tab, or
+ *   the e2e harness) as synchronous writes would have. When a new local value
+ *   arrives, any outside value already stored is acknowledged, so the local
+ *   change made after it wins. At flush time a pending write is dropped only
+ *   when something else replaced the stored value after our latest local
+ *   change: with synchronous writes that outside value would have landed after
+ *   ours, so it keeps winning (the e2e harness seeds `stave-store` this way
+ *   and then reloads). The next store update writes the full state again, as
+ *   it always did.
  */
 export interface CoalescedPersistStorage<S> extends PersistStorage<S> {
   /**
@@ -102,7 +106,8 @@ export function createCoalescedPersistStorage<S>(args: {
   const timers = args.timers ?? defaultTimers;
   // Last value accepted per key: either written or currently pending.
   const acceptedByName = new Map<string, StorageValue<S>>();
-  // Raw stored string as of this storage's last read or write, per key.
+  // Raw stored string as of this storage's last read, write or acknowledged
+  // outside write, per key.
   const knownRawByName = new Map<string, string | null>();
   let pending: { name: string; value: StorageValue<S> } | null = null;
   let pendingSince: number | null = null;
@@ -126,6 +131,7 @@ export function createCoalescedPersistStorage<S>(args: {
     try {
       if (knownRawByName.has(write.name)) {
         const currentRaw = backing.getItem(write.name);
+        // Something else wrote after our latest local change: it wins.
         if (currentRaw !== knownRawByName.get(write.name)) {
           knownRawByName.set(write.name, currentRaw);
           acceptedByName.delete(write.name);
@@ -173,6 +179,16 @@ export function createCoalescedPersistStorage<S>(args: {
         arePersistedSlicesEqual(accepted.state, value.state)
       ) {
         return;
+      }
+      if (knownRawByName.has(name)) {
+        // This local change comes after whatever is stored now, including an
+        // outside write since our last read or write: acknowledge that value
+        // so the flush keeps this change instead of dropping it.
+        try {
+          knownRawByName.set(name, backing.getItem(name));
+        } catch {
+          // Keep the last known value; the flush re-checks the stored one.
+        }
       }
       acceptedByName.set(name, value);
       pending = { name, value };

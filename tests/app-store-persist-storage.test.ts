@@ -232,6 +232,39 @@ describe("createCoalescedPersistStorage", () => {
     ).toBe("nord");
   });
 
+  test("a local change made after another window's write wins", () => {
+    const { store, storage, backing } = createPersistedTestStore();
+    // Another window or tab writes the key after this storage last wrote it.
+    const external = JSON.stringify({
+      state: { settings: { theme: "from-other-window" }, layout: { width: 1 } },
+      version: 0,
+    });
+    backing.values.set("test-store", external);
+    // Then this window changes a setting.
+    store.getState().setTheme("nord");
+    expect(storage.flush()).toBe(true);
+    expect(
+      JSON.parse(backing.values.get("test-store")!).state.settings.theme,
+    ).toBe("nord");
+  });
+
+  test("an outside write after a newer local change still wins at flush", () => {
+    const { store, storage, backing } = createPersistedTestStore();
+    backing.values.set(
+      "test-store",
+      JSON.stringify({ state: { settings: { theme: "first" } }, version: 0 }),
+    );
+    store.getState().setTheme("nord");
+    // A second outside write lands after the local change.
+    const latest = JSON.stringify({
+      state: { settings: { theme: "second" } },
+      version: 0,
+    });
+    backing.values.set("test-store", latest);
+    storage.flush();
+    expect(backing.values.get("test-store")).toBe(latest);
+  });
+
   test("a failed write is logged and retried on the next change", () => {
     const { store, storage, backing } = createPersistedTestStore();
     const originalSetItem = backing.storage.setItem;
