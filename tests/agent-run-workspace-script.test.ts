@@ -20,21 +20,71 @@ const definitionHash = "a".repeat(64);
 const revision = { status: "known" as const, revision: "same" };
 const success = { definitionHash, executedCommands: "check", commandsTruncated: false, exitCode: 0, output: "ok", verification: { sourceRevision: revision, completedRevision: revision } };
 
-function harness(run: NonNullable<WorkspaceCheckDependencies["runWorkspaceScript"]>, timer?: typeof setTimeout) {
+function harness(run: NonNullable<WorkspaceCheckDependencies["runWorkspaceScript"]>, timer?: typeof setTimeout, scripts?: {
+  definitions: Array<{ scriptId: string; definitionHash: string }>;
+  list?: NonNullable<WorkspaceCheckDependencies["listWorkspaceActionScripts"]>;
+}) {
   const agent = getBuiltinAgent("implementer")!;
-  let aggregate = agentRunFixture({ workflow: withWorkspaceCheck(buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW }), agent, [{ scriptId: "check", definitionHash }]) });
+  const definitions = scripts?.definitions ?? [{ scriptId: "check", definitionHash }];
+  let aggregate = agentRunFixture({ workflow: withWorkspaceCheck(buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW }), agent, definitions) });
   currentStageRecord(aggregate).status = "running";
   let chain = Promise.resolve();
   const runner = createStageScriptRunner({
-    taskAgent: () => agent, listWorkspaceActionScripts: async () => [{ scriptId: "check", definitionHash }], runWorkspaceScript: run,
+    taskAgent: () => agent, listWorkspaceActionScripts: scripts?.list ?? (async () => definitions), runWorkspaceScript: run,
     enqueue: operation => { const next = chain.then(operation); chain = next.then(() => {}, () => {}); return next; },
     requireGrant: () => ({ aggregate, grant: { agentRunId: aggregate.agentRun.id, taskId: aggregate.agentRun.leadTaskId, stageId: "work", attempt: 1, turnId: "turn-1" } }),
     isDelegated: () => false,
     applyChange: change => { aggregate = { agentRun: change.agentRun, stages: change.upserts.reduce((stages, stage) => replaceStageRecord(stages, stage), aggregate.stages) }; },
     ...(timer ? { setTimeout: timer } : {}),
   });
-  return { runner, run: () => runner.run({ agentRunKey: "key", scriptId: "check" }), id: aggregate.agentRun.id, record: () => currentStageRecord(aggregate) };
+  return { runner, run: (scriptId = "check") => runner.run({ agentRunKey: "key", scriptId }), id: aggregate.agentRun.id, record: () => currentStageRecord(aggregate) };
 }
+
+test.each(["stop", "abort"])("script admission can be interrupted while its configuration read is pending: %s", async (control) => {
+  let entered!: () => void, release!: () => void;
+  const started = new Promise<void>((resolve) => { entered = resolve; });
+  const blocked = new Promise<void>((resolve) => { release = resolve; });
+  let calls = 0, reads = 0;
+  const definitions = [{ scriptId: "check", definitionHash }];
+  const h = harness(async () => { calls++; return success; }, undefined, { definitions, list: async () => {
+    if (reads++ === 0) { entered(); await blocked; }
+    return definitions;
+  } });
+  const pending = h.run().catch((error) => error);
+  await started;
+  if (control === "stop") h.runner.stop(); else h.runner.abort(h.id);
+  const interrupted = await Promise.race([pending, new Promise((resolve) => setTimeout(() => resolve("still-waiting"), 50))]);
+  release();
+  await pending;
+  expect(interrupted).toBeInstanceOf(Error);
+  expect(calls).toBe(0);
+  expect(h.record().facts?.workspaceScripts).toBeUndefined();
+  expect(await h.run()).toMatchObject({ verified: true });
+  expect(calls).toBe(1);
+  h.runner.stop();
+});
+
+test("shutdown also fences script admission still waiting in the supervisor queue", async () => {
+  let calls = 0;
+  const h = harness(async () => { calls++; return success; });
+  const pending = h.run().catch((error) => error);
+  h.runner.stop();
+  expect(await pending).toBeInstanceOf(Error);
+  expect(calls).toBe(0);
+});
+
+test("receipt retention preserves every script's latest result and refuses a new identity beyond capacity", async () => {
+  const definitions = Array.from({ length: 51 }, (_, index) => ({ scriptId: "s" + index, definitionHash }));
+  let calls = 0;
+  const h = harness(async () => { calls++; return success; }, undefined, { definitions });
+  for (const definition of definitions.slice(0, 50)) await h.run(definition.scriptId);
+  await expect(h.run("s50")).rejects.toThrow("50");
+  expect(calls).toBe(50);
+  await h.run("s0");
+  expect(h.record().facts?.workspaceScripts).toHaveLength(50);
+  expect(new Set(h.record().facts?.workspaceScripts?.map((check) => check.scriptId)).size).toBe(50);
+  h.runner.stop();
+});
 
 test("the 30-minute timeout aborts execution, releases its reservation and fences a late success", async () => {
   let timeout!: () => void;

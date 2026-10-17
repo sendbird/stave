@@ -23,6 +23,7 @@
  * - Missing GitHub authentication, a protected branch or a rejected push fail
  *   the action with Stave's own sentence, which blocks the stage.
  */
+import { i18n } from "../../../src/i18n/runtime";
 import {
   buildAgentRunActionKey,
   buildAgentRunTurnOutcomeKey,
@@ -166,7 +167,7 @@ export function createAgentRunActionExecutor(deps: {
   scm: AgentRunScmPort;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
   /** Runs an action from the workspace's scripts and resolves when it ends. */
-  runScript?: (args: { workspaceId: string; scriptId: string; signal?: AbortSignal }) => Promise<AgentRunScriptRun>;
+  runScript?: (args: { workspaceId: string; scriptId: string; signal?: AbortSignal; expectedDefinitionHash?: string }) => Promise<AgentRunScriptRun>;
   /**
    * How a turn that is no longer running ended. Absent: every repair turn
    * that started and was not interrupted counts as completed.
@@ -223,6 +224,9 @@ export function createAgentRunActionExecutor(deps: {
     }
     const run = deps.runScript;
     if (!run) return failed("This version of Stave cannot run workspace scripts from a run.");
+    const stage = workflowStageAt(args.aggregate.agentRun, args.aggregate.agentRun.currentStageIndex);
+    const expectedDefinitionHash = stage.acceptanceCriteria?.flatMap((criterion) => criterion.scriptDefinitions ?? [])
+      .find((definition) => definition.scriptId === scriptId)?.definitionHash;
     scriptRuns.add(actionKey);
     const timeoutController = new AbortController();
     const signal = args.signal ? AbortSignal.any([args.signal, timeoutController.signal]) : timeoutController.signal;
@@ -233,7 +237,7 @@ export function createAgentRunActionExecutor(deps: {
         SCRIPT_TIMEOUT_MS,
       )).unref?.(),
     );
-    void Promise.race([run({ workspaceId: args.aggregate.agentRun.workspaceId, scriptId, signal }), timeout])
+    void Promise.race([run({ workspaceId: args.aggregate.agentRun.workspaceId, scriptId, signal, ...(expectedDefinitionHash ? { expectedDefinitionHash } : {}) }), timeout])
       .catch((error: unknown): AgentRunScriptRun => ({
         ok: false,
         detail: error instanceof Error && error.message ? error.message : `“${scriptId}” could not run.`,
@@ -242,6 +246,10 @@ export function createAgentRunActionExecutor(deps: {
         clearTimeout(timeoutHandle);
         scriptRuns.delete(actionKey);
         if (args.signal?.aborted) return;
+        if (result.ok && result.exitCode === 0 && expectedDefinitionHash && result.definitionHash !== expectedDefinitionHash) {
+          scriptOutcomes.set(actionKey, failed(i18n.t("agentRuns:workspaceCheck.definitionMismatch")));
+          return;
+        }
         const output = ("output" in result ? result.output : undefined) ?? "";
         const tail = output.trim().slice(-300);
         scriptOutcomes.set(

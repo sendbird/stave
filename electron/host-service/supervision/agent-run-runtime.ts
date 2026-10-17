@@ -1422,7 +1422,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       return unmetInheritedWorkspaceChecks(current, { ...record, facts: { ...(record.facts ?? EMPTY_STAGE_FACTS), workspaceRevision } })
         ? i18n.t("agentRuns:policy.publicationNeedsCurrentCheck") : null;
     } : undefined;
-    const verificationProblem = await verifyWorkspace?.();
+    // Polling remote state does not consume workspace evidence. Publication
+    // callbacks and successful action completion still verify the current work.
+    const verificationProblem = stage.kind === "action" && stage.action.type === "open-draft-pr" ? await verifyWorkspace?.() : null;
     if (verificationProblem) {
       const failed: ActionOutcome = { status: "failed", detail: i18n.t("agentRuns:policy.actionNeedsCurrentCheck") };
       actionOutcomes.set(stageKey(record), failed);

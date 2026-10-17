@@ -53,6 +53,26 @@ function executor(store: AgentRunStore, runScript?: (args: { workspaceId: string
 }
 
 describe("the Run script action", () => {
+  test.each(["matching", "changed", "missing"])("a bound action forwards its admitted definition and verifies the receipt: %s", async (mode) => {
+    const store = new AgentRunStore(new Database(":memory:"));
+    const aggregate = scriptAgentRun(store);
+    const definitionHash = "a".repeat(64);
+    aggregate.agentRun.workflow.stages[0]!.acceptanceCriteria = [{ text: "Tests pass", scriptIds: ["preview"], scriptDefinitions: [{ scriptId: "preview", definitionHash }] }];
+    let requestedHash: string | undefined;
+    const perform = createAgentRunActionExecutor({
+      store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => "/tmp/repo",
+      runScript: async (args) => {
+        requestedHash = args.expectedDefinitionHash;
+        return { ok: true, exitCode: 0, output: "ok", ...(mode !== "missing" ? { definitionHash: mode === "matching" ? definitionHash : "b".repeat(64) } : {}) };
+      },
+    });
+    await perform({ aggregate });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const outcome = await perform({ aggregate });
+    expect(requestedHash).toBe(definitionHash);
+    expect(outcome.status).toBe(mode === "matching" ? "succeeded" : "failed");
+  });
+
   test("starts the script once, waits for it, and turns its last printed address into evidence", async () => {
     const store = new AgentRunStore(new Database(":memory:"));
     const aggregate = scriptAgentRun(store);

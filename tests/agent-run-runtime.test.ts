@@ -909,7 +909,7 @@ describe("run runtime: Stave action stages", () => {
       const store = new AgentRunStore(new Database(":memory:"));
       const performAction = createAgentRunActionExecutor({ store, scm: {} as AgentRunScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
         const observed = await observeWorkspaceScript({ cwd, run: () => runCommandArgs({ cwd, command: process.execPath, commandArgs: ["-e", "process.exit(0)"] }) });
-        return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
+        return { ok: true, definitionHash: "a".repeat(64), exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
       } });
       const harness = createHarness({ store, workspacePath: cwd, performAction, extra: { listWorkspaceActionScripts: async () => [{ scriptId: "test", definitionHash: "a".repeat(64) }] } });
       const id = await startedAgentRun(harness, startInput({ workflow: workflow([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
@@ -2523,8 +2523,14 @@ describe("primary write run workspace checks", () => {
     ] } as AgentConfig;
     const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => currentRevision,
       runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
-      performAction: async ({ aggregate }) => {
+      performAction: async ({ aggregate, verifyWorkspace }) => {
         const stage = currentStageRecord(aggregate).stageId;
+        // Like the real executor, verify at publication, not while initially
+        // polling checks or asking for their repair.
+        if (stage !== "test" && (stage !== "watch" || actions.includes("watch"))) {
+          const problem = await verifyWorkspace?.();
+          if (problem) return { status: "failed", detail: problem };
+        }
         actions.push(stage);
         if (stage === "test") return { status: "succeeded", result: { type: "run-script", scriptId: "check", exitCode: 0, outputTail: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } } };
         if (actions.filter((entry) => entry === "watch").length === 1) return { status: "needs-turn", reason: "repair-checks", prompt: "Fix CI failure.", detail: "CI failed." };
@@ -2555,6 +2561,44 @@ describe("primary write run workspace checks", () => {
       expect(detail.report?.stages.find((stage) => stage.stageId === "watch")?.evidence).toContainEqual(expect.objectContaining({ scriptId: "check", freshness: "current", source: "stave" }));
     }
     else expect(h.current(id).status).toBe("blocked");
+  });
+  test.each(["watch-checks", "mark-pr-ready"] as const)("pure polling does not rehash or block on local edits, while completion still verifies: %s", async (type) => {
+    let currentRevision: WorkspaceRevision = { status: "known", revision: "checked", contentRevision: "a".repeat(64) };
+    let reads = 0, writes = 0, finished = false, clock = Date.parse(START);
+    let executor!: ReturnType<typeof createAgentRunActionExecutor>;
+    const custom = { ...agent, id: "custom-checker", workflow: [
+      { ...DRAFT, acceptanceCriteria: [{ text: "Tests pass", verification: "stave-check", scriptIds: ["check"] }] },
+      { id: "poll", title: "Poll", kind: "action", action: type === "watch-checks" ? { type, repairAttempts: 1, timeoutMinutes: 30 } : { type } },
+    ] } as AgentConfig;
+    const h = checkedHarness({ taskAgent: () => custom, readWorkspaceRevision: async () => { reads++; return currentRevision; },
+      runWorkspaceScript: async () => ({ ...scriptMetadata, exitCode: 0, output: "passed", verification: { sourceRevision: currentRevision, completedRevision: currentRevision } }),
+      performAction: (args) => executor(args),
+    });
+    executor = createAgentRunActionExecutor({ store: h.store, resolveWorkspacePath: async () => "/tmp/workspace", now: () => new Date(clock), scm: {
+      readPullRequest: async () => ({ ok: true, value: { number: 1, url: "https://github.com/acme/app/pull/1", state: "OPEN", isDraft: true,
+        headRefOid: type === "mark-pr-ready" && !finished ? "older-head" : "head", mergeable: "MERGEABLE", mergeStateStatus: "BLOCKED", reviewDecision: "REVIEW_REQUIRED" } }),
+      headSha: async () => "head", hasUnpushedCommits: async () => false,
+      readChecks: async () => ({ ok: true, value: [{ name: "ci", state: finished ? "SUCCESS" : "PENDING" }] }),
+      markReady: async () => { writes++; return { ok: true, value: true }; },
+    } as AgentRunScmPort });
+    h.setFacts({ ...EMPTY_STAGE_FACTS, workspaceRevision: currentRevision });
+    const id = await startedAgentRun(h, buildAgentRunStartInput({ workspaceId: "ws-1", taskId: "task-1", agent: custom, assignment: "Check and wait", now: new Date(START) }));
+    await h.runtime.runWorkspaceScript({ agentRunKey: "key-turn-1", scriptId: "check" });
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: { summary: "Checked" } });
+    h.endTurn("turn-1"); await h.tick();
+    const before = reads;
+    for (const revision of [{ status: "unknown", reason: "changing" }, { status: "known", revision: "edited", contentRevision: "b".repeat(64) }] as WorkspaceRevision[]) {
+      currentRevision = revision;
+      await h.tick();
+      expect(h.current(id).status).toBe("running");
+      expect(reads).toBe(before);
+    }
+    finished = true; clock += 61_000;
+    await h.tick();
+    expect(reads).toBeGreaterThan(before);
+    expect(h.current(id).status).toBe("blocked");
+    expect(writes).toBe(0);
+    h.runtime.stop();
   });
   test.each(["commit-only", "changed-before-action", "changed-by-action"])("publication checks its input and preserves content-bound verification: %s", async (mode) => {
     let currentRevision: WorkspaceRevision = { status: "known", revision: "checked", contentRevision: "a".repeat(64) };

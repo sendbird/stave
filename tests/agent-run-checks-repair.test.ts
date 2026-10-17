@@ -80,6 +80,33 @@ function repairHarness(options: { readonly?: boolean; delegated?: boolean; issue
   return { runner, get, store, grant, executions: () => executions, revoke: () => { active = false; } };
 }
 
+test("bounded receipt history cannot resurrect a failed inherited check after repeated other checks", async () => {
+  const aggregate = repairAggregate();
+  const other = { scriptId: "other", definitionHash: "b".repeat(64) };
+  aggregate.agentRun.workflow.stages[0]!.acceptanceCriteria!.push({ ...criterion, text: "Other check", scriptIds: ["other"], scriptDefinitions: [other] });
+  const store = new AgentRunStore(new Database(":memory:"));
+  const at = new Date(aggregate.agentRun.updatedAt);
+  store.create({ agentRun: aggregate.agentRun, upserts: aggregate.stages, events: [] }, at);
+  const get = () => store.getAggregate(aggregate.agentRun.id)!;
+  const runner = createStageScriptRunner({
+    enqueue: async (operation) => operation(),
+    requireGrant: () => ({ aggregate: get(), grant: { agentRunId: aggregate.agentRun.id, stageId: "watch", attempt: 1, taskId: aggregate.agentRun.leadTaskId, turnId: "repair" } }),
+    taskAgent: () => getBuiltinAgent("implementer")!, isDelegated: () => false, isChecksRepairTurn: () => true,
+    listWorkspaceActionScripts: async () => [definition, other],
+    runWorkspaceScript: async ({ scriptId }) => ({ exitCode: scriptId === "test" ? 1 : 0, output: "checked",
+      definitionHash: scriptId === "test" ? definition.definitionHash : other.definitionHash,
+      verification: { sourceRevision: checked, completedRevision: checked }, executedCommands: "check", commandsTruncated: false }),
+    applyChange: (change) => store.apply(change, at),
+  });
+  await runner.run({ agentRunKey: "key", scriptId: "test" });
+  for (let count = 0; count < 50; count++) await runner.run({ agentRunKey: "key", scriptId: "other" });
+  const current = currentStageRecord(get());
+  expect(current.facts?.workspaceScripts).toHaveLength(50);
+  expect(current.facts?.workspaceScripts?.find((check) => check.scriptId === "test")?.exitCode).toBe(1);
+  expect(unmetInheritedWorkspaceChecks(get(), current)).not.toBeNull();
+  runner.stop();
+});
+
 test("an exact host-issued repair can run its inherited frozen check without an action-stage report", async () => {
   const h = repairHarness();
   expect(unmetInheritedWorkspaceChecks(h.get(), currentStageRecord(h.get()))).not.toBeNull();

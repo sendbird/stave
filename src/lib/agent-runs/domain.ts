@@ -439,7 +439,7 @@ export const StageFactsSchema = z
       definitionHash: z.string().regex(/^[a-f0-9]{64}$/).optional(),
       executedCommands: z.string().max(2_000).optional(),
       commandsTruncated: z.boolean().optional(),
-    }).strict()).max(50).optional(),
+    }).strict()).max(AGENT_RUN_LIMITS.facts.checks).optional(),
     workspaceCheckNotice: z.string().max(500).optional(),
     currentTurnId: IdSchema.optional(),
     workspaceRevision: WorkspaceRevisionSchema.optional(),

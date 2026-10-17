@@ -304,7 +304,9 @@ and optional `verification`. AI stages use `agent-report` for the agent's
 assessment, or `stave-check` for a host workspace script result. A required
 `stave-check` cannot be satisfied by an agent-reported **Met**. Run script
 action stages keep the same check behavior, including when verification is
-omitted. Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
+omitted. A bound Run script action checks its admitted definition before execution
+and accepts a successful result only when its receipt names that same definition.
+Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
 
 Read-only Agents cannot execute host action stages. Pausing, taking over,
 cancelling or releasing the Agent withdraws permission for further work as soon
@@ -335,6 +337,10 @@ checks, then ends without a stage report. Stave checks that evidence before
 continuing publication. The latest result for each admitted script supersedes
 its earlier results, including a later failure. Where a criterion allows
 alternative scripts, another current passing alternative can still satisfy it.
+Each stage retains up to 50 receipts, preserving the latest result of every
+script before keeping older history. Repeated checks cannot erase another
+script's failure. After 50 different scripts, that stage can rerun those scripts
+but refuses additional identities before execution; use another stage for them.
 A later AI stage can renew inherited evidence with the same admitted script;
 completion, stage briefings and **Done when** use the same evidence.
 Later stages can reuse a successful check across staging
@@ -349,8 +355,13 @@ Before each push, pull request creation or ready-for-review update, Stave
 rechecks inherited required checks against the current files. If a local commit
 hook changed those files, it stops before the next remote update. Restore the
 checked work before retrying, or start a new run to verify the changed work.
+While Watch checks or Ready for review only polls remote state, it does not
+rehash the workspace on every tick. Verification remains required before each
+remote update and when the run completes.
 Each run allows one script at
-a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process. Unknown revisions and checks that modify the tree return an explanation, and a report whose revision cannot be read stays blocked with that reason. Admission reads no git snapshot, so the default check is never dropped because of the workspace state; only an invalid default-criterion insertion is skipped with a timeline/report notice, and that notice survives stage retry. Workspace renames do not change a script definition hash.
+a time, with the same 30-minute cap as a Run script stage. Pause, Stop and Cancel abort the script process, including admission still reading its configuration.
+Host shutdown also fences script requests queued before shutdown, so a delayed
+read cannot start a process afterward. Unknown revisions and checks that modify the tree return an explanation, and a report whose revision cannot be read stays blocked with that reason. Admission reads no git snapshot, so the default check is never dropped because of the workspace state; only an invalid default-criterion insertion is skipped with a timeline/report notice, and that notice survives stage retry. Workspace renames do not change a script definition hash.
 
 Check evidence separates **Provider result** and **Agent reported** claims from
 successful host checks of unchanged work. A tool response without a structured
