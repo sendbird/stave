@@ -212,19 +212,38 @@ export function createTerminalRuntime(args: {
     }
   }
 
+  /*
+   * Hands output straight to the headless mirror. xterm keeps its own ordered
+   * write queue, so chaining each write behind the previous one's callback only
+   * moved that queue into an unbounded promise chain that also hid it from
+   * xterm's pending-data limit. Only the newest write's completion is kept.
+   */
   function mirrorPtyOutput(session: TerminalSessionEntry, data: string) {
-    session.lastHeadlessWritePromise = session.lastHeadlessWritePromise.then(
-      () =>
-        new Promise<void>((resolve) => {
-          try {
-            session.headlessTerminal.write(data, resolve);
-          } catch (error) {
-            console.warn("[terminal] failed to mirror PTY output", error);
-            resolve();
-          }
-        }),
-    );
-    return session.lastHeadlessWritePromise;
+    let settle = () => {};
+    const written = new Promise<void>((resolve) => {
+      settle = resolve;
+    });
+    try {
+      session.headlessTerminal.write(data, () => {
+        settle();
+        if (session.settleLastHeadlessWrite === settle) {
+          session.settleLastHeadlessWrite = null;
+        }
+      });
+    } catch {
+      // Over xterm's pending-data limit the chunk is dropped. Earlier writes
+      // are still queued, so the previous completion stays the one to await.
+      if (!session.headlessMirrorDropReported) {
+        session.headlessMirrorDropReported = true;
+        console.warn("[terminal] headless mirror dropped PTY output", {
+          droppedBytes: data.length,
+        });
+      }
+      return session.lastHeadlessWritePromise;
+    }
+    session.lastHeadlessWritePromise = written;
+    session.settleLastHeadlessWrite = settle;
+    return written;
   }
 
   function schedulePushFlush(session: TerminalSessionEntry) {
@@ -383,6 +402,8 @@ export function createTerminalRuntime(args: {
       serializeAddon,
       headlessDataSubscription: null,
       lastHeadlessWritePromise: Promise.resolve(),
+      settleLastHeadlessWrite: null,
+      headlessMirrorDropReported: false,
       outputChunks: [],
       outputChunksBytes: 0,
       pendingPush: [],
@@ -451,6 +472,9 @@ export function createTerminalRuntime(args: {
         session.headlessDataSubscription?.dispose();
         session.headlessDataSubscription = null;
         session.headlessTerminal.dispose();
+        // A disposed mirror may never call back; do not strand its awaiters.
+        session.settleLastHeadlessWrite?.();
+        session.settleLastHeadlessWrite = null;
       },
       flushPushOutput: () => {
         void flushPushOutputNow({ session, sessionId });

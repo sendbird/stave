@@ -183,6 +183,7 @@ const { rememberOpenCodeAcpSessionId } = await import(
 
 const { createTerminalRuntime } =
   await import("../electron/host-service/terminal-runtime");
+const { Terminal: HeadlessTerminal } = await import("@xterm/headless");
 
 const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_BACKGROUND_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
@@ -725,6 +726,100 @@ describe("terminal runtime slot lifecycle", () => {
     expect(snapshots.get("terminal:workspace-1:archive")).toContain(
       "latest output",
     );
+  });
+
+  describe("headless mirror writes", () => {
+    const originalWrite = HeadlessTerminal.prototype.write;
+    afterEach(() => {
+      HeadlessTerminal.prototype.write = originalWrite;
+    });
+
+    function createMirroredSession() {
+      const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+      const created = runtime.createSession({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/workspace",
+        taskId: null,
+        taskTitle: null,
+        terminalTabId: "mirror",
+        cwd: "/tmp/workspace",
+        deliveryMode: "push",
+      });
+      return { runtime, sessionId: created.sessionId!, fake: fakePtys[0]! };
+    }
+
+    test("hands a burst of output to xterm immediately instead of queuing it", async () => {
+      let pendingCallbacks = 0;
+      let writeCalls = 0;
+      HeadlessTerminal.prototype.write = function (data, callback) {
+        writeCalls += 1;
+        pendingCallbacks += 1;
+        return originalWrite.call(this, data, () => {
+          pendingCallbacks -= 1;
+          callback?.();
+        });
+      };
+      const { runtime, sessionId, fake } = createMirroredSession();
+
+      for (let index = 0; index < 500; index += 1) {
+        fake.fireData(`line ${index}\r\n`);
+      }
+      // Every chunk is already with xterm: nothing waits in a promise chain.
+      expect(writeCalls).toBe(500);
+
+      const attached = await runtime.attachSession({ sessionId, deliveryMode: "push" });
+      expect(pendingCallbacks).toBe(0);
+      expect(attached.screenState).toContain("line 499");
+    });
+
+    test("keeps output order and includes everything written before the snapshot", async () => {
+      const { runtime, sessionId, fake } = createMirroredSession();
+      fake.fireData("first\r\n");
+      fake.fireData("second\r\n");
+      fake.fireData("third\r\n");
+
+      const { screenState = "" } = await runtime.attachSession({ sessionId, deliveryMode: "push" });
+
+      expect(screenState.indexOf("first")).toBeGreaterThanOrEqual(0);
+      expect(screenState.indexOf("first")).toBeLessThan(screenState.indexOf("second"));
+      expect(screenState.indexOf("second")).toBeLessThan(screenState.indexOf("third"));
+    });
+
+    test("a chunk xterm refuses is dropped without breaking the PTY handler", async () => {
+      const warnings: unknown[][] = [];
+      const originalWarn = console.warn;
+      console.warn = (...args: unknown[]) => {
+        warnings.push(args);
+      };
+      try {
+        const { runtime, sessionId, fake } = createMirroredSession();
+        fake.fireData("kept\r\n");
+        HeadlessTerminal.prototype.write = function (data, callback) {
+          if (String(data).includes("overflow")) {
+            throw new Error("write data discarded, use flow control to avoid losing data");
+          }
+          return originalWrite.call(this, data, callback);
+        };
+
+        expect(() => {
+          fake.fireData("overflow 1\r\n");
+          fake.fireData("overflow 2\r\n");
+        }).not.toThrow();
+        fake.fireData("after\r\n");
+
+        const attached = await runtime.attachSession({ sessionId, deliveryMode: "push" });
+        expect(attached.screenState).toContain("kept");
+        expect(attached.screenState).toContain("after");
+        const drops = warnings.filter(([message]) =>
+          String(message).includes("headless mirror dropped"),
+        );
+        expect(drops).toEqual([
+          ["[terminal] headless mirror dropped PTY output", { droppedBytes: 12 }],
+        ]);
+      } finally {
+        console.warn = originalWarn;
+      }
+    });
   });
 
   test("caps detached backlog to a bounded size before reattach", async () => {

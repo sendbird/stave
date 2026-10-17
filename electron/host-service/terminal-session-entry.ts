@@ -17,7 +17,15 @@ export interface TerminalSessionEntry {
   headlessTerminal: HeadlessTerminal;
   serializeAddon: SerializeAddon;
   headlessDataSubscription: { dispose: () => void } | null;
+  /**
+   * Settles once the headless mirror has parsed every write handed to it so
+   * far. xterm parses writes in order, so only the newest write is tracked.
+   */
   lastHeadlessWritePromise: Promise<void>;
+  /** Settles `lastHeadlessWritePromise` early when the mirror is disposed. */
+  settleLastHeadlessWrite: (() => void) | null;
+  /** The mirror refused output (xterm's pending-data limit); logged once. */
+  headlessMirrorDropReported: boolean;
   outputChunks: string[];
   outputChunksBytes: number;
   pendingPush: string[];
