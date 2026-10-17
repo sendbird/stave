@@ -6,14 +6,14 @@ export const accountStyles = stylex.create({
   stackTight: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
   row: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 },
   field: { flexGrow: 1, flexBasis: 180, minWidth: 120 },
-  muted: { color: vars["--ads-color-text-muted"], fontSize: 12, overflowWrap: "anywhere" },
-  error: { color: vars["--ads-color-danger-text"], fontSize: 12 },
+  muted: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
+  error: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-caption"] },
   /** A state the reader may need to act on, such as "Not signed in". */
-  attention: { color: vars["--ads-color-warning-text"], fontSize: 12, overflowWrap: "anywhere" },
+  attention: { color: vars["--ads-color-warning-text"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
   identityRow: { display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--ads-space-8"] },
   profile: { paddingBlock: 8, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border"] },
   terminal: { height: 280, minHeight: 200, overflow: "hidden", position: "relative" },
-  picker: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, paddingBlock: 4, fontSize: 12, color: vars["--ads-color-text-muted"] },
+  picker: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, paddingBlock: 4, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   pickerSelect: { width: 240, maxWidth: "100%" },
   /** A separate part of a card, ruled off from what comes before it. */
   section: {

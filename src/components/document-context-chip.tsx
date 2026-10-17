@@ -128,8 +128,9 @@ const styles = stylex.create({
   muted: { color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },
   remove: {
     marginRight: -4,
-    width: 20,
-    height: 20,
+    // The 28px canonical xs square keeps its hit area; the negative block
+    // margin lets it sit on the chip's 20px line without growing the chip.
+    marginBlock: `calc((20px - ${vars["--ads-control-height-xs"]}) / 2)`,
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
   removeIcon: { width: 12, height: 12 },

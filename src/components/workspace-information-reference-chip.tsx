@@ -28,7 +28,7 @@ export function WorkspaceInformationReferenceChip(args: {
       className={sx(styles.root, args.compact && styles.compact)}
     >
       <Info className={sx(styles.icon)} />
-      <span className={sx(styles.label)}>
+      <span className={sx(styles.label)} title={label}>
         <span className={sx(styles.prefix)}>{tI18n("workspace:workspaceInformationReferenceChip.information")}</span>
         <span className={sx(styles.scope)}> / {scopeLabel} / </span>
         <span>{label}</span>
@@ -64,6 +64,8 @@ icon: {width:14,height:14,flexShrink:0},
 label: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
 prefix: {fontWeight:500},
 scope: {color:vars["--ads-color-text-muted"]},
-remove: {marginRight:-4,width:20,height:20,color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]}},
+// The 28px canonical xs square keeps its hit area; the negative block margin
+// lets it sit on the chip's 20px line without growing the chip.
+remove: {marginRight:-4,marginBlock:`calc((20px - ${vars["--ads-control-height-xs"]}) / 2)`,color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]}},
 removeIcon: {width:12,height:12}
 });

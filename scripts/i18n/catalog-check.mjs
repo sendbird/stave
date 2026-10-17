@@ -107,6 +107,8 @@ function splitPlurals(entries) {
  * @param {{ namespace: string, sourceLocale: string, catalogs: Record<string, object>, terms?: string[], untranslatedKeys?: string[] }} input
  * @returns {Array<{ namespace: string, locale: string, key: string, message: string }>}
  */
+const HTML_ENTITY = /&(?:[a-z]+|#\d+|#x[\da-f]+);/i;
+
 export function checkNamespace({ namespace, sourceLocale, catalogs, terms = [], untranslatedKeys = [] }) {
   const issues = [];
   const add = (locale, key, message) => issues.push({ namespace, locale, key, message });
@@ -116,7 +118,11 @@ export function checkNamespace({ namespace, sourceLocale, catalogs, terms = [], 
     const { entries, problems } = flattenCatalog(catalog ?? {});
     for (const problem of problems) add(locale, problem.path, problem.message);
     flattened[locale] = splitPlurals(entries);
-    for (const path of entries.keys()) {
+    for (const [path, value] of entries) {
+      // Catalog text renders as plain text, so an HTML entity shows literally.
+      if (typeof value === "string" && HTML_ENTITY.test(value)) {
+        add(locale, path, `contains an HTML entity; write the character itself: "${value}"`);
+      }
       const segments = path.split(".");
       const last = segments.pop().replace(PLURAL_SUFFIX, "").replace(/_ordinal$/, "");
       for (const segment of [...segments, last]) {

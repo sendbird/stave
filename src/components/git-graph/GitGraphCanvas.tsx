@@ -55,6 +55,8 @@ export const GIT_GRAPH_LANE_PALETTE = [
   "#596ED9",
   "#1D8572",
 ] as const;
+// Uncommitted work follows the theme's muted ink instead of a fixed gray.
+const UNCOMMITTED_STROKE = "var(--muted-foreground)";
 const OVERSCAN_ROWS = 10;
 const WORKING_TREE_LAYOUT_HASH = "__stave_working_tree__";
 
@@ -145,7 +147,7 @@ const GraphSvg = memo(function GraphSvg({
     >
       {branchPaths.flatMap(({ branch, paths }) =>
         paths.map((path, pathIndex) => {
-          const stroke = path.isCommitted ? laneColor(branch.color) : "#808080";
+          const stroke = path.isCommitted ? laneColor(branch.color) : UNCOMMITTED_STROKE;
           return (
             <g key={`${branch.id}:${pathIndex}`}>
               <path
@@ -185,7 +187,7 @@ const GraphSvg = memo(function GraphSvg({
                 cy={cy}
                 r={nodeRadius}
                 fill="var(--editor)"
-                stroke="#808080"
+                stroke={UNCOMMITTED_STROKE}
                 strokeWidth={2}
               />
             </g>

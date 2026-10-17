@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Badge, Button, Input, Loader, toast } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import type { BadgeTone } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   type AtelierConnectorPublicStatus,
@@ -66,16 +67,16 @@ function runtimeLabel(
   }
 }
 
-function runtimeBadgeStyle(
+function runtimeBadgeTone(
   state: MartinSyncPublicStatus["runtimeState"] | undefined,
-) {
+): BadgeTone {
   if (state === "idle" || state === "syncing") {
-    return styles.badgeReady;
+    return "success";
   }
   if (state === "offline" || state === "unpaired" || state === "disabled") {
-    return styles.badgeIdle;
+    return "warning";
   }
-  return styles.badgeAttention;
+  return "danger";
 }
 
 export function MartinSyncSettingsSection() {
@@ -237,10 +238,7 @@ export function MartinSyncSettingsSection() {
       title={t("settings:sections.fields.martinSync.title")}
       description={t("settingsConnections:settingsDialogMartinSync.pushSelectedWorkspaceEventsAndResource")}
       titleAccessory={
-        <Badge
-          variant="outline"
-          className={sx(runtimeBadgeStyle(status?.runtimeState))}
-        >
+        <Badge variant="soft" tone={runtimeBadgeTone(status?.runtimeState)}>
           {runtimeLabel(status?.runtimeState)}
         </Badge>
       }

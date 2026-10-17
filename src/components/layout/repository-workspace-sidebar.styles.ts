@@ -658,7 +658,13 @@ export const repositorySidebarStyles = stylex.create({
     gap: 2,
     padding: 2,
   },
-  viewToggleButton: { borderRadius: 5, height: 24, padding: 0, width: 28 },
+  // Concentric with `viewToggle`: its radius minus the 2px padding and border.
+  viewToggleButton: {
+    borderRadius: `calc(${vars["--ads-radius-control"]} - 2px - ${vars["--ads-border-width-hairline"]})`,
+    height: 24,
+    padding: 0,
+    width: 28,
+  },
   viewToggleButtonActive: {
     backgroundColor: vars["--ads-color-selection-fill"],
     color: vars["--ads-color-text"],

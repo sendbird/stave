@@ -156,6 +156,8 @@ export const chatPanelFileBlocksStyles = stylex.create({
     maxHeight: "12rem",
     cursor: "zoom-in",
     objectFit: "contain",
+    backgroundColor: "transparent",
+    borderRadius: 0,
   },
   imageLabel: {
     borderTopWidth: vars["--ads-border-width-hairline"],

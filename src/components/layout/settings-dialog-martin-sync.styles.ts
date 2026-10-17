@@ -8,23 +8,6 @@ const spin = stylex.keyframes({
 });
 
 export const martinSyncStyles = stylex.create({
-  // Runtime-state badge tones (replaces the Tailwind classes returned by
-  // `runtimeBadgeClass`). Each restates the border, fill, and text hue.
-  badgeReady: {
-    backgroundColor: vars["--ads-color-success-soft"],
-    borderColor: vars["--ads-color-success-border"],
-    color: vars["--ads-color-success-text"],
-  },
-  badgeIdle: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    color: vars["--ads-color-warning-text"],
-  },
-  badgeAttention: {
-    backgroundColor: vars["--ads-color-danger-soft"],
-    borderColor: vars["--ads-color-danger-border"],
-    color: vars["--ads-color-danger-text"],
-  },
   scopeBadge: {
     textTransform: "capitalize",
   },

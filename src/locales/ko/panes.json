@@ -108,6 +108,7 @@
     "loadingTab": "탭 불러오는 중…",
     "restoringThisEditorTabWithoutBlockingThe": "워크스페이스의 나머지 부분을 차단하지 않고 편집기 탭을 복원합니다.",
     "clickToOpenFullScreen": "클릭하여 전체 화면 열기",
+    "openImageFullScreen": "{{name}} 전체 화면으로 열기",
     "unableToLoadImagePreview": "이미지 미리보기를 불러오지 못했습니다.",
     "closeTabs": "탭 닫기"
   },

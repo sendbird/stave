@@ -103,7 +103,7 @@
     "selectARepository": "Select a repository",
     "agent": "Agent",
     "effort": "Effort",
-    "higherEffortSpendsMoreModelBudgetOn": "Higher effort spends more model budget on reasoning and increases each run&apos;s latency.",
+    "higherEffortSpendsMoreModelBudgetOn": "Higher effort spends more model budget on reasoning and increases each run's latency.",
     "concurrentRuns": "Concurrent runs",
     "occurrencesBeyondTheLimitAreRecordedAs": "Occurrences beyond the limit are recorded as skipped.",
     "informationResources": "Information resources",

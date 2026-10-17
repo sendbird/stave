@@ -320,7 +320,10 @@
   "providerModelPicker": {
     "ariaLabel": "{{value1}} 프로바이더",
     "ariaLabel2": "{{value1}} 모델",
-    "extraCopy114": "모델"
+    "extraCopy114": "모델",
+    "placeholder": "모델 선택",
+    "searchPlaceholder": "모델 검색",
+    "empty": "검색과 일치하는 모델이 없습니다."
   },
   "resultFileSnapshots": {
     "resultFileSnapshots": "이 실행에서 변경한 파일",
@@ -596,6 +599,7 @@
     "referencedFilesBlock3": "열기",
     "copy5": "편집기에서 열기",
     "title": "클릭하여 원본 크기로 보기",
+    "openImage": "{{label}} 크게 보기",
     "alt": "이미지 미리보기",
     "fileChangeSummaryBlock_other": "{{value1}} 파일 변경됨"
   },

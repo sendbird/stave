@@ -27,12 +27,13 @@ import { workspaceInformationSectionMenuStyles as styles } from "./workspace-inf
 
 export function WorkspaceInformationSectionMenu() {
   const { t: tI18n } = useTranslation(["workspace"]);
-  const [information, visibility, craneConnectorEnabled, updateSettings] =
+  const [information, visibility, craneConnectorEnabled, jiraConnectorEnabled, updateSettings] =
     useAppStore(
       useShallow((state) => [
         state.workspaceInformation,
         state.settings.infoPanelSectionVisibility,
         state.settings.craneConnector.enabled,
+        state.settings.jiraConnector.enabled,
         state.updateSettings,
       ]),
     );
@@ -43,11 +44,10 @@ export function WorkspaceInformationSectionMenu() {
           visibility,
           information,
           craneConnectorEnabled,
-          // TODO(tasks-surface): read `settings.jiraConnector.enabled` once the Jira connector slice exists.
-          jiraConnectorEnabled: false,
+          jiraConnectorEnabled,
         }),
       ),
-    [craneConnectorEnabled, information, visibility, i18n.resolvedLanguage],
+    [craneConnectorEnabled, jiraConnectorEnabled, information, visibility, i18n.resolvedLanguage],
   );
 
   return (

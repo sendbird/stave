@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import {
   Select,
   SelectContent,
@@ -8,6 +8,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { SearchablePicker } from "@/components/layout/settings-searchable-picker";
 import {
   getDefaultModelForProvider,
   getProviderLabel,
@@ -83,6 +85,16 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
       ].filter(Boolean),
     [args.selectedModel, args.selectedProvider, catalogs, readiness],
   );
+  const modelOptions = useMemo(
+    () => providerModels.map((model) => ({
+      value: model,
+      label: toHumanModelName({ model }),
+      detail: model,
+      icon: <ModelIcon providerId={args.selectedProvider} model={model} className={sx(styles.icon)} />,
+    })),
+    [args.selectedProvider, providerModels],
+  );
+  const modelLabelId = useId();
   const providerAvailable = args.providerAvailable !== false && availability[args.selectedProvider] &&
     providerReadsAllowed(args.selectedProvider, runtimeOptions);
   return (
@@ -133,37 +145,24 @@ export function ProviderModelPicker(args: ProviderModelPickerProps) {
         </SelectContent>
       </Select>
 
-      <Select
-        value={args.selectedModel}
-        onValueChange={(value) => args.onModelChange(value)}
-        disabled={args.disabled || !providerAvailable}
-      >
-        <SelectTrigger
-          aria-label={i18n.t("session:providerModelPicker.ariaLabel2", { value1: args.ariaLabel ?? i18n.t("session:providerModelPicker.extraCopy114") })}
-          className={cx(
-            sx(styles.trigger, styles.modelTriggerWidth),
-            args.modelSelectClassName,
-          )}
-        >
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {providerModels.map((model) => (
-            <SelectItem key={model} value={model} className={sx(styles.item)}>
-              <span className={sx(styles.modelItemInner)}>
-                <ModelIcon
-                  providerId={args.selectedProvider}
-                  model={model}
-                  className={sx(styles.icon)}
-                />
-                <span className={sx(styles.modelName)}>
-                  {toHumanModelName({ model })}
-                </span>
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <div className={cx(sx(styles.modelTriggerWidth), args.modelSelectClassName)}>
+        <VisuallyHidden id={modelLabelId}>
+          {i18n.t("session:providerModelPicker.ariaLabel2", { value1: args.ariaLabel ?? i18n.t("session:providerModelPicker.extraCopy114") })}
+        </VisuallyHidden>
+        <SearchablePicker
+          labelledBy={modelLabelId}
+          value={args.selectedModel}
+          fallbackLabel={args.selectedModel ? toHumanModelName({ model: args.selectedModel }) : undefined}
+          placeholder={i18n.t("session:providerModelPicker.placeholder")}
+          options={modelOptions}
+          onSelect={args.onModelChange}
+          searchPlaceholder={i18n.t("session:providerModelPicker.searchPlaceholder")}
+          emptyText={i18n.t("session:providerModelPicker.empty")}
+          disabled={args.disabled || !providerAvailable}
+          size="md"
+          triggerXstyle={styles.searchTrigger}
+        />
+      </div>
     </div>
   );
 }

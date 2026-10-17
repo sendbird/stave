@@ -29,6 +29,17 @@ export const searchablePickerStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  icon: {
+    alignSelf: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+  },
+  // Centres the mark on the label's first line in a two-line item.
+  itemIcon: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    blockSize: `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-normal"]})`,
+  },
   placeholder: {
     color: vars["--ads-color-text-placeholder"],
     overflow: "hidden",
