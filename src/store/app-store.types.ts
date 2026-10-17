@@ -409,7 +409,6 @@ export interface AppState
   };
   removeCustomTheme: (args: { themeId: string }) => void;
   updateSettings: (args: { patch: Partial<AppSettings> }) => void;
-  clearAutoRoutingDecision: (taskId: string) => void;
   updateModelRuntimePreference: (
     args: UpdateModelRuntimePreferenceArgs,
   ) => void;

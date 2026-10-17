@@ -78,7 +78,6 @@ function normalizeCustomAgentPatch(value: unknown) {
 }
 
 type SettingsActionKey =
-  | "clearAutoRoutingDecision"
   | "setRepositoryWorkspaceInitCommand"
   | "setRepositoryBasePrompt"
   | "setRepositoryKickoffBranchNamingRule"
@@ -106,16 +105,6 @@ export function createSettingsActions(args: {
   const { set, get, normalizeSharedSkillsHomeSetting } = args;
 
   return {
-    clearAutoRoutingDecision: (taskId) => {
-      set((state) => {
-        if (!(taskId in state.autoRoutingDecisionByTask)) {
-          return state;
-        }
-        const { [taskId]: _dropped, ...autoRoutingDecisionByTask } =
-          state.autoRoutingDecisionByTask;
-        return { autoRoutingDecisionByTask };
-      });
-    },
     setRepositoryWorkspaceInitCommand: ({ repositoryPath, command }) => {
       set((state) => {
         const normalizedRepositoryPath =
