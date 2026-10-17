@@ -3,7 +3,10 @@ import { normalizeAccountsOnboarding } from "@/lib/providers/accounts-onboarding
 import { normalizeRoutingDecision } from "@/lib/providers/routing-decision";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
-import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
+import {
+  normalizePersistedCompareRuns,
+  pruneCompareRunHistory,
+} from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeInlineRenderNetworkPolicy } from "@/lib/inline-render/inline-render";
 import {
@@ -303,9 +306,11 @@ export function createAppStorePersistenceOptions() {
       state.settings.trackerIssues = normalizeTrackerIssuesSettings(
         raw.trackerIssues,
       );
-      state.compareRunsById = normalizePersistedCompareRuns({
-        runsById: state.compareRunsById,
-        now: buildRecentTimestamp(),
+      state.compareRunsById = pruneCompareRunHistory({
+        runsById: normalizePersistedCompareRuns({
+          runsById: state.compareRunsById,
+          now: buildRecentTimestamp(),
+        }),
       });
       state.settings.modelRuntimePreferences = normalizeModelRuntimePreferences(
         raw.modelRuntimePreferences,

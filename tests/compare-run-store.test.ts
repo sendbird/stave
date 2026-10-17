@@ -350,6 +350,49 @@ describe("compare run store actions", () => {
     expect(useAppStore.getState().compareRunsById[result.compareRunId!]?.baseCommit).toBe(BASE_COMMIT);
   });
 
+  test("drops the oldest finished comparison when a new run exceeds the history cap", async () => {
+    const { MAX_RETAINED_COMPARE_RUNS } = await import("../src/lib/compare-runs");
+    let created = 0;
+    const history = Object.fromEntries(
+      Array.from({ length: MAX_RETAINED_COMPARE_RUNS }, (_, index) => {
+        const id = `old-${index}`;
+        const at = new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString();
+        return [id, {
+          id,
+          seedPrompt: id,
+          baseWorkspaceId: "base",
+          createdAt: at,
+          updatedAt: at,
+          status: "completed" as const,
+          variants: [],
+        }];
+      }),
+    );
+    useAppStore.setState({
+      compareRunsById: history,
+      createWorkspace: async () => {
+        created += 1;
+        useAppStore.setState({
+          activeWorkspaceId: `candidate-${created}`,
+          activeTaskId: `task-${created}`,
+        });
+        return { ok: true };
+      },
+      setTaskProvider: () => {},
+      updatePromptDraft: () => {},
+      sendUserMessage: async (args) => ({ status: "started", taskId: args.taskId, workspaceId: "candidate", turnId: "turn" }),
+    });
+
+    const result = await useAppStore.getState().startCompareRun({ seedPrompt: "One more comparison" });
+
+    expect(result.ok).toBe(true);
+    const runsById = useAppStore.getState().compareRunsById;
+    expect(Object.keys(runsById)).toHaveLength(MAX_RETAINED_COMPARE_RUNS);
+    expect(runsById[result.compareRunId!]).toBeDefined();
+    expect(runsById["old-0"]).toBeUndefined();
+    expect(runsById[`old-${MAX_RETAINED_COMPARE_RUNS - 1}`]).toBeDefined();
+  });
+
   test("does not create candidates in a workspace selected during resolution", async () => {
     let creations = 0;
     window.api!.terminal!.runCommand = async () => {

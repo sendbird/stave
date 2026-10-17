@@ -13,6 +13,8 @@ import {
   normalizeCompareVariants,
   patchCompareRunVariant,
   parseCompareJudgment,
+  pruneCompareRunHistory,
+  type CompareRun,
   resolveCompareTurnOutcome,
 } from "../src/lib/compare-runs";
 
@@ -491,5 +493,41 @@ describe("compare run helpers", () => {
     expect(normalized[run.id]?.judge?.error).toContain(
       "restarted before the fresh-context judge finished",
     );
+  });
+
+  test("caps finished history at the most recent runs and keeps in-flight runs", () => {
+    const runAt = (
+      id: string,
+      minute: number,
+      status: CompareRun["status"],
+    ): CompareRun => ({
+      ...buildInitialCompareRun({
+        id,
+        seedPrompt: id,
+        baseWorkspaceId: "base",
+        variants: [{ provider: "codex", label: "Codex" }],
+        now: `2026-06-18T00:${String(minute).padStart(2, "0")}:00.000Z`,
+      }),
+      status,
+    });
+    const runsById: Record<string, CompareRun | undefined> = {
+      oldest: runAt("oldest", 1, "completed"),
+      running: runAt("running", 0, "running"),
+      older: runAt("older", 2, "cancelled"),
+      newer: runAt("newer", 3, "failed"),
+      newest: runAt("newest", 4, "completed"),
+    };
+
+    const pruned = pruneCompareRunHistory({ runsById, limit: 3 });
+
+    expect(Object.keys(pruned)).toEqual(["running", "newer", "newest"]);
+    expect(
+      pruneCompareRunHistory({ runsById: pruned, limit: 3 }),
+    ).toBe(pruned);
+    expect(
+      Object.keys(
+        pruneCompareRunHistory({ runsById, limit: 2, keepRunIds: ["oldest"] }),
+      ),
+    ).toEqual(["oldest", "running"]);
   });
 });

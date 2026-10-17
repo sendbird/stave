@@ -747,6 +747,66 @@ export function normalizePersistedCompareRuns(args: {
   );
 }
 
+/** Finished comparisons kept in history; in-flight runs are never dropped. */
+export const MAX_RETAINED_COMPARE_RUNS = 50;
+
+function isCompareRunInFlight(run: CompareRun) {
+  return (
+    run.status === "starting" ||
+    run.status === "running" ||
+    run.judge?.status === "running"
+  );
+}
+
+/**
+ * Bounds the persisted comparison history. Nothing else ever removes a run, so
+ * every comparison a user starts would otherwise stay in memory and in the
+ * persisted store forever. Keeps every in-flight run and `keepRunIds`, then the
+ * most recently updated finished runs up to `limit`. Returns the input map
+ * unchanged when nothing is dropped.
+ */
+export function pruneCompareRunHistory(args: {
+  runsById: Record<string, CompareRun | undefined>;
+  keepRunIds?: readonly string[];
+  limit?: number;
+}): Record<string, CompareRun | undefined> {
+  const limit = args.limit ?? MAX_RETAINED_COMPARE_RUNS;
+  const entries = Object.entries(args.runsById);
+  if (entries.length <= limit && entries.every(([, run]) => run)) {
+    return args.runsById;
+  }
+  const keepRunIds = new Set(args.keepRunIds ?? []);
+  const kept: Array<[string, CompareRun]> = [];
+  const finished: Array<[string, CompareRun]> = [];
+  for (const [compareRunId, run] of entries) {
+    if (!run) {
+      continue;
+    }
+    if (keepRunIds.has(compareRunId) || isCompareRunInFlight(run)) {
+      kept.push([compareRunId, run]);
+    } else {
+      finished.push([compareRunId, run]);
+    }
+  }
+  finished.sort(([, left], [, right]) =>
+    (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""),
+  );
+  const retainedFinished = finished.slice(
+    0,
+    Math.max(0, limit - kept.length),
+  );
+  if (kept.length + retainedFinished.length === entries.length) {
+    return args.runsById;
+  }
+  const retainedIds = new Set(
+    [...kept, ...retainedFinished].map(([compareRunId]) => compareRunId),
+  );
+  // Preserve insertion order so persisted output stays stable.
+  return Object.fromEntries(
+    entries.filter(([compareRunId]) => retainedIds.has(compareRunId)),
+  );
+}
+
 export function buildCompareRunVariantId(args: {
   compareRunId: string;
   index: number;
