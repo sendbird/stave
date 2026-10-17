@@ -151,7 +151,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         setListLoading(false);
       }
     }
-  }, [workspaceId, workspacePath]);
+  }, [workspaceId, workspacePath, tI18n]);
 
   useEffect(() => {
     void loadPlans();
@@ -187,7 +187,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     } finally {
       setCreatingPlan(false);
     }
-  }, [args.taskId, loadPlans, onOpenFile, workspacePath]);
+  }, [args.taskId, loadPlans, onOpenFile, workspacePath, tI18n]);
 
   const revealPlansFolder = useCallback(async () => {
     if (!workspacePath) {
@@ -204,7 +204,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     if (result && !result.ok) {
       toast.error(tI18n("workspace:workspacePlansSection.couldNotRevealThePlansFolder"));
     }
-  }, [workspacePath]);
+  }, [workspacePath, tI18n]);
 
   const confirmDeletePlan = useCallback(async () => {
     if (!workspacePath || !deleteTarget || deletingPlan) {
@@ -238,7 +238,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     } finally {
       setDeletingPlan(false);
     }
-  }, [deleteTarget, deletingPlan, loadPlans, onPlanDeleted, workspacePath]);
+  }, [deleteTarget, deletingPlan, loadPlans, onPlanDeleted, workspacePath, tI18n]);
 
   const compareWithPreviousRevision = useCallback(
     async (summary: WorkspaceDocumentSummary) => {

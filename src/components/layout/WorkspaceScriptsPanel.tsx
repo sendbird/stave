@@ -466,7 +466,7 @@ export function WorkspaceScriptsPanel(props: {
       setSelection({ workspaceId: activeWorkspaceId, key: scriptEntryKey(args.scriptKind, args.scriptId) });
       void runScriptEntry({ workspaceId: activeWorkspaceId, ...args });
     },
-    [activeWorkspaceId],
+    [activeWorkspaceId, tI18n],
   );
 
   const stopEntry = useCallback(
@@ -477,7 +477,7 @@ export function WorkspaceScriptsPanel(props: {
       }
       void stopScriptEntry({ workspaceId: activeWorkspaceId, ...args });
     },
-    [activeWorkspaceId],
+    [activeWorkspaceId, tI18n],
   );
 
   const clearLog = useCallback(
@@ -517,7 +517,7 @@ export function WorkspaceScriptsPanel(props: {
         });
       }
     },
-    [activeWorkspaceId, lensSessionScope, repositoryPath],
+    [activeWorkspaceId, lensSessionScope, repositoryPath, tI18n],
   );
 
   const runHook = useCallback(
@@ -536,7 +536,7 @@ export function WorkspaceScriptsPanel(props: {
         },
       });
     },
-    [activeTask, activeTurnId, activeWorkspaceId],
+    [activeTask, activeTurnId, activeWorkspaceId, tI18n],
   );
 
   const refresh = useCallback(() => {

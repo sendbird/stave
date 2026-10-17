@@ -86,7 +86,7 @@ export function ScriptLogView(props: ScriptLogViewProps) {
     } catch {
       toast.error(tI18n("scripts:scriptLogView.copyFailed"));
     }
-  }, [displayLog]);
+  }, [displayLog, tI18n]);
 
   const durationLabel = useMemo(() => {
     if (startedAt === undefined) {

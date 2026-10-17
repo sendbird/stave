@@ -429,12 +429,12 @@ export function SkillDetail(props: {
   const handleCopyPath = useCallback(() => {
     void copyTextToClipboard(skill.path);
     toast.success(tI18n("workspace:workspaceSkillsPanel.pathCopied"));
-  }, [skill.path]);
+  }, [skill.path, tI18n]);
 
   const handleCopyInvocationToken = useCallback(() => {
     void copyTextToClipboard(skill.invocationToken);
     toast.success(tI18n("workspace:workspaceSkillsPanel.invocationTokenCopied"));
-  }, [skill.invocationToken]);
+  }, [skill.invocationToken, tI18n]);
 
   const handleOpenInFinder = useCallback(() => {
     void window.api?.shell?.showInFinder?.({ path: skill.path });
