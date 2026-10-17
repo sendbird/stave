@@ -8,6 +8,7 @@ import {
   normalizeTrackerIssuesSettings,
   type TrackerIssuesSettings,
 } from "@/lib/tracker-issues/settings";
+import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
 import { useAppStore } from "@/store/app.store";
 
 /**
@@ -27,6 +28,24 @@ function sameSettings(
     a.defaultKickoffStartMode === b.defaultKickoffStartMode &&
     a.sourceEnabled.crane === b.sourceEnabled.crane
   );
+}
+
+/**
+ * Main keeps its own copy of the Jira connector settings and starts from the
+ * defaults (off) on every launch. Settings → Integrations pushes them while it
+ * is open; this sends the rehydrated copy once at startup so Jira polls after a
+ * restart without the user opening Settings. Configure is idempotent, so the
+ * section's later pushes only repeat it.
+ */
+function pushJiraConnectorConfigure() {
+  const configure = window.api?.jiraConnector?.configure;
+  if (!configure) {
+    return;
+  }
+  const settings = normalizeJiraConnectorSettings(
+    useAppStore.getState().settings.jiraConnector,
+  );
+  void Promise.resolve(configure(settings)).catch(() => undefined);
 }
 
 function pushConfigure(settings: TrackerIssuesSettings) {
@@ -69,6 +88,8 @@ export function bootstrapTrackerIssuesClient(): () => void {
   const unsubscribeKickoff = api.onKickoffUpdated?.((link) => {
     applyTrackerIssueStaveLink(link);
   });
+
+  pushJiraConnectorConfigure();
 
   // Push the persisted settings before the first read: the refresh interval and
   // default view decide what main polls, so configuring after listing would
