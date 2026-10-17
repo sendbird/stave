@@ -94,7 +94,48 @@ describe("temporary migration: aux-lane-single-switch", () => {
     migrateAuxLaneSingleSwitch(settings);
     expect(settings).toEqual({
       auxiliaryInferencePolicy: { prePrReview: { model: "claude-sonnet-5", enabled: true } },
+      // No inline completion lane: completion was off.
+      editorAiCompletions: false,
     });
+  });
+
+  test("an old profile without an inline completion lane keeps completion off", () => {
+    const settings: Record<string, unknown> = {
+      prePrReviewEnabled: false,
+      editorAiCompletions: true,
+      auxiliaryInferencePolicy: { prePrReview: { enabled: true } },
+    };
+    migrateAuxLaneSingleSwitch(settings);
+    expect(settings).toEqual({
+      editorAiCompletions: false,
+      auxiliaryInferencePolicy: { prePrReview: { enabled: false } },
+    });
+
+    const withoutPolicy: Record<string, unknown> = {
+      prePrReviewEnabled: true,
+      editorAiCompletions: true,
+    };
+    migrateAuxLaneSingleSwitch(withoutPolicy);
+    expect(withoutPolicy.editorAiCompletions).toBe(false);
+    expect("prePrReviewEnabled" in withoutPolicy).toBe(false);
+  });
+
+  test("an old profile with an inline completion lane saved without enabled keeps completion off", () => {
+    const settings: Record<string, unknown> = {
+      prePrReviewEnabled: false,
+      editorAiCompletions: true,
+      auxiliaryInferencePolicy: { inlineCompletion: { model: "claude-haiku-5-5" } },
+    };
+    migrateAuxLaneSingleSwitch(settings);
+    expect(settings.editorAiCompletions).toBe(false);
+    const policy = settings.auxiliaryInferencePolicy as Record<string, Record<string, unknown>>;
+    expect(policy.inlineCompletion).toEqual({ model: "claude-haiku-5-5" });
+
+    // Once migrated, turning completion on again is left alone.
+    settings.editorAiCompletions = true;
+    const once = structuredClone(settings);
+    migrateAuxLaneSingleSwitch(settings);
+    expect(settings).toEqual(once);
   });
 
   test("is idempotent and leaves settings already in the new shape alone", () => {
@@ -137,6 +178,18 @@ describe("temporary migration: aux-lane-single-switch", () => {
       model: "claude-haiku-5-5",
     });
     expect(settings.auxiliaryInferencePolicy.turnSummary.enabled).toBe(false);
+  });
+
+  test("an old profile without an inline completion lane stays off after rehydration", async () => {
+    const saved = oldSettings({
+      prePrReviewEnabled: false,
+      prePrReviewLane: true,
+      editorAiCompletions: true,
+      inlineLane: false,
+    });
+    delete (saved.auxiliaryInferencePolicy as Record<string, unknown>).inlineCompletion;
+    const settings = await rehydrate(saved);
+    expect(settings.editorAiCompletions).toBe(false);
   });
 
   test("an old profile with inline completion lane off stays off after rehydration", async () => {
