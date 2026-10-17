@@ -14,6 +14,7 @@ import {
 } from "@/store/task-work-pause";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 import { readProviderAccountUsage } from "@/store/account-usage-guard";
+import { USAGE_LIMIT_UNAVAILABLE_RETRY_MS } from "@/lib/agent-runs/usage-limit";
 
 type TaskPauseActionKey =
   | "pauseTaskForUsageLimit"
@@ -25,6 +26,21 @@ type TaskPauseActions = Pick<AppState, TaskPauseActionKey>;
 
 /** How long after an armed resume a refusal keeps the pause armed. */
 const AUTO_RESUME_RETRY_WINDOW_MS = 2 * 60_000;
+
+/** The longest wait between usage reads while they keep failing. */
+export const UNREADABLE_USAGE_RETRY_MAX_MS = 30 * 60_000;
+
+/**
+ * How long an armed resume waits after its `failures`-th unreadable usage
+ * read in a row. The first retry comes soon (the network is usually back a
+ * few minutes after the machine wakes); later ones slow down, because each
+ * forced read can launch a provider CLI and a lasting failure (signed out,
+ * stale credentials) will not clear on its own.
+ */
+export function resolveUnreadableUsageRetryDelay(failures: number): number {
+  const exponent = Math.max(0, Math.min(failures - 1, 10));
+  return Math.min(USAGE_LIMIT_UNAVAILABLE_RETRY_MS * 2 ** exponent, UNREADABLE_USAGE_RETRY_MAX_MS);
+}
 
 function readUsageLimitReset(args: {
   snapshot: RateLimitsSnapshotResponse | null;
@@ -232,9 +248,22 @@ export function createTaskPauseActions(args: {
       if (!pause || pause !== expected || pause.autoResumeAt == null) {
         return;
       }
-      if (!snapshot || collectProviderAccountUsageWindows({ providerId: pause.providerId, model: pause.model, snapshot }) == null) {
-        get().setUsageLimitAutoResume({ taskId, enabled: false });
-        toast.warning(i18n.t("notifications:appStoreTaskPauseActions.couldnTVerifyPausedAccountUsage"), { description: i18n.t("notifications:appStoreTaskPauseActions.theTaskStaysPausedResumeManuallyOrReserveAnotherResetTimeResume") });
+      if (
+        !snapshot ||
+        snapshot.reads?.[pause.providerId]?.lastReadFailed ||
+        collectProviderAccountUsageWindows({ providerId: pause.providerId, model: pause.model, snapshot }) == null
+      ) {
+        // An unreadable usage window is no verdict: right after the machine
+        // wakes, the network is often not back yet. Keep the reservation and
+        // read again later, as an agent run's usage-limit wait does, backing
+        // off while the reads keep failing.
+        const failures = (pause.unreadableUsageReads ?? 0) + 1;
+        const retryAt = Date.now() + resolveUnreadableUsageRetryDelay(failures);
+        patchPause(taskId, (current) =>
+          current === pause && current.autoResumeAt != null
+            ? { ...current, autoResumeAt: retryAt, unreadableUsageReads: failures }
+            : current,
+        );
         return;
       }
       const reading = readUsageLimitReset({
@@ -248,7 +277,7 @@ export function createTaskPauseActions(args: {
           now: Date.now(),
         });
         patchPause(taskId, (current) => {
-          const { autoResumeAt: _armed, ...rest } = current;
+          const { autoResumeAt: _armed, unreadableUsageReads: _failures, ...rest } = current;
           return {
             ...rest,
             resetsAt: reading.resetsAt,
@@ -364,10 +393,10 @@ export function createTaskPauseActions(args: {
       }
       patchPause(taskId, (pause) => {
         if (!enabled) {
-          if (pause.autoResumeAt == null) {
+          if (pause.autoResumeAt == null && pause.unreadableUsageReads == null) {
             return pause;
           }
-          const { autoResumeAt: _armed, ...rest } = pause;
+          const { autoResumeAt: _armed, unreadableUsageReads: _failures, ...rest } = pause;
           return rest;
         }
         const autoResumeAt = resolveUsageLimitAutoResumeAt({

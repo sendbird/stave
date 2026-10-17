@@ -27,6 +27,11 @@ export interface TaskUsageLimitPause {
   windowLabel?: string;
   /** Resume on its own at this time (epoch ms), chosen with "Resume at reset". */
   autoResumeAt?: number;
+  /**
+   * Usage reads in a row an armed resume could not read. Lives on the pause
+   * so it ends with it; Cancel and any readable verdict clear it.
+   */
+  unreadableUsageReads?: number;
 }
 
 export type UsageLimitPauseByTask = Record<string, TaskUsageLimitPause | undefined>;

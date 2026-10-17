@@ -50,7 +50,13 @@ accounts before the queue drains. Turns queued later behind a running turn
 keep their queue-time accounts. An automatic resume reads the selected
 account through the account guard's bounded provider read and never replaces
 the store's meter with that response. An automatic resume with missing
-account identity or unavailable usage stays paused and drops its reservation.
+account identity stays paused and drops its reservation. One with unreadable
+usage stays paused and moves its reservation `USAGE_LIMIT_UNAVAILABLE_RETRY_MS`
+(five minutes) later, the same first retry an agent run's usage-limit wait
+uses. Consecutive unreadable reads double that wait up to
+`UNREADABLE_USAGE_RETRY_MAX_MS` (30 minutes), because each forced read can
+launch a provider CLI. The count is stored on the pause, so it ends with the
+pause (resume, dismiss, task archive); Cancel and any readable verdict clear it.
 An older pause with no account can only resume manually.
 
 `app-store-task-pause-actions.ts` owns pause, cancellation and resume. The
