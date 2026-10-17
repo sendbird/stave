@@ -110,7 +110,8 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
       turnError,
       turnErrorRecoverable,
       turnStartedAt,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const graphSummary = useMemo(
     () => (surface.workGraph ? summarizeWorkGraph(surface.workGraph) : null),
@@ -212,7 +213,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
             narrow={todo ? `${todo.done}/${todo.total}` : null}
             parts={[
               headline.text ? (
-                <span className={sx(styles.strong)}>
+                <span key="headline" className={sx(styles.strong)}>
                   {headline.live ? (
                     <TextShimmer active={!reducedMotion}>
                       {headline.text}

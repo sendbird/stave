@@ -124,9 +124,9 @@ export function AgentRunLineView(props: {
               alert
                 ? shelfTurnAlertParts(alert)
                 : [
-                    !status.waiting && (!planText || !progressing) ? <span className={sx(attention ? shelfStyles.labelWaiting : shelfStyles.strong)}>{badgeText}</span> : null,
+                    !status.waiting && (!planText || !progressing) ? <span key="badge" className={sx(attention ? shelfStyles.labelWaiting : shelfStyles.strong)}>{badgeText}</span> : null,
                     reason ?? planText ?? (showNow ? (
-                      <TextShimmer active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
+                      <TextShimmer key="now" active={!props.reducedMotion}>{props.nowPhrase}</TextShimmer>
                     ) : (
                       progressing && !staged ? i18n.t("agentRuns:agentRunLine.extraCopy3") : reason
                     )),

@@ -601,7 +601,7 @@ export function extractStorybookResourceReference(
   const title = rawTitle
     .replace(/^\/?(story|docs)\//, "")
     .replace(/--docs$/, "")
-    .replace(/[\/_-]+/g, " ")
+    .replace(/[/_-]+/g, " ")
     .trim();
 
   return {

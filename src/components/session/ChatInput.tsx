@@ -532,7 +532,8 @@ function BaseChatInput() {
       autoRoutingDecisionRecord,
       autoRoutingEnabled,
       autoRoutingStance,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const selectedModelOption = isAutoRoutingSelected
     ? autoModelOption
@@ -701,7 +702,8 @@ function BaseChatInput() {
     codexWebSearch,
     effectiveClaudePermissionMode,
     providerTimeoutMs,
-  , i18n.language]);
+    i18n.language,
+  ]);
   const providerModeStatus =
     useMemo<PromptInputProviderModeStatus | null>(() => {
       if (activeProvider === "claude-code") {

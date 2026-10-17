@@ -30,7 +30,7 @@ const UNSUPPORTED_SHELL_META_CHARS = new Set([
 ]);
 
 function shellQuote(value: string) {
-  return `'${value.replaceAll("'", `'\"'\"'`)}'`;
+  return `'${value.replaceAll("'", `'"'"'`)}'`;
 }
 
 function formatCommandForDisplay(args: string[]) {

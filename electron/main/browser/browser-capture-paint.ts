@@ -66,7 +66,8 @@ export async function acquireLensCapturePaint(
         signal.removeEventListener("abort", onAbort);
         guest.removeListener("destroyed", onDestroyed);
         renderer.removeListener("destroyed", onDestroyed);
-        error ? reject(error) : resolve();
+        if (error) reject(error);
+        else resolve();
       };
       const onAbort = () =>
         finish(new Error("Lens screenshot preparation was cancelled."));

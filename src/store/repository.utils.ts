@@ -661,7 +661,7 @@ export function toWorkspaceFolderName(args: {
   const normalized = legacy
     .toLowerCase()
     .replaceAll(/[^a-z0-9._-]+/g, "-")
-    .replaceAll(/^\-|\-$/g, "");
+    .replaceAll(/^-|-$/g, "");
   const readablePrefix = normalized || "workspace";
   const suffix = hashRepositoryPath(args.branch).slice(0, 8);
   return `${readablePrefix}--${suffix}`;
@@ -736,7 +736,7 @@ export function buildLinkedWorktreeFolderName(args: { worktreePath: string }) {
     resolvePathBaseName({ path: args.worktreePath, fallback: "worktree" })
       .toLowerCase()
       .replaceAll(/[^a-z0-9._-]+/g, "-")
-      .replaceAll(/^\-|\-$/g, "") || "worktree";
+      .replaceAll(/^-|-$/g, "") || "worktree";
   return `${readable}--${hashRepositoryPath(normalizeComparablePath(args.worktreePath))}`;
 }
 

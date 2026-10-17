@@ -987,7 +987,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.activity?.pendingInteraction,
       props.todos,
       props.workItems,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const elapsedLabel = formatProviderTurnElapsedDuration({
     activity: props.activity,
@@ -1038,7 +1039,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       props.todos,
       props.workItems,
       stalledIdleLabel,
-    , i18n.language],
+      i18n.language,
+    ],
   );
   const graphSummary = useMemo(
     () => (props.workGraph ? summarizeWorkGraph(props.workGraph) : null),

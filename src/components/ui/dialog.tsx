@@ -2,7 +2,6 @@ import { i18n, useTranslation } from "@/i18n";
 import type { StyleXValue } from "../ads/utils/stylex";
 import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import { overlayLayout } from "./overlay-layout.styles";
-"use client";
 
 import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
