@@ -10,7 +10,7 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { Badge, Slider } from "@/components/ui";
+import { Badge } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
@@ -28,12 +28,9 @@ import {
   useAppStore,
 } from "@/store/app.store";
 import {
-  ChoiceButtons,
   DraftInput,
-  LabeledField,
   SectionStack,
   SettingsCard,
-  SwitchField,
 } from "../settings-dialog.shared";
 
 function formatThemeTokenLabel(token: ThemeTokenName) {

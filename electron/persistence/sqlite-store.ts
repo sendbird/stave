@@ -11,7 +11,6 @@ import path from "node:path";
 import { mkdirSync, rmSync, statfsSync } from "node:fs";
 import Database from "better-sqlite3";
 import {
-  deletePersistedWorkspaceShellArtifacts,
   hydratePersistedWorkspaceEditorTabs,
   prepareWorkspaceShellEditorTabsPersistence,
   readPersistedWorkspaceEditorTabBodies,

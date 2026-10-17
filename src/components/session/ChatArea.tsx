@@ -144,7 +144,6 @@ function ChatAreaImpl(props: ChatAreaProps) {
   const sessionAreaRef = useRef<HTMLDivElement>(null);
   const [
     repositoryPath,
-    workspaceId,
     hasHydratedWorkspaces,
     hasAnyWorkspace,
     hasSelectedWorkspace,
@@ -165,7 +164,6 @@ function ChatAreaImpl(props: ChatAreaProps) {
       const scopedTaskId = explicitTaskId ?? state.activeTaskId;
       return [
         state.repositoryPath,
-        state.activeWorkspaceId,
         state.hasHydratedWorkspaces,
         state.workspaces.length > 0,
         state.workspaces.some(

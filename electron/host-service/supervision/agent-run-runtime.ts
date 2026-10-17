@@ -134,7 +134,6 @@ import {
 } from "../../../src/lib/agent-runs/policy";
 import {
   buildAgentRunReport,
-  computeAgentRunMetrics,
   type AgentRunReport,
   type AgentRunWorkspaceState,
 } from "../../../src/lib/agent-runs/report";

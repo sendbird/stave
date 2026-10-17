@@ -1,4 +1,4 @@
-import { useTranslation, i18n } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Checkbox } from "@/components/ads/components/Checkbox";

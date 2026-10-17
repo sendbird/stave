@@ -801,8 +801,5 @@ export interface AppState
   saveActiveEditorTab: () => Promise<{ ok: boolean; conflict?: boolean }>;
   checkOpenTabConflicts: () => Promise<void>;
   sendWorkspaceFileToChat: (args: { taskId: string; filePath: string }) => void;
-  sendEditorContextToChat: (args: {
-    taskId: string;
-    instruction?: string;
-  }) => void;
+  sendEditorContextToChat: (args: { taskId: string }) => void;
 }

@@ -1334,7 +1334,7 @@ export function registerBrowserHandlers() {
         ok: true,
         annotations,
       };
-    } catch (err) {
+    } catch {
       return {
         ok: true,
         annotations: session.annotations.filter(

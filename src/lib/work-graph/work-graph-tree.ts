@@ -4,7 +4,6 @@ import {
   isTerminalWorkGraphStatus,
   type AgentNode,
   type WorkGraph,
-  type WorkGraphStatus,
 } from "./work-graph.types";
 
 /**

@@ -36,7 +36,7 @@ import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { AgentModelRoute } from "@/lib/agents/selector-choice";
 import { SelectionRail } from "@/components/system/SelectionRail";
-import { AgentRouteRow, describeAgentRoute } from "./agent-route-row";
+import { AgentRouteRow } from "./agent-route-row";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";

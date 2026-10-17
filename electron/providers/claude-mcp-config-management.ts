@@ -3,7 +3,6 @@ import { mkdir, open, readFile, rename, stat, unlink } from "node:fs/promises";
 import path from "node:path";
 import type {
   McpConfigScope,
-  McpHeaderEnvBinding,
   McpServerConfigDraft,
   McpServerConfigListRequest,
   McpServerConfigMutationApplyRequest,

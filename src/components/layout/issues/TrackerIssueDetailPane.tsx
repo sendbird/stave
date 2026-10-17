@@ -1,5 +1,5 @@
 import { formatDateTime } from "@/i18n/format";
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { Badge } from "@/components/ads/components/Badge";

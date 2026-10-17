@@ -15,7 +15,6 @@ import type {
   CodeDiffPart,
   FileContextPart,
   ImageContextPart,
-  MessagePart,
   SystemEventPart,
   TextPart,
   ThinkingPart,

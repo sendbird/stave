@@ -14,7 +14,6 @@ import { createTaskRenameAction } from "@/store/task-title-actions";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import {
   isTaskArchived,
-  isTaskManaged,
   reorderTasksWithinFilter,
 } from "@/lib/tasks";
 import type { ScriptTrigger } from "@/lib/workspace-scripts";
@@ -89,7 +88,6 @@ export function createTaskCoreActions(args: {
     messagesByTask: AppState["messagesByTask"];
     messageCountByTask: AppState["messageCountByTask"];
   }) => boolean;
-  findTaskById: (state: Pick<AppState, "tasks">, taskId: string) => Task | null;
 }): TaskCoreActions {
   const {
     set,
@@ -101,7 +99,6 @@ export function createTaskCoreActions(args: {
     incrementWorkspaceSnapshotVersion,
     incrementPromptDraftPersistenceVersion,
     shouldLoadLatestTaskMessages,
-    findTaskById,
   } = args;
 
   return {

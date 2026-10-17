@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import { Switch } from "@/components/ui";
 import { dispatchFieldStyles } from "./dispatch-runtime.styles";

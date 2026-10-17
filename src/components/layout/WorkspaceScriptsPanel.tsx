@@ -21,7 +21,6 @@ import {
   History,
   X,
   Play,
-  Plus,
   RefreshCcw,
   Settings2,
   Sparkles,
@@ -58,7 +57,6 @@ import {
   stopScriptEntry,
   useWorkspaceScriptsRuntime,
   SCRIPT_TRIGGER_METADATA,
-  WORKSPACE_TOOLS_LABEL_KEY,
   type ScriptEntryOrigin,
   type ScriptUiState,
 } from "@/lib/workspace-scripts";

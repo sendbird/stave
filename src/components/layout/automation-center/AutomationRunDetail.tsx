@@ -1,5 +1,5 @@
 import { formatAutomationTrustPolicy } from "@/lib/automation-presentation";
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Copy, ExternalLink, RotateCw } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";

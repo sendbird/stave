@@ -388,10 +388,6 @@ function formatAutoRefreshShortLabel(seconds: number) {
   return i18n.t("workspace:format.duration.minutes", { count: minutes });
 }
 
-function formatFileCount(count: number) {
-  return i18n.t("workspace:workspaceChangesPanel.fileCount", { count });
-}
-
 function formatRecentCommitCount(count: number) {
   return i18n.t("workspace:workspaceChangesPanel.valueRecentCommitvalue", { count });
 }

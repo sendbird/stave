@@ -214,7 +214,6 @@ export function resolveSkillSelections(args: {
   const matcher = new RegExp(SKILL_TOKEN_PATTERN);
 
   while ((match = matcher.exec(args.text)) !== null) {
-    const fullMatch = match[0] ?? "";
     const boundary = match[1] ?? "";
     const slug = match[2] ?? "";
     const tokenStart = match.index + boundary.length;

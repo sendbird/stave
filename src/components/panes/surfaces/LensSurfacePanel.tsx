@@ -116,7 +116,7 @@ function LensSessionSurface(args: {
   const [downloads, setDownloads] = useState<LensDownloadEntry[]>([]);
   const [lensPanelTab, setLensPanelTab] = useState<LensPanelTab>("preview");
 
-  const { annotations, setAnnotations } = useLensAnnotationSync({
+  const { setAnnotations } = useLensAnnotationSync({
     activeTaskId,
     hasLensApi,
     lensSessionId,
@@ -132,7 +132,6 @@ function LensSessionSurface(args: {
     workspaceId,
   });
   const {
-    isAnnotationModeActive,
     setIsAnnotationModeActive,
     setIsBoxInspectActive,
     toggleAnnotationMode,

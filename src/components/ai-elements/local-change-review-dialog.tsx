@@ -57,7 +57,7 @@ import {
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { localChangeReviewStyles as styles } from "./local-change-review-dialog.styles";
 import { useAppStore } from "@/store/app.store";
 import { ModelIcon } from "./model-icon";

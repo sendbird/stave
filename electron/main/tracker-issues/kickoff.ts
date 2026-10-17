@@ -21,7 +21,6 @@ import type { TrackerSourceAdapter } from "../../../src/lib/tracker-issues/sourc
 import type {
   TrackerSourceId,
   TrackerIssue,
-  TrackerIssueDetail,
   TrackerIssueKickoffArgs,
   TrackerIssueKickoffResult,
   TrackerIssueLinkState,

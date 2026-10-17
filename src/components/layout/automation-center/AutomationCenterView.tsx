@@ -69,7 +69,6 @@ import {
   AUTOMATION_RUN_FILTERS,
   buildEnvironmentOptions,
   createAutomationDraft,
-  formatDateTime,
   formatRelativeTime,
   getAutomationErrorMessage,
   isActiveRunStatus,

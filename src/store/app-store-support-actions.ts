@@ -453,7 +453,7 @@ export function createSupportActions(args: {
       if (!root) {
         return;
       }
-      set((state) => ({
+      set(() => ({
         repositoryName: root.rootName,
         repositoryFiles: root.files,
       }));

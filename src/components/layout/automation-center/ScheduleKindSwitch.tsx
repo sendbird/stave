@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
 import type { ScheduleKind } from "@/lib/schedule-rows";
 

@@ -948,7 +948,7 @@ export function createEditorActions(args: {
         workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(nextState),
       }));
     },
-    sendEditorContextToChat: ({ taskId, instruction }) => {
+    sendEditorContextToChat: ({ taskId }) => {
       const state = get();
       const tabId = state.activeEditorTabId;
       const activeTab = state.editorTabs.find((tab) => tab.id === tabId);

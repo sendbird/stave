@@ -1,4 +1,3 @@
-import { useLayoutEffect } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";

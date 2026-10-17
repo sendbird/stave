@@ -125,9 +125,7 @@ export function collectCodexMcpEnvVarNames(toml: string) {
   const names = new Set<string>();
   const sectionPattern =
     /^\s*\[mcp_servers\.(?:"([^"]+)"|'([^']+)'|([^\]"']+))\]\s*$/gm;
-  let match: RegExpExecArray | null;
-
-  while ((match = sectionPattern.exec(toml))) {
+  while (sectionPattern.exec(toml) !== null) {
     const sectionStart = sectionPattern.lastIndex;
     const nextSection = /^\s*\[/m.exec(toml.slice(sectionStart));
     const sectionEnd = nextSection
