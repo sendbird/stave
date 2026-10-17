@@ -1,4 +1,5 @@
-import { useTranslation } from "@/i18n";
+import { i18n, useTranslation } from "@/i18n";
+import { WandSparkles } from "lucide-react";
 import {
   type CSSProperties,
   type RefObject,
@@ -6,9 +7,18 @@ import {
   useRef,
   useState,
 } from "react";
+import {
+  Button,
+  Loader,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
+import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { sx, cx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
+import { PROMPT_TOOLBAR_ICON_BUTTON } from "./prompt-input-toolbar-parts";
 import {
   getPromptEnhancementRevealSegments,
   getPromptEnhancementRevealTimings,
@@ -160,6 +170,120 @@ export function PromptEnhancementRevealOverlay(args: {
           <span key={index}>{segment.text}</span>
         ),
       )}
+    </div>
+  );
+}
+
+/**
+ * The Enhance prompt button over the editor's top-right corner. While an
+ * enhancement runs or its reveal plays, it widens into a labelled busy chip
+ * and announces the state to screen readers.
+ */
+export function PromptEnhancementControl(args: {
+  promptEnhancementState: "enhancing" | "applying" | "idle";
+  promptEnhancementBusy: boolean;
+  promptEnhancementPending: boolean;
+  promptEnhancementRevealing: boolean;
+  promptEnhancementLabel: string;
+  minimal: boolean;
+  interactionsDisabled: boolean;
+  onEnhancePrompt?: () => void | Promise<void>;
+}) {
+  useTranslation();
+  const {
+    promptEnhancementState,
+    promptEnhancementBusy,
+    promptEnhancementPending,
+    promptEnhancementRevealing,
+    promptEnhancementLabel,
+    minimal,
+    interactionsDisabled,
+    onEnhancePrompt,
+  } = args;
+  return (
+    <div
+      data-prompt-enhancement-state={promptEnhancementState}
+      className={cx(
+        sx(promptInputStyles.enhanceOverlay),
+        UI_LAYER_CLASS.floatingChrome,
+        promptEnhancementBusy
+          ? sx(
+              minimal
+                ? promptInputStyles.enhanceGradientMinimal
+                : promptInputStyles.enhanceGradientDefault,
+            )
+          : undefined,
+      )}
+    >
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              type="button"
+              variant="ghost"
+              size={promptEnhancementBusy ? "sm" : "icon-sm"}
+              disabled={
+                interactionsDisabled || promptEnhancementBusy
+              }
+              aria-label={promptEnhancementLabel}
+              aria-busy={promptEnhancementBusy}
+              onClick={() => void onEnhancePrompt?.()}
+              className={cx(
+                PROMPT_TOOLBAR_ICON_BUTTON,
+                sx(
+                  promptInputStyles.enhanceButtonBase,
+                  promptEnhancementBusy
+                    ? minimal
+                      ? promptInputStyles.enhanceBusyMinimal
+                      : promptInputStyles.enhanceBusyDefault
+                    : promptInputStyles.enhanceIdle,
+                ),
+              )}
+            />
+          }
+        >
+          {promptEnhancementPending ? (
+            <Loader
+              aria-hidden
+              className={sx(promptInputStyles.loaderPrimary)}
+              size="xs"
+              variant="orbit"
+            />
+          ) : (
+            <WandSparkles
+              aria-hidden="true"
+              className={sx(
+                promptInputStyles.icon35Shrink,
+                promptEnhancementRevealing &&
+                  promptInputStyles.pulseAnimation,
+              )}
+            />
+          )}
+          {promptEnhancementBusy ? (
+            <span aria-hidden="true">
+              {promptEnhancementPending
+                ? i18n.t("composer:promptInput.composerCard2")
+                : i18n.t("composer:promptInput.composerCard3")}
+            </span>
+          ) : null}
+        </TooltipTrigger>
+        <TooltipContent side="top" className={sx(promptInputStyles.maxW64)}>
+          {promptEnhancementBusy
+            ? promptEnhancementLabel
+            : i18n.t("composer:promptInput.composerCard4")}
+        </TooltipContent>
+      </Tooltip>
+      {promptEnhancementBusy ? (
+        <span
+          className={sx(promptInputStyles.srOnly)}
+          role="status"
+          aria-live="polite"
+        >
+          {promptEnhancementPending
+            ? i18n.t("composer:promptInput.composerCard5")
+            : i18n.t("composer:promptInput.composerCard6")}
+        </span>
+      ) : null}
     </div>
   );
 }

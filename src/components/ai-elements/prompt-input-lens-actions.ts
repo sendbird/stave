@@ -214,3 +214,7 @@ export function usePromptInputLensAnnotationActions(args: {
     applyLensAnnotationStyle,
   };
 }
+
+export type PromptInputLensAnnotationActions = ReturnType<
+  typeof usePromptInputLensAnnotationActions
+>;
