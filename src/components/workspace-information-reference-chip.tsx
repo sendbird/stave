@@ -1,13 +1,11 @@
 import { useTranslation } from "@/i18n";
-import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { Info, X } from "lucide-react";
+import { Info } from "lucide-react";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
+  ContextChip,
+  ContextChipRemoveButton,
+  contextChipStyles,
 } from "@/components/ui";
 import {
   getWorkspaceInformationReferenceLabel,
@@ -24,48 +22,21 @@ export function WorkspaceInformationReferenceChip(args: {
   const label = getWorkspaceInformationReferenceLabel(args.reference);
   const scopeLabel = args.reference.scope === "section" ? tI18n("workspace:workspaceInformationReferenceChip.section") : tI18n("workspace:workspaceInformationReferenceChip.item");
   return (
-    <span
-      className={sx(styles.root, args.compact && styles.compact)}
-    >
-      <Info className={sx(styles.icon)} />
-      <span className={sx(styles.label)} title={label}>
-        <span className={sx(styles.prefix)}>{tI18n("workspace:workspaceInformationReferenceChip.information")}</span>
-        <span className={sx(styles.scope)}> / {scopeLabel} / </span>
+    <ContextChip icon={Info} compact={args.compact}>
+      <span className={sx(contextChipStyles.label)} title={label}>
+        <span className={sx(contextChipStyles.prefix)}>{tI18n("workspace:workspaceInformationReferenceChip.information")}</span>
+        <span className={sx(contextChipStyles.muted)}> / {scopeLabel} / </span>
         <span>{label}</span>
       </span>
       {args.onRemove ? (
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                disabled={args.disabled}
-                aria-label={tI18n("workspace:workspaceInformationReferenceChip.removeValue", { label: label })}
-                onClick={args.onRemove}
-                className={sx(styles.remove)}
-              />
-            }
-          >
-            <X className={sx(styles.removeIcon)} />
-          </TooltipTrigger>
-          <TooltipContent>{tI18n("workspace:workspaceInformationReferenceChip.removeInformationReference")}</TooltipContent>
+        <Tooltip content={tI18n("workspace:workspaceInformationReferenceChip.removeInformationReference")}>
+          <ContextChipRemoveButton
+            disabled={args.disabled}
+            label={tI18n("workspace:workspaceInformationReferenceChip.removeValue", { label: label })}
+            onClick={args.onRemove}
+          />
         </Tooltip>
       ) : null}
-    </span>
+    </ContextChip>
   );
 }
-
-const styles = stylex.create({
-root:{display:"inline-flex",maxWidth:"100%",alignItems:"center",gap:6,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],backgroundColor:vars["--ads-color-accent-soft"],paddingInline:8,paddingBlock:4,fontSize: vars["--ads-font-size-body"],color:vars["--ads-color-text"]},
-compact:{paddingInline:6,paddingBlock:2,fontSize: vars["--ads-font-size-caption"]},
-icon: {width:14,height:14,flexShrink:0},
-label: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
-prefix: {fontWeight:500},
-scope: {color:vars["--ads-color-text-muted"]},
-// The 28px canonical xs square keeps its hit area; the negative block margin
-// lets it sit on the chip's 20px line without growing the chip.
-remove: {marginRight:-4,marginBlock:`calc((20px - ${vars["--ads-control-height-xs"]}) / 2)`,color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]}},
-removeIcon: {width:12,height:12}
-});

@@ -122,6 +122,9 @@ import {
  * Claude effort setting, as the real composer always does; `&theme=light`
  * starts in light mode, and `&theme=<built-in theme id>` renders under that
  * theme.
+ * `&attachments=all` attaches one Information item, one task and one document,
+ * so the three context chips render side by side; `&partial=1` attaches a task
+ * whose reply is still streaming.
  * `&childRequest=question|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
  * `&secretRequest=new|existing|enter|full` shows an agent's secret request card
@@ -281,6 +284,19 @@ export function ComposerFramePreviewApp() {
   }, []);
   useLayoutEffect(() => {
     seedShelfCase({ caseId, placement, detailsOpen: previewParams.get("open") === "1" });
+    if (previewParams.get("attachments") === "all") {
+      // One chip of each context kind, so the shared chip shape can be compared.
+      const document = buildDocumentMentionOptions({ entries: PREVIEW_DOCUMENT_CATALOG, attachments: [] })[1]!;
+      setAttachments([
+        {
+          kind: "workspace-information",
+          id: "preview-information",
+          reference: { section: "notes", scope: "item", itemId: "retry", label: "Retry policy decision", token: "@info:notes/retry" },
+        },
+        createTaskContextAttachment(PREVIEW_TASK_MENTIONS[0]!),
+        createDocumentContextAttachment(document),
+      ]);
+    }
     if (previewParams.get("partial") === "1") {
       const task = PREVIEW_TASK_MENTIONS[0]!;
       const attachment = createTaskContextAttachment(task);

@@ -1,9 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
-import { MessagesSquare, X } from "lucide-react";
+import { MessagesSquare } from "lucide-react";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { Button } from "@/components/ui";
+import {
+  Button,
+  ContextChip,
+  ContextChipRemoveButton,
+  contextChipStyles,
+} from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { useTranslation, type I18nKey } from "@/i18n";
 import { TASK_CONTEXT_SCOPE_LABEL_KEYS } from "@/lib/task-context/attached-task-context";
@@ -44,14 +49,13 @@ export function TaskContextChip(args: {
   const scopeHelp = t(SCOPE_HELP_KEYS[args.scope]);
   const label = (
     <>
-      <span className={sx(styles.prefix)}>{t("taskContext.chip.prefix")}</span>
-      <span className={sx(styles.muted)}> / </span>
+      <span className={sx(contextChipStyles.prefix)}>{t("taskContext.chip.prefix")}</span>
+      <span className={sx(contextChipStyles.muted)}> / </span>
       <span>{args.title}</span>
     </>
   );
   return (
-    <span className={sx(styles.root, args.compact && styles.compact)} data-task-context-chip="">
-      <MessagesSquare aria-hidden className={sx(styles.icon)} />
+    <ContextChip icon={MessagesSquare} compact={args.compact} data-task-context-chip="">
       {args.onOpen ? (
         <Button
           type="button"
@@ -60,12 +64,12 @@ export function TaskContextChip(args: {
           aria-label={t("taskContext.chip.openAriaLabel", { title: args.title })}
           title={t("taskContext.chip.openTitle", { title: args.title })}
           onClick={args.onOpen}
-          className={sx(styles.label, styles.openButton, transition.colors)}
+          xstyle={[contextChipStyles.label, styles.label, contextChipStyles.openButton, transition.colors]}
         >
           {label}
         </Button>
       ) : (
-        <span className={sx(styles.label)} title={args.title}>
+        <span className={sx(contextChipStyles.label, styles.label)} title={args.title}>
           {label}
         </span>
       )}
@@ -82,88 +86,39 @@ export function TaskContextChip(args: {
           })}
           title={scopeHelp}
           onClick={() => args.onScopeChange?.(NEXT_SCOPE[args.scope])}
-          className={sx(styles.scopeButton, transition.colors)}
+          xstyle={[styles.scopeButton, transition.colors]}
         >
           {scopeLabel}
         </Button>
       ) : (
-        <span className={sx(styles.muted)}>{` · ${scopeLabel}`}</span>
+        <span className={sx(contextChipStyles.muted)}>{` · ${scopeLabel}`}</span>
       )}
       {args.partialReply ? (
-        <span className={sx(styles.muted)} title={t("taskContext.chip.partialReplyHint")}>
+        <span className={sx(contextChipStyles.muted)} title={t("taskContext.chip.partialReplyHint")}>
           {` · ${t("taskContext.chip.partialReply")}`}
         </span>
       ) : null}
       {args.onRemove ? (
         <Tooltip content={t("taskContext.chip.removeTitle")}>
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
+          <ContextChipRemoveButton
             disabled={args.disabled}
-            aria-label={t("taskContext.chip.removeAriaLabel", { title: args.title })}
+            label={t("taskContext.chip.removeAriaLabel", { title: args.title })}
             onClick={args.onRemove}
-            className={sx(styles.remove, transition.colors)}
-          >
-            <X aria-hidden className={sx(styles.removeIcon)} />
-          </Button>
+          />
         </Tooltip>
       ) : null}
-    </span>
+    </ContextChip>
   );
 }
 
 const styles = stylex.create({
-  root: {
-    display: "inline-flex",
-    maxWidth: "100%",
-    alignItems: "center",
-    gap: 6,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-accent-soft"],
-    paddingInline: 8,
-    paddingBlock: 4,
-    fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text"],
-  },
-  compact: { paddingInline: 6, paddingBlock: 2, fontSize: vars["--ads-font-size-caption"] },
-  icon: { width: 14, height: 14, flexShrink: 0 },
-  label: {
-    minWidth: 0,
-    maxWidth: "18rem",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  openButton: {
-    height: 20,
-    paddingInline: 2,
-    marginInline: -2,
-    justifyContent: "flex-start",
-    color: vars["--ads-color-text"],
-    fontSize: "inherit",
-    fontWeight: "inherit",
-    textDecorationLine: { default: "none", ":hover": "underline" },
-  },
-  prefix: { fontWeight: 500 },
-  muted: { color: vars["--ads-color-text-muted"], whiteSpace: "nowrap" },
+  label: { maxWidth: "18rem" },
   scopeButton: {
     flexShrink: 0,
-    height: 20,
-    paddingInline: 4,
+    height: vars["--ads-line-height-control"],
+    paddingInline: vars["--ads-space-4"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     fontSize: vars["--ads-font-size-caption"],
     whiteSpace: "nowrap",
   },
-  remove: {
-    marginRight: -4,
-    // The 28px canonical xs square keeps its hit area; the negative block
-    // margin lets it sit on the chip's 20px line without growing the chip.
-    marginBlock: `calc((20px - ${vars["--ads-control-height-xs"]}) / 2)`,
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-  },
-  removeIcon: { width: 12, height: 12 },
 });
