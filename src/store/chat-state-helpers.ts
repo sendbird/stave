@@ -2,7 +2,6 @@ import { questionReplyPresentation, type QuestionReply } from "@/lib/question-re
 import { i18n } from "@/i18n/runtime";
 import { createTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { sanitizeFileContextPayload } from "@/lib/file-context-sanitization";
-import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
@@ -118,111 +117,6 @@ export function createFileContextPart(args: {
     language: args.language,
     instruction: args.instruction,
   });
-}
-
-export function buildLocalCommandResponseState(args: {
-  tasks: Task[];
-  messagesByTask: Record<string, ChatMessage[]>;
-  messageCountByTask: Record<string, number>;
-  activeTurnIdsByTask: Record<string, string | undefined>;
-  nativeSessionReadyByTask: Record<string, boolean>;
-  providerSessionByTask: Record<string, TaskProviderSessionState>;
-  taskWorkspaceIdById: Record<string, string>;
-  workspaceSnapshotVersion: number;
-  taskId: string;
-  taskWorkspaceId: string;
-  provider: ProviderId;
-  activeModel: string;
-  content: string;
-  responseText: string;
-  shouldClearProviderSession: boolean;
-}) {
-  const current = args.messagesByTask[args.taskId] ?? [];
-  // Message IDs are positional over the FULL history; `current` may be a trimmed
-  // tail window, so anchor new IDs to the durable total (`messageCountByTask`) to
-  // avoid colliding with unloaded older rows on the additive-upsert persist path.
-  const baseMessageCount = Math.max(
-    current.length,
-    args.messageCountByTask[args.taskId] ?? 0,
-  );
-  const userMessageId = buildMessageId({
-    taskId: args.taskId,
-    count: baseMessageCount,
-  });
-  const assistantMessageId = buildMessageId({
-    taskId: args.taskId,
-    count: baseMessageCount + 1,
-  });
-  const timestamp = buildRecentTimestamp();
-
-  const userMessage: ChatMessage = {
-    id: userMessageId,
-    role: "user",
-    model: "user",
-    providerId: "user",
-    content: args.content,
-    startedAt: timestamp,
-    parts: [createUserTextPart({ text: args.content })],
-  };
-
-  const assistantMessage: ChatMessage = {
-    id: assistantMessageId,
-    role: "assistant",
-    model: args.activeModel,
-    providerId: args.provider,
-    content: args.responseText,
-    startedAt: timestamp,
-    completedAt: timestamp,
-    isStreaming: false,
-    parts: args.responseText
-      ? [createUserTextPart({ text: args.responseText })]
-      : [],
-  };
-  const nextMessages = args.shouldClearProviderSession
-    ? [userMessage, assistantMessage]
-    : [...current, userMessage, assistantMessage];
-
-  return {
-    tasks: args.tasks.map((taskItem) =>
-      taskItem.id === args.taskId
-        ? { ...taskItem, archivedAt: null, updatedAt: buildRecentTimestamp() }
-        : taskItem,
-    ),
-    messagesByTask: {
-      ...args.messagesByTask,
-      [args.taskId]: nextMessages,
-    },
-    messageCountByTask: {
-      ...args.messageCountByTask,
-      [args.taskId]: Math.max(
-        nextMessages.length,
-        (args.messageCountByTask[args.taskId] ?? current.length) +
-          (nextMessages.length - current.length),
-      ),
-    },
-    activeTurnIdsByTask: {
-      ...args.activeTurnIdsByTask,
-      [args.taskId]: undefined,
-    },
-    nativeSessionReadyByTask: args.shouldClearProviderSession
-      ? {
-          ...args.nativeSessionReadyByTask,
-          [args.taskId]: false,
-        }
-      : args.nativeSessionReadyByTask,
-    providerSessionByTask: args.shouldClearProviderSession
-      ? Object.fromEntries(
-          Object.entries(args.providerSessionByTask).filter(
-            ([key]) => key !== args.taskId,
-          ),
-        )
-      : args.providerSessionByTask,
-    taskWorkspaceIdById: {
-      ...args.taskWorkspaceIdById,
-      [args.taskId]: args.taskWorkspaceId,
-    },
-    workspaceSnapshotVersion: args.workspaceSnapshotVersion + 1,
-  };
 }
 
 /**

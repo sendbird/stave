@@ -381,10 +381,6 @@ export const AgentConfigListSchema = z
     });
   });
 
-export function parseAgentConfig(input: unknown) {
-  return AgentConfigSchema.safeParse(input);
-}
-
 export function isUsableAs(agent: AgentConfig, role: AgentRole) {
   return agent.usableAs.includes(role);
 }

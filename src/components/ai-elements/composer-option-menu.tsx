@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { optionStyles } from "./composer-option.styles";
 import { styles as selectStyles } from "../ads/recipes/select-styles";
 import { sx } from "../ads/utils/stylex";
@@ -6,9 +6,6 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { ReactNode } from "react";
 import { Check, Info, TriangleAlert } from "lucide-react";
 
-import { Switch } from "@/components/ui";
-import { ChoiceChips } from "@/components/system/ChoiceChips";
-import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 import { cx } from "../ads/utils/stylex";
 
 /**
@@ -27,36 +24,6 @@ export const COMPOSER_OPTION_MENU_CONTENT = optionStyles.menu;
 
 /** Every option list scrolls at the same height. */
 const COMPOSER_OPTION_LIST = sx(optionStyles.list);
-
-export function ComposerOptionMenuToggle(props: {
-  id: string;
-  title: string;
-  description: ReactNode;
-  checked: boolean;
-  onCheckedChange: (checked: boolean) => void;
-  testId?: string;
-}) {
-  useTranslation();
-  return (
-    <div className={sx(optionStyles.toggle)}>
-      <label
-        htmlFor={props.id}
-        className={sx(optionStyles.label)}
-      >
-        <span className={sx(optionStyles.title)}>{props.title}</span>
-        <span className={sx(optionStyles.detail)}>
-          {props.description}
-        </span>
-      </label>
-      <Switch
-        id={props.id}
-        checked={props.checked}
-        onCheckedChange={props.onCheckedChange}
-        data-testid={props.testId}
-      />
-    </div>
-  );
-}
 
 export function ComposerOptionMenuSection(props: {
   title: string;
@@ -238,31 +205,6 @@ export function ComposerOptionModelRow(props: {
   );
 }
 
-export interface ComposerEffortOption<TValue> {
-  value: TValue;
-  label: string;
-  title?: string;
-}
-
-/** The effort row: equal-width chips, because they are one ordered scale. */
-export function ComposerOptionEffortChips<TValue>(props: {
-  options: readonly ComposerEffortOption<TValue>[];
-  selected: TValue;
-  onSelect: (value: TValue) => void;
-  testId?: (value: TValue) => string;
-}) {
-  useTranslation();
-  return (
-    <ChoiceChips
-      label={i18n.t("composer:composerOptionMenu.label")}
-      options={props.options}
-      value={props.selected}
-      onValueChange={props.onSelect}
-      testId={props.testId}
-    />
-  );
-}
-
 /** Explanatory line under a section. */
 export function ComposerOptionMenuHint(props: {
   children: ReactNode;
@@ -297,33 +239,5 @@ export function ComposerOptionMenuCallout(props: {
       <Icon className={sx(optionStyles.calloutIcon)} />
       <span className={sx(optionStyles.calloutBody)}>{props.children}</span>
     </p>
-  );
-}
-
-/**
- * The last line of every one of these menus: the per-task control ends here,
- * and the durable defaults live in Settings.
- */
-export function ComposerOptionMenuSettingsLink(props: {
-  children: ReactNode;
-  section: string;
-  testId?: string;
-}) {
-  useTranslation();
-  return (
-    <AdsButton layout="host"
-      type="button"
-      data-testid={props.testId}
-      xstyle={optionStyles.settingsLink}
-      onClick={() => {
-        window.dispatchEvent(
-          new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-            detail: { section: props.section },
-          }),
-        );
-      }}
-    >
-      {props.children}
-    </AdsButton>
   );
 }

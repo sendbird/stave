@@ -800,10 +800,6 @@ export async function closeWorkspacePersistence(args: {
   });
 }
 
-export async function loadRepositoryRegistrySnapshot(): Promise<unknown[]> {
-  return (await loadRepositoryRegistryState()).repositories;
-}
-
 export async function loadRepositoryRegistryState(): Promise<{ repositories: unknown[]; activeRepositoryPath?: string | null }> {
   const persistence = getPersistenceApi();
   if (!persistence?.loadRepositoryRegistry) {

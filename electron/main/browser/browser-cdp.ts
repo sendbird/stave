@@ -32,15 +32,6 @@ export function ensureDebuggerAttached(webContentsId: number): void {
   ensureCdpAttached(webContentsId);
 }
 
-/** Detach the debugger if attached. Safe to call multiple times. */
-export function detachDebugger(webContentsId: number): void {
-  try {
-    detachCdpController(webContentsId);
-  } catch {
-    // Already destroyed – nothing to do
-  }
-}
-
 async function sendCommand(
   webContentsId: number,
   method: string,

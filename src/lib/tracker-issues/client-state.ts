@@ -15,7 +15,6 @@ import {
   type TrackerIssuesClientSnapshot,
 } from "@/lib/tracker-issues/client-store";
 import {
-  TRACKER_SOURCE_IDS,
   type TrackerSourceId,
   type TrackerIssueAttachStaveTaskArgs,
   type TrackerIssueDetail,
@@ -71,23 +70,6 @@ export function useTrackerSourceStatuses() {
     () => getTrackerIssuesClientSnapshot().syncBySource,
     [],
   );
-  return useSyncExternalStore(subscribeTrackerIssuesClient, read, read);
-}
-
-/**
- * Whether any source can actually produce rows right now.
- *
- * A boolean, not the status record: the top bar mounts for the whole session
- * and must not re-render on every cache push just to decide whether to show an
- * icon.
- */
-export function useTrackerIssuesHasReadySource(): boolean {
-  const read = useCallback(() => {
-    const { syncBySource } = getTrackerIssuesClientSnapshot();
-    return TRACKER_SOURCE_IDS.some(
-      (source) => syncBySource[source]?.availability === "ready",
-    );
-  }, []);
   return useSyncExternalStore(subscribeTrackerIssuesClient, read, read);
 }
 

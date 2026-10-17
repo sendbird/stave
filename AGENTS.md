@@ -117,7 +117,6 @@ Any UI, layout, or visual change must verify the theme system. Required check fi
 - `src/lib/themes/apply.ts`
 - `src/lib/themes/validate.ts`
 - `src/lib/themes/index.ts`
-- `src/store/theme.utils.ts`
 - `tests/custom-theme.test.ts`
 
 Rules:

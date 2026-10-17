@@ -1359,14 +1359,6 @@ export function getWebContentsForSession(
   }
 }
 
-/** Get the webContentsId for CDP operations (backwards compat with browser-cdp). */
-export function getWebContentsIdForSession(
-  workspaceId: string,
-  lensSessionId?: string,
-): number | undefined {
-  return getWebContentsForSession(workspaceId, lensSessionId)?.id;
-}
-
 export function getSessionIdentityForWebContentsId(
   webContentsId: number,
 ): { workspaceId: string; lensSessionId: string } | undefined {

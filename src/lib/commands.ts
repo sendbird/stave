@@ -187,15 +187,6 @@ export function getActiveSlashCommandTokenMatch(args: {
   };
 }
 
-export function getSlashCommandSearchQuery(input: string) {
-  return (
-    getActiveSlashCommandTokenMatch({
-      value: input,
-      caretIndex: input.length,
-    })?.token ?? null
-  );
-}
-
 export function replaceSlashCommandToken(args: {
   value: string;
   match: SlashCommandTokenMatch;

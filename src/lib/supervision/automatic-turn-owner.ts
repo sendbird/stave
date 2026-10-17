@@ -44,9 +44,6 @@ export const AGENT_RUN_ACTIVE_WAKE_UP_DETAIL =
   "A run is running on this task. This schedule resumes when the run ends.";
 
 // i18n-ignore: canonical exported lifecycle message used by persistence
-export const AGENT_RUN_ACTIVE_WAKE_UP_REFUSAL = "This task has an active run, which starts its turns. Add a schedule after the run ends.";
-
-// i18n-ignore: canonical exported lifecycle message used by persistence
 export const SECOND_AGENT_RUN_REFUSAL = "This task already has an active run. Cancel it or wait for it to end before starting another.";
 
 /** The sentence a wake-up create, update or resume is refused with, if any. */

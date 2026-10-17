@@ -96,12 +96,4 @@ export const agentPreviewStyles = stylex.create({
     color: vars["--ads-color-text"],
     fontVariantNumeric: "tabular-nums",
   },
-  columns: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-24"],
-    "@media (min-width: 64rem)": {
-      flexDirection: "row",
-    },
-  },
 });

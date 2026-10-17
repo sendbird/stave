@@ -1313,9 +1313,3 @@ export interface ProviderEventSource<TRawEvent> {
     args: ProviderTurnRequest,
   ) => AsyncGenerator<TRawEvent, void, unknown>;
 }
-
-export interface ProviderEventNormalizer<TRawEvent> {
-  normalize: (args: {
-    event: TRawEvent;
-  }) => NormalizedProviderEvent | NormalizedProviderEvent[];
-}

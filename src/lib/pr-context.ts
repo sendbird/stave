@@ -195,14 +195,6 @@ export const PrReviewThreadSchema = z
   .strict();
 export type PrReviewThread = z.infer<typeof PrReviewThreadSchema>;
 
-export const PR_CHECK_FAILURE_CONCLUSIONS = [
-  "failure",
-  "cancelled",
-  "timed_out",
-  "action_required",
-  "stale",
-] as const;
-
 export const PrCheckFailureSchema = z
   .object({
     /** GitHub check-run database id. Stable, and the only id the log fetch takes. */

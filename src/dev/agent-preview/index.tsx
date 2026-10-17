@@ -1,9 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  AgentStyleProvider,
-  type AgentStyle,
-} from "@/components/ai-elements/agent-style-context";
-import type { ReasoningTextVariant } from "@/components/ai-elements/reasoning-text";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -17,26 +12,13 @@ import {
 } from "./fixtures";
 
 /**
- * Dev-only side-by-side comparison of the legacy and current agent trace
- * rendering. Mounted from `src/main.tsx` instead of `<App />` when
+ * Dev-only preview of the agent trace rendering. Mounted from `src/main.tsx` instead of `<App />` when
  * `?stavePreview=agent-messages` is present, so none of App's workspace
  * bootstrap effects run.
  */
 
-const STYLES: { style: AgentStyle; title: string; note: string }[] = [
-  {
-    style: "legacy",
-    title: "Legacy",
-    note: "Brain icon · fade rows · uncapped viewport",
-  },
-  {
-    style: "beui",
-    title: "Current",
-    note: "Thinking orb · spring rows · capped glide",
-  },
-];
-
-const PHRASE_VARIANTS: ReasoningTextVariant[] = ["cascade", "swap", "scramble"];
+const PREVIEW_TITLE = "Current";
+const PREVIEW_NOTE = "Thinking orb · spring rows · capped glide";
 
 function Toggle({
   label,
@@ -60,36 +42,26 @@ function Toggle({
 }
 
 function PreviewColumn({
-  style,
-  title,
-  note,
   message,
   fontSize,
-  phraseVariant,
 }: {
-  style: AgentStyle;
-  title: string;
-  note: string;
   message: PreviewMessage;
   fontSize: number;
-  phraseVariant: ReasoningTextVariant;
 }) {
   return (
     <section className={sx(a.column)}>
       <header className={sx(a.columnHeader)}>
-        <h2 className={sx(a.columnTitle)}>{title}</h2>
-        <p className={sx(a.columnNote)}>{note}</p>
+        <h2 className={sx(a.columnTitle)}>{PREVIEW_TITLE}</h2>
+        <p className={sx(a.columnNote)}>{PREVIEW_NOTE}</p>
       </header>
       <div className={sx(a.columnBody)} style={{ fontSize: `${fontSize}px` }}>
-        <AgentStyleProvider style={style} phraseVariant={phraseVariant}>
-          <AssistantMessageBody
-            message={message}
-            taskId="preview-task"
-            messageId={`preview-message-${style}`}
-            streamingEnabled
-            traceExpansionMode="auto"
-          />
-        </AgentStyleProvider>
+        <AssistantMessageBody
+          message={message}
+          taskId="preview-task"
+          messageId="preview-message"
+          streamingEnabled
+          traceExpansionMode="auto"
+        />
       </div>
     </section>
   );
@@ -99,8 +71,6 @@ export function AgentPreviewApp() {
   const [streaming, setStreaming] = useState(true);
   const [dark, setDark] = useState(true);
   const [fontSize, setFontSize] = useState(18);
-  const [phraseVariant, setPhraseVariant] =
-    useState<ReasoningTextVariant>("cascade");
 
   useEffect(() => {
     applyThemeClass({ enabled: dark });
@@ -143,31 +113,9 @@ export function AgentPreviewApp() {
             />
             <span className={sx(a.fontValue)}>{fontSize}px</span>
           </label>
-          <div className={sx(a.toggleGroup)}>
-            {PHRASE_VARIANTS.map((variant) => (
-              <Toggle
-                key={variant}
-                label={variant}
-                active={phraseVariant === variant}
-                onClick={() => setPhraseVariant(variant)}
-              />
-            ))}
-          </div>
         </div>
 
-        <div className={sx(a.columns)}>
-          {STYLES.map((entry) => (
-            <PreviewColumn
-              key={entry.style}
-              style={entry.style}
-              title={entry.title}
-              note={entry.note}
-              message={message}
-              fontSize={fontSize}
-              phraseVariant={phraseVariant}
-            />
-          ))}
-        </div>
+        <PreviewColumn message={message} fontSize={fontSize} />
       </div>
     </div>
   );

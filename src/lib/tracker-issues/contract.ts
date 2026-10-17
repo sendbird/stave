@@ -49,9 +49,6 @@ export const CRANE_TASKS_LIMITS = Object.freeze({
 const CRANE_TASK_STATUSES = TRACKER_STATUS_CATEGORIES;
 const CRANE_TASK_PRIORITIES = TRACKER_PRIORITY_LEVELS;
 
-/** Fixed relative-effort scale Crane exposes. */
-export const CRANE_TASK_ESTIMATES = [1, 2, 3, 5, 8] as const;
-
 /** `TrackerIssueSubtasksSchema`'s bound, which the mapper clamps into. */
 const MAX_MODEL_SUBTASKS = 10_000;
 

@@ -72,10 +72,6 @@ export function registerPaneHostController(controller: PaneHostController) {
   };
 }
 
-export function getPaneHostController(): PaneHostController | null {
-  return activeController;
-}
-
 export const paneHost = {
   /**
    * Returns true only when the surface is actually on screen. A queued open

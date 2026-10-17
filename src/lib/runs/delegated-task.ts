@@ -498,10 +498,8 @@ export type DelegatedTaskActionResponse = z.infer<
   typeof DelegatedTaskActionResponseSchema
 >;
 
-export const DelegatedTaskDelegateResponseSchema = DelegatedTaskActionResponseSchema;
 export type DelegatedTaskDelegateResponse = DelegatedTaskActionResponse;
 
-export const DelegatedTaskStopResponseSchema = DelegatedTaskActionResponseSchema;
 export type DelegatedTaskStopResponse = DelegatedTaskActionResponse;
 
 export const DelegatedTaskListSchema = z.array(DelegatedTaskSummarySchema);

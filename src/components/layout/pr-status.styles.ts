@@ -1,8 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
-import { sx } from "@/components/ads/utils/stylex";
-import type { PrStatusTone } from "@/lib/pr-status";
 
 /**
  * `src/lib/pr-status.ts` publishes a semantic tone and nothing else. This module
@@ -80,22 +78,3 @@ export const prCreateButtonStyles = stylex.create({
     color: gitOpenInk,
   },
 });
-
-/** Class-string forms for call sites that merge into a plain `className`. */
-export const PR_TONE_ICON_CLASS: Record<PrStatusTone, string> = {
-  neutral: sx(prToneIconStyles.neutral),
-  open: sx(prToneIconStyles.open),
-  attention: sx(prToneIconStyles.attention),
-  danger: sx(prToneIconStyles.danger),
-  done: sx(prToneIconStyles.done),
-  closed: sx(prToneIconStyles.closed),
-};
-
-export const PR_TONE_BADGE_CLASS: Record<PrStatusTone, string> = {
-  neutral: sx(prToneBadgeStyles.neutral),
-  open: sx(prToneBadgeStyles.open),
-  attention: sx(prToneBadgeStyles.attention),
-  danger: sx(prToneBadgeStyles.danger),
-  done: sx(prToneBadgeStyles.done),
-  closed: sx(prToneBadgeStyles.closed),
-};

@@ -165,9 +165,3 @@ export function restorePersistedWorkflows(input: { workflows: unknown; unreadabl
   });
   return { workflows: result.workflows, unreadable, diagnostics: result.diagnostics };
 }
-
-export function warnWorkflowDiagnostics(diagnostics: WorkflowDiagnostic[]) {
-  if (diagnostics.length > 0) {
-    console.warn("[workflows] adjusted saved workflows", diagnostics);
-  }
-}

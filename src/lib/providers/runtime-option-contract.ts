@@ -19,11 +19,6 @@ export const PROVIDER_TIMEOUT_OPTIONS = [
 ] as const;
 export const DEFAULT_PROVIDER_TIMEOUT_MS = 43200000;
 
-export const BOOLEAN_TOGGLE_OPTIONS = [
-  { value: "on", get label() { return i18n.t("common:status.on"); } },
-  { value: "off", get label() { return i18n.t("common:status.off"); } },
-] as const satisfies readonly SelectOption<"on" | "off">[];
-
 export const CLAUDE_PERMISSION_MODE_OPTIONS = [
   { value: "default", label: "default" },
   { value: "acceptEdits", label: "acceptEdits" },
@@ -89,28 +84,6 @@ export const CODEX_EFFORT_OPTIONS = [
   NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>
 >[];
 
-// Verified against `agent 2026.08.25-3e8eec8`: these map to CLI flags on
-// `agent acp`. The flags are absent from `agent acp --help` but are accepted,
-// and `--force` was confirmed to suppress every `session/request_permission`.
-export const CURSOR_APPROVAL_MODE_OPTIONS = [
-  { value: "manual", get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); } },
-  { value: "guided", get label() { return i18n.t("providers:providerModePresets.guided"); } },
-  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
-] as const satisfies readonly SelectOption<
-  NonNullable<ProviderRuntimeOptions["cursorApprovalMode"]>
->[];
-
-// Verified against `kiro-cli 2.20.1`: `acp --trust-all-tools` suppresses every
-// permission request. There is deliberately no middle tier — `--trust-tools`
-// accepts unknown tool names without error, so a Guided preset built on it
-// would silently degrade to Manual instead of failing loudly.
-export const KIRO_APPROVAL_MODE_OPTIONS = [
-  { value: "manual", get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); } },
-  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
-] as const satisfies readonly SelectOption<
-  NonNullable<ProviderRuntimeOptions["kiroApprovalMode"]>
->[];
-
 export const KIRO_EFFORT_OPTIONS = [
   { value: "low", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.low"); } },
   { value: "medium", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.medium"); } },
@@ -119,17 +92,6 @@ export const KIRO_EFFORT_OPTIONS = [
   { value: "max", get label() { return i18n.t("settingsProviders:providersSection.effortLevels.max"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["kiroEffort"]>
->[];
-
-// Verified against OpenCode 1.19.0 and 2.0.29: `opencode acp` has no
-// approval flag. Manual is delivered as `"*": "ask"` permission rules in
-// `OPENCODE_CONFIG_CONTENT`; Auto keeps OpenCode's own rules and Stave
-// answers each permission request with allow-once.
-export const OPENCODE_APPROVAL_MODE_OPTIONS = [
-  { value: "manual", get label() { return i18n.t("settings:chatSection.behavior.reasoningExpansion.manual"); } },
-  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
-] as const satisfies readonly SelectOption<
-  NonNullable<ProviderRuntimeOptions["opencodeApprovalMode"]>
 >[];
 
 /**
@@ -171,16 +133,6 @@ export const CODEX_WEB_SEARCH_OPTIONS = [
   { value: "live", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.webSearch.options.live.label"); } },
 ] as const satisfies readonly SelectOption<
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
->[];
-
-export const CODEX_APP_TOOL_APPROVAL_MODE_OPTIONS = [
-  { value: "inherit", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.inherit.label"); } },
-  { value: "auto", get label() { return i18n.t("common:labels.auto"); } },
-  { value: "prompt", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.prompt.label"); } },
-  { value: "writes", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.writes.label"); } },
-  { value: "approve", get label() { return i18n.t("settingsProviders:providersSection.codexRuntime.appToolApprovals.options.approve.label"); } },
-] as const satisfies readonly SelectOption<
-  NonNullable<ProviderRuntimeOptions["codexAppToolApprovalMode"]>
 >[];
 
 export const CODEX_REASONING_SUMMARY_OPTIONS = [

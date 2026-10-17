@@ -771,8 +771,3 @@ export function buildTaskReviewArtifact(
     ].slice(0, 32),
   };
 }
-
-export function formatTaskReviewArtifactCompact(artifact: TaskReviewArtifact) {
-  const facts = artifact.facts.slice(0, 2);
-  return [artifact.headline, ...facts].join(" · ").slice(0, 240);
-}

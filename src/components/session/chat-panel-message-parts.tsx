@@ -15,7 +15,6 @@ import {
   ToolHeader,
   ToolInput,
   ToolOutput,
-  parseSubagentToolInput,
   TruncationWarningBanner,
 } from "@/components/ai-elements";
 import { LinkifiedText } from "@/components/ui/linkified-text";
@@ -28,7 +27,6 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { sx } from "@/components/ads/utils/stylex";
-import type { ProviderId } from "@/lib/providers/provider.types";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
 import type { MessagePart } from "@/types/chat";
@@ -46,13 +44,6 @@ import {
 
 export { toToolDisplayName } from "@/lib/tool-display-name";
 export { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
-
-export function toProviderStartCase(args: { providerId: ProviderId }) {
-  return args.providerId
-    .split("-")
-    .map((chunk) => `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`)
-    .join(" ");
-}
 
 export function CopyButton({ text }: { text: string }) {
   useTranslation();

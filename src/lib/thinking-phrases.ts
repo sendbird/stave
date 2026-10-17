@@ -123,10 +123,6 @@ function getRandomThinkingPhraseKey(): ThinkingPhrase {
   return THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)]!;
 }
 
-export function getRandomThinkingPhrase(): string {
-  return i18n.t(getRandomThinkingPhraseKey());
-}
-
 /* ─── React hook – rotates the phrase on a timer while active ─────── */
 
 const DEFAULT_INTERVAL_MS = 3_000;

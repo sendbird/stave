@@ -49,18 +49,6 @@ export async function loadCommitDetails(
   return api({ cwd, hash });
 }
 
-export async function loadCommitFiles(cwd: string, hash: string) {
-  const api = window.api?.sourceControl?.getCommitFiles;
-  if (!api) {
-    return {
-      ok: false,
-      files: [] as Array<{ path: string; status: string; oldPath?: string }>,
-      stderr: i18n.t("gitGraph:gitGraphActions.unavailable"),
-    };
-  }
-  return api({ cwd, hash });
-}
-
 export async function loadWorkingTree(cwd: string) {
   const api = window.api?.sourceControl?.getStatus;
   if (!api) {

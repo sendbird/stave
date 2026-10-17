@@ -40,7 +40,6 @@ Bun tests compile this layer with the same StyleX compiler through
 
 | Primitive        | Contract                                                                                                                                                                             |
 | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| NavigationItem   | 36/40 px destination control, accessible label, current-page semantics, collapsed icon support and visible focus                                                                     |
 | ActionButton     | 28/32/36/40 px minimum height; primary/secondary/quiet weight; independent danger tone; pending and disabled state; visible keyboard focus                                           |
 | SectionTabs      | Controlled selection, arrow-key navigation, named tablist, inactive panels unmounted unless an editable draft explicitly requires retention, horizontal overflow within narrow panes |
 | WorkspaceSurface | Heading, purpose, actions, body; wrapping header and bounded parent scrolling                                                                                                        |

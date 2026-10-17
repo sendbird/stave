@@ -175,10 +175,6 @@ export function hasAppShortcutCommandId(
   return APP_SHORTCUT_DEFINITION_BY_ID.has(commandId as AppShortcutCommandId);
 }
 
-export function getAppShortcutDefinition(commandId: AppShortcutCommandId) {
-  return APP_SHORTCUT_DEFINITION_BY_ID.get(commandId) ?? null;
-}
-
 export function createEmptyAppShortcutKeys(): AppShortcutKeys {
   return APP_SHORTCUT_DEFINITIONS.reduce((result, definition) => {
     result[definition.commandId] = "";

@@ -120,17 +120,3 @@ export function createJiraTrackerSource(
     },
   };
 }
-
-/**
- * Default wiring against the main-process singleton. Kept in a factory so
- * importing this module does not pull the Electron-backed service in.
- */
-export async function createDefaultJiraTrackerSource(): Promise<TrackerSourceAdapter> {
-  const service = await import("../jira-connector/service");
-  return createJiraTrackerSource({
-    getSettings: () => service.getJiraConnectorSettings(),
-    getStatus: () => service.loadJiraConnectorStatus(),
-    listIssues: (args) => service.listJiraIssuesForCurrentUser(args),
-    getIssue: (args) => service.getJiraIssue(args),
-  });
-}

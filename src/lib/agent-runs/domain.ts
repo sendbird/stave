@@ -166,9 +166,6 @@ export const AGENT_RUN_STATES = [
 ] as const;
 export type AgentRunState = (typeof AGENT_RUN_STATES)[number];
 
-export const ACTIVE_AGENT_RUN_STATES = ["running", "paused"] as const satisfies
-  readonly AgentRunState[];
-
 export function isActiveAgentRunState(state: AgentRunState) {
   return state === "running" || state === "paused";
 }

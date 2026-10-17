@@ -4,7 +4,6 @@ import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
-import { AgentStyleProvider } from "@/components/ai-elements/agent-style-context";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
 import { createEventSamples } from "./fixtures";
@@ -109,34 +108,32 @@ export function TurnEventPreview() {
         ) : null}
       </header>
       <div ref={root} className={sx(styles.list)}>
-        <AgentStyleProvider style="beui" phraseVariant="cascade">
-          {samples.map((sample, index) => (
-            <section
-              key={sample.title}
-              id={`event-${index + 1}`}
-              className={sx(styles.section)}
-            >
-              <h2 className={sx(styles.label)}>
-                {String(index + 1).padStart(2, "0")} · {sample.title}
-              </h2>
-              <div className={sx(styles.body)}>
-                <AssistantMessageBody
-                  taskId="turn-event-preview"
-                  messageId={`event-${index}`}
-                  streamingEnabled
-                  traceExpansionMode="manual"
-                  showInterimMessages
-                  message={{
-                    role: "assistant",
-                    content: "",
-                    parts: sample.parts,
-                    isStreaming: sample.streaming ?? false,
-                  }}
-                />
-              </div>
-            </section>
-          ))}
-        </AgentStyleProvider>
+        {samples.map((sample, index) => (
+          <section
+            key={sample.title}
+            id={`event-${index + 1}`}
+            className={sx(styles.section)}
+          >
+            <h2 className={sx(styles.label)}>
+              {String(index + 1).padStart(2, "0")} · {sample.title}
+            </h2>
+            <div className={sx(styles.body)}>
+              <AssistantMessageBody
+                taskId="turn-event-preview"
+                messageId={`event-${index}`}
+                streamingEnabled
+                traceExpansionMode="manual"
+                showInterimMessages
+                message={{
+                  role: "assistant",
+                  content: "",
+                  parts: sample.parts,
+                  isStreaming: sample.streaming ?? false,
+                }}
+              />
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );

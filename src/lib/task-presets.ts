@@ -118,11 +118,6 @@ export function listEffortsForPresetProvider(
   return CLAUDE_EFFORT_OPTIONS;
 }
 
-export const TASK_PRESET_KINDS: readonly TaskPresetKind[] = [
-  "task",
-  "cli-session",
-] as const;
-
 export const TASK_PRESET_SHORTCUT_SLOT_LABELS = [
   "1",
   "2",

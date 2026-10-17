@@ -27,11 +27,6 @@ export { Snippet } from "./snippet";
 export { Shimmer } from "./shimmer";
 export { ReasoningText, type ReasoningTextVariant } from "./reasoning-text";
 export {
-  AgentStyleProvider,
-  useAgentStyle,
-  type AgentStyle,
-} from "./agent-style-context";
-export {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtStep,

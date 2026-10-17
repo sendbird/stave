@@ -378,13 +378,6 @@ export const STANCE_BUDGET_GUARD: Readonly<Record<Stance, BudgetGuard>> = {
   "quality-first": { stepDownAt: 90, cheapestAt: 99 },
 };
 
-/** Legacy 0..1 cost↔quality objective, kept in sync for older readers. */
-export const STANCE_OBJECTIVE: Readonly<Record<Stance, number>> = {
-  "cost-saver": 0.15,
-  balanced: 0.5,
-  "quality-first": 0.85,
-};
-
 export function stanceFromObjective(objective: number | undefined): Stance {
   if (typeof objective !== "number" || !Number.isFinite(objective)) {
     return "balanced";
