@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { localStack } from "@/lib/ui-layers.stylex";
 
 /**
  * The view host sits on the Monaco editor surface (`--editor*`), so those
@@ -113,7 +114,7 @@ export const gitGraphViewStyles = stylex.create({
     flexDirection: "column",
   },
   resizer: {
-    zIndex: 10,
+    zIndex: localStack["--stave-stack-raised"],
     flexShrink: 0,
     touchAction: "none",
     transitionProperty: "background-color",
@@ -143,7 +144,7 @@ export const gitGraphViewStyles = stylex.create({
     position: "absolute",
     bottom: vars["--ads-space-12"],
     right: vars["--ads-space-12"],
-    zIndex: 20,
+    zIndex: localStack["--stave-stack-floating"],
     display: "flex",
     alignItems: "center",
     gap: 6,

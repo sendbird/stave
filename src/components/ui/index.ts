@@ -134,6 +134,7 @@ export type {
 export { ExternalAnchor } from "./external-anchor";
 export { LinkifiedText } from "./linkified-text";
 export { ServiceLinkBadge } from "./service-link-badge";
+export { ContextChip, ContextChipRemoveButton, contextChipStyles } from "./context-chip";
 export {
   Breadcrumb,
   BreadcrumbEllipsis,

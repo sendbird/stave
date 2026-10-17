@@ -1125,13 +1125,13 @@ export function AppShell() {
           />
         ) : null}
         <div
-          className={sx(appShellStyles.appSurface)}
+          className={sx(appShellStyles.appSurface, layers.lensSurface)}
           data-stave-app-surface=""
         >
           {/*
-            Keep Lens inside this stacking context. The app surface itself is
-            z-10 at the document root; a body-level Lens root at the same layer
-            paints behind its opaque background. Nested here, the guest stays
+            Keep Lens inside this stacking context. The app surface itself sits
+            on the `lensSurface` band at the document root; a body-level Lens
+            root at the same layer paints behind its opaque background. Nested here, the guest stays
             above ordinary pane content while Lens chrome and shared overlays
             can still use the higher UI layer bands.
           */}

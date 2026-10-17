@@ -103,7 +103,8 @@ export const appShellStyles = stylex.create({
     minWidth: 0,
     overflow: "hidden",
     position: "relative",
-    zIndex: 10,
+    // Stacked on `layers.lensSurface` at the call site: the surface and the
+    // Lens root it hosts share one band, so the nested root paints over it.
   },
   lensSurfaceRoot: { inset: 0, pointerEvents: "none", position: "fixed" },
 

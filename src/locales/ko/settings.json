@@ -229,7 +229,10 @@
       "userBadge": "사용자",
       "active": "사용 중",
       "byAuthor": "만든 사람: {{author}}",
-      "byAuthorWithVersion": "만든 사람: {{author}} · v{{version}}"
+      "byAuthorWithVersion": "만든 사람: {{author}} · v{{version}}",
+      "searchPlaceholder": "이름, ID, 라이트/다크로 테마 검색",
+      "searchClear": "테마 검색 지우기",
+      "noMatches": "\"{{query}}\"와 일치하는 테마가 없습니다."
     },
     "baseModes": {
       "light": "라이트",

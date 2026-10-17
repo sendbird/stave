@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { localStack } from "@/lib/ui-layers.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { AgentRunBarView } from "@/components/agent-runs/AgentRunBar";
@@ -566,7 +567,7 @@ const styles = stylex.create({
   },
   composer: {
     position: "relative",
-    zIndex: 10,
+    zIndex: localStack["--stave-stack-raised"],
     minHeight: 96,
     padding: vars["--ads-space-12"],
     borderWidth: 1,

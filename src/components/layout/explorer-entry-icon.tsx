@@ -14,8 +14,9 @@ import {
   TerminalSquare,
   type LucideIcon,
 } from "lucide-react";
-import { FileIcon, defaultStyles, type FileIconProps } from "react-file-icon";
+import { FileIcon, type FileIconProps } from "react-file-icon";
 import type { WorkspaceDirectoryEntry } from "@/lib/fs/fs.types";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import {
   explorerIconStyles,
@@ -82,169 +83,133 @@ const defaultFolderVisual: FolderVisual = {
   tone: "folder",
 };
 
-const fileIconStyles = defaultStyles as unknown as Record<string, Partial<FileIconProps>>;
+/**
+ * File colour is a family, not a brand. Files group by language family so the
+ * tree reads at a glance, and every family is one theme token: the nominal
+ * chart slots for the coloured families (the same set the folder badges draw
+ * from) and the text inks for the neutral ones. Everything else on the icon —
+ * fold, label, glyph — is that one token stepped, so a theme that moves the
+ * token moves the whole icon with it.
+ */
+type FileFamily =
+  | "typescript"
+  | "javascript"
+  | "styles"
+  | "markup"
+  | "data"
+  | "language"
+  | "media"
+  | "shell"
+  | "settings"
+  | "plain";
 
-const fileNameOverrides: Record<string, Partial<FileIconProps> & { extension: string }> = {
-  "package.json": {
-    extension: "pkg",
-    color: "#f59e0b",
-    labelColor: "#d97706",
-    labelTextColor: "#111827",
-    type: "settings",
-  },
-  "bun.lock": {
-    extension: "bun",
-    color: "#111827",
-    labelColor: "#f59e0b",
-    labelTextColor: "#f8fafc",
-    type: "settings",
-  },
-  "tsconfig.json": {
-    extension: "tsc",
-    color: "#3178c6",
-    labelColor: "#1d4ed8",
-    labelTextColor: "#eff6ff",
-    type: "settings",
-  },
-  "vite.config.ts": {
-    extension: "vite",
-    color: "#8b5cf6",
-    labelColor: "#7c3aed",
-    labelTextColor: "#f5f3ff",
-    type: "code",
-  },
-  "readme.md": {
-    extension: "read",
-    color: "#2563eb",
-    labelColor: "#1d4ed8",
-    labelTextColor: "#eff6ff",
-    type: "document",
-  },
-  "dockerfile": {
-    extension: "ctr",
-    color: "#0ea5e9",
-    labelColor: "#0284c7",
-    labelTextColor: "#ecfeff",
-    type: "code",
-  },
-  ".env": {
-    extension: "env",
-    color: "#10b981",
-    labelColor: "#059669",
-    labelTextColor: "#ecfdf5",
-    type: "settings",
-  },
-  ".env.local": {
-    extension: "env",
-    color: "#10b981",
-    labelColor: "#059669",
-    labelTextColor: "#ecfdf5",
-    type: "settings",
-  },
-  ".gitignore": {
-    extension: "git",
-    color: "#f97316",
-    labelColor: "#ea580c",
-    labelTextColor: "#fff7ed",
-    type: "settings",
-  },
+type FileGlyph = NonNullable<FileIconProps["type"]>;
+
+type FileVisual = {
+  family: FileFamily;
+  type: FileGlyph;
+  /** Replaces the extension on the label, e.g. `pkg` for package.json. */
+  label?: string;
 };
 
-const fileExtensionOverrides: Record<string, Partial<FileIconProps> & { extension?: string }> = {
-  tsx: {
-    ...(fileIconStyles.ts ?? {}),
-    extension: "tsx",
-    color: "#0ea5e9",
-    labelColor: "#0284c7",
-    labelTextColor: "#ecfeff",
-    type: "code",
-  },
-  jsx: {
-    ...(fileIconStyles.jsx ?? fileIconStyles.js ?? {}),
-    extension: "jsx",
-    color: "#06b6d4",
-    labelColor: "#0891b2",
-    labelTextColor: "#ecfeff",
-    type: "code",
-  },
-  yaml: {
-    ...(fileIconStyles.yml ?? {}),
-    extension: "yaml",
-  },
-  yml: {
-    ...(fileIconStyles.yml ?? {}),
-    extension: "yml",
-  },
-  env: {
-    extension: "env",
-    color: "#10b981",
-    labelColor: "#059669",
-    labelTextColor: "#ecfdf5",
-    type: "settings",
-  },
-  lock: {
-    extension: "lock",
-    color: "#475569",
-    labelColor: "#334155",
-    labelTextColor: "#f8fafc",
-    type: "settings",
-  },
-  sql: {
-    extension: "sql",
-    color: "#6366f1",
-    labelColor: "#4f46e5",
-    labelTextColor: "#eef2ff",
-    type: "code",
-  },
-  sh: {
-    extension: "sh",
-    color: "#0f172a",
-    labelColor: "#1e293b",
-    labelTextColor: "#e2e8f0",
-    type: "code",
-  },
-  toml: {
-    extension: "toml",
-    color: "#9a3412",
-    labelColor: "#c2410c",
-    labelTextColor: "#fff7ed",
-    type: "settings",
-  },
+const familyInk: Record<FileFamily, string> = {
+  typescript: vars["--ads-chart-1"],
+  javascript: vars["--ads-chart-5"],
+  styles: vars["--ads-chart-4"],
+  markup: vars["--ads-chart-2"],
+  data: vars["--ads-chart-7"],
+  language: vars["--ads-chart-3"],
+  media: vars["--ads-chart-6"],
+  shell: vars["--ads-color-text"],
+  settings: vars["--ads-color-text-muted"],
+  plain: vars["--ads-color-text-muted"],
 };
 
-const imageExtensions = new Set(["avif", "bmp", "gif", "heic", "ico", "jpeg", "jpg", "png", "tif", "tiff", "webp"]);
-const vectorExtensions = new Set(["ai", "eps", "fig", "pdf", "ps", "psd", "sketch", "svg"]);
-const documentExtensions = new Set(["md", "mdx", "rst", "txt"]);
-const codeExtensions = new Set([
-  "c",
-  "cc",
-  "cpp",
-  "cs",
-  "go",
-  "graphql",
-  "html",
-  "java",
-  "js",
-  "json",
-  "kt",
-  "lua",
-  "php",
-  "py",
-  "rb",
-  "rs",
-  "scss",
-  "swift",
-  "ts",
-  "tsx",
-  "vue",
-  "xml",
-  "yaml",
-  "yml",
-]);
-const archiveExtensions = new Set(["7z", "7zip", "bz2", "gz", "rar", "tar", "tgz", "xz", "zip", "zipx"]);
-const spreadsheetExtensions = new Set(["csv", "ods", "tsv", "xls", "xlsx"]);
-const audioExtensions = new Set(["aac", "aiff", "flac", "m4a", "mp3", "ogg", "wav"]);
-const videoExtensions = new Set(["avi", "mkv", "mov", "mp4", "mpeg", "mpg", "webm", "wmv"]);
+const neutralFamilies = new Set<FileFamily>(["shell", "settings", "plain"]);
+
+/**
+ * `react-file-icon` derives its fold, label and glyph by darkening `color`
+ * with a colour parser, which cannot read a `var()`. Every derived paint is
+ * therefore handed over explicitly, mixed from the family token in CSS.
+ */
+function familyPaint(family: FileFamily): Pick<
+  FileIconProps,
+  "color" | "foldColor" | "labelColor" | "labelTextColor" | "glyphColor"
+> {
+  const ink = familyInk[family];
+  if (neutralFamilies.has(family)) {
+    // A neutral page is the text ink itself, which flips with the theme; its
+    // label stays the ink and the label text inverts to the surface, so the
+    // pair keeps its contrast in both modes.
+    return {
+      color: ink,
+      foldColor: `color-mix(in oklch, ${ink} 80%, ${vars["--ads-color-surface"]})`,
+      labelColor: ink,
+      labelTextColor: vars["--ads-color-surface"],
+      glyphColor: `color-mix(in oklch, ${ink} 55%, ${vars["--ads-color-surface"]})`,
+    };
+  }
+  // Chart hues sit at mid lightness in both modes, so the darker steps keep
+  // their white label text legible on light and dark grounds alike.
+  return {
+    color: ink,
+    foldColor: `color-mix(in oklch, ${ink} 88%, black)`,
+    labelColor: `color-mix(in oklch, ${ink} 70%, black)`,
+    glyphColor: `color-mix(in oklch, ${ink} 80%, black)`,
+  };
+}
+
+const fileNameVisuals: Record<string, FileVisual> = {
+  "package.json": { family: "data", type: "settings", label: "pkg" },
+  "bun.lock": { family: "settings", type: "settings", label: "bun" },
+  "tsconfig.json": { family: "typescript", type: "settings", label: "tsc" },
+  "vite.config.ts": { family: "typescript", type: "code", label: "vite" },
+  "readme.md": { family: "markup", type: "document", label: "read" },
+  dockerfile: { family: "shell", type: "code", label: "ctr" },
+  makefile: { family: "shell", type: "code", label: "make" },
+  ".env": { family: "settings", type: "settings", label: "env" },
+  ".env.local": { family: "settings", type: "settings", label: "env" },
+  ".gitignore": { family: "settings", type: "settings", label: "git" },
+};
+
+const imageExtensions = ["avif", "bmp", "gif", "heic", "ico", "jpeg", "jpg", "png", "tif", "tiff", "webp"];
+const vectorExtensions = ["ai", "eps", "fig", "ps", "psd", "sketch", "svg"];
+const audioExtensions = ["aac", "aiff", "flac", "m4a", "mp3", "ogg", "wav"];
+const videoExtensions = ["avi", "mkv", "mov", "mp4", "mpeg", "mpg", "webm", "wmv"];
+const archiveExtensions = ["7z", "7zip", "bz2", "gz", "rar", "tar", "tgz", "xz", "zip", "zipx"];
+
+const extensionVisualGroups: Array<{ extensions: string[]; visual: FileVisual }> = [
+  { extensions: ["ts", "tsx", "mts", "cts"], visual: { family: "typescript", type: "code" } },
+  { extensions: ["js", "jsx", "mjs", "cjs", "vue", "svelte", "astro"], visual: { family: "javascript", type: "code" } },
+  { extensions: ["css", "scss", "sass", "less", "styl"], visual: { family: "styles", type: "code" } },
+  { extensions: ["html", "htm"], visual: { family: "markup", type: "code" } },
+  { extensions: ["md", "mdx", "rst", "txt", "rtf", "adoc", "doc", "docx"], visual: { family: "markup", type: "document" } },
+  {
+    extensions: ["json", "jsonc", "json5", "yaml", "yml", "toml", "xml", "sql", "graphql", "gql", "prisma"],
+    visual: { family: "data", type: "code" },
+  },
+  { extensions: ["csv", "tsv", "ods", "xls", "xlsx"], visual: { family: "data", type: "spreadsheet" } },
+  {
+    extensions: ["c", "cc", "cpp", "h", "hpp", "cs", "go", "rs", "java", "kt", "kts", "swift", "py", "rb", "php", "lua", "dart", "scala", "ex", "exs", "zig", "r", "pl"],
+    visual: { family: "language", type: "code" },
+  },
+  { extensions: ["sh", "bash", "zsh", "fish", "ps1", "bat", "cmd"], visual: { family: "shell", type: "code" } },
+  { extensions: ["env", "lock", "ini", "cfg", "conf", "plist", "properties", "editorconfig"], visual: { family: "settings", type: "settings" } },
+  { extensions: imageExtensions, visual: { family: "media", type: "image" } },
+  { extensions: vectorExtensions, visual: { family: "media", type: "vector" } },
+  { extensions: ["pdf"], visual: { family: "media", type: "acrobat" } },
+  { extensions: audioExtensions, visual: { family: "media", type: "audio" } },
+  { extensions: videoExtensions, visual: { family: "media", type: "video" } },
+  { extensions: archiveExtensions, visual: { family: "plain", type: "compressed" } },
+  { extensions: ["ttf", "otf", "woff", "woff2", "eot"], visual: { family: "plain", type: "font" } },
+];
+
+const extensionVisuals = new Map<string, FileVisual>();
+for (const group of extensionVisualGroups) {
+  for (const extension of group.extensions) extensionVisuals.set(extension, group.visual);
+}
+
+const unknownFileVisual: FileVisual = { family: "plain", type: "document" };
 
 function getFileExtension(fileName: string) {
   const extensionIndex = fileName.lastIndexOf(".");
@@ -258,98 +223,6 @@ function getFileLabel(fileName: string, extension: string) {
   return extension.length > 5 ? extension.slice(0, 4) : extension;
 }
 
-function getFallbackFileIconProps(fileName: string, extension: string): Partial<FileIconProps> & { extension: string } {
-  const label = getFileLabel(fileName, extension);
-
-  if (imageExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#10b981",
-      labelColor: "#059669",
-      labelTextColor: "#ecfdf5",
-      type: "image",
-    };
-  }
-
-  if (vectorExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#14b8a6",
-      labelColor: "#0f766e",
-      labelTextColor: "#f0fdfa",
-      type: "vector",
-    };
-  }
-
-  if (documentExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#3b82f6",
-      labelColor: "#2563eb",
-      labelTextColor: "#eff6ff",
-      type: "document",
-    };
-  }
-
-  if (spreadsheetExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#22c55e",
-      labelColor: "#16a34a",
-      labelTextColor: "#f0fdf4",
-      type: "spreadsheet",
-    };
-  }
-
-  if (archiveExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#f97316",
-      labelColor: "#ea580c",
-      labelTextColor: "#fff7ed",
-      type: "compressed",
-    };
-  }
-
-  if (audioExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#ec4899",
-      labelColor: "#db2777",
-      labelTextColor: "#fdf2f8",
-      type: "audio",
-    };
-  }
-
-  if (videoExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#8b5cf6",
-      labelColor: "#7c3aed",
-      labelTextColor: "#f5f3ff",
-      type: "video",
-    };
-  }
-
-  if (codeExtensions.has(extension)) {
-    return {
-      extension: label,
-      color: "#6366f1",
-      labelColor: "#4f46e5",
-      labelTextColor: "#eef2ff",
-      type: "code",
-    };
-  }
-
-  return {
-    extension: label,
-    color: "#94a3b8",
-    labelColor: "#64748b",
-    labelTextColor: "#f8fafc",
-    type: "document",
-  };
-}
-
 function resolveFolderVisual(folderName: string) {
   const normalizedName = folderName.toLowerCase();
   return folderVisualGroups.find((group) => group.names.includes(normalizedName))?.visual ?? defaultFolderVisual;
@@ -358,20 +231,18 @@ function resolveFolderVisual(folderName: string) {
 function resolveFileIconProps(fileName: string): FileIconProps {
   const normalizedName = fileName.toLowerCase();
   const extension = getFileExtension(normalizedName);
-
-  const resolved = fileNameOverrides[normalizedName]
-    ?? (extension ? fileExtensionOverrides[extension] : undefined)
-    ?? (extension ? fileIconStyles[extension] : undefined)
-    ?? getFallbackFileIconProps(normalizedName, extension);
-
-  const label = resolved.extension ?? getFileLabel(normalizedName, extension);
+  const visual = fileNameVisuals[normalizedName]
+    ?? (extension ? extensionVisuals.get(extension) : undefined)
+    ?? unknownFileVisual;
+  const label = visual.label ?? getFileLabel(normalizedName, extension);
 
   return {
     radius: 4,
     fold: true,
     labelUppercase: label.length <= 4,
-    ...resolved,
+    type: visual.type,
     extension: label,
+    ...familyPaint(visual.family),
   };
 }
 

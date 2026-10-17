@@ -12,6 +12,7 @@ import { Kbd, KbdGroup, TooltipProvider } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { IssuesBoard } from "@/components/layout/issues/IssuesBoard";
+import { ExplorerEntryIcon, WorkspaceFileIcon } from "@/components/layout/explorer-entry-icon";
 import { notifications, tickets } from "./fixtures";
 import { AgentTreeRegressionFixture } from "./agent-tree";
 
@@ -69,7 +70,33 @@ const styles = stylex.create({
     borderRadius: vars["--ads-radius-control"],
   },
   board: { blockSize: "28rem", minInlineSize: 0, overflow: "hidden" },
+  // The explorer's own ground, so icon contrast is judged where the icons live.
+  explorer: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(11rem, 1fr))",
+    gap: vars["--ads-space-4"],
+    padding: vars["--ads-space-12"],
+    backgroundColor: "var(--sidebar)",
+    borderRadius: vars["--ads-radius-control"],
+  },
+  entry: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    blockSize: 24,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text"],
+    whiteSpace: "nowrap",
+  },
 });
+
+const explorerFolders = ["src", "electron", "docs", "public", "tests", "scripts", ".github", ".vscode", "node_modules", "styles", ".git", "misc"];
+const explorerFiles = [
+  "package.json", "bun.lock", "tsconfig.json", "vite.config.ts", "README.md", "Dockerfile", ".env", ".gitignore",
+  "index.tsx", "main.ts", "app.jsx", "util.js", "Store.vue", "styles.css", "theme.scss", "index.html", "notes.md", "doc.txt",
+  "data.json", "config.yaml", "Cargo.toml", "schema.sql", "query.graphql", "report.csv", "sheet.xlsx", "main.py", "server.go",
+  "lib.rs", "App.java", "App.swift", "script.sh", "logo.svg", "photo.png", "deck.pdf", "clip.mp4", "song.mp3", "archive.zip", "LICENSE", "unknown.xyz",
+];
 
 /** Real product controls with bounded synthetic data; no provider turn is started. */
 export function AdsRegressionPreview() {
@@ -113,6 +140,23 @@ export function AdsRegressionPreview() {
           />
         </header>
         <AgentTreeRegressionFixture />
+        <section className={sx(styles.section)}>
+          <h2 className={sx(styles.heading)}>Explorer entry icons</h2>
+          <div className={sx(styles.explorer)} data-review-explorer-icons="">
+            {explorerFolders.map((name) => (
+              <span key={name} className={sx(styles.entry)}>
+                <ExplorerEntryIcon entry={{ name, type: "folder", path: name }} />
+                {name}
+              </span>
+            ))}
+            {explorerFiles.map((name) => (
+              <span key={name} className={sx(styles.entry)}>
+                <WorkspaceFileIcon fileName={name} />
+                {name}
+              </span>
+            ))}
+          </div>
+        </section>
         <section className={sx(styles.section)}>
           <h2 className={sx(styles.heading)}>Keycaps in a stretching column</h2>
           <div className={sx(styles.keys)} data-review-keycaps="">

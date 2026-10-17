@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../../ads/tokens/tokens.stylex";
+import { localStack } from "../../../lib/ui-layers.stylex";
 
 export const standaloneCliStyles = stylex.create({
   /** Popup sizing: the terminal wants the room, bounded by the positioner. */
@@ -137,7 +138,7 @@ export const standaloneCliStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
     position: "absolute",
     top: 0,
-    zIndex: 20,
+    zIndex: localStack["--stave-stack-floating"],
   },
   statusText: {
     overflow: "hidden",
@@ -164,7 +165,7 @@ export const standaloneCliStyles = stylex.create({
     paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-12"],
     position: "absolute",
-    zIndex: 20,
+    zIndex: localStack["--stave-stack-floating"],
   },
   bootOverlay: {
     alignItems: "center",
@@ -173,7 +174,7 @@ export const standaloneCliStyles = stylex.create({
     inset: 0,
     justifyContent: "center",
     position: "absolute",
-    zIndex: 10,
+    zIndex: localStack["--stave-stack-raised"],
   },
   bootLabel: {
     alignItems: "center",

@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { localStack } from "@/lib/ui-layers.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { Message, MessageContent } from "@/components/ai-elements/message";
 import { AgentRunBubbleFrame, AgentRunPromptRow } from "@/components/agent-runs/AgentRunPrompt";
@@ -229,7 +230,7 @@ const styles = stylex.create({
   shellUser: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--ads-space-4"], minWidth: 0, maxWidth: "88%", width: "fit-content" },
   composer: {
     position: "relative",
-    zIndex: 10,
+    zIndex: localStack["--stave-stack-raised"],
     minHeight: 72,
     padding: vars["--ads-space-12"],
     borderWidth: 1,

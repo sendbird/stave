@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { localStack } from "@/lib/ui-layers.stylex";
 
 /**
  * `--editor*` are the Monaco theme surfaces the commit graph sits on, so the
@@ -13,7 +14,7 @@ export const gitGraphCanvasStyles = stylex.create({
     position: "absolute",
     left: 0,
     top: 0,
-    zIndex: 2,
+    zIndex: localStack["--stave-stack-overlay"],
     overflow: "visible",
   },
   root: {

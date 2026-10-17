@@ -1,19 +1,23 @@
 import { SidebarSettingsCard } from "./settings-dialog-sidebar-card";
-import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
+import { I18N_NAMESPACES, Trans, useTranslation, i18n, type I18nKey } from "@/i18n";
 import { memo, useMemo, useRef, useState } from "react";
 import {
   Check,
   Contrast,
   Monitor,
   Moon,
+  Search,
   Sun,
   Trash2,
   Upload,
+  X,
 } from "lucide-react";
-import { Badge } from "@/components/ui";
+import { Badge, Input } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
+import { settingsDialogStyles as dialogStyles } from "../SettingsDialog.styles";
 import {
   BUILTIN_CUSTOM_THEMES,
   MAX_USER_THEMES,
@@ -32,6 +36,11 @@ import {
   SectionStack,
   SettingsCard,
 } from "../settings-dialog.shared";
+
+const BASE_MODE_KEYS = {
+  light: "settings:themeSection.baseModes.light",
+  dark: "settings:themeSection.baseModes.dark",
+} as const satisfies Record<ThemeModeName, I18nKey>;
 
 function formatThemeTokenLabel(token: ThemeTokenName) {
   return token
@@ -61,6 +70,21 @@ export function ThemeSection() {
     () => new Set(BUILTIN_CUSTOM_THEMES.map((t) => t.id)),
     [],
   );
+  // Forty built-in presets plus user themes: the list needs a visible filter.
+  // Every word must match the name, id, base mode (raw or translated) or
+  // description, so "dark warm" narrows the way a reader expects.
+  const [themeQuery, setThemeQuery] = useState("");
+  const normalizedThemeQuery = themeQuery.trim().toLowerCase();
+  const visibleThemes = useMemo(() => {
+    if (!normalizedThemeQuery) return allThemes;
+    const words = normalizedThemeQuery.split(/\s+/);
+    return allThemes.filter((theme) => {
+      const text = [theme.name, theme.id, theme.baseMode, t(BASE_MODE_KEYS[theme.baseMode]), theme.description]
+        .join(" ")
+        .toLowerCase();
+      return words.every((word) => text.includes(word));
+    });
+  }, [allThemes, normalizedThemeQuery, t]);
 
   return (
     <SectionStack>
@@ -111,8 +135,38 @@ export function ThemeSection() {
         title={t("settings:themeSection.presets.title")}
         description={t("settings:themeSection.presets.description")}
       >
+        <div className={sx(dialogStyles.searchWrap)}>
+          <Search className={sx(dialogStyles.searchIcon)} />
+          <Input
+            value={themeQuery}
+            onChange={(event) => setThemeQuery(event.target.value)}
+            placeholder={t("settings:themeSection.presets.searchPlaceholder")}
+            aria-label={t("settings:themeSection.presets.searchPlaceholder")}
+            xstyle={dialogStyles.searchInput}
+          />
+          {themeQuery ? (
+            <Tooltip content={t("settings:themeSection.presets.searchClear")}>
+              <Button
+                type="button"
+                variant="quiet"
+                size="xs"
+                iconOnly
+                xstyle={dialogStyles.searchClear}
+                aria-label={t("settings:themeSection.presets.searchClear")}
+                onClick={() => setThemeQuery("")}
+              >
+                <X className={sx(styles.iconSm)} />
+              </Button>
+            </Tooltip>
+          ) : null}
+        </div>
+        {visibleThemes.length === 0 ? (
+          <p role="status" className={sx(dialogStyles.emptyResults)}>
+            {t("settings:themeSection.presets.noMatches", { query: themeQuery.trim() })}
+          </p>
+        ) : null}
         <div className={sx(styles.stackMd)}>
-          {allThemes.map((theme) => (
+          {visibleThemes.map((theme) => (
             <CustomThemeCard
               key={theme.id}
               theme={theme}
@@ -245,7 +299,7 @@ const CustomThemeCard = memo(function CustomThemeCard(args: {
           <Contrast className={sx(styles.audioIcon)} />
           <p className={sx(styles.themeCardName)}>{theme.name}</p>
           <Badge variant="outline" className={sx(styles.microBadge)}>
-            {t(theme.baseMode === "dark" ? "settings:themeSection.baseModes.dark" : "settings:themeSection.baseModes.light")}
+            {t(BASE_MODE_KEYS[theme.baseMode])}
           </Badge>
           {!isBuiltin && (
             <Badge variant="secondary" className={sx(styles.microBadge)}>
