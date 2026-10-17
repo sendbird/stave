@@ -16,30 +16,37 @@ afterEach(() => {
 });
 
 function persistedRun(
-  index: number,
-  status: CompareRun["status"],
+  id: string,
+  minute: number,
+  decided: boolean,
 ): CompareRun {
-  const at = new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString();
+  const at = new Date(Date.UTC(2026, 0, 1, 0, minute)).toISOString();
   return {
-    id: `run-${index}`,
-    seedPrompt: `run ${index}`,
+    id,
+    seedPrompt: id,
     baseWorkspaceId: "base",
     createdAt: at,
     updatedAt: at,
-    status,
+    status: "completed",
+    ...(decided ? { keptVariantId: `${id}:variant-1` } : {}),
     variants: [],
   };
 }
 
 describe("persisted compare run history", () => {
-  test("restores at most the cap of finished runs, newest first", () => {
-    const total = MAX_RETAINED_COMPARE_RUNS + 5;
-    const compareRunsById = Object.fromEntries(
-      Array.from({ length: total }, (_, index) => [
-        `run-${index}`,
-        persistedRun(index, "completed"),
+  test("restores every undecided run and only the newest decided runs up to the cap", () => {
+    const decidedCount = MAX_RETAINED_COMPARE_RUNS + 10;
+    const compareRunsById = Object.fromEntries([
+      // Undecided runs are the oldest, so a plain recency cap would drop them.
+      ...Array.from({ length: 5 }, (_, index) => [
+        `undecided-${index}`,
+        persistedRun(`undecided-${index}`, index, false),
       ]),
-    );
+      ...Array.from({ length: decidedCount }, (_, index) => [
+        `decided-${index}`,
+        persistedRun(`decided-${index}`, 100 + index, true),
+      ]),
+    ]);
     const state = {
       ...useAppStore.getInitialState(),
       compareRunsById,
@@ -47,10 +54,12 @@ describe("persisted compare run history", () => {
 
     createAppStorePersistenceOptions().onRehydrateStorage()(state);
 
-    expect(Object.keys(state.compareRunsById)).toHaveLength(
+    const restoredIds = Object.keys(state.compareRunsById);
+    expect(restoredIds.filter((id) => id.startsWith("undecided-"))).toHaveLength(5);
+    expect(restoredIds.filter((id) => id.startsWith("decided-"))).toHaveLength(
       MAX_RETAINED_COMPARE_RUNS,
     );
-    expect(state.compareRunsById["run-0"]).toBeUndefined();
-    expect(state.compareRunsById[`run-${total - 1}`]).toBeDefined();
+    expect(state.compareRunsById["decided-9"]).toBeUndefined();
+    expect(state.compareRunsById[`decided-${decidedCount - 1}`]).toBeDefined();
   });
 });

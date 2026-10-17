@@ -350,11 +350,11 @@ describe("compare run store actions", () => {
     expect(useAppStore.getState().compareRunsById[result.compareRunId!]?.baseCommit).toBe(BASE_COMMIT);
   });
 
-  test("drops the oldest finished comparison when a new run exceeds the history cap", async () => {
+  test("drops the oldest decided comparison when starting a run over the history cap", async () => {
     const { MAX_RETAINED_COMPARE_RUNS } = await import("../src/lib/compare-runs");
     let created = 0;
     const history = Object.fromEntries(
-      Array.from({ length: MAX_RETAINED_COMPARE_RUNS }, (_, index) => {
+      Array.from({ length: MAX_RETAINED_COMPARE_RUNS + 1 }, (_, index) => {
         const id = `old-${index}`;
         const at = new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString();
         return [id, {
@@ -364,6 +364,7 @@ describe("compare run store actions", () => {
           createdAt: at,
           updatedAt: at,
           status: "completed" as const,
+          keptVariantId: `${id}:variant-1`,
           variants: [],
         }];
       }),
@@ -387,10 +388,11 @@ describe("compare run store actions", () => {
 
     expect(result.ok).toBe(true);
     const runsById = useAppStore.getState().compareRunsById;
-    expect(Object.keys(runsById)).toHaveLength(MAX_RETAINED_COMPARE_RUNS);
+    // The new run is undecided, so it sits outside the cap of decided runs.
+    expect(Object.keys(runsById)).toHaveLength(MAX_RETAINED_COMPARE_RUNS + 1);
     expect(runsById[result.compareRunId!]).toBeDefined();
     expect(runsById["old-0"]).toBeUndefined();
-    expect(runsById[`old-${MAX_RETAINED_COMPARE_RUNS - 1}`]).toBeDefined();
+    expect(runsById[`old-${MAX_RETAINED_COMPARE_RUNS}`]).toBeDefined();
   });
 
   test("does not create candidates in a workspace selected during resolution", async () => {

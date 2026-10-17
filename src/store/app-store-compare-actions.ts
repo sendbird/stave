@@ -178,7 +178,6 @@ export function createCompareActions(args: {
             ...state.compareRunsById,
             [compareRunId]: compareRun,
           },
-          keepRunIds: [compareRunId],
         }),
         activeCompareRunId: compareRunId,
       }));

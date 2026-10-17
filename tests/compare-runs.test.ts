@@ -13,6 +13,8 @@ import {
   normalizeCompareVariants,
   patchCompareRunVariant,
   parseCompareJudgment,
+  isCompareRunDecided,
+  MAX_RETAINED_COMPARE_RUNS,
   pruneCompareRunHistory,
   type CompareRun,
   resolveCompareTurnOutcome,
@@ -495,39 +497,111 @@ describe("compare run helpers", () => {
     );
   });
 
-  test("caps finished history at the most recent runs and keeps in-flight runs", () => {
+  describe("history cap", () => {
     const runAt = (
       id: string,
       minute: number,
-      status: CompareRun["status"],
-    ): CompareRun => ({
-      ...buildInitialCompareRun({
+      state: "active" | "judging" | "undecided" | "kept" | "discarded",
+    ): CompareRun => {
+      const run = buildInitialCompareRun({
         id,
         seedPrompt: id,
         baseWorkspaceId: "base",
-        variants: [{ provider: "codex", label: "Codex" }],
-        now: `2026-06-18T00:${String(minute).padStart(2, "0")}:00.000Z`,
-      }),
-      status,
-    });
-    const runsById: Record<string, CompareRun | undefined> = {
-      oldest: runAt("oldest", 1, "completed"),
-      running: runAt("running", 0, "running"),
-      older: runAt("older", 2, "cancelled"),
-      newer: runAt("newer", 3, "failed"),
-      newest: runAt("newest", 4, "completed"),
+        variants: [
+          { provider: "codex", label: "Codex" },
+          { provider: "claude-code", label: "Claude" },
+        ],
+        now: new Date(Date.UTC(2026, 5, 18, 0, minute)).toISOString(),
+      });
+      switch (state) {
+        case "active":
+          return { ...run, status: "running" };
+        case "judging":
+          return {
+            ...run,
+            status: "completed",
+            variants: run.variants.map((variant) => ({ ...variant, status: "completed" })),
+          };
+        case "undecided":
+          return {
+            ...run,
+            status: "completed",
+            judge: run.judge ? { ...run.judge, status: "completed" } : undefined,
+            variants: run.variants.map((variant) => ({ ...variant, status: "completed" })),
+          };
+        case "kept":
+          return {
+            ...run,
+            status: "completed",
+            keptVariantId: run.variants[0]!.id,
+            variants: run.variants.map((variant, index) => ({
+              ...variant,
+              status: index === 0 ? "kept" : "discarded",
+            })),
+          };
+        case "discarded":
+          return {
+            ...run,
+            status: "cancelled",
+            variants: run.variants.map((variant) => ({ ...variant, status: "discarded" })),
+          };
+      }
     };
+    const history = (
+      count: number,
+      state: Parameters<typeof runAt>[2],
+      firstMinute = 0,
+    ) =>
+      Object.fromEntries(
+        Array.from({ length: count }, (_, index) => {
+          const id = `${state}-${index}`;
+          return [id, runAt(id, firstMinute + index, state)];
+        }),
+      ) as Record<string, CompareRun | undefined>;
+    const ids = (runsById: Record<string, CompareRun | undefined>, prefix: string) =>
+      Object.keys(runsById).filter((id) => id.startsWith(prefix));
 
-    const pruned = pruneCompareRunHistory({ runsById, limit: 3 });
+    test("keeps every undecided finished run", () => {
+      const runsById = history(MAX_RETAINED_COMPARE_RUNS + 1, "undecided");
+      expect(pruneCompareRunHistory({ runsById })).toBe(runsById);
+    });
 
-    expect(Object.keys(pruned)).toEqual(["running", "newer", "newest"]);
-    expect(
-      pruneCompareRunHistory({ runsById: pruned, limit: 3 }),
-    ).toBe(pruned);
-    expect(
-      Object.keys(
-        pruneCompareRunHistory({ runsById, limit: 2, keepRunIds: ["oldest"] }),
-      ),
-    ).toEqual(["oldest", "running"]);
+    test("caps decided runs to the most recent and keeps every undecided one", () => {
+      const runsById = {
+        ...history(5, "undecided"),
+        ...history(30, "kept", 100),
+        ...history(30, "discarded", 200),
+      };
+
+      const pruned = pruneCompareRunHistory({ runsById });
+
+      expect(ids(pruned, "undecided-")).toHaveLength(5);
+      expect([...ids(pruned, "kept-"), ...ids(pruned, "discarded-")]).toHaveLength(
+        MAX_RETAINED_COMPARE_RUNS,
+      );
+      // The oldest ten decided runs (kept-0 … kept-9) are the ones dropped.
+      expect(pruned["kept-9"]).toBeUndefined();
+      expect(pruned["kept-10"]).toBeDefined();
+      expect(pruneCompareRunHistory({ runsById: pruned })).toBe(pruned);
+    });
+
+    test("active and judging runs neither crowd out nor count against undecided ones", () => {
+      const runsById = {
+        ...history(60, "active", 100),
+        ...history(5, "judging", 200),
+        ...history(5, "undecided"),
+        ...history(3, "kept", 300),
+      };
+
+      expect(pruneCompareRunHistory({ runsById })).toBe(runsById);
+    });
+
+    test("a decision is a kept candidate or a run whose candidates were all discarded", () => {
+      expect(isCompareRunDecided(runAt("kept", 0, "kept"))).toBe(true);
+      expect(isCompareRunDecided(runAt("discarded", 0, "discarded"))).toBe(true);
+      expect(isCompareRunDecided(runAt("undecided", 0, "undecided"))).toBe(false);
+      expect(isCompareRunDecided(runAt("active", 0, "active"))).toBe(false);
+      expect(isCompareRunDecided(runAt("judging", 0, "judging"))).toBe(false);
+    });
   });
 });

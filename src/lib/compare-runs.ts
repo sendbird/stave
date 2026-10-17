@@ -747,27 +747,37 @@ export function normalizePersistedCompareRuns(args: {
   );
 }
 
-/** Finished comparisons kept in history; in-flight runs are never dropped. */
+/**
+ * Decided comparisons kept in history. Runs still waiting on the user (active,
+ * judging, or finished without a Keep/Discard decision) never count toward it.
+ */
 export const MAX_RETAINED_COMPARE_RUNS = 50;
 
-function isCompareRunInFlight(run: CompareRun) {
+/**
+ * Whether the user has settled the comparison: a candidate was kept, or the
+ * run was discarded, which marks every candidate `kept` or `discarded`.
+ */
+export function isCompareRunDecided(run: CompareRun) {
+  if (run.keptVariantId) {
+    return true;
+  }
   return (
-    run.status === "starting" ||
-    run.status === "running" ||
-    run.judge?.status === "running"
+    run.variants.length > 0 &&
+    run.variants.every(
+      (variant) => variant.status === "kept" || variant.status === "discarded",
+    )
   );
 }
 
 /**
  * Bounds the persisted comparison history. Nothing else ever removes a run, so
  * every comparison a user starts would otherwise stay in memory and in the
- * persisted store forever. Keeps every in-flight run and `keepRunIds`, then the
- * most recently updated finished runs up to `limit`. Returns the input map
- * unchanged when nothing is dropped.
+ * persisted store forever. Only decided runs are capped, to the `limit` most
+ * recently updated; every undecided run is kept however many there are.
+ * Returns the input map unchanged when nothing is dropped.
  */
 export function pruneCompareRunHistory(args: {
   runsById: Record<string, CompareRun | undefined>;
-  keepRunIds?: readonly string[];
   limit?: number;
 }): Record<string, CompareRun | undefined> {
   const limit = args.limit ?? MAX_RETAINED_COMPARE_RUNS;
@@ -775,32 +785,27 @@ export function pruneCompareRunHistory(args: {
   if (entries.length <= limit && entries.every(([, run]) => run)) {
     return args.runsById;
   }
-  const keepRunIds = new Set(args.keepRunIds ?? []);
-  const kept: Array<[string, CompareRun]> = [];
-  const finished: Array<[string, CompareRun]> = [];
+  const retainedIds = new Set<string>();
+  const decided: Array<[string, CompareRun]> = [];
   for (const [compareRunId, run] of entries) {
     if (!run) {
       continue;
     }
-    if (keepRunIds.has(compareRunId) || isCompareRunInFlight(run)) {
-      kept.push([compareRunId, run]);
+    if (isCompareRunDecided(run)) {
+      decided.push([compareRunId, run]);
     } else {
-      finished.push([compareRunId, run]);
+      retainedIds.add(compareRunId);
     }
   }
-  finished.sort(([, left], [, right]) =>
+  decided.sort(([, left], [, right]) =>
     (right.updatedAt ?? "").localeCompare(left.updatedAt ?? ""),
   );
-  const retainedFinished = finished.slice(
-    0,
-    Math.max(0, limit - kept.length),
-  );
-  if (kept.length + retainedFinished.length === entries.length) {
+  for (const [compareRunId] of decided.slice(0, limit)) {
+    retainedIds.add(compareRunId);
+  }
+  if (retainedIds.size === entries.length) {
     return args.runsById;
   }
-  const retainedIds = new Set(
-    [...kept, ...retainedFinished].map(([compareRunId]) => compareRunId),
-  );
   // Preserve insertion order so persisted output stays stable.
   return Object.fromEntries(
     entries.filter(([compareRunId]) => retainedIds.has(compareRunId)),
