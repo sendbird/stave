@@ -813,7 +813,12 @@ that segment because the card shows it. The tool returns immediately and the
 turn keeps running, so there is no pending App Server RPC to resolve: the cards
 do not pause the provider watchdog or lock the composer, and they remain
 answerable after their turn ends. An answer is an ordinary user message that
-quotes each question above its answer. It is steered into the running turn when
+quotes each question above its answer for the model. New replies store explicit
+question provenance: the user bubble shows only the answer, with a collapsed
+row below it that reveals each original question and its answer even if the
+source card is not loaded. Declines show that row without a user-text bubble.
+Existing unmarked transcripts keep their original presentation. The same
+presentation applies to persisted Run question replies. It is steered into the running turn when
 there is one and otherwise starts (or queues for) the next turn. The renderer
 then marks the card answered and, only when the host owns the task's transcript
 (a host-owned turn, or an answer that started an agent run), records it through

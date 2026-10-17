@@ -1,4 +1,12 @@
 {
+  "questionReply": {
+    "label_other": "AI 질문에 대한 답변 · 질문 {{count}}개",
+    "declined_other": "답변 거절 · 질문 {{count}}개",
+    "questionNumber_other": "질문 {{count}}",
+    "answer": "답변: {{answer}}",
+    "noAnswer": "답변 없음",
+    "declinedAnswer": "답변 거절"
+  },
   "activityDetailDialog": {
     "live": "실시간 턴",
     "saved": "저장된 대화 기록",

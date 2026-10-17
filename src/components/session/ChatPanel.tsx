@@ -1,3 +1,5 @@
+import { QuestionReplyRow } from "./message/QuestionReplyRow";
+import { questionReplyAnswerText } from "@/lib/question-reply";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDate } from "@/i18n/format";
 import { MessageTimeDetails } from "./MessageTimeDetails";
@@ -177,6 +179,7 @@ interface MessageRowProps {
     steerDeliveryState?: ChatMessage["steerDeliveryState"];
     dispatchedFromQueue?: ChatMessage["dispatchedFromQueue"];
     agentRunPrompt?: ChatMessage["agentRunPrompt"];
+    questionReply?: ChatMessage["questionReply"];
     providerBoundary?: ChatMessage["providerBoundary"];
     usage?: ChatMessage["usage"];
     delegatedUsage?: ChatMessage["delegatedUsage"];
@@ -276,14 +279,16 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
   // An agent run's first prompt: the user's assignment, with Stave's compiled
   // instructions folded below it.
   const isUser = message.role === "user";
-  const agentRunPrompt = useAgentRunPrompt({
+  const questionReply = isUser ? message.questionReply : undefined;
+  const resolvedAgentRunPrompt = useAgentRunPrompt({
     taskId,
-    turnId: isUser ? startedTurnId : undefined,
+    turnId: isUser && !questionReply ? startedTurnId : undefined,
     text: messageText,
     provenance: isUser ? message.agentRunPrompt : undefined,
     pending: isUser && pendingAgentRun,
   });
-  const userMessageSourceText = agentRunPrompt?.assignment ?? messageText;
+  const agentRunPrompt = questionReply ? null : resolvedAgentRunPrompt;
+  const userMessageSourceText = questionReply ? questionReplyAnswerText(questionReply) : agentRunPrompt?.assignment ?? messageText;
   const promptLayout = agentRunPromptLayout(agentRunPrompt);
   const bodyMessage = useMemo(
     () =>
@@ -443,8 +448,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ) : null}
           {/* A run prompt with no words of the user's draws no bubble: the
               bubble holds only what the person wrote. */}
-          {promptLayout.bubble ? (
-            <AgentRunBubbleFrame framed={promptLayout.row !== null}>
+          {promptLayout.bubble && (!questionReply || Boolean(userMessageSourceText)) ? (
+            <AgentRunBubbleFrame framed={promptLayout.row !== null || Boolean(questionReply)}>
               <MessageContent
                 className={
                   message.role === "assistant"
@@ -470,6 +475,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           {agentRunPrompt && promptLayout.row ? (
             <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} />
           ) : null}
+          {questionReply ? <QuestionReplyRow reply={questionReply} /> : null}
           {message.role === "user" && steerDeliveryLabel ? (
             <span className={sx(styles.steerLabel)}>{steerDeliveryLabel}</span>
           ) : null}
@@ -523,10 +529,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   {elapsedLabel}
                 </MessageAction>
               ) : null}
-              <CopyButton
-                key="copy-action"
-                text={userMessageSourceText}
-              />
+              {!questionReply || userMessageSourceText ? (
+                <CopyButton key="copy-action" text={userMessageSourceText} />
+              ) : null}
               <MessageTimeDetails
                 message={message}
                 onOpenChange={setTimeDetailsOpen}

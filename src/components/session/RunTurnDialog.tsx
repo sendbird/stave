@@ -1,3 +1,5 @@
+import { QuestionReplyRow } from "./message/QuestionReplyRow";
+import { questionReplyAnswerText } from "@/lib/question-reply";
 import { i18n, useTranslation } from "@/i18n";
 import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
 import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
@@ -133,12 +135,14 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
   useTranslation();
   const { message, taskId } = props;
   const text = message.displayContent ?? message.content;
-  const agentRunPrompt = useAgentRunPrompt({
+  const questionReply = message.role === "user" ? message.questionReply : undefined;
+  const resolvedAgentRunPrompt = useAgentRunPrompt({
     taskId,
-    turnId: message.role === "user" ? props.startedTurnId : undefined,
+    turnId: message.role === "user" && !questionReply ? props.startedTurnId : undefined,
     text,
     provenance: message.role === "user" ? message.agentRunPrompt : undefined,
   });
+  const agentRunPrompt = questionReply ? null : resolvedAgentRunPrompt;
   const bodyMessage = useMemo(
     () =>
       agentRunPrompt?.assignment
@@ -159,8 +163,8 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
       <Message from={message.role}>
         <div className={sx(assistant ? styles.assistant : styles.user)}>
           {/* As in the conversation: the bubble holds only what the person wrote. */}
-          {promptLayout.bubble ? (
-            <AgentRunBubbleFrame framed={promptLayout.row !== null}>
+          {promptLayout.bubble && (!questionReply || Boolean(questionReplyAnswerText(questionReply))) ? (
+            <AgentRunBubbleFrame framed={promptLayout.row !== null || Boolean(questionReply)}>
               <MessageContent>
                 <AssistantMessageBody
                   message={bodyMessage}
@@ -177,6 +181,7 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
           {agentRunPrompt && promptLayout.row ? (
             <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} />
           ) : null}
+          {questionReply ? <QuestionReplyRow reply={questionReply} /> : null}
           {assistant && message.providerId !== "user" && message.model ? (
             <TurnModelChip
               providerId={message.providerId}

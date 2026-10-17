@@ -751,6 +751,17 @@ describe("run runtime: failures and restarts", () => {
     expect(again.runCalls).toHaveLength(0);
   });
 
+  test("a reply starting a Run keeps question provenance on its first turn only", async () => {
+    const h = createHarness();
+    const questionReply = { requestId: "question-1", questions: [{ header: "Scope", question: "Which scope?", answer: "This task" }] };
+    await startedAgentRun(h, startInput({ initialContext: { questionReply } }));
+    expect(h.runCalls[0]?.initialContext?.questionReply).toEqual(questionReply);
+    h.endTurn("turn-1");
+    await h.tick();
+    expect(h.runCalls).toHaveLength(2);
+    expect(h.runCalls[1]?.initialContext?.questionReply).toBeUndefined();
+  });
+
   test("a restart closes the run turn the stopped host left open", async () => {
     const store = new AgentRunStore(new Database(":memory:"));
     const first = createHarness({ store });

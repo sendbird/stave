@@ -225,7 +225,8 @@ describe("UserInputCard", () => {
     expect(html).not.toContain("Continue");
     expect(html).not.toContain("Write a different answer");
     expect(html).not.toContain("Decline to answer");
-    expect(html).toContain("Your response was sent to the agent.");
+    expect(html).toContain("Your submitted answer is shown below.");
+    expect(html).not.toContain("was sent to the agent");
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-live="polite"');
   });

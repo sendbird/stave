@@ -1,3 +1,4 @@
+import { buildQuestionReply, type QuestionReply } from "../../src/lib/question-reply";
 import { i18n } from "../../src/i18n/runtime";
 import { respondHostUserInput, type HostUserInputArgs } from "./host-user-input";
 import type { RunQuestionAnswer } from "./run-question-answer";
@@ -1949,9 +1950,11 @@ async function runTaskImpl(args: {
       ...(args.initialContext?.retrievedContextParts ?? []),
     ],
   });
+  let questionReply: QuestionReply | undefined;
   if (args.questionAnswer) {
     const pending = findPendingUserInputMessageByRequestId({ messages: session.messagesByTask[task.id] ?? [], requestId: args.questionAnswer.requestId });
     if (!pending) throw new Error(i18n.t("agentRuns:persistentQuestion.alreadyAnswered"));
+    questionReply = buildQuestionReply({ ...args.questionAnswer, sourceMessageId: pending.messageId, questions: pending.part.questions });
     session = { ...session, ...applyUserInputState({ messagesByTask: session.messagesByTask, workspaceSnapshotVersion: 0,
       taskId: task.id, messageId: pending.messageId, ...args.questionAnswer }) };
   }
@@ -1975,6 +1978,7 @@ async function runTaskImpl(args: {
       ? { modelInfo: resolveTurnModelInfo({ providerId: provider, runtimeOptions: args.runtimeOptions }) }
       : {}),
     content: args.prompt,
+    questionReply: questionReply ?? args.initialContext?.questionReply,
     fileContexts: args.initialContext?.fileContexts,
     imageContexts: args.initialContext?.imageContexts,
     ...(args.agentRunPrompt ? { agentRunPrompt: args.agentRunPrompt } : {}),

@@ -643,6 +643,7 @@ export interface HostServiceRequestMap {
     denied?: boolean;
   };
   "provider.steer-turn": {
+    questionReply?: import("../../src/lib/question-reply").QuestionReply;
     turnId: string;
     text: string;
     enabled?: boolean;

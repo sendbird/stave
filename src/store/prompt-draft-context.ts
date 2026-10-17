@@ -94,6 +94,7 @@ export function buildQueuedTurnFromDraft(args: {
       queuedAt,
       sourceTurnId: args.sourceTurnId,
       content,
+      questionReply: args.draft.questionReply,
       attachedFilePaths,
       attachments,
       autoRouting: true,
@@ -124,6 +125,7 @@ export function buildQueuedTurnFromDraft(args: {
     queuedAt,
     sourceTurnId: args.sourceTurnId,
     content,
+    questionReply: args.draft.questionReply,
     attachedFilePaths,
     attachments,
     // Pin the composer selection at queue time so dispatch can honor it even

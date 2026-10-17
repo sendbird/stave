@@ -56,6 +56,7 @@ export function applySteeredTurnState(args: {
     messageCountByTask,
     taskId,
     content: args.content,
+    questionReply: args.sentDraft.questionReply,
     steeredIntoTurnId: turnId,
     clientMessageId: args.clientMessageId,
     provider: args.providerId,

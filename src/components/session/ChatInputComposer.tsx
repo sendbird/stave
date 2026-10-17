@@ -927,7 +927,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     updateNonTextPromptDraft({
       queuedTurns: queuedTurns
         .map((item) =>
-          item.id === args.itemId ? { ...item, content: args.content } : item,
+          item.id === args.itemId ? { ...item, content: args.content,
+            questionReply: args.content === item.content ? item.questionReply : undefined } : item,
         )
         .filter((item) => item.content.trim().length > 0),
     });

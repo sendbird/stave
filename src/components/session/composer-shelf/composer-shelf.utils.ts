@@ -1,3 +1,4 @@
+import { questionReplyDisplayText } from "@/lib/question-reply";
 import { i18n } from "@/i18n/runtime";
 /**
  * The composer shelf: one surface over the prompt input that holds what is in
@@ -476,10 +477,10 @@ export function canSteerQueuedTurnItem(
 }
 
 export function summarizeQueuedTurnText(
-  item: Pick<PromptDraftQueuedTurn, "content">,
+  item: Pick<PromptDraftQueuedTurn, "content" | "questionReply">,
 ): string {
   return (
-    item.content.replace(/\s+/g, " ").trim() ||
+    (item.questionReply ? questionReplyDisplayText(item.questionReply) : item.content).replace(/\s+/g, " ").trim() ||
     i18n.t("composer:composerShelfUtils.summarizeQueuedTurnText")
   );
 }

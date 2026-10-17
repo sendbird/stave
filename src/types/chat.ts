@@ -1,3 +1,4 @@
+import type { QuestionReply } from "@/lib/question-reply";
 import type { McpAppViewReference } from "@/lib/mcp-app/mcp-app-view";
 import type { AgentTurnProvenance } from "../lib/agents/turn-provenance";
 import type { ModelExecution } from "@/lib/providers/model-execution";
@@ -148,6 +149,7 @@ export interface PromptDraftQueuedNextTurn {
 }
 
 export interface PromptDraftQueuedTurn {
+  questionReply?: QuestionReply;
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
   id: string;
@@ -189,6 +191,7 @@ export interface PromptDraftBatchItem {
 }
 
 export interface PromptDraft {
+  questionReply?: QuestionReply;
   text: string;
   attachedFilePaths: string[];
   attachments: Attachment[];
@@ -381,6 +384,7 @@ export interface AgentRunPromptProvenance {
 }
 
 export interface ChatMessage {
+  questionReply?: QuestionReply;
   id: string;
   role: MessageRole;
   model: string;

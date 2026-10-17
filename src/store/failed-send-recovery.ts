@@ -33,6 +33,7 @@ export interface FailedOutgoingSend {
   /** Why the send failed, shown on the bubble. */
   reason: string;
   text: string;
+  questionReply?: PromptDraft["questionReply"];
   attachedFilePaths: string[];
   attachments: Attachment[];
   /** Turn-scoped runtime settings the failed attempt was sent with. */
@@ -60,7 +61,7 @@ export function buildFailedOutgoingSend(args: {
   failedAt: string;
   draft: Pick<
     PromptDraft,
-    "text" | "attachedFilePaths" | "attachments" | "runtimeOverrides"
+    "text" | "attachedFilePaths" | "attachments" | "runtimeOverrides" | "questionReply"
   >;
   error: unknown;
 }): FailedOutgoingSend {
@@ -70,6 +71,7 @@ export function buildFailedOutgoingSend(args: {
     failedAt: args.failedAt,
     reason: describeSendFailureReason(args.error),
     text: args.draft.text,
+    ...(args.draft.questionReply ? { questionReply: args.draft.questionReply } : {}),
     attachedFilePaths: [...args.draft.attachedFilePaths],
     attachments: [...args.draft.attachments],
     ...(args.draft.runtimeOverrides

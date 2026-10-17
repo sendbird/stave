@@ -60,6 +60,7 @@ test("a mid-turn answer steers into the running turn once and is recorded withou
   useAppStore.getState().resolveUserInput(answer);
   useAppStore.getState().resolveUserInput(answer);
   expect(sends).toHaveLength(1);
+  expect(sends[0]?.questionReply).toEqual({ requestId: answer.requestId, sourceMessageId: "m1", questions: [{ header: "", question: "Which scope?", answer: "Focused" }] });
   expect(sends[0]).toMatchObject({ submitIntent: "steer", preservePromptDraft: true, content: "> Which scope?\n\nFocused" });
   expect(card()).toMatchObject({ state: "input-requested" });
   accept();

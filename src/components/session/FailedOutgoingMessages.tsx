@@ -1,3 +1,6 @@
+import { QuestionReplyRow } from "./message/QuestionReplyRow";
+import { questionReplyDisplayText } from "@/lib/question-reply";
+import { AgentRunBubbleFrame } from "@/components/agent-runs/AgentRunPrompt";
 import { i18n, useTranslation } from "@/i18n";
 import { useState } from "react";
 import { RotateCcw, TriangleAlert, X } from "lucide-react";
@@ -33,19 +36,25 @@ export function FailedOutgoingMessageBubble(props: {
 }) {
   useTranslation();
   const { send, retryPending } = props;
+  const text = send.questionReply ? questionReplyDisplayText(send.questionReply) : send.text;
   const attachmentSummary = describeFailedSendAttachments(send);
 
   return (
     <Message from="user" data-failed-outgoing-message={send.id}>
       <div className={sx(styles.bubble)}>
-        <MessageContent className={sx(styles.content)}>
-          {send.text ? <span>{send.text}</span> : null}
-          {attachmentSummary ? (
-            <span className={sx(styles.attachmentSummary)}>
-              {attachmentSummary}
-            </span>
-          ) : null}
-        </MessageContent>
+        {text || attachmentSummary ? (
+          <AgentRunBubbleFrame framed={Boolean(send.questionReply)}>
+            <MessageContent className={sx(styles.content)}>
+              {text ? <span>{text}</span> : null}
+              {attachmentSummary ? (
+                <span className={sx(styles.attachmentSummary)}>
+                  {attachmentSummary}
+                </span>
+              ) : null}
+            </MessageContent>
+          </AgentRunBubbleFrame>
+        ) : null}
+        {send.questionReply ? <QuestionReplyRow reply={send.questionReply} /> : null}
         <span className={sx(styles.statusRow)}>
           <TriangleAlert className={sx(styles.statusIcon)} aria-hidden="true" />
           <span className={sx(styles.statusText)} title={send.reason}>{i18n.t("session:failedOutgoingMessages.sentence44", { value1: send.reason })}</span>

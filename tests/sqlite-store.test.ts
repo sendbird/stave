@@ -1709,7 +1709,7 @@ describe("SqliteStore", () => {
     const store = new SqliteStore({ dbPath });
     store.upsertWorkspace({ id: "ws-steer", name: "Steer", snapshot: createSnapshot() });
     const initial = ChatMessageSchema.parse({ id: "steer-before", role: "assistant", providerId: "codex", model: "gpt-test", turnId: "turn-steer", isStreaming: true, content: "Before", parts: [{ type: "text", text: "Before" }] });
-    const split = buildSteeredUserMessageState({ messagesByTask: { "task-1": [initial] }, messageCountByTask: { "task-1": 2 }, taskId: "task-1", content: "Include tests", steeredIntoTurnId: "turn-steer", clientMessageId: "steer-client", provider: "codex", activeModel: "gpt-test", turnStillActive: true });
+    const split = buildSteeredUserMessageState({ messagesByTask: { "task-1": [initial] }, messageCountByTask: { "task-1": 2 }, taskId: "task-1", content: "> Which scope?\n\nThis task", questionReply: { requestId: "question-1", sourceMessageId: "source-card", questions: [{ header: "Scope", question: "Which scope?", answer: "This task" }] }, steeredIntoTurnId: "turn-steer", clientMessageId: "steer-client", provider: "codex", activeModel: "gpt-test", turnStillActive: true });
     const rows = replayProviderEventsToTaskState({ taskId: "task-1", turnId: "turn-steer", messages: split.messagesByTask["task-1"]!, provider: "codex", model: "gpt-test", events: [{ type: "tool", toolUseId: "steer-tool", toolName: "Bash", input: "bun test", state: "input-available" }] }).messages;
     expect(store.persistTaskTurnDelta({ workspaceId: "ws-steer", taskId: "task-1", messages: rows })).toMatchObject({ ok: true });
     // Renderer acknowledgement writes the same rows: the store must upsert them.
@@ -1721,6 +1721,7 @@ describe("SqliteStore", () => {
       expect(page.totalCount).toBe(4);
       const restored = page.messages.map((message) => ChatMessageSchema.parse(message));
       expect(restored.filter((message) => message.id === "steer-client")).toHaveLength(1);
+      expect(restored.find((message) => message.id === "steer-client")).toMatchObject({ content: "> Which scope?\n\nThis task", displayContent: "This task", questionReply: { requestId: "question-1", questions: [{ header: "Scope", question: "Which scope?", answer: "This task" }] } });
       expect(restored.at(-1)).toMatchObject({ id: "steer-client-assistant", turnId: "turn-steer", isStreaming: true, parts: [expect.objectContaining({ type: "tool_use", toolUseId: "steer-tool" })] });
     } finally { reopened.close(); }
   });

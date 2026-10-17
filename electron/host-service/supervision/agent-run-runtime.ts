@@ -1339,7 +1339,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
         prompt,
-        initialContext: agentRun.initialContext,
+        initialContext: agentRun.initialContext?.questionReply && started.agentRun.turnCount > 1
+          ? { ...agentRun.initialContext, questionReply: undefined } : agentRun.initialContext,
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
         retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey)] : [])],
