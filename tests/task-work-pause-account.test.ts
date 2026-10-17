@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
+import { USAGE_LIMIT_UNAVAILABLE_RETRY_MS } from "../src/lib/agent-runs/usage-limit";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 import type { RateLimitsSnapshotResponse } from "../src/lib/providers/provider.types";
 import { guardSendAgainstAccountUsage } from "../src/store/account-usage-guard";
-import { createTaskPauseActions } from "../src/store/app-store-task-pause-actions";
+import {
+  createTaskPauseActions,
+  resolveUnreadableUsageRetryDelay,
+  UNREADABLE_USAGE_RETRY_MAX_MS,
+} from "../src/store/app-store-task-pause-actions";
+import { listDueUsageLimitAutoResumes, resolveNextUsageLimitAutoResume } from "../src/store/task-work-pause";
 import type { AppState } from "../src/store/app-store.types";
 import { pauseQueueOnUsageLimitRefusal, settleTaskQueueAfterTurn } from "../src/store/task-work-pause-wiring";
 
@@ -113,13 +119,126 @@ describe("paused work resumes on the account selected when it resumes", () => {
     expect(h.requests[0]).toMatchObject({ runtimeOptions: { codexAccountProfileId: ACCOUNT_A } });
   });
 
-  test("an unavailable account read holds the work and removes the automatic reservation", async () => {
+  test("an unavailable account read holds the work and keeps the reservation for a later read", async () => {
     const h = harness(async () => emptyRateLimitsSnapshot());
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    const before = Date.now();
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(h.dispatches).toEqual([]);
+    expect(h.sends).toEqual([]);
+    const pause = h.get().usageLimitPauseByTask["task-main"];
+    expect(pause).toMatchObject({ accountProfileId: ACCOUNT_A });
+    expect(pause?.autoResumeAt).toBeGreaterThanOrEqual(before + USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+  });
+
+  test("a read that throws (offline right after waking) is due again at the retry time, and that read resumes", async () => {
+    let online = false;
+    const h = harness(async () => {
+      if (!online) throw new Error("getaddrinfo ENOTFOUND");
+      return codexUsage(0);
+    });
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    const failedAt = Date.now();
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    // What the app-root timer sees: nothing due before the retry, the task due at it.
+    const pauses = h.get().usageLimitPauseByTask;
+    const retryAt = pauses["task-main"]!.autoResumeAt!;
+    expect(resolveNextUsageLimitAutoResume(pauses)).toEqual({ taskId: "task-main", at: retryAt });
+    expect(listDueUsageLimitAutoResumes({ pauses, now: failedAt + USAGE_LIMIT_UNAVAILABLE_RETRY_MS - 60_000 })).toEqual([]);
+    expect(listDueUsageLimitAutoResumes({ pauses, now: retryAt })).toEqual(["task-main"]);
+    expect(h.dispatches).toEqual([]);
+    online = true;
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(h.get().usageLimitPauseByTask["task-main"]).toBeUndefined();
+    expect(h.dispatches).toEqual([{ workspaceId: "ws-main", taskId: "task-main" }]);
+  });
+
+  test("reads that keep failing back off; a readable verdict or Cancel starts over", async () => {
+    const replies: Array<"fail" | "exhausted"> = ["fail", "fail", "fail", "exhausted", "fail"];
+    const h = harness(async () => {
+      const reply = replies.shift();
+      if (reply === "exhausted") return codexUsage(100);
+      throw new Error("offline");
+    });
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    const waitAfterRead = async () => {
+      const before = Date.now();
+      await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+      return h.get().usageLimitPauseByTask["task-main"]!.autoResumeAt! - before;
+    };
+    const near = (actual: number, expected: number) => {
+      expect(actual).toBeGreaterThanOrEqual(expected);
+      expect(actual).toBeLessThan(expected + 1_000);
+    };
+    near(await waitAfterRead(), USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+    near(await waitAfterRead(), 2 * USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+    near(await waitAfterRead(), 4 * USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+    // Still exhausted: the reservation moves to that window's reset, and the count clears.
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    near(await waitAfterRead(), USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+    expect(h.dispatches).toEqual([]);
+
+    replies.push("fail");
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: false });
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    near(await waitAfterRead(), USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+  });
+
+  test("a pause removed outside the pause actions (task archived) takes its unreadable count with it", async () => {
+    const h = harness(async () => { throw new Error("offline"); });
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    expect(h.get().usageLimitPauseByTask["task-main"]?.unreadableUsageReads).toBe(2);
+    // Archiving drops the task's runtime entries, the pause among them.
+    h.set({ usageLimitPauseByTask: {} });
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    const before = Date.now();
+    await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    const wait = h.get().usageLimitPauseByTask["task-main"]!.autoResumeAt! - before;
+    expect(wait).toBeGreaterThanOrEqual(USAGE_LIMIT_UNAVAILABLE_RETRY_MS);
+    expect(wait).toBeLessThan(USAGE_LIMIT_UNAVAILABLE_RETRY_MS + 1_000);
+  });
+
+  test("the unreadable retry wait doubles from five minutes up to thirty", () => {
+    expect([1, 2, 3, 4, 5, 50].map(resolveUnreadableUsageRetryDelay)).toEqual([
+      USAGE_LIMIT_UNAVAILABLE_RETRY_MS,
+      2 * USAGE_LIMIT_UNAVAILABLE_RETRY_MS,
+      4 * USAGE_LIMIT_UNAVAILABLE_RETRY_MS,
+      UNREADABLE_USAGE_RETRY_MAX_MS,
+      UNREADABLE_USAGE_RETRY_MAX_MS,
+      UNREADABLE_USAGE_RETRY_MAX_MS,
+    ]);
+    expect(UNREADABLE_USAGE_RETRY_MAX_MS).toBe(30 * 60_000);
+  });
+
+  test("a read that reports its last attempt failed counts as unreadable", async () => {
+    const h = harness(async () => ({
+      ...codexUsage(0),
+      reads: { codex: { status: "cached", reason: "backoff", nextRefreshAt: null, nextAutomaticReadAt: null, lastReadFailed: true } },
+    }));
     h.pause();
     h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
     await h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
     expect(h.dispatches).toEqual([]);
-    expect(h.get().usageLimitPauseByTask["task-main"]).toMatchObject({ accountProfileId: ACCOUNT_A });
+    expect(h.get().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBeGreaterThan(Date.now());
+  });
+
+  test("Cancel during an unreadable read leaves the reservation off", async () => {
+    let fail!: (error: Error) => void;
+    const h = harness(() => new Promise((_, reject) => { fail = reject; }));
+    h.pause();
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: true });
+    const resuming = h.actions.resumePausedTaskWork({ taskId: "task-main", trigger: "auto" });
+    h.actions.setUsageLimitAutoResume({ taskId: "task-main", enabled: false });
+    fail(new Error("offline"));
+    await resuming;
+    expect(h.get().usageLimitPauseByTask["task-main"]).toBeDefined();
     expect(h.get().usageLimitPauseByTask["task-main"]?.autoResumeAt).toBeUndefined();
   });
 

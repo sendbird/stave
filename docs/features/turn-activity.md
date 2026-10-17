@@ -155,13 +155,18 @@ The pause retains the provider and model that stopped the work; changing the
 composer does not retarget the continuation. The account is the one selected
 when the work resumes, so switching accounts after a limit moves the
 continuation and the held queue to the new account. An automatic resume reads
-that account's usage first; if Stave cannot read it, the work stays paused and
-the reset-time reservation is cancelled with a notice. Older pauses without a
-recorded account need **Resume now**.
+that account's usage first; if Stave cannot read it (for example, the network
+is not back yet right after the computer wakes), the work stays paused and the
+reservation moves five minutes later to read again. While reads keep failing,
+the wait doubles up to 30 minutes. Older pauses without a recorded account need
+**Resume now**.
 
 The pause and reservation last only until Stave restarts. Keep Stave open for
-**Resume at reset** to run. After reopening, review the restored queue and
-choose **Resume**; the old reset-time reservation is not restored, and this
+**Resume at reset** to run. Nothing runs while the computer sleeps; a
+reservation whose time passed during sleep reads usage again within about a
+minute of waking and resumes if the account has usage left. After reopening,
+review the restored queue and choose **Resume**; the old reset-time
+reservation is not restored, and this
 queue action does not automatically continue the interrupted turn. Send a
 follow-up if you also want the agent to finish that turn's remaining work.
 
