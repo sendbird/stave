@@ -7,7 +7,10 @@ import {
   type CoalescedPersistTimers,
   type SyncStringStorage,
 } from "@/store/app-store-persist-storage";
-import { createAppStorePersistenceOptions } from "@/store/app-store-persistence";
+import {
+  createAppStorePersistenceOptions,
+  flushPersistenceForQuit,
+} from "@/store/app-store-persistence";
 import type { AppState } from "@/store/app-store.types";
 
 function createCountingStorage() {
@@ -254,6 +257,36 @@ describe("createCoalescedPersistStorage", () => {
     }
   });
 
+  test("a failed write reports failure and stays pending for the next flush", () => {
+    const { store, storage, backing } = createPersistedTestStore();
+    const originalSetItem = backing.storage.setItem;
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    try {
+      backing.storage.setItem = () => {
+        throw new Error("QuotaExceededError");
+      };
+      store.getState().setTheme("nord");
+      expect(storage.flush()).toBe(false);
+      expect(storage.hasPendingWrite()).toBe(true);
+      // Unrelated updates do not drop the retained value.
+      store.getState().tick();
+      expect(storage.hasPendingWrite()).toBe(true);
+
+      backing.storage.setItem = originalSetItem;
+      // No new change: the retry alone writes the retained value.
+      expect(storage.flush()).toBe(true);
+      expect(storage.hasPendingWrite()).toBe(false);
+      expect(
+        JSON.parse(backing.values.get("test-store")!).state.settings.theme,
+      ).toBe("nord");
+      expect(storage.flush()).toBe(true);
+    } finally {
+      backing.storage.setItem = originalSetItem;
+      console.error = originalConsoleError;
+    }
+  });
+
   test("resolves to undefined when the backing storage is unavailable", () => {
     expect(
       createCoalescedPersistStorage({
@@ -297,5 +330,42 @@ describe("createAppStorePersistenceOptions partialize", () => {
     const third = options.partialize({ ...state, defaultBranch: "develop" });
     expect(third.recentRepositories).not.toBe(first.recentRepositories);
     expect(third.recentRepositories[0]?.defaultBranch).toBe("develop");
+  });
+});
+
+describe("flushPersistenceForQuit", () => {
+  test("reports failure when the app-store write fails, after flushing the other stores", async () => {
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    try {
+      let storesFlushed = false;
+      const success = await flushPersistenceForQuit({
+        flushAppStore: () => false,
+        flushStores: async () => {
+          storesFlushed = true;
+        },
+      });
+      expect(success).toBe(false);
+      expect(storesFlushed).toBe(true);
+    } finally {
+      console.error = originalConsoleError;
+    }
+  });
+
+  test("reports success when every write lands and rejects when a store flush fails", async () => {
+    expect(
+      await flushPersistenceForQuit({
+        flushAppStore: () => true,
+        flushStores: async () => {},
+      }),
+    ).toBe(true);
+    await expect(
+      flushPersistenceForQuit({
+        flushAppStore: () => true,
+        flushStores: async () => {
+          throw new Error("sqlite closed");
+        },
+      }),
+    ).rejects.toThrow("sqlite closed");
   });
 });

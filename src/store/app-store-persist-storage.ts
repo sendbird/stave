@@ -13,7 +13,8 @@ import type { PersistStorage, StorageValue } from "zustand/middleware";
  * - debounces the remaining writes (trailing edge) with a maximum wait so a
  *   steady stream of changes still lands on disk regularly;
  * - flushes synchronously on `pagehide` / `beforeunload`, before any read,
- *   and on demand through `flush()`;
+ *   and on demand through `flush()`, which reports whether the write landed;
+ *   a failed write (quota, for example) stays pending for the next flush;
  * - drops a pending write when something else replaced the stored value
  *   after this storage last read or wrote it. With synchronous writes that
  *   outside value would have landed after ours, so it keeps winning (the e2e
@@ -21,8 +22,12 @@ import type { PersistStorage, StorageValue } from "zustand/middleware";
  *   update writes the full state again, as it always did.
  */
 export interface CoalescedPersistStorage<S> extends PersistStorage<S> {
-  /** Writes the pending value now, if any. Safe to call at any time. */
-  flush: () => void;
+  /**
+   * Writes the pending value now, if any. Safe to call at any time. Returns
+   * `false` when the write failed; the value then stays pending so a later
+   * flush retries it.
+   */
+  flush: () => boolean;
   /** Whether a write is waiting for its debounce window. */
   hasPendingWrite: () => boolean;
 }
@@ -110,13 +115,13 @@ export function createCoalescedPersistStorage<S>(args: {
     }
   };
 
-  const flush = () => {
+  const flush = (): boolean => {
     clearTimer();
     const write = pending;
     pending = null;
     pendingSince = null;
     if (!write) {
-      return;
+      return true;
     }
     try {
       if (knownRawByName.has(write.name)) {
@@ -124,16 +129,19 @@ export function createCoalescedPersistStorage<S>(args: {
         if (currentRaw !== knownRawByName.get(write.name)) {
           knownRawByName.set(write.name, currentRaw);
           acceptedByName.delete(write.name);
-          return;
+          return true;
         }
       }
       const raw = JSON.stringify(write.value);
       backing.setItem(write.name, raw);
       knownRawByName.set(write.name, raw);
+      return true;
     } catch (error) {
-      // Forget the accepted value so the next update retries the write.
-      acceptedByName.delete(write.name);
+      // Keep the value pending (and accepted) so the next flush, or the next
+      // store update, retries it instead of losing it.
+      pending = write;
       console.error("[persistence] failed to write the app store", error);
+      return false;
     }
   };
 

@@ -189,10 +189,33 @@ const appStorePersistStorages = new Set<CoalescedPersistStorage<unknown>>();
 /**
  * Writes any app-store snapshot still waiting in the persist debounce window.
  * Call it on quit/unload paths and in tests that read `localStorage` right
- * after a store update.
+ * after a store update. Returns `false` when a write failed; the snapshot then
+ * stays pending for the next flush.
  */
 export function flushAppStorePersistence() {
-  appStorePersistStorages.forEach((storage) => storage.flush());
+  let flushed = true;
+  appStorePersistStorages.forEach((storage) => {
+    flushed = storage.flush() && flushed;
+  });
+  return flushed;
+}
+
+/**
+ * Quit flush: writes the app-store snapshot, then awaits the other stores.
+ * Resolves `false` when the app-store write failed so the caller reports a
+ * failed flush to main (which keeps the quit confirmation path) instead of a
+ * success that would lose the settings. Rejects when `flushStores` rejects.
+ */
+export async function flushPersistenceForQuit(args: {
+  flushStores: () => Promise<unknown>;
+  flushAppStore?: () => boolean;
+}): Promise<boolean> {
+  const appStoreFlushed = (args.flushAppStore ?? flushAppStorePersistence)();
+  await args.flushStores();
+  if (!appStoreFlushed) {
+    console.error("[persistence] app store write failed during quit flush");
+  }
+  return appStoreFlushed;
 }
 
 export function createAppStorePersistenceOptions() {
