@@ -2076,7 +2076,6 @@ export async function streamCodexWithAppServer(
 
       const toolOutputBuffers = new Map<string, string>();
       const toolOutputLastEmitAt = new Map<string, number>();
-      const agentMessageBuffers = new Map<string, string>();
       const streamedAgentMessageIds = new Set<string>();
       const streamedReasoningIds = new Set<string>();
       const startedMcpToolCallIds = new Set<string>();
@@ -2112,7 +2111,6 @@ export async function streamCodexWithAppServer(
       let turnSeenBeforeStart = false;
       let resolveTurnCompletion: (() => void) | null = null;
       let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
-      let lastAgentMessageSegmentId = "";
       let lastAppServerErrorMessage: string | null = null;
       const codexDebug =
         runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
@@ -2695,18 +2693,6 @@ export async function streamCodexWithAppServer(
               return;
             }
             streamedAgentMessageIds.add(itemId);
-            if (itemId) {
-              agentMessageBuffers.set(
-                itemId,
-                appendBoundedCodexBuffer({
-                  current: agentMessageBuffers.get(itemId) ?? "",
-                  chunk: delta,
-                  keep: "prefix",
-                  maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                }),
-              );
-              lastAgentMessageSegmentId = itemId;
-            }
             emitBridgeEvent({
               type: "text",
               text: delta,
@@ -2873,16 +2859,6 @@ export async function streamCodexWithAppServer(
                   typeof (item as { text?: unknown }).text === "string"
                     ? String((item as { text?: unknown }).text)
                     : "";
-                if (itemId && text) {
-                  agentMessageBuffers.set(
-                    itemId,
-                    truncateCodexSnapshot({
-                      value: text,
-                      maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                    }),
-                  );
-                  lastAgentMessageSegmentId = itemId;
-                }
                 if (!streamedAgentMessageIds.has(itemId) && text) {
                   emitBridgeEvent({
                     type: "text",
