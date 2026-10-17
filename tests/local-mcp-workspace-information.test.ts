@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { WORKSPACE_INFORMATION_RESOURCE_KINDS } from "@/lib/local-mcp";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import {
   createLocalMcpWorkspaceInformation,
@@ -148,5 +149,30 @@ describe("local MCP workspace Information owner", () => {
       .rejects.toThrow("persistence failed");
     expect(state.has("alpha")).toBe(false);
     expect(calls).toEqual(["update:alpha", "update:alpha"]);
+  });
+  test("removes a resource of every kind the add and remove tools advertise", async () => {
+    const { api } = createHarness();
+    const urls: Record<(typeof WORKSPACE_INFORMATION_RESOURCE_KINDS)[number], string> = {
+      jira: "https://acme.atlassian.net/browse/ABC-7",
+      crane: "https://atelier.acme.dev/apps/crane/w/TEAM/task/CRN-42",
+      pull_request: "https://github.com/acme/app/pull/12",
+      confluence: "https://acme.atlassian.net/wiki/spaces/ENG/pages/12345/Release+Plan",
+      storybook: "https://storybook.acme.dev/?path=/story/forms-button--primary",
+      slack: "https://acme.slack.com/archives/C0123ABC/p1700000000000100",
+      figma: "https://www.figma.com/design/AbC123/Checkout-Flow?node-id=12-34",
+      amplify: "https://feature-x.d1abcdef.amplifyapp.com/",
+    };
+    for (const kind of WORKSPACE_INFORMATION_RESOURCE_KINDS) {
+      const added = await api.addWorkspaceResource({ workspaceId: "alpha", kind, url: urls[kind] });
+      expect(added.kind).toBe(kind);
+      const removed = await api.removeWorkspaceResource({
+        workspaceId: "alpha",
+        kind,
+        itemId: added.resource.id,
+      });
+      expect(removed.workspaceInformation).toEqual(createEmptyWorkspaceInformation());
+      await expect(api.removeWorkspaceResource({ workspaceId: "alpha", kind, itemId: added.resource.id }))
+        .rejects.toThrow(`Workspace resource not found: ${added.resource.id}`);
+    }
   });
 });

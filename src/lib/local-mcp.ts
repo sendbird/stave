@@ -13,6 +13,25 @@ export const DEFAULT_LOCAL_MCP_PORT = 39_517;
  */
 export const LOCAL_MCP_CONFIG_VERSION = 2;
 
+/**
+ * Resource kinds the workspace Information tools accept. The add and remove
+ * tool schemas and the host-side handler share this list so a kind the runtime
+ * can store is never missing from either schema.
+ */
+export const WORKSPACE_INFORMATION_RESOURCE_KINDS = [
+  "jira",
+  "crane",
+  "pull_request",
+  "confluence",
+  "storybook",
+  "slack",
+  "figma",
+  "amplify",
+] as const;
+
+export type WorkspaceInformationResourceKind =
+  (typeof WORKSPACE_INFORMATION_RESOURCE_KINDS)[number];
+
 export interface StaveLocalMcpConfig {
   enabled: boolean;
   /** Fixed loopback port, or `0` to let the OS assign an ephemeral one. */
