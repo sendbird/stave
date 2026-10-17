@@ -63,6 +63,7 @@ bun run dev:desktop:poll
 
 Use the smallest relevant check set for the change, then run the full gate before opening a PR when appropriate.
 
+- `bun run lint`
 - `bun run typecheck`
 - `bun test`
 - `bun run build`

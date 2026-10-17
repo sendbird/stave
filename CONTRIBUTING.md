@@ -22,6 +22,7 @@ Full setup details, native rebuild notes, and troubleshooting live in [docs/deve
 Run the smallest relevant check set for your change, and the full CI gate before opening a PR:
 
 ```bash
+bun run lint
 bun run typecheck
 bun test
 bun run build
