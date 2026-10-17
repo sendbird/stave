@@ -1,26 +1,26 @@
 import { I18N_NAMESPACES, useTranslation, type I18nKey } from "@/i18n";
-import type { AuxLane } from "@/lib/providers/auxiliary-inference-policy";
+import {
+  isFeatureSwitchedAuxLane,
+  type AuxLane,
+  type FeatureSwitchedAuxLane,
+} from "@/lib/providers/auxiliary-inference-policy";
 import type { AppSettings } from "@/store/app-settings";
 import type { SectionId } from "./settings-dialog.schema";
 import { SettingsSectionLink } from "./settings-dialog-section-link";
 
-type LaneGateSettings = Pick<
+type LaneSwitchSettings = Pick<
   AppSettings,
-  "auxiliaryInferencePolicy" | "editorAiCompletions" | "prePrReviewEnabled"
+  "auxiliaryInferencePolicy" | "editorAiCompletions"
 >;
 
 /**
- * Two lanes are gated at runtime by a second, older settings key as well as
- * the lane's own `enabled` flag: pre-PR review needs `prePrReviewEnabled`
- * (TopBarOpenPR) and inline completion needs `editorAiCompletions`
- * (editor-inline-completions). Both keys stay persisted; Settings shows one
- * switch per lane that reads the effective AND and writes both keys, so the
- * value the user sees is the value the runtime uses.
+ * Each lane has exactly one switch. Most lanes use their own `enabled` in
+ * `auxiliaryInferencePolicy`; a feature-switched lane uses the feature setting
+ * named here and its lane config has no `enabled`.
  */
-const LANE_EXTERNAL_GATE_KEY = {
-  prePrReview: "prePrReviewEnabled",
+const FEATURE_SWITCH_KEY = {
   inlineCompletion: "editorAiCompletions",
-} as const satisfies Partial<Record<AuxLane, keyof LaneGateSettings>>;
+} as const satisfies Record<FeatureSwitchedAuxLane, keyof LaneSwitchSettings>;
 
 const EDITOR_ENABLEMENT_OWNER = {
   section: "editor",
@@ -47,31 +47,29 @@ export function hasExternalAuxLaneEnablementOwner(lane: AuxLane): boolean {
   return AUX_LANE_ENABLEMENT_OWNER[lane] !== undefined;
 }
 
-function externalGateKey(lane: AuxLane) {
-  return (LANE_EXTERNAL_GATE_KEY as Partial<Record<AuxLane, keyof LaneGateSettings>>)[lane];
+/** On/off for a lane, as the runtime evaluates it. Returns a primitive. */
+export function selectAuxLaneEnabled(settings: LaneSwitchSettings, lane: AuxLane): boolean {
+  if (isFeatureSwitchedAuxLane(lane)) {
+    return settings[FEATURE_SWITCH_KEY[lane]] === true;
+  }
+  return settings.auxiliaryInferencePolicy[lane]?.enabled ?? false;
 }
 
-/** Effective on/off for a lane, as the runtime evaluates it. Returns a primitive. */
-export function selectAuxLaneEnabled(settings: LaneGateSettings, lane: AuxLane): boolean {
-  const key = externalGateKey(lane);
-  const laneEnabled = settings.auxiliaryInferencePolicy[lane]?.enabled ?? false;
-  return key ? laneEnabled && settings[key] === true : laneEnabled;
-}
-
-/** Settings patch that turns a lane on or off through every key that gates it. */
+/** Settings patch that turns a lane on or off through its one switch. */
 export function buildAuxLaneEnablementPatch(args: {
-  settings: LaneGateSettings;
+  settings: LaneSwitchSettings;
   lane: AuxLane;
   enabled: boolean;
 }): Partial<AppSettings> {
+  if (isFeatureSwitchedAuxLane(args.lane)) {
+    return { [FEATURE_SWITCH_KEY[args.lane]]: args.enabled };
+  }
   const policy = args.settings.auxiliaryInferencePolicy;
-  const key = externalGateKey(args.lane);
   return {
     auxiliaryInferencePolicy: {
       ...policy,
       [args.lane]: { ...policy[args.lane], enabled: args.enabled },
     },
-    ...(key ? { [key]: args.enabled } : {}),
   };
 }
 

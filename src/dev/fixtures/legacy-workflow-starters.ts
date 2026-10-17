@@ -301,7 +301,7 @@ export const WORKFLOW_STARTERS: readonly WorkflowStarter[] = [
           kind: "ai",
           role: "plan",
           instruction:
-            "Read the Slack thread linked in the assignment with your Slack tools, including replies and linked documents, and register it with `stave_add_workspace_slack_thread`. Inspect the relevant code and earlier decisions. Work out the outcome the requester needs, the scope, the constraints and any open questions.",
+            "Read the Slack thread linked in the assignment with your Slack tools, including replies and linked documents, and register it with `stave_add_workspace_resource` (kind `slack`). Inspect the relevant code and earlier decisions. Work out the outcome the requester needs, the scope, the constraints and any open questions.",
           doneWhen:
             "The request is restated in one paragraph, open questions are listed, and two to six checkable acceptance criteria are reported.",
         },

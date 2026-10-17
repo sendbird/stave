@@ -37,7 +37,7 @@ function AuxLaneCard(args: {
 }) {
   // Row-local subscription: a lane card re-renders only when its own lane
   // changes, so editing one card does not re-render the others.
-  // Effective on/off: some lanes are also gated by an older settings key.
+  // Inline completion's switch is the Editor setting, linked from here.
   const enabled = useAppStore((state) =>
     selectAuxLaneEnabled(state.settings, args.lane),
   );

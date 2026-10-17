@@ -277,7 +277,7 @@ function buildLatestTurnSummaryLine(info: WorkspaceInformationState) {
 // already states them (`workspacePlanDirectory`, `newWorkspacePlanFiles`,
 // `workspaceDocuments`).
 const WORKSPACE_CONVENTION_LINES = [
-  "- When you discover a Jira issue, pull request, Confluence page, Figma design, Slack thread, Storybook link, or deploy preview URL that this workspace's work relates to (mentioned by the user, found while working, or created by you), register it with the matching `stave_add_workspace_*` tool automatically without being asked. Registration is idempotent: duplicates are detected by canonical identity (e.g. Jira issue key, PR number) and merged into the existing entry, so re-registering is safe — never add the same Jira issue key or PR twice yourself, and prefer passing the issue key/URL as-is over reformatting it.",
+  "- When you discover a Jira issue, pull request, Confluence page, Figma design, Slack thread, Storybook link, or deploy preview URL that this workspace's work relates to (mentioned by the user, found while working, or created by you), register it with `stave_add_workspace_resource` and the matching `kind` automatically without being asked. Registration is idempotent: duplicates are detected by canonical identity (e.g. Jira issue key, PR number) and merged into the existing entry, so re-registering is safe — never add the same Jira issue key or PR twice yourself, and prefer passing the issue key/URL as-is over reformatting it.",
 ];
 
 const TOKEN_BUDGET_LINES = [

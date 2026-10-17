@@ -20,6 +20,7 @@
     "electron/providers/codex-turn-notification-gate.ts": 79,
     "electron/providers/codex-server-request-mapping.ts": 211,
     "electron/providers/codex-app-server-snapshot.ts": 372,
+    "src/components/ai-elements/prompt-input.tsx": 901,
     "src/components/layout/settings-sections/settings-dialog-chat-section.tsx": 318,
     "src/components/layout/settings-sections/settings-dialog-command-palette-section.tsx": 789,
     "src/components/layout/settings-sections/settings-dialog-editor-section.tsx": 204,

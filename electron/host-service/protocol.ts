@@ -483,12 +483,7 @@ export type HostLocalMcpAction =
   | "remove-workspace-custom-field"
   | "add-workspace-jira-issue"
   | "add-workspace-crane-issue"
-  | "add-workspace-confluence-page"
-  | "add-workspace-figma-resource"
-  | "add-workspace-storybook-resource"
   | "update-workspace-storybook-resource-access"
-  | "add-workspace-slack-thread"
-  | "add-workspace-amplify-link"
   | "remember-repository-memory"
   | "forget-repository-memory"
   | "list-repository-memories";

@@ -161,6 +161,7 @@ Required check files:
 
 - `src/lib/secrets/secrets.ts` (shared types, `normalizeEnvVarName`, `RESERVED_ENV_VAR_NAMES`, `MAX_BOUND_SECRETS`)
 - `electron/main/browser/secret-vault.ts` (storage + `resolveEnvForIds`)
+- `electron/main/browser/os-keychain-vault.ts` (keychain checks, encryption and the vault file, shared with the Lens account vault)
 - `electron/main/browser/secret-service.ts` (main-process `resolveBoundSecretEnv`)
 - `electron/providers/claude-sdk-runtime.ts` (`buildClaudeQueryOptions` `secretEnv`)
 - `electron/providers/codex-app-server-runtime.ts` + `codex-app-server-params.ts` (`shell_environment_policy.set.*`)

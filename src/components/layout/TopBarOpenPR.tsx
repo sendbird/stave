@@ -225,7 +225,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     tasks,
     activeTurnIdsByTask,
     workspacePrInfoById,
-    prePrReviewEnabled,
     prePrReviewClaudeModel,
     prePrReviewCodexModel,
     prePrReviewCodexBinaryPath,
@@ -251,7 +250,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           state.tasks,
           state.activeTurnIdsByTask,
           state.workspacePrInfoById,
-          state.settings.prePrReviewEnabled,
           state.settings.modelClaude,
           state.settings.modelCodex,
           state.settings.codexBinaryPath,
@@ -815,7 +813,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       shared: useAppStore.getState().settings.auxiliaryInferenceDefault,
     });
     if (
-      prePrReviewEnabled &&
       prePrReviewLane.enabled &&
       reviewDiff &&
       !options.skipReview &&

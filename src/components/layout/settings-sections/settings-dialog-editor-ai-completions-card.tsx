@@ -9,9 +9,8 @@ import {
 import { SettingsSectionLink } from "../settings-dialog-section-link";
 
 /**
- * Editor owns the on/off for AI inline completions. The runtime also requires
- * the Background AI inline-completion lane, so this switch shows and writes
- * both; the lane's provider and model stay in Background AI.
+ * Editor owns the on/off for AI inline completions (`editorAiCompletions`);
+ * the Background AI inline-completion lane keeps only its provider and model.
  */
 export function EditorAiCompletionsCard(args: {
   onNavigateSection?: (id: SectionId) => void;

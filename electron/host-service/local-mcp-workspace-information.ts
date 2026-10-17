@@ -152,6 +152,89 @@ function normalizeWorkspaceInfoString(value?: string) {
   return value?.trim() || "";
 }
 
+interface WorkspaceResourceLabelFields {
+  title?: string;
+  issueKey?: string;
+  nodeId?: string;
+  channelName?: string;
+  spaceKey?: string;
+}
+
+/**
+ * Fills the fields a caller left out from what the URL itself says (issue key,
+ * page or file title, Confluence space, Figma node, Slack channel, Amplify
+ * branch), ending in a readable placeholder title, so a resource added with
+ * only a URL still reads well in the Information panel. Values the caller
+ * passed win.
+ */
+function withUrlDerivedResourceLabels(args: {
+  kind: WorkspaceInformationResourceKind;
+  url: string;
+  fields: WorkspaceResourceLabelFields;
+}): WorkspaceResourceLabelFields {
+  const { kind, url, fields } = args;
+  const title = normalizeWorkspaceInfoString(fields.title);
+  switch (kind) {
+    case "jira":
+    case "crane": {
+      const parsed =
+        kind === "jira"
+          ? extractJiraIssueReference(url)
+          : extractCraneIssueReference(url);
+      const issueKey =
+        normalizeWorkspaceInfoString(fields.issueKey) || parsed?.issueKey || "";
+      return {
+        ...fields,
+        issueKey,
+        title:
+          title || issueKey || (kind === "jira" ? "Jira issue" : "Crane issue"),
+      };
+    }
+    case "confluence": {
+      const parsed = extractConfluencePageReference(url);
+      return {
+        ...fields,
+        title: title || parsed?.title || parsed?.spaceKey || "Confluence page",
+        spaceKey:
+          normalizeWorkspaceInfoString(fields.spaceKey) || parsed?.spaceKey || "",
+      };
+    }
+    case "figma": {
+      const parsed = extractFigmaResourceReference(url);
+      return {
+        ...fields,
+        title: title || parsed?.title || parsed?.fileKey || "Figma resource",
+        nodeId:
+          normalizeWorkspaceInfoString(fields.nodeId) || parsed?.nodeId || "",
+      };
+    }
+    case "storybook": {
+      const parsed = extractStorybookResourceReference(url);
+      return {
+        ...fields,
+        title:
+          title || parsed?.title || parsed?.storyPath || "Storybook resource",
+      };
+    }
+    case "slack":
+      return {
+        ...fields,
+        channelName:
+          normalizeWorkspaceInfoString(fields.channelName) ||
+          extractSlackThreadReference(url)?.channelId ||
+          "",
+      };
+    case "amplify":
+      // An Amplify link stores its title as the branch/environment label.
+      return {
+        ...fields,
+        title: title || extractAmplifyLinkReference(url)?.branch || "",
+      };
+    case "pull_request":
+      return fields;
+  }
+}
+
 export function createLocalMcpWorkspaceInformation({
   getWorkspaceInformation,
   updateWorkspaceInformationState,
@@ -303,6 +386,17 @@ export function createLocalMcpWorkspaceInformation({
       requestedKind === "jira" && extractCraneIssueReference(url)
         ? ("crane" as const)
         : requestedKind;
+    const labels = withUrlDerivedResourceLabels({
+      kind,
+      url,
+      fields: {
+        title: args.title,
+        issueKey: args.issueKey,
+        nodeId: args.nodeId,
+        channelName: args.channelName,
+        spaceKey: args.spaceKey,
+      },
+    });
     // Upsert instead of blind append — duplicate registrations of the same
     // canonical entity (e.g. one Jira issue key across URL variants) merge
     // into the existing Information panel entry.
@@ -315,13 +409,9 @@ export function createLocalMcpWorkspaceInformation({
           input: {
             kind,
             url,
-            title: args.title,
-            issueKey: args.issueKey,
+            ...labels,
             status: args.status,
             note: args.note,
-            nodeId: args.nodeId,
-            channelName: args.channelName,
-            spaceKey: args.spaceKey,
             storybookAccessKind: args.storybookAccessKind,
             storybookExternalRepo: args.storybookExternalRepo,
             storybookReadableVia: args.storybookReadableVia,
@@ -535,16 +625,7 @@ export function createLocalMcpWorkspaceInformation({
   async function addWorkspaceCraneIssue(args: {
     workspaceId: string; url: string; issueKey?: string; title?: string; status?: string; note?: string;
   }) {
-    const parsed = extractCraneIssueReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "crane",
-      url: normalizeWorkspaceInfoString(args.url),
-      issueKey: normalizeWorkspaceInfoString(args.issueKey) || parsed?.issueKey || "",
-      title: normalizeWorkspaceInfoString(args.title) || normalizeWorkspaceInfoString(args.issueKey) || parsed?.issueKey || "Crane issue",
-      status: normalizeWorkspaceInfoString(args.status),
-      note: normalizeWorkspaceInfoString(args.note),
-    });
+    const result = await addWorkspaceResource({ ...args, kind: "crane" });
     return {
       workspaceId: result.workspaceId,
       added: result.resource,
@@ -560,80 +641,7 @@ export function createLocalMcpWorkspaceInformation({
       const rerouted = await addWorkspaceCraneIssue(args);
       return { ...rerouted, reroutedTo: "crane" as const };
     }
-    const parsed = extractJiraIssueReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "jira",
-      url: normalizeWorkspaceInfoString(args.url),
-      issueKey: normalizeWorkspaceInfoString(args.issueKey) || parsed?.issueKey || "",
-      title: normalizeWorkspaceInfoString(args.title) || normalizeWorkspaceInfoString(args.issueKey) || parsed?.issueKey || "Jira issue",
-      status: normalizeWorkspaceInfoString(args.status),
-      note: normalizeWorkspaceInfoString(args.note),
-    });
-    return {
-      workspaceId: result.workspaceId,
-      added: result.resource,
-      deduplicated: result.deduplicated,
-      workspaceInformation: result.workspaceInformation,
-    };
-  }
-
-  async function addWorkspaceConfluencePage(args: {
-    workspaceId: string; url: string; title?: string; spaceKey?: string; note?: string;
-  }) {
-    const parsed = extractConfluencePageReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "confluence",
-      url: normalizeWorkspaceInfoString(args.url),
-      title: normalizeWorkspaceInfoString(args.title) || parsed?.title || parsed?.spaceKey || "Confluence page",
-      spaceKey: normalizeWorkspaceInfoString(args.spaceKey) || parsed?.spaceKey || "",
-      note: normalizeWorkspaceInfoString(args.note),
-    });
-    return {
-      workspaceId: result.workspaceId,
-      added: result.resource,
-      deduplicated: result.deduplicated,
-      workspaceInformation: result.workspaceInformation,
-    };
-  }
-
-  async function addWorkspaceFigmaResource(args: {
-    workspaceId: string; url: string; title?: string; nodeId?: string; note?: string;
-  }) {
-    const parsed = extractFigmaResourceReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "figma",
-      url: normalizeWorkspaceInfoString(args.url),
-      title: normalizeWorkspaceInfoString(args.title) || parsed?.title || parsed?.fileKey || "Figma resource",
-      nodeId: normalizeWorkspaceInfoString(args.nodeId) || parsed?.nodeId || "",
-      note: normalizeWorkspaceInfoString(args.note),
-    });
-    return {
-      workspaceId: result.workspaceId,
-      added: result.resource,
-      deduplicated: result.deduplicated,
-      workspaceInformation: result.workspaceInformation,
-    };
-  }
-
-  async function addWorkspaceStorybookResource(args: {
-    workspaceId: string; url: string; title?: string; note?: string; accessKind?: string;
-    externalRepo?: string; readableVia?: string; sourceHint?: string;
-  }) {
-    const parsed = extractStorybookResourceReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "storybook",
-      url: normalizeWorkspaceInfoString(args.url),
-      title: normalizeWorkspaceInfoString(args.title) || parsed?.title || parsed?.storyPath || "Storybook resource",
-      note: normalizeWorkspaceInfoString(args.note),
-      storybookAccessKind: args.accessKind,
-      storybookExternalRepo: args.externalRepo,
-      storybookReadableVia: args.readableVia,
-      storybookSourceHint: args.sourceHint,
-    });
+    const result = await addWorkspaceResource({ ...args, kind: "jira" });
     return {
       workspaceId: result.workspaceId,
       added: result.resource,
@@ -686,44 +694,6 @@ export function createLocalMcpWorkspaceInformation({
     });
   }
 
-  async function addWorkspaceSlackThread(args: {
-    workspaceId: string; url: string; channelName?: string; note?: string;
-  }) {
-    const parsed = extractSlackThreadReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "slack",
-      url: normalizeWorkspaceInfoString(args.url),
-      channelName: normalizeWorkspaceInfoString(args.channelName) || parsed?.channelId || "",
-      note: normalizeWorkspaceInfoString(args.note),
-    });
-    return {
-      workspaceId: result.workspaceId,
-      added: result.resource,
-      deduplicated: result.deduplicated,
-      workspaceInformation: result.workspaceInformation,
-    };
-  }
-
-  async function addWorkspaceAmplifyLink(args: {
-    workspaceId: string; url: string; label?: string; note?: string;
-  }) {
-    const parsed = extractAmplifyLinkReference(args.url);
-    const result = await addWorkspaceResource({
-      workspaceId: args.workspaceId,
-      kind: "amplify",
-      url: normalizeWorkspaceInfoString(args.url),
-      title: normalizeWorkspaceInfoString(args.label) || parsed?.branch || "",
-      note: normalizeWorkspaceInfoString(args.note),
-    });
-    return {
-      workspaceId: result.workspaceId,
-      added: result.resource,
-      deduplicated: result.deduplicated,
-      workspaceInformation: result.workspaceInformation,
-    };
-  }
-
   return {
     getWorkspaceInformation,
     setWorkspaceMartinProject,
@@ -740,11 +710,6 @@ export function createLocalMcpWorkspaceInformation({
     removeWorkspaceCustomField,
     addWorkspaceCraneIssue,
     addWorkspaceJiraIssue,
-    addWorkspaceConfluencePage,
-    addWorkspaceFigmaResource,
-    addWorkspaceStorybookResource,
     updateWorkspaceStorybookResourceAccess,
-    addWorkspaceSlackThread,
-    addWorkspaceAmplifyLink,
   };
 }

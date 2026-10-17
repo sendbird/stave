@@ -1,6 +1,4 @@
 import { randomUUID } from "node:crypto";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { z } from "zod";
 import {
   normalizeLensCredentialHost,
@@ -8,6 +6,7 @@ import {
   type LensCredentialMetadata,
   type LensCredentialUpsertInput,
 } from "../../../src/lib/lens/lens-credentials";
+import { OsKeychainVaultFile, type OsKeychainCrypto } from "./os-keychain-vault";
 
 const VAULT_VERSION = 2;
 
@@ -49,13 +48,9 @@ const LegacyVaultDocumentV1Schema = z
   .strict();
 
 type StoredCredential = z.infer<typeof StoredCredentialSchema>;
+type VaultDocument = z.infer<typeof VaultDocumentSchema>;
 
-export interface LensCredentialVaultCrypto {
-  isEncryptionAvailable(): boolean;
-  isInsecureBackend(): boolean;
-  encryptString(value: string): Buffer;
-  decryptString(value: Buffer): string;
-}
+export type LensCredentialVaultCrypto = OsKeychainCrypto;
 
 export interface LensCredentialSecret extends LensCredentialMetadata {
   password: string;
@@ -77,8 +72,26 @@ function toMetadata(
   };
 }
 
+function parseVaultDocument(parsed: unknown): VaultDocument | null {
+  const result = VaultDocumentSchema.safeParse(parsed);
+  if (result.success) {
+    return result.data;
+  }
+  const legacyResult = LegacyVaultDocumentV1Schema.safeParse(parsed);
+  if (legacyResult.success) {
+    // Upgrade in memory; the next mutation persists the v2 format.
+    return {
+      version: VAULT_VERSION,
+      credentials: legacyResult.data.credentials.map(
+        ({ host, ...entry }) => ({ ...entry, hosts: [host] }),
+      ),
+    };
+  }
+  return null;
+}
+
 export class LensCredentialVault {
-  private mutationQueue: Promise<void> = Promise.resolve();
+  private readonly file: OsKeychainVaultFile<VaultDocument>;
 
   constructor(
     private readonly args: {
@@ -87,11 +100,20 @@ export class LensCredentialVault {
       now?: () => string;
       createId?: () => string;
     },
-  ) {}
+  ) {
+    this.file = new OsKeychainVaultFile({
+      filePath: args.filePath,
+      crypto: args.crypto,
+      storageLabel: "Lens account storage",
+      documentLabel: "Lens account vault",
+      emptyDocument: () => ({ version: VAULT_VERSION, credentials: [] }),
+      parseDocument: parseVaultDocument,
+    });
+  }
 
   async list(): Promise<LensCredentialMetadata[]> {
-    this.assertSecureEncryption();
-    const document = await this.readDocument();
+    this.file.assertSecureEncryption();
+    const document = await this.file.readDocument();
     return document.credentials
       .map((entry) => toMetadata(entry, this.decryptSecret(entry).username))
       .sort(
@@ -107,8 +129,8 @@ export class LensCredentialVault {
   async upsert(
     input: LensCredentialUpsertInput,
   ): Promise<LensCredentialMetadata> {
-    return this.enqueueMutation(async () => {
-      this.assertSecureEncryption();
+    return this.file.enqueueMutation(async () => {
+      this.file.assertSecureEncryption();
       const hosts = normalizeLensCredentialHosts(input.hosts);
       const username = input.username.trim();
       if (!hosts) {
@@ -120,7 +142,7 @@ export class LensCredentialVault {
         throw new Error("Username is required.");
       }
 
-      const document = await this.readDocument();
+      const document = await this.file.readDocument();
       const existingIndex = input.id
         ? document.credentials.findIndex((entry) => entry.id === input.id)
         : -1;
@@ -135,14 +157,12 @@ export class LensCredentialVault {
 
       const timestamp = (this.args.now ?? (() => new Date().toISOString()))();
       const existingSecret = existing ? this.decryptSecret(existing) : null;
-      const secretCiphertext = this.args.crypto
-        .encryptString(
-          JSON.stringify({
-            username,
-            password: input.password ?? existingSecret!.password,
-          }),
-        )
-        .toString("base64");
+      const secretCiphertext = this.file.encryptToBase64(
+        JSON.stringify({
+          username,
+          password: input.password ?? existingSecret!.password,
+        }),
+      );
       const next: StoredCredential = {
         id: existing?.id ?? (this.args.createId ?? randomUUID)(),
         hosts,
@@ -165,21 +185,21 @@ export class LensCredentialVault {
             : entry,
         );
       }
-      await this.writeDocument(document);
+      await this.file.writeDocument(document);
       return toMetadata(next, username);
     });
   }
 
   async delete(id: string): Promise<boolean> {
-    return this.enqueueMutation(async () => {
-      const document = await this.readDocument();
+    return this.file.enqueueMutation(async () => {
+      const document = await this.file.readDocument();
       const nextCredentials = document.credentials.filter(
         (entry) => entry.id !== id,
       );
       if (nextCredentials.length === document.credentials.length) {
         return false;
       }
-      await this.writeDocument({
+      await this.file.writeDocument({
         version: VAULT_VERSION,
         credentials: nextCredentials,
       });
@@ -191,12 +211,12 @@ export class LensCredentialVault {
     url: string,
     options?: { autoFillOnly?: boolean; username?: string },
   ): Promise<LensCredentialSecret | null> {
-    this.assertSecureEncryption();
+    this.file.assertSecureEncryption();
     const host = normalizeLensCredentialHost(url);
     if (!host) {
       return null;
     }
-    const document = await this.readDocument();
+    const document = await this.file.readDocument();
     const matchingEntries = document.credentials.filter((candidate) =>
       candidate.hosts.includes(host),
     );
@@ -227,9 +247,7 @@ export class LensCredentialVault {
   private decryptSecret(
     entry: StoredCredential,
   ): z.infer<typeof StoredSecretSchema> {
-    const plaintext = this.args.crypto.decryptString(
-      Buffer.from(entry.secretCiphertext, "base64"),
-    );
+    const plaintext = this.file.decryptFromBase64(entry.secretCiphertext);
     let parsed: unknown;
     try {
       parsed = JSON.parse(plaintext);
@@ -245,79 +263,5 @@ export class LensCredentialVault {
       );
     }
     return result.data;
-  }
-
-  private assertSecureEncryption(): void {
-    if (!this.args.crypto.isEncryptionAvailable()) {
-      throw new Error(
-        "OS credential encryption is unavailable. Unlock the system credential store and retry.",
-      );
-    }
-    if (this.args.crypto.isInsecureBackend()) {
-      throw new Error(
-        "Lens account storage requires an OS credential store; Electron basic_text encryption is not accepted.",
-      );
-    }
-  }
-
-  private async readDocument(): Promise<z.infer<typeof VaultDocumentSchema>> {
-    let raw: string;
-    try {
-      raw = await fs.readFile(this.args.filePath, "utf8");
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
-        return { version: VAULT_VERSION, credentials: [] };
-      }
-      throw error;
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      throw new Error("The Lens account vault is not valid JSON.");
-    }
-    const result = VaultDocumentSchema.safeParse(parsed);
-    if (result.success) {
-      return result.data;
-    }
-    const legacyResult = LegacyVaultDocumentV1Schema.safeParse(parsed);
-    if (legacyResult.success) {
-      // Upgrade in memory; the next mutation persists the v2 format.
-      return {
-        version: VAULT_VERSION,
-        credentials: legacyResult.data.credentials.map(
-          ({ host, ...entry }) => ({ ...entry, hosts: [host] }),
-        ),
-      };
-    }
-    throw new Error("The Lens account vault has an unsupported format.");
-  }
-
-  private async writeDocument(
-    document: z.infer<typeof VaultDocumentSchema>,
-  ): Promise<void> {
-    const directory = path.dirname(this.args.filePath);
-    await fs.mkdir(directory, { recursive: true });
-    const tempPath = `${this.args.filePath}.${process.pid}.${randomUUID()}.tmp`;
-    try {
-      await fs.writeFile(tempPath, `${JSON.stringify(document, null, 2)}\n`, {
-        encoding: "utf8",
-        mode: 0o600,
-      });
-      await fs.rename(tempPath, this.args.filePath);
-      await fs.chmod(this.args.filePath, 0o600);
-    } finally {
-      await fs.rm(tempPath, { force: true }).catch(() => undefined);
-    }
-  }
-
-  private enqueueMutation<T>(operation: () => Promise<T>): Promise<T> {
-    const result = this.mutationQueue.then(operation, operation);
-    this.mutationQueue = result.then(
-      () => undefined,
-      () => undefined,
-    );
-    return result;
   }
 }

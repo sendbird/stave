@@ -854,12 +854,7 @@ export const {
   removeWorkspaceCustomField,
   addWorkspaceCraneIssue,
   addWorkspaceJiraIssue,
-  addWorkspaceConfluencePage,
-  addWorkspaceFigmaResource,
-  addWorkspaceStorybookResource,
   updateWorkspaceStorybookResourceAccess,
-  addWorkspaceSlackThread,
-  addWorkspaceAmplifyLink,
 } = createLocalMcpWorkspaceInformation({
   getWorkspaceInformation,
   updateWorkspaceInformationState,

@@ -43,16 +43,31 @@ export const AUX_LANES = [
  */
 export type AuxLane = (typeof AUX_LANES)[number];
 
+/**
+ * Lanes switched on and off by a feature setting outside this policy, so
+ * their config carries no `enabled`: inline completion is the Editor's
+ * `editorAiCompletions` switch. Every other lane's `enabled` is its switch.
+ */
+export const FEATURE_SWITCHED_AUX_LANES = [
+  "inlineCompletion",
+] as const satisfies readonly AuxLane[];
+
+export type FeatureSwitchedAuxLane = (typeof FEATURE_SWITCHED_AUX_LANES)[number];
+
+export function isFeatureSwitchedAuxLane(
+  lane: AuxLane,
+): lane is FeatureSwitchedAuxLane {
+  return (FEATURE_SWITCHED_AUX_LANES as readonly AuxLane[]).includes(lane);
+}
+
 export type AuxLaneProviderId = ManagedExecutionProviderId;
 
 /**
- * One lane's settings. The three model fields are exceptions to the shared
- * default (`AuxInferenceDefault`): a present value is an explicit override,
- * an absent key inherits. They are never `null`.
+ * One lane's model and behavior settings. The three model fields are
+ * exceptions to the shared default (`AuxInferenceDefault`): a present value is
+ * an explicit override, an absent key inherits. They are never `null`.
  */
-export interface AuxLaneConfig {
-  /** Off means the lane never runs; its non-AI fallback (if any) still does. */
-  enabled: boolean;
+export interface AuxLaneTuning {
   /** Override: always run this lane on this provider. Absent inherits. */
   providerId?: AuxLaneProviderId;
   /** Override: always run this lane on this model. Absent inherits. */
@@ -73,7 +88,17 @@ export interface AuxLaneConfig {
   skipWithoutAssistantText?: boolean;
 }
 
-export type AuxiliaryInferencePolicy = Record<AuxLane, AuxLaneConfig>;
+/** A lane the policy switches on and off itself. */
+export interface AuxLaneConfig extends AuxLaneTuning {
+  /** Off means the lane never runs; its non-AI fallback (if any) still does. */
+  enabled: boolean;
+}
+
+export type AuxiliaryInferencePolicy = {
+  [Lane in Exclude<AuxLane, FeatureSwitchedAuxLane>]: AuxLaneConfig;
+} & {
+  [Lane in FeatureSwitchedAuxLane]: AuxLaneTuning;
+};
 
 /** `auto` follows the task's own provider, and Claude when there is none. */
 export type AuxInferenceDefaultProviderId = "auto" | AuxLaneProviderId;
@@ -116,11 +141,11 @@ export const DEFAULT_AUXILIARY_INFERENCE_POLICY: AuxiliaryInferencePolicy = {
   taskName: { enabled: true, maxUserTurns: 1 },
   utility: { enabled: true, maxProviderAttempts: 2 },
   prDescription: { enabled: true },
-  prePrReview: { enabled: true },
-  // Off by default: it fires on a ~100-200 ms typing pause with up to 12K
-  // characters of surrounding code and no reusable prompt prefix, so on a
-  // metered plan it is the one lane that can outspend the user's own turns.
-  inlineCompletion: { enabled: false },
+  // Off by default: a review runs a full model turn over the diff on every
+  // Create PR.
+  prePrReview: { enabled: false },
+  // Switched by `editorAiCompletions`, which is off by default.
+  inlineCompletion: {},
 };
 
 /**
@@ -146,9 +171,8 @@ const LIGHT_TIER_LANES = new Set<AuxLane>([
   "inlineCompletion",
 ]);
 
-const AuxLaneConfigSchema = z
+const AuxLaneTuningSchema = z
   .object({
-    enabled: z.boolean(),
     providerId: z.enum(["claude-code", "codex"]).optional(),
     // `null` is read as "inherit" so a settings export from before the shared
     // default still imports; normalization drops it.
@@ -165,10 +189,20 @@ const AuxLaneConfigSchema = z
   })
   .strict();
 
-export const AuxiliaryInferencePolicySchema = z.record(
-  z.enum(AUX_LANES),
-  AuxLaneConfigSchema,
-) as z.ZodType<AuxiliaryInferencePolicy>;
+const AuxLaneConfigSchema = AuxLaneTuningSchema.extend({
+  enabled: z.boolean(),
+}).strict();
+
+export const AuxiliaryInferencePolicySchema = z
+  .object(
+    Object.fromEntries(
+      AUX_LANES.map((lane) => [
+        lane,
+        isFeatureSwitchedAuxLane(lane) ? AuxLaneTuningSchema : AuxLaneConfigSchema,
+      ]),
+    ) as Record<AuxLane, typeof AuxLaneTuningSchema>,
+  )
+  .strict() as unknown as z.ZodType<AuxiliaryInferencePolicy>;
 
 export const AuxInferenceDefaultSchema = z
   .object({
@@ -212,8 +246,9 @@ export function normalizeAuxInferenceDefault(raw: unknown): AuxInferenceDefault 
   return { providerId, model: null };
 }
 
-function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneConfig {
-  const fallback = DEFAULT_AUXILIARY_INFERENCE_POLICY[lane];
+function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneTuning | AuxLaneConfig {
+  const fallback: AuxLaneTuning & { enabled?: boolean } =
+    DEFAULT_AUXILIARY_INFERENCE_POLICY[lane];
   if (!raw || typeof raw !== "object") {
     return { ...fallback };
   }
@@ -243,11 +278,16 @@ function normalizeLane(lane: AuxLane, raw: unknown): AuxLaneConfig {
   const fallbackModel = auxLaneHasFallbackModel(lane)
     ? normalizeModelValue(candidate.fallbackModel)
     : undefined;
-  const next: AuxLaneConfig = {
-    enabled:
-      typeof candidate.enabled === "boolean"
-        ? candidate.enabled
-        : fallback.enabled,
+  const next: AuxLaneTuning & { enabled?: boolean } = {
+    // A feature-switched lane has no `enabled`; a saved one is dropped.
+    ...(fallback.enabled === undefined
+      ? {}
+      : {
+          enabled:
+            typeof candidate.enabled === "boolean"
+              ? candidate.enabled
+              : fallback.enabled,
+        }),
     ...(providerId ? { providerId } : {}),
     ...(model ? { model } : {}),
     ...(fallbackModel ? { fallbackModel } : {}),
@@ -305,10 +345,10 @@ export function normalizeAuxiliaryInferencePolicy(
 ): AuxiliaryInferencePolicy {
   const source =
     raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
-  return AUX_LANES.reduce((accumulator, lane) => {
+  return AUX_LANES.reduce<Record<AuxLane, AuxLaneTuning>>((accumulator, lane) => {
     accumulator[lane] = normalizeLane(lane, source[lane]);
     return accumulator;
-  }, {} as AuxiliaryInferencePolicy);
+  }, {} as Record<AuxLane, AuxLaneTuning>) as AuxiliaryInferencePolicy;
 }
 
 /**
@@ -319,7 +359,7 @@ export function normalizeAuxiliaryInferencePolicy(
 export function migrateLegacyTurnSummaryModels(args: {
   primaryModel?: unknown;
   fallbackModel?: unknown;
-}): Pick<AuxLaneConfig, "model" | "fallbackModel"> | null {
+}): Pick<AuxLaneTuning, "model" | "fallbackModel"> | null {
   const model = normalizeModelValue(args.primaryModel);
   const fallbackModel = normalizeModelValue(args.fallbackModel);
   if (!model && !fallbackModel) {
@@ -332,7 +372,7 @@ export function migrateLegacyTurnSummaryModels(args: {
 }
 
 /** Whether a lane overrides any part of the shared default. */
-export function auxLaneHasOverride(config: AuxLaneConfig) {
+export function auxLaneHasOverride(config: AuxLaneTuning) {
   return Boolean(config.providerId || config.model || config.fallbackModel);
 }
 
@@ -355,7 +395,11 @@ export type AuxLaneValueSource = "override" | "shared" | "task" | "automatic";
 
 export interface AuxLaneRuntime {
   lane: AuxLane;
-  config: AuxLaneConfig;
+  config: AuxLaneTuning;
+  /**
+   * The lane's own switch. Always `true` for a feature-switched lane: its
+   * feature setting (`FEATURE_SWITCHED_AUX_LANES`) decides before it resolves.
+   */
   enabled: boolean;
   providerId: AuxLaneProviderId;
   providerSource: AuxLaneValueSource;
@@ -370,7 +414,7 @@ export interface AuxLaneRuntime {
 }
 
 function resolveLaneProvider(args: {
-  config: AuxLaneConfig;
+  config: AuxLaneTuning;
   shared: AuxInferenceDefault;
   activeProviderId?: ProviderId | null;
 }): { providerId: AuxLaneProviderId; source: AuxLaneValueSource } {
@@ -407,7 +451,7 @@ export function resolveAuxLaneRuntime(args: {
   shared: AuxInferenceDefault;
   activeProviderId?: ProviderId | null;
 }): AuxLaneRuntime {
-  const config =
+  const config: AuxLaneTuning & { enabled?: boolean } =
     args.policy[args.lane] ?? DEFAULT_AUXILIARY_INFERENCE_POLICY[args.lane];
   const shared = args.shared ?? DEFAULT_AUX_INFERENCE_DEFAULT;
   const { providerId, source: providerSource } = resolveLaneProvider({
@@ -451,7 +495,7 @@ export function resolveAuxLaneRuntime(args: {
   return {
     lane: args.lane,
     config,
-    enabled: config.enabled,
+    enabled: config.enabled ?? true,
     providerId,
     providerSource,
     model,

@@ -133,7 +133,7 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
 
     const guidance = contentBySourceId(parts, STAVE_WORKSPACE_GUIDANCE_SOURCE_ID);
     expect(guidance).toContain("Workspace Conventions:");
-    expect(guidance).toContain("register it with the matching `stave_add_workspace_*` tool");
+    expect(guidance).toContain("register it with `stave_add_workspace_resource` and the matching `kind`");
     // The plan-file conventions live in the `[Stave Workspace Context]` header
     // of the same prompt; repeating them here paid for them twice.
     expect(guidance).not.toContain("new workspace plan files belong under");
@@ -162,7 +162,7 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
     // auto-register directive (e.g. AWS Amplify) is injected for every user.
     expect(guidance).not.toContain("stave_add_workspace_amplify_link");
     expect(guidance).toContain(
-      "register it with the matching `stave_add_workspace_*` tool",
+      "register it with `stave_add_workspace_resource` and the matching `kind`",
     );
     expect(guidance).toContain("deploy preview URL");
 

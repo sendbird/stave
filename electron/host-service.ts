@@ -792,35 +792,11 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.addWorkspaceJiraIssue(
         args as Parameters<typeof localMcpRuntime.addWorkspaceJiraIssue>[0],
       );
-    case "add-workspace-confluence-page":
-      return localMcpRuntime.addWorkspaceConfluencePage(
-        args as Parameters<
-          typeof localMcpRuntime.addWorkspaceConfluencePage
-        >[0],
-      );
-    case "add-workspace-figma-resource":
-      return localMcpRuntime.addWorkspaceFigmaResource(
-        args as Parameters<typeof localMcpRuntime.addWorkspaceFigmaResource>[0],
-      );
-    case "add-workspace-storybook-resource":
-      return localMcpRuntime.addWorkspaceStorybookResource(
-        args as Parameters<
-          typeof localMcpRuntime.addWorkspaceStorybookResource
-        >[0],
-      );
     case "update-workspace-storybook-resource-access":
       return localMcpRuntime.updateWorkspaceStorybookResourceAccess(
         args as Parameters<
           typeof localMcpRuntime.updateWorkspaceStorybookResourceAccess
         >[0],
-      );
-    case "add-workspace-slack-thread":
-      return localMcpRuntime.addWorkspaceSlackThread(
-        args as Parameters<typeof localMcpRuntime.addWorkspaceSlackThread>[0],
-      );
-    case "add-workspace-amplify-link":
-      return localMcpRuntime.addWorkspaceAmplifyLink(
-        args as Parameters<typeof localMcpRuntime.addWorkspaceAmplifyLink>[0],
       );
     default:
       action satisfies never;

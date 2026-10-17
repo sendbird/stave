@@ -18,7 +18,7 @@ export const createIssue: AiStage = {
   kind: "ai",
   role: "publish",
   instruction:
-    "Search the tracker named in the assignment, or the repository's usual tracker, for an existing issue about this request. Create or update exactly one issue with the restated request and the acceptance criteria. Register it in the workspace with `stave_add_workspace_jira_issue` or `stave_add_workspace_crane_issue`. If no tracker is reachable, report the stage as blocked instead of guessing.",
+    "Search the tracker named in the assignment, or the repository's usual tracker, for an existing issue about this request. Create or update exactly one issue with the restated request and the acceptance criteria. Register it in the workspace with `stave_add_workspace_resource` (kind `jira` or `crane`). If no tracker is reachable, report the stage as blocked instead of guessing.",
   doneWhen: "One issue link is registered in the workspace and reported as evidence.",
 };
 
@@ -49,7 +49,7 @@ export const STAGE_TEMPLATES: readonly StageTemplate[] = [
       kind: "ai",
       role: "publish",
       instruction:
-        "Deploy a preview of this branch by following the repository's deploy instructions, such as AGENTS.md, the README or its documented scripts, for example an Amplify branch deployment. Never deploy to production. Register the preview link with `stave_add_workspace_amplify_link` for Amplify, otherwise with `stave_add_workspace_resource`.",
+        "Deploy a preview of this branch by following the repository's deploy instructions, such as AGENTS.md, the README or its documented scripts, for example an Amplify branch deployment. Never deploy to production. Register the preview link with `stave_add_workspace_resource` (kind `amplify` for Amplify).",
       doneWhen:
         "The preview URL serves this branch's change, and its link is registered and reported as evidence.",
     },
