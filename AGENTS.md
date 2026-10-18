@@ -36,6 +36,31 @@ Stave is an installable product. Do not bake author-specific machine state into 
 - Release tags use `vX.Y.Z`.
 - Refresh `CHANGELOG.md` with `bunx --bun conventional-changelog-cli -p conventionalcommits -i CHANGELOG.md -s` unless the work is intentionally establishing a brand-new baseline release.
 
+## Private Reference Maintenance
+
+Before feature additions, behavior changes, or UX improvements, follow
+[`docs/developer/reference-maintenance.md`](docs/developer/reference-maintenance.md).
+Resolve the private library with
+`git rev-parse --path-format=absolute --git-common-dir`, then read
+`stave-references/index.md` under that directory for the private knowledge-store
+locator. Open the remote index and only the relevant records through the
+authenticated connector. The remote store is authoritative; the local file
+contains access instructions, not an editable research copy. All worktrees of a
+clone share this locator. If the locator or remote access is missing, report that
+briefly and continue from repository requirements; do not invent research or
+treat a local snapshot as current.
+
+- Recheck a source before relying on a time-sensitive claim or an overdue record.
+- After the work, update the relevant private record with evidence, the decision,
+  and the next review date. Read back the content and verify sharing remains off.
+  Keep failed access separate from a successful check.
+- Keep source URLs, source-identifying names, screenshots, and private-library
+  links out of tracked files and public metadata. Public changes describe the
+  required behavior and its validation independently. Required legal attribution
+  still applies; stop for maintainer review if it conflicts with this boundary.
+- This is an agent workflow, not a background refresh service. Read-only tasks
+  must report proposed updates without editing the library.
+
 ## Temporary Migrations
 
 Code that exists only to read or convert names Stave no longer uses (renamed
