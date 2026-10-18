@@ -1,3 +1,35 @@
+## [0.27.4](https://github.com/sendbird/stave/compare/v0.27.3...v0.27.4) (2026-10-18)
+
+This patch release stops long-running sessions from accumulating memory, hardens Agent Run review and verification, keeps usage-limit auto-resume armed through failed reads, shows question replies as the user's own answer, fixes design-system and accessibility defects, and patches runtime dependency advisories. It contains no `feat:` commits, so it stays a patch; note the agent-facing Local MCP tool consolidation under Upgrade Notes.
+
+### Fixes
+
+- Long sessions stay bounded: language servers time out and clean up replaced sessions, ESLint workers stop when idle (at most three), per-run, highlight, Lens log, workspace file and transcript caches are capped or released, hidden Monaco editors unmount while keeping their models, and per-task, per-workspace, Lens, compare-history, steer-route and provider-stream state is released when its owner goes away. PTY output no longer queues behind an unbounded promise chain.
+- Persisted settings writes are skipped when nothing changed and debounced, with synchronous flushes on unload and quit; a failed write at quit is reported and kept pending.
+- Agent Runs skip the final repair turn only when independent review passes with all required checks and sign-offs, stop admitting work immediately after pause, takeover, cancellation or shutdown, bind verification to admitted script definitions, and recheck inherited evidence before remote writes and after commit hooks.
+- Usage-limit auto-resume stays armed when the account's usage cannot be read (for example after waking without network) and retries after 5, 10, 20 and then at most 30 minutes.
+- Answers to an AI question show only the user's answer in the chat bubble; the original question and answer are kept in a collapsed, accessible row across queued turns, steering, failed-send recovery, history and Agent Run replies.
+- Design-system and accessibility fixes: keyboard-reachable image previews, a shared context chip, layer tokens for stacking, theme-token file icons, a searchable theme list and schedule model picker, an untruncated provider name in the schedule editor, and catalog strings that no longer show `&apos;` literally. The Information panel shows the Jira section when the Jira connector is on, and Jira issues load at startup without opening Settings first.
+- `stave_remove_workspace_resource` accepts `crane` resources. i18n toast callbacks and the service link badge follow language changes, and Codex no longer buffers unread agent message text.
+- Runtime dependency advisories are resolved through pinned overrides (dompurify, katex, colord, express and MCP SDK transitive packages, hono). `bun audit` drops from 112 to 53 findings; the remainder are build and dev tools only.
+
+### Refactors and Chores
+
+- Unused code is removed, including the legacy agent trace style, terminal session leftovers in the main process and 75 unused renderer exports. The secret vault and Lens credential vault share one OS keychain core with unchanged paths and APIs, and the composer prompt input is split into smaller modules without DOM changes.
+- oxlint is adopted (`bun run lint`) and runs with `check:design-system` in `test:ci` and PR checks; unused dependencies (`next-themes`, `@electron-toolkit/preload`, `@electron-toolkit/utils`, `react-diff-viewer-continued`, `eslint-plugin-react-hooks`) are removed.
+
+### Upgrade Notes
+
+- Agent-facing Local MCP tools `stave_add_workspace_jira_issue`, `_crane_issue`, `_confluence_page`, `_storybook_resource`, `_slack_thread`, `_figma_resource` and `_amplify_link` are removed. Use `stave_add_workspace_resource` with `kind`; its result is now wrapped in `result` with `resource` and `kind`. Saved workflow instructions that name the old tools are not rewritten.
+- Pre-PR review now uses only its Background AI lane switch, inline completion uses only `editorAiCompletions`, and Jira uses only `jiraConnector.enabled`. Temporary migrations `aux-lane-single-switch` and `jira-single-switch` (remove in 0.30.0) carry the previous combined settings forward. No registered temporary migration expires in this release.
+
+### Known Limits
+
+- Memory changes were not measured with heap snapshots, and Monaco remount, multi-window persistence and host crash recovery were not exercised in a running app. Live provider turns, laptop sleep/wake and a packaged desktop upgrade were not exercised.
+
+### References
+
+- [PR #782](https://github.com/sendbird/stave/pull/782), [PR #783](https://github.com/sendbird/stave/pull/783), [PR #784](https://github.com/sendbird/stave/pull/784), [PR #785](https://github.com/sendbird/stave/pull/785), [PR #786](https://github.com/sendbird/stave/pull/786), [PR #787](https://github.com/sendbird/stave/pull/787), [PR #789](https://github.com/sendbird/stave/pull/789), [PR #790](https://github.com/sendbird/stave/pull/790), [PR #791](https://github.com/sendbird/stave/pull/791), [PR #792](https://github.com/sendbird/stave/pull/792), [PR #793](https://github.com/sendbird/stave/pull/793), [PR #794](https://github.com/sendbird/stave/pull/794)
 ## [0.27.3](https://github.com/sendbird/stave/compare/v0.27.2...v0.27.3) (2026-10-16)
 
 This patch release improves model and account selection, makes routing decisions easier to understand, gives Agent Runs clearer controls, and keeps conclusions in task replies.
