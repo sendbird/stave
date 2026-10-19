@@ -19,10 +19,10 @@ import {
   type DelegatedTaskSummary,
 } from "../../src/lib/runs/delegated-task";
 import {
-  TaskCompletionStatusSchema,
   WAKE_UP_LIMITS,
   type TaskCompletionSignal,
 } from "../../src/lib/supervision/wake-up-policy";
+import { taskCompletionSignalOf } from "../../src/lib/supervision/task-completion-signal";
 import { ensureHostServicePersistenceReady } from "./persistence";
 
 /**
@@ -97,36 +97,8 @@ export function listTaskCompletionSignals(args: {
     parentTaskId: args.taskId,
     limit: TASK_COMPLETION_FEED_LIMIT,
   }).flatMap((summary) => {
-    // `waiting` is an active phase, so a detached child that parked open
-    // after its turn never appears here: only stopping or detaching the
-    // delegation settles it into a terminal status. Documented in
-    // docs/features/wake-ups.md — a completion wake-up observes
-    // delegations that *end*, not detached children between turns.
-    if (isActiveDelegatedTaskPhase(summary.phase)) {
-      return [];
-    }
-    const status = TaskCompletionStatusSchema.safeParse(summary.phase);
-    if (!status.success) {
-      return [];
-    }
-    return [
-      {
-        runId: summary.runId,
-        stepId: summary.stepId,
-        delegatedTaskId: summary.delegatedTaskId,
-        providerId: summary.providerId,
-        status: status.data,
-        reason: summary.reason
-          ? summary.reason.slice(0, WAKE_UP_LIMITS.maxReasonChars)
-          : null,
-        // A terminal step without a `completedAt` is a reconciled one; its
-        // `updatedAt` is the instant it settled.
-        completedAt: summary.completedAt ?? summary.updatedAt,
-        // Part of the signal's identity: a retried attempt that settles
-        // again must not be deduped against the first attempt's wake-up.
-        attempt: summary.attempt,
-      } satisfies TaskCompletionSignal,
-    ];
+    const signal = taskCompletionSignalOf(summary);
+    return signal ? [signal] : [];
   });
 }
 
