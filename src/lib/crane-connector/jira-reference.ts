@@ -1,5 +1,6 @@
 import type { CraneStaveJobV1 } from "./contract";
 import { getCraneTeamKey } from "./project-mapping";
+import { safeDecodeURIComponent } from "../safe-decode-uri";
 
 /**
  * Crane issue keys (`CRN-42`) are shaped exactly like Jira issue keys, so a
@@ -87,7 +88,7 @@ export function extractJiraIssueUrlReference(
   if (!isJiraHost(parsed.hostname)) {
     return null;
   }
-  const haystack = `${decodeURIComponent(parsed.pathname)} ${decodeURIComponent(
+  const haystack = `${safeDecodeURIComponent(parsed.pathname)} ${safeDecodeURIComponent(
     parsed.search,
   )}`;
   const key = firstJiraKeyIn(haystack, new Set());

@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { safeDecodeURIComponent } from "./safe-decode-uri";
 import {
   WORKSPACE_INFO_FIELD_TYPE_LABELS,
   formatStorybookAccessContext,
@@ -478,7 +479,7 @@ export function resolveWorkspaceInformationReferenceFromToken(
   if (!section) {
     return null;
   }
-  const itemId = match[2] ? decodeURIComponent(match[2]) : "";
+  const itemId = match[2] ? safeDecodeURIComponent(match[2]) : "";
   if (itemId) {
     return createItemReference({
       section,
