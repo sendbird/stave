@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { safeDecodeURIComponent } from "./safe-uri-component";
 import type { IntentGuardContextInput } from "./source-control-review";
 import type { WorkspaceResumeBrief } from "./workspace-resume-brief";
 
@@ -486,7 +487,7 @@ export function extractJiraIssueReference(
   }
 
   const match =
-    `${decodeURIComponent(url.pathname)} ${decodeURIComponent(url.search)}`.match(
+    `${safeDecodeURIComponent(url.pathname)} ${safeDecodeURIComponent(url.search)}`.match(
       /\b([A-Z][A-Z0-9]+-\d+)\b/,
     );
   const issueKey = match?.[1]?.trim();
@@ -515,7 +516,7 @@ export function extractCraneIssueReference(
   if (!url) {
     return null;
   }
-  const segments = decodeURIComponent(url.pathname)
+  const segments = safeDecodeURIComponent(url.pathname)
     .split("/")
     .filter(Boolean);
   const craneIndex = segments.findIndex(
@@ -568,7 +569,7 @@ export function extractFigmaResourceReference(
     return null;
   }
 
-  const title = decodeURIComponent(segments[2] ?? "")
+  const title = safeDecodeURIComponent(segments[2] ?? "")
     .replace(/[-_]+/g, " ")
     .trim();
   const nodeId = url.searchParams.get("node-id")?.trim() || null;
@@ -597,7 +598,7 @@ export function extractStorybookResourceReference(
   }
 
   const storyPath = url.searchParams.get("path")?.trim() ?? "";
-  const rawTitle = storyPath || decodeURIComponent(url.pathname).trim();
+  const rawTitle = storyPath || safeDecodeURIComponent(url.pathname).trim();
   const title = rawTitle
     .replace(/^\/?(story|docs)\//, "")
     .replace(/--docs$/, "")
@@ -883,7 +884,7 @@ export function extractConfluencePageReference(
   if (segments[0] === "wiki" && segments[1] === "spaces" && segments[2]) {
     const spaceKey = segments[2];
     const title = segments[5]
-      ? decodeURIComponent(segments[5].replace(/\+/g, " ")).trim()
+      ? safeDecodeURIComponent(segments[5].replace(/\+/g, " ")).trim()
       : "";
     return {
       host: formatWorkspaceInfoHostLabel(value),

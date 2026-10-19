@@ -1,5 +1,9 @@
 import { i18n } from "@/i18n/runtime";
 import {
+  safeDecodeURIComponent,
+  safeEncodeURIComponent,
+} from "./safe-uri-component";
+import {
   WORKSPACE_INFO_FIELD_TYPE_LABELS,
   formatStorybookAccessContext,
   resolveWorkspaceTodoStatus,
@@ -146,7 +150,7 @@ function createItemReference(args: {
     scope: "item",
     itemId: args.itemId,
     label: args.label,
-    token: `@info:${args.section}/${encodeURIComponent(args.itemId)}`,
+    token: `@info:${args.section}/${safeEncodeURIComponent(args.itemId)}`,
   };
 }
 
@@ -478,7 +482,7 @@ export function resolveWorkspaceInformationReferenceFromToken(
   if (!section) {
     return null;
   }
-  const itemId = match[2] ? decodeURIComponent(match[2]) : "";
+  const itemId = match[2] ? safeDecodeURIComponent(match[2]) : "";
   if (itemId) {
     return createItemReference({
       section,
