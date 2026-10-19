@@ -12,6 +12,8 @@ import type { ShelfTurnAlert } from "@/components/session/composer-shelf/compose
 import { AgentRunDetailView } from "@/components/agent-runs/AgentRunPanel";
 import { buildStageNudgePrompt, compileAgentRunStagePrompt } from "@/lib/agent-runs/briefing";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import type { DelegationExchange } from "@/lib/delegation/exchange";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { AGENT_RUN_ASSIGNMENT, buildAgentRunFixtures } from "./agent-run-fixtures";
 
 /*
@@ -60,6 +62,14 @@ export function agentRunFleetDetails(): Record<string, AgentRunDetail> {
   };
 }
 
+/** A delegate on the run's shelf line, in the state the case needs. */
+function previewDelegate(id: string, title: string, outcome: DelegationExchange["outcome"], endedAt?: number): DelegationExchange {
+  return {
+    id, kind: "delegated-task", title, identity: { role: "Agent", providerId: "codex" }, ask: "Review the diff",
+    outcome, timing: { startedAt: null, stages: [], ...(endedAt ? { endedAt } : {}) }, actions: [], setup: {}, ref: { delegationKey: id },
+  };
+}
+
 /** The preview's Fleet cards: workspace, card title, and the decision its lead task holds open. */
 const FLEET_CARDS = [
   ["fleet-d", "billing-overflow", null],
@@ -82,6 +92,38 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
     events: [...working.eventWait.events, { id: "wait-registered-preview", agentRunId: working.eventWait.agentRun.id, sequence: 999, kind: "wait-registered",
       idempotencyKey: null, createdAt: delegatedWaitBase.registeredAt,
       detail: { waitId: delegatedWaitBase.id, waitKind: "delegated_completion", target: "2c21e993-5d2c-4c5b-9a55-0c6a8e1f4b7d", targetLabel: "Reviewer" } }] };
+  // A PR wait whose watch read the pull request a minute ago, and one whose reads fail.
+  const prWaitBase = working.eventWait.agentRun.eventWait!;
+  const prWatch = { pullRequest: null, lastCheckedAt: new Date(now - 90_000).toISOString(), lastSeen: null, consecutiveReadFailures: 0, lastReadError: null, pendingSince: null };
+  const prWaitChecked: AgentRunDetail = { ...working.eventWait, agentRun: { ...working.eventWait.agentRun, eventWait: { ...prWaitBase, watch: prWatch } } };
+  const prWaitFailing: AgentRunDetail = { ...working.eventWait, agentRun: { ...working.eventWait.agentRun, eventWait: { ...prWaitBase, watch: { ...prWatch, consecutiveReadFailures: 3, lastReadError: "gh: timeout" } } } };
+  const observed = { eventWaitObservedAt: new Date(now - 4_000).toISOString() };
+  const delegatedWatched: AgentRunDetail = { ...delegatedWait, ...observed };
+  const delegatedStale: AgentRunDetail = { ...delegatedWait, eventWaitObservedAt: new Date(now - 6 * 60_000).toISOString() };
+  const untargetedWait: AgentRunDetail = { ...delegatedWatched, agentRun: { ...delegatedWait.agentRun, eventWait: { ...delegatedWait.agentRun.eventWait!, target: null, since: new Date(now - 30 * 60_000).toISOString(), waitingSince: new Date(now - 10 * 60_000).toISOString() } } };
+  const delegatesWorking = [
+    previewDelegate("review", "Reviewer", { status: "running", progress: ["Reading the diff", "Running bun test tests/agent-run-ui.test.tsx"] }),
+    previewDelegate("docs", "Writer", { status: "queued" }),
+    previewDelegate("lint", "Linter", { status: "returned", result: "Clean." }),
+    previewDelegate("perf", "Profiler", { status: "returned", result: "No regressions." }),
+  ];
+  const delegatesNeedYou = [
+    previewDelegate("review", "Reviewer", { status: "returned", progress: ["Reading the diff"], result: "No findings." }),
+    previewDelegate("docs", "Writer", { status: "running", needsUser: true, progress: ["Waiting for an approval"] }),
+    previewDelegate("ship", "Shipper", { status: "running", waiting: true }),
+  ];
+  const delegatesFinished = [
+    previewDelegate("review", "Reviewer", { status: "returned", result: "No findings." }, now - 3 * 60_000),
+  ];
+  // The ledger row behind it, undelivered: the host should have woken the run on it.
+  const leadTaskId = delegatedWait.agentRun.leadTaskId;
+  const finishedChildren = [{
+    runId: `child-task:${leadTaskId}:review`, stepId: `child-task:${leadTaskId}:review:turn`, parentTaskId: leadTaskId,
+    delegationKey: "review", delegatedTaskId: "task-review", delegatedWorkspaceId: "ws-preview", delegatedTurnId: null,
+    providerId: "codex", lifecycle: "one-turn", phase: "completed",
+    reason: null, attempt: 0, createdAt: new Date(now - 20 * 60_000).toISOString(),
+    updatedAt: new Date(now - 3 * 60_000).toISOString(), completedAt: new Date(now - 3 * 60_000).toISOString(),
+  } as DelegatedTaskSummary];
   // An Extended run: 40 shared turns, one helper Agent still working.
   const teamLimits: AgentRunDetail = { ...working.working, resources: { rootRunId: working.working.agentRun.id, teamTurns: 40,
     policy: { version: 2, profile: "balanced", providerId: "claude-code", allowedModels: ["claude-opus-5-5", "claude-sonnet-5-5"],
@@ -159,6 +201,36 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
                 nowPhrase={phrase}
                 turnAlert={turnAlert}
                 decision={decision}
+                now={now}
+                reducedMotion={false}
+                agentActions={runActions}
+                actions={{ onOpenPanel: () => {} }}
+              />
+            </ComposerShelfSurface>
+            <div className={sx(styles.composer)}>Tell the agent something…</div>
+          </div>
+        </section>
+      ))}
+
+      {(
+        [
+          ["Agent run delegated wait", "Composer · waiting for delegated work, one working, one queued, two done (folded)", delegatedWatched, delegatesWorking, null],
+          ["Agent run delegated wait needs you", "Composer · a delegate needs you (lifted onto the run line), one waiting on its own", delegatedWatched, delegatesNeedYou, null],
+          ["Agent run delegated wait finished", "Composer · delegated work finished 3m ago, the run has not resumed", untargetedWait, delegatesFinished, finishedChildren],
+          ["Agent run delegated wait stale", "Composer · the host has not looked at the wait for 6m", delegatedStale, delegatesWorking, null],
+          ["Agent run PR wait checked", "Composer · waiting for PR checks, read 1m ago", prWaitChecked, null, null],
+          ["Agent run PR wait failing", "Composer · waiting for PR checks, reads failing", prWaitFailing, null, null],
+        ] as const
+      ).map(([id, label, detail, subagents, children]) => (
+        <section key={id} className={sx(styles.case)} data-preview-case={id}>
+          <p className={sx(styles.caption)}>{label}</p>
+          <div className={sx(styles.stack)}>
+            <ComposerShelfSurface>
+              <AgentRunBarView
+                detail={detail}
+                nowPhrase={null}
+                subagents={subagents}
+                delegatedChildren={children}
                 now={now}
                 reducedMotion={false}
                 agentActions={runActions}

@@ -22,6 +22,8 @@ import { StageTrack } from "./StageTrack";
 import { useNow } from "./useAgentRun";
 import { useAgentRunProgress } from "./useAgentRunProgress";
 import { describeRunPlan } from "@/lib/agent-runs/progress";
+import { describeRunWaitLiveness } from "@/lib/agent-runs/wait-liveness";
+import { useTaskSubagentSources } from "@/components/session/useTaskSubagents";
 
 /** The workspace's running agent run: the newest active one, as stored. */
 function pickActiveAgentRun(details: Record<string, AgentRunDetail>, workspaceId: string) {
@@ -120,6 +122,17 @@ function FleetAgentRunLine(props: {
   const staged = rows.length > 1;
   const plan = useAgentRunProgress(detail);
   const progress = staged ? null : describeRunPlan(plan);
+  // A waiting run says how long, when Stave last looked and what its delegates need,
+  // as the composer line does; its delegates are read only while it waits.
+  const delegates = useTaskSubagentSources(detail.agentRun.leadTaskId, status.waiting ? detail : null);
+  const liveness = describeRunWaitLiveness({
+    eventWait: status.eventWait,
+    observedAt: detail.eventWaitObservedAt,
+    delegates: { ...delegates, parentTaskId: detail.agentRun.leadTaskId },
+    now,
+  });
+  const warning = liveness.notes.find((note) => note.tone === "warning") ?? null;
+  const note = liveness.notes[0]?.text ?? null;
   return (
     <Button
       layout="host"
@@ -132,16 +145,21 @@ function FleetAgentRunLine(props: {
     >
       <span className={sx(styles.head)}>
         <StageStatusIcon tone={status.mark.tone} state={status.mark.state} />
-        <span className={sx(styles.text)} title={progress ?? undefined}>
+        <span className={sx(styles.text)} title={[progress, ...liveness.notes.map((item) => item.text)].filter(Boolean).join(" · ") || undefined}>
           <span className={sx(styles.title)}>{status.agentName}</span>
           <span className={sx(badgeInk(status))}>
             {" · "}
             {label}
             {progress ? ` · ${progress}` : ""}
           </span>
+          {note ? (
+            <span data-testid="fleet-wait-note" className={sx(warning ? styles.noteWarning : null)}>
+              {` · ${note}`}
+            </span>
+          ) : null}
         </span>
-        <span className={sx(styles.position)}>
-          {elapsed}
+        <span className={sx(styles.position)} title={liveness.since?.title}>
+          {liveness.since ? liveness.since.text : elapsed}
           {spent ? ` · ${spent}` : ""}
         </span>
       </span>
@@ -151,6 +169,7 @@ function FleetAgentRunLine(props: {
 }
 
 const styles = stylex.create({
+  noteWarning: { color: vars["--ads-color-warning-text"] },
   strip: {
     display: "flex",
     flexDirection: "column",
