@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import { extractJiraIssueUrlReference } from "@/lib/crane-connector/jira-reference";
-import { safeDecodeURIComponent } from "@/lib/safe-decode-uri";
+import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
+import {
+  safeDecodeURIComponent,
+  safeEncodeURIComponent,
+} from "@/lib/safe-uri-component";
 import { resolveServiceLinkBadge } from "@/lib/service-link-badges";
 import {
   detectWorkspaceResourcesInText,
@@ -28,9 +32,23 @@ describe("safeDecodeURIComponent", () => {
     expect(safeDecodeURIComponent("a%20b%2Fc")).toBe("a b/c");
   });
 
-  test("returns the input unchanged on a malformed escape", () => {
+  test("keeps malformed escapes raw and still decodes the valid ones", () => {
     expect(safeDecodeURIComponent("100%")).toBe("100%");
     expect(safeDecodeURIComponent("%E0%A4%A")).toBe("%E0%A4%A");
+    expect(safeDecodeURIComponent("DFE-12%33/100%")).toBe("DFE-123/100%");
+    expect(safeDecodeURIComponent("%ED%95%9C%zz%20x")).toBe("\uD55C%zz x");
+  });
+});
+
+describe("safeEncodeURIComponent", () => {
+  test("matches encodeURIComponent for well-formed text", () => {
+    expect(safeEncodeURIComponent("a b/한")).toBe(encodeURIComponent("a b/한"));
+  });
+
+  test("replaces lone surrogates instead of throwing", () => {
+    expect(() => encodeURIComponent("ABC\uD800")).toThrow(URIError);
+    expect(safeEncodeURIComponent("ABC\uD800")).toBe("ABC%EF%BF%BD");
+    expect(safeEncodeURIComponent("\uDC00x")).toBe("%EF%BF%BDx");
   });
 });
 
@@ -74,9 +92,34 @@ describe("link parsers tolerate malformed percent escapes", () => {
     ).toBe("DFE-1234");
   });
 
-  test("keeps a malformed @info item id as raw text", () => {
+  test("decodes an escaped key digit even when another escape is malformed", () => {
+    const url = "https://company.atlassian.net/browse/DFE-12%33/100%";
+    expect(extractJiraIssueReference(url)?.issueKey).toBe("DFE-123");
+    expect(extractJiraIssueUrlReference(url)?.key).toBe("DFE-123");
+    expect(resolveServiceLinkBadge(url)).toMatchObject({ label: "DFE-123" });
+  });
+
+  test("renders prompt text containing a malformed link without throwing", () => {
     expect(() =>
-      resolveWorkspaceInformationReferenceFromToken("@info:jira/ABC%"),
+      parsePromptTokenSegments(
+        "check https://crane.example.com/apps/crane/w/TFE/task/CRN-42/100% now",
+      ),
     ).not.toThrow();
+  });
+
+  test("keeps a malformed @info item id as raw text", () => {
+    const reference =
+      resolveWorkspaceInformationReferenceFromToken("@info:jira/ABC%");
+    expect(reference?.itemId).toBe("ABC%");
+    expect(reference?.token).toBe("@info:jira/ABC%25");
+  });
+
+  test("builds an @info token for an item id with a lone surrogate", () => {
+    expect(() =>
+      resolveWorkspaceInformationReferenceFromToken("@info:jira/ABC\uD800"),
+    ).not.toThrow();
+    expect(
+      parsePromptTokenSegments("see @info:jira/ABC\uD800 here").length,
+    ).toBeGreaterThan(0);
   });
 });

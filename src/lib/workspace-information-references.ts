@@ -1,5 +1,8 @@
 import { i18n } from "@/i18n/runtime";
-import { safeDecodeURIComponent } from "./safe-decode-uri";
+import {
+  safeDecodeURIComponent,
+  safeEncodeURIComponent,
+} from "./safe-uri-component";
 import {
   WORKSPACE_INFO_FIELD_TYPE_LABELS,
   formatStorybookAccessContext,
@@ -147,7 +150,7 @@ function createItemReference(args: {
     scope: "item",
     itemId: args.itemId,
     label: args.label,
-    token: `@info:${args.section}/${encodeURIComponent(args.itemId)}`,
+    token: `@info:${args.section}/${safeEncodeURIComponent(args.itemId)}`,
   };
 }
 

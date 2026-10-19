@@ -1,6 +1,6 @@
 import type { CraneStaveJobV1 } from "./contract";
 import { getCraneTeamKey } from "./project-mapping";
-import { safeDecodeURIComponent } from "../safe-decode-uri";
+import { safeDecodeURIComponent } from "../safe-uri-component";
 
 /**
  * Crane issue keys (`CRN-42`) are shaped exactly like Jira issue keys, so a

@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import { safeDecodeURIComponent } from "./safe-decode-uri";
+import { safeDecodeURIComponent } from "./safe-uri-component";
 import type { IntentGuardContextInput } from "./source-control-review";
 import type { WorkspaceResumeBrief } from "./workspace-resume-brief";
 
