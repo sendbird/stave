@@ -37,6 +37,9 @@ describe("safeDecodeURIComponent", () => {
     expect(safeDecodeURIComponent("%E0%A4%A")).toBe("%E0%A4%A");
     expect(safeDecodeURIComponent("DFE-12%33/100%")).toBe("DFE-123/100%");
     expect(safeDecodeURIComponent("%ED%95%9C%zz%20x")).toBe("\uD55C%zz x");
+    expect(safeDecodeURIComponent("DFE-12%33%2F%FF")).toBe("DFE-123/%FF");
+    expect(safeDecodeURIComponent("%ED%95%9C%E0%A4")).toBe("\uD55C%E0%A4");
+    expect(safeDecodeURIComponent("%80%41%ED%A0%80")).toBe("%80A%ED%A0%80");
   });
 });
 
@@ -93,10 +96,14 @@ describe("link parsers tolerate malformed percent escapes", () => {
   });
 
   test("decodes an escaped key digit even when another escape is malformed", () => {
-    const url = "https://company.atlassian.net/browse/DFE-12%33/100%";
-    expect(extractJiraIssueReference(url)?.issueKey).toBe("DFE-123");
-    expect(extractJiraIssueUrlReference(url)?.key).toBe("DFE-123");
-    expect(resolveServiceLinkBadge(url)).toMatchObject({ label: "DFE-123" });
+    for (const url of [
+      "https://company.atlassian.net/browse/DFE-12%33/100%",
+      "https://company.atlassian.net/browse/DFE-12%33%2F%FF",
+    ]) {
+      expect(extractJiraIssueReference(url)?.issueKey).toBe("DFE-123");
+      expect(extractJiraIssueUrlReference(url)?.key).toBe("DFE-123");
+      expect(resolveServiceLinkBadge(url)).toMatchObject({ label: "DFE-123" });
+    }
   });
 
   test("renders prompt text containing a malformed link without throwing", () => {
