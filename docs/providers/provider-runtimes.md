@@ -882,6 +882,33 @@ omits tracking tools by default. Secondary read-only queries do not receive
 these overrides. Bound secrets cannot override either flag. See the
 [SDK tracking documentation](https://code.claude.com/docs/en/agent-sdk/todo-tracking#model-availability).
 
+Claude turn end and background work:
+
+- Stave closes the SDK input when a turn's `result` arrives and finishes the
+  turn when the stream ends.
+- Claude Code 2.1.302 keeps a closed-input session open while a
+  `run_in_background` shell or an armed monitor still runs. It then answers
+  the task's completion notice as one more turn. A shell with its own
+  `timeout` is exempt from the CLI's 10-minute wait ceiling, so a background
+  dev server could keep a finished turn running for hours. A run waiting on a
+  delegated task could not wake, because a run wakes only after the lead's
+  turn is over.
+- `electron/providers/claude-background-hold.ts` follows
+  `system/background_tasks_changed`. The session counts as idle after a
+  `result` with no queued input (`queued_turn_count`). It stops being idle
+  when any model or tool activity follows, for example a steer or a
+  notification turn, or while Stave waits on an approval or a question.
+- If an idle session's stream stays quiet for 5 seconds and only shells or
+  monitors are live, the turn ends. Only time spent waiting for the next
+  message counts, so Stave's own work after `result` never shortens the
+  grace, and messages already on their way are still read.
+- The ended turn keeps the stop reason from its `result`. The query closes,
+  which stops those tasks, and the turn shows a notice that names them.
+  Claude Code 2.1.284 stopped them itself after its own 5-second wind-down
+  grace.
+- Live subagents, workflows and unknown task types can still return work.
+  For them the turn keeps waiting as before, within the CLI's own ceiling.
+
 Claude text-boundary note:
 
 - Claude usually streams text through `stream_event.content_block_delta` and

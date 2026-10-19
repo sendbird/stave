@@ -139,6 +139,11 @@ import {
 } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import { createClaudeMcpAppViewCapture } from "./claude-mcp-app-views";
+import {
+  buildClaudeBackgroundHoldNotice,
+  createClaudePostResultBackgroundHold,
+  readClaudeStreamUntilBackgroundHold,
+} from "./claude-background-hold";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
 import {
   parseBooleanEnv,
@@ -3804,7 +3809,12 @@ export async function streamClaudeWithSdk(
       workspaceId: args.workspaceId ?? null, taskId: args.taskId ?? null, getQuery: () => stream,
       emit: (event) => { eventCollector.append(event); args.onEvent?.(event); },
     });
-    for await (const message of recoverableStream) {
+    // The CLI can keep the stream open after `result` for background shells;
+    // see `claude-background-hold.ts`.
+    const backgroundHold = createClaudePostResultBackgroundHold({
+      isTurnBusy: () => awaitingQuestion || pendingApprovalResolvers.size > 0 || pendingUserInputResolvers.size > 0,
+    });
+    for await (const message of readClaudeStreamUntilBackgroundHold(recoverableStream, backgroundHold)) {
       if (
         message.type === "system" &&
         (message as SDKSystemMessage).subtype === "init"
@@ -3960,6 +3970,17 @@ export async function streamClaudeWithSdk(
         args.onEvent?.(event);
       }
       mcpAppViews.observe(message, normalizedEvents);
+    }
+
+    const heldBackgroundTasks = backgroundHold.heldTasks();
+    if (heldBackgroundTasks && !abortRequested) {
+      console.info("[claude-sdk-runtime] ended a turn the CLI held open for background tasks", {
+        taskId: args.taskId,
+        tasks: heldBackgroundTasks.map((task) => ({ id: task.id, type: task.type })),
+      });
+      const holdNotice: BridgeEvent = { type: "system", content: buildClaudeBackgroundHoldNotice(heldBackgroundTasks) };
+      eventCollector.append(holdNotice);
+      args.onEvent?.(holdNotice);
     }
 
     const compactError = compactTracker.finish(abortRequested);
