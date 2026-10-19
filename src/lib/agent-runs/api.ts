@@ -100,6 +100,13 @@ export interface AgentRunDetail {
   routing?: AgentRunRouteObservation[];
   /** Frozen policy and shared supervised-turn capacity, never a money guarantee. */
   resources?: import("./resources").AgentResourceSnapshot;
+  /**
+   * When the host last looked at the run's active event wait (every tick it
+   * sits in it), so a window can tell a quiet wait from a host that stopped
+   * looking. Kept in the host's memory, not the run's saved shape; older
+   * hosts and a just-restarted host omit it.
+   */
+  eventWaitObservedAt?: string;
 }
 
 /** Why an agent run command failed; `failed` is anything unexpected. */
