@@ -618,6 +618,44 @@ describe("event waits: what wakes the run", () => {
     expect(harness.aggregate(id).agentRun.eventWait).toBeUndefined();
   });
 
+  test("the host's last look at a wait reaches the window, told at most once a minute", async () => {
+    let emitted = 0;
+    const harness = createHarness({ extra: { emitChanged: () => { emitted += 1; } } });
+    const { id } = await waitingRun(harness, { kind: "delegated_completion", target: "review" });
+    expect((await harness.detail(id)).eventWaitObservedAt).toBe(harness.now().toISOString());
+    // Quiet ticks inside the minute update the look without telling the window again.
+    emitted = 0;
+    for (let index = 0; index < 3; index += 1) {
+      harness.advance(10_000);
+      await harness.tick();
+    }
+    expect(emitted).toBe(0);
+    expect((await harness.detail(id)).eventWaitObservedAt).toBe(harness.now().toISOString());
+    harness.advance(MINUTE);
+    await harness.tick();
+    expect(emitted).toBe(1);
+    // A turn in between (the user's reply) is not a look at the wait.
+    const looked = (await harness.detail(id)).eventWaitObservedAt;
+    harness.userTurn("user-1");
+    harness.advance(10_000);
+    await harness.tick();
+    expect((await harness.detail(id)).eventWaitObservedAt).toBe(looked);
+  });
+
+  test("once the event wakes the run, the window hears of no look at a wait", async () => {
+    const harness = createHarness();
+    const { id } = await waitingRun(harness, { kind: "delegated_completion", target: "review" });
+    expect((await harness.detail(id)).eventWaitObservedAt).toBeDefined();
+    harness.advance(MINUTE);
+    harness.setCompletions([{
+      runId: "child-task:task-1:review", stepId: "child-task:task-1:review:turn", delegatedTaskId: "task-child-1",
+      providerId: "codex", status: "completed", reason: "Done.", completedAt: harness.now().toISOString(), attempt: 1,
+    }]);
+    await harness.tick();
+    expect(harness.aggregate(id).agentRun.eventWait).toBeUndefined();
+    expect((await harness.detail(id)).eventWaitObservedAt).toBeUndefined();
+  });
+
   test("a wait the turn registered outranks a provider failure that ended the turn", async () => {
     const harness = createHarness({ extra: { readTransientFailure: (turnId) => turnId === "turn-1" ? { message: "request timed out" } : null } });
     const { id } = await waitingRun(harness, { kind: "delegated_completion", target: "review" });

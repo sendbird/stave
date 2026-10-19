@@ -1,5 +1,5 @@
 import { describeAgentRunUsageLimit } from "./usage-limit";
-import { activeEventWait, describeEventWaitDetail, describeEventWaitLabel, eventWaitTargetLabel } from "./event-wait";
+import { activeEventWait, describeEventWaitDetail, describeEventWaitLabel, eventWaitTargetLabel, type AgentRunEventWait } from "./event-wait";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { findTaskPendingDecision } from "@/lib/fleet/task-status";
 import { i18n } from "@/i18n/runtime";
@@ -120,6 +120,8 @@ export interface AgentRunStatus {
   mark: AgentRunStatusMark;
   /** Running between turns until an outside event or a usage reset. */
   waiting: boolean;
+  /** The outside event the run waits for between turns, when that is why it waits. */
+  eventWait: AgentRunEventWait | null;
   /** The agent's name; the run's implicit workflow carries it. */
   agentName: string;
   /** Why the run stands where it does, in one sentence. */
@@ -152,15 +154,17 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
     tone: BADGE_LOOK[badge].tone,
     mark: extra.mark ?? BADGE_LOOK[badge].mark,
     waiting: false,
+    eventWait: null,
     agentName,
     reason: extra.reason ?? null,
     recovery: extra.recovery ?? null,
   });
   // Running, between turns: "Running · Waiting · PR checks".
-  const waiting = (subtitle: string, reason: string): AgentRunStatus => ({
+  const waiting = (subtitle: string, reason: string, eventWait: AgentRunEventWait | null = null): AgentRunStatus => ({
     ...make("running", subtitle, { reason, mark: WAITING_LOOK.mark }),
     tone: WAITING_LOOK.tone,
     waiting: true,
+    eventWait,
   });
   const paused = (): AgentRunStatus => {
     const reason = agentRun.reasonDetail ?? i18n.t("agentRuns:agentRunStatus.extraCopy213");
@@ -209,7 +213,7 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
   const stage = agentRun.workflow.stages[agentRun.currentStageIndex];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
   const wait = activeEventWait(agentRun, record);
-  if (wait) return waiting(describeEventWaitLabel(wait), describeEventWaitDetail(wait, eventWaitTargetLabel(detail.events, wait)));
+  if (wait) return waiting(describeEventWaitLabel(wait), describeEventWaitDetail(wait, eventWaitTargetLabel(detail.events, wait)), wait);
   switch (record?.status) {
     case "awaiting-sign-off":
       // A sign-off is the approval card of a stage that asks first.

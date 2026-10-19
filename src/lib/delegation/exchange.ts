@@ -64,6 +64,8 @@ export interface DelegationOutcome {
   progress?: readonly string[];
   /** Set while the delegate waits for a person (a question, an approval, a halted run). */
   needsUser?: true;
+  /** Set while a live delegate sits between turns on its own (an event, a usage reset): live, not working. */
+  waiting?: true;
 }
 
 export interface DelegationStage {
@@ -188,7 +190,7 @@ export function fromDelegatedTask(
         : child.result || child.reason
           ? { result: child.result ?? child.reason! }
           : {}),
-      ...(phase.blocked ? { progress: [phase.label], needsUser: true as const } : {}),
+      ...(phase.blocked ? { progress: [phase.label], needsUser: true as const } : child.phase === "waiting" ? { waiting: true as const } : {}),
     },
     timing: {
       startedAt,

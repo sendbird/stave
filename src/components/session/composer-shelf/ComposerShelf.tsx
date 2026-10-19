@@ -17,8 +17,7 @@ import {
   useTurnActivityModel,
 } from "@/components/session/TurnActivity";
 import { useAgentRunProgress } from "@/components/agent-runs/useAgentRunProgress";
-import { useTaskSubagents } from "../useTaskSubagents";
-import { describeSubagentSummary } from "@/lib/delegation/subagent-summary";
+import { useTaskSubagentSources } from "../useTaskSubagents";
 import { latestStageRecord } from "@/lib/agent-runs/domain";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
@@ -148,7 +147,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   // A run's text and segments share the live plan, or saved facts between turns.
   const plan = useAgentRunProgress(agentRun);
   const planItems = plan?.items ?? NO_TODOS;
-  const subagents = useTaskSubagents(taskId, agentRun);
+  const delegates = useTaskSubagentSources(taskId, agentRun);
   const todo = useMemo<ShelfTodoProgress | null>(
     () => summarizeShelfTodos(agentRun ? planItems : turnTodos),
     [agentRun, turnTodos, planItems],
@@ -209,7 +208,8 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
               detailToggle={turnProps ? detailToggle : null}
               todo={todo}
               plan={plan}
-              subagents={describeSubagentSummary(subagents)}
+              subagents={delegates.rows}
+              delegatedChildren={delegates.children}
               reasonShownElsewhere={signOffShown}
               turnActivity={turnProps?.activity ?? null}
               steering={props.steering}

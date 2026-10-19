@@ -802,7 +802,23 @@
   },
   "subagentSummary": {
     "extraCopy405": "timed out",
-    "needsYou": "needs you"
+    "needsYou": "needs you",
+    "queued": "queued",
+    "running": "running",
+    "done": "done",
+    "failed": "failed",
+    "stopped": "stopped",
+    "unresolved": "unresolved",
+    "ariaLabel": "Delegated work",
+    "waiting": "waiting",
+    "folded": {
+      "done_one": "{{count}} done",
+      "done_other": "{{count}} done",
+      "failed_one": "{{count}} failed",
+      "failed_other": "{{count}} failed",
+      "stopped_one": "{{count}} stopped",
+      "stopped_other": "{{count}} stopped"
+    }
   },
   "normalize": {
     "extraCopy416": "Saved workflows are not a list.",
@@ -963,7 +979,22 @@
     },
     "wokeTurn": "{{name}} — woke on {{fact}}",
     "expiredTurn": "{{name}} — continued after the wait ended",
-    "reportHeading": "Event waits"
+    "reportHeading": "Event waits",
+    "check": {
+      "justNow": "Checked just now",
+      "ago": "Checked {{age}} ago",
+      "failingNext_one": "Couldn't read the PR · next try in {{time}}",
+      "failingNext_other": "Couldn't read the PR {{count}} times · next try in {{time}}",
+      "failingSoon_one": "Couldn't read the PR · trying again",
+      "failingSoon_other": "Couldn't read the PR {{count}} times · trying again",
+      "stale": "Not checked for {{age}}"
+    },
+    "underMinute": "<1m",
+    "waitingSince": "Waiting since {{time}}",
+    "delegateNeedsYou_one": "{{names}} needs you",
+    "delegateNeedsYou_other": "{{names}} need you",
+    "delegatedFinishedNotResumed": "Delegated work finished {{age}} ago, but the run has not resumed",
+    "waitedFor": "Waited {{time}}"
   },
   "badge": {
     "running": "Running",

@@ -786,7 +786,20 @@
   },
   "subagentSummary": {
     "extraCopy405": "시간 초과됨",
-    "needsYou": "확인 필요"
+    "needsYou": "확인 필요",
+    "queued": "시작 전",
+    "running": "실행 중",
+    "done": "완료",
+    "failed": "실패",
+    "stopped": "중지됨",
+    "unresolved": "확인 안 됨",
+    "ariaLabel": "위임한 작업",
+    "waiting": "대기 중",
+    "folded": {
+      "done_other": "{{count}}개 완료",
+      "failed_other": "{{count}}개 실패",
+      "stopped_other": "{{count}}개 중지됨"
+    }
   },
   "normalize": {
     "extraCopy416": "저장된 워크플로가 목록 형식이 아닙니다.",
@@ -940,7 +953,19 @@
     },
     "wokeTurn": "{{name}} — 깨어남 · {{fact}}",
     "expiredTurn": "{{name}} — 대기가 끝난 뒤 이어서 진행",
-    "reportHeading": "이벤트 대기"
+    "reportHeading": "이벤트 대기",
+    "check": {
+      "justNow": "방금 확인",
+      "ago": "{{age}} 전 확인",
+      "failingNext_other": "PR을 {{count}}번 읽지 못함 · {{time}} 후 다시 시도",
+      "failingSoon_other": "PR을 {{count}}번 읽지 못함 · 곧 다시 시도",
+      "stale": "{{age}} 동안 확인 안 됨"
+    },
+    "underMinute": "1분 미만",
+    "waitingSince": "{{time}}부터 대기 중",
+    "delegateNeedsYou_other": "{{names}} 확인 필요",
+    "delegatedFinishedNotResumed": "위임 작업이 {{age}} 전에 끝났지만 실행이 아직 재개되지 않음",
+    "waitedFor": "{{time}} 대기"
   },
   "badge": {
     "running": "실행 중",

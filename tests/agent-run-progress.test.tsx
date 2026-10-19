@@ -86,7 +86,10 @@ test("Progress renders the live plan and uses stored facts between turns", () =>
   const plan = resolveAgentRunPlan(detail, [prompt, message])!;
   const stored = { ...detail, stages: detail.stages.map((stage) => ({ ...stage, facts: { diff: null, commands: [], toolCalls: [], action: null, plan } })) };
   expect(resolveAgentRunPlan(stored, [])).toEqual(plan);
-  const shelf = renderToStaticMarkup(createElement(AgentRunLineView, { detail: stored, now: now.getTime(), nowPhrase: null, reducedMotion: true, subagents: "Implementer running · Reviewer done" }));
+  const shelf = renderToStaticMarkup(createElement(AgentRunLineView, { detail: stored, now: now.getTime(), nowPhrase: null, reducedMotion: true, subagents: [
+    { id: "a", kind: "subagent", title: "Implementer", identity: { role: "Subagent" }, ask: "", outcome: { status: "running" }, timing: { startedAt: null, stages: [] }, actions: [], setup: {}, ref: {} },
+    { id: "b", kind: "subagent", title: "Reviewer", identity: { role: "Subagent" }, ask: "", outcome: { status: "returned" }, timing: { startedAt: null, stages: [] }, actions: [], setup: {}, ref: {} },
+  ] }));
   expect(shelf).toContain("Plan 0/1 · Now: Check the live diff");
   expect(shelf).toContain("Implementer running · Reviewer done");
 });

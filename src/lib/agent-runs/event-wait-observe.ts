@@ -259,21 +259,35 @@ function matchesDelegatedTarget(signal: TaskCompletionSignal, target: string, pa
   );
 }
 
-function observeCompletions(args: {
-  wait: AgentRunEventWait;
+/**
+ * The completions that wake a delegated-completion wait: not delivered yet,
+ * and the named child, or any child that finished after the wait began. A
+ * window reads the same rule to tell when a wait should already have woken.
+ */
+export function selectFreshCompletions(args: {
+  wait: Pick<AgentRunEventWait, "consumedKeys" | "since" | "target">;
   completions: readonly TaskCompletionSignal[];
   parentTaskId: string;
-}): EventWaitOutcome {
+}): TaskCompletionSignal[] {
   const { wait } = args;
   const consumed = new Set(wait.consumedKeys);
   const since = Date.parse(wait.since);
-  const fresh = args.completions.filter((signal) => {
+  return args.completions.filter((signal) => {
     if (consumed.has(completionKey(signal))) return false;
     // A named child wakes the run whenever it finished; any child only when it finished after the wait began.
     if (wait.target) return matchesDelegatedTarget(signal, wait.target, args.parentTaskId);
     const completed = Date.parse(signal.completedAt);
     return !Number.isFinite(completed) || !Number.isFinite(since) || completed >= since;
   });
+}
+
+function observeCompletions(args: {
+  wait: AgentRunEventWait;
+  completions: readonly TaskCompletionSignal[];
+  parentTaskId: string;
+}): EventWaitOutcome {
+  const { wait } = args;
+  const fresh = selectFreshCompletions(args);
   if (fresh.length === 0) return { kind: "none" };
   const lines = fresh.map((signal) => {
     const who = signal.delegatedTaskId ?? signal.runId;

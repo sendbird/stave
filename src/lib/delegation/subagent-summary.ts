@@ -77,7 +77,63 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
 export function describeSubagentState(exchange: DelegationExchange): string {
   // A delegate waiting for a person is the one thing the reader can act on.
   if (exchange.outcome.needsUser) return i18n.t("agentRuns:subagentSummary.needsYou");
-  return { queued: "queued", running: "running", returned: "done", failed: "failed", cancelled: "stopped", timed_out: i18n.t("agentRuns:subagentSummary.extraCopy405"), unresolved: "unresolved" }[exchange.outcome.status];
+  if (exchange.outcome.waiting && isExchangeStatusLive(exchange.outcome.status)) return i18n.t("agentRuns:subagentSummary.waiting");
+  switch (exchange.outcome.status) {
+    case "queued": return i18n.t("agentRuns:subagentSummary.queued");
+    case "running": return i18n.t("agentRuns:subagentSummary.running");
+    case "returned": return i18n.t("agentRuns:subagentSummary.done");
+    case "failed": return i18n.t("agentRuns:subagentSummary.failed");
+    case "cancelled": return i18n.t("agentRuns:subagentSummary.stopped");
+    case "timed_out": return i18n.t("agentRuns:subagentSummary.extraCopy405");
+    case "unresolved": return i18n.t("agentRuns:subagentSummary.unresolved");
+  }
+}
+
+/**
+ * How a delegate reads in a one-line summary: `working` is the only one that
+ * moves (the state vocabulary's rule), `waiting` sits between turns on its
+ * own, `needs-you` waits for the user.
+ */
+export type SubagentLineState = "needs-you" | "working" | "waiting" | "queued" | "done" | "failed" | "stopped";
+
+export function subagentLineState(exchange: DelegationExchange): SubagentLineState {
+  if (exchange.outcome.needsUser) return "needs-you";
+  switch (exchange.outcome.status) {
+    case "queued": return "queued";
+    case "running": return exchange.outcome.waiting ? "waiting" : "working";
+    case "returned": return "done";
+    case "failed":
+    case "timed_out": return "failed";
+    case "cancelled":
+    case "unresolved": return "stopped";
+  }
+}
+
+const LINE_ORDER: Record<SubagentLineState, number> = { "needs-you": 0, working: 1, waiting: 2, queued: 3, failed: 4, done: 5, stopped: 6 };
+
+/**
+ * The delegates for a one-line summary: the one that needs the user first,
+ * then the live ones. Settled ones fold into counts while any is live, so a
+ * long list never pushes the moving one past the line's end.
+ */
+export function planSubagentLine(rows: readonly DelegationExchange[]): {
+  shown: DelegationExchange[];
+  folded: { state: "done" | "failed" | "stopped"; count: number }[];
+} {
+  const ordered = [...rows].sort((a, b) => LINE_ORDER[subagentLineState(a)] - LINE_ORDER[subagentLineState(b)]);
+  const live = ordered.filter((row) => isExchangeStatusLive(row.outcome.status) || row.outcome.needsUser);
+  if (!live.length) return { shown: ordered, folded: [] };
+  const folded = (["failed", "done", "stopped"] as const)
+    .map((state) => ({ state, count: ordered.filter((row) => !live.includes(row) && subagentLineState(row) === state).length }))
+    .filter((group) => group.count > 0);
+  return { shown: live, folded };
+}
+
+/** The step a live delegate is on, from its latest progress; null once it settled. */
+export function subagentCurrentStep(exchange: DelegationExchange): string | null {
+  if (!isExchangeStatusLive(exchange.outcome.status) || exchange.outcome.needsUser || exchange.outcome.waiting) return null;
+  const step = exchange.outcome.progress?.at(-1);
+  return step?.trim() ? step.trim() : null;
 }
 
 export function describeSubagentSummary(rows: readonly DelegationExchange[]): string | null {

@@ -625,6 +625,27 @@ what fails, and waits again.
   it waits for and when it stops waiting; a delegated task is named by the
   saved Agent it runs as (**Waiting for Reviewer to finish**), never by its id.
   The workspace stays **In progress**.
+- The waiting clock does not move, so the line says what does instead. The
+  composer line, the Fleet card and the Task panel's Progress tab show the
+  same things:
+  - How long the Run has waited, in minutes (**<1m**, **6m**). The count
+    starts when the Run last settled into its wait, so a turn in between (your
+    reply, say) starts it again; its tooltip names that moment (**Waiting
+    since 3:12 PM**).
+  - When Stave last looked: **Checked just now**, or for a pull request when
+    it last read it (**Checked 3m ago**). A read that fails says so and when
+    Stave tries again (**Couldn't read the PR 3 times · next try in 14m**). If
+    Stave has not looked for more than three minutes the line warns **Not
+    checked for 5m**: the app stopped watching, not the event being slow.
+  - The delegates under the line, each with its state's mark: a working one
+    pulses and names its step, one waiting between its own turns shows the
+    clock, one that needs you shows the hand. The one that needs you comes
+    first and the line says it too (**Writer needs you**); settled ones fold
+    into counts (**2 done**) while any is still going. While the Run's own
+    turn is running and saying what it does, the delegates hold still.
+  - **Delegated work finished 3m ago, but the run has not resumed** when work
+    it waits for ended more than a minute ago by the same rule Stave wakes it
+    with, and the Run has not moved on.
 - A turn that ends after asking to wait is not an unreported turn: Stave sends
   no reminder and does not mark the stage stuck.
 - What wakes it:

@@ -156,6 +156,8 @@ import type { HostAgentRunAction } from "../protocol";
 
 /** Faster than wake-ups: an agent run is actively waiting on its own turns. */
 const AGENT_RUN_TICK_INTERVAL_MS = 5_000;
+/** How often a window hears that a waiting run's wait is still being looked at. */
+const WAIT_OBSERVATION_ANNOUNCE_MS = 60_000;
 /** Decisions that need no I/O chain within one tick, up to this bound. */
 const MAX_DECISIONS_PER_EVALUATION = 8;
 const RECENT_TURN_LIMIT = 20;
@@ -475,6 +477,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
   let stopGeneration = 0;
   /** The pull request read a waiting run has out, per agent run. */
   const pullRequestReads = new Map<string, PendingPullRequestRead>();
+  /**
+   * When each waiting run's wait was last looked at, and when a window was
+   * last told. Memory only: a restarted host simply has not looked yet, and
+   * the run's saved shape stays readable by older builds.
+   */
+  const waitObservations = new Map<string, { waitId: string; observedAt: number; announcedAt: number }>();
 
   /** Aborts a run's read: its result, if it ever lands, is never applied. */
   function dropPullRequestRead(agentRunId: string) {
@@ -654,6 +662,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       owned.controller.abort();
       actionControllers.delete(change.agentRun.id);
     }
+    if (change.agentRun.state !== "running" || !change.agentRun.eventWait) waitObservations.delete(change.agentRun.id);
     if (!isActiveAgentRunState(change.agentRun.state)) {
       const config = store.resourceConfig?.(change.agentRun.id);
       if (config?.link) store.releaseResourceReservation?.(config.link, now());
@@ -812,7 +821,28 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       routing,
       ...(store.readResources?.(agentRunId) ? { resources: store.readResources!(agentRunId)! } : {}),
       ...(usage ? { usage } : {}),
+      ...eventWaitObservationOf(aggregate.agentRun),
     };
+  }
+
+  function eventWaitObservationOf(agentRun: AgentRun): { eventWaitObservedAt?: string } {
+    const seen = waitObservations.get(agentRun.id);
+    return seen && agentRun.state === "running" && agentRun.eventWait?.id === seen.waitId
+      ? { eventWaitObservedAt: new Date(seen.observedAt).toISOString() }
+      : {};
+  }
+
+  /**
+   * Records a look at a waiting run's wait. The window hears of it at most once
+   * a minute, so a quiet wait still reads as watched without a refresh every tick.
+   */
+  function noteWaitObserved(agentRun: AgentRun, waitId: string) {
+    const at = now().getTime();
+    const seen = waitObservations.get(agentRun.id);
+    const fresh = !seen || seen.waitId !== waitId;
+    const announce = fresh || at - seen.announcedAt >= WAIT_OBSERVATION_ANNOUNCE_MS;
+    waitObservations.set(agentRun.id, { waitId, observedAt: at, announcedAt: announce ? at : seen.announcedAt });
+    if (announce) emit(agentRun);
   }
 
   async function readSnapshot(agentRun: AgentRun): Promise<TaskSupervisionSnapshot> {
@@ -1087,7 +1117,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     const observed = observeEventWait({ wait, now: now(), parentTaskId: agentRun.leadTaskId, pullRequestRead, completions });
     observation.eventWait = observed.outcome;
     const next = observed.wait.waitingSince ? observed.wait : { ...observed.wait, waitingSince: now().toISOString() };
-    return JSON.stringify(next) === JSON.stringify(wait) ? aggregate : save(next);
+    const saved = JSON.stringify(next) === JSON.stringify(wait) ? aggregate : save(next);
+    noteWaitObserved(saved.agentRun, wait.id);
+    return saved;
   }
 
   async function markStartFailure(agentRunId: string, detail: string) {

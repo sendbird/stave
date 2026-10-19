@@ -101,7 +101,9 @@ export interface AgentRunLineShelfProps {
   detailToggle?: ShelfRunDetailToggle | null;
   todo?: ShelfTodoProgress | null;
   plan?: import("@/lib/agent-runs/domain").StagePlan | null;
-  subagents?: string | null;
+  subagents?: readonly import("@/lib/delegation/exchange").DelegationExchange[] | null;
+  /** The ledger rows behind the delegates, for whether delegated work should have woken the run. */
+  delegatedChildren?: readonly import("@/lib/runs/delegated-task").DelegatedTaskSummary[] | null;
   reasonShownElsewhere?: boolean;
   /** The turn's stall, steer, retry or failure, said in place of the run's state. */
   turnAlert?: ShelfTurnAlert | null;
