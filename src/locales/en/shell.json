@@ -132,6 +132,7 @@
   "openPathDialog": {
     "openRepository": "Open Repository",
     "enterAPathOrBrowseForA": "Enter a path or browse for a folder.",
+    "repositoryPath": "Repository path",
     "browse": "Browse",
     "cancel": "Cancel",
     "opening": "Opening...",

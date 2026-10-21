@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { FolderOpen } from "lucide-react";
-import { useState, type FormEvent, type KeyboardEvent } from "react";
+import { useId, useState, type FormEvent, type KeyboardEvent } from "react";
+import { Label } from "@/components/ads/components/Label";
 import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { Button, Input } from "@/components/ui";
@@ -23,6 +24,10 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
   const [inputPath, setInputPath] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const titleId = useId();
+  const descriptionId = useId();
+  const inputId = useId();
+  const errorId = useId();
   const submitPath = onSubmitPath ?? onSubmit;
 
   if (!open) {
@@ -99,6 +104,10 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
       onMouseDown={close}
     >
       <section
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={descriptionId}
         className={sx(
           overlaySurface.modal,
           overlaySurface.modalRounded,
@@ -107,15 +116,21 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleDialogKeyDown}>
-          <h3 className={sx(openPathDialogStyles.title)}>{i18n.t("shell:openPathDialog.openRepository")}</h3>
-          <p className={sx(openPathDialogStyles.description)}>
+          <h3 id={titleId} className={sx(openPathDialogStyles.title)}>{i18n.t("shell:openPathDialog.openRepository")}</h3>
+          <p id={descriptionId} className={sx(openPathDialogStyles.description)}>
             {i18n.t("shell:openPathDialog.enterAPathOrBrowseForA")}
           </p>
+          <Label htmlFor={inputId} xstyle={openPathDialogStyles.pathLabel}>
+            {i18n.t("shell:openPathDialog.repositoryPath")}
+          </Label>
           <div className={sx(openPathDialogStyles.pathRow)}>
             <Input
+              id={inputId}
               autoFocus
               xstyle={openPathDialogStyles.pathInput}
               placeholder="~/projects/my-app"
+              aria-invalid={error ? true : undefined}
+              aria-describedby={error ? errorId : undefined}
               value={inputPath}
               onChange={(event) => {
                 setInputPath(event.target.value);
@@ -135,7 +150,9 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
             </Button>
           </div>
           {error ? (
-            <p className={sx(openPathDialogStyles.error)}>{error}</p>
+            <p id={errorId} role="alert" className={sx(openPathDialogStyles.error)}>
+              {error}
+            </p>
           ) : null}
           <div className={sx(openPathDialogStyles.actions)}>
             <Button type="button" variant="outline" onClick={close} disabled={busy}>

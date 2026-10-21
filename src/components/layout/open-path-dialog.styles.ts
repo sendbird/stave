@@ -29,11 +29,14 @@ export const openPathDialogStyles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     color: vars["--ads-color-text-muted"],
   },
+  pathLabel: {
+    marginBlockStart: vars["--ads-space-12"],
+  },
   pathRow: {
     display: "flex",
     alignItems: "center",
     gap: vars["--ads-space-8"],
-    marginBlockStart: vars["--ads-space-12"],
+    marginBlockStart: vars["--ads-space-4"],
   },
   pathInput: {
     flexGrow: 1,

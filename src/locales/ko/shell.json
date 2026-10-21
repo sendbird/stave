@@ -131,6 +131,7 @@
   "openPathDialog": {
     "openRepository": "저장소 열기",
     "enterAPathOrBrowseForA": "경로를 입력하거나 폴더를 찾아보세요.",
+    "repositoryPath": "저장소 경로",
     "browse": "찾아보기",
     "cancel": "취소",
     "opening": "여는 중...",
