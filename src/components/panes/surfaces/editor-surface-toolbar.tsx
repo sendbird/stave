@@ -91,6 +91,7 @@ export function EditorSurfaceToolbar(args: {
                 xstyle={s.iconButton}
                 disabled={!args.tab.isDirty || args.tabIsImage}
                 onClick={args.onSave}
+                aria-label={i18n.t("common:actions.save")}
               >
                 <Save size={16} />
               </Button>
@@ -105,6 +106,11 @@ export function EditorSurfaceToolbar(args: {
                 xstyle={s.iconButton}
                 disabled={!args.tab.originalContent || args.tabIsImage}
                 onClick={args.onToggleDiffMode}
+                aria-label={
+                  args.diffMode
+                    ? i18n.t("panes:editorSurfaceToolbar.backToEdit")
+                    : i18n.t("panes:editorSurfaceToolbar.viewDiff")
+                }
               >
                 {args.diffMode ? <PenLine size={16} /> : <Columns2 size={16} />}
               </Button>
@@ -162,6 +168,7 @@ export function EditorSurfaceToolbar(args: {
                       ]}
                       onClick={() => args.onChangeDiffViewMode("unified")}
                       aria-label={i18n.t("panes:editorSurfaceToolbar.unifiedDiff")}
+                      aria-pressed={args.diffViewMode === "unified"}
                     />
                   }
                 >
@@ -181,6 +188,7 @@ export function EditorSurfaceToolbar(args: {
                       ]}
                       onClick={() => args.onChangeDiffViewMode("split")}
                       aria-label={i18n.t("panes:editorSurfaceToolbar.splitDiff")}
+                      aria-pressed={args.diffViewMode === "split"}
                     />
                   }
                 >
@@ -241,6 +249,7 @@ export function EditorSurfaceToolbar(args: {
                 xstyle={s.iconButton}
                 disabled={args.sendToAgentDisabled}
                 onClick={args.onSendToAgent}
+                aria-label={i18n.t("panes:editorSurfaceToolbar.sendToAgent")}
               >
                 <Send size={16} />
               </Button>

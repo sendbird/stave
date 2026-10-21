@@ -668,6 +668,8 @@ export function WorkspaceExplorerPanel(props: {
                       explorerStyles.toolButton,
                       showSearch && explorerStyles.toolButtonActive,
                     ]}
+                    aria-label={tI18n("workspace:workspaceExplorerPanel.searchInFiles")}
+                    aria-pressed={showSearch}
                     onClick={() => {
                       if (showSearch) {
                         setShowSearch(false);
@@ -691,6 +693,7 @@ export function WorkspaceExplorerPanel(props: {
                     variant="ghost"
                     size="sm"
                     xstyle={explorerStyles.toolButton}
+                    aria-label={tI18n("workspace:workspaceExplorerPanel.addFile")}
                     onClick={() => props.onStartExplorerCreate("file")}
                   />
                 }
@@ -707,6 +710,7 @@ export function WorkspaceExplorerPanel(props: {
                     variant="ghost"
                     size="sm"
                     xstyle={explorerStyles.toolButton}
+                    aria-label={tI18n("workspace:workspaceExplorerPanel.addFolder")}
                     onClick={() => props.onStartExplorerCreate("folder")}
                   />
                 }
@@ -723,6 +727,7 @@ export function WorkspaceExplorerPanel(props: {
                     variant="ghost"
                     size="sm"
                     xstyle={explorerStyles.toolButton}
+                    aria-label={tI18n("workspace:workspaceExplorerPanel.collapseAll")}
                     onClick={props.onCollapseAllFolders}
                   />
                 }
@@ -739,6 +744,7 @@ export function WorkspaceExplorerPanel(props: {
                     variant="ghost"
                     size="sm"
                     xstyle={explorerStyles.toolButton}
+                    aria-label={tI18n("workspace:workspaceExplorerPanel.expandAll")}
                     onClick={() => void props.onExpandAllFolders()}
                   />
                 }

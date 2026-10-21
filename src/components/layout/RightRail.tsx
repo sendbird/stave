@@ -80,6 +80,7 @@ function RightRailWorkspaceToolsButton(props: {
           ]}
           onClick={props.onClick}
           aria-label={label}
+          aria-pressed={props.isActive}
           /*
            * `CountBadge` through ADS `Button indicator`, not a positioned
            * child. This rail was the fifth hand-written copy of the same accent
@@ -182,6 +183,7 @@ export function RightRail() {
                     ]}
                     onClick={() => toggleSidebarTab(panelId)}
                     aria-label={RIGHT_RAIL_PANEL_TITLES[panelId]}
+                    aria-pressed={isActive}
                   >
                     <Icon className={sx(rightRailStyles.railIcon)} />
                   </Button>
@@ -225,6 +227,7 @@ export function RightRail() {
                   ]}
                   onClick={() => paneHost.toggleTerminalGroup()}
                   aria-label={i18n.t("shell:rightRail.terminal")}
+                  aria-pressed={terminalActive}
                 />
               }
             >
