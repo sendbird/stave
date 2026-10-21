@@ -1,0 +1,74 @@
+{
+  "bundleIntegrity": "sha256-0d514f286ea402d0b2d1ec1ad2e9fcda82e8346b8b2b0e0f10db933668d2c445",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@stylexjs/stylex": "0.19.0",
+    "lucide-react": "1.21.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "asyncboundary",
+      "kind": "component",
+      "name": "AsyncBoundary",
+      "path": "src/components/ads/components/AsyncBoundary.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-85a7e6d7853c170360cb455d21817df29cfcaf73ccbadac58a97d5f7d7d6f694",
+      "path": "src/components/ads/components/AsyncBoundary.tsx",
+      "sourcePath": "packages/design-system/src/components/AsyncBoundary.tsx"
+    },
+    {
+      "integrity": "sha256-0cda6d731cceb9f19f58e1eafca702d1db8fb435d35ddc0daf67c0f217013e29",
+      "path": "src/components/ads/components/Banner.tsx",
+      "sourcePath": "packages/design-system/src/components/Banner.tsx"
+    },
+    {
+      "integrity": "sha256-b8312cc94a691e0e76f6e6563d19409b3b5b73b37f5e17f2e09ccea5bec827d1",
+      "path": "src/components/ads/components/feedback-dismiss.tsx",
+      "sourcePath": "packages/design-system/src/components/feedback-dismiss.tsx"
+    },
+    {
+      "integrity": "sha256-5d0bde11b040081fa15fa049082b2d3d702bfdf134f5718ab49ce3c654f72a9b",
+      "path": "src/components/ads/components/LoadingSurface.tsx",
+      "sourcePath": "packages/design-system/src/components/LoadingSurface.tsx"
+    },
+    {
+      "integrity": "sha256-013b446f7375ad22542d1c4865a521a6e987f005a899750f8ea90221cf839b18",
+      "path": "src/components/ads/utils/async.ts",
+      "sourcePath": "packages/design-system/src/utils/async.ts"
+    },
+    {
+      "integrity": "sha256-4926bb02cf9661fca658069040d0d70bef79c6b14754b04fe5d8313ee193f9a8",
+      "path": "src/components/ads/utils/tone.tsx",
+      "sourcePath": "packages/design-system/src/utils/tone.tsx"
+    }
+  ],
+  "generatorVersion": "2",
+  "instructions": [
+    "Before updating an existing installation, call check_source_updates with its unchanged manifest and current local file hashes. Preserve pristine bundle contents in host Git for three-way diff/merge; hashes cannot reconstruct base contents. Only advance the manifest for changes actually applied and verified. Templates are host-owned compositions: review their changes selectively.",
+    "Write every returned file at its path in the host repository; the MCP server does not write host files.",
+    "Preserve existing host files unless the user authorizes an overwrite; compare src/components/ads/.ads-source.json integrity records before updating a previously installed bundle.",
+    "Install the returned dependencies with the host package manager and configure the existing build for StyleX source files under src/components/ads.",
+    "Load src/components/ads/styles.css once at the host application entrypoint and mount the returned ThemeProvider at the host-owned theme seam.",
+    "Import installed ADS code from the returned local entrypoints. Do not add @delightai/ads as a dependency.",
+    "Keep routing, data, authorization, persistence, analytics, and side effects in host-owned modules."
+  ],
+  "items": [
+    {
+      "id": "asyncboundary",
+      "kind": "component"
+    }
+  ],
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-21fb091a7a0149e671b62d0b60186400a373cbda146631f8ede40e69085063cd",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

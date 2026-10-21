@@ -13,13 +13,17 @@ Host modifications are intentional and retained when refreshing the bundle:
 - Badge, Breadcrumb, EmptyState, Table, Slider, Toggle, and Tooltip export their canonical styles for existing compound APIs.
 - EmptyState's medallion defaults to the `neutral` tone instead of `accent`. The host's empty states are the absence of data, not brand moments; callers that want the accent medallion (onboarding invitations) pass `tone="accent"` explicitly.
 - Calendar satisfies strict indexed access checks; malformed date keys resolve to an invalid date instead of assuming missing numbers exist.
+- AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
 
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.
 
-Additional control/sidebar and lightbox closures are recorded in
-`.ads-source-controls.json` and `.ads-source-lightbox.json`. Only missing files
+Additional control/sidebar, lightbox and async-state closures are recorded in
+`.ads-source-controls.json`, `.ads-source-lightbox.json` and
+`.ads-source-async.json` (AsyncBoundary with Banner, LoadingSurface,
+feedback-dismiss and the `async` and `tone` utilities; the bundle's `prose.css`
+was not installed because the host's `styles.css` does not import it). Only missing files
 were installed; existing host modifications were preserved. Their catalog's
 suggested dependency versions are recorded as provenance; the host's compatible
 installed versions are governed by package.json and its validation gates.

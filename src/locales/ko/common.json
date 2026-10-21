@@ -116,5 +116,11 @@
   },
   "counts": {
     "items_other": "{{count}}개 항목"
+  },
+  "asyncBoundary": {
+    "loading": "불러오는 중",
+    "errorTitle": "불러오지 못했습니다",
+    "refreshFailed": "새로 고치지 못했습니다",
+    "staleNotice": "마지막으로 불러온 결과를 보여 줍니다."
   }
 }
