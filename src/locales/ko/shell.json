@@ -890,6 +890,10 @@
         "title": "이슈 닫기",
         "description": "선택을 해제하거나, 선택된 항목이 없으면 이슈 화면을 닫습니다."
       },
+      "editorSendReview": {
+        "title": "리뷰 코멘트 보내기",
+        "description": "diff 편집기에서 이 작업의 보내지 않은 리뷰 코멘트를 에이전트에 보냅니다."
+      },
       "gitGraphSearch": {
         "title": "커밋 그래프 검색",
         "description": "커밋 그래프 검색 입력란에 포커스합니다."

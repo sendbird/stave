@@ -1,4 +1,6 @@
 import { i18n } from "@/i18n/runtime";
+import { captureReviewCommentAnchor } from "@/lib/sent-review-comments";
+import { useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import { createProviderSupportActions } from "./app-store-provider-actions";
 import type { StoreApi } from "zustand";
 import { workspaceFsAdapter } from "@/lib/fs";
@@ -733,7 +735,7 @@ export function createSupportActions(args: {
         };
       });
     },
-    submitReviewFeedback: async ({ taskId }) => {
+    submitReviewFeedback: async ({ taskId, filePath }) => {
       const normalizedTaskId = taskId.trim();
       if (!normalizedTaskId) {
         return { status: "blocked" } satisfies SendUserMessageResult;
@@ -746,7 +748,10 @@ export function createSupportActions(args: {
       }
 
       const state = get();
-      const comments = state.reviewCommentsByTask[normalizedTaskId] ?? [];
+      const taskComments = state.reviewCommentsByTask[normalizedTaskId] ?? [];
+      const comments = filePath
+        ? taskComments.filter((comment) => comment.filePath === filePath)
+        : taskComments;
       const content = formatReviewFeedbackPrompt({ comments });
       if (!content) {
         return { status: "blocked" } satisfies SendUserMessageResult;
@@ -769,6 +774,20 @@ export function createSupportActions(args: {
       }
 
       if (result.status !== "blocked") {
+        // Keep what was sent, with the commented lines as they read now, so
+        // the diff can later say which of them changed.
+        const sentAt = new Date().toISOString();
+        useSentReviewCommentsStore.getState().recordSent({
+          taskId: normalizedTaskId,
+          entries: comments.map((comment) => ({
+            comment,
+            sentAt,
+            anchor: captureReviewCommentAnchor(
+              state.editorTabs.find((tab) => tab.filePath === comment.filePath)?.content,
+              comment.side === "original" ? undefined : comment.line,
+            ),
+          })),
+        });
         // Remove only the batch that was sent. Comments written while the
         // message was sending were not part of it and must survive.
         const sentCommentIds = new Set(comments.map((comment) => comment.id));

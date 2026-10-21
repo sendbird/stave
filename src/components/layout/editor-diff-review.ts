@@ -1,6 +1,7 @@
 import { i18n } from "@/i18n";
 import type { editor as MonacoEditorApi } from "monaco-editor";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
+import type { SentReviewCommentView } from "@/lib/sent-review-comments";
 
 export interface DiffReviewCommentTarget {
   line?: number;
@@ -9,6 +10,8 @@ export interface DiffReviewCommentTarget {
 export interface DiffReviewThread {
   line: number;
   comments: ReviewComment[];
+  /** Comments already sent to the agent, with whether their lines changed since. */
+  sent: SentReviewCommentView[];
   draft: ReviewCommentDraft | null;
 }
 
@@ -112,6 +115,7 @@ function isInlineModifiedLine(
 
 export function buildDiffReviewThreads(args: {
   comments: ReviewComment[];
+  sentComments?: readonly SentReviewCommentView[];
   draft: ReviewCommentDraft | null;
   lineCount: number;
 }): DiffReviewThread[] {
@@ -121,10 +125,21 @@ export function buildDiffReviewThreads(args: {
     if (current) {
       return current;
     }
-    const next: DiffReviewThread = { line, comments: [], draft: null };
+    const next: DiffReviewThread = { line, comments: [], sent: [], draft: null };
     threads.set(line, next);
     return next;
   };
+
+  // A sent comment stays at the line it was written on. When edits since then
+  // shortened the file below that line, it sits on the last line instead of
+  // disappearing before the reviewer could resolve it.
+  for (const entry of args.sentComments ?? []) {
+    const line = entry.comment.line;
+    if (entry.comment.side === "original" || !line || args.lineCount < 1) {
+      continue;
+    }
+    ensureThread(Math.min(line, args.lineCount)).sent.push(entry);
+  }
 
   for (const comment of args.comments) {
     const line = comment.line;
@@ -155,6 +170,23 @@ export function buildDiffReviewThreads(args: {
       }),
     }))
     .sort((left, right) => left.line - right.line);
+}
+
+/** Sends the task's pending review comments from the diff editor's keyboard. */
+export function registerDiffReviewSendAction(args: {
+  editor: MonacoEditorApi.IStandaloneCodeEditor;
+  monaco: typeof import("monaco-editor");
+  onSend: () => void;
+}): Disposable {
+  return args.editor.addAction({
+    id: "stave.diffReview.sendReview",
+    label: i18n.t("editor:editorDiffReview.sendReviewComments"),
+    // Matches `editor.send-review` in the keybinding registry: Cmd/Ctrl+Alt+Enter.
+    keybindings: [args.monaco.KeyMod.CtrlCmd | args.monaco.KeyMod.Alt | args.monaco.KeyCode.Enter],
+    contextMenuGroupId: "navigation",
+    contextMenuOrder: 1.6,
+    run: () => args.onSend(),
+  });
 }
 
 export function registerDiffReviewCommentAction(args: {

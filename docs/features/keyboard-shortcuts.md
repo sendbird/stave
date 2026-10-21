@@ -100,6 +100,7 @@ choice.
 | Action | Keys | Where |
 | --- | --- | --- |
 | Save file | `Cmd/Ctrl+S` | Editor |
+| Send review comments | `Cmd/Ctrl+Alt+Enter` | Editor diff view |
 | Undo settle or snooze | `Cmd/Ctrl+Z` | While a Work queue Undo toast shows, not while typing |
 | Dialog primary action | `Enter` or `Cmd/Ctrl+Enter` | Dialogs; use `Cmd/Ctrl+Enter` in multi-line fields |
 

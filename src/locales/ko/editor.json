@@ -46,6 +46,12 @@
     "openTabSWillBeClosed": "열린 탭 {{value1}}개를 닫습니다."
   },
   "editorReviewPanel": {
+    "sent": "보냄",
+    "sentLinesChanged": "보냄 · 이후 줄이 바뀜",
+    "sentNotChanged": "보냄 · 아직 그대로",
+    "resolve": "해결",
+    "resolveSentCommentOnLine": "{{value1}}행의 보낸 코멘트 해결",
+    "sentCount_other": "보낸 코멘트 {{count}}개",
     "reviewComment": "리뷰 댓글",
     "comment": "댓글",
     "newComment": "새 댓글",
@@ -64,6 +70,7 @@
     "addReviewCommentOnModifiedLine": "수정된 {{value1}}번째 줄에 리뷰 댓글 작성"
   },
   "editorDiffReview": {
+    "sendReviewComments": "리뷰 코멘트 보내기",
     "addReviewComment": "리뷰 댓글 추가"
   },
   "editorSelectionQuote": {

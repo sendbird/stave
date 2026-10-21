@@ -627,6 +627,8 @@ export interface AppState
   clearReviewComments: (args: { taskId: string }) => void;
   submitReviewFeedback: (args: {
     taskId: string;
+    /** Send only the comments on this file; the rest stay pending. */
+    filePath?: string;
   }) => Promise<SendUserMessageResult>;
   sendUserMessage: (args: {
     questionReply?: ChatMessage["questionReply"];

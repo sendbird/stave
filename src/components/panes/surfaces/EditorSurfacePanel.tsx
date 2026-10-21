@@ -97,8 +97,11 @@ import { useAppStore } from "@/store/app.store";
 import { canSendEditorContextToTask } from "@/store/editor.utils";
 import { isDiffEditorTab } from "@/store/layout.utils";
 import type { ReviewComment } from "@/types/review";
+import { classifySentReviewComment, type SentReviewCommentView } from "@/lib/sent-review-comments";
+import { EMPTY_SENT_REVIEW_COMMENTS, useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 
 const EMPTY_REVIEW_COMMENTS: ReviewComment[] = [];
+const EMPTY_SENT_REVIEW_COMMENT_VIEWS: readonly SentReviewCommentView[] = [];
 
 /**
  * Monaco view state (cursor, selection, scroll) preserved across panel
@@ -355,6 +358,9 @@ function EditorTabSurface({
     (state) =>
       state.reviewCommentsByTask[state.activeTaskId] ?? EMPTY_REVIEW_COMMENTS,
   );
+  const sentReviewCommentsForActiveTask = useSentReviewCommentsStore(
+    (state) => state.byTask[activeTaskId] ?? EMPTY_SENT_REVIEW_COMMENTS,
+  );
 
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [bulkClosePlan, setBulkClosePlan] =
@@ -438,6 +444,30 @@ function EditorTabSurface({
       (comment) => comment.filePath === tab.filePath,
     );
   }, [tab?.filePath, reviewCommentsForActiveTask]);
+  // Sent comments on this file, each with whether its lines changed since it
+  // was sent. Read against the tab's current text, so an agent edit shows up
+  // as soon as the tab reloads.
+  const sentAnchorContent = tab?.content;
+  const activeFileSentReviewComments = useMemo(() => {
+    if (!tab?.filePath) {
+      return EMPTY_SENT_REVIEW_COMMENT_VIEWS;
+    }
+    const entries = sentReviewCommentsForActiveTask.filter(
+      (entry) => entry.comment.filePath === tab.filePath,
+    );
+    if (entries.length === 0) {
+      return EMPTY_SENT_REVIEW_COMMENT_VIEWS;
+    }
+    const currentLines = (sentAnchorContent ?? "").split("\n");
+    return entries.map((entry) => ({
+      comment: entry.comment,
+      state: classifySentReviewComment({
+        anchor: entry.anchor,
+        line: entry.comment.line,
+        currentLines,
+      }),
+    }));
+  }, [tab?.filePath, sentAnchorContent, sentReviewCommentsForActiveTask]);
   const reviewDraft = resolveTaskReviewDraft(reviewDraftState, activeTaskId);
   const canAddReviewComment = Boolean(
     activeTaskId && tab && diffSessionKey && !tabContentUnavailable,
@@ -589,10 +619,25 @@ function EditorTabSurface({
     }
     void useAppStore.getState().submitReviewFeedback({ taskId: activeTaskId });
   }
+  // The diff editor's shortcut reads this ref, so its registration does not
+  // churn the review zones on every render.
+  const sendReviewRef = useRef(submitActiveTaskReviewFeedback);
+  sendReviewRef.current = submitActiveTaskReviewFeedback;
+
+  function submitActiveFileReviewFeedback() {
+    if (!activeTaskId || !tab?.filePath || activeFileReviewComments.length === 0) {
+      return;
+    }
+    void useAppStore.getState().submitReviewFeedback({
+      taskId: activeTaskId,
+      filePath: tab.filePath,
+    });
+  }
 
   const buildDiffReviewControllerUpdate = useCallback(
     (): DiffReviewControllerUpdate => ({
       comments: activeFileReviewComments,
+      sentComments: activeFileSentReviewComments,
       draft: reviewDraft,
       onStartDraft: (line) => startReviewCommentDraft({ line }),
       onDraftBodyChange: (body) =>
@@ -608,9 +653,16 @@ function EditorTabSurface({
           taskId: activeTaskId,
           commentId,
         }),
+      onResolveSentComment: (commentId) =>
+        useSentReviewCommentsStore.getState().resolve({
+          taskId: activeTaskId,
+          commentId,
+        }),
+      onSendReview: () => sendReviewRef.current(),
     }),
     [
       activeFileReviewComments,
+      activeFileSentReviewComments,
       activeTaskId,
       reviewDraft,
       startReviewCommentDraft,
@@ -1000,6 +1052,7 @@ function EditorTabSurface({
           diffViewMode={diffViewMode}
           showDiffDisplayControls={showDiffDisplayControls}
           reviewCommentCount={reviewCommentsForActiveTask.length}
+          fileReviewCommentCount={activeFileReviewComments.length}
           canAddReviewComment={canAddReviewComment}
           canSubmitReviewFeedback={canSubmitReviewFeedback}
           onSave={performSave}
@@ -1012,6 +1065,7 @@ function EditorTabSurface({
           }
           onAddReviewComment={() => startReviewCommentDraft()}
           onSubmitReviewFeedback={submitActiveTaskReviewFeedback}
+          onSubmitFileReviewFeedback={submitActiveFileReviewFeedback}
           onSendToAgent={handleSendToAgent}
           onBulkClose={handleBulkClose}
           onCopyPath={() =>

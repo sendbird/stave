@@ -52,6 +52,8 @@ export function EditorSurfaceToolbar(args: {
   diffViewMode: "unified" | "split";
   showDiffDisplayControls: boolean;
   reviewCommentCount: number;
+  /** Pending review comments on this tab's file. */
+  fileReviewCommentCount: number;
   canAddReviewComment: boolean;
   canSubmitReviewFeedback: boolean;
   onSave: () => void;
@@ -60,6 +62,7 @@ export function EditorSurfaceToolbar(args: {
   onChangeDiffViewMode: (mode: "unified" | "split") => void;
   onAddReviewComment: () => void;
   onSubmitReviewFeedback: () => void;
+  onSubmitFileReviewFeedback: () => void;
   onSendToAgent: () => void;
   onBulkClose: (kind: EditorBulkCloseKind) => void;
   onCopyPath: () => void;
@@ -261,6 +264,15 @@ export function EditorSurfaceToolbar(args: {
               <MoreHorizontal size={16} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              {args.fileReviewCommentCount > 0 &&
+              args.fileReviewCommentCount < args.reviewCommentCount ? (
+                <>
+                  <DropdownMenuItem onSelect={() => args.onSubmitFileReviewFeedback()}>
+                    {i18n.t("panes:editorSurfaceToolbar.sendThisFileReviewComments", { count: args.fileReviewCommentCount })}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              ) : null}
               <DropdownMenuItem onSelect={() => args.onBulkClose("others")}>
                 {i18n.t("panes:editorSurfaceToolbar.closeOthers")}
               </DropdownMenuItem>

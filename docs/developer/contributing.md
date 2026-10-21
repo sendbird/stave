@@ -92,7 +92,8 @@ to reproduce an Agent run that hits a usage limit, waits again while the window
 is still used up, and continues once it has room,
 without a real account or billable turns (about three minutes). The same
 stand-in answers the turns in `transcript-step-jump.electron.e2e.ts`, where
-`FAKE_CLAUDE_TOOL_PROGRESS` makes it report steps the turn never wrote. Provider
+`FAKE_CLAUDE_TOOL_PROGRESS` makes it report steps the turn never wrote, and in
+`diff-review-sent-comments.electron.e2e.ts`. Provider
 authentication is checked separately:
 
 ```bash
