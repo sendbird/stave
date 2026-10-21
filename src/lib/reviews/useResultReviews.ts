@@ -32,6 +32,7 @@ export function useResultReviews(args: ListResultReviewsArgs = {}) {
     key,
     page: EMPTY,
     loading: true,
+    loaded: false,
     error: "",
   });
   useEffect(() => {
@@ -40,11 +41,15 @@ export function useResultReviews(args: ListResultReviewsArgs = {}) {
       key,
       page: current.key === key ? current.page : EMPTY,
       loading: true,
-      error: "",
+      // A refresh of the same query keeps its answer, including a failure,
+      // until the next one arrives; a new query starts over.
+      loaded: current.key === key ? current.loaded : false,
+      error: current.key === key ? current.error : "",
     }));
     void listResultReviews(JSON.parse(key) as ListResultReviewsArgs).then(
       (page) => {
-        if (!cancelled) setState({ key, page, loading: false, error: "" });
+        if (!cancelled)
+          setState({ key, page, loading: false, loaded: true, error: "" });
       },
       (error: unknown) => {
         if (!cancelled)
@@ -73,6 +78,7 @@ export function useResultReviews(args: ListResultReviewsArgs = {}) {
         key,
         page: EMPTY,
         loading: true,
+        loaded: false,
         error: "",
         refresh: invalidateResultReviews,
       };
