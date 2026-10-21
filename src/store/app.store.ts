@@ -26,6 +26,7 @@ import { createSupportActions } from "@/store/app-store-support-actions";
 import { createProviderInteractionActions } from "@/store/app-store-provider-interaction-actions";
 import { createFailedSendActions } from "@/store/app-store-failed-send-actions";
 import { createTaskPauseActions } from "@/store/app-store-task-pause-actions";
+import { createQueuedTurnEditActions, createQueuedTurnEditHolds } from "@/store/queued-turn-edit-holds";
 import { pauseQueueOnUsageLimitRefusal, resolvePausedQueueHold, settleTaskQueueAfterTurn } from "@/store/task-work-pause-wiring";
 import { createAppStorePersistenceOptions, normalizeSharedSkillsHomeSetting } from "@/store/app-store-persistence";
 import { createAppStoreNotificationRuntime } from "@/store/app-store-notification-runtime";
@@ -538,6 +539,7 @@ export const useAppStore = create<AppState>()(
     });
 
     const steerQueueReservations = createSteerQueueReservations();
+    const queuedTurnEditHolds = createQueuedTurnEditHolds();
 
     const dispatchNextQueuedTaskTurn = createQueuedTaskTurnDispatcher({
       getSession: (workspaceId) =>
@@ -545,6 +547,7 @@ export const useAppStore = create<AppState>()(
       getActions: get,
       getAutoDispatchHold: (target) =>
         steerQueueReservations.getAutoDispatchHold(target) ??
+        queuedTurnEditHolds.getAutoDispatchHold(target) ??
         resolvePausedQueueHold(get(), target),
       onDispatchBlocked: (blocked) => pauseQueueOnUsageLimitRefusal(get, blocked),
       onDispatchFailed: ({ taskId, queuedTurnId, error }) => {
@@ -1366,6 +1369,7 @@ export const useAppStore = create<AppState>()(
       ...conversationThreadActions,
       ...failedSendActions,
       ...taskPauseActions,
+      ...createQueuedTurnEditActions({ holds: queuedTurnEditHolds, get, drain: drainQueueAfterSteerSettled }),
       ...terminalActions,
       ...taskLifecycleActions,
       ...paneActions,

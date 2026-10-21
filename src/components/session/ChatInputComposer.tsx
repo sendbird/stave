@@ -1042,6 +1042,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     onUpdate: updateQueuedTurn,
     onRemove: removeQueuedTurn,
     onReorder: reorderQueuedTurn,
+    // The shelf's list id is the task the queue belongs to, captured when the
+    // editor opened, so a task switch mid-edit still releases the right hold.
+    onEditStart: (itemId, taskId) =>
+      useAppStore.getState().holdQueuedTurnForEdit({ taskId, queuedTurnId: itemId }),
+    onEditEnd: (itemId, taskId) =>
+      useAppStore.getState().releaseQueuedTurnEditHold({ taskId, queuedTurnId: itemId }),
     pause: queuePause,
     onResume: () => void resumePausedTaskWork({ taskId: args.activeTaskId }),
     onClearAll: () => {
