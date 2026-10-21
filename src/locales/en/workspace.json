@@ -865,6 +865,8 @@
   },
   "workspacePlansSection": {
     "couldNotLoadPlans": "Could not load documents.",
+    "loadFailedNotEmpty": "This does not mean there are no documents. Check that the workspace folder is available, then try again.",
+    "refreshFailedListMayBeOutOfDate": "Could not refresh documents. This list may be out of date.",
     "openATaskBeforeCreatingAPlan": "Open a task before creating a document.",
     "couldNotCreateThePlanFile": "Could not create the document.",
     "planCreated": "Document created",

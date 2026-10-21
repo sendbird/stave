@@ -852,6 +852,8 @@
   },
   "workspacePlansSection": {
     "couldNotLoadPlans": "문서를 불러오지 못했습니다.",
+    "loadFailedNotEmpty": "문서가 없다는 뜻은 아닙니다. 워크스페이스 폴더에 접근할 수 있는지 확인한 뒤 다시 시도해 주세요.",
+    "refreshFailedListMayBeOutOfDate": "문서 목록을 새로 고치지 못했습니다. 이 목록은 최신이 아닐 수 있습니다.",
     "openATaskBeforeCreatingAPlan": "문서를 만들기 전에 작업을 엽니다.",
     "couldNotCreateThePlanFile": "문서를 만들지 못했습니다.",
     "planCreated": "문서 생성됨",
