@@ -16,7 +16,7 @@ import {
   removeNotificationsFromList,
   selectNotificationIdsForWorkspaces,
 } from "@/lib/notifications/notification-state";
-import type { AppNotification } from "@/lib/notifications/notification.types";
+import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
 import {
   MAX_NOTIFICATION_HISTORY,
   buildNotificationExpiresAt,
@@ -24,6 +24,7 @@ import {
 
 interface NotificationSliceState {
   notifications: AppNotification[];
+  notificationsLoad: NotificationsLoad;
 }
 
 /**
@@ -210,11 +211,12 @@ export async function hydrateNotificationsAction(
     const notifications = await listPersistedNotifications({
       limit: MAX_NOTIFICATION_HISTORY,
     });
-    deps.set(() => ({ notifications }));
+    deps.set(() => ({ notifications, notificationsLoad: { status: "ready" } }));
     await reconcileOrphanedNotificationsAction(deps);
   } catch (error) {
     console.error("[notifications] failed to hydrate notifications", error);
-    deps.set(() => ({ notifications: [] }));
+    // Keep what the inbox shows: an empty list would read as "no notifications".
+    deps.set(() => ({ notificationsLoad: { status: "error", message: error instanceof Error ? error.message : String(error) } }));
   }
 }
 

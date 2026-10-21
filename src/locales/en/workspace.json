@@ -97,7 +97,8 @@
       "local": "Local branches"
     },
     "loading": "Loading branches...",
-    "empty": "No matching branches."
+    "empty": "No matching branches.",
+    "loadFailed": "Couldn't read the branches."
   },
   "cleanupDialog": {
     "title": "Clean up workspaces",

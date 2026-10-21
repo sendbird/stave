@@ -1225,7 +1225,7 @@ export const useAppStore = create<AppState>()(
         roots: [],
         detail: i18n.t("notifications:appStore.skillCatalogHasNotBeenLoadedYet"),
       },
-      notifications: [],
+      notifications: [], notificationsLoad: { status: "pending" },
       reviewCommentsByTask: {},
       compareRunsById: {},
       activeCompareRunId: null,

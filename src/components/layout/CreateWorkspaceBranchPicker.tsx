@@ -29,6 +29,9 @@ interface CreateWorkspaceBranchPickerProps {
   disabled?: boolean;
   localBranches: string[];
   loading?: boolean;
+  /** The branch read failed: the list says so with Retry instead of reading as no branches. */
+  failed?: boolean;
+  onRetry?: () => void;
   onChangeOption?: (option: CreateWorkspaceBranchOption) => void;
   onChange: (value: string) => void;
   remoteBranches: string[];
@@ -68,6 +71,8 @@ export function CreateWorkspaceBranchPicker({
   disabled = false,
   localBranches,
   loading = false,
+  failed = false,
+  onRetry,
   onChangeOption,
   onChange,
   remoteBranches,
@@ -293,13 +298,23 @@ export function CreateWorkspaceBranchPicker({
             />
           </div>
         </div>
+        {failed && !loading ? (
+          <div role="alert" className={sx(branchPickerStyles.errorRow)}>
+            <span>{t("branchPicker.loadFailed")}</span>
+            {onRetry ? (
+              <AdsButton size="xs" variant="quiet" onClick={onRetry}>
+                {t("common:actions.retry")}
+              </AdsButton>
+            ) : null}
+          </div>
+        ) : null}
         {loading && rows.length === 0 ? (
           <div className={sx(branchPickerStyles.loadingRow)}>
             <Loader aria-hidden size="xs" variant="sync" />
             {t("branchPicker.loading")}
           </div>
         ) : rows.length === 0 ? (
-          <div className={sx(branchPickerStyles.emptyRow)}>
+          failed ? null : <div className={sx(branchPickerStyles.emptyRow)}>
             {t("branchPicker.empty")}
           </div>
         ) : (

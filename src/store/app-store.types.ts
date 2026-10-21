@@ -4,7 +4,7 @@ import type {
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
-import type { AppNotification } from "@/lib/notifications/notification.types";
+import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
   ProviderGoalSnapshot,
@@ -257,6 +257,7 @@ export interface AppState
   providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;
   notifications: AppNotification[];
+  notificationsLoad: NotificationsLoad;
   reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
   compareRunsById: Record<string, CompareRun | undefined>;
   activeCompareRunId: string | null;

@@ -1,4 +1,5 @@
 import { formatAutomationSchedule, formatAutomationTrustPolicy, describeAutomationDraftIssue } from "@/lib/automation-presentation";
+import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { i18n, useTranslation } from "@/i18n";
 import { sx } from "@/components/ads/utils/stylex";
 import {
@@ -161,6 +162,8 @@ export function AutomationCenterView() {
   const [loading, setLoading] = useState(true);
   // The first answer, data or error; later reloads keep what is on screen.
   const [snapshotAnswered, setSnapshotAnswered] = useState(false);
+  // A snapshot arrived at least once, so an error now is a failed refresh, not "no runs".
+  const [snapshotLoaded, setSnapshotLoaded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [busyAutomationId, setBusyAutomationId] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -238,6 +241,7 @@ export function AutomationCenterView() {
           return;
         }
         setSnapshot(result.snapshot);
+        setSnapshotLoaded(true);
         setError("");
       } catch (loadError) {
         if (!isCurrent()) return;
@@ -1145,7 +1149,12 @@ export function AutomationCenterView() {
       ) : (
         <div className={sx(centerStyles.runsMasterDetail)}>
           <div className={sx(centerStyles.runsMasterColumn)}>
-            {visibleRuns.length === 0 ? (
+            {/* The banner above already names a failure; only a first read that failed replaces the list. */}
+            <AsyncBoundary
+              state={error && !snapshotLoaded ? { status: "error", error } : { status: "ready", data: visibleRuns }}
+              onRetry={() => void loadSnapshot()}
+              isEmpty={(runs) => runs.length === 0}
+              empty={
               <Empty xstyle={centerStyles.emptyPaneFull}>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -1156,9 +1165,11 @@ export function AutomationCenterView() {
                     {tI18n("automation:automationCenterView.everyManualOrScheduledExecutionIsRecorded")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
-            ) : (
+              }
+            >
+              {(runs) => (
               <div className={sx(centerStyles.cardList)}>
-                {visibleRuns.map((run) => (
+                {runs.map((run) => (
                   <AutomationRunRow
                     key={run.id}
                     run={run}
@@ -1168,7 +1179,8 @@ export function AutomationCenterView() {
                   />
                 ))}
               </div>
-            )}
+              )}
+            </AsyncBoundary>
           </div>
           <div className={sx(centerStyles.runsDetailColumn)}>
             {selectedRun ? (

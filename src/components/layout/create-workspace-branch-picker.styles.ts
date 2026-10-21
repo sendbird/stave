@@ -124,6 +124,16 @@ export const branchPickerStyles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     color: vars["--ads-color-text-muted"],
   },
+  errorRow: {
+    alignItems: "center",
+    color: vars["--ads-color-danger-text"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
+  },
   emptyRow: {
     paddingInline: vars["--ads-space-12"],
     paddingBlock: vars["--ads-space-32"],

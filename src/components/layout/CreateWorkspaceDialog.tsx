@@ -92,6 +92,8 @@ export function CreateWorkspaceDialog({
     string[]
   >([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
+  const [branchesFailed, setBranchesFailed] = useState(false);
+  const [branchReloadNonce, setBranchReloadNonce] = useState(0);
   const titleId = useId();
 
   useEffect(() => {
@@ -118,6 +120,7 @@ export function CreateWorkspaceDialog({
     setUseRootNodeModulesSymlink(defaultUseRootNodeModulesSymlink);
     setAvailableBranches([]);
     setAvailableRemoteBranches([]);
+    setBranchesFailed(false);
     const listBranches = window.api?.sourceControl?.listBranches;
     if (!listBranches) {
       setLoadingBranches(false);
@@ -128,7 +131,11 @@ export function CreateWorkspaceDialog({
     setLoadingBranches(true);
     void listBranches({ cwd, refreshRemote: true })
       .then((result) => {
-        if (!result?.ok || cancelled) {
+        if (cancelled) {
+          return;
+        }
+        if (!result?.ok) {
+          setBranchesFailed(true);
           return;
         }
 
@@ -150,7 +157,10 @@ export function CreateWorkspaceDialog({
         );
       })
       .catch(() => {
-        // IPC failure — swallow; branch lists stay empty.
+        // The picker shows the failure with Retry instead of "no branches".
+        if (!cancelled) {
+          setBranchesFailed(true);
+        }
       })
       .finally(() => {
         if (!cancelled) {
@@ -168,6 +178,7 @@ export function CreateWorkspaceDialog({
     defaultInitCommand,
     defaultUseRootNodeModulesSymlink,
     open,
+    branchReloadNonce,
   ]);
 
   useEffect(() => {
@@ -431,6 +442,8 @@ export function CreateWorkspaceDialog({
                   defaultBranch={defaultBranch}
                   localBranches={availableBranches}
                   loading={loadingBranches}
+                  failed={branchesFailed}
+                  onRetry={() => setBranchReloadNonce((value) => value + 1)}
                   remoteBranches={availableRemoteBranches}
                   onChange={(nextBranch) => {
                     setCreationMode("branch");
