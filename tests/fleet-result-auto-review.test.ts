@@ -1,8 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
   FLEET_RESULT_AUTO_REVIEW_DWELL_MS,
+  findLatestFinishedTurnId,
   selectAutoReviewableResults,
 } from "@/lib/fleet/result-auto-review";
+import type { ChatMessage } from "@/types/chat";
 import type { ResultReview } from "@/lib/reviews/result-review";
 
 const NOW_MS = Date.parse("2026-09-07T00:00:00.000Z");
@@ -38,6 +40,7 @@ function select(overrides: Partial<Parameters<typeof selectAutoReviewableResults
   return selectAutoReviewableResults({
     results: [buildResult()],
     surface: WATCHING,
+    latestResultTurnId: "turn-1",
     dwellStartedAtMs: NOW_MS - FLEET_RESULT_AUTO_REVIEW_DWELL_MS - 500,
     nowMs: NOW_MS,
     ...overrides,
@@ -106,5 +109,54 @@ describe("fleet result auto review", () => {
     expect(select({ results: [buildResult({ createdAt: "not a date" })] })).toEqual(
       [],
     );
+  });
+  test("acknowledges only the latest finished turn, never older pending ones", () => {
+    const results = [
+      buildResult({ id: "r-1", turnId: "turn-1" }),
+      buildResult({ id: "r-2", turnId: "turn-2" }),
+      buildResult({ id: "r-3", turnId: "turn-3" }),
+    ];
+    expect(
+      select({ results, latestResultTurnId: "turn-3" }).map(
+        (result) => result.turnId,
+      ),
+    ).toEqual(["turn-3"]);
+  });
+
+  test("does not walk back to older results once the latest is reviewed", () => {
+    // The pending list no longer contains turn-3, which the user already
+    // reviewed. turn-1 and turn-2 were never on screen and must stay pending.
+    const results = [
+      buildResult({ id: "r-1", turnId: "turn-1" }),
+      buildResult({ id: "r-2", turnId: "turn-2" }),
+    ];
+    expect(select({ results, latestResultTurnId: "turn-3" })).toEqual([]);
+  });
+
+  test("acknowledges nothing when the latest turn is unknown", () => {
+    expect(select({ latestResultTurnId: null })).toEqual([]);
+  });
+});
+
+describe("findLatestFinishedTurnId", () => {
+  const message = (patch: Partial<ChatMessage>): ChatMessage =>
+    ({ id: patch.turnId ?? "m", role: "assistant", model: "m", providerId: "codex", content: "", ...patch }) as ChatMessage;
+
+  test("is the last assistant turn, skipping the one still running", () => {
+    const messages = [
+      message({ id: "a1", turnId: "turn-1" }),
+      message({ id: "u2", role: "user", turnId: "turn-2" }),
+      message({ id: "a2", turnId: "turn-2" }),
+      message({ id: "a3", turnId: "turn-3" }),
+    ];
+    expect(findLatestFinishedTurnId(messages, null)).toBe("turn-3");
+    expect(findLatestFinishedTurnId(messages, "turn-3")).toBe("turn-2");
+  });
+
+  test("is unknown before messages load or without assistant turns", () => {
+    expect(findLatestFinishedTurnId(undefined, null)).toBeNull();
+    expect(
+      findLatestFinishedTurnId([message({ role: "user", turnId: "turn-1" })], null),
+    ).toBeNull();
   });
 });

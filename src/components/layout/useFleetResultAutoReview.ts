@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   FLEET_RESULT_AUTO_REVIEW_DWELL_MS,
+  findLatestFinishedTurnId,
   selectAutoReviewableResults,
 } from "@/lib/fleet/result-auto-review";
 import type { AppNotification } from "@/lib/notifications/notification.types";
@@ -29,10 +30,14 @@ function readSurface() {
     state.activeSurface.kind === "task"
       ? state.activeSurface.taskId
       : null;
+  const activeTurnId = taskId ? (state.activeTurnIdsByTask[taskId] ?? null) : null;
   return {
     workspaceId: state.activeWorkspaceId,
     taskId,
-    activeTurnId: taskId ? (state.activeTurnIdsByTask[taskId] ?? null) : null,
+    activeTurnId,
+    latestFinishedTurnId: taskId
+      ? findLatestFinishedTurnId(state.messagesByTask[taskId], activeTurnId)
+      : null,
     notifications: state.notifications,
   };
 }
@@ -90,6 +95,9 @@ export function useFleetResultAutoReview() {
         return;
       }
 
+      // Only the turn the task window shows as finished may be acknowledged by
+      // viewing it; its result row is matched by turn, not by storage order.
+      const latestResultTurnId = surface.latestFinishedTurnId;
       let pending;
       try {
         pending = await listResultReviews({
@@ -118,6 +126,7 @@ export function useFleetResultAutoReview() {
           windowFocused: true,
         },
         activeTurnId: surface.activeTurnId,
+        latestResultTurnId,
         dwellStartedAtMs: session.startedAtMs,
         nowMs,
       });
@@ -152,6 +161,7 @@ export function useFleetResultAutoReview() {
             !result.reviewedAt &&
             result.taskId === surface.taskId &&
             result.workspaceId === surface.workspaceId &&
+            result.turnId === latestResultTurnId &&
             !(surface.activeTurnId && result.turnId === surface.activeTurnId),
         )
         .map(
@@ -194,7 +204,9 @@ export function useFleetResultAutoReview() {
       }
 
       // Only a change the store actually reported may cost another read.
-      const runKey = `${dwellKey}${UNIT_SEPARATOR}${surface.activeTurnId ?? ""}`;
+      // The latest finished turn changes when a turn ends or the task's
+      // messages finish loading; either is a reason to look again.
+      const runKey = `${dwellKey}${UNIT_SEPARATOR}${surface.activeTurnId ?? ""}${UNIT_SEPARATOR}${surface.latestFinishedTurnId ?? ""}`;
       if (runKey === lastRunKey && !notificationsChanged) {
         return;
       }
