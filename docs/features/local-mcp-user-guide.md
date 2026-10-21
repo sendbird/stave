@@ -246,10 +246,10 @@ If the running task asks for an approval or a structured question:
   you from an agent, and an agent never grants consent
 - unanswered managed-task approvals are automatically denied after five minutes so the caller receives a failure instead of waiting forever
 
-Automations created through Local MCP (`stave_create_automation`) are saved
-paused: turn them on in the Automations panel. An MCP edit keeps a paused
-automation paused, `stave_set_automation_enabled` can only pause, and
-unattended, bypass or full-access automation settings are rejected.
+Schedules created through Local MCP (`stave_create_automation`) are saved
+paused: turn them on in Schedules. An MCP edit keeps a paused schedule paused,
+`stave_set_automation_enabled` can only pause, and unattended, bypass or
+full-access permission settings are rejected.
 
 Use `Local MCP Request Log` in `Settings → MCP` when you need transport-level request visibility (turn on **Developer mode** in `Settings → General` first). The latest page auto-refreshes while older pages stay stable for pagination.
 

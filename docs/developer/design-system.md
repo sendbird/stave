@@ -17,11 +17,11 @@ Global CSS is limited to resets, existing animation/engine integration, and
 rich-text or third-party descendants that cannot accept StyleX props. A CSS
 boundary must use semantic selectors, not utility-class dependencies.
 
-The shared UI layer and composer frame/control/option compositions have migrated
-to this contract. Other product screens still contain utility syntax, recorded
-per file in `config/style-utility-baseline.json`. Tailwind remains in the build
-until those consumers and global directives migrate. A passing ratchet is not a
-claim that the whole application has completed this transition.
+Every product surface now follows this contract, and Tailwind is no longer part
+of the build. `config/style-utility-baseline.json` keeps an empty `files` list,
+so new utility syntax anywhere fails the ratchet. Its `dataLiterals` entries
+record the few string literals that only look like utility classes, such as
+class names matched on external pages.
 
 ## Ownership
 
@@ -76,7 +76,7 @@ small panels, keyboard focus, and custom theme changes in the built renderer.
 
 Fleet presents work across workspaces. Tasks select and organize work. Information
 holds workspace goals, decisions, and evidence; repository memory has its
-own collection controls. Automations schedule repeatable agent work and keep run
+own collection controls. Schedules run repeatable agent work and keep run
 history. There is no separate Knowledge or Today destination.
 
 Workspace tools support finding an action, running it, and reading its selected

@@ -12,12 +12,13 @@ schedule, when work that task delegated finishes, or when the task's pull
 request needs fixing. It is the "keep going without me" answer for work that is
 already underway — re-read this dashboard every hour, pick the thread back up
 when the delegated task you handed off returns, fix CI when it fails on the
-pull request this task opened — as opposed to an automation, which mints a brand
-new task per occurrence.
+pull request this task opened — as opposed to a start-a-task schedule (an
+automation in code), which mints a brand new task per occurrence.
 
 The boundary between the two is fixed in
-[Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md): **an
-automation never wakes an existing task, and a wake-up never creates one.**
+[Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md): **a
+start-a-task schedule never wakes an existing task, and a check-back never
+creates one.**
 
 ## What it adds over `runTask`
 

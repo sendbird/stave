@@ -21,22 +21,22 @@
 ## Before You Start
 
 - Open the Stave desktop app and configure the provider you want to use.
-- Open or register the repository where the automation should run.
+- Open or register the repository where the schedule should run.
 - Add reusable notes, todos, or linked resources to the repository's Default
-  Workspace Information panel if the automation needs them.
+  Workspace Information panel if the schedule needs them.
 
 ## Quick Start
 
 1. Open `Schedules` from the workflow icon in the global navigation
    bar at the top right, or press `Cmd/Ctrl+K` then `A`.
 2. Select `New schedule` and keep `New task in a repository` under Where.
-3. Enter the automation name and complete task instructions.
+3. Enter the schedule name and complete task instructions.
 4. Pick a cadence preset such as `Daily`, `Weekdays`, or `Weekends`.
 5. Pick a permission mode: `Auto`, `Guided`, or `Manual`.
 6. Choose the repository, model, and effort.
 7. Use `Add Information resource`, choose a resource type, and enter the new
    resource that each run should receive.
-8. Select `Save`, then use `Run now` to test the automation.
+8. Select `Save`, then use `Run now` to test the schedule.
 9. Switch to the `Run history` tab and select a run to inspect its full result.
 
 ## Interface Walkthrough
@@ -48,12 +48,12 @@
   place. `Escape` or the header `X` closes it.
 - Open it from the workflow icon in the global navigation bar, from the command
   palette (`Open Schedules`), or with `Cmd/Ctrl+K` then `A`.
-- It remains available without selecting a task or workspace because automations
+- It remains available without selecting a task or workspace because schedules
   can target any registered repository.
 
 ### Layout
 
-The surface has two tabs, each a list-plus-detail split so the automation list
+The surface has two tabs, each a list-plus-detail split so the schedule list
 and the run history are never stacked in one scroll view. Agents and their
 workflows live on their own **Agents** surface (see [Playbooks (retired)](playbooks.md) and
 [Agents](agents.md)).
@@ -62,7 +62,7 @@ workflows live on their own **Agents** surface (see [Playbooks (retired)](playbo
   schedule's configuration on the right. The detail pane shows the latest run
   status only; the full history lives in the other tab.
 - `Run history`: every recorded run on the left, filtered by status and by
-  automation, and the selected run's full detail on the right.
+  schedule, and the selected run's full detail on the right.
 
 ### Key Controls
 
@@ -72,14 +72,14 @@ workflows live on their own **Agents** surface (see [Playbooks (retired)](playbo
 - `Run now`: starts an independent run immediately.
 - `Edit`: changes any saved specification.
 - `View run history`: switches to the `Run history` tab pre-filtered to the
-  selected automation.
+  selected schedule.
 - `Pause schedule` / `Enable schedule`: stops or restores scheduled runs without
-  deleting the automation. A paused automation still runs from `Run now`, and is
+  deleting the schedule. A paused schedule still runs from `Run now`, and is
   shown as `Manual only`.
-- `Delete`: removes an idle automation and its run-history entries. Task
+- `Delete`: removes an idle schedule and its run-history entries. Task
   conversations created by earlier runs remain in their workspaces.
 - `Open task`: opens the task conversation created for that run.
-- `Run again`: re-runs the automation that produced the selected run.
+- `Run again`: re-runs the schedule that produced the selected run.
 
 ### Run Detail
 
@@ -89,27 +89,27 @@ full recorded result or error, and the instructions the run was given.
 
 ## Common Workflows
 
-### Create Or Edit An Automation
+### Create Or Edit A Schedule
 
 1. Enter a name and the full prompt that should be sent on each run.
 2. Pick a cadence. See [Cadence](#cadence) below.
 3. Pick a permission mode. See [Permission Modes](#permission-modes) below.
-4. Choose a registered repository. Automations always execute from that
+4. Choose a registered repository. Schedules always execute from that
    repository's root in its Default Workspace.
 5. Select Claude or Codex, then choose the model and effort.
 6. Select `Add Information resource`, choose Notes, Todo, Pull request, Jira,
    Confluence, Storybook, Amplify, Slack, Figma, or Custom field, then complete
    that resource type's input form. Stave creates the entry in the repository's
-   Default Workspace and attaches it to the automation immediately. The editor
+   Default Workspace and attaches it to the schedule immediately. The editor
    shows each attached resource with its context summary and removal control.
-7. Save the automation. Use `Edit` later to change the same specification.
+7. Save the schedule. Use `Edit` later to change the same specification.
 
 ### Cadence
 
 Pick one preset instead of assembling an interval by hand. The editor shows the
 resolved schedule and the next run time under the presets.
 
-- `Manual only`: no schedule. The automation runs only from `Run now`.
+- `Manual only`: no cadence. The schedule runs only from `Run now`.
 - `Every 15 minutes` and `Hourly`: plain intervals with no time anchor.
 - `Daily`: once a day at a chosen local time.
 - `Weekdays`: Monday through Friday at a chosen local time.
@@ -122,7 +122,7 @@ saving changes.
 
 ### Permission Modes
 
-Automations expose a single permission control instead of the full per-provider
+Schedules expose a single permission control instead of the full per-provider
 permission matrix. The mode decides how much the run may do while nobody is
 watching.
 
@@ -142,28 +142,28 @@ editor never shows a value the scheduler would silently discard.
 Information references are resolved from the latest persisted Default
 Workspace Information panel values when a run starts. Renaming or updating an
 attached note or resource therefore changes the context used by future runs
-without requiring a new automation.
+without requiring a new schedule.
 
-### Run And Inspect An Automation
+### Run And Inspect A Schedule
 
 1. Use `Run now`, or leave scheduled runs enabled and wait for the next occurrence.
-2. Watch the latest run status in the automation list and on the automation detail pane.
+2. Watch the latest run status in the schedule list and on the schedule detail pane.
 3. Open the `Run history` tab and select a run to read its full detail.
 4. If a run is `Waiting`, select `Open task` and respond to the approval or user-input request.
 5. When the run completes, review its recorded result or open the full task conversation.
 
 ## Files And Data
 
-- Automation definitions and the latest 50 run records per automation are stored in Stave's local SQLite application data.
+- Schedule definitions and the latest 50 run records per schedule are stored in Stave's local SQLite application data.
 - Each occurrence is also stored as a normal, user-owned task in the selected
   repository's Default Workspace.
-- Deleting an automation does not delete those task conversations.
+- Deleting a schedule does not delete those task conversations.
 
 ## Limitations And Advanced Options
 
-- Scheduled runs execute only while the Stave desktop app is open. Stave does not currently install an operating-system background job or launch itself for a due automation.
-- If Stave was closed when an interval became due, the automation runs once after Stave opens and schedules the next interval from that time. It does not replay every missed occurrence.
-- An automation does not start a second overlapping run. If the previous run is still active when the next interval is due, that occurrence is recorded as skipped.
+- Scheduled runs execute only while the Stave desktop app is open. Stave does not currently install an operating-system background job or launch itself for a due schedule.
+- If Stave was closed when an interval became due, the schedule runs once after Stave opens, and the next interval counts from that time. It does not replay every missed occurrence.
+- A schedule does not start a second overlapping run. If the previous run is still active when the next interval is due, that occurrence is recorded as skipped.
 - Live Lens browser state is not attachable because it is not a durable Information resource.
 
 ## Troubleshooting
@@ -171,8 +171,8 @@ without requiring a new automation.
 ### A Run Is Waiting
 
 - Symptom: the run status stays at `Waiting`.
-- Cause: the automation uses the `Guided` permission mode and a sensitive action needs an approval, or the model requested user input.
-- Fix: select `Open task`, respond in the task conversation, and let the run continue. Switch the automation to `Auto` if it should never stop to ask.
+- Cause: the schedule uses the `Guided` permission mode and a sensitive action needs an approval, or the model requested user input.
+- Fix: select `Open task`, respond in the task conversation, and let the run continue. Switch the schedule to `Auto` if it should never stop to ask.
 
 ### A Resource Cannot Be Attached
 

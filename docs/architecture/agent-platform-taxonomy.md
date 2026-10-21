@@ -21,8 +21,8 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Ledger | The durable runs/steps/receipts record in `src/lib/runs/`. It records; it never executes. |
 | Receipt | One bounded record of how something started or ended. Never transcript text, never secrets. |
 | Occurrence | One firing of a schedule. |
-| Automation | A saved prompt and schedule that mints a new task per occurrence. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
-| Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
+| Automation | A saved prompt and schedule that mints a new task per occurrence. The app shows it in Schedules as a start-a-task schedule. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
+| Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. The app shows it in Schedules as a check-back. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
 | Subagent | Any agent a task or agent calls, in the turn (a provider subagent compiled from the agent's `canCall`) or as a delegated task. The UI says Subagent for both; the retired Advisor and Worker were the in-turn kind. |
 | Delegated task | A durable subagent: a Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
 | Issue | A ticket from a connected tracker (Jira, Crane), listed on the Issues surface and started as a Stave task from there. Code: `TrackerIssue`. "Task" is reserved for Stave conversations; Crane's own API keeps calling its items tasks. |
