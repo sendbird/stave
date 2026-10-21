@@ -19,6 +19,8 @@ interface QueueHandlers {
   onClearAll: () => void;
   onReorder: (move: QueuedTurnMove) => void;
   onResume: () => void;
+  onEditStart?: (itemId: string, listId: string) => void;
+  onEditEnd?: (itemId: string, listId: string) => void;
 }
 
 /**
@@ -56,6 +58,10 @@ export function useComposerShelfQueue(
       onClearAll: () => handlersRef.current.onClearAll(),
       onReorder: (move) => handlersRef.current.onReorder(move),
       onResume: () => handlersRef.current.onResume(),
+      onEditStart: (itemId, listId) =>
+        handlersRef.current.onEditStart?.(itemId, listId),
+      onEditEnd: (itemId, listId) =>
+        handlersRef.current.onEditEnd?.(itemId, listId),
     }),
     [],
   );

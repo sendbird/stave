@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -51,6 +51,14 @@ export interface ComposerShelfQueueProps {
   onSend: (itemId: string) => void;
   onUpdate: (args: { itemId: string; content: string }) => void;
   onRemove: (itemId: string) => void;
+  /**
+   * Called when a row's editor opens and closes (Save, Cancel, the item
+   * leaving, or the shelf unmounting or moving to another task). The owner
+   * holds that item out of automatic sending meanwhile. `listId` is the queue
+   * the editor was opened in, so closing always releases the same hold.
+   */
+  onEditStart?: (itemId: string, listId: string) => void;
+  onEditEnd?: (itemId: string, listId: string) => void;
   onClearAll?: () => void;
   onReorder?: (move: QueuedTurnMove) => void;
   /** Why the queue is holding instead of sending on its own; null while it drains. */
@@ -73,6 +81,23 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
   const [open, setOpen] = useState(props.defaultOpen ?? false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  // An item that left the queue (sent by hand, removed) takes its editor with it.
+  const openEditorId =
+    editingId != null && props.items.some((item) => item.id === editingId)
+      ? editingId
+      : null;
+  const { onEditStart, onEditEnd, listId: queueListId } = props;
+  // Hold the edited item out of automatic sending for exactly as long as its
+  // editor is open, including when the shelf unmounts mid-edit.
+  useEffect(() => {
+    if (!openEditorId) {
+      return;
+    }
+    onEditStart?.(openEditorId, queueListId);
+    return () => {
+      onEditEnd?.(openEditorId, queueListId);
+    };
+  }, [onEditEnd, onEditStart, openEditorId, queueListId]);
   const line = describeQueueLine({
     items: props.items,
     actions: props.actions,
@@ -88,8 +113,7 @@ export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProp
     selection: props.selectedModel,
     modelOptions: props.modelOptions,
   });
-  // An item dispatched while it was being edited takes its editor with it.
-  const editing = editingId != null && props.items.some((item) => item.id === editingId);
+  const editing = openEditorId != null;
   const expanded = open || editing;
   const listId = `composer-shelf-queue-${props.listId}`;
   return (

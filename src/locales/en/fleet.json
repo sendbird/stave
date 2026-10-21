@@ -82,6 +82,8 @@
     "openNextItem": "Open next item",
     "reviewQueue": "Review queue",
     "allClear": "All clear",
+    "checkingQueue": "Checking…",
+    "queueNotFullyChecked": "Not fully checked",
     "results": "Agent performance",
     "closeFleetView": "Close Fleet View",
     "retryResultReviews": "Retry result reviews",

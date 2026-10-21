@@ -722,6 +722,16 @@ export interface AppState
     taskId: string;
     trigger?: "user" | "auto";
   }) => Promise<void>;
+  /**
+   * Keep a queued message out of automatic sending while the user edits it,
+   * so a turn that completes mid-edit cannot send the pre-edit text.
+   */
+  holdQueuedTurnForEdit: (args: { taskId: string; queuedTurnId: string }) => void;
+  /** End an edit hold and drain the queue if the task is idle. */
+  releaseQueuedTurnEditHold: (args: {
+    taskId: string;
+    queuedTurnId: string;
+  }) => void;
   /** Arm or disarm resuming on its own when the usage limit resets. */
   setUsageLimitAutoResume: (args: { taskId: string; enabled: boolean }) => void;
   /** Forget a usage-limit pause without resuming anything. */

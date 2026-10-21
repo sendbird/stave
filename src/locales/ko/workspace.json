@@ -1047,7 +1047,10 @@
     "toSave": "저장",
     "cancel": "취소",
     "done": "완료됨",
-    "addNotesMarkdownSupported": "메모 추가… (Markdown 지원)"
+    "addNotesMarkdownSupported": "메모 추가… (Markdown 지원)",
+    "changedWhileEditing": "편집하는 동안 메모가 바뀌었습니다.",
+    "discardMyChanges": "내 변경 버리기",
+    "saveMyVersion": "내 버전으로 저장"
   },
   "workspaceSidebarRows": {
     "default": "기본",

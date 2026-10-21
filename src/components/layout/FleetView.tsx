@@ -11,9 +11,12 @@ import {
   FolderTree,
   Radar,
   Search,
+  ShieldAlert,
   ShieldCheck,
+  ShieldEllipsis,
   X,
 } from "lucide-react";
+import { resolveFleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
@@ -215,11 +218,22 @@ export function FleetView() {
     attentionItemsByWorkspaceId,
     highestAttentionByWorkspaceId,
     resultReviewError,
+    resultReviewTracked,
+    resultReviewLoaded,
     resultReviewTotal,
     resultReviewHasMore,
     refreshResultReviews,
   } = useFleetAttentionProjection();
 
+  const queueStatus = resolveFleetQueueStatus({
+    blockingCount: blockingItems.length,
+    itemCount: attentionTargets.length,
+    resultReviews: {
+      tracked: resultReviewTracked,
+      loaded: resultReviewLoaded,
+      error: resultReviewError,
+    },
+  });
   const nowMs = useCoarseClock();
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
@@ -663,25 +677,39 @@ export function FleetView() {
           <Button
             type="button"
             size="sm"
-            variant={blockingItems.length > 0 ? "default" : "ghost"}
+            variant={queueStatus === "next" ? "default" : "ghost"}
             xstyle={styles.headerAction}
             disabled={attentionTargets.length === 0}
             onClick={openNextAttentionItem}
           >
-            {blockingItems.length > 0 ? (
+            {queueStatus === "next" ? (
               <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
+            ) : queueStatus === "checking" ? (
+              <ShieldEllipsis
+                className={sx(styles.actionIcon)}
+                aria-hidden="true"
+              />
+            ) : queueStatus === "incomplete" ? (
+              <ShieldAlert
+                className={sx(styles.actionIcon)}
+                aria-hidden="true"
+              />
             ) : (
               <ShieldCheck
                 className={sx(styles.actionIcon)}
                 aria-hidden="true"
               />
             )}
-            {blockingItems.length > 0
+            {queueStatus === "next"
               ? tI18n("fleet:fleetView.openNextItem")
-              : attentionTargets.length > 0
+              : queueStatus === "review"
                 ? tI18n("fleet:fleetView.reviewQueue")
-                : tI18n("fleet:fleetView.allClear")}
-            {blockingItems.length > 0 ? (
+                : queueStatus === "checking"
+                  ? tI18n("fleet:fleetView.checkingQueue")
+                  : queueStatus === "incomplete"
+                    ? tI18n("fleet:fleetView.queueNotFullyChecked")
+                    : tI18n("fleet:fleetView.allClear")}
+            {queueStatus === "next" ? (
               <Kbd>N</Kbd>
             ) : null}
           </Button>
