@@ -225,8 +225,8 @@ export function FleetTaskControlPanel(args: {
   });
   const { children: delegatedTaskRows } = delegatedTasks;
   const delegatedTaskSource = useMemo(
-    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions }),
-    [delegatedTaskRows, delegatedTasks.actions, i18n.resolvedLanguage],
+    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions, error: delegatedTasks.error }),
+    [delegatedTaskRows, delegatedTasks.actions, delegatedTasks.error, i18n.resolvedLanguage],
   );
   const syncDelegatedTasksIntoTurnGraph = useAppStore(
     (state) => state.syncDelegatedTasksIntoTurnGraph,

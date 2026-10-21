@@ -64,6 +64,8 @@ export interface DelegatedTaskActions {
 export interface DelegatedTaskListingSource {
   children: readonly DelegatedTaskSummary[];
   actions: DelegatedTaskActions;
+  /** The last listing failed; the rows are what loaded before, if anything. */
+  error?: string | null;
 }
 
 export interface UseDelegatedTasksResult extends DelegatedTaskListingSource {

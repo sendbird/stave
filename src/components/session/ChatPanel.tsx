@@ -1,4 +1,6 @@
 import { QuestionReplyRow } from "./message/QuestionReplyRow";
+import { EmptyState } from "@/components/ads/components/EmptyState";
+import { clearTaskMessagesLoadFailure, useTaskMessageLoadFailures } from "@/store/task-message-load-failures";
 import { questionReplyAnswerText } from "@/lib/question-reply";
 import { i18n, useTranslation } from "@/i18n";
 import { formatDate } from "@/i18n/format";
@@ -835,6 +837,13 @@ function ChatPanelMessageList(props: {
     [threadActionStateByMessageId, visibleMessages, i18n.language],
   );
   const hasOlderMessages = messages.length < totalMessageCount;
+  // A read of this task's messages failed: never draw that as a new task, and
+  // say so at the older-messages row.
+  const messagesLoadFailed = useTaskMessageLoadFailures((state) => state.failedByTask[taskId] === true);
+  const retryMessages = (mode: "latest" | "older") => {
+    clearTaskMessagesLoadFailure(taskId);
+    void loadTaskMessages({ taskId, mode });
+  };
   const showConversationLoadingState = shouldShowConversationLoadingState({
     visibleMessageCount: visibleMessages.length,
     totalMessageCount,
@@ -1167,17 +1176,20 @@ function ChatPanelMessageList(props: {
           });
         }}
       >
-        {hasOlderMessages ? (
+        {hasOlderMessages && visibleMessages.length > 0 ? (
           <div className={sx(styles.loadOlderRow)}>
+            {messagesLoadFailed && !taskMessagesLoading ? (
+              <span role="alert" className={sx(styles.loadOlderFailed)}>
+                {i18n.t("session:chatPanel.olderMessagesFailed")}
+              </span>
+            ) : null}
             <Button
               type="button"
               size="sm"
               variant="outline"
               disabled={taskMessagesLoading}
               className={sx(styles.loadOlderButton)}
-              onClick={() => {
-                void loadTaskMessages({ taskId, mode: "older" });
-              }}
+              onClick={() => retryMessages("older")}
             >
               {taskMessagesLoading
                 ? i18n.t("session:chatPanel.chatPanelMessageList")
@@ -1190,6 +1202,14 @@ function ChatPanelMessageList(props: {
             testId="conversation-loading-state"
             title={i18n.t("session:chatPanel.title")}
             description={i18n.t("session:chatPanel.description2")}
+          />
+        ) : visibleMessages.length === 0 && totalMessageCount > 0 && messagesLoadFailed ? (
+          <EmptyState
+            role="alert"
+            tone="danger"
+            title={i18n.t("session:chatPanel.messagesFailedTitle")}
+            description={i18n.t("session:chatPanel.messagesFailedDescription")}
+            action={{ children: i18n.t("common:actions.retry"), onClick: () => retryMessages("latest") }}
           />
         ) : visibleMessages.length === 0 &&
           !hasFailedSends &&

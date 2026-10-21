@@ -423,8 +423,8 @@ export function useTurnActivityModel(args: {
   // flag flips twice per refetch, so passing the whole thing would defeat the
   // shelf's memo and re-render every row on a listing nothing read.
   const delegatedTaskSource = useMemo(
-    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions }),
-    [delegatedTaskRows, delegatedTasks.actions],
+    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions, error: delegatedTasks.error }),
+    [delegatedTaskRows, delegatedTasks.actions, delegatedTasks.error],
   );
   const syncDelegatedTasksIntoTurnGraph = useAppStore(
     (state) => state.syncDelegatedTasksIntoTurnGraph,

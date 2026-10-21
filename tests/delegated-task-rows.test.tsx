@@ -57,6 +57,31 @@ describe("DelegatedTaskRowsSurface", () => {
     expect(renderRows([])).toBe("");
   });
 
+  test("a listing that failed says so with Retry, instead of drawing no section", () => {
+    const failed = (rows: readonly DelegatedTaskSummary[]) =>
+      renderToStaticMarkup(
+        createElement(DelegatedTaskRowsSurface, {
+          rows,
+          busyDelegationKey: null,
+          listError: "runs bridge unavailable",
+          onRetryList: () => {},
+          onOpen: () => {},
+          onFollowUp: () => {},
+          onRetry: () => {},
+          onStop: () => {},
+          onDetach: () => {},
+        }),
+      );
+    const empty = failed([]);
+    expect(empty).toContain('role="alert"');
+    expect(empty).toContain("Delegated tasks could not be listed.");
+    expect(empty).toContain("Retry");
+    // The rows that loaded before stay, under the same notice.
+    const stale = failed([buildChild()]);
+    expect(stale).toContain("Delegated tasks could not be listed.");
+    expect(stale).toContain("review");
+  });
+
   test("shows identity, phase and controls for a live delegation", () => {
     const html = renderRows([buildChild()]);
 

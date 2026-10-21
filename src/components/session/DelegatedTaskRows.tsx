@@ -326,17 +326,36 @@ export interface DelegatedTaskRowsSurfaceProps {
   onRetry: (child: DelegatedTaskSummary, prompt: string) => void;
   onStop: (child: DelegatedTaskSummary) => void;
   onDetach: (child: DelegatedTaskSummary) => void;
+  /** The listing failed: say so, with Retry, instead of drawing no section. */
+  listError?: string | null;
+  onRetryList?: () => void;
   className?: string;
 }
 
 /**
  * Fully controlled listing, so the same rows render from the turn-activity
  * shelf and from the Fleet control panel without either owning the transport.
+ * A listing that failed shows the failure with Retry: above the last rows, or
+ * in place of a section that would otherwise not appear.
  */
 export function DelegatedTaskRowsSurface(props: DelegatedTaskRowsSurfaceProps) {
   useTranslation();
+  const listFailure = props.listError ? (
+    <p className={sx(styles.errorText)} role="alert">
+      {i18n.t("session:delegatedTaskRows.listFailed")}
+      {props.onRetryList ? (
+        <Button size="sm" variant="ghost" onClick={props.onRetryList}>
+          {i18n.t("common:actions.retry")}
+        </Button>
+      ) : null}
+    </p>
+  ) : null;
   if (!props.rows.length) {
-    return null;
+    return listFailure ? (
+      <section className={cx(sx(styles.sectionRoot), props.className)} aria-label={i18n.t("session:delegatedTaskRows.ariaLabel")}>
+        {listFailure}
+      </section>
+    ) : null;
   }
   return (
     <section
@@ -345,6 +364,7 @@ export function DelegatedTaskRowsSurface(props: DelegatedTaskRowsSurfaceProps) {
       data-testid="delegated-task-rows"
     >
       <h3 className={sx(styles.sectionHeading)}>{i18n.t("session:delegatedTaskRows.delegatedTaskRowsSurface")}</h3>
+      {listFailure}
       <div className={sx(styles.sectionList)}>
         {props.rows.map((child) => (
           <DelegatedTaskRow
@@ -571,8 +591,9 @@ export function DelegatedTaskRows(props: {
     repositoryPath: props.repositoryPath,
     enabled: props.source ? false : props.enabled,
   });
+  const listing = props.source ?? ownListing;
   const controller = useDelegatedTaskRowController({
-    source: props.source ?? ownListing,
+    source: listing,
     repositoryPath: props.repositoryPath,
   });
 
@@ -583,6 +604,8 @@ export function DelegatedTaskRows(props: {
       blockedByDelegationKey={controller.blockedByDelegationKey}
       busyDelegationKey={controller.busyDelegationKey}
       className={props.className}
+      listError={listing.error}
+      onRetryList={listing.actions.refresh}
       onOpen={controller.onOpen}
       onFollowUp={controller.onFollowUp}
       onRetry={controller.onRetry}

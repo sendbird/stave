@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { markTaskMessagesLoadFailed } from "@/store/task-message-load-failures";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { AppState } from "@/store/app-store.types";
@@ -860,7 +861,7 @@ export const useAppStore = create<AppState>()(
             })?.messagesByTask[args.taskId] ?? [],
         });
       } catch (error) {
-        console.error("[workspace] failed to load task messages", error);
+        console.error("[workspace] failed to load task messages", error); markTaskMessagesLoadFailed(args.taskId);
         set((state) => ({
           taskMessagesLoadingByTask: {
             ...state.taskMessagesLoadingByTask,

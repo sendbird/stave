@@ -1907,6 +1907,38 @@ describe("workspace persistence fallback", () => {
     ).toBe(false);
   });
 
+  test("a failed message load marks the task, so its conversation does not read as new", async () => {
+    setWindowContext({
+      localStorage: createMemoryStorage(),
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+          loadTaskMessages: async () => ({ ok: false }),
+        },
+      },
+    });
+    const { useAppStore } = await import("../src/store/app.store");
+    const { useTaskMessageLoadFailures, clearTaskMessagesLoadFailure } = await import("../src/store/task-message-load-failures");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      hasHydratedWorkspaces: true,
+      workspaces: [{ id: "ws-main", name: "Main", updatedAt: "2026-03-20T00:00:00.000Z" }],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      tasks: [{ id: "task-main", title: "Main Task", provider: "codex", updatedAt: "2026-03-20T00:00:00.000Z", unread: false, archivedAt: null }],
+      messagesByTask: { "task-main": [] },
+      messageCountByTask: { "task-main": 2 },
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+    });
+    await useAppStore.getState().loadTaskMessages({ taskId: "task-main", mode: "latest" });
+    expect(useTaskMessageLoadFailures.getState().failedByTask["task-main"]).toBe(true);
+    expect(useAppStore.getState().taskMessagesLoadingByTask["task-main"]).toBe(false);
+    clearTaskMessagesLoadFailure("task-main");
+    expect(useTaskMessageLoadFailures.getState().failedByTask["task-main"]).toBeUndefined();
+  });
+
   test("latest task message loads do not overwrite newer in-memory message versions", async () => {
     const localStorage = createMemoryStorage();
     let resolvePage:
