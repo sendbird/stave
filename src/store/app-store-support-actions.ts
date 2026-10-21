@@ -102,6 +102,7 @@ export function createSupportActions(args: {
     incrementWorkspaceSnapshotVersion,
     normalizeSharedSkillsHomeSetting,
   } = args;
+  const reviewFeedbackSubmissionsInFlight = new Set<string>();
 
   const openNotificationContextInternal = async (
     source: AppNotification,
@@ -738,6 +739,12 @@ export function createSupportActions(args: {
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
 
+      // One submission per task at a time: a second click while the first is
+      // still sending would otherwise send the same batch twice.
+      if (reviewFeedbackSubmissionsInFlight.has(normalizedTaskId)) {
+        return { status: "blocked" } satisfies SendUserMessageResult;
+      }
+
       const state = get();
       const comments = state.reviewCommentsByTask[normalizedTaskId] ?? [];
       const content = formatReviewFeedbackPrompt({ comments });
@@ -745,18 +752,46 @@ export function createSupportActions(args: {
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
 
-      const result = await get().sendUserMessage({
-        taskId: normalizedTaskId,
-        content,
-        turnOrigin: "conversation",
-        fileContexts: buildReviewFeedbackFileContexts({
-          comments,
-          editorTabs: state.editorTabs,
-        }),
-      });
+      reviewFeedbackSubmissionsInFlight.add(normalizedTaskId);
+      let result: SendUserMessageResult;
+      try {
+        result = await get().sendUserMessage({
+          taskId: normalizedTaskId,
+          content,
+          turnOrigin: "conversation",
+          fileContexts: buildReviewFeedbackFileContexts({
+            comments,
+            editorTabs: state.editorTabs,
+          }),
+        });
+      } finally {
+        reviewFeedbackSubmissionsInFlight.delete(normalizedTaskId);
+      }
 
       if (result.status !== "blocked") {
-        get().clearReviewComments({ taskId: normalizedTaskId });
+        // Remove only the batch that was sent. Comments written while the
+        // message was sending were not part of it and must survive.
+        const sentCommentIds = new Set(comments.map((comment) => comment.id));
+        set((current) => {
+          const existing =
+            current.reviewCommentsByTask[normalizedTaskId] ?? [];
+          const remaining = existing.filter(
+            (comment) => !sentCommentIds.has(comment.id),
+          );
+          if (remaining.length === existing.length) {
+            return current;
+          }
+          const nextByTask = { ...current.reviewCommentsByTask };
+          if (remaining.length > 0) {
+            nextByTask[normalizedTaskId] = remaining;
+          } else {
+            delete nextByTask[normalizedTaskId];
+          }
+          return {
+            reviewCommentsByTask: nextByTask,
+            workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(current),
+          };
+        });
       }
 
       return result;
