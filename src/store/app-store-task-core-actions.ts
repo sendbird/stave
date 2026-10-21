@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import type { LoadTaskMessagesIntoSession } from "@/store/app-store-workspace-action-types";
 import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import {
@@ -71,11 +72,7 @@ export function createTaskCoreActions(args: {
     turnId?: string;
   }) => void;
   attentionSync: NotificationAttentionSync;
-  loadTaskMessagesIntoSession: (args: {
-    workspaceId: string;
-    taskId: string;
-    mode: "latest" | "older";
-  }) => Promise<void>;
+  loadTaskMessagesIntoSession: LoadTaskMessagesIntoSession;
   emptyPromptDraft: PromptDraft;
   incrementWorkspaceSnapshotVersion: (
     state: Pick<AppState, "workspaceSnapshotVersion">,
@@ -274,9 +271,9 @@ export function createTaskCoreActions(args: {
       const workspaceId =
         state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
       if (!workspaceId || !taskId) {
-        return;
+        return "unchanged";
       }
-      await loadTaskMessagesIntoSession({
+      return loadTaskMessagesIntoSession({
         workspaceId,
         taskId,
         mode,

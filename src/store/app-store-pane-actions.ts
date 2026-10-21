@@ -1,4 +1,5 @@
 import type { StoreApi } from "zustand";
+import type { LoadTaskMessagesIntoSession } from "@/store/app-store-workspace-action-types";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { isTaskArchived } from "@/lib/tasks";
 import type { AppState } from "@/store/app-store.types";
@@ -47,11 +48,7 @@ function shouldLoadLatestTaskMessages(args: {
 export function createPaneActions(args: {
   set: AppStoreSet;
   get: AppStoreGet;
-  loadTaskMessagesIntoSession: (args: {
-    workspaceId: string;
-    taskId: string;
-    mode: "latest" | "older";
-  }) => Promise<void>;
+  loadTaskMessagesIntoSession: LoadTaskMessagesIntoSession;
 }): PaneActions {
   const { set, get, loadTaskMessagesIntoSession } = args;
 

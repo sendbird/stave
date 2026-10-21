@@ -349,7 +349,9 @@ row when it is narrower.
 
 1. Open the Task panel's **Activity** tab.
 2. Let the turn finish. The list stays, headed `Last turn`.
-3. Choose a row to jump to that step's input and output in the conversation.
+3. Choose a row to open its details, then **Show in conversation** to jump to
+   that step's input and output. A finished turn's steps open, and the step
+   takes keyboard focus.
 
 ### Pick up work a usage limit stopped
 
@@ -382,8 +384,10 @@ row when it is narrower.
 - A busy turn keeps only its most recent plain tool calls, so the oldest of
   them leave the list while subagents and delegated tasks stay. The limit is the
   same in every placement.
-- Choosing a row whose message is no longer loaded in the conversation does
-  nothing. Load the older messages first, then choose the row again.
+- Choosing a row whose message is not loaded yet loads earlier messages until
+  the step appears, up to ten pages. If the step is no longer in the
+  conversation, is further back than that, or earlier messages fail to load,
+  a notice says so.
 - Dragging a queued message needs a pointer; there is no keyboard reorder.
 - **Resume at reset** runs only while Stave is open. A usage limit is
   recognized from the provider's own limit message; a short per-request

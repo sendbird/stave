@@ -15,11 +15,14 @@ export type LoadWorkspaceShellStateFromPersistence = (args: {
   workspaceId: string;
 }) => Promise<LoadedWorkspaceShellState>;
 
+/** `unchanged`: nothing to load, not this workspace, or a load already running. */
+export type TaskMessagesLoadResult = "loaded" | "unchanged" | "failed";
+
 export type LoadTaskMessagesIntoSession = (args: {
   workspaceId: string;
   taskId: string;
   mode: "latest" | "older";
-}) => Promise<void>;
+}) => Promise<TaskMessagesLoadResult>;
 
 export type HydrateWorkspaceMessagesInBackground = (args: {
   workspaceId: string;

@@ -233,13 +233,15 @@ export function ChainOfThought({
   useEffect(() => {
     if (collapseWhen && !collapseSeenRef.current) {
       collapseSeenRef.current = true;
-      setOpen(false);
+      // A trace that mounts already asked to open (a jump to one of its
+      // steps) stays open instead of taking the finished-trace collapse.
+      if (!openWhen) setOpen(false);
       return;
     }
     if (!collapseWhen) {
       collapseSeenRef.current = false;
     }
-  }, [collapseWhen]);
+  }, [collapseWhen, openWhen]);
 
   const contextValue = useMemo(
     () => ({ isStreaming, open, setOpen, summaryItems, seed, durationSeconds }),

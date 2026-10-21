@@ -90,7 +90,9 @@ window to report instead (`{ "claude": { "session": { "usedPercent": 10,
 stand-in `claude` CLI (`STAVE_CLAUDE_CLI_PATH`, `harness/fake-claude-cli.cjs`)
 to reproduce an Agent run that hits a usage limit, waits again while the window
 is still used up, and continues once it has room,
-without a real account or billable turns (about three minutes). Provider
+without a real account or billable turns (about three minutes). The same
+stand-in answers the turns in `transcript-step-jump.electron.e2e.ts`, where
+`FAKE_CLAUDE_TOOL_PROGRESS` makes it report steps the turn never wrote. Provider
 authentication is checked separately:
 
 ```bash

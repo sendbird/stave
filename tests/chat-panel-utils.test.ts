@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+  decideTranscriptReveal,
   findMessageIndexByToolUseId,
   formatInlineSystemEventContent,
   getLatestRenderableAssistantMessage,
@@ -482,5 +483,30 @@ describe("findMessageIndexByToolUseId", () => {
   test("prefers the most recent match when a tool id repeats", () => {
     const replayed = [...messages, messages[0]!];
     expect(findMessageIndexByToolUseId({ messages: replayed, toolUseId: "toolu_a" })).toBe(3);
+  });
+});
+
+describe("decideTranscriptReveal", () => {
+  const base = { found: false, loading: false, hasOlderMessages: true, pagesLoaded: 0, maxPages: 3 };
+
+  test("reveals a loaded step even while older pages are still loading", () => {
+    expect(decideTranscriptReveal({ ...base, found: true, loading: true })).toBe("reveal");
+  });
+
+  test("loads an older page when the step is not loaded yet", () => {
+    expect(decideTranscriptReveal(base)).toBe("load-older");
+  });
+
+  test("waits instead of starting a second load", () => {
+    expect(decideTranscriptReveal({ ...base, loading: true })).toBe("wait");
+  });
+
+  test("ends with not-found once the whole conversation is loaded", () => {
+    expect(decideTranscriptReveal({ ...base, hasOlderMessages: false, pagesLoaded: 2 })).toBe("not-found");
+  });
+
+  test("stops at the page budget instead of loading the whole history", () => {
+    expect(decideTranscriptReveal({ ...base, pagesLoaded: 3 })).toBe("page-limit");
+    expect(decideTranscriptReveal({ ...base, pagesLoaded: 2 })).toBe("load-older");
   });
 });

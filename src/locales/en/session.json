@@ -129,6 +129,9 @@
     "extraCopy87": "Prompt-enhancement bridge unavailable."
   },
   "chatPanel": {
+    "transcriptStepNotFound": "This step is no longer in the conversation.",
+    "transcriptStepTooFar": "This step is too far back to find automatically. Load older messages, then choose it again.",
+    "transcriptStepLoadFailed": "Earlier messages could not be loaded, so this step cannot be shown. Try again.",
     "steerDeliveryLabel": "Steered into active turn",
     "steerDeliveryLabel2": "Steer pending",
     "steerDeliveryLabel3": "Steer delivery unconfirmed",
