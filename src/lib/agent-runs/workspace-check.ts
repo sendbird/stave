@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatList } from "@/i18n/format";
 import type { AgentConfig } from "../agents/schema";
 import type { Workflow, AiStage } from "../workflows/schema";
 import { AgentRunCommandError, latestStageRecord, type AgentRunAggregate, type AgentRunStageRecord } from "./domain";
@@ -92,6 +93,34 @@ export function workspaceCheckRevision(record: AgentRunStageRecord, scriptIds?: 
   return verifiedWorkspaceScripts(record, scriptIds, definitions).find((check) => revisionsMatch(check.verification.completedRevision, reportRevision))?.verification.completedRevision;
 }
 
+/**
+ * Which of a check's scripts passed, each judged by the same rule that decides
+ * the check (`workspaceCheckMet`, or the content match an earlier stage uses).
+ * One passing script meets a check, so `passed` explains what met it.
+ */
+export interface WorkspaceCheckProgress {
+  /** Script IDs that passed, in the check's order. */
+  passed: string[];
+  total: number;
+}
+
+export function workspaceCheckProgress(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[], options: { inherited?: boolean } = {}): WorkspaceCheckProgress {
+  const ids = scriptIds?.length ? [...scriptIds] : (definitions ?? []).map((definition) => definition.scriptId);
+  const reportRevision = record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined;
+  const matches = options.inherited ? workspaceCheckRevisionMatches : revisionsMatch;
+  const passing = new Set(verifiedWorkspaceScripts(record, scriptIds, definitions)
+    .filter((check) => revisionsMatch(check.verification.completedRevision, reportRevision) && matches(check.verification.completedRevision, record.facts?.workspaceRevision))
+    .map((check) => check.scriptId));
+  return { passed: ids.filter((id) => passing.has(id)), total: ids.length };
+}
+
+/** "Stave checks: 1 of 3 passed (setup)", or that none has passed yet. */
+export function describeWorkspaceCheckProgress(progress: WorkspaceCheckProgress): string {
+  return progress.passed.length > 0
+    ? i18n.t("agentRuns:workspaceCheck.progressPassed", { passed: progress.passed.length, total: progress.total, names: formatList(progress.passed) })
+    : i18n.t("agentRuns:workspaceCheck.progressNone", { total: progress.total });
+}
+
 /** Original repair evidence: host scripts do not require an action-stage report. */
 export function workspaceActionCheckRevision(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): WorkspaceRevision | undefined {
   return verifiedWorkspaceScripts(record, scriptIds, definitions).at(-1)?.verification.completedRevision;
@@ -110,6 +139,19 @@ export type InheritedWorkspaceCheck = { record: AgentRunStageRecord; criterion: 
  * Read latest attempts in workflow order; alternatives remain independent, but
  * a later failed/unacknowledged result cannot fall back to an older success. */
 export function inheritedWorkspaceCheckRevision(aggregate: AgentRunAggregate, current: AgentRunStageRecord, inherited: InheritedWorkspaceCheck, options: { requireCurrentReport?: boolean } = {}): WorkspaceRevision | undefined {
+  const results = inheritedWorkspaceCheckResults(aggregate, current, inherited, options);
+  return results ? [...results.latest.values()].find((revision) => workspaceCheckRevisionMatches(revision, current.facts?.workspaceRevision)) : undefined;
+}
+
+/** `inheritedWorkspaceCheckRevision`, script by script. */
+export function inheritedWorkspaceCheckProgress(aggregate: AgentRunAggregate, current: AgentRunStageRecord, inherited: InheritedWorkspaceCheck): WorkspaceCheckProgress {
+  const results = inheritedWorkspaceCheckResults(aggregate, current, inherited, {});
+  const ids = results?.ids ?? [];
+  return { passed: ids.filter((id) => workspaceCheckRevisionMatches(results?.latest.get(id), current.facts?.workspaceRevision)), total: ids.length };
+}
+
+/** The latest passing revision per script, or undefined when the current report must match first and does not. */
+function inheritedWorkspaceCheckResults(aggregate: AgentRunAggregate, current: AgentRunStageRecord, inherited: InheritedWorkspaceCheck, options: { requireCurrentReport?: boolean }) {
   const currentStage = aggregate.agentRun.workflow.stages[aggregate.agentRun.currentStageIndex];
   if (options.requireCurrentReport && currentStage?.kind === "ai" && !revisionsMatch(current.report?.outcome === "complete" ? current.report.workspaceRevision : undefined, current.facts?.workspaceRevision)) return undefined;
   const { criterion } = inherited;
@@ -142,7 +184,7 @@ export function inheritedWorkspaceCheckRevision(aggregate: AgentRunAggregate, cu
         revisionsMatch(result.verification.sourceRevision, result.verification.completedRevision) ? result.verification.completedRevision : undefined);
     }
   }
-  return [...latest.values()].find((revision) => workspaceCheckRevisionMatches(revision, current.facts?.workspaceRevision));
+  return { ids, latest };
 }
 
 /** Preserve host verification authority when a later stage restates the same goal. */

@@ -4,6 +4,9 @@
     "title": "요청: {{requested}} · 라우팅 후 실행: {{routed}}"
   },
   "workspaceCheck": {
+    "progressPassed": "Stave 검사: {{total}}개 중 {{passed}}개 통과({{names}})",
+    "progressNone": "Stave 검사: {{total}}개 중 아직 통과한 검사가 없습니다",
+    "progressAnyOne": "하나만 통과해도 충족",
     "criterion": "워크스페이스 검사 통과",
     "unknownRevision": "{{phase}} 리비전을 검증할 수 없습니다: {{reason}}.",
     "phase": {

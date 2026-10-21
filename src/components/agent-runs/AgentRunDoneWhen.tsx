@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { CircleCheck, CircleDashed, CircleX } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDoneWhenLine, DoneWhenStatus } from "@/lib/agent-runs/agent-run-status";
+import { describeWorkspaceCheckProgress, type WorkspaceCheckProgress } from "@/lib/agent-runs/workspace-check";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 const PRESENTATION = {
@@ -32,7 +33,10 @@ export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
             <span className={sx(styles.checkMark)}>
               <Icon aria-hidden className={sx(styles.icon, presentation.mark)} />
             </span>
-            <span className={sx(styles.checkText)}>{line.text}</span>
+            <span className={sx(styles.checkText)}>
+              {line.text}
+              {line.checks ? <CriterionChecksNote checks={line.checks} /> : null}
+            </span>
             <span className={sx(styles.checkState, presentation.label)}>{line.label}</span>
           </li>
         );
@@ -41,9 +45,25 @@ export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
     {staveChecks.length > 0 ? (
       <p className={sx(styles.checkNote, styles.inline)} aria-label={i18n.t("agentRuns:agentRunDoneWhen.ariaLabel2")}>
         <CircleCheck aria-hidden className={sx(styles.iconSm, styles.toneDone)} />
-        {i18n.t("agentRuns:agentRunDoneWhen.agentRunDoneWhen")}{staveChecks.join(" · ")}
+        {i18n.t("agentRuns:agentRunDoneWhen.agentRunDoneWhen")} {staveChecks.join(" · ")}
       </p>
     ) : null}
     </>
+  );
+}
+
+/**
+ * Under a workspace check line: how many of its actions passed, and which. The
+ * check is met by any one of them, so the line says so instead of reading as
+ * "all checks passed".
+ */
+export function CriterionChecksNote({ checks }: { checks: WorkspaceCheckProgress }) {
+  useTranslation();
+  if (checks.total === 0) return null;
+  return (
+    <span className={sx(styles.checkDetail)}>
+      {describeWorkspaceCheckProgress(checks)}
+      {checks.total > 1 ? ` · ${i18n.t("agentRuns:workspaceCheck.progressAnyOne")}` : null}
+    </span>
   );
 }

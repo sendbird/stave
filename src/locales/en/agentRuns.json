@@ -4,6 +4,9 @@
     "title": "Requested {{requested}}; routing ran {{routed}}"
   },
   "workspaceCheck": {
+    "progressPassed": "Stave checks: {{passed}} of {{total}} passed ({{names}})",
+    "progressNone": "Stave checks: none of {{total}} passed yet",
+    "progressAnyOne": "one passing check is enough",
     "criterion": "Workspace checks pass",
     "unknownRevision": "The {{phase}} revision cannot be verified: {{reason}}.",
     "phase": {
