@@ -1,92 +1,25 @@
 import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { useState } from "react";
-import { Button, Kbd, Textarea } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { EditorMarkdownPreview } from "../editor-markdown-preview";
+import { NotesEditor, useNotesDraftEditor } from "./workspace-information-notes-editor";
 import { workspaceInformationPanelStyles as styles } from "../workspace-information-panel.styles";
 
+/**
+ * Information notes. Mount it keyed by workspace: one instance edits one
+ * workspace's notes, and its unsaved draft survives panel switches.
+ */
 export function NotesSectionBody(props: {
+  workspaceId: string;
   notes: string;
   onChange: (value: string) => void;
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
-  const [isEditing, setIsEditing] = useState(false);
-  const [draft, setDraft] = useState(props.notes);
+  const editor = useNotesDraftEditor(props);
+  const startEditing = editor.startEditing;
 
-  const startEditing = () => {
-    setDraft(props.notes);
-    setIsEditing(true);
-  };
-
-  const commit = () => {
-    setIsEditing(false);
-    if (draft !== props.notes) {
-      props.onChange(draft);
-    }
-  };
-
-  const cancel = () => {
-    setIsEditing(false);
-  };
-
-  if (isEditing) {
-    return (
-      <div className={sx(styles.notesEditor)}>
-        <Textarea
-          autoFocus
-          xstyle={styles.notesTextarea}
-          value={draft}
-          onChange={(event) => setDraft(event.target.value)}
-          onFocus={(event) => {
-            const length = event.currentTarget.value.length;
-            event.currentTarget.setSelectionRange(length, length);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === "Escape") {
-              event.preventDefault();
-              cancel();
-            } else if (
-              event.key === "Enter" &&
-              (event.metaKey || event.ctrlKey)
-            ) {
-              event.preventDefault();
-              commit();
-            }
-          }}
-          placeholder={tI18n("workspace:workspaceInformationNotes.notesBlockersHandoffDetails")}
-        />
-        <div className={sx(styles.notesFooter)}>
-          <span className={sx(styles.notesHint)}>
-            Markdown ·{" "}
-            <Kbd>
-              {typeof navigator !== "undefined" &&
-              navigator.platform.includes("Mac")
-                ? "⌘"
-                : "Ctrl"}
-            </Kbd>
-            <Kbd>Enter</Kbd> {tI18n("workspace:workspaceInformationNotes.toSave")}</span>
-          <div className={sx(styles.notesActions)}>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              xstyle={styles.notesButton}
-              onClick={cancel}
-            >
-              {tI18n("workspace:workspaceInformationNotes.cancel")}</Button>
-            <Button
-              type="button"
-              size="sm"
-              xstyle={styles.notesButton}
-              onClick={commit}
-              disabled={draft === props.notes}
-            >
-              {tI18n("workspace:workspaceInformationNotes.done")}</Button>
-          </div>
-        </div>
-      </div>
-    );
+  if (editor.isEditing) {
+    return <NotesEditor editor={editor} />;
   }
 
   if (!props.notes.trim()) {

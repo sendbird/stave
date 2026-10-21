@@ -517,6 +517,19 @@ export const workspaceInformationPanelStyles = stylex.create({
     gap: 6,
   },
   notesButton: { height: 32 },
+  notesConflict: {
+    alignItems: "center",
+    backgroundColor: vars["--ads-color-warning-soft"],
+    borderRadius: vars["--ads-radius-control"],
+    color: vars["--ads-color-warning-text"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
+    justifyContent: "space-between",
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
+  },
   notesPlaceholder: {
     backgroundColor: {
       default: "transparent",

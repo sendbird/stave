@@ -222,4 +222,88 @@ describe("review comment store actions", () => {
       1,
     );
   });
+  test("keeps comments added while feedback is sending and only clears the sent batch", async () => {
+    let releaseSend: (() => void) | null = null;
+    useAppStore.setState({
+      reviewCommentsByTask: {
+        "task-1": [
+          {
+            id: "comment-1",
+            filePath: "src/a.ts",
+            line: 5,
+            side: "modified",
+            body: "Sent with the first batch.",
+            createdAt: "2026-06-18T01:00:00.000Z",
+          },
+        ],
+      },
+      sendUserMessage: () =>
+        new Promise((resolve) => {
+          releaseSend = () =>
+            resolve({
+              status: "queued",
+              taskId: "task-1",
+              workspaceId: "workspace-1",
+            });
+        }),
+    });
+
+    const pending = useAppStore
+      .getState()
+      .submitReviewFeedback({ taskId: "task-1" });
+    const added = useAppStore.getState().addReviewComment({
+      taskId: "task-1",
+      filePath: "src/b.ts",
+      line: 3,
+      side: "modified",
+      body: "Written while the first batch was sending.",
+    });
+    releaseSend?.();
+    await pending;
+
+    const remaining = useAppStore.getState().reviewCommentsByTask["task-1"];
+    expect(remaining?.map((comment) => comment.id)).toEqual([added?.id ?? ""]);
+  });
+
+  test("blocks a second submit for the same task while one is in flight", async () => {
+    let sendCount = 0;
+    let releaseSend: (() => void) | null = null;
+    useAppStore.setState({
+      reviewCommentsByTask: {
+        "task-1": [
+          {
+            id: "comment-1",
+            filePath: "src/a.ts",
+            line: 5,
+            side: "modified",
+            body: "Only send me once.",
+            createdAt: "2026-06-18T01:00:00.000Z",
+          },
+        ],
+      },
+      sendUserMessage: () => {
+        sendCount += 1;
+        return new Promise((resolve) => {
+          releaseSend = () =>
+            resolve({
+              status: "queued",
+              taskId: "task-1",
+              workspaceId: "workspace-1",
+            });
+        });
+      },
+    });
+
+    const first = useAppStore
+      .getState()
+      .submitReviewFeedback({ taskId: "task-1" });
+    const second = await useAppStore
+      .getState()
+      .submitReviewFeedback({ taskId: "task-1" });
+    releaseSend?.();
+    await first;
+
+    expect(second.status).toBe("blocked");
+    expect(sendCount).toBe(1);
+  });
 });

@@ -82,6 +82,8 @@
     "openNextItem": "다음 항목 열기",
     "reviewQueue": "검토 대기열",
     "allClear": "모두 확인됨",
+    "checkingQueue": "확인 중…",
+    "queueNotFullyChecked": "일부 확인 못 함",
     "results": "에이전트 성과",
     "closeFleetView": "Fleet 보기 닫기",
     "retryResultReviews": "결과 검토 다시 시도",

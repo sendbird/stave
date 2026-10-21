@@ -88,7 +88,10 @@ optional shortcuts on top of that.
   that exact task for a couple of seconds before it counts as read, so stepping
   through tasks or passing through one does not acknowledge anything. A result
   that arrives while you are already watching serves the same short wait before
-  it clears, and a turn that is still running is never acknowledged.
+  it clears, and a turn that is still running is never acknowledged. Only the
+  task's latest finished turn is acknowledged this way: results from earlier
+  turns stay listed until you mark them reviewed, because opening the task does
+  not show them.
 - Opening a task also reads its notifications. `Outputs` in the task still shows
   the saved review and offers `Mark unchecked`.
 - Answering a question or resolving an approval in the task window clears the
