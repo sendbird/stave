@@ -146,7 +146,8 @@
     "search": "Search documents…",
     "searchAria": "Search workspace documents",
     "empty": "No documents found.",
-    "couldNotRead": "Could not read the document."
+    "couldNotRead": "Could not read the document.",
+    "listFailed": "Couldn't list this workspace's documents."
   },
   "messageMarkdown": {
     "tooltipLabel": "Open {{value1}} on {{value2}}",

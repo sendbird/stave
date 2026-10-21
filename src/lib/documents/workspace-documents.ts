@@ -30,25 +30,32 @@ export interface WorkspaceDocumentFile {
   content: string;
 }
 
+export interface WorkspaceDocumentListing {
+  paths: string[];
+  /** A document directory could not be read, so `paths` may be incomplete. An absent directory is not a failure. */
+  failed: boolean;
+}
+
 /** Paths of the Markdown documents in the workspace's document directories, sorted. */
 export async function listWorkspaceDocumentPaths(
   rootPath: string,
-): Promise<string[]> {
+): Promise<WorkspaceDocumentListing> {
   const fsApi = window.api?.fs;
   if (!fsApi?.listDirectory || !rootPath) {
-    return [];
+    return { paths: [], failed: false };
   }
   const listings = await Promise.all(
     WORKSPACE_DOCUMENT_DIRECTORIES.map((directoryPath) =>
       fsApi.listDirectory?.({ rootPath, directoryPath }).catch(() => null),
     ),
   );
-  return listings
+  const paths = listings
     .flatMap((listing) => (listing?.ok ? listing.entries : []))
     .filter((entry) => entry.type === "file" && entry.path.endsWith(".md"))
     .map((entry) => entry.path)
     .sort()
     .slice(0, MAX_WORKSPACE_DOCUMENTS_PER_SYNC);
+  return { paths, failed: listings.some((listing) => !listing || (!listing.ok && !listing.missing)) };
 }
 
 /** One workspace document's current text, or null when it cannot be read. */
@@ -73,7 +80,7 @@ export async function readWorkspaceDocuments(
   if (!fsApi?.readFile) {
     return [];
   }
-  const filePaths = await listWorkspaceDocumentPaths(rootPath);
+  const { paths: filePaths } = await listWorkspaceDocumentPaths(rootPath);
   const files = await Promise.all(
     filePaths.map(async (filePath) => {
       const result = await fsApi

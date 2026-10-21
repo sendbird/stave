@@ -675,6 +675,8 @@ interface WindowFsApi {
       path: string;
       type: "file" | "folder";
     }>;
+    /** With `ok: false`: the directory does not exist, so it holds nothing; any other failure is a read that failed. */
+    missing?: boolean;
     stderr?: string;
   }>;
   readFile?: (args: { rootPath: string; filePath: string }) => Promise<{
