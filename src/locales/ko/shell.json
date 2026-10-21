@@ -343,6 +343,7 @@
     "closeIssues": "이슈 닫기",
     "issues": "이슈 · {{value1}}",
     "issues2": "이슈",
+    "openIssues": "이슈 열기",
     "ticketDue_other": "기한이 된 티켓 {{count}}개"
   },
   "topBarNotifications": {
@@ -790,8 +791,6 @@
   "topBarAutomations.openSchedules": "일정 열기",
   "topBarFleetAttention.closeFleet": "Fleet 뷰 닫기",
   "topBarFleetAttention.openFleet": "Fleet 뷰 열기",
-  "topBarIssues.closeTasks": "작업 닫기",
-  "topBarIssues.openTasks": "작업 열기",
   "topBarBranchDropdown.switchBranch": "브랜치 전환",
   "workspaceAccountLimitIcon.limit": "{{provider}} 계정 한도에 도달함",
   "keybindings": {

@@ -346,6 +346,7 @@
     "closeIssues": "Close Issues",
     "issues": "Issues · {{value1}}",
     "issues2": "Issues",
+    "openIssues": "Open Issues",
     "ticketDue_one": "{{count}} ticket due",
     "ticketDue_other": "{{count}} tickets due"
   },
@@ -797,8 +798,6 @@
   "topBarAutomations.openSchedules": "Open schedules",
   "topBarFleetAttention.closeFleet": "Close Fleet View",
   "topBarFleetAttention.openFleet": "Open Fleet View",
-  "topBarIssues.closeTasks": "Close tasks",
-  "topBarIssues.openTasks": "Open tasks",
   "topBarBranchDropdown.switchBranch": "Switch branch",
   "workspaceAccountLimitIcon.limit": "{{provider}} account limit reached",
   "keybindings": {

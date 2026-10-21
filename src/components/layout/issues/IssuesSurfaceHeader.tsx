@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { ListTodo, RefreshCw, X } from "lucide-react";
 
 import { Button } from "@/components/ui";
@@ -116,7 +116,7 @@ export function IssuesSurfaceHeader(props: IssuesSurfaceHeaderProps) {
             size="sm"
             xstyle={taskLayoutStyles.headerAction}
             data-testid="close-tasks"
-            aria-label={i18n.t("issues:issuesSurfaceHeader.accessibility.closeTasks")}
+            aria-label={tI18n("issues:issuesSurfaceHeader.closeIssues")}
             onClick={props.onClose}
           >
             <X className={sx(taskLayoutStyles.icon16)} />
