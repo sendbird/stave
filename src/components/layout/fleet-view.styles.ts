@@ -19,9 +19,9 @@ export const fleetStyles = stylex.create({
   },
   header: {
     alignItems: "center",
-    // A single sheen across the chrome: the surface tint fading into the
-    // canvas, so the header reads as raised without a second border.
-    backgroundImage: `linear-gradient(110deg, color-mix(in oklch, ${vars["--ads-color-surface"]} 92%, ${vars["--ads-color-canvas"]}), ${vars["--ads-color-canvas"]})`,
+    // Flat, like the other global view headers: the hairline below
+    // separates the chrome from the board.
+    backgroundColor: vars["--ads-color-canvas"],
     borderBottomColor: vars["--ads-color-border"],
     borderBottomStyle: "solid",
     borderBottomWidth: vars["--ads-border-width-hairline"],
