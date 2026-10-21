@@ -73,6 +73,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           type="button"
           onClick={() => openFleetView()}
           aria-label={i18n.t("shell:sidebarPrimaryNav.openFleetView")}
+          aria-current={surface === "fleet-view" ? "page" : undefined}
           xstyle={[
             repositorySidebarStyles.navButton,
             transition.colors,
@@ -90,6 +91,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
             type="button"
             onClick={() => openAgents()}
             aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
+            aria-current={surface === "agents" ? "page" : undefined}
             xstyle={[
               repositorySidebarStyles.navButton,
               transition.colors,
@@ -112,6 +114,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
                 openAgents();
               }}
               aria-label={i18n.t("shell:sidebarPrimaryNav.agent", { value1: agent.agentName, value2: agent.needsYou ? i18n.t("shell:sidebarPrimaryNav.needYou", { value1: agent.count }) : i18n.t("shell:sidebarPrimaryNav.atWork", { value1: agent.count }) })}
+              aria-current={surface === "agents" && selectedAgentId === agent.agentConfigId ? "true" : undefined}
               xstyle={[
                 repositorySidebarStyles.navButton,
                 styles.childRow,
@@ -133,6 +136,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
       ) : null}
       {showAiUsage ? (
         <AdsButton layout="host" type="button" onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")}
+          aria-current={surface === "usage" ? "page" : undefined}
           xstyle={[repositorySidebarStyles.navButton, transition.colors,
             surface === "usage" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle]}>
           <Gauge className={sx(repositorySidebarStyles.iconMd)} /><span className={sx(styles.label)}>{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</span>
@@ -164,7 +168,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
         <Tooltip>
           <TooltipTrigger
             render={
-              <Button variant="ghost" size="sm" xstyle={railButton(surface === "fleet-view")} onClick={() => openFleetView()} aria-label={i18n.t("shell:sidebarPrimaryNav.openFleetView")} />
+              <Button variant="ghost" size="sm" xstyle={railButton(surface === "fleet-view")} onClick={() => openFleetView()} aria-label={i18n.t("shell:sidebarPrimaryNav.openFleetView")} aria-current={surface === "fleet-view" ? "page" : undefined} />
             }
           >
             <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
@@ -180,6 +184,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
                 variant="ghost"
                 size="sm"
                 xstyle={railButton(surface === "agents")}
+                aria-current={surface === "agents" ? "page" : undefined}
                 onClick={() => openAgents()}
                 aria-label={agentsWithWork.total > 0 ? i18n.t("shell:sidebarPrimaryNav.agentsAtWork", { value1: agentsWithWork.total }) : i18n.t("shell:sidebarPrimaryNav.agents")}
               />
@@ -195,7 +200,7 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
       ) : null}
       {showAiUsage ? (
         <Tooltip><TooltipTrigger render={<Button variant="ghost" size="sm" xstyle={railButton(surface === "usage")}
-          onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
+          onClick={() => openUsage()} aria-label={i18n.t("shell:sidebarPrimaryNav.aIUsage")} aria-current={surface === "usage" ? "page" : undefined} />}><Gauge className={sx(repositorySidebarStyles.iconMd)} /></TooltipTrigger>
           <TooltipContent side="right">{i18n.t("shell:sidebarPrimaryNav.aIUsage")}</TooltipContent></Tooltip>
       ) : null}
     </>

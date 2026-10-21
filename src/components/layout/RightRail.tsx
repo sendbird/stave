@@ -150,6 +150,7 @@ export function RightRail() {
   return (
     <aside
       data-testid="workspace-bar"
+      aria-label={i18n.t("shell:rightRail.workspacePanels")}
       className={cx("stave-workspace-rail", sx(rightRailStyles.rail))}
     >
       <TooltipProvider>

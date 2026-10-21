@@ -153,11 +153,16 @@
   "quotaTimeLeftClock": {
     "ofWindowLeft": "창 시간의 {{value1}}% 남음"
   },
+  "statusBar": {
+    "label": "상태 표시줄"
+  },
   "rightRail": {
+    "workspacePanels": "워크스페이스 패널",
     "lensIsAvailableInTheDesktopApp": "Lens는 데스크톱 앱에서 사용할 수 있습니다",
     "terminal": "터미널"
   },
   "sidebarPrimaryNav": {
+    "globalViews": "전역 보기",
     "fleetView": "Fleet 보기",
     "agentsAtWork": "에이전트, {{value1}}개 작업 중",
     "agents": "에이전트",

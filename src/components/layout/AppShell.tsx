@@ -1149,7 +1149,7 @@ export function AppShell() {
               data-stave-content-row=""
               className={sx(appShellStyles.panelRow)}
             >
-              <div className={sx(appShellStyles.mainColumn)}>
+              <main className={sx(appShellStyles.mainColumn)}>
                 {hasRepository && showWorkspaceSurface && showPresetBar ? (
                   <PresetBar />
                 ) : null}
@@ -1188,7 +1188,7 @@ export function AppShell() {
                     </div>
                   )}
                 </div>
-              </div>
+              </main>
               {showDesktopSidebar ? (
                 <>
                   <PanelResizeHandle

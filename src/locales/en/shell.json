@@ -154,11 +154,16 @@
   "quotaTimeLeftClock": {
     "ofWindowLeft": "{{value1}}% of window left"
   },
+  "statusBar": {
+    "label": "Status bar"
+  },
   "rightRail": {
+    "workspacePanels": "Workspace panels",
     "lensIsAvailableInTheDesktopApp": "Lens is available in the desktop app",
     "terminal": "Terminal"
   },
   "sidebarPrimaryNav": {
+    "globalViews": "Global views",
     "fleetView": "Fleet View",
     "agentsAtWork": "Agents, {{value1}} at work",
     "agents": "Agents",

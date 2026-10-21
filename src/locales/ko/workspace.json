@@ -465,6 +465,7 @@
     "runBlocked": "실행 차단됨",
     "runStuck": "실행 멈춤",
     "accessibility": {
+      "sidebar": "프로젝트와 워크스페이스",
       "openProject": "프로젝트 열기",
       "collapseProjectList": "프로젝트 목록 접기",
       "openWorkspace": "워크스페이스 {{value1}} 열기",

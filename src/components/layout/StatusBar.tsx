@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "@/i18n";
 import { useLoadProviderAccounts, useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { useLoadTurnSpend, useTurnSpend } from "@/lib/providers/use-turn-spend";
 import { useApiConnectionCredits, useApiConnectionCreditsPolling } from "@/lib/providers/use-api-connection-credits";
@@ -56,6 +57,7 @@ function useMinuteClock(): number {
  * more segments later).
  */
 export function StatusBar() {
+  const { t } = useTranslation(["shell"]);
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
   const developerModeEnabled = useAppStore(
     (state) => state.settings.developerModeEnabled,
@@ -218,7 +220,10 @@ export function StatusBar() {
   }, [refreshRateLimits, readiness, cursorBinaryPath, kiroBinaryPath]);
 
   return (
-    <div {...stylex.props(layoutShellStyles.statusBar)}>
+    <footer
+      aria-label={t("shell:statusBar.label")}
+      {...stylex.props(layoutShellStyles.statusBar)}
+    >
       <div {...stylex.props(usageStripStyles.container)}>
         {usageSegments.map(({ segment, account }) => (
           <StatusBarUsageSegment
@@ -236,6 +241,6 @@ export function StatusBar() {
           <StatusBarMemorySegment labelBreakpoint={resourceLabelBreakpoint} />
         ) : null}
       </div>
-    </div>
+    </footer>
   );
 }

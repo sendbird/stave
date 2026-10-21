@@ -471,6 +471,7 @@
     "runBlocked": "run blocked",
     "runStuck": "run stuck",
     "accessibility": {
+      "sidebar": "Projects and workspaces",
       "openProject": "Open project",
       "collapseProjectList": "Collapse project list",
       "openWorkspace": "Open workspace {{value1}}",
