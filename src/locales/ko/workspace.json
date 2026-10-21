@@ -1032,6 +1032,8 @@
     "repositoryName": "저장소: {{name}}"
   },
   "workspaceInformationNotes": {
+    "edit": "편집",
+    "editNotes": "메모 편집",
     "notesBlockersHandoffDetails": "메모, 막힌 사항, 인계 내용...",
     "toSave": "저장",
     "cancel": "취소",

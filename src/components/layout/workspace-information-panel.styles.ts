@@ -542,6 +542,12 @@ export const workspaceInformationPanelStyles = stylex.create({
     textAlign: "start",
     width: "100%",
   },
+  notesPreviewGroup: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
+  },
+  notesEditButton: { alignSelf: "flex-end" },
 
   // ---- summary / todo ----------------------------------------------------
   // The Summary empty state is the ADS `EmptyState` (plain variant); it needs

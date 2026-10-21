@@ -101,31 +101,25 @@ export function NotesSectionBody(props: {
     );
   }
 
+  // Not a button: a focused link keeps Enter, and the Edit button starts editing.
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={(event) => {
-        if (event.target instanceof HTMLElement && event.target.closest("a")) {
-          return;
-        }
-        startEditing();
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          startEditing();
-        }
-      }}
-      className={sx(styles.notesPreview)}
-    >
-      {/* 13 is not on the type ramp; the notes preview reads at the control-text
-          baseline, the same step WorkspaceSkillsPanel passes. */}
-      <EditorMarkdownPreview
-        content={props.notes}
-        fontSize={14}
-        variant="embedded"
-      />
+    <div className={sx(styles.notesPreviewGroup)}>
+      <div
+        onClick={(event) => {
+          const onLink = event.target instanceof HTMLElement && event.target.closest("a");
+          // A click that ends a text selection is a copy, not a request to edit.
+          if (!onLink && window.getSelection()?.isCollapsed !== false) startEditing();
+        }}
+        className={sx(styles.notesPreview)}
+      >
+        {/* 13 is not on the type ramp; the notes preview reads at the control-text
+            baseline, the same step WorkspaceSkillsPanel passes. */}
+        <EditorMarkdownPreview content={props.notes} fontSize={14} variant="embedded" />
+      </div>
+      <AdsButton type="button" variant="quiet" size="sm" xstyle={styles.notesEditButton}
+        aria-label={tI18n("workspace:workspaceInformationNotes.editNotes")} onClick={startEditing}>
+        {tI18n("workspace:workspaceInformationNotes.edit")}
+      </AdsButton>
     </div>
   );
 }

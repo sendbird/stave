@@ -1047,6 +1047,8 @@
     "repositoryName": "Repo: {{name}}"
   },
   "workspaceInformationNotes": {
+    "edit": "Edit",
+    "editNotes": "Edit notes",
     "notesBlockersHandoffDetails": "Notes, blockers, handoff details...",
     "toSave": "to save",
     "cancel": "Cancel",
