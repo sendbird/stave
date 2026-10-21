@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { MessageSquarePlus, Trash2, X } from "lucide-react";
-import type { KeyboardEvent, MouseEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { editorReviewPanelStyles as styles } from "@/components/layout/editor-review-panel.styles";
 import { Button, Kbd, Textarea } from "@/components/ui";
@@ -10,6 +10,9 @@ import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 function stopEditorMouseEvent(event: MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
+
+/** Frames to keep offering focus to a new draft while its zone appears. */
+const DRAFT_FOCUS_MAX_FRAMES = 10;
 
 export function EditorReviewPanel(args: {
   line: number;
@@ -22,6 +25,30 @@ export function EditorReviewPanel(args: {
   onRemoveComment: (commentId: string) => void;
 }) {
   useTranslation();
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const hasDraft = Boolean(args.draft);
+  // Monaco adds a view zone hidden and shows it on its next frame, so focus on
+  // mount lands nowhere and typing would go into the file. Offer focus to the
+  // draft until it can take it.
+  useEffect(() => {
+    if (!hasDraft) {
+      return;
+    }
+    let frame = 0;
+    let attempts = 0;
+    const focusDraft = () => {
+      const input = draftInputRef.current;
+      if (!input) {
+        return;
+      }
+      input.focus({ preventScroll: true });
+      if (input.ownerDocument.activeElement !== input && ++attempts < DRAFT_FOCUS_MAX_FRAMES) {
+        frame = requestAnimationFrame(focusDraft);
+      }
+    };
+    frame = requestAnimationFrame(focusDraft);
+    return () => cancelAnimationFrame(frame);
+  }, [hasDraft]);
   const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     event.stopPropagation();
     if (event.key === "Escape") {
@@ -104,7 +131,7 @@ export function EditorReviewPanel(args: {
       {args.draft ? (
         <div className={sx(styles.draft)}>
           <Textarea
-            autoFocus
+            ref={draftInputRef}
             value={args.draft.body}
             onChange={(event) => args.onDraftBodyChange(event.target.value)}
             onKeyDown={handleDraftKeyDown}
