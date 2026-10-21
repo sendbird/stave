@@ -24,6 +24,7 @@ import {
 import {
   UsageTokensItem,
   UsageWindowItem,
+  UsageUnavailableItem,
 } from "@/components/layout/StatusBarUsageStripItems";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
 import {
@@ -161,7 +162,7 @@ export function StatusBarUsageSegment({
           segment.pending ? (
             <Loader aria-hidden size="xs" variant="spinner" />
           ) : (
-            <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
+            <UsageUnavailableItem hintsDisabled={open} />
           )
         ) : (
           segment.windows.map((window) => (

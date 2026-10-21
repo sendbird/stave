@@ -212,6 +212,7 @@
     "allAccounts": "모든 {{provider}} 계정의 턴을 포함합니다."
   },
   "statusBarUsageSegment": {
+    "usageUnavailableHint": "읽어 온 사용량이 없습니다. 선택하면 자세한 내용을 볼 수 있습니다.",
     "unverified": "(검증되지 않음)",
     "usage": "사용량",
     "usageAndChargesAreManagedByYour": "사용량과 비용은 게이트웨이에서 관리합니다. 구독 할당량은 사용할 수 없습니다.",
@@ -786,7 +787,7 @@
     "used": "{{percent}} 사용됨",
     "windowUsed": "{{title}} {{percent}} 사용됨",
     "windowUsedReset": "{{title}} {{percent}} 사용됨, {{time}} 후 초기화",
-    "segmentUsage": "{{name}} 사용량",
+    "segmentUsageUnavailable": "{{name}} 사용량 정보 없음",
     "segmentUsageDetails": "{{name}} 사용량: {{details}}",
     "reading": "사용량 읽는 중",
     "turns_other": "턴 {{count}}개",

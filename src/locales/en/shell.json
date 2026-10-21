@@ -213,6 +213,7 @@
     "allAccounts": "Includes turns from every {{provider}} account."
   },
   "statusBarUsageSegment": {
+    "usageUnavailableHint": "No usage reading. Select for details.",
     "unverified": "(unverified)",
     "usage": "usage",
     "usageAndChargesAreManagedByYour": "Usage and charges are managed by your Gateway. Subscription quota is unavailable.",
@@ -791,7 +792,7 @@
     "used": "{{percent}} used",
     "windowUsed": "{{title}} {{percent}} used",
     "windowUsedReset": "{{title}} {{percent}} used, resets in {{time}}",
-    "segmentUsage": "{{name}} usage",
+    "segmentUsageUnavailable": "{{name}} usage unavailable",
     "segmentUsageDetails": "{{name}} usage: {{details}}",
     "reading": "reading usage",
     "turns_one": "{{count}} turn",

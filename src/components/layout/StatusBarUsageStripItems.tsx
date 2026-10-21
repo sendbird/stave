@@ -108,6 +108,27 @@ export function UsageWindowItem({
 }
 
 /**
+ * The dash a segment shows when it has no usage reading. The hint says what
+ * the dash means; the popover behind the segment has the details.
+ */
+export function UsageUnavailableItem({ hintsDisabled }: { hintsDisabled: boolean }) {
+  const { t } = useTranslation(["shell"]);
+  return (
+    <Tooltip disabled={hintsDisabled}>
+      <TooltipTrigger
+        delay={HINT_DELAY_MS}
+        render={<span className={sx(statusBarUsageStyles.triggerMono)} />}
+      >
+        —
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        {t("shell:statusBarUsageSegment.usageUnavailableHint")}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
  * Tokens of turns run in Stave appear in the full strip only; the compact
  * meter stays as it was. Dollars are not on the bar: the popover has them.
  */
