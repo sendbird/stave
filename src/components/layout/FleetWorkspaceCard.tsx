@@ -24,6 +24,11 @@ import { transition } from "@/components/ads/recipes/transition";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { Button, Loader } from "@/components/ui";
 import { cardStyles as styles } from "./fleet-workspace-card.styles";
+import {
+  normalizeFleetSearchQuery,
+  orderFleetCardTaskRows,
+  splitFleetSearchMatch,
+} from "@/lib/fleet/card-task-rows";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import {
   loadWorkspaceShellSummary,
@@ -454,10 +459,24 @@ export function FleetWorkspaceCard(args: {
   });
   const visible = matchesFilter && !isPhantom;
 
+  // While searching, matching rows lead and all of them show without
+  // expanding the card.
+  const normalizedQuery = normalizeFleetSearchQuery(args.searchQuery);
+  const taskRowOrder = orderFleetCardTaskRows({
+    rows,
+    limit: FLEET_CARD_TASK_LIMIT,
+    query: args.searchQuery,
+    searchableTextOf: (row) => [
+      row.task.title,
+      ...(taskAgents[row.task.id] ? [taskAgents[row.task.id]!.agentName] : []),
+    ],
+  });
   const visibleRows = showAllTasks
-    ? rows
-    : rows.slice(0, FLEET_CARD_TASK_LIMIT);
+    ? taskRowOrder.orderedRows
+    : taskRowOrder.orderedRows.slice(0, taskRowOrder.collapsedCount);
   const hiddenTaskCount = rows.length - visibleRows.length;
+  const showSearchMatchNote =
+    Boolean(normalizedQuery) && rows.length > 0 && taskRowOrder.noTaskMatched;
   const expandedRow = rows.find(
     (row) => taskKeyFor(row.task.id) === args.expandedTaskKey,
   );
@@ -466,7 +485,7 @@ export function FleetWorkspaceCard(args: {
     if (
       showAllTasks &&
       expandedRow &&
-      rows.indexOf(expandedRow) >= FLEET_CARD_TASK_LIMIT
+      taskRowOrder.orderedRows.indexOf(expandedRow) >= taskRowOrder.collapsedCount
     ) {
       args.onToggleTaskControl({
         repositoryPath: args.repositoryPath,
@@ -585,6 +604,11 @@ export function FleetWorkspaceCard(args: {
       />
 
       <div className={sx(styles.tasks)}>
+        {showSearchMatchNote ? (
+          <p className={sx(styles.searchNote)}>
+            {tI18n("fleet:fleetWorkspaceCard.searchMatchedWorkspaceNotTasks")}
+          </p>
+        ) : null}
         {rows.length === 0 ? (
           <p className={sx(styles.tasksEmpty)}>
             {taskState.hasRuntimeState || loadedShell !== undefined
@@ -616,7 +640,11 @@ export function FleetWorkspaceCard(args: {
                       isExpanded && styles.taskRowExpanded,
                     ]}
                     aria-expanded={isExpanded}
-                    aria-label={tI18n("fleet:fleetWorkspaceCard.valueControlsForValueValue", { value1: isExpanded ? "Hide" : "Show", taskTitle: taskTitle, value2: runLead ? runLeadLabel : visual.label })}
+                    aria-label={
+                      isExpanded
+                        ? tI18n("fleet:fleetWorkspaceCard.hideControlsForTask", { taskTitle, status: runLead ? runLeadLabel : visual.label })
+                        : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : visual.label })
+                    }
                     onClick={() =>
                       args.onToggleTaskControl({
                         repositoryPath: args.repositoryPath,
@@ -630,7 +658,9 @@ export function FleetWorkspaceCard(args: {
                   >
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskDetails)}>
-                      <span className={sx(styles.taskTitle)}>{taskTitle}</span>
+                      <span className={sx(styles.taskTitle)}>
+                        <FleetSearchHighlight text={taskTitle} normalizedQuery={normalizedQuery} />
+                      </span>
                       <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
                     </span>
                     {taskAgent ? (
@@ -646,7 +676,7 @@ export function FleetWorkspaceCard(args: {
                     {runLead ? null : (
                       <span
                         className={sx(styles.taskStatus, visual.tone)}
-                        title={`${visual.label} · updated ${row.updatedLabel}`}
+                        title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: visual.label, time: row.updatedLabel })}
                       >
                         {visual.icon}
                         <span className={sx(styles.statusLabel)}>
@@ -748,6 +778,21 @@ export function FleetWorkspaceCard(args: {
         </Button>
       </div>
     </article>
+  );
+}
+
+/** The task title with the active search match marked. */
+function FleetSearchHighlight(props: { text: string; normalizedQuery: string }) {
+  const parts = splitFleetSearchMatch(props.text, props.normalizedQuery);
+  if (!parts) {
+    return props.text;
+  }
+  return (
+    <>
+      {parts.before}
+      <mark className={sx(styles.searchMatch)}>{parts.match}</mark>
+      {parts.after}
+    </>
   );
 }
 
