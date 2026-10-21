@@ -4,7 +4,7 @@ import { useCallback, useMemo } from "react";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StateIcon } from "@/components/ads/components/StateIcon";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { RightRailPanelHeader } from "@/components/layout/RightRailPanelShell";
 import { FlowPanel } from "@/components/agents/FlowPanel";
 import { AgentRunPanel } from "@/components/agent-runs/AgentRunPanel";
@@ -243,7 +243,7 @@ function Mark(props: { mark: TaskTabMark | null }) {
   if (mark.kind === "state") {
     return (
       <span title={mark.label} className={sx(styles.markGlyph)}>
-        <StateIcon state={mark.state} size="xs" label={mark.label} />
+        <StateMark state={mark.state} size="xs" label={mark.label} />
       </span>
     );
   }

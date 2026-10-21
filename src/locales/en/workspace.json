@@ -485,7 +485,8 @@
       "refreshProjectWorkspaces": "Refresh workspaces in {{value1}}",
       "projectSettings": "Project settings: {{value1}}",
       "openSettings": "Open settings"
-    }
+    },
+    "signOffNeeded": "sign-off needed"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "App footprint at {{value1}}",

@@ -1,4 +1,5 @@
 import { formatTime } from "@/i18n/format";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo } from "react";
 import {
@@ -200,7 +201,8 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
           ) : null}
         </div>
         <div className={sx(styles.statusRow)}>
-          <Badge size="sm" tone={badge.tone} dot xstyle={styles.badge}>
+          <Badge size="sm" tone={badge.tone} xstyle={styles.badge}>
+            <StateMark state={badge.mark.state} size="xs" motion="still" />
             {badge.label}
           </Badge>
           <span className={sx(styles.statusText)} title={statusText}>

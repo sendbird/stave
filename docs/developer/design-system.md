@@ -62,8 +62,11 @@ chart colors that stays apart from the others) and checks them: the pairs in
 `STATE_COLOR_MIN_DISTANCE`, glyphs reach 3:1 and state text 4.5:1 on the card.
 A built-in theme that fails sets the failing state color by hand, and
 `tests/theme-state-colors.test.ts` checks every built-in theme. User themes get
-the same derivation when applied. Draw a state through the work-state
-vocabulary (`state-vocabulary.ts`), never with a role color directly.
+the same derivation when applied. Draw a state with `StateMark`
+(`src/components/ads/components/StateMark.tsx`): it takes a `WorkState` from
+the vocabulary in `state-vocabulary.ts` and draws its glyph in its state color,
+optionally with its word. Each domain keeps its own state type and maps it to a
+`WorkState`; never paint a state with a role color directly.
 
 The CSS layer order is explicit: theme and resets, canonical component layers,
 then host integration styles and the remaining legacy utilities. Host width, padding, and positioning

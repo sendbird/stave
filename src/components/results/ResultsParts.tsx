@@ -3,7 +3,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
-import { StateIcon } from "@/components/ads/components/StateIcon";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
 import { sx } from "@/components/ads/utils/stylex";
 import { RUN_END_REASON_LABELS, RUN_OUTCOMES, type AgentRunInsights, type ResultRun, type ResultsAgentRow, type ResultsSummary, type RunOutcome } from "@/lib/agent-runs/insights";
@@ -11,7 +11,7 @@ import { formatCostUsd } from "@/lib/agent-runs/usage";
 import { formatRunDuration } from "@/lib/agent-runs/agent-run-status";
 import { ResultsCard } from "./ResultsCard";
 import { performanceMetrics } from "./results-metrics";
-import { resultsBarToneStyles, resultsStyles as styles } from "./results.styles";
+import { resultsBarColorStyles, resultsStyles as styles } from "./results.styles";
 
 export const OUTCOME_STATE: Record<RunOutcome, WorkState> = {
   ready: "ready", rework: "needs-you", failed: "failed", stopped: "stopped",
@@ -24,8 +24,9 @@ export const OUTCOME_LABEL: Record<RunOutcome, string> = {
   get stopped() { return i18n.t("compare:agentPerformance.cancelled"); },
 };
 
-export function outcomeTone(outcome: RunOutcome) {
-  return WORK_STATE[OUTCOME_STATE[outcome]].tone;
+/** The state color of an outcome's mark, so the bar and the legend agree. */
+export function outcomeColor(outcome: RunOutcome) {
+  return WORK_STATE[OUTCOME_STATE[outcome]].color;
 }
 
 const cost = (value: number | null) => value === null ? "—" : formatCostUsd(value);
@@ -41,13 +42,13 @@ export function OutcomeStrip({ summary, days }: { summary: ResultsSummary; days:
       </p>
       <ul className={sx(styles.bar)} aria-hidden>
         {RUN_OUTCOMES.filter((outcome) => summary[outcome] > 0).map((outcome) => (
-          <li key={outcome} className={sx(styles.barSegment, resultsBarToneStyles[outcomeTone(outcome)])} style={{ flexGrow: summary[outcome] }} />
+          <li key={outcome} className={sx(styles.barSegment, resultsBarColorStyles[outcomeColor(outcome)])} style={{ flexGrow: summary[outcome] }} />
         ))}
       </ul>
       <ul className={sx(styles.legend)}>
         {RUN_OUTCOMES.map((outcome) => (
           <li key={outcome} className={sx(styles.legendRow)}>
-            <StateIcon state={OUTCOME_STATE[outcome]} />
+            <StateMark state={OUTCOME_STATE[outcome]} />
             <span>{OUTCOME_LABEL[outcome]}</span>
             <span className={sx(styles.legendValue)}>{formatNumber(summary[outcome])}</span>
           </li>
@@ -105,7 +106,7 @@ function RunRow({ run, now, onOpen }: { run: ResultRun; now: number; onOpen: (ru
   return (
     <li>
       <Button layout="host" variant="quiet" xstyle={styles.runButton} aria-label={t("compare:agentPerformance.openReport", { name: run.name, outcome: word, date: formatRelativeTime(run.endedAt, now) })} onClick={() => onOpen(run)}>
-        <StateIcon state={OUTCOME_STATE[run.outcome]} />
+        <StateMark state={OUTCOME_STATE[run.outcome]} />
         <span className={sx(styles.runText)}><span className={sx(styles.runTitle)}>{word}</span><span className={sx(styles.runFigure)}>{formatRelativeTime(run.endedAt, now)} · {formatRunDuration(run.durationMs)} · {cost(run.costUsd)}</span></span>
         <ChevronRight className={sx(styles.chevron)} aria-hidden />
       </Button>

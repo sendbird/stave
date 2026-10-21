@@ -147,8 +147,8 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
     0,
   );
 
-  // An approval need must render the ShieldCheck glyph in the warning color,
-  // matching the per-workspace icon vocabulary.
+  // An approval need renders the work-state vocabulary's approval glyph in the
+  // needs-answer state color, as every surface draws that state (`StateMark`).
   const glyph = alert.locator("svg");
   await expect(glyph).toHaveCount(1);
   const rendered = await glyph.evaluate((element) => ({
@@ -156,15 +156,15 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
     color: window.getComputedStyle(element).color,
     width: element.getBoundingClientRect().width,
   }));
-  expect(rendered.classes).toContain("lucide-shield-check");
+  expect(rendered.classes).toContain("lucide-shield-question");
   expect(rendered.width).toBeGreaterThan(0);
 
   const warningColor = await sidebar.evaluate((element) => {
-    // The glyph paints with the semantic warning token (`vars["--ads-color-warning"]`
-    // maps to `--warning`). Resolve that token the same way the icon does so
-    // the assertion tracks the color contract rather than a utility class.
+    // The glyph paints with the theme's needs-answer state color. Resolve that
+    // token the same way the mark does so the assertion tracks the color
+    // contract rather than a utility class.
     const probe = document.createElement("span");
-    probe.style.color = "var(--warning)";
+    probe.style.color = "var(--state-needs-answer)";
     element.append(probe);
     const color = window.getComputedStyle(probe).color;
     probe.remove();

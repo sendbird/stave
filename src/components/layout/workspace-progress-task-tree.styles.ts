@@ -52,7 +52,6 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     display: "inline-flex",
     flexShrink: 0,
   },
-  statusIcon: { height: vars["--ads-control-icon-size-sm"], width: vars["--ads-control-icon-size-sm"] },
   providerMark: {
     alignItems: "center",
     display: "inline-flex",
@@ -65,11 +64,3 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
   accent: { color: vars["--ads-color-accent"] },
 });
 
-/** Status tone for the trailing mark; keyed by `FleetTaskStatus`. */
-export const workspaceProgressStatusToneStyles = stylex.create({
-  "waiting-input": { color: vars["--ads-color-warning-text"] },
-  "waiting-approval": { color: vars["--ads-color-warning-text"] },
-  error: { color: vars["--ads-color-danger-text"] },
-  running: { color: vars["--ads-color-accent"] },
-  idle: { color: vars["--ads-color-text-muted"] },
-});

@@ -18,9 +18,10 @@ import type { StatusDotTone } from "./StatusDot";
 
 /**
  * The one vocabulary for the state of agent work. Every surface that shows
- * state (`StatusDot`, the tool-run states in `agent-state.ts`, Fleet cards,
- * agent run and agent-run badges) reads its glyph, tone and word from here, so a
- * state never wears two shapes. The glyph is the redundant non-color cue: a
+ * state reads its glyph, color and word from here, so a state never wears two
+ * shapes: `StateMark` draws it (Fleet rows and the inbox, run badges and run
+ * lines, task tab and task panel marks, sidebar needs and task rows), and
+ * `StatusDot` and the tool-run states in `agent-state.ts` take its tone. The glyph is the redundant non-color cue: a
  * color-blind reader tells the states apart by shape alone.
  *
  * Only `working` moves. It is the one state with ongoing activity; every other

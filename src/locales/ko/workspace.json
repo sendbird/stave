@@ -479,7 +479,8 @@
       "refreshProjectWorkspaces": "{{value1}}의 워크스페이스 새로 고침",
       "projectSettings": "프로젝트 설정: {{value1}}",
       "openSettings": "설정 열기"
-    }
+    },
+    "signOffNeeded": "단계 승인 필요"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "앱 메모리 사용량 {{value1}}",

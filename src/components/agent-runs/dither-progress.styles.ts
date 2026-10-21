@@ -58,17 +58,18 @@ export const ditherProgressStyles = stylex.create({
 
 const ring = (color: string) => `inset 0 0 0 1px ${color}`;
 
+// The stage tones wear their work states' theme colors (`--state-*`), as `StateMark` does.
 export const HEAD_TONES = stylex.create({
-  active: { boxShadow: ring(vars["--ads-color-accent"]) },
-  waiting: { boxShadow: ring(vars["--ads-color-warning-border"]) },
-  attention: { boxShadow: ring(vars["--ads-color-danger-border"]) },
-  done: { boxShadow: ring(vars["--ads-color-success-border"]) },
+  active: { boxShadow: ring("var(--state-running)") },
+  waiting: { boxShadow: ring(`color-mix(in oklab, var(--state-needs-answer) 60%, ${vars["--ads-color-border"]})`) },
+  attention: { boxShadow: ring(`color-mix(in oklab, var(--state-halted) 60%, ${vars["--ads-color-border"]})`) },
+  done: { boxShadow: ring(`color-mix(in oklab, var(--state-completed) 60%, ${vars["--ads-color-border"]})`) },
   idle: { boxShadow: ring(vars["--ads-color-border"]) },
   skipped: { boxShadow: ring(vars["--ads-color-border"]), color: vars["--ads-color-text-muted"] },
 });
 
 export const MARK_TONES = stylex.create({
-  waiting: { color: vars["--ads-color-warning-text"] },
-  attention: { color: vars["--ads-color-danger-text"] },
-  done: { color: vars["--ads-color-success-text"] },
+  waiting: { color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-needs-answer))` },
+  attention: { color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-halted))` },
+  done: { color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-completed))` },
 });

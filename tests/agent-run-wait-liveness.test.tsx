@@ -250,7 +250,7 @@ describe("the delegates under the run line", () => {
     ]);
     expect(html).toContain('data-testid="shelf-subagents"');
     expect(html).toContain('data-subagent-state="working"');
-    expect(html).toContain('aria-label="Working"');
+    expect(html).toContain('data-motion="pulse"');
     expect(html).toContain('data-subagent-state="queued"');
     expect(html).not.toContain('data-subagent-state="done"');
     expect(html).toContain("1 done");
@@ -262,8 +262,9 @@ describe("the delegates under the run line", () => {
   test("while the run's own line moves, the delegates hold still", () => {
     const html = bar(runs.working, [delegate("Reviewer", { status: "running", progress: ["Reading the diff"] })], "Running the tests");
     expect(html).toContain('data-subagent-state="working"');
-    // The pulsing lifecycle dot (it names itself "Working") gives way to a still one in the working color.
-    expect(html).not.toContain('aria-label="Working"');
+    // The pulsing working mark gives way to a still one in the working color.
+    expect(html).not.toContain('data-motion="pulse"');
+    expect(html).toContain('data-state="working"');
   });
 
   test("a delegate that needs the user is lifted onto the run line in the warning ink", () => {

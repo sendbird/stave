@@ -867,18 +867,6 @@ describe("workspace progress task tree", () => {
     ).toBe("Rewrite the provider logo fallback so…");
   });
 
-  test("maps in-flight statuses to meaning-led loaders", () => {
-    expect(resolveWorkspaceProgressTaskLoaderVariant("running")).toBe("pulse");
-    expect(resolveWorkspaceProgressTaskLoaderVariant("waiting-input")).toBe(
-      "handoff",
-    );
-    expect(resolveWorkspaceProgressTaskLoaderVariant("waiting-approval")).toBe(
-      "handoff",
-    );
-    expect(resolveWorkspaceProgressTaskLoaderVariant("error")).toBeNull();
-    expect(resolveWorkspaceProgressTaskLoaderVariant("idle")).toBeNull();
-  });
-
   test("hides the tree when no open task is responding", () => {
     expect(
       buildWorkspaceProgressTaskItems({

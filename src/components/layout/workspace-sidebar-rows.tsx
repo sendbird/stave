@@ -5,8 +5,6 @@ import {
   GitBranch,
   GitMerge,
   MoreVertical,
-  ShieldCheck,
-  UserRound,
 } from "lucide-react";
 import {
   memo,
@@ -35,6 +33,8 @@ import {
   type SidebarWorkQueueEntry,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { StateMark } from "@/components/ads/components/StateMark";
+import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { WorkspaceAccountLimitIcon } from "@/components/layout/WorkspaceAccountLimitIcon";
@@ -416,29 +416,10 @@ export const WorkspaceLeadingStatusIcon = memo(
       );
     }
 
-    if (leadingAttentionKind === "user-input") {
-      return (
-        <UserRound
-          className={sx(repositorySidebarStyles.statusIconWarning)}
-          aria-hidden="true"
-        />
-      );
-    }
-    if (leadingAttentionKind === "approval") {
-      return (
-        <ShieldCheck
-          className={sx(repositorySidebarStyles.statusIconWarning)}
-          aria-hidden="true"
-        />
-      );
-    }
-    if (leadingAttentionKind === "run-failed") {
-      return (
-        <AlertTriangle
-          className={sx(repositorySidebarStyles.statusIconDanger)}
-          aria-hidden="true"
-        />
-      );
+    // A need of the agent work is a work state, drawn as every surface draws it.
+    const needState = leadingAttentionKind ? FLEET_ATTENTION_WORK_STATE[leadingAttentionKind] : undefined;
+    if (needState) {
+      return <StateMark state={needState} size="md" />;
     }
     if (leadingAttentionKind === "pr-behind-base") {
       return (
@@ -589,16 +570,8 @@ export const RepositoryAttentionAlertIcon = memo(
           className={sx(repositorySidebarStyles.attentionDot)}
           aria-hidden="true"
         />
-      ) : alert.kind === "user-input" ? (
-        <UserRound
-          className={sx(repositorySidebarStyles.attentionIconWarning)}
-          aria-hidden="true"
-        />
-      ) : alert.kind === "approval" ? (
-        <ShieldCheck
-          className={sx(repositorySidebarStyles.attentionIconWarning)}
-          aria-hidden="true"
-        />
+      ) : FLEET_ATTENTION_WORK_STATE[alert.kind] ? (
+        <StateMark state={FLEET_ATTENTION_WORK_STATE[alert.kind]!} />
       ) : (
         <AlertTriangle
           className={sx(repositorySidebarStyles.attentionIconDanger)}

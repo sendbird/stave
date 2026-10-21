@@ -30,7 +30,8 @@
     "readyToMerge": "병합 준비됨",
     "runBlocked": "실행 차단됨",
     "runStuck": "실행 멈춤",
-    "snoozedCount": "{{count}}개 미뤄짐"
+    "snoozedCount": "{{count}}개 미뤄짐",
+    "signOff": "단계 승인"
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "활성 턴에 응답으로 방향을 조정했습니다.",

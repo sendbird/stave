@@ -14,6 +14,8 @@ Host modifications are intentional and retained when refreshing the bundle:
 - EmptyState's medallion defaults to the `neutral` tone instead of `accent`. The host's empty states are the absence of data, not brand moments; callers that want the accent medallion (onboarding invitations) pass `tone="accent"` explicitly.
 - Calendar satisfies strict indexed access checks; malformed date keys resolve to an invalid date instead of assuming missing numbers exist.
 
+Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
+
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.
 
 Additional control/sidebar and lightbox closures are recorded in

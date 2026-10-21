@@ -4,27 +4,23 @@ import {
   TASK_DRAG_MIME,
   encodeTaskDragPayload,
 } from "@/lib/task-context/attached-task-context";
-import { AlertTriangle, CircleDashed } from "lucide-react";
 import { memo, useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   buildWorkspaceProgressTaskItems,
-  resolveWorkspaceProgressTaskLoaderVariant,
   type WorkspaceProgressTaskItem,
 } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
+import { StateMark } from "@/components/ads/components/StateMark";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import { Loader } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "@/components/ads/utils/stylex";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
-import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ChatMessage, Task } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
-import {
-  workspaceProgressStatusToneStyles as statusTone,
-  workspaceProgressTaskTreeStyles as styles,
-} from "./workspace-progress-task-tree.styles";
+import { workspaceProgressTaskTreeStyles as styles } from "./workspace-progress-task-tree.styles";
 
 const EMPTY_TASKS: Task[] = [];
 const EMPTY_MESSAGES_BY_TASK: Record<string, ChatMessage[]> = {};
@@ -39,40 +35,14 @@ const STATUS_LABEL: Record<FleetTaskStatus, string> = {
   get idle() { return i18n.t("workspace:workspaceProgressTaskTree.idle"); },
 };
 
-function StatusMark(args: {
-  status: FleetTaskStatus;
-  providerId: WorkspaceProgressTaskItem["providerId"];
-}) {
-  const loaderVariant = resolveWorkspaceProgressTaskLoaderVariant(args.status);
-  if (loaderVariant) {
-    return (
-      <Loader
-        aria-hidden
-        className={
-          args.status === "running"
-            ? toProviderWaveToneClass({ providerId: args.providerId })
-            : sx(statusTone[args.status])
-        }
-        size="xs"
-        variant={loaderVariant}
-      />
-    );
-  }
-  if (args.status === "error") {
-    return (
-      <AlertTriangle
-        className={sx(styles.statusIcon, statusTone.error)}
-        aria-hidden="true"
-      />
-    );
-  }
-  return (
-    <CircleDashed
-      className={sx(styles.statusIcon, statusTone.idle)}
-      aria-hidden="true"
-    />
-  );
-}
+/** Each open task status as a shared work state, drawn by `StateMark`. */
+const STATUS_WORK_STATE: Record<FleetTaskStatus, WorkState> = {
+  "waiting-input": "needs-you",
+  "waiting-approval": "approval",
+  error: "failed",
+  running: "working",
+  idle: "idle",
+};
 
 function ProviderMark(args: {
   providerId: WorkspaceProgressTaskItem["providerId"];
@@ -151,17 +121,8 @@ export function WorkspaceProgressTaskTreeView(args: {
           >
             <ProviderMark providerId={item.providerId} />
             <span className={sx(styles.rowTitle)}>{item.title}</span>
-            <span
-              className={sx(
-                styles.statusSlot,
-                item.status !== "running" && statusTone[item.status],
-              )}
-              title={statusLabel}
-            >
-              <StatusMark
-                status={item.status}
-                providerId={item.providerId}
-              />
+            <span className={sx(styles.statusSlot)} title={statusLabel}>
+              <StateMark state={STATUS_WORK_STATE[item.status]} />
               <VisuallyHidden>{statusLabel}</VisuallyHidden>
             </span>
           </AdsButton>

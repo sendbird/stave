@@ -172,13 +172,15 @@ export const resultsStyles = stylex.create({
   pageEmbedded: { paddingBlockStart: vars["--ads-space-12"] },
 });
 
-/** Bar segments in the tone their outcome's state icon wears (`StateIcon`), so the bar and legend agree. */
-export const resultsBarToneStyles = stylex.create({
-  neutral: { backgroundColor: vars["--ads-color-text-subtle"] },
+/** Bar segments in the state color their outcome's mark wears (`StateMark`), so the bar and legend agree. */
+export const resultsBarColorStyles = stylex.create({
+  running: { backgroundColor: "var(--state-running)" },
+  needsAnswer: { backgroundColor: "var(--state-needs-answer)" },
+  paused: { backgroundColor: "var(--state-paused)" },
+  halted: { backgroundColor: "var(--state-halted)" },
+  completed: { backgroundColor: "var(--state-completed)" },
+  stopped: { backgroundColor: "var(--state-stopped)" },
+  failed: { backgroundColor: vars["--ads-color-danger"] },
+  subtle: { backgroundColor: vars["--ads-color-text-subtle"] },
   muted: { backgroundColor: vars["--ads-color-text-muted"] },
-  accent: { backgroundColor: vars["--ads-color-accent"] },
-  info: { backgroundColor: vars["--ads-color-info"] },
-  warning: { backgroundColor: vars["--ads-color-warning"] },
-  success: { backgroundColor: vars["--ads-color-success"] },
-  danger: { backgroundColor: vars["--ads-color-danger"] },
 });
