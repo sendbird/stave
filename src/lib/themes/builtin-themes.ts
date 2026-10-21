@@ -4,6 +4,7 @@ import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 
 import { PRESET_THEME_TOKENS } from "./presets";
+import { STATE_COLOR_TOKEN_NAMES, deriveStateColors, type StateColorTokenName } from "./state-colors";
 import type {
   BuiltinThemeTokenValues,
   CustomThemeDefinition,
@@ -11,6 +12,11 @@ import type {
   ThemeModeName,
 } from "./types";
 
+/**
+ * Stave's light and dark values for the extended tokens. The state colors
+ * here are what `globals.css` resolves them to (primary, warning, the muted
+ * text and success); built-in themes do not inherit them but derive their own.
+ */
 const PRESET_EXTENDED_THEME_TOKENS: Record<
   ThemeModeName,
   Record<ExtendedThemeTokenName, string>
@@ -60,6 +66,12 @@ const PRESET_EXTENDED_THEME_TOKENS: Record<
     "service-git-merged": "oklch(0.55 0.19 303)",
     "service-git-closed": "oklch(0.55 0.19 25)",
     "service-git-modified": "oklch(0.55 0.13 78)",
+    "state-running": "oklch(0.54 0.18 260)",
+    "state-needs-answer": "oklch(0.672 0.14 78)",
+    "state-paused": "oklch(0.51 0.003 75)",
+    "state-halted": "oklch(0.672 0.14 78)",
+    "state-completed": "oklch(0.51 0.12 155)",
+    "state-stopped": "oklch(0.51 0.003 75)",
   },
   dark: {
     success: "oklch(0.74 0.12 155)",
@@ -106,6 +118,12 @@ const PRESET_EXTENDED_THEME_TOKENS: Record<
     "service-git-merged": "oklch(0.68 0.17 303)",
     "service-git-closed": "oklch(0.67 0.19 25)",
     "service-git-modified": "oklch(0.74 0.14 85)",
+    "state-running": "oklch(0.71 0.15 252)",
+    "state-needs-answer": "oklch(0.8 0.13 78)",
+    "state-paused": "oklch(0.68 0.003 75)",
+    "state-halted": "oklch(0.8 0.13 78)",
+    "state-completed": "oklch(0.74 0.12 155)",
+    "state-stopped": "oklch(0.68 0.003 75)",
   },
 };
 
@@ -123,6 +141,28 @@ const BUILTIN_THEME_BASE_TOKENS: Record<
   },
 };
 
+function withoutStateColors(tokens: Readonly<Record<string, string>>): Record<string, string> {
+  const names: readonly string[] = STATE_COLOR_TOKEN_NAMES;
+  return Object.fromEntries(Object.entries(tokens).filter(([name]) => !names.includes(name)));
+}
+
+/**
+ * A theme's tokens with its agent state colors filled in. The Stave defaults
+ * for those colors are not inherited: a state color the theme does not set is
+ * derived from the theme's own colors (`deriveStateColors`), so a port keeps
+ * its palette. User themes go through the same step when they are applied.
+ */
+export function withStateColors(args: {
+  baseMode: ThemeModeName;
+  tokens: Readonly<Record<string, string>>;
+}): Record<string, string> {
+  const own = Object.fromEntries(
+    Object.entries(args.tokens).filter(([name]) => (STATE_COLOR_TOKEN_NAMES as readonly string[]).includes(name)),
+  ) as Partial<Record<StateColorTokenName, string>>;
+  const merged = { ...withoutStateColors(BUILTIN_THEME_BASE_TOKENS[args.baseMode]), ...withoutStateColors(args.tokens) };
+  return { ...args.tokens, ...deriveStateColors({ ...merged, ...own }) };
+}
+
 function createBuiltinTheme(args: {
   id: string;
   name: string;
@@ -137,10 +177,10 @@ function createBuiltinTheme(args: {
     baseMode: args.baseMode,
     version: "1.0.0",
     author: "Stave",
-    tokens: {
-      ...BUILTIN_THEME_BASE_TOKENS[args.baseMode],
-      ...args.overrides,
-    },
+    tokens: withStateColors({
+      baseMode: args.baseMode,
+      tokens: { ...withoutStateColors(BUILTIN_THEME_BASE_TOKENS[args.baseMode]), ...args.overrides },
+    }),
   };
 }
 
@@ -226,6 +266,12 @@ const STAVE_SCORE = createBuiltinTheme({
     "service-git-merged": "oklch(0.55 0.19 303)",
     "service-git-closed": "oklch(0.55 0.19 25)",
     "service-git-modified": "oklch(0.55 0.13 78)",
+    "state-running": "oklch(0.52 0.17 255)",
+    "state-needs-answer": "oklch(0.672 0.14 78)",
+    "state-paused": "oklch(0.51 0.035 255)",
+    "state-halted": "oklch(0.672 0.14 78)",
+    "state-completed": "oklch(0.51 0.12 155)",
+    "state-stopped": "oklch(0.51 0.035 255)",
   } satisfies BuiltinThemeTokenValues,
 });
 
@@ -306,6 +352,12 @@ const STAVE_NOCTURNE = createBuiltinTheme({
     "service-git-merged": "oklch(0.68 0.17 303)",
     "service-git-closed": "oklch(0.67 0.19 25)",
     "service-git-modified": "oklch(0.74 0.14 85)",
+    "state-running": "oklch(0.72 0.14 250)",
+    "state-needs-answer": "oklch(0.8 0.13 78)",
+    "state-paused": "oklch(0.68 0.035 250)",
+    "state-halted": "oklch(0.8 0.13 78)",
+    "state-completed": "oklch(0.74 0.12 155)",
+    "state-stopped": "oklch(0.68 0.035 250)",
   } satisfies BuiltinThemeTokenValues,
 });
 
@@ -1007,6 +1059,8 @@ const EVERFOREST_LIGHT = createBuiltinTheme({
     "chart-5": "#F57D26",
     "provider-codex": "#3A94C5",
     "provider-claude": "#F57D26",
+    // Its warning and success read as one olive; needing an answer takes its orange, darkened for contrast.
+    "state-needs-answer": "#A6510B",
   },
 });
 
@@ -1071,6 +1125,10 @@ const EVERFOREST_DARK = createBuiltinTheme({
     "chart-5": "#E69875",
     "provider-codex": "#7FBBB3",
     "provider-claude": "#E69875",
+    // Primary is its success green and its blue sits too close to it: running takes a clearer blue,
+    // needing an answer its orange.
+    "state-running": "#6FA8D6",
+    "state-needs-answer": "#E69875",
   },
 });
 
@@ -1263,6 +1321,8 @@ const NORD_SNOW = createBuiltinTheme({
     "chart-5": "#D08770",
     "provider-codex": "#5E81AC",
     "provider-claude": "#D08770",
+    // Its warning and success are too close; needing an answer takes Aurora orange, darkened for contrast.
+    "state-needs-answer": "#B2654D",
   },
 });
 
@@ -1519,6 +1579,8 @@ const FLEXOKI_LIGHT = createBuiltinTheme({
     "chart-5": "#AF3029",
     "provider-codex": "#205EA6",
     "provider-claude": "#BC5215",
+    // Its warning and success are too close; needing an answer takes its orange.
+    "state-needs-answer": "#BC5215",
   },
 });
 
@@ -1711,6 +1773,8 @@ const GRUVBOX_MATERIAL_DARK = createBuiltinTheme({
     "chart-5": "#E78A4E",
     "provider-codex": "#7DAEA3",
     "provider-claude": "#E78A4E",
+    // Its warning and success are too close; needing an answer takes its orange.
+    "state-needs-answer": "#E78A4E",
   },
 });
 
@@ -1967,6 +2031,8 @@ const VESPER = createBuiltinTheme({
     "chart-5": "#FFCFA8",
     "provider-codex": "#99FFE4",
     "provider-claude": "#FFC799",
+    // Primary and warning are the same peach and the palette has no other hue for activity: running is white.
+    "state-running": "#FFFFFF",
   },
 });
 

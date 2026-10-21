@@ -260,6 +260,19 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
     }
   });
 
+  it("tracks agent state color tokens in the built-in token registry", () => {
+    expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
+      expect.arrayContaining([
+        "state-running",
+        "state-needs-answer",
+        "state-paused",
+        "state-halted",
+        "state-completed",
+        "state-stopped",
+      ]),
+    );
+  });
+
   it("tracks pane drop-zone tokens in the built-in token registry", () => {
     expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
       expect.arrayContaining(["drop-zone", "drop-zone-border"]),

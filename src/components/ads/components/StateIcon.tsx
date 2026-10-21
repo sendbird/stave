@@ -10,9 +10,9 @@ const SIZE_PX: Record<StateIconSize, number> = { xs: 12, sm: 14, md: 16 };
 const LOADER_SIZE = { xs: "xs", sm: "xs", md: "sm" } as const;
 
 /**
- * The glyph of a work state, in its tone. `working` is the activity mark and
- * every other state a static shape. Decorative: the caller pairs it with the
- * state word (or passes `label` when it stands alone).
+ * The glyph of a work state, in its state color. `working` is the activity
+ * mark and every other state a static shape. Decorative: the caller pairs it
+ * with the state word (or passes `label` when it stands alone).
  */
 export function StateIcon({
   state,
@@ -26,14 +26,14 @@ export function StateIcon({
   const a11y = label ? ({ role: "img", "aria-label": label } as const) : ({ "aria-hidden": true } as const);
   if (state === "working") {
     return (
-      <span {...a11y} className={cx(sx(styles.wrap, toneStyles[visual.tone], xstyle), className)}>
+      <span {...a11y} className={cx(sx(styles.wrap, colorStyles[visual.color], xstyle), className)}>
         <Loader aria-hidden size={LOADER_SIZE[size]} variant="pulse" />
       </span>
     );
   }
   const Icon = visual.icon;
   return (
-    <span {...a11y} className={cx(sx(styles.wrap, toneStyles[visual.tone], xstyle), className)}>
+    <span {...a11y} className={cx(sx(styles.wrap, colorStyles[visual.color], xstyle), className)}>
       <Icon aria-hidden width={px} height={px} />
     </span>
   );
@@ -43,12 +43,15 @@ const styles = stylex.create({
   wrap: { alignItems: "center", display: "inline-flex", flexShrink: 0 },
 });
 
-const toneStyles = stylex.create({
-  neutral: { color: vars["--ads-color-text-subtle"] },
+// Literal custom properties: the theme writes `--state-*` (src/globals.css).
+const colorStyles = stylex.create({
+  running: { color: "var(--state-running)" },
+  needsAnswer: { color: "var(--state-needs-answer)" },
+  paused: { color: "var(--state-paused)" },
+  halted: { color: "var(--state-halted)" },
+  completed: { color: "var(--state-completed)" },
+  stopped: { color: "var(--state-stopped)" },
+  failed: { color: vars["--ads-color-danger"] },
+  subtle: { color: vars["--ads-color-text-subtle"] },
   muted: { color: vars["--ads-color-text-muted"] },
-  accent: { color: vars["--ads-color-accent"] },
-  info: { color: vars["--ads-color-info"] },
-  warning: { color: vars["--ads-color-warning"] },
-  success: { color: vars["--ads-color-success"] },
-  danger: { color: vars["--ads-color-danger"] },
 });

@@ -88,6 +88,14 @@ export const EXTENDED_THEME_TOKEN_NAMES = [
   "service-git-merged",
   "service-git-closed",
   "service-git-modified",
+  // Agent work states (`state-colors.ts`). Derived from the theme's own colors
+  // unless the theme sets them; failed keeps the destructive role.
+  "state-running",
+  "state-needs-answer",
+  "state-paused",
+  "state-halted",
+  "state-completed",
+  "state-stopped",
 ] as const;
 
 export const BUILTIN_THEME_TOKEN_NAMES = [

@@ -49,6 +49,22 @@ canonical variables and preserves the application's overlay stacking order.
 Components import canonical tokens directly; do not introduce token aliases in a
 new StyleX variable module.
 
+Agent work states have their own theme colors: `--state-running`,
+`--state-needs-answer`, `--state-paused`, `--state-halted`,
+`--state-completed` and `--state-stopped`. Failed keeps the destructive role.
+They exist because several themes paint their accent and warning, or their
+primary and success, the same hue, so state could not borrow those roles.
+`src/lib/themes/state-colors.ts` derives them from a theme's own colors
+(needing an answer and halted from warning, completed from success, paused and
+stopped from the muted text, running from the first of primary, info and the
+chart colors that stays apart from the others) and checks them: the pairs in
+`DISTINCT_STATE_COLOR_PAIRS` keep an OKLab distance of at least
+`STATE_COLOR_MIN_DISTANCE`, glyphs reach 3:1 and state text 4.5:1 on the card.
+A built-in theme that fails sets the failing state color by hand, and
+`tests/theme-state-colors.test.ts` checks every built-in theme. User themes get
+the same derivation when applied. Draw a state through the work-state
+vocabulary (`state-vocabulary.ts`), never with a role color directly.
+
 The CSS layer order is explicit: theme and resets, canonical component layers,
 then host integration styles and the remaining legacy utilities. Host width, padding, and positioning
 must remain effective when a primitive is replaced. Popover, Dialog, and Drawer

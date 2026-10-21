@@ -2,6 +2,7 @@
 // DOM application helpers for theme system
 // ---------------------------------------------------------------------------
 
+import { withStateColors } from "./builtin-themes";
 import type { CustomThemeDefinition, ThemeModeName, ThemeOverrideValues, ThemeTokenName } from "./types";
 
 /**
@@ -124,18 +125,20 @@ export function applyThemeOverrides(args: {
  * Generate a CSS text block for a custom theme.
  *
  * The selector is chosen from the theme's `baseMode`: `:root` for light,
- * `.dark` for dark.
+ * `.dark` for dark. Agent state colors the theme leaves out are derived from
+ * its own colors, so a user theme does not inherit Stave's.
  */
 export function buildCustomThemeCss(args: {
   theme: CustomThemeDefinition;
 }): string {
-  const declarations = Object.entries(args.theme.tokens)
-    .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
-    .map(([token, value]) => `--${token}: ${value};`);
-
-  if (declarations.length === 0) {
+  const set = Object.entries(args.theme.tokens).filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()));
+  if (set.length === 0) {
     return "";
   }
+  const tokens = withStateColors({ baseMode: args.theme.baseMode, tokens: Object.fromEntries(set) });
+  const declarations = Object.entries(tokens)
+    .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
+    .map(([token, value]) => `--${token}: ${value};`);
 
   const selector = args.theme.baseMode === "light" ? ":root" : ".dark";
   return `${selector}{${declarations.join("")}}`;
