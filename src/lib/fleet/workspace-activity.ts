@@ -2,6 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import type { Task } from "@/types/chat";
+import { fleetSearchMatches, normalizeFleetSearchQuery } from "@/lib/fleet/card-task-rows";
 
 /**
  * How long a workspace can go untouched before Fleet stops treating it as part
@@ -210,12 +211,9 @@ export function matchesFleetBoardFilter(args: {
     return false;
   }
 
-  const query = args.query?.trim().toLowerCase() ?? "";
-  if (!query) {
-    return true;
-  }
-  return args.searchableText.some((value) =>
-    value.toLowerCase().includes(query),
+  return fleetSearchMatches(
+    args.searchableText,
+    normalizeFleetSearchQuery(args.query),
   );
 }
 

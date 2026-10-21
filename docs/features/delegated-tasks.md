@@ -23,8 +23,8 @@ restart — and the child's answer comes back to the parent on its own.
 
 An agent's **in-turn subagents** (its `canCall` agents, run by the provider
 inside the turn) cover work that only needs to last for the current turn; they
-never survive a restart. Prefer an **automation** when the work should recur on
-a schedule rather than be handed off once.
+never survive a restart. Prefer a **schedule** (Schedules, start a task) when
+the work should recur rather than be handed off once.
 
 ## Before You Start
 

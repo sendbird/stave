@@ -1,5 +1,5 @@
 import { formatNumber, formatDateTime } from "@/i18n/format";
-import { i18n, useTranslation } from "@/i18n";
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import { ChevronDown, ChevronRight, FileText } from "lucide-react";
 import {
   Accordion,
@@ -31,6 +31,27 @@ import {
 import { workspaceResumeBriefStyles as styles } from "./workspace-resume-brief.styles";
 import { formatRelativeTime } from "@/components/layout/automation-center/automation-center.utils";
 
+/**
+ * What the local draft is doing. Rendered through translation keys, so the
+ * line follows the app language and Retry is driven by the state itself.
+ */
+type DraftStatus =
+  | "loading"
+  | "load-failed"
+  | "unsaved"
+  | "saving"
+  | "kept"
+  | "save-failed";
+
+const DRAFT_STATUS_KEYS = {
+  loading: "workspace:workspaceResumeBrief.draftStatusLoading",
+  "load-failed": "workspace:workspaceResumeBrief.draftStatusLoadFailed",
+  unsaved: "workspace:workspaceResumeBrief.draftStatusUnsaved",
+  saving: "workspace:workspaceResumeBrief.draftStatusSaving",
+  kept: "workspace:workspaceResumeBrief.draftStatusKept",
+  "save-failed": "workspace:workspaceResumeBrief.draftStatusSaveFailed",
+} as const satisfies Record<DraftStatus, I18nKey>;
+
 /** Shared instructions in Information, retained across workspace tasks. */
 export function WorkspaceResumeBrief(props: {
   workspaceId: string;
@@ -52,7 +73,7 @@ export function WorkspaceResumeBrief(props: {
     error: "",
   }));
   const [saving, setSaving] = useState(false);
-  const [draftStatus, setDraftStatus] = useState("Loading local draft…");
+  const [draftStatus, setDraftStatus] = useState<DraftStatus | null>("loading");
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [loadAttempt, setLoadAttempt] = useState(0);
   const draftRevision = useRef(0);
@@ -70,17 +91,10 @@ export function WorkspaceResumeBrief(props: {
             error: "",
           });
         setDraftLoaded(true);
-        setDraftStatus(
-          saved
-            ? "Unsaved draft on this device — tasks still use the saved instructions."
-            : "",
-        );
+        setDraftStatus(saved ? "unsaved" : null);
       })
       .catch(() => {
-        if (!cancelled)
-          setDraftStatus(
-            "The local draft could not be read. Retry before editing.",
-          );
+        if (!cancelled) setDraftStatus("load-failed");
       });
     return () => {
       cancelled = true;
@@ -99,7 +113,7 @@ export function WorkspaceResumeBrief(props: {
         error: "",
       });
       lastWrittenAt.current = null;
-      setDraftStatus("");
+      setDraftStatus(null);
     } catch {
       setDraft((current) => ({
         ...current,
@@ -117,23 +131,17 @@ export function WorkspaceResumeBrief(props: {
     };
     const revision = ++draftRevision.current;
     setDraft(next);
-    setDraftStatus("Saving draft…");
+    setDraftStatus("saving");
     void saveDirectionDraft(props.workspaceId, {
       ...next.fields,
       updatedAt: draft.baseUpdatedAt,
       sourceTaskId: null,
     })
       .then(() => {
-        if (revision === draftRevision.current)
-          setDraftStatus(
-            "Draft kept on this device — save to apply it to tasks.",
-          );
+        if (revision === draftRevision.current) setDraftStatus("kept");
       })
       .catch(() => {
-        if (revision === draftRevision.current)
-          setDraftStatus(
-            "Draft save failed. Keep this panel open and save the instructions.",
-          );
+        if (revision === draftRevision.current) setDraftStatus("save-failed");
       });
   };
   const save = async () => {
@@ -177,8 +185,7 @@ export function WorkspaceResumeBrief(props: {
       try {
         await saveDirectionDraft(props.workspaceId, null);
       } catch {
-        cleanupError =
-          "Instructions saved. The local draft could not be cleared and may reappear when this panel opens.";
+        cleanupError = i18n.t("workspace:workspaceResumeBrief.draftNotCleared");
       }
       setDraft({
         fields: brief,
@@ -187,7 +194,7 @@ export function WorkspaceResumeBrief(props: {
         error: cleanupError,
       });
       lastWrittenAt.current = null;
-      setDraftStatus("");
+      setDraftStatus(null);
     } catch {
       setDraft((current) => ({
         ...current,
@@ -266,13 +273,13 @@ export function WorkspaceResumeBrief(props: {
             <p className={sx(styles.intro)}>
               {tI18n("workspace:workspaceResumeBrief.standingRulesForThisWorkspaceOnceSaved")}</p>
             <p role="status" className={sx(styles.draftStatus)}>
-              {draftStatus}
+              {draftStatus ? tI18n(DRAFT_STATUS_KEYS[draftStatus]) : null}
             </p>
-            {!draftLoaded && draftStatus.includes("could not") ? (
+            {!draftLoaded && draftStatus === "load-failed" ? (
               <ActionButton
                 size="xs"
                 onClick={() => {
-                  setDraftStatus("Loading local draft…");
+                  setDraftStatus("loading");
                   setLoadAttempt((value) => value + 1);
                 }}
               >

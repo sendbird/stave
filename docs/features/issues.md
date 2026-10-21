@@ -14,7 +14,7 @@ Other surfaces fit better when:
 
 - Somebody else starts the work from Crane. That arrives as a remote dispatch approval dialog; see [Crane Connector Guide](crane-connector.md).
 - You want to see what already-running Stave work needs you. That is [Fleet Action Required](fleet-needs-me.md), not Issues.
-- You want a recurring, unattended run. That is Automations.
+- You want a recurring, unattended run. That is [Schedules](automations.md).
 
 ## Before You Start
 

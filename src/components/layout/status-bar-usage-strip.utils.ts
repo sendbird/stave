@@ -498,5 +498,7 @@ export function describeUsageSegmentForAssistiveTech(
     parts.push(i18n.t("shell:statusBarUsageStripUtils.tokensToday", { value1: formatTokenCount(segment.tokens.todayTokens) }));
   }
   if (segment.pending) parts.unshift(i18n.t("shell:usageUnits.reading"));
-  return parts.length ? i18n.t("shell:usageUnits.segmentUsageDetails", { name: segment.name, details: parts.join("; ") }) : i18n.t("shell:usageUnits.segmentUsage", { name: segment.name });
+  // Nothing to report is what the strip's dash shows: say so instead of a
+  // bare "usage" that sounds like data is there.
+  return parts.length ? i18n.t("shell:usageUnits.segmentUsageDetails", { name: segment.name, details: parts.join("; ") }) : i18n.t("shell:usageUnits.segmentUsageUnavailable", { name: segment.name });
 }

@@ -679,6 +679,7 @@ export function RepositoryWorkspaceSidebar(args: {
     <>
       <aside
         data-testid="project-workspace-sidebar"
+        aria-label={tI18n("workspace:repositoryWorkspaceSidebar.accessibility.sidebar")}
         className={cx(
           "stave-project-sidebar",
           sx(
@@ -731,7 +732,12 @@ export function RepositoryWorkspaceSidebar(args: {
                   </TooltipTrigger>
                   <TooltipContent side="right">{tI18n("workspace:repositoryWorkspaceSidebar.openRepository")}</TooltipContent>
                 </Tooltip>
-                <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView} />
+                <nav
+                  aria-label={i18n.t("shell:sidebarPrimaryNav.globalViews")}
+                  className={sx(repositorySidebarStyles.columnCenter)}
+                >
+                  <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView} />
+                </nav>
               </div>
             ) : (
               <div className={sx(repositorySidebarStyles.chromeTrailing)}>
@@ -832,14 +838,15 @@ export function RepositoryWorkspaceSidebar(args: {
         {!args.collapsed ? (
           <div className={sx(repositorySidebarStyles.scrollAreaExpanded)}>
             <TooltipProvider>
-              <div
+              <nav
+                aria-label={i18n.t("shell:sidebarPrimaryNav.globalViews")}
                 className={sx(
                   repositorySidebarStyles.navStack,
                   repositorySidebarStyles.navStackSpaced,
                 )}
               >
                 <SidebarPrimaryNav showFleetView={sidebarShowFleetView} />
-              </div>
+              </nav>
               <div
                 className={sx(repositorySidebarStyles.viewBar, panelBarStyles.bar)}
               >

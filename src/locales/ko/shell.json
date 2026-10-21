@@ -131,6 +131,7 @@
   "openPathDialog": {
     "openRepository": "저장소 열기",
     "enterAPathOrBrowseForA": "경로를 입력하거나 폴더를 찾아보세요.",
+    "repositoryPath": "저장소 경로",
     "browse": "찾아보기",
     "cancel": "취소",
     "opening": "여는 중...",
@@ -152,11 +153,16 @@
   "quotaTimeLeftClock": {
     "ofWindowLeft": "창 시간의 {{value1}}% 남음"
   },
+  "statusBar": {
+    "label": "상태 표시줄"
+  },
   "rightRail": {
+    "workspacePanels": "워크스페이스 패널",
     "lensIsAvailableInTheDesktopApp": "Lens는 데스크톱 앱에서 사용할 수 있습니다",
     "terminal": "터미널"
   },
   "sidebarPrimaryNav": {
+    "globalViews": "전역 보기",
     "fleetView": "Fleet 보기",
     "agentsAtWork": "에이전트, {{value1}}개 작업 중",
     "agents": "에이전트",
@@ -206,6 +212,7 @@
     "allAccounts": "모든 {{provider}} 계정의 턴을 포함합니다."
   },
   "statusBarUsageSegment": {
+    "usageUnavailableHint": "읽어 온 사용량이 없습니다. 선택하면 자세한 내용을 볼 수 있습니다.",
     "unverified": "(검증되지 않음)",
     "usage": "사용량",
     "usageAndChargesAreManagedByYour": "사용량과 비용은 게이트웨이에서 관리합니다. 구독 할당량은 사용할 수 없습니다.",
@@ -343,6 +350,7 @@
     "closeIssues": "이슈 닫기",
     "issues": "이슈 · {{value1}}",
     "issues2": "이슈",
+    "openIssues": "이슈 열기",
     "ticketDue_other": "기한이 된 티켓 {{count}}개"
   },
   "topBarNotifications": {
@@ -779,7 +787,7 @@
     "used": "{{percent}} 사용됨",
     "windowUsed": "{{title}} {{percent}} 사용됨",
     "windowUsedReset": "{{title}} {{percent}} 사용됨, {{time}} 후 초기화",
-    "segmentUsage": "{{name}} 사용량",
+    "segmentUsageUnavailable": "{{name}} 사용량 정보 없음",
     "segmentUsageDetails": "{{name}} 사용량: {{details}}",
     "reading": "사용량 읽는 중",
     "turns_other": "턴 {{count}}개",
@@ -790,8 +798,6 @@
   "topBarAutomations.openSchedules": "일정 열기",
   "topBarFleetAttention.closeFleet": "Fleet 뷰 닫기",
   "topBarFleetAttention.openFleet": "Fleet 뷰 열기",
-  "topBarIssues.closeTasks": "작업 닫기",
-  "topBarIssues.openTasks": "작업 열기",
   "topBarBranchDropdown.switchBranch": "브랜치 전환",
   "workspaceAccountLimitIcon.limit": "{{provider}} 계정 한도에 도달함",
   "keybindings": {

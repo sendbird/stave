@@ -80,7 +80,7 @@ const FEATURES = [
     icon: Inbox,
   },
   {
-    title: "Automations and wake-ups",
+    title: "Schedules and check-backs",
     description:
       "Run a task on a schedule in its own workspace, or let an existing task pick itself back up when its checks or delegated work finish.",
     icon: CalendarClock,

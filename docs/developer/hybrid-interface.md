@@ -90,10 +90,10 @@ A finished run remains distinct from reviewed or verified work.
 Existing project/task lists remain the primary navigation. Fleet and Tasks keep
 their existing placement and visibility preferences. Workspace Information holds
 shared instructions that apply to every task in the workspace.
-Automations is the destination for scheduling repeatable agent work and reviewing
+Schedules is the destination for scheduling repeatable agent work and reviewing
 run history. It is an optional destination, not a mandatory step before working.
 
-Automations remains usable before project selection. Each automation explains
+Schedules remains usable before project selection. Each schedule explains
 when a project or workspace is required and rechecks its workspace identity at
 invocation time.
 

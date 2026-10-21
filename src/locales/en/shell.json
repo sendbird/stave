@@ -132,6 +132,7 @@
   "openPathDialog": {
     "openRepository": "Open Repository",
     "enterAPathOrBrowseForA": "Enter a path or browse for a folder.",
+    "repositoryPath": "Repository path",
     "browse": "Browse",
     "cancel": "Cancel",
     "opening": "Opening...",
@@ -153,11 +154,16 @@
   "quotaTimeLeftClock": {
     "ofWindowLeft": "{{value1}}% of window left"
   },
+  "statusBar": {
+    "label": "Status bar"
+  },
   "rightRail": {
+    "workspacePanels": "Workspace panels",
     "lensIsAvailableInTheDesktopApp": "Lens is available in the desktop app",
     "terminal": "Terminal"
   },
   "sidebarPrimaryNav": {
+    "globalViews": "Global views",
     "fleetView": "Fleet View",
     "agentsAtWork": "Agents, {{value1}} at work",
     "agents": "Agents",
@@ -207,6 +213,7 @@
     "allAccounts": "Includes turns from every {{provider}} account."
   },
   "statusBarUsageSegment": {
+    "usageUnavailableHint": "No usage reading. Select for details.",
     "unverified": "(unverified)",
     "usage": "usage",
     "usageAndChargesAreManagedByYour": "Usage and charges are managed by your Gateway. Subscription quota is unavailable.",
@@ -346,6 +353,7 @@
     "closeIssues": "Close Issues",
     "issues": "Issues · {{value1}}",
     "issues2": "Issues",
+    "openIssues": "Open Issues",
     "ticketDue_one": "{{count}} ticket due",
     "ticketDue_other": "{{count}} tickets due"
   },
@@ -784,7 +792,7 @@
     "used": "{{percent}} used",
     "windowUsed": "{{title}} {{percent}} used",
     "windowUsedReset": "{{title}} {{percent}} used, resets in {{time}}",
-    "segmentUsage": "{{name}} usage",
+    "segmentUsageUnavailable": "{{name}} usage unavailable",
     "segmentUsageDetails": "{{name}} usage: {{details}}",
     "reading": "reading usage",
     "turns_one": "{{count}} turn",
@@ -797,8 +805,6 @@
   "topBarAutomations.openSchedules": "Open schedules",
   "topBarFleetAttention.closeFleet": "Close Fleet View",
   "topBarFleetAttention.openFleet": "Open Fleet View",
-  "topBarIssues.closeTasks": "Close tasks",
-  "topBarIssues.openTasks": "Open tasks",
   "topBarBranchDropdown.switchBranch": "Switch branch",
   "workspaceAccountLimitIcon.limit": "{{provider}} account limit reached",
   "keybindings": {

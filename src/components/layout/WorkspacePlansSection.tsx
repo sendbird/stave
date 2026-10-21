@@ -2,8 +2,9 @@ import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { Tooltip } from "@/components/ads/components/Tooltip";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
+  AlertTriangle,
   ClipboardCheck,
   FilePlus2,
   FolderOpen,
@@ -34,6 +35,13 @@ import { transition } from "@/components/ads/recipes/transition";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import { informationRow } from "./information-row.styles";
 import { planStyles } from "./workspace-plans.styles";
+import {
+  EMPTY_FILE_PATHS,
+  initialPlansListState,
+  reducePlansList,
+  resolvePlansListView,
+  type WorkspaceDocumentFilePaths,
+} from "./workspace-plans-list-state";
 
 interface WorkspacePlansSectionProps {
   workspacePath: string;
@@ -46,12 +54,6 @@ interface WorkspacePlansSectionProps {
   onEntriesChange?: (args: { count: number; loading: boolean }) => void;
 }
 
-interface WorkspaceDocumentFilePaths {
-  current: string[];
-  legacy: string[];
-}
-
-const EMPTY_FILE_PATHS: WorkspaceDocumentFilePaths = { current: [], legacy: [] };
 const EMPTY_DOCUMENT_SUMMARIES: Readonly<
   Record<string, WorkspaceDocumentSummary>
 > = {};
@@ -87,7 +89,7 @@ async function listWorkspaceDocumentFilePaths(
 }
 
 function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
-  const { t: tI18n } = useTranslation(["workspace"]);
+  const { t: tI18n } = useTranslation(["workspace", "common"]);
   const {
     workspacePath,
     refreshNonce,
@@ -104,8 +106,12 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       state.activityByWorkspace[workspaceId]?.documentsByPath ??
       EMPTY_DOCUMENT_SUMMARIES,
   );
-  const [filePaths, setFilePaths] =
-    useState<WorkspaceDocumentFilePaths>(EMPTY_FILE_PATHS);
+  const [listState, dispatchList] = useReducer(
+    reducePlansList,
+    Boolean(workspacePath),
+    initialPlansListState,
+  );
+  const { filePaths, loading: listLoading, loadFailed } = listState;
   const entries = useMemo<WorkspacePlanListEntry[]>(() => {
     const updatedAtByPath: Record<string, string> = {};
     for (const [filePath, summary] of Object.entries(documentsByPath)) {
@@ -117,7 +123,6 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       updatedAtByPath,
     });
   }, [documentsByPath, filePaths]);
-  const [listLoading, setListLoading] = useState(Boolean(workspacePath));
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState(false);
   const [deleteTarget, setDeleteTarget] =
@@ -127,31 +132,27 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
   const loadPlans = useCallback(async () => {
     const requestId = ++listRequestIdRef.current;
     if (!workspacePath) {
-      setFilePaths(EMPTY_FILE_PATHS);
-      setListLoading(false);
+      dispatchList({ type: "no-workspace" });
       return;
     }
 
-    setListLoading(true);
+    dispatchList({ type: "load-started" });
     if (workspaceId) {
       void refreshWorkspaceDocumentActivity(workspaceId);
     }
     try {
       const nextFilePaths = await listWorkspaceDocumentFilePaths(workspacePath);
       if (listRequestIdRef.current === requestId) {
-        setFilePaths(nextFilePaths);
+        dispatchList({ type: "load-succeeded", filePaths: nextFilePaths });
       }
     } catch {
+      // Keep the last list: an empty one would read as "no plans". The
+      // section shows the failure and a retry until a read succeeds.
       if (listRequestIdRef.current === requestId) {
-        setFilePaths(EMPTY_FILE_PATHS);
-        toast.error(tI18n("workspace:workspacePlansSection.couldNotLoadPlans"));
-      }
-    } finally {
-      if (listRequestIdRef.current === requestId) {
-        setListLoading(false);
+        dispatchList({ type: "load-failed" });
       }
     }
-  }, [workspaceId, workspacePath, tI18n]);
+  }, [workspaceId, workspacePath]);
 
   useEffect(() => {
     void loadPlans();
@@ -223,10 +224,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
         return;
       }
 
-      setFilePaths((current) => ({
-        current: current.current.filter((path) => path !== target.filePath),
-        legacy: current.legacy.filter((path) => path !== target.filePath),
-      }));
+      dispatchList({ type: "plan-removed", filePath: target.filePath });
       setDeleteTarget(null);
       try {
         await onPlanDeleted?.({ filePath: target.filePath });
@@ -253,6 +251,28 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
       }
     },
     [openDiffInEditor, tI18n, workspaceId],
+  );
+
+  const listView = resolvePlansListView({
+    hasWorkspacePath: Boolean(workspacePath),
+    loading: listLoading,
+    loadFailed,
+    entryCount: entries.length,
+  });
+  const retryButton = (
+    <Button
+      type="button"
+      size="sm"
+      variant="outline"
+      onClick={() => void loadPlans()}
+      disabled={listLoading}
+    >
+      <RefreshCcw
+        className={sx(planStyles.smallIcon, listLoading && planStyles.spinning)}
+        aria-hidden="true"
+      />
+      {tI18n("common:actions.retry")}
+    </Button>
   );
 
   return (
@@ -287,17 +307,35 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
           </div>
         ) : null}
 
-        {!workspacePath ? (
+        {listView === "unavailable" ? (
           <div className={sx(planStyles.unavailable)}>
             {tI18n("workspace:workspacePlansSection.workspacePathUnavailableSoPlansCannotBe")}</div>
-        ) : listLoading && entries.length === 0 ? (
+        ) : listView === "failed" ? (
+          <EmptyState.Root
+            data-workspace-plans-failed=""
+            variant="plain"
+            role="alert"
+          >
+            <EmptyState.Media tone="danger">
+              <AlertTriangle className={sx(planStyles.emptyIcon)} />
+            </EmptyState.Media>
+            <EmptyState.Header>
+              <EmptyState.Title>{tI18n("workspace:workspacePlansSection.couldNotLoadPlans")}</EmptyState.Title>
+              <EmptyState.Description>
+                {tI18n("workspace:workspacePlansSection.loadFailedNotEmpty")}</EmptyState.Description>
+            </EmptyState.Header>
+            <EmptyState.Content xstyle={planStyles.emptyActions}>
+              {retryButton}
+            </EmptyState.Content>
+          </EmptyState.Root>
+        ) : listView === "loading" ? (
           <div className={sx(planStyles.loading)} role="status">
             <RefreshCcw
               className={sx(planStyles.smallIcon, planStyles.spinning)}
               aria-hidden="true"
             />
             {tI18n("workspace:workspacePlansSection.loadingPlans")}</div>
-        ) : entries.length === 0 ? (
+        ) : listView === "empty" ? (
           // ADS `EmptyState`, composed: centered medallion over the copy
           // block over the actions. The hand-rolled version top-aligned the
           // medallion beside the text and indented the action row below it,
@@ -341,6 +379,12 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
           </EmptyState.Root>
         ) : (
           <div className={sx(informationRow.list)}>
+            {loadFailed ? (
+              <div className={sx(planStyles.refreshFailed)} role="alert">
+                <span>{tI18n("workspace:workspacePlansSection.refreshFailedListMayBeOutOfDate")}</span>
+                {retryButton}
+              </div>
+            ) : null}
             {entries.map((entry) => {
               const summary = documentsByPath[entry.filePath];
               return (

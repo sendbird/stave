@@ -98,8 +98,8 @@ agents and checks each result before it reports.
 - You want the task to keep moving while you do something else, and to be told
   only when it needs a decision.
 - For a one-off question or a small edit, send a normal message instead. For
-  scheduled work that starts a new task each time, use an
-  [automation](automations.md).
+  scheduled work that starts a new task each time, use a
+  [schedule](automations.md).
 
 ## Before You Start
 
@@ -704,4 +704,4 @@ expired while the Run was paused ends on resume with the same one turn instead
 of pausing again. While the Run is active, the task's own
 [wake-ups](wake-ups.md) stay paused (`agent-run-active`): the Run owns the
 task's automatic turns, and anything to do after the Run ends belongs in a
-wake-up or an automation.
+check-back or a start-a-task schedule.

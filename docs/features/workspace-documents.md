@@ -120,8 +120,8 @@ as usual; the agent answers there without writing a document.
   the 50 newest per document. A revision is recorded when a turn ends and
   before each message you send, only when the content changed.
 - A revision written during a turn is linked to that turn, whether you sent
-  the message or the turn was started by an agent run, an automation, a
-  scheduled check or the Stave Local MCP. A change made between turns, by you
+  the message or the turn was started by an agent run, a schedule, a
+  check-back or the Stave Local MCP. A change made between turns, by you
   or another tool, is recorded as an edit outside a turn.
 - When a workspace is deleted, Stave keeps only the newest revision of each of
   its documents, together with the workspace's name, so you can still attach

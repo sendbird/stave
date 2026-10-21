@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { RIGHT_RAIL_PANEL_TITLES } from "@/lib/right-rail-panels";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
@@ -1015,6 +1016,7 @@ export function EditorPanel(props: EditorPanelProps) {
   return (
     <aside
       data-testid="editor-panel"
+      aria-label={RIGHT_RAIL_PANEL_TITLES[rightTab]}
       {...stylex.props(layoutShellStyles.editorPanel)}
     >
       <div {...stylex.props(layoutShellStyles.editorPanelBody)}>

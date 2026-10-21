@@ -32,10 +32,7 @@
     "partial": "일부",
     "refreshTrackerTickets": "트래커 티켓 새로 고침",
     "refresh": "새로 고침",
-    "closeIssues": "이슈 닫기",
-    "accessibility": {
-      "closeTasks": "작업 닫기"
-    }
+    "closeIssues": "이슈 닫기"
   },
   "issuesToolbar": {
     "trackerIssueViews": "트래커 이슈 보기",

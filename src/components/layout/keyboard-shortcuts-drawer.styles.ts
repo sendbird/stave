@@ -48,7 +48,7 @@ export const shortcutsDrawerStyles = stylex.create({
   },
 
   header: {
-    backgroundImage: `linear-gradient(110deg, color-mix(in oklch, ${vars["--ads-color-surface"]} 90%, ${vars["--ads-color-canvas"]}), ${vars["--ads-color-canvas"]})`,
+    backgroundColor: vars["--ads-color-canvas"],
     borderBlockEndColor: vars["--ads-color-border-subtle"],
     borderBlockEndStyle: "solid",
     borderBlockEndWidth: vars["--ads-border-width-hairline"],

@@ -223,14 +223,14 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
       {
         routePath: "automations",
         sourcePath: "docs/features/automations.md",
-        title: "Automations",
+        title: "Schedules",
         description:
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },
       {
         routePath: "wake-ups",
         sourcePath: "docs/features/wake-ups.md",
-        title: "Wake-ups",
+        title: "Check-back schedules",
         description:
           "Resume an existing task on a schedule or when the work it delegated finishes, in the same provider session.",
       },

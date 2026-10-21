@@ -83,6 +83,20 @@ export const planStyles = stylex.create({
     gap: vars["--ads-space-8"],
     justifyContent: "center",
   },
+  refreshFailed: {
+    alignItems: "center",
+    backgroundColor: vars["--ads-color-danger-soft"],
+    borderRadius: vars["--ads-radius-control"],
+    color: vars["--ads-color-danger-text"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    justifyContent: "space-between",
+    marginBlockEnd: vars["--ads-space-4"],
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+  },
   /* Row shape, hover wash and trail live in `information-row.styles.ts`, which
      this list shares with the linked-pull-request rows above it. Only the two
      things that belong to a plan specifically stay here. */

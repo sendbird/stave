@@ -213,6 +213,19 @@ describe("strip segment", () => {
     expect(none.cost).toBeNull();
   });
 
+  test("a provider with no reading is described as unavailable, matching its dash", () => {
+    const empty = buildUsageStripSegment({
+      provider: "claude",
+      providerName: "Claude",
+      windows: [],
+      account: null,
+      spend: undefined,
+      stale: false,
+      pending: false,
+    });
+    expect(describeUsageSegmentForAssistiveTech(empty, NOW)).toBe("Claude usage unavailable");
+  });
+
   test("a provider waiting on its first reading says so; a gateway never waits", () => {
     const reading = buildUsageStripSegment({
       provider: "codex",

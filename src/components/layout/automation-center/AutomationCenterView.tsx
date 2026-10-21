@@ -242,7 +242,7 @@ export function AutomationCenterView() {
       } catch (loadError) {
         if (!isCurrent()) return;
         setError(
-          getAutomationErrorMessage(loadError, "Failed to load automations."),
+          getAutomationErrorMessage(loadError, i18n.t("automation:additionalCopy.message20")),
         );
       } finally {
         if (isCurrent()) {
@@ -497,7 +497,7 @@ export function AutomationCenterView() {
       );
     } catch (saveError) {
       toast.error(
-        getAutomationErrorMessage(saveError, "Failed to save automation."),
+        getAutomationErrorMessage(saveError, tI18n("automation:automationCenterView.failedToSaveAutomation")),
       );
     } finally {
       setSaving(false);
@@ -528,7 +528,7 @@ export function AutomationCenterView() {
       toast.success(tI18n("automation:automationCenterView.scheduleStarted"));
     } catch (runError) {
       toast.error(
-        getAutomationErrorMessage(runError, "Failed to start automation."),
+        getAutomationErrorMessage(runError, tI18n("automation:automationCenterView.failedToStartAutomation")),
       );
     } finally {
       setBusyAutomationId(null);
@@ -554,7 +554,7 @@ export function AutomationCenterView() {
       await loadSnapshot({ quiet: true });
     } catch (updateError) {
       toast.error(
-        getAutomationErrorMessage(updateError, "Failed to update automation."),
+        getAutomationErrorMessage(updateError, tI18n("automation:automationCenterView.failedToUpdateAutomation")),
       );
     } finally {
       setBusyAutomationId(null);
@@ -582,7 +582,7 @@ export function AutomationCenterView() {
       toast.success(tI18n("automation:automationCenterView.scheduleDeleted"));
     } catch (deleteError) {
       toast.error(
-        getAutomationErrorMessage(deleteError, "Failed to delete automation."),
+        getAutomationErrorMessage(deleteError, tI18n("automation:automationCenterView.failedToDeleteAutomation")),
       );
     } finally {
       setBusyAutomationId(null);
@@ -610,7 +610,7 @@ export function AutomationCenterView() {
       if (!result.ok) toast.error(result.message ?? tI18n("automation:automationCenterView.failedToUpdateTheSchedule"));
       await checkBacks.reload();
     } catch (updateError) {
-      toast.error(getAutomationErrorMessage(updateError, "Failed to update the schedule."));
+      toast.error(getAutomationErrorMessage(updateError, tI18n("automation:automationCenterView.failedToUpdateTheSchedule")));
     } finally {
       setBusyAutomationId(null);
     }
@@ -641,7 +641,7 @@ export function AutomationCenterView() {
       await checkBacks.reload();
       toast.success(tI18n("automation:automationCenterView.scheduleRemoved"));
     } catch (removeError) {
-      toast.error(getAutomationErrorMessage(removeError, "Failed to remove the schedule."));
+      toast.error(getAutomationErrorMessage(removeError, tI18n("automation:automationCenterView.failedToRemoveTheSchedule")));
     } finally {
       setBusyAutomationId(null);
     }
@@ -671,7 +671,7 @@ export function AutomationCenterView() {
       closeAutomationCenter();
     } catch (openError) {
       toast.error(
-        getAutomationErrorMessage(openError, "Failed to open task result."),
+        getAutomationErrorMessage(openError, tI18n("automation:automationCenterView.failedToOpenTaskResult")),
       );
     }
   }
