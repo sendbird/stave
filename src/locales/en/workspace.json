@@ -1050,7 +1050,10 @@
     "toSave": "to save",
     "cancel": "Cancel",
     "done": "Done",
-    "addNotesMarkdownSupported": "Add notes… (markdown supported)"
+    "addNotesMarkdownSupported": "Add notes… (markdown supported)",
+    "changedWhileEditing": "Notes changed while you were editing.",
+    "discardMyChanges": "Discard my changes",
+    "saveMyVersion": "Save my version"
   },
   "workspaceSidebarRows": {
     "default": "Default",

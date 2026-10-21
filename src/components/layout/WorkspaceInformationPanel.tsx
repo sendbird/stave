@@ -992,7 +992,7 @@ export function WorkspaceInformationPanel() {
                   title={tI18n("workspace:workspaceInformationPanel.notes")}
                   icon={<StickyNote className={sx(styles.glyphMd)} />}
                 >
-                  <NotesSectionBody
+                  <NotesSectionBody key={activeWorkspaceId} workspaceId={activeWorkspaceId}
                     notes={workspaceInformation.notes}
                     onChange={(notes) =>
                       patchWorkspaceInformation((current) => ({
