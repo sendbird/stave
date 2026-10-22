@@ -9,6 +9,10 @@ import { buildCodexApprovalsAppliedEvent } from "@/lib/providers/codex-runtime-o
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
 import { NormalizedProviderEventSchema } from "@/lib/providers/schemas";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
+import { repositoryLocalMcpTaskTurnActivityEvent } from "@/lib/local-mcp/task-turn-update";
+import { isProviderTurnContinuationEvent } from "@/lib/providers/turn-event-evidence";
+import { createWorkGraph, reduceWorkGraphEvent } from "@/lib/work-graph/work-graph-reducer";
+import { createBoundedBridgeEventCollector } from "../electron/providers/provider-buffering";
 
 const requested = { codexApprovalPolicy: "on-request" as const, codexApprovalsReviewer: "auto_review" as const };
 
@@ -114,5 +118,21 @@ describe("approvals a Codex turn applied", () => {
     }
     // A later re-statement without the confirmation does not take it back.
     expect(replayed([initial!, confirmed, initial!])?.permission).toMatchObject({ approvalsConfirmed: true, applied: { codexApprovalPolicy: "never" } });
+  });
+
+  test("every consumer that branches on the event type takes it as metadata, without a throw", () => {
+    const event = { type: "approvals_applied", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } as const;
+    // Replay: no transcript part and no provenance of its own; the Agent turn's re-statement carries it.
+    const message = replayProviderEventsToTaskState({ taskId: "task-1", provider: "codex", model: "gpt", turnId: "turn-1", events: [event], messages: [] }).messages[0];
+    expect(message?.parts).toEqual([]);
+    expect(message?.agentProvenance).toBeUndefined();
+    // Host-owned turn activity, the work graph and continuation evidence ignore it.
+    expect(repositoryLocalMcpTaskTurnActivityEvent(event)).toBeUndefined();
+    const graph = createWorkGraph({ turnId: "turn-1", providerId: "codex", startedAt: 1 });
+    expect(reduceWorkGraphEvent(graph, event, 2)).toBe(graph);
+    expect(isProviderTurnContinuationEvent(event)).toBe(false);
+    // The runtime's bounded event buffer keeps it like any small event.
+    const collector = createBoundedBridgeEventCollector({ maxBytes: 4_096 });
+    expect(collector.append(event)).toBe(true);
   });
 });
