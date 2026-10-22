@@ -48,7 +48,8 @@ describe("workspace check progress", () => {
     const { run } = runWithChecks([passed("lint", 1), passed("setup")]);
     const line = describeDoneWhen(run).find((entry) => entry.text === criterion.text);
     expect(line?.status).toBe("met-verified");
-    expect(line?.checks).toEqual({ passed: ["setup"], total: 3 });
+    // Saved without a mode, the check keeps its original meaning: any one script.
+    expect(line?.checks).toEqual({ passed: ["setup"], total: 3, scripts: [...SCRIPTS], mode: "any" });
     expect(describeWorkspaceCheckProgress(line!.checks!)).toBe("Stave checks: 1 of 3 passed (setup)");
   });
 
@@ -56,7 +57,7 @@ describe("workspace check progress", () => {
     const { run } = runWithChecks([passed("lint", 1)]);
     const line = describeDoneWhen(run).find((entry) => entry.text === criterion.text);
     expect(line?.status).toBe("unverified");
-    expect(line?.checks).toEqual({ passed: [], total: 3 });
+    expect(line?.checks).toEqual({ passed: [], total: 3, scripts: [...SCRIPTS], mode: "any" });
     expect(describeWorkspaceCheckProgress(line!.checks!)).toBe("Stave checks: none of 3 passed yet");
   });
 
@@ -87,6 +88,6 @@ describe("workspace check progress", () => {
     run.stages = [buildRecord, finalRecord];
     const line = describeDoneWhen(run).find((entry) => entry.text === criterion.text);
     expect(line?.status).toBe("met-verified");
-    expect(line?.checks).toEqual({ passed: ["setup"], total: 3 });
+    expect(line?.checks).toEqual({ passed: ["setup"], total: 3, scripts: [...SCRIPTS], mode: "any" });
   });
 });

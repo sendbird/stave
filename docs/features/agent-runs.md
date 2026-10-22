@@ -302,20 +302,32 @@ unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 
 Workflow stage criteria support `text`, optional `required` (true by default),
-and optional `verification`. AI stages use `agent-report` for the agent's
+optional `verification` and, on AI stages, an optional `mode` (`all` or
+`any`) for `stave-check` criteria. AI stages use `agent-report` for the agent's
 assessment, or `stave-check` for a host workspace script result. A required
 `stave-check` cannot be satisfied by an agent-reported **Met**. Run script
 action stages keep the same check behavior, including when verification is
 omitted. A bound Run script action checks its admitted definition before execution
 and accepts a successful result only when its receipt names that same definition.
-Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
+Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. With `mode: "all"`, every listed action must pass; without `mode`, any one may. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
 
-A workspace check is met by any one of its actions that passes on the final
-revision. Wherever Stave shows such a criterion (Done when on the result, the
-Run panel's checks and the sign-off card's summary), it adds how many of the
-criterion's actions passed and which ones, for example
+A workspace check saved without a `mode` keeps its original meaning: any one
+of its actions that passes on the final revision meets it. A check whose
+`mode` is `all` is met only when every listed action has its own passing result
+on that same final revision; a pass on an earlier revision does not count, and
+a script's later failure replaces its earlier pass. Checks added in the stage
+editor (**Workspace checks** on an AI stage) pick their actions from a
+searchable list of the workspace's action scripts and default to **All must
+pass**; **Any one passes** is the other choice. Editing a saved check's scripts
+keeps its choice, so a check saved without one still needs any one; a name the
+editor generated follows the new list, and any other name stays. Wherever Stave shows such a criterion (Done when
+on the result, the Run panel's checks and the sign-off card's summary), it adds
+how many of the criterion's actions passed and which ones, for example
 `Stave checks: 1 of 3 passed (setup)`, so a passing setup action is never
-read as passing tests.
+read as passing tests. A check that needs all of them also names the actions
+still needed, for example
+`Stave checks: 1 of 2 passed (lint); still needed: test`, and a stage blocked
+by it names the first action that has not passed.
 
 Read-only Agents cannot execute host action stages. Pausing, taking over,
 cancelling or releasing the Agent withdraws permission for further work as soon
@@ -329,7 +341,7 @@ built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
 checks pass** when the workspace has configured action scripts. Researcher,
 Reviewer, Lead and read-only agents do not get this default. With one action,
 that script is required; with several, all IDs are listed in sorted order and
-any one may satisfy the criterion. Script configuration currently has no
+any one may satisfy the criterion (the default carries no `mode`). Script configuration currently has no
 verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
 Without configured actions, completion remains agent-reported.
 

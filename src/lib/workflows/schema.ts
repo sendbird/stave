@@ -142,11 +142,23 @@ const stageIdentity = {
 
 const criterionIdentity = { get text() { return text(i18n.t("agentRuns:schema.extraCopy424"), 500); }, required: z.boolean().optional() };
 
+/**
+ * How a workspace check's scripts combine: `all` needs every listed script to
+ * pass on the final revision, `any` one of them. A criterion saved without a
+ * mode keeps the meaning it was written with: one passing script meets it.
+ */
+export const WORKSPACE_CHECK_MODES = ["all", "any"] as const;
+export type WorkspaceCheckMode = (typeof WORKSPACE_CHECK_MODES)[number];
+
 const AiStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("ai"),
-    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.enum(["agent-report", "stave-check"]).optional(), scriptIds: z.array(z.string().trim().min(1).max(120)).optional(), scriptDefinitions: z.array(FrozenWorkspaceScriptSchema).optional() }).strict()).max(MAX_STAGE_ACCEPTANCE_CRITERIA).optional(),
+    acceptanceCriteria: z.array(z.object({
+      ...criterionIdentity, verification: z.enum(["agent-report", "stave-check"]).optional(),
+      scriptIds: z.array(z.string().trim().min(1).max(120)).optional(), scriptDefinitions: z.array(FrozenWorkspaceScriptSchema).optional(),
+      mode: z.enum(WORKSPACE_CHECK_MODES).optional(),
+    }).strict()).max(MAX_STAGE_ACCEPTANCE_CRITERIA).optional(),
     get instruction() { return text(i18n.t("agentRuns:schema.extraCopy425"), WORKFLOW_LIMITS.instruction); },
     get doneWhen() { return text(i18n.t("agentRuns:schema.extraCopy426"), WORKFLOW_LIMITS.doneWhen); },
     role: z.enum(AI_STAGE_ROLES).optional(),

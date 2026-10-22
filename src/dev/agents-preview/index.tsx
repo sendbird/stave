@@ -1,4 +1,5 @@
 import { useLayoutEffect, useState } from "react";
+import { applyAppLocale } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { AgentsView } from "@/components/agents/AgentsView";
@@ -27,7 +28,10 @@ import { useAgentsUiStore } from "@/store/agents-ui-store";
  * `&avatars=1` shows every avatar hue at each size (with and without the
  * provider mark), then every built-in agent's icon avatar the same way and an
  * unknown icon id falling back to initials, next to a round person mark, and
- * `&delete=1` opens the delete dialog with a blocking workflow reference. Use
+ * `&delete=1` opens the delete dialog with a blocking workflow reference.
+ * `&edit=ship-ui` opens the workflow agent, whose first stage has a workspace
+ * check; `&scripts=empty` or `&scripts=error` changes what its script list
+ * reads, and `&lang=ko` renders it in Korean. Use
  * `?stavePreview=kickoff&agent=1` to see the Kickoff dialog with an agent
  * preselected.
  */
@@ -100,6 +104,14 @@ function installBridgeStubs() {
     written[args.filePath] = args.content;
     return { ok: true, revision: "1" };
   };
+  const scripts = params.get("scripts");
+  api.scripts = {
+    ...(api.scripts as object | undefined),
+    getConfig: async () =>
+      scripts === "error"
+        ? { ok: false, error: "scripts.json could not be parsed", config: null }
+        : { ok: true, config: { actions: scripts === "empty" ? [] : PREVIEW_SCRIPT_ACTIONS } },
+  };
   api.agents = {
     recordTask: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     releaseTask: async () => ({ ok: true, value: null }),
@@ -113,6 +125,13 @@ function installBridgeStubs() {
     subscribeChanged: () => () => {},
   };
 }
+
+const PREVIEW_SCRIPT_ACTIONS = [
+  { id: "lint", label: "Lint", description: "oxlint over src and electron" },
+  { id: "test", label: "Unit tests", description: "bun test" },
+  { id: "setup", label: "Setup", description: "Install dependencies" },
+  { id: "preview", label: "Preview deploy", description: "Publish a preview build" },
+];
 
 const AVATAR_SIZES = ["xs", "sm", "md", "lg"] as const;
 
@@ -156,6 +175,7 @@ export function AgentsPreview() {
     applyCustomTheme({ theme: builtinTheme });
   }, [theme, builtinTheme]);
   useLayoutEffect(() => {
+    if (params.get("lang")) applyAppLocale(params.get("lang"));
     installBridgeStubs();
     const custom = {
       ...duplicateAgent(getBuiltinAgent("implementer")!, []),
@@ -179,7 +199,13 @@ export function AgentsPreview() {
             name: "Ship a UI fix",
             description: "Lands a small UI change and opens its PR.",
             workflow: [
-              { id: "implement", title: "Implement", kind: "ai", instruction: "Make the change.", doneWhen: "It builds.", agentConfigId: "ui-maintainer" },
+              {
+                id: "implement", title: "Implement", kind: "ai", instruction: "Make the change.", doneWhen: "It builds.", agentConfigId: "ui-maintainer",
+                acceptanceCriteria: [
+                  { text: "Workspace checks pass (lint, test)", required: true, verification: "stave-check", scriptIds: ["lint", "test"], mode: "all" },
+                  { text: "Workspace checks pass (setup, retired)", required: true, verification: "stave-check", scriptIds: ["setup", "retired"] },
+                ],
+              },
               { id: "open-draft-pr", title: "Open draft PR", kind: "action", action: { type: "open-draft-pr" } },
             ],
           },
@@ -197,7 +223,9 @@ export function AgentsPreview() {
       activeWorkspaceId: "preview-workspace",
       workspacePathById: { "preview-workspace": "/tmp/preview-repo" },
     } as never);
-    if (params.get("edit") === "1" || params.get("tab")) useAgentsViewStore.getState().selectAgent("ui-maintainer");
+    const edit = params.get("edit");
+    if (edit === "1" || params.get("tab")) useAgentsViewStore.getState().selectAgent("ui-maintainer");
+    else if (edit) useAgentsViewStore.getState().selectAgent(edit);
     if (params.get("new") === "1") useAgentsUiStore.getState().requestNewAgent();
     setSeeded(true);
   }, []);

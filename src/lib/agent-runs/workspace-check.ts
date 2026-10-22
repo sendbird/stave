@@ -1,9 +1,23 @@
 import { i18n } from "@/i18n/runtime";
 import { formatList } from "@/i18n/format";
 import type { AgentConfig } from "../agents/schema";
-import type { Workflow, AiStage } from "../workflows/schema";
+import type { Workflow, AiStage, WorkspaceCheckMode } from "../workflows/schema";
 import { AgentRunCommandError, latestStageRecord, type AgentRunAggregate, type AgentRunStageRecord } from "./domain";
 import { revisionsMatch, type FrozenWorkspaceScript, type WorkspaceRevision, type ScriptVerification } from "./verification-contract";
+
+/**
+ * The rule a check criterion is judged by. A criterion without a mode keeps
+ * its original meaning, one passing script (D10); only an explicit `all`
+ * needs every listed script.
+ */
+export function workspaceCheckMode(criterion: object | undefined): WorkspaceCheckMode {
+  return criterion && "mode" in criterion && criterion.mode === "all" ? "all" : "any";
+}
+
+/** The scripts a check names: its explicit IDs, else every bound definition. */
+function checkScriptIds(scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): string[] {
+  return scriptIds?.length ? [...scriptIds] : (definitions ?? []).map((definition) => definition.scriptId);
+}
 
 /** Explicit checks are bound regardless of whether this agent gets a default. */
 export function freezeWorkspaceChecks(workflow: Workflow, scripts: readonly FrozenWorkspaceScript[]): Workflow {
@@ -62,8 +76,8 @@ export function withDefaultWorkspaceCheck(bound: Workflow, agent: Pick<AgentConf
   }) }, scripts);
 }
 
-export function workspaceCheckMet(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): boolean {
-  return revisionsMatch(workspaceCheckRevision(record, scriptIds, definitions), record.facts?.workspaceRevision);
+export function workspaceCheckMet(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[], mode: WorkspaceCheckMode = "any"): boolean {
+  return revisionsMatch(workspaceCheckRevision(record, scriptIds, definitions, mode), record.facts?.workspaceRevision);
 }
 
 /** A host-issued checks-repair turn runs scripts without reporting its action stage. */
@@ -87,35 +101,57 @@ function verifiedWorkspaceScripts(record: AgentRunStageRecord, scriptIds?: reado
     revisionsMatch(check.verification.sourceRevision, check.verification.completedRevision));
 }
 
-/** Original AI-check evidence, independent of a later display-only workspace refresh. */
-export function workspaceCheckRevision(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[]): WorkspaceRevision | undefined {
+/**
+ * Original AI-check evidence, independent of a later display-only workspace
+ * refresh. With `all`, every named script needs its own passing result on the
+ * reported revision; one passing script is enough otherwise.
+ */
+export function workspaceCheckRevision(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[], mode: WorkspaceCheckMode = "any"): WorkspaceRevision | undefined {
   const reportRevision = record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined;
-  return verifiedWorkspaceScripts(record, scriptIds, definitions).find((check) => revisionsMatch(check.verification.completedRevision, reportRevision))?.verification.completedRevision;
+  const reported = verifiedWorkspaceScripts(record, scriptIds, definitions).filter((check) => revisionsMatch(check.verification.completedRevision, reportRevision));
+  if (mode === "any") return reported[0]?.verification.completedRevision;
+  const ids = checkScriptIds(scriptIds, definitions);
+  const passed = new Set(reported.map((check) => check.scriptId));
+  return ids.length > 0 && ids.every((id) => passed.has(id)) ? reported[0]?.verification.completedRevision : undefined;
 }
 
 /**
  * Which of a check's scripts passed, each judged by the same rule that decides
  * the check (`workspaceCheckMet`, or the content match an earlier stage uses).
- * One passing script meets a check, so `passed` explains what met it.
+ * Under `any` one passing script meets a check, so `passed` explains what met
+ * it; under `all` the scripts not in `passed` are what it still needs.
  */
 export interface WorkspaceCheckProgress {
   /** Script IDs that passed, in the check's order. */
   passed: string[];
   total: number;
+  /** Every script the check names, in its order. */
+  scripts: string[];
+  mode: WorkspaceCheckMode;
 }
 
-export function workspaceCheckProgress(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[], options: { inherited?: boolean } = {}): WorkspaceCheckProgress {
-  const ids = scriptIds?.length ? [...scriptIds] : (definitions ?? []).map((definition) => definition.scriptId);
+export function workspaceCheckProgress(record: AgentRunStageRecord, scriptIds?: readonly string[], definitions?: readonly FrozenWorkspaceScript[], options: { inherited?: boolean; mode?: WorkspaceCheckMode } = {}): WorkspaceCheckProgress {
+  const ids = checkScriptIds(scriptIds, definitions);
   const reportRevision = record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined;
   const matches = options.inherited ? workspaceCheckRevisionMatches : revisionsMatch;
   const passing = new Set(verifiedWorkspaceScripts(record, scriptIds, definitions)
     .filter((check) => revisionsMatch(check.verification.completedRevision, reportRevision) && matches(check.verification.completedRevision, record.facts?.workspaceRevision))
     .map((check) => check.scriptId));
-  return { passed: ids.filter((id) => passing.has(id)), total: ids.length };
+  return { passed: ids.filter((id) => passing.has(id)), total: ids.length, scripts: ids, mode: options.mode ?? "any" };
 }
 
-/** "Stave checks: 1 of 3 passed (setup)", or that none has passed yet. */
+/**
+ * "Stave checks: 1 of 3 passed (setup)", or that none has passed yet. A check
+ * that needs every script also names the scripts it still needs.
+ */
 export function describeWorkspaceCheckProgress(progress: WorkspaceCheckProgress): string {
+  if (progress.mode === "all") {
+    const missing = progress.scripts.filter((id) => !progress.passed.includes(id));
+    if (!missing.length) return i18n.t("agentRuns:workspaceCheck.progressAllPassed", { total: progress.total, names: formatList(progress.passed) });
+    return progress.passed.length > 0
+      ? i18n.t("agentRuns:workspaceCheck.progressAllPartial", { passed: progress.passed.length, total: progress.total, names: formatList(progress.passed), missing: formatList(missing) })
+      : i18n.t("agentRuns:workspaceCheck.progressAllNone", { total: progress.total, missing: formatList(missing) });
+  }
   return progress.passed.length > 0
     ? i18n.t("agentRuns:workspaceCheck.progressPassed", { passed: progress.passed.length, total: progress.total, names: formatList(progress.passed) })
     : i18n.t("agentRuns:workspaceCheck.progressNone", { total: progress.total });
@@ -140,14 +176,28 @@ export type InheritedWorkspaceCheck = { record: AgentRunStageRecord; criterion: 
  * a later failed/unacknowledged result cannot fall back to an older success. */
 export function inheritedWorkspaceCheckRevision(aggregate: AgentRunAggregate, current: AgentRunStageRecord, inherited: InheritedWorkspaceCheck, options: { requireCurrentReport?: boolean } = {}): WorkspaceRevision | undefined {
   const results = inheritedWorkspaceCheckResults(aggregate, current, inherited, options);
-  return results ? [...results.latest.values()].find((revision) => workspaceCheckRevisionMatches(revision, current.facts?.workspaceRevision)) : undefined;
+  if (!results) return undefined;
+  const matches = (revision: WorkspaceRevision | undefined) => workspaceCheckRevisionMatches(revision, current.facts?.workspaceRevision);
+  if (inheritedCheckMode(inherited) === "all") {
+    const revisions = results.ids.map((id) => results.latest.get(id));
+    return revisions.length > 0 && revisions.every(matches) ? revisions[0] : undefined;
+  }
+  return [...results.latest.values()].find(matches);
+}
+
+/** A Run script action's own check names one script, so only an AI-stage criterion can need all of several. */
+function inheritedCheckMode(inherited: InheritedWorkspaceCheck): WorkspaceCheckMode {
+  return inherited.actionScriptId ? "any" : workspaceCheckMode(inherited.criterion);
 }
 
 /** `inheritedWorkspaceCheckRevision`, script by script. */
 export function inheritedWorkspaceCheckProgress(aggregate: AgentRunAggregate, current: AgentRunStageRecord, inherited: InheritedWorkspaceCheck): WorkspaceCheckProgress {
   const results = inheritedWorkspaceCheckResults(aggregate, current, inherited, {});
   const ids = results?.ids ?? [];
-  return { passed: ids.filter((id) => workspaceCheckRevisionMatches(results?.latest.get(id), current.facts?.workspaceRevision)), total: ids.length };
+  return {
+    passed: ids.filter((id) => workspaceCheckRevisionMatches(results?.latest.get(id), current.facts?.workspaceRevision)),
+    total: ids.length, scripts: ids, mode: inheritedCheckMode(inherited),
+  };
 }
 
 /** The latest passing revision per script, or undefined when the current report must match first and does not. */
@@ -223,17 +273,30 @@ export function scriptVerificationProblem(verification: ScriptVerification): str
 }
 
 export function workspaceCheckBlock(record: AgentRunStageRecord, criterion: NonNullable<AiStage["acceptanceCriteria"]>[number]): string {
-  const check = [...(record.facts?.workspaceScripts ?? [])].reverse().find((entry) => !criterion.scriptIds?.length || criterion.scriptIds.includes(entry.scriptId));
+  // A check that needs every script names the first one that has not passed.
+  const pending = workspaceCheckMode(criterion) === "all" ? firstPendingScript(record, criterion) : undefined;
+  const check = [...(record.facts?.workspaceScripts ?? [])].reverse().find((entry) => pending !== undefined
+    ? entry.scriptId === pending : !criterion.scriptIds?.length || criterion.scriptIds.includes(entry.scriptId));
   const reportRevision = record.report?.outcome === "complete" ? record.report.workspaceRevision : undefined;
   const reason = !check ? i18n.t("agentRuns:workspaceCheck.missing") :
     !criterion.scriptDefinitions?.some((definition) => definition.scriptId === check.scriptId && definition.definitionHash === check.definitionHash) ? i18n.t("agentRuns:workspaceCheck.definitionMismatch") :
     scriptVerificationProblem(check.verification) ?? workspaceRevisionProblem(reportRevision, "report") ?? workspaceRevisionProblem(record.facts?.workspaceRevision, "workspace") ??
     (check.exitCode !== 0 ? i18n.t("agentRuns:workspaceCheck.failed", { exitCode: check.exitCode }) : i18n.t("agentRuns:workspaceCheck.stale"));
-  return `${reason} ${workspaceCheckInstruction(criterion)}`;
+  const prefix = pending !== undefined ? `${i18n.t("agentRuns:workspaceCheck.allPending", { scriptId: pending })} ` : "";
+  return `${prefix}${reason} ${workspaceCheckInstruction(criterion)}`;
+}
+
+function firstPendingScript(record: AgentRunStageRecord, criterion: NonNullable<AiStage["acceptanceCriteria"]>[number]): string | undefined {
+  const { passed, scripts } = workspaceCheckProgress(record, criterion.scriptIds, criterion.scriptDefinitions);
+  return scripts.find((id) => !passed.includes(id));
 }
 
 /** Also used by the briefing, so the agent sees the exact runnable IDs. */
 export function workspaceCheckInstruction(criterion: NonNullable<AiStage["acceptanceCriteria"]>[number]): string {
+  if (workspaceCheckMode(criterion) === "all" && criterion.scriptIds?.length) {
+    const every = criterion.scriptIds.map((id) => `\`${id}\``).join(" and ");
+    return `Run \`stave_run_workspace_script\` with each of the scripts ${every} on the final revision (every one must pass), then report again`;
+  }
   const scripts = criterion.scriptIds?.map((id) => `\`${id}\``).join(" or ") ?? "a configured action ID";
   return `Run \`stave_run_workspace_script\` with script ${scripts} on the final revision, then report again`;
 }

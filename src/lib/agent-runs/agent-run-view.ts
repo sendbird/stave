@@ -27,7 +27,7 @@ import {
   type StageStatus,
 } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
-import { describeWorkspaceCheckProgress, workspaceCheckProgress } from "./workspace-check";
+import { describeWorkspaceCheckProgress, workspaceCheckMode, workspaceCheckProgress } from "./workspace-check";
 import { CHECK_IN_LABELS, type WorkflowStage, type StaveAction } from "@/lib/workflows/schema";
 import type { Tone } from "@/components/ads/utils/tone";
 
@@ -320,7 +320,7 @@ export function summarizePreviousStage(row: AgentRunStageRow | undefined): strin
   // A stage with a workspace check says how many of its actions passed and
   // which, rather than a bare count of verified results.
   const check = row.stage.kind === "ai" ? row.stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check") : undefined;
-  const progress = check ? workspaceCheckProgress(row.record, check.scriptIds, check.scriptDefinitions) : null;
+  const progress = check ? workspaceCheckProgress(row.record, check.scriptIds, check.scriptDefinitions, { mode: workspaceCheckMode(check) }) : null;
   const verified = row.evidence.filter(isVerifiedEvidence).length;
   if (progress && progress.total > 0) parts.push(describeWorkspaceCheckProgress(progress));
   else if (verified > 0) parts.push(i18n.t("agentRuns:agentRunView.extraCopy225", { value1: verified }));

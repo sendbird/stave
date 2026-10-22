@@ -53,17 +53,18 @@ export function AgentRunDoneWhen({ lines, staveChecks = [] }: {
 }
 
 /**
- * Under a workspace check line: how many of its actions passed, and which. The
- * check is met by any one of them, so the line says so instead of reading as
- * "all checks passed".
+ * Under a workspace check line: how many of its actions passed, and which, and
+ * the rule that decides it. A check met by any one of them says so instead of
+ * reading as "all checks passed"; one that needs every action says that.
  */
 export function CriterionChecksNote({ checks }: { checks: WorkspaceCheckProgress }) {
   useTranslation();
   if (checks.total === 0) return null;
+  const rule = checks.mode === "all" ? i18n.t("agentRuns:workspaceCheck.progressAllRequired") : i18n.t("agentRuns:workspaceCheck.progressAnyOne");
   return (
     <span className={sx(styles.checkDetail)}>
       {describeWorkspaceCheckProgress(checks)}
-      {checks.total > 1 ? ` · ${i18n.t("agentRuns:workspaceCheck.progressAnyOne")}` : null}
+      {checks.total > 1 ? ` · ${rule}` : null}
     </span>
   );
 }

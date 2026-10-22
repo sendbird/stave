@@ -28,7 +28,12 @@
     "delegated": "Delegated runs cannot execute host workspace checks. Remove the stave-check criterion or start a primary run before continuing.",
     "failed": "The workspace check exited with code {{exitCode}}.",
     "stale": "The workspace changed after the check or before the report.",
-    "skippedInvalid": "The default workspace check was not added because the workflow would be invalid: {{reason}}"
+    "skippedInvalid": "The default workspace check was not added because the workflow would be invalid: {{reason}}",
+    "progressAllPassed": "Stave checks: all {{total}} passed ({{names}})",
+    "progressAllPartial": "Stave checks: {{passed}} of {{total}} passed ({{names}}); still needed: {{missing}}",
+    "progressAllNone": "Stave checks: none of {{total}} passed yet; needed: {{missing}}",
+    "progressAllRequired": "every check must pass",
+    "allPending": "Every listed script must pass on the final revision, and '{{scriptId}}' has not."
   },
   "limit": {
     "reached": "Limit reached",
@@ -1071,5 +1076,29 @@
       "mechanicalModel": "a mechanical step cannot raise model capability",
       "alreadyCurrent": "this is already the current route"
     }
+  },
+  "stageChecks": {
+    "label": "Workspace checks",
+    "description": "Stave runs these action scripts itself on the final revision before the stage can finish.",
+    "none": "None. The agent reports when this stage is done.",
+    "add": "Add check",
+    "editScripts": "Edit scripts",
+    "editScriptsAria": "Edit scripts: {{check}}",
+    "scriptsAria": "Scripts of {{check}}",
+    "removeCheck": "Remove check: {{check}}",
+    "removeScript": "Remove {{script}} from this check",
+    "search": "Search scripts",
+    "noMatch": "No matching scripts",
+    "noScripts": "This workspace has no action scripts. Add one in Scripts first.",
+    "noWorkspace": "Open a workspace to choose from its action scripts.",
+    "readFailed": "Could not read this workspace's scripts.",
+    "unknownScript": "This workspace has no action with this ID. A run here would refuse to start.",
+    "unknownScriptLabel": "{{script}} (not in this workspace)",
+    "modeAria": "When {{check}} is met",
+    "modeAll": "All must pass",
+    "modeAllDescription": "Every listed script must pass on the final revision.",
+    "modeAny": "Any one passes",
+    "modeAnyDescription": "One passing script is enough.",
+    "optional": "Optional: this check does not block the stage."
   }
 }
