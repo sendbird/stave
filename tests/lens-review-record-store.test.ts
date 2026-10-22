@@ -149,4 +149,29 @@ describe("lens review record store", () => {
       rmSync(outsideDir, { recursive: true, force: true });
     }
   });
+
+  test("a delete that arrives while a save writes its capture leaves neither the row nor the capture", async () => {
+    const saving = store.save({ ...input(), afterPng: PNG });
+    await store.deleteTask("task-1");
+    await saving;
+    expect(store.list({ taskId: "task-1" })).toEqual([]);
+    expect(captures()).toEqual([]);
+    const savingAgain = store.save({ ...input({ taskId: "task-2" }), afterPng: PNG });
+    await store.deleteWorkspace("workspace-1");
+    await savingAgain;
+    expect(store.list({ taskId: "task-2" })).toEqual([]);
+    expect(captures()).toEqual([]);
+  });
+
+  test("a failed write or rename leaves no temporary file and no row", async () => {
+    const leftovers = () => existsSync(path.join(root, "lens-reviews")) ? readdirSync(path.join(root, "lens-reviews"), { recursive: true }).map(String).filter((name) => name.includes(".")) : [];
+    const failingRename = new LensReviewRecordStore(db, root, { io: { rename: async () => { throw new Error("rename failed"); } } });
+    await expect(failingRename.save({ ...input(), afterPng: PNG })).rejects.toThrow("rename failed");
+    expect(leftovers()).toEqual([]);
+    const failingWrite = new LensReviewRecordStore(db, root, { io: { writeFile: async (file: string) => { writeFileSync(file, "part"); throw new Error("disk full"); } } });
+    await expect(failingWrite.save({ ...input(), afterPng: PNG })).rejects.toThrow("disk full");
+    expect(leftovers()).toEqual([]);
+    expect(store.list({ taskId: "task-1" })).toEqual([]);
+  });
 });
+

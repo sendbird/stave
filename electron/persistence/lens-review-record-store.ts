@@ -40,6 +40,12 @@ export type NewLensReviewRecord = Pick<
   "taskId" | "workspaceId" | "lensSessionId" | "annotationId" | "pageUrl" | "viewport" | "before" | "documentId" | "verdict"
 >;
 
+/** File operations a save uses; tests replace them to make a write or rename fail. */
+export interface LensReviewRecordIo {
+  writeFile: (file: string, data: Uint8Array) => Promise<void>;
+  rename: (from: string, to: string) => Promise<void>;
+}
+
 /** Task IDs become folder names only through this hash. */
 function taskFolder(taskId: string): string {
   return createHash("sha256").update(taskId).digest("hex").slice(0, 24);
@@ -54,13 +60,21 @@ function taskFolder(taskId: string): string {
  */
 export class LensReviewRecordStore {
   private readonly cap: number;
+  private readonly io: LensReviewRecordIo;
+  /**
+   * Saves and deletes run one at a time: a delete that arrives while a save
+   * writes its capture waits for it and then removes it, instead of running
+   * before the row exists and letting the save bring it back.
+   */
+  private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
     private readonly db: LensReviewDatabase,
     private readonly artifactRootDir: string,
-    options: { cap?: number } = {},
+    options: { cap?: number; io?: Partial<LensReviewRecordIo> } = {},
   ) {
     this.cap = options.cap ?? MAX_LENS_REVIEW_RECORDS_PER_TASK;
+    this.io = { writeFile: (file, data) => writeFile(file, data), rename, ...options.io };
     db.exec(`
       CREATE TABLE IF NOT EXISTS lens_review_records (
         id TEXT NOT NULL PRIMARY KEY,
@@ -77,7 +91,11 @@ export class LensReviewRecordStore {
     `);
   }
 
-  async save(input: NewLensReviewRecord & { afterPng: Uint8Array; now?: Date }): Promise<LensReviewRecord> {
+  save(input: NewLensReviewRecord & { afterPng: Uint8Array; now?: Date }): Promise<LensReviewRecord> {
+    return this.serialize(() => this.saveNow(input));
+  }
+
+  private async saveNow(input: NewLensReviewRecord & { afterPng: Uint8Array; now?: Date }): Promise<LensReviewRecord> {
     const id = randomUUID();
     const at = (input.now ?? new Date()).toISOString();
     const afterImagePath = path.posix.join(LENS_REVIEW_IMAGE_DIR, taskFolder(input.taskId), `${id}.png`);
@@ -91,11 +109,12 @@ export class LensReviewRecordStore {
       ...(input.verdict === "confirmed" ? { confirmedAt: at } : { recheckReason: "reviewer" }),
     });
     const target = this.resolveImage(afterImagePath)!;
-    await mkdir(path.dirname(target), { recursive: true });
     const temporary = `${target}.${process.pid}.tmp`;
-    await writeFile(temporary, afterPng);
-    await rename(temporary, target);
+    // Every step that can leave a file behind is inside the cleanup scope.
     try {
+      await mkdir(path.dirname(target), { recursive: true });
+      await this.io.writeFile(temporary, afterPng);
+      await this.io.rename(temporary, target);
       this.db
         .prepare(
           `INSERT INTO lens_review_records (id, task_id, workspace_id, annotation_id, captured_at, record_json)
@@ -103,7 +122,7 @@ export class LensReviewRecordStore {
         )
         .run(record.id, record.taskId, record.workspaceId, record.annotationId, record.capturedAt, JSON.stringify(record));
     } catch (error) {
-      await rm(target, { force: true });
+      await Promise.all([rm(temporary, { force: true }), rm(target, { force: true })]);
       throw error;
     }
     await this.removeFiles(this.dropOverCap(record.taskId));
@@ -162,16 +181,26 @@ export class LensReviewRecordStore {
     return read.ok ? new Uint8Array(read.content) : null;
   }
 
-  async deleteTask(taskId: string): Promise<void> {
-    const paths = this.pathsWhere("task_id = ?", taskId);
-    this.db.prepare("DELETE FROM lens_review_records WHERE task_id = ?").run(taskId);
-    await this.removeFiles(paths);
+  deleteTask(taskId: string): Promise<void> {
+    return this.serialize(async () => {
+      const paths = this.pathsWhere("task_id = ?", taskId);
+      this.db.prepare("DELETE FROM lens_review_records WHERE task_id = ?").run(taskId);
+      await this.removeFiles(paths);
+    });
   }
 
-  async deleteWorkspace(workspaceId: string): Promise<void> {
-    const paths = this.pathsWhere("workspace_id = ?", workspaceId);
-    this.db.prepare("DELETE FROM lens_review_records WHERE workspace_id = ?").run(workspaceId);
-    await this.removeFiles(paths);
+  deleteWorkspace(workspaceId: string): Promise<void> {
+    return this.serialize(async () => {
+      const paths = this.pathsWhere("workspace_id = ?", workspaceId);
+      this.db.prepare("DELETE FROM lens_review_records WHERE workspace_id = ?").run(workspaceId);
+      await this.removeFiles(paths);
+    });
+  }
+
+  private serialize<T>(work: () => Promise<T>): Promise<T> {
+    const run = this.queue.then(work, work);
+    this.queue = run.catch(() => undefined);
+    return run;
   }
 
   /** Deletes the task's rows beyond the cap and returns their capture paths. */
