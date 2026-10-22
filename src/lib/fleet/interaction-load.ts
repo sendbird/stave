@@ -7,6 +7,7 @@ import {
   type FleetInteractionControlIdentity,
 } from "@/lib/fleet/control-plane";
 import { useAppStore } from "@/store/app.store";
+import type { ChatMessage, Task } from "@/types/chat";
 import { buildWorkspaceSessionStateFromShell } from "@/store/workspace-session-state";
 import {
   evictColdWorkspaceRuntimeCacheEntries,
@@ -19,6 +20,49 @@ const persistenceReads = {
   listActiveWorkspaceTurns,
 };
 export type FleetInteractionReads = typeof persistenceReads;
+
+/** One task's state as a load left it, and when. */
+interface LoadWrite {
+  seq: number;
+  task: Task | undefined;
+  messages: ChatMessage[] | undefined;
+  turnId: string | undefined;
+}
+
+// Loads of one workspace can overlap (two Fleet rows, a row and a delegated
+// child's slot). Each write is remembered while another load of the same
+// workspace is still reading, so that load can tell this hydration from a
+// provider update that landed during its read. Dropped once none is reading.
+let loadWriteSeq = 0;
+const lastLoadWrites = new Map<string, Map<string, LoadWrite>>();
+const loadsInFlight = new Map<string, number>();
+
+function rememberLoadWrite(
+  workspaceId: string,
+  session: { tasks: Task[]; messagesByTask: Record<string, ChatMessage[]>; activeTurnIdsByTask: Record<string, string | undefined> },
+) {
+  loadWriteSeq += 1;
+  const writes = lastLoadWrites.get(workspaceId) ?? new Map<string, LoadWrite>();
+  for (const task of session.tasks) {
+    writes.set(task.id, {
+      seq: loadWriteSeq,
+      task,
+      messages: session.messagesByTask[task.id],
+      turnId: session.activeTurnIdsByTask[task.id],
+    });
+  }
+  lastLoadWrites.set(workspaceId, writes);
+}
+
+function finishLoad(workspaceId: string) {
+  const left = (loadsInFlight.get(workspaceId) ?? 1) - 1;
+  if (left > 0) {
+    loadsInFlight.set(workspaceId, left);
+    return;
+  }
+  loadsInFlight.delete(workspaceId);
+  lastLoadWrites.delete(workspaceId);
+}
 
 /** True when the request's repository is not the one this window has open. */
 export function isOtherRepositoryInteraction(
@@ -60,10 +104,24 @@ export async function loadFleetInteraction(
     await before.refreshWorkspaces();
     before = useAppStore.getState();
   }
+  loadsInFlight.set(expected.workspaceId, (loadsInFlight.get(expected.workspaceId) ?? 0) + 1);
+  try {
+    await readAndMerge(expected, reads, before);
+  } finally {
+    finishLoad(expected.workspaceId);
+  }
+}
+
+async function readAndMerge(
+  expected: FleetInteractionControlIdentity,
+  reads: FleetInteractionReads,
+  before: ReturnType<typeof useAppStore.getState>,
+) {
   const beforeSession = getWorkspaceSessionForState({
     state: before,
     workspaceId: expected.workspaceId,
   });
+  const seqAtStart = loadWriteSeq;
   const [shell, page, turns] = await Promise.all([
     reads.loadWorkspaceShell({ workspaceId: expected.workspaceId }),
     reads.loadTaskMessagesPage({
@@ -86,6 +144,7 @@ export async function loadFleetInteraction(
     messagesByTask: { [expected.taskId]: page.messages },
     latestTurns: turns,
   });
+  const loadedTask = loaded.tasks.find((candidate) => candidate.id === expected.taskId) ?? task;
   useAppStore.setState((state) => {
     const ownership = state.taskWorkspaceIdById[expected.taskId];
     if (
@@ -99,36 +158,53 @@ export async function loadFleetInteraction(
       workspaceId: expected.workspaceId,
     });
     // Provider events arriving during the read win over persisted messages.
+    // The baseline is the task as this read found it, or as another load of
+    // the workspace left it since: that load's hydration is not an update.
+    const written = lastLoadWrites.get(expected.workspaceId)?.get(expected.taskId);
+    const baseline: Omit<LoadWrite, "seq"> =
+      written && written.seq > seqAtStart
+        ? written
+        : {
+            task: beforeSession?.tasks.find((item) => item.id === expected.taskId),
+            messages: beforeSession?.messagesByTask[expected.taskId],
+            turnId: beforeSession?.activeTurnIdsByTask[expected.taskId],
+          };
     if (
-      current?.tasks.find((item) => item.id === expected.taskId) !==
-        beforeSession?.tasks.find((item) => item.id === expected.taskId) ||
-      current?.messagesByTask[expected.taskId] !==
-        beforeSession?.messagesByTask[expected.taskId] ||
-      current?.activeTurnIdsByTask[expected.taskId] !==
-        beforeSession?.activeTurnIdsByTask[expected.taskId]
+      current?.tasks.find((item) => item.id === expected.taskId) !== baseline.task ||
+      current?.messagesByTask[expected.taskId] !== baseline.messages ||
+      current?.activeTurnIdsByTask[expected.taskId] !== baseline.turnId
     ) {
       return {};
     }
-    const next = {
-      ...(current ?? loaded),
-      tasks: current
-        ? current.tasks.some((item) => item.id === task.id)
-          ? current.tasks.map((item) => (item.id === task.id ? task : item))
-          : [...current.tasks, task]
-        : loaded.tasks,
-      messagesByTask: {
-        ...current?.messagesByTask,
-        [expected.taskId]: page.messages,
-      },
-      messageCountByTask: {
-        ...current?.messageCountByTask,
-        [expected.taskId]: page.totalCount,
-      },
-      activeTurnIdsByTask: {
-        ...current?.activeTurnIdsByTask,
-        [expected.taskId]: loaded.activeTurnIdsByTask[expected.taskId],
-      },
-    };
+    // A workspace nobody had loaded takes the whole read (every task's turn
+    // and count); a loaded one keeps its live state and gains this task.
+    const next = current
+      ? {
+          ...current,
+          tasks: current.tasks.some((item) => item.id === loadedTask.id)
+            ? current.tasks.map((item) => (item.id === loadedTask.id ? loadedTask : item))
+            : [...current.tasks, loadedTask],
+          messagesByTask: {
+            ...current.messagesByTask,
+            [expected.taskId]: page.messages,
+          },
+          messageCountByTask: {
+            ...current.messageCountByTask,
+            [expected.taskId]: page.totalCount,
+          },
+          activeTurnIdsByTask: {
+            ...current.activeTurnIdsByTask,
+            [expected.taskId]: loaded.activeTurnIdsByTask[expected.taskId],
+          },
+        }
+      : {
+          ...loaded,
+          messageCountByTask: {
+            ...loaded.messageCountByTask,
+            [expected.taskId]: page.totalCount,
+          },
+        };
+    rememberLoadWrite(expected.workspaceId, next);
     const mapping = {
       ...state.taskWorkspaceIdById,
       [expected.taskId]: expected.workspaceId,

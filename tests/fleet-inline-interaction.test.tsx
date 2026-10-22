@@ -237,6 +237,95 @@ describe("answering from Fleet", () => {
   });
 });
 
+describe("loading cold requests", () => {
+  // One workspace nobody has opened, with two tasks whose turns both run.
+  const coldShell = (): WorkspaceShell => ({
+    ...createEmptyWorkspaceState(), activeTaskId: "task-cold",
+    tasks: [task("task-cold", "Cold task"), task("task-cold-b", "Second cold task")],
+    messageCountByTask: { "task-cold": 1, "task-cold-b": 1 },
+  });
+  const coldTurns: PersistedTurnSummary[] = [
+    { id: "turn-cold", workspaceId: "ws-cold", taskId: "task-cold", providerId: "codex", createdAt: NOW, completedAt: null },
+    { id: "turn-cold-b", workspaceId: "ws-cold", taskId: "task-cold-b", providerId: "codex", createdAt: NOW, completedAt: null },
+  ];
+  const pageOf = (messageId: string, requestId: string, turnId: string): TaskMessagesPage => ({
+    messages: [message(messageId, approval(requestId), turnId)], totalCount: 1, limit: 120, offset: 0, hasMoreOlder: false,
+  });
+  const identityOf = (taskId: string, turnId: string, requestId: string, messageId: string) => ({
+    repositoryPath: REPOSITORY_PATH, workspaceId: "ws-cold", taskId, turnId, kind: "approval" as const, requestId, messageId,
+  });
+
+  test("loading one task's request keeps the workspace's other running turns", async () => {
+    const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
+    const useAppStore = await store();
+    await loadFleetInteraction(identityOf("task-cold", "turn-cold", "approval-cold", "m-cold"), {
+      loadWorkspaceShell: async () => coldShell(),
+      loadTaskMessagesPage: async () => pageOf("m-cold", "approval-cold", "turn-cold"),
+      listActiveWorkspaceTurns: async () => coldTurns,
+    });
+    const cached = useAppStore.getState().workspaceRuntimeCacheById["ws-cold"];
+    expect(cached?.activeTurnIdsByTask).toEqual({ "task-cold": "turn-cold", "task-cold-b": "turn-cold-b" });
+    expect(cached?.messageCountByTask).toMatchObject({ "task-cold": 1, "task-cold-b": 1 });
+  });
+
+  test("two reads of one cold workspace at once both land, and both requests can be answered", async () => {
+    const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
+    const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
+    const useAppStore = await store();
+    let releaseSecond: () => void = () => {};
+    const secondPage = new Promise<TaskMessagesPage>((resolve) => {
+      releaseSecond = () => resolve(pageOf("m-cold-b", "approval-cold-b", "turn-cold-b"));
+    });
+    const reads = {
+      loadWorkspaceShell: async () => coldShell(),
+      loadTaskMessagesPage: async ({ taskId }: { taskId: string }) =>
+        taskId === "task-cold" ? pageOf("m-cold", "approval-cold", "turn-cold") : secondPage,
+      listActiveWorkspaceTurns: async () => coldTurns,
+    } as unknown as import("@/lib/fleet/interaction-load").FleetInteractionReads;
+    const first = identityOf("task-cold", "turn-cold", "approval-cold", "m-cold");
+    const second = identityOf("task-cold-b", "turn-cold-b", "approval-cold-b", "m-cold-b");
+    // Both start before either lands.
+    const loadingSecond = loadFleetInteraction(second, reads);
+    await loadFleetInteraction(first, reads);
+    releaseSecond();
+    await loadingSecond;
+
+    const cached = useAppStore.getState().workspaceRuntimeCacheById["ws-cold"];
+    expect(cached?.messagesByTask["task-cold"]?.[0]?.id).toBe("m-cold");
+    expect(cached?.messagesByTask["task-cold-b"]?.[0]?.id).toBe("m-cold-b");
+    expect(respondToFleetInteraction(first, { kind: "approval", approved: true }).ok).toBe(true);
+    expect(respondToFleetInteraction(second, { kind: "approval", approved: true }).ok).toBe(true);
+  });
+
+  test("a provider update that lands during the read still wins over the stored page", async () => {
+    const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
+    const useAppStore = await store();
+    let releasePage: () => void = () => {};
+    const page = new Promise<TaskMessagesPage>((resolve) => {
+      releasePage = () => resolve(pageOf("m-cold", "approval-cold", "turn-cold"));
+    });
+    const loading = loadFleetInteraction(identityOf("task-cold", "turn-cold", "approval-cold", "m-cold"), {
+      loadWorkspaceShell: async () => coldShell(),
+      loadTaskMessagesPage: async () => page,
+      listActiveWorkspaceTurns: async () => coldTurns,
+    });
+    // The live session arrives first, with a newer message for the task.
+    const live = message("m-live", approval("approval-live"), "turn-cold");
+    useAppStore.setState((state) => ({
+      workspaceRuntimeCacheById: {
+        ...state.workspaceRuntimeCacheById,
+        "ws-cold": {
+          ...createEmptyWorkspaceState(), nativeSessionReadyByTask: {}, tasks: [task("task-cold", "Cold task")],
+          activeTaskId: "task-cold", messagesByTask: { "task-cold": [live] }, activeTurnIdsByTask: { "task-cold": "turn-cold" },
+        },
+      },
+    }));
+    releasePage();
+    await loading;
+    expect(useAppStore.getState().workspaceRuntimeCacheById["ws-cold"]?.messagesByTask["task-cold"]).toEqual([live]);
+  });
+});
+
 describe("the Fleet row", () => {
   type Interaction = import("@/components/layout/useFleetRowInteraction").FleetRowInteraction;
   function interaction(overrides: Partial<Interaction>): Interaction {
