@@ -118,7 +118,7 @@ import { createInterface } from "node:readline";
 import { appendFileSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("codex-cli 0.162.1"); process.exit(0); }
 const send = (message) => console.log(JSON.stringify({ jsonrpc: "2.0", ...message }));
-const KEYS = ["features.shell_tool", "features.unified_exec", "features.apps", "features.plugins", "features.multi_agent", "features.multi_agent_v2", "features.view_image", "tools.view_image", "tools.update_plan.enabled", "network_access", "web_search"];
+const KEYS = ["features.shell_tool", "features.unified_exec", "features.apps", "features.plugins", "features.multi_agent", "features.multi_agent_v2", "features.view_image", "features.image_generation", "agents.enabled", "tools.view_image", "tools.update_plan.enabled", "network_access", "web_search"];
 createInterface({ input: process.stdin }).on("line", (line) => {
   const m = JSON.parse(line);
   if (!m.method || m.id == null) return;
@@ -182,6 +182,8 @@ describe("a tool-less Codex turn", () => {
         "features.multi_agent": false,
         "features.multi_agent_v2": false,
         "features.view_image": false,
+        "features.image_generation": false,
+        "agents.enabled": false,
         "tools.view_image": false,
         "tools.update_plan.enabled": false,
         network_access: false,

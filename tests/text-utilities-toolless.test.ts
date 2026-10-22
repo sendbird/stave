@@ -110,6 +110,8 @@ const CODEX_TOOLLESS = {
   "features.multi_agent": false,
   "features.multi_agent_v2": false,
   "features.view_image": false,
+  "features.image_generation": false,
+  "agents.enabled": false,
   "tools.view_image": false,
   "tools.update_plan.enabled": false,
   network_access: false,
