@@ -732,7 +732,9 @@
     "shortened_one": "{{count}} long message is shortened in the middle.",
     "shortened_other": "{{count}} long messages are shortened in the middle.",
     "nothingLeftOut": "Nothing is left out.",
-    "textOnly": "Messages travel as text: tool output, images and attached files stay behind.",
+    "textOnly": "Messages travel as their text: their tool calls, images and attached files stay behind.",
+    "textAndParts_one": "Messages travel as their text. {{count}} message without text travels as a summary of its parts instead: tool calls with their input and output, and images and files by name.",
+    "textAndParts_other": "Messages travel as their text. {{count}} messages without text travel as a summary of their parts instead: tool calls with their input and output, and images and files by name.",
     "recordFirst_one": "It receives the task's handoff record first: {{count}} section.",
     "recordFirst_other": "It receives the task's handoff record first: {{count}} sections.",
     "recordNone": "This task has no handoff record yet."

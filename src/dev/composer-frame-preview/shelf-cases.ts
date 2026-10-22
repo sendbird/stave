@@ -519,14 +519,31 @@ function switchMessages(caseId: "switch" | "switch-back"): ChatMessage[] {
         content: `Step ${index + 1}: tighten the composer shelf and keep the queue order. ${"Context. ".repeat(30)}`,
         parts: [],
       },
-      {
-        id: `switch-a${index}`,
-        role: "assistant" as const,
-        model: provider === "codex" ? "gpt-5.5" : "claude-sonnet-5",
-        providerId: provider,
-        content: `Done with step ${index + 1}. ${"Details. ".repeat(40)}`,
-        parts: [],
-      },
+      // The last reply of the long case ran a command and wrote no text, so it travels as its parts.
+      caseId === "switch" && index === exchanges - 1
+        ? {
+            id: `switch-a${index}`,
+            role: "assistant" as const,
+            model: "claude-sonnet-5",
+            providerId: provider,
+            content: "",
+            parts: [{
+              type: "tool_use" as const,
+              toolUseId: `switch-tool-${index}`,
+              toolName: "Bash",
+              input: JSON.stringify({ command: "bun test tests/composer-shelf.test.ts" }),
+              output: "12 pass, 0 fail",
+              state: "output-available" as const,
+            }],
+          }
+        : {
+            id: `switch-a${index}`,
+            role: "assistant" as const,
+            model: provider === "codex" ? "gpt-5.5" : "claude-sonnet-5",
+            providerId: provider,
+            content: `Done with step ${index + 1}. ${"Details. ".repeat(40)}`,
+            parts: [],
+          },
     ];
   }).flat();
 }

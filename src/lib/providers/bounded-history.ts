@@ -27,6 +27,8 @@ export interface BoundedHistoryPlan {
   /** The history did not fit the budget, so the omission notice leads the replay. */
   overflowed: boolean;
   maxChars: number;
+  /** Which offered messages are in the replay, in order. */
+  keptIndexes: number[];
 }
 
 /**
@@ -53,6 +55,7 @@ export function planBoundedHistory(args: {
       omittedMessages: 0,
       overflowed: false,
       maxChars,
+      keptIndexes: lines.map((_, index) => index),
     };
   }
   const anchorIndex = args.messages.findIndex(
@@ -65,6 +68,7 @@ export function planBoundedHistory(args: {
   let shortenedMessages = anchor && anchor !== lines[anchorIndex] ? 1 : 0;
   let remaining = maxChars - OMITTED_HISTORY_NOTICE.length - anchor.length - 2;
   const tail: string[] = [];
+  const tailIndexes: number[] = [];
   for (
     let index = lines.length - 1;
     index >= 0 && remaining > 100;
@@ -74,6 +78,7 @@ export function planBoundedHistory(args: {
     const line = shorten(lines[index]!, Math.min(4_000, remaining - 1));
     if (line !== lines[index]) shortenedMessages += 1;
     tail.unshift(line);
+    tailIndexes.unshift(index);
     remaining -= line.length + 1;
   }
   const keptMessages = tail.length + (anchor ? 1 : 0);
@@ -85,6 +90,7 @@ export function planBoundedHistory(args: {
     omittedMessages: lines.length - keptMessages,
     overflowed: true,
     maxChars,
+    keptIndexes: [...(anchor ? [anchorIndex] : []), ...tailIndexes],
   };
 }
 

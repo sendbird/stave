@@ -56,7 +56,12 @@ export function describeProviderSwitch(preview: ProviderSwitchPreview, handoffSe
   if (preview.omittedMessages === 0 && preview.shortenedMessages === 0) {
     lines.push(i18n.t("composer:providerSwitch.nothingLeftOut"));
   }
-  lines.push(i18n.t("composer:providerSwitch.textOnly"));
+  // What travels, as the replay builds it: text, or a summary of the parts of a message without text.
+  lines.push(
+    preview.summarizedMessages
+      ? i18n.t("composer:providerSwitch.textAndParts", { count: preview.summarizedMessages })
+      : i18n.t("composer:providerSwitch.textOnly"),
+  );
   return lines;
 }
 

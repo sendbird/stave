@@ -97,8 +97,10 @@ a one-line summary. Choose `What it receives` for the details:
   here for a resumed one;
 - what the 12,000-character budget leaves out, and how many long messages are
   shortened in the middle;
-- that messages travel as text: tool output, images and attached files stay
-  behind.
+- that messages travel as their text, so their tool calls, images and
+  attached files stay behind; a message without text travels as a summary of
+  its parts instead (tool calls with their input and output, images and files
+  by name), and the notice says how many do.
 
 When the draft starts with a provider command such as `/compact`, the command
 goes to the provider as typed, with no excerpt and no handoff record, and the

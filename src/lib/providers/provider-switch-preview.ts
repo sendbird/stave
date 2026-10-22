@@ -31,6 +31,11 @@ export interface ProviderSwitchPreview {
   maxChars: number;
   overflowed: boolean;
   /**
+   * Kept messages without text: they travel as a summary of their parts (tool
+   * calls with input and output, images and files by name) instead of text.
+   */
+  summarizedMessages?: number;
+  /**
    * The provider command the draft starts with (`/compact`), when it is one:
    * it goes as typed, with no excerpt and no handoff record.
    */
@@ -92,6 +97,11 @@ export function buildProviderSwitchPreview(args: {
   const plan = planBoundedHistory({
     messages: selected.map((message) => ({ role: message.role, text: canonicalHistoryText(message) })),
   });
+  // The replay uses a message's text; one without text is replaced by its parts, summarized.
+  const summarizedMessages = plan.keptIndexes.filter((index) => {
+    const message = selected[index];
+    return message !== undefined && message.content.trim().length === 0 && canonicalHistoryText(message).length > 0;
+  }).length;
   return {
     fromProviderId,
     toProviderId: args.toProviderId,
@@ -103,5 +113,6 @@ export function buildProviderSwitchPreview(args: {
     chars: selected.length > 0 ? plan.text.length : 0,
     maxChars: plan.maxChars,
     overflowed: plan.overflowed,
+    summarizedMessages,
   };
 }

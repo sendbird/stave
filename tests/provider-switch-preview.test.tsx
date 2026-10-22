@@ -116,6 +116,32 @@ describe("provider switch preview", () => {
     expect(text.chars).toBeGreaterThan(0);
   });
 
+  test("what the notice says travels matches the prompt: text, or a summary of parts for a message without text", () => {
+    const prompt = (messages: ChatMessage[]) => buildProviderTurnPrompt({
+      providerId: "cursor",
+      prompt: "next",
+      conversation: buildCanonicalConversationRequest({
+        turnId: "t", taskId: "task", workspaceId: "ws", providerId: "cursor", history: messages, userInput: "next",
+      }),
+    });
+    // A reply with text: its tool call and output stay behind.
+    const withText = conversation(2);
+    withText[1] = { ...withText[1]!, parts: [{ type: "tool_use", toolUseId: "t0", toolName: "Bash", input: "{}", output: "HIDDEN_OUTPUT", state: "output-available" }] };
+    expect(prompt(withText)).not.toContain("HIDDEN_OUTPUT");
+    const textOnly = describeProviderSwitch(buildProviderSwitchPreview({ messages: withText, toProviderId: "cursor", resume: null })!);
+    expect(textOnly).toContain("Messages travel as their text: their tool calls, images and attached files stay behind.");
+    // A reply without text travels as a summary of its parts, tool output included.
+    const withoutText = conversation(2);
+    withoutText.splice(2, 0, {
+      id: "a-tools", role: "assistant", model: "m", providerId: "claude-code", content: "",
+      parts: [{ type: "tool_use", toolUseId: "t1", toolName: "Bash", input: "{}", output: "SENT_OUTPUT", state: "output-available" }],
+    });
+    expect(prompt(withoutText)).toContain("SENT_OUTPUT");
+    const summarized = describeProviderSwitch(buildProviderSwitchPreview({ messages: withoutText, toProviderId: "cursor", resume: null })!).join(" ");
+    expect(summarized).not.toContain("stay behind");
+    expect(summarized).toContain("1 message without text travels as a summary of its parts instead: tool calls with their input and output, and images and files by name.");
+  });
+
   test("reads as sentences that say what is kept and what is not", () => {
     const fresh = describeProviderSwitch({
       fromProviderId: "claude-code", toProviderId: "codex", session: "fresh",
@@ -126,7 +152,7 @@ describe("provider switch preview", () => {
       "It receives a 11,850-character excerpt of the conversation: 31 of 40 messages.",
       "To fit 12,000 characters, the first request and the latest messages are kept and 9 messages in between are left out.",
       "2 long messages are shortened in the middle.",
-      "Messages travel as text: tool output, images and attached files stay behind.",
+      "Messages travel as their text: their tool calls, images and attached files stay behind.",
     ]);
     const resumed = describeProviderSwitch({
       fromProviderId: "codex", toProviderId: "claude-code", session: "resume",
