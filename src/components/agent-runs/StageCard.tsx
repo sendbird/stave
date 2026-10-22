@@ -1,11 +1,12 @@
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { formatDuration } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import { ArrowUpRight, ChevronRight, RotateCcw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { sx } from "@/components/ads/utils/stylex";
-import { formatAge, STAGE_STATUS_PRESENTATION, type AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
+import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
 import { STAVE_ACTION_LABELS } from "@/lib/workflows/schema";
 import { EvidenceList } from "./EvidenceList";
 import { StageStatusIcon } from "./StageStatusIcon";
@@ -15,7 +16,7 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 export function describeStageMeta(row: AgentRunStageRow): string {
   const parts: string[] = [];
   if (row.status === "running") parts.push("now");
-  else if (row.durationMs !== null && row.status === "completed") parts.push(formatAge(row.durationMs));
+  else if (row.durationMs !== null && row.status === "completed") parts.push(formatDuration(row.durationMs));
   if (row.attempts > 1) parts.push(i18n.t("agentRuns:remaining.presentationCopy4", { v1: row.attempts }));
   if (row.asksFirst && (row.status === "pending" || row.status === "awaiting-sign-off")) {
     parts.push(i18n.t("agentRuns:stageCard.extraCopy11"));
@@ -208,7 +209,7 @@ export function StageCard(props: {
             </div>
           ) : null}
           {row.status === "running" && !report && !row.record?.detail ? (
-            <p className={sx(styles.notice)}>{i18n.t("agentRuns:stageCard.sentence8", { value1: row.durationMs !== null ? i18n.t("agentRuns:remaining.presentationCopy6", { v1: formatAge(row.durationMs) }) : "" })}</p>
+            <p className={sx(styles.notice)}>{i18n.t("agentRuns:stageCard.sentence8", { value1: row.durationMs !== null ? i18n.t("agentRuns:remaining.presentationCopy6", { v1: formatDuration(row.durationMs) }) : "" })}</p>
           ) : null}
           <InstructionDisclosure
             label={row.stage.kind === "ai" ? i18n.t("agentRuns:stageCard.label") : i18n.t("agentRuns:stageCard.label2")}

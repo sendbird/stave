@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import { memo, useId, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -20,7 +21,6 @@ import {
 import {
   describeDeadline,
   describeExchangeStatus,
-  formatExchangeDuration,
   type ExchangeStatus,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
@@ -163,8 +163,8 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
           {elapsedMs !== null ? (
             <span className={sx(styles.rowElapsed)}>
               <VisuallyHidden>
-                {status.label}, {formatExchangeDuration(elapsedMs)} {i18n.t("agentRuns:exchangeRow.exchangeRow")}</VisuallyHidden>
-              <span aria-hidden="true">{formatExchangeDuration(elapsedMs)}</span>
+                {status.label}, {formatDuration(elapsedMs, { tenths: true })} {i18n.t("agentRuns:exchangeRow.exchangeRow")}</VisuallyHidden>
+              <span aria-hidden="true">{formatDuration(elapsedMs, { tenths: true })}</span>
             </span>
           ) : null}
           {deadline ? (

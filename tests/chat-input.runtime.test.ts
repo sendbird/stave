@@ -129,7 +129,7 @@ describe("chat-input runtime helpers", () => {
       statusLabel: "budget limited",
       objective: "Finish the migration and keep the provider tests green",
       tokenLabel: "2.5k / 10k tokens (25%)",
-      elapsedLabel: "2m elapsed",
+      elapsedLabel: "2m 5s elapsed",
       progressPercent: 25,
       tone: "warning",
     });

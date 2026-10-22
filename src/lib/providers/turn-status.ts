@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
 import {
   createTurnReceipt, observeTurnEvent, finishTurnReceipt,
@@ -1128,17 +1129,6 @@ export function resolveProviderTurnDisplayState(args: {
   return "responding";
 }
 
-function formatDurationLabel(elapsedMs: number) {
-  const totalSeconds = Math.floor(Math.max(0, elapsedMs) / 1000);
-  if (totalSeconds < 60) {
-    return i18n.t("providers:compactDuration.seconds", { seconds: totalSeconds });
-  }
-
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return i18n.t(seconds > 0 ? "providers:compactDuration.minutesSeconds" : "providers:compactDuration.minutes", { minutes, seconds });
-}
-
 export function formatProviderTurnIdleDuration(args: {
   activity?: Pick<ProviderTurnActivitySnapshot, "lastEventAt"> | null;
   now?: number;
@@ -1147,7 +1137,7 @@ export function formatProviderTurnIdleDuration(args: {
     return null;
   }
 
-  return formatDurationLabel(
+  return formatDuration(
     (args.now ?? Date.now()) - args.activity.lastEventAt,
   );
 }
@@ -1161,7 +1151,7 @@ export function formatProviderTurnElapsedDuration(args: {
     return null;
   }
 
-  return formatDurationLabel(
+  return formatDuration(
     (args.now ?? Date.now()) - args.activity.startedAt,
   );
 }

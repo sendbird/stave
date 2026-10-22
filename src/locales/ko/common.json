@@ -111,6 +111,8 @@
     "utc": "UTC"
   },
   "duration": {
+    "milliseconds": "{{value}}밀리초",
+    "underSecond": "1초 미만",
     "seconds": "{{value}}초",
     "minutes": "{{value}}분",
     "hours": "{{value}}시간",

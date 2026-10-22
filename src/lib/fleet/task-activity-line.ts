@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import type {
   ProviderTurnActivitySnapshot,
   ProviderTurnWorkItem,
@@ -80,28 +81,6 @@ export function buildTaskActivityLine(args: {
   };
 }
 
-/** "12s", "2m 10s", "1h 5m": a measured span, never rounded up. */
-export function formatActivityDuration(ms: number) {
-  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
-  if (totalSeconds < 60) {
-    return i18n.t("session:duration.seconds", { count: totalSeconds });
-  }
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  if (totalMinutes < 60) {
-    const seconds = totalSeconds % 60;
-    return seconds > 0
-      ? i18n.t("session:duration.minutesSeconds", {
-          minutes: totalMinutes,
-          seconds,
-        })
-      : i18n.t("session:duration.minutes", { count: totalMinutes });
-  }
-  return i18n.t("session:duration.hoursMinutes", {
-    hours: Math.floor(totalMinutes / 60),
-    minutes: totalMinutes % 60,
-  });
-}
-
 /** "Edit file · src/search.ts · 12s ago", or null when no work was reported. */
 export function describeLastActivity(
   line: Pick<TaskActivityLine, "last">,
@@ -118,6 +97,6 @@ export function describeLastActivity(
     : line.last.label;
   return i18n.t("fleet:taskActivity.ago", {
     activity,
-    duration: formatActivityDuration(now - line.last.at),
+    duration: formatDuration(now - line.last.at),
   });
 }

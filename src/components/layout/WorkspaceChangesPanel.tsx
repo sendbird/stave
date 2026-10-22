@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
@@ -384,9 +385,7 @@ const AUTO_REFRESH_OPTIONS: Array<{ seconds: number; label: string }> = [
 
 function formatAutoRefreshShortLabel(seconds: number) {
   if (seconds <= 0) return i18n.t("workspace:workspaceChangesPanel.off");
-  if (seconds < 60) return i18n.t("workspace:format.duration.seconds", { count: seconds });
-  const minutes = Math.round(seconds / 60);
-  return i18n.t("workspace:format.duration.minutes", { count: minutes });
+  return formatDuration(seconds * 1_000);
 }
 
 function formatRecentCommitCount(count: number) {

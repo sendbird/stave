@@ -935,12 +935,6 @@
     "presentationCopy396": "{{v1}}개 대기 중",
     "presentationCopy397": "{{v1}}개 완료"
   },
-  "duration": {
-    "seconds_other": "{{count}}초",
-    "minutes_other": "{{count}}분",
-    "minutesSeconds": "{{minutes}}분 {{seconds}}초",
-    "hoursMinutes": "{{hours}}시간 {{minutes}}분"
-  },
   "presentation": {
     "on": "켜짐",
     "off": "꺼짐"

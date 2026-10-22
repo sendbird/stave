@@ -1,4 +1,5 @@
 import { awaitsUsageReset, describeAgentRunUsageLimit } from "./usage-limit";
+import { formatDuration } from "@/i18n/format";
 import { toAgentRunAccountSwitch } from "./account-pool";
 import {
   activeEventWait,
@@ -85,16 +86,14 @@ export function projectAgentRunStages(detail: AgentRunDetail, now: Date): AgentR
   });
 }
 
-/** "now", "45s", "6m", "2h", "3d". */
+/**
+ * An age in a sentence ("checked 2m ago", "next try in 5m"): "now", then the
+ * largest unit of the shared duration words. Elapsed spans read in full with
+ * `formatDuration` instead.
+ */
 export function formatAge(ms: number): string {
   if (!Number.isFinite(ms) || ms < 5_000) return i18n.t("agentRuns:agentRunView.now");
-  const seconds = Math.floor(ms / 1_000);
-  if (seconds < 60) return i18n.t("agentRuns:agentRunView.seconds", { value: seconds });
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return i18n.t("agentRuns:agentRunView.minutes", { value: minutes });
-  const hours = Math.floor(minutes / 60);
-  if (hours < 48) return i18n.t("agentRuns:agentRunView.hours", { value: hours });
-  return i18n.t("agentRuns:agentRunView.days", { value: Math.floor(hours / 24) });
+  return formatDuration(ms, { units: 1 });
 }
 
 export type AgentRunHeadlineState = "active" | "waiting" | "attention" | "done" | "ended";

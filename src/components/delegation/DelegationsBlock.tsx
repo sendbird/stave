@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import {
@@ -8,7 +9,6 @@ import {
   type DelegationActionId,
   type DelegationExchange,
 } from "@/lib/delegation/exchange";
-import { formatExchangeDuration } from "@/lib/delegation/format";
 import { ExchangeRow } from "./ExchangeRow";
 import { delegationStyles as styles } from "./delegation.styles";
 
@@ -101,7 +101,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
               className={sx(styles.blockElapsed)}
               title={i18n.t("agentRuns:delegationsBlock.title")}
             >
-              {formatExchangeDuration(spanMs)}
+              {formatDuration(spanMs, { tenths: true })}
             </span>
           ) : null}
         </div>

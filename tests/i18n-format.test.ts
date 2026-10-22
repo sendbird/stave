@@ -20,7 +20,8 @@ const DAY = 24 * HOUR;
 describe("formatDuration", () => {
   test("reads two units by default and counts down to the unit shown", () => {
     expect(formatDuration(0)).toBe("0s");
-    expect(formatDuration(999)).toBe("0s");
+    // A moment is not nothing.
+    expect(formatDuration(999)).toBe("<1s");
     expect(formatDuration(45 * SECOND)).toBe("45s");
     // A live clock never reads ahead: 59.9s is still 59s, not 1m.
     expect(formatDuration(59_900)).toBe("59s");
@@ -39,6 +40,9 @@ describe("formatDuration", () => {
     expect(formatDuration(4_250, { tenths: true })).toBe("4.2s");
     expect(formatDuration(4_000, { tenths: true })).toBe("4s");
     expect(formatDuration(12 * SECOND, { tenths: true })).toBe("12s");
+    expect(formatDuration(350, { milliseconds: true })).toBe("350ms");
+    expect(formatDuration(350, { milliseconds: true, tenths: true })).toBe("350ms");
+    expect(formatDuration(2_450, { milliseconds: true, tenths: true })).toBe("2.4s");
   });
 
   test("a negative or unreadable span reads as zero", () => {
@@ -54,6 +58,8 @@ describe("formatDuration", () => {
     expect(formatDuration(HOUR + 2 * MINUTE)).toBe("1시간 2분");
     expect(formatDuration(DAY + 2 * HOUR)).toBe("1일 2시간");
     expect(formatDuration(400, { tenths: true })).toBe("0.4초");
+    expect(formatDuration(400)).toBe("1초 미만");
+    expect(formatDuration(350, { milliseconds: true })).toBe("350밀리초");
   });
 });
 

@@ -1,4 +1,4 @@
-import { formatTime } from "@/i18n/format";
+import { formatTime, formatDuration } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -12,7 +12,6 @@ import {
 import {
   describeAgentIdentity,
   describeDeadline,
-  formatExchangeDuration,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
 import { DelegateRoute } from "./DelegateRoute";
@@ -126,7 +125,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       value:
         exchange.setup.deadlineMs === undefined
           ? i18n.t("agentRuns:exchangeDetail.extraCopy81")
-          : formatExchangeDuration(exchange.setup.deadlineMs),
+          : formatDuration(exchange.setup.deadlineMs, { tenths: true }),
     });
   }
   if (exchange.identity.source) {
@@ -253,7 +252,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
           <ExchangeStatusBadge
             status={exchange.outcome.status}
             data-testid="exchange-detail-status"
-            suffix={elapsedMs !== null ? formatExchangeDuration(elapsedMs) : undefined}
+            suffix={elapsedMs !== null ? formatDuration(elapsedMs, { tenths: true }) : undefined}
           />
           {deadline ? (
             <span

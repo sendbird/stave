@@ -24,10 +24,12 @@ export function useAgentRunDecision(leadTaskId: string | null | undefined): Agen
 }
 
 /**
- * A clock for ages ("6m", "2h"). Ticks only while `active`; a static surface,
- * such as a finished agent run, never re-renders on a timer.
+ * A clock for elapsed time and ages. Elapsed spans read to the second
+ * (`2m 10s`), so an active clock ticks every five seconds, as Fleet's does.
+ * Ticks only while `active`; a static surface, such as a finished agent run,
+ * never re-renders on a timer.
  */
-export function useNow(active: boolean, intervalMs = 30_000) {
+export function useNow(active: boolean, intervalMs = 5_000) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!active) return;

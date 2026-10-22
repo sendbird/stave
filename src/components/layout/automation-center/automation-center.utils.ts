@@ -1,4 +1,4 @@
-import { formatDateTime as formatLocaleDateTime, formatRelativeTime as formatLocaleRelativeTime } from "@/i18n/format";
+import { formatDateTime as formatLocaleDateTime, formatDuration as formatLocaleDuration, formatRelativeTime as formatLocaleRelativeTime } from "@/i18n/format";
 import { i18n } from "@/i18n";
 import {
   createDefaultAutomationRuntime,
@@ -210,21 +210,7 @@ export function formatRunDuration(run: AutomationRun, now = Date.now()) {
   const completedAt = run.completedAt
     ? new Date(run.completedAt).getTime()
     : now;
-  const durationMs = Math.max(0, completedAt - startedAt);
-  if (durationMs < 1000) {
-    return i18n.t("workspace:format.duration.lessThanSecond");
-  }
-  const totalSeconds = Math.round(durationMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  if (hours > 0) {
-    return i18n.t("workspace:format.duration.hoursMinutes", { hours, minutes });
-  }
-  if (minutes > 0) {
-    return i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds });
-  }
-  return i18n.t("workspace:format.duration.seconds", { count: seconds });
+  return formatLocaleDuration(Math.max(0, completedAt - startedAt));
 }
 
 /**

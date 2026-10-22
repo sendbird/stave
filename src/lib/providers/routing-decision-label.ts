@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import { formatNumber } from "@/i18n/format";
+import { formatDuration, formatNumber } from "@/i18n/format";
 import { findHumanModelName } from "./model-catalog";
 import type { RoutingDecisionObservation } from "./routing-decision";
 const failureKeys = {
@@ -20,10 +20,9 @@ export function formatRoutingDecision(observation: RoutingDecisionObservation) {
   });
 }
 
-/** `840ms` under a second, `2.4s` above it. */
+/** `840ms` under a second, `2.4s` above it: the shared duration words. */
 export function formatDecisionElapsed(ms: number): string {
-  const safe = Math.max(0, Math.round(ms));
-  return safe < 1_000 ? `${safe}ms` : `${(safe / 1_000).toFixed(1)}s`;
+  return formatDuration(ms, { milliseconds: true, tenths: true });
 }
 
 export type RoutingDecisionFactKey = "model" | "elapsed" | "failure" | "cost";

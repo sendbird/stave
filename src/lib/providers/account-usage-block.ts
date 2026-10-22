@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import type {
   AccountUsageBucket,
   AccountUsageWindow,
@@ -287,9 +288,8 @@ function formatResetPhrase(resetsAt: number | null, now: number): string {
   if (deltaMs <= 0) {
     return i18n.t("providers:accountUsageBlock.itResets");
   }
-  const hours = Math.floor(deltaMs / 3_600_000);
-  const minutes = Math.floor((deltaMs % 3_600_000) / 60_000);
-  const wait = i18n.t(hours > 0 ? "providers:compactDuration.hoursMinutes" : "providers:compactDuration.minutes", { hours, minutes });
+  // Minutes are the precision a reset needs; under one reads as a minute.
+  const wait = formatDuration(Math.max(60_000, Math.floor(deltaMs / 60_000) * 60_000));
   return i18n.t("providers:accountUsageBlock.itResetsIn", { value1: wait });
 }
 

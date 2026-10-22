@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import { formatDecisionElapsed, formatRoutingDecision } from "@/lib/providers/routing-decision-label";
 import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-profile";
 import type { AgentRunRouteCause, AutoRoutingModelResolution } from "@/lib/providers/provider.types";
@@ -123,5 +124,5 @@ export function buildPendingAutoRouteView(
  * route mark. Nothing under a second, where the line has only just appeared.
  */
 export function formatPendingRouteElapsed(ms: number): string | null {
-  return ms < 1_000 ? null : `${Math.floor(ms / 1_000)}s`;
+  return ms < 1_000 ? null : formatDuration(ms);
 }

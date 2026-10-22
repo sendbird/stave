@@ -111,6 +111,8 @@
     "utc": "UTC"
   },
   "duration": {
+    "milliseconds": "{{value}}ms",
+    "underSecond": "<1s",
     "seconds": "{{value}}s",
     "minutes": "{{value}}m",
     "hours": "{{value}}h",

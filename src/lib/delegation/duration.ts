@@ -1,37 +1,14 @@
+import { formatDuration } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 /**
- * Duration and deadline vocabulary shared by every delegation surface.
+ * Deadline vocabulary shared by every delegation surface. Durations read with
+ * the shared `formatDuration` (tenths under ten seconds, since a cached advisor
+ * really does answer in 150ms).
  *
  * Kept free of renderer imports so the main-process advisor trace can use the
- * same formatter as the UI; `format.ts` re-exports these next to the identity
+ * same words as the UI; `format.ts` re-exports these next to the identity
  * and status helpers that need the model catalog.
  */
-
-/**
- * One duration format for every exchange: `0.4s` under ten seconds (a cached
- * advisor really does answer in 150ms, and flooring it to a second made a
- * fast advisor look slow), `12s` under a minute, `1m 4s` under an hour and
- * `1h 2m` beyond. Trailing `.0` is dropped so four seconds reads `4s`.
- */
-export function formatExchangeDuration(durationMs: number): string {
-  const safeMs = Math.max(0, Math.round(durationMs));
-  if (safeMs < 10_000) {
-    const tenths = Math.round(safeMs / 100) / 10;
-    return i18n.t("agentRuns:duration.seconds", { value: tenths });
-  }
-  const totalSeconds = Math.round(safeMs / 1_000);
-  if (totalSeconds < 60) {
-    return i18n.t("agentRuns:duration.seconds", { value: totalSeconds });
-  }
-  const totalMinutes = Math.floor(totalSeconds / 60);
-  if (totalMinutes < 60) {
-    const seconds = totalSeconds % 60;
-    return seconds > 0 ? i18n.t("agentRuns:duration.minutesSeconds", { minutes: totalMinutes, seconds }) : i18n.t("agentRuns:duration.minutes", { value: totalMinutes });
-  }
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes > 0 ? i18n.t("agentRuns:duration.hoursMinutes", { hours, minutes }) : i18n.t("agentRuns:duration.hours", { value: hours });
-}
 
 export interface DeadlineDescription {
   /** `Deadline in 12s`, `Deadline passed` or `No deadline`. */
@@ -65,7 +42,7 @@ export function describeDeadline(args: {
     return { label: i18n.t("agentRuns:duration.label2"), passed: true, remainingMs: 0 };
   }
   return {
-    label: i18n.t("agentRuns:duration.label3", { value1: formatExchangeDuration(remaining) }),
+    label: i18n.t("agentRuns:duration.label3", { value1: formatDuration(remaining, { tenths: true }) }),
     passed: false,
     remainingMs: remaining,
   };

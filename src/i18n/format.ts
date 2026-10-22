@@ -114,19 +114,31 @@ export interface DurationFormatOptions {
   units?: 1 | 2;
   /** Tenths of a second under ten seconds (`0.4s`, `4.2s`); whole seconds otherwise. */
   tenths?: boolean;
+  /**
+   * Milliseconds under a second (`350ms`), for timings where the sub-second
+   * part is the point: a script hook, a routing decision.
+   */
+  milliseconds?: boolean;
 }
 
 /**
- * One duration vocabulary for every surface: `45s`, `1m 4s`, `1h 2m`,
- * `2d 3h` (`45초`, `1분 4초`, `1시간 2분`, `2일 3시간`). Time counts down to
- * the unit shown, so a live clock never reads ahead of the real span, and a
- * negative or unreadable span reads as zero.
+ * One duration vocabulary for every surface: `<1s`, `45s`, `1m 4s`, `1h 2m`,
+ * `2d 3h` (`1초 미만`, `45초`, `1분 4초`, `1시간 2분`, `2일 3시간`). Time counts
+ * down to the unit shown, so a live clock never reads ahead of the real span,
+ * and a negative or unreadable span reads as zero.
  */
 export function formatDuration(ms: number, options: DurationFormatOptions = {}): string {
   const span = Number.isFinite(ms) ? Math.max(0, ms) : 0;
+  if (options.milliseconds && span < SECOND_MS) {
+    return i18n.t("common:duration.milliseconds", { value: formatNumber(Math.floor(span)) });
+  }
   if (options.tenths && span < 10 * SECOND_MS) {
     const tenths = Math.floor(span / 100) / 10;
     return i18n.t("common:duration.seconds", { value: formatNumber(tenths, { maximumFractionDigits: 1 }) });
+  }
+  // Something that took a moment did take time: it reads `<1s`, not `0s`.
+  if (span > 0 && span < SECOND_MS) {
+    return i18n.t("common:duration.underSecond");
   }
   const twoUnits = (options.units ?? 2) === 2;
   const totalSeconds = Math.floor(span / SECOND_MS);

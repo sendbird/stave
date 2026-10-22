@@ -465,10 +465,6 @@
     "extraCopy227": "완료 보고됨",
     "extraCopy228": "건너뜀",
     "now": "지금",
-    "seconds": "{{value}}초",
-    "minutes": "{{value}}분",
-    "hours": "{{value}}시간",
-    "days": "{{value}}일",
     "stageOutcome": "{{stage}} {{status}}",
     "autoPermissionClaude": "Claude auto mode가 각 행동을 판단합니다. 판단하지 못한 행동은 사용자에게 묻고, 제때 답하지 않은 승인 요청은 거부됩니다.",
     "autoPermissionCodex": "사용할 수 있으면 Codex auto-review가 각 행동을 판단하고, 그렇지 않으면 Codex는 묻지 않습니다. 제때 답하지 않은 승인 요청은 거부됩니다.",
@@ -649,12 +645,7 @@
   "duration": {
     "label": "기한 없음",
     "label2": "기한 지남",
-    "label3": "{{value1}} 후 기한 도달",
-    "seconds": "{{value}}초",
-    "minutes": "{{value}}분",
-    "hours": "{{value}}시간",
-    "minutesSeconds": "{{minutes}}분 {{seconds}}초",
-    "hoursMinutes": "{{hours}}시간 {{minutes}}분"
+    "label3": "{{value1}} 후 기한 도달"
   },
   "exchange": {
     "label": "열기",
@@ -969,7 +960,6 @@
       "failingSoon_other": "PR을 {{count}}번 읽지 못함 · 곧 다시 시도",
       "stale": "{{age}} 동안 확인 안 됨"
     },
-    "underMinute": "1분 미만",
     "waitingSince": "{{time}}부터 대기 중",
     "delegateNeedsYou_other": "{{names}} 확인 필요",
     "delegatedFinishedNotResumed": "위임 작업이 {{age}} 전에 끝났지만 실행이 아직 재개되지 않음",

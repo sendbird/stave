@@ -1,5 +1,4 @@
-import { formatPercent } from "@/i18n/format";
-import { formatNumber } from "@/i18n/format";
+import { formatDuration, formatNumber, formatPercent } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Activity,
@@ -69,16 +68,6 @@ interface SummaryMetricDescriptor {
   figure?: string;
   parts: StatPart[];
   meter?: StatMeter;
-}
-
-function formatDuration(milliseconds: number) {
-  const seconds = Math.max(0, Math.round(milliseconds / 1000));
-  if (seconds < 60) {
-    return i18n.t("workspace:format.duration.seconds", { count: seconds });
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return remainingSeconds ? i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds: remainingSeconds }) : i18n.t("workspace:format.duration.minutes", { count: minutes });
 }
 
 function formatCount(value: number) {

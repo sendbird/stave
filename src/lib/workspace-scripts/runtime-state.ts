@@ -1,4 +1,4 @@
-import { formatNumber } from "@/i18n/format";
+import { formatDuration } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Renderer Runtime State (pure reducers/helpers)
@@ -164,20 +164,16 @@ export function buildScriptRunFailureState(args: {
   };
 }
 
+/**
+ * A script run's duration in the shared words, with milliseconds under a
+ * second because a hook often finishes in a few hundred; empty for an
+ * unreadable span.
+ */
 export function formatScriptDuration(durationMs: number): string {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
     return "";
   }
-  if (durationMs < 1_000) {
-    return i18n.t("workspace:format.duration.milliseconds", { value: formatNumber(Math.round(durationMs)) });
-  }
-  if (durationMs < 60_000) {
-    const seconds = durationMs / 1_000;
-    return i18n.t("workspace:format.duration.secondsValue", { value: formatNumber(seconds, { minimumFractionDigits: seconds >= 10 ? 0 : 1, maximumFractionDigits: seconds >= 10 ? 0 : 1 }) });
-  }
-  const minutes = Math.floor(durationMs / 60_000);
-  const seconds = Math.round((durationMs % 60_000) / 1_000);
-  return seconds > 0 ? i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds }) : i18n.t("workspace:format.duration.minutes", { count: minutes });
+  return formatDuration(durationMs, { milliseconds: true, tenths: true });
 }
 
 export function formatScriptRelativeTime(

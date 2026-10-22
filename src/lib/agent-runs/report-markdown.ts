@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import { formatRoutingDecision } from "../providers/routing-decision-label";
 /**
  * An Agent run report as Markdown, for Copy Markdown and, later, for adding it
@@ -6,7 +7,6 @@ import { formatRoutingDecision } from "../providers/routing-decision-label";
  *
  * Pure. Used by `src/components/agent-runs/AgentRunReportView.tsx`.
  */
-import { formatAge } from "./agent-run-view";
 import { describeAgentRunAccountSwitch } from "./account-pool";
 import { EVIDENCE_SOURCE_LABELS, evidenceSourceLabel } from "./evidence";
 import type { AgentRunMetrics, AgentRunReport } from "./report";
@@ -19,8 +19,8 @@ export function describeAgentRunMetrics(metrics: AgentRunMetrics): string {
     i18n.t("agentRuns:remaining.presentationCopy449", { v1: metrics.stuckStages }),
   ];
   if (metrics.signOffWaitAverageMs !== null && metrics.signOffWaitLongestMs !== null) {
-    const average = formatAge(metrics.signOffWaitAverageMs);
-    const longest = formatAge(metrics.signOffWaitLongestMs);
+    const average = formatDuration(metrics.signOffWaitAverageMs);
+    const longest = formatDuration(metrics.signOffWaitLongestMs);
     parts.push(
       i18n.t("agentRuns:reportMarkdown.extraCopy314", { value1: metrics.signOffs, value3: average, value4: metrics.signOffs > 1 ? i18n.t("agentRuns:remaining.presentationCopy450", { v1: longest }) : "", count: metrics.signOffs }),
     );
@@ -37,7 +37,7 @@ const OUTCOME_TITLES: Record<AgentRunReport["outcome"], string> = {
 const CRITERION_MARKS = { met: "[x]", unmet: "[ ]", unverified: "[?]" } as const;
 
 export function describeReportTitle(report: AgentRunReport): string {
-  const duration = formatAge(Date.parse(report.endedAt) - Date.parse(report.startedAt));
+  const duration = formatDuration(Date.parse(report.endedAt) - Date.parse(report.startedAt));
   return i18n.t("agentRuns:reportMarkdown.summary", { outcome: OUTCOME_TITLES[report.outcome], duration, count: report.turnCount });
 }
 

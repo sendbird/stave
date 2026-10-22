@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
@@ -170,22 +171,6 @@ function formatGoalTokenProgressValue(goal: ProviderGoalSnapshot) {
   return i18n.t("session:remaining.presentationCopy303", { v1: used });
 }
 
-function formatGoalElapsedValue(totalSeconds: number) {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return i18n.t("session:duration.seconds", { count: 0 });
-  }
-  const seconds = Math.floor(totalSeconds);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return i18n.t("session:duration.hoursMinutes", { hours, minutes });
-  }
-  if (minutes > 0) {
-    return i18n.t("session:duration.minutes", { count: minutes });
-  }
-  return i18n.t("session:duration.seconds", { count: seconds });
-}
-
 function normalizeGoalObjectiveValue(objective: string) {
   return objective.replace(/\s+/g, " ").trim();
 }
@@ -215,7 +200,7 @@ export function buildChatInputGoalStatus(
     statusLabel: formatGoalStatusValue(goal.status),
     objective: normalizeGoalObjectiveValue(goal.objective),
     tokenLabel: formatGoalTokenProgressValue(goal),
-    elapsedLabel: i18n.t("session:remaining.presentationCopy304", { v1: formatGoalElapsedValue(goal.timeUsedSeconds) }),
+    elapsedLabel: i18n.t("session:remaining.presentationCopy304", { v1: formatDuration(goal.timeUsedSeconds * 1_000) }),
     progressPercent: getGoalProgressPercent(goal),
     tone,
   };

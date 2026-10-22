@@ -1,4 +1,5 @@
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { formatDuration } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
@@ -9,7 +10,6 @@ import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import {
   describeAgentRunStatusLine,
-  formatAge,
   projectAgentRunStages,
   type AgentRunStageRow,
 } from "@/lib/agent-runs/agent-run-view";
@@ -178,10 +178,10 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
   // The run's badge, once it is more than plain progress: `Halted · Blocked`.
   const state = held || (status.badge === "running" && !status.waiting) ? null : formatAgentRunBadge(status);
   const detailText = held ? describeCompletedChange(held) : showNow ? props.nowPhrase : line.detail;
-  const age = held || showNow ? null : formatAge(now - Date.parse(line.since));
+  const age = held || showNow ? null : formatDuration(now - Date.parse(line.since));
   const paused = agentRun.state === "paused";
   const userPaused = paused && (agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" || agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired");
-  const elapsed = formatAge(now - Date.parse(agentRun.createdAt));
+  const elapsed = formatDuration(now - Date.parse(agentRun.createdAt));
   const stateInk = status.badge === "needs-answer" || status.badge === "halted" ? shelfStyles.labelWaiting : shelfStyles.strong;
 
   return (

@@ -1,4 +1,4 @@
-import { formatNumber, formatPercent, formatRelativeTime } from "@/i18n/format";
+import { formatNumber, formatPercent, formatRelativeTime, formatDuration } from "@/i18n/format";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -8,7 +8,6 @@ import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vo
 import { sx } from "@/components/ads/utils/stylex";
 import { RUN_END_REASON_LABELS, RUN_OUTCOMES, type AgentRunInsights, type ResultRun, type ResultsAgentRow, type ResultsSummary, type RunOutcome } from "@/lib/agent-runs/insights";
 import { formatCostUsd } from "@/lib/agent-runs/usage";
-import { formatRunDuration } from "@/lib/agent-runs/agent-run-status";
 import { ResultsCard } from "./ResultsCard";
 import { performanceMetrics } from "./results-metrics";
 import { resultsBarColorStyles, resultsStyles as styles } from "./results.styles";
@@ -63,7 +62,7 @@ export function Figures({ insights }: { insights: AgentRunInsights }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const metrics = performanceMetrics(insights.runs);
   const figures = [
-    { label: t("compare:agentPerformance.medianTime"), value: metrics.medianCompletionMs === null ? "—" : formatRunDuration(metrics.medianCompletionMs), note: t("compare:agentPerformance.timeCoverage", { count: metrics.completed }) },
+    { label: t("compare:agentPerformance.medianTime"), value: metrics.medianCompletionMs === null ? "—" : formatDuration(metrics.medianCompletionMs), note: t("compare:agentPerformance.timeCoverage", { count: metrics.completed }) },
     { label: t("compare:agentPerformance.reportedSpend"), value: cost(metrics.reportedSpendUsd), note: t("compare:agentPerformance.costCoverage", { reported: formatNumber(metrics.reportedCostRuns), total: formatNumber(insights.runs.length) }) },
     { label: t("compare:agentPerformance.followUps"), value: insights.summary.correctionsPerRun === null ? "—" : formatNumber(insights.summary.correctionsPerRun, { maximumFractionDigits: 1 }), note: t("compare:agentPerformance.followUpsNote") },
   ];
@@ -107,7 +106,7 @@ function RunRow({ run, now, onOpen }: { run: ResultRun; now: number; onOpen: (ru
     <li>
       <Button layout="host" variant="quiet" xstyle={styles.runButton} aria-label={t("compare:agentPerformance.openReport", { name: run.name, outcome: word, date: formatRelativeTime(run.endedAt, now) })} onClick={() => onOpen(run)}>
         <StateMark state={OUTCOME_STATE[run.outcome]} />
-        <span className={sx(styles.runText)}><span className={sx(styles.runTitle)}>{word}</span><span className={sx(styles.runFigure)}>{formatRelativeTime(run.endedAt, now)} · {formatRunDuration(run.durationMs)} · {cost(run.costUsd)}</span></span>
+        <span className={sx(styles.runText)}><span className={sx(styles.runTitle)}>{word}</span><span className={sx(styles.runFigure)}>{formatRelativeTime(run.endedAt, now)} · {formatDuration(run.durationMs)} · {cost(run.costUsd)}</span></span>
         <ChevronRight className={sx(styles.chevron)} aria-hidden />
       </Button>
     </li>

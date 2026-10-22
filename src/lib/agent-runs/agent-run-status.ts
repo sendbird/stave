@@ -16,7 +16,7 @@ import { i18n } from "@/i18n/runtime";
  */
 import { describeRunPlan } from "./plan-progress";
 import type { WorkState } from "@/components/ads/components/state-vocabulary";
-import { formatDateTime } from "@/i18n/format";
+import { formatDateTime, formatDuration } from "@/i18n/format";
 import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
 import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
 import type { AgentRunDetail } from "./api";
@@ -24,7 +24,7 @@ import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckMode, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
-import { formatAge, type AgentRunBadgeTone, type StageState } from "./agent-run-view";
+import { type AgentRunBadgeTone, type StageState } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 
 export { extractRunAssignment };
@@ -238,18 +238,15 @@ export function describeAgentRunStatus(detail: AgentRunDetail, decision: AgentRu
   }
 }
 
-/** "45s", "6m", "2h": how long a run took or has been going. */
-export function formatRunDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 0) return "0s";
-  return ms < 60_000 ? `${Math.max(1, Math.round(ms / 1_000))}s` : formatAge(ms);
-}
-
-/** How long the run has gone, or went: from its start to now, or to its last change. */
+/**
+ * How long the run has gone, or went: from its start to now, or to its last
+ * change, in the shared duration words (`2m 10s`), as Fleet reads a task.
+ */
 export function agentRunDuration(detail: AgentRunDetail, now: number): string {
   const { agentRun } = detail;
   const active = agentRun.state === "running" || agentRun.state === "paused";
   const end = active ? now : Date.parse(agentRun.updatedAt);
-  return formatRunDuration(end - Date.parse(agentRun.createdAt));
+  return formatDuration(end - Date.parse(agentRun.createdAt));
 }
 
 export type DoneWhenStatus = "met-verified" | "met-reported" | "unmet" | "unverified";

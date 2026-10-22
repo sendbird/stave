@@ -3,7 +3,7 @@ import { EmptyState } from "@/components/ads/components/EmptyState";
 import { clearTaskMessagesLoadFailure, useTaskMessageLoadFailures } from "@/store/task-message-load-failures";
 import { questionReplyAnswerText } from "@/lib/question-reply";
 import { i18n, useTranslation } from "@/i18n";
-import { formatDate } from "@/i18n/format";
+import { formatDate, formatDuration } from "@/i18n/format";
 import { MessageTimeDetails } from "./MessageTimeDetails";
 import { buildConversationDateSeparators } from "./conversation-time";
 import {
@@ -127,16 +127,6 @@ function escapeAttributeSelectorValue(value: string) {
 
 const MemoizedAssistantMessageBody = memo(AssistantMessageBody);
 
-function formatElapsedLabel(durationMs: number) {
-  const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-  if (totalSeconds < 60) {
-    return i18n.t("session:duration.seconds", { count: totalSeconds });
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return seconds > 0 ? i18n.t("session:duration.minutesSeconds", { minutes, seconds }) : i18n.t("session:duration.minutes", { count: minutes });
-}
-
 function getMessageElapsedLabel(args: {
   message: Pick<ChatMessage, "startedAt" | "completedAt">;
   nowMs?: number;
@@ -153,7 +143,7 @@ function getMessageElapsedLabel(args: {
   if (!Number.isFinite(endMs ?? Number.NaN)) {
     return null;
   }
-  return formatElapsedLabel(Math.max(0, (endMs ?? startedAt) - startedAt));
+  return formatDuration(Math.max(0, (endMs ?? startedAt) - startedAt));
 }
 
 interface MessageRowProps {

@@ -12,7 +12,7 @@
  * Pure: the clock is an argument.
  */
 import { i18n } from "@/i18n/runtime";
-import { formatTime } from "@/i18n/format";
+import { formatDuration, formatTime } from "@/i18n/format";
 import type { DelegationExchange } from "@/lib/delegation/exchange";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { taskCompletionSignalOf } from "@/lib/supervision/task-completion-signal";
@@ -38,13 +38,9 @@ export const EVENT_WAIT_OBSERVATION_STALE_MS = 3 * 60_000;
 /** How long after its delegated work ended a run is expected to have moved on. */
 export const DELEGATED_WAIT_RESUME_GRACE_MS = 60_000;
 
-/**
- * `<1m`, `6m`, `2h`. A wait runs for minutes to hours and the window redraws
- * it twice a minute, so seconds would only jump.
- */
+/** How long a wait has run, in the shared duration words, as Fleet reads it. */
 export function formatWaitDuration(ms: number): string {
-  if (!Number.isFinite(ms) || ms < 60_000) return i18n.t("agentRuns:eventWait.underMinute");
-  return formatAge(ms);
+  return formatDuration(ms);
 }
 
 /**

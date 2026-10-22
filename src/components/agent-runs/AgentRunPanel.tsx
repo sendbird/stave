@@ -1,4 +1,4 @@
-import { formatTime } from "@/i18n/format";
+import { formatTime, formatDuration } from "@/i18n/format";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo } from "react";
@@ -27,7 +27,6 @@ import { collectAcceptanceCriteria } from "@/lib/agent-runs/briefing";
 import {
   describeCheckIns,
   describeAgentRunStatusLine,
-  formatAge,
   projectAgentRunStages,
 } from "@/lib/agent-runs/agent-run-view";
 import { describeAgentRunStatus, describeCriterionChecks, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
@@ -130,7 +129,7 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
         badge.subtitle,
         line.title,
         line.detail,
-        formatAge(now - Date.parse(line.since)),
+        formatDuration(now - Date.parse(line.since)),
       ]
         .filter(Boolean)
         .join(" · ")

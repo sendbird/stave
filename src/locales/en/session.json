@@ -950,14 +950,6 @@
     "presentationCopy396": "{{v1}} queued",
     "presentationCopy397": "{{v1}} done"
   },
-  "duration": {
-    "seconds_other": "{{count}}s",
-    "seconds_one": "{{count}}s",
-    "minutes_other": "{{count}}m",
-    "minutes_one": "{{count}}m",
-    "minutesSeconds": "{{minutes}}m {{seconds}}s",
-    "hoursMinutes": "{{hours}}h {{minutes}}m"
-  },
   "presentation": {
     "on": "on",
     "off": "off"
