@@ -608,7 +608,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice(
       mergeSettingsAuthFailure
         ? {
-            tone: "error",
+            tone: "danger",
             title: i18n.t("sourceControl:topBarOpenPR.gitHubAuthenticationIsRequired"),
             description: describeGitHubAuthFailure(mergeSettingsResult),
           }
@@ -656,7 +656,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (!runCommand || !createPR) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.unableToCreatePR"),
         description:
           i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeIsUnavailableIn"),
@@ -674,7 +674,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!isCurrentOperation()) return;
       if (!statusResult.ok) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.unableToRefreshWorkspaceChanges"),
           description: statusResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitStatusFailed"),
         });
@@ -684,7 +684,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
       if (statusResult.hasConflicts) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.cannotCreatePRWithUnresolvedConflicts"),
           description:
             i18n.t("sourceControl:topBarOpenPR.resolveTheMergeConflictsInThisWorkspace"),
@@ -736,7 +736,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
     } else if (changedFiles.length > 0 && pendingFiles.length === 0) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.unableToVerifyFileScope"),
         description:
           i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotRefreshWorkspace"),
@@ -756,7 +756,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const title = prTitle.trim() || fallbackDraft.title;
     if (!isReasonablePullRequestTitle(title)) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.pRTitleMustUseTheRepositoryConvention"),
         description:
           i18n.t("sourceControl:topBarOpenPR.useALowercaseConventionalCommitTitleSuch"),
@@ -951,7 +951,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         // Infra error (invalid config / spawn failure) — hard stop.
         if (hookResult.error) {
           setInlineNotice({
-            tone: "error",
+            tone: "danger",
             title: i18n.t("sourceControl:topBarOpenPR.pRPreflightFailed"),
             description: hookResult.error,
           });
@@ -967,7 +967,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setVerificationFailures(hookResult.summary.failures);
         setVerificationBlocking(blocking);
         setInlineNotice({
-          tone: blocking ? "error" : "warning",
+          tone: blocking ? "danger" : "warning",
           title: blocking
             ? i18n.t("sourceControl:topBarOpenPR.verificationFailed")
             : i18n.t("sourceControl:topBarOpenPR.verificationReportedWarnings"),
@@ -988,7 +988,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       const commit = window.api?.sourceControl?.commit;
       if ((!stageFiles && !stageFile) || !commit) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.automaticCommitIsUnavailable"),
           description:
             i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotIntentionallyStage"),
@@ -1032,7 +1032,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
       if (!isConventionalCommitMessage(message)) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.commitMessageMustUseConventionalCommits"),
           description:
             i18n.t("sourceControl:topBarOpenPR.useAMessageSuchAsFixTopbarStabilize"),
@@ -1070,7 +1070,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!isCurrentOperation()) return;
       if (!stageResult.ok) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.stagingFailed"),
           description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
         });
@@ -1110,7 +1110,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             if (!isCurrentOperation()) return;
             if (!stageResult.ok) {
               setInlineNotice({
-                tone: "error",
+                tone: "danger",
                 title: i18n.t("sourceControl:topBarOpenPR.reStagingAfterAutoFixFailed"),
                 description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
               });
@@ -1130,7 +1130,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       if (!commitResult.ok) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.commitFailed"),
           description: commitResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitCommitFailed"),
         });
@@ -1162,7 +1162,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!isCurrentOperation()) return;
     if (!pushResult.ok) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.pushFailed"),
         description: pushResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitPushFailed"),
       });
@@ -1207,7 +1207,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (!prResult.ok) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: prResult.prUrl
           ? i18n.t("sourceControl:topBarOpenPR.pRCreatedButAutoMergeFailed")
           : i18n.t("sourceControl:topBarOpenPR.pRCreationFailed"),
@@ -2102,7 +2102,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             {mergeDialogError ? (
               <InlineNoticeBanner
                 notice={{
-                  tone: "error",
+                  tone: "danger",
                   title: i18n.t("sourceControl:topBarOpenPR.mergeFailed"),
                   description: mergeDialogError,
                 }}

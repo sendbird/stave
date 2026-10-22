@@ -10,32 +10,33 @@ import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import type {
-  ShelfRunTone,
+  ShelfRunState,
   ShelfSegment,
   ShelfTodoProgress,
   ShelfTurnAlert,
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
+import type { Tone } from "@/components/ads/utils/tone";
 
-export type ShelfLabelTone = "default" | "waiting" | "danger" | "accent";
+export type ShelfLabelTone = Extract<Tone, "neutral" | "warning" | "danger" | "accent">;
 
 const LABEL_TONES: Record<ShelfLabelTone, StyleXValue | null> = {
-  default: null,
-  waiting: styles.labelWaiting,
+  neutral: null,
+  warning: styles.labelWaiting,
   danger: styles.labelDanger,
   accent: styles.labelAccent,
 };
 
-/** The ink each turn tone writes its label in. */
-export const SHELF_RUN_TONE_INK: Record<ShelfRunTone, ShelfLabelTone> = {
-  active: "default",
-  waiting: "waiting",
+/** The ink each turn state writes its label in. */
+export const SHELF_RUN_STATE_INK: Record<ShelfRunState, ShelfLabelTone> = {
+  active: "neutral",
+  waiting: "warning",
   steering: "accent",
-  stalled: "waiting",
-  retrying: "waiting",
+  stalled: "warning",
+  retrying: "warning",
   failed: "danger",
-  done: "default",
-  stopped: "default",
+  done: "neutral",
+  stopped: "neutral",
 };
 
 /**
@@ -49,7 +50,7 @@ export function shelfTurnAlertParts(alert: ShelfTurnAlert): ReactNode[] {
       key="label"
       data-testid="shelf-turn-alert"
       data-tone={alert.tone}
-      className={sx(styles.label, LABEL_TONES[SHELF_RUN_TONE_INK[alert.tone]])}
+      className={sx(styles.label, LABEL_TONES[SHELF_RUN_STATE_INK[alert.tone]])}
     >
       {alert.label}
     </span>,
@@ -150,7 +151,7 @@ export function ShelfRunText(props: {
   useTranslation();
   return (
     <p className={sx(styles.text)} title={props.title}>
-      <span className={sx(styles.label, LABEL_TONES[props.tone ?? "default"])}>
+      <span className={sx(styles.label, LABEL_TONES[props.tone ?? "neutral"])}>
         {props.label}
       </span>
       {props.narrow ? (

@@ -385,9 +385,10 @@ describe("conversation context usage", () => {
         messageId: "assistant-1",
       }),
     ).toBe("750 / 1,000");
-    expect(conversationContextUsageTone(12)).toBe("ok");
-    expect(conversationContextUsageTone(60)).toBe("warn");
-    expect(conversationContextUsageTone(85)).toBe("critical");
+    expect(conversationContextUsageTone(12)).toBe("success");
+    expect(conversationContextUsageTone(60)).toBe("warning");
+    expect(conversationContextUsageTone(85)).toBe("danger");
+    expect(conversationContextUsageTone(Number.NaN)).toBe("success");
   });
 
   test("offers compact for Claude, Codex, or a catalog that lists it", () => {

@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
+import type { Tone } from "@/components/ads/utils/tone";
 
-export type CountBadgeTone = "accent" | "warning" | "neutral";
+export type CountBadgeTone = Extract<Tone, "accent" | "warning" | "neutral">;
 
 /**
  * The count pill a chrome control wears in its corner: unread notifications,

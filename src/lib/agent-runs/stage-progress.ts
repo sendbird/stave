@@ -8,7 +8,7 @@ import { i18n } from "@/i18n/runtime";
  * Pure. The drawing lives in `src/components/agent-runs/DitherProgress.tsx`.
  */
 import type { StageStatus } from "./domain";
-import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow, type StageTone } from "./agent-run-view";
+import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow, type StageState } from "./agent-run-view";
 
 /** A stage that is behind the run: nothing in it is left to do. */
 const SETTLED: ReadonlySet<StageStatus> = new Set(["completed", "skipped"]);
@@ -22,7 +22,7 @@ export interface StageProgress {
   ticks: number[];
   current: AgentRunStageRow;
   total: number;
-  tone: StageTone;
+  tone: StageState;
   /** "Running", "Paused", "Waiting for your sign-off". */
   statusLabel: string;
   /** "3/5", for the head of the track. */
@@ -42,7 +42,7 @@ export interface StageProgress {
  */
 export function projectStageProgress(
   rows: readonly AgentRunStageRow[],
-  options: { paused?: boolean; tone?: StageTone } = {},
+  options: { paused?: boolean; tone?: StageState } = {},
 ): StageProgress | null {
   const total = rows.length;
   if (total === 0) return null;

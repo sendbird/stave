@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { Check, Info, TriangleAlert } from "lucide-react";
 
 import { cx } from "../ads/utils/stylex";
+import type { Tone } from "@/components/ads/utils/tone";
 
 /**
  * The shared vocabulary of a composer control's configuration menu.
@@ -223,7 +224,7 @@ export function ComposerOptionMenuHint(props: {
 
 /** A boxed remark: neutral for context, warning for something that will bite. */
 export function ComposerOptionMenuCallout(props: {
-  tone: "note" | "warning";
+  tone: Extract<Tone, "info" | "warning">;
   children: ReactNode;
   testId?: string;
 }) {

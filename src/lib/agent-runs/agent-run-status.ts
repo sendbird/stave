@@ -24,7 +24,7 @@ import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
-import { formatAge, type AgentRunBadgeTone, type StageTone } from "./agent-run-view";
+import { formatAge, type AgentRunBadgeTone, type StageState } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 
 export { extractRunAssignment };
@@ -92,7 +92,7 @@ const STOP_REASON_TEXT: Record<AgentRunStopReason, string> = {
 /** The glyph beside the words: its shape (a shared work state) and its color. */
 export interface AgentRunStatusMark {
   state: WorkState;
-  tone: StageTone;
+  tone: StageState;
 }
 
 /** Each badge's tone and mark; a run waiting between turns wears the waiting mark. */

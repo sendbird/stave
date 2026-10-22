@@ -24,7 +24,7 @@ import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { COMMIT_GRAPH_TITLE_KEY } from "@/lib/git-graph/presentation";
-import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
+import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
@@ -57,7 +57,7 @@ import {
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
 function resolveProviderToneClass(providerId: ProviderId): string {
-  return toProviderWaveToneClass({ providerId });
+  return toProviderWaveHueClass({ providerId });
 }
 
 interface TaskChipState {

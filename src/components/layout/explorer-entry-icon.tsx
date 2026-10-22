@@ -20,67 +20,68 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import {
   explorerIconStyles,
-  folderToneStyles,
-  type FolderTone,
+  folderHueStyles,
+  type FolderHue,
 } from "./explorer-entry-icon.styles";
 
 type FolderVisual = {
   icon: LucideIcon;
   openIcon?: LucideIcon;
-  tone: FolderTone;
+  /** The folder's category color: a category, not a tone. */
+  hue: FolderHue;
 };
 
 const folderVisualGroups: Array<{ names: string[]; visual: FolderVisual }> = [
   {
     names: ["src", "app", "pages", "routes", "components", "hooks", "lib", "utils"],
-    visual: { icon: Braces, tone: "code" },
+    visual: { icon: Braces, hue: "code" },
   },
   {
     names: ["electron", "server", "db", "database", "migrations"],
-    visual: { icon: Database, tone: "data" },
+    visual: { icon: Database, hue: "data" },
   },
   {
     names: ["docs", "doc"],
-    visual: { icon: BookOpenText, tone: "docs" },
+    visual: { icon: BookOpenText, hue: "docs" },
   },
   {
     names: ["public", "assets", "images", "img", "media", "static"],
-    visual: { icon: Image, tone: "media" },
+    visual: { icon: Image, hue: "media" },
   },
   {
     names: ["tests", "__tests__", "__mocks__", "fixtures"],
-    visual: { icon: FlaskConical, tone: "tests" },
+    visual: { icon: FlaskConical, hue: "tests" },
   },
   {
     names: ["scripts", "bin"],
-    visual: { icon: TerminalSquare, tone: "scripts" },
+    visual: { icon: TerminalSquare, hue: "scripts" },
   },
   {
     names: [".github", ".gitlab", "security"],
-    visual: { icon: Shield, tone: "security" },
+    visual: { icon: Shield, hue: "security" },
   },
   {
     names: [".vscode", ".idea", ".stave", "config", "configs"],
-    visual: { icon: Settings2, tone: "config" },
+    visual: { icon: Settings2, hue: "config" },
   },
   {
     names: ["node_modules", "packages", "vendor"],
-    visual: { icon: Package, tone: "packages" },
+    visual: { icon: Package, hue: "packages" },
   },
   {
     names: ["styles", "style", "theme"],
-    visual: { icon: Palette, tone: "styles" },
+    visual: { icon: Palette, hue: "styles" },
   },
   {
     names: [".git"],
-    visual: { icon: FolderGit2, tone: "git" },
+    visual: { icon: FolderGit2, hue: "git" },
   },
 ];
 
 const defaultFolderVisual: FolderVisual = {
   icon: Folder,
   openIcon: FolderOpen,
-  tone: "folder",
+  hue: "folder",
 };
 
 /**
@@ -255,7 +256,7 @@ export function ExplorerEntryIcon(args: { entry: WorkspaceDirectoryEntry; isOpen
       <span
         className={sx(
           explorerIconStyles.folderBadge,
-          folderToneStyles[visual.tone],
+          folderHueStyles[visual.hue],
         )}
       >
         <Icon className={sx(explorerIconStyles.folderGlyph)} />

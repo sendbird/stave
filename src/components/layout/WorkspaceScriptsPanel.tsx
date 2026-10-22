@@ -873,7 +873,7 @@ export function WorkspaceScriptsPanel(props: {
             <h2 className={sx(toolStyles.workspaceName)} title={workspacePath}>{workspaceName}</h2>
           </div>
           <div className={sx(toolStyles.headerActions)}>
-            {runningCount > 0 ? <StatusBadge tone="active">{tI18n("scripts:workspaceScriptsPanel.runningCount", { count: runningCount })}</StatusBadge> : null}
+            {runningCount > 0 ? <StatusBadge tone="accent">{tI18n("scripts:workspaceScriptsPanel.runningCount", { count: runningCount })}</StatusBadge> : null}
             {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title={tI18n("scripts:workspaceScriptsPanel.stopAllRunningProcesses")}><Square />{tI18n("scripts:workspaceScriptsPanel.stopAll")}</ActionButton> : null}
             <Tooltip content={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}>
               <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label={tI18n("scripts:workspaceScriptsPanel.refreshWorkspaceTools")}><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>

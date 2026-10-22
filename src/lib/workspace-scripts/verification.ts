@@ -9,6 +9,7 @@ import { i18n } from "@/i18n/runtime";
 // beyond tagging each failure with whether its hook entry was `blocking`.
 
 import type { WorkspaceScriptHookRunSummary } from "./types";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export type TurnVerificationStatus = "pass" | "warn" | "fail";
 
@@ -74,7 +75,7 @@ export function buildTurnVerificationResult(args: {
  * onto its own ADS Badge/StyleX styling; this module stays free of any
  * presentation detail (no color classes, no token names).
  */
-export type VerificationTone = "success" | "warning" | "danger";
+export type VerificationTone = Extract<Tone, "success" | "warning" | "danger">;
 
 export interface VerificationStatusVisual {
   label: string;

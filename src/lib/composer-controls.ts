@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import type { Tone } from "@/components/ads/utils/tone";
 /**
  * Per-control placement for the prompt input toolbar.
  *
@@ -159,7 +160,7 @@ export function collectActiveComposerControls(args: {
   thinkingMode?: "adaptive" | "enabled" | "disabled" | null;
   fastMode?: boolean;
   runAccountPoolEnabled?: boolean;
-  runtimeTone?: "default" | "custom" | "warning";
+  runtimeTone?: Extract<Tone, "success" | "accent" | "warning">;
   boundSecretCount?: number;
 }): ComposerControlId[] {
   const active: ComposerControlId[] = [];
@@ -176,7 +177,8 @@ export function collectActiveComposerControls(args: {
   if ((args.boundSecretCount ?? 0) > 0) {
     active.push("secrets");
   }
-  if (args.runtimeTone && args.runtimeTone !== "default") {
+  // The safe default profile (success) is rest; custom or elevated is not.
+  if (args.runtimeTone && args.runtimeTone !== "success") {
     active.push("runtime");
   }
   return active;

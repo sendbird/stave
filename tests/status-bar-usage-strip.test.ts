@@ -57,12 +57,14 @@ describe("quota ring", () => {
   });
 
   test("tones by the shared 60/85 thresholds", () => {
-    expect(usageTone(0)).toBe("ok");
-    expect(usageTone(59.9)).toBe("ok");
-    expect(usageTone(60)).toBe("warn");
-    expect(usageTone(84.9)).toBe("warn");
+    expect(usageTone(0)).toBe("success");
+    expect(usageTone(59.9)).toBe("success");
+    expect(usageTone(60)).toBe("warning");
+    expect(usageTone(84.9)).toBe("warning");
     expect(usageTone(85)).toBe("danger");
     expect(usageTone(250)).toBe("danger");
+    // A reading that is not a number is not a warning.
+    expect(usageTone(Number.NaN)).toBe("success");
   });
 });
 

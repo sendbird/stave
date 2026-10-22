@@ -55,8 +55,8 @@ import { useApiConnectionCredits } from "@/lib/providers/use-api-connection-cred
 import { useAppStore } from "@/store/app.store";
 
 const TONE_DOT = {
-  ok: statusBarUsageStyles.toneOk,
-  warn: statusBarUsageStyles.toneWarn,
+  success: statusBarUsageStyles.toneOk,
+  warning: statusBarUsageStyles.toneWarn,
   danger: statusBarUsageStyles.toneDanger,
 } as const;
 

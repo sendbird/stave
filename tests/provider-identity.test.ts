@@ -4,7 +4,7 @@ import path from "node:path";
 import {
   getProviderAccentColor,
   getProviderDescriptor,
-  getProviderWaveTone,
+  getProviderWaveHue,
   listProviderIds,
 } from "@/lib/providers/model-catalog";
 import {
@@ -47,7 +47,7 @@ describe("provider identity", () => {
       expect(descriptor.shortLabel).toBe(identity.shortLabel);
       expect(descriptor.iconUrl).toBe(identity.markUrl);
       expect(descriptor.fallbackLabel).toBe(identity.monogram);
-      expect(getProviderWaveTone({ providerId: id })).toBe(identity.hue);
+      expect(getProviderWaveHue({ providerId: id })).toBe(identity.hue);
       expect(getProviderAccentColor({ providerId: id })).toBe(`var(--${identity.token})`);
       expect(providerInkColor(id)).toBe(`var(--${identity.token})`);
     }
@@ -56,7 +56,7 @@ describe("provider identity", () => {
   test("an id Stave does not know has no identity and takes the accent", () => {
     expect(findProviderIdentity("someone-else")).toBeNull();
     expect(findProviderIdentity(undefined)).toBeNull();
-    expect(getProviderWaveTone({ providerId: "someone-else" as ProviderId })).toBe("accent");
+    expect(getProviderWaveHue({ providerId: "someone-else" as ProviderId })).toBe("accent");
     expect(providerInkColor("someone-else" as ProviderId)).toBe("var(--primary)");
   });
 

@@ -42,6 +42,11 @@ Further host extensions:
 - Button exposes host layout for product rows and controls that must retain
   child DOM, native form type, and geometry while using canonical interaction
   and focus recipes.
+- `utils/tone.tsx` adds the shared `Tone` vocabulary (the seven `StatusDot`
+  tones) and `thresholdTone`, which picks a tone from a reading on a threshold
+  scale. Product code narrows its tone unions to `Tone` and reads every
+  threshold through the helper; the bundle's `MessageTone`, icon and role
+  exports are unchanged.
 - ToastHost accepts an external canonical toast manager for store-originated
   notifications. Task navigation is an explicit visible action.
 - Lightbox accepts host overlay layering, accessible title, close label, and a

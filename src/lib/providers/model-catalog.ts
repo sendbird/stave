@@ -394,18 +394,19 @@ export function resolveProviderDisplayId(args: {
 }
 
 /**
- * Semantic provider-wave tone. A presentation value, not a color: the consuming
- * component maps it to the provider ink styles (`providerInkStyles`), which
- * paint the themed `--provider-*` token the identity registry names, or the ADS
- * accent token. `"accent"` is only for a presentation that is not a known
- * provider (for example a user-authored row).
+ * Provider-wave hue: which provider's ink a mark, a loader or a model name
+ * takes, an identity rather than a tone. A presentation value, not a color:
+ * the consuming component maps it to the provider ink styles
+ * (`providerInkStyles`), which paint the themed `--provider-*` token the
+ * identity registry names, or the ADS accent token. `"accent"` is only for a
+ * presentation that is not a known provider (for example a user-authored row).
  */
-export type ProviderWaveTone = ProviderHue | "accent";
+export type ProviderWaveHue = ProviderHue | "accent";
 
-export function getProviderWaveTone(args: {
+export function getProviderWaveHue(args: {
   providerId: ProviderId;
   model?: string;
-}): ProviderWaveTone {
+}): ProviderWaveHue {
   return findProviderIdentity(resolveProviderDisplayId(args))?.hue ?? "accent";
 }
 

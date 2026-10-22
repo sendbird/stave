@@ -1,14 +1,14 @@
 import { sx } from "@/components/ads/utils/stylex";
 import { providerInkStyles } from "@/components/system/provider-ink.styles";
-import { getProviderWaveTone } from "@/lib/providers/model-catalog";
+import { getProviderWaveHue } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
 /**
- * The provider-wave ink as a class. `getProviderWaveTone` returns the semantic
+ * The provider-wave ink as a class. `getProviderWaveHue` returns the semantic
  * key; `providerInkStyles` paints the themed provider token for it, so every
  * loader and mark stays on one mapping. A user-authored row takes the accent.
  */
-export function toProviderWaveToneClass(args: {
+export function toProviderWaveHueClass(args: {
   providerId: ProviderId | "user";
   model?: string;
 }) {
@@ -17,7 +17,7 @@ export function toProviderWaveToneClass(args: {
   }
   return sx(
     providerInkStyles[
-      getProviderWaveTone({
+      getProviderWaveHue({
         providerId: args.providerId,
         model: args.model,
       })

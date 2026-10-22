@@ -13,6 +13,7 @@ import {
   type PullRequestWatchEvent,
   type PullRequestWatchState,
 } from "./pull-request-watch";
+import type { Tone } from "@/components/ads/utils/tone";
 
 const EVENT_LABEL = {
   checks_failed: "automation:pullRequestWatch.eventChecksFailed",
@@ -42,7 +43,7 @@ export function describePullRequestWatchTarget(state: PullRequestWatchState | nu
 
 export interface PullRequestWatchCheckLine {
   text: string;
-  tone: "neutral" | "success" | "warning" | "danger";
+  tone: Extract<Tone, "neutral" | "success" | "warning" | "danger">;
   /** When the line is from; null before the first check. */
   at: string | null;
 }

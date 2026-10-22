@@ -65,7 +65,7 @@ const SKELETON_CARDS_PER_COLUMN = 2;
 const BOARD_DUE_TONE_STYLE = {
   overdue: priorityToneStyles.danger,
   today: priorityToneStyles.warning,
-  soon: priorityToneStyles.default,
+  soon: priorityToneStyles.neutral,
 } as const;
 
 export interface IssuesBoardProps {

@@ -13,13 +13,14 @@ import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspace
 import { Loader } from "@/components/ui";
 import type { PrePrReviewFinding } from "@/lib/source-control-review";
 import { openPrStyles } from "../top-bar-open-pr.styles";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export interface ScmStatusItem {
   path: string;
   code: string;
 }
 
-type InlineNoticeTone = "info" | "success" | "warning" | "error";
+type InlineNoticeTone = Extract<Tone, "info" | "success" | "warning" | "danger">;
 
 export interface InlineNotice {
   tone: InlineNoticeTone;
@@ -37,14 +38,14 @@ export function InlineNoticeBanner(props: { notice: InlineNotice }) {
       ? openPrStyles.noticeSuccess
       : props.notice.tone === "warning"
         ? openPrStyles.noticeWarning
-        : props.notice.tone === "error"
+        : props.notice.tone === "danger"
           ? openPrStyles.noticeError
           : openPrStyles.noticeInfo;
 
   const Icon =
     props.notice.tone === "success"
       ? CheckCircle2
-      : props.notice.tone === "warning" || props.notice.tone === "error"
+      : props.notice.tone === "warning" || props.notice.tone === "danger"
         ? TriangleAlert
         : Info;
 

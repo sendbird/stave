@@ -22,7 +22,7 @@ import {
   getNextProviderId,
   getProviderAccentColor,
   getProviderLabel,
-  getProviderWaveTone,
+  getProviderWaveHue,
   listProviderIds,
   inferProviderIdFromModel,
   registerDynamicDefaultReasoningEfforts,
@@ -454,15 +454,15 @@ describe("model catalog", () => {
   });
 
   test("returns semantic provider wave tones", () => {
-    expect(getProviderWaveTone({ providerId: "claude-code" })).toBe("claude");
-    expect(getProviderWaveTone({ providerId: "codex" })).toBe("codex");
-    expect(getProviderWaveTone({ providerId: "cursor" })).toBe("cursor");
-    expect(getProviderWaveTone({ providerId: "kiro" })).toBe("kiro");
+    expect(getProviderWaveHue({ providerId: "claude-code" })).toBe("claude");
+    expect(getProviderWaveHue({ providerId: "codex" })).toBe("codex");
+    expect(getProviderWaveHue({ providerId: "cursor" })).toBe("cursor");
+    expect(getProviderWaveHue({ providerId: "kiro" })).toBe("kiro");
   });
 
   test("gives every registered provider its own wave tone", () => {
     for (const providerId of listProviderIds()) {
-      expect(getProviderWaveTone({ providerId })).not.toBe("accent");
+      expect(getProviderWaveHue({ providerId })).not.toBe("accent");
     }
   });
 
@@ -516,13 +516,13 @@ describe("model catalog", () => {
 
   test("wave tone resolves correctly for [1m] variants", () => {
     expect(
-      getProviderWaveTone({
+      getProviderWaveHue({
         providerId: "claude-code",
         model: "claude-opus-4-8[1m]",
       }),
     ).toBe("claude");
     expect(
-      getProviderWaveTone({
+      getProviderWaveHue({
         providerId: "claude-code",
         model: "claude-sonnet-4-6[1m]",
       }),

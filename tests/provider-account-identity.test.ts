@@ -281,9 +281,9 @@ describe("identity copy", () => {
     );
     expect(describeProviderAccountIdentity({ state: "signed-in", email: null, plan: "Pro", checkedAt: at }, "Codex").text).toBe("Signed in · Pro");
     expect(describeProviderAccountIdentity({ state: "signed-in", email: null, plan: null, checkedAt: at }, "Codex").text).toBe("Signed in");
-    expect(describeProviderAccountIdentity({ state: "signed-out", checkedAt: at }, "Codex")).toEqual({ text: "Not signed in", tone: "attention" });
+    expect(describeProviderAccountIdentity({ state: "signed-out", checkedAt: at }, "Codex")).toEqual({ text: "Not signed in", tone: "warning" });
     expect(describeProviderAccountIdentity({ state: "unknown", reason: "failed", checkedAt: at }, "Codex").text).toBe("Can't check sign-in");
     expect(describeProviderAccountIdentity({ state: "unknown", reason: "cli-missing", checkedAt: at }, "Codex").text).toBe("Codex CLI not found");
-    expect(describeProviderAccountIdentity(undefined, "Codex")).toEqual({ text: "Checking sign-in…", tone: "quiet" });
+    expect(describeProviderAccountIdentity(undefined, "Codex")).toEqual({ text: "Checking sign-in…", tone: "muted" });
   });
 });

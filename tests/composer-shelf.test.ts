@@ -15,7 +15,7 @@ import {
   resolveShelfRunSource,
   resolveShelfTurnAlert,
   resolveTurnRunHeadline,
-  resolveTurnRunTone,
+  resolveTurnRunState,
   resolveVisibleQueuedTurns,
   describeReviewShelfLine,
   selectComposerShelfRows,
@@ -118,7 +118,7 @@ describe("usage-limit line", () => {
     expect(describeReviewShelfLine({ item: { child, status: "running" }, now })).toEqual({
       label: "Reviewing",
       detail: `${toHumanModelName({ model: "gpt-5.5" })} · 1m 15s`,
-      tone: "active",
+      tone: "accent",
     });
     expect(describeReviewShelfLine({ item: { child, status: "ready" }, now }).label).toBe("Review ready");
     expect(
@@ -215,17 +215,17 @@ describe("turn run line", () => {
   } as const;
 
   test("stalled, steering, a retry and a failure are tones of the one line", () => {
-    expect(resolveTurnRunTone(base)).toBe("active");
-    expect(resolveTurnRunTone({ ...base, isStalled: true })).toBe("stalled");
-    expect(resolveTurnRunTone({ ...base, steering: true })).toBe("steering");
-    expect(resolveTurnRunTone({ ...base, turnError: "429", turnErrorRecoverable: true })).toBe("retrying");
-    expect(resolveTurnRunTone({ ...base, turnError: "boom", completed: true })).toBe("failed");
-    expect(resolveTurnRunTone({ ...base, completed: true })).toBe("done");
+    expect(resolveTurnRunState(base)).toBe("active");
+    expect(resolveTurnRunState({ ...base, isStalled: true })).toBe("stalled");
+    expect(resolveTurnRunState({ ...base, steering: true })).toBe("steering");
+    expect(resolveTurnRunState({ ...base, turnError: "429", turnErrorRecoverable: true })).toBe("retrying");
+    expect(resolveTurnRunState({ ...base, turnError: "boom", completed: true })).toBe("failed");
+    expect(resolveTurnRunState({ ...base, completed: true })).toBe("done");
   });
 
   test("waiting on you outranks every other tone", () => {
     expect(
-      resolveTurnRunTone({ ...base, pendingInteraction: "approval", isStalled: true, steering: true }),
+      resolveTurnRunState({ ...base, pendingInteraction: "approval", isStalled: true, steering: true }),
     ).toBe("waiting");
     expect(describeTurnRunLabel("waiting", "approval")).toBe("Waiting for approval");
     expect(describeTurnRunLabel("waiting", "user_input")).toBe("Waiting for your input");

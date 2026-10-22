@@ -13,7 +13,7 @@ describe("TaskRunOverviewView", () => {
     const html = renderToStaticMarkup(
       createElement(TaskRunOverviewView, {
         title: "Current run",
-        status: { label: "Running", tone: "active" },
+        status: { label: "Running", tone: "accent" },
         actualModel: { ...CLAUDE_RUN },
         runTurnId: "turn-1",
       }),
@@ -31,7 +31,7 @@ describe("TaskRunOverviewView", () => {
     const html = renderToStaticMarkup(
       createElement(TaskRunOverviewView, {
         title: "Current run",
-        status: { label: "Running", tone: "active" },
+        status: { label: "Running", tone: "accent" },
         actualModel: {
           providerId: "codex",
           model: "gpt-5.6-terra",

@@ -41,7 +41,7 @@ describe("chat-input runtime helpers", () => {
       getPromptInputRuntimeProfile([
         { id: "sandbox", label: "Files", value: "Workspace Write" },
       ]),
-    ).toMatchObject({ label: "Safe", tone: "default" });
+    ).toMatchObject({ label: "Safe", tone: "success" });
 
     expect(
       getPromptInputRuntimeProfile([
@@ -52,7 +52,7 @@ describe("chat-input runtime helpers", () => {
           tone: "warning",
         },
       ]),
-    ).toMatchObject({ label: "Custom", tone: "custom" });
+    ).toMatchObject({ label: "Custom", tone: "accent" });
 
     expect(
       getPromptInputRuntimeProfile([
@@ -154,7 +154,7 @@ describe("chat-input runtime helpers", () => {
       statusLabel: "active",
       tokenLabel: "120 tokens",
       progressPercent: null,
-      tone: "default",
+      tone: "neutral",
     });
   });
 

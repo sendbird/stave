@@ -19,10 +19,11 @@ import {
   describePullRequestWatchLastSeen,
   describePullRequestWatchTarget,
 } from "./supervision/pull-request-watch-view";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export type ScheduleKind = "start" | "check-back";
 export type ScheduleState = "on" | "paused" | "stopped" | "manual";
-export type ScheduleTone = "neutral" | "accent" | "warning" | "success" | "danger";
+export type ScheduleTone = Extract<Tone, "neutral" | "accent" | "warning" | "success" | "danger">;
 
 export const SCHEDULE_KIND_LABEL: Record<ScheduleKind, string> = {
   get start() { return i18n.t("automation:scheduleRows.startATask"); },

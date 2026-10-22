@@ -219,16 +219,20 @@ export function describePrChecks(checks: GitHubPrChecks | null | undefined) {
 }
 
 // ---------------------------------------------------------------------------
-// Visual config – icon name, GitHub-style tone, short label
+// Visual config – icon name, status hue, short label
 // ---------------------------------------------------------------------------
 
-export type PrStatusTone = "neutral" | "open" | "attention" | "danger" | "done" | "closed";
+/**
+ * The PR status palette (open, merged, closed and the states between): a
+ * category drawn in the service tokens, not a tone.
+ */
+export type PrStatusHue = "neutral" | "open" | "attention" | "danger" | "done" | "closed";
 
 export interface PrStatusVisual {
   /** Lucide icon name (must match the React import). */
   icon: string;
-  /** GitHub-style semantic tone for icon and badge treatment. */
-  tone: PrStatusTone;
+  /** The status's palette entry for icon and badge treatment. */
+  tone: PrStatusHue;
   /** Human-readable short label. */
   label: string;
 }

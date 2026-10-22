@@ -7,8 +7,8 @@ import {
 } from "@/components/layout/status-bar-usage-strip.utils";
 
 const TONE_STYLE = {
-  ok: styles.ringOk,
-  warn: styles.ringWarn,
+  success: styles.ringOk,
+  warning: styles.ringWarn,
   danger: styles.ringDanger,
 } as const;
 

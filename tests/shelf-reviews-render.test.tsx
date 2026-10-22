@@ -140,7 +140,7 @@ describe("viewing a review", () => {
     expect(summary(block({ verdict: "approve", findings: [] })).detail).toContain("No findings");
     expect(
       summary(block({ verdict: "approve", previous: [{ id: "F1", status: "resolved" }], findings: [] })),
-    ).toMatchObject({ label: "Fixes checked", tone: "ready" });
+    ).toMatchObject({ label: "Fixes checked", tone: "accent" });
     expect(summary("no block").detail).toContain("findings unreadable");
     expect(describeReviewShelfLine({ item: ready, now: 0 }).detail).not.toContain("findings");
   });

@@ -18,12 +18,15 @@ import type {
 } from "@/lib/fleet/task-execution-summary";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
+import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
 import { summaryStyles as styles } from "./task-execution-summary.styles";
 
-type MetricTone = "default" | "success" | "warning" | "danger";
-type PartTone = MetricTone | "added" | "removed";
+type MetricTone = Extract<Tone, "neutral" | "success" | "warning" | "danger">;
+/** The two sides of a diff: a category, drawn in the diff tokens, not a tone. */
+type DiffHue = "added" | "removed";
+type PartInk = MetricTone | DiffHue;
 /** The meter stays neutral until the reading itself is a concern. */
-type MeterTone = "neutral" | "warning" | "danger";
+type MeterTone = Extract<Tone, "neutral" | "warning" | "danger">;
 
 /**
  * One tile of the summary grid.
@@ -34,7 +37,7 @@ type MeterTone = "neutral" | "warning" | "danger";
  */
 interface StatPart {
   text: string;
-  tone: PartTone;
+  tone: PartInk;
 }
 
 interface StatMeter {
@@ -97,14 +100,14 @@ function provenanceLabel(provenance: TaskExecutionMetricProvenance) {
 }
 
 const FIGURE_TONE: Record<MetricTone, StyleXValue> = {
-  default: styles.figureDefault,
+  neutral: styles.figureDefault,
   success: styles.toneSuccess,
   warning: styles.toneWarning,
   danger: styles.toneDanger,
 };
 
-const PART_TONE: Record<PartTone, StyleXValue> = {
-  default: styles.toneDefault,
+const PART_INK: Record<PartInk, StyleXValue> = {
+  neutral: styles.toneDefault,
   success: styles.toneSuccess,
   warning: styles.toneWarning,
   danger: styles.toneDanger,
@@ -202,7 +205,7 @@ function SummaryMetricTile(args: {
             <span className={sx(styles.partRow)}>
               {descriptor.parts.map((part, index) => (
                 <span
-                  className={sx(styles.part, PART_TONE[part.tone])}
+                  className={sx(styles.part, PART_INK[part.tone])}
                   key={`${part.tone}-${index}`}
                 >
                   {part.text}
@@ -256,10 +259,13 @@ interface HeadroomFact {
  * One scale for both constraints: the bar and the number change together.
  * 75% used is the warning, 90% is the point where the run is about to stop.
  */
+const PRESSURE_THRESHOLDS = [
+  { from: 75, tone: "warning" },
+  { from: 90, tone: "danger" },
+] as const satisfies readonly ToneThreshold<MeterTone>[];
+
 function pressureTone(usedPercent: number): MeterTone {
-  if (usedPercent >= 90) return "danger";
-  if (usedPercent >= 75) return "warning";
-  return "neutral";
+  return thresholdTone(usedPercent, PRESSURE_THRESHOLDS, "neutral");
 }
 
 function contextHeadroomFact(
@@ -335,13 +341,13 @@ function buildHeadroomDescriptor(
       : "neutral";
   const parts: StatPart[] = [];
   if (primary?.usedLabel) {
-    parts.push({ text: primary.usedLabel, tone: "default" });
+    parts.push({ text: primary.usedLabel, tone: "neutral" });
   }
   if (secondary) {
-    parts.push({ text: secondary.figure, tone: "default" });
+    parts.push({ text: secondary.figure, tone: "neutral" });
   }
   if (accountLimit?.label) {
-    parts.push({ text: accountLimit.label, tone: "default" });
+    parts.push({ text: accountLimit.label, tone: "neutral" });
   }
   const value = primary
     ? [
@@ -357,7 +363,7 @@ function buildHeadroomDescriptor(
     key: "headroom",
     icon: Gauge,
     label: i18n.t("workspace:taskExecutionSummarySurface.headroom"),
-    figureTone: tone === "neutral" ? "default" : tone,
+    figureTone: tone,
     provenance,
     value,
     figure: primary?.figure,
@@ -386,7 +392,7 @@ function buildHeadroomDescriptor(
 
 function verificationOutcome(status: "pass" | "warn" | "fail"): {
   label: string;
-  tone: Exclude<MetricTone, "default">;
+  tone: Exclude<MetricTone, "neutral">;
 } {
   switch (status) {
     case "pass":
@@ -427,10 +433,10 @@ function buildUsageReadout(
         : null;
   const parts: StatPart[] = [];
   if (cacheLabel) {
-    parts.push({ text: cacheLabel, tone: "default" });
+    parts.push({ text: cacheLabel, tone: "neutral" });
   }
   if (tokenLabel && costLabel) {
-    parts.push({ text: costLabel, tone: "default" });
+    parts.push({ text: costLabel, tone: "neutral" });
   }
   const figure = tokenLabel ?? costLabel ?? undefined;
   return {
@@ -483,7 +489,7 @@ function buildMetricDescriptors(
   ) {
     agentParts.push({
       text: i18n.t("workspace:taskExecutionSummarySurface.runningCount", { count: agents.runningCount }),
-      tone: "default",
+      tone: "neutral",
     });
   }
   return [
@@ -491,11 +497,11 @@ function buildMetricDescriptors(
       key: "elapsed",
       icon: Clock3,
       label: i18n.t("workspace:taskExecutionSummarySurface.elapsed"),
-      figureTone: "default",
+      figureTone: "neutral",
       provenance: summary.elapsed.provenance,
       detail: summary.elapsed.detail,
       figure: elapsed ? formatDuration(elapsed.milliseconds) : undefined,
-      parts: elapsed?.running ? [{ text: i18n.t("workspace:taskExecutionSummarySurface.running"), tone: "default" }] : [],
+      parts: elapsed?.running ? [{ text: i18n.t("workspace:taskExecutionSummarySurface.running"), tone: "neutral" }] : [],
       value: elapsed
         ? elapsed.running ? i18n.t("workspace:taskExecutionSummarySurface.runningDuration", { duration: formatDuration(elapsed.milliseconds) }) : formatDuration(elapsed.milliseconds)
         : "Not reported",
@@ -504,7 +510,7 @@ function buildMetricDescriptors(
       key: "changes",
       icon: FileDiff,
       label: i18n.t("workspace:taskExecutionSummarySurface.changes"),
-      figureTone: "default",
+      figureTone: "neutral",
       provenance: summary.changes.provenance,
       detail: summary.changes.detail,
       figure: fileLabel ?? undefined,
@@ -523,7 +529,7 @@ function buildMetricDescriptors(
       label: i18n.t("workspace:taskExecutionSummarySurface.verification"),
       // The outcome is the figure: it is the one word this reader came for.
       // The count is context under it.
-      figureTone: verificationOutcomeLabel?.tone ?? "default",
+      figureTone: verificationOutcomeLabel?.tone ?? "neutral",
       provenance: summary.verification.provenance,
       detail: summary.verification.detail,
       figure: verificationOutcomeLabel?.label,
@@ -531,7 +537,7 @@ function buildMetricDescriptors(
         ? [
             {
               text: `${verification.executedEntries}/${verification.totalEntries} ran`,
-              tone: "default",
+              tone: "neutral",
             },
           ]
         : [],
@@ -543,7 +549,7 @@ function buildMetricDescriptors(
       key: "usage",
       icon: Coins,
       label: i18n.t("workspace:taskExecutionSummarySurface.usage"),
-      figureTone: "default",
+      figureTone: "neutral",
       provenance: summary.usage.provenance,
       detail: summary.usage.detail,
       figure: usageReadout?.figure,
@@ -554,7 +560,7 @@ function buildMetricDescriptors(
       key: "agents",
       icon: Network,
       label: i18n.t("workspace:taskExecutionSummarySurface.agents"),
-      figureTone: "default",
+      figureTone: "neutral",
       provenance: summary.agents.provenance,
       detail: summary.agents.detail,
       figure: agents

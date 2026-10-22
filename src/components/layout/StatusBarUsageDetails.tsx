@@ -35,8 +35,8 @@ import type {
  */
 
 const TONE_FILL = {
-  ok: statusBarUsageStyles.toneOk,
-  warn: statusBarUsageStyles.toneWarn,
+  success: statusBarUsageStyles.toneOk,
+  warning: statusBarUsageStyles.toneWarn,
   danger: statusBarUsageStyles.toneDanger,
 } as const;
 

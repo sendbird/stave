@@ -5,7 +5,7 @@ import { ProviderMark } from "@/components/system/ProviderMark";
 import { providerInkStyles } from "@/components/system/provider-ink.styles";
 import { describeAgentIdentity } from "@/lib/delegation/format";
 import type { DelegationIdentitySource } from "@/lib/delegation/exchange";
-import { getProviderWaveTone } from "@/lib/providers/model-catalog";
+import { getProviderWaveHue } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { delegationStyles as styles } from "./delegation.styles";
 
@@ -47,7 +47,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
     role: props.role,
   });
   const tone = props.providerId
-    ? getProviderWaveTone({ providerId: props.providerId })
+    ? getProviderWaveHue({ providerId: props.providerId })
     : null;
   const nameLabel =
     identity.modelLabel ?? identity.providerLabel ?? i18n.t("agentRuns:agentIdentity.nameLabel");

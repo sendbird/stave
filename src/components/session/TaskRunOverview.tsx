@@ -25,6 +25,7 @@ import {
   ModelResolutionSummary,
   type ActualRunModel,
 } from "./ModelResolutionSummary";
+import type { Tone } from "@/components/ads/utils/tone";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -46,7 +47,11 @@ function toIconedProviderId(providerId: string): ProviderId | null {
 export type RunStatus = {
   label: string;
   detail?: string;
-  tone: "active" | "waiting" | "success" | "danger" | "neutral";
+  /**
+   * A live run reads in the accent (running) or the warning tone (waiting on
+   * you); an ended one in success, danger or neutral.
+   */
+  tone: Extract<Tone, "accent" | "warning" | "success" | "danger" | "neutral">;
 };
 
 function normalizeStopReason(message: ChatMessage | null) {
@@ -63,19 +68,19 @@ export function resolveRunStatus(args: {
     const activity =
       args.activity?.turnId === args.activeTurnId ? args.activity : null;
     if (activity?.pendingInteraction === "approval") {
-      return { label: i18n.t("session:taskRunOverview.label"), detail: i18n.t("session:taskRunOverview.detail"), tone: "waiting" };
+      return { label: i18n.t("session:taskRunOverview.label"), detail: i18n.t("session:taskRunOverview.detail"), tone: "warning" };
     }
     if (activity?.pendingInteraction === "user_input") {
-      return { label: i18n.t("session:taskRunOverview.label2"), detail: i18n.t("session:taskRunOverview.detail2"), tone: "waiting" };
+      return { label: i18n.t("session:taskRunOverview.label2"), detail: i18n.t("session:taskRunOverview.detail2"), tone: "warning" };
     }
     if (activity?.stalledAt != null) {
       return {
         label: i18n.t("session:taskRunOverview.label3"),
         detail: i18n.t("session:taskRunOverview.detail3"),
-        tone: "waiting",
+        tone: "warning",
       };
     }
-    return { label: i18n.t("session:taskRunOverview.label4"), tone: "active" };
+    return { label: i18n.t("session:taskRunOverview.label4"), tone: "accent" };
   }
 
   const receipt = args.message?.terminalReceipt ??
@@ -126,7 +131,7 @@ export function resolveRunStatus(args: {
 }
 
 /** Only the resting tones reach this: a live run is announced by the shelf. */
-function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "active" | "waiting"> }) {
+function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "accent" | "warning"> }) {
   useTranslation();
   if (tone === "success") {
     return <CircleCheck className={sx(styles.icon)} aria-hidden />;
@@ -274,7 +279,7 @@ export function TaskRunOverviewView(props: {
   // A live run, waiting on you included, is written once: on the composer
   // shelf's run line. The status here speaks only once the run has ended.
   const restingTone =
-    status.tone === "active" || status.tone === "waiting" ? null : status.tone;
+    status.tone === "accent" || status.tone === "warning" ? null : status.tone;
   const live = restingTone === null;
   const hasRoutingDetails = Boolean(resolution || actualModel?.modelExecution || props.agentProvenance);
 

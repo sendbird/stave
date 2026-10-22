@@ -1,4 +1,5 @@
 import { i18n, getIntlLocale } from "@/i18n";
+import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
 import { formatNumber } from "@/i18n/format";
 import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
 import { providerReportsQuota } from "@/lib/providers/account-usage-block";
@@ -17,7 +18,7 @@ import {
  * the full strip and the compact meter.
  */
 
-export type UsageTone = "ok" | "warn" | "danger";
+export type UsageTone = Extract<Tone, "success" | "warning" | "danger">;
 
 export function clampUsagePercent(usedPercent: number): number {
   if (!Number.isFinite(usedPercent)) {
@@ -27,11 +28,13 @@ export function clampUsagePercent(usedPercent: number): number {
 }
 
 /** The meters' shared thresholds: under 60% is fine, under 85% is worth watching. */
+export const USAGE_TONE_THRESHOLDS = [
+  { from: 60, tone: "warning" },
+  { from: 85, tone: "danger" },
+] as const satisfies readonly ToneThreshold<UsageTone>[];
+
 export function usageTone(usedPercent: number): UsageTone {
-  const percent = clampUsagePercent(usedPercent);
-  if (percent < 60) return "ok";
-  if (percent < 85) return "warn";
-  return "danger";
+  return thresholdTone(clampUsagePercent(usedPercent), USAGE_TONE_THRESHOLDS, "success");
 }
 
 export function formatUsagePercent(usedPercent: number): string {

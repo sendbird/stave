@@ -90,7 +90,7 @@ import { cx, sx } from "../ads/utils/stylex";
 import { focusRing } from "../ads/recipes/focus-ring";
 import { surfaceChrome } from "../ads/recipes/surface-chrome";
 import { transition } from "../ads/recipes/transition";
-import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
+import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { turnActivityStyles as styles } from "./turn-activity.styles";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import { useThrottledValue } from "@/hooks/use-throttled-value";
@@ -1285,7 +1285,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 cadence="reduced"
                 className={
                   props.activity
-                    ? toProviderWaveToneClass({
+                    ? toProviderWaveHueClass({
                         providerId: props.activity.providerId,
                       })
                     : sx(styles.loaderInk)

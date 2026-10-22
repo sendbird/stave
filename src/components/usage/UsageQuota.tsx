@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
+import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import type { QuotaObservation, UsageStatisticsReport } from "@/lib/providers/usage-statistics";
@@ -16,6 +17,12 @@ import { quotaReadFeedbackText } from "./quota-read-feedback";
 
 const identity = (row: QuotaObservation) => `${row.providerId}:${row.accountProfileId}:${row.windowId}`;
 const percent = (value: number) => `${formatNumber(value, { maximumFractionDigits: 1 })}%`;
+/** A saved window is worth watching from 80% used and about to bind from 97%. */
+const QUOTA_FILL_THRESHOLDS = [
+  { from: 80, tone: "warning" },
+  { from: 97, tone: "danger" },
+] as const satisfies readonly ToneThreshold<Extract<Tone, "warning" | "danger">>[];
+const QUOTA_FILL = { neutral: null, warning: styles.warning, danger: styles.danger } as const;
 
 export function UsageQuota(props: { report: UsageStatisticsReport; profiles: readonly ProviderAccountProfile[]; timeZone: string;
   canRefresh: boolean; reading: boolean; error: string | null; onRefresh: () => void; now: number; apiBilling: boolean;
@@ -59,7 +66,7 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
           <p className={sx(styles.note)}>{t(stale || expired ? "usage:messages.quotaUsedOlder" : "usage:messages.quotaUsed", { percent: percent(row.usedPercent) })}</p>
           <div role="meter" aria-label={`${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}`}
             aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.min(100, row.usedPercent)} aria-valuetext={t(expired ? "usage:messages.quotaUsedExpired" : stale ? "usage:messages.quotaUsedStale" : "usage:messages.quotaUsed", { percent: percent(row.usedPercent) })}
-            className={sx(styles.track)}><div className={sx(styles.fill, row.usedPercent >= 97 ? styles.danger : row.usedPercent >= 80 && styles.warning)} style={{ width: `${Math.min(100, row.usedPercent)}%` }} /></div>
+            className={sx(styles.track)}><div className={sx(styles.fill, QUOTA_FILL[thresholdTone(row.usedPercent, QUOTA_FILL_THRESHOLDS, "neutral")])} style={{ width: `${Math.min(100, row.usedPercent)}%` }} /></div>
           <p className={sx(styles.note)}>{quotaResetCountdown(row.resetsAt, props.now)}{row.resetsAt !== null ? ` · ${usageTimestamp(new Date(row.resetsAt * 1000).toISOString(), props.timeZone)}` : ""}</p>
           <p className={sx(styles.note)}>{stale || expired ? i18n.t("usage:usageQuota.olderObservationVariant27f01b69") : i18n.t("usage:usageQuota.observed")}{usageTimestamp(row.observedAt, props.timeZone)}</p>
         </div>;

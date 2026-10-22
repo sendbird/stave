@@ -19,10 +19,10 @@ import {
 } from "@/components/ai-elements/prompt-input.utils";
 
 function usageToneStyle(tone: ReturnType<typeof conversationContextUsageTone>) {
-  if (tone === "ok") {
+  if (tone === "success") {
     return contextMeterStyles.fillOk;
   }
-  if (tone === "warn") {
+  if (tone === "warning") {
     return contextMeterStyles.fillWarn;
   }
   return contextMeterStyles.fillDanger;

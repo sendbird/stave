@@ -23,12 +23,12 @@ export function ProviderAccountIdentityLine(props: {
   const { profile } = props;
   const identity = useProviderAccountIdentity(profile.providerId, profile.id, !props.signingIn);
   const line = props.signingIn
-    ? { text: t("settingsConnections:providerAccountIdentityLine.signingIn"), tone: "quiet" as const }
+    ? { text: t("settingsConnections:providerAccountIdentityLine.signingIn"), tone: "muted" as const }
     : describeProviderAccountIdentity(identity, props.providerName);
   const canCheckAgain = !props.signingIn && (identity?.state === "unknown" || identity?.state === "signed-out");
   return (
     <div className={sx(styles.identityRow)}>
-      <span role="status" className={sx(line.tone === "attention" ? styles.attention : styles.muted)}>
+      <span role="status" className={sx(line.tone === "warning" ? styles.attention : styles.muted)}>
         {line.text}
       </span>
       {canCheckAgain && (

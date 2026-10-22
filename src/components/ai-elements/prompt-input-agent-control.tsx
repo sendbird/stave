@@ -217,7 +217,7 @@ export function ModelPickerAgentPanel(props: {
         </div>
       ) : null}
       {props.disabled ? (
-        <ComposerOptionMenuCallout tone="note" testId="composer-agent-locked">
+        <ComposerOptionMenuCallout tone="info" testId="composer-agent-locked">
           {i18n.t("composer:promptInputAgentControl.callouts5")}</ComposerOptionMenuCallout>
       ) : null}
     </>

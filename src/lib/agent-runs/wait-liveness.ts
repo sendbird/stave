@@ -20,11 +20,12 @@ import { pullRequestWatchPollIntervalMs } from "@/lib/supervision/pull-request-w
 import { formatAge } from "./agent-run-view";
 import { isPullRequestEventWait, type AgentRunEventWait } from "./event-wait";
 import { selectFreshCompletions } from "./event-wait-observe";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export interface WaitLivenessNote {
   text: string;
   /** `warning` when the reader should look: a failing read, a stale check, a delegate that needs them. */
-  tone: "muted" | "warning";
+  tone: Extract<Tone, "muted" | "warning">;
 }
 
 /**

@@ -20,7 +20,7 @@ const stylesWash = `color-mix(in oklch, ${vars["--ads-chart-11"]} 12%, transpare
 const gitWash = `color-mix(in oklch, ${vars["--ads-chart-13"]} 12%, transparent)`;
 const folderWash = `color-mix(in oklch, ${vars["--ads-chart-5"]} 12%, transparent)`;
 
-export const folderToneStyles = stylex.create({
+export const folderHueStyles = stylex.create({
   code: { backgroundColor: codeWash, color: vars["--ads-chart-1"] },
   data: { backgroundColor: dataWash, color: vars["--ads-chart-7"] },
   docs: { backgroundColor: docsWash, color: vars["--ads-chart-9"] },
@@ -35,7 +35,7 @@ export const folderToneStyles = stylex.create({
   folder: { backgroundColor: folderWash, color: vars["--ads-chart-5"] },
 });
 
-export type FolderTone = keyof typeof folderToneStyles;
+export type FolderHue = keyof typeof folderHueStyles;
 
 export const explorerIconStyles = stylex.create({
   folderBadge: {

@@ -16,6 +16,7 @@ import {
   formatLensNetworkBytes,
   formatLensNetworkStatus,
 } from "@/lib/lens/lens-network";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export const LENS_LOG_LIMIT = 200;
 
@@ -173,7 +174,7 @@ export function formatNetworkHeaders(
  * syntax. (`neutral` is the quiet default; `info`/`warning`/`danger`/`success`
  * mirror the ADS tone families.)
  */
-export type LensLogTone = "neutral" | "info" | "warning" | "danger" | "success";
+export type LensLogTone = Extract<Tone, "neutral" | "info" | "warning" | "danger" | "success">;
 
 export function getConsoleLevelTone(
   level: BrowserConsoleEntry["level"],

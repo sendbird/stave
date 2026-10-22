@@ -3,12 +3,16 @@ import * as stylex from "@stylexjs/stylex";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
+import { thresholdTone, type Tone } from "@/components/ads/utils/tone";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { AgentRun } from "@/lib/agent-runs/domain";
 import { describeAgentRunPermissions, explainAgentRunPermissions, formatAge } from "@/lib/agent-runs/agent-run-view";
 import { formatCostUsd, formatTokenCount, type AgentRunUsage } from "@/lib/agent-runs/usage";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+
+/** The share of its turn budget from which a run reads as near its limit. */
+const TURN_BUDGET_WARNING_SHARE = 0.8;
 
 const PERMISSION_ICONS: Record<AgentRun["consent"]["permissionMode"], LucideIcon> = {
   auto: Zap,
@@ -30,7 +34,7 @@ interface Metric {
   value: string;
   unit?: string;
   detail: string | null;
-  tone?: "warning";
+  tone?: Extract<Tone, "warning">;
   /** 0..1, drawn as a thin budget bar under the value. */
   meter?: number;
 }
@@ -69,7 +73,13 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
   const providerId = agentRun.fingerprint.providerId as ProviderId;
   const permissionMode = agentRun.consent.permissionMode;
   const PermissionIcon = PERMISSION_ICONS[permissionMode];
-  const nearLimit = agentRun.turnCount >= Math.ceil(agentRun.maxTurns * 0.8);
+  // From 80% of the turn budget the run is near its limit.
+  const turnTone = thresholdTone(
+    agentRun.turnCount,
+    [{ from: Math.ceil(agentRun.maxTurns * TURN_BUDGET_WARNING_SHARE), tone: "warning" }],
+    "neutral",
+  );
+  const nearLimit = turnTone === "warning";
   const endedAt = props.active ? props.now : Date.parse(agentRun.updatedAt);
   const unmeasured = usage ? usage.turns - usage.measuredTurns : 0;
   const model = describeRunModel(providerId, agentRun.fingerprint.model);
@@ -81,7 +91,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
       unit: `/ ${agentRun.maxTurns}`,
       detail: null,
       meter: agentRun.maxTurns > 0 ? Math.min(1, agentRun.turnCount / agentRun.maxTurns) : 0,
-      ...(nearLimit ? { tone: "warning" as const } : {}),
+      ...(turnTone === "warning" ? { tone: turnTone } : {}),
     },
     spendMetric(usage),
     {

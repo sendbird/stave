@@ -69,6 +69,16 @@ A built-in theme that fails sets the failing state color by hand, and
 `tests/theme-state-colors.test.ts` checks every built-in theme. User themes get
 the same derivation when applied.
 
+Tones have one vocabulary: `Tone` in `src/components/ads/utils/tone.tsx`, the
+seven values `StatusDot` draws (`neutral`, `muted`, `accent`, `info`, `warning`,
+`success`, `danger`). A product type that means a tone is `Tone` or an
+`Extract<Tone, …>`; a work state is a `*State` drawn through `StateMark`; an
+identity or a category (a provider, the PR status palette, folder colors, a
+diff side) is a `*Hue`. A reading that turns into a tone at thresholds (usage,
+context, quota, budget) goes through `thresholdTone` with its scale written
+out as named data. `tests/tone-vocabulary.test.ts` fails when a new `…Tone`
+type declares its own values.
+
 ### Primitives: ADS components
 
 `src/components/ads/components` holds the canonical components. Controls

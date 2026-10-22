@@ -40,6 +40,7 @@ import type {
   PromptDraftQueuedNextTurn,
   PromptDraftQueuedTurn,
 } from "@/types/chat";
+import type { Tone } from "@/components/ads/utils/tone";
 
 // ── Rows ─────────────────────────────────────────────────────────────────
 
@@ -162,8 +163,8 @@ export function resolveShelfRunControls(args: {
 
 // ── Turn line ────────────────────────────────────────────────────────────
 
-/** Stalled, steering and failed are tones of the one line, not banners of their own. */
-export type ShelfRunTone =
+/** Stalled, steering and failed are states of the one line, not banners of their own. */
+export type ShelfRunState =
   | "active"
   | "waiting"
   | "steering"
@@ -173,7 +174,7 @@ export type ShelfRunTone =
   | "done"
   | "stopped";
 
-export function resolveTurnRunTone(args: {
+export function resolveTurnRunState(args: {
   pendingInteraction: "approval" | "user_input" | null;
   isStalled: boolean;
   /** A steer was sent and the provider has not acknowledged it yet. */
@@ -182,7 +183,7 @@ export function resolveTurnRunTone(args: {
   turnErrorRecoverable: boolean;
   completed: boolean;
   replayOutcome?: RetainedTurnOutcome;
-}): ShelfRunTone {
+}): ShelfRunState {
   if (args.replayOutcome) {
     return args.replayOutcome === "failed"
       ? "failed"
@@ -206,7 +207,7 @@ export function resolveTurnRunTone(args: {
 }
 
 export function describeTurnRunLabel(
-  tone: ShelfRunTone,
+  tone: ShelfRunState,
   pendingInteraction: "approval" | "user_input" | null,
 ): string {
   switch (tone) {
@@ -245,7 +246,7 @@ export interface ShelfRunHeadline {
  * question already asked by its card is not asked again here.
  */
 export function resolveTurnRunHeadline(args: {
-  tone: ShelfRunTone;
+  tone: ShelfRunState;
   pendingInteraction: "approval" | "user_input" | null;
   hasPendingInteractionCard: boolean;
   turnError: string | null;
@@ -300,10 +301,10 @@ export function resolveTurnRunHeadline(args: {
 }
 
 /** The turn tones an agent run's line still has to say while it heads the shelf. */
-export type ShelfTurnAlertTone = Extract<ShelfRunTone, "steering" | "stalled" | "retrying" | "failed">;
+export type ShelfTurnAlertState = Extract<ShelfRunState, "steering" | "stalled" | "retrying" | "failed">;
 
 export interface ShelfTurnAlert {
-  tone: ShelfTurnAlertTone;
+  tone: ShelfTurnAlertState;
   label: string;
   text: string | null;
   detail: string | null;
@@ -333,7 +334,7 @@ export function resolveShelfTurnAlert(args: {
   const pendingInteraction = activity?.pendingInteraction ?? null;
   const turnError = activity?.turnError ?? null;
   const isStalled = activity?.stalledAt != null && !completed && pendingInteraction == null;
-  const tone = resolveTurnRunTone({
+  const tone = resolveTurnRunState({
     pendingInteraction,
     isStalled,
     steering: args.steering,
@@ -687,7 +688,8 @@ export function reorderQueuedTurns<T extends { id: string }>(
 export interface ReviewShelfLine {
   label: string;
   detail: string;
-  tone: "active" | "ready" | "danger" | "muted";
+  /** A running or finished review reads in the accent; a stopped one in plain ink. */
+  tone: Extract<Tone, "accent" | "danger" | "neutral">;
 }
 
 function reviewModelLabel(child: ReviewShelfItem["child"]) {
@@ -712,28 +714,28 @@ export function describeReviewShelfLine(args: {
       detail: Number.isFinite(elapsedMs)
         ? `${model} · ${formatExchangeDuration(elapsedMs)}`
         : model,
-      tone: "active",
+      tone: "accent",
     };
   }
   if (status === "ready") {
     const findings = args.findings;
     if (!findings) {
-      return { label: i18n.t("composer:composerShelfUtils.label4"), detail: model, tone: "ready" };
+      return { label: i18n.t("composer:composerShelfUtils.label4"), detail: model, tone: "accent" };
     }
     if (findings.kind === "unreadable") {
-      return { label: i18n.t("composer:composerShelfUtils.label5"), detail: i18n.t("composer:composerShelfUtils.detail6", { value1: model }), tone: "ready" };
+      return { label: i18n.t("composer:composerShelfUtils.label5"), detail: i18n.t("composer:composerShelfUtils.detail6", { value1: model }), tone: "accent" };
     }
     return {
       label: findings.incomplete ? i18n.t("composer:composerShelfUtils.label6") : findings.recheck ? i18n.t("composer:composerShelfUtils.label7") : i18n.t("composer:composerShelfUtils.label8"),
       detail: `${model} · ${findings.text}`,
-      tone: findings.blocking ? "danger" : "ready",
+      tone: findings.blocking ? "danger" : "accent",
     };
   }
   const reason = child.reason?.trim();
   return {
     label: status === "stopped" ? i18n.t("composer:composerShelfUtils.label9") : i18n.t("composer:composerShelfUtils.label10"),
     detail: reason ? `${model} · ${reason}` : model,
-    tone: status === "stopped" ? "muted" : "danger",
+    tone: status === "stopped" ? "neutral" : "danger",
   };
 }
 
