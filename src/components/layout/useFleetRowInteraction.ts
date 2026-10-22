@@ -9,7 +9,11 @@ import {
   classifyFleetInlineInteraction,
   type FleetInlineInteraction,
 } from "@/lib/fleet/inline-interaction";
-import { loadFleetInteraction } from "@/lib/fleet/interaction-load";
+import {
+  isFleetRequestShown,
+  loadFleetInteraction,
+  loadFleetRequestFromOlderMessages,
+} from "@/lib/fleet/interaction-load";
 import {
   respondToFleetInteraction,
   type FleetInteractionResponse,
@@ -25,7 +29,7 @@ import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 type AppState = ReturnType<typeof useAppStore.getState>;
 type SessionSlice = Pick<
   WorkspaceSessionState,
-  "tasks" | "messagesByTask" | "activeTurnIdsByTask"
+  "tasks" | "messagesByTask" | "messageCountByTask" | "activeTurnIdsByTask"
 >;
 
 /** The request a Fleet row names, or `null` for rows that hold no request. */
@@ -84,7 +88,10 @@ export interface FleetRowInteraction {
   pending: boolean;
   /** The request's repository is not open: the row offers Open only. */
   otherRepository: boolean;
-  /** The task is loaded and no longer shows the request as pending. */
+  /**
+   * The task shows the request's message and it is no longer pending, or every
+   * message is loaded and the request is not among them.
+   */
   settled: boolean;
   loading: boolean;
   error: string | null;
@@ -141,6 +148,11 @@ export function useFleetRowInteraction(
       ? selectOwningSession(state, identity)?.activeTurnIdsByTask[taskId]
       : undefined,
   );
+  const messageCount = useAppStore((state) =>
+    taskId
+      ? selectOwningSession(state, identity)?.messageCountByTask[taskId]
+      : undefined,
+  );
   // Answerable means what sending checks: still pending, in the message and
   // turn the row names (an async question may outlive its turn).
   const part = useMemo(() => {
@@ -194,23 +206,29 @@ export function useFleetRowInteraction(
   }, [busy]);
 
   const loaded = Boolean(task && messages);
+  // Loaded messages can be only the latest page; the request may be older.
+  const shown = Boolean(identity && messages && isFleetRequestShown(messages, identity));
+  const searched = loaded && (shown || (messages?.length ?? 0) >= (messageCount ?? 0));
   const ensureLoaded = useCallback(() => {
-    if (!identity || part || loaded || loading || otherRepository) {
+    if (!identity || part || searched || loading || otherRepository) {
       return;
     }
     setLoading(true);
     setError(null);
-    loadFleetInteraction(identity).then(
-      () => {
-        if (mountedRef.current) setLoading(false);
-      },
-      (cause: unknown) => {
-        if (!mountedRef.current) return;
-        setLoading(false);
-        setError(cause instanceof Error ? cause.message : String(cause));
-      },
-    );
-  }, [identity, loaded, loading, otherRepository, part]);
+    // A cold task loads first; then older pages until the request shows.
+    (loaded ? Promise.resolve() : loadFleetInteraction(identity))
+      .then(() => loadFleetRequestFromOlderMessages(identity))
+      .then(
+        () => {
+          if (mountedRef.current) setLoading(false);
+        },
+        (cause: unknown) => {
+          if (!mountedRef.current) return;
+          setLoading(false);
+          setError(cause instanceof Error ? cause.message : String(cause));
+        },
+      );
+  }, [identity, loaded, loading, otherRepository, part, searched]);
 
   const respond = useCallback(
     (response: FleetInteractionResponse): FleetControlValidation => {
@@ -235,7 +253,7 @@ export function useFleetRowInteraction(
     pending: Boolean(part),
     otherRepository,
     settled:
-      loaded && !part && sentRequestId !== identity?.requestId && !loading,
+      searched && !part && sentRequestId !== identity?.requestId && !loading,
     loading,
     error,
     busy,

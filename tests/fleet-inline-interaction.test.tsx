@@ -326,6 +326,62 @@ describe("loading cold requests", () => {
   });
 });
 
+describe("a request older than the loaded messages", () => {
+  const filler = (index: number): ChatMessage => ({
+    id: `m-filler-${index}`, role: "assistant", model: "gpt-5.5", providerId: "codex", content: `${index}`,
+    parts: [{ type: "text", text: `${index}` }],
+  });
+  const older = message("m-older", userInput("question-older", [question()]), "turn-cached");
+  // The full history: the question first, then 9 later messages.
+  const history = [older, ...Array.from({ length: 9 }, (_, index) => filler(index))];
+  const identity = { ...cachedApproval, kind: "user-input" as const, requestId: "question-older", messageId: "m-older" };
+
+  async function cacheLatest(count: number) {
+    const useAppStore = await store();
+    const cached = useAppStore.getState().workspaceRuntimeCacheById["ws-cached"]!;
+    useAppStore.setState({ workspaceRuntimeCacheById: { "ws-cached": { ...cached,
+      messagesByTask: { "task-cached": history.slice(-count) }, messageCountByTask: { "task-cached": history.length } } } });
+    return useAppStore;
+  }
+  // Prepends the next older page of three, as the store's older-page load does.
+  const pageOlder = (useAppStore: Awaited<ReturnType<typeof store>>, calls: string[]) => async (taskId: string) => {
+    calls.push(taskId);
+    const cached = useAppStore.getState().workspaceRuntimeCacheById["ws-cached"]!;
+    const loaded = cached.messagesByTask["task-cached"] ?? [];
+    const start = Math.max(history.length - loaded.length - 3, 0);
+    useAppStore.setState({ workspaceRuntimeCacheById: { "ws-cached": { ...cached,
+      messagesByTask: { "task-cached": [...history.slice(start, history.length - loaded.length), ...loaded] } } } });
+  };
+
+  test("the request counts as shown by its message, or by its request id when no message was named", async () => {
+    const { isFleetRequestShown } = await import("@/lib/fleet/interaction-load");
+    expect(isFleetRequestShown(history, identity)).toBe(true);
+    expect(isFleetRequestShown(history.slice(1), identity)).toBe(false);
+    expect(isFleetRequestShown(history, { requestId: "question-older", messageId: null })).toBe(true);
+    expect(isFleetRequestShown(history.slice(1), { requestId: "question-older", messageId: null })).toBe(false);
+  });
+
+  test("older pages are read until the request's message is loaded", async () => {
+    const { loadFleetRequestFromOlderMessages } = await import("@/lib/fleet/interaction-load");
+    const useAppStore = await cacheLatest(4);
+    const calls: string[] = [];
+    expect(await loadFleetRequestFromOlderMessages(identity, pageOlder(useAppStore, calls))).toBe(true);
+    expect(calls).toEqual(["task-cached", "task-cached"]);
+    expect(useAppStore.getState().workspaceRuntimeCacheById["ws-cached"]?.messagesByTask["task-cached"]?.[0]?.id).toBe("m-older");
+  });
+
+  test("with every message loaded, or when a page brings nothing, the search stops", async () => {
+    const { loadFleetRequestFromOlderMessages } = await import("@/lib/fleet/interaction-load");
+    const missing = { ...identity, messageId: "m-gone", requestId: "question-gone" };
+    const useAppStore = await cacheLatest(history.length);
+    const calls: string[] = [];
+    expect(await loadFleetRequestFromOlderMessages(missing, pageOlder(useAppStore, calls))).toBe(false);
+    expect(calls).toEqual([]);
+    await cacheLatest(4);
+    expect(await loadFleetRequestFromOlderMessages(identity, async () => {})).toBe(false);
+  });
+});
+
 describe("the Fleet row", () => {
   type Interaction = import("@/components/layout/useFleetRowInteraction").FleetRowInteraction;
   function interaction(overrides: Partial<Interaction>): Interaction {

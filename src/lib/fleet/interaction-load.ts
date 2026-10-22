@@ -64,6 +64,65 @@ function finishLoad(workspaceId: string) {
   lastLoadWrites.delete(workspaceId);
 }
 
+/**
+ * Whether `messages` include the request's message (by its message id when
+ * the source named one), whatever its state. Only then can a missing pending
+ * request be called answered or expired: a session can hold just its latest
+ * messages, and a question that does not block its turn can be older.
+ */
+export function isFleetRequestShown(
+  messages: readonly ChatMessage[],
+  expected: Pick<FleetInteractionControlIdentity, "requestId" | "messageId">,
+) {
+  return messages.some((message) =>
+    expected.messageId
+      ? message.id === expected.messageId
+      : message.parts.some(
+          (part) =>
+            (part.type === "approval" || part.type === "user_input") &&
+            part.requestId === expected.requestId,
+        ),
+  );
+}
+
+/** Older pages read at most while looking for one request (120 messages each). */
+export const FLEET_REQUEST_OLDER_PAGE_LIMIT = 25;
+
+/**
+ * Reads the task's older messages, a page at a time, until the request's
+ * message is loaded or none are left. Returns whether it was found. Stops
+ * when a page brings nothing new (a failed read, or a load already running).
+ */
+export async function loadFleetRequestFromOlderMessages(
+  expected: FleetInteractionControlIdentity,
+  loadOlder: (taskId: string) => Promise<unknown> = (taskId) =>
+    useAppStore.getState().loadTaskMessages({ taskId, mode: "older" }),
+) {
+  const read = () =>
+    getWorkspaceSessionForState({
+      state: useAppStore.getState(),
+      workspaceId: expected.workspaceId,
+    });
+  for (let page = 0; page < FLEET_REQUEST_OLDER_PAGE_LIMIT; page += 1) {
+    const session = read();
+    const messages = session?.messagesByTask[expected.taskId];
+    if (!messages) {
+      return false;
+    }
+    if (isFleetRequestShown(messages, expected)) {
+      return true;
+    }
+    if (messages.length >= (session?.messageCountByTask[expected.taskId] ?? 0)) {
+      return false;
+    }
+    await loadOlder(expected.taskId);
+    if ((read()?.messagesByTask[expected.taskId]?.length ?? 0) <= messages.length) {
+      return false;
+    }
+  }
+  return false;
+}
+
 /** True when the request's repository is not the one this window has open. */
 export function isOtherRepositoryInteraction(
   expected: Pick<FleetInteractionControlIdentity, "repositoryPath">,

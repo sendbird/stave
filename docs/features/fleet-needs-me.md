@@ -107,7 +107,9 @@ Fleet item, and the task records the answer the same way.
 - An answer is sent only if the task still shows that exact request (same
   workspace, task, turn and request); otherwise the row says why. A request in
   a workspace you have not opened since starting Stave is loaded when you focus
-  or open its row, and a request in another repository is answered with `Open`.
+  or open its row, and one older than the task's loaded messages is looked up
+  in its older messages before the row calls it answered or expired. A request
+  in another repository is answered with `Open`.
   An answer cannot be undone, and a second answer to the same request is never
   sent.
 - `Open`: goes to the item's task, the same place the bell opens it (a
