@@ -22,6 +22,7 @@ import { registerUsageStatisticsHandlers } from "./usage-statistics";
 import { registerTurnHistoryHandlers } from "./turn-history";
 import { registerTaskHandoffHandlers } from "./task-handoff";
 import { registerSideQuestionHandlers } from "./side-question";
+import { registerTaskSearchHandlers } from "./task-search";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
@@ -60,6 +61,7 @@ export function registerHandlers() {
   registerTurnHistoryHandlers();
   registerTaskHandoffHandlers();
   registerSideQuestionHandlers();
+  registerTaskSearchHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();

@@ -1028,5 +1028,25 @@
       "or": "또는",
       "then": "다음"
     }
+  },
+  "taskSearch": {
+    "scopeLabel": "작업 범위",
+    "scopeWorkspace": "이 워크스페이스",
+    "scopeAll": "모든 저장소",
+    "heading": "모든 저장소의 작업",
+    "searching": "모든 저장소를 검색하는 중…",
+    "failed": "작업을 검색할 수 없습니다.",
+    "noMatch": "어느 저장소에도 “{{query}}”와 맞는 작업이 없습니다.",
+    "noTasks": "아직 어느 저장소에도 작업이 없습니다.",
+    "untitled": "제목 없는 작업",
+    "defaultWorkspace": "기본 워크스페이스",
+    "state": {
+      "running": "실행 중",
+      "completed": "완료",
+      "failed": "실패",
+      "cancelled": "중단됨",
+      "new": "새 작업",
+      "archived": "보관됨"
+    }
   }
 }

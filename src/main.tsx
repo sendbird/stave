@@ -176,6 +176,10 @@ if (preview === "question-reply") {
       </StaveDesignProvider>,
     );
   });
+} else if (preview === "command-palette") {
+  void import("@/dev/command-palette-preview").then(({ CommandPalettePreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><CommandPalettePreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "composer-frame") {
   void import("@/dev/composer-frame-preview").then(
     ({ ComposerFramePreviewApp }) => {

@@ -2259,6 +2259,10 @@ interface WindowPersistenceApi {
   saveTaskHandoff?: (
     args: import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffArgs,
   ) => Promise<import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffResponse>;
+  /** Every registered repository's tasks matching a query, for the palette's All repositories scope. */
+  searchTasks?: (
+    args: import("@/lib/task-search/task-search-ipc").SearchTasksArgs,
+  ) => Promise<import("@/lib/task-search/task-search-ipc").SearchTasksResponse>;
   /**
    * Tokens (input plus output, without cache reads) and cost reported on
    * turns run in Stave, per provider, since the given local day and month

@@ -1034,5 +1034,25 @@
       "or": "or",
       "then": "then"
     }
+  },
+  "taskSearch": {
+    "scopeLabel": "Tasks in",
+    "scopeWorkspace": "This workspace",
+    "scopeAll": "All repositories",
+    "heading": "Tasks in all repositories",
+    "searching": "Searching every repository…",
+    "failed": "Tasks could not be searched.",
+    "noMatch": "No task in any repository matches “{{query}}”.",
+    "noTasks": "No tasks in any repository yet.",
+    "untitled": "Untitled task",
+    "defaultWorkspace": "Default workspace",
+    "state": {
+      "running": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "cancelled": "Stopped",
+      "new": "New",
+      "archived": "Archived"
+    }
   }
 }

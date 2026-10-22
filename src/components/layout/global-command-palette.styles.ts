@@ -140,4 +140,46 @@ export const commandPaletteStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   resultCount: { flexShrink: 0, fontVariantNumeric: "tabular-nums" },
+  /** The task scope switch under the input: this workspace, or every repository. */
+  scopeRow: {
+    alignItems: "center",
+    borderBlockEndColor: vars["--ads-color-border-subtle"],
+    borderBlockEndStyle: "solid",
+    borderBlockEndWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexShrink: 0,
+    gap: vars["--ads-space-8"],
+    paddingBlock: 6,
+    paddingInline: vars["--ads-space-12"],
+  },
+  scopeLabel: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+  },
+  scopeButtons: {
+    display: "flex",
+    gap: vars["--ads-space-4"],
+  },
+  searchHeading: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    margin: 0,
+    paddingBlock: 6,
+    paddingInline: vars["--ads-space-12"],
+  },
+  searchNotice: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    margin: 0,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
+  },
+  searchTime: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    marginBlockStart: 2,
+    whiteSpace: "nowrap",
+  },
 });

@@ -4,6 +4,7 @@ import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resoluti
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { turnHistoryPreload } from "./persistence/turn-history-preload";
 import { taskHandoffPreload } from "./persistence/task-handoff-preload";
+import { taskSearchPreload } from "./persistence/task-search-preload";
 import {
   SIDE_QUESTION_IPC,
   type AskSideQuestionArgs,
@@ -1812,6 +1813,7 @@ contextBridge.exposeInMainWorld("api", {
     ...usageStatisticsPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...turnHistoryPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     ...taskHandoffPreload((channel, args) => ipcRenderer.invoke(channel, args)),
+    ...taskSearchPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     summarizeTurnSpend: (
       args: import("../src/lib/providers/turn-spend").TurnSpendArgs,
     ) => ipcRenderer.invoke("persistence:summarize-turn-spend", args),

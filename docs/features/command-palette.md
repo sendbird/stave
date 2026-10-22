@@ -103,6 +103,24 @@ The same four bindings back the model picker's **Recommended** group.
 
 That separation matters: the Command Palette controls Stave itself, while slash commands affect what the model does inside a task.
 
+### Find A Task In Any Repository
+
+The row under the search field sets where the palette looks for tasks:
+
+- **This workspace** (the default) lists the open workspace's tasks.
+- **All repositories** searches every task of every registered repository and
+  its workspaces, including workspaces you have not opened since Stave started.
+  The words you type are matched against task titles and the names of the
+  workspace, its branch and the repository; matching titles come first, then
+  the most recent. With nothing typed it lists the latest tasks.
+
+Each result shows its repository, workspace, branch and folder, so tasks with
+the same title are told apart, plus its state (Running, Done, Failed, Stopped,
+New) and its last activity. Opening one goes to its repository, then its
+workspace, then the task. Archived tasks and repositories you removed are not
+searched. The other commands, Fleet View included, stay in the list in both
+scopes.
+
 ### Stave Slash Commands
 
 Stave answers these itself; they are never sent to the provider. They are
