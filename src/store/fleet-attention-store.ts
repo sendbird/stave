@@ -14,6 +14,7 @@ import type {
   FleetAttentionProjection,
 } from "@/lib/fleet/attention-projection";
 import type { FleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
+import { shareFleetAttentionSnapshot } from "@/lib/fleet/attention-sharing";
 import { EMPTY_FLEET_INBOX, type FleetInbox } from "@/lib/fleet/inbox-model";
 
 export interface FleetAttentionSnapshot extends FleetAttentionProjection {
@@ -59,9 +60,16 @@ export const useFleetAttentionStore = create<{
   snapshot: FleetAttentionSnapshot;
 }>(() => ({ snapshot: EMPTY_FLEET_ATTENTION }));
 
+/**
+ * Publishes a pass of the producer. Slices equal to the published ones keep
+ * their references, so a streamed chunk that changes nothing a reader shows
+ * publishes nothing, and a change re-renders only the readers of its slice.
+ */
 export function publishFleetAttention(snapshot: FleetAttentionSnapshot) {
-  if (useFleetAttentionStore.getState().snapshot !== snapshot) {
-    useFleetAttentionStore.setState({ snapshot });
+  const previous = useFleetAttentionStore.getState().snapshot;
+  const shared = shareFleetAttentionSnapshot(previous, snapshot);
+  if (shared !== previous) {
+    useFleetAttentionStore.setState({ snapshot: shared });
   }
 }
 

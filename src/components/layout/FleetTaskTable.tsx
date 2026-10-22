@@ -1,7 +1,6 @@
 import { useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { useEffect, useMemo } from "react";
-import { useShallow } from "zustand/react/shallow";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
@@ -28,10 +27,12 @@ import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import { formatActivityDuration } from "@/lib/fleet/task-activity-line";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   buildFleetTaskRows,
   fleetTaskRowSearchText,
   matchesFleetTaskTableFilter,
+  shareFleetTaskRows,
   type FleetTaskRow,
   type FleetTaskTableFilter,
   type FleetTaskTableWorkspace,
@@ -84,6 +85,106 @@ export interface FleetTaskTableSummary {
   shownRowCount: number;
 }
 
+/** The store fields the table's rows are built from. */
+type FleetTaskTableState = Pick<
+  ReturnType<typeof useAppStore.getState>,
+  | "repositoryPath"
+  | "activeWorkspaceId"
+  | "tasks"
+  | "messagesByTask"
+  | "activeTurnIdsByTask"
+  | "openTaskTabIds"
+  | "workspaceRuntimeCacheById"
+  | "providerTurnActivityByTask"
+  | "workspaceLastActiveAtById"
+>;
+
+const EMPTY_ROWS: FleetTaskRow[] = [];
+
+/** Workspaces of `repositories` that have no live session in this window. */
+function listColdWorkspaceIds(
+  state: Pick<FleetTaskTableState, "repositoryPath" | "activeWorkspaceId" | "workspaceRuntimeCacheById">,
+  repositories: readonly FleetTaskTableRepository[],
+) {
+  return repositories.flatMap((repository) =>
+    repository.workspaces
+      .filter(
+        (workspace) =>
+          !(
+            repository.repositoryPath === state.repositoryPath &&
+            (workspace.id === state.activeWorkspaceId ||
+              state.workspaceRuntimeCacheById[workspace.id])
+          ),
+      )
+      .map((workspace) => workspace.id),
+  );
+}
+
+/**
+ * A store selector for the table's rows. It runs on every store change,
+ * including every streamed chunk, so it reuses what it can: statuses are
+ * cached per messages array, and rows equal to the last ones keep their
+ * references, so a chunk that changes no row re-renders nothing.
+ */
+export function createFleetTaskRowsSelector(args: {
+  repositories: readonly FleetTaskTableRepository[];
+  nowMs: number;
+  attentionItems: readonly FleetAttentionItem[];
+  attentionItemsByWorkspaceId: Readonly<Record<string, readonly FleetAttentionItem[] | undefined>>;
+  shells: Readonly<Record<string, FleetWorkspaceShellEntry | undefined>>;
+  /** The last rows returned, kept across selectors so a new one shares them too. */
+  previous?: { current: FleetTaskRow[] };
+}) {
+  const previous = args.previous ?? { current: EMPTY_ROWS };
+  return (state: FleetTaskTableState): FleetTaskRow[] => {
+    const workspaces: FleetTaskTableWorkspace[] = args.repositories.flatMap((repository) =>
+      repository.workspaces.map((workspace) => {
+        const isCurrent = repository.repositoryPath === state.repositoryPath;
+        const isActive = isCurrent && workspace.id === state.activeWorkspaceId;
+        const cached = isCurrent ? state.workspaceRuntimeCacheById[workspace.id] : undefined;
+        const session = isActive
+          ? {
+              tasks: state.tasks,
+              messagesByTask: state.messagesByTask,
+              activeTurnIdsByTask: state.activeTurnIdsByTask,
+              openTaskTabIds: state.openTaskTabIds,
+            }
+          : cached
+            ? {
+                tasks: cached.tasks,
+                messagesByTask: cached.messagesByTask,
+                activeTurnIdsByTask: cached.activeTurnIdsByTask,
+                openTaskTabIds: cached.openTaskTabIds,
+              }
+            : null;
+        const entry = args.shells[workspace.id];
+        const stored = entry?.status === "loaded" ? entry.shell : null;
+        return {
+          repositoryPath: repository.repositoryPath,
+          repositoryName: repository.repositoryName,
+          workspaceId: workspace.id,
+          workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
+          workspaceBranch: workspace.branch ?? null,
+          isActive,
+          lastActiveAt: state.workspaceLastActiveAtById[workspace.id] ?? null,
+          hasAttentionItems: (args.attentionItemsByWorkspaceId[workspace.id]?.length ?? 0) > 0,
+          session,
+          storedTasks: stored?.tasks ?? null,
+          storedOpenTaskTabIds: stored?.openTaskTabIds,
+        };
+      }),
+    );
+    const rows = buildFleetTaskRows({
+      workspaces,
+      attentionItems: args.attentionItems,
+      providerTurnActivityByTask: state.providerTurnActivityByTask,
+      nowMs: args.nowMs,
+    });
+    previous.current = shareFleetTaskRows(previous.current, rows);
+    return previous.current;
+  };
+}
+
 /**
  * Every open task of every workspace in one table: the task, its workspace,
  * its state, what it needs from you, how long that has waited, and what its
@@ -99,58 +200,28 @@ export function FleetTaskTable(props: {
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
   onSummaryChange?: (summary: FleetTaskTableSummary) => void;
 }) {
-  const [
-    currentRepositoryPath,
-    activeWorkspaceId,
-    activeTasks,
-    activeMessagesByTask,
-    activeTurnIdsByTask,
-    activeOpenTaskTabIds,
-    workspaceRuntimeCacheById,
-    providerTurnActivityByTask,
-    workspaceLastActiveAtById,
-  ] = useAppStore(
-    useShallow(
-      (state) =>
-        [
-          state.repositoryPath,
-          state.activeWorkspaceId,
-          state.tasks,
-          state.messagesByTask,
-          state.activeTurnIdsByTask,
-          state.openTaskTabIds,
-          state.workspaceRuntimeCacheById,
-          state.providerTurnActivityByTask,
-          state.workspaceLastActiveAtById,
-        ] as const,
-    ),
-  );
+  // References that hold while a turn streams (the snapshot shares them).
   const attentionItems = useFleetAttention((snapshot) => snapshot.items);
   const attentionItemsByWorkspaceId = useFleetAttention(
     (snapshot) => snapshot.attentionItemsByWorkspaceId,
   );
 
   // Workspaces with no live session read their stored task lists once, from
-  // the cache the workspace cards share.
-  const coldWorkspaces = useMemo(
-    () =>
-      props.repositories.flatMap((repository) =>
-        repository.workspaces
-          .filter(
-            (workspace) =>
-              !(
-                repository.repositoryPath === currentRepositoryPath &&
-                (workspace.id === activeWorkspaceId ||
-                  workspaceRuntimeCacheById[workspace.id])
-              ),
-          )
-          .map((workspace) => ({
-            workspaceId: workspace.id,
-            workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
-          })),
-      ),
-    [activeWorkspaceId, currentRepositoryPath, props.repositories, workspaceRuntimeCacheById],
+  // the cache the workspace cards share. A string, so streaming leaves it be.
+  const coldKey = useAppStore((state) =>
+    listColdWorkspaceIds(state, props.repositories).join("\u0000"),
   );
+  const coldWorkspaces = useMemo(() => {
+    const cold = new Set(coldKey ? coldKey.split("\u0000") : []);
+    return props.repositories.flatMap((repository) =>
+      repository.workspaces
+        .filter((workspace) => cold.has(workspace.id))
+        .map((workspace) => ({
+          workspaceId: workspace.id,
+          workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
+        })),
+    );
+  }, [coldKey, props.repositories]);
   const coldWorkspaceIds = useMemo(
     () => coldWorkspaces.map((workspace) => workspace.workspaceId),
     [coldWorkspaces],
@@ -158,72 +229,30 @@ export function FleetTaskTable(props: {
   const shells = useFleetWorkspaceShells(coldWorkspaceIds);
   const load = summarizeFleetTaskTableLoad({ coldWorkspaces, shells });
 
-  const rows = useMemo(() => {
-    const workspaces: FleetTaskTableWorkspace[] = props.repositories.flatMap((repository) =>
-      repository.workspaces.map((workspace) => {
-        const isCurrent = repository.repositoryPath === currentRepositoryPath;
-        const isActive = isCurrent && workspace.id === activeWorkspaceId;
-        const cached = isCurrent ? workspaceRuntimeCacheById[workspace.id] : undefined;
-        const session = isActive
-          ? {
-              tasks: activeTasks,
-              messagesByTask: activeMessagesByTask,
-              activeTurnIdsByTask,
-              openTaskTabIds: activeOpenTaskTabIds,
-            }
-          : cached
-            ? {
-                tasks: cached.tasks,
-                messagesByTask: cached.messagesByTask,
-                activeTurnIdsByTask: cached.activeTurnIdsByTask,
-                openTaskTabIds: cached.openTaskTabIds,
-              }
-            : null;
-        const entry = shells[workspace.id];
-        const stored = entry?.status === "loaded" ? entry.shell : null;
-        return {
-          repositoryPath: repository.repositoryPath,
-          repositoryName: repository.repositoryName,
-          workspaceId: workspace.id,
-          workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
-          workspaceBranch: workspace.branch ?? null,
-          isActive,
-          lastActiveAt: workspaceLastActiveAtById[workspace.id] ?? null,
-          hasAttentionItems: (attentionItemsByWorkspaceId[workspace.id]?.length ?? 0) > 0,
-          session,
-          storedTasks: stored?.tasks ?? null,
-          storedOpenTaskTabIds: stored?.openTaskTabIds,
-        };
+  const previousRows = useRef<FleetTaskRow[]>(EMPTY_ROWS);
+  const selectRows = useMemo(
+    () =>
+      createFleetTaskRowsSelector({
+        repositories: props.repositories,
+        nowMs: props.nowMs,
+        attentionItems,
+        attentionItemsByWorkspaceId,
+        shells,
+        previous: previousRows,
       }),
-    );
-    return buildFleetTaskRows({
-      workspaces,
-      attentionItems,
-      providerTurnActivityByTask,
-      nowMs: props.nowMs,
-    });
-  }, [
-    activeMessagesByTask,
-    activeOpenTaskTabIds,
-    activeTasks,
-    activeTurnIdsByTask,
-    activeWorkspaceId,
-    attentionItems,
-    attentionItemsByWorkspaceId,
-    currentRepositoryPath,
-    props.nowMs,
-    props.repositories,
-    providerTurnActivityByTask,
-    shells,
-    workspaceLastActiveAtById,
-    workspaceRuntimeCacheById,
-  ]);
+    [attentionItems, attentionItemsByWorkspaceId, props.nowMs, props.repositories, shells],
+  );
+  const rows = useAppStore(selectRows);
 
   const query = normalizeFleetSearchQuery(props.searchQuery);
-  const shownRows = rows.filter(
-    (row) =>
-      matchesFleetTaskTableFilter(row, props.filter) &&
-      fleetSearchMatches(fleetTaskRowSearchText(row), query),
+  const shownRows = useMemo(
+    () =>
+      rows.filter(
+        (row) =>
+          matchesFleetTaskTableFilter(row, props.filter) &&
+          fleetSearchMatches(fleetTaskRowSearchText(row), query),
+      ),
+    [props.filter, query, rows],
   );
   // As the cards count it: shown workspaces with a turn in flight.
   const liveWorkspaceCount = new Set(
@@ -372,13 +401,20 @@ function FleetTaskRowsTable(props: {
   );
 }
 
-function FleetTaskTableRow(props: {
+/** One row; rows the parent kept unchanged do not re-render. */
+const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
   row: FleetTaskRow;
   nowMs: number;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
   const { row } = props;
+  // The running turn's snapshot changes with every streamed event, so only
+  // this row reads it, and only while the turn is the task's active one.
+  const snapshot = useAppStore((state) =>
+    row.activeTurnId ? state.providerTurnActivityByTask[row.task.id] : undefined,
+  );
+  const activity = snapshot && snapshot.turnId === row.activeTurnId ? snapshot : null;
   const state = FLEET_TASK_WORK_STATE[row.status];
   const stateLabel =
     row.status === "stalled"
@@ -433,15 +469,15 @@ function FleetTaskTableRow(props: {
         <span className={sx(styles.secondary, styles.numeric)}>{waiting}</span>
       </TableCell>
       <TableCell xstyle={styles.activityCell}>
-        {row.activity ? (
-          <FleetTaskActivityLine activity={row.activity} status={row.status} />
+        {activity ? (
+          <FleetTaskActivityLine activity={activity} status={row.status} />
         ) : (
           <ActivityTimestamp kind="updated" value={row.task.updatedAt} />
         )}
       </TableCell>
     </TableRow>
   );
-}
+});
 
 const styles = stylex.create({
   // Bounded by the board's scroller so the table scrolls itself and its

@@ -2,6 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { ChatMessage, Task } from "@/types/chat";
 import type { FleetAttentionItem, FleetAttentionKind } from "./attention-projection";
+import { sameData, shareList } from "./attention-sharing";
 import { classifyTaskStatus, type FleetDisplayStatus } from "./task-status";
 import {
   compareWithinWorkQueueLane,
@@ -57,13 +58,53 @@ export interface FleetTaskRow {
   need: FleetAttentionItem | null;
   /** When the wait behind `need` began; null when no source recorded one. */
   waitingSince: string | null;
-  activity: ProviderTurnActivitySnapshot | null;
+  /**
+   * The task's running turn. Its activity changes with every streamed event,
+   * so it is not part of the row: the row's activity line reads it itself.
+   */
   activeTurnId: string | null;
   rank: WorkAttentionRank;
 }
 
 export function getFleetTaskRowKey(row: Pick<FleetTaskRow, "repositoryPath" | "workspaceId" | "task">) {
   return JSON.stringify([row.repositoryPath, row.workspaceId, row.task.id]);
+}
+
+// Statuses by the messages array they were read from: a streamed chunk
+// replaces only its own task's array, so every other task's status is reused.
+const statusCache = new WeakMap<readonly ChatMessage[], Map<string, FleetDisplayStatus>>();
+const NO_MESSAGES: ChatMessage[] = [];
+
+function classifyTaskStatusCached(args: {
+  task: Task;
+  messages: readonly ChatMessage[] | undefined;
+  activeTurnId: string | null;
+  activity: ProviderTurnActivitySnapshot | null;
+}): FleetDisplayStatus {
+  const messages = args.messages ?? NO_MESSAGES;
+  // Everything else the classification reads.
+  const signature = [
+    args.task.archivedAt ?? "",
+    args.activeTurnId ?? "",
+    args.activity?.turnId ?? "",
+    args.activity?.stalledAt ?? "",
+    args.activity?.pendingInteraction ?? "",
+  ].join("\u0000");
+  let byInputs = statusCache.get(messages);
+  if (!byInputs) {
+    byInputs = new Map();
+    statusCache.set(messages, byInputs);
+  }
+  const cached = byInputs.get(signature);
+  if (cached) return cached;
+  const status = classifyTaskStatus({
+    task: args.task,
+    messages: messages as ChatMessage[],
+    activeTurnId: args.activeTurnId,
+    activity: args.activity,
+  });
+  byInputs.set(signature, status);
+  return status;
 }
 
 function mostUrgentByTask(items: readonly FleetAttentionItem[]) {
@@ -105,14 +146,14 @@ export function buildFleetTaskRows(args: {
       const snapshot = args.providerTurnActivityByTask[task.id] ?? null;
       const activity = activeTurnId && snapshot?.turnId === activeTurnId ? snapshot : null;
       const status: FleetDisplayStatus = session
-        ? classifyTaskStatus({
+        ? classifyTaskStatusCached({
             task,
-            messages: session.messagesByTask[task.id] ?? [],
+            messages: session.messagesByTask[task.id],
             activeTurnId,
             activity,
           })
         : "unknown";
-      return { task, activeTurnId, activity, status };
+      return { task, activeTurnId, status };
     });
     const workspaceActivity = classifyFleetWorkspaceActivity({
       activityAt: resolveFleetWorkspaceActivityAt({
@@ -127,7 +168,7 @@ export function buildFleetTaskRows(args: {
       hasAttentionItems: workspace.hasAttentionItems,
       isActiveWorkspace: workspace.isActive,
     });
-    for (const { task, activeTurnId, activity, status } of views) {
+    for (const { task, activeTurnId, status } of views) {
       const need = needs.get(JSON.stringify([workspace.workspaceId, task.id])) ?? null;
       const base = {
         repositoryPath: workspace.repositoryPath,
@@ -144,7 +185,6 @@ export function buildFleetTaskRows(args: {
         status,
         need,
         waitingSince: need ? (need.waitingSince ?? null) : null,
-        activity,
         activeTurnId,
         rank: rankWorkAttention({
           attentionKind: need?.kind,
@@ -156,6 +196,22 @@ export function buildFleetTaskRows(args: {
     }
   }
   return rows.sort(compareFleetTaskRows);
+}
+
+/**
+ * `next` with each row equal to one of `previous` replaced by it, and
+ * `previous` itself when every row is equal: a streamed chunk that changes no
+ * row keeps the table's rows (and every row component) as they were.
+ */
+export function shareFleetTaskRows(
+  previous: readonly FleetTaskRow[],
+  next: readonly FleetTaskRow[],
+): FleetTaskRow[] {
+  const byKey = new Map(previous.map((row) => [row.key, row]));
+  return shareList(previous, next, (row) => {
+    const before = byKey.get(row.key);
+    return before && sameData(before, row, 2) ? before : row;
+  });
 }
 
 /** What the search field matches for a row, as a card matches its workspace. */

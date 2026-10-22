@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  createFleetTaskRowsSelector,
   FleetTaskTableView,
   summarizeFleetTaskTableLoad,
 } from "@/components/layout/FleetTaskTable";
@@ -128,7 +129,7 @@ describe("one row per open task across every workspace", () => {
 
   test("a workspace nobody opened shows its stored tasks with an unknown state and its need", () => {
     const old = fixture()[0]!;
-    expect(old).toMatchObject({ workspaceId: "ws-cold", status: "unknown", activity: null, activeTurnId: null });
+    expect(old).toMatchObject({ workspaceId: "ws-cold", status: "unknown", activeTurnId: null });
     expect(old.need?.kind).toBe("approval");
     expect(old.waitingSince).toBe(minutesAgo(45));
   });
@@ -142,7 +143,7 @@ describe("one row per open task across every workspace", () => {
     const byId = new Map(fixture().map((row) => [row.task.id, row]));
     expect(byId.get("quiet")).toMatchObject({ status: "stalled", activeTurnId: "turn-quiet" });
     expect(byId.get("running")).toMatchObject({ status: "running" });
-    expect(byId.get("running")!.activity?.turnId).toBe("turn-running");
+    expect(byId.get("running")!.activeTurnId).toBe("turn-running");
     expect(byId.get("idle")).toMatchObject({ status: "idle", need: null, waitingSince: null });
     expect(byId.get("approve-new")).toMatchObject({ status: "waiting-approval" });
     // Closed tabs, archived and delegated tasks are not open tasks.
@@ -237,6 +238,58 @@ describe("the table", () => {
     applyAppLocale("ko");
     expect(render([])).toContain("이 필터에 맞는 작업이 없습니다.");
     expect(render(fixture())).toContain(">대기 시간</th>");
+  });
+});
+
+describe("while a turn streams", () => {
+  // The open workspace as the store holds it, with one running task.
+  const running = task("running");
+  const idle = task("idle");
+  const stateWith = (chunk: number, stalled = false) => ({
+    repositoryPath: "/tmp/project",
+    activeWorkspaceId: "ws-open",
+    tasks: [running, idle],
+    messagesByTask: {
+      running: Array.from({ length: chunk }, (_, index) => ({
+        id: `m-${index}`, role: "assistant", model: "gpt-5.5", providerId: "codex", content: `chunk ${index}`,
+        parts: [{ type: "text", text: `chunk ${index}` }],
+      })),
+      idle: [],
+    },
+    activeTurnIdsByTask: { running: "turn-running" },
+    openTaskTabIds: ["running", "idle"],
+    workspaceRuntimeCacheById: {},
+    // Every event moves the snapshot; only a stall changes what a row shows.
+    providerTurnActivityByTask: {
+      running: { ...activity("turn-running", stalled), lastEventAt: NOW - 1_000 + chunk },
+    },
+    workspaceLastActiveAtById: {},
+  }) as never;
+  const select = () =>
+    createFleetTaskRowsSelector({
+      repositories: [{ repositoryPath: "/tmp/project", repositoryName: "project", workspaces: [{ id: "ws-open", name: "open" }] }],
+      nowMs: NOW,
+      attentionItems: [],
+      attentionItemsByWorkspaceId: {},
+      shells: {},
+    });
+
+  test("a chunk that changes no row keeps the rows, and the rows' references", () => {
+    const selectRows = select();
+    const first = selectRows(stateWith(1));
+    expect(first.map((row) => row.task.id)).toEqual(["running", "idle"]);
+    expect(selectRows(stateWith(2))).toBe(first);
+    expect(selectRows(stateWith(3))).toBe(first);
+  });
+
+  test("a change re-creates only the row it touched", () => {
+    const selectRows = select();
+    const first = selectRows(stateWith(1));
+    const stalled = selectRows(stateWith(2, true));
+    expect(stalled).not.toBe(first);
+    const byId = (rows: readonly FleetTaskRow[], id: string) => rows.find((row) => row.task.id === id);
+    expect(byId(stalled, "running")?.status).toBe("stalled");
+    expect(byId(stalled, "idle")).toBe(byId(first, "idle"));
   });
 });
 
