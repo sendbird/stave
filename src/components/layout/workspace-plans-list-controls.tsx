@@ -16,6 +16,8 @@ import { planListControlStyles as styles } from "./workspace-plans.styles";
 export function PlansSearchField(props: {
   query: string;
   onQueryChange: (query: string) => void;
+  /** Whether the field holds focus; the list keeps the field while it does. */
+  onFocusChange: (focused: boolean) => void;
   inputRef: RefObject<HTMLInputElement | null>;
 }) {
   const { t } = useTranslation("workspace");
@@ -30,6 +32,8 @@ export function PlansSearchField(props: {
       leading={<Search aria-hidden />}
       value={props.query}
       onChange={(event) => props.onQueryChange(event.target.value)}
+      onFocus={() => props.onFocusChange(true)}
+      onBlur={() => props.onFocusChange(false)}
       onKeyDown={(event) => {
         if (event.key !== "Escape" || event.nativeEvent.isComposing || !props.query) return;
         event.preventDefault();

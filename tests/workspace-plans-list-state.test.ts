@@ -5,6 +5,7 @@ import {
   resolvePlansListView,
   selectPlansListRows,
   shouldOfferPlansSearch,
+  shouldShowPlansStatus,
   type PlansListState,
 } from "@/components/layout/workspace-plans-list-state";
 import { buildWorkspacePlanListEntries, MAX_WORKSPACE_PLANS } from "@/lib/plans";
@@ -128,5 +129,18 @@ describe("Plans list rows", () => {
     expect(shouldOfferPlansSearch({ total: 11, query: "" })).toBe(true);
     expect(shouldOfferPlansSearch({ total: 3, query: "retry" })).toBe(true);
     expect(shouldOfferPlansSearch({ total: 3, query: "   " })).toBe(false);
+  });
+
+  test("a search cleared after the list shrank to ten keeps its field while the field has focus", () => {
+    // Documents deleted during a search leave ten; clearing must not pull the field out from under the keyboard.
+    expect(shouldOfferPlansSearch({ total: 10, query: "", focused: true })).toBe(true);
+    expect(shouldOfferPlansSearch({ total: 10, query: "", focused: false })).toBe(false);
+  });
+
+  test("the count line shows for a cut list or a search, never for ten or fewer at rest", () => {
+    const view = (total: number, searching: boolean) => ({ rows: [], total, matched: 0, searching, hidden: 0 });
+    expect(shouldShowPlansStatus(view(12, false))).toBe(true);
+    expect(shouldShowPlansStatus(view(4, true))).toBe(true);
+    expect(shouldShowPlansStatus(view(10, false))).toBe(false);
   });
 });

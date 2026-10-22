@@ -135,7 +135,17 @@ export function selectPlansListRows<T extends PlanSearchFields>(args: {
   return { rows, total, matched: rows.length, searching: false, hidden: total - rows.length };
 }
 
-/** The search earns its place once the recent cut hides documents, and stays while a query is typed. */
-export function shouldOfferPlansSearch(args: { total: number; query: string; recentLimit?: number }): boolean {
-  return args.total > (args.recentLimit ?? MAX_WORKSPACE_PLANS) || queryWords(args.query).length > 0;
+/**
+ * The search earns its place once the recent cut hides documents, and stays
+ * while a query is typed or the field has focus: a search cleared after
+ * deletions left ten or fewer must not pull the field out from under the
+ * keyboard. It goes once focus leaves.
+ */
+export function shouldOfferPlansSearch(args: { total: number; query: string; focused?: boolean; recentLimit?: number }): boolean {
+  return args.total > (args.recentLimit ?? MAX_WORKSPACE_PLANS) || queryWords(args.query).length > 0 || args.focused === true;
+}
+
+/** The count line under the list: for a cut list or a search, never for ten or fewer at rest. */
+export function shouldShowPlansStatus(view: PlansListRows<unknown>, recentLimit = MAX_WORKSPACE_PLANS): boolean {
+  return view.searching || view.total > recentLimit;
 }

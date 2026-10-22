@@ -134,6 +134,20 @@ describe("filesystem path helpers", () => {
     }
   });
 
+  test("a folder below one it may not enter is unreadable too, not missing", async () => {
+    const workspaceRoot = createTempWorkspace();
+    const ancestor = path.join(workspaceRoot, ".stave");
+    writeText(path.join(ancestor, "context/plans/a.md"), "# A\n");
+    chmodSync(ancestor, 0o000);
+    try {
+      if (process.getuid?.() === 0) return;
+      await expect(listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: ".stave/context/plans" }))
+        .rejects.toBeInstanceOf(DirectoryUnreadableError);
+    } finally {
+      chmodSync(ancestor, 0o755);
+    }
+  });
+
   test("surfaces symlinked files and directories that resolve inside the workspace root", async () => {
     const workspaceRoot = createTempWorkspace();
     writeText(path.join(workspaceRoot, "dotfiles/config/nvim/init.lua"), "vim.o.number = true\n");

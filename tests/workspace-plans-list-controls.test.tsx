@@ -39,11 +39,11 @@ describe("Plans list controls", () => {
   });
 
   test("the search field is named and offers a clear action once something is typed", () => {
-    const empty = renderToStaticMarkup(createElement(PlansSearchField, { query: "", onQueryChange: noop }));
+    const empty = renderToStaticMarkup(createElement(PlansSearchField, { query: "", onQueryChange: noop, onFocusChange: noop, inputRef: { current: null } }));
     expect(empty).toContain('aria-label="Search documents"');
     expect(empty).toContain('placeholder="Search by name or task"');
     expect(empty).not.toContain("Clear search");
-    const typed = renderToStaticMarkup(createElement(PlansSearchField, { query: "retry", onQueryChange: noop }));
+    const typed = renderToStaticMarkup(createElement(PlansSearchField, { query: "retry", onQueryChange: noop, onFocusChange: noop, inputRef: { current: null } }));
     expect(typed).toContain('value="retry"');
     expect(typed).toContain('aria-label="Clear search"');
   });
@@ -52,6 +52,6 @@ describe("Plans list controls", () => {
     applyAppLocale("ko");
     expect(status({ rows: rows(10), total: 37, matched: 10, searching: false, hidden: 27 })).toContain("전체 37개 중 최근 10개 표시");
     expect(status({ rows: rows(2), total: 37, matched: 2, searching: true, hidden: 0 })).toContain("문서 37개 중 2개 일치");
-    expect(renderToStaticMarkup(createElement(PlansSearchField, { query: "", onQueryChange: noop }))).toContain('aria-label="문서 검색"');
+    expect(renderToStaticMarkup(createElement(PlansSearchField, { query: "", onQueryChange: noop, onFocusChange: noop, inputRef: { current: null } }))).toContain('aria-label="문서 검색"');
   });
 });

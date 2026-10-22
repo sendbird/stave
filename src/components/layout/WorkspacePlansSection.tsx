@@ -43,6 +43,7 @@ import {
   resolvePlansListView,
   selectPlansListRows,
   shouldOfferPlansSearch,
+  shouldShowPlansStatus,
   type WorkspaceDocumentFilePaths,
 } from "./workspace-plans-list-state";
 
@@ -135,12 +136,13 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
   }, [documentsByPath, filePaths]);
   const [query, setQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const listRows = useMemo(
     () => selectPlansListRows({ entries, query, showAll }),
     [entries, query, showAll],
   );
-  const offerSearch = shouldOfferPlansSearch({ total: entries.length, query });
+  const offerSearch = shouldOfferPlansSearch({ total: entries.length, query, focused: searchFocused });
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState(false);
   const [deleteTarget, setDeleteTarget] =
@@ -403,7 +405,14 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 {retryButton}
               </div>
             ) : null}
-            {offerSearch ? <PlansSearchField query={query} onQueryChange={setQuery} inputRef={searchInputRef} /> : null}
+            {offerSearch ? (
+              <PlansSearchField
+                query={query}
+                onQueryChange={setQuery}
+                onFocusChange={setSearchFocused}
+                inputRef={searchInputRef}
+              />
+            ) : null}
             {listRows.rows.map((entry) => {
               const summary = documentsByPath[entry.filePath];
               return (
@@ -508,7 +517,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
               </div>
               );
             })}
-            {offerSearch ? (
+            {shouldShowPlansStatus(listRows) ? (
               <PlansListStatus
                 view={listRows}
                 showAll={showAll}
