@@ -35,12 +35,25 @@ export async function readTaskHandoff(args: { workspaceId: string; taskId: strin
   return parsed.data;
 }
 
-export async function saveTaskHandoff(args: SaveTaskHandoffArgs): Promise<SaveTaskHandoffResponse> {
+/**
+ * Save the record. Only a stored task can have one; a task created a moment
+ * ago may not be stored yet, so on that refusal `storeTask` stores its
+ * workspace and the save is tried once more.
+ */
+export async function saveTaskHandoff(
+  args: SaveTaskHandoffArgs,
+  options: { storeTask?: () => Promise<void> } = {},
+): Promise<SaveTaskHandoffResponse> {
   const persistence = getPersistenceApi();
   if (!persistence?.saveTaskHandoff) {
     // i18n-ignore: diagnostic; the panel shows its own translated error
     return { ok: false, message: "Handoff records are saved in the Stave desktop app." };
   }
+  const response = await persistence.saveTaskHandoff(args);
+  if (response.ok || response.conflict || !response.missingTask || !options.storeTask) {
+    return response;
+  }
+  await options.storeTask();
   return persistence.saveTaskHandoff(args);
 }
 

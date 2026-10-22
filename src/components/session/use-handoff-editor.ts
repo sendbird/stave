@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { saveTaskHandoff } from "@/lib/db/task-handoff.db";
+import { useAppStore } from "@/store/app.store";
 import {
   HANDOFF_SECTION_IDS,
   handoffRecordToDraft,
@@ -61,13 +62,11 @@ export function useHandoffEditor(args: {
   const save = async (fromRevision: number): Promise<HandoffSaveOutcome> => {
     setSaving(true);
     try {
-      const response = await saveTaskHandoff({
-        workspaceId: args.workspaceId,
-        taskId: args.taskId,
-        baseRevision: fromRevision,
-        draft,
-        authors,
-      });
+      const response = await saveTaskHandoff(
+        { workspaceId: args.workspaceId, taskId: args.taskId, baseRevision: fromRevision, draft, authors },
+        // A task created a moment ago is stored with its workspace's next snapshot; store it now.
+        { storeTask: () => useAppStore.getState().flushActiveWorkspaceSnapshot() },
+      );
       if (response.ok) {
         args.onSaved(response.record);
         finish();

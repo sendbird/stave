@@ -55,4 +55,5 @@ export type SaveTaskHandoffResponse =
   | { ok: true; record: TaskHandoffRecord }
   /** The record changed since editing began; `record` is what is stored now. */
   | { ok: false; conflict: true; record: TaskHandoffRecord }
-  | { ok: false; conflict?: false; message: string };
+  /** `missingTask`: the workspace has no stored task with this id (deleted, or not saved yet). */
+  | { ok: false; conflict?: false; missingTask?: true; message: string };

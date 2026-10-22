@@ -56,11 +56,20 @@ export class TaskHandoffStore {
   /**
    * Save a draft made from `baseRevision`. A record saved since then is a
    * conflict: nothing is written and the stored record comes back, so the
-   * person editing decides.
+   * person editing decides. Only a task row of this workspace can have a
+   * record: anything else (a deleted task, another workspace's task, an id
+   * that names no task) is refused, so no record outlives its task's trigger.
    */
   save(args: SaveTaskHandoffArgs & { at?: string }): SaveTaskHandoffResponse {
     let response: SaveTaskHandoffResponse = { ok: false, message: "Not saved." };
     this.db.transaction(() => {
+      const task = this.db
+        .prepare("SELECT 1 FROM tasks WHERE id = ? AND workspace_id = ?")
+        .get(`${args.workspaceId}:${args.taskId}`, args.workspaceId);
+      if (!task) {
+        response = { ok: false, missingTask: true, message: "The task is not stored in this workspace." };
+        return;
+      }
       const current = this.read(args);
       if (current.revision !== args.baseRevision) {
         response = { ok: false, conflict: true, record: current };

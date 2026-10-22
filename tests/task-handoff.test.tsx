@@ -164,12 +164,62 @@ describe("handoff record store", () => {
     db.close();
   });
 
+  test("a save for a task this workspace does not have is refused and writes nothing", () => {
+    const { db, store } = harness();
+    const draft = { ...EMPTY_DRAFT, goal: "Ship" };
+    // No such task, or a task deleted while its record was being edited.
+    expect(store.taskHandoffs.save({ workspaceId: "ws", taskId: "missing", baseRevision: 0, draft, at: AT })).toMatchObject({ ok: false, missingTask: true });
+    // The task belongs to another workspace.
+    expect(store.taskHandoffs.save({ workspaceId: "elsewhere", taskId: "task", baseRevision: 0, draft, at: AT })).toMatchObject({ ok: false, missingTask: true });
+    // Workspace "a:b" owns the row "a:b:c"; workspace "a" with task "b:c" names the same row id.
+    db.run("INSERT INTO tasks (id, workspace_id, title, provider, updated_at) VALUES ('a:b:c', 'a:b', 'Task', 'codex', ?)", [AT]);
+    expect(store.taskHandoffs.save({ workspaceId: "a", taskId: "b:c", baseRevision: 0, draft, at: AT })).toMatchObject({ ok: false, missingTask: true });
+    expect(db.query("SELECT COUNT(*) AS count FROM task_handoff_records").get()).toEqual({ count: 0 });
+    expect(store.taskHandoffs.save({ workspaceId: "a:b", taskId: "c", baseRevision: 0, draft, at: AT })).toMatchObject({ ok: true, record: { revision: 1 } });
+    db.close();
+  });
+
+  test("the window saves a task created a moment ago once its workspace is stored", async () => {
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    const calls: string[] = [];
+    let taskStored = false;
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: {
+        api: {
+          persistence: {
+            saveTaskHandoff: async () => {
+              calls.push("save");
+              return taskStored
+                ? { ok: true, record: { version: 1, revision: 1, updatedAt: AT, sections: {} } }
+                : { ok: false, missingTask: true, message: "The task is not stored in this workspace." };
+            },
+          },
+        },
+      },
+    });
+    try {
+      const { saveTaskHandoff } = await import("@/lib/db/task-handoff.db");
+      const response = await saveTaskHandoff(
+        { workspaceId: "ws", taskId: "new-task", baseRevision: 0, draft: { ...EMPTY_DRAFT, goal: "Ship" } },
+        { storeTask: async () => { calls.push("store"); taskStored = true; } },
+      );
+      expect(response).toMatchObject({ ok: true });
+      expect(calls).toEqual(["save", "store", "save"]);
+    } finally {
+      if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+      else Reflect.deleteProperty(globalThis, "window");
+    }
+  });
+
   test("preload -> validated IPC -> SQLite saves and reads, and rejects malformed input", async () => {
     const saved = await bridge.saveTaskHandoff({ workspaceId: "ws", taskId: "task", baseRevision: 0, draft: { ...EMPTY_DRAFT, goal: "Ship" } });
     expect(saved).toMatchObject({ ok: true, record: { revision: 1, sections: { goal: { text: "Ship", updatedBy: "user" } } } });
     expect(await bridge.readTaskHandoff({ workspaceId: "ws", taskId: "task" })).toMatchObject({ ok: true, record: { revision: 1 } });
     expect(await bridge.saveTaskHandoff({ workspaceId: "ws", taskId: "task", baseRevision: -1, draft: EMPTY_DRAFT } as never)).toMatchObject({ ok: false });
     expect(await bridge.readTaskHandoff({ workspaceId: "", taskId: "task" })).toMatchObject({ ok: false });
+    expect(await bridge.saveTaskHandoff({ workspaceId: "ws", taskId: "ghost", baseRevision: 0, draft: { ...EMPTY_DRAFT, goal: "Ship" } })).toMatchObject({ ok: false, missingTask: true });
+    expect(await bridge.readTaskHandoff({ workspaceId: "ws", taskId: "ghost" })).toMatchObject({ ok: true, record: { revision: 0 } });
   });
 });
 

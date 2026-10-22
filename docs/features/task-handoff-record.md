@@ -86,7 +86,9 @@
 
 - The record is stored in the app database with the task, one per task. It is
   kept when the task is archived and deleted when the task is deleted or its
-  workspace is closed or removed.
+  workspace is closed or removed. Saving a record for a task that was deleted
+  meanwhile is refused; a task created a moment ago is stored first, then its
+  record.
 - Unsaved edits stay while Stave is open, also when you switch tabs or tasks;
   a restart ends them, like an unsaved editor.
 - The record is sent as part of the turn's prompt whenever the conversation
