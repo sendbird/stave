@@ -60,9 +60,6 @@
     "reviewWasNotSavedRetry": "Read status was not saved. Retry.",
     "snoozeWasNotSavedRetry": "Snooze was not saved. Retry.",
     "snoozedItemsWereNotRestoredRetry": "Snoozed items were not restored. Retry.",
-    "cleared1Item": "Cleared 1 item.",
-    "clearedValueItems": "Cleared {{cleared}} items.",
-    "someItemsWereNotClearedRetry": "Some items were not cleared. Retry.",
     "fleetView": "Fleet View",
     "fullWorkQueue": "The full Work queue, what needs you first",
     "noAgentTurnsInFlight": "No agent turns in flight",
@@ -237,5 +234,23 @@
   },
   "inbox": {
     "unreadLabel": "{{label}}, unread"
+  },
+  "bulk": {
+    "menuLabel": "Clear In review",
+    "reviewResults_one": "Mark {{count}} result reviewed",
+    "reviewResults_other": "Mark {{count}} results reviewed",
+    "readNotifications_one": "Mark {{count}} notification read (can't be undone)",
+    "readNotifications_other": "Mark {{count}} notifications read (can't be undone)",
+    "hideForADay_one": "Hide {{count}} pull request for a day",
+    "hideForADay_other": "Hide {{count}} pull requests for a day",
+    "applyAll_one": "Do all of these ({{count}} item)",
+    "applyAll_other": "Do all of these ({{count}} items)",
+    "cleared_one": "Cleared {{count}} item.",
+    "cleared_other": "Cleared {{count}} items.",
+    "readsCannotBeUndone": "Notification reads can't be undone.",
+    "failed_one": "{{count}} item was not cleared. Retry.",
+    "failed_other": "{{count}} items were not cleared. Retry.",
+    "undo": "Undo",
+    "undoFailed": "Some cleared items could not be restored."
   }
 }

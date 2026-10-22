@@ -29,6 +29,8 @@ import {
 } from "@/components/layout/FleetWorkspaceCard";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
+import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
+import type { FleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import {
   Badge,
   Button,
@@ -40,14 +42,8 @@ import {
   Input,
   Kbd,
 } from "@/components/ui";
-import {
-  getFleetAttentionTier,
-  type FleetAttentionItem,
-} from "@/lib/fleet/attention-projection";
-import {
-  FLEET_ATTENTION_CLEAR_SNOOZE_MS,
-  resolveSnoozeDeadline,
-} from "@/lib/fleet/attention-snooze";
+import { type FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import { resolveSnoozeDeadline } from "@/lib/fleet/attention-snooze";
 import {
   clearFleetAttentionSnoozes,
   snoozeFleetAttention,
@@ -65,10 +61,7 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
-import {
-  setResultReviewed,
-  setResultsReviewed,
-} from "@/lib/reviews/result-review-client";
+import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import { toast } from "@/lib/notifications/toast";
 
 type FleetRepositoryView = {
@@ -251,7 +244,6 @@ export function FleetView() {
     null,
   );
   const [busyAttentionId, setBusyAttentionId] = useState<string | null>(null);
-  const [clearingReview, setClearingReview] = useState(false);
   const filterInputRef = useRef<HTMLInputElement>(null);
   // The Esc handler reads the latest selection without re-subscribing.
   const selectedAttentionIdRef = useRef(selectedAttentionId);
@@ -507,82 +499,16 @@ export function FleetView() {
     );
   }, [snoozedItems, tI18n]);
 
-  /**
-   * Acknowledges the whole `In review` group in one gesture.
-   *
-   * Each row is cleared through whichever mechanism actually owns it, because
-   * Fleet owns none of them: a durable result is marked reviewed, a
-   * notification-backed row is read and resolved, and a pull-request row — whose
-   * state lives on GitHub and would be rebuilt on the next projection — is
-   * snoozed for a day instead. Anything that cannot be cleared is left in place
-   * rather than reported as cleared.
-   */
-  const clearReviewNeeds = useCallback(() => {
-    const reviewTargets = attentionTargets.filter(
-      (target) => getFleetAttentionTier(target.kind) === "review",
-    );
-    if (reviewTargets.length === 0) {
-      return;
-    }
-    setClearingReview(true);
-    void (async () => {
-      let cleared = 0;
-      const scopes = reviewTargets.flatMap((target) =>
-        target.resultReview
-          ? [
-              {
-                repositoryPath: target.resultReview.repositoryPath,
-                workspaceId: target.resultReview.workspaceId,
-                taskId: target.resultReview.taskId,
-                turnId: target.resultReview.turnId,
-              },
-            ]
-          : [],
-      );
-      // The bulk contract caps a batch at 200; a paged rail can exceed that.
-      for (let index = 0; index < scopes.length; index += 200) {
-        cleared += await setResultsReviewed({
-          scopes: scopes.slice(index, index + 200),
-          reviewed: true,
-        });
-      }
-
-      const resolvedAt = new Date().toISOString();
-      for (const target of reviewTargets) {
-        if (target.resultReview || !target.notificationId) {
-          continue;
-        }
-        await markNotificationRead({ id: target.notificationId, resolvedAt });
-        cleared += 1;
-      }
-
-      const snoozedUntil = resolveSnoozeDeadline({
-        durationMs: FLEET_ATTENTION_CLEAR_SNOOZE_MS,
-      });
-      for (const target of reviewTargets) {
-        if (target.resultReview || target.notificationId) {
-          continue;
-        }
-        await snoozeFleetAttention({
-          attentionId: target.id,
-          workspaceId: target.workspaceId,
-          snoozedUntil,
-        });
-        cleared += 1;
-      }
-      toast.success(
-        cleared === 1 ? tI18n("fleet:fleetView.cleared1Item") : tI18n("fleet:fleetView.clearedValueItems", { cleared: cleared }),
-      );
-    })()
-      .catch((error: unknown) => {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : tI18n("fleet:fleetView.someItemsWereNotClearedRetry"),
-        );
-      })
-      .finally(() => setClearingReview(false));
-  }, [attentionTargets, markNotificationRead, tI18n]);
+  // Bulk clear of `In review`: the menu already said what each effect does;
+  // this applies the chosen plan and offers Undo where the data allows it.
+  const bulkActions = useFleetBulkActions();
+  const { apply: applyBulkPlan } = bulkActions;
+  const clearReviewNeeds = useCallback(
+    (plan: FleetBulkPlan) => {
+      void applyBulkPlan(plan);
+    },
+    [applyBulkPlan],
+  );
 
   const openAttentionItemPr = useCallback((target: FleetAttentionItem) => {
     if (!target.prUrl) {
@@ -814,7 +740,7 @@ export function FleetView() {
             selectedAttentionId={selectedAttentionId}
             busyAttentionId={busyAttentionId}
             snoozedCount={snoozedItems.length}
-            clearingReview={clearingReview}
+            clearingReview={bulkActions.applying}
             onOpen={openAttentionItem}
             onOpenEntry={openAttentionEntry}
             onOpenTask={handleOpenTask}

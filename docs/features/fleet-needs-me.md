@@ -115,9 +115,15 @@ optional shortcuts on top of that.
   every item, including blocking ones. A snooze is time-bounded and never
   answers the request behind the item, so the item returns on its own when the
   deadline passes.
-- `Clear all` on `In review`: acknowledges the whole review group in one
-  action. It is deliberately absent from `Action required`, where an agent is
-  still waiting for a real answer.
+- `Clear all` on `In review`: opens a menu that says what clearing does before
+  it does it, each effect with its count: `Mark 3 results reviewed`,
+  `Mark 2 notifications read (can't be undone)`, `Hide 1 pull request for a
+  day`. Pick one effect alone or `Do all of these`. The toast counts only what
+  changed and offers `Undo` for reviewed results and hidden pull requests;
+  notification reads cannot be undone, and the toast says so when there were
+  any. Anything that failed is reported separately, never as cleared. `Clear
+  all` is deliberately absent from `Action required`, where an agent is still
+  waiting for a real answer.
 - `Restore`: brings every snoozed item back immediately. The rail always reports
   how many items a snooze is hiding, so nothing disappears without a count.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
@@ -176,9 +182,12 @@ optional shortcuts on top of that.
   source, and expired rows are retired on read. A snooze hides an item; it never
   edits the request, result, or pull request behind it.
 - `Clear all` routes each item to whichever mechanism owns it: a durable result
-  is marked reviewed, a notification-backed item is read and resolved, and a
-  pull-request item — whose state lives on GitHub and would be rebuilt on the
-  next projection — is snoozed for a day instead.
+  is marked reviewed, a notification-backed item (only without the durable
+  result store) is read and resolved, and a pull-request item — whose state
+  lives on GitHub and would be rebuilt on the next projection — is snoozed for a
+  day instead. Every effect is attempted even when another fails. `Undo` marks
+  the results unreviewed and lifts the snoozes; there is no way to mark a
+  notification unread, so the bell's `Mark all read` has no Undo either.
 - Durable notifications keep pending interactions visible; a separate SQLite
   result history preserves review state after notification reads, expiry, and
   cleanup. Old retained outcomes migrate as unreviewed, even if their notifications

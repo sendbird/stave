@@ -60,9 +60,6 @@
     "reviewWasNotSavedRetry": "읽음 상태를 저장하지 못했습니다. 다시 시도하세요.",
     "snoozeWasNotSavedRetry": "알림 미루기를 저장하지 못했습니다. 다시 시도합니다.",
     "snoozedItemsWereNotRestoredRetry": "미룬 항목을 복원하지 못했습니다. 다시 시도합니다.",
-    "cleared1Item": "항목 1개를 지웠습니다.",
-    "clearedValueItems": "항목 {{cleared}}개를 지웠습니다.",
-    "someItemsWereNotClearedRetry": "일부 항목을 지우지 못했습니다. 다시 시도합니다.",
     "fleetView": "Fleet 보기",
     "fullWorkQueue": "전체 작업 대기열, 사용자 조치가 필요한 항목부터",
     "noAgentTurnsInFlight": "실행 중인 에이전트 턴 없음",
@@ -230,5 +227,17 @@
   },
   "inbox": {
     "unreadLabel": "{{label}}, 읽지 않음"
+  },
+  "bulk": {
+    "menuLabel": "리뷰 대기 정리",
+    "readsCannotBeUndone": "알림 읽음 처리는 되돌릴 수 없습니다.",
+    "undo": "실행 취소",
+    "undoFailed": "정리한 항목 일부를 되돌리지 못했습니다.",
+    "reviewResults_other": "결과 {{count}}개를 리뷰 완료로 표시",
+    "readNotifications_other": "알림 {{count}}개를 읽음으로 표시 (되돌릴 수 없음)",
+    "hideForADay_other": "풀 리퀘스트 {{count}}개를 하루 동안 숨기기",
+    "applyAll_other": "모두 적용 ({{count}}개)",
+    "cleared_other": "{{count}}개를 정리했습니다.",
+    "failed_other": "{{count}}개를 정리하지 못했습니다. 다시 시도하세요."
   }
 }

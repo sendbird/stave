@@ -22,6 +22,14 @@ import { FleetQuietDuration } from "@/components/layout/FleetTaskActivityLine";
 import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
 import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
+import {
+  countFleetBulkPlan,
+  pickFleetBulkEffect,
+  planFleetReviewClear,
+  summarizeFleetBulkPlan,
+  type FleetBulkEffect,
+  type FleetBulkPlan,
+} from "@/lib/fleet/attention-bulk";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import {
@@ -30,6 +38,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { attentionStyles as styles } from "./fleet-attention-inbox.styles";
@@ -334,6 +343,72 @@ function FleetNeedRow(args: {
   );
 }
 
+const BULK_EFFECT_LABEL_KEY = {
+  "review-results": "fleet:bulk.reviewResults",
+  "read-notifications": "fleet:bulk.readNotifications",
+  "hide-for-a-day": "fleet:bulk.hideForADay",
+} as const satisfies Record<FleetBulkEffect, string>;
+
+/**
+ * `Clear all` for the `In review` group, as a menu that says what it will do
+ * before it does it: each effect with its count (mark results reviewed, mark
+ * notifications read, hide pull requests for a day), any one of them alone,
+ * or all of them. Bulk clear is scoped to this group on purpose: nothing here
+ * is stalled, so acknowledging it in one gesture is safe; doing the same to
+ * the blocking rail would answer requests an agent is still waiting on.
+ */
+function FleetReviewClearMenu(props: {
+  items: readonly FleetAttentionItem[];
+  busy: boolean;
+  onApply: (plan: FleetBulkPlan) => void;
+}) {
+  const { t: tI18n } = useTranslation(["fleet"]);
+  const plan = planFleetReviewClear(props.items);
+  const total = countFleetBulkPlan(plan);
+  const effects = summarizeFleetBulkPlan(plan);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            xstyle={rowStyles.rowAction}
+            disabled={props.busy || total === 0}
+            aria-label={
+              props.items.length === 1
+                ? tI18n("fleet:fleetAttentionInbox.clearOneInReview")
+                : tI18n("fleet:fleetAttentionInbox.clearAllInReview", { reviewCount: props.items.length })
+            }
+          />
+        }
+      >
+        {tI18n("fleet:fleetAttentionInbox.clearAll")}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{tI18n("fleet:bulk.menuLabel")}</DropdownMenuLabel>
+        {effects.map((summary) => (
+          <DropdownMenuItem
+            key={summary.effect}
+            onSelect={() => props.onApply(pickFleetBulkEffect(plan, summary.effect))}
+          >
+            {tI18n(BULK_EFFECT_LABEL_KEY[summary.effect], { count: summary.count })}
+          </DropdownMenuItem>
+        ))}
+        {effects.length > 1 ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => props.onApply(plan)}>
+              {tI18n("fleet:bulk.applyAll", { count: total })}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 /** An item the inbox has not linked yet (the snapshot is a beat behind). */
 function fallbackEntry(item: FleetAttentionItem): FleetInboxEntry {
   return {
@@ -375,7 +450,8 @@ export function FleetAttentionInbox(args: {
   onDismiss: (item: FleetAttentionItem) => void;
   onSnooze: (item: FleetAttentionItem, durationMs: number) => void;
   onOpenPr: (item: FleetAttentionItem) => void;
-  onClearReview: () => void;
+  /** Applies a bulk clear plan for the `In review` group (or part of it). */
+  onClearReview: (plan: FleetBulkPlan) => void;
   onRestoreSnoozed: () => void;
   onClearSelection: () => void;
 }) {
@@ -523,20 +599,11 @@ export function FleetAttentionInbox(args: {
                 same to the blocking rail would answer requests an agent is
                 still waiting on.
               */}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                xstyle={rowStyles.rowAction}
-                disabled={args.clearingReview}
-                aria-label={
-                  review.length === 1
-                    ? tI18n("fleet:fleetAttentionInbox.clearOneInReview")
-                    : tI18n("fleet:fleetAttentionInbox.clearAllInReview", { reviewCount: review.length })
-                }
-                onClick={args.onClearReview}
-              >
-                {tI18n("fleet:fleetAttentionInbox.clearAll")}</Button>
+              <FleetReviewClearMenu
+                busy={Boolean(args.clearingReview)}
+                items={review}
+                onApply={args.onClearReview}
+              />
             </div>
             {showReviewGroup ? (
               <ul className={sx(styles.list)}>{review.map(renderRow)}</ul>

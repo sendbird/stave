@@ -815,3 +815,77 @@ test("the bell and Fleet share one inbox: one read state, and ten requests answe
   );
   expect(sent).toHaveLength(10);
 });
+
+test("Clear all on In review says what it will do before it does it", async ({ page }) => {
+  await page.addInitScript(() => {
+    const repositoryPath = "/tmp/stave-fleet-bulk";
+    const workspace = { id: "ws-bulk", name: "bulk", updatedAt: "2026-10-22T01:00:00.000Z" };
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify([{ ...workspace, snapshot: { activeTaskId: "", tasks: [], messagesByTask: {} } }]),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath,
+          repositoryName: "stave-fleet-bulk",
+          workspaces: [workspace],
+          activeWorkspaceId: workspace.id,
+          workspaceBranchById: { [workspace.id]: "main" },
+          workspacePathById: { [workspace.id]: repositoryPath },
+          workspaceDefaultById: { [workspace.id]: true },
+        },
+        version: 0,
+      }),
+    );
+    // Two finished turns, read through notifications (the browser build keeps
+    // no durable result store).
+    window.localStorage.setItem(
+      "stave:notifications-fallback:v1",
+      JSON.stringify(
+        [1, 2].map((index) => ({
+          id: `notification-result-${index}`,
+          kind: "task.turn_completed",
+          title: `Result ${index}`,
+          body: "The provider turn completed.",
+          repositoryPath,
+          repositoryName: "stave-fleet-bulk",
+          workspaceId: workspace.id,
+          workspaceName: workspace.name,
+          taskId: `task-${index}`,
+          taskTitle: `Result ${index}`,
+          turnId: `turn-${index}`,
+          providerId: "codex",
+          action: null,
+          payload: {},
+          createdAt: "2026-10-22T00:50:00.000Z",
+          readAt: null,
+          resolvedAt: null,
+          expiresAt: null,
+        })),
+      ),
+    );
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: { streamTurn: async () => [] },
+      terminal: { runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }) },
+      sourceControl: {
+        getStatus: async () => ({ ok: true, branch: "main", items: [], hasConflicts: false, stderr: "" }),
+        getHistory: async () => ({ ok: true, items: [], stderr: "" }),
+      },
+    };
+  });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByTestId("top-bar").getByRole("button", { name: "Open Fleet View" }).click();
+  const needs = page.getByRole("region", { name: "Action required" });
+  await needs.getByRole("button", { name: "Clear all 2 items in review" }).click();
+  const menu = page.getByRole("menu");
+  await expect(menu).toContainText("Clear In review");
+  const readItem = menu.getByRole("menuitem", { name: "Mark 2 notifications read (can't be undone)" });
+  await expect(readItem).toBeVisible();
+  await readItem.click();
+  await expect(page.getByText("Cleared 2 items.")).toBeVisible();
+  await expect(page.getByText("Notification reads can't be undone.")).toBeVisible();
+  await expect(needs.getByRole("button", { name: /In review/ })).toHaveCount(0);
+});
