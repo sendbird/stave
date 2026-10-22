@@ -67,15 +67,16 @@ describe("lens review record store", () => {
 
   test("a new page is never shown as confirmed by an old record", async () => {
     const saved = await store.save({ ...input(), afterPng: PNG, now: T0 });
-    expect(store.reconcileDocument(saved, "document-1")).toEqual(saved);
-    // Another document in the session (navigation, reload), or no session at all (a restart).
-    for (const current of ["document-2", undefined]) {
+    const settings = "http://localhost:5173/settings";
+    expect(store.reconcileDocument(saved, { documentId: "document-1", url: settings })).toEqual(saved);
+    // Another document (navigation, reload), the same document at another address (pushState), or no session (a restart).
+    for (const current of [{ documentId: "document-2", url: settings }, { documentId: "document-1", url: "http://localhost:5173/billing" }, undefined]) {
       const reconciled = store.reconcileDocument(store.get(saved.id)!, current, at(1));
       expect(reconciled).toMatchObject({ verdict: "needs-recheck", recheckReason: "page-changed", confirmedAt: T0.toISOString() });
       expect(store.list({ taskId: "task-1" })[0]?.verdict).toBe("needs-recheck");
     }
     const recheck = await store.save({ ...input({ verdict: "needs-recheck" }), afterPng: PNG, now: at(2) });
-    expect(store.reconcileDocument(recheck, "document-9")).toEqual(recheck);
+    expect(store.reconcileDocument(recheck, { documentId: "document-9", url: null })).toEqual(recheck);
     expect(recheck.recheckReason).toBe("reviewer");
   });
 

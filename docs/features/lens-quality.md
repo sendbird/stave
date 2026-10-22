@@ -49,9 +49,10 @@ measured by completed workflows rather than the number of controls.
   and decide themselves: **Confirm fixed** or **Needs re-check** saves a Lens
   review record with the task (the comparison, verdict, page address, viewport
   and time). Records survive navigation and restarts. A confirmation stands only
-  while the Lens session shows the page document it was captured from; after a
-  navigation, reload or restart the record reads **Needs re-check** and keeps
-  when it was confirmed. A task keeps its 20 newest records; closing the
+  while the Lens session shows the page document it was captured from, at the
+  address it was captured at; after a navigation, reload, an in-page address
+  change or a restart the record reads **Needs re-check** and keeps when it
+  was confirmed. A task keeps its 20 newest records; closing the
   task's workspace deletes them with their captures.
 - The captured page address excludes query parameters and fragments. Matching
   its address or selector alone never establishes that the issue is resolved.

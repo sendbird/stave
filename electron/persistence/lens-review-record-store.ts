@@ -46,6 +46,17 @@ export interface LensReviewRecordIo {
   rename: (from: string, to: string) => Promise<void>;
 }
 
+/** What a Lens session shows now: its document and its normalized address (null when unreadable). */
+export interface LensSessionPage {
+  documentId: string;
+  url: string | null;
+}
+
+/** Whether the session still shows the document a capture came from, at its address. */
+export function showsCapturedPage(page: LensSessionPage | undefined, captured: { documentId: string; pageUrl: string }): boolean {
+  return page !== undefined && page.documentId === captured.documentId && page.url === captured.pageUrl;
+}
+
 /** Task IDs become folder names only through this hash. */
 function taskFolder(taskId: string): string {
   return createHash("sha256").update(taskId).digest("hex").slice(0, 24);
@@ -164,11 +175,13 @@ export class LensReviewRecordStore {
 
   /**
    * A confirmation stands only while the Lens session shows the document it
-   * was captured from (`currentDocumentId`, absent when the session is gone).
-   * Otherwise the record is kept and marked as needing a re-check.
+   * was captured from at the address it was captured at (`page`, absent when
+   * the session is gone). A reload or navigation gives another document; a
+   * same-document navigation (`pushState`) another address. Otherwise the
+   * record is kept and marked as needing a re-check.
    */
-  reconcileDocument(record: LensReviewRecord, currentDocumentId: string | undefined, now?: Date): LensReviewRecord {
-    if (record.verdict !== "confirmed" || currentDocumentId === record.documentId) return record;
+  reconcileDocument(record: LensReviewRecord, page: LensSessionPage | undefined, now?: Date): LensReviewRecord {
+    if (record.verdict !== "confirmed" || showsCapturedPage(page, record)) return record;
     return this.setVerdict({ id: record.id, verdict: "needs-recheck", reason: "page-changed", now }) ?? record;
   }
 
