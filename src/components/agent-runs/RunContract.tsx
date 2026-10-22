@@ -8,7 +8,7 @@ import { readyWorkspaceScripts, useWorkspaceScriptActions } from "@/components/w
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import { AGENT_RUN_LIMITS } from "@/lib/agent-runs/domain";
-import { buildRunContract, type RunContract, type RunContractInput } from "@/lib/agent-runs/run-contract";
+import { appliedApprovalsOfRun, buildRunContract, type RunContract, type RunContractInput } from "@/lib/agent-runs/run-contract";
 import { defaultWorkspaceCheckApplies } from "@/lib/agent-runs/workspace-check";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
@@ -44,9 +44,12 @@ export function RunContractView(props: { title: string; contract: RunContract; t
   );
 }
 
-/** Whether the selected Codex has its reviewer for Auto; null until its capabilities are known. */
+/**
+ * Whether the selected Codex has its reviewer for Auto; null until Codex was
+ * checked (before that, its capabilities are only the empty defaults).
+ */
 function useCodexAutoReview(): boolean | null {
-  return useAppStore((state) => state.providerRuntimeCapabilities.codex?.approval.autoClassifierPolicy ?? null);
+  return useAppStore((state) => (state.providerAvailability.codex ? (state.providerRuntimeCapabilities.codex?.approval.autoClassifierPolicy ?? null) : null));
 }
 
 /** A workspace as the contract names it; null until the workspace is known. */
@@ -103,11 +106,14 @@ export function RunHeaderContract(props: { detail: AgentRunDetail }) {
   const workspace = useContractWorkspace(agentRun.workspaceId);
   const permission = useAgentAssignmentsStore((state) => state.byTaskId[agentRun.leadTaskId]?.agentPermission ?? null);
   const codexAutoReview = useCodexAutoReview();
+  const messages = useAppStore((state) => state.messagesByTask[agentRun.leadTaskId]);
+  const appliedApprovals = useMemo(() => appliedApprovalsOfRun(messages, agentRun.createdAt), [messages, agentRun.createdAt]);
   const contract = buildRunContract({
     workspace,
     permission: permission ?? (agentRun.consent.permissionMode === "auto" ? "auto" : null),
     providerId: agentRun.fingerprint.providerId,
     codexAutoReview,
+    appliedApprovals,
     workflow: agentRun.workflow,
     authorizedEffectStageIds: agentRun.consent.authorizedEffectStageIds,
     maxTurns: agentRun.maxTurns,

@@ -1861,7 +1861,14 @@ Stave. Every fallback swaps back to exactly `never`
 
 All but the first send `approvalsReviewer: "user"` with `never`. The fallback
 notice appears once per agent run (keyed by run, or by task outside one, in
-memory). A supported resumed thread
+memory). Each turn that asked for the reviewer also reports the approvals it
+runs with as the normalized event `approvals_applied` (`codexApprovalPolicy`,
+`codexApprovalsReviewer`). The Agent turn records them on its provenance in
+place of the requested ones (`withAppliedApprovals` in
+`electron/providers/task-agent-turn.ts`), and a run's contract reads the
+latest turn's to say whether the reviewer applied. Claude sends no such event:
+its permission mode reaches the CLI as given, and when Auto's classifier is
+unavailable Claude asks, which its Auto line already allows. A supported resumed thread
 explicitly returns to reviewer `user` for turns without a reviewer option, so a
 completed Run cannot leave automatic review enabled in an ordinary turn.
 

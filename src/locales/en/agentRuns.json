@@ -1124,7 +1124,9 @@
     "change": {
       "readOnly": "Reads files and runs read-only commands; it changes nothing.",
       "auto": "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.",
+      "autoUnconfirmed": "Edits files and runs commands here. Codex's automatic review decides each action and asks you when unsure, unless your organization turns automatic review off; then it edits without asking.",
       "autoWithoutReviewer": "Edits files and runs commands here without asking: this Codex has no reviewer for Auto, so its approvals are off.",
+      "autoReviewOff": "Edits files and runs commands here without asking: Codex's automatic review is off for this run, so its approvals are off.",
       "edits": "Edits files and runs commands here without asking.",
       "guardrails": "Writes outside the repository, credential files and irreversible remote actions still come to you.",
       "effectsAllowed": "Outside the workspace it may also: {{effects}}, without asking.",

@@ -1,5 +1,6 @@
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
+import { CODEX_APPROVAL_POLICIES, CODEX_APPROVALS_REVIEWERS } from "@/lib/providers/codex-runtime-options";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
 import { AgentRunRouteCauseSchema, AutoRoutingModelResolutionSchema } from "./model-resolution";
@@ -212,6 +213,12 @@ const DiffEventSchema = z.object({
   status: DiffStatusSchema.optional(),
 });
 
+const ApprovalsAppliedEventSchema = z.object({
+  type: z.literal("approvals_applied"),
+  codexApprovalPolicy: z.enum(CODEX_APPROVAL_POLICIES),
+  codexApprovalsReviewer: z.enum(CODEX_APPROVALS_REVIEWERS).optional(),
+});
+
 const ApprovalEventSchema = z.object({
   type: z.literal("approval"),
   toolName: z.string(),
@@ -333,6 +340,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   diff: DiffEventSchema,
   approval: ApprovalEventSchema,
   approval_resolved: ApprovalResolvedEventSchema,
+  approvals_applied: ApprovalsAppliedEventSchema,
   user_input: UserInputEventSchema,
   system: SystemEventSchema,
   error: ErrorEventSchema,
@@ -361,6 +369,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.diff,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approval,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approval_resolved,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approvals_applied,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.user_input,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.system,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.error,

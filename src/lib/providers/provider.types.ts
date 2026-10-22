@@ -1,5 +1,6 @@
 import type { McpAppViewReference } from "@/lib/mcp-app/mcp-app-view";
 import type { ApprovalResolvedEvent } from "@/lib/approvals/approval-resolution";
+import type { CodexApprovalsAppliedEvent } from "@/lib/providers/codex-runtime-options";
 import type { AgentTurnProvenance } from "../agents/turn-provenance";
 import type { ModelExecution } from "./model-execution";
 import type {
@@ -1027,6 +1028,7 @@ export type NormalizedProviderEvent =
       ownerAgentId?: string;
     }
   | ApprovalResolvedEvent
+  | CodexApprovalsAppliedEvent
   | {
       type: "user_input";
       /** Async messages remain answerable after their emitting turn ends. */
