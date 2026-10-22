@@ -96,7 +96,12 @@
       "closeFleetView": "Close Fleet view"
     },
     "expandRepository": "Expand {{name}}",
-    "collapseRepository": "Collapse {{name}}"
+    "collapseRepository": "Collapse {{name}}",
+    "layoutLabel": "Board layout",
+    "cards": "Cards",
+    "table": "Table",
+    "valueTasksShown_one": " · {{count}} task shown",
+    "valueTasksShown_other": " · {{count}} tasks shown"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "Default · {{branchLabel}}",
@@ -160,7 +165,11 @@
     "anAgentTurnIsInFlight": "An agent turn is in flight",
     "waitingOnYou": "Waiting on you",
     "all": "All",
-    "includeDormantWorkspaces": "Include dormant workspaces"
+    "includeDormantWorkspaces": "Include dormant workspaces",
+    "needsAnswer": "Needs answer",
+    "aRequestWaitsForYourAnswer": "A request waits for your answer.",
+    "stalled": "No updates",
+    "aTurnHasGoneQuiet": "A running turn has reported nothing for five minutes."
   },
   "additionalCopy": {
     "message4": "A response is being delivered.",
@@ -252,5 +261,17 @@
     "failed_other": "{{count}} items were not cleared. Retry.",
     "undo": "Undo",
     "undoFailed": "Some cleared items could not be restored."
+  },
+  "taskTable": {
+    "label": "Open tasks",
+    "task": "Task",
+    "workspace": "Workspace",
+    "state": "State",
+    "needs": "Needs",
+    "waiting": "Waiting",
+    "activity": "Activity",
+    "openTask": "Open {{title}} in {{workspace}}",
+    "noTasks": "No tasks match this filter.",
+    "underAMinute": "Under 1m"
   }
 }

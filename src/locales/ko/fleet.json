@@ -93,7 +93,11 @@
       "closeFleetView": "Fleet 보기 닫기"
     },
     "expandRepository": "{{name}} 펼치기",
-    "collapseRepository": "{{name}} 접기"
+    "collapseRepository": "{{name}} 접기",
+    "layoutLabel": "보드 레이아웃",
+    "cards": "카드",
+    "table": "표",
+    "valueTasksShown_other": " · 작업 {{count}}개 표시됨"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "기본 · {{branchLabel}}",
@@ -155,7 +159,11 @@
     "anAgentTurnIsInFlight": "에이전트 턴 실행 중",
     "waitingOnYou": "응답 대기 중",
     "all": "전체",
-    "includeDormantWorkspaces": "비활성 워크스페이스 포함"
+    "includeDormantWorkspaces": "비활성 워크스페이스 포함",
+    "needsAnswer": "답변 필요",
+    "aRequestWaitsForYourAnswer": "답변을 기다리는 요청이 있습니다.",
+    "stalled": "업데이트 없음",
+    "aTurnHasGoneQuiet": "실행 중인 턴이 5분 동안 아무것도 보고하지 않았습니다."
   },
   "additionalCopy": {
     "message4": "응답을 전달하고 있습니다.",
@@ -239,5 +247,17 @@
     "applyAll_other": "모두 적용 ({{count}}개)",
     "cleared_other": "{{count}}개를 정리했습니다.",
     "failed_other": "{{count}}개를 정리하지 못했습니다. 다시 시도하세요."
+  },
+  "taskTable": {
+    "label": "열린 작업",
+    "task": "작업",
+    "workspace": "워크스페이스",
+    "state": "상태",
+    "needs": "필요한 조치",
+    "waiting": "대기 시간",
+    "activity": "활동",
+    "openTask": "{{workspace}}의 {{title}} 열기",
+    "noTasks": "이 필터에 맞는 작업이 없습니다.",
+    "underAMinute": "1분 미만"
   }
 }

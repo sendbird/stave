@@ -145,6 +145,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * value — the sidebar reopens in whatever you last switched to.
    */
   sidebarNavView: SidebarNavView;
+  /** Fleet View's board: workspace cards, or one table of every open task. */
+  fleetBoardLayout: FleetBoardLayout;
   /** Work queue: settle a workspace once its PR merges after your last message. */
   workQueueSettleOnMerge: boolean;
   /** Work queue: settle after this many days without activity; `null` is off. */
@@ -644,6 +646,16 @@ export function normalizeSidebarNavView(value: unknown): SidebarNavView {
   return value === "work-queue" ? "work-queue" : "projects";
 }
 
+/**
+ * Fleet View's board layout: `cards` (one card per workspace) or `table` (one
+ * row per open task across every workspace, longest wait first).
+ */
+export type FleetBoardLayout = "cards" | "table";
+
+export function normalizeFleetBoardLayout(value: unknown): FleetBoardLayout {
+  return value === "table" ? "table" : "cards";
+}
+
 export const defaultSettings: AppSettings = {
   showPresetBar: true,
   language: DEFAULT_APP_LOCALE,
@@ -653,6 +665,7 @@ export const defaultSettings: AppSettings = {
   sidebarShowAgents: true,
   sidebarShowAiUsage: true,
   sidebarNavView: "projects",
+  fleetBoardLayout: "cards",
   workQueueSettleOnMerge: true,
   workQueueSettleAfterDays: DEFAULT_WORKSPACE_SETTLE_AFTER_DAYS,
   userCustomThemes: [],

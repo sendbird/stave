@@ -44,6 +44,7 @@ import {
   normalizeLensSessionScope,
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
+  normalizeFleetBoardLayout,
   normalizeTurnActivityPlacement,
   normalizeComposerLayoutMode,
   type AppSettings,
@@ -428,6 +429,11 @@ export function createSettingsActions(args: {
           ? {}
           : {
               sidebarNavView: normalizeSidebarNavView(patch.sidebarNavView),
+            }),
+        ...(patch.fleetBoardLayout === undefined
+          ? {}
+          : {
+              fleetBoardLayout: normalizeFleetBoardLayout(patch.fleetBoardLayout),
             }),
         ...(patch.workQueueSettleAfterDays === undefined
           ? {}

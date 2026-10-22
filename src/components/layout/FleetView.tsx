@@ -14,6 +14,7 @@ import {
   ShieldAlert,
   ShieldCheck,
   ShieldEllipsis,
+  Table2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -30,6 +31,17 @@ import {
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
+import {
+  FleetTaskTable,
+  type FleetTaskTableSummary,
+} from "@/components/layout/FleetTaskTable";
+import {
+  FLEET_TABLE_FILTER_OPTIONS,
+  isTableOnlyFilter,
+  type FleetTaskTableFilter,
+} from "@/lib/fleet/task-rows";
+import { resetFleetWorkspaceShells } from "@/store/fleet-workspace-shells-store";
+import type { FleetBoardLayout } from "@/store/app-settings";
 import type { FleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import {
   Badge,
@@ -237,7 +249,24 @@ export function FleetView() {
   const [collapsedRepositories, setCollapsedRepositories] = useState<
     Record<string, boolean>
   >({});
-  const [boardFilter, setBoardFilter] = useState<FleetBoardFilter>("active");
+  const [boardFilter, setBoardFilter] = useState<FleetTaskTableFilter>("active");
+  // Cards or one table of every open task, kept as a UI setting.
+  const boardLayout = useAppStore((state) => state.settings.fleetBoardLayout);
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  const [tableSummary, setTableSummary] = useState<FleetTaskTableSummary | null>(null);
+  const setBoardLayout = useCallback(
+    (layout: FleetBoardLayout) => {
+      // The cards have no rows to answer for, so their filters stop at the board's.
+      if (layout === "cards") {
+        setBoardFilter((current) => (isTableOnlyFilter(current) ? "active" : current));
+      }
+      updateSettings({ patch: { fleetBoardLayout: layout } });
+    },
+    [updateSettings],
+  );
+  const cardFilter: FleetBoardFilter = isTableOnlyFilter(boardFilter) ? "active" : boardFilter;
+  // Each visit reads unopened workspaces' task lists afresh.
+  useEffect(() => () => resetFleetWorkspaceShells(), []);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
   const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(
@@ -591,9 +620,9 @@ export function FleetView() {
   }, [closeFleetView, openNextAttentionItem]);
 
   const isFilterActive = isFleetBoardFilterActive({
-    filter: boardFilter,
+    filter: cardFilter,
     query: searchQuery,
-  });
+  }) || isTableOnlyFilter(boardFilter);
   const settled = allCardKeys.every(
     (cardKey) => cardKey in visibilityByCardKey,
   );
@@ -617,6 +646,9 @@ export function FleetView() {
     (entry) => entry.isPhantom,
   ).length;
   const isBoardEmpty = settled && visibleCount === 0 && repositories.length > 0;
+  const showTable = boardLayout === "table";
+  const headerLiveCount = showTable ? (tableSummary?.liveWorkspaceCount ?? 0) : liveCount;
+  const headerShownCount = showTable ? (tableSummary?.shownRowCount ?? 0) : visibleCount;
 
   const toggleRepository = useCallback((repositoryPath: string) => {
     setCollapsedRepositories((current) => ({
@@ -634,10 +666,14 @@ export function FleetView() {
           {/* Fleet View is the sidebar Work queue's full view: same rows, same order. */}
           <span className={sx(styles.headerSummary)}>{tI18n("fleet:fleetView.fullWorkQueue")}</span>
           <span className={sx(styles.headerSummary)}>
-            {liveCount > 0
-              ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: liveCount })
+            {headerLiveCount > 0
+              ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount })
               : tI18n("fleet:fleetView.noAgentTurnsInFlight")}
-            {visibleCount > 0 ? tI18n("fleet:fleetView.valueShown", { visibleCount: visibleCount }) : ""}
+            {headerShownCount > 0
+              ? showTable
+                ? tI18n("fleet:fleetView.valueTasksShown", { count: headerShownCount })
+                : tI18n("fleet:fleetView.valueShown", { visibleCount: headerShownCount })
+              : ""}
           </span>
         </div>
         <div className={sx(styles.headerActions)}>
@@ -757,7 +793,7 @@ export function FleetView() {
         <div className={sx(styles.board)}>
           <div className={sx(styles.toolbar)}>
             <div className={sx(styles.filterGroup)}>
-              {FLEET_BOARD_FILTER_OPTIONS.map((option) => (
+              {(showTable ? FLEET_TABLE_FILTER_OPTIONS : FLEET_BOARD_FILTER_OPTIONS).map((option) => (
                 <Button
                   key={option.value}
                   type="button"
@@ -811,6 +847,37 @@ export function FleetView() {
               >
                 {tI18n("fleet:fleetView.reset")}</Button>
             ) : null}
+            {/* Last, so it stays put while the filters and Reset come and go. */}
+            <div
+              className={sx(styles.filterGroup)}
+              role="group"
+              aria-label={tI18n("fleet:fleetView.layoutLabel")}
+            >
+              {(["cards", "table"] as const).map((layout) => (
+                <Button
+                  key={layout}
+                  type="button"
+                  size="sm"
+                  variant={boardLayout === layout ? "secondary" : "ghost"}
+                  xstyle={[
+                    styles.filterChip,
+                    boardLayout === layout && styles.filterChipActive,
+                  ]}
+                  aria-pressed={boardLayout === layout}
+                  data-fleet-board-layout={layout}
+                  onClick={() => setBoardLayout(layout)}
+                >
+                  {layout === "cards" ? (
+                    <LayoutGrid className={sx(styles.actionIcon)} aria-hidden="true" />
+                  ) : (
+                    <Table2 className={sx(styles.actionIcon)} aria-hidden="true" />
+                  )}
+                  {layout === "cards"
+                    ? tI18n("fleet:fleetView.cards")
+                    : tI18n("fleet:fleetView.table")}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div
@@ -828,6 +895,15 @@ export function FleetView() {
                     {tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
+            ) : showTable ? (
+              <FleetTaskTable
+                repositories={repositories}
+                filter={boardFilter}
+                searchQuery={searchQuery}
+                nowMs={nowMs}
+                onOpenTask={handleOpenTask}
+                onSummaryChange={setTableSummary}
+              />
             ) : (
               <>
                 {isBoardEmpty ? (
@@ -946,7 +1022,7 @@ export function FleetView() {
                               repositoryName={repository.repositoryName}
                               workspace={workspace}
                               isCurrentRepository={repository.isCurrent}
-                              filter={boardFilter}
+                              filter={cardFilter}
                               searchQuery={searchQuery}
                               nowMs={nowMs}
                               attentionItems={
@@ -981,7 +1057,7 @@ export function FleetView() {
                         {hiddenDormantCount > 0 ? "· " : ""}
                         {tI18n("fleet:fleetView.unusedDefaultsHidden", { count: suppressedDefaultCount })}</span>
                     ) : null}
-                    {hiddenDormantCount > 0 && boardFilter !== "all" ? (
+                    {hiddenDormantCount > 0 && cardFilter !== "all" ? (
                       <Button
                         type="button"
                         variant="ghost"

@@ -59,9 +59,20 @@ Fleet item, and the task records the answer the same way.
   the board. It stays put while board filters change, is bounded so the board
   always keeps room, and scrolls inside itself; on wide screens its decisions
   sit side by side. Opening a row's control panel lets the band grow, still
-  bounded. Below it, the board uses workspace cards and activity filters
-  (`Active`, `Running`, `Action required`, and `All`) rather than a task
-  timeline.
+  bounded. Below it, the board shows workspace cards or one table of tasks
+  (the `Cards` and `Table` switch, kept between sessions), with activity
+  filters (`Active`, `Running`, `Action required`, and `All`) rather than a
+  task timeline.
+- `Table` lists every open task of every workspace in one place, one row per
+  task: the task, its workspace, its state, what it needs from you, how long it
+  has waited, and what its running turn last did. Rows follow the Work queue
+  lanes, and inside a lane the longest wait comes first, so the oldest approval
+  and the quiet turns are on top without expanding a card. Two more filters
+  apply only here: `Needs answer` (approvals, questions and sign-offs) and
+  `No updates` (quiet turns). A task's name opens it; with the name focused,
+  `Enter` does the same. A workspace you have not opened since starting Stave
+  shows its stored tasks with an unknown state, and its needs from
+  notifications.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.
@@ -199,6 +210,9 @@ Fleet item, and the task records the answer the same way.
   migration. Notifications for archived or
   legacy tasks are excluded, and a notification is settled as soon as the task
   window shows that the request is no longer waiting.
+- Fleet reads the stored task list of each workspace you have not opened once
+  per visit, shared by its card and the table, and reads them again the next
+  time Fleet opens.
 - Fleet records the last deliberate workspace activity separately from
   snapshot-write timestamps, so an untouched remembered workspace can become
   dormant without making the whole repository look recently active.
