@@ -478,4 +478,3 @@ export function getRespondingProviderId(args: {
     resolveProviderDisplayId({ providerId: args.fallbackProviderId })
   );
 }
-

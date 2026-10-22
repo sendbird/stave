@@ -175,4 +175,3 @@ export function formatScriptDuration(durationMs: number): string {
   }
   return formatDuration(durationMs, { milliseconds: true, tenths: true });
 }
-
