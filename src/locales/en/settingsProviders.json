@@ -818,6 +818,10 @@
       "title": "Accounts and API connections",
       "body": "Accounts and API connections moved to Settings > Accounts.",
       "action": "Open Accounts"
+    },
+    "accountAccess": {
+      "unavailable": "{{label}} is signed in, but no usable account allowance is available. Check the account plan or credits, then retry.",
+      "unknown": "{{label}} is signed in, but account access could not be verified. Check the connection and account plan, then retry."
     }
   },
   "codexPlugins": {
