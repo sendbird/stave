@@ -138,6 +138,11 @@ export function TurnRecordBody(props: { record: TurnRecord; taskId: string }) {
           {i18n.t("session:turnRecord.stepsHeading")}{" "}
           <span className={sx(styles.sectionNote)}>{i18n.t("session:turnRecord.stepsSource")}</span>
         </h3>
+        {record.omittedMessages ? (
+          <p className={sx(styles.notice)}>
+            {i18n.t("session:turnRecord.earlierReplies", { count: record.omittedMessages })}
+          </p>
+        ) : null}
         {steps.items.length === 0 ? (
           <p className={sx(styles.notice)}>{i18n.t("session:turnRecord.noSteps")}</p>
         ) : (

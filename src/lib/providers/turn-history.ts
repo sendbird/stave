@@ -12,6 +12,14 @@ export const TURN_HISTORY_RECORD_IPC = "persistence:read-task-turn-record";
 
 /** Turns listed per read, newest first. */
 export const TURN_HISTORY_PAGE_LIMIT = 200;
+/**
+ * Replies a turn's record keeps, newest last. A steered turn saves one reply
+ * per stretch, so a long one can pass it; the earliest go first, and the
+ * record counts them.
+ */
+export const TURN_RECORD_MESSAGE_LIMIT = 200;
+/** And at most about this many characters of them, after they are shortened. */
+export const TURN_RECORD_MESSAGE_CHAR_BUDGET = 2_000_000;
 
 const IdSchema = z.string().min(1).max(200);
 
@@ -87,12 +95,16 @@ export const TurnRecordSchema = z.object({
   /** The request that started the turn, shortened; null when it was not found. */
   prompt: z.string().nullable(),
   messages: z.array(TurnRecordMessageSchema),
+  /** Earlier replies of the turn left out to keep the record bounded. */
+  omittedMessages: z.number().int().min(0).optional(),
 });
 export interface TurnRecord {
   turn: TurnHistoryEntry;
   digest: z.infer<typeof TurnDigestSchema> | null;
   prompt: string | null;
   messages: TurnRecordMessage[];
+  /** Earlier replies of the turn left out to keep the record bounded; their steps are in the conversation. */
+  omittedMessages?: number;
 }
 
 export type TurnHistoryListResponse =

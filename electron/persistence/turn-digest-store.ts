@@ -18,6 +18,8 @@ import {
 } from "../../src/lib/providers/turn-digest";
 import {
   TURN_HISTORY_PAGE_LIMIT,
+  TURN_RECORD_MESSAGE_CHAR_BUDGET,
+  TURN_RECORD_MESSAGE_LIMIT,
   type ListTaskTurnHistoryArgs,
   type ReadTaskTurnRecordArgs,
   type TurnHistoryEntry,
@@ -212,7 +214,8 @@ interface TurnHistoryRow {
 
 const ERROR_PREVIEW_LIMIT = 300;
 const PROMPT_LIMIT = 600;
-const RECORD_MESSAGE_LIMIT = 16;
+/** Candidate rows read per page while a turn's messages are gathered. */
+const RECORD_SCAN_PAGE = 32;
 
 function boundText(value: string | null | undefined, limit: number) {
   const trimmed = value?.trim();
@@ -362,7 +365,10 @@ export class TurnDigestStore {
   /**
    * One turn's record. Messages carry their turn only inside their JSON, so
    * the task's rows are searched for the turn id and each candidate is
-   * confirmed after parsing.
+   * confirmed after parsing. The search pages through every row of the turn:
+   * a steered turn saves one reply per stretch, and its last replies (the
+   * last commands, the latest todos) say where it ended. Past the record's
+   * bound the earliest replies give way and are counted.
    */
   readTurnRecord(args: ReadTaskTurnRecordArgs): TurnRecord | null {
     const row = this.db
@@ -374,28 +380,51 @@ export class TurnDigestStore {
     if (!row) {
       return null;
     }
-    const candidates = this.db
-      .prepare(
-        `SELECT rowid AS row_id, message_json FROM messages
-        WHERE workspace_id = ? AND task_id = ? AND message_json IS NOT NULL AND instr(message_json, ?) > 0
-        ORDER BY rowid ASC LIMIT ?`,
-      )
-      .all(
-        args.workspaceId,
-        args.taskId,
-        `"turnId":${JSON.stringify(args.turnId)}`,
-        RECORD_MESSAGE_LIMIT,
-      ) as Array<{ row_id: number; message_json: string | null }>;
-    const matches = candidates.flatMap((candidate) => {
-      const message = parseMessageJson(candidate.message_json);
-      return message && message.turnId === args.turnId ? [{ rowId: candidate.row_id, message }] : [];
-    });
+    const scan = this.db.prepare(
+      `SELECT rowid AS row_id, message_json FROM messages
+      WHERE workspace_id = ? AND task_id = ? AND rowid > ? AND message_json IS NOT NULL AND instr(message_json, ?) > 0
+      ORDER BY rowid ASC LIMIT ?`,
+    );
+    const needle = `"turnId":${JSON.stringify(args.turnId)}`;
+    const replies: Array<{ message: TurnRecordMessage; chars: number }> = [];
+    let replyChars = 0;
+    let omittedMessages = 0;
+    let firstReplyRowId: number | null = null;
+    let requestMessage: Record<string, unknown> | null = null;
+    for (let after = 0; ;) {
+      const page = scan.all(args.workspaceId, args.taskId, after, needle, RECORD_SCAN_PAGE) as Array<{
+        row_id: number;
+        message_json: string | null;
+      }>;
+      for (const candidate of page) {
+        after = candidate.row_id;
+        const message = parseMessageJson(candidate.message_json);
+        if (!message || message.turnId !== args.turnId) continue;
+        if (message.role === "user") {
+          requestMessage ??= message;
+          continue;
+        }
+        if (message.role !== "assistant") continue;
+        firstReplyRowId ??= candidate.row_id;
+        const compact = compactRecordMessage(message);
+        const chars = JSON.stringify(compact).length;
+        replies.push({ message: compact, chars });
+        replyChars += chars;
+        while (
+          replies.length > TURN_RECORD_MESSAGE_LIMIT ||
+          (replies.length > 1 && replyChars > TURN_RECORD_MESSAGE_CHAR_BUDGET)
+        ) {
+          replyChars -= replies.shift()?.chars ?? 0;
+          omittedMessages += 1;
+        }
+      }
+      if (page.length < RECORD_SCAN_PAGE) break;
+    }
     // The request is the user message saved with the turn's id, or else the
     // user message right before the turn's first reply.
-    const firstReply = matches.find((match) => match.message.role === "assistant");
     const promptMessage =
-      matches.find((match) => match.message.role === "user")?.message ??
-      (firstReply === undefined
+      requestMessage ??
+      (firstReplyRowId === null
         ? null
         : parseMessageJson(
             (this.db
@@ -404,7 +433,7 @@ export class TurnDigestStore {
                 WHERE workspace_id = ? AND task_id = ? AND rowid < ? AND role = 'user'
                 ORDER BY rowid DESC LIMIT 1`,
               )
-              .get(args.workspaceId, args.taskId, firstReply.rowId) as
+              .get(args.workspaceId, args.taskId, firstReplyRowId) as
               | { message_json: string | null }
               | undefined)?.message_json ?? null,
           ));
@@ -415,9 +444,8 @@ export class TurnDigestStore {
       turn: toHistoryEntry(row),
       digest: parseTurnDigest(row.digest_json),
       prompt: boundText(promptText, PROMPT_LIMIT),
-      messages: matches
-        .filter((match) => match.message.role === "assistant")
-        .map((match) => compactRecordMessage(match.message)),
+      messages: replies.map((reply) => reply.message),
+      omittedMessages,
     };
   }
 }

@@ -1068,6 +1068,7 @@
     "stepsSource": "저장된 대화 기준",
     "noSteps": "이 턴에 저장된 단계가 없습니다.",
     "moreSteps_other": "나머지 단계 {{count}}개는 대화에 있습니다.",
+    "earlierReplies_other": "기록을 작게 유지하기 위해 이 턴의 앞선 응답 {{count}}개를 생략했습니다. 그 단계는 대화에 있습니다.",
     "readFailed": "이 턴의 기록을 읽지 못했습니다.",
     "notFound": "이 턴은 더 이상 저장되어 있지 않습니다.",
     "offsetTitle": "턴 시작 후 경과 시간",

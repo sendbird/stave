@@ -99,6 +99,8 @@ export function stubTurnHistory(args: { plainTaskId: string; messages: readonly 
                 ? "Tighten the spacing of the settings sidebar and keep the keyboard order."
                 : "Look at the settings sidebar spacing and propose a change.",
               messages: toRecordMessages(args.messages, turn.id),
+              // A long steered turn whose earliest replies the record left out.
+              omittedMessages: turn.id === "turn-plain-1" ? 3 : 0,
             }
           : null;
         return { ok: true, record };

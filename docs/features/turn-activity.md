@@ -482,6 +482,10 @@ row when it is narrower.
   agents are rows rather than a tree.
 - The picker lists a task's latest 200 turns. A record lists up to 300 steps;
   the rest are in the conversation.
+- A turn you steered saves one reply per stretch. A record reads all of them,
+  up to its latest 200 replies (and about 2 MB once shortened); when a long
+  turn has more, the earliest are left out and the record says how many, so
+  its last steps and todos are always there.
 - A request shows in the picker only for turns whose reply is loaded in the
   conversation; older turns are named by time, and their record shows the
   request.

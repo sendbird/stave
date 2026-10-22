@@ -1092,6 +1092,8 @@
     "noSteps": "No steps were saved for this turn.",
     "moreSteps_one": "{{count}} more step is in the conversation.",
     "moreSteps_other": "{{count}} more steps are in the conversation.",
+    "earlierReplies_one": "{{count}} earlier reply of this turn was left out to keep the record small; its steps are in the conversation.",
+    "earlierReplies_other": "{{count}} earlier replies of this turn were left out to keep the record small; their steps are in the conversation.",
     "readFailed": "This turn's record could not be read.",
     "notFound": "This turn is no longer saved.",
     "offsetTitle": "Time into the turn",

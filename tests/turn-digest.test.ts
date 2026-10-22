@@ -20,6 +20,7 @@ import {
   type TurnDigestEntry,
 } from "../src/lib/providers/turn-digest";
 import { PROVIDER_TURN_STALL_THRESHOLD_MS } from "../src/lib/providers/turn-status";
+import { TURN_RECORD_MESSAGE_LIMIT } from "../src/lib/providers/turn-history";
 
 const T0 = Date.parse("2026-10-22T10:00:00.000Z");
 const at = (minutes: number) => new Date(T0 + minutes * 60_000).toISOString();
@@ -353,6 +354,33 @@ describe("turn digest store", () => {
     expect(write?.type === "tool_use" && JSON.parse(write.input).file_path).toBe("src/app.ts");
     expect(store.turnDigests.readTurnRecord({ workspaceId: "workspace", taskId: "task", turnId: "turn-b" })?.prompt).toBe("Now the docs");
     expect(store.turnDigests.readTurnRecord({ workspaceId: "other", taskId: "task", turnId: "turn-a" })).toBeNull();
+    db.close();
+  });
+
+  test("a turn steered into many replies keeps its last reply, and says when earlier ones were left out", () => {
+    const { db, store } = harness();
+    begin(store, "turn");
+    const insert = db.prepare("INSERT INTO messages (id, workspace_id, task_id, role, model, provider_id, content, is_streaming, parts_json, message_json) VALUES (?, 'workspace', 'task', ?, 'model', 'codex', '', 0, '[]', ?)");
+    insert.run("workspace:task:u", "user", JSON.stringify({ id: "u", role: "user", turnId: "turn", content: "Start", parts: [] }));
+    const addReply = (index: number) => insert.run(`workspace:task:r${index}`, "assistant", JSON.stringify({
+      id: `r${index}`,
+      role: "assistant",
+      turnId: "turn",
+      content: "",
+      parts: [{ type: "tool_use", toolUseId: `t${index}`, toolName: "Bash", input: JSON.stringify({ command: `step ${index}` }), output: "ok", state: "output-available" }],
+    }));
+    for (let index = 1; index <= 20; index += 1) addReply(index);
+    const record = store.turnDigests.readTurnRecord({ workspaceId: "workspace", taskId: "task", turnId: "turn" })!;
+    expect(record.prompt).toBe("Start");
+    expect(record.messages.map((message) => message.id)).toEqual(Array.from({ length: 20 }, (_, index) => `r${index + 1}`));
+    expect(record.omittedMessages).toBe(0);
+    // Past the record's bound the newest replies stay, and the record counts the earlier ones it left out.
+    for (let index = 21; index <= TURN_RECORD_MESSAGE_LIMIT + 5; index += 1) addReply(index);
+    const bounded = store.turnDigests.readTurnRecord({ workspaceId: "workspace", taskId: "task", turnId: "turn" })!;
+    expect(bounded.messages).toHaveLength(TURN_RECORD_MESSAGE_LIMIT);
+    expect(bounded.messages.at(-1)?.id).toBe(`r${TURN_RECORD_MESSAGE_LIMIT + 5}`);
+    expect(bounded.omittedMessages).toBe(5);
+    expect(bounded.prompt).toBe("Start");
     db.close();
   });
 
