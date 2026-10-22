@@ -347,9 +347,10 @@ function ScanStep(props: {
             {t("settingsConnections:settingsDialogAutoRoutingWizard.continueToReview")}</ActionButton>
         ) : null}
       </div>
-      {props.scanError ? <p className={sx(styles.error)}>{props.scanError}</p> : null}
+      {props.scanError ? <p className={sx(styles.error)} role="alert">{props.scanError}</p> : null}
 
-      {props.scanned && !props.scanning && !props.hasSamples ? (
+      {/* "No history yet" only when tasks were read: a scan whose every read failed has no answer. */}
+      {props.scanned && !props.scanning && !props.hasSamples && !(props.scanError && (props.progress?.tasks ?? 0) === 0) ? (
         <p className={sx(styles.emptyState)}>
           {t("settingsConnections:settingsDialogAutoRoutingWizard.noHistoryYetUseStaveFor")}</p>
       ) : null}

@@ -97,7 +97,8 @@
       "local": "로컬 브랜치"
     },
     "loading": "브랜치를 불러오는 중...",
-    "empty": "일치하는 브랜치가 없습니다."
+    "empty": "일치하는 브랜치가 없습니다.",
+    "loadFailed": "브랜치 목록을 읽지 못했습니다."
   },
   "cleanupDialog": {
     "title": "워크스페이스 정리",
@@ -479,7 +480,8 @@
       "refreshProjectWorkspaces": "{{value1}}의 워크스페이스 새로 고침",
       "projectSettings": "프로젝트 설정: {{value1}}",
       "openSettings": "설정 열기"
-    }
+    },
+    "signOffNeeded": "단계 승인 필요"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "앱 메모리 사용량 {{value1}}",

@@ -1,4 +1,5 @@
 import { RunTeamLimits } from "./RunTeamLimits";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatTime } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
@@ -107,7 +108,8 @@ export function AgentRunOverview(props: {
           </div>
         </div>
         <div className={sx(styles.statusRow)}>
-          <Badge size="sm" tone={status.tone} dot xstyle={styles.badge}>
+          <Badge size="sm" tone={status.tone} xstyle={styles.badge}>
+            <StateMark state={status.mark.state} size="xs" motion="still" />
             {status.label}
           </Badge>
           <span className={sx(styles.statusText)} title={statusText}>

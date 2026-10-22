@@ -117,5 +117,11 @@
   "counts": {
     "items_one": "{{count}} item",
     "items_other": "{{count}} items"
+  },
+  "asyncBoundary": {
+    "loading": "Loading",
+    "errorTitle": "Couldn't load this",
+    "refreshFailed": "Couldn't refresh",
+    "staleNotice": "Showing the last result that loaded."
   }
 }

@@ -152,7 +152,10 @@
     "title": "대화 불러오는 중",
     "description2": "이 작업의 최근 메시지를 가져오고 있습니다.",
     "tooltip": "맨 아래로 이동",
-    "sentence39": "파일 {{value1}}개 변경 예정{{value2}}."
+    "sentence39": "파일 {{value1}}개 변경 예정{{value2}}.",
+    "olderMessagesFailed": "이전 메시지를 불러오지 못했습니다.",
+    "messagesFailedTitle": "대화를 불러오지 못했습니다",
+    "messagesFailedDescription": "메시지는 저장되어 있지만 지금은 읽지 못했습니다."
   },
   "childRequestSlot": {
     "statusText": "위임 작업이 응답을 수락할 때까지 기다리는 중…",
@@ -221,7 +224,8 @@
     "sentence43": "시도 {{value1}}",
     "extraCopy91": "이 위임 작업의 대화를 찾지 못했습니다.",
     "extraCopy92": "이 위임 작업을 열지 못했습니다.",
-    "agentRun": "위임한 Agent 실행이 사람을 기다립니다. 해당 작업을 열어 답하거나 다시 시도하거나 재개하세요."
+    "agentRun": "위임한 Agent 실행이 사람을 기다립니다. 해당 작업을 열어 답하거나 다시 시도하거나 재개하세요.",
+    "listFailed": "위임한 작업 목록을 불러오지 못했습니다."
   },
   "emptySplash": {
     "emptySplash": "작업을 만들어 대화를 시작하거나 워크스페이스 작업을 위해 CLI 세션을 여세요.",

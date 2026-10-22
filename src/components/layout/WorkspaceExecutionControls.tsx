@@ -32,7 +32,12 @@ export function WorkspaceExecutionControls() {
       pending = true;
       try {
         const next = await window.api?.workspaceExecution?.status();
-        if (mounted.current && next) { setStates(next); setLoaded(true); }
+        if (mounted.current && next) {
+          setStates(next);
+          setLoaded(true);
+          // A poll that answered retires the notice that an earlier one failed.
+          setMessage((current) => (current && "key" in current && current.key === "statusUnavailable" ? null : current));
+        }
       } catch { if (mounted.current) { setLoaded(false); setMessage({ key: "statusUnavailable" }); } }
       finally { pending = false; }
     };

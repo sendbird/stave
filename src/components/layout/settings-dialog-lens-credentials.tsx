@@ -1,4 +1,5 @@
 import { i18n, I18N_NAMESPACES, useTranslation } from "@/i18n";
+import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { KeyRound, Pencil, Plus, ShieldCheck, Trash2, X } from "lucide-react";
 import { Badge, Button, Input, Loader, Switch, toast } from "@/components/ui";
@@ -24,6 +25,10 @@ export function LensCredentialsSettingsCard() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [credentials, setCredentials] = useState<LensCredentialMetadata[]>([]);
   const [loading, setLoading] = useState(true);
+  // Whether any read answered, and the last read's failure: a failed read is
+  // never "no accounts".
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -44,19 +49,18 @@ export function LensCredentialsSettingsCard() {
       setLoading(false);
       return;
     }
+    setLoading(true);
     try {
       const result = await listCredentials();
       if (!result.ok) {
-        toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToLoadSavedLensAccounts"), {
-          description: result.message,
-        });
+        setLoadError(result.message || i18n.t("settingsConnections:settingsDialogLensCredentials.failedToLoadSavedLensAccounts"));
         return;
       }
       setCredentials(result.credentials);
+      setLoaded(true);
+      setLoadError(null);
     } catch (error) {
-      toast.error(i18n.t("settingsConnections:settingsDialogLensCredentials.failedToLoadSavedLensAccounts"), {
-        description: error instanceof Error ? error.message : String(error),
-      });
+      setLoadError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
@@ -335,60 +339,66 @@ export function LensCredentialsSettingsCard() {
           </form>
         ) : null}
 
-        {loading ? (
-          <div className={sx(styles.loadingRow)}>
-            <Loader aria-hidden size="xs" variant="persist" />
-            {t("settingsConnections:settingsDialogLensCredentials.loadingSavedAccounts")}</div>
-        ) : credentials.length === 0 ? (
-          <p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>
-        ) : (
-          <div className={sx(styles.list)}>
-            {credentials.map((credential) => (
-              <div key={credential.id} className={sx(styles.row)}>
-                <div className={sx(styles.rowMark)}>
-                  <KeyRound className={sx(styles.rowMarkIcon)} />
-                </div>
-                <div className={sx(styles.rowBody)}>
-                  <div className={sx(styles.rowHostLine)}>
-                    {credential.hosts.map((host) => (
-                      <span key={host} className={sx(styles.rowHost)}>
-                        {host}
-                      </span>
-                    ))}
-                    <Badge variant="secondary" className={sx(styles.badge)}>
-                      {credential.autoFill ? i18n.t("settingsConnections:settingsDialogLensCredentials.autoFill") : i18n.t("settingsConnections:settingsDialogLensCredentials.onDemand")}
-                    </Badge>
+        <AsyncBoundary
+          state={panelLoadState({ data: credentials, loaded, loading, error: loadError })}
+          onRetry={() => void loadCredentials()}
+          pending={
+            <div className={sx(styles.loadingRow)}>
+              <Loader aria-hidden size="xs" variant="persist" />
+              {t("settingsConnections:settingsDialogLensCredentials.loadingSavedAccounts")}</div>
+          }
+          isEmpty={(list) => list.length === 0}
+          empty={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogLensCredentials.noAccountsAreSavedYet")}</p>}
+        >
+          {() => (
+            <div className={sx(styles.list)}>
+              {credentials.map((credential) => (
+                <div key={credential.id} className={sx(styles.row)}>
+                  <div className={sx(styles.rowMark)}>
+                    <KeyRound className={sx(styles.rowMarkIcon)} />
                   </div>
-                  <p className={sx(styles.rowUsername)}>
-                    {credential.username}
-                  </p>
+                  <div className={sx(styles.rowBody)}>
+                    <div className={sx(styles.rowHostLine)}>
+                      {credential.hosts.map((host) => (
+                        <span key={host} className={sx(styles.rowHost)}>
+                          {host}
+                        </span>
+                      ))}
+                      <Badge variant="secondary" className={sx(styles.badge)}>
+                        {credential.autoFill ? i18n.t("settingsConnections:settingsDialogLensCredentials.autoFill") : i18n.t("settingsConnections:settingsDialogLensCredentials.onDemand")}
+                      </Badge>
+                    </div>
+                    <p className={sx(styles.rowUsername)}>
+                      {credential.username}
+                    </p>
+                  </div>
+                  <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
+                      onClick={() => openEditEditor(credential)}
+                    >
+                      <Pencil className={sx(styles.actionIcon)} />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-xs"
+                      aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
+                      onClick={() => setDeletingId(credential.id)}
+                    >
+                      <Trash2 className={sx(styles.actionIcon)} />
+                    </Button>
+                  </Tooltip>
                 </div>
-                <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.editFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
-                    onClick={() => openEditEditor(credential)}
-                  >
-                    <Pencil className={sx(styles.actionIcon)} />
-                  </Button>
-                </Tooltip>
-                <Tooltip content={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-xs"
-                    aria-label={i18n.t("settingsConnections:settingsDialogLensCredentials.deleteFor", { value1: credential.username, value2: credential.hosts.join(", ") })}
-                    onClick={() => setDeletingId(credential.id)}
-                  >
-                    <Trash2 className={sx(styles.actionIcon)} />
-                  </Button>
-                </Tooltip>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </AsyncBoundary>
       </SettingsCard>
 
       <ConfirmDialog

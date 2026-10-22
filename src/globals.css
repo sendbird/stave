@@ -310,6 +310,17 @@
   --service-git-merged: oklch(0.55 0.19 303);
   --service-git-closed: oklch(0.55 0.19 25);
   --service-git-modified: oklch(0.55 0.13 78);
+  /*
+   * Agent work state colors. They follow the theme's own colors; a theme sets
+   * explicit values (derived in src/lib/themes/state-colors.ts) where these
+   * would read alike. Failed keeps the destructive role.
+   */
+  --state-running: var(--primary);
+  --state-needs-answer: var(--warning);
+  --state-paused: var(--muted-foreground);
+  --state-halted: var(--state-needs-answer);
+  --state-completed: var(--success);
+  --state-stopped: var(--state-paused);
   --radius: 0.45rem;
   --sidebar: oklch(0.955 0.003 75);
   --sidebar-foreground: oklch(0.225 0.003 75);
@@ -412,6 +423,17 @@
   --service-git-merged: oklch(0.68 0.17 303);
   --service-git-closed: oklch(0.67 0.19 25);
   --service-git-modified: oklch(0.74 0.14 85);
+  /*
+   * Agent work state colors. They follow the theme's own colors; a theme sets
+   * explicit values (derived in src/lib/themes/state-colors.ts) where these
+   * would read alike. Failed keeps the destructive role.
+   */
+  --state-running: var(--primary);
+  --state-needs-answer: var(--warning);
+  --state-paused: var(--muted-foreground);
+  --state-halted: var(--state-needs-answer);
+  --state-completed: var(--success);
+  --state-stopped: var(--state-paused);
   --sidebar: oklch(0.145 0.003 75);
   --sidebar-foreground: oklch(0.9 0.003 75);
   --sidebar-primary: oklch(0.71 0.15 252);
@@ -522,6 +544,12 @@
   --color-service-git-merged: var(--service-git-merged);
   --color-service-git-closed: var(--service-git-closed);
   --color-service-git-modified: var(--service-git-modified);
+  --color-state-running: var(--state-running);
+  --color-state-needs-answer: var(--state-needs-answer);
+  --color-state-paused: var(--state-paused);
+  --color-state-halted: var(--state-halted);
+  --color-state-completed: var(--state-completed);
+  --color-state-stopped: var(--state-stopped);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);

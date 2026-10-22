@@ -145,7 +145,8 @@
     "search": "문서 검색…",
     "searchAria": "워크스페이스 문서 검색",
     "empty": "문서가 없습니다.",
-    "couldNotRead": "문서를 읽을 수 없습니다."
+    "couldNotRead": "문서를 읽을 수 없습니다.",
+    "listFailed": "이 워크스페이스의 문서 목록을 읽지 못했습니다."
   },
   "messageMarkdown": {
     "tooltipLabel": "{{value2}}에서 {{value1}} 열기",

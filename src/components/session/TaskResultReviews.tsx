@@ -353,7 +353,9 @@ export function TaskResultReviews(props: {
         <span className={sx(styles.caption)} aria-live="polite">
           {loading && page.total === 0
             ? i18n.t("session:taskResultReviews.taskResultReviews5")
-            : page.total === 0
+            : error && page.total === 0
+              ? null // The body names the failure; "no outputs" would claim a read that never happened.
+              : page.total === 0
               ? filter === "pending"
                 ? i18n.t("session:taskResultReviews.taskResultReviews6")
                 : i18n.t("session:taskResultReviews.taskResultReviews7")

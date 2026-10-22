@@ -73,14 +73,16 @@ async function listWorkspaceDocumentFilePaths(
       directoryPath: LEGACY_WORKSPACE_PLANS_DIRECTORY,
     }),
   ]);
-  const markdownPaths = (result: typeof currentResult) =>
-    result?.ok
-      ? result.entries
-          .filter(
-            (entry) => entry.type === "file" && entry.path.endsWith(".md"),
-          )
-          .map((entry) => entry.path)
-      : [];
+  const markdownPaths = (result: typeof currentResult) => {
+    // An absent folder holds no plans; any other failed read is a failure, not "no plans".
+    if (!result?.ok) {
+      if (result?.missing) return [];
+      throw new Error(result?.stderr || "The plans folder could not be read.");
+    }
+    return result.entries
+      .filter((entry) => entry.type === "file" && entry.path.endsWith(".md"))
+      .map((entry) => entry.path);
+  };
 
   return {
     current: markdownPaths(currentResult),

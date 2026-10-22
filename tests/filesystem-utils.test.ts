@@ -9,6 +9,7 @@ import {
   FilesystemWriteFileArgsSchema,
 } from "../electron/main/ipc/schemas";
 import {
+  DirectoryNotFoundError,
   listDirectoryEntries,
   listFilesRecursive,
   resolveRootFilePath,
@@ -109,6 +110,12 @@ describe("filesystem path helpers", () => {
     expect(githubEntries).toEqual([
       { name: "workflows", path: ".github/workflows", type: "folder" },
     ]);
+  });
+
+  test("reports a directory that does not exist apart from a failed read", async () => {
+    const workspaceRoot = createTempWorkspace();
+    await expect(listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: "missing/plans" }))
+      .rejects.toBeInstanceOf(DirectoryNotFoundError);
   });
 
   test("surfaces symlinked files and directories that resolve inside the workspace root", async () => {

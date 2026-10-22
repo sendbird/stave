@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { memo } from "react";
 import { AlarmClock, AlarmClockOff, Target } from "lucide-react";
-import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import {
@@ -13,16 +13,15 @@ import { isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { useAppStore } from "@/store/app.store";
 import { useTaskAgentRun } from "@/store/agent-runs-store";
 import { useTaskWakeUp, type TaskWakeUp } from "@/store/wake-ups-store";
-import { STAGE_TONE_STYLES } from "./StageStatusIcon";
 import { useAgentRunDecision } from "./useAgentRun";
 import { agentRunStyles as styles } from "./agent-runs.styles";
 
 /**
  * Small marks on a task's tab: an active agent run and the task's wake-up.
- * The run's mark wears its badge (`describeAgentRunStatus`) in its color and
- * label; a run that waits on the user (Needs your answer, Halted) takes the
- * badge's glyph so the shape says so too. Each mark carries its meaning as a
- * label.
+ * The run's mark wears its badge (`describeAgentRunStatus`) in its state
+ * color and label (`StateMark`); a run that waits on the user (Needs your
+ * answer, Halted) takes the badge's glyph so the shape says so too, and any
+ * other run the supervision target. Each mark carries its meaning as a label.
  */
 export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { taskId: string }) {
   useTranslation();
@@ -48,19 +47,19 @@ export function TaskSupervisionMarksView(props: {
   const wakeUpShown = wakeUp && wakeUp.summary.state !== "stopped";
   if (!status && !wakeUpShown) return null;
   const asksUser = status?.badge === "needs-answer" || status?.badge === "halted";
-  const RunIcon = status && asksUser ? WORK_STATE[status.mark.state].icon : Target;
   const runLabel = status ? `${status.agentName}: ${formatAgentRunBadge(status)}` : "";
   return (
     <span className={sx(styles.inline)}>
       {status ? (
-        <RunIcon
-          role="img"
-          aria-label={runLabel}
-          data-badge={status.badge}
-          className={sx(styles.icon, STAGE_TONE_STYLES[status.mark.tone])}
-        >
-          <title>{runLabel}</title>
-        </RunIcon>
+        <span data-badge={status.badge}>
+          <StateMark
+            state={status.mark.state}
+            icon={asksUser ? undefined : Target}
+            motion="still"
+            label={runLabel}
+            title={runLabel}
+          />
+        </span>
       ) : null}
       {wakeUpShown ? (
         wakeUp.summary.state === "scheduled" ? (

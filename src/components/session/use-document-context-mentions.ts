@@ -36,7 +36,8 @@ export function useDocumentContextMentions(args: {
     const load = () => {
       void loadWorkspaceDocumentCatalog({ excludeWorkspaceId: workspaceId }).then(
         (next) => {
-          if (!cancelled) {
+          // A failed read keeps the list it had; the next focus tries again.
+          if (!cancelled && next) {
             setEntries(next);
           }
         },

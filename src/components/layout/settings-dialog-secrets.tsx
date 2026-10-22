@@ -1,4 +1,5 @@
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
+import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -23,6 +24,10 @@ export function SecretsSettingsCard() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [secrets, setSecrets] = useState<SecretMetadata[]>([]);
   const [loading, setLoading] = useState(true);
+  // Whether any read answered, and the last read's failure: a failed read is
+  // never "no secrets".
+  const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editorOpen, setEditorOpen] = useState(false);
@@ -47,17 +52,18 @@ export function SecretsSettingsCard() {
       setLoading(false);
       return;
     }
+    setLoading(true);
     try {
       const result = await list();
       if (!result.ok) {
-        toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToLoadSecrets"), { description: result.message });
+        setLoadError(result.message || i18n.t("settingsConnections:settingsDialogSecrets.failedToLoadSecrets"));
         return;
       }
       setSecrets(result.secrets);
+      setLoaded(true);
+      setLoadError(null);
     } catch (error) {
-      toast.error(i18n.t("settingsConnections:settingsDialogSecrets.failedToLoadSecrets"), {
-        description: error instanceof Error ? error.message : String(error),
-      });
+      setLoadError(error instanceof Error ? error.message : String(error));
     } finally {
       setLoading(false);
     }
@@ -352,101 +358,107 @@ export function SecretsSettingsCard() {
           </form>
         ) : null}
 
-        {loading ? (
-          <div className={sx(styles.loadingRow)}>
-            <Loader aria-hidden size="xs" variant="persist" />
-            {t("settingsConnections:settingsDialogSecrets.loadingSecrets")}</div>
-        ) : secrets.length === 0 ? (
-          <p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>
-        ) : (
-          <div className={sx(styles.list)}>
-            {secrets.map((secret) => {
-              const revealed = revealedId === secret.id;
-              return (
-                <div key={secret.id} className={sx(styles.row)}>
-                  <div className={sx(styles.rowMark)}>
-                    <Lock className={sx(styles.rowMarkIcon)} />
-                  </div>
-                  <div className={sx(styles.rowBody)}>
-                    <div className={sx(styles.rowTitleLine)}>
-                      <p className={sx(styles.rowTitle)}>{secret.name}</p>
-                      {secret.envVarName ? (
-                        <code
-                          className={sx(styles.rowEnvVar)}
-                          title={i18n.t("settingsConnections:settingsDialogSecrets.injectableAsWhenBoundToA", { value1: secret.envVarName })}
-                        >
-                          ${secret.envVarName}
-                        </code>
+        <AsyncBoundary
+          state={panelLoadState({ data: secrets, loaded, loading, error: loadError })}
+          onRetry={() => void loadSecrets()}
+          pending={
+            <div className={sx(styles.loadingRow)}>
+              <Loader aria-hidden size="xs" variant="persist" />
+              {t("settingsConnections:settingsDialogSecrets.loadingSecrets")}</div>
+          }
+          isEmpty={(list) => list.length === 0}
+          empty={<p className={sx(styles.emptyText)}>{t("settingsConnections:settingsDialogSecrets.noSecretsAreSavedYet")}</p>}
+        >
+          {() => (
+            <div className={sx(styles.list)}>
+              {secrets.map((secret) => {
+                const revealed = revealedId === secret.id;
+                return (
+                  <div key={secret.id} className={sx(styles.row)}>
+                    <div className={sx(styles.rowMark)}>
+                      <Lock className={sx(styles.rowMarkIcon)} />
+                    </div>
+                    <div className={sx(styles.rowBody)}>
+                      <div className={sx(styles.rowTitleLine)}>
+                        <p className={sx(styles.rowTitle)}>{secret.name}</p>
+                        {secret.envVarName ? (
+                          <code
+                            className={sx(styles.rowEnvVar)}
+                            title={i18n.t("settingsConnections:settingsDialogSecrets.injectableAsWhenBoundToA", { value1: secret.envVarName })}
+                          >
+                            ${secret.envVarName}
+                          </code>
+                        ) : null}
+                      </div>
+                      <p className={sx(styles.rowValue)}>
+                        {revealed ? revealedValue : secret.valuePreview || "••••"}
+                      </p>
+                      {secret.description ? (
+                        <p className={sx(styles.rowDescription)}>
+                          {secret.description}
+                        </p>
                       ) : null}
                     </div>
-                    <p className={sx(styles.rowValue)}>
-                      {revealed ? revealedValue : secret.valuePreview || "••••"}
-                    </p>
-                    {secret.description ? (
-                      <p className={sx(styles.rowDescription)}>
-                        {secret.description}
-                      </p>
-                    ) : null}
+                    <Tooltip content={revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={
+                          revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })
+                        }
+                        onClick={() => void toggleReveal(secret)}
+                      >
+                        {revealed ? (
+                          <EyeOff className={sx(styles.actionIcon)} />
+                        ) : (
+                          <Eye className={sx(styles.actionIcon)} />
+                        )}
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}
+                        onClick={() => void copySecret(secret)}
+                      >
+                        {copiedId === secret.id ? (
+                          <Check className={sx(styles.copiedIcon)} />
+                        ) : (
+                          <Copy className={sx(styles.actionIcon)} />
+                        )}
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}
+                        onClick={() => openEditEditor(secret)}
+                      >
+                        <Pencil className={sx(styles.actionIcon)} />
+                      </Button>
+                    </Tooltip>
+                    <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-xs"
+                        aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}
+                        onClick={() => setDeletingId(secret.id)}
+                      >
+                        <Trash2 className={sx(styles.actionIcon)} />
+                      </Button>
+                    </Tooltip>
                   </div>
-                  <Tooltip content={revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={
-                        revealed ? i18n.t("settingsConnections:settingsDialogSecrets.hide", { value1: secret.name }) : i18n.t("settingsConnections:settingsDialogSecrets.reveal", { value1: secret.name })
-                      }
-                      onClick={() => void toggleReveal(secret)}
-                    >
-                      {revealed ? (
-                        <EyeOff className={sx(styles.actionIcon)} />
-                      ) : (
-                        <Eye className={sx(styles.actionIcon)} />
-                      )}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip content={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={i18n.t("settingsConnections:settingsDialogSecrets.copy", { value1: secret.name })}
-                      onClick={() => void copySecret(secret)}
-                    >
-                      {copiedId === secret.id ? (
-                        <Check className={sx(styles.copiedIcon)} />
-                      ) : (
-                        <Copy className={sx(styles.actionIcon)} />
-                      )}
-                    </Button>
-                  </Tooltip>
-                  <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={i18n.t("settings:settingsDialogMacrosSection.edit", { value1: secret.name })}
-                      onClick={() => openEditEditor(secret)}
-                    >
-                      <Pencil className={sx(styles.actionIcon)} />
-                    </Button>
-                  </Tooltip>
-                  <Tooltip content={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-xs"
-                      aria-label={i18n.t("settings:settingsDialogMacrosSection.delete", { value1: secret.name })}
-                      onClick={() => setDeletingId(secret.id)}
-                    >
-                      <Trash2 className={sx(styles.actionIcon)} />
-                    </Button>
-                  </Tooltip>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </AsyncBoundary>
       </SettingsCard>
 
       <ConfirmDialog

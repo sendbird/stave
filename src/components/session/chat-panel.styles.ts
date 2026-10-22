@@ -180,6 +180,12 @@ export const chatPanelStyles = stylex.create({
     },
   },
   loadOlderButton: { height: 32, borderRadius: vars["--ads-radius-mark"] },
+  loadOlderFailed: {
+    alignSelf: "center",
+    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    marginInlineEnd: vars["--ads-space-8"],
+  },
   panelColumn: {
     display: "flex",
     height: "100%",

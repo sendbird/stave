@@ -21,7 +21,19 @@ export {
 export { PRESET_THEME_TOKENS } from "./presets";
 
 // Built-in custom theme definitions
-export { BUILTIN_CUSTOM_THEMES } from "./builtin-themes";
+export { BUILTIN_CUSTOM_THEMES, withStateColors } from "./builtin-themes";
+
+// Agent state colors: derivation from a theme's own colors, and the checks
+export {
+  STATE_COLOR_TOKEN_NAMES,
+  STATE_COLOR_MIN_DISTANCE,
+  STATE_GLYPH_CONTRAST_FLOOR,
+  DISTINCT_STATE_COLOR_PAIRS,
+  type StateColorTokenName,
+  type StateColorProblem,
+  deriveStateColors,
+  checkStateColors,
+} from "./state-colors";
 
 // DOM application functions
 export {

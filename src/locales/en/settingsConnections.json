@@ -396,7 +396,9 @@
     "outboundData": "Outbound data",
     "craneReceivesJobLifecycleStatesAnd": "Crane receives job lifecycle states and safe error codes only. Transcripts, reasoning, diffs, files, local paths, branches, provider credentials, and Local MCP metadata remain on this machine.",
     "unregisteredRepository": "Unregistered repository",
-    "craneRoute": "Crane route"
+    "craneRoute": "Crane route",
+    "statusUnavailable": "Status unavailable",
+    "statusReadFailed": "The connector status could not be read, so pairing is not shown."
   },
   "settingsDialogJiraConnector": {
     "jiraRejectedTheEmailAndAPI": "Jira rejected the email and API token.",
@@ -447,7 +449,10 @@
     "staveProject": "Stave project",
     "selectARegisteredProject": "Select a registered project",
     "addMapping": "Add mapping",
-    "enterAValidJiraSiteURL": "Enter a valid Jira site URL."
+    "enterAValidJiraSiteURL": "Enter a valid Jira site URL.",
+    "statusUnavailable": "Status unavailable",
+    "statusReadFailed": "The connection status could not be read.",
+    "configureFailed": "Your Jira settings could not be sent to the connector."
   },
   "settingsDialogLensCredentials": {
     "failedToLoadSavedLensAccounts": "Failed to load saved Lens accounts",
@@ -529,7 +534,9 @@
     "outbox": "Outbox",
     "pendingFailed": " · {{value1}} pending · {{value2}} failed",
     "lastDelivered": " · last delivered {{value1}}",
-    "retryFailed": "Retry failed"
+    "retryFailed": "Retry failed",
+    "statusUnavailable": "Status unavailable",
+    "outboxUnavailable": " · could not be read. Refresh to try again."
   },
   "accountSetup": {
     "useSystem": "Use my skills and instructions from System default"

@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   Bell,
@@ -121,6 +122,8 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   useTranslation();
   const [
     notifications,
+    notificationsLoad,
+    hydrateNotifications,
     tasks,
     markNotificationRead,
     markAllNotificationsRead,
@@ -133,6 +136,8 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
       (state) =>
         [
           state.notifications,
+          state.notificationsLoad,
+          state.hydrateNotifications,
           state.tasks,
           state.markNotificationRead,
           state.markAllNotificationsRead,
@@ -172,6 +177,16 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   const unreadCount = unreadNotifications.length;
   const historyCount = historyNotifications.length;
   const hasNotifications = notifications.length > 0;
+  // A failed read keeps the list it had under a notice, and before any list it
+  // is an error with Retry, never "no notifications".
+  const inboxState: AsyncState<AppNotification[]> =
+    notificationsLoad.status === "error"
+      ? hasNotifications
+        ? { status: "ready", data: notifications, stale: true, refreshError: notificationsLoad.message }
+        : { status: "error", error: notificationsLoad.message }
+      : notificationsLoad.status === "pending" && !hasNotifications
+        ? { status: "pending" }
+        : { status: "ready", data: notifications };
 
   function isNotificationActionPending(notificationId: string) {
     return (
@@ -431,16 +446,22 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
             </div>
           </PopoverHeader>
           <div className={sx(notificationsStyles.scroller)}>
-            {!hasNotifications ? (
-              <div className={sx(notificationsStyles.emptyState)}>
-                <p className={sx(notificationsStyles.emptyTitle)}>
-                  {i18n.t("shell:topBarNotifications.noNotificationsYet")}
-                </p>
-                <p className={sx(notificationsStyles.emptyBody)}>
-                  {i18n.t("shell:topBarNotifications.taskCompletionsAndBlockedRequestsWillAppear")}
-                </p>
-              </div>
-            ) : visibleNotifications.length === 0 ? (
+            <AsyncBoundary
+              state={inboxState}
+              onRetry={() => void hydrateNotifications()}
+              isEmpty={(rows) => rows.length === 0}
+              empty={
+                <div className={sx(notificationsStyles.emptyState)}>
+                  <p className={sx(notificationsStyles.emptyTitle)}>
+                    {i18n.t("shell:topBarNotifications.noNotificationsYet")}
+                  </p>
+                  <p className={sx(notificationsStyles.emptyBody)}>
+                    {i18n.t("shell:topBarNotifications.taskCompletionsAndBlockedRequestsWillAppear")}
+                  </p>
+                </div>
+              }
+            >
+            {() => visibleNotifications.length === 0 ? (
               <div className={sx(notificationsStyles.emptyState)}>
                 <p className={sx(notificationsStyles.emptyTitle)}>
                   {view === "unread"
@@ -698,6 +719,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 ) : null}
               </>
             )}
+            </AsyncBoundary>
           </div>
         </PopoverContent>
       </Popover>

@@ -208,8 +208,10 @@ that says what it stands on. Every word is in English and Korean.
 | **Completed** | 완료 | The Run finished | none |
 | **Stopped** | 중지됨 | The Run ended before finishing: you stopped it, or Stave did because its deadline passed or the task became unavailable (the reason card says which) | none |
 
-Running and its waits wear the progress and neutral tones, Needs your answer
-and Halted the warning tone, each with its own glyph. A question or approval
+Each badge has its own state color, set by the theme: Running and Needs your
+answer never share a color, even in themes whose accent and warning are the
+same hue, and Needs your answer and Halted share the attention color with
+different glyphs. A Run's waits keep the neutral tone. A question or approval
 belongs to the lead task's turn, so a Run reads **Needs your answer** while
 any such card in the lead task's conversation is unanswered, and goes back to
 its badge once you answer the last one. The run line, the Task panel, the

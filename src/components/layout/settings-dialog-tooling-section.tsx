@@ -26,6 +26,7 @@ import type {
   ToolingStatusSnapshot,
   ToolingStatusState,
 } from "@/lib/tooling-status";
+import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { useAppStore } from "@/store/app.store";
 import { publishProviderTooling, useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
 import { providerConfigurationKey } from "@/lib/providers/provider-readiness";
@@ -293,14 +294,15 @@ export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => v
   const accountOptions = useAccountRuntimeOptions();
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? repositoryPath ?? null;
+  // A failed refresh keeps the last snapshot on screen under the error.
   const [viewState, setViewState] = useState<{
-    status: "loading" | "ready" | "error";
+    loading: boolean;
     snapshot: ToolingStatusSnapshot | null;
-    detail: string;
+    error: string | null;
   }>({
-    status: "loading",
+    loading: true,
     snapshot: null,
-    detail: t("settingsProviders:toolingSection.detail.loading"),
+    error: null,
   });
   const [refreshNonce, setRefreshNonce] = useState(0);
   const readiness = useProviderReadinessStore((state) => state.providers);
@@ -308,20 +310,16 @@ export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => v
   useEffect(() => {
     const getStatus = window.api?.tooling?.getStatus;
     if (!getStatus) {
-      setViewState({
-        status: "error",
-        snapshot: null,
-        detail: i18n.t("settingsProviders:toolingSection.detail.bridgeUnavailable"),
-      });
+      setViewState((current) => ({
+        ...current,
+        loading: false,
+        error: i18n.t("settingsProviders:toolingSection.detail.bridgeUnavailable"),
+      }));
       return;
     }
 
     let cancelled = false;
-    setViewState((current) => ({
-      ...current,
-      status: "loading",
-      detail: i18n.t("settingsProviders:toolingSection.detail.loading"),
-    }));
+    setViewState((current) => ({ ...current, loading: true }));
 
     void (async () => {
       try {
@@ -342,22 +340,22 @@ export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => v
         void useAppStore.getState().refreshProviderAvailability();
         useAppStore.setState(providerToolingStatePatch(useAppStore.getState()));
         setViewState({
-          status: "ready",
+          loading: false,
           snapshot,
-          detail: "",
+          error: null,
         });
       } catch (error) {
         if (cancelled) {
           return;
         }
-        setViewState({
-          status: "error",
-          snapshot: null,
-          detail:
+        setViewState((current) => ({
+          ...current,
+          loading: false,
+          error:
             error instanceof Error
               ? error.message
               : i18n.t("settingsProviders:toolingSection.detail.loadFailed"),
-        });
+        }));
       }
     })();
 
@@ -415,7 +413,13 @@ export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => v
     await handleOpenTerminal();
   }
 
-  const snapshot = viewState.snapshot;
+  const toolsState: AsyncState<ToolingStatusSnapshot> = viewState.snapshot
+    ? viewState.error
+      ? { status: "ready", data: viewState.snapshot, stale: true, refreshError: viewState.error }
+      : { status: "ready", data: viewState.snapshot }
+    : viewState.error && !viewState.loading
+      ? { status: "error", error: viewState.error }
+      : { status: "pending" };
 
   return (
     <>
@@ -429,12 +433,12 @@ export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => v
               type="button"
               size="sm"
               variant="outline"
-              disabled={viewState.status === "loading"}
+              disabled={viewState.loading}
               onClick={() => setRefreshNonce((value) => value + 1)}
             >
               <RefreshCcw
                 className={sx(
-                  viewState.status === "loading"
+                  viewState.loading
                     ? toolingStyles.refreshIconSpinning
                     : toolingStyles.refreshIcon,
                 )}
@@ -442,24 +446,30 @@ export function ToolingSection(props: { onNavigateSection?: (id: SectionId) => v
               {t("common:actions.refresh")}</Button>
           }
         >
-          {snapshot ? (
-            <div className={sx(toolingStyles.toolsGrid)}>
-              {snapshot.tools.map((tool) => (
-                <ToolCard
-                  key={tool.id}
-                  tool={(tool.id === "cursor" || tool.id === "kiro" || tool.id === "opencode") && readiness[tool.id]?.configurationKey === providerConfigurationKey(tool.id, { cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }) ? readiness[tool.id]!.tool : tool}
-                  canOpenTerminal={Boolean(workspaceCwd)}
-                  onOpenTerminal={handleOpenTerminal}
-                  onCopyRepairCommand={handleCopyRepairCommand}
-                  onCopyRepairAndOpenTerminal={handleCopyRepairAndOpenTerminal}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className={sx(toolingStyles.emptyState)}>
-              {viewState.detail}
-            </div>
-          )}
+          <AsyncBoundary
+            state={toolsState}
+            onRetry={() => setRefreshNonce((value) => value + 1)}
+            pending={
+              <div className={sx(toolingStyles.emptyState)}>
+                {t("settingsProviders:toolingSection.detail.loading")}
+              </div>
+            }
+          >
+            {(snapshot) => (
+              <div className={sx(toolingStyles.toolsGrid)}>
+                {snapshot.tools.map((tool) => (
+                  <ToolCard
+                    key={tool.id}
+                    tool={(tool.id === "cursor" || tool.id === "kiro" || tool.id === "opencode") && readiness[tool.id]?.configurationKey === providerConfigurationKey(tool.id, { cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }) ? readiness[tool.id]!.tool : tool}
+                    canOpenTerminal={Boolean(workspaceCwd)}
+                    onOpenTerminal={handleOpenTerminal}
+                    onCopyRepairCommand={handleCopyRepairCommand}
+                    onCopyRepairAndOpenTerminal={handleCopyRepairAndOpenTerminal}
+                  />
+                ))}
+              </div>
+            )}
+          </AsyncBoundary>
         </SettingsCard>
       </SectionStack>
     </>

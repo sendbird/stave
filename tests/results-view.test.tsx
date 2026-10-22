@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AgentTable, Figures, OutcomeStrip, Reasons, outcomeTone } from "../src/components/results/ResultsParts";
+import { AgentTable, Figures, OutcomeStrip, Reasons, outcomeColor } from "../src/components/results/ResultsParts";
 import { ResultsFailure, beginResultsLoad } from "../src/components/results/ResultsView";
 import { aggregateAgentRunInsights, type ResultSample } from "../src/lib/agent-runs/insights";
 
@@ -89,10 +89,10 @@ describe("results reload", () => {
     expect(beginResultsLoad({ status: "unavailable" })).toEqual({ status: "loading" });
   });
 
-  test("each bar segment wears its legend icon's tone", () => {
-    expect(outcomeTone("ready")).toBe("success");
-    expect(outcomeTone("rework")).toBe("warning");
-    expect(outcomeTone("failed")).toBe("danger");
-    expect(outcomeTone("stopped")).toBe("neutral");
+  test("each bar segment wears its legend mark's state color", () => {
+    expect(outcomeColor("ready")).toBe("completed");
+    expect(outcomeColor("rework")).toBe("needsAnswer");
+    expect(outcomeColor("failed")).toBe("failed");
+    expect(outcomeColor("stopped")).toBe("stopped");
   });
 });

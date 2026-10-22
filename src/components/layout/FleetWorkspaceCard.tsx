@@ -5,8 +5,8 @@ import { agentRunDecisionOfMessages, describeAgentRunStatus, formatAgentRunBadge
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
-import type { StatusDotTone } from "@/components/ads/components/StatusDot";
-import { memo, useEffect, useMemo, useState, type ReactNode } from "react";
+import { StateMark } from "@/components/ads/components/StateMark";
+import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   FleetTaskControlPanel,
@@ -21,8 +21,8 @@ import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
-import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import { Button, Loader } from "@/components/ui";
+import { sx } from "@/components/ads/utils/stylex";
+import { Button } from "@/components/ui";
 import { cardStyles as styles } from "./fleet-workspace-card.styles";
 import {
   normalizeFleetSearchQuery,
@@ -126,6 +126,7 @@ export function formatFleetWorkspaceName(name: string, branch?: string) {
   return name;
 }
 
+/** Each Fleet status as a shared work state, drawn by `StateMark`. */
 const FLEET_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
   "waiting-input": "needs-you",
   "waiting-approval": "approval",
@@ -134,38 +135,6 @@ const FLEET_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
   idle: "idle",
   unknown: "unknown",
 };
-
-const FLEET_TONE_STYLE: Partial<Record<StatusDotTone, StyleXValue>> = {
-  warning: styles.toneWarning,
-  danger: styles.toneDanger,
-  accent: styles.toneAccent,
-  muted: styles.toneMuted,
-};
-
-/**
- * Each Fleet status reads its glyph, tone and word from the shared work-state
- * vocabulary. A live turn gets the activity mark, not a static glyph: the row
- * already names the state, so the loader carries the "still moving" half of it.
- */
-const FLEET_STATUS_VISUAL = Object.fromEntries(
-  (Object.entries(FLEET_WORK_STATE) as Array<[FleetDisplayStatus, WorkState]>).map(([status, state]) => {
-    const visual = WORK_STATE[state];
-    const Icon = visual.icon;
-    return [
-      status,
-      {
-        label: visual.label,
-        icon:
-          state === "working" ? (
-            <Loader aria-hidden="true" size="xs" variant="pulse" />
-          ) : (
-            <Icon className={sx(styles.statusIcon)} aria-hidden="true" />
-          ),
-        tone: FLEET_TONE_STYLE[visual.tone] ?? styles.toneMuted,
-      },
-    ];
-  }),
-) as Record<FleetDisplayStatus, { label: string; icon: ReactNode; tone: StyleXValue }>;
 
 function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
   const { t: tI18n } = useTranslation(["fleet"]);
@@ -620,7 +589,8 @@ export function FleetWorkspaceCard(args: {
         ) : (
           <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
-              const visual = FLEET_STATUS_VISUAL[row.status];
+              const state = FLEET_WORK_STATE[row.status];
+              const statusLabel = WORK_STATE[state].label;
               const taskKey = taskKeyFor(row.task.id);
               const isExpanded = args.expandedTaskKey === taskKey;
               const taskTitle = row.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask");
@@ -642,8 +612,8 @@ export function FleetWorkspaceCard(args: {
                     aria-expanded={isExpanded}
                     aria-label={
                       isExpanded
-                        ? tI18n("fleet:fleetWorkspaceCard.hideControlsForTask", { taskTitle, status: runLead ? runLeadLabel : visual.label })
-                        : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : visual.label })
+                        ? tI18n("fleet:fleetWorkspaceCard.hideControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
+                        : tI18n("fleet:fleetWorkspaceCard.showControlsForTask", { taskTitle, status: runLead ? runLeadLabel : statusLabel })
                     }
                     onClick={() =>
                       args.onToggleTaskControl({
@@ -674,15 +644,14 @@ export function FleetWorkspaceCard(args: {
                       </Badge>
                     ) : null}
                     {runLead ? null : (
-                      <span
-                        className={sx(styles.taskStatus, visual.tone)}
-                        title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: visual.label, time: row.updatedLabel })}
-                      >
-                        {visual.icon}
-                        <span className={sx(styles.statusLabel)}>
-                          {visual.label}
-                        </span>
-                      </span>
+                      <StateMark
+                        state={state}
+                        size="xs"
+                        showLabel
+                        xstyle={styles.taskStatus}
+                        labelXstyle={styles.statusLabel}
+                        title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: statusLabel, time: row.updatedLabel })}
+                      />
                     )}
                   </AdsButton>
                 </li>

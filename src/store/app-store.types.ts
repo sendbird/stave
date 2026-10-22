@@ -5,7 +5,7 @@ import type {
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
 import type { TaskMessagesLoadResult } from "@/store/app-store-workspace-action-types";
-import type { AppNotification } from "@/lib/notifications/notification.types";
+import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
   ProviderGoalSnapshot,
@@ -85,7 +85,13 @@ export interface SkillCatalogState {
   status: "idle" | "loading" | "ready" | "error";
   workspacePath: string | null;
   sharedSkillsHome: string | null;
+  /** When the last read was attempted, successful or not; retries are spaced from it. */
   fetchedAt: string | null;
+  /**
+   * When `skills` and `roots` were read for these roots. Unset until a read
+   * succeeds; a failed refresh keeps it, and the lists, from the last success.
+   */
+  loadedAt?: string | null;
   skills: SkillCatalogEntry[];
   roots: SkillCatalogRoot[];
   detail: string;
@@ -258,6 +264,7 @@ export interface AppState
   providerRuntimeCapabilities: Record<ProviderId, ProviderRuntimeCapabilities>;
   skillCatalog: SkillCatalogState;
   notifications: AppNotification[];
+  notificationsLoad: NotificationsLoad;
   reviewCommentsByTask: Record<string, ReviewComment[] | undefined>;
   compareRunsById: Record<string, CompareRun | undefined>;
   activeCompareRunId: string | null;

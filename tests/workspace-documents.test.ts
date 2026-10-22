@@ -3,12 +3,14 @@ import {
   buildWorkspaceDocumentDiff,
   buildWorkspaceDocumentEditContextPart,
   getWorkspaceDocumentTitle,
+  listWorkspaceDocumentPaths,
   readWorkspaceDocuments,
   WORKSPACE_DOCUMENT_EDITS_SOURCE_ID,
 } from "@/lib/documents/workspace-documents";
 import {
   collectWorkspaceDocumentEditContextParts,
   forgetWorkspaceDocumentActivity,
+  loadWorkspaceDocumentCatalog,
   refreshRegisteredWorkspaceDocumentActivity,
   refreshWorkspaceDocumentActivity,
   syncWorkspaceDocuments,
@@ -140,6 +142,28 @@ describe("workspace document sync", () => {
       { filePath: ".stave/context/plans/a.md", content: "A" },
       { filePath: ".stave/plans/b.md", content: "B" },
     ]);
+  });
+
+  test("a missing document folder is empty, but a folder that failed to read marks the listing failed", async () => {
+    const respond = (result: Record<string, unknown>) => {
+      (globalThis as { window: unknown }).window = {
+        api: { fs: { listDirectory: async ({ directoryPath }: { directoryPath: string }) =>
+          directoryPath === ".stave/context/plans"
+            ? { ok: true, entries: [{ name: "a.md", path: ".stave/context/plans/a.md", type: "file" }] }
+            : result } },
+      };
+    };
+    respond({ ok: false, entries: [], missing: true, stderr: "Directory path cannot be resolved." });
+    expect(await listWorkspaceDocumentPaths("/tmp/ws")).toEqual({ paths: [".stave/context/plans/a.md"], failed: false });
+    respond({ ok: false, entries: [], stderr: "EIO: i/o error" });
+    expect(await listWorkspaceDocumentPaths("/tmp/ws")).toEqual({ paths: [".stave/context/plans/a.md"], failed: true });
+  });
+
+  test("a failed document catalog read is null, so the @ list keeps what it had", async () => {
+    (globalThis as { window: unknown }).window = { api: { persistence: { workspaceDocumentCatalog: async () => ({ ok: false }) } } };
+    expect(await loadWorkspaceDocumentCatalog({ excludeWorkspaceId: "ws" })).toBeNull();
+    (globalThis as { window: unknown }).window = { api: { persistence: { workspaceDocumentCatalog: async () => ({ ok: true, entries: [] }) } } };
+    expect(await loadWorkspaceDocumentCatalog({ excludeWorkspaceId: "ws" })).toEqual([]);
   });
 
   test("records edits before a send and returns them for this task", async () => {

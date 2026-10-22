@@ -330,14 +330,20 @@ export async function collectAttachedDocumentContextParts(args: {
   return part ? [part] : [];
 }
 
-/** Documents in other workspaces, newest first, for the `@` palette. */
+/**
+ * Documents in other workspaces, newest first, for the `@` palette, or null
+ * when the catalog could not be read: the caller keeps the last list instead
+ * of emptying it.
+ */
 export async function loadWorkspaceDocumentCatalog(args: {
   excludeWorkspaceId: string;
-}): Promise<WorkspaceDocumentCatalogEntry[]> {
-  const response = await window.api?.persistence
-    ?.workspaceDocumentCatalog?.(
-      args.excludeWorkspaceId ? { excludeWorkspaceId: args.excludeWorkspaceId } : {},
-    )
-    .catch(() => null);
-  return response?.ok ? response.entries : [];
+}): Promise<WorkspaceDocumentCatalogEntry[] | null> {
+  const read = window.api?.persistence?.workspaceDocumentCatalog;
+  if (!read) {
+    return [];
+  }
+  const response = await read(
+    args.excludeWorkspaceId ? { excludeWorkspaceId: args.excludeWorkspaceId } : {},
+  ).catch(() => null);
+  return response?.ok ? response.entries : null;
 }

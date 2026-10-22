@@ -76,6 +76,13 @@ export function JiraConnectorSettingsSection() {
   const [mappingPath, setMappingPath] = useState("");
   const [busy, setBusy] = useState<BusyKey | null>(null);
   const [testCode, setTestCode] = useState<string | null | "ok">(null);
+  // Whether the status read answered: until it does, the header and the token
+  // panel say so instead of "Not connected" and an empty credential form.
+  const [statusRead, setStatusRead] = useState<"pending" | "ready" | "failed">(() =>
+    typeof window !== "undefined" && window.api?.jiraConnector?.getStatus ? "pending" : "ready",
+  );
+  const [configureFailed, setConfigureFailed] = useState(false);
+  const [statusAttempt, setStatusAttempt] = useState(0);
 
   useEffect(() => setSiteUrl(connector.siteUrl), [connector.siteUrl]);
 
@@ -84,13 +91,21 @@ export function JiraConnectorSettingsSection() {
     void window.api?.jiraConnector
       ?.getStatus?.()
       .then((result) => {
-        if (!cancelled && result) setStatus(result.status);
+        if (cancelled) return;
+        if (!result) {
+          setStatusRead("failed");
+          return;
+        }
+        setStatus(result.status);
+        setStatusRead("ready");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setStatusRead((current) => (current === "ready" ? current : "failed"));
+      });
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [statusAttempt]);
 
   // The main process keeps its own copy of these settings for polling, so every
   // edit is pushed. Debounced through a ref because the JQL box changes per
@@ -102,11 +117,20 @@ export function JiraConnectorSettingsSection() {
     if (!configure) return;
     const timer = setTimeout(() => {
       void configure(latest.current)
-        .then((result) => setStatus(result.status))
-        .catch(() => undefined);
+        .then((result) => {
+          setStatus(result.status);
+          setStatusRead("ready");
+          setConfigureFailed(false);
+        })
+        .catch(() => setConfigureFailed(true));
     }, CONFIGURE_DEBOUNCE_MS);
     return () => clearTimeout(timer);
-  }, [connector]);
+  }, [connector, statusAttempt]);
+  const statusKnown = status !== null || statusRead === "ready";
+  const retryStatus = () => {
+    setStatusRead((current) => (current === "failed" ? "pending" : current));
+    setStatusAttempt((value) => value + 1);
+  };
 
   const save = (patch: Partial<typeof connector>) =>
     updateSettings({ patch: { jiraConnector: { ...connector, ...patch } } });
@@ -239,7 +263,13 @@ export function JiraConnectorSettingsSection() {
           <div className={sx(styles.headerTitleLine)}>
             <h3 className={sx(styles.headerTitle)}>Jira</h3>
             <Badge variant={configured ? "success" : "outline"}>
-              {configured ? t("settingsConnections:settingsDialogJiraConnector.credentialStored") : t("settingsConnections:settingsDialogJiraConnector.notConnected")}
+              {configured
+                ? t("settingsConnections:settingsDialogJiraConnector.credentialStored")
+                : statusKnown
+                  ? t("settingsConnections:settingsDialogJiraConnector.notConnected")
+                  : statusRead === "failed"
+                    ? t("settingsConnections:settingsDialogJiraConnector.statusUnavailable")
+                    : t("common:status.loading")}
             </Badge>
           </div>
           <p className={sx(styles.headerHint)}>
@@ -281,7 +311,27 @@ export function JiraConnectorSettingsSection() {
           <p className={sx(styles.hint)}>
             {t("settingsConnections:settingsDialogJiraConnector.createATokenInYourAtlassian")}</p>
 
-          {configured ? (
+          {configureFailed ? (
+            <p className={sx(styles.warning)} role="alert">
+              {t("settingsConnections:settingsDialogJiraConnector.configureFailed")}{" "}
+              <Button type="button" size="sm" variant="ghost" onClick={retryStatus}>
+                {t("common:actions.retry")}
+              </Button>
+            </p>
+          ) : null}
+
+          {!statusKnown ? (
+            statusRead === "failed" ? (
+              <p className={sx(styles.warning)} role="alert">
+                {t("settingsConnections:settingsDialogJiraConnector.statusReadFailed")}{" "}
+                <Button type="button" size="sm" variant="ghost" onClick={retryStatus}>
+                  {t("common:actions.retry")}
+                </Button>
+              </p>
+            ) : (
+              <p className={sx(styles.hint)}>{t("common:status.loading")}</p>
+            )
+          ) : configured ? (
             <div className={sx(styles.accountRow)}>
               <div className={sx(styles.accountMeta)}>
                 <p className={sx(styles.accountName)}>
@@ -318,7 +368,7 @@ export function JiraConnectorSettingsSection() {
             </div>
           ) : null}
 
-          {configured && !replacing ? null : (
+          {!statusKnown || (configured && !replacing) ? null : (
             <div className={sx(styles.credentialGrid)}>
               <Input
                 aria-label={t("settingsConnections:settingsDialogJiraConnector.jiraAccountEmail")}

@@ -24,6 +24,7 @@ import {
   formatFileSize,
 } from "../../../src/lib/fs/file-preview-limits";
 import {
+  DirectoryNotFoundError,
   listDirectoryEntries,
   listFilesRecursive,
   mimeTypeFromFilePath,
@@ -356,7 +357,12 @@ export function registerFilesystemHandlers() {
       });
       return { ok: true, entries };
     } catch (error) {
-      return { ok: false, entries: [], stderr: String(error) };
+      return {
+        ok: false,
+        entries: [],
+        stderr: String(error),
+        ...(error instanceof DirectoryNotFoundError ? { missing: true } : {}),
+      };
     }
   });
 

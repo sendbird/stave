@@ -17,6 +17,12 @@ export const APP_NOTIFICATION_KINDS = [
 
 export type AppNotificationKind = (typeof APP_NOTIFICATION_KINDS)[number];
 
+/** Whether the notification history has been read. A failed read keeps the last list. */
+export type NotificationsLoad =
+  | { status: "pending" }
+  | { status: "ready" }
+  | { status: "error"; message: string };
+
 /** An agent run that stopped for the user: a sign-off, a blocker or a stuck stage. */
 export function isAgentRunAttentionNotificationKind(kind: AppNotificationKind) {
   return kind === "agent_run.sign_off_requested" || kind === "agent_run.blocked" || kind === "agent_run.stuck";

@@ -194,6 +194,17 @@ export function resolveRootFilePath(args: { rootPath?: string | null; filePath?:
   });
 }
 
+/**
+ * The directory to list does not exist. Callers report it apart from a read
+ * that failed: an absent folder holds nothing, a failed read is unknown.
+ */
+export class DirectoryNotFoundError extends Error {
+  constructor() {
+    super("Directory path cannot be resolved.");
+    this.name = "DirectoryNotFoundError";
+  }
+}
+
 export async function listDirectoryEntries(args: { rootPath?: string | null; directoryPath?: string | null }) {
   const absolutePath = resolveRootDirectoryPath(args);
   if (!absolutePath) {
@@ -206,7 +217,7 @@ export async function listDirectoryEntries(args: { rootPath?: string | null; dir
   const rootRealPath = await fs.realpath(path.resolve(rootPath));
   const directoryRealPath = await resolveRealPath(absolutePath);
   if (!directoryRealPath) {
-    throw new Error("Directory path cannot be resolved.");
+    throw new DirectoryNotFoundError();
   }
 
   const relativeDirectoryPath = toSafeRelativePath(args.directoryPath);
@@ -217,7 +228,7 @@ export async function listDirectoryEntries(args: { rootPath?: string | null; dir
       currentPath = path.join(currentPath, segment);
       const currentRealPath = await resolveRealPath(currentPath);
       if (!currentRealPath) {
-        throw new Error("Directory path cannot be resolved.");
+        throw new DirectoryNotFoundError();
       }
       ancestorRealPaths.add(currentRealPath);
     }

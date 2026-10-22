@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { CircleAlert, CircleCheck, CircleDashed, CircleHelp, CircleMinus, CirclePause, CircleX, Clock, Hand, ShieldCheck, ShieldQuestion, Square } from "lucide-react";
 import { agentStateDotTone, agentStateTone, agentStateWorkState, type AgentRunState } from "../src/components/ads/components/agent-state";
-import { StateIcon } from "../src/components/ads/components/StateIcon";
+import { StateMark } from "../src/components/ads/components/StateMark";
 import { StatusDot, statusDotWorkState } from "../src/components/ads/components/StatusDot";
 import { WORK_STATE, WORK_STATES } from "../src/components/ads/components/state-vocabulary";
 import { AGENT_RUN_BADGE_LABELS } from "../src/lib/agent-runs/agent-run-status";
@@ -46,8 +46,20 @@ describe("work state vocabulary", () => {
     for (const badge of ["paused", "halted", "stopped"] as const) expect(AGENT_RUN_BADGE_LABELS[badge]).toBe(WORK_STATE[badge].label);
   });
 
-  test("the state icon is decorative unless it carries a label", () => {
-    expect(renderToStaticMarkup(createElement(StateIcon, { state: "ready" }))).toContain('aria-hidden="true"');
-    expect(renderToStaticMarkup(createElement(StateIcon, { state: "failed", label: "Failed" }))).toContain('aria-label="Failed"');
+  test("the state mark is decorative unless it carries a label, and shows the word when asked", () => {
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "ready" }))).toContain('aria-hidden="true"');
+    const named = renderToStaticMarkup(createElement(StateMark, { state: "failed", label: "Failed" }));
+    expect(named).toContain('role="img"');
+    expect(named).toContain('aria-label="Failed"');
+    const worded = renderToStaticMarkup(createElement(StateMark, { state: "needs-you", showLabel: true }));
+    expect(worded).toContain(WORK_STATE["needs-you"].label);
+    expect(worded).not.toContain("aria-hidden=\"true\" data-state");
+    expect(worded).toContain('data-state="needs-you"');
+  });
+
+  test("the state mark draws the vocabulary glyph, or a domain glyph in the state color", () => {
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "halted" }))).toContain("lucide-circle-alert");
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "working" }))).toContain("lucide-circle-dot");
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "halted", icon: Square }))).toContain("lucide-square");
   });
 });

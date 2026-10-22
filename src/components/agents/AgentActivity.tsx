@@ -1,4 +1,6 @@
 import { formatDateTime } from "@/i18n/format";
+import { StateMark } from "@/components/ads/components/StateMark";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import { i18n, useTranslation } from "@/i18n";
 import { useCallback, useMemo, useState } from "react";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
@@ -189,10 +191,10 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
               // unanswered card (`findTaskPendingDecision`), as on every run surface.
               const runStatus = ownRun ? describeAgentRunStatus(ownRun, agentRunDecisionOf(live)) : null;
               const state = runStatus
-                ? { label: formatAgentRunBadge(runStatus), tone: runStatus.tone }
+                ? { label: formatAgentRunBadge(runStatus), tone: runStatus.tone, mark: runStatus.mark.state }
                 : live
-                  ? { label: FLEET_STATUS_LABELS[live], tone: FLEET_STATUS_TONES[live] }
-                  : { label: ASSIGNMENT_STATE_LABELS[row.state], tone: ASSIGNMENT_STATE_TONES[row.state] };
+                  ? { label: FLEET_STATUS_LABELS[live], tone: FLEET_STATUS_TONES[live], mark: FLEET_STATUS_STATES[live] }
+                  : { label: ASSIGNMENT_STATE_LABELS[row.state], tone: ASSIGNMENT_STATE_TONES[row.state], mark: ASSIGNMENT_WORK_STATES[row.state] };
               const body = <WorkRowBody row={row} run={ownRun} state={state} />;
               return (
                 <li key={row.id} className={sx(agentStyles.workItem)}>
@@ -225,7 +227,7 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
  * run stands (plan or stage) and when it started. Each row subscribes only
  * to its task's live plan.
  */
-function WorkRowBody(props: { row: AgentAssignment; run: AgentRunDetail | undefined; state: { label: string; tone: BadgeTone } }) {
+function WorkRowBody(props: { row: AgentAssignment; run: AgentRunDetail | undefined; state: { label: string; tone: BadgeTone; mark: WorkState } }) {
   useTranslation();
   const plan = useAgentRunProgress(props.run);
   const progress = props.run ? describeAgentRunProgress(props.run, plan) : null;
@@ -235,7 +237,10 @@ function WorkRowBody(props: { row: AgentAssignment; run: AgentRunDetail | undefi
     <>
       <span className={sx(agentStyles.workLine)}>
         <span className={sx(agentStyles.workTitle)}>{props.row.assignment.split("\n")[0]}</span>
-        <Badge size="sm" tone={props.state.tone} dot>{props.state.label}</Badge>
+        <Badge size="sm" tone={props.state.tone}>
+          <StateMark state={props.state.mark} size="xs" motion="still" />
+          {props.state.label}
+        </Badge>
       </span>
       {progress || startedValid ? (
         // Where the run stands leads; without it the start time takes the line.
@@ -256,6 +261,22 @@ const FLEET_STATUS_TONES: Readonly<Record<FleetTaskStatus, BadgeTone>> = {
   error: "danger",
   running: "accent",
   idle: "neutral",
+};
+
+/** Each live task status and assignment state as a shared work state, for `StateMark`. */
+const FLEET_STATUS_STATES: Readonly<Record<FleetTaskStatus, WorkState>> = {
+  "waiting-input": "needs-you",
+  "waiting-approval": "approval",
+  error: "failed",
+  running: "working",
+  idle: "idle",
+};
+
+const ASSIGNMENT_WORK_STATES: Readonly<Record<AgentAssignment["state"], WorkState>> = {
+  preparing: "working",
+  started: "idle",
+  failed: "failed",
+  interrupted: "halted",
 };
 
 const ASSIGNMENT_STATE_TONES: Readonly<Record<AgentAssignment["state"], BadgeTone>> = {

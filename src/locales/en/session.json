@@ -155,7 +155,10 @@
     "title": "Loading conversation",
     "description2": "Fetching the latest messages for this task.",
     "tooltip": "Scroll to bottom",
-    "sentence39": "{{value1}} file(s) will change {{value2}} ."
+    "sentence39": "{{value1}} file(s) will change {{value2}} .",
+    "olderMessagesFailed": "Earlier messages could not be loaded.",
+    "messagesFailedTitle": "This conversation could not be loaded",
+    "messagesFailedDescription": "Its messages are saved but could not be read just now."
   },
   "childRequestSlot": {
     "statusText": "Waiting for the delegated task to accept the response…",
@@ -224,7 +227,8 @@
     "sentence43": "Attempt {{value1}}",
     "extraCopy91": "This delegated task's conversation could not be found.",
     "extraCopy92": "This delegated task could not be opened.",
-    "agentRun": "This delegated Agent run is waiting for a person: open its task to answer, retry or resume it."
+    "agentRun": "This delegated Agent run is waiting for a person: open its task to answer, retry or resume it.",
+    "listFailed": "Delegated tasks could not be listed."
   },
   "emptySplash": {
     "emptySplash": "Create a task to start a conversation, or open a CLI session for workspace work.",

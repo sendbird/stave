@@ -661,7 +661,8 @@
       "triggerCount_other": "{{count}} Triggers",
       "environmentCount_one": "{{count}} Environment",
       "environmentCount_other": "{{count}} Environments",
-      "footer": "Configure and run them from the dedicated Workspace Tools section."
+      "footer": "Configure and run them from the dedicated Workspace Tools section.",
+      "readFailed": "Workspace tools could not be read."
     },
     "empty": {
       "title": "No Repositories Yet",
@@ -1386,7 +1387,12 @@
     "thePrimaryAndFallbackModelsProduce": "The primary and fallback models produce the editable preview. If both fail, deterministic parsing still creates a proposal.",
     "primaryModel": "Primary model",
     "preferredModelForSourceResolutionAnd": "Preferred model for source resolution and proposal generation.",
-    "usedWhenThePrimaryModelIs": "Used when the primary model is unavailable or returns an invalid proposal."
+    "usedWhenThePrimaryModelIs": "Used when the primary model is unavailable or returns an invalid proposal.",
+    "unknown": "unknown",
+    "checking": "checking…",
+    "discoveryUnavailable": "MCP discovery is not available here.",
+    "discoveryFailedTitle": "MCP servers could not all be read",
+    "discoveryFailedNote": "Servers that were not found show as unknown until a read succeeds."
   },
   "appStoreCompareActions": {
     "writeAPromptBeforeStartingA": "Write a prompt before starting a compare run.",

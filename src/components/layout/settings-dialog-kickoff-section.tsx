@@ -28,6 +28,7 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
+import { Banner } from "@/components/ads/components/Banner";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -180,6 +181,25 @@ function KickoffPromptField(props: {
   );
 }
 
+/**
+ * What a source's MCP server badge can say from the last discovery: found, or
+ * missing only when every configuration was read. A server that was not found
+ * while a read failed may sit in the configuration that failed, so it is
+ * unknown; before the first read it is being checked.
+ */
+export function kickoffServerVerdict(args: { found: boolean; discovered: boolean; failed: boolean }) {
+  if (args.found) return "found";
+  if (args.failed) return "unknown";
+  return args.discovered ? "missing" : "checking";
+}
+
+const KICKOFF_SERVER_VERDICT_LABEL = {
+  found: "settings:settingsDialogKickoffSection.found",
+  missing: "settings:settingsDialogKickoffSection.missing",
+  unknown: "settings:settingsDialogKickoffSection.unknown",
+  checking: "settings:settingsDialogKickoffSection.checking",
+} as const;
+
 export function KickoffSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
@@ -201,6 +221,9 @@ export function KickoffSection() {
   );
   const [expandedSourceId, setExpandedSourceId] = useState<string | null>(null);
   const [discovery, setDiscovery] = useState<McpDiscoveryResponse | null>(null);
+  // Why the servers could not all be read. A server that was not found is then
+  // unknown, not missing: it may sit in the configuration that failed.
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
   const [discovering, setDiscovering] = useState(false);
   const discoveredServerNames = useMemo(
     () =>
@@ -211,13 +234,18 @@ export function KickoffSection() {
   const refreshMcpServers = useCallback(async () => {
     const discover = window.api?.provider?.discoverMcpServers;
     if (!discover) {
+      setDiscoveryError(i18n.t("settings:settingsDialogKickoffSection.discoveryUnavailable"));
       return;
     }
     setDiscovering(true);
     try {
-      setDiscovery(await discover({ cwd: repositoryPath ?? undefined }));
-    } catch {
-      setDiscovery(null);
+      const result = await discover({ cwd: repositoryPath ?? undefined });
+      // A partial read still names the servers it found.
+      setDiscovery(result);
+      setDiscoveryError(result.ok ? null : result.errors.join(" "));
+    } catch (error) {
+      // Keep the last discovery: a failed read does not mean the servers went away.
+      setDiscoveryError(error instanceof Error ? error.message : String(error));
     } finally {
       setDiscovering(false);
     }
@@ -320,6 +348,27 @@ export function KickoffSection() {
             </div>
           }
         >
+          {discoveryError !== null ? (
+            <Banner
+              tone="danger"
+              title={t("settings:settingsDialogKickoffSection.discoveryFailedTitle")}
+              action={
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={discovering}
+                  onClick={() => void refreshMcpServers()}
+                >
+                  {t("common:actions.retry")}
+                </Button>
+              }
+            >
+              {discoveryError}
+              <br />
+              {t("settings:settingsDialogKickoffSection.discoveryFailedNote")}
+            </Banner>
+          ) : null}
           <div className={sx(kickoffSectionStyles.sourceList)}>
             {sourceConfigs.map((config, index) => {
               const expanded = expandedSourceId === config.id;
@@ -406,12 +455,17 @@ export function KickoffSection() {
                         const available = discoveredServerNames.has(
                           server.toLowerCase(),
                         );
+                        const verdict = kickoffServerVerdict({
+                          found: available,
+                          discovered: discovery !== null,
+                          failed: discoveryError !== null,
+                        });
                         return (
                           <Badge
                             key={server}
                             variant={available ? "secondary" : "outline"}
                           >
-                            {server} · {available ? i18n.t("settings:settingsDialogKickoffSection.found") : i18n.t("settings:settingsDialogKickoffSection.missing")}
+                            {server} · {i18n.t(KICKOFF_SERVER_VERDICT_LABEL[verdict])}
                           </Badge>
                         );
                       })}

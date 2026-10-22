@@ -30,7 +30,8 @@
     "readyToMerge": "Ready to merge",
     "runBlocked": "Run blocked",
     "runStuck": "Run stuck",
-    "snoozedCount": "{{count}} snoozed"
+    "snoozedCount": "{{count}} snoozed",
+    "signOff": "Sign-off"
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "Reply steered into the active turn.",

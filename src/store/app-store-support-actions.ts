@@ -24,6 +24,7 @@ import type {
   AppState,
   NotificationContextOpenResult,
   SendUserMessageResult,
+  SkillCatalogState,
 } from "@/store/app-store.types";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { mergeLayoutPatch } from "@/store/layout.utils";
@@ -76,6 +77,9 @@ type SupportActionKey =
 type SupportActions = Pick<AppState, SupportActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
 type StoreGet = StoreApi<AppState>["getState"];
+
+/** Numbers skill catalog reads so that only the newest one writes the catalog. */
+let skillCatalogReadCount = 0;
 
 export function createSupportActions(args: {
   set: StoreSet;
@@ -491,6 +495,7 @@ export function createSupportActions(args: {
     },
     ...createProviderSupportActions({ set, get }),
     refreshSkillCatalog: async (args = {}) => {
+      const read = ++skillCatalogReadCount;
       const getCatalog = window.api?.skills?.getCatalog;
       const fallbackWorkspacePath =
         get().workspacePathById[get().activeWorkspaceId] ??
@@ -504,18 +509,32 @@ export function createSupportActions(args: {
         normalizeSharedSkillsHomeSetting(get().settings.sharedSkillsHome) ||
         null;
 
+      const isForTheseRoots = (catalog: SkillCatalogState) =>
+        catalog.workspacePath === workspacePath &&
+        catalog.sharedSkillsHome === sharedSkillsHome;
+      // A failed read is not "no skills": the lists last read for these roots
+      // stay, with `loadedAt`. A newer read owns the catalog.
+      const failCatalog = (detail: string) =>
+        set((state) => {
+          if (read !== skillCatalogReadCount) return state;
+          const current = state.skillCatalog;
+          const keep = Boolean(current.loadedAt) && isForTheseRoots(current);
+          return {
+            skillCatalog: {
+              status: "error",
+              workspacePath,
+              sharedSkillsHome,
+              fetchedAt: new Date().toISOString(),
+              loadedAt: keep ? current.loadedAt : null,
+              skills: keep ? current.skills : [],
+              roots: keep ? current.roots : [],
+              detail,
+            },
+          };
+        });
+
       if (!getCatalog) {
-        set(() => ({
-          skillCatalog: {
-            status: "error",
-            workspacePath,
-            sharedSkillsHome,
-            fetchedAt: new Date().toISOString(),
-            skills: [],
-            roots: [],
-            detail: i18n.t("notifications:appStoreSupportActions.skillCatalogApiIsUnavailableInThisBuild"),
-          },
-        }));
+        failCatalog(i18n.t("notifications:appStoreSupportActions.skillCatalogApiIsUnavailableInThisBuild"));
         return;
       }
 
@@ -525,6 +544,8 @@ export function createSupportActions(args: {
           status: "loading",
           workspacePath,
           sharedSkillsHome,
+          // Lists read for other roots are not these roots' lists.
+          loadedAt: isForTheseRoots(state.skillCatalog) ? state.skillCatalog.loadedAt : null,
           detail: i18n.t("notifications:appStoreSupportActions.loadingSkillCatalog"),
         },
       }));
@@ -540,31 +561,28 @@ export function createSupportActions(args: {
         // and resolves symlinks, but the component compares against the raw
         // settings string, which would otherwise never match and cause an
         // infinite re-fetch loop).
-        set(() => ({
-          skillCatalog: {
-            status: result.ok ? "ready" : "error",
-            workspacePath,
-            sharedSkillsHome,
-            fetchedAt: result.catalog.fetchedAt,
-            skills: result.catalog.skills,
-            roots: result.catalog.roots,
-            detail: result.ok
-              ? result.catalog.detail
-              : result.message?.trim() || result.catalog.detail,
-          },
-        }));
+        if (!result.ok) {
+          failCatalog(result.message?.trim() || result.catalog.detail);
+          return;
+        }
+        set((state) =>
+          read !== skillCatalogReadCount
+            ? state
+            : {
+                skillCatalog: {
+                  status: "ready",
+                  workspacePath,
+                  sharedSkillsHome,
+                  fetchedAt: result.catalog.fetchedAt,
+                  loadedAt: result.catalog.fetchedAt,
+                  skills: result.catalog.skills,
+                  roots: result.catalog.roots,
+                  detail: result.catalog.detail,
+                },
+              },
+        );
       } catch (error) {
-        set(() => ({
-          skillCatalog: {
-            status: "error",
-            workspacePath,
-            sharedSkillsHome,
-            fetchedAt: new Date().toISOString(),
-            skills: [],
-            roots: [],
-            detail: String(error),
-          },
-        }));
+        failCatalog(String(error));
       }
     },
     takeOverTask: async ({ taskId }) => {

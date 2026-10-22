@@ -192,27 +192,11 @@ export const cardStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
     gap: vars["--ads-space-4"],
   },
-  statusIcon: {
-    height: 12,
-    width: 12,
-  },
   statusLabel: {
     display: {
       default: "none",
       [WIDE]: "inline",
     },
-  },
-  toneWarning: {
-    color: vars["--ads-color-warning-text"],
-  },
-  toneDanger: {
-    color: vars["--ads-color-danger-text"],
-  },
-  toneAccent: {
-    color: vars["--ads-color-accent"],
-  },
-  toneMuted: {
-    color: vars["--ads-color-text-muted"],
   },
   disclosure: {
     color: {

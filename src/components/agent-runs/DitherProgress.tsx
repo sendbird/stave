@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useLayoutEffect, useRef } from "react";
-import { Check, Hand, X, type LucideIcon } from "lucide-react";
+import { Check, CircleAlert, Hand, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import type { StageTone } from "@/lib/agent-runs/agent-run-view";
@@ -17,11 +17,12 @@ import { ditherProgressStyles as styles, HEAD_TONES, MARK_TONES } from "./dither
 /** `vars[…]` is the string `var(--name)`; the canvas reads the custom property itself. */
 const cssVar = (reference: string) => reference.slice(4, -1);
 
+/** Each stage tone fills in its work state's theme color, as `StateMark` draws it. */
 const FILL_TOKENS: Record<StageTone, string> = {
-  active: cssVar(vars["--ads-color-accent"]),
-  waiting: cssVar(vars["--ads-color-warning"]),
-  attention: cssVar(vars["--ads-color-danger"]),
-  done: cssVar(vars["--ads-color-success"]),
+  active: "--state-running",
+  waiting: "--state-needs-answer",
+  attention: "--state-halted",
+  done: "--state-completed",
   idle: cssVar(vars["--ads-color-border-strong"]),
   skipped: cssVar(vars["--ads-color-border-strong"]),
 };
@@ -31,7 +32,7 @@ const PASSED_TICK_TOKEN = cssVar(vars["--ads-color-text"]);
 /** The head's mark: the tone is never carried by color alone. */
 const MARKS: Partial<Record<StageTone, { icon: LucideIcon; tone: StyleXValue }>> = {
   waiting: { icon: Hand, tone: MARK_TONES.waiting },
-  attention: { icon: X, tone: MARK_TONES.attention },
+  attention: { icon: CircleAlert, tone: MARK_TONES.attention },
   done: { icon: Check, tone: MARK_TONES.done },
 };
 

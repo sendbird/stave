@@ -92,7 +92,7 @@ const REPOSITORY_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   get "pr-behind-base"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prBehindBase"); },
   get "result-ready"() { return i18n.t("workspace:repositoryWorkspaceSidebar.resultReady"); },
   get "pr-ready-to-merge"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prReadyToMerge"); },
-  "agent-run-sign-off": "run sign-off",
+  get "agent-run-sign-off"() { return i18n.t("workspace:repositoryWorkspaceSidebar.signOffNeeded"); },
   get "agent-run-blocked"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runBlocked"); },
   get "agent-run-stuck"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runStuck"); },
 };
@@ -590,22 +590,6 @@ export function summarizeWorkspaceTaskTitle(title: string) {
   const lastSpace = slice.lastIndexOf(" ");
   const clipped = lastSpace >= 16 ? slice.slice(0, lastSpace) : slice;
   return `${clipped.trimEnd()}…`;
-}
-
-/**
- * Delegated-task cadence. The workspace row uses `matrix` so the parent
- * container and these streaming rows do not share one mark.
- */
-export function resolveWorkspaceProgressTaskLoaderVariant(
-  status: FleetTaskStatus,
-) {
-  if (status === "running") {
-    return "pulse" as const;
-  }
-  if (status === "waiting-input" || status === "waiting-approval") {
-    return "handoff" as const;
-  }
-  return null;
 }
 
 /**

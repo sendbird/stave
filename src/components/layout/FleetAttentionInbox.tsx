@@ -9,10 +9,6 @@ import {
   Clock,
   GitMerge,
   Inbox,
-  Hand,
-  MessageCircleQuestion,
-  ShieldCheck,
-  Target,
 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import {
@@ -20,6 +16,8 @@ import {
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { StateMark } from "@/components/ads/components/StateMark";
+import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -54,7 +52,7 @@ const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   get "pr-merge-conflict"() { return i18n.t("fleet:fleetAttentionInbox.mergeConflict"); },
   get "pr-behind-base"() { return i18n.t("fleet:fleetAttentionInbox.behindBase"); },
   get "pr-ready-to-merge"() { return i18n.t("fleet:fleetAttentionInbox.readyToMerge"); },
-  "agent-run-sign-off": "Sign-off",
+  get "agent-run-sign-off"() { return i18n.t("fleet:fleetAttentionInbox.signOff"); },
   get "agent-run-blocked"() { return i18n.t("fleet:fleetAttentionInbox.runBlocked"); },
   get "agent-run-stuck"() { return i18n.t("fleet:fleetAttentionInbox.runStuck"); },
 };
@@ -77,21 +75,18 @@ const FLEET_NEED_TONE: Record<FleetAttentionKind, BadgeTone> = {
 
 function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
   switch (item.kind) {
+    // Needs of the agent work are work states, drawn as every surface draws them.
     case "user-input":
-      return <MessageCircleQuestion className={sx(styles.needIcon)} aria-hidden="true" />;
     case "approval":
-      return <ShieldCheck className={sx(styles.needIcon)} aria-hidden="true" />;
     case "run-failed":
-      return <AlertTriangle className={sx(styles.needIcon)} aria-hidden="true" />;
+    case "agent-run-sign-off":
+    case "agent-run-blocked":
+    case "agent-run-stuck":
+      return <StateMark state={FLEET_ATTENTION_WORK_STATE[item.kind]!} />;
     case "result-ready":
       return <CheckCircle2 className={sx(styles.needIcon)} aria-hidden="true" />;
     case "pr-ready-to-merge":
       return <GitMerge className={sx(styles.needIcon)} aria-hidden="true" />;
-    case "agent-run-sign-off":
-      return <Hand className={sx(styles.needIcon)} aria-hidden="true" />;
-    case "agent-run-blocked":
-    case "agent-run-stuck":
-      return <Target className={sx(styles.needIcon)} aria-hidden="true" />;
     case "pr-changes-requested":
     case "pr-checks-failed":
     case "pr-merge-conflict":

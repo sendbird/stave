@@ -110,6 +110,10 @@ if (preview === "question-reply") {
       </StrictMode>,
     );
   });
+} else if (preview === "states") {
+  void import("@/dev/states-preview").then(({ StatesPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><StatesPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "task-panel") {
   void import("@/dev/task-panel-preview").then(({ TaskPanelPreview }) => {
     root.render(

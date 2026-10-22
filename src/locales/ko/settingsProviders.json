@@ -956,7 +956,9 @@
       "browserCouldNotOpen": "외부 브라우저를 열 수 없습니다.",
       "finishInBrowser": "{{detail}} 브라우저에서 로그인을 완료하세요. 상태는 자동으로 새로고침됩니다.",
       "failed": "OAuth 로그인 실패: {{detail}}"
-    }
+    },
+    "readFailed": "MCP 서버를 읽지 못했습니다. 아래 오류에서 실패한 부분을 확인하세요.",
+    "refreshFailed": "일부 출처를 다시 읽지 못해 마지막으로 읽은 내용을 보여 줍니다. 아래 오류에서 어느 출처인지 확인하세요."
   },
   "mcpConfigEditor": {
     "checkingLatest": "최신 프로바이더 설정을 확인하는 중…",

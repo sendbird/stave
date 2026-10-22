@@ -79,6 +79,8 @@ function runtimeBadgeTone(
   return "danger";
 }
 
+type StatusRead = "pending" | "ready" | "failed";
+
 export function MartinSyncSettingsSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const martinSync = useAppStore((state) => state.settings.martinSync);
@@ -93,6 +95,14 @@ export function MartinSyncSettingsSection() {
     AtelierConnectorScope[]
   >(["martin", "crane"]);
   const [busy, setBusy] = useState<"pair" | "refresh" | "retry" | null>(null);
+  // Whether each status read answered. Until one does, the badges and the
+  // outbox say so instead of showing "Disabled", "Not paired" or zero counts.
+  const [statusRead, setStatusRead] = useState<StatusRead>(
+    () => (typeof window !== "undefined" && window.api?.martinSync?.getStatus ? "pending" : "ready"),
+  );
+  const [connectorRead, setConnectorRead] = useState<StatusRead>(
+    () => (typeof window !== "undefined" && window.api?.atelierConnector?.getStatus ? "pending" : "ready"),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -100,14 +110,27 @@ export function MartinSyncSettingsSection() {
     void window.api?.martinSync
       ?.getStatus?.()
       .then((result) => {
-        if (!cancelled && result) setStatus(result.status);
+        if (cancelled) return;
+        if (!result) {
+          setStatusRead("failed");
+          return;
+        }
+        setStatus(result.status);
+        setStatusRead("ready");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setStatusRead("failed");
+      });
     void window.api?.atelierConnector
       ?.getStatus?.()
       .then((result) => {
-        if (cancelled || !result) return;
+        if (cancelled) return;
+        if (!result) {
+          setConnectorRead("failed");
+          return;
+        }
         setConnector(result.status);
+        setConnectorRead("ready");
         if (result.status.scopes.length > 0) {
           setRequestedScopes(
             Array.from(
@@ -119,9 +142,14 @@ export function MartinSyncSettingsSection() {
           );
         }
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setConnectorRead("failed");
+      });
 
-    const unsubscribe = window.api?.martinSync?.subscribeStatus?.(setStatus);
+    const unsubscribe = window.api?.martinSync?.subscribeStatus?.((next) => {
+      setStatus(next);
+      setStatusRead("ready");
+    });
     return () => {
       cancelled = true;
       unsubscribe?.();
@@ -143,9 +171,18 @@ export function MartinSyncSettingsSection() {
         window.api?.martinSync?.getStatus?.(),
         window.api?.atelierConnector?.getStatus?.(),
       ]);
-      if (syncResult) setStatus(syncResult.status);
-      if (connectorResult) setConnector(connectorResult.status);
+      if (syncResult) {
+        setStatus(syncResult.status);
+        setStatusRead("ready");
+      }
+      if (connectorResult) {
+        setConnector(connectorResult.status);
+        setConnectorRead("ready");
+      }
     } catch {
+      // What was read before stays; with nothing read the badges say the status is unknown.
+      setStatusRead((current) => (current === "ready" ? current : "failed"));
+      setConnectorRead((current) => (current === "ready" ? current : "failed"));
       toast.error(i18n.t("settingsConnections:settingsDialogMartinSync.couldNotRefreshMartinSyncStatus"));
     } finally {
       setBusy(null);
@@ -238,9 +275,15 @@ export function MartinSyncSettingsSection() {
       title={t("settings:sections.fields.martinSync.title")}
       description={t("settingsConnections:settingsDialogMartinSync.pushSelectedWorkspaceEventsAndResource")}
       titleAccessory={
-        <Badge variant="soft" tone={runtimeBadgeTone(status?.runtimeState)}>
-          {runtimeLabel(status?.runtimeState)}
-        </Badge>
+        status || statusRead === "ready" ? (
+          <Badge variant="soft" tone={runtimeBadgeTone(status?.runtimeState)}>
+            {runtimeLabel(status?.runtimeState)}
+          </Badge>
+        ) : (
+          <Badge variant="soft" tone={statusRead === "failed" ? "warning" : "neutral"}>
+            {statusRead === "failed" ? t("settingsConnections:settingsDialogMartinSync.statusUnavailable") : t("common:status.loading")}
+          </Badge>
+        )
       }
     >
       <div className={sx(styles.panel)}>
@@ -252,7 +295,13 @@ export function MartinSyncSettingsSection() {
             <div className={sx(styles.headerTitleLine)}>
               <h4 className={sx(styles.headerTitle)}>{t("settingsConnections:settingsDialogMartinSync.atelierConnector")}</h4>
               <Badge variant={paired ? "secondary" : "outline"}>
-                {paired ? t("settingsConnections:settingsDialogMartinSync.paired") : t("settingsConnections:settingsDialogCraneConnector.notPaired")}
+                {paired
+                  ? t("settingsConnections:settingsDialogMartinSync.paired")
+                  : connector || connectorRead === "ready"
+                    ? t("settingsConnections:settingsDialogCraneConnector.notPaired")
+                    : connectorRead === "failed"
+                      ? t("settingsConnections:settingsDialogMartinSync.statusUnavailable")
+                      : t("common:status.loading")}
               </Badge>
               {connector?.scopes.map((scope) => (
                 <Badge
@@ -421,7 +470,11 @@ export function MartinSyncSettingsSection() {
         <ShieldCheck className={sx(styles.outboxIcon)} />
         <div className={sx(styles.outboxText)}>
           <span className={sx(styles.outboxStrong)}>{t("settingsConnections:settingsDialogMartinSync.outbox")}</span>
-          {t("settingsConnections:settingsDialogMartinSync.pendingFailed", { value1: status?.pendingCount ?? 0, value2: status?.failedCount ?? 0 })}
+          {status || statusRead === "ready"
+            ? t("settingsConnections:settingsDialogMartinSync.pendingFailed", { value1: status?.pendingCount ?? 0, value2: status?.failedCount ?? 0 })
+            : statusRead === "failed"
+              ? t("settingsConnections:settingsDialogMartinSync.outboxUnavailable")
+              : ` · ${t("common:status.loading")}`}
           {status?.lastDeliveredAt
             ? t("settingsConnections:settingsDialogMartinSync.lastDelivered", { value1: formatTaskUpdatedAt({ value: status.lastDeliveredAt }) })
             : ""}
