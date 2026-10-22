@@ -61,6 +61,12 @@ It contains no instruction prose, secret bindings, or environment values.
 Native model evidence remains in `model_resolved` and `modelExecution`. Replay
 pins identity to the exact Stave turn, preserves it through split rows and SQL
 compaction, and never derives missing historical evidence from today's Agent.
+Replay never rewrites the configured permissions, with one exception: a
+re-statement from the same turn, assignment and content hash that carries the
+approvals the runtime confirmed once the turn started
+(`permission.approvalsConfirmed`, from Codex `approvals_applied`) replaces the
+requested approval policy and reviewer; a later re-statement without that
+confirmation never takes it back.
 Claude and Codex receive instructions each turn. ACP delivers after its actual
 session decision; only a confirmed resumed session with the same provider and
 Agent version may reuse known delivery. Failed startup and fresh sessions never
