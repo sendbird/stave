@@ -5,6 +5,7 @@ import {
   pruneAutomationRuns,
   automationRuntimeToProviderOptions,
   AutomationUpsertInputSchema,
+  AUTOMATION_WORKSPACE_MISSING_MESSAGE,
   type AutomationRun,
   type AutomationSnapshot,
   type AutomationSpec,
@@ -29,6 +30,23 @@ interface AutomationPersistence {
   loadAutomationProviderTimeoutMs: () => number | null;
   saveAutomationProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
   completeTurn: (args: { id: string }) => void;
+}
+
+/** Where a workspace is, read from the repository registry when a run starts or a schedule is saved. */
+export interface AutomationWorkspaceLocation {
+  workspaceId: string;
+  name: string;
+  path: string;
+  branch: string | null;
+  repositoryPath: string;
+  /** The repository's Default workspace (its root). */
+  isDefault: boolean;
+}
+
+class AutomationWorkspaceMissingError extends Error {
+  constructor() {
+    super(AUTOMATION_WORKSPACE_MISSING_MESSAGE);
+  }
 }
 
 interface AutomationTaskRunResult {
@@ -82,6 +100,12 @@ interface AutomationRuntimeDependencies {
       authorizationToken: string;
     }>;
   }) => void;
+  /**
+   * The registered workspace a schedule names, or null when it is gone. Saving
+   * keeps the stored workspace name and branch current; a run whose workspace
+   * is gone fails before it starts a task. Without it (tests), neither check runs.
+   */
+  findWorkspace?: (workspaceId: string) => Promise<AutomationWorkspaceLocation | null>;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
@@ -241,6 +265,37 @@ export function createAutomationRuntime(
     dependencies.persistence.loadAutomationProviderTimeoutMs(),
   );
 
+  /**
+   * Store where the schedule runs as the registry knows it: the Default
+   * workspace carries no workspace descriptor; any other workspace carries its
+   * name and branch, and its path. A workspace the registry does not know is
+   * saved as given; its runs fail visibly until the schedule is changed.
+   */
+  async function withCurrentLocation(input: AutomationUpsertInput): Promise<AutomationUpsertInput> {
+    // A registry that cannot be read does not block saving; the run checks again.
+    const location = await dependencies
+      .findWorkspace?.(input.environment.workspaceId)
+      .catch(() => null);
+    if (!location) {
+      return input;
+    }
+    const { workspace: _previous, ...environment } = input.environment;
+    if (location.isDefault) {
+      return { ...input, environment };
+    }
+    // Bounded to the schema: a stored state that fails to parse would be read back empty.
+    const name = location.name.trim().slice(0, 200);
+    const branch = location.branch?.trim().slice(0, 500);
+    return {
+      ...input,
+      environment: {
+        ...environment,
+        ...(location.path ? { path: location.path } : {}),
+        ...(name ? { workspace: { name, ...(branch ? { branch } : {}) } } : {}),
+      },
+    };
+  }
+
   function enqueue<T>(operation: () => Promise<T> | T): Promise<T> {
     const next = operationChain.then(operation, operation);
     operationChain = next.then(
@@ -362,6 +417,15 @@ export function createAutomationRuntime(
     });
 
     try {
+      // The run uses the stored location, from Run now and from the schedule
+      // alike. A workspace that was removed fails here, before a task exists
+      // anywhere, instead of starting the task in another checkout.
+      if (
+        dependencies.findWorkspace &&
+        !(await dependencies.findWorkspace(args.automation.environment.workspaceId))
+      ) {
+        throw new AutomationWorkspaceMissingError();
+      }
       const taskRun = await dependencies.runTask({
         workspaceId: args.automation.environment.workspaceId,
         prompt: args.automation.prompt,
@@ -403,6 +467,9 @@ export function createAutomationRuntime(
           error instanceof Error
             ? error.message
             : "Failed to start automation run.",
+        ...(error instanceof AutomationWorkspaceMissingError
+          ? { errorCode: "workspace-missing" as const }
+          : {}),
       };
       state = saveState({
         ...state,
@@ -632,7 +699,7 @@ export function createAutomationRuntime(
     list: async () => toSnapshot(loadState()),
     create: (rawInput) =>
       enqueue(async () => {
-        const input = AutomationUpsertInputSchema.parse(rawInput);
+        const input = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
         const createdAt = now();
         const automation: AutomationSpec = {
           ...input,
@@ -656,7 +723,7 @@ export function createAutomationRuntime(
       }),
     update: ({ id, input: rawInput }) =>
       enqueue(async () => {
-        const input = AutomationUpsertInputSchema.parse(rawInput);
+        const input = await withCurrentLocation(AutomationUpsertInputSchema.parse(rawInput));
         const state = loadState();
         const current = state.automations.find((automation) => automation.id === id);
         if (!current) {

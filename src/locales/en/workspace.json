@@ -426,7 +426,8 @@
     "addASlackMessagePermalink": "Add a Slack message permalink.",
     "addADesignBoardOrNodeUrl": "Add a design, board, or node URL.",
     "customField": "Custom field",
-    "addTypedRepositorySpecificContext": "Add typed repository-specific context."
+    "addTypedRepositorySpecificContext": "Add typed repository-specific context.",
+    "createItInWorkspaceAnd": "Create it in the {{value1}} workspace and attach it to this schedule."
   },
   "repositoryWorkspaceSidebar": {
     "openRepository": "Open Repository",

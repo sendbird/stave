@@ -14,12 +14,26 @@ import {
 } from "@/store/repository.utils";
 import type { Tone } from "@/components/ads/utils/tone";
 
+/** A workspace a schedule can run in. */
+export interface AutomationWorkspaceOption {
+  workspaceId: string;
+  name: string;
+  /** The directory runs start in. */
+  path: string;
+  branch: string | null;
+  /** The repository's Default workspace (its root). */
+  isDefault: boolean;
+}
+
 export interface AutomationEnvironmentOption {
   value: string;
+  /** The repository's Default workspace. */
   workspaceId: string;
   path: string;
   repositoryPath: string;
   label: string;
+  /** The repository's workspaces, its Default workspace first. */
+  workspaces: AutomationWorkspaceOption[];
 }
 
 export type AutomationRepositorySource = Pick<
@@ -29,7 +43,8 @@ export type AutomationRepositorySource = Pick<
   | "workspaces"
   | "workspacePathById"
   | "workspaceDefaultById"
->;
+> &
+  Partial<Pick<RecentRepositoryState, "workspaceBranchById" | "defaultBranch">>;
 
 export function getAutomationErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -47,12 +62,36 @@ export function buildEnvironmentOptions(args: {
       workspaceDefaultById: repository.workspaceDefaultById,
       workspacePathById: repository.workspacePathById,
     });
+    const branchOf = (id: string) =>
+      repository.workspaceBranchById?.[id] ??
+      (id === workspaceId ? repository.defaultBranch ?? null : null);
+    const workspaces: AutomationWorkspaceOption[] = repository.workspaces
+      .filter((workspace) => workspace.id !== workspaceId)
+      .map((workspace) => ({
+        workspaceId: workspace.id,
+        name: workspace.name,
+        path: repository.workspacePathById[workspace.id] ?? repository.repositoryPath,
+        branch: branchOf(workspace.id),
+        isDefault: false,
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const defaultWorkspace = repository.workspaces.find((workspace) => workspace.id === workspaceId);
     options.set(repository.repositoryPath, {
       value: `repository:${repository.repositoryPath}`,
       workspaceId,
       path: repository.repositoryPath,
       repositoryPath: repository.repositoryPath,
       label: repository.repositoryName,
+      workspaces: [
+        {
+          workspaceId,
+          name: defaultWorkspace?.name ?? repository.repositoryName,
+          path: repository.repositoryPath,
+          branch: branchOf(workspaceId),
+          isDefault: true,
+        },
+        ...workspaces,
+      ],
     });
   };
   args.recentRepositories.forEach(addRepository);

@@ -22,8 +22,8 @@
 
 - Open the Stave desktop app and configure the provider you want to use.
 - Open or register the repository where the schedule should run.
-- Add reusable notes, todos, or linked resources to the repository's Default
-  Workspace Information panel if the schedule needs them.
+- Add reusable notes, todos, or linked resources to the Information panel of
+  the workspace the schedule will run in, if the schedule needs them.
 
 ## Quick Start
 
@@ -33,7 +33,8 @@
 3. Enter the schedule name and complete task instructions.
 4. Pick a cadence preset such as `Daily`, `Weekdays`, or `Weekends`.
 5. Pick a permission mode: `Auto`, `Guided`, or `Manual`.
-6. Choose the repository, model, and effort.
+6. Choose the repository and, unless runs should start in its Default
+   workspace, one of its existing workspaces; then the model and effort.
 7. Use `Add Information resource`, choose a resource type, and enter the new
    resource that each run should receive.
 8. Select `Save`, then use `Run now` to test the schedule.
@@ -94,15 +95,39 @@ full recorded result or error, and the instructions the run was given.
 1. Enter a name and the full prompt that should be sent on each run.
 2. Pick a cadence. See [Cadence](#cadence) below.
 3. Pick a permission mode. See [Permission Modes](#permission-modes) below.
-4. Choose a registered repository. Schedules always execute from that
-   repository's root in its Default Workspace.
+4. Choose a registered repository, then the workspace runs start in. See
+   [Where A Schedule Runs](#where-a-schedule-runs).
 5. Select Claude or Codex, then choose the model and effort.
 6. Select `Add Information resource`, choose Notes, Todo, Pull request, Jira,
    Confluence, Storybook, Amplify, Slack, Figma, or Custom field, then complete
-   that resource type's input form. Stave creates the entry in the repository's
-   Default Workspace and attaches it to the schedule immediately. The editor
+   that resource type's input form. Stave creates the entry in the schedule's
+   workspace and attaches it to the schedule immediately. The editor
    shows each attached resource with its context summary and removal control.
 7. Save the schedule. Use `Edit` later to change the same specification.
+
+### Where A Schedule Runs
+
+Each run starts a new task in one workspace of the schedule's repository.
+
+- `Default workspace` (the default): the repository's root checkout.
+- Another existing workspace of the repository, such as a worktree on its own
+  branch. Choose it in the `Workspace` picker under Where. Both the repository
+  and the workspace pickers search by name, branch and path.
+
+Under the pickers the editor shows where a run gets: the path it starts in,
+the branch, and the permission mode it runs with. `Run now` and scheduled runs
+use the same saved location. A schedule set to another workspace runs there
+and leaves the root checkout, and any uncommitted work in it, alone.
+
+Changing the workspace clears the attached Information resources, because they
+belong to a workspace's Information panel.
+
+If the chosen workspace is removed, the schedule's runs fail before they start
+a task, with `The workspace this schedule runs in no longer exists`. The
+schedule's detail pane shows the same warning with `Use the Default workspace`
+and `Edit`. Schedules saved before workspaces could be chosen, and schedules an
+agent creates through the Local MCP tools without naming a workspace, run in
+the Default workspace.
 
 ### Cadence
 
@@ -139,8 +164,8 @@ The effective provider settings are always printed under the mode picker, and
 `Auto` and `Guided` write those settings into the saved specification, so the
 editor never shows a value the scheduler would silently discard.
 
-Information references are resolved from the latest persisted Default
-Workspace Information panel values when a run starts. Renaming or updating an
+Information references are resolved from the latest persisted Information
+panel values of the schedule's workspace when a run starts. Renaming or updating an
 attached note or resource therefore changes the context used by future runs
 without requiring a new schedule.
 
@@ -155,8 +180,10 @@ without requiring a new schedule.
 ## Files And Data
 
 - Schedule definitions and the latest 50 run records per schedule are stored in Stave's local SQLite application data.
-- Each occurrence is also stored as a normal, user-owned task in the selected
-  repository's Default Workspace.
+- Each occurrence is also stored as a normal, user-owned task in the
+  schedule's workspace.
+- A schedule stores its workspace by id, with the workspace's name and branch
+  for display. No workspace stored means the Default workspace.
 - Deleting a schedule does not delete those task conversations.
 
 ## Limitations And Advanced Options
@@ -181,6 +208,14 @@ without requiring a new schedule.
   resource URL is empty or invalid.
 - Fix: complete the resource-specific form with a valid value. External
   resources require an `http` or `https` URL.
+
+### A Run Failed Because Its Workspace Is Gone
+
+- Symptom: runs fail at once with `The workspace this schedule runs in no
+  longer exists`, and the schedule's detail pane shows a warning.
+- Cause: the workspace the schedule runs in was archived or removed.
+- Fix: choose `Use the Default workspace`, or `Edit` and pick another
+  workspace. Attach Information resources again if the schedule used any.
 
 ### A Scheduled Run Did Not Start
 

@@ -23,7 +23,9 @@ import { useScheduleRequestStore } from "@/store/schedule-request-store";
  * Check back… item), `&empty=1` shows the empty state, `&only=check-backs`
  * lists check-backs and no start-a-task schedules, `&fail=check-backs` makes
  * the check-back list fail, `&slow=check-backs` answers it after 1.5s, and
- * `&lang=ko` renders it in Korean.
+ * `&lang=ko` renders it in Korean. The repository has two worktree
+ * workspaces besides its Default one: "Nightly search checks" runs in one,
+ * and "Release notes links" names a workspace that was removed.
  */
 const params = new URLSearchParams(window.location.search);
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();
@@ -59,6 +61,26 @@ function automation(patch: Partial<AutomationSpec>): AutomationSpec {
 const AUTOMATIONS = [
   automation({}),
   automation({ id: "auto-deps", name: "Weekly dependency check", enabled: false, lastRunAt: null, nextRunAt: null }),
+  automation({
+    id: "auto-search",
+    name: "Nightly search checks",
+    environment: {
+      ...ENVIRONMENT,
+      workspaceId: "preview-ws-search",
+      path: "/tmp/preview-repo/.stave/workspaces/feature-search",
+      workspace: { name: "feature-search", branch: "feat/search" },
+    },
+  }),
+  automation({
+    id: "auto-release",
+    name: "Release notes links",
+    environment: {
+      ...ENVIRONMENT,
+      workspaceId: "preview-ws-removed",
+      path: "/tmp/preview-repo/.stave/workspaces/release-notes",
+      workspace: { name: "release-notes", branch: "docs/release" },
+    },
+  }),
 ];
 
 const RUNS = [
@@ -160,6 +182,20 @@ function installBridgeStubs() {
       },
     }),
     listInformationReferences: async () => ({ ok: true, options: [] }),
+    update: async (args: { id: string; input: Record<string, unknown> }) => ({
+      ok: true,
+      automation: { ...AUTOMATIONS.find((item) => item.id === args.id), ...args.input },
+    }),
+    runNow: async (args: { id: string }) => ({
+      ok: true,
+      run: {
+        ...RUNS[0],
+        id: `run-${args.id}`,
+        automationId: args.id,
+        error: "The workspace this schedule runs in no longer exists. Edit the schedule to choose a workspace.",
+        errorCode: args.id === "auto-release" ? "workspace-missing" : undefined,
+      },
+    }),
   };
   api.wakeUps = {
     list: async () => {
@@ -192,7 +228,19 @@ export function SchedulesPreview() {
       repositoryPath: "/tmp/preview-repo",
       repositoryName: "preview-repo",
       activeWorkspaceId: "preview-workspace",
-      workspacePathById: { "preview-workspace": "/tmp/preview-repo" },
+      defaultBranch: "main",
+      workspaces: [
+        { id: "preview-workspace", name: "Default Workspace", updatedAt: ago(5) },
+        { id: "preview-ws-search", name: "feature-search", updatedAt: ago(60) },
+        { id: "preview-ws-docs", name: "docs-refresh", updatedAt: ago(600) },
+      ],
+      workspacePathById: {
+        "preview-workspace": "/tmp/preview-repo",
+        "preview-ws-search": "/tmp/preview-repo/.stave/workspaces/feature-search",
+        "preview-ws-docs": "/tmp/preview-repo/.stave/workspaces/docs-refresh",
+      },
+      workspaceBranchById: { "preview-ws-search": "feat/search", "preview-ws-docs": "docs/refresh" },
+      workspaceDefaultById: { "preview-workspace": true },
       tasks: [
         { id: "preview-task", title: "Fix the flaky upload test", provider: "claude-code" },
         { id: "preview-task-2", title: "Audit the settings sidebar", provider: "claude-code" },

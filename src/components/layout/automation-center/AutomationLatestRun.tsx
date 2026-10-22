@@ -12,6 +12,7 @@ import {
   getRunStatusPresentation,
 } from "./automation-center.utils";
 import { latestRunStyles } from "./automation-latest-run.styles";
+import { describeAutomationRunError } from "./automation-location";
 
 export function AutomationLatestRun(props: {
   run: AutomationRun | null;
@@ -31,7 +32,7 @@ export function AutomationLatestRun(props: {
   }
 
   const presentation = getRunStatusPresentation(run.status);
-  const summary = run.error ?? run.resultPreview;
+  const summary = describeAutomationRunError(run) ?? run.resultPreview;
 
   return (
     <section className={sx(latestRunStyles.root)}>
