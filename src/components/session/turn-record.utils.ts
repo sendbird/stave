@@ -23,6 +23,7 @@ import {
 } from "@/lib/providers/turn-status";
 import { deriveTodoTraceItems } from "@/components/session/message/assistant-trace.utils";
 import type { ApprovalPart, ChatMessage, ToolUsePart, UserInputPart } from "@/types/chat";
+import type { Tone } from "@/components/ads/utils/tone";
 import {
   describeRetainedTurnHeadline,
   formatTurnActivityElapsedSeconds,
@@ -180,7 +181,7 @@ export function buildTurnRecordSteps(args: {
   };
 }
 
-export type TurnRecordEntryTone = "danger" | "warning" | "success" | "neutral";
+export type TurnRecordEntryTone = Extract<Tone, "danger" | "warning" | "success" | "neutral">;
 export type TurnRecordEntryIcon = "error" | "retry" | "stall" | "route" | "account" | "checks";
 
 export interface TurnRecordEntryView {
