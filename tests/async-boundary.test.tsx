@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { AsyncBoundary, type AsyncState } from "../src/components/system/AsyncBoundary";
+import { AsyncBoundary, panelLoadState, type AsyncState } from "../src/components/system/AsyncBoundary";
 
 function render(state: AsyncState<string[]>, onRetry?: () => void) {
   return renderToStaticMarkup(
@@ -41,5 +41,20 @@ describe("AsyncBoundary", () => {
     expect(html).toContain("Couldn&#x27;t refresh");
     expect(html).toContain("Showing the last result that loaded.");
     expect(html).toContain("locked");
+  });
+});
+
+describe("panelLoadState", () => {
+  test("reads a panel's own load flags as one boundary state", () => {
+    expect(panelLoadState({ data: [], loaded: false, loading: true })).toEqual({ status: "pending" });
+    expect(panelLoadState({ data: [], loaded: false, loading: false, error: "locked" })).toEqual({ status: "error", error: "locked" });
+    // Retrying a failed first read shows the read running, not the old failure.
+    expect(panelLoadState({ data: [], loaded: false, loading: true, error: "locked" })).toEqual({ status: "pending" });
+    expect(panelLoadState({ data: ["a"], loaded: true, loading: true, error: "locked" })).toEqual({
+      status: "ready", data: ["a"], stale: true, refreshError: "locked",
+    });
+    expect(panelLoadState({ data: ["a"], loaded: true, loading: true })).toEqual({ status: "ready", data: ["a"] });
+    // Nothing to read from (no bridge): the panel shows what it has.
+    expect(panelLoadState({ data: [], loaded: false, loading: false })).toEqual({ status: "ready", data: [] });
   });
 });

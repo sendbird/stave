@@ -2,6 +2,7 @@ import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, Switch } from "@/components/ui";
+import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary";
 import { useAppStore } from "@/store/app.store";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import type {
@@ -88,9 +89,10 @@ export function ClaudeInstalledPluginsField() {
     ),
   );
   const [plugins, setPlugins] = useState<ClaudeInstalledPluginSummary[]>([]);
-  const [detail, setDetail] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // The first read starts on mount, so the list is loading until it answers.
+  const [isLoading, setIsLoading] = useState(true);
   const requestIdRef = useRef(0);
 
   const mode = settings.claudePluginMode;
@@ -120,9 +122,8 @@ export function ClaudeInstalledPluginsField() {
     const listClaudeInstalledPlugins =
       window.api?.provider?.listClaudeInstalledPlugins;
     if (!listClaudeInstalledPlugins) {
-      setPlugins([]);
-      setDetail(i18n.t("settingsProviders:claudePlugins.errors.unavailable"));
-      setHasLoaded(true);
+      setLoadError(i18n.t("settingsProviders:claudePlugins.errors.unavailable"));
+      setIsLoading(false);
       return;
     }
     const requestId = requestIdRef.current + 1;
@@ -137,20 +138,23 @@ export function ClaudeInstalledPluginsField() {
       if (requestIdRef.current !== requestId) {
         return;
       }
+      // A failed discovery is not "no plugins": keep the last list and say it failed.
+      if (!result.ok) {
+        setLoadError(result.detail || i18n.t("settingsProviders:claudePlugins.errors.loadFailed"));
+        return;
+      }
       setPlugins(result.plugins);
-      setDetail(result.detail);
+      setLoadError(null);
       setHasLoaded(true);
     } catch (error) {
       if (requestIdRef.current !== requestId) {
         return;
       }
-      setPlugins([]);
-      setDetail(
+      setLoadError(
         error instanceof Error
           ? error.message
           : i18n.t("settingsProviders:claudePlugins.errors.loadFailed"),
       );
-      setHasLoaded(true);
     } finally {
       if (requestIdRef.current === requestId) {
         setIsLoading(false);
@@ -238,58 +242,63 @@ export function ClaudeInstalledPluginsField() {
                 {t("settingsProviders:claudePlugins.clearOverrides")}</Button>
             ) : null}
           </div>
-          {plugins.length === 0 ? (
-            <p className={sx(styles.empty)}>
-              {hasLoaded
-                ? detail ||
-                  t("settingsProviders:settingsDialogClaudePlugins.noClaudeCLIPluginsFoundInstall")
-                : t("settingsProviders:claudePlugins.checking")}
-            </p>
-          ) : (
-            <ul className={sx(styles.list)}>
-              {plugins.map((plugin) => (
-                <li key={plugin.id} className={sx(styles.listItem)}>
-                  <div className={sx(styles.itemBody)}>
-                    <div className={sx(styles.itemHead)}>
-                      <span className={sx(styles.itemName)}>{plugin.name}</span>
-                      {plugin.marketplace ? (
-                        <span className={sx(styles.itemMeta)}>
-                          {plugin.marketplace}
-                        </span>
-                      ) : null}
-                      {plugin.version ? (
-                        <span className={sx(styles.itemMeta)}>
-                          v{plugin.version}
-                        </span>
-                      ) : null}
-                      {overrides[plugin.id] !== undefined ? (
-                        <StatusBadge state="warning" label={i18n.t("settingsProviders:claudePlugins.overrideBadge")} />
+          <AsyncBoundary
+            state={panelLoadState({ data: plugins, loaded: hasLoaded, loading: isLoading, error: loadError })}
+            onRetry={() => void loadPlugins()}
+            pending={<p className={sx(styles.empty)}>{t("settingsProviders:claudePlugins.checking")}</p>}
+            isEmpty={(list) => list.length === 0}
+            empty={
+              <p className={sx(styles.empty)}>
+                {t("settingsProviders:settingsDialogClaudePlugins.noClaudeCLIPluginsFoundInstall")}
+              </p>
+            }
+          >
+            {(list) => (
+              <ul className={sx(styles.list)}>
+                {list.map((plugin) => (
+                  <li key={plugin.id} className={sx(styles.listItem)}>
+                    <div className={sx(styles.itemBody)}>
+                      <div className={sx(styles.itemHead)}>
+                        <span className={sx(styles.itemName)}>{plugin.name}</span>
+                        {plugin.marketplace ? (
+                          <span className={sx(styles.itemMeta)}>
+                            {plugin.marketplace}
+                          </span>
+                        ) : null}
+                        {plugin.version ? (
+                          <span className={sx(styles.itemMeta)}>
+                            v{plugin.version}
+                          </span>
+                        ) : null}
+                        {overrides[plugin.id] !== undefined ? (
+                          <StatusBadge state="warning" label={i18n.t("settingsProviders:claudePlugins.overrideBadge")} />
+                        ) : null}
+                      </div>
+                      <p className={sx(styles.itemScope)}>
+                        {describePluginScope(plugin)}
+                        {plugin.enabledInClaudeConfig
+                          ? i18n.t("settingsProviders:settingsDialogClaudePlugins.enabledInSettings", { value1: plugin.enabledSource ?? "claude" })
+                          : i18n.t("settingsProviders:settingsDialogClaudePlugins.notEnabledInClaudeSettings")}
+                      </p>
+                      {plugin.description ? (
+                        <p className={sx(styles.itemDescription)}>
+                          {plugin.description}
+                        </p>
                       ) : null}
                     </div>
-                    <p className={sx(styles.itemScope)}>
-                      {describePluginScope(plugin)}
-                      {plugin.enabledInClaudeConfig
-                        ? i18n.t("settingsProviders:settingsDialogClaudePlugins.enabledInSettings", { value1: plugin.enabledSource ?? "claude" })
-                        : i18n.t("settingsProviders:settingsDialogClaudePlugins.notEnabledInClaudeSettings")}
-                    </p>
-                    {plugin.description ? (
-                      <p className={sx(styles.itemDescription)}>
-                        {plugin.description}
-                      </p>
-                    ) : null}
-                  </div>
-                  <Switch
-                    checked={plugin.enabled}
-                    onCheckedChange={(enabled) =>
-                      setPluginEnabled({ plugin, enabled })
-                    }
-                    aria-label={i18n.t("settingsProviders:settingsDialogClaudePlugins.enable", { value1: plugin.id })}
-                    className={sx(styles.itemSwitch)}
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
+                    <Switch
+                      checked={plugin.enabled}
+                      onCheckedChange={(enabled) =>
+                        setPluginEnabled({ plugin, enabled })
+                      }
+                      aria-label={i18n.t("settingsProviders:settingsDialogClaudePlugins.enable", { value1: plugin.id })}
+                      className={sx(styles.itemSwitch)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </AsyncBoundary>
         </div>
       </LabeledField>
     </>

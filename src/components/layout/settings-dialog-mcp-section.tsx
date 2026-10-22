@@ -23,6 +23,7 @@ import type {
   McpServerConfigListResponse,
   McpServerConfigSnapshot,
 } from "@/lib/providers/mcp-config.types";
+import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { useAppStore } from "@/store/app.store";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import {
@@ -44,6 +45,8 @@ type McpManagementViewState = {
   codex: CodexMcpStatusResponse | null;
   busy: boolean;
   errors: string[];
+  /** A source failed on the last refresh and its earlier answer is still shown. */
+  kept: boolean;
   refreshedAt: number | null;
 };
 
@@ -106,6 +109,28 @@ async function loadMcpValue<T>(
       error: `${label}: ${error instanceof Error ? error.message : String(error)}`,
     };
   }
+}
+
+/**
+ * What the server list can claim. With no servers, a read that is running or
+ * failed says nothing about whether any exist; with servers, a source that
+ * failed again keeps its last answer on screen under a refresh error.
+ */
+export function getMcpServerListState(args: {
+  servers: McpServerOverview[];
+  busy: boolean;
+  errors: readonly string[];
+  kept: boolean;
+  refreshedAt: number | null;
+}): AsyncState<McpServerOverview[]> {
+  if (args.servers.length > 0) {
+    return args.kept
+      ? { status: "ready", data: args.servers, stale: true, refreshError: i18n.t("settingsProviders:mcpSection.refreshFailed") }
+      : { status: "ready", data: args.servers };
+  }
+  if (args.busy || args.refreshedAt === null) return { status: "pending" };
+  if (args.errors.length > 0) return { status: "error", error: i18n.t("settingsProviders:mcpSection.readFailed") };
+  return { status: "ready", data: args.servers };
 }
 
 function getConnectionBadgeVariant(state: McpConnectionState) {
@@ -401,6 +426,7 @@ function McpServerConnectionsCard() {
     codex: null,
     busy: false,
     errors: [],
+    kept: false,
     refreshedAt: null,
   });
   const [authBusyByKey, setAuthBusyByKey] = useState<Record<string, true>>({});
@@ -529,6 +555,14 @@ function McpServerConnectionsCard() {
       codex: codex.value ?? current.codex,
       busy: false,
       errors,
+      kept: (
+        [
+          [discovery.value, current.discovery],
+          [configs.value, current.configs],
+          [claude.value, current.claude],
+          [codex.value, current.codex],
+        ] as const
+      ).some(([next, previous]) => next === null && previous !== null),
       refreshedAt: Date.now(),
     }));
   }, [runtimeOptions, workspaceCwd]);
@@ -541,6 +575,7 @@ function McpServerConnectionsCard() {
       codex: null,
       busy: true,
       errors: [],
+      kept: false,
       refreshedAt: null,
     });
     setAuthBusyByKey({});
@@ -733,6 +768,14 @@ function McpServerConnectionsCard() {
   const attentionCount = providerConnections.filter((provider) =>
     ["failed", "needs-auth"].includes(provider.state),
   ).length;
+  const serverListState = getMcpServerListState({
+    servers,
+    busy: state.busy,
+    errors: state.errors,
+    kept: state.kept,
+    refreshedAt: state.refreshedAt,
+  });
+  const countsKnown = serverListState.status === "ready";
 
   return (
     <SettingsCard
@@ -764,9 +807,9 @@ function McpServerConnectionsCard() {
     >
       <div className={sx(styles.statsGrid)}>
         {[
-          [t("settingsProviders:mcpSection.stats.servers"), servers.length],
-          [t("settingsProviders:mcpSection.stats.connected"), `${connectedCount}/${configuredCount}`],
-          [t("settingsProviders:mcpSection.stats.needsAttention"), attentionCount],
+          [t("settingsProviders:mcpSection.stats.servers"), countsKnown ? servers.length : "–"],
+          [t("settingsProviders:mcpSection.stats.connected"), countsKnown ? `${connectedCount}/${configuredCount}` : "–"],
+          [t("settingsProviders:mcpSection.stats.needsAttention"), countsKnown ? attentionCount : "–"],
         ].map(([label, value]) => (
           <div key={label} className={sx(styles.statCard)}>
             <p className={sx(styles.statLabel)}>{label}</p>
@@ -801,135 +844,137 @@ function McpServerConnectionsCard() {
         </div>
       ) : null}
 
-      {state.busy && servers.length === 0 ? (
-        <p className={sx(styles.mutedText)}>{t("settingsProviders:mcpSection.loading")}</p>
-      ) : null}
-      {!state.busy && state.refreshedAt && servers.length === 0 ? (
-        <p className={sx(styles.emptyBox)}>
-          {t("settingsProviders:mcpSection.empty")}</p>
-      ) : null}
-
-      <div
-        className={sx(styles.serverList)}
-        role="list"
-        aria-label={t("settingsProviders:mcpSection.serverListAriaLabel")}
+      <AsyncBoundary
+        state={serverListState}
+        onRetry={() => void refresh()}
+        pending={<p className={sx(styles.mutedText)}>{t("settingsProviders:mcpSection.loading")}</p>}
+        isEmpty={(list) => list.length === 0}
+        empty={<p className={sx(styles.emptyBox)}>{t("settingsProviders:mcpSection.empty")}</p>}
       >
-        {servers.map((server) => (
-          <article
-            key={server.name}
-            role="listitem"
-            className={sx(styles.serverArticle)}
+        {(list) => (
+          <div
+            className={sx(styles.serverList)}
+            role="list"
+            aria-label={t("settingsProviders:mcpSection.serverListAriaLabel")}
           >
-            <div className={sx(styles.serverHead)}>
-              <div>
-                <h4 className={sx(styles.serverName)}>{server.name}</h4>
-                <p className={sx(styles.serverSources)}>
-                  {server.sources.length > 0
-                    ? [...new Set(server.sources)]
-                        .map(formatMcpSourceLabel)
-                        .join(" · ")
-                    : i18n.t("settingsProviders:mcpSection.runtimeDetected")}
-                </p>
-              </div>
-              <div className={sx(styles.serverBadges)}>
-                <Badge variant="outline">
-                  {formatMcpTransportLabel(server.transport)}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  title={getAcpAvailabilityCopy(server.acpAvailability).detail}
-                >
-                  {getAcpAvailabilityCopy(server.acpAvailability).label}
-                </Badge>
-              </div>
-            </div>
-            {server.acpAvailability !== "portable" ? (
-              <p className={sx(styles.serverAvailability)}>
-                {getAcpAvailabilityCopy(server.acpAvailability).detail}
-              </p>
-            ) : null}
-            <div className={sx(styles.providerGrid)}>
-              <McpProviderStatus
-                serverName={server.name}
-                overview={server.claude}
-                authBusy={Boolean(
-                  authBusyByKey[getMcpOauthKey("claude", server.name)],
-                )}
-                authPending={Boolean(
-                  authPendingByKey[getMcpOauthKey("claude", server.name)],
-                )}
-                onAuthenticate={() =>
-                  void startOauthLogin({
-                    provider: "claude",
-                    serverName: server.name,
-                    runtimeOptions: runtimeOptions.claude,
-                  })
-                }
-              />
-              <McpProviderStatus
-                serverName={server.name}
-                overview={server.codex}
-                authBusy={Boolean(
-                  authBusyByKey[getMcpOauthKey("codex", server.name)],
-                )}
-                authPending={Boolean(
-                  authPendingByKey[getMcpOauthKey("codex", server.name)],
-                )}
-                onAuthenticate={() =>
-                  void startOauthLogin({
-                    provider: "codex",
-                    serverName: server.name,
-                    runtimeOptions: runtimeOptions.codex,
-                  })
-                }
-              />
-              <McpProviderStatus
-                serverName={server.name}
-                overview={server.cursor}
-                authBusy={Boolean(
-                  authBusyByKey[getMcpOauthKey("cursor", server.name)],
-                )}
-                authPending={false}
-                onAuthenticate={() =>
-                  void startOauthLogin({
-                    provider: "cursor",
-                    serverName: server.name,
-                    runtimeOptions: runtimeOptions.cursor,
-                  })
-                }
-              />
-              <McpProviderStatus
-                serverName={server.name}
-                overview={server.kiro}
-                authBusy={false}
-                authPending={false}
-              />
-            </div>
-            <McpShareActions
-              claudeConfigured={server.claude.configured}
-              codexConfigured={server.codex.configured}
-              cursorConfigured={server.cursor.configured}
-              kiroConfigured={server.kiro.configured}
-              configs={configsByName.get(server.name) ?? []}
-              onShare={(snapshot, destinationProvider) => {
-                setMutationNotice(null);
-                setShareTarget({ snapshot, destinationProvider });
-              }}
-            />
-            <McpConfigurationRows
-              configs={configsByName.get(server.name) ?? []}
-              onEdit={(snapshot) => {
-                setMutationNotice(null);
-                setEditor({ snapshot });
-              }}
-              onDelete={(snapshot) => {
-                setMutationNotice(null);
-                setDeleteTarget(snapshot);
-              }}
-            />
-          </article>
-        ))}
-      </div>
+            {list.map((server) => (
+              <article
+                key={server.name}
+                role="listitem"
+                className={sx(styles.serverArticle)}
+              >
+                <div className={sx(styles.serverHead)}>
+                  <div>
+                    <h4 className={sx(styles.serverName)}>{server.name}</h4>
+                    <p className={sx(styles.serverSources)}>
+                      {server.sources.length > 0
+                        ? [...new Set(server.sources)]
+                            .map(formatMcpSourceLabel)
+                            .join(" · ")
+                        : i18n.t("settingsProviders:mcpSection.runtimeDetected")}
+                    </p>
+                  </div>
+                  <div className={sx(styles.serverBadges)}>
+                    <Badge variant="outline">
+                      {formatMcpTransportLabel(server.transport)}
+                    </Badge>
+                    <Badge
+                      variant="outline"
+                      title={getAcpAvailabilityCopy(server.acpAvailability).detail}
+                    >
+                      {getAcpAvailabilityCopy(server.acpAvailability).label}
+                    </Badge>
+                  </div>
+                </div>
+                {server.acpAvailability !== "portable" ? (
+                  <p className={sx(styles.serverAvailability)}>
+                    {getAcpAvailabilityCopy(server.acpAvailability).detail}
+                  </p>
+                ) : null}
+                <div className={sx(styles.providerGrid)}>
+                  <McpProviderStatus
+                    serverName={server.name}
+                    overview={server.claude}
+                    authBusy={Boolean(
+                      authBusyByKey[getMcpOauthKey("claude", server.name)],
+                    )}
+                    authPending={Boolean(
+                      authPendingByKey[getMcpOauthKey("claude", server.name)],
+                    )}
+                    onAuthenticate={() =>
+                      void startOauthLogin({
+                        provider: "claude",
+                        serverName: server.name,
+                        runtimeOptions: runtimeOptions.claude,
+                      })
+                    }
+                  />
+                  <McpProviderStatus
+                    serverName={server.name}
+                    overview={server.codex}
+                    authBusy={Boolean(
+                      authBusyByKey[getMcpOauthKey("codex", server.name)],
+                    )}
+                    authPending={Boolean(
+                      authPendingByKey[getMcpOauthKey("codex", server.name)],
+                    )}
+                    onAuthenticate={() =>
+                      void startOauthLogin({
+                        provider: "codex",
+                        serverName: server.name,
+                        runtimeOptions: runtimeOptions.codex,
+                      })
+                    }
+                  />
+                  <McpProviderStatus
+                    serverName={server.name}
+                    overview={server.cursor}
+                    authBusy={Boolean(
+                      authBusyByKey[getMcpOauthKey("cursor", server.name)],
+                    )}
+                    authPending={false}
+                    onAuthenticate={() =>
+                      void startOauthLogin({
+                        provider: "cursor",
+                        serverName: server.name,
+                        runtimeOptions: runtimeOptions.cursor,
+                      })
+                    }
+                  />
+                  <McpProviderStatus
+                    serverName={server.name}
+                    overview={server.kiro}
+                    authBusy={false}
+                    authPending={false}
+                  />
+                </div>
+                <McpShareActions
+                  claudeConfigured={server.claude.configured}
+                  codexConfigured={server.codex.configured}
+                  cursorConfigured={server.cursor.configured}
+                  kiroConfigured={server.kiro.configured}
+                  configs={configsByName.get(server.name) ?? []}
+                  onShare={(snapshot, destinationProvider) => {
+                    setMutationNotice(null);
+                    setShareTarget({ snapshot, destinationProvider });
+                  }}
+                />
+                <McpConfigurationRows
+                  configs={configsByName.get(server.name) ?? []}
+                  onEdit={(snapshot) => {
+                    setMutationNotice(null);
+                    setEditor({ snapshot });
+                  }}
+                  onDelete={(snapshot) => {
+                    setMutationNotice(null);
+                    setDeleteTarget(snapshot);
+                  }}
+                />
+              </article>
+            ))}
+          </div>
+        )}
+      </AsyncBoundary>
 
       {mutationNotice ? (
         <p

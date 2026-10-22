@@ -64,6 +64,8 @@ import type {
   SkillCatalogProvider,
 } from "@/lib/skills/types";
 import { useAppStore } from "@/store/app.store";
+import { AsyncBoundary } from "@/components/system/AsyncBoundary";
+import { skillCatalogLoadState } from "./skill-catalog-load-state";
 
 /* ---------- Provider label helpers ---------- */
 
@@ -805,7 +807,9 @@ export function WorkspaceSkillsPanel(props: {
             <span className={sx(skillStyles.panelCount)}>
               {skillCatalog.status === "loading"
                 ? tI18n("workspace:workspaceSkillsPanel.loading")
-                : tI18n("workspace:workspaceSkillsPanel.valueSkillvalue", { count: filteredSkills.length })}
+                : skillCatalog.status === "error" && !skillCatalog.loadedAt
+                  ? null
+                  : tI18n("workspace:workspaceSkillsPanel.valueSkillvalue", { count: filteredSkills.length })}
             </span>
             <span className={sx(skillStyles.panelHint)}>
               {tI18n("workspace:workspaceSkillsPanel.inspectInstructionsOrInsertASkillDirectly")}</span>
@@ -875,41 +879,47 @@ export function WorkspaceSkillsPanel(props: {
 
         {/* Skill list */}
         <div className={sx(skillStyles.list)}>
-          {skillCatalog.status === "loading" &&
-          skillCatalog.skills.length === 0 ? (
-            <div className={sx(skillStyles.listStatus)}>
-              {tI18n("workspace:workspaceSkillsPanel.discoveringSkills")}</div>
-          ) : filteredSkills.length === 0 ? (
-            <div className={sx(skillStyles.listEmpty)}>
-              <p className={sx(skillStyles.listEmptyText)}>
-                {searchQuery ? tI18n("workspace:workspaceSkillsPanel.noMatchingSkills") : tI18n("workspace:workspaceSkillsPanel.noSkillsFound")}
-              </p>
-            </div>
-          ) : (
-            <div>
-              {groupedSkills.map((group) => (
-                <div key={group.scope}>
-                  <SectionHeader
-                    title={group.label}
-                    count={group.skills.length}
-                  />
-                  <div>
-                    {group.skills.map((skill) => (
-                      <SkillRow
-                        key={skill.id}
-                        skill={skill}
-                        onClick={() => setSelectedSkillId(skill.id)}
-                        onUse={() => insertSkillToPrompt(skill.invocationToken)}
-                        onViewInstructions={() =>
-                          setInstructionsDialogSkill(skill)
-                        }
-                      />
-                    ))}
+          {/* A failed discovery is not "no skills found". */}
+          <AsyncBoundary
+            state={skillCatalogLoadState(skillCatalog, skillsEnabled && Boolean(workspacePath))}
+            onRetry={() => void refreshSkillCatalog({ workspacePath })}
+            pending={
+              <div className={sx(skillStyles.listStatus)}>
+                {tI18n("workspace:workspaceSkillsPanel.discoveringSkills")}</div>
+            }
+          >
+            {() => filteredSkills.length === 0 ? (
+              <div className={sx(skillStyles.listEmpty)}>
+                <p className={sx(skillStyles.listEmptyText)}>
+                  {searchQuery ? tI18n("workspace:workspaceSkillsPanel.noMatchingSkills") : tI18n("workspace:workspaceSkillsPanel.noSkillsFound")}
+                </p>
+              </div>
+            ) : (
+              <div>
+                {groupedSkills.map((group) => (
+                  <div key={group.scope}>
+                    <SectionHeader
+                      title={group.label}
+                      count={group.skills.length}
+                    />
+                    <div>
+                      {group.skills.map((skill) => (
+                        <SkillRow
+                          key={skill.id}
+                          skill={skill}
+                          onClick={() => setSelectedSkillId(skill.id)}
+                          onUse={() => insertSkillToPrompt(skill.invocationToken)}
+                          onViewInstructions={() =>
+                            setInstructionsDialogSkill(skill)
+                          }
+                        />
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </AsyncBoundary>
         </div>
       </div>
       <SkillInstructionsDialog

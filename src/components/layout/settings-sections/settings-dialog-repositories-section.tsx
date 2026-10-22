@@ -25,47 +25,17 @@ import {
   RepositoryIdentityMark,
 } from "@/components/layout/repository-appearance";
 import { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
+import type { AsyncState } from "@/components/system/AsyncBoundary";
+import {
+  parseGitRemotes,
+  RepositoryRemoteList,
+  repositoryRemotesState,
+  type RepositoryMetadataState,
+  WorkspaceToolCounts,
+} from "./settings-dialog-repository-status";
 import { WORKSPACE_TOOLS_LABEL_KEY } from "@/lib/workspace-scripts/constants";
 import { LabeledField, SettingsCard } from "../settings-dialog.shared";
 import { DraftTextarea } from "../settings-dialog.shared";
-
-interface GitRemoteState {
-  name: string;
-  fetchUrl: string | null;
-  pushUrl: string | null;
-}
-
-function parseGitRemotes(args: { stdout: string }) {
-  const remoteStateByName = new Map<string, GitRemoteState>();
-  const lines = args.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-
-  for (const line of lines) {
-    const match = line.match(/^(\S+)\s+(.+?)\s+\((fetch|push)\)$/i);
-    if (!match) {
-      continue;
-    }
-    const [, name, url, kind] = match;
-    if (!name || !url || !kind) {
-      continue;
-    }
-    const current = remoteStateByName.get(name) ?? {
-      name,
-      fetchUrl: null,
-      pushUrl: null,
-    };
-    if (kind.toLowerCase() === "fetch") {
-      current.fetchUrl = url;
-    } else {
-      current.pushUrl = url;
-    }
-    remoteStateByName.set(name, current);
-  }
-
-  return Array.from(remoteStateByName.values());
-}
 
 function RepositorySettingsPanel(args: {
   repository: RecentRepositoryState;
@@ -124,15 +94,11 @@ function RepositorySettingsPanel(args: {
       currentRepositoryPath ??
       args.repository.repositoryPath)
     : args.repository.repositoryPath;
-  const [resolvedScriptsConfig, setResolvedScriptsConfig] =
-    useState<ResolvedWorkspaceScriptsConfig | null>(null);
+  // A failed read is not "0 commands": the counts wait for a read that answered.
+  const [scriptsConfig, setScriptsConfig] =
+    useState<AsyncState<ResolvedWorkspaceScriptsConfig | null>>({ status: "pending" });
   const [repositoryRefreshNonce, setRepositoryRefreshNonce] = useState(0);
-  const [repositoryState, setRepositoryState] = useState<{
-    status: "idle" | "loading" | "ready" | "error";
-    rootPath: string | null;
-    remotes: GitRemoteState[];
-    detail: string;
-  }>({
+  const [repositoryState, setRepositoryState] = useState<RepositoryMetadataState>({
     status: "idle",
     rootPath: null,
     remotes: [],
@@ -142,15 +108,20 @@ function RepositorySettingsPanel(args: {
   const loadResolvedScriptsConfig = useCallback(async () => {
     const getConfig = window.api?.scripts?.getConfig;
     if (!getConfig || !args.repository.repositoryPath || !scriptsWorkspacePath) {
-      setResolvedScriptsConfig(null);
+      setScriptsConfig({ status: "ready", data: null });
       return;
     }
-
-    const result = await getConfig({
-      repositoryPath: args.repository.repositoryPath,
-      workspacePath: scriptsWorkspacePath,
-    });
-    setResolvedScriptsConfig(result.ok ? result.config : null);
+    setScriptsConfig({ status: "pending" });
+    try {
+      const result = await getConfig({
+        repositoryPath: args.repository.repositoryPath,
+        workspacePath: scriptsWorkspacePath,
+      });
+      const failure = result.error || i18n.t("settings:repositoriesSection.workspaceTools.readFailed");
+      setScriptsConfig(result.ok ? { status: "ready", data: result.config } : { status: "error", error: failure });
+    } catch (error) {
+      setScriptsConfig({ status: "error", error: error instanceof Error ? error.message : String(error) });
+    }
   }, [args.repository.repositoryPath, scriptsWorkspacePath]);
 
   useEffect(() => {
@@ -177,52 +148,54 @@ function RepositorySettingsPanel(args: {
     }));
 
     void (async () => {
-      const [rootResult, remoteResult] = await Promise.all([
-        runCommand({
-          cwd: args.repository.repositoryPath,
-          command: "git rev-parse --show-toplevel",
-        }),
-        runCommand({
-          cwd: args.repository.repositoryPath,
-          command: "git remote -v",
-        }),
-      ]);
-      if (cancelled) {
-        return;
-      }
+      try {
+        const [rootResult, remoteResult] = await Promise.all([
+          runCommand({
+            cwd: args.repository.repositoryPath,
+            command: "git rev-parse --show-toplevel",
+          }),
+          runCommand({
+            cwd: args.repository.repositoryPath,
+            command: "git remote -v",
+          }),
+        ]);
+        if (cancelled) {
+          return;
+        }
 
-      if (!rootResult.ok) {
-        setRepositoryState({
-          status: "error",
-          rootPath: null,
-          remotes: [],
-          detail:
-            rootResult.stderr?.trim() ||
-            i18n.t("settings:repositoriesSection.metadata.notGitRepository"),
-        });
-        return;
-      }
+        if (!rootResult.ok) {
+          setRepositoryState({
+            status: "error",
+            rootPath: null,
+            remotes: [],
+            detail:
+              rootResult.stderr?.trim() ||
+              i18n.t("settings:repositoriesSection.metadata.notGitRepository"),
+          });
+          return;
+        }
 
-      const rootPath =
-        rootResult.stdout
-          .split("\n")
-          .map((line) => line.trim())
-          .find(Boolean) ?? args.repository.repositoryPath;
-      const remotes = remoteResult.ok
-        ? parseGitRemotes({ stdout: remoteResult.stdout })
-        : [];
-      const detail = remoteResult.ok
-        ? remotes.length > 0
+        const rootPath =
+          rootResult.stdout
+            .split("\n")
+            .map((line) => line.trim())
+            .find(Boolean) ?? args.repository.repositoryPath;
+        const remotes = remoteResult.ok
+          ? parseGitRemotes({ stdout: remoteResult.stdout })
+          : [];
+        const remotesError = remoteResult.ok
+          ? undefined
+          : remoteResult.stderr?.trim() || i18n.t("settings:repositoriesSection.metadata.inspectRemotesFailed");
+        const detail = remotes.length > 0
           ? i18n.t("settings:messages.remotesConfigured", { count: remotes.length })
-          : i18n.t("settings:repositoriesSection.metadata.noGitRemotes")
-        : remoteResult.stderr?.trim() || i18n.t("settings:repositoriesSection.metadata.inspectRemotesFailed");
+          : i18n.t("settings:repositoriesSection.metadata.noGitRemotes");
 
-      setRepositoryState({
-        status: "ready",
-        rootPath,
-        remotes,
-        detail,
-      });
+        setRepositoryState({ status: "ready", rootPath, remotes, detail, ...(remotesError ? { remotesError } : {}) });
+      } catch (error) {
+        if (cancelled) return;
+        const detail = error instanceof Error ? error.message : String(error);
+        setRepositoryState({ status: "error", rootPath: null, remotes: [], detail });
+      }
     })();
 
     return () => {
@@ -475,34 +448,12 @@ function RepositorySettingsPanel(args: {
 
         <LabeledField
           title={t("settings:repositoriesSection.settings.remoteStatus.title")}
-          description={repositoryState.detail}
+          description={repositoryState.status === "ready" && !repositoryState.remotesError ? repositoryState.detail : undefined}
         >
-          {repositoryState.status === "error" ? (
-            <p className={sx(styles.errorText)}>{repositoryState.detail}</p>
-          ) : repositoryState.remotes.length === 0 ? (
-            <p className={sx(styles.mutedBody)}>{t("settings:repositoriesSection.settings.remoteStatus.noRemotes")}</p>
-          ) : (
-            <div className={sx(styles.spaceY2)}>
-              {repositoryState.remotes.map((remote) => (
-                <div key={remote.name} className={sx(styles.remoteCard)}>
-                  <div className={sx(styles.rowCenter)}>
-                    <p className={sx(styles.remoteName)}>{remote.name}</p>
-                    <Badge
-                      variant="secondary"
-                      className={sx(styles.remoteBadge)}
-                    >
-                      {i18n.t("settings:repositoriesSection.settings.remoteStatus.configured")}</Badge>
-                  </div>
-                  <p className={sx(styles.remoteMono)}>
-                    {i18n.t("settings:settingsDialogRepositoriesSection.fetch")}{remote.fetchUrl ?? "-"}
-                  </p>
-                  <p className={sx(styles.remoteMono)}>
-                    {i18n.t("settings:settingsDialogRepositoriesSection.push")}{remote.pushUrl ?? remote.fetchUrl ?? "-"}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
+          <RepositoryRemoteList
+            state={repositoryRemotesState(repositoryState)}
+            onRetry={() => setRepositoryRefreshNonce((value) => value + 1)}
+          />
         </LabeledField>
 
         <div className={sx(styles.dangerZone)}>
@@ -546,30 +497,7 @@ function RepositorySettingsPanel(args: {
           </Button>
         }
       >
-        <div className={sx(styles.rowWrapGap2)}>
-          {(
-            [
-              [t("ui:command.commands"), resolvedScriptsConfig?.actions.length ?? 0],
-              [t("settings:settingsDialogRepositoriesSection.processes"), resolvedScriptsConfig?.services.length ?? 0],
-              [
-                t("settings:settingsDialogRepositoriesSection.triggers"),
-                Object.keys(resolvedScriptsConfig?.hooks ?? {}).length,
-              ],
-              [
-                t("settings:settingsDialogRepositoriesSection.environments"),
-                Object.keys(resolvedScriptsConfig?.targets ?? {}).length,
-              ],
-            ] as const
-          ).map(([label, count]) => (
-            <Badge
-              key={label}
-              variant="secondary"
-              className={sx(styles.toolsBadge)}
-            >
-              {count} {label}
-            </Badge>
-          ))}
-        </div>
+        <WorkspaceToolCounts state={scriptsConfig} onRetry={() => void loadResolvedScriptsConfig()} />
         <p className={sx(styles.mutedBody)}>{t("settings:messages.workspaceToolsLink", { section: t(WORKSPACE_TOOLS_LABEL_KEY) })}</p>
       </SettingsCard>
     </div>

@@ -70,6 +70,12 @@ export function CraneConnectorSettingsSection() {
   const [busy, setBusy] = useState<"pair" | "disconnect" | "refresh" | null>(
     null,
   );
+  // Whether this section's status read answered. With nothing read here or
+  // pushed by the app, the badge and the pairing panel say the status is
+  // unknown instead of "Disabled" and a pair form.
+  const [statusRead, setStatusRead] = useState<"pending" | "ready" | "failed">(() =>
+    typeof window !== "undefined" && window.api?.craneConnector?.getStatus ? "pending" : "ready",
+  );
 
   useEffect(() => {
     setBaseUrl(connector.baseUrl);
@@ -80,11 +86,17 @@ export function CraneConnectorSettingsSection() {
     void window.api?.craneConnector
       ?.getStatus?.()
       .then((result) => {
-        if (!cancelled && result) {
-          setCraneConnectorClientStatus(result.status);
+        if (cancelled) return;
+        if (!result) {
+          setStatusRead("failed");
+          return;
         }
+        setCraneConnectorClientStatus(result.status);
+        setStatusRead("ready");
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!cancelled) setStatusRead("failed");
+      });
     return () => {
       cancelled = true;
     };
@@ -107,8 +119,10 @@ export function CraneConnectorSettingsSection() {
       const result = await window.api?.craneConnector?.getStatus?.();
       if (result) {
         setCraneConnectorClientStatus(result.status);
+        setStatusRead("ready");
       }
     } catch {
+      setStatusRead((current) => (current === "ready" ? current : "failed"));
       toast.error(i18n.t("settingsConnections:settingsDialogCraneConnector.couldNotRefreshTheCraneConnector"));
     } finally {
       setBusy(null);
@@ -177,6 +191,7 @@ export function CraneConnectorSettingsSection() {
   };
 
   const paired = status?.paired === true;
+  const statusKnown = status !== null || statusRead === "ready";
   const enabled = connector.enabled;
 
   return (
@@ -194,7 +209,11 @@ export function CraneConnectorSettingsSection() {
             <div className={sx(styles.headerTitleLine)}>
               <h3 className={sx(styles.headerTitle)}>{t("settings:sections.fields.craneConnector.title")}</h3>
               <Badge variant="outline">
-                {statusLabel(status?.runtimeState)}
+                {statusKnown
+                  ? statusLabel(status?.runtimeState)
+                  : statusRead === "failed"
+                    ? t("settingsConnections:settingsDialogCraneConnector.statusUnavailable")
+                    : t("common:status.loading")}
               </Badge>
             </div>
             <p className={sx(styles.headerDescription)}>
@@ -336,7 +355,20 @@ export function CraneConnectorSettingsSection() {
             </Select>
           </div>
 
-          {!paired ? (
+          {!statusKnown ? (
+            <div className={sx(styles.pairPanel)} role={statusRead === "failed" ? "alert" : undefined}>
+              <p className={sx(styles.panelHint)}>
+                {statusRead === "failed"
+                  ? t("settingsConnections:settingsDialogCraneConnector.statusReadFailed")
+                  : t("common:status.loading")}
+              </p>
+              {statusRead === "failed" ? (
+                <Button type="button" size="sm" variant="outline" disabled={busy !== null} onClick={() => void refreshStatus()}>
+                  {t("common:actions.retry")}
+                </Button>
+              ) : null}
+            </div>
+          ) : !paired ? (
             <div className={sx(styles.pairPanel)}>
               <div>
                 <h4 className={sx(styles.panelTitle)}>

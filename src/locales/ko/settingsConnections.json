@@ -396,7 +396,9 @@
     "outboundData": "외부로 보내는 데이터",
     "craneReceivesJobLifecycleStatesAnd": "Crane에는 작업 실행 상태와 안전한 오류 코드만 전달됩니다. 대화 기록, 추론, 변경 비교, 파일, 로컬 경로, 브랜치, 프로바이더 인증 정보, Local MCP 메타데이터는 이 컴퓨터에만 보관됩니다.",
     "unregisteredRepository": "등록되지 않은 저장소",
-    "craneRoute": "Crane 경로"
+    "craneRoute": "Crane 경로",
+    "statusUnavailable": "상태를 확인할 수 없음",
+    "statusReadFailed": "커넥터 상태를 읽지 못해 페어링을 표시하지 않습니다."
   },
   "settingsDialogJiraConnector": {
     "jiraRejectedTheEmailAndAPI": "Jira가 이메일과 API 토큰을 거부했습니다.",
@@ -447,7 +449,10 @@
     "staveProject": "Stave 프로젝트",
     "selectARegisteredProject": "등록된 프로젝트 선택",
     "addMapping": "매핑 추가",
-    "enterAValidJiraSiteURL": "올바른 Jira 사이트 URL을 입력하세요."
+    "enterAValidJiraSiteURL": "올바른 Jira 사이트 URL을 입력하세요.",
+    "statusUnavailable": "상태를 확인할 수 없음",
+    "statusReadFailed": "연결 상태를 읽지 못했습니다.",
+    "configureFailed": "Jira 설정을 커넥터에 보내지 못했습니다."
   },
   "settingsDialogLensCredentials": {
     "failedToLoadSavedLensAccounts": "저장된 Lens 계정을 불러오지 못했습니다",
@@ -529,7 +534,9 @@
     "outbox": "발신 대기함",
     "pendingFailed": " · {{value1}}개 대기 중 · {{value2}}개 실패",
     "lastDelivered": " · 최근 전달 {{value1}}",
-    "retryFailed": "실패한 항목 다시 시도"
+    "retryFailed": "실패한 항목 다시 시도",
+    "statusUnavailable": "상태를 확인할 수 없음",
+    "outboxUnavailable": " · 읽지 못했습니다. 새로 고쳐 다시 시도하세요."
   },
   "accountSetup": {
     "useSystem": "시스템 기본 계정의 스킬과 지침 사용"

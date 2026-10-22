@@ -955,7 +955,9 @@
       "browserCouldNotOpen": "The external browser could not be opened.",
       "finishInBrowser": "{{detail}} Finish in your browser; status will refresh automatically.",
       "failed": "OAuth login failed: {{detail}}"
-    }
+    },
+    "readFailed": "MCP servers could not be read. The errors below say what failed.",
+    "refreshFailed": "Some sources could not be read again, so their last answer is shown. The errors below say which."
   },
   "mcpConfigEditor": {
     "checkingLatest": "Checking the latest provider configuration…",

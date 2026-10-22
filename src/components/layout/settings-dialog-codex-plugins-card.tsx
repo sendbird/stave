@@ -2,6 +2,7 @@ import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button, toast } from "@/components/ui";
+import { AsyncBoundary, panelLoadState } from "@/components/system/AsyncBoundary";
 import { useAppStore } from "@/store/app.store";
 import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import type { CodexPluginSummarySnapshot } from "@/lib/providers/provider.types";
@@ -42,9 +43,10 @@ export function CodexPluginsCard() {
   );
 
   const [plugins, setPlugins] = useState<CodexPluginSummarySnapshot[]>([]);
-  const [detail, setDetail] = useState("");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  // The first read starts on mount, so the list is loading until it answers.
+  const [isLoading, setIsLoading] = useState(true);
   const [busyPluginId, setBusyPluginId] = useState<string | null>(null);
   const requestIdRef = useRef(0);
 
@@ -52,9 +54,8 @@ export function CodexPluginsCard() {
     const getCodexAppServerSnapshot =
       window.api?.provider?.getCodexAppServerSnapshot;
     if (!getCodexAppServerSnapshot) {
-      setPlugins([]);
-      setDetail(i18n.t("settingsProviders:codexPlugins.errors.unavailable"));
-      setHasLoaded(true);
+      setLoadError(i18n.t("settingsProviders:codexPlugins.errors.unavailable"));
+      setIsLoading(false);
       return;
     }
     const requestId = requestIdRef.current + 1;
@@ -70,29 +71,28 @@ export function CodexPluginsCard() {
         return;
       }
       const pluginsError = response.sectionErrors?.plugins;
-      if (!response.ok || !response.snapshot) {
-        setPlugins([]);
-        setDetail(
+      // A failed plugins section leaves an empty list behind, which is not
+      // "no plugins": keep the last list and say the read failed.
+      if (!response.ok || !response.snapshot || pluginsError) {
+        setLoadError(
           pluginsError ||
             response.detail ||
             i18n.t("settingsProviders:codexPlugins.errors.loadFailed"),
         );
-      } else {
-        setPlugins(response.snapshot.plugins);
-        setDetail(pluginsError ?? "");
+        return;
       }
+      setPlugins(response.snapshot.plugins);
+      setLoadError(null);
       setHasLoaded(true);
     } catch (error) {
       if (requestIdRef.current !== requestId) {
         return;
       }
-      setPlugins([]);
-      setDetail(
+      setLoadError(
         error instanceof Error
           ? error.message
           : i18n.t("settingsProviders:codexPlugins.errors.loadFailed"),
       );
-      setHasLoaded(true);
     } finally {
       if (requestIdRef.current === requestId) {
         setIsLoading(false);
@@ -196,59 +196,58 @@ export function CodexPluginsCard() {
               : t("common:actions.refresh")}
           </Button>
         </div>
-        {plugins.length === 0 ? (
-          <p className={sx(styles.empty)}>
-            {hasLoaded
-              ? detail || t("settingsProviders:codexPlugins.empty")
-              : t("settingsProviders:codexPlugins.checking")}
-          </p>
-        ) : (
-          <ul className={sx(styles.list)}>
-            {plugins.map((plugin) => {
-              const busy = busyPluginId === plugin.id;
-              return (
-                <li key={plugin.id} className={sx(styles.listItem)}>
-                  <div className={sx(styles.itemBody)}>
-                    <div className={sx(styles.itemHead)}>
-                      <span className={sx(styles.itemName)}>{plugin.name}</span>
-                      <span className={sx(styles.itemMeta)}>
-                        {plugin.marketplaceDisplayName ?? plugin.marketplaceName}
-                      </span>
-                      {plugin.installed ? (
-                        <StatusBadge
-                          state="ready"
-                          label={t("settingsProviders:codexPlugins.installed")}
-                        />
-                      ) : null}
+        <AsyncBoundary
+          state={panelLoadState({ data: plugins, loaded: hasLoaded, loading: isLoading, error: loadError })}
+          onRetry={() => void loadPlugins()}
+          pending={<p className={sx(styles.empty)}>{t("settingsProviders:codexPlugins.checking")}</p>}
+          isEmpty={(list) => list.length === 0}
+          empty={<p className={sx(styles.empty)}>{t("settingsProviders:codexPlugins.empty")}</p>}
+        >
+          {(list) => (
+            <ul className={sx(styles.list)}>
+              {list.map((plugin) => {
+                const busy = busyPluginId === plugin.id;
+                return (
+                  <li key={plugin.id} className={sx(styles.listItem)}>
+                    <div className={sx(styles.itemBody)}>
+                      <div className={sx(styles.itemHead)}>
+                        <span className={sx(styles.itemName)}>{plugin.name}</span>
+                        <span className={sx(styles.itemMeta)}>
+                          {plugin.marketplaceDisplayName ?? plugin.marketplaceName}
+                        </span>
+                        {plugin.installed ? (
+                          <StatusBadge
+                            state="ready"
+                            label={t("settingsProviders:codexPlugins.installed")}
+                          />
+                        ) : null}
+                      </div>
+                      <p className={sx(styles.itemSource)} title={plugin.source}>
+                        {plugin.source}
+                      </p>
                     </div>
-                    <p className={sx(styles.itemSource)} title={plugin.source}>
-                      {plugin.source}
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={plugin.installed ? "outline" : "secondary"}
-                    disabled={busy || busyPluginId !== null}
-                    className={sx(styles.itemAction)}
-                    onClick={() =>
-                      plugin.installed ? removePlugin(plugin) : installPlugin(plugin)
-                    }
-                  >
-                    {busy
-                      ? t("settingsProviders:codexPlugins.working")
-                      : plugin.installed
-                        ? t("common:actions.remove")
-                        : t("settingsProviders:codexPlugins.install")}
-                  </Button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {plugins.length > 0 && detail ? (
-          <p className={sx(styles.empty)}>{detail}</p>
-        ) : null}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={plugin.installed ? "outline" : "secondary"}
+                      disabled={busy || busyPluginId !== null}
+                      className={sx(styles.itemAction)}
+                      onClick={() =>
+                        plugin.installed ? removePlugin(plugin) : installPlugin(plugin)
+                      }
+                    >
+                      {busy
+                        ? t("settingsProviders:codexPlugins.working")
+                        : plugin.installed
+                          ? t("common:actions.remove")
+                          : t("settingsProviders:codexPlugins.install")}
+                    </Button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </AsyncBoundary>
       </div>
     </SettingsCard>
   );

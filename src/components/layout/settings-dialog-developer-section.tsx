@@ -41,6 +41,7 @@ import {
   formatTokenBudget,
   PROVIDER_TIMEOUT_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
+import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { useAppStore } from "@/store/app.store";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import {
@@ -63,6 +64,8 @@ interface LocalMcpViewState {
   snapshot: StaveLocalMcpStatus | null;
   detail: string;
   busy: boolean;
+  /** The last status read's failure; with a snapshot, that snapshot is from before it. */
+  readError: string | null;
 }
 
 interface LocalMcpRequestLogViewState {
@@ -70,6 +73,10 @@ interface LocalMcpRequestLogViewState {
   logs: StaveLocalMcpRequestLog[];
   detail: string;
   busy: boolean;
+  /** A read has answered, so an empty `logs` means no requests. */
+  loaded: boolean;
+  /** The last read's failure; with `loaded`, the logs shown are from before it. */
+  readError: string | null;
   total: number;
   limit: number;
   offset: number;
@@ -589,17 +596,24 @@ export function LocalMcpServerCard() {
     snapshot: null,
     detail: t("settings:developerSection.localMcp.detail.loading"),
     busy: false,
+    readError: null,
   });
+
+  // A failed read keeps the snapshot that loaded, so the controls and Refresh stay.
+  function failRead(readError: string) {
+    setState((current) => ({
+      ...current,
+      status: "error",
+      detail: current.snapshot ? current.detail : "",
+      busy: false,
+      readError,
+    }));
+  }
 
   async function refreshStatus() {
     const getStatus = window.api?.localMcp?.getStatus;
     if (!getStatus) {
-      setState({
-        status: "error",
-        snapshot: null,
-        detail: i18n.t("settings:developerSection.localMcp.detail.apiUnavailable"),
-        busy: false,
-      });
+      failRead(i18n.t("settings:developerSection.localMcp.detail.apiUnavailable"));
       return;
     }
 
@@ -614,12 +628,7 @@ export function LocalMcpServerCard() {
     try {
       const result = await getStatus();
       if (!result.ok || !result.status) {
-        setState({
-          status: "error",
-          snapshot: null,
-          detail: result.message || i18n.t("settings:developerSection.localMcp.detail.loadFailed"),
-          busy: false,
-        });
+        failRead(result.message || i18n.t("settings:developerSection.localMcp.detail.loadFailed"));
         return;
       }
       setState({
@@ -631,17 +640,14 @@ export function LocalMcpServerCard() {
             ? i18n.t("settings:developerSection.localMcp.detail.configuredNotRunning")
             : i18n.t("settings:developerSection.localMcp.detail.disabled"),
         busy: false,
+        readError: null,
       });
     } catch (error) {
-      setState({
-        status: "error",
-        snapshot: null,
-        detail:
-          error instanceof Error
-            ? error.message
-            : i18n.t("settings:developerSection.localMcp.detail.loadFailed"),
-        busy: false,
-      });
+      failRead(
+        error instanceof Error
+          ? error.message
+          : i18n.t("settings:developerSection.localMcp.detail.loadFailed"),
+      );
     }
   }
 
@@ -694,6 +700,7 @@ export function LocalMcpServerCard() {
             ? i18n.t("settings:developerSection.localMcp.detail.saved")
             : i18n.t("settings:developerSection.localMcp.detail.serverDisabled"),
         busy: false,
+        readError: null,
       });
     } catch (error) {
       setState((current) => ({
@@ -742,6 +749,7 @@ export function LocalMcpServerCard() {
         snapshot: result.status,
         detail: i18n.t("settings:developerSection.localMcp.detail.rotated"),
         busy: false,
+        readError: null,
       });
     } catch (error) {
       setState((current) => ({
@@ -792,209 +800,225 @@ export function LocalMcpServerCard() {
   const manifest = snapshot?.manifest;
   const claudeCodeRegistration = snapshot?.claudeCodeRegistration;
   const codexRegistration = snapshot?.codexRegistration;
+  const statusState: AsyncState<StaveLocalMcpStatus> = snapshot
+    ? state.readError
+      ? { status: "ready", data: snapshot, stale: true, refreshError: state.readError }
+      : { status: "ready", data: snapshot }
+    : state.readError
+      ? { status: "error", error: state.readError }
+      : { status: "pending" };
 
   return (
     <SettingsCard
       title={t("settings:developerSection.localMcp.title")}
       description={t("settings:developerSection.localMcp.descriptionWithOptIn")}
     >
-      {snapshot && config ? (
-        <>
-          <p className={sx(developerStyles.note)}>
-            {t("settings:developerSection.localMcp.optInNote")}</p>
+      <AsyncBoundary
+        state={statusState}
+        onRetry={() => void refreshStatus()}
+        pending={
+          <p className={sx(developerStyles.loadingCopy)}>
+            {t("settings:developerSection.localMcp.detail.loading")}</p>
+        }
+      >
+        {() => snapshot && config ? (
+          <>
+            <p className={sx(developerStyles.note)}>
+              {t("settings:developerSection.localMcp.optInNote")}</p>
 
-          <SwitchField
-            title={t("settings:developerSection.localMcp.server.title")}
-            description={t("settings:developerSection.localMcp.server.description")}
-            checked={config.enabled}
-            onCheckedChange={(checked) =>
-              void applyConfigPatch({ enabled: checked })
-            }
-          />
-
-          <LabeledField
-            title={t("settings:developerSection.localMcp.port.title")}
-            description={t("settings:developerSection.localMcp.port.description")}
-          >
-            <DraftInput
-              xstyle={developerStyles.binaryInput}
-              inputMode="numeric"
-              placeholder={String(DEFAULT_LOCAL_MCP_PORT)}
-              value={String(config.port)}
-              onCommit={(nextValue) =>
-                void applyConfigPatch({
-                  port: Math.max(
-                    0,
-                    Math.min(65_535, readInt(nextValue.trim(), 0)),
-                  ),
-                })
+            <SwitchField
+              title={t("settings:developerSection.localMcp.server.title")}
+              description={t("settings:developerSection.localMcp.server.description")}
+              checked={config.enabled}
+              onCheckedChange={(checked) =>
+                void applyConfigPatch({ enabled: checked })
               }
             />
-          </LabeledField>
 
-          <SwitchField
-            title="Claude Code"
-            description={t("settings:developerSection.localMcp.claudeCode.description")}
-            checked={config.claudeCodeAutoRegister}
-            onCheckedChange={(checked) =>
-              void applyConfigPatch({ claudeCodeAutoRegister: checked })
-            }
-          />
-
-          <SwitchField
-            title="Codex"
-            description={t("settings:developerSection.localMcp.codex.description")}
-            checked={config.codexAutoRegister}
-            onCheckedChange={(checked) =>
-              void applyConfigPatch({ codexAutoRegister: checked })
-            }
-          />
-
-          <SwitchField
-            title={t("settings:developerSection.localMcp.browserTools.title")}
-            description={t("settings:developerSection.localMcp.browserTools.description")}
-            checked={config.browserToolsEnabled !== false}
-            onCheckedChange={(checked) =>
-              void applyConfigPatch({ browserToolsEnabled: checked })
-            }
-          />
-
-          <LabeledField
-            title={t("settings:developerSection.localMcp.token.title")}
-            description={t("settings:developerSection.localMcp.token.description")}
-          >
-            <div className={sx(developerStyles.tokenFieldRow)}>
+            <LabeledField
+              title={t("settings:developerSection.localMcp.port.title")}
+              description={t("settings:developerSection.localMcp.port.description")}
+            >
               <DraftInput
-                xstyle={developerStyles.tokenInput}
-                spellCheck={false}
-                value={config.token}
+                xstyle={developerStyles.binaryInput}
+                inputMode="numeric"
+                placeholder={String(DEFAULT_LOCAL_MCP_PORT)}
+                value={String(config.port)}
                 onCommit={(nextValue) =>
-                  void applyConfigPatch({ token: nextValue.trim() })
+                  void applyConfigPatch({
+                    port: Math.max(
+                      0,
+                      Math.min(65_535, readInt(nextValue.trim(), 0)),
+                    ),
+                  })
                 }
               />
-              <div className={sx(developerStyles.tokenButtons)}>
-                <Button
-                  xstyle={developerStyles.actionButtonLg}
-                  variant="outline"
-                  disabled={state.busy}
-                  onClick={() => void handleCopy(config.token, t("settings:messages.tokenName"))}
-                >
-                  {t("common:actions.copy")}</Button>
-                <Button
-                  xstyle={developerStyles.actionButtonLg}
-                  variant="outline"
-                  disabled={state.busy}
-                  onClick={() => void handleRotateToken()}
-                >
-                  {t("settings:developerSection.localMcp.token.rotate")}</Button>
-              </div>
-            </div>
-          </LabeledField>
+            </LabeledField>
 
-          <div className={sx(developerStyles.infoPanelSpaced)}>
-            <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.requestLog.columns.status")}</span>
-              <span className={sx(developerStyles.infoValueMono)}>
-                {snapshot.running
-                  ? t("settings:developerSection.localMcp.serverState.running")
-                  : config.enabled
-                    ? t("settings:developerSection.localMcp.serverState.stopped")
-                    : t("settingsProviders:codexAdvancedTab.layers.disabled")}
-              </span>
-            </div>
-            <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.localMcp.info.configFile")}</span>
-              <span className={sx(developerStyles.infoValueMono)}>
-                {snapshot.configPath}
-              </span>
-            </div>
-            <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>Claude Code</span>
-              <span className={sx(developerStyles.infoValueMono)}>
-                {formatClaudeCodeRegistrationState(
-                  snapshot.claudeCodeRegistration,
-                )}
-              </span>
-            </div>
-            <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>
-                {t("settings:developerSection.localMcp.info.claudeSettings")}</span>
-              <span className={sx(developerStyles.infoValueMono)}>
-                {snapshot.claudeCodeRegistration.configPath}
-              </span>
-            </div>
-            <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>Codex</span>
-              <span className={sx(developerStyles.infoValueMono)}>
-                {formatCodexRegistrationState(snapshot.codexRegistration)}
-              </span>
-            </div>
-            <div className={sx(developerStyles.infoRow)}>
-              <span className={sx(developerStyles.infoLabel)}>
-                {t("settings:developerSection.localMcp.info.codexConfig")}</span>
-              <span className={sx(developerStyles.infoValueMono)}>
-                {snapshot.codexRegistration.configPath}
-              </span>
-            </div>
-            {manifest ? (
-              <>
-                <div className={sx(developerStyles.infoRow)}>
-                  <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.localMcp.info.mcpUrl")}</span>
-                  <span className={sx(developerStyles.infoValueMono)}>
-                    {manifest.url}
-                  </span>
+            <SwitchField
+              title="Claude Code"
+              description={t("settings:developerSection.localMcp.claudeCode.description")}
+              checked={config.claudeCodeAutoRegister}
+              onCheckedChange={(checked) =>
+                void applyConfigPatch({ claudeCodeAutoRegister: checked })
+              }
+            />
+
+            <SwitchField
+              title="Codex"
+              description={t("settings:developerSection.localMcp.codex.description")}
+              checked={config.codexAutoRegister}
+              onCheckedChange={(checked) =>
+                void applyConfigPatch({ codexAutoRegister: checked })
+              }
+            />
+
+            <SwitchField
+              title={t("settings:developerSection.localMcp.browserTools.title")}
+              description={t("settings:developerSection.localMcp.browserTools.description")}
+              checked={config.browserToolsEnabled !== false}
+              onCheckedChange={(checked) =>
+                void applyConfigPatch({ browserToolsEnabled: checked })
+              }
+            />
+
+            <LabeledField
+              title={t("settings:developerSection.localMcp.token.title")}
+              description={t("settings:developerSection.localMcp.token.description")}
+            >
+              <div className={sx(developerStyles.tokenFieldRow)}>
+                <DraftInput
+                  xstyle={developerStyles.tokenInput}
+                  spellCheck={false}
+                  value={config.token}
+                  onCommit={(nextValue) =>
+                    void applyConfigPatch({ token: nextValue.trim() })
+                  }
+                />
+                <div className={sx(developerStyles.tokenButtons)}>
+                  <Button
+                    xstyle={developerStyles.actionButtonLg}
+                    variant="outline"
+                    disabled={state.busy}
+                    onClick={() => void handleCopy(config.token, t("settings:messages.tokenName"))}
+                  >
+                    {t("common:actions.copy")}</Button>
+                  <Button
+                    xstyle={developerStyles.actionButtonLg}
+                    variant="outline"
+                    disabled={state.busy}
+                    onClick={() => void handleRotateToken()}
+                  >
+                    {t("settings:developerSection.localMcp.token.rotate")}</Button>
                 </div>
-                <div className={sx(developerStyles.infoRow)}>
-                  <span className={sx(developerStyles.infoLabel)}>
-                    {t("settings:developerSection.localMcp.info.healthUrl")}</span>
-                  <span className={sx(developerStyles.infoValueMono)}>
-                    {manifest.healthUrl}
-                  </span>
-                </div>
-              </>
-            ) : null}
-            {snapshot.manifestPaths.map((manifestPath) => (
-              <div key={manifestPath} className={sx(developerStyles.infoRow)}>
-                <span className={sx(developerStyles.infoLabel)}>{i18n.t("settings:developerSection.localMcp.info.manifest")}</span>
+              </div>
+            </LabeledField>
+
+            <div className={sx(developerStyles.infoPanelSpaced)}>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.requestLog.columns.status")}</span>
                 <span className={sx(developerStyles.infoValueMono)}>
-                  {manifestPath}
+                  {snapshot.running
+                    ? t("settings:developerSection.localMcp.serverState.running")
+                    : config.enabled
+                      ? t("settings:developerSection.localMcp.serverState.stopped")
+                      : t("settingsProviders:codexAdvancedTab.layers.disabled")}
                 </span>
               </div>
-            ))}
-          </div>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.localMcp.info.configFile")}</span>
+                <span className={sx(developerStyles.infoValueMono)}>
+                  {snapshot.configPath}
+                </span>
+              </div>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>Claude Code</span>
+                <span className={sx(developerStyles.infoValueMono)}>
+                  {formatClaudeCodeRegistrationState(
+                    snapshot.claudeCodeRegistration,
+                  )}
+                </span>
+              </div>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>
+                  {t("settings:developerSection.localMcp.info.claudeSettings")}</span>
+                <span className={sx(developerStyles.infoValueMono)}>
+                  {snapshot.claudeCodeRegistration.configPath}
+                </span>
+              </div>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>Codex</span>
+                <span className={sx(developerStyles.infoValueMono)}>
+                  {formatCodexRegistrationState(snapshot.codexRegistration)}
+                </span>
+              </div>
+              <div className={sx(developerStyles.infoRow)}>
+                <span className={sx(developerStyles.infoLabel)}>
+                  {t("settings:developerSection.localMcp.info.codexConfig")}</span>
+                <span className={sx(developerStyles.infoValueMono)}>
+                  {snapshot.codexRegistration.configPath}
+                </span>
+              </div>
+              {manifest ? (
+                <>
+                  <div className={sx(developerStyles.infoRow)}>
+                    <span className={sx(developerStyles.infoLabel)}>{t("settings:developerSection.localMcp.info.mcpUrl")}</span>
+                    <span className={sx(developerStyles.infoValueMono)}>
+                      {manifest.url}
+                    </span>
+                  </div>
+                  <div className={sx(developerStyles.infoRow)}>
+                    <span className={sx(developerStyles.infoLabel)}>
+                      {t("settings:developerSection.localMcp.info.healthUrl")}</span>
+                    <span className={sx(developerStyles.infoValueMono)}>
+                      {manifest.healthUrl}
+                    </span>
+                  </div>
+                </>
+              ) : null}
+              {snapshot.manifestPaths.map((manifestPath) => (
+                <div key={manifestPath} className={sx(developerStyles.infoRow)}>
+                  <span className={sx(developerStyles.infoLabel)}>{i18n.t("settings:developerSection.localMcp.info.manifest")}</span>
+                  <span className={sx(developerStyles.infoValueMono)}>
+                    {manifestPath}
+                  </span>
+                </div>
+              ))}
+            </div>
 
-          <div className={sx(developerStyles.buttonRow)}>
-            <Button
-              xstyle={developerStyles.actionButtonMd}
-              size="sm"
-              variant="outline"
-              disabled={state.busy}
-              onClick={() => void refreshStatus()}
-            >
-              {t("settings:developerSection.localMcp.actions.refreshStatus")}</Button>
-            {manifest?.url ? (
+            <div className={sx(developerStyles.buttonRow)}>
               <Button
                 xstyle={developerStyles.actionButtonMd}
                 size="sm"
                 variant="outline"
                 disabled={state.busy}
-                onClick={() => void handleCopy(manifest.url, "MCP URL")}
+                onClick={() => void refreshStatus()}
               >
-                {t("settings:developerSection.localMcp.actions.copyUrl")}</Button>
-            ) : null}
-            <Button
-              xstyle={developerStyles.actionButtonMd}
-              size="sm"
-              variant="outline"
-              disabled={state.busy}
-              onClick={() =>
-                void handleCopy(snapshot.configPath, i18n.t("settings:settingsDialogDeveloperSection.configPath"))
-              }
-            >
-              {t("settings:developerSection.localMcp.actions.copyConfigPath")}</Button>
-          </div>
-        </>
-      ) : null}
+                {t("settings:developerSection.localMcp.actions.refreshStatus")}</Button>
+              {manifest?.url ? (
+                <Button
+                  xstyle={developerStyles.actionButtonMd}
+                  size="sm"
+                  variant="outline"
+                  disabled={state.busy}
+                  onClick={() => void handleCopy(manifest.url, "MCP URL")}
+                >
+                  {t("settings:developerSection.localMcp.actions.copyUrl")}</Button>
+              ) : null}
+              <Button
+                xstyle={developerStyles.actionButtonMd}
+                size="sm"
+                variant="outline"
+                disabled={state.busy}
+                onClick={() =>
+                  void handleCopy(snapshot.configPath, i18n.t("settings:settingsDialogDeveloperSection.configPath"))
+                }
+              >
+                {t("settings:developerSection.localMcp.actions.copyConfigPath")}</Button>
+            </div>
+          </>
+        ) : null}
+      </AsyncBoundary>
 
       {state.detail ? (
         <p className={sx(developerStyles.note)}>{state.detail}</p>
@@ -1226,8 +1250,10 @@ export function LocalMcpRequestLogCard() {
   const [state, setState] = useState<LocalMcpRequestLogViewState>({
     status: "loading",
     logs: [],
-    detail: t("settings:developerSection.requestLog.detail.loading"),
+    detail: "",
     busy: false,
+    loaded: false,
+    readError: null,
     total: 0,
     limit: LOCAL_MCP_REQUEST_LOG_PAGE_SIZE,
     offset: 0,
@@ -1240,16 +1266,12 @@ export function LocalMcpRequestLogCard() {
   async function refreshLogs(args?: { silent?: boolean; offset?: number }) {
     const listRequestLogs = window.api?.localMcp?.listRequestLogs;
     if (!listRequestLogs) {
-      setState({
+      setState((current) => ({
+        ...current,
         status: "error",
-        logs: [],
-        detail: i18n.t("settings:developerSection.requestLog.detail.apiUnavailable"),
         busy: false,
-        total: 0,
-        limit: LOCAL_MCP_REQUEST_LOG_PAGE_SIZE,
-        offset: 0,
-        hasMore: false,
-      });
+        readError: i18n.t("settings:developerSection.requestLog.detail.apiUnavailable"),
+      }));
       return;
     }
 
@@ -1262,11 +1284,7 @@ export function LocalMcpRequestLogCard() {
       setState((current) => ({
         ...current,
         busy: true,
-        status: current.logs.length > 0 ? current.status : "loading",
-        detail:
-          current.logs.length > 0
-            ? current.detail
-            : i18n.t("settings:developerSection.requestLog.detail.loading"),
+        status: current.loaded ? current.status : "loading",
       }));
     }
 
@@ -1283,13 +1301,15 @@ export function LocalMcpRequestLogCard() {
         setState((current) => ({
           ...current,
           status: "error",
-          detail: result.message || i18n.t("settings:developerSection.requestLog.detail.loadFailed"),
+          readError: result.message || i18n.t("settings:developerSection.requestLog.detail.loadFailed"),
           busy: false,
         }));
         return;
       }
       setState({
         status: "ready",
+        loaded: true,
+        readError: null,
         logs: result.logs,
         detail: getLocalMcpRequestLogDetail({
           count: result.logs.length,
@@ -1310,7 +1330,7 @@ export function LocalMcpRequestLogCard() {
       setState((current) => ({
         ...current,
         status: "error",
-        detail:
+        readError:
           error instanceof Error
             ? error.message
             : i18n.t("settings:developerSection.requestLog.detail.loadFailed"),
@@ -1373,6 +1393,8 @@ export function LocalMcpRequestLogCard() {
       }
       setState({
         status: "ready",
+        loaded: true,
+        readError: null,
         logs: [],
         detail: i18n.t("settings:messages.clearedLogs", { count: result.cleared }),
         busy: false,
@@ -1396,6 +1418,16 @@ export function LocalMcpRequestLogCard() {
       }));
     }
   }
+
+  // Before any read answers, no logs is not "no requests yet"; after one, a
+  // failed refresh or poll keeps the page that loaded under the error.
+  const logsState: AsyncState<StaveLocalMcpRequestLog[]> = state.loaded
+    ? state.readError
+      ? { status: "ready", data: state.logs, stale: true, refreshError: state.readError }
+      : { status: "ready", data: state.logs }
+    : state.readError && !state.busy
+      ? { status: "error", error: state.readError }
+      : { status: "pending" };
 
   function handleShowNewerLogs() {
     if (state.busy || state.offset === 0) {
@@ -1454,81 +1486,92 @@ export function LocalMcpRequestLogCard() {
         </div>
       </div>
 
-      {state.logs.length === 0 ? (
-        <p className={sx(developerStyles.logEmpty)}>
-          {t("settings:developerSection.requestLog.empty")}</p>
-      ) : (
-        <div className={sx(developerStyles.logTableFrame)}>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className={sx(developerStyles.colTime)}>
-                  {t("settings:developerSection.requestLog.columns.time")}</TableHead>
-                <TableHead>{t("settings:developerSection.requestLog.columns.request")}</TableHead>
-                <TableHead className={sx(developerStyles.colStatus)}>
-                  {t("settings:developerSection.requestLog.columns.status")}</TableHead>
-                <TableHead>{t("settings:developerSection.requestLog.columns.payload")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {state.logs.map((log) => (
-                <TableRow key={log.id}>
-                  <TableCell
-                    className={sx(developerStyles.cellTopTime)}
-                    title={log.createdAt}
-                  >
-                    {formatRelativeTime(log.createdAt)}
-                  </TableCell>
-                  <TableCell className={sx(developerStyles.cellTop)}>
-                    <div className={sx(developerStyles.requestBadges)}>
-                      <Badge variant="outline">
-                        {getLocalMcpRequestPrimaryLabel(log)}
-                      </Badge>
-                      {log.toolName && log.rpcMethod ? (
-                        <Badge variant="secondary">{log.rpcMethod}</Badge>
-                      ) : null}
-                    </div>
-                    <p className={sx(developerStyles.requestMeta)}>
-                      {getLocalMcpRequestMeta(log)}
-                    </p>
-                  </TableCell>
-                  <TableCell className={sx(developerStyles.cellTop)}>
-                    <div className={sx(developerStyles.statusCell)}>
-                      <Badge variant={getLocalMcpRequestBadgeVariant(log)}>
-                        {log.statusCode}
-                      </Badge>
-                      <span className={sx(developerStyles.statusDuration)}>
-                        {t("settings:whole.durationMs", { value: log.durationMs })}
-                      </span>
-                      {log.errorMessage ? (
-                        <span className={sx(developerStyles.statusError)}>
-                          {log.errorMessage}
-                        </span>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className={sx(developerStyles.cellTop)}>
-                    <LocalMcpRequestPayloadCell log={log} />
-                  </TableCell>
+      <AsyncBoundary
+        state={logsState}
+        onRetry={() => void refreshLogs({ offset: state.offset })}
+        pending={
+          <p className={sx(developerStyles.logEmpty)}>
+            {t("settings:developerSection.requestLog.detail.loading")}</p>
+        }
+        isEmpty={(logs) => logs.length === 0}
+        empty={
+          <p className={sx(developerStyles.logEmpty)}>
+            {t("settings:developerSection.requestLog.empty")}</p>
+        }
+      >
+        {(logs) => (
+          <div className={sx(developerStyles.logTableFrame)}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className={sx(developerStyles.colTime)}>
+                    {t("settings:developerSection.requestLog.columns.time")}</TableHead>
+                  <TableHead>{t("settings:developerSection.requestLog.columns.request")}</TableHead>
+                  <TableHead className={sx(developerStyles.colStatus)}>
+                    {t("settings:developerSection.requestLog.columns.status")}</TableHead>
+                  <TableHead>{t("settings:developerSection.requestLog.columns.payload")}</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          <div className={sx(developerStyles.tableFooter)}>
-            <span className={sx(developerStyles.tableFooterNote)}>
-              {t("settings:whole.pageOf", { page, total: totalPages })}
-            </span>
-            {state.offset === 0 ? (
+              </TableHeader>
+              <TableBody>
+                {logs.map((log) => (
+                  <TableRow key={log.id}>
+                    <TableCell
+                      className={sx(developerStyles.cellTopTime)}
+                      title={log.createdAt}
+                    >
+                      {formatRelativeTime(log.createdAt)}
+                    </TableCell>
+                    <TableCell className={sx(developerStyles.cellTop)}>
+                      <div className={sx(developerStyles.requestBadges)}>
+                        <Badge variant="outline">
+                          {getLocalMcpRequestPrimaryLabel(log)}
+                        </Badge>
+                        {log.toolName && log.rpcMethod ? (
+                          <Badge variant="secondary">{log.rpcMethod}</Badge>
+                        ) : null}
+                      </div>
+                      <p className={sx(developerStyles.requestMeta)}>
+                        {getLocalMcpRequestMeta(log)}
+                      </p>
+                    </TableCell>
+                    <TableCell className={sx(developerStyles.cellTop)}>
+                      <div className={sx(developerStyles.statusCell)}>
+                        <Badge variant={getLocalMcpRequestBadgeVariant(log)}>
+                          {log.statusCode}
+                        </Badge>
+                        <span className={sx(developerStyles.statusDuration)}>
+                          {t("settings:whole.durationMs", { value: log.durationMs })}
+                        </span>
+                        {log.errorMessage ? (
+                          <span className={sx(developerStyles.statusError)}>
+                            {log.errorMessage}
+                          </span>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                    <TableCell className={sx(developerStyles.cellTop)}>
+                      <LocalMcpRequestPayloadCell log={log} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <div className={sx(developerStyles.tableFooter)}>
               <span className={sx(developerStyles.tableFooterNote)}>
-                {t("settings:whole.autoRefresh", { seconds: Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000) })}
+                {t("settings:whole.pageOf", { page, total: totalPages })}
               </span>
-            ) : (
-              <span className={sx(developerStyles.tableFooterNote)}>
-                {t("settings:developerSection.requestLog.autoRefreshPaused")}</span>
-            )}
+              {state.offset === 0 ? (
+                <span className={sx(developerStyles.tableFooterNote)}>
+                  {t("settings:whole.autoRefresh", { seconds: Math.floor(LOCAL_MCP_REQUEST_LOG_AUTO_REFRESH_MS / 1000) })}
+                </span>
+              ) : (
+                <span className={sx(developerStyles.tableFooterNote)}>
+                  {t("settings:developerSection.requestLog.autoRefreshPaused")}</span>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </AsyncBoundary>
     </SettingsCard>
   );
 }
