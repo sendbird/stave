@@ -17,6 +17,7 @@ import {
   TURN_DIGEST_ENTRY_LIMIT,
   TURN_DIGEST_STALL_MS,
   type TurnDigest,
+  type TurnDigestEntry,
 } from "../src/lib/providers/turn-digest";
 import { PROVIDER_TURN_STALL_THRESHOLD_MS } from "../src/lib/providers/turn-status";
 
@@ -110,6 +111,29 @@ describe("turn digest rules", () => {
     expect(large.entries.every((entry) => entry.kind === "retry" && entry.message.length <= 400)).toBe(true);
   });
 
+  test("merging a repeated error near the byte cap keeps the digest inside it", () => {
+    const bytes = (digest: TurnDigest) => new TextEncoder().encode(serializeTurnDigest(digest)).length;
+    let digest = createTurnDigest();
+    let minute = 0;
+    while (bytes(digest) < TURN_DIGEST_BYTE_LIMIT - 1_000) {
+      digest = appendTurnDigestEntry(digest, { kind: "error", at: at(minute), message: `${minute} ${"x".repeat(390)}`, count: 1 });
+      minute += 1;
+    }
+    // A Korean error sized to land 10 bytes under the cap; merging its repeat adds `lastAt`.
+    const error = (message: string, when: number): TurnDigestEntry => ({ kind: "error", at: at(when), message, count: 1 });
+    const room = TURN_DIGEST_BYTE_LIMIT - 10 - bytes(appendTurnDigestEntry(digest, error("", minute)));
+    const message = "재".repeat(Math.floor(room / 3)) + "x".repeat(room % 3);
+    const nearCap = appendTurnDigestEntry(digest, error(message, minute));
+    expect(bytes(nearCap)).toBe(TURN_DIGEST_BYTE_LIMIT - 10);
+    expect(nearCap.omitted).toBe(0);
+    const merged = appendTurnDigestEntry(nearCap, error(message, minute + 1));
+    expect(bytes(merged)).toBeLessThanOrEqual(TURN_DIGEST_BYTE_LIMIT);
+    // The oldest error gives way; the repeated one keeps its count.
+    expect(merged.entries.at(-1)).toMatchObject({ kind: "error", message, count: 2, lastAt: at(minute + 1) });
+    expect(merged.entries[0]?.kind === "error" && merged.entries[0].message.startsWith("1 ")).toBe(true);
+    expect(merged.omitted).toBe(1);
+  });
+
   test("a check run reads pass, warn or fail and keeps a bounded list of failures", () => {
     expect(turnDigestChecksEntry({ totalEntries: 0, executedEntries: 0, failures: [] }, at(0))).toBeNull();
     expect(turnDigestChecksEntry({ totalEntries: 2, executedEntries: 2, failures: [] }, at(0))).toMatchObject({ status: "pass", executed: 2, total: 2 });
@@ -187,6 +211,36 @@ describe("turn digest store", () => {
     expect(digestOf(db, "turn")?.entries[1]).toMatchObject({ count: 2 });
     const [summary] = store.turnDigests.listTurnHistory({ workspaceId: "workspace", taskId: "task" }).turns;
     expect(summary).toMatchObject({ id: "turn", outcome: "failed", error: "Stream closed", digest: { entryCount: 3, hasError: true, checks: null } });
+    db.close();
+  });
+
+  test("a digest is stored inside the byte cap whatever made it grow", () => {
+    const { db, store } = harness();
+    begin(store, "turn");
+    const bytes = (digest: TurnDigest) => new TextEncoder().encode(serializeTurnDigest(digest)).length;
+    const error = (message: string) => ({ type: "error" as const, message, recoverable: true });
+    let digest = createTurnDigest();
+    const events: Array<{ sequence: number; event: ReturnType<typeof error> }> = [];
+    const add = (message: string) => {
+      digest = appendTurnDigestEntry(digest, turnDigestEntryForEvent(error(message), at(1))!);
+      events.push({ sequence: events.length + 1, event: error(message) });
+    };
+    while (bytes(digest) < TURN_DIGEST_BYTE_LIMIT - 1_000) add(`${events.length} ${"x".repeat(390)}`);
+    const room = TURN_DIGEST_BYTE_LIMIT - 50 - bytes(appendTurnDigestEntry(digest, turnDigestEntryForEvent(error(""), at(1))!));
+    add("재".repeat(Math.floor(room / 3)) + "x".repeat(room % 3));
+    expect(bytes(digest)).toBe(TURN_DIGEST_BYTE_LIMIT - 50);
+    store.saveStreamEvents({ turnId: "turn", createdAt: at(1), events });
+    expect(digestOf(db, "turn")?.omitted).toBe(0);
+    // The turn's first account report fills `accountProfileId`, which no entry limit covers.
+    store.saveStreamEvent({
+      turnId: "turn",
+      sequence: events.length + 1,
+      createdAt: at(1),
+      event: { type: "provider_session", providerId: "codex", nativeSessionId: "s", accountProfileId: "a".repeat(200) },
+    });
+    const row = db.prepare("SELECT digest_json FROM turns WHERE id = ?").get("turn") as { digest_json: string };
+    expect(new TextEncoder().encode(row.digest_json).length).toBeLessThanOrEqual(TURN_DIGEST_BYTE_LIMIT);
+    expect(parseTurnDigest(row.digest_json)).toMatchObject({ accountProfileId: "a".repeat(200), omitted: 1 });
     db.close();
   });
 

@@ -219,7 +219,8 @@ export function appendTurnDigestEntry(digest: TurnDigest, entry: TurnDigestEntry
     last.message === entry.message
   ) {
     const merged = { ...last, count: last.count + entry.count, lastAt: entry.lastAt ?? entry.at };
-    return { ...digest, entries: [...digest.entries.slice(0, -1), merged] };
+    // A merge grows the entry too (its `lastAt` and count), so it obeys the limits.
+    return enforceTurnDigestLimits({ ...digest, entries: [...digest.entries.slice(0, -1), merged] });
   }
   return enforceTurnDigestLimits({ ...digest, entries: [...digest.entries, entry] });
 }

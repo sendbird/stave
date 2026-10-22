@@ -3,6 +3,7 @@ import type { BridgeEvent } from "../providers/types";
 import {
   appendTurnDigestEntry,
   createTurnDigest,
+  enforceTurnDigestLimits,
   isTurnDigestEndingEvent,
   observeTurnDigestAccount,
   parseTurnDigest,
@@ -57,9 +58,10 @@ function readTurnDigestRow(db: Db, turnId: string) {
     .get(turnId) as TurnDigestRow | undefined;
 }
 
+/** Every write goes through the limits, whatever grew the digest (an entry, a merge, the account). */
 function writeTurnDigest(db: Db, turnId: string, digest: TurnDigest) {
   db.prepare("UPDATE turns SET digest_json = ? WHERE id = ?").run(
-    serializeTurnDigest(digest),
+    serializeTurnDigest(enforceTurnDigestLimits(digest)),
     turnId,
   );
 }
