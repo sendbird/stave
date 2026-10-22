@@ -213,6 +213,12 @@ export interface CostFormatOptions {
    * `<$0.01`; `detail` keeps a small amount readable: `$0.012`, `$0.0012`.
    */
   precision?: "summary" | "detail";
+  /**
+   * Fixed decimals for money in a currency, whatever its size (`$0.0123`,
+   * `$1.2345`), for a detail line that reads spend to the hundredth of a cent.
+   * Takes over from `precision`; a plan unit keeps its own reading.
+   */
+  fractionDigits?: number;
 }
 
 const ISO_CURRENCY = /^[A-Z]{3}$/;
@@ -230,8 +236,9 @@ export function formatCost(amount: number, currency = "USD", options: CostFormat
     const digits = Math.abs(value) >= 1 ? 2 : 4;
     return `${formatNumber(value, { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${unit}`;
   }
-  const detail = options.precision === "detail";
-  const digits = !detail || Math.abs(value) >= 1 ? 2 : Math.abs(value) >= 0.01 ? 3 : 4;
+  const fixed = options.fractionDigits;
+  const detail = fixed !== undefined || options.precision === "detail";
+  const digits = fixed ?? (!detail || Math.abs(value) >= 1 ? 2 : Math.abs(value) >= 0.01 ? 3 : 4);
   const money = (figure: number) =>
     formatNumber(figure, {
       style: "currency",

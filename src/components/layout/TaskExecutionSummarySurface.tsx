@@ -405,11 +405,12 @@ function buildUsageReadout(
     usage.cacheRatePromptTokens > 0 && usage.cacheRateCachedTokens > 0
       ? `${Math.round((usage.cacheRateCachedTokens / usage.cacheRatePromptTokens) * 100)}% cached`
       : null;
+  // A detail tile: spend to the hundredth of a cent.
   const costLabel =
     usage.totalCostUsd != null
-      ? formatNumber(usage.totalCostUsd, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 })
+      ? formatCost(usage.totalCostUsd, "USD", { fractionDigits: 4 })
       : usage.costAmount !== undefined && usage.costCurrency
-        ? formatCost(usage.costAmount, usage.costCurrency, { precision: "detail" })
+        ? formatCost(usage.costAmount, usage.costCurrency, { fractionDigits: 4 })
         : null;
   const parts: StatPart[] = [];
   if (cacheLabel) {

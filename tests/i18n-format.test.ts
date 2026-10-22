@@ -130,6 +130,14 @@ describe("formatCost", () => {
     expect(formatCost(0.00123, "USD", { precision: "detail" })).toBe("$0.0012");
   });
 
+  test("fixed decimals keep a detail line's spend to the hundredth of a cent", () => {
+    expect(formatCost(0.0123, "USD", { fractionDigits: 4 })).toBe("$0.0123");
+    expect(formatCost(1.2345, "USD", { fractionDigits: 4 })).toBe("$1.2345");
+    expect(formatCost(0, "USD", { fractionDigits: 4 })).toBe("$0.0000");
+    // A plan unit keeps its own reading.
+    expect(formatCost(3, "credits", { fractionDigits: 4 })).toBe("3.00 credits");
+  });
+
   test("a reported currency uses its symbol; a plan unit follows the amount", () => {
     expect(formatCost(1.5, "eur")).toBe("€1.50");
     expect(formatCost(0.0541, "credits")).toBe("0.0541 credits");
