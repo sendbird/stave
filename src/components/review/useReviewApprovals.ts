@@ -61,11 +61,38 @@ export function useWindowApprovals(args: { workspaceId: string; taskId: string; 
   }, [covered, workspaceId, taskId, span?.startedAt]);
   const state = useMemo((): AsyncState<ReviewApprovals> => {
     if (!span) return { status: "ready", data: [] };
-    if (covered) return { status: "ready", data: collectApprovalRecord(messagesInWindow(resident, span)) };
+    if (covered) return { status: "ready", data: windowApprovals({ saved: null, resident, window: span }) };
     if (loaded.state.status !== "ready") return loaded.state;
-    return { status: "ready", data: collectApprovalRecord(messagesInWindow(loaded.state.data ?? NO_MESSAGES, span)) };
+    return { status: "ready", data: windowApprovals({ saved: loaded.state.data ?? NO_MESSAGES, resident, window: span }) };
   }, [covered, loaded.state, resident, span]);
   return { state, refresh: loaded.refresh };
+}
+
+/**
+ * Saved history joined with the open conversation, oldest first, one copy per
+ * message: the conversation's copy wins, because it is the newest (a request
+ * answered since the read), and its messages the read did not have follow.
+ */
+function mergeByMessageId(saved: readonly ChatMessage[], resident: readonly ChatMessage[]): ChatMessage[] {
+  const newest = new Map(resident.map((message) => [message.id, message]));
+  const merged = saved.map((message) => newest.get(message.id) ?? message);
+  const seen = new Set(saved.map((message) => message.id));
+  return [...merged, ...resident.filter((message) => !seen.has(message.id))];
+}
+
+/**
+ * The approvals of the messages that started inside a window. `saved` is the
+ * history read back to the window's start when the open conversation does
+ * not reach it (null when it does); the open conversation is joined to it, so
+ * requests that arrive or are answered after the read count too.
+ */
+export function windowApprovals(args: {
+  saved: readonly ChatMessage[] | null;
+  resident: readonly ChatMessage[];
+  window: { startedAt: string; endedAt: string | null };
+}): ApprovalRecordEntry[] {
+  const messages = args.saved ? mergeByMessageId(args.saved, args.resident) : args.resident;
+  return collectApprovalRecord(messagesInWindow(messages, args.window));
 }
 
 /** The approvals of the whole task, from the messages the conversation has loaded. */

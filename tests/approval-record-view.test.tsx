@@ -6,7 +6,7 @@ import { APPROVAL_RECORD_LIST_LIMIT, ApprovalRecordView } from "../src/component
 import { ReviewInspector } from "../src/components/review/ReviewInspector";
 import { ToolApprovalCard } from "../src/components/session/ToolApprovalCard";
 import { TurnApprovalRecord } from "../src/components/session/TurnApprovalRecord";
-import { approvalsFromRunTurn } from "../src/components/review/useReviewApprovals";
+import { approvalsFromRunTurn, windowApprovals } from "../src/components/review/useReviewApprovals";
 import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { collectApprovalRecord } from "../src/lib/approvals/approval-record";
@@ -113,6 +113,21 @@ describe("approval record view", () => {
       createElement(ReviewInspector, { taskId: "task-1", workspaceId: "ws-1", scope: { kind: "stage", agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: stage.attempt }, detail }),
     ));
     expect(markup).toContain("0 allowed by you · 1 allowed by a Stave rule · 0 allowed by the provider's mode");
+  });
+
+  test("a stage read from saved history still counts approvals that arrive or are answered after the read", () => {
+    const window = { startedAt: "2026-10-22T09:00:00.000Z", endedAt: null };
+    // The history read when Review opened: one request still waiting.
+    const saved = [message([part("early", { state: "approval-requested" })], { id: "m-1", turnId: "turn-1", startedAt: "2026-10-22T09:05:00.000Z" })];
+    // The open conversation since: the same message, answered, and a newer turn with its own request.
+    const resident = [
+      message([part("early", { resolution: { decision: "allowed", source: "user", decidedAt: AT, scope: "once" } })], { id: "m-1", turnId: "turn-1", startedAt: "2026-10-22T09:05:00.000Z" }),
+      message([part("later", { prompted: false, resolution: { decision: "allowed", source: "rule", reason: "autonomy", decidedAt: AT } })], { id: "m-2", turnId: "turn-2", startedAt: "2026-10-22T09:20:00.000Z" }),
+    ];
+    expect(windowApprovals({ saved, resident, window }).map((entry) => [entry.id, entry.standing])).toEqual([
+      ["m-1:early", "allowed-by-you"],
+      ["m-2:later", "allowed-by-rule"],
+    ]);
   });
 
   test("a turn read from saved history gives its approvals; a failed read is an error, a turn gone from history says so", () => {
