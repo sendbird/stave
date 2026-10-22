@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
 import { ReviewDecisions } from "../src/components/review/ReviewDecisions";
+import { TurnOutputResult } from "../src/components/review/ReviewOutputs";
 import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { describeStageDecision, stageToReview } from "../src/lib/review/review-stage";
@@ -106,6 +107,19 @@ describe("Review decisions", () => {
     // A decision before the stage ended belongs to an earlier stage.
     detail.events = [event(detail, "sign-off", "2026-10-22T09:10:00.000Z", 93)];
     expect(describeStageDecision(detail, reviewed(detail))).toEqual({ status: "none" });
+  });
+
+  test("an output read on its own is not reviewed: Outputs say read and reviewed apart, like the decision bar", () => {
+    const render = (result: { reviewedAt: string | null; markedReviewedAt?: string | null }) =>
+      renderToStaticMarkup(createElement(TurnOutputResult, { result: { ...result, summary: "Done." } })).replace(/<[^>]+>/g, " ");
+    // Read automatically after a dwell, never marked reviewed.
+    const readOnly = render({ reviewedAt: "2026-10-22T09:30:00.000Z", markedReviewedAt: null });
+    expect(readOnly).toContain("Not reviewed yet");
+    expect(readOnly).toContain("Read Oct 22, 2026");
+    expect(readOnly).not.toContain("Reviewed Oct");
+    const reviewed = render({ reviewedAt: "2026-10-22T09:30:00.000Z", markedReviewedAt: "2026-10-22T09:40:00.000Z" });
+    expect(reviewed).toContain("Reviewed Oct 22, 2026");
+    expect(render({ reviewedAt: null })).toContain("Not read yet");
   });
 
   test("a plain task offers Mark reviewed and Send comments, never the stage decisions", () => {

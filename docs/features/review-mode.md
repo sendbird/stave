@@ -73,8 +73,9 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Changed files** shows each file's status and line counts. Opening a file
   marks it read (`2 of 5 read`); reading a file is not reviewing the task.
   Up and Down move through the list.
-- **Output** under the files shows the turn's saved answer and whether it was
-  marked reviewed, or the stage's report.
+- **Output** under the files shows the turn's saved answer, whether it was
+  marked reviewed and, apart from that, whether it was read (`Not reviewed
+  yet · Read Oct 22, 9:30 AM`), or the stage's report.
 - The diff shows the selected file. **Comment** opens it in the editor's diff,
   where you add line comments.
 - **Completion checks** shows the run's **Done when** criteria with the checks

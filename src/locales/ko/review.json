@@ -85,6 +85,8 @@
     "noResult": "이 턴의 저장된 결과가 아직 없습니다.",
     "reviewedAt": "{{time}}에 검토함",
     "notReviewed": "아직 검토하지 않음",
+    "readAt": "{{time}}에 읽음",
+    "notRead": "아직 읽지 않음",
     "noReport": "단계가 아직 보고하지 않았습니다.",
     "blocked": "막힘: {{missing}}"
   },

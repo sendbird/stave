@@ -88,6 +88,8 @@
     "noResult": "No saved result for this turn yet.",
     "reviewedAt": "Reviewed {{time}}",
     "notReviewed": "Not reviewed yet",
+    "readAt": "Read {{time}}",
+    "notRead": "Not read yet",
     "noReport": "The stage has not reported yet.",
     "blocked": "Blocked: {{missing}}"
   },
