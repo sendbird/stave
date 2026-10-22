@@ -265,6 +265,7 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "tool_result",
   "diff",
   "approval",
+  "approval_resolved",
   "user_input",
   "system",
   "subagent_progress",

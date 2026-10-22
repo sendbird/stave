@@ -278,6 +278,18 @@ export interface ApprovalPart extends MessagePartBase {
     | "approval-responded"
     | "approval-interrupted"
     | "output-denied";
+  /**
+   * Who decided the request, what and when, once Stave recorded it. Absent on
+   * requests decided before the record existed and on those the provider
+   * moved past without Stave seeing who decided.
+   */
+  resolution?: import("@/lib/approvals/approval-resolution").ApprovalResolution;
+  /**
+   * `false`: nobody was asked. A Stave rule or the provider's permission mode
+   * decided the request as it arrived, so it never showed as a card and is
+   * kept for the approval record only. Absent: the request was shown.
+   */
+  prompted?: false;
 }
 
 export interface UserInputOption {

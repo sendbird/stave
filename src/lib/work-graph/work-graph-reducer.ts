@@ -1118,6 +1118,11 @@ export function reduceWorkGraphEvent(
       );
     }
 
+    // A shown request decided without a person (it timed out) asks no more;
+    // one nobody was asked raised nothing, so there is nothing to clear.
+    case "approval_resolved":
+      return resolveWorkGraphInteractions(graph, now, approvalInteractionId(event.requestId));
+
     case "user_input": {
       // Async questions do not pause provider work; the question card owns attention.
       if (event.delivery === "async") return graph;

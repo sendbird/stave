@@ -271,6 +271,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run panel ready", "Progress tab · Completed", runs.ready, null],
           ["Agent run panel checks", "Progress tab · Completed · workspace check met by setup alone", withPartlyPassedChecks(runs.ready), null],
           ["Agent run panel legacy checks", "Progress tab · legacy workflow run · workspace check met by setup alone", { ...withPartlyPassedChecks(runs.ready), agentRun: { ...withPartlyPassedChecks(runs.ready).agentRun, origin: undefined } }, null],
+          ["Agent run panel all checks", "Progress tab · a check that needs every script · test still failing", withPartlyPassedChecks(runs.ready, "all"), null],
           ["Agent run panel failed", "Progress tab · Stopped at its turn limit", runs.failed, null],
           ["Agent run panel stopped", "Progress tab · Stopped by you", runs.stopped, null],
         ] as const
@@ -345,8 +346,9 @@ const styles = stylex.create({
 /**
  * The ready run with a `lint`/`setup`/`test` workspace check on its last AI
  * stage, met by `setup` alone: the case where "checks pass" must say which one.
+ * With `all`, the check needs every script, and `test` still fails.
  */
-function withPartlyPassedChecks(detail: AgentRunDetail): AgentRunDetail {
+function withPartlyPassedChecks(detail: AgentRunDetail, mode?: "all"): AgentRunDetail {
   const run = structuredClone(detail);
   const revision = { status: "known" as const, revision: "preview" };
   const scripts = ["lint", "setup", "test"];
@@ -355,7 +357,7 @@ function withPartlyPassedChecks(detail: AgentRunDetail): AgentRunDetail {
   const stage = run.agentRun.workflow.stages.findLast((candidate) => candidate.kind === "ai");
   const record = stage ? run.stages.findLast((candidate) => candidate.stageId === stage.id) : undefined;
   if (stage?.kind !== "ai" || record?.report?.outcome !== "complete") return run;
-  stage.acceptanceCriteria = [{ text, required: true, verification: "stave-check", scriptIds: scripts, scriptDefinitions: definitions }];
+  stage.acceptanceCriteria = [{ text, required: true, verification: "stave-check", scriptIds: scripts, scriptDefinitions: definitions, ...(mode ? { mode } : {}) }];
   record.report = { ...record.report, workspaceRevision: revision, acceptanceCriteria: [{ text, status: "met" }] };
   record.facts = {
     ...record.facts!,
@@ -365,7 +367,7 @@ function withPartlyPassedChecks(detail: AgentRunDetail): AgentRunDetail {
       type: "run-script" as const,
       scriptId,
       definitionHash: definitions[index]!.definitionHash,
-      exitCode: scriptId === "setup" ? 0 : 1,
+      exitCode: scriptId === "setup" || (mode === "all" && scriptId === "lint") ? 0 : 1,
       durationMs: 1200,
       outputTail: "",
       verification: { sourceRevision: revision, completedRevision: revision },

@@ -136,13 +136,22 @@ Patterns combine work components into the moments an agent workflow repeats.
 - Review: work is checked against what it produced. `DiffViewer` and
   `FileChangeSummary` show what changed, review comments are anchored to the
   lines they are about, and `TaskResultReviews` keeps each run's saved answer,
-  files and run details.
+  files and run details. Review mode (`src/components/review`) brings these
+  together on the task surface: a `ToggleGroup` switches Conversation and
+  Review, `WorkspaceLayout` holds changed files and outputs, the diff, and the
+  checks, Lens records (`VersionCompare`) and comments, and an `ApprovalBar`
+  carries the decision. Every scope names its base and what it cannot show,
+  every read goes through `AsyncBoundary`, and read, checks passed, reviewed
+  and signed off are four separate states, never one check mark.
 - Approval: a waiting agent asks where the answer is given.
   `ChatInputApprovalQueue` holds tool approvals in the composer, `SignOffCard`
   holds an agent run's sign-off in the same place, and `Approval` and `Clarification`
   show the gate or the question on its step in the conversation. Elsewhere
   the waiting reads as the `approval` or `needs-you` state, drawn with
-  `StateMark`.
+  `StateMark`. Once decided, the card's audit line names who decided and
+  when, and `ApprovalRecordView` (`src/components/approvals`, on ADS
+  `ActivityFeed`) counts a run's requests by who decided them (you, a Stave
+  rule, the provider's mode) and lists them, in Review and under Activity.
 - Recovery: a failure says what failed and offers the next step.
   `ProviderErrorRecovery` continues a turn a provider failed, and
   `AsyncBoundary` retries a failed read or keeps the last result after one.

@@ -179,6 +179,12 @@ Watch checks → Ready for review) come with a workflow.
   and **Done when**, optionally done by another agent and pinned to a commit;
   or a Stave action: **Open draft PR**, **Watch checks**, **Ready for review**
   or **Run script**. Drag a stage, or use Alt+arrow keys, to reorder it.
+- **Workspace checks** (AI stages): **Add check** opens a searchable list of
+  the workspace's action scripts; pick one or more, and choose **All must
+  pass** (the default) or **Any one passes**. Stave runs them itself on the
+  final revision before the stage can finish. A saved check whose script is not
+  in the current workspace is marked, because a run there would refuse to
+  start. See [Agent runs](agent-runs.md) for how checks are judged.
 - **Check in with me** (with two or more stages): **Only when stuck**
   (default), **Before publishing** or **Every stage**. A stage's hand toggle
   makes that one stage ask, or not.

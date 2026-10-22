@@ -4,7 +4,6 @@ import { vars } from "../../../ads/tokens/tokens.stylex";
 export const feedbackStyles = stylex.create({
   automation: { padding: vars["--ads-space-8"], flexShrink: 0, borderBottomWidth: vars["--ads-border-width-hairline"], borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-canvas"] },
   preview: { display: "block", maxWidth: "100%", maxHeight: 240, objectFit: "contain", borderRadius: vars["--ads-radius-mark"] },
-  comparison: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: vars["--ads-space-8"] },
   tray: { maxHeight: "45%", flexShrink: 0, overflow: "auto", borderTopWidth: vars["--ads-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-canvas"], padding: vars["--ads-space-12"] },
   header: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-8"] },
   headingGroup: { minWidth: 0 },
@@ -22,4 +21,8 @@ export const feedbackStyles = stylex.create({
   editor: { marginTop: vars["--ads-space-12"], display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
   editorActions: { display: "flex", gap: vars["--ads-space-8"] },
   hint: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
+  record: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
+  compareImage: { display: "block", width: "100%", height: "100%", objectFit: "contain" },
+  verdict: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"], margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text"] },
+  verdictIcon: { width: 14, height: 14, flexShrink: 0, color: vars["--ads-color-text-muted"] },
 });

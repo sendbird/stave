@@ -38,7 +38,9 @@ test("translated audit attribution preserves the user-supplied React node", () =
   const markup = renderToStaticMarkup(<Approval title="user content" outcome={{ decision: "allowed", by: <b>user name</b> }} />);
   expect(markup).toContain("user content");
   expect(markup).toContain("user name");
-  expect(markup).toContain("작성");
+  // An approval's attribution names who decided it, not who wrote it.
+  expect(markup).toContain("결정");
+  expect(markup).not.toContain("작성");
   expect(markup).not.toContain("{{");
 });
 

@@ -423,7 +423,9 @@
     "extraCopy119": "Added to your draft. Describe the changes before sending.",
     "runCount_one": "{{count}} output",
     "runCount_other": "{{count}} outputs",
-    "agentRunReport": "Agent run report and actions"
+    "agentRunReport": "Agent run report and actions",
+    "markedReviewed": "Reviewed",
+    "review": "Review"
   },
   "taskRunOverview": {
     "label": "Waiting",
@@ -1018,5 +1020,52 @@
     "sent": "Sent",
     "started": "Response started",
     "completed": "Response completed"
+  },
+  "approvalRecord": {
+    "title": "Approvals",
+    "activityTitle": "Approvals in this turn",
+    "counts": {
+      "allowedByYou_one": "{{count}} allowed by you",
+      "allowedByYou_other": "{{count}} allowed by you",
+      "allowedByRule_one": "{{count}} allowed by a Stave rule",
+      "allowedByRule_other": "{{count}} allowed by a Stave rule",
+      "allowedByProvider_one": "{{count}} allowed by the provider's mode",
+      "allowedByProvider_other": "{{count}} allowed by the provider's mode",
+      "denied_one": "{{count}} denied",
+      "denied_other": "{{count}} denied",
+      "waiting_one": "{{count}} waiting",
+      "waiting_other": "{{count}} waiting",
+      "withdrawn_one": "{{count}} withdrawn",
+      "withdrawn_other": "{{count}} withdrawn",
+      "unrecorded_one": "{{count}} without a record of who decided",
+      "unrecorded_other": "{{count}} without a record of who decided"
+    },
+    "decider": {
+      "user": "you",
+      "trustedTool": "your trusted tools",
+      "autonomy": "autonomous mode",
+      "permissionMode": "the permission mode",
+      "timeout": "Stave, after no answer in time",
+      "staveTool": "the setting for Stave's own tools",
+      "providerBrowser": "the provider browser you turned on",
+      "rule": "a Stave rule",
+      "provider": "the provider"
+    },
+    "outcome": {
+      "allowed": "allowed by {{decider}}",
+      "alwaysAllowed": "always allowed by {{decider}}",
+      "denied": "denied by {{decider}}",
+      "waiting": "waiting for your answer",
+      "withdrawn": "withdrawn when the turn ended",
+      "unrecordedAllowed": "allowed; who decided was not recorded",
+      "unrecordedDenied": "denied; who decided was not recorded"
+    },
+    "truncated_one": "Showing the latest {{shown}} of {{count}}.",
+    "truncated_other": "Showing the latest {{shown}} of {{count}}.",
+    "none": {
+      "turn": "No approval requests in this turn.",
+      "stage": "No approval requests in this stage.",
+      "task": "No approval requests in this task."
+    }
   }
 }

@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "@/lib/review/review-diff-contract";
 import type {
   CanonicalConversationRequest,
   ProviderId,
@@ -191,6 +192,10 @@ export function installDevApiBridge() {
         oldPath?: string;
         cwd?: string;
       }) => postJson({ path: "/api/scm/commit-diff", body: args }),
+      getReviewDiff: (args: ScmReviewDiffArgs) =>
+        postJson({ path: "/api/scm/review-diff", body: args }),
+      getReviewFileDiff: (args: ScmReviewFileDiffArgs) =>
+        postJson({ path: "/api/scm/review-file-diff", body: args }),
       getHistory: (args: { cwd?: string; limit?: number }) =>
         postJson({ path: "/api/scm/history", body: args }),
       listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>

@@ -3,6 +3,7 @@ import type {
   WorkspaceSummary,
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
+import type { ApprovalRuleDecider } from "@/lib/approvals/approval-resolution";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
 import type { TaskMessagesLoadResult } from "@/store/app-store-workspace-action-types";
 import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
@@ -777,6 +778,8 @@ export interface AppState
     approved: boolean;
     /** `always` also persists the decision in the provider's own permission store. */
     scope?: "once" | "always";
+    /** Recorded as who decided: a person unless a Stave rule (trusted tools) answers. */
+    decidedBy?: ApprovalRuleDecider;
   }) => void;
   resolveUserInput: (args: {
     taskId: string;

@@ -199,6 +199,12 @@ import type {
   GraphResult,
 } from "@/lib/git-graph/types";
 import type {
+  ScmReviewDiffArgs,
+  ScmReviewDiffResult,
+  ScmReviewFileDiffArgs,
+  ScmReviewFileDiffResult,
+} from "@/lib/review/review-diff-contract";
+import type {
   LensCapturePaintRequest,
   LensCapturePaintResult,
   LensGuestFocusRequestPayload,
@@ -798,6 +804,8 @@ interface WindowLocalMcpApi {
     taskId: string;
     requestId: string;
     approved: boolean;
+    /** A Stave rule answered (trusted tools); absent: a person did. */
+    decidedBy?: import("@/lib/approvals/approval-resolution").ApprovalRuleDecider;
   }) => Promise<{
     ok: boolean;
     message?: string;
@@ -1539,6 +1547,10 @@ interface WindowSourceControlApi {
     newContent: string;
     stderr: string;
   }>;
+  /** Review's file list against a base commit (a stage's start, the default branch's merge-base, or HEAD). */
+  getReviewDiff?: (args: ScmReviewDiffArgs) => Promise<ScmReviewDiffResult>;
+  /** One file's content at the review base and in the working tree, each side bounded. */
+  getReviewFileDiff?: (args: ScmReviewFileDiffArgs) => Promise<ScmReviewFileDiffResult>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
     ok: boolean;
     items: Array<{ hash: string; relativeDate: string; subject: string }>;
@@ -2111,6 +2123,13 @@ interface WindowPersistenceApi {
   setResultsReviewed?: (
     args: import("@/lib/reviews/result-review").SetResultsReviewedArgs,
   ) => Promise<{ ok: boolean; updated: number }>;
+  /** Review's explicit "Mark reviewed", apart from the read mark. */
+  setResultMarkedReviewed?: (
+    args: import("@/lib/reviews/result-review").SetResultMarkedReviewedArgs,
+  ) => Promise<{
+    ok: boolean;
+    result: import("@/lib/reviews/result-review").ResultReview | null;
+  }>;
   listFleetAttentionSnoozes?: (
     args?: import("@/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
   ) => Promise<{

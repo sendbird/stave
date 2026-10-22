@@ -202,7 +202,7 @@ export function LensFeedbackTray({
           onSave={saveComment}
         />
       )}
-      {sent ? <LensFeedbackComparison key={selected.id} workspaceId={workspaceId} lensSessionId={lensSessionId} annotation={selected} original={screenshot?.kind === "image" ? screenshot.dataUrl : undefined} /> : null}
+      {sent ? <LensFeedbackComparison key={selected.id} taskId={taskId} workspaceId={workspaceId} lensSessionId={lensSessionId} annotation={selected} original={screenshot?.kind === "image" ? screenshot.dataUrl : undefined} /> : null}
       {screenshot?.kind === "image" ? (
         <ImageLightbox
           open={previewOpen}

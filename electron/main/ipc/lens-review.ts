@@ -7,6 +7,16 @@ import { getLensAutomation, pauseLensAutomation } from "../browser/browser-autom
 import { compareLensAnnotation } from "../browser/browser-review";
 import { getMainWindow } from "../window";
 import { isTrustedLensRenderer } from "./lens-ipc-authorization";
+import { ensurePersistenceReady } from "../state";
+import { decodeLensReviewPng, lensPageKey, showsCapturedPage, type LensReviewRecordStore, type LensSessionPage } from "../../persistence/lens-review-record-store";
+import { sanitizeLensPageUrl } from "../../../src/lib/lens/lens-annotation-schema";
+import {
+  ListLensReviewRecordsArgsSchema,
+  ReadLensReviewImageArgsSchema,
+  SaveLensReviewRecordArgsSchema,
+  SetLensReviewVerdictArgsSchema,
+  type LensReviewRecord,
+} from "../../../src/lib/lens/lens-review-record";
 
 const PauseSchema = LensSessionTargetArgsSchema.extend({ paused: z.boolean() }).strict();
 const StateSchema = LensSessionTargetArgsSchema.extend({ includePreview: z.boolean().optional() }).strict();
@@ -42,4 +52,59 @@ export function registerLensReviewHandlers() {
     if (!session) return { ok: false, message: "No browser session" };
     return compareLensAnnotation(session, args.annotation);
   });
+  handle("lens:review-records:list", async (input) => {
+    const args = ListLensReviewRecordsArgsSchema.parse(input);
+    const store = (await ensurePersistenceReady()).lensReviewRecords;
+    return { ok: true, records: store.list(args).map((record) => markChangedPage(store, record)) };
+  });
+  handle("lens:review-records:save", async (input) => {
+    const args = SaveLensReviewRecordArgsSchema.parse(input);
+    const page = args.annotation.review.page;
+    // A confirmation is about the document that was captured, at its address;
+    // once either changed, only "needs re-check" can be recorded for it.
+    if (args.verdict === "confirmed" && !showsCapturedPage(currentLensPage(args.workspaceId, args.lensSessionId), { documentId: args.documentId, pageUrl: page.url, pageKey: args.pageKey }))
+      return { ok: false, code: "page-changed" };
+    const afterPng = decodeLensReviewPng(args.afterDataUrl);
+    if (!afterPng) return { ok: false, code: "invalid-image" };
+    const record = await (await ensurePersistenceReady()).lensReviewRecords.save({
+      taskId: args.taskId, workspaceId: args.workspaceId, lensSessionId: args.lensSessionId, annotationId: args.annotation.id,
+      pageUrl: page.url, viewport: page.viewport, before: { imageId: args.beforeImageId }, documentId: args.documentId, pageKey: args.pageKey, verdict: args.verdict, afterPng,
+    });
+    return { ok: true, record };
+  });
+  handle("lens:review-records:set-verdict", async (input) => {
+    const args = SetLensReviewVerdictArgsSchema.parse(input);
+    const store = (await ensurePersistenceReady()).lensReviewRecords;
+    const current = store.get(args.id);
+    if (!current) return { ok: false, code: "not-found" };
+    if (args.verdict === "confirmed" && !showsCapturedPage(currentLensPage(current.workspaceId, current.lensSessionId), current))
+      return { ok: false, code: "page-changed", record: markChangedPage(store, current) };
+    return { ok: true, record: store.setVerdict(args) ?? current };
+  });
+  handle("lens:review-records:read-image", async (input) => {
+    const args = ReadLensReviewImageArgsSchema.parse(input);
+    const bytes = await (await ensurePersistenceReady()).lensReviewRecords.readAfterImage(args.id);
+    return bytes ? { ok: true, dataUrl: `data:image/png;base64,${Buffer.from(bytes).toString("base64")}` } : { ok: false, code: "not-found" };
+  });
+}
+
+/** The Lens session's current document, normalized address and page key, or undefined when it is gone. */
+function currentLensPage(workspaceId: string, lensSessionId: string): LensSessionPage | undefined {
+  const session = getBrowserSession(workspaceId, lensSessionId);
+  if (!session) return undefined;
+  let url: string | null = null;
+  let key: string | null = null;
+  try {
+    const address = session.webContents.isDestroyed() ? null : session.webContents.getURL();
+    url = address === null ? null : sanitizeLensPageUrl(address);
+    key = lensPageKey(address);
+  } catch {
+    url = null;
+  }
+  return { documentId: session.documentId, url, key };
+}
+
+/** A confirmation of a page the session no longer shows is kept as needing a re-check. */
+function markChangedPage(store: LensReviewRecordStore, record: LensReviewRecord): LensReviewRecord {
+  return store.reconcileDocument(record, currentLensPage(record.workspaceId, record.lensSessionId));
 }

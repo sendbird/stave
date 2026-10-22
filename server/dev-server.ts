@@ -41,6 +41,8 @@ import {
   resetScmCommit,
   revertScmCommit,
 } from "../electron/host-service/scm-runtime";
+import { getScmReviewDiff, getScmReviewFileDiff } from "../electron/host-service/scm-review-diff";
+import { ScmReviewDiffArgsSchema, ScmReviewFileDiffArgsSchema } from "../src/lib/review/review-diff-contract";
 import {
   ScmCommitDetailsArgsSchema,
   ScmCommitDiffArgsSchema,
@@ -645,6 +647,18 @@ const server = Bun.serve({
         );
       }
       return json(await getScmCommitDiff(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/review-diff" && req.method === "POST") {
+      const parsed = ScmReviewDiffArgsSchema.safeParse(await readJson<unknown>(req));
+      if (!parsed.success) return json({ ok: false, baseSha: null, baseRef: null, headSha: null, files: [], stderr: "Invalid review diff request." }, 400);
+      return json(await getScmReviewDiff(parsed.data));
+    }
+
+    if (url.pathname === "/api/scm/review-file-diff" && req.method === "POST") {
+      const parsed = ScmReviewFileDiffArgsSchema.safeParse(await readJson<unknown>(req));
+      if (!parsed.success) return json({ ok: false, oldContent: "", newContent: "", stderr: "Invalid review file diff request." }, 400);
+      return json(await getScmReviewFileDiff(parsed.data));
     }
 
     if (url.pathname === "/api/scm/history" && req.method === "POST") {

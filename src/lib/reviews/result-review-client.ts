@@ -2,6 +2,7 @@ import type { AppNotification } from "@/lib/notifications/notification.types";
 import { ResultEvidenceSchema } from "./result-evidence";
 import {
   ListResultReviewsArgsSchema,
+  SetResultMarkedReviewedArgsSchema,
   SetResultReviewedArgsSchema,
   SetResultsReviewedArgsSchema,
   ResultReviewSchema,
@@ -9,6 +10,7 @@ import {
   type ListResultReviewsArgs,
   type ResultReview,
   type ResultReviewPage,
+  type SetResultMarkedReviewedArgs,
   type SetResultReviewedArgs,
   type SetResultsReviewedArgs,
 } from "./result-review";
@@ -168,6 +170,46 @@ export async function setResultReviewed(
         ? (current.reviewedAt ?? new Date().toISOString())
         : null,
     };
+    rows[index] = result;
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
+  }
+  invalidateResultReviews();
+  return result;
+}
+
+/**
+ * Review's explicit "Mark reviewed" (or taking it back). A reviewed result is
+ * also read; the read mark alone never makes a result reviewed.
+ */
+export async function setResultMarkedReviewed(
+  input: SetResultMarkedReviewedArgs,
+): Promise<ResultReview> {
+  const args = SetResultMarkedReviewedArgsSchema.parse(input);
+  const persistence = window.api?.persistence;
+  let result: ResultReview;
+  if (persistence) {
+    if (!persistence.setResultMarkedReviewed)
+      throw new Error(
+        "Result review storage is unavailable. Restart Stave to load the updated bridge.",
+      );
+    const response = await persistence.setResultMarkedReviewed(args);
+    if (!response.ok || !response.result)
+      throw new Error("The review mark was not saved. Retry.");
+    result = response.result;
+  } else {
+    const rows = fallbackRows();
+    const index = rows.findIndex(
+      (row) => resultReviewKey(row) === resultReviewKey(args),
+    );
+    const current = rows[index];
+    if (!current)
+      throw new Error(
+        "This result could not be found. Refresh the result list.",
+      );
+    const now = new Date().toISOString();
+    result = args.markedReviewed
+      ? { ...current, markedReviewedAt: current.markedReviewedAt ?? now, reviewedAt: current.reviewedAt ?? now }
+      : { ...current, markedReviewedAt: null };
     rows[index] = result;
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(rows));
   }

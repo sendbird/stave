@@ -64,8 +64,31 @@ for (const agentRunStage of [{ agentRunId: "run", stageId: "work", attempt: 1 },
     expect(events.filter((event) => event.type === "approval")).toHaveLength(1);
     expect(decisions).toEqual([expect.objectContaining({ behavior: "deny", message: expect.stringContaining("Denied automatically") })]);
     expect(events.some((event) => event.type === "error" && event.message.includes("did not receive"))).toBe(true);
+    // The approval record says the shown request was denied by Stave's timeout, not by a person.
+    expect(events.filter((event) => event.type === "approval_resolved")).toEqual([
+      expect.objectContaining({ requestId: "tool-1", toolName: "Bash", decision: "denied", source: "rule", reason: "timeout" }),
+    ]);
   }, 10_000);
 }
+
+test("a call Stave allows without asking is recorded as decided by a rule, with no card", async () => {
+  const events: BridgeEvent[] = [];
+  await streamClaudeWithSdk({
+    providerId: "claude-code", cwd: process.cwd(), taskId: "task-trusted", prompt: "Work",
+    runtimeOptions: { claudeBinaryPath: "/tmp/bin/claude", claudePermissionMode: "default", trustedTools: ["bash:rm -rf build"] },
+    onEvent: (event) => { events.push(event); },
+  });
+  expect(decisions).toEqual([expect.objectContaining({ behavior: "allow" })]);
+  expect(events.filter((event) => event.type === "approval")).toHaveLength(0);
+  expect(events.filter((event) => event.type === "approval_resolved")).toEqual([
+    expect.objectContaining({ requestId: "tool-1", toolName: "Bash", input: "rm -rf build", decision: "allowed", source: "rule", reason: "trusted-tool" }),
+  ]);
+  const { replayProviderEventsToTaskState } = await import("../src/lib/session/provider-event-replay");
+  const replayed = replayProviderEventsToTaskState({ taskId: "task", provider: "claude-code", model: "sonnet", turnId: "turn", events, messages: [] });
+  expect(replayed.messages.flatMap((message) => message.parts).filter((part) => part.type === "approval")).toEqual([
+    expect.objectContaining({ requestId: "tool-1", state: "approval-responded", prompted: false, resolution: expect.objectContaining({ source: "rule", reason: "trusted-tool" }) }),
+  ]);
+}, 10_000);
 
 const QUESTION_STAGE = { agentRunId: "question-run", stageId: "work", attempt: 1 };
 for (const turn of [

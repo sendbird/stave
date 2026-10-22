@@ -85,6 +85,8 @@ function cloneMessagePart(part: MessagePart): MessagePart | undefined {
       // provider as retrieved context for the turn that carried it, not as history.
       return undefined;
     case "approval":
+      // A request nobody was asked is the approval record's, not the conversation's.
+      if (part.prompted === false) return undefined;
       return {
         type: "approval",
         toolName: part.toolName,

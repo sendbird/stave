@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useId, useState } from "react";
+import { useId } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -27,9 +27,10 @@ import {
   type AiStage,
   type WorkflowStage,
 } from "@/lib/workflows/schema";
-import { useAppStore } from "@/store/app.store";
 import { Segmented } from "./Segmented";
 import { StageAgentField } from "./StageAgentField";
+import { StageChecksField } from "./StageChecksField";
+import { readyWorkspaceScripts, useWorkspaceScriptActions } from "./useWorkspaceScriptActions";
 import { workflowStyles as styles } from "./workflows.styles";
 
 const ACTION_DESCRIPTIONS = {
@@ -91,7 +92,7 @@ function previewOf(stage: WorkflowStage): { text: string; missing: boolean } {
 
 /** Issue paths a stage's own fields show beside themselves; the row lists every other one. */
 function placedIssuePaths(stage: WorkflowStage): ReadonlySet<string> {
-  if (stage.kind === "ai") return new Set(["title", "instruction", "doneWhen"]);
+  if (stage.kind === "ai") return new Set(["title", "instruction", "doneWhen", "acceptanceCriteria"]);
   return new Set(stage.action.type === "run-script" ? ["title", "action.scriptId"] : ["title"]);
 }
 
@@ -299,6 +300,7 @@ function AiStageFields(props: {
         error={props.issues.get("doneWhen")}
         onChange={(event) => props.onChange({ ...stage, doneWhen: event.target.value })}
       />
+      <StageChecksField stage={stage} error={props.issues.get("acceptanceCriteria")} onChange={props.onChange} />
       <div className={sx(styles.propertyValue)}>
         <span className={sx(styles.propertyLabel)}>{i18n.t("agentRuns:stageRow.aiStageFields")}</span>
         <Segmented
@@ -317,29 +319,6 @@ function AiStageFields(props: {
   );
 }
 
-/** The script actions of the workspace in view, to pick a Run script stage's script from. */
-function useWorkspaceScriptActions(): Array<{ id: string; label: string }> {
-  const repositoryPath = useAppStore((state) => state.repositoryPath);
-  const workspacePath = useAppStore((state) => state.workspacePathById[state.activeWorkspaceId] ?? null);
-  const [actions, setActions] = useState<Array<{ id: string; label: string }>>([]);
-  useEffect(() => {
-    let cancelled = false;
-    const getConfig = window.api?.scripts?.getConfig;
-    if (!getConfig || !repositoryPath || !workspacePath) return;
-    void getConfig({ repositoryPath, workspacePath })
-      .then((result) => {
-        if (!cancelled && result.ok && result.config) {
-          setActions(result.config.actions.map((entry) => ({ id: entry.id, label: entry.label || entry.id })));
-        }
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [repositoryPath, workspacePath]);
-  return actions;
-}
-
 function RunScriptField(props: {
   stage: Extract<WorkflowStage, { kind: "action" }>;
   action: Extract<Extract<WorkflowStage, { kind: "action" }>["action"], { type: "run-script" }>;
@@ -347,7 +326,7 @@ function RunScriptField(props: {
   onChange: (stage: WorkflowStage) => void;
 }) {
   useTranslation();
-  const scripts = useWorkspaceScriptActions();
+  const scripts = readyWorkspaceScripts(useWorkspaceScriptActions());
   const set = (scriptId: string) => props.onChange({ ...props.stage, action: { ...props.action, scriptId } });
   return (
     <div className={sx(styles.propertyValue)}>

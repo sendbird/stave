@@ -12,6 +12,8 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { ActionButton } from "@/components/system/ActionButton";
+import { paneHost } from "@/components/panes/pane-host-controller";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { setResultReviewed } from "@/lib/reviews/result-review-client";
@@ -40,6 +42,12 @@ type Filter = "all" | "pending";
  * needs no scroll box of its own; the whole run is one click away in
  * "View execution".
  */
+/** Review on this output's turn, on its task's surface. */
+function openTurnReview(result: ResultReview) {
+  paneHost.openSurface({ kind: "task", taskId: result.taskId });
+  useTaskReviewModeStore.getState().openReview(result.taskId, { kind: "turn", taskId: result.taskId, turnId: result.turnId });
+}
+
 function RunEvidence(props: { result: ResultReview; onShowTurn: () => void }) {
   useTranslation();
   const { result } = props;
@@ -188,7 +196,9 @@ export function RunHistoryRow(props: {
                   {formatRelativeTime(result.createdAt)}
                 </time>
                 <span className={sx(styles.caption)}>
-                  {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow3") : i18n.t("session:taskResultReviews.runHistoryRow4")}
+                  {result.markedReviewedAt
+                    ? i18n.t("session:taskResultReviews.markedReviewed")
+                    : result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow3") : i18n.t("session:taskResultReviews.runHistoryRow4")}
                 </span>
               </span>
             </span>
@@ -212,6 +222,8 @@ export function RunHistoryRow(props: {
           >
             {result.reviewedAt ? i18n.t("session:taskResultReviews.runHistoryRow5") : i18n.t("session:taskResultReviews.runHistoryRow6")}
           </ActionButton>
+          <ActionButton size="xs" onClick={() => openTurnReview(result)}>
+            {i18n.t("session:taskResultReviews.review")}</ActionButton>
           <ActionButton size="xs" onClick={props.onFollowUp}>
             {i18n.t("session:taskResultReviews.runHistoryRow7")}</ActionButton>
         </div>

@@ -184,9 +184,13 @@ rendering them as the nearest one:
 
 | Stave state            | ADS value                        | Why not the nearest decision                                                 |
 | ---------------------- | -------------------------------- | ---------------------------------------------------------------------------- |
-| `approval-responded`   | `outcome.decision: "allowed"`    | Stave keeps *whether* it was answered, not the scope. `allow-once` claims a single-use grant and `allow-always` a standing one; both state a fact nobody recorded. |
+| `approval-responded`   | `outcome.decision: "allowed"`    | Unless a person's grant was recorded (then `allow-once` or `allow-always`): a part saved before the approval record, or one allowed automatically, keeps no grant, and either scoped word would state a fact nobody recorded. |
 | `approval-interrupted` | `outcome.decision: "lapsed"`     | `deny` credits the reader with a refusal they never gave; a `null` outcome leaves three live buttons on a gate the host can no longer answer.                      |
 | `input-interrupted`    | `outcome.result: "lapsed"`       | `skipped` is a reader's choice. Same argument, same word on screen — "Withdrawn" — so the two surfaces cannot name one event twice.                                |
+
+A decided approval's audit line is its `resolution`: who decided (you, your
+trusted tools, Stave after no answer in time, ...) and when. A part saved
+before the record has no audit line, only its status word.
 
 Both `lapsed` values take neutral ink and never `danger`: a lapse is not a
 refusal. They were added to ADS in this pass —

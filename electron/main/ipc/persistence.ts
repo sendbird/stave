@@ -9,6 +9,7 @@ import {
 } from "../../../src/lib/documents/workspace-document-schemas";
 import {
   ListResultReviewsArgsSchema,
+  SetResultMarkedReviewedArgsSchema,
   SetResultReviewedArgsSchema,
   SetResultsReviewedArgsSchema,
 } from "../../../src/lib/reviews/result-review";
@@ -104,6 +105,13 @@ export function registerPersistenceHandlers() {
     if (!parsed.success) return { ok: false, result: null };
     const store = await ensurePersistenceReady();
     const result = store.resultReviews.setReviewed(parsed.data);
+    return { ok: result !== null, result };
+  });
+  ipcMain.handle("persistence:set-result-marked-reviewed", async (_event, args: unknown) => {
+    const parsed = SetResultMarkedReviewedArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, result: null };
+    const store = await ensurePersistenceReady();
+    const result = store.resultReviews.setMarkedReviewed(parsed.data);
     return { ok: result !== null, result };
   });
   ipcMain.handle("persistence:set-results-reviewed", async (_event, args: unknown) => {
@@ -315,6 +323,8 @@ export function registerPersistenceHandlers() {
       void removeWorkspaceInlineRenders(parsedArgs.data.workspaceId);
       // The workspace's conversation is gone, so the images it showed go too.
       void removeWorkspaceToolImages(parsedArgs.data.workspaceId);
+      // Its tasks are gone, so their Lens review records and captures go too.
+      void store.lensReviewRecords.deleteWorkspace(parsedArgs.data.workspaceId);
       return { ok: true };
     },
   );

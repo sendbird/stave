@@ -295,6 +295,16 @@ export const KEYBINDING_REGISTRY = [
     handledBy: [APP_SHELL],
   },
   {
+    id: "task.toggle-review",
+    keys: ["mod+alt+r"],
+    scope: "workspace",
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.toggleTaskReview.title",
+    descriptionKey: "shell:keybindings.entries.toggleTaskReview.description",
+    section: "panels",
+    handledBy: [APP_SHELL],
+  },
+  {
     id: "task.next",
     keys: ["mod+shift+alt?+j", "mod+shift+alt?+arrowdown"],
     scope: "global",

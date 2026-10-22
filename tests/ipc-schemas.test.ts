@@ -11,6 +11,7 @@ import {
   JiraConnectorConfigureArgsSchema,
   JiraConnectorSetCredentialArgsSchema,
   JiraConnectorTestConnectionArgsSchema,
+  LocalMcpApprovalResponseArgsSchema,
   LocalMcpConfigUpdateArgsSchema,
   McpServerConfigMutationApplyArgsSchema,
   McpServerConfigMutationArgsSchema,
@@ -813,6 +814,14 @@ describe("provider IPC schemas", () => {
         codexAutoRegister: "off",
       }).success,
     ).toBe(false);
+  });
+
+  test("an approval answered through the host may say a Stave rule answered it, never claim a person", () => {
+    const answer = { workspaceId: "ws", taskId: "task", requestId: "request", approved: true };
+    expect(LocalMcpApprovalResponseArgsSchema.safeParse(answer).success).toBe(true);
+    expect(LocalMcpApprovalResponseArgsSchema.safeParse({ ...answer, decidedBy: { source: "rule", reason: "trusted-tool" } }).success).toBe(true);
+    expect(LocalMcpApprovalResponseArgsSchema.safeParse({ ...answer, decidedBy: { source: "user", reason: "trusted-tool" } }).success).toBe(false);
+    expect(LocalMcpApprovalResponseArgsSchema.safeParse({ ...answer, decidedBy: { source: "rule", reason: "anything" } }).success).toBe(false);
   });
 });
 

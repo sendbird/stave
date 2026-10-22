@@ -1,4 +1,11 @@
 import type { TurnPolicy } from "../../src/lib/policy/turn-policy";
+import {
+  boundApprovalRecordInput,
+  type ApprovalAutomaticSource,
+  type ApprovalDecision,
+  type ApprovalDecisionReason,
+  type ApprovalResolvedEvent,
+} from "../../src/lib/approvals/approval-resolution";
 import { isTrustedApproval } from "../../src/lib/providers/trusted-tools";
 import { shouldAllowClaudeAutonomousCall, type ClaudeGuardrailHit } from "./claude-guardrail-hook";
 import {
@@ -16,6 +23,48 @@ export const CLAUDE_HANDOFF_ALLOW_MESSAGES: Record<ClaudeHandoffAllowSource, (to
   autonomy: (toolName) => `Stave autonomy allowed ${toolName}.`,
   trusted: (toolName) => `Claude trusted ${toolName}.`,
 };
+
+/** Who decided a call Stave's permission callback answered without asking. */
+export interface ClaudeApprovalDecider {
+  source: ApprovalAutomaticSource;
+  reason: ApprovalDecisionReason;
+}
+
+/** The approval record's decider for each kind of allow. */
+export const CLAUDE_HANDOFF_ALLOW_DECIDERS: Record<ClaudeHandoffAllowSource, ClaudeApprovalDecider> = {
+  "permission-mode": { source: "provider-auto", reason: "permission-mode" },
+  autonomy: { source: "rule", reason: "autonomy" },
+  trusted: { source: "rule", reason: "trusted-tool" },
+};
+
+const DECISION_TARGET_KEYS = ["command", "file_path", "notebook_path", "path", "url", "pattern"] as const;
+
+/**
+ * The `approval_resolved` event for a call decided without asking anyone:
+ * what was decided, by whom, and the call's command or path in one line.
+ */
+export function buildClaudeApprovalDecisionEvent(args: {
+  requestId: string;
+  toolName: string;
+  input: Record<string, unknown>;
+  decision: ApprovalDecision;
+  decider: ClaudeApprovalDecider;
+  now?: Date;
+}): ApprovalResolvedEvent {
+  const target = DECISION_TARGET_KEYS.map((key) => args.input[key])
+    .find((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const input = boundApprovalRecordInput(target);
+  return {
+    type: "approval_resolved",
+    requestId: args.requestId,
+    toolName: args.toolName,
+    ...(input ? { input } : {}),
+    decision: args.decision,
+    source: args.decider.source,
+    reason: args.decider.reason,
+    decidedAt: (args.now ?? new Date()).toISOString(),
+  };
+}
 
 export type ClaudeHandoffDecision =
   | { action: "allow"; source: ClaudeHandoffAllowSource }

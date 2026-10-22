@@ -1,4 +1,5 @@
 import { QuestionReplySchema } from "../../../src/lib/question-reply";
+import { ApprovalRuleDeciderSchema } from "../../../src/lib/approvals/approval-resolution";
 import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
 export { ClassifyRouteArgsSchema } from "./provider-route-classification-schema";
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
@@ -866,7 +867,7 @@ const LocalMcpTaskRequestShape = {
 };
 
 export const LocalMcpApprovalResponseArgsSchema = z
-  .object({ ...LocalMcpTaskRequestShape, approved: z.boolean() })
+  .object({ ...LocalMcpTaskRequestShape, approved: z.boolean(), decidedBy: ApprovalRuleDeciderSchema.optional() })
   .strict();
 
 export const LocalMcpUserInputResponseArgsSchema = z

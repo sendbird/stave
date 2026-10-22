@@ -10,6 +10,7 @@ import { useAppStore } from "@/store/app.store";
 import { usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { buildPromptDraftContentForSend } from "@/store/prompt-draft-message-content";
 import type { PromptDraft } from "@/types/chat";
+import { RunContractNotice } from "@/components/agent-runs/RunContract";
 
 /** Explain how the selected Run keeps its attached context. */
 export function AgentAttachmentNotice(props: { taskId: string; providerId: string; draft: PromptDraft }) {
@@ -31,11 +32,19 @@ export function AgentAttachmentNotice(props: { taskId: string; providerId: strin
     turnOrigin: "conversation", providerId: props.providerId,
     prompt: buildAgentRunAssignment(buildPromptDraftContentForSend(props.draft), props.draft),
   });
-  if (plan.kind === "start-run" && (props.draft.attachedFilePaths.length || props.draft.promptBatch?.some((item) => item.attachedFilePaths?.length)))
-    return <p role="status" className={sx(styles.notice)}>{i18n.t("agentRuns:agentRunSend.attachedFilePaths")}</p>;
-  if (plan.kind !== "start-run" || !hasAgentPromptAttachments(props.draft)) return null;
-  return <p role="status" className={sx(styles.notice)} data-testid="agent-attachment-notice">
-    {i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")}</p>;
+  if (plan.kind !== "start-run") return null;
+  // The send starts a run: what that run may do, then how it keeps the draft's attachments.
+  const attachment = props.draft.attachedFilePaths.length || props.draft.promptBatch?.some((item) => item.attachedFilePaths?.length)
+    ? <p role="status" className={sx(styles.notice)}>{i18n.t("agentRuns:agentRunSend.attachedFilePaths")}</p>
+    : hasAgentPromptAttachments(props.draft)
+      ? <p role="status" className={sx(styles.notice)} data-testid="agent-attachment-notice">{i18n.t("session:agentAttachmentNotice.agentAttachmentNotice")}</p>
+      : null;
+  return (
+    <div className={sx(styles.notice)}>
+      <RunContractNotice taskId={taskId} workspaceId={workspaceId} />
+      {attachment}
+    </div>
+  );
 }
 
 const styles = stylex.create({

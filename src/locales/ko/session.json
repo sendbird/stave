@@ -418,7 +418,9 @@
     "extraCopy116": "읽음 상태를 저장하지 못했습니다. 다시 시도하세요.",
     "extraCopy119": "초안에 추가했습니다. 보내기 전에 변경 사항을 설명하세요.",
     "runCount_other": "산출물 {{count}}개",
-    "agentRunReport": "에이전트 실행 보고서와 후속 작업"
+    "agentRunReport": "에이전트 실행 보고서와 후속 작업",
+    "markedReviewed": "검토함",
+    "review": "검토"
   },
   "taskRunOverview": {
     "label": "대기 중",
@@ -1004,5 +1006,44 @@
     "sent": "전송 시각",
     "started": "응답 시작",
     "completed": "응답 완료"
+  },
+  "approvalRecord": {
+    "title": "승인",
+    "activityTitle": "이 턴의 승인",
+    "counts": {
+      "allowedByYou_other": "사용자 허용 {{count}}건",
+      "allowedByRule_other": "Stave 규칙 허용 {{count}}건",
+      "allowedByProvider_other": "제공자 모드 허용 {{count}}건",
+      "denied_other": "거부 {{count}}건",
+      "waiting_other": "응답 대기 {{count}}건",
+      "withdrawn_other": "철회 {{count}}건",
+      "unrecorded_other": "결정 주체 기록 없음 {{count}}건"
+    },
+    "decider": {
+      "user": "사용자",
+      "trustedTool": "신뢰한 도구 규칙",
+      "autonomy": "자율 모드",
+      "permissionMode": "권한 모드",
+      "timeout": "응답 시간 초과",
+      "staveTool": "Stave 도구 자동 승인 설정",
+      "providerBrowser": "사용자가 켠 제공자 브라우저",
+      "rule": "Stave 규칙",
+      "provider": "제공자"
+    },
+    "outcome": {
+      "allowed": "{{decider}} 허용",
+      "alwaysAllowed": "{{decider}} 항상 허용",
+      "denied": "{{decider}} 거부",
+      "waiting": "응답 대기 중",
+      "withdrawn": "턴 종료로 철회됨",
+      "unrecordedAllowed": "허용됨 (결정 주체 기록 없음)",
+      "unrecordedDenied": "거부됨 (결정 주체 기록 없음)"
+    },
+    "truncated_other": "전체 {{count}}건 중 최근 {{shown}}건을 표시합니다.",
+    "none": {
+      "turn": "이 턴에는 승인 요청이 없습니다.",
+      "stage": "이 단계에는 승인 요청이 없습니다.",
+      "task": "이 작업에는 승인 요청이 없습니다."
+    }
   }
 }

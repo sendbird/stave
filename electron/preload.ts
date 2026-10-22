@@ -1,4 +1,6 @@
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
+import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
+import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
@@ -1708,6 +1710,9 @@ contextBridge.exposeInMainWorld("api", {
     setResultsReviewed: (
       args: import("../src/lib/reviews/result-review").SetResultsReviewedArgs,
     ) => ipcRenderer.invoke("persistence:set-results-reviewed", args),
+    setResultMarkedReviewed: (
+      args: import("../src/lib/reviews/result-review").SetResultMarkedReviewedArgs,
+    ) => ipcRenderer.invoke("persistence:set-result-marked-reviewed", args),
     listFleetAttentionSnoozes: (
       args?: import("../src/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
     ) =>
@@ -1906,6 +1911,7 @@ contextBridge.exposeInMainWorld("api", {
       taskId: string;
       requestId: string;
       approved: boolean;
+      decidedBy?: ApprovalRuleDecider;
     }) =>
       ipcRenderer.invoke("local-mcp:respond-approval", args) as Promise<{
         ok: boolean;
@@ -2554,6 +2560,8 @@ contextBridge.exposeInMainWorld("api", {
       oldPath?: string;
       cwd?: string;
     }) => ipcRenderer.invoke("scm:commit-diff", args),
+    getReviewDiff: (args: ScmReviewDiffArgs) => ipcRenderer.invoke("scm:review-diff", args),
+    getReviewFileDiff: (args: ScmReviewFileDiffArgs) => ipcRenderer.invoke("scm:review-file-diff", args),
     getHistory: (args: { cwd?: string; limit?: number }) =>
       ipcRenderer.invoke("scm:history", args),
     listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>

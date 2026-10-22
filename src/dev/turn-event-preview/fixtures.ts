@@ -234,6 +234,14 @@ export function createEventSamples(): EventSample[] {
       title: `Approval · ${state}`,
       parts: [approval(state)],
     })),
+    {
+      title: "Approval · always allowed by you",
+      parts: [{ ...approval("approval-responded"), requestId: "preview-recorded-always", resolution: { decision: "allowed" as const, source: "user" as const, scope: "always" as const, decidedAt: "2026-10-22T09:03:05.000Z" } }],
+    },
+    {
+      title: "Approval · denied when nobody answered",
+      parts: [{ ...approval("output-denied"), requestId: "preview-recorded-timeout", resolution: { decision: "denied" as const, source: "rule" as const, reason: "timeout" as const, decidedAt: "2026-10-22T09:48:40.000Z" } }],
+    },
     ...(
       [
         "input-requested",

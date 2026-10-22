@@ -1,5 +1,6 @@
 import { runQuestionStage } from "@/lib/agent-runs/persistent-question";
 import { truncateUtf8Middle } from "@/lib/providers/transport-bounds";
+import type { ApprovalResolution } from "@/lib/approvals/approval-resolution";
 import type {
   ApprovalPart,
   ChatMessage,
@@ -44,6 +45,10 @@ export function hasRenderableAssistantPart(part: MessagePart): boolean {
   }
   if (part.type === "thinking") {
     return part.text.trim().length > 0;
+  }
+  // A request nobody was asked is kept for the approval record, not shown.
+  if (part.type === "approval") {
+    return part.prompted !== false;
   }
   return true;
 }
@@ -296,6 +301,8 @@ export function updateApprovalPartsByRequestId(args: {
   parts: MessagePart[];
   requestId: string;
   approved: boolean;
+  /** Who decided and when; recorded with the answer. */
+  resolution?: ApprovalResolution;
 }): MessagePart[] {
   return args.parts.map((part) => {
     if (part.type !== "approval" || part.requestId !== args.requestId) {
@@ -305,6 +312,7 @@ export function updateApprovalPartsByRequestId(args: {
     return {
       ...part,
       state: args.approved ? "approval-responded" : "output-denied",
+      ...(args.resolution ? { resolution: args.resolution } : {}),
     };
   });
 }

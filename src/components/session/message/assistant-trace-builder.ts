@@ -183,7 +183,8 @@ export function buildAssistantTrace(args: {
         return;
       }
       case "approval":
-        entries.push({ kind: "approval", id: `approval-${index}`, part });
+        // A request nobody was asked lives in the approval record, not the trace.
+        if (part.prompted !== false) entries.push({ kind: "approval", id: `approval-${index}`, part });
         return;
       case "user_input":
         entries.push({ kind: "user_input", id: `user-input-${index}`, part });

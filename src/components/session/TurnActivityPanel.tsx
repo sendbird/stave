@@ -2,11 +2,12 @@ import { useTranslation } from "@/i18n";
 import { TurnActivity } from "@/components/session/TurnActivity";
 import { sx } from "@/components/ads/utils/stylex";
 import { TaskRunOverview } from "./TaskRunOverview";
+import { TurnApprovalRecord } from "./TurnApprovalRecord";
 import { turnActivityPanelStyles as styles } from "./turn-activity-panel.styles";
 
 /**
  * The Task panel's Activity tab: the run header, then the turn's list — the
- * live turn, or the last one once it ends.
+ * live turn, or the last one once it ends — and that turn's approval record.
  *
  * It lists the turn under every placement. The placement only decides where
  * the composer shelf's own toggle opens the details; the shelf's panel button
@@ -20,6 +21,7 @@ export function TurnActivityPanel() {
       <div className={sx(styles.body)}>
         <TurnActivity host="panel" />
       </div>
+      <TurnApprovalRecord />
     </div>
   );
 }

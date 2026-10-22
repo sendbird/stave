@@ -1,5 +1,6 @@
 import { ipcMain } from "electron";
 import { invokeHostService } from "../host-service-client";
+import { ScmReviewDiffArgsSchema, ScmReviewFileDiffArgsSchema } from "../../../src/lib/review/review-diff-contract";
 import {
   CreatePRArgsSchema,
   FetchPrCheckLogsArgsSchema,
@@ -141,6 +142,18 @@ export function registerScmHandlers() {
       };
     }
     return invokeHostService("scm.commit-diff", parsed.data);
+  });
+
+  ipcMain.handle("scm:review-diff", (_event, args: unknown) => {
+    const parsed = ScmReviewDiffArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, baseSha: null, baseRef: null, headSha: null, files: [], stderr: "Invalid review diff request." };
+    return invokeHostService("scm.review-diff", parsed.data);
+  });
+
+  ipcMain.handle("scm:review-file-diff", (_event, args: unknown) => {
+    const parsed = ScmReviewFileDiffArgsSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, oldContent: "", newContent: "", stderr: "Invalid review file diff request." };
+    return invokeHostService("scm.review-file-diff", parsed.data);
   });
 
   ipcMain.handle(

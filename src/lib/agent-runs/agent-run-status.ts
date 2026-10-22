@@ -23,7 +23,7 @@ import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } from "./evidence";
-import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
+import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckMode, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
 import { formatAge, type AgentRunBadgeTone, type StageState } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 
@@ -303,11 +303,13 @@ function hostCheckResult(detail: AgentRunDetail, text: string): { status: DoneWh
   const current = currentStage ? latestStageRecord(detail.stages, currentStage.id) : undefined;
   const ownCheck = currentStage?.acceptanceCriteria?.find((criterion) => criterion.text.trim() === key);
   if (current && ownCheck) {
-    if (currentStage?.kind === "ai" && ownCheck.verification === "stave-check")
+    if (currentStage?.kind === "ai" && ownCheck.verification === "stave-check") {
+      const mode = workspaceCheckMode(ownCheck);
       return {
-        status: workspaceCheckMet(current, ownCheck.scriptIds, ownCheck.scriptDefinitions) ? "met-verified" : "unverified",
-        checks: workspaceCheckProgress(current, ownCheck.scriptIds, ownCheck.scriptDefinitions),
+        status: workspaceCheckMet(current, ownCheck.scriptIds, ownCheck.scriptDefinitions, mode) ? "met-verified" : "unverified",
+        checks: workspaceCheckProgress(current, ownCheck.scriptIds, ownCheck.scriptDefinitions, { mode }),
       };
+    }
     if (currentStage?.kind === "action" && currentStage.action.type === "run-script")
       return { status: current.facts?.action?.type === "run-script" && isVerifiedEvidence(describeActionEvidence(current.facts.action, current.facts)) ? "met-verified" : "unverified" };
   }
@@ -330,12 +332,15 @@ function hostCheckResult(detail: AgentRunDetail, text: string): { status: DoneWh
     const hostCheck = stage.kind === "ai" ? stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check" && criterion.text.trim() === key) : undefined;
     const earlier = index < agentRun.currentStageIndex;
     if (scriptAction) result = { status: isVerifiedEvidence(describeActionEvidence(scriptAction, record.facts, undefined, { inherited: earlier })) ? "met-verified" : "unverified" };
-    else if (hostCheck) result = {
-      status: (earlier
-        ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, hostCheck.scriptIds, hostCheck.scriptDefinitions), record.facts?.workspaceRevision)
-        : workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions)) ? "met-verified" : "unverified",
-      checks: workspaceCheckProgress(record, hostCheck.scriptIds, hostCheck.scriptDefinitions, { inherited: earlier }),
-    };
+    else if (hostCheck) {
+      const mode = workspaceCheckMode(hostCheck);
+      result = {
+        status: (earlier
+          ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, hostCheck.scriptIds, hostCheck.scriptDefinitions, mode), record.facts?.workspaceRevision)
+          : workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions, mode)) ? "met-verified" : "unverified",
+        checks: workspaceCheckProgress(record, hostCheck.scriptIds, hostCheck.scriptDefinitions, { inherited: earlier, mode }),
+      };
+    }
     else if (reported) result = null;
   }
   return result;

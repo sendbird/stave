@@ -470,6 +470,26 @@ export function resolveQueuedTurnActions(args: {
   };
 }
 
+/**
+ * How a queued item will be delivered, said on its row: held while it is being
+ * edited, otherwise waiting for the next turn, noting when steering could
+ * deliver it to the current response instead. Nothing while no turn runs
+ * (it sends next) or while the whole queue is paused (the queue line says why).
+ */
+export type QueuedTurnDelivery = "held" | "next-turn" | "steerable";
+
+export function describeQueuedTurnDelivery(args: {
+  editing: boolean;
+  turnActive: boolean;
+  paused: boolean;
+  canSteer: boolean;
+  item: Pick<PromptDraftQueuedTurn, "attachedFilePaths" | "attachments">;
+}): QueuedTurnDelivery | null {
+  if (args.editing) return "held";
+  if (args.paused || !args.turnActive) return null;
+  return args.canSteer && canSteerQueuedTurnItem(args.item) ? "steerable" : "next-turn";
+}
+
 /** Attachments cannot ride along with a steer, so those items wait for dispatch. */
 export function canSteerQueuedTurnItem(
   item: Pick<PromptDraftQueuedTurn, "attachedFilePaths" | "attachments">,

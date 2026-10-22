@@ -13,6 +13,7 @@ import {
 } from "@/lib/providers/provider-sessions";
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
 import { appendWorkProgressMessage } from "@/lib/providers/subagent-identity";
+import { recordAutomaticApprovalDecision } from "@/lib/approvals/approval-record";
 import type {
   DelegatedExecutionUsage,
   NormalizedProviderEvent,
@@ -205,6 +206,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "hook_activity":
     case "agent_provenance":
     case "model_resolved":
+    case "approval_resolved":
     case "done":
       return false;
     default:
@@ -299,18 +301,23 @@ function appendSubagentProgressToPart(args: {
   return result;
 }
 
+/**
+ * A request the provider moved past without Stave's answer: the call it asked
+ * about is running (`tool_progress`) or finished (`tool_result`). The call's
+ * own announcement (`tool`) is no such sign: Claude's permission callback can
+ * run before the message announcing the call is read, so the announcement may
+ * arrive after the request it precedes.
+ */
 function resolvePendingToolInteractionMessage(args: {
   message: ChatMessage;
   event: NormalizedProviderEvent;
 }) {
   const requestId =
-    args.event.type === "tool"
+    args.event.type === "tool_progress"
       ? args.event.toolUseId
-      : args.event.type === "tool_progress"
-        ? args.event.toolUseId
-        : args.event.type === "tool_result"
-          ? args.event.tool_use_id
-          : undefined;
+      : args.event.type === "tool_result"
+        ? args.event.tool_use_id
+        : undefined;
 
   const resolvedParts = resolvePendingToolInteractionPartsByRequestId({
     parts: args.message.parts,
@@ -405,6 +412,7 @@ function normalizeEventToPart(args: {
           : {}),
       });
     case "subagent_progress":
+    case "approval_resolved":
       // Handled separately in appendProviderEventToAssistant — not a standalone part.
       return null;
     case "error":
@@ -612,6 +620,11 @@ function appendProviderEventContentToAssistant(args: {
     message,
     event: args.event,
   });
+
+  if (args.event.type === "approval_resolved") {
+    const parts = recordAutomaticApprovalDecision(message.parts, args.event);
+    return parts === message.parts ? message : { ...message, parts };
+  }
 
   if (args.event.type === "subagent_progress") {
     const { toolUseId, content } = args.event;

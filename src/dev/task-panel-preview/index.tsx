@@ -281,6 +281,12 @@ const AGENT_RUN_MESSAGES: ChatMessage[] = [
         newContent: "return page(users, limit, offset);\n",
         status: "accepted",
       },
+      // The turn's approval record (Activity, under the list): one you
+      // answered, two decided automatically, one denied when nobody answered.
+      { type: "approval", toolName: "Edit", description: "", input: "server/users.ts", requestId: "preview-auto-edit", state: "approval-responded", prompted: false, resolution: { decision: "allowed", source: "provider-auto", reason: "permission-mode", decidedAt: "2026-09-29T10:06:20.000Z" } },
+      { type: "approval", toolName: "Bash", description: "Run the users API tests", input: "bun test server/users.test.ts", requestId: "preview-user", state: "approval-responded", resolution: { decision: "allowed", source: "user", scope: "once", decidedAt: "2026-09-29T10:06:41.000Z" } },
+      { type: "approval", toolName: "Bash", description: "", input: "bun run lint", requestId: "preview-auto-lint", state: "approval-responded", prompted: false, resolution: { decision: "allowed", source: "rule", reason: "autonomy", decidedAt: "2026-09-29T10:07:02.000Z" } },
+      { type: "approval", toolName: "Bash", description: "Push the branch", input: "git push --force origin users-pagination", requestId: "preview-timeout", state: "output-denied", resolution: { decision: "denied", source: "rule", reason: "timeout", decidedAt: "2026-09-29T10:52:02.000Z" } },
     ],
   } as unknown as ChatMessage,
 ];

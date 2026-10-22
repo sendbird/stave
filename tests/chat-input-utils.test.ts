@@ -232,6 +232,21 @@ describe("shouldEnablePromptInputWindowShortcuts", () => {
       activeTaskId: "",
     })).toBe(false);
   });
+
+  test("turns the hidden composer's window keys off while its task shows Review", () => {
+    // Review hides the conversation but keeps it mounted; Enter there must not
+    // answer the hidden approval, and Tab must not move focus into it.
+    expect(shouldEnablePromptInputWindowShortcuts({
+      scopedTaskId: "task-current",
+      activeTaskId: "task-current",
+      reviewShown: true,
+    })).toBe(false);
+    expect(shouldEnablePromptInputWindowShortcuts({
+      scopedTaskId: "task-current",
+      activeTaskId: "task-current",
+      reviewShown: false,
+    })).toBe(true);
+  });
 });
 
 describe("shouldHandleApprovalEnterShortcut", () => {

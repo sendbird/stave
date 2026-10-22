@@ -63,6 +63,7 @@ import {
   applyUserInputState,
   normalizeProviderTimeoutMs,
 } from "../../src/store/editor.utils";
+import { buildApprovalResolution, type ApprovalRuleDecider } from "../../src/lib/approvals/approval-resolution";
 import {
   buildRepositoryDefaultWorkspaceId,
   buildImportedWorktreeWorkspaceId,
@@ -1149,6 +1150,7 @@ function scheduleManagedApprovalAutoDeny(args: {
       taskId: args.taskId,
       requestId: args.event.requestId,
       approved: false,
+      decidedBy: { source: "rule", reason: "timeout" },
     }).catch((error) => {
       console.warn("[stave-mcp] managed approval auto-deny failed", error, {
         workspaceId: args.workspaceId,
@@ -2598,6 +2600,8 @@ export async function respondApproval(args: {
   taskId: string;
   requestId: string;
   approved: boolean;
+  /** A Stave rule answered (trusted tools, the managed timeout); absent: a person did. */
+  decidedBy?: ApprovalRuleDecider;
 }) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
@@ -2644,6 +2648,10 @@ export async function respondApproval(args: {
       messageId: approval.messageId,
       requestId: args.requestId,
       approved: args.approved,
+      resolution: buildApprovalResolution({
+        approved: args.approved, source: args.decidedBy?.source ?? "user", decidedAt: Date.now(),
+        ...(args.decidedBy ? { reason: args.decidedBy.reason } : { scope: "once" }),
+      }),
     });
     const nextSession = cacheWorkspaceSession(args.workspaceId, {
       ...session,

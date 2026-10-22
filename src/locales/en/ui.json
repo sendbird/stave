@@ -310,5 +310,29 @@
     "models_other": "{{label}}, {{count}} models",
     "agents_one": "{{label}}, {{count}} agent",
     "agents_other": "{{label}}, {{count}} agents"
+  },
+  "versionCompare": {
+    "mode": "Compare mode",
+    "sideBySide": "Side by side",
+    "slider": "Slider",
+    "onion": "Onion skin",
+    "diff": "Difference",
+    "revealCurrent": "Reveal the newer version",
+    "overlayCurrent": "Overlay the newer version",
+    "before": "Before",
+    "after": "After"
+  },
+  "avatar": {
+    "status": {
+      "away": "Away",
+      "busy": "Busy",
+      "offline": "Offline",
+      "online": "Online"
+    },
+    "presence": {
+      "idle": "Idle",
+      "offline": "Offline",
+      "online": "Online"
+    }
   }
 }

@@ -14,7 +14,7 @@ import {
   parseDiffShortStat,
   type FactSourceMessage,
 } from "../../../src/lib/agent-runs/facts";
-import type { StageFacts } from "../../../src/lib/agent-runs/domain";
+import { AGENT_RUN_LIMITS, type StageFacts } from "../../../src/lib/agent-runs/domain";
 import type { AgentRunWorkspaceState } from "../../../src/lib/agent-runs/report";
 import type { ScmCommandRunner } from "../scm-runtime";
 import { readWorkspaceRevision } from "./workspace-revision";
@@ -50,6 +50,37 @@ export async function readDiffSince(args: {
   return result.ok ? parseDiffShortStat(result.stdout) : null;
 }
 
+/**
+ * The paths changed since the stage began: tracked changes, committed or not,
+ * plus untracked files (an agent's new files are untracked until committed;
+ * an untracked file that predates the stage cannot be told apart). Sorted and
+ * capped; null when git cannot answer.
+ */
+export async function readChangedPathsSince(args: {
+  cwd: string;
+  sha: string;
+  run: ScmCommandRunner;
+}): Promise<{ paths: string[]; truncated: boolean } | null> {
+  if (!SHA_PATTERN.test(args.sha)) return null;
+  const [tracked, untracked] = await Promise.all([
+    git(args.run, args.cwd, ["diff", "--name-only", "-z", args.sha]),
+    git(args.run, args.cwd, ["ls-files", "--others", "--exclude-standard", "-z"]),
+  ]);
+  if (!tracked.ok || !untracked.ok) return null;
+  const cut = tracked.stdoutTruncated === true || untracked.stdoutTruncated === true;
+  const all = [...new Set([...completePaths(tracked), ...completePaths(untracked)])].sort();
+  const limit = AGENT_RUN_LIMITS.facts.changedPaths;
+  // Output cut by the runner's cap is an incomplete list, however short it is.
+  return { paths: all.slice(0, limit), truncated: cut || all.length > limit };
+}
+
+/** NUL-terminated paths; after a cut, the text past the last NUL is a partial path and is dropped. */
+function completePaths(result: { stdout: string; stdoutTruncated?: boolean }): string[] {
+  const fields = result.stdout.split("\0");
+  if (result.stdoutTruncated === true) fields.pop();
+  return fields.filter(Boolean);
+}
+
 /** Facts for one stage attempt from the turns it ran. */
 export async function collectStageFacts(args: {
   cwd: string | null;
@@ -63,8 +94,16 @@ export async function collectStageFacts(args: {
     args.cwd && args.startHeadSha
       ? await readDiffSince({ cwd: args.cwd, sha: args.startHeadSha, run: args.run })
       : null;
+  const changed =
+    args.cwd && args.startHeadSha
+      ? await readChangedPathsSince({ cwd: args.cwd, sha: args.startHeadSha, run: args.run })
+      : null;
   const workspaceRevision = args.cwd ? await readWorkspaceRevision(args.cwd) : { status: "unknown" as const, reason: "unavailable" as const };
-  return { ...extractStageFacts({ messages: args.messages, turnIds: args.turnIds, currentTurnId: args.currentTurnId, diff }), workspaceRevision };
+  return {
+    ...extractStageFacts({ messages: args.messages, turnIds: args.turnIds, currentTurnId: args.currentTurnId, diff }),
+    ...(changed ? { changedPaths: changed.paths, ...(changed.truncated ? { changedPathsTruncated: true } : {}) } : {}),
+    workspaceRevision,
+  };
 }
 
 /**

@@ -31,7 +31,7 @@ import {
 import { AGENT_RUN_PLAN_INSTRUCTION, hasAgentOrigin } from "./agent-run";
 import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { currentEventWait, type AgentRunEventWait } from "./event-wait";
-import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
+import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckInstruction, workspaceCheckMet, workspaceCheckMode, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckCriterion } from "./workspace-check";
 import type { EventWaitWake } from "./event-wait-observe";
 import type { StageTurnReason } from "./policy";
 import { revisionsMatch } from "./verification-contract";
@@ -84,8 +84,12 @@ function checksRepairClosing(aggregate: AgentRunAggregate): string {
   return [
     ACTION_TURN_CLOSING,
     ...(criteria.length ? [
-      "Commit the finished fix first, then rerun every required inherited host check on that committed revision with `stave_run_workspace_script`. Use one frozen script from each check below; every required check must return verified: true before you end the turn. Shell test output does not replace these host checks. If a check fails, fix the cause, commit again and rerun it. If the check cannot run, explain the blocker without claiming verification.",
-      ...criteria.map((criterion) => `- ${criterion.text}: ${criterion.scriptIds?.map((id) => `\`${id}\``).join(" or ") ?? "its frozen configured script"}`),
+      "Commit the finished fix first, then rerun every required inherited host check on that committed revision with `stave_run_workspace_script`. Use one frozen script from each check below, or every script of a check marked \"all must pass\"; every required check must return verified: true before you end the turn. Shell test output does not replace these host checks. If a check fails, fix the cause, commit again and rerun it. If the check cannot run, explain the blocker without claiming verification.",
+      ...criteria.map((criterion) => {
+        const all = workspaceCheckMode(criterion) === "all";
+        const scripts = criterion.scriptIds?.map((id) => `\`${id}\``).join(all ? " and " : " or ") ?? "its frozen configured script";
+        return `- ${criterion.text}: ${scripts}${all && criterion.scriptIds?.length ? " (all must pass)" : ""}`;
+      }),
       "Do not call `stave_report_stage`, `stave_block_stage` or `stave_wait_for_event` for this action repair turn. End the turn after the repair and its host checks; Stave resumes the action.",
     ] : []),
   ].join("\n");
@@ -156,11 +160,12 @@ export function collectAcceptanceCriteria(
       }) : [];
     const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
     const checks = stage.kind === "ai" && record ? (stage.acceptanceCriteria ?? []).filter((criterion) => criterion.verification === "stave-check").map((criterion) => {
+      const mode = workspaceCheckMode(criterion);
       const verified = index < agentRun.currentStageIndex
         ? currentRecord && currentRevision
           ? inheritedWorkspaceCheckRevision(aggregate, currentRecord, { record, criterion }) !== undefined
-          : workspaceCheckRevisionMatches(workspaceCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions), record.facts?.workspaceRevision)
-        : workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions);
+          : workspaceCheckRevisionMatches(workspaceCheckRevision(record, criterion.scriptIds, criterion.scriptDefinitions, mode), record.facts?.workspaceRevision)
+        : workspaceCheckMet(record, criterion.scriptIds, criterion.scriptDefinitions, mode);
       return { text: criterion.text, required: criterion.required, status: verified ? "met" as const : "unverified" as const };
     }) : [];
     const updates = [...reported, ...observed, ...checks];

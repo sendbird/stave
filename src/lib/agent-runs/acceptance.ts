@@ -2,7 +2,7 @@ import { i18n } from "@/i18n/runtime";
 import type { AgentRunAggregate, AgentRunStageRecord } from "./domain";
 import { collectAcceptanceCriteria, inheritedWorkspaceCheckCriteria } from "./briefing";
 import { revisionsMatch } from "./verification-contract";
-import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckBlock, workspaceCheckMet } from "./workspace-check";
+import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckBlock, workspaceCheckMet, workspaceCheckMode } from "./workspace-check";
 export { inheritedWorkspaceCheckCriteria } from "./briefing";
 
 /** The final AI report also needs a revision when its host checks came from an earlier stage. */
@@ -58,7 +58,7 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
       if (required.has(text)) continue;
       const ownCheck = stage.acceptanceCriteria?.find((entry) => entry.verification === "stave-check" && entry.text.trim() === text);
       const current = ownCheck
-        ? (workspaceCheckMet(record, "scriptIds" in ownCheck ? ownCheck.scriptIds : undefined, "scriptDefinitions" in ownCheck ? ownCheck.scriptDefinitions : undefined) ? "met" : "unverified")
+        ? (workspaceCheckMet(record, "scriptIds" in ownCheck ? ownCheck.scriptIds : undefined, "scriptDefinitions" in ownCheck ? ownCheck.scriptDefinitions : undefined, workspaceCheckMode(ownCheck)) ? "met" : "unverified")
         : report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text)?.status ?? (verifiedInherited.has(text) ? "met" : criterion.status);
       if (current !== "met") required.set(text, ownCheck ? { ...ownCheck, required: true } : { text: criterion.text });
     }
@@ -70,7 +70,7 @@ export function unmetStageAcceptance(aggregate: AgentRunAggregate, record: Agent
   for (const [text, criterion] of required) {
     if (criterion.verification === "stave-check") {
       const checkCriterion = { ...criterion, scriptIds: "scriptIds" in criterion ? criterion.scriptIds : undefined, scriptDefinitions: "scriptDefinitions" in criterion ? criterion.scriptDefinitions : undefined };
-      if (!workspaceCheckMet(record, checkCriterion.scriptIds, checkCriterion.scriptDefinitions)) return workspaceCheckBlock(record, checkCriterion);
+      if (!workspaceCheckMet(record, checkCriterion.scriptIds, checkCriterion.scriptDefinitions, workspaceCheckMode(checkCriterion))) return workspaceCheckBlock(record, checkCriterion);
       continue;
     }
     const reported = report?.acceptanceCriteria?.find((entry) => entry.text.trim() === text);

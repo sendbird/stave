@@ -1,0 +1,131 @@
+{
+  "surface": {
+    "label": "검토"
+  },
+  "mode": {
+    "label": "작업 보기",
+    "conversation": "대화",
+    "review": "검토"
+  },
+  "scope": {
+    "label": "검토 범위",
+    "turn": "이번 턴",
+    "stage": "이번 단계",
+    "branch": "브랜치",
+    "uncommitted": "커밋 전 변경",
+    "refresh": "변경 사항 새로고침"
+  },
+  "revision": {
+    "turn": "에이전트가 이번 턴에 보고한 편집",
+    "stage": "단계가 시작된 {{base}}부터 {{head}}의 작업 트리까지",
+    "branch": "{{ref}}에서 갈라진 {{base}}부터 {{head}}의 작업 트리까지",
+    "uncommitted": "HEAD {{head}} 대비 작업 트리"
+  },
+  "limits": {
+    "label": "이 범위에서 볼 수 없는 것",
+    "reportedEditsOnly": "에이전트가 보고한 편집만 보입니다. 셸 명령으로 바꾼 내용은 여기 없으니 모든 변경은 커밋 전 변경이나 브랜치에서 확인하세요.",
+    "laterEditsMerge": "이 단계가 바꾼 파일을 나중에 다시 고쳤다면 단계의 편집과 구분할 수 없습니다.",
+    "noRecordedPaths": "이 단계는 Stave가 단계의 변경 경로를 기록하기 전에 실행되어, 파일을 이후 변경과 구분할 수 없습니다.",
+    "pathsTruncated": "이 단계는 Stave가 기록하는 것보다 많은 파일을 바꿨습니다. 처음 200개 이후의 파일은 구분하지 않습니다."
+  },
+  "files": {
+    "title": "변경된 파일",
+    "readCount_other": "{{count}}개 중 {{read}}개 읽음",
+    "none": "이 범위에는 변경 사항이 없습니다.",
+    "turnMissing": "이 턴은 더 이상 작업의 저장된 기록에 없습니다.",
+    "status": {
+      "added": "추가됨",
+      "modified": "수정됨",
+      "deleted": "삭제됨",
+      "renamed": "이름 바뀜",
+      "copied": "복사됨"
+    },
+    "groups": {
+      "stage": "이번 단계",
+      "afterStage": "단계 이후",
+      "unknown": "구분 안 됨"
+    },
+    "groupWithCount": "{{group}} ({{count}})",
+    "row": "{{path}}, {{status}}",
+    "rowRead": "{{path}}, {{status}}, 읽음"
+  },
+  "diff": {
+    "title": "차이",
+    "comment": "코멘트",
+    "renamed": "{{from}} → {{to}}",
+    "noTextChange": "텍스트 변경이 없습니다(모드, 권한 또는 바이너리 내용).",
+    "noChanges": "표시할 변경 사항이 없습니다.",
+    "binary": "바이너리 파일이라 검토에서 내용을 표시하지 않습니다."
+  },
+  "inspector": {
+    "title": "검사와 메모"
+  },
+  "checks": {
+    "title": "완료 검사",
+    "noRun": "에이전트 실행이 없는 작업이라 완료 검사가 없습니다.",
+    "none": "이 실행에는 완료 조건이 없습니다."
+  },
+  "lens": {
+    "title": "Lens 확인",
+    "none": "이 작업에 저장된 Lens 비교가 없습니다.",
+    "readFailed": "저장된 Lens 확인을 읽지 못했습니다.",
+    "show": "비교 보기",
+    "hide": "비교 숨기기"
+  },
+  "comments": {
+    "title": "diff 코멘트",
+    "none": "아직 코멘트가 없습니다. 파일의 코멘트로 추가하세요.",
+    "pending_other": "보내지 않음 ({{count}})",
+    "sent_other": "보냄 ({{count}})",
+    "where": "{{path}}:{{line}}",
+    "sentWhere": "{{where}} · {{time}}에 보냄"
+  },
+  "outputs": {
+    "title": "결과",
+    "noResult": "이 턴의 저장된 결과가 아직 없습니다.",
+    "reviewedAt": "{{time}}에 검토함",
+    "notReviewed": "아직 검토하지 않음",
+    "readAt": "{{time}}에 읽음",
+    "notRead": "아직 읽지 않음",
+    "noReport": "단계가 아직 보고하지 않았습니다.",
+    "blocked": "막힘: {{missing}}"
+  },
+  "errors": {
+    "noWorkspace": "변경 사항을 읽으려면 작업의 워크스페이스를 여세요.",
+    "noStageStart": "이 단계는 시작 커밋이 기록되지 않아 변경 사항을 읽을 수 없습니다.",
+    "unavailable": "여기서는 변경 사항을 읽을 수 없습니다.",
+    "failed": "변경 사항을 읽지 못했습니다.",
+    "failedWithDetail": "변경 사항을 읽지 못했습니다: {{detail}}",
+    "outside": "이 경로는 워크스페이스 밖을 가리키는 링크라서 검토에서 열지 않습니다.",
+    "changed": "읽는 중에 파일이 바뀌었습니다. 새로고침해서 다시 읽으세요.",
+    "tooLarge": "이 파일은 여기에 표시하기에 너무 큽니다. 편집기에서 열거나 Git으로 확인하세요."
+  },
+  "decisions": {
+    "label": "결정",
+    "summary_other": "파일 {{count}}개 중 {{read}}개 읽음",
+    "stage": {
+      "signOff": "승인",
+      "askForChanges": "변경 요청",
+      "waiting": "승인 대기 중",
+      "signedOff": "{{time}}에 승인함",
+      "changesAsked": "{{time}}에 변경 요청함",
+      "none": "이 단계에는 승인 절차가 없음",
+      "feedbackLabel": "어떤 내용을 변경하시겠습니까? 메모를 전달하여 마지막 AI 단계를 다시 실행합니다.",
+      "send": "보내고 다시 실행",
+      "cancel": "취소"
+    },
+    "task": {
+      "markReviewed": "검토 완료로 표시",
+      "sendComments": "코멘트 보내기",
+      "reviewed": "{{time}}에 검토함",
+      "notReviewed": "아직 검토하지 않음",
+      "noResult": "검토할 저장된 결과가 아직 없음",
+      "unsent_other": "보내지 않은 코멘트 {{count}}개",
+      "markFailed": "검토 표시를 저장하지 못했습니다. 다시 시도하세요.",
+      "sendFailed": "코멘트를 보내지 못했습니다. 현재 턴이 끝난 뒤 다시 시도하세요."
+    }
+  },
+  "approvals": {
+    "readFailed": "승인 요청을 읽지 못했습니다."
+  }
+}

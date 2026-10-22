@@ -46,10 +46,19 @@ measured by completed workflows rather than the number of controls.
 - Sent feedback can compare its original image with a fresh target capture.
   Comparison requires the recorded viewport and a unique visible target; missing
   or ambiguous targets require reselection. Users must confirm target identity
-  and mark resolution themselves. Resolution markers currently last only while
-  that target remains open in the review view, and reset on page navigation.
-- The captured page address excludes query parameters and fragments. Matching
-  its address or selector alone never establishes that the issue is resolved.
+  and decide themselves: **Confirm fixed** or **Needs re-check** saves a Lens
+  review record with the task (the comparison, verdict, page address, viewport
+  and time). Records survive navigation and restarts. A confirmation stands only
+  while the Lens session shows the page document it was captured from, at the
+  address it was captured at, query and fragment included; after a navigation,
+  reload, an in-page move to another address, query or hash route, or a restart
+  the record reads **Needs re-check** and keeps when it was confirmed. A task
+  keeps its 20 newest records; closing the task's workspace deletes them with
+  their captures.
+- The captured page address shown and stored excludes query parameters and
+  fragments; the record keeps only a hash of the full address to tell pages
+  apart. Matching its address or selector alone never establishes that the
+  issue is resolved.
 
 - Source file and line information depends on metadata supplied by the page;
   production builds may provide none.

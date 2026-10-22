@@ -110,6 +110,10 @@ Choose the chevron to open the queue, in the order it sends:
 - Drag a row by its grip to change the order.
 - A row bound for another model says `Sends as <model>, not <composer model>`;
   a row with files or images counts them.
+- Each row says how it will be delivered while a turn runs: **Waits for the
+  next turn**, adding that steering delivers it to the current response when
+  it can be steered. A row open for editing is **Held while you edit it** and
+  does not send until you save or cancel.
 - **Clear all** empties the queue.
 
 Messages with attachments cannot be steered, so they wait for the current
@@ -186,7 +190,11 @@ The shelf reads the composer's own width, not the window's:
 The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
-  ends — under every placement.
+  ends — under every placement. Under them, **Approvals in this turn** counts
+  the turn's permission requests by who allowed them (`1 allowed by you ·
+  1 allowed by a Stave rule · 1 allowed by the provider's mode · 1 denied`);
+  open it to list each request with who decided it and when. It is absent when the turn asked for nothing. See
+  [Who decided each approval](provider-sandbox-and-approval.md#who-decided-each-approval).
 - **Progress**: the task's [agent run](agent-runs.md) while it has one — running,
   paused or ended — and otherwise its flow (Request → Plan → Changes →
   Verification → Pull request), with the task's wake-up under either.

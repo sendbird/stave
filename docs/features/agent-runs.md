@@ -145,6 +145,32 @@ agents and checks each result before it reports.
 - **Who** in [Workspace Kickoff](workspace-kickoff.md): pick an agent and
   click **Assign**.
 
+### What a run will do
+
+When the next send will start an agent run, the composer says **Sending this
+starts an agent run** with four lines, and the Run panel's header repeats them
+as **What this run does**:
+
+- **Where**: the task's workspace, its branch, and whether it is the
+  repository folder or the run's own worktree.
+- **May change**: an Auto agent edits files and runs commands with the
+  provider's auto mode deciding each action and asking when it cannot. The
+  line follows the options the run applies: on a Codex without its reviewer
+  for Auto, the run falls back to approvals off, and the line says it edits
+  without asking. (Codex's managed settings or account can still turn the
+  reviewer off when a turn starts; the turn then runs the same way.) Other
+  agents edit without asking; a Read only agent changes nothing. Writes outside
+  the repository, credential files and irreversible remote actions still come
+  to you. Publishing steps (such as **Open draft PR**) say whether they are
+  allowed from the start or wait for your sign-off.
+- **Done when**: the assignment, or each stage of the workflow, and the
+  workspace checks Stave runs itself, with whether every script must pass or
+  one is enough. For a write agent whose workspace has action scripts, the
+  default check (one passing script) is named too.
+- **Comes back to you**: the check-in level, the stages that ask first,
+  questions it cannot settle, and the turn limit (it pauses there until you
+  extend it) and usage limits.
+
 ### Check in with me
 
 An agent's **Check in with me** decides where a run waits for you between
@@ -252,7 +278,9 @@ the turns used of the limit and what the agent run has spent, such as
 
 - The primary button names what happens, such as **Start Verify** or
   **Mark ready for review**.
-- **Review changes** opens Source Control.
+- **Review changes** opens [Review](review-mode.md) on the stage the sign-off
+  is about: its changes since its start commit, apart from anything changed
+  after it, its checks, and **Sign off** or **Ask for changes** in one place.
 - **Ask for changes** sends a note and runs the last AI stage again.
 
 ### Agent run in the Task panel
@@ -302,20 +330,32 @@ unless its workflow explicitly requires one. Manual sign-off and Skip remain
 available.
 
 Workflow stage criteria support `text`, optional `required` (true by default),
-and optional `verification`. AI stages use `agent-report` for the agent's
+optional `verification` and, on AI stages, an optional `mode` (`all` or
+`any`) for `stave-check` criteria. AI stages use `agent-report` for the agent's
 assessment, or `stave-check` for a host workspace script result. A required
 `stave-check` cannot be satisfied by an agent-reported **Met**. Run script
 action stages keep the same check behavior, including when verification is
 omitted. A bound Run script action checks its admitted definition before execution
 and accepts a successful result only when its receipt names that same definition.
-Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
+Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. With `mode: "all"`, every listed action must pass; without `mode`, any one may. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
 
-A workspace check is met by any one of its actions that passes on the final
-revision. Wherever Stave shows such a criterion (Done when on the result, the
-Run panel's checks and the sign-off card's summary), it adds how many of the
-criterion's actions passed and which ones, for example
+A workspace check saved without a `mode` keeps its original meaning: any one
+of its actions that passes on the final revision meets it. A check whose
+`mode` is `all` is met only when every listed action has its own passing result
+on that same final revision; a pass on an earlier revision does not count, and
+a script's later failure replaces its earlier pass. Checks added in the stage
+editor (**Workspace checks** on an AI stage) pick their actions from a
+searchable list of the workspace's action scripts and default to **All must
+pass**; **Any one passes** is the other choice. Editing a saved check's scripts
+keeps its choice, so a check saved without one still needs any one; a name the
+editor generated follows the new list, and any other name stays. Wherever Stave shows such a criterion (Done when
+on the result, the Run panel's checks and the sign-off card's summary), it adds
+how many of the criterion's actions passed and which ones, for example
 `Stave checks: 1 of 3 passed (setup)`, so a passing setup action is never
-read as passing tests.
+read as passing tests. A check that needs all of them also names the actions
+still needed, for example
+`Stave checks: 1 of 2 passed (lint); still needed: test`, and a stage blocked
+by it names the first action that has not passed.
 
 Read-only Agents cannot execute host action stages. Pausing, taking over,
 cancelling or releasing the Agent withdraws permission for further work as soon
@@ -329,7 +369,7 @@ built-in Implementer, Debugger and UI Polisher workflows, require **Workspace
 checks pass** when the workspace has configured action scripts. Researcher,
 Reviewer, Lead and read-only agents do not get this default. With one action,
 that script is required; with several, all IDs are listed in sorted order and
-any one may satisfy the criterion. Script configuration currently has no
+any one may satisfy the criterion (the default carries no `mode`). Script configuration currently has no
 verification-role marker. The criterion and hashes of the resolved execution definitions stay with the workflow on stage retry. A new run, including **Run again**, discards incoming hashes and binds the current host-resolved definitions. Changing commands, working directory, shell or configured environment after admission makes the tool refuse that script.
 Without configured actions, completion remains agent-reported.
 
@@ -462,6 +502,12 @@ sample limits and examples of when each screen helps.
   requests on GitHub, messages through your own tools).
 - The agent's workflow is copied into the run when it starts; later edits to
   the agent do not change a running run.
+- Each stage record keeps the paths the stage changed since its start commit
+  (tracked changes, committed or not, and untracked files; up to 200), read
+  when the stage reports. Review uses them to tell the stage's own changes
+  from later ones. An untracked file that existed before the stage, or a
+  later edit to one of the stage's own files, cannot be told apart. Stages
+  recorded before this have no list.
 
 ## Limitations And Advanced Options
 

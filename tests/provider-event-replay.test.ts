@@ -458,8 +458,10 @@ describe("appendProviderEventToAssistant", () => {
     ]);
   });
 
-  test("marks a matching approval as responded once the tool starts", () => {
-    const updated = appendProviderEventToAssistant({
+  test("keeps a matching approval pending when the call is announced after it, and resolves it once the call runs", () => {
+    // Claude's permission callback can run before the message announcing the
+    // call is read; the late announcement is not an answer.
+    const announced = appendProviderEventToAssistant({
       message: createMessage({
         parts: [
           {
@@ -480,16 +482,22 @@ describe("appendProviderEventToAssistant", () => {
       },
     });
 
-    expect(updated.parts[0]).toMatchObject({
+    expect(announced.parts[0]).toMatchObject({
       type: "approval",
       requestId: "tool-1",
-      state: "approval-responded",
+      state: "approval-requested",
     });
-    expect(updated.parts[1]).toMatchObject({
+    expect(announced.parts[1]).toMatchObject({
       type: "tool_use",
       toolUseId: "tool-1",
       toolName: "Bash",
     });
+
+    const running = appendProviderEventToAssistant({
+      message: announced,
+      event: { type: "tool_progress", toolUseId: "tool-1", toolName: "Bash", elapsedSeconds: 1 },
+    });
+    expect(running.parts[0]).toMatchObject({ requestId: "tool-1", state: "approval-responded" });
   });
 
   test("marks a matching approval as responded once tool results arrive", () => {

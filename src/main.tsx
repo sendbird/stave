@@ -144,6 +144,14 @@ if (preview === "question-reply") {
       </StrictMode>,
     );
   });
+} else if (preview === "review") {
+  void import("@/dev/review-preview").then(({ ReviewPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><ReviewPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "lens-review") {
+  void import("@/dev/lens-review-preview").then(({ LensReviewPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><LensReviewPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "api-connections") {
   void import("@/dev/api-connections-preview").then(({ ApiConnectionsPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><ApiConnectionsPreview /></StaveDesignProvider></StrictMode>);

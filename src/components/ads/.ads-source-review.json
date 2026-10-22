@@ -1,0 +1,68 @@
+{
+  "bundleIntegrity": "sha256-94148e99e1a0dbe9988400bc2a964893efbc39a6ebcc5276a08885e0b102cb0b",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@stylexjs/stylex": "0.19.0",
+    "lucide-react": "1.21.0",
+    "motion": "^12.42.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "workspacelayout",
+      "kind": "component",
+      "name": "Workspace Layout",
+      "path": "src/components/ads/components/WorkspaceLayout.tsx"
+    },
+    {
+      "id": "approvalbar",
+      "kind": "component",
+      "name": "Approval Bar",
+      "path": "src/components/ads/components/ReviewStatus.tsx"
+    },
+    {
+      "id": "togglegroup",
+      "kind": "component",
+      "name": "Toggle Group",
+      "path": "src/components/ads/components/ToggleGroup.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-69056ec4fb14e7c7881f5b3afc118e87061158ce875bc91b32c9f7c63712f3c1",
+      "path": "src/components/ads/components/WorkspaceLayout.tsx",
+      "sourcePath": "packages/design-system/src/components/WorkspaceLayout.tsx"
+    },
+    {
+      "integrity": "sha256-f80748f04b048c144869adde093581245a4e6c5d8de32b0055daba6d20eb8b30",
+      "path": "src/components/ads/components/ReviewStatus.tsx",
+      "sourcePath": "packages/design-system/src/components/ReviewStatus.tsx"
+    },
+    {
+      "integrity": "sha256-ab232203caa7e119a156bf2812caffe26f3dfe129e72e65d3e62f10050c0da82",
+      "path": "src/components/ads/components/ToggleGroup.tsx",
+      "sourcePath": "packages/design-system/src/components/ToggleGroup.tsx"
+    },
+    {
+      "integrity": "sha256-2c8d9739738c4169a3476060ea11f2acbcf1de548517c1468527e46160b7748f",
+      "path": "src/components/ads/headless/toggle-group.tsx",
+      "sourcePath": "packages/design-system/src/headless/toggle-group.tsx"
+    },
+    {
+      "integrity": "sha256-a57831c8af3d81368596f165406df2b36d454c14f85d272a9c3d87e39dfc0fd0",
+      "path": "src/components/ads/utils/busy-action.ts",
+      "sourcePath": "packages/design-system/src/utils/busy-action.ts"
+    }
+  ],
+  "generatorVersion": "2",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-8789c0ca2adff13ed1164e5568b5fa9c6f4b6d371b7f9e965a7e9c0edb654592",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

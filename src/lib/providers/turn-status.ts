@@ -509,6 +509,22 @@ function resolvePendingInteraction(
   return undefined;
 }
 
+/**
+ * A shown approval decided without a person (`approval_resolved`: it timed
+ * out) asks no more, so the hint follows the prompts the turn's graph still
+ * holds open instead of reading "Waiting for approval" with no card left.
+ */
+function settleDecidedApprovals(
+  pending: ProviderTurnPendingInteraction | null,
+  events: NormalizedProviderEvent[],
+  graph: WorkGraph,
+): ProviderTurnPendingInteraction | null {
+  if (pending !== "approval" || !events.some((event) => event.type === "approval_resolved")) return pending;
+  const open = Object.values(graph.interactionsById).filter((interaction) => !interaction.resolvedAt);
+  if (open.some((interaction) => interaction.kind === "user-input")) return "user_input";
+  return open.some((interaction) => interaction.kind === "approval") ? "approval" : null;
+}
+
 function resolveTurnProviderId(args: {
   events: NormalizedProviderEvent[];
   currentProviderId?: ProviderId;
@@ -1051,6 +1067,14 @@ export function reduceProviderTurnActivityEvents(args: {
     events: args.events,
     now,
   });
+  const workGraph = applyTurnWorkGraphEvents({
+    current,
+    turnId: args.turnId,
+    providerId,
+    events: args.events,
+    startedAt,
+    now,
+  });
 
   const snapshot: ProviderTurnActivitySnapshot = {
     turnId: args.turnId,
@@ -1059,17 +1083,10 @@ export function reduceProviderTurnActivityEvents(args: {
     startedAt,
     lastEventAt: now,
     stalledAt: null,
-    pendingInteraction,
+    pendingInteraction: settleDecidedApprovals(pendingInteraction, args.events, workGraph),
     workItemsById: work.workItemsById,
     orderedWorkItemIds: work.orderedWorkItemIds,
-    workGraph: applyTurnWorkGraphEvents({
-      current,
-      turnId: args.turnId,
-      providerId,
-      events: args.events,
-      startedAt,
-      now,
-    }),
+    workGraph,
     ...(turnErrorState
       ? {
           turnError: turnErrorState.message,
