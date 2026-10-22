@@ -1663,7 +1663,8 @@ export async function suggestCodexPRDescription(args: {
   model?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<{ ok: boolean; title?: string; body?: string }> {
-  const result = await runCodexReadOnlyPrompt(args);
+  // The prompt carries the diff and log: no shell, tools or MCP to read more.
+  const result = await runCodexReadOnlyPrompt({ ...args, isolated: true, toolsDisabled: true });
   if (!result.ok || !result.text) {
     return { ok: false };
   }
@@ -1703,6 +1704,9 @@ export async function reviewCodexWorktreeDiff(args: {
     model: args.model,
     outputSchema: PRE_PR_REVIEW_OUTPUT_SCHEMA,
     runtimeOptions: args.runtimeOptions,
+    // The diff under review is untrusted: it gets no shell, tools or MCP.
+    isolated: true,
+    toolsDisabled: true,
   });
   return result.ok
     ? { ok: true, findings: parseReviewFindings(result.text ?? "") }
