@@ -66,9 +66,12 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     onTrustAndApprove,
     onDraftGuidance,
   } = args;
-  const [guidanceMessageId, setGuidanceMessageId] = useState<string | null>(
-    null,
-  );
+  // Guidance is written for one request, not for its message: another
+  // request of the same message can arrive and lead while it is open.
+  const [guidanceTarget, setGuidanceTarget] = useState<{
+    messageId: string;
+    requestId: string;
+  } | null>(null);
   const [guidanceText, setGuidanceText] = useState("");
   const [pendingDecisionRequestId, setPendingDecisionRequestId] = useState<
     string | null
@@ -79,8 +82,13 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
 
   const latest = approvals[0];
   const latestMessageId = latest?.messageId ?? null;
+  const latestRequestId = latest?.part.requestId ?? null;
+  // Open only while its request still leads: the form sends for the leading
+  // card, so a new request taking the lead closes it instead of being denied.
   const guidanceOpen =
-    latestMessageId !== null && guidanceMessageId === latestMessageId;
+    guidanceTarget !== null &&
+    guidanceTarget.messageId === latestMessageId &&
+    guidanceTarget.requestId === latestRequestId;
   const queuedCount = approvals.length - 1;
   const decisionPending = pendingDecisionRequestId !== null;
 
@@ -124,29 +132,35 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     if (args.focusComposer) {
       pendingGuidanceFocusRef.current = true;
     }
-    setGuidanceMessageId(latest.messageId);
-    if (guidanceMessageId !== latest.messageId) {
+    setGuidanceTarget({ messageId: latest.messageId, requestId: latest.part.requestId });
+    if (guidanceTarget?.requestId !== latest.part.requestId) {
       setGuidanceText("");
     }
   }
 
   useEffect(() => {
     if (latestMessageId === null) {
-      setGuidanceMessageId(null);
+      setGuidanceTarget(null);
       setGuidanceText("");
       pendingGuidanceFocusRef.current = false;
       return;
     }
 
+    // The request was answered or withdrawn: its draft goes with it. A draft
+    // whose request only stopped leading is kept for when it leads again.
     if (
-      guidanceMessageId &&
-      !approvals.some((approval) => approval.messageId === guidanceMessageId)
+      guidanceTarget &&
+      !approvals.some(
+        (approval) =>
+          approval.messageId === guidanceTarget.messageId &&
+          approval.part.requestId === guidanceTarget.requestId,
+      )
     ) {
-      setGuidanceMessageId(null);
+      setGuidanceTarget(null);
       setGuidanceText("");
       pendingGuidanceFocusRef.current = false;
     }
-  }, [approvals, guidanceMessageId, latestMessageId]);
+  }, [approvals, guidanceTarget, latestMessageId]);
 
   useEffect(() => {
     if (
@@ -312,7 +326,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                     description: current.part.description,
                     guidance,
                   });
-                  setGuidanceMessageId(null);
+                  setGuidanceTarget(null);
                   setGuidanceText("");
                 }}
               >
@@ -323,7 +337,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                 variant="ghost"
                 xstyle={styles.compactButtonQuiet}
                 onClick={() => {
-                  setGuidanceMessageId(null);
+                  setGuidanceTarget(null);
                   setGuidanceText("");
                 }}
               >
