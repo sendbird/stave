@@ -24,7 +24,7 @@ function runTurnId(activeTurnId: string | null, messages: readonly ChatMessage[]
 
 /**
  * Under the Activity tab's list: the approval record of the turn it lists —
- * how many requests you decided and how many were decided automatically, and
+ * how many requests you, a Stave rule and the provider's mode allowed, and
  * each request with who decided it. Folded to its counts until opened; absent
  * when the turn asked for nothing.
  */

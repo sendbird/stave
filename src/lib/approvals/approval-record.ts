@@ -36,12 +36,18 @@ export function recordAutomaticApprovalDecision(parts: MessagePart[], event: App
   }];
 }
 
-/** Where one request stands in the record. */
+/**
+ * Where one request stands in the record. A decision says who made it: you,
+ * a Stave rule (trusted tools, autonomous mode, a timeout, ...) or the
+ * provider's own permission mode.
+ */
 export type ApprovalStanding =
   | "allowed-by-you"
   | "denied-by-you"
-  | "allowed-automatically"
-  | "denied-automatically"
+  | "allowed-by-rule"
+  | "denied-by-rule"
+  | "allowed-by-provider"
+  | "denied-by-provider"
   | "waiting"
   | "withdrawn"
   /** Answered, but who decided was not recorded (older parts, or decided outside Stave). */
@@ -68,53 +74,86 @@ export function approvalStanding(part: Pick<ApprovalPart, "state" | "resolution"
   if (!part.resolution) return "unrecorded";
   // The state is what the card shows; the resolution says who decided it.
   const allowed = part.state === "approval-responded";
-  if (part.resolution.source === "user") return allowed ? "allowed-by-you" : "denied-by-you";
-  return allowed ? "allowed-automatically" : "denied-automatically";
+  switch (part.resolution.source) {
+    case "user": return allowed ? "allowed-by-you" : "denied-by-you";
+    case "rule": return allowed ? "allowed-by-rule" : "denied-by-rule";
+    case "provider-auto": return allowed ? "allowed-by-provider" : "denied-by-provider";
+  }
+}
+
+/** How settled a part is: a decision with its decider beats one without, which beats an open or withdrawn request. */
+function settledness(part: ApprovalPart): number {
+  if (part.state === "approval-requested" || part.state === "approval-interrupted") return 0;
+  return part.resolution ? 2 : 1;
 }
 
 function firstLine(value: string): string | undefined {
   return boundApprovalRecordInput(value.split("\n").find((line) => line.trim()));
 }
 
-/** The approval requests in these messages, in the order they were asked. */
+function toEntry(message: ChatMessage, part: ApprovalPart): ApprovalRecordEntry {
+  const target = boundApprovalRecordInput(part.input) ?? firstLine(part.description);
+  const decision = part.state === "approval-responded" ? "allowed" : part.state === "output-denied" ? "denied" : undefined;
+  return {
+    id: `${message.id}:${part.requestId}`,
+    messageId: message.id,
+    ...(message.turnId ? { turnId: message.turnId } : {}),
+    toolName: part.toolName,
+    ...(target ? { target } : {}),
+    standing: approvalStanding(part),
+    ...(decision ? { decision } : {}),
+    ...(part.resolution ? { resolution: part.resolution } : {}),
+    prompted: part.prompted !== false,
+  };
+}
+
+/**
+ * The approval requests in these messages, in the order they were asked, one
+ * per request: a request delivered twice in a turn (a re-sent event, a row
+ * split) is one entry, its most settled part.
+ */
 export function collectApprovalRecord(messages: readonly ChatMessage[]): ApprovalRecordEntry[] {
+  const kept = new Map<string, { index: number; part: ApprovalPart }>();
   const entries: ApprovalRecordEntry[] = [];
   for (const message of messages) {
     for (const part of message.parts) {
       if (part.type !== "approval") continue;
-      const target = boundApprovalRecordInput(part.input) ?? firstLine(part.description);
-      const decision = part.state === "approval-responded" ? "allowed" : part.state === "output-denied" ? "denied" : undefined;
-      entries.push({
-        id: `${message.id}:${part.requestId}`,
-        messageId: message.id,
-        ...(message.turnId ? { turnId: message.turnId } : {}),
-        toolName: part.toolName,
-        ...(target ? { target } : {}),
-        standing: approvalStanding(part),
-        ...(decision ? { decision } : {}),
-        ...(part.resolution ? { resolution: part.resolution } : {}),
-        prompted: part.prompted !== false,
-      });
+      const key = `${message.turnId ?? message.id}:${part.requestId}`;
+      const previous = kept.get(key);
+      if (!previous) {
+        kept.set(key, { index: entries.length, part });
+        entries.push(toEntry(message, part));
+      } else if (settledness(part) > settledness(previous.part)) {
+        kept.set(key, { index: previous.index, part });
+        entries[previous.index] = toEntry(message, part);
+      }
     }
   }
   return entries;
 }
 
-export type ApprovalRecordSummary = Record<ApprovalStanding, number> & { total: number };
+/** Counts per standing, plus the decisions made without a person (rule and provider) and the total. */
+export type ApprovalRecordSummary = Record<ApprovalStanding, number> & { automatic: number; total: number };
 
-/** How many requests stand each way; a person's decisions apart from automatic ones. */
+/** How many requests stand each way; who decided kept apart. */
 export function summarizeApprovalRecord(entries: readonly ApprovalRecordEntry[]): ApprovalRecordSummary {
   const summary: ApprovalRecordSummary = {
     "allowed-by-you": 0,
     "denied-by-you": 0,
-    "allowed-automatically": 0,
-    "denied-automatically": 0,
+    "allowed-by-rule": 0,
+    "denied-by-rule": 0,
+    "allowed-by-provider": 0,
+    "denied-by-provider": 0,
     waiting: 0,
     withdrawn: 0,
     unrecorded: 0,
+    automatic: 0,
     total: entries.length,
   };
-  for (const entry of entries) summary[entry.standing] += 1;
+  for (const entry of entries) {
+    summary[entry.standing] += 1;
+    if (entry.resolution && entry.resolution.source !== "user" && entry.decision) summary.automatic += 1;
+  }
   return summary;
 }
 

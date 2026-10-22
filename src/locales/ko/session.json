@@ -1012,7 +1012,8 @@
     "activityTitle": "이 턴의 승인",
     "counts": {
       "allowedByYou_other": "사용자 허용 {{count}}건",
-      "allowedAutomatically_other": "자동 허용 {{count}}건",
+      "allowedByRule_other": "Stave 규칙 허용 {{count}}건",
+      "allowedByProvider_other": "제공자 모드 허용 {{count}}건",
       "denied_other": "거부 {{count}}건",
       "waiting_other": "응답 대기 {{count}}건",
       "withdrawn_other": "철회 {{count}}건",

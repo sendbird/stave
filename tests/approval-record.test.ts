@@ -132,15 +132,39 @@ describe("the approval record", () => {
     ];
     const entries = collectApprovalRecord([message(parts)]);
     expect(entries.map((entry) => entry.standing)).toEqual([
-      "allowed-by-you", "denied-by-you", "allowed-automatically", "allowed-automatically",
-      "denied-automatically", "waiting", "withdrawn", "unrecorded",
+      "allowed-by-you", "denied-by-you", "allowed-by-rule", "allowed-by-provider",
+      "denied-by-rule", "waiting", "withdrawn", "unrecorded",
     ]);
     expect(entries[3]).toMatchObject({ id: "m-1:d", turnId: "turn-1", prompted: false, target: "bun test", decision: "allowed" });
     expect(entries[5]?.decision).toBeUndefined();
     expect(summarizeApprovalRecord(entries)).toEqual({
-      "allowed-by-you": 1, "denied-by-you": 1, "allowed-automatically": 2, "denied-automatically": 1,
-      waiting: 1, withdrawn: 1, unrecorded: 1, total: 8,
+      "allowed-by-you": 1, "denied-by-you": 1, "allowed-by-rule": 1, "denied-by-rule": 1, "allowed-by-provider": 1, "denied-by-provider": 0,
+      waiting: 1, withdrawn: 1, unrecorded: 1, automatic: 3, total: 8,
     });
+  });
+
+  test("keeps who decided apart: you, a Stave rule and the provider's mode", () => {
+    const entries = collectApprovalRecord([message([
+      { ...shown("you", "approval-responded"), resolution: { decision: "allowed", source: "user", decidedAt: AT, scope: "once" } },
+      { ...shown("rule", "approval-responded"), prompted: false, resolution: { decision: "allowed", source: "rule", reason: "trusted-tool", decidedAt: AT } },
+      { ...shown("mode", "approval-responded"), prompted: false, resolution: { decision: "allowed", source: "provider-auto", reason: "permission-mode", decidedAt: AT } },
+    ])]);
+    expect(entries.map((entry) => entry.standing)).toEqual(["allowed-by-you", "allowed-by-rule", "allowed-by-provider"]);
+    const summary = summarizeApprovalRecord(entries);
+    expect([summary["allowed-by-you"], summary["allowed-by-rule"], summary["allowed-by-provider"]]).toEqual([1, 1, 1]);
+    expect(summary.automatic).toBe(2);
+  });
+
+  test("a request delivered twice counts once, as its decided part", () => {
+    const decided = { ...shown("twice", "approval-responded"), resolution: { decision: "allowed" as const, source: "user" as const, decidedAt: AT, scope: "once" as const } };
+    // The same request in one turn: a re-delivered card left pending, and the one that was answered (also across a row split).
+    const entries = collectApprovalRecord([
+      message([shown("twice"), decided]),
+      message([shown("twice")], { id: "m-2" }),
+      message([shown("twice")], { id: "m-3", turnId: "turn-2" }),
+    ]);
+    expect(entries.map((entry) => [entry.turnId, entry.standing])).toEqual([["turn-1", "allowed-by-you"], ["turn-2", "waiting"]]);
+    expect(summarizeApprovalRecord(entries).total).toBe(2);
   });
 
   test("a request without input is described by its first line", () => {

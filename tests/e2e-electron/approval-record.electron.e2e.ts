@@ -87,7 +87,7 @@ test("one turn's approvals are counted by who decided them, in Activity and Revi
     if ((await sections.count()) === 0) await page.getByRole("button", { name: "Task", exact: true }).click();
     await sections.getByRole("tab", { name: /^Activity/ }).click();
     const activity = page.getByTestId("turn-approval-record");
-    await expect(activity).toContainText("1 allowed by you · 1 allowed automatically");
+    await expect(activity).toContainText("1 allowed by you · 0 allowed by a Stave rule · 1 allowed by the provider's mode");
     await activity.locator("summary").click();
     await expect(activity).toContainText("Edit · README.md allowed by the permission mode");
     await expect(activity).toContainText("Bash · rm -rf build allowed by you");
@@ -101,7 +101,7 @@ test("one turn's approvals are counted by who decided them, in Activity and Revi
       }
       await page.keyboard.press(shortcut);
       const approvals = page.getByTestId("task-review-surface").getByTestId("review-approvals");
-      await expect(approvals).toContainText("1 allowed by you · 1 allowed automatically", { timeout: 20_000 });
+      await expect(approvals).toContainText("1 allowed by you · 0 allowed by a Stave rule · 1 allowed by the provider's mode", { timeout: 20_000 });
       await expect(approvals).toContainText("Edit · README.md allowed by the permission mode");
       await expect(approvals).toContainText("Bash · rm -rf build allowed by you");
       await approvals.screenshot({ path: testInfo.outputPath(`review-approvals-${pass}.png`) });

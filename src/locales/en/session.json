@@ -1027,8 +1027,10 @@
     "counts": {
       "allowedByYou_one": "{{count}} allowed by you",
       "allowedByYou_other": "{{count}} allowed by you",
-      "allowedAutomatically_one": "{{count}} allowed automatically",
-      "allowedAutomatically_other": "{{count}} allowed automatically",
+      "allowedByRule_one": "{{count}} allowed by a Stave rule",
+      "allowedByRule_other": "{{count}} allowed by a Stave rule",
+      "allowedByProvider_one": "{{count}} allowed by the provider's mode",
+      "allowedByProvider_other": "{{count}} allowed by the provider's mode",
       "denied_one": "{{count}} denied",
       "denied_other": "{{count}} denied",
       "waiting_one": "{{count}} waiting",

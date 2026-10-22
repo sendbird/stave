@@ -1,7 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { CircleHelp, CircleSlash, Clock3, ShieldCheck, ShieldX, UserCheck, UserX, type LucideIcon } from "lucide-react";
+import { Bot, BotOff, CircleHelp, CircleSlash, Clock3, ShieldCheck, ShieldX, UserCheck, UserX, type LucideIcon } from "lucide-react";
 import { ActivityFeed, type ActivityItem } from "@/components/ads/components/ActivityFeed";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
@@ -33,12 +33,14 @@ export function describeApprovalOutcome(entry: Pick<ApprovalRecordEntry, "standi
   const decider = entry.resolution ? describeApprovalDecider(entry.resolution) : "";
   switch (entry.standing) {
     case "allowed-by-you":
-    case "allowed-automatically":
+    case "allowed-by-rule":
+    case "allowed-by-provider":
       return entry.resolution?.scope === "always"
         ? i18n.t("session:approvalRecord.outcome.alwaysAllowed", { decider })
         : i18n.t("session:approvalRecord.outcome.allowed", { decider });
     case "denied-by-you":
-    case "denied-automatically":
+    case "denied-by-rule":
+    case "denied-by-provider":
       return i18n.t("session:approvalRecord.outcome.denied", { decider });
     case "waiting": return i18n.t("session:approvalRecord.outcome.waiting");
     case "withdrawn": return i18n.t("session:approvalRecord.outcome.withdrawn");
@@ -49,12 +51,17 @@ export function describeApprovalOutcome(entry: Pick<ApprovalRecordEntry, "standi
   }
 }
 
-/** The counts, a person's decisions apart from automatic ones; empty kinds are left out. */
+/**
+ * The counts, who allowed kept apart: you, a Stave rule and the provider's
+ * mode, always; denials, open, withdrawn and unrecorded requests when there
+ * are any.
+ */
 export function describeApprovalCounts(summary: ApprovalRecordSummary): string[] {
-  const denied = summary["denied-by-you"] + summary["denied-automatically"];
+  const denied = summary["denied-by-you"] + summary["denied-by-rule"] + summary["denied-by-provider"];
   return [
     i18n.t("session:approvalRecord.counts.allowedByYou", { count: summary["allowed-by-you"] }),
-    i18n.t("session:approvalRecord.counts.allowedAutomatically", { count: summary["allowed-automatically"] }),
+    i18n.t("session:approvalRecord.counts.allowedByRule", { count: summary["allowed-by-rule"] }),
+    i18n.t("session:approvalRecord.counts.allowedByProvider", { count: summary["allowed-by-provider"] }),
     denied ? i18n.t("session:approvalRecord.counts.denied", { count: denied }) : null,
     summary.waiting ? i18n.t("session:approvalRecord.counts.waiting", { count: summary.waiting }) : null,
     summary.withdrawn ? i18n.t("session:approvalRecord.counts.withdrawn", { count: summary.withdrawn }) : null,
@@ -65,8 +72,10 @@ export function describeApprovalCounts(summary: ApprovalRecordSummary): string[]
 const STANDING_ICONS: Record<ApprovalStanding, LucideIcon> = {
   "allowed-by-you": UserCheck,
   "denied-by-you": UserX,
-  "allowed-automatically": ShieldCheck,
-  "denied-automatically": ShieldX,
+  "allowed-by-rule": ShieldCheck,
+  "denied-by-rule": ShieldX,
+  "allowed-by-provider": Bot,
+  "denied-by-provider": BotOff,
   waiting: Clock3,
   withdrawn: CircleSlash,
   unrecorded: CircleHelp,
@@ -93,8 +102,8 @@ function spansDays(entries: readonly ApprovalRecordEntry[]): boolean {
 }
 
 /**
- * The approval record of a run: how many requests a person decided and how
- * many were decided automatically, then the latest requests one per line —
+ * The approval record of a run: how many requests were allowed by you, by a
+ * Stave rule and by the provider's mode, then the latest requests one per line —
  * what was asked, who decided and when.
  */
 export function ApprovalRecordView(props: {
@@ -135,9 +144,11 @@ const styles = stylex.create({
 
 const iconTones = {
   "allowed-by-you": styles.allowed,
-  "allowed-automatically": styles.allowed,
+  "allowed-by-rule": styles.allowed,
+  "allowed-by-provider": styles.allowed,
   "denied-by-you": styles.denied,
-  "denied-automatically": styles.denied,
+  "denied-by-rule": styles.denied,
+  "denied-by-provider": styles.denied,
   waiting: styles.waiting,
   withdrawn: styles.quiet,
   unrecorded: styles.quiet,

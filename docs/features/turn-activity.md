@@ -191,9 +191,9 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
   ends — under every placement. Under them, **Approvals in this turn** counts
-  the turn's permission requests (`1 allowed by you · 2 allowed
-  automatically · 1 denied`); open it to list each request with who decided it
-  and when. It is absent when the turn asked for nothing. See
+  the turn's permission requests by who allowed them (`1 allowed by you ·
+  1 allowed by a Stave rule · 1 allowed by the provider's mode · 1 denied`);
+  open it to list each request with who decided it and when. It is absent when the turn asked for nothing. See
   [Who decided each approval](provider-sandbox-and-approval.md#who-decided-each-approval).
 - **Progress**: the task's [agent run](agent-runs.md) while it has one — running,
   paused or ended — and otherwise its flow (Request → Plan → Changes →

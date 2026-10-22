@@ -50,7 +50,7 @@ afterEach(() => applyAppLocale("en"));
 describe("approval record view", () => {
   test("counts what you decided apart from what was decided automatically, and says who decided each", () => {
     const markup = text(renderToStaticMarkup(createElement(ApprovalRecordView, { entries: collectApprovalRecord([message(runParts)]), emptyText: "none" })));
-    expect(markup).toContain("1 allowed by you · 2 allowed automatically · 1 denied");
+    expect(markup).toContain("1 allowed by you · 1 allowed by a Stave rule · 1 allowed by the provider's mode · 1 denied");
     expect(markup).toContain("Bash · bun test allowed by you");
     expect(markup).toContain("Edit · src/app.ts allowed by the permission mode");
     expect(markup).toContain("Bash · bun test allowed by autonomous mode");
@@ -58,7 +58,7 @@ describe("approval record view", () => {
 
     applyAppLocale("ko");
     const korean = text(renderToStaticMarkup(createElement(ApprovalRecordView, { entries: collectApprovalRecord([message(runParts)]), emptyText: "none" })));
-    expect(korean).toContain("사용자 허용 1건 · 자동 허용 2건 · 거부 1건");
+    expect(korean).toContain("사용자 허용 1건 · Stave 규칙 허용 1건 · 제공자 모드 허용 1건 · 거부 1건");
     expect(korean).toContain("Bash · bun test 자율 모드 허용");
     expect(korean).toContain("Bash · rm -rf dist 응답 시간 초과 거부");
   });
@@ -68,7 +68,7 @@ describe("approval record view", () => {
       entries: collectApprovalRecord([message([part("old", {}), part("open", { state: "approval-requested" }), part("gone", { state: "approval-interrupted" })])]),
       emptyText: "none",
     })));
-    expect(markup).toContain("0 allowed by you · 0 allowed automatically · 1 waiting · 1 withdrawn · 1 without a record of who decided");
+    expect(markup).toContain("0 allowed by you · 0 allowed by a Stave rule · 0 allowed by the provider's mode · 1 waiting · 1 withdrawn · 1 without a record of who decided");
     expect(markup).toContain("allowed; who decided was not recorded");
     expect(markup).toContain("waiting for your answer");
     expect(markup).toContain("withdrawn when the turn ended");
@@ -85,8 +85,8 @@ describe("approval record view", () => {
     const state = { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": messages }, messageCountByTask: { "task-1": messages.length } };
     const render = (scope: Parameters<typeof ReviewInspector>[0]["scope"]) =>
       text(renderWithState(state, createElement(ReviewInspector, { taskId: "task-1", workspaceId: "ws-1", scope, detail: undefined })));
-    expect(render({ kind: "turn", taskId: "task-1", turnId: "turn-2" })).toContain("0 allowed by you · 0 allowed automatically · 1 denied");
-    expect(render({ kind: "branch" })).toContain("1 allowed by you · 2 allowed automatically · 2 denied");
+    expect(render({ kind: "turn", taskId: "task-1", turnId: "turn-2" })).toContain("0 allowed by you · 0 allowed by a Stave rule · 0 allowed by the provider's mode · 1 denied");
+    expect(render({ kind: "branch" })).toContain("1 allowed by you · 1 allowed by a Stave rule · 1 allowed by the provider's mode · 2 denied");
   });
 
   test("an older turn's approvals are read from saved history, not reported as none", () => {
@@ -112,7 +112,7 @@ describe("approval record view", () => {
       { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": messages }, messageCountByTask: { "task-1": messages.length } },
       createElement(ReviewInspector, { taskId: "task-1", workspaceId: "ws-1", scope: { kind: "stage", agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: stage.attempt }, detail }),
     ));
-    expect(markup).toContain("0 allowed by you · 1 allowed automatically");
+    expect(markup).toContain("0 allowed by you · 1 allowed by a Stave rule · 0 allowed by the provider's mode");
   });
 
   test("a turn read from saved history gives its approvals; a failed read is an error, a turn gone from history says so", () => {
@@ -120,7 +120,7 @@ describe("approval record view", () => {
     expect(approvalsFromRunTurn({ status: "missing" })).toEqual({ status: "ready", data: null });
     expect(approvalsFromRunTurn({ status: "failed", message: "disk" }).status).toBe("error");
     const loaded = approvalsFromRunTurn({ status: "ready", messages: [message(runParts, { turnId: "turn-1" })] });
-    expect(loaded.status === "ready" ? loaded.data?.map((entry) => entry.standing) : null).toEqual(["allowed-by-you", "allowed-automatically", "allowed-automatically", "denied-automatically"]);
+    expect(loaded.status === "ready" ? loaded.data?.map((entry) => entry.standing) : null).toEqual(["allowed-by-you", "allowed-by-provider", "allowed-by-rule", "denied-by-rule"]);
   });
 
   test("Activity folds the listed turn's approvals to their counts", () => {
@@ -133,7 +133,7 @@ describe("approval record view", () => {
     };
     const markup = renderWithState(state, createElement(TurnApprovalRecord));
     expect(markup).toContain('data-testid="turn-approval-record"');
-    expect(text(markup)).toContain("Approvals in this turn 1 allowed by you · 2 allowed automatically · 1 denied");
+    expect(text(markup)).toContain("Approvals in this turn 1 allowed by you · 1 allowed by a Stave rule · 1 allowed by the provider's mode · 1 denied");
     expect(markup.match(/data-testid="approval-record-counts"/g)).toBeNull();
     expect(renderWithState({ ...state, messagesByTask: { "task-1": [message([])] } }, createElement(TurnApprovalRecord))).toBe("");
   });

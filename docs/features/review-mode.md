@@ -80,8 +80,9 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Completion checks** shows the run's **Done when** criteria with the checks
   Stave ran, such as `Stave checks: 1 of 2 passed (lint); still needed: test`.
   Passing checks are not a review or a sign-off.
-- **Approvals** counts the scope's permission requests: how many you allowed,
-  how many were allowed automatically, and any denied, waiting or withdrawn.
+- **Approvals** counts the scope's permission requests by who allowed them
+  (you, a Stave rule, the provider's permission mode), and any denied,
+  waiting or withdrawn; a request delivered twice counts once.
   Below the counts, each request names what was asked (`Bash · bun test`), who
   decided (you, your trusted tools, autonomous mode, the permission mode,
   Stave after no answer in time) and when; the latest 50 are listed. **This
