@@ -1,3 +1,4 @@
+import { i18n } from "../../src/i18n/runtime";
 import type { ToolingStatusEntry } from "../../src/lib/tooling-status";
 import type { ToolingAuthState } from "../../src/lib/tooling-status";
 import type { ProviderRuntimeOptions } from "../../src/lib/providers/provider.types";
@@ -18,6 +19,7 @@ import {
 import { OPENCODE_AUTHENTICATION_HELP } from "./opencode/opencode-auth";
 import { resolveOpenCodeVersionSupport } from "./opencode/opencode-version";
 import { runExecutableProbe } from "./runtime-shared";
+import { readOptionalProviderAccess } from "./optional-provider-access";
 
 const STATUS_TTL_MS = 60_000;
 const statuses = new Map<
@@ -52,13 +54,16 @@ export function optionalProviderReadKey(
     : null;
 }
 
-export async function inspectOptionalProviderTooling(args: {
-  providerId: OptionalProviderId;
-  cursorBinaryPath?: string;
-  kiroBinaryPath?: string;
-  opencodeBinaryPath?: string;
-  force?: boolean;
-}): Promise<ToolingStatusEntry> {
+export async function inspectOptionalProviderTooling(
+  args: {
+    providerId: OptionalProviderId;
+    cursorBinaryPath?: string;
+    kiroBinaryPath?: string;
+    opencodeBinaryPath?: string;
+    force?: boolean;
+  },
+  dependencies: { readAccess?: typeof readOptionalProviderAccess } = {},
+): Promise<ToolingStatusEntry> {
   const id = args.providerId;
   const key = statusKey(id, args);
   const cached = statuses.get(key);
@@ -70,7 +75,7 @@ export async function inspectOptionalProviderTooling(args: {
     return cached.tool;
   const inflight = pending.get(key);
   if (inflight) return inflight;
-  const request = probeOptionalProvider(args)
+  const request = probeOptionalProvider(args, dependencies)
     .then((tool) => {
       const previous = statuses.get(key);
       const changed =
@@ -88,12 +93,16 @@ export async function inspectOptionalProviderTooling(args: {
   return request;
 }
 
-async function probeOptionalProvider(args: {
-  providerId: OptionalProviderId;
-  cursorBinaryPath?: string;
-  kiroBinaryPath?: string;
-  opencodeBinaryPath?: string;
-}): Promise<ToolingStatusEntry> {
+async function probeOptionalProvider(
+  args: {
+    providerId: OptionalProviderId;
+    cursorBinaryPath?: string;
+    kiroBinaryPath?: string;
+    opencodeBinaryPath?: string;
+    force?: boolean;
+  },
+  dependencies: { readAccess?: typeof readOptionalProviderAccess },
+): Promise<ToolingStatusEntry> {
   if (args.providerId === "opencode") {
     return probeOpenCodeTooling(args);
   }
@@ -152,23 +161,43 @@ async function probeOptionalProvider(args: {
       .split("\n")
       .map((line) => line.trim())
       .find(Boolean) ?? null;
+  const access =
+    available && authState === "authenticated"
+      ? await (dependencies.readAccess ?? readOptionalProviderAccess)({
+          providerId: cursor ? "cursor" : "kiro",
+          runtimeOptions: args,
+          force: args.force,
+        })
+      : "unknown";
   const state = transient
     ? "unknown"
     : !available
       ? "error"
       : authState === "authenticated"
-        ? "ready"
+        ? access === "ready"
+          ? "ready"
+          : access === "unavailable"
+            ? "warning"
+            : "unknown"
         : "warning";
-  const summary =
-    state === "unknown"
-      ? `${label} status could not be verified.`
-      : !available
-        ? `${label} does not provide a working ACP runtime.`
-        : authState === "authenticated"
+  const summary = transient
+    ? `${label} status could not be verified.`
+    : !available
+      ? `${label} does not provide a working ACP runtime.`
+      : authState === "authenticated"
+        ? access === "ready"
           ? `${label} is ready.`
-          : authState === "unauthenticated"
-            ? `${label} is installed, but login is required.`
-            : `${label} authentication could not be verified.`;
+          : access === "unavailable"
+            ? i18n.t(
+                "settingsProviders:toolingSection.accountAccess.unavailable",
+                { label },
+              )
+            : i18n.t("settingsProviders:toolingSection.accountAccess.unknown", {
+                label,
+              })
+        : authState === "unauthenticated"
+          ? `${label} is installed, but login is required.`
+          : `${label} authentication could not be verified.`;
   return {
     ...base,
     checkedAt: new Date().toISOString(),
