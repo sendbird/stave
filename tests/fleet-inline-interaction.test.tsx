@@ -305,6 +305,64 @@ describe("loading cold requests", () => {
     expect(respondToFleetInteraction(second, { kind: "approval", approved: true }).ok).toBe(true);
   });
 
+  test("a provider update for one task survives another task's overlapping load of the workspace", async () => {
+    const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
+    const useAppStore = await store();
+    // A loaded workspace whose two running tasks' messages are not read yet.
+    const warmTasks = [task("task-warm-a", "First"), task("task-warm-b", "Second")];
+    useAppStore.setState((state) => ({
+      workspaces: [...state.workspaces, { id: "ws-warm", name: "warm", updatedAt: NOW }],
+      taskWorkspaceIdById: { ...state.taskWorkspaceIdById, "task-warm-a": "ws-warm", "task-warm-b": "ws-warm" },
+      workspaceRuntimeCacheById: {
+        ...state.workspaceRuntimeCacheById,
+        "ws-warm": {
+          ...createEmptyWorkspaceState(), nativeSessionReadyByTask: {}, tasks: warmTasks, activeTaskId: "task-warm-a",
+          messagesByTask: {}, activeTurnIdsByTask: { "task-warm-a": "turn-warm-a", "task-warm-b": "turn-warm-b" },
+        },
+      },
+    }));
+    const shell: WorkspaceShell = { ...createEmptyWorkspaceState(), activeTaskId: "task-warm-a", tasks: warmTasks,
+      messageCountByTask: { "task-warm-a": 1, "task-warm-b": 1 } };
+    const turns: PersistedTurnSummary[] = [
+      { id: "turn-warm-a", workspaceId: "ws-warm", taskId: "task-warm-a", providerId: "codex", createdAt: NOW, completedAt: null },
+      { id: "turn-warm-b", workspaceId: "ws-warm", taskId: "task-warm-b", providerId: "codex", createdAt: NOW, completedAt: null },
+    ];
+    const deferredPage = () => {
+      let resolve: (page: TaskMessagesPage) => void = () => {};
+      const promise = new Promise<TaskMessagesPage>((done) => { resolve = done; });
+      return { promise, resolve };
+    };
+    const pageA = deferredPage();
+    const pageB = deferredPage();
+    const reads = {
+      loadWorkspaceShell: async () => shell,
+      loadTaskMessagesPage: ({ taskId }: { taskId: string }) => (taskId === "task-warm-a" ? pageA.promise : pageB.promise),
+      listActiveWorkspaceTurns: async () => turns,
+    } as unknown as import("@/lib/fleet/interaction-load").FleetInteractionReads;
+    const identity = (taskId: string, turnId: string, requestId: string, messageId: string) => ({
+      repositoryPath: REPOSITORY_PATH, workspaceId: "ws-warm", taskId, turnId, kind: "approval" as const, requestId, messageId,
+    });
+    const loadingB = loadFleetInteraction(identity("task-warm-b", "turn-warm-b", "approval-warm-b", "m-warm-b"), reads);
+    const loadingA = loadFleetInteraction(identity("task-warm-a", "turn-warm-a", "approval-warm-a", "m-warm-a"), reads);
+    // The provider records the answer to B while both reads are out.
+    const answered = message("m-warm-b", approval("approval-warm-b", "approval-responded"), "turn-warm-b");
+    useAppStore.setState((state) => {
+      const warm = state.workspaceRuntimeCacheById["ws-warm"]!;
+      return { workspaceRuntimeCacheById: { ...state.workspaceRuntimeCacheById,
+        "ws-warm": { ...warm, messagesByTask: { ...warm.messagesByTask, "task-warm-b": [answered] } } } };
+    });
+    // A lands first; then B's page, read before the answer, lands late.
+    pageA.resolve({ messages: [message("m-warm-a", approval("approval-warm-a"), "turn-warm-a")], totalCount: 1, limit: 120, offset: 0, hasMoreOlder: false });
+    await loadingA;
+    pageB.resolve({ messages: [message("m-warm-b", approval("approval-warm-b"), "turn-warm-b")], totalCount: 1, limit: 120, offset: 0, hasMoreOlder: false });
+    await loadingB;
+
+    const warm = useAppStore.getState().workspaceRuntimeCacheById["ws-warm"];
+    const answeredPart = warm?.messagesByTask["task-warm-b"]?.[0]?.parts[0] as ApprovalPart | undefined;
+    expect(answeredPart?.state).toBe("approval-responded");
+    expect(warm?.messagesByTask["task-warm-a"]?.[0]?.id).toBe("m-warm-a");
+  });
+
   test("a provider update that lands during the read still wins over the stored page", async () => {
     const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
     const useAppStore = await store();

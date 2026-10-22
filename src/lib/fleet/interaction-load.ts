@@ -37,13 +37,21 @@ let loadWriteSeq = 0;
 const lastLoadWrites = new Map<string, Map<string, LoadWrite>>();
 const loadsInFlight = new Map<string, number>();
 
+/**
+ * Remembers what a load wrote: every task when it hydrated the workspace, but
+ * only its own task when it merged into a loaded one. The other tasks' state
+ * was copied, not written, and may hold a provider update that another
+ * overlapping load must still see as an update.
+ */
 function rememberLoadWrite(
   workspaceId: string,
   session: { tasks: Task[]; messagesByTask: Record<string, ChatMessage[]>; activeTurnIdsByTask: Record<string, string | undefined> },
+  writtenTaskIds: readonly string[] | null,
 ) {
   loadWriteSeq += 1;
   const writes = lastLoadWrites.get(workspaceId) ?? new Map<string, LoadWrite>();
   for (const task of session.tasks) {
+    if (writtenTaskIds && !writtenTaskIds.includes(task.id)) continue;
     writes.set(task.id, {
       seq: loadWriteSeq,
       task,
@@ -263,7 +271,7 @@ async function readAndMerge(
             [expected.taskId]: page.totalCount,
           },
         };
-    rememberLoadWrite(expected.workspaceId, next);
+    rememberLoadWrite(expected.workspaceId, next, current ? [expected.taskId] : null);
     const mapping = {
       ...state.taskWorkspaceIdById,
       [expected.taskId]: expected.workspaceId,
