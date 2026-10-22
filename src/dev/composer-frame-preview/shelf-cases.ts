@@ -37,6 +37,7 @@ export const SHELF_CASES = [
   { id: "reviews", label: "Reviews" },
   { id: "switch", label: "Switch provider" },
   { id: "switch-back", label: "Switch back" },
+  { id: "switch-command", label: "Switch with a command" },
 ] as const;
 
 export type ShelfCaseId = (typeof SHELF_CASES)[number]["id"];
@@ -198,13 +199,19 @@ export function seedShelfCase(args: {
     providerTurnActivityByTask: turnLive ? { [PREVIEW_TASK_ID]: activityFor(caseId) } : {},
     retainedTurnActivityByTask: {},
     messagesByTask: {
-      [PREVIEW_TASK_ID]: caseId === "switch" || caseId === "switch-back" ? switchMessages(caseId) : messages,
+      [PREVIEW_TASK_ID]: caseId === "switch" || caseId === "switch-back"
+        ? switchMessages(caseId)
+        : caseId === "switch-command" ? switchMessages("switch") : messages,
       ...(caseId === "reviews" ? previewReviewMessages() : {}),
     },
     // Switch back: Codex worked here before, through the third request.
     providerSessionByTask: (caseId === "switch-back"
       ? { [PREVIEW_TASK_ID]: { codex: { nativeSessionId: "preview-codex-session", syncedThroughMessageId: "switch-a2" } } }
       : {}) as typeof state.providerSessionByTask,
+    // Switch with a command: the draft is a provider command, which goes as typed.
+    promptDraftByTask: caseId === "switch-command"
+      ? { ...state.promptDraftByTask, [PREVIEW_TASK_ID]: { text: "/compact", attachedFilePaths: [], attachments: [] } }
+      : state.promptDraftByTask,
     usageLimitPauseByTask: usageLimitPauseFor(caseId),
     restoredQueueReleasedByTask: {},
     settings: {
@@ -228,6 +235,7 @@ const IDLE_CASES: readonly ShelfCaseId[] = [
   "idle",
   "switch",
   "switch-back",
+  "switch-command",
   "agent-needs",
   "limited",
   "limited-armed",
@@ -488,7 +496,9 @@ function previewReviewMessages(): Record<string, ChatMessage[]> {
 
 /** The provider the next message goes to in the switch cases. */
 export function nextProviderFor(caseId: ShelfCaseId) {
-  return caseId === "switch" || caseId === "switch-back" ? ("codex" as const) : undefined;
+  return caseId === "switch" || caseId === "switch-back" || caseId === "switch-command"
+    ? ("codex" as const)
+    : undefined;
 }
 
 /**

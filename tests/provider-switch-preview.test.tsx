@@ -90,6 +90,32 @@ describe("provider switch preview", () => {
     expect(replaySection(messages, "claude-code", { nativeSessionId: "claude-session", syncedThroughMessageId: "a2" })?.length).toBe(preview.chars);
   });
 
+  test("a provider command after a switch goes as typed, with no excerpt, exactly as the prompt does", () => {
+    const messages = conversation(3);
+    const input = "/compact keep the API notes";
+    const preview = buildProviderSwitchPreview({ messages, toProviderId: "claude-code", resume: null, userInput: input })!;
+    expect(preview).toMatchObject({ command: "/compact", totalMessages: 0, keptMessages: 0, chars: 0 });
+    // The real prompt for the same input is the command alone.
+    expect(buildProviderTurnPrompt({
+      providerId: "claude-code",
+      prompt: input,
+      conversation: buildCanonicalConversationRequest({
+        turnId: "t", taskId: "task", workspaceId: "ws", providerId: "claude-code", history: messages, userInput: input,
+      }),
+    })).toBe(input);
+    const lines = describeProviderSwitch(preview, 2).join(" ");
+    expect(lines).toContain("A provider command goes as typed: it receives no part of this task's conversation and no handoff record.");
+    expect(lines).not.toContain("excerpt");
+    expect(lines).not.toContain("handoff record first");
+    const html = renderToStaticMarkup(createElement(ShelfProviderSwitch, { preview, workspaceId: "ws", taskId: "task" }));
+    expect(html).toContain("/compact goes as typed, without this task&#x27;s conversation");
+    expect(html).not.toContain("excerpt");
+    // Ordinary text still carries the excerpt.
+    const text = buildProviderSwitchPreview({ messages, toProviderId: "claude-code", resume: null, userInput: "Please continue" })!;
+    expect(text.command).toBeUndefined();
+    expect(text.chars).toBeGreaterThan(0);
+  });
+
   test("reads as sentences that say what is kept and what is not", () => {
     const fresh = describeProviderSwitch({
       fromProviderId: "claude-code", toProviderId: "codex", session: "fresh",

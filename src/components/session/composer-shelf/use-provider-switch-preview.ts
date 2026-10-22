@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { snapshotProviderAccounts, selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { buildProviderSwitchPreview } from "@/lib/providers/provider-switch-preview";
+import { isProviderNativeSlashCommandInput } from "@/lib/providers/provider-request-translators";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
@@ -29,6 +30,11 @@ export function useProviderSwitchPreview(args: {
   const codexOverride = useAppStore(
     (state) => state.promptDraftByTask[args.taskId]?.runtimeOverrides?.codexAccountProfileId,
   );
+  // Only a provider command changes what is sent, so ordinary typing does not recompute.
+  const commandInput = useAppStore((state) => {
+    const text = state.promptDraftByTask[args.taskId]?.text ?? "";
+    return isProviderNativeSlashCommandInput(text) ? text : "";
+  });
   const providerId = args.providerId;
   return useMemo(() => {
     if (!args.enabled || !providerId) {
@@ -43,6 +49,6 @@ export function useProviderSwitchPreview(args: {
       providerId,
       accountProfileId: selectedProviderAccount(providerId, accounts),
     });
-    return buildProviderSwitchPreview({ messages, toProviderId: providerId, resume });
-  }, [args.enabled, claudeOverride, claudeSetting, codexOverride, codexSetting, messages, providerId, sessions]);
+    return buildProviderSwitchPreview({ messages, toProviderId: providerId, resume, userInput: commandInput });
+  }, [args.enabled, claudeOverride, claudeSetting, codexOverride, codexSetting, commandInput, messages, providerId, sessions]);
 }

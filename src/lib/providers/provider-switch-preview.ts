@@ -1,9 +1,12 @@
 import type { ChatMessage } from "@/types/chat";
-import { planBoundedHistory } from "./bounded-history";
+import { BOUNDED_HISTORY_MAX_CHARS, planBoundedHistory } from "./bounded-history";
 import { buildCanonicalConversationRequest, canonicalHistoryText } from "./canonical-request";
 import type { ProviderSessionCursor } from "@/lib/db/workspaces.db";
 import type { ProviderId } from "./provider.types";
-import { selectHistoryForProviderPrompt } from "./provider-request-translators";
+import {
+  getProviderNativeSlashCommandInput,
+  selectHistoryForProviderPrompt,
+} from "./provider-request-translators";
 
 /**
  * What the next message's provider receives when it is not the provider that
@@ -27,6 +30,11 @@ export interface ProviderSwitchPreview {
   chars: number;
   maxChars: number;
   overflowed: boolean;
+  /**
+   * The provider command the draft starts with (`/compact`), when it is one:
+   * it goes as typed, with no excerpt and no handoff record.
+   */
+  command?: string;
 }
 
 /** The provider of the task's latest reply, or null before any reply. */
@@ -45,6 +53,8 @@ export function buildProviderSwitchPreview(args: {
   toProviderId: ProviderId;
   /** The next message's provider session for this task and account, if it has one. */
   resume: ProviderSessionCursor | null;
+  /** The draft as it would be sent; a provider command takes the translators' command branch. */
+  userInput?: string;
 }): ProviderSwitchPreview | null {
   const fromProviderId = resolveLatestReplyProvider(args.messages);
   if (!fromProviderId || fromProviderId === args.toProviderId) {
@@ -56,10 +66,28 @@ export function buildProviderSwitchPreview(args: {
     workspaceId: "",
     providerId: args.toProviderId,
     history: [...args.messages],
-    userInput: "",
+    userInput: args.userInput ?? "",
     nativeSessionId: args.resume?.nativeSessionId ?? null,
     syncedThroughMessageId: args.resume?.syncedThroughMessageId ?? null,
   });
+  const session = conversation.resume ? "resume" : "fresh";
+  // The same branch the translators take: a provider command is sent alone.
+  const command = getProviderNativeSlashCommandInput(conversation);
+  if (command) {
+    return {
+      fromProviderId,
+      toProviderId: args.toProviderId,
+      session,
+      totalMessages: 0,
+      keptMessages: 0,
+      shortenedMessages: 0,
+      omittedMessages: 0,
+      chars: 0,
+      maxChars: BOUNDED_HISTORY_MAX_CHARS,
+      overflowed: false,
+      command: command.split(/\s/, 1)[0] ?? command,
+    };
+  }
   const selected = selectHistoryForProviderPrompt({ conversation });
   const plan = planBoundedHistory({
     messages: selected.map((message) => ({ role: message.role, text: canonicalHistoryText(message) })),
@@ -67,7 +95,7 @@ export function buildProviderSwitchPreview(args: {
   return {
     fromProviderId,
     toProviderId: args.toProviderId,
-    session: conversation.resume ? "resume" : "fresh",
+    session,
     totalMessages: plan.totalMessages,
     keptMessages: plan.keptMessages,
     shortenedMessages: plan.shortenedMessages,

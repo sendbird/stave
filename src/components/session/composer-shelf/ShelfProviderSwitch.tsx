@@ -23,6 +23,10 @@ export function describeProviderSwitch(preview: ProviderSwitchPreview, handoffSe
       ? i18n.t("composer:providerSwitch.sessionFresh")
       : i18n.t("composer:providerSwitch.sessionResume"),
   ];
+  if (preview.command) {
+    lines.push(i18n.t("composer:providerSwitch.commandAsTyped"));
+    return lines;
+  }
   const sendsHistory = preview.session === "fresh" || preview.totalMessages > 0;
   if (sendsHistory && handoffSections !== undefined) {
     lines.push(
@@ -72,9 +76,11 @@ export const ShelfProviderSwitch = memo(function ShelfProviderSwitch(props: {
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const to = getProviderLabel({ providerId: preview.toProviderId });
-  const summary = preview.session === "fresh"
-    ? i18n.t("composer:providerSwitch.summaryFresh", { chars: formatNumber(preview.chars) })
-    : i18n.t("composer:providerSwitch.summaryResume", { count: preview.totalMessages });
+  const summary = preview.command
+    ? i18n.t("composer:providerSwitch.summaryCommand", { command: preview.command })
+    : preview.session === "fresh"
+      ? i18n.t("composer:providerSwitch.summaryFresh", { chars: formatNumber(preview.chars) })
+      : i18n.t("composer:providerSwitch.summaryResume", { count: preview.totalMessages });
   return (
     <div data-testid="composer-shelf-provider-switch" data-session={preview.session}>
       <div className={sx(styles.line)} role="group" aria-label={i18n.t("composer:providerSwitch.ariaLabel")}>

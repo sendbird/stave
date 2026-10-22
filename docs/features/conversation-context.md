@@ -100,6 +100,10 @@ a one-line summary. Choose `What it receives` for the details:
 - that messages travel as text: tool output, images and attached files stay
   behind.
 
+When the draft starts with a provider command such as `/compact`, the command
+goes to the provider as typed, with no excerpt and no handoff record, and the
+notice says so instead.
+
 The notice uses the same rules that build the prompt, so the numbers are what
 the provider receives. It changes nothing about the message; there is no
 setting to choose. It is not shown while a turn runs or when Stave Auto picks
