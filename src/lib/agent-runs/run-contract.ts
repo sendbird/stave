@@ -80,24 +80,30 @@ export function resolveRunApprovalOptions(args: {
 
 /**
  * The approvals a run's current Codex turn runs with: the latest turn its
- * supervisor linked to the run (`turn-linked`), from that turn's agent
- * provenance once the runtime confirmed them after the turn started
- * (`approvalsConfirmed`). Null before a Codex turn of the run, while the
- * current one waits for its start, and for a turn recorded before runtimes
- * confirmed them: what a turn only asked for is never stated as applied.
- * Turns the run did not link (another run's, or a plain turn on the same
- * task) say nothing about it, however recent.
+ * supervisor linked to the run (`turn-linked`, highest sequence), from that
+ * turn's agent provenance once the runtime confirmed them after the turn
+ * started (`approvalsConfirmed`). Null before a Codex turn of the run, while
+ * the current one waits for its start or its provenance, when it ended before
+ * sending any, and for a turn recorded before runtimes confirmed them: what a
+ * turn only asked for is never stated as applied, and an earlier turn's
+ * confirmation never stands in for the current one. Turns the run did not
+ * link (another run's, or a plain turn on the same task) say nothing about
+ * it, however recent.
  */
 export function confirmedApprovalsOfRun(
   messages: readonly ChatMessage[] | undefined,
   events: readonly AgentRunEvent[],
 ): Pick<ProviderRuntimeOptions, "codexApprovalPolicy" | "codexApprovalsReviewer"> | null {
-  const linked = new Set(events.flatMap((event) =>
-    event.kind === "turn-linked" && typeof event.detail.turnId === "string" ? [event.detail.turnId] : []));
+  let current: { turnId: string; sequence: number } | null = null;
+  for (const event of events) {
+    if (event.kind !== "turn-linked" || typeof event.detail.turnId !== "string") continue;
+    if (!current || event.sequence > current.sequence) current = { turnId: event.detail.turnId, sequence: event.sequence };
+  }
+  if (!current) return null;
   for (let index = (messages?.length ?? 0) - 1; index >= 0; index -= 1) {
     const provenance = messages![index]!.agentProvenance;
-    if (!provenance || provenance.providerId !== "codex" || !linked.has(provenance.turnId)) continue;
-    // The current turn decides: an earlier turn's confirmation says nothing about it.
+    if (!provenance || provenance.turnId !== current.turnId) continue;
+    if (provenance.providerId !== "codex") return null;
     const { codexApprovalPolicy, codexApprovalsReviewer } = provenance.permission.applied;
     if (!provenance.permission.approvalsConfirmed || !codexApprovalPolicy) return null;
     return {

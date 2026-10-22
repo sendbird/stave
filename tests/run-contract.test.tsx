@@ -65,7 +65,7 @@ function codexRunHeader() {
       },
     };
   };
-  /** Links these turns to the run, as its supervisor records them once each started. */
+  /** Links these turns to the run in this order, as its supervisor records them once each started; the last is the current turn. */
   const link = (...turnIds: string[]) => {
     detail.events = turnIds.map((turnId, index) => ({
       id: `event-${turnId}`, agentRunId: detail.agentRun.id, sequence: index + 1, kind: "turn-linked" as const,
@@ -73,7 +73,7 @@ function codexRunHeader() {
       createdAt: detail.agentRun.createdAt,
     }));
   };
-  link("turn-run", "turn-1", "turn-2");
+  link("turn-run");
   const checked = useAppStore.getInitialState().providerRuntimeCapabilities;
   const header = (messages: unknown[], codexChecked = true) => withState(
     {
@@ -165,11 +165,12 @@ describe("run contract", () => {
   });
 
   test("a Codex run's header stays unconfirmed until the runtime confirms its current turn's approvals", () => {
-    const { header, turn } = codexRunHeader();
+    const { header, turn, link } = codexRunHeader();
     const requested = { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" };
     // The turn's provenance starts with what it asked for; Codex has not accepted its start yet.
     expect(header([turn(requested, { confirmed: false })])).toContain(unconfirmedAuto);
     // An earlier turn's confirmation says nothing about the turn that is starting now.
+    link("turn-1", "turn-2");
     expect(header([
       turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }, { turnId: "turn-1" }),
       turn(requested, { turnId: "turn-2", confirmed: false }),
@@ -185,6 +186,19 @@ describe("run contract", () => {
     expect(header([ownTurn, laterTurn])).toContain("the provider&#x27;s auto mode decides each action");
     // A turn the run never linked says nothing about it, however recent.
     expect(header([laterTurn])).toContain(unconfirmedAuto);
+  });
+
+  test("a run's header waits for its current turn: an earlier turn's confirmation never stands in for it", () => {
+    const { header, turn, link } = codexRunHeader();
+    const earlier = turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }, { turnId: "turn-a" });
+    link("turn-a");
+    expect(header([earlier])).toContain("automatic review is off for this run");
+    link("turn-a", "turn-b");
+    // Turn B started: its row is there, its provenance has not arrived yet.
+    const placeholder = { ...turn({}, { turnId: "turn-b" }), agentProvenance: undefined };
+    expect(header([earlier, placeholder])).toContain(unconfirmedAuto);
+    // Turn B ended before it sent any provenance (the agent's settings did not validate).
+    expect(header([earlier])).toContain(unconfirmedAuto);
   });
 
   test("a run's header says what replay stored once Codex confirmed the turn without its reviewer", () => {
