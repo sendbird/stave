@@ -33,9 +33,9 @@ export function resolveTerminalTheme(): ITheme {
   // oklch/etc. to an rgb() string that xterm can consume.
   const probe = document.createElement("div");
   probe.style.display = "none";
-  probe.style.backgroundColor = "var(--color-terminal)";
-  probe.style.color = "var(--color-terminal-foreground)";
-  probe.style.caretColor = "var(--color-primary)";
+  probe.style.backgroundColor = "var(--terminal)";
+  probe.style.color = "var(--terminal-foreground)";
+  probe.style.caretColor = "var(--primary)";
   document.documentElement.appendChild(probe);
   const computed = getComputedStyle(probe);
   const background = computed.backgroundColor || DEFAULT_TERMINAL_BACKGROUND;
