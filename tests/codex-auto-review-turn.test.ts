@@ -125,6 +125,11 @@ const errors = (events: BridgeEvent[]) =>
   events.flatMap((event) => (event.type === "error" ? [event.message] : []));
 const stopReason = (events: BridgeEvent[]) =>
   events.flatMap((event) => (event.type === "done" ? [event.stop_reason] : [])).at(-1);
+const appliedApprovals = (events: BridgeEvent[]) =>
+  events.flatMap((event) => (event.type === "approvals_applied" ? [event] : []));
+/** Whether the approvals were reported after Codex acknowledged the turn. */
+const appliedAfterStart = (events: BridgeEvent[]) =>
+  events.findIndex((event) => event.type === "approvals_applied") > events.findIndex((event) => event.type === "provider_turn");
 
 for (const version of ["0.162.1", "0.162.0"]) {
   for (const decision of ["approve", "deny", "cancel"] as const) {
@@ -356,3 +361,39 @@ for (const notification of ["turn/started", "turn/completed"] as const) {
     expect(server.turnStarts()[1]?.approvalsReviewer).toBe("auto_review");
   }, 10_000);
 }
+
+test("a started turn reports the approvals it runs with once, after Codex acknowledged it", async () => {
+  const server = fakeServer("0.162.1", { request: "none" });
+  const turn = startTurn(server, { taskId: "task-applied", agentRunId: "run-applied" });
+  await turn.work;
+  expect(appliedApprovals(turn.events)).toEqual([{ type: "approvals_applied", codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }]);
+  expect(appliedAfterStart(turn.events)).toBe(true);
+}, 10_000);
+
+test("a turn/start refused for auto-review and retried reports only the approvals Codex accepted", async () => {
+  const server = fakeServer("0.162.1", { request: "none", refuse: { method: "turn/start", when: "auto_review" } });
+  const turn = startTurn(server, { taskId: "task-applied-retried", agentRunId: "run-applied-retried" });
+  await turn.work;
+  expect(appliedApprovals(turn.events)).toEqual([{ type: "approvals_applied", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }]);
+  expect(appliedAfterStart(turn.events)).toBe(true);
+  // The user-facing notice stays its own event.
+  expect(fallbackNotices(turn.events)).toHaveLength(1);
+}, 10_000);
+
+test("a turn whose retried start also fails reports no approvals: it never ran", async () => {
+  const server = fakeServer("0.162.1", { request: "none", refuse: { method: "turn/start", when: "always" } });
+  const turn = startTurn(server, { taskId: "task-applied-failed", agentRunId: "run-applied-failed" });
+  await turn.work;
+  expect(stopReason(turn.events)).toBe("runtime_failure");
+  expect(turn.events.some((event) => event.type === "provider_turn")).toBe(false);
+  expect(appliedApprovals(turn.events)).toEqual([]);
+}, 10_000);
+
+test("a fallback decided before the turn is reported once the turn started, beside its notice", async () => {
+  const server = fakeServer("0.162.1", { request: "none", requirements: { allowedApprovalsReviewers: ["user"] } });
+  const turn = startTurn(server, { taskId: "task-applied-managed", agentRunId: "run-applied-managed" });
+  await turn.work;
+  expect(appliedApprovals(turn.events)).toEqual([{ type: "approvals_applied", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }]);
+  expect(appliedAfterStart(turn.events)).toBe(true);
+  expect(fallbackNotices(turn.events)).toHaveLength(1);
+}, 10_000);

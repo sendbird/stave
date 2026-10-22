@@ -14,6 +14,7 @@ import {
 import { appendProviderOutputTruncationNotice } from "@/lib/truncation-visibility";
 import { appendWorkProgressMessage } from "@/lib/providers/subagent-identity";
 import { recordAutomaticApprovalDecision } from "@/lib/approvals/approval-record";
+import { withConfirmedApprovals } from "@/lib/agents/turn-provenance";
 import type {
   DelegatedExecutionUsage,
   NormalizedProviderEvent,
@@ -714,11 +715,19 @@ function appendProviderEventContentToAssistant(args: {
     if (message.turnId !== provenance.turnId || (existing &&
         (existing.assignmentId !== provenance.assignmentId ||
           existing.agentContentHash !== provenance.agentContentHash))) return message;
-    if (existing && existing.instructions.status !== "configured" && provenance.instructions.status === "configured") return message;
-    // Delivery may advance; the sealed configuration must never be rewritten.
-    return { ...message, agentProvenance: existing
-      ? { ...existing, instructions: provenance.instructions }
-      : provenance };
+    if (!existing) return { ...message, agentProvenance: provenance };
+    // Delivery may advance, never return to configured.
+    const instructions = existing.instructions.status !== "configured" && provenance.instructions.status === "configured"
+      ? existing.instructions : provenance.instructions;
+    // The sealed configuration is never rewritten, except by the approvals the
+    // runtime confirmed once the turn started; a later re-statement without
+    // that confirmation never takes it back.
+    const { codexApprovalPolicy, codexApprovalsReviewer } = provenance.permission.applied;
+    const confirmed = provenance.permission.approvalsConfirmed && codexApprovalPolicy
+      ? withConfirmedApprovals(existing, { codexApprovalPolicy, ...(codexApprovalsReviewer ? { codexApprovalsReviewer } : {}) })
+      : existing;
+    if (confirmed === existing && instructions === existing.instructions) return message;
+    return { ...message, agentProvenance: { ...confirmed, instructions } };
   }
 
   if (args.event.type === "model_resolved") {

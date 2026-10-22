@@ -3,7 +3,7 @@ import { agentRuntimeOptions, compileTaskAgentRole } from "../../src/lib/agents/
 import { compileNativeSubagents } from "../../src/lib/agents/native-subagents";
 import type { AgentConfig } from "../../src/lib/agents/schema";
 import { resolveTurnPolicy, type TurnPolicy } from "../../src/lib/policy/turn-policy";
-import { AgentTurnProvenanceSchema, type AgentInstructionDelivery, type AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
+import { AgentTurnProvenanceSchema, withConfirmedApprovals, type AgentInstructionDelivery, type AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { BridgeEvent, StreamTurnArgs } from "./types";
 
 /** One saved assignment owns the policy and evidence for this task turn. */
@@ -15,28 +15,6 @@ export interface TaskAgentTurn {
   observe: (event: BridgeEvent) => BridgeEvent | null;
   prepareSessionPrompt: (sessionId: string, resumed: boolean) => string | null;
   acknowledgeSessionPrompt: () => BridgeEvent | null;
-}
-
-/**
- * The turn's provenance with the approvals the runtime applied
- * (`approvals_applied`), replacing what the turn asked for.
- */
-export function withAppliedApprovals(
-  provenance: AgentTurnProvenance,
-  event: Extract<BridgeEvent, { type: "approvals_applied" }>,
-): AgentTurnProvenance {
-  const { codexApprovalsReviewer: _requested, ...applied } = provenance.permission.applied;
-  return {
-    ...provenance,
-    permission: {
-      ...provenance.permission,
-      applied: {
-        ...applied,
-        codexApprovalPolicy: event.codexApprovalPolicy,
-        ...(event.codexApprovalsReviewer ? { codexApprovalsReviewer: event.codexApprovalsReviewer } : {}),
-      },
-    },
-  };
 }
 
 export function prepareTaskAgentTurn(args: {
@@ -135,9 +113,9 @@ export function prepareTaskAgentTurn(args: {
     provenance,
     observe(event) {
       if (event.type === "provider_session") sessionId = event.nativeSessionId;
-      // The runtime's own checks can turn Codex's reviewer off: record what this turn runs with.
+      // The runtime's own checks can turn Codex's reviewer off: record what the started turn runs with.
       if (event.type === "approvals_applied") {
-        provenance = withAppliedApprovals(provenance, event);
+        provenance = withConfirmedApprovals(provenance, event);
         return { type: "agent_provenance", provenance };
       }
       if (!promptPreamble && provenance.instructions.status === "configured" &&
