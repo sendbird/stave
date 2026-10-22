@@ -60,7 +60,8 @@
     "cancelled": "Cancelled.",
     "thisNeedsTheDesktopApp": "This needs the desktop app.",
     "theUtilityModelIsTurnedOffInSettings": "The utility model is turned off in Settings.",
-    "theRequestFailedTryAgain": "The request failed. Try again."
+    "theRequestFailedTryAgain": "The request failed. Try again.",
+    "openAWorkspaceFirst": "Open a workspace first."
   },
   "appStoreConversationThreadActions": {
     "returnedTheTaskToThisCodexResponseWorkspaceFilesWereNotChanged": "Returned the task to this Codex response. Workspace files were not changed."

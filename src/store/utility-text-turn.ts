@@ -2,9 +2,11 @@ import { i18n } from "@/i18n/runtime";
 /**
  * One read-only turn on the utility lane that returns the model's text. Shared
  * by the agent features that ask the model for a small JSON answer (drafting
- * an agent, suggesting an instruction change). No secrets, tools, writes or
- * network: `buildReadOnlyAuxRuntimeOptions` decides the runtime options and
- * the lane's on/off switch in Settings is honoured.
+ * an agent, suggesting an instruction change). No secrets, tools, MCP servers,
+ * writes or network: `buildReadOnlyAuxRuntimeOptions` decides the runtime
+ * options (`toolsDisabled`) and the lane's on/off switch in Settings is
+ * honoured. The turn runs in the active workspace's folder, which the provider
+ * runtime requires of every turn.
  */
 import {
   buildReadOnlyAuxRuntimeOptions,
@@ -15,19 +17,21 @@ import { useAppStore } from "./app.store";
 
 export type UtilityTextResult = { ok: true; text: string } | { ok: false; message: string; cancelled?: boolean };
 
-async function collectText(stream: unknown): Promise<string> {
+function eventOfType<T extends NormalizedProviderEvent["type"]>(type: T) {
+  return (event: unknown): event is Extract<NormalizedProviderEvent, { type: T }> =>
+    Boolean(event && typeof event === "object" && (event as { type?: unknown }).type === type);
+}
+
+/** The turn's text, and the first error it reported (a refused turn has only that). */
+async function collectReply(stream: unknown): Promise<{ text: string; error: string | null }> {
   const resolved = await stream;
   const events: unknown[] = Array.isArray(resolved) ? resolved : [];
   if (!Array.isArray(resolved) && resolved && typeof resolved === "object" && Symbol.asyncIterator in resolved) {
     for await (const event of resolved as AsyncIterable<unknown>) events.push(event);
   }
-  return events
-    .filter((event): event is Extract<NormalizedProviderEvent, { type: "text" }> =>
-      Boolean(event && typeof event === "object" && (event as { type?: unknown }).type === "text"),
-    )
-    .map((event) => event.text)
-    .join("")
-    .trim();
+  const text = events.filter(eventOfType("text")).map((event) => event.text).join("").trim();
+  const error = events.find(eventOfType("error"));
+  return { text, error: error ? error.message : null };
 }
 
 function newTurnId(prefix: string): string {
@@ -59,15 +63,18 @@ export async function runUtilityTextTurn(args: {
     shared: state.settings.auxiliaryInferenceDefault,
   });
   if (!lane.enabled) return { ok: false, message: i18n.t("notifications:utilityTextTurn.theUtilityModelIsTurnedOffInSettings") };
+  const cwd = state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
+  if (!cwd) return { ok: false, message: i18n.t("notifications:utilityTextTurn.openAWorkspaceFirst") };
   const turnId = newTurnId(args.turnIdPrefix);
   const abort = () => void provider?.abortTurn?.({ turnId })?.catch(() => undefined);
   signal?.addEventListener("abort", abort, { once: true });
   try {
-    const text = await collectText(
+    const reply = await collectReply(
       streamTurn({
         turnId,
         providerId: lane.providerId,
         prompt: args.prompt,
+        cwd,
         runtimeOptions: buildReadOnlyAuxRuntimeOptions({
           accountSelection: state.settings,
           providerId: lane.providerId,
@@ -76,7 +83,12 @@ export async function runUtilityTextTurn(args: {
         }),
       }),
     );
-    return signal?.aborted ? CANCELLED : { ok: true, text };
+    if (signal?.aborted) return CANCELLED;
+    // A refused or failed turn is a failure with its reason, never an empty answer.
+    if (!reply.text && reply.error !== null) {
+      return { ok: false, message: reply.error || i18n.t("notifications:utilityTextTurn.theRequestFailedTryAgain") };
+    }
+    return { ok: true, text: reply.text };
   } catch (error) {
     if (signal?.aborted) return CANCELLED;
     return {

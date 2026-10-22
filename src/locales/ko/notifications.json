@@ -60,7 +60,8 @@
     "cancelled": "취소되었습니다.",
     "thisNeedsTheDesktopApp": "데스크톱 앱이 필요합니다.",
     "theUtilityModelIsTurnedOffInSettings": "설정에서 유틸리티 모델이 꺼져 있습니다.",
-    "theRequestFailedTryAgain": "요청하지 못했습니다. 다시 시도합니다."
+    "theRequestFailedTryAgain": "요청하지 못했습니다. 다시 시도합니다.",
+    "openAWorkspaceFirst": "먼저 워크스페이스를 엽니다."
   },
   "appStoreConversationThreadActions": {
     "returnedTheTaskToThisCodexResponseWorkspaceFilesWereNotChanged": "작업을 이 Codex 응답으로 되돌렸습니다. 워크스페이스 파일은 변경되지 않았습니다."
