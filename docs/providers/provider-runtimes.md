@@ -1866,12 +1866,13 @@ Codex accepted it with as the normalized event `approvals_applied`
 (`codexApprovalPolicy`, `codexApprovalsReviewer`), separate from that notice:
 once, after `turn/start` was acknowledged (after a refused start's retry when
 there was one). A turn that never started, such as one whose retry was refused
-too, reports none. The Agent turn records them on its provenance in
-place of the requested ones (`withAppliedApprovals` in
-`electron/providers/task-agent-turn.ts`), and a run's contract reads the
-latest turn's to say whether the reviewer applied. Claude sends no such event:
-its permission mode reaches the CLI as given, and when Auto's classifier is
-unavailable Claude asks, which its Auto line already allows. A supported resumed thread
+too, reports none. The Agent turn records them on its provenance in place of
+the requested ones and marks them confirmed (`permission.approvalsConfirmed`,
+`withConfirmedApprovals` in `src/lib/agents/turn-provenance.ts`). A run's
+contract states the current turn's approvals only once confirmed; requested
+values never read as applied. Claude sends no such event: its permission mode
+reaches the CLI as given, and when Auto's classifier is unavailable Claude
+asks, which its Auto line already allows. A supported resumed thread
 explicitly returns to reviewer `user` for turns without a reviewer option, so a
 completed Run cannot leave automatic review enabled in an ordinary turn.
 

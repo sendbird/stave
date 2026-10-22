@@ -8,7 +8,7 @@ import { readyWorkspaceScripts, useWorkspaceScriptActions } from "@/components/w
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { buildAgentRunStartInput } from "@/lib/agent-runs/agent-run";
 import { AGENT_RUN_LIMITS } from "@/lib/agent-runs/domain";
-import { appliedApprovalsOfRun, buildRunContract, type RunContract, type RunContractInput } from "@/lib/agent-runs/run-contract";
+import { buildRunContract, confirmedApprovalsOfRun, type RunContract, type RunContractInput } from "@/lib/agent-runs/run-contract";
 import { defaultWorkspaceCheckApplies } from "@/lib/agent-runs/workspace-check";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
@@ -107,13 +107,13 @@ export function RunHeaderContract(props: { detail: AgentRunDetail }) {
   const permission = useAgentAssignmentsStore((state) => state.byTaskId[agentRun.leadTaskId]?.agentPermission ?? null);
   const codexAutoReview = useCodexAutoReview();
   const messages = useAppStore((state) => state.messagesByTask[agentRun.leadTaskId]);
-  const appliedApprovals = useMemo(() => appliedApprovalsOfRun(messages, agentRun.createdAt), [messages, agentRun.createdAt]);
+  const confirmedApprovals = useMemo(() => confirmedApprovalsOfRun(messages, agentRun.createdAt), [messages, agentRun.createdAt]);
   const contract = buildRunContract({
     workspace,
     permission: permission ?? (agentRun.consent.permissionMode === "auto" ? "auto" : null),
     providerId: agentRun.fingerprint.providerId,
     codexAutoReview,
-    appliedApprovals,
+    confirmedApprovals,
     workflow: agentRun.workflow,
     authorizedEffectStageIds: agentRun.consent.authorizedEffectStageIds,
     maxTurns: agentRun.maxTurns,

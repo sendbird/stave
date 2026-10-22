@@ -31,6 +31,13 @@ export const AgentTurnProvenanceSchema = z.object({
       opencodeApprovalMode: z.string().max(80).optional(),
       opencodeDenyEdits: z.boolean().optional(),
     }).strict(),
+    /**
+     * Set once the runtime confirmed, after the turn started, the approvals in
+     * `applied` (Codex `approvals_applied`). Absent, they are only what the
+     * turn asked for: before its start, for a turn that never started, and on
+     * turns recorded before runtimes confirmed them.
+     */
+    approvalsConfirmed: z.literal(true).optional(),
   }).strict(),
   instructions: z.object({
     channel: z.enum(["instruction", "prompt"]),
@@ -40,6 +47,32 @@ export const AgentTurnProvenanceSchema = z.object({
 }).strict();
 
 export type AgentTurnProvenance = z.infer<typeof AgentTurnProvenanceSchema>;
+
+/** The approvals a runtime confirmed a turn started with. */
+export interface ConfirmedTurnApprovals {
+  codexApprovalPolicy: string;
+  codexApprovalsReviewer?: "user" | "auto_review";
+}
+
+/**
+ * The provenance with the approvals its runtime confirmed, in place of the
+ * requested ones. The rest of the recorded configuration never changes.
+ */
+export function withConfirmedApprovals(provenance: AgentTurnProvenance, approvals: ConfirmedTurnApprovals): AgentTurnProvenance {
+  const { codexApprovalPolicy: _policy, codexApprovalsReviewer: _reviewer, ...applied } = provenance.permission.applied;
+  return {
+    ...provenance,
+    permission: {
+      ...provenance.permission,
+      applied: {
+        ...applied,
+        codexApprovalPolicy: approvals.codexApprovalPolicy,
+        ...(approvals.codexApprovalsReviewer ? { codexApprovalsReviewer: approvals.codexApprovalsReviewer } : {}),
+      },
+      approvalsConfirmed: true,
+    },
+  };
+}
 
 export interface AgentInstructionDelivery {
   providerId: AgentTurnProvenance["providerId"];

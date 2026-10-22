@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { prepareTaskAgentTurn, withAppliedApprovals } from "../electron/providers/task-agent-turn";
+import { prepareTaskAgentTurn } from "../electron/providers/task-agent-turn";
 import type { BridgeEvent } from "../electron/providers/types";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { compileTaskAgentRole } from "@/lib/agents/runtime-options";
 import type { AgentAssignment } from "@/lib/agents/assign";
-import { AgentTurnProvenanceSchema } from "@/lib/agents/turn-provenance";
+import { AgentTurnProvenanceSchema, withConfirmedApprovals } from "@/lib/agents/turn-provenance";
 import { buildCodexApprovalsAppliedEvent } from "@/lib/providers/codex-runtime-options";
 import { NormalizedProviderEventSchema } from "@/lib/providers/schemas";
 
@@ -25,16 +25,22 @@ describe("approvals a Codex turn applied", () => {
     expect(buildCodexApprovalsAppliedEvent({ requested: { codexApprovalPolicy: "never" }, effective: { codexApprovalPolicy: "never" } })).toBeNull();
   });
 
-  test("the turn's provenance records the applied approvals in place of the requested ones", () => {
+  test("the turn's provenance records the confirmed approvals in place of the requested ones, and that they were confirmed", () => {
     const provenance = AgentTurnProvenanceSchema.parse({
       version: 1, turnId: "turn-1", assignmentId: "a", agentConfigId: "implementer", agentName: "Implementer", agentContentHash: "h",
       role: "primary", providerId: "codex", model: null, effort: null,
       permission: { source: "agent-autonomy", agentLimit: "auto", support: "enforced", applied: { ...requested, codexFileAccess: "workspace-write" } },
       instructions: { channel: "instruction", status: "configured" },
     });
-    expect(withAppliedApprovals(provenance, { type: "approvals_applied", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }).permission.applied)
-      .toEqual({ codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" });
-    expect(withAppliedApprovals(provenance, { type: "approvals_applied", codexApprovalPolicy: "never" }).permission.applied)
+    // Until the runtime confirms, the values are only what the turn asked for.
+    expect(provenance.permission.approvalsConfirmed).toBeUndefined();
+    const confirmed = withConfirmedApprovals(provenance, { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" });
+    expect(confirmed.permission).toMatchObject({
+      approvalsConfirmed: true,
+      applied: { codexFileAccess: "workspace-write", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" },
+    });
+    expect(AgentTurnProvenanceSchema.parse(confirmed)).toEqual(confirmed);
+    expect(withConfirmedApprovals(provenance, { codexApprovalPolicy: "never" }).permission.applied)
       .toEqual({ codexFileAccess: "workspace-write", codexApprovalPolicy: "never" });
   });
 
@@ -49,7 +55,8 @@ describe("approvals a Codex turn applied", () => {
       turn: { providerId: "codex", turnId: "turn-1", taskId: "task-1", prompt: "Work", cwd: "/tmp/repo", runtimeOptions: requested } as never,
       assignment, hasDelivery: () => false, recordDelivery: () => {},
     });
+    expect(turn.provenance.permission.approvalsConfirmed).toBeUndefined();
     const restated = turn.observe({ type: "approvals_applied", codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } satisfies BridgeEvent);
-    expect(restated).toMatchObject({ type: "agent_provenance", provenance: { turnId: "turn-1", permission: { applied: { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } } } });
+    expect(restated).toMatchObject({ type: "agent_provenance", provenance: { turnId: "turn-1", permission: { approvalsConfirmed: true, applied: { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } } } });
   });
 });

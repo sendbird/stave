@@ -42,6 +42,38 @@ const shipWorkflow: NonNullable<Workflow["stages"]> = [
 
 afterEach(() => applyAppLocale("en"));
 
+const unconfirmedAuto = "unless your organization turns automatic review off";
+
+/** A Codex Auto run's header over these lead-task messages; `turn` builds a turn row with its provenance. */
+function codexRunHeader() {
+  const detail = structuredClone(buildAgentRunFixtures(NOW).working);
+  detail.agentRun.fingerprint = { ...detail.agentRun.fingerprint, providerId: "codex" };
+  detail.agentRun.consent = { ...detail.agentRun.consent, permissionMode: "auto" };
+  const turn = (applied: Record<string, string>, options: { turnId?: string; confirmed?: boolean } = {}) => {
+    const turnId = options.turnId ?? "turn-run";
+    return {
+      id: `m-${turnId}`, role: "assistant", model: "gpt", providerId: "codex", content: "", turnId,
+      startedAt: new Date(Date.parse(detail.agentRun.createdAt) + 60_000).toISOString(), parts: [],
+      agentProvenance: {
+        version: 1, turnId, assignmentId: "a", agentConfigId: "implementer", agentName: "Implementer", agentContentHash: "h",
+        role: "primary", providerId: "codex", model: null, effort: null,
+        permission: { source: "agent-autonomy", agentLimit: "auto", support: "enforced", applied, ...(options.confirmed === false ? {} : { approvalsConfirmed: true }) },
+        instructions: { channel: "instruction", status: "configured" },
+      },
+    };
+  };
+  const checked = useAppStore.getInitialState().providerRuntimeCapabilities;
+  const header = (messages: unknown[], codexChecked = true) => withState(
+    {
+      messagesByTask: { [detail.agentRun.leadTaskId]: messages },
+      providerAvailability: { ...useAppStore.getInitialState().providerAvailability, codex: codexChecked },
+      providerRuntimeCapabilities: { ...checked, codex: { ...checked.codex, approval: { ...checked.codex.approval, autoClassifierPolicy: true } } },
+    },
+    () => renderToStaticMarkup(createElement(RunHeaderContract, { detail })),
+  );
+  return { detail, header, turn };
+}
+
 describe("run contract", () => {
   test("a one-stage write agent: where, what it may change, when it is done and when it comes back", () => {
     const contract = contractFor(startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "auto" }), {
@@ -79,13 +111,13 @@ describe("run contract", () => {
     expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: null }).change[0]).toBe(unconfirmed);
   });
 
-  test("during a run, the line follows the approvals its turns actually applied", () => {
+  test("during a run, the line follows the approvals the runtime confirmed for its current turn", () => {
     const start = startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "auto" });
     const auto = "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.";
     // A managed policy turned the reviewer off: the runtime ran the turn with approvals `never`.
-    expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true, appliedApprovals: { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } }).change[0])
+    expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true, confirmedApprovals: { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } }).change[0])
       .toBe("Edits files and runs commands here without asking: Codex's automatic review is off for this run, so its approvals are off.");
-    expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true, appliedApprovals: { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" } }).change[0]).toBe(auto);
+    expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true, confirmedApprovals: { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" } }).change[0]).toBe(auto);
   });
 
   test("Auto says what the run applies: a Codex without its reviewer runs with approvals off", () => {
@@ -112,35 +144,26 @@ describe("run contract", () => {
   });
 
   test("a Codex run's header states what its turns applied, and is unconfirmed before a turn ran", () => {
-    const detail = structuredClone(buildAgentRunFixtures(NOW).working);
-    detail.agentRun.fingerprint = { ...detail.agentRun.fingerprint, providerId: "codex" };
-    detail.agentRun.consent = { ...detail.agentRun.consent, permissionMode: "auto" };
-    const turn = (applied: Record<string, string>) => ({
-      id: "m-run", role: "assistant", model: "gpt", providerId: "codex", content: "", turnId: "turn-run",
-      startedAt: new Date(Date.parse(detail.agentRun.createdAt) + 60_000).toISOString(), parts: [],
-      agentProvenance: {
-        version: 1, turnId: "turn-run", assignmentId: "a", agentConfigId: "implementer", agentName: "Implementer", agentContentHash: "h",
-        role: "primary", providerId: "codex", model: null, effort: null,
-        permission: { source: "agent-autonomy", agentLimit: "auto", support: "enforced", applied },
-        instructions: { channel: "instruction", status: "configured" },
-      },
-    });
-    const checked = useAppStore.getInitialState().providerRuntimeCapabilities;
-    const header = (messages: unknown[], codexChecked = true) => withState(
-      {
-        messagesByTask: { [detail.agentRun.leadTaskId]: messages },
-        providerAvailability: { ...useAppStore.getInitialState().providerAvailability, codex: codexChecked },
-        providerRuntimeCapabilities: { ...checked, codex: { ...checked.codex, approval: { ...checked.codex.approval, autoClassifierPolicy: true } } },
-      },
-      () => renderToStaticMarkup(createElement(RunHeaderContract, { detail })),
-    );
-    expect(header([])).toContain("unless your organization turns automatic review off");
+    const { header, turn } = codexRunHeader();
+    expect(header([])).toContain(unconfirmedAuto);
     // Before Codex was checked its capabilities are only defaults: still unconfirmed, never "has no reviewer".
-    expect(header([], false)).toContain("unless your organization turns automatic review off");
+    expect(header([], false)).toContain(unconfirmedAuto);
     expect(header([turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" })])).toContain("automatic review is off for this run");
     expect(header([turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" })])).toContain("the provider&#x27;s auto mode decides each action");
     // A turn from before the run says nothing about it.
-    expect(header([{ ...turn({ codexApprovalPolicy: "never" }), startedAt: "2020-01-01T00:00:00.000Z" }])).toContain("unless your organization turns automatic review off");
+    expect(header([{ ...turn({ codexApprovalPolicy: "never" }), startedAt: "2020-01-01T00:00:00.000Z" }])).toContain(unconfirmedAuto);
+  });
+
+  test("a Codex run's header stays unconfirmed until the runtime confirms its current turn's approvals", () => {
+    const { header, turn } = codexRunHeader();
+    const requested = { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" };
+    // The turn's provenance starts with what it asked for; Codex has not accepted its start yet.
+    expect(header([turn(requested, { confirmed: false })])).toContain(unconfirmedAuto);
+    // An earlier turn's confirmation says nothing about the turn that is starting now.
+    expect(header([
+      turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }, { turnId: "turn-1" }),
+      turn(requested, { turnId: "turn-2", confirmed: false }),
+    ])).toContain(unconfirmedAuto);
   });
 
   test("the run's header shows the contract it started with, in English and Korean", () => {
