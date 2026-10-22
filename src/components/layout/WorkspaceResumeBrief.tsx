@@ -29,7 +29,7 @@ import {
   saveDirectionDraft,
 } from "@/lib/workspace-direction-draft-client";
 import { workspaceResumeBriefStyles as styles } from "./workspace-resume-brief.styles";
-import { formatRelativeTime } from "@/components/layout/automation-center/automation-center.utils";
+import { formatTimeAgo } from "@/components/layout/automation-center/automation-center.utils";
 
 /**
  * What the local draft is doing. Rendered through translation keys, so the
@@ -362,7 +362,7 @@ export function WorkspaceResumeBrief(props: {
                       dateTime={props.brief!.updatedAt}
                       title={formatDateTime(new Date(props.brief!.updatedAt))}
                     >
-          {tI18n("workspace:workspaceResumeBrief.updatedAt", { time: formatRelativeTime(props.brief!.updatedAt) })}
+          {tI18n("workspace:workspaceResumeBrief.updatedAt", { time: formatTimeAgo(props.brief!.updatedAt) })}
         </time>
                   </dd>
                 </div>
