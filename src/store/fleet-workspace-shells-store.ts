@@ -65,6 +65,23 @@ export function requestFleetWorkspaceShell(
   );
 }
 
+/** Reads again the workspaces whose read failed (the table's Retry). */
+export function retryFleetWorkspaceShells(
+  workspaceIds: readonly string[],
+  load: typeof loadWorkspaceShellSummary = loadWorkspaceShellSummary,
+) {
+  for (const workspaceId of workspaceIds) {
+    if (useFleetWorkspaceShellsStore.getState().byWorkspaceId[workspaceId]?.status !== "failed") {
+      continue;
+    }
+    useFleetWorkspaceShellsStore.setState((state) => {
+      const { [workspaceId]: _failed, ...rest } = state.byWorkspaceId;
+      return { byWorkspaceId: rest };
+    });
+    requestFleetWorkspaceShell(workspaceId, load);
+  }
+}
+
 /** One workspace's entry, read only when `enabled` (it has no live session). */
 export function useFleetWorkspaceShell(workspaceId: string, enabled: boolean) {
   const entry = useFleetWorkspaceShellsStore(

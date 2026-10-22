@@ -274,6 +274,13 @@
     "activity": "Activity",
     "openTask": "Open {{title}} in {{workspace}}",
     "noTasks": "No tasks match this filter.",
-    "underAMinute": "Under 1m"
+    "underAMinute": "Under 1m",
+    "incompleteTitle": "This list is incomplete",
+    "failedRead_one": "The tasks of {{count}} workspace could not be read: {{names}}.",
+    "failedRead_other": "The tasks of {{count}} workspaces could not be read: {{names}}.",
+    "incompleteNotice": "Their tasks are missing here; every other row is current.",
+    "readingTasks": "Reading tasks…",
+    "readingMore_one": "Reading the tasks of {{count}} more workspace…",
+    "readingMore_other": "Reading the tasks of {{count}} more workspaces…"
   }
 }

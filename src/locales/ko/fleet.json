@@ -260,6 +260,11 @@
     "activity": "활동",
     "openTask": "{{workspace}}의 {{title}} 열기",
     "noTasks": "이 필터에 맞는 작업이 없습니다.",
-    "underAMinute": "1분 미만"
+    "underAMinute": "1분 미만",
+    "incompleteTitle": "목록이 완전하지 않습니다",
+    "failedRead_other": "워크스페이스 {{count}}개의 작업을 읽지 못했습니다: {{names}}.",
+    "incompleteNotice": "해당 작업은 여기에 빠져 있으며, 나머지 행은 최신입니다.",
+    "readingTasks": "작업을 읽는 중…",
+    "readingMore_other": "워크스페이스 {{count}}개의 작업을 더 읽는 중…"
   }
 }

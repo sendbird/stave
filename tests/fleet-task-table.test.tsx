@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FleetTaskTableView } from "@/components/layout/FleetTaskTable";
+import {
+  FleetTaskTableView,
+  summarizeFleetTaskTableLoad,
+} from "@/components/layout/FleetTaskTable";
 import { applyAppLocale } from "@/i18n";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { fleetSearchMatches, normalizeFleetSearchQuery } from "@/lib/fleet/card-task-rows";
@@ -24,6 +27,7 @@ import { useAppStore } from "@/store/app.store";
 import {
   requestFleetWorkspaceShell,
   resetFleetWorkspaceShells,
+  retryFleetWorkspaceShells,
   useFleetWorkspaceShellsStore,
 } from "@/store/fleet-workspace-shells-store";
 import type { WorkspaceShellSummary } from "@/lib/db/workspaces.db";
@@ -236,6 +240,62 @@ describe("the table", () => {
   });
 });
 
+describe("workspaces whose task lists are not read", () => {
+  afterEach(() => applyAppLocale("en"));
+  const view = (rows: readonly FleetTaskRow[], load: { pending: string[]; failed: string[] }) =>
+    renderToStaticMarkup(createElement(FleetTaskTableView, {
+      rows, nowMs: NOW, onOpenTask: () => {}, load, onRetry: () => {},
+    } as never));
+
+  test("a failed read is an error with Retry, never an empty table", () => {
+    const html = view([], { pending: [], failed: ["guide", "docs"] });
+    expect(html).not.toContain("No tasks match this filter.");
+    expect(html).toContain('role="alert"');
+    expect(html).toContain("The tasks of 2 workspaces could not be read: guide, docs.");
+    expect(html).toContain(">Retry<");
+  });
+
+  test("rows that did load stay, under a notice that the list is incomplete", () => {
+    const html = view(fixture(), { pending: [], failed: ["guide"] });
+    expect(html.match(/data-fleet-task-table-row=/g)).toHaveLength(6);
+    expect(html).toContain("This list is incomplete");
+    expect(html).toContain("The tasks of 1 workspace could not be read: guide.");
+    expect(html).toContain(">Retry<");
+  });
+
+  test("reads still running are said, not shown as no tasks", () => {
+    const waiting = view([], { pending: ["guide"], failed: [] });
+    expect(waiting).not.toContain("No tasks match this filter.");
+    expect(waiting).toContain("Reading tasks");
+    const partial = view(fixture(), { pending: ["guide", "docs"], failed: [] });
+    expect(partial.match(/data-fleet-task-table-row=/g)).toHaveLength(6);
+    expect(partial).toContain("Reading the tasks of 2 more workspaces");
+  });
+
+  test("Korean says the same", () => {
+    applyAppLocale("ko");
+    expect(view([], { pending: [], failed: ["guide"] })).toContain("guide");
+    expect(view([], { pending: [], failed: ["guide"] })).toContain(">다시 시도<");
+  });
+
+  test("the table knows which unopened workspaces are still reading or failed", () => {
+    const load = summarizeFleetTaskTableLoad({
+      coldWorkspaces: [
+        { workspaceId: "ws-a", workspaceName: "alpha" },
+        { workspaceId: "ws-b", workspaceName: "beta" },
+        { workspaceId: "ws-c", workspaceName: "gamma" },
+        { workspaceId: "ws-d", workspaceName: "delta" },
+      ],
+      shells: {
+        "ws-a": { status: "loading" },
+        "ws-b": { status: "failed" },
+        "ws-c": { status: "loaded", shell: null },
+      },
+    });
+    expect(load).toEqual({ pending: ["alpha", "delta"], failed: ["beta"], failedWorkspaceIds: ["ws-b"] });
+  });
+});
+
 describe("unopened workspaces' task lists", () => {
   beforeEach(() => resetFleetWorkspaceShells());
 
@@ -259,6 +319,17 @@ describe("unopened workspaces' task lists", () => {
     requestFleetWorkspaceShell("ws-b", load);
     expect(useFleetWorkspaceShellsStore.getState().byWorkspaceId["ws-b"]).toEqual({ status: "failed" });
     expect(calls).toBe(1);
+  });
+
+  test("Retry reads a failed workspace again", async () => {
+    requestFleetWorkspaceShell("ws-b", async () => { throw new Error("db closed"); });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(useFleetWorkspaceShellsStore.getState().byWorkspaceId["ws-b"]).toEqual({ status: "failed" });
+    retryFleetWorkspaceShells(["ws-b"], async () => shell);
+    expect(useFleetWorkspaceShellsStore.getState().byWorkspaceId["ws-b"]).toEqual({ status: "loading" });
+    await Promise.resolve();
+    expect(useFleetWorkspaceShellsStore.getState().byWorkspaceId["ws-b"]).toEqual({ status: "loaded", shell });
   });
 
   test("leaving Fleet forgets every read, and a read still in flight cannot land afterwards", async () => {

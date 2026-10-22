@@ -72,7 +72,9 @@ Fleet item, and the task records the answer the same way.
   `No updates` (quiet turns). A task's name opens it; with the name focused,
   `Enter` does the same. A workspace you have not opened since starting Stave
   shows its stored tasks with an unknown state, and its needs from
-  notifications.
+  notifications. While those task lists are read, the table says so; when a
+  read fails, it says the list is incomplete, names the workspaces and offers
+  `Retry`, and never shows them as having no tasks.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.

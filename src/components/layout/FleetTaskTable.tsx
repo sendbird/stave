@@ -13,6 +13,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ads/components/Table";
+import { LoadingSurface } from "@/components/ads/components/LoadingSurface";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -24,6 +25,7 @@ import {
   formatFleetWorkspaceName,
 } from "@/components/layout/FleetWorkspaceCard";
 import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
+import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import { formatActivityDuration } from "@/lib/fleet/task-activity-line";
 import {
@@ -40,12 +42,40 @@ import {
 } from "@/lib/fleet/card-task-rows";
 import { useAppStore } from "@/store/app.store";
 import { useFleetAttention } from "@/store/fleet-attention-store";
-import { useFleetWorkspaceShells } from "@/store/fleet-workspace-shells-store";
+import {
+  retryFleetWorkspaceShells,
+  useFleetWorkspaceShells,
+  type FleetWorkspaceShellEntry,
+} from "@/store/fleet-workspace-shells-store";
 
 export interface FleetTaskTableRepository {
   repositoryPath: string;
   repositoryName: string;
   workspaces: Array<{ id: string; name: string; branch?: string }>;
+}
+
+/** Unopened workspaces whose task lists are still being read, or failed. */
+export interface FleetTaskTableLoad {
+  pending: string[];
+  failed: string[];
+}
+
+/** Which unopened workspaces the table is still reading, and which failed. */
+export function summarizeFleetTaskTableLoad(args: {
+  coldWorkspaces: ReadonlyArray<{ workspaceId: string; workspaceName: string }>;
+  shells: Readonly<Record<string, FleetWorkspaceShellEntry | undefined>>;
+}): FleetTaskTableLoad & { failedWorkspaceIds: string[] } {
+  const load = { pending: [] as string[], failed: [] as string[], failedWorkspaceIds: [] as string[] };
+  for (const workspace of args.coldWorkspaces) {
+    const status = args.shells[workspace.workspaceId]?.status;
+    if (status === "failed") {
+      load.failed.push(workspace.workspaceName);
+      load.failedWorkspaceIds.push(workspace.workspaceId);
+    } else if (status !== "loaded") {
+      load.pending.push(workspace.workspaceName);
+    }
+  }
+  return load;
 }
 
 export interface FleetTaskTableSummary {
@@ -102,7 +132,7 @@ export function FleetTaskTable(props: {
 
   // Workspaces with no live session read their stored task lists once, from
   // the cache the workspace cards share.
-  const coldWorkspaceIds = useMemo(
+  const coldWorkspaces = useMemo(
     () =>
       props.repositories.flatMap((repository) =>
         repository.workspaces
@@ -114,11 +144,19 @@ export function FleetTaskTable(props: {
                   workspaceRuntimeCacheById[workspace.id])
               ),
           )
-          .map((workspace) => workspace.id),
+          .map((workspace) => ({
+            workspaceId: workspace.id,
+            workspaceName: formatFleetWorkspaceName(workspace.name, workspace.branch),
+          })),
       ),
     [activeWorkspaceId, currentRepositoryPath, props.repositories, workspaceRuntimeCacheById],
   );
+  const coldWorkspaceIds = useMemo(
+    () => coldWorkspaces.map((workspace) => workspace.workspaceId),
+    [coldWorkspaces],
+  );
   const shells = useFleetWorkspaceShells(coldWorkspaceIds);
+  const load = summarizeFleetTaskTableLoad({ coldWorkspaces, shells });
 
   const rows = useMemo(() => {
     const workspaces: FleetTaskTableWorkspace[] = props.repositories.flatMap((repository) =>
@@ -199,25 +237,109 @@ export function FleetTaskTable(props: {
   }, [liveWorkspaceCount, onSummaryChange, shownRows.length]);
 
   return (
-    <FleetTaskTableView rows={shownRows} nowMs={props.nowMs} onOpenTask={props.onOpenTask} />
+    <FleetTaskTableView
+      rows={shownRows}
+      hasRows={rows.length > 0}
+      load={load}
+      onRetry={() => retryFleetWorkspaceShells(load.failedWorkspaceIds)}
+      nowMs={props.nowMs}
+      onOpenTask={props.onOpenTask}
+    />
   );
 }
 
-/** The table itself, for rows already built, filtered and ordered. */
+/**
+ * The table itself, for rows already built, filtered and ordered. Unopened
+ * workspaces whose task lists are still being read, or failed to read, are
+ * said, never shown as no tasks: a failure with nothing else to show is an
+ * error with Retry, and rows that did load stay under a notice that the list
+ * is incomplete.
+ */
 export function FleetTaskTableView(props: {
+  rows: readonly FleetTaskRow[];
+  /** Whether any row exists before the filter and search (default: `rows`). */
+  hasRows?: boolean;
+  load?: FleetTaskTableLoad;
+  onRetry?: () => void;
+  nowMs: number;
+  onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
+}) {
+  const { t } = useTranslation(["fleet"]);
+  const pending = props.load?.pending ?? [];
+  const failed = props.load?.failed ?? [];
+  const hasRows = props.hasRows ?? props.rows.length > 0;
+  const failure =
+    failed.length > 0
+      ? t("fleet:taskTable.failedRead", { count: failed.length, names: failed.join(", ") })
+      : null;
+  if (!hasRows && failure) {
+    return (
+      <AsyncBoundary
+        state={{ status: "error", error: failure }}
+        errorTitle={t("fleet:taskTable.incompleteTitle")}
+        describeError={() => failure}
+        onRetry={props.onRetry}
+      >
+        {() => null}
+      </AsyncBoundary>
+    );
+  }
+  if (!hasRows && pending.length > 0) {
+    return (
+      <AsyncBoundary
+        state={{ status: "pending" }}
+        pending={<LoadingSurface label={t("fleet:taskTable.readingTasks")} size="sm" />}
+      >
+        {() => null}
+      </AsyncBoundary>
+    );
+  }
+  const reading =
+    pending.length > 0 ? (
+      <p className={sx(styles.reading)} role="status">
+        {t("fleet:taskTable.readingMore", { count: pending.length })}
+      </p>
+    ) : null;
+  const body =
+    props.rows.length === 0 ? (
+      <p className={sx(styles.empty)} role="status">
+        {t("fleet:taskTable.noTasks")}
+      </p>
+    ) : (
+      <FleetTaskRowsTable rows={props.rows} nowMs={props.nowMs} onOpenTask={props.onOpenTask} />
+    );
+  if (!failure) {
+    return (
+      <>
+        {reading}
+        {body}
+      </>
+    );
+  }
+  return (
+    <AsyncBoundary
+      state={{ status: "ready", data: props.rows, stale: true, refreshError: failure }}
+      refreshErrorTitle={t("fleet:taskTable.incompleteTitle")}
+      staleNotice={t("fleet:taskTable.incompleteNotice")}
+      describeError={() => failure}
+      onRetry={props.onRetry}
+    >
+      {() => (
+        <>
+          {reading}
+          {body}
+        </>
+      )}
+    </AsyncBoundary>
+  );
+}
+
+function FleetTaskRowsTable(props: {
   rows: readonly FleetTaskRow[];
   nowMs: number;
   onOpenTask: (target: { repositoryPath: string; workspaceId: string; taskId: string }) => void;
 }) {
   const { t } = useTranslation(["fleet"]);
-  if (props.rows.length === 0) {
-    return (
-      <p className={sx(styles.empty)} role="status">
-        {t("fleet:taskTable.noTasks")}
-      </p>
-    );
-  }
-
   return (
     <Table
       density="compact"
@@ -327,6 +449,12 @@ const styles = stylex.create({
   table: {
     maxBlockSize: "100%",
     minWidth: 0,
+  },
+  reading: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    margin: 0,
+    paddingBlock: vars["--ads-space-4"],
   },
   empty: {
     color: vars["--ads-color-text-muted"],
