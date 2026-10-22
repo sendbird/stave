@@ -2019,9 +2019,6 @@ export async function streamCodexWithAppServer(
           key: args.agentRunStage?.agentRunId ?? args.taskId,
         });
         if (notice) emitBridgeEvent(notice);
-        // The approvals this turn runs with, recorded on its provenance for the run's contract.
-        const applied = buildCodexApprovalsAppliedEvent({ requested: requestedRuntimeOptions, effective: runtimeOptions });
-        if (applied) emitBridgeEvent(applied);
       };
       announceAutoReviewFallback();
       const modelResolution = createCodexModelResolutionTracker(requestedModel);
@@ -3253,6 +3250,9 @@ export async function streamCodexWithAppServer(
           nativeSessionId: threadId,
           nativeTurnId: appServerTurnId,
         });
+        // Once per started turn: the approvals Codex accepted it with, for its provenance and the run's contract.
+        const appliedApprovals = buildCodexApprovalsAppliedEvent({ requested: requestedRuntimeOptions, effective: runtimeOptions });
+        if (appliedApprovals) emitBridgeEvent(appliedApprovals);
         if (codexCapabilities.history.forkBoundary === "turn") {
           emitBridgeEvent({
             type: "history_boundary",
