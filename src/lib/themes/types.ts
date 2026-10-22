@@ -128,6 +128,13 @@ export interface CustomThemeDefinition {
   name: string;
   description: string;
   baseMode: ThemeModeName;
+  /**
+   * `high` for a theme built for low-vision reading. Stave then asks the
+   * design system for its high-contrast treatment: the ADS high-contrast theme
+   * in light mode, and a stronger border and focus layer in dark mode, which
+   * ADS has no high-contrast theme for.
+   */
+  contrast?: "high";
   version?: string;
   author?: string;
   tokens: Record<string, string>;

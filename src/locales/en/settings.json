@@ -191,6 +191,14 @@
       "dark": "Dark",
       "system": "System"
     },
+    "density": {
+      "title": "Density",
+      "description": "How much room rows, controls and spacing take across the app. Text keeps its size.",
+      "regular": "Regular",
+      "regularDescription": "The default height for rows and controls.",
+      "compact": "Compact",
+      "compactDescription": "Shorter rows and controls and tighter spacing, so more fits on screen."
+    },
     "sidebar": {
       "title": "Sidebar",
       "description": "Choose which workspace navigation surfaces appear in the left sidebar.",
@@ -1168,6 +1176,10 @@
       "routingDecision": {
         "title": "Routing decision model",
         "description": "Choose the model that classifies work for Auto and Agents. This does not change the model that performs the task."
+      },
+      "density": {
+        "title": "Density",
+        "description": "Regular or compact rows, controls and spacing across the app."
       }
     },
     "accounts": {

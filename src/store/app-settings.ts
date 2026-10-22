@@ -133,6 +133,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   themeMode: "light" | "dark" | "system";
   /** ID of the active custom theme preset, or `null` for the default. */
   customThemeId: string | null;
+  /**
+   * App-wide spacing: `regular` (default) or `compact`, which shortens rows
+   * and controls and tightens spacing wherever the design system's density
+   * applies. Text keeps its size.
+   */
+  uiDensity: UiDensity;
   /** Show the Fleet View shortcut in the left workspace sidebar. */
   sidebarShowFleetView: boolean;
   /** Show Agents and its active agent rows in the left sidebar. */
@@ -656,11 +662,18 @@ export function normalizeFleetBoardLayout(value: unknown): FleetBoardLayout {
   return value === "table" ? "table" : "cards";
 }
 
+export type UiDensity = "regular" | "compact";
+
+export function normalizeUiDensity(value: unknown): UiDensity {
+  return value === "compact" ? "compact" : "regular";
+}
+
 export const defaultSettings: AppSettings = {
   showPresetBar: true,
   language: DEFAULT_APP_LOCALE,
   themeMode: "dark",
   customThemeId: null,
+  uiDensity: "regular",
   sidebarShowFleetView: true,
   sidebarShowAgents: true,
   sidebarShowAiUsage: true,

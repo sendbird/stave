@@ -190,3 +190,28 @@ export const adsThemeVariables = Object.fromEntries(
     value,
   ]),
 ) as CSSProperties & Record<string, string>;
+
+/*
+ * Dark high contrast. ADS ships its high-contrast theme for light mode only,
+ * so a dark Stave theme flagged `contrast: "high"` keeps ADS's dark theme and
+ * gets this emphasis on top of the role mapping: hairlines at the theme's full
+ * border color instead of the 60% mix, media edges drawn (ADS inks
+ * `colorMediaEdge` only under high contrast, which this is), and a wider
+ * focus ring. It does not reproduce ADS's light high-contrast elevation ramp,
+ * which a black canvas cannot show.
+ */
+const darkHighContrastEmphasis = {
+  "--ads-color-border-subtle": "var(--border)",
+  "--ads-color-media-edge": "var(--border)",
+  "--ads-focus-ring-width": "3px",
+} as const satisfies Partial<Record<Extract<keyof typeof vars, `--ads-${string}`>, string>>;
+
+export const adsDarkHighContrastVariables = {
+  ...adsThemeVariables,
+  ...Object.fromEntries(
+    Object.entries(darkHighContrastEmphasis).map(([token, value]) => [
+      vars[token as keyof typeof darkHighContrastEmphasis].slice(4, -1),
+      value,
+    ]),
+  ),
+} as CSSProperties & Record<string, string>;

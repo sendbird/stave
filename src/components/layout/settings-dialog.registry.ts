@@ -23,6 +23,7 @@ import {
   MartinSyncSettingsSchema,
 } from "@/lib/martin-sync/types";
 import { STANDALONE_CLI_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-standalone-cli-card";
+import { DENSITY_SETTING_FIELD_ID } from "@/components/layout/settings-sections/settings-dialog-density-card";
 import { AUTO_ROUTING_SETTING_FIELD_ID, ROUTING_DECISION_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
 import { DEFAULT_ROUTING_DECISION, RoutingDecisionConfigSchema } from "@/lib/providers/routing-decision";
 import {
@@ -506,6 +507,20 @@ export const settingDefinitions = [
     applyMode: "immediate",
     importExport: "include",
   } satisfies SettingDefinition<"standaloneCliFolderPath">,
+  {
+    key: "uiDensity",
+    sectionId: "theme",
+    fieldId: DENSITY_SETTING_FIELD_ID,
+    titleKey: "settings:sections.fields.density.title",
+    descriptionKey: "settings:sections.fields.density.description",
+    keywords: ["density", "compact", "regular", "dense", "spacing", "row height", "padding"],
+    schema: z.enum(["regular", "compact"]),
+    defaultValue: "regular",
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "immediate",
+    importExport: "include",
+  } satisfies SettingDefinition<"uiDensity">,
 ] as const;
 
 export function getSettingsFieldSearchText<Key extends keyof AppSettings>(
