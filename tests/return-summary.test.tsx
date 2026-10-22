@@ -8,6 +8,7 @@ import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import { applyHandoffDraft, emptyHandoffRecord, type HandoffDraft } from "@/lib/task-context/handoff-record";
 import {
   buildReturnSummary,
+  captureReturnBaseline,
   countChangesSince,
   findLastDecision,
   hasReturnNews,
@@ -54,6 +55,9 @@ const MESSAGES: ChatMessage[] = [
   ]),
 ];
 
+/** What you had seen when your last message (u2) went: a1. */
+const SEEN_AT_U2 = { partsByMessage: { a1: 1 }, finished: ["a1"] };
+
 const APPROVAL_NEED = {
   id: "need-1", kind: "approval", priority: 1, repositoryPath: "/tmp/p", repositoryName: "p",
   workspaceId: "ws-1", workspaceName: "Default", taskId: "task-1", createdAt: at(95), waitingSince: at(95),
@@ -80,38 +84,40 @@ describe("the return summary's facts", () => {
   });
 
   test("what changed counts finished turns, changed files and top-level steps after the visit", () => {
-    expect(countChangesSince(MESSAGES, at(10))).toEqual({ turns: 2, files: 2, steps: 2 });
-    expect(countChangesSince(MESSAGES, at(95))).toEqual({ turns: 0, files: 0, steps: 0 });
+    expect(countChangesSince(MESSAGES, SEEN_AT_U2)).toEqual({ turns: 2, files: 2, steps: 2 });
+    expect(countChangesSince(MESSAGES, captureReturnBaseline(MESSAGES))).toEqual({ turns: 0, files: 0, steps: 0 });
   });
 
   test("why it stopped comes from Fleet's attention item and its wait, and decides the next action", () => {
-    const waiting = buildReturnSummary({ messages: MESSAGES, record: null, need: APPROVAL_NEED, running: true, since: at(10) });
+    const waiting = buildReturnSummary({ messages: MESSAGES, record: null, need: APPROVAL_NEED, running: true, baseline: SEEN_AT_U2 });
     expect(waiting.stop).toEqual({ kind: "need", need: "approval", since: at(95), detail: "Run tests" });
     expect(waiting.next).toEqual({ kind: "answer" });
     const record = applyHandoffDraft({ record: emptyHandoffRecord(), draft: { ...EMPTY_DRAFT, remaining: "- Add a filename prompt\n- Docs" }, at: at(20) });
-    const idle = buildReturnSummary({ messages: MESSAGES, record, need: null, running: false, since: at(10) });
+    const idle = buildReturnSummary({ messages: MESSAGES, record, need: null, running: false, baseline: SEEN_AT_U2 });
     expect(idle.stop).toEqual({ kind: "finished", at: at(90) });
     expect(idle.next).toEqual({ kind: "remaining", text: "Add a filename prompt" });
     const failed = buildReturnSummary({
       messages: [...MESSAGES, reply("a4", 100, [], { terminalStopReason: "runtime_failure" })],
-      record: null, need: null, running: false, since: at(10),
+      record: null, need: null, running: false, baseline: SEEN_AT_U2,
     });
     expect(failed.stop).toMatchObject({ kind: "failed" });
     expect(failed.next).toEqual({ kind: "inspect-failure" });
-    expect(buildReturnSummary({ messages: MESSAGES, record: null, need: null, running: true, since: at(10) }).next).toEqual({ kind: "wait" });
+    expect(buildReturnSummary({ messages: MESSAGES, record: null, need: null, running: true, baseline: SEEN_AT_U2 }).next).toEqual({ kind: "wait" });
   });
 
   test("the last visit is when you left this session, else your last message; a return is fifteen minutes away", () => {
-    expect(resolveLastVisit({ messages: MESSAGES, leftAt: at(60) })).toEqual({ at: at(60), kind: "visit" });
-    expect(resolveLastVisit({ messages: MESSAGES, leftAt: null })).toEqual({ at: at(10), kind: "message" });
+    expect(resolveLastVisit({ messages: MESSAGES, leftAt: at(60), baseline: SEEN_AT_U2 })).toEqual({ at: at(60), kind: "visit", baseline: SEEN_AT_U2 });
+    // Without one captured when you left, the replies begun by then count as seen.
+    expect(resolveLastVisit({ messages: MESSAGES, leftAt: at(60) })).toEqual({ at: at(60), kind: "visit", baseline: SEEN_AT_U2 });
+    expect(resolveLastVisit({ messages: MESSAGES, leftAt: null })).toEqual({ at: at(10), kind: "message", baseline: SEEN_AT_U2 });
     expect(resolveLastVisit({ messages: [], leftAt: null })).toBeNull();
     expect(isReturn({ lastVisitAt: at(0), now: T0 + RETURN_AWAY_MS })).toBe(true);
     expect(isReturn({ lastVisitAt: at(0), now: T0 + RETURN_AWAY_MS - 1 })).toBe(false);
-    expect(hasReturnNews(buildReturnSummary({ messages: MESSAGES, record: null, need: null, running: false, since: at(95) }))).toBe(false);
+    expect(hasReturnNews(buildReturnSummary({ messages: MESSAGES, record: null, need: null, running: false, baseline: captureReturnBaseline(MESSAGES) }))).toBe(false);
   });
 
   test("reads as four lines in English and Korean, each with where it comes from", () => {
-    const summary = buildReturnSummary({ messages: MESSAGES, record: null, need: APPROVAL_NEED, running: true, since: at(10) });
+    const summary = buildReturnSummary({ messages: MESSAGES, record: null, need: APPROVAL_NEED, running: true, baseline: SEEN_AT_U2 });
     const now = Date.parse(at(220));
     const lines = describeReturnSummary(summary, now);
     expect(lines.map((line) => [line.id, line.text, line.link?.target.kind ?? null])).toEqual([
@@ -127,12 +133,56 @@ describe("the return summary's facts", () => {
   });
 });
 
+describe("what changed while you were away, against what you had seen", () => {
+  // You left at minute 30, while a turn that began at minute 20 had made two steps.
+  const LEFT = at(30);
+  const step = (id: string): ChatMessage["parts"][number] => ({ type: "tool_use", toolUseId: id, toolName: "Bash", input: "{}", state: "output-available" });
+  const diff: ChatMessage["parts"][number] = { type: "code_diff", filePath: "src/export.ts", oldContent: "", newContent: "x", status: "accepted" };
+  const live = (parts: ChatMessage["parts"], extra: Partial<ChatMessage> = {}): ChatMessage => ({
+    id: "live", role: "assistant", model: "claude-sonnet-5", providerId: "claude-code", content: "", turnId: "turn-live",
+    startedAt: at(20), isStreaming: true, parts, ...extra,
+  });
+  const atDeparture = [user("u1", 19, "Migrate the export."), live([step("s1"), step("s2")])];
+  const seen = { partsByMessage: { live: 2 }, finished: [] };
+  const afterward = [step("s1"), step("s2"), step("s3"), diff, step("s4"), step("s5")];
+
+  test("a turn that was running when you left counts the steps it made since, while it still runs", () => {
+    const summary = buildReturnSummary({
+      messages: [atDeparture[0]!, live(afterward)], record: null, need: null, running: true, baseline: seen,
+    });
+    expect(summary.changes).toEqual({ turns: 0, files: 1, steps: 3 });
+  });
+
+  test("once that turn finishes, it counts as a finished turn and still counts only the steps since you left", () => {
+    const finished = live(afterward, { isStreaming: false, completedAt: at(50), terminalStopReason: "end_turn" });
+    const summary = buildReturnSummary({
+      messages: [atDeparture[0]!, finished], record: null, need: null, running: false, baseline: seen,
+    });
+    expect(summary.changes).toEqual({ turns: 1, files: 1, steps: 3 });
+  });
+
+  test("a page of older messages loaded after you came back is not news", () => {
+    const older = reply("older", 5, [step("old-1"), diff]);
+    const summary = buildReturnSummary({
+      messages: [older, ...atDeparture], record: null, need: null, running: true, baseline: seen,
+    });
+    expect(summary.changes).toEqual({ turns: 0, files: 0, steps: 0 });
+  });
+
+  test("leaving a task keeps what you had seen of it, and coming back carries that", () => {
+    const store = useTaskReturnStore.getState();
+    store.noteLeft("task-seen", LEFT, atDeparture);
+    store.noteArrived("task-seen", at(60));
+    expect(useTaskReturnStore.getState().arrivalByTask["task-seen"]).toEqual({ at: at(60), leftAt: LEFT, baseline: seen });
+  });
+});
+
 describe("returning to a task", () => {
   test("arriving remembers when you had left, and dismissing hides that return only", () => {
     const store = useTaskReturnStore.getState();
     store.noteLeft("task-x", at(0));
     store.noteArrived("task-x", at(30));
-    expect(useTaskReturnStore.getState().arrivalByTask["task-x"]).toEqual({ at: at(30), leftAt: at(0) });
+    expect(useTaskReturnStore.getState().arrivalByTask["task-x"]).toEqual({ at: at(30), leftAt: at(0), baseline: null });
     store.dismiss("task-x");
     expect(useTaskReturnStore.getState().dismissedByTask["task-x"]).toBe(at(30));
   });
@@ -151,7 +201,7 @@ describe("returning to a task", () => {
     };
     try {
       Object.assign(app, { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": MESSAGES }, activeTurnIdsByTask: { "task-1": "turn-live" } });
-      Object.assign(returns, { arrivalByTask: { "task-1": { at: at(220), leftAt: null } } });
+      Object.assign(returns, { arrivalByTask: { "task-1": { at: at(220), leftAt: null, baseline: null } } });
       Object.assign(attention, { snapshot: { ...attention.snapshot, items: [APPROVAL_NEED] } });
       Object.assign(handoff, { records: { [taskHandoffKey("ws-1", "task-1")]: emptyHandoffRecord() } });
       const html = renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }));

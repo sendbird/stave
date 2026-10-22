@@ -28,6 +28,17 @@ export interface ReturnChanges {
   steps: number;
 }
 
+/**
+ * What you had seen of the conversation at your last visit: how many parts
+ * each reply had then, and which replies had finished. Parts are only ever
+ * appended to a reply, so the ones past that count came after the visit; the
+ * messages carry no time per step.
+ */
+export interface ReturnBaseline {
+  partsByMessage: Record<string, number>;
+  finished: string[];
+}
+
 export type ReturnStop =
   | { kind: "need"; need: FleetAttentionKind; since: string | null; detail: string | null }
   | { kind: "running" }
@@ -111,22 +122,49 @@ export function findLastDecision(
   return null;
 }
 
-/** What the agent did after `since`, from the loaded conversation. */
-export function countChangesSince(messages: readonly ChatMessage[], since: string): ReturnChanges {
-  const sinceMs = Date.parse(since);
+function isFinishedReply(message: ChatMessage) {
+  return Boolean(message.completedAt) && !message.isStreaming;
+}
+
+/** What you see of the conversation now, kept for when you come back. */
+export function captureReturnBaseline(messages: readonly ChatMessage[]): ReturnBaseline {
+  const partsByMessage: Record<string, number> = {};
+  const finished: string[] = [];
+  for (const message of messages) {
+    if (message.role !== "assistant") continue;
+    partsByMessage[message.id] = message.parts.length;
+    if (isFinishedReply(message)) finished.push(message.id);
+  }
+  return { partsByMessage, finished };
+}
+
+/**
+ * What the agent did after the visit, from the loaded conversation and what
+ * you had seen then: a reply you had seen counts only the parts it gained
+ * (a turn still running when you left counts its later steps, and only
+ * those once it finishes); a reply after the last one you had seen counts
+ * whole, and one before it (an older page loaded since) does not count. A
+ * turn counts as finished when one of its replies finished after the visit.
+ */
+export function countChangesSince(messages: readonly ChatMessage[], baseline: ReturnBaseline): ReturnChanges {
+  let lastSeenIndex = -1;
+  messages.forEach((message, index) => {
+    if (baseline.partsByMessage[message.id] !== undefined) lastSeenIndex = index;
+  });
+  const finishedBefore = new Set(baseline.finished);
   const turns = new Set<string>();
   const files = new Set<string>();
   let steps = 0;
-  for (const message of messages) {
-    if (message.role !== "assistant") continue;
-    const at = Date.parse(message.completedAt ?? message.startedAt ?? "");
-    if (!Number.isFinite(at) || at <= sinceMs) continue;
-    if (message.completedAt && !message.isStreaming) turns.add(message.turnId ?? message.id);
-    for (const part of message.parts) {
+  messages.forEach((message, index) => {
+    if (message.role !== "assistant") return;
+    const seenParts = baseline.partsByMessage[message.id];
+    if (seenParts === undefined && index < lastSeenIndex) return;
+    if (isFinishedReply(message) && !finishedBefore.has(message.id)) turns.add(message.turnId ?? message.id);
+    for (const part of message.parts.slice(seenParts ?? 0)) {
       if (part.type === "code_diff") files.add(part.filePath);
       else if (part.type === "tool_use" && !part.ownerAgentId && !part.parentToolUseId) steps += 1;
     }
-  }
+  });
   return { turns: turns.size, files: files.size, steps };
 }
 
@@ -186,29 +224,44 @@ export function buildReturnSummary(args: {
   /** The task's most urgent Fleet attention item, if any. */
   need: FleetAttentionItem | null;
   running: boolean;
-  since: string;
+  /** What you had seen at the last visit (`resolveLastVisit`). */
+  baseline: ReturnBaseline;
 }): ReturnSummary {
   const stop = resolveStop(args);
   return {
     decision: findLastDecision(args.messages, args.record),
-    changes: countChangesSince(args.messages, args.since),
+    changes: countChangesSince(args.messages, args.baseline),
     stop,
     next: resolveNext(stop, args.record),
   };
 }
 
 /**
- * When you last were at the task: the time you left it during this app
- * session, else your last message in it. Null when neither is known.
+ * When you last were at the task, and what you had seen then: the time you
+ * left it during this app session with what was loaded then, else your last
+ * message in it with the conversation up to it. Null when neither is known.
  */
 export function resolveLastVisit(args: {
   messages: readonly ChatMessage[];
   leftAt: string | null;
-}): { at: string; kind: "visit" | "message" } | null {
-  if (args.leftAt) return { at: args.leftAt, kind: "visit" };
+  /** Captured when you left; without it, the replies begun by then count as seen. */
+  baseline?: ReturnBaseline | null;
+}): { at: string; kind: "visit" | "message"; baseline: ReturnBaseline } | null {
+  if (args.leftAt) {
+    const leftMs = Date.parse(args.leftAt);
+    return {
+      at: args.leftAt,
+      kind: "visit",
+      baseline: args.baseline ?? captureReturnBaseline(
+        args.messages.filter((message) => Date.parse(message.startedAt ?? "") <= leftMs),
+      ),
+    };
+  }
   for (let index = args.messages.length - 1; index >= 0; index -= 1) {
     const message = args.messages[index];
-    if (message?.role === "user" && message.startedAt) return { at: message.startedAt, kind: "message" };
+    if (message?.role === "user" && message.startedAt) {
+      return { at: message.startedAt, kind: "message", baseline: captureReturnBaseline(args.messages.slice(0, index + 1)) };
+    }
   }
   return null;
 }

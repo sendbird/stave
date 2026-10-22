@@ -673,7 +673,7 @@ export function TaskPanelPreview() {
     if (returning) {
       const now = Date.now();
       useTaskReturnStore.setState({
-        arrivalByTask: { [PLAIN_TASK_ID]: { at: new Date(now).toISOString(), leftAt: null } },
+        arrivalByTask: { [PLAIN_TASK_ID]: { at: new Date(now).toISOString(), leftAt: null, baseline: null } },
         dismissedByTask: {},
       });
       const approval: FleetAttentionItem = {

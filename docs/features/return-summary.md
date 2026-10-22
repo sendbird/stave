@@ -39,7 +39,10 @@
   the newest approval or answer you gave in the conversation. **Handoff**
   opens the record.
 - **While you were away**: how many turns finished, files changed and steps
-  ran since your last visit. **Activity** opens the Task panel's Activity tab.
+  ran since your last visit. They are counted against what you had seen when
+  you left: a turn that was already running counts only the steps it made
+  afterwards, and counts as finished once it ends. **Activity** opens the Task
+  panel's Activity tab.
 - **Where it stands**: what the task waits on and for how long (the same wait
   Fleet shows), whether it still works, or how its last turn ended. **Show**
   goes to the waiting request; other states link to Activity, Outputs or
@@ -54,7 +57,8 @@
 ## Files And Data
 
 - Nothing is stored for the summary. It is read from the loaded conversation,
-  the handoff record and Fleet's attention items.
+  the handoff record and Fleet's attention items. What you had seen when you
+  left a task is kept in memory until you come back.
 - Your last visit is when you left the task during this session. After a
   restart, Stave uses your last message in the task instead, and the card says
   so.
@@ -62,7 +66,9 @@
 ## Limitations And Advanced Options
 
 - Counts cover the part of the conversation that is loaded; very old turns
-  may not be counted.
+  may not be counted. After a restart, everything after your last message
+  counts; if a task's conversation was not loaded when you left it, the turns
+  begun by then count as seen.
 - Moving focus into an embedded page, such as Lens, is not leaving the app.
 
 ## Related Docs

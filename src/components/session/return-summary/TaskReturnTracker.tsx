@@ -3,10 +3,22 @@ import { RETURN_AWAY_MS } from "@/lib/task-context/return-summary";
 import { useAppStore } from "@/store/app.store";
 import { useTaskReturnStore } from "@/store/task-return-store";
 
+/** The task's loaded conversation, also when its workspace is no longer the active one. */
+function loadedMessages(taskId: string) {
+  const state = useAppStore.getState();
+  const active = state.messagesByTask[taskId];
+  if (active) return active;
+  for (const session of Object.values(state.workspaceRuntimeCacheById)) {
+    const cached = session?.messagesByTask[taskId];
+    if (cached) return cached;
+  }
+  return undefined;
+}
+
 /**
- * Notes when you leave and come back to the active task: switching tasks,
- * and the window losing focus for a while. Renders nothing; mounted once in
- * the shell.
+ * Notes when you leave and come back to the active task, with what you had
+ * seen of it: switching tasks, and the window losing focus for a while.
+ * Renders nothing; mounted once in the shell.
  */
 export function TaskReturnTracker() {
   const activeTaskId = useAppStore((state) => state.activeTaskId);
@@ -14,7 +26,7 @@ export function TaskReturnTracker() {
   useEffect(() => {
     const store = useTaskReturnStore.getState();
     const previous = previousRef.current;
-    if (previous && previous !== activeTaskId) store.noteLeft(previous);
+    if (previous && previous !== activeTaskId) store.noteLeft(previous, undefined, loadedMessages(previous));
     if (activeTaskId && activeTaskId !== previous) store.noteArrived(activeTaskId);
     previousRef.current = activeTaskId;
   }, [activeTaskId]);
@@ -27,7 +39,7 @@ export function TaskReturnTracker() {
       if (active && (active.tagName === "IFRAME" || active.tagName === "WEBVIEW")) return;
       blurredAt = Date.now();
       const taskId = useAppStore.getState().activeTaskId;
-      if (taskId) useTaskReturnStore.getState().noteLeft(taskId, new Date(blurredAt).toISOString());
+      if (taskId) useTaskReturnStore.getState().noteLeft(taskId, new Date(blurredAt).toISOString(), loadedMessages(taskId));
     };
     const onFocus = () => {
       const away = blurredAt === null ? 0 : Date.now() - blurredAt;

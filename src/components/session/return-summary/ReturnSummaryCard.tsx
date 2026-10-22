@@ -81,9 +81,10 @@ export function ReturnSummaryCard(props: { taskId: string }) {
     const visit = resolveLastVisit({
       messages: messages.filter((message) => Date.parse(message.startedAt ?? "") <= arrivedMs),
       leftAt: arrival.leftAt,
+      baseline: arrival.baseline,
     });
     if (!visit || !isReturn({ lastVisitAt: visit.at, now: arrivedMs })) return null;
-    const summary = buildReturnSummary({ messages, record: record ?? null, need, running, since: visit.at });
+    const summary = buildReturnSummary({ messages, record: record ?? null, need, running, baseline: visit.baseline });
     if (!hasReturnNews(summary)) return null;
     return { visit, lines: describeReturnSummary(summary, Date.now()) };
     // Lines are translated.
