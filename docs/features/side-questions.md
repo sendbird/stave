@@ -69,18 +69,18 @@
   conversation (built the same way as for a provider switch, see
   [Conversation Context](conversation-context.md)), what the running turn is
   doing (its latest steps and reply so far), and your question.
-- The request runs on the task's provider, model and account, read-only: no
-  MCP servers, no plugins, no network and no secrets bound to the task. Claude
-  gets no tools at all; Codex runs in a read-only sandbox.
+- The request runs on the task's provider, model and account with no tools:
+  Claude gets none, and Codex runs with its shell, command, app and image
+  tools switched off. No MCP servers, plugins, network or secrets bound to the
+  task reach it.
 - The answer is kept only while Stave is open and only the latest one per
   task. It is not saved to the task, and it does not appear in the task's
   history, Activity or turn records.
 
 ## Limitations And Advanced Options
 
-- A side question cannot change anything. On Claude it answers from the
-  conversation excerpt and the current activity only; on Codex it may also
-  read files in its read-only sandbox.
+- A side question cannot look at files, run commands or change anything; it
+  answers from the conversation excerpt and the current activity only.
 - Each question stands alone: earlier side answers are not sent with the next
   one.
 - `/aside` is handled by Stave, so it is never sent to the provider.

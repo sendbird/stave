@@ -58,6 +58,12 @@ export type CodexReadOnlyPromptArgs = {
   isolated?: boolean;
   /** Host-owned mode for bounded route classification, never a primary turn. */
   routeClassification?: boolean;
+  /**
+   * No tool at all: the shell, exec, apps and image viewing are switched off
+   * for the thread, so the model can only answer from the prompt. A read-only
+   * sandbox alone still lets it run local commands without asking.
+   */
+  toolsDisabled?: boolean;
   /** Native session for the same isolated role lane, never the primary. */
   resumeSessionId?: string;
   /** Keeps a successful role lane available for a later bounded call. */
@@ -70,6 +76,16 @@ export type CodexReadOnlyPromptArgs = {
    * that is thinking from a wedged thread for the whole call.
    */
   onProgress?: (progress: { lastItemType: string }) => void;
+};
+
+/** Every tool a read-only Codex thread could still run, switched off. */
+export const CODEX_TOOLLESS_CONFIG_OVERRIDES: CodexConfigOverrides = {
+  "features.shell_tool": false,
+  "features.unified_exec": false,
+  "features.apps": false,
+  "tools.view_image": false,
+  network_access: false,
+  web_search: "disabled",
 };
 
 export type CodexReadOnlyPromptResult = {
@@ -238,13 +254,16 @@ export async function runCodexReadOnlyPromptWithClient(
      * the overrides is therefore mandatory — if they cannot be resolved the
      * call is refused rather than run with weaker isolation than it claims.
      */
-    const isolatedConfigOverrides: CodexConfigOverrides | undefined =
+    const resolvedIsolationOverrides: CodexConfigOverrides | undefined =
       args.isolated
         ? await resolveCodexIsolationConfigOverrides({
             request: args.request,
             cwd: args.runtimeCwd,
           })
         : undefined;
+    const isolatedConfigOverrides: CodexConfigOverrides | undefined = args.toolsDisabled
+      ? { ...resolvedIsolationOverrides, ...CODEX_TOOLLESS_CONFIG_OVERRIDES }
+      : resolvedIsolationOverrides;
     if (aborted) {
       return { ok: false, aborted: true, detail: `${label} was aborted.` };
     }

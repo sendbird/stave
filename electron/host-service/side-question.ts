@@ -1,4 +1,4 @@
-import { runClaudeReadOnlyPrompt } from "../providers/claude-sdk-runtime";
+import { buildClaudeReadOnlyPromptOptions, runClaudeReadOnlyPrompt } from "../providers/claude-sdk-runtime";
 import { runCodexReadOnlyPrompt } from "../providers/codex-app-server-runtime";
 import { buildUtilityCodexRuntimeOptions } from "../providers/utility-inference";
 import {
@@ -16,34 +16,56 @@ type SideQuestionRunner = (args: ParsedAskSideQuestionArgs) => Promise<{
   detail?: string;
 }>;
 
+/** The Claude read-only call for a side question: one turn, no tools, no MCP servers, no prompts. */
+export function buildSideQuestionClaudePromptArgs(args: ParsedAskSideQuestionArgs) {
+  return {
+    cwd: args.cwd,
+    prompt: args.prompt,
+    model: args.model,
+    effort: "low" as const,
+    runtimeOptions: args.runtimeOptions,
+    label: SIDE_QUESTION_LABEL,
+  };
+}
+
+/** The options that call runs with, for checking what it may do. */
+export function buildSideQuestionClaudePromptOptions(args: ParsedAskSideQuestionArgs) {
+  const claude = buildSideQuestionClaudePromptArgs(args);
+  return buildClaudeReadOnlyPromptOptions({
+    cwd: claude.cwd ?? process.cwd(),
+    model: claude.model,
+    effort: claude.effort,
+    abortController: new AbortController(),
+    claudeExecutablePath: "",
+  });
+}
+
+/** The Codex read-only call for a side question: an isolated, ephemeral thread with every tool off. */
+export function buildSideQuestionCodexPromptArgs(args: ParsedAskSideQuestionArgs) {
+  return {
+    cwd: args.cwd,
+    prompt: args.prompt,
+    model: args.model,
+    isolated: true,
+    // Read-only still allows the shell; a side question may run nothing at all.
+    toolsDisabled: true,
+    label: SIDE_QUESTION_LABEL,
+    runtimeOptions: buildUtilityCodexRuntimeOptions({
+      model: args.model,
+      runtimeOptions: args.runtimeOptions,
+    }),
+  };
+}
+
 /**
  * The providers' read-only prompt paths, as task naming and commit messages
- * use them: one turn, no tools, no MCP servers or plugins, a sandbox, and no
- * task-bound secrets (those reach a task's own turns only). The request's
- * account scope picks the task's account.
+ * use them: one turn, no MCP servers or plugins, a sandbox, and no task-bound
+ * secrets (those reach a task's own turns only). The request's account scope
+ * picks the task's account.
  */
 const DEFAULT_RUNNERS: Record<SideChatProviderId, SideQuestionRunner> = {
-  "claude-code": (args) =>
-    runClaudeReadOnlyPrompt({
-      cwd: args.cwd,
-      prompt: args.prompt,
-      model: args.model,
-      effort: "low",
-      runtimeOptions: args.runtimeOptions,
-      label: SIDE_QUESTION_LABEL,
-    }),
-  codex: (args) =>
-    runCodexReadOnlyPrompt({
-      cwd: args.cwd,
-      prompt: args.prompt,
-      model: args.model,
-      isolated: true,
-      label: SIDE_QUESTION_LABEL,
-      runtimeOptions: buildUtilityCodexRuntimeOptions({
-        model: args.model,
-        runtimeOptions: args.runtimeOptions,
-      }),
-    }),
+  "claude-code": (args) => runClaudeReadOnlyPrompt(buildSideQuestionClaudePromptArgs(args)),
+  codex: (args) => runCodexReadOnlyPrompt(buildSideQuestionCodexPromptArgs(args)),
 };
 
 /** Answer a side question with the task's provider. Nothing is saved. */

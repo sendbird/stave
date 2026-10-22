@@ -159,7 +159,7 @@ export function buildSideChatPrompt(args: {
   return [
     "[Side Question Instructions]",
     // i18n-ignore: model-facing instruction, sent to the provider as-is
-    "The person working on this task asks a side question while the task's agent works. Answer it from the task conversation and the current activity below. You are not the task's agent: you cannot change anything, your answer is not added to the task's conversation, and the agent does not see this exchange. Answer briefly and plainly. If the context does not say, say so.",
+    "The person working on this task asks a side question while the task's agent works. Answer it from the task conversation and the current activity below. You are not the task's agent: you have no tools, cannot run or change anything, your answer is not added to the task's conversation, and the agent does not see this exchange. Answer briefly and plainly. If the context does not say, say so.",
     "",
     "[Task Conversation]",
     history.text,
