@@ -195,7 +195,8 @@
       "prReadyToMerge": "Ready to merge",
       "agentRunSignOff": "Sign-off",
       "agentRunBlocked": "Run blocked",
-      "agentRunStuck": "Run stuck"
+      "agentRunStuck": "Run stuck",
+      "turnStalled": "No updates"
     },
     "primaryAction": {
       "openQuestion": "Open question",
@@ -205,7 +206,8 @@
       "openWorkspace": "Open workspace",
       "openMergeControls": "Open merge controls",
       "reviewSignOff": "Review sign-off",
-      "openRun": "Open run"
+      "openRun": "Open run",
+      "openTurn": "Open the quiet turn"
     },
     "actionRequiredCount_one": "{{count}} action required",
     "actionRequiredCount_other": "{{count}} actions required",
@@ -224,5 +226,12 @@
     "openLabel": "Open {{title}} in {{workspace}}",
     "approvalKeys": "<key>A</key> allow once · <key>D</key> deny",
     "optionsLabel": "Answers to: {{question}}"
+  },
+  "taskActivity": {
+    "withDetail": "{{label}} · {{detail}}",
+    "ago": "{{activity}} · {{duration}} ago",
+    "running": "Running for {{duration}}",
+    "waiting": "Waiting for {{duration}}",
+    "quiet": "No updates for {{duration}}"
   }
 }

@@ -190,7 +190,8 @@
       "prReadyToMerge": "병합 준비됨",
       "agentRunSignOff": "단계 승인",
       "agentRunBlocked": "실행 차단됨",
-      "agentRunStuck": "실행 멈춤"
+      "agentRunStuck": "실행 멈춤",
+      "turnStalled": "업데이트 없음"
     },
     "primaryAction": {
       "openQuestion": "질문 열기",
@@ -200,7 +201,8 @@
       "openWorkspace": "워크스페이스 열기",
       "openMergeControls": "병합 제어 열기",
       "reviewSignOff": "단계 승인 리뷰",
-      "openRun": "실행 열기"
+      "openRun": "실행 열기",
+      "openTurn": "멈춘 턴 열기"
     },
     "actionRequiredCount_other": "조치 필요 {{count}}개",
     "inReviewCount_other": "리뷰 대기 {{count}}개"
@@ -217,5 +219,12 @@
     "openLabel": "{{workspace}}의 {{title}} 열기",
     "approvalKeys": "<key>A</key> 한 번 허용 · <key>D</key> 거부",
     "optionsLabel": "답변: {{question}}"
+  },
+  "taskActivity": {
+    "withDetail": "{{label}} · {{detail}}",
+    "ago": "{{activity}} · {{duration}} 전",
+    "running": "{{duration}}째 실행 중",
+    "waiting": "{{duration}}째 대기 중",
+    "quiet": "{{duration}}째 업데이트 없음"
   }
 }

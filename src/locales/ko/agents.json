@@ -19,7 +19,8 @@
     "sentence9": "응답 필요 {{value1}}개",
     "sentence10": "최근 사용 {{value1}}",
     "assignments_other": "배정 {{count}}개",
-    "extraCopy23": "{{value1}}개 시작하지 못함"
+    "extraCopy23": "{{value1}}개 시작하지 못함",
+    "stalled": "업데이트 없음"
   },
   "agentCanCallField": {
     "ariaLabel": "호출 가능",

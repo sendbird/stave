@@ -31,6 +31,7 @@ const STATUS_LABEL: Record<FleetTaskStatus, string> = {
   get "waiting-input"() { return i18n.t("workspace:workspaceProgressTaskTree.awaitingInput"); },
   get "waiting-approval"() { return i18n.t("workspace:workspaceProgressTaskTree.awaitingApproval"); },
   get error() { return i18n.t("workspace:workspaceProgressTaskTree.error"); },
+  get stalled() { return i18n.t("workspace:workspaceProgressTaskTree.stalled"); },
   get running() { return i18n.t("workspace:workspaceProgressTaskTree.running"); },
   get idle() { return i18n.t("workspace:workspaceProgressTaskTree.idle"); },
 };
@@ -40,6 +41,7 @@ const STATUS_WORK_STATE: Record<FleetTaskStatus, WorkState> = {
   "waiting-input": "needs-you",
   "waiting-approval": "approval",
   error: "failed",
+  stalled: "halted",
   running: "working",
   idle: "idle",
 };

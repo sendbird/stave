@@ -8,6 +8,8 @@ import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vo
 import { StateMark } from "@/components/ads/components/StateMark";
 import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
+import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
@@ -131,6 +133,8 @@ const FLEET_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
   "waiting-input": "needs-you",
   "waiting-approval": "approval",
   error: "failed",
+  // Quiet, not failed: the stopped-short glyph, never the failure one.
+  stalled: "halted",
   running: "working",
   idle: "idle",
   unknown: "unknown",
@@ -449,6 +453,14 @@ export function FleetWorkspaceCard(args: {
   const expandedRow = rows.find(
     (row) => taskKeyFor(row.task.id) === args.expandedTaskKey,
   );
+  // The turn's own snapshot, only while that turn is the task's active one.
+  const liveActivity = (row: FleetCardTaskView) => {
+    const activeTurnId = taskState.activeTurnIdsByTask[row.task.id];
+    const activity = activeTurnId ? providerTurnActivityByTask[row.task.id] : undefined;
+    return activity?.turnId === activeTurnId && row.status !== "idle" && row.status !== "unknown"
+      ? activity
+      : undefined;
+  };
 
   const toggleTaskDisclosure = () => {
     if (
@@ -590,7 +602,12 @@ export function FleetWorkspaceCard(args: {
           <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
               const state = FLEET_WORK_STATE[row.status];
-              const statusLabel = WORK_STATE[state].label;
+              // A quiet turn borrows the stopped-short glyph, but its word is
+              // the attention kind's: it has stopped reporting, not halted.
+              const statusLabel =
+                row.status === "stalled"
+                  ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]
+                  : WORK_STATE[state].label;
               const taskKey = taskKeyFor(row.task.id);
               const isExpanded = args.expandedTaskKey === taskKey;
               const taskTitle = row.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask");
@@ -631,7 +648,16 @@ export function FleetWorkspaceCard(args: {
                       <span className={sx(styles.taskTitle)}>
                         <FleetSearchHighlight text={taskTitle} normalizedQuery={normalizedQuery} />
                       </span>
-                      <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
+                      {/* A task in a live turn says what it last did and for how
+                          long; any other task keeps its last update. */}
+                      {liveActivity(row) ? (
+                        <FleetTaskActivityLine
+                          activity={liveActivity(row)}
+                          status={row.status}
+                        />
+                      ) : (
+                        <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
+                      )}
                     </span>
                     {taskAgent ? (
                       <Badge xstyle={styles.chip} title={tI18n("fleet:fleetWorkspaceCard.runsAsTheValueAgent", { value1: taskAgent.agentName })}>
@@ -651,6 +677,7 @@ export function FleetWorkspaceCard(args: {
                         xstyle={styles.taskStatus}
                         labelXstyle={styles.statusLabel}
                         title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: statusLabel, time: row.updatedLabel })}
+                        label={statusLabel}
                       />
                     )}
                   </AdsButton>

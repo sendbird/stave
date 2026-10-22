@@ -86,6 +86,7 @@ const REPOSITORY_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   get "user-input"() { return i18n.t("workspace:repositoryWorkspaceSidebar.answerNeeded"); },
   get approval() { return i18n.t("workspace:repositoryWorkspaceSidebar.approvalNeeded"); },
   get "run-failed"() { return i18n.t("workspace:repositoryWorkspaceSidebar.runFailed"); },
+  get "turn-stalled"() { return i18n.t("workspace:repositoryWorkspaceSidebar.noUpdates"); },
   get "pr-changes-requested"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prChangesRequested"); },
   get "pr-checks-failed"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prChecksFailed"); },
   get "pr-merge-conflict"() { return i18n.t("workspace:repositoryWorkspaceSidebar.prMergeConflict"); },

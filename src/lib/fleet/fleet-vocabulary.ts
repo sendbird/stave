@@ -32,6 +32,7 @@ export const FLEET_ATTENTION_KIND_LABEL: Record<FleetAttentionKind, string> = {
   get "user-input"() { return i18n.t("fleet:vocabulary.kind.userInput"); },
   get approval() { return i18n.t("fleet:vocabulary.kind.approval"); },
   get "run-failed"() { return i18n.t("fleet:vocabulary.kind.runFailed"); },
+  get "turn-stalled"() { return i18n.t("fleet:vocabulary.kind.turnStalled"); },
   get "result-ready"() { return i18n.t("fleet:vocabulary.kind.resultReady"); },
   get "pr-changes-requested"() { return i18n.t("fleet:vocabulary.kind.prChangesRequested"); },
   get "pr-checks-failed"() { return i18n.t("fleet:vocabulary.kind.prChecksFailed"); },
@@ -73,6 +74,8 @@ export function describeFleetAttentionPrimaryAction(kind: FleetAttentionKind) {
       return i18n.t("fleet:vocabulary.primaryAction.openApproval");
     case "run-failed":
       return i18n.t("fleet:vocabulary.primaryAction.openFailure");
+    case "turn-stalled":
+      return i18n.t("fleet:vocabulary.primaryAction.openTurn");
     case "result-ready":
       return i18n.t("fleet:vocabulary.primaryAction.reviewResult");
     case "pr-changes-requested":

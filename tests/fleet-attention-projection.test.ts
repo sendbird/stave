@@ -271,6 +271,39 @@ describe("Fleet attention projection", () => {
     ]);
   });
 
+  test("a turn that went quiet is its own blocking need, never a failed run", () => {
+    const lastEventAt = Date.parse("2026-07-26T00:50:00.000Z");
+    const projection = buildFleetAttentionProjection({
+      notifications: [],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          activeTurnIdsByTask: { "task-1": "turn-1" },
+          providerTurnActivityByTask: {
+            "task-1": {
+              turnId: "turn-1",
+              providerId: "codex",
+              startedAt: lastEventAt - 60_000,
+              lastEventAt,
+              stalledAt: lastEventAt + 5 * 60_000,
+              pendingInteraction: null,
+              workItemsById: {},
+              orderedWorkItemIds: [],
+            } as never,
+          },
+        }),
+      ],
+      prWorkspaces: [],
+    });
+    expect(projection.items.map((item) => item.kind)).toEqual(["turn-stalled"]);
+    expect(projection.blockingItems).toHaveLength(1);
+    // Quiet since the last event the turn reported.
+    expect(projection.items[0]).toMatchObject({
+      waitingSince: "2026-07-26T00:50:00.000Z",
+      turnId: "turn-1",
+    });
+    expect(projection.items[0]?.detail).toBeUndefined();
+  });
+
   test("excludes archived live tasks", () => {
     const projection = buildFleetAttentionProjection({
       notifications: [],

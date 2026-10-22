@@ -29,6 +29,7 @@ export type FleetAttentionKind =
   | "user-input"
   | "approval"
   | "run-failed"
+  | "turn-stalled"
   | "result-ready"
   | "pr-changes-requested"
   | "pr-checks-failed"
@@ -55,6 +56,8 @@ export const FLEET_ATTENTION_TIER: Record<
   "user-input": "blocking",
   approval: "blocking",
   "run-failed": "blocking",
+  // Quiet is not failed, but a turn that stopped reporting still needs a look.
+  "turn-stalled": "blocking",
   "pr-changes-requested": "blocking",
   "pr-checks-failed": "blocking",
   "pr-merge-conflict": "blocking",
@@ -155,6 +158,7 @@ export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
   "agent-run-blocked": 1,
   "agent-run-stuck": 2,
   "run-failed": 2,
+  "turn-stalled": 2,
   "pr-changes-requested": 3,
   "pr-checks-failed": 3,
   "pr-merge-conflict": 3,
@@ -237,7 +241,7 @@ function buildInteractionAttentionId(args: {
 }
 
 function buildTurnAttentionId(args: {
-  kind: "run-failed" | "result-ready";
+  kind: "run-failed" | "turn-stalled" | "result-ready";
   workspaceId: string;
   taskId: string;
   turnId: string;
@@ -395,15 +399,15 @@ export function collectFleetLiveAttentionItems(
         }
       }
 
-      if (
-        activeTurnId &&
-        classifyTaskStatus({
-          task,
-          messages,
-          activeTurnId,
-          activity: activity ?? null,
-        }) === "error"
-      ) {
+      const turnStatus = activeTurnId
+        ? classifyTaskStatus({
+            task,
+            messages,
+            activeTurnId,
+            activity: activity ?? null,
+          })
+        : null;
+      if (activeTurnId && turnStatus === "error") {
         const kind = "run-failed" as const;
         attentionItems.push({
           ...buildLiveBase({ workspace, task }),
@@ -417,6 +421,27 @@ export function collectFleetLiveAttentionItems(
           priority: FLEET_ATTENTION_PRIORITY[kind],
           turnId: activeTurnId,
           detail: i18n.t("fleet:attentionProjection.theActiveProviderTurnNeedsReview"),
+        });
+      } else if (activeTurnId && turnStatus === "stalled") {
+        // A turn that went quiet is its own need, never a failure. The row
+        // says how long it has been quiet from `waitingSince`, the turn's last
+        // reported event.
+        const kind = "turn-stalled" as const;
+        attentionItems.push({
+          ...buildLiveBase({ workspace, task }),
+          id: buildTurnAttentionId({
+            kind,
+            workspaceId: workspace.workspaceId,
+            taskId: task.id,
+            turnId: activeTurnId,
+          }),
+          kind,
+          priority: FLEET_ATTENTION_PRIORITY[kind],
+          turnId: activeTurnId,
+          waitingSince:
+            activity?.turnId === activeTurnId
+              ? normalizeOptionalTimestamp(activity.lastEventAt)
+              : undefined,
         });
       }
     }

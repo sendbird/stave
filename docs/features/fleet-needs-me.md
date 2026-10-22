@@ -61,6 +61,16 @@ optional shortcuts on top of that.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.
+- A task in a running turn says what it last did and how long ago, from the
+  turn's own reported events (for example `Edit file · search.ts · 12s ago`),
+  and how long the turn has run (`Running for 2m 10s`), how long a request has
+  waited for you (`Waiting for 1m 5s`), or how long it has been quiet. A turn
+  that reported no work shows only its duration. Nothing is estimated: there is
+  no percent and no time left.
+- A turn that reports nothing for five minutes is `No updates`, not a failure:
+  the task reads `No updates for 7m` and its item stays in `Action required`
+  until the turn reports again, ends, or Stave stops it. `Run failed` is kept
+  for turns that actually failed.
 - A workspace running an agent run shows an agent run strip on its card: the stage
   track, where the agent run stands, its stage position and what it has spent.
   Clicking the strip opens the lead task.

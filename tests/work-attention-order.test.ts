@@ -142,6 +142,9 @@ function agentsWithWorkOrder(rows: readonly Row[]) {
 describe("the shared work attention rule", () => {
   test("lanes come first: action required, in progress, in review, idle", () => {
     expect(classifyWorkQueueLane({ status: "error" })).toBe("action-required");
+    // A quiet turn is not a failure, but it still asks for a look.
+    expect(classifyWorkQueueLane({ status: "stalled" })).toBe("action-required");
+    expect(classifyWorkQueueLane({ attentionKind: "turn-stalled" })).toBe("action-required");
     expect(classifyWorkQueueLane({ status: "running", attentionKind: "result-ready" })).toBe("in-progress");
     expect(classifyWorkQueueLane({ status: "idle", attentionKind: "pr-ready-to-merge" })).toBe("in-review");
     expect(classifyWorkQueueLane({ status: "idle", agentRunLane: "action-required" })).toBe("action-required");

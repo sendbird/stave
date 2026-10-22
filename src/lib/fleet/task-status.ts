@@ -11,8 +11,19 @@ import {
 } from "@/store/provider-message.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
+/**
+ * `stalled` is a running turn that has reported nothing for the stall
+ * threshold (five minutes). It is not a failure: nothing failed, the turn has
+ * only gone quiet, so it reads "No updates for …" and is never counted as an
+ * error. It still needs a look, so it sits in the action-required lane.
+ */
 export type FleetTaskStatus =
-  "waiting-input" | "waiting-approval" | "error" | "running" | "idle";
+  | "waiting-input"
+  | "waiting-approval"
+  | "error"
+  | "stalled"
+  | "running"
+  | "idle";
 
 export type FleetDisplayStatus = FleetTaskStatus | "unknown";
 
@@ -23,8 +34,9 @@ export const FLEET_TASK_STATUS_PRIORITY: Record<FleetTaskStatus, number> = {
   "waiting-input": 0,
   "waiting-approval": 1,
   error: 2,
-  running: 3,
-  idle: 4,
+  stalled: 3,
+  running: 4,
+  idle: 5,
 };
 
 type FleetTaskStatusTask = Pick<Task, "id" | "archivedAt" | "updatedAt">;
@@ -165,8 +177,11 @@ export function classifyTaskStatus(args: {
     activeTurnId: args.activeTurnId ?? null,
     activity: args.activity ?? null,
   });
-  if (turnState === "stalled" || latestAssistantFailureNeedsAttention(messages)) {
+  if (latestAssistantFailureNeedsAttention(messages)) {
     return "error";
+  }
+  if (turnState === "stalled") {
+    return "stalled";
   }
   if (turnState === "responding") {
     return "running";
@@ -288,7 +303,7 @@ export function summarizeFleetRespondingTasks(args: {
     }
 
     respondingTaskCount += 1;
-    if (status === "error") {
+    if (status === "error" || status === "stalled") {
       hasWarningTask = true;
     }
     providerIds.add(

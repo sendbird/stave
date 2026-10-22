@@ -11,6 +11,7 @@ export const FLEET_ATTENTION_WORK_STATE: Partial<Record<FleetAttentionKind, Work
   "user-input": "needs-you",
   approval: "approval",
   "run-failed": "failed",
+  "turn-stalled": "halted",
   "agent-run-sign-off": "needs-you",
   "agent-run-blocked": "halted",
   "agent-run-stuck": "halted",

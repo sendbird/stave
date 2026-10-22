@@ -302,5 +302,7 @@ describe("the run line, Fleet card and Progress tab while waiting", () => {
     expect(html).toContain('data-testid="fleet-wait-note"');
     expect(html).toContain("Not checked for 10m");
     expect(html).toContain('title="Waiting since ');
+    // No plan was reported, so the card names none: no placeholder text.
+    expect(html).not.toContain("Planning…");
   });
 });

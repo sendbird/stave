@@ -28,6 +28,7 @@ import {
   resolveFleetRowKey,
 } from "@/components/layout/FleetRowInlineAnswer";
 import { useFleetRowInteraction } from "@/components/layout/useFleetRowInteraction";
+import { FleetQuietDuration } from "@/components/layout/FleetTaskActivityLine";
 import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
@@ -65,6 +66,7 @@ const FLEET_NEED_TONE: Record<FleetAttentionKind, BadgeTone> = {
   "user-input": "warning",
   approval: "warning",
   "run-failed": "danger",
+  "turn-stalled": "warning",
   "result-ready": "info",
   "pr-changes-requested": "danger",
   "pr-checks-failed": "danger",
@@ -82,6 +84,7 @@ function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
     case "user-input":
     case "approval":
     case "run-failed":
+    case "turn-stalled":
     case "agent-run-sign-off":
     case "agent-run-blocked":
     case "agent-run-stuck":
@@ -289,6 +292,9 @@ function FleetNeedRow(args: {
         {/* The inline approval card already names the tool and its request. */}
         {detail && (selected || interaction.inline.kind !== "approval") ? (
           <span className={sx(styles.rowDetail)}>{detail}</span>
+        ) : null}
+        {item.kind === "turn-stalled" && item.waitingSince ? (
+          <FleetQuietDuration since={item.waitingSince} xstyle={styles.rowDetail} />
         ) : null}
       </AdsButton>
       {selected ? null : (

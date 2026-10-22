@@ -259,6 +259,7 @@ const FLEET_STATUS_TONES: Readonly<Record<FleetTaskStatus, BadgeTone>> = {
   "waiting-input": "warning",
   "waiting-approval": "warning",
   error: "danger",
+  stalled: "warning",
   running: "accent",
   idle: "neutral",
 };
@@ -268,6 +269,8 @@ const FLEET_STATUS_STATES: Readonly<Record<FleetTaskStatus, WorkState>> = {
   "waiting-input": "needs-you",
   "waiting-approval": "approval",
   error: "failed",
+  // Quiet, not failed: the stopped-short glyph, never the failure one.
+  stalled: "halted",
   running: "working",
   idle: "idle",
 };
@@ -290,6 +293,7 @@ const FLEET_STATUS_LABELS: Readonly<Record<FleetTaskStatus, string>> = {
   get "waiting-input"() { return i18n.t("agents:agentActivity.waitingInput"); },
   get "waiting-approval"() { return i18n.t("agents:agentActivity.waitingApproval"); },
   get error() { return i18n.t("agents:agentActivity.error"); },
+  get stalled() { return i18n.t("agents:agentActivity.stalled"); },
   get running() { return i18n.t("agents:agentActivity.running"); },
   get idle() { return i18n.t("agents:agentActivity.idle"); },
 };
