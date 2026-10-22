@@ -7,15 +7,19 @@ import {
   type HandoffDraft,
   type HandoffFacts,
 } from "@/lib/task-context/handoff-record";
+import { isApprovalYouAnswered } from "@/lib/task-context/return-summary";
 import type { ChatMessage } from "@/types/chat";
 
-/** Approvals the user granted in this task's loaded conversation, oldest first. */
+/**
+ * Approvals the user granted in this task's loaded conversation, oldest first;
+ * not those a Stave rule or the provider's permission mode decided.
+ */
 export function collectGrantedApprovals(messages: readonly ChatMessage[]): HandoffFacts["approvals"] {
   const approvals: Array<{ tool: string; description: string }> = [];
   for (const message of messages) {
     if (message.role !== "assistant") continue;
     for (const part of message.parts) {
-      if (part.type !== "approval" || part.state !== "approval-responded") continue;
+      if (part.type !== "approval" || part.state !== "approval-responded" || !isApprovalYouAnswered(part)) continue;
       const tool = describeToolOperationLabel(part.toolName) ?? formatToolDisplayName(part.toolName) ?? part.toolName;
       approvals.push({ tool, description: part.description.trim().split("\n")[0] ?? "" });
     }

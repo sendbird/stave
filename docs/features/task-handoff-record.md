@@ -45,7 +45,8 @@
   saving:
   - Stave's latest checks after a turn: passing checks go to Verified results,
     failing ones to Cautions;
-  - approvals you granted in the loaded conversation go to Approved decisions;
+  - approvals you granted in the loaded conversation go to Approved decisions
+    (not those a Stave rule or the provider's permission mode allowed);
   - plans linked to the task go to Remaining work.
   Lines a section already has are not added twice. A section never grows
   past its 2,000 characters this way: lines that do not fit are left out, and

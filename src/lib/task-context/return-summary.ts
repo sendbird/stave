@@ -1,7 +1,7 @@
 import type { FleetAttentionItem, FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { classifyProviderTurnStopReason } from "@/lib/providers/turn-stop-reason";
 import type { TaskHandoffRecord } from "@/lib/task-context/handoff-record";
-import type { ChatMessage } from "@/types/chat";
+import type { ApprovalPart, ChatMessage } from "@/types/chat";
 
 /**
  * The summary a task shows when you come back to it: the last decision, what
@@ -63,6 +63,15 @@ export interface ReturnSummary {
   next: ReturnNext;
 }
 
+/**
+ * An approval you answered: shown to you, and not recorded as decided by a
+ * Stave rule or the provider's permission mode. One without a record of who
+ * decided (from before the record existed) counts as yours, as it was shown.
+ */
+export function isApprovalYouAnswered(part: ApprovalPart) {
+  return part.prompted !== false && (!part.resolution || part.resolution.source === "user");
+}
+
 function messageTime(message: ChatMessage) {
   return message.completedAt ?? message.startedAt ?? null;
 }
@@ -86,7 +95,8 @@ function firstListLine(text: string) {
 /**
  * The task's last decision: the newest line of the handoff record's approved
  * decisions when it has them, else the newest approval or answer you gave in
- * the loaded conversation.
+ * the loaded conversation (not one a Stave rule or the provider's mode
+ * decided).
  */
 export function findLastDecision(
   messages: readonly ChatMessage[],
@@ -102,7 +112,11 @@ export function findLastDecision(
     if (message?.role !== "assistant") continue;
     for (let partIndex = message.parts.length - 1; partIndex >= 0; partIndex -= 1) {
       const part = message.parts[partIndex];
-      if (part?.type === "approval" && (part.state === "approval-responded" || part.state === "output-denied")) {
+      if (
+        part?.type === "approval" &&
+        (part.state === "approval-responded" || part.state === "output-denied") &&
+        isApprovalYouAnswered(part)
+      ) {
         return {
           kind: "approval",
           toolName: part.toolName,

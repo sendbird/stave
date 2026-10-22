@@ -158,7 +158,9 @@ export function buildTurnRecordSteps(args: {
         }
         items.push(describeToolStep(part, index));
       } else if (part.type === "approval") {
-        items.push(describeApprovalStep(part));
+        // A request nobody was asked about is kept for the approval record
+        // only; the conversation never showed it.
+        if (part.prompted !== false) items.push(describeApprovalStep(part));
       } else if (part.type === "user_input") {
         items.push(describeQuestionStep(part));
       }

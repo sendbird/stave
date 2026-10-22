@@ -65,6 +65,20 @@ describe("rebuilding a turn's steps from saved messages", () => {
     expect(items[5]?.detail).toBe("Which database?");
   });
 
+  test("a request nobody was asked about is not listed as an answered approval", () => {
+    const { items } = buildTurnRecordSteps({
+      turn: TURN,
+      messages: [reply([
+        {
+          type: "approval", toolName: "Edit", requestId: "r-auto", description: "Edit src/x.ts", state: "approval-responded",
+          prompted: false, resolution: { decision: "allowed", source: "provider-auto", reason: "permission-mode", decidedAt: "2026-10-22T10:00:00.000Z" },
+        },
+        { type: "approval", toolName: "Bash", requestId: "r-shown", description: "Deploy", state: "approval-responded" },
+      ])],
+    });
+    expect(items.filter((item) => item.id.startsWith("approval:")).map((item) => item.id)).toEqual(["approval:r-shown"]);
+  });
+
   test("a very long turn keeps the first steps and counts the rest", () => {
     const parts = Array.from({ length: TURN_RECORD_STEP_LIMIT + 5 }, (_, index) => ({
       type: "tool_use" as const,

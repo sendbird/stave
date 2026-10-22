@@ -85,6 +85,30 @@ describe("the return summary's facts", () => {
     expect(findLastDecision([user("u", 0, "hi")], null)).toBeNull();
   });
 
+  test("an approval a Stave rule or the provider's mode decided is not your decision", async () => {
+    const { collectGrantedApprovals } = await import("@/components/session/handoff-facts");
+    const automatic = reply("auto", 80, [
+      {
+        type: "approval", toolName: "Edit", requestId: "r-auto", description: "Edit server/users.ts", state: "approval-responded",
+        prompted: false, resolution: { decision: "allowed", source: "provider-auto", reason: "permission-mode", decidedAt: at(80) },
+      },
+      {
+        type: "approval", toolName: "Bash", requestId: "r-rule", description: "Run the linter", state: "approval-responded",
+        resolution: { decision: "allowed", source: "rule", reason: "trusted-tool", decidedAt: at(80) },
+      },
+    ]);
+    const messages = [...MESSAGES, automatic];
+    // The newest approval you answered is still a1's.
+    expect(findLastDecision(messages, null)).toMatchObject({ kind: "approval", requestId: "r1" });
+    expect(collectGrantedApprovals(messages).map((approval) => approval.description)).toEqual(["Run the migration"]);
+    // One you answered, recorded as yours, counts.
+    const yours = reply("yours", 85, [{
+      type: "approval", toolName: "Bash", requestId: "r-yours", description: "Deploy", state: "output-denied",
+      resolution: { decision: "denied", source: "user", decidedAt: at(85) },
+    }]);
+    expect(findLastDecision([...messages, yours], null)).toMatchObject({ kind: "approval", requestId: "r-yours", approved: false });
+  });
+
   test("what changed counts finished turns, changed files and top-level steps after the visit", () => {
     expect(countChangesSince(MESSAGES, SEEN_AT_U2)).toEqual({ turns: 2, files: 2, steps: 2 });
     expect(countChangesSince(MESSAGES, captureReturnBaseline(MESSAGES))).toEqual({ turns: 0, files: 0, steps: 0 });
