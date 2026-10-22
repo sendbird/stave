@@ -13,6 +13,7 @@ import {
   buildLargeTaskHistory,
   LARGE_TASK_DEFAULT_MESSAGE_COUNT,
 } from "./fixtures/large-task-history";
+import { emptyHandoffRecord } from "@/lib/task-context/handoff-record";
 
 // Persistence-efficiency guards for the host-service turn path.
 //
@@ -88,6 +89,7 @@ const persistedTaskRow = {
 };
 
 const fakeStore = {
+  taskHandoffs: { read: () => emptyHandoffRecord() },
   loadRepositoryRegistry: () => {
     recordCall("loadRepositoryRegistry");
     return [

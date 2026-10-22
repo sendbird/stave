@@ -7,6 +7,7 @@ import {
 } from "@/lib/task-context/repository-memory";
 import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
+import { collectTaskHandoffContextParts } from "@/lib/db/task-handoff.db";
 
 /**
  * Renderer side of project memory for a UI-initiated turn.
@@ -17,6 +18,8 @@ import type { ChatMessage, PromptDraft } from "@/types/chat";
  * no block, never a failed turn.
  */
 export async function collectTurnStartRetrievedContextParts(args: {
+  /** The task's workspace; its handoff record travels with the conversation excerpt. */
+  workspaceId?: string;
   repositoryPath: string | null;
   parentTaskId: string;
   history: readonly Pick<ChatMessage, "role" | "content" | "startedAt">[];
@@ -24,14 +27,17 @@ export async function collectTurnStartRetrievedContextParts(args: {
   /** Children attached to this message are not repeated as receipts. */
   promptDraft?: PromptDraft;
 }): Promise<CanonicalRetrievedContextPart[]> {
-  const [delegatedTaskSummaries, repositoryMemoryPart] = await Promise.all([
+  const [delegatedTaskSummaries, repositoryMemoryPart, handoffParts] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
       parentTaskId: args.parentTaskId,
       includeFinished: true,
     }) ?? Promise.resolve([]),
     recallRepositoryMemoryRetrievedContext(args),
+    args.workspaceId
+      ? collectTaskHandoffContextParts({ workspaceId: args.workspaceId, taskId: args.parentTaskId })
+      : Promise.resolve([]),
   ]);
-  const parts: CanonicalRetrievedContextPart[] = [];
+  const parts: CanonicalRetrievedContextPart[] = [...handoffParts];
   if (repositoryMemoryPart) {
     parts.push(repositoryMemoryPart);
   }

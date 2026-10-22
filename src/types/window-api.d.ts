@@ -2248,6 +2248,14 @@ interface WindowPersistenceApi {
   readTaskTurnRecord?: (
     args: import("@/lib/providers/turn-history").ReadTaskTurnRecordArgs,
   ) => Promise<import("@/lib/providers/turn-history").TurnRecordResponse>;
+  /** A task's handoff record; an empty record when none was saved. */
+  readTaskHandoff?: (
+    args: import("@/lib/task-context/handoff-record-ipc").ReadTaskHandoffArgs,
+  ) => Promise<import("@/lib/task-context/handoff-record-ipc").ReadTaskHandoffResponse>;
+  /** Save a handoff draft made from a revision; a newer stored revision answers a conflict. */
+  saveTaskHandoff?: (
+    args: import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffArgs,
+  ) => Promise<import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffResponse>;
   /**
    * Tokens (input plus output, without cache reads) and cost reported on
    * turns run in Stave, per provider, since the given local day and month

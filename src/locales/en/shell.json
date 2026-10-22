@@ -759,7 +759,9 @@
     "subagents": "Subagents",
     "everyAgentTheTaskCalled": "Every agent the task called",
     "results": "Outputs",
-    "eachRunSAnswerAndChangesToReview": "Saved answers and file changes from this task"
+    "eachRunSAnswerAndChangesToReview": "Saved answers and file changes from this task",
+    "handoff": "Handoff",
+    "handoffDescription": "What to know to carry this task on"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter queues, Tab steers",

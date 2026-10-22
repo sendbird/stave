@@ -21,6 +21,9 @@
  * so a spec can read how Stave records a failed turn. Later turns answer
  * normally even when the earlier prompt is carried in their history.
  *
+ * `FAKE_CLAUDE_PROMPT_MARKERS` (comma-separated strings) records, per turn,
+ * whether the turn's input contained each one: booleans only, never the text.
+ *
  * Launch it through a wrapper on `STAVE_CLAUDE_CLI_PATH` (see
  * `agent-run-usage-limit.electron.e2e.ts`).
  */
@@ -55,9 +58,12 @@ const progressToolIds = (process.env.FAKE_CLAUDE_TOOL_PROGRESS ?? "").split(",")
 const resumed = args.some((arg) => arg.startsWith("--resume"));
 
 /** The number of this Agent run turn among the run turns so far; 0 for any other turn. */
-function recordTurn() {
-  const previous = fs.existsSync(turnsFile) ? fs.readFileSync(turnsFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
-  fs.appendFileSync(turnsFile, `${JSON.stringify({ at: new Date().toISOString(), runTurn, resumed })}\n`);
+const promptMarkers = (process.env.FAKE_CLAUDE_PROMPT_MARKERS ?? "").split(",").filter(Boolean);
+
+function recordTurn(line) {
+  const previous = fs.existsSync(turnsFile) ? fs.readFileSync(turnsFile, "utf8").split("\n").filter(Boolean).map((entry) => JSON.parse(entry)) : [];
+  const markers = Object.fromEntries(promptMarkers.map((marker) => [marker, line.includes(marker)]));
+  fs.appendFileSync(turnsFile, `${JSON.stringify({ at: new Date().toISOString(), runTurn, resumed, markers })}\n`);
   return runTurn ? previous.filter((entry) => entry.runTurn).length + 1 : 0;
 }
 
@@ -100,7 +106,7 @@ async function answerPermissionsTurn() {
 }
 
 function answerTurn(line) {
-  const turn = recordTurn();
+  const turn = recordTurn(line);
   write({ type: "system", subtype: "init", session_id: sessionId, uuid: randomUUID(), cwd: process.cwd(), tools: [], mcp_servers: [],
     model: "claude-sonnet-fake", permissionMode: "default", slash_commands: [], apiKeySource: "none", claude_code_version: "99.0.0",
     output_style: "default", agents: [], skills: [], plugins: [] });

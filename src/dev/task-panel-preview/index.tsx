@@ -30,7 +30,7 @@ import { useAgentRunsStore, agentRunTaskKey } from "@/store/agent-runs-store";
 import { useWakeUpsStore, wakeUpTaskKey } from "@/store/wake-ups-store";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
-import { stubTurnHistory } from "./turn-history-fixtures";
+import { PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./turn-history-fixtures";
 
 /**
  * The Task panel on the dev preview (`?stavePreview=task-panel`), in a frame
@@ -47,6 +47,8 @@ import { stubTurnHistory } from "./turn-history-fixtures";
  * - `placement=docked` keeps the activity list in the composer shelf, so the
  *   Activity tab shows its move-here notice instead of the list.
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
+ * - `tab=handoff` shows the direct task's handoff record; `proposal=1` adds
+ *   an agent reply that proposes an update.
  * - The direct task has saved turns: Activity opens the newest as a record
  *   (failed, with a full digest) and the Turn picker lists an older turn
  *   from before records existed.
@@ -506,6 +508,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   seedResultReviews();
   stubDelegatedTasks();
   stubTurnHistory({ plainTaskId: PLAIN_TASK_ID, messages: PLAIN_MESSAGES });
+  stubTaskHandoff();
   useAppStore.setState({
     repositoryPath: REPOSITORY_PATH,
     repositoryName: "preview-repo",
@@ -542,7 +545,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       },
     ],
     messagesByTask: {
-      [PLAIN_TASK_ID]: PLAIN_MESSAGES,
+      [PLAIN_TASK_ID]: params.get("proposal") === "1" ? [...PLAIN_MESSAGES, PREVIEW_HANDOFF_PROPOSAL] : PLAIN_MESSAGES,
       [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES,
     },
     // The whole history is resident, so "Show the turn" reads it from here.

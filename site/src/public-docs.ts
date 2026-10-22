@@ -102,6 +102,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See how full the current task conversation is and compact it from the composer without losing the draft.",
       },
       {
+        routePath: "task-handoff-record",
+        sourcePath: "docs/features/task-handoff-record.md",
+        title: "Task Handoff Record",
+        description:
+          "Keep a task's goal, approved decisions, verified results, remaining work and cautions, sent ahead of the conversation when a provider starts or comes back.",
+      },
+      {
         routePath: "conversation-history-actions",
         sourcePath: "docs/features/conversation-history-actions.md",
         title: "Conversation History Actions",

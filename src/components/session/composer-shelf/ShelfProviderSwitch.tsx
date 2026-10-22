@@ -1,22 +1,36 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatNumber } from "@/i18n/format";
-import { memo, useId, useState } from "react";
+import { memo, useEffect, useId, useState } from "react";
 import { ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ProviderSwitchPreview } from "@/lib/providers/provider-switch-preview";
+import { HANDOFF_SECTION_IDS } from "@/lib/task-context/handoff-record";
+import { taskHandoffKey, useTaskHandoffStore } from "@/store/task-handoff-store";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import { providerSwitchStyles } from "./shelf-provider-switch.styles";
 
-/** The sentences under the notice, in the order a reader needs them. */
-export function describeProviderSwitch(preview: ProviderSwitchPreview): string[] {
+/**
+ * The sentences under the notice, in the order a reader needs them. The
+ * handoff record goes with the excerpt, ahead of it, so it is named whenever
+ * the excerpt is sent; `handoffSections` is undefined while it is not known.
+ */
+export function describeProviderSwitch(preview: ProviderSwitchPreview, handoffSections?: number): string[] {
   const chars = formatNumber(preview.chars);
   const lines = [
     preview.session === "fresh"
       ? i18n.t("composer:providerSwitch.sessionFresh")
       : i18n.t("composer:providerSwitch.sessionResume"),
   ];
+  const sendsHistory = preview.session === "fresh" || preview.totalMessages > 0;
+  if (sendsHistory && handoffSections !== undefined) {
+    lines.push(
+      handoffSections > 0
+        ? i18n.t("composer:providerSwitch.recordFirst", { count: handoffSections })
+        : i18n.t("composer:providerSwitch.recordNone"),
+    );
+  }
   if (preview.totalMessages === 0) {
     lines.push(i18n.t("composer:providerSwitch.receivesNothing"));
     return lines;
@@ -47,9 +61,14 @@ export function describeProviderSwitch(preview: ProviderSwitchPreview): string[]
  * what it will be given, so nothing about the switch is a surprise after the
  * send. A notice, not a control: it changes nothing about the message.
  */
-export const ShelfProviderSwitch = memo(function ShelfProviderSwitch(props: { preview: ProviderSwitchPreview }) {
+export const ShelfProviderSwitch = memo(function ShelfProviderSwitch(props: {
+  preview: ProviderSwitchPreview;
+  workspaceId: string;
+  taskId: string;
+}) {
   useTranslation();
   const { preview } = props;
+  const handoffSections = useHandoffSectionCount(props.workspaceId, props.taskId);
   const [open, setOpen] = useState(false);
   const detailsId = useId();
   const to = getProviderLabel({ providerId: preview.toProviderId });
@@ -82,7 +101,7 @@ export const ShelfProviderSwitch = memo(function ShelfProviderSwitch(props: { pr
       </div>
       {open ? (
         <ul id={detailsId} className={sx(providerSwitchStyles.details)}>
-          {describeProviderSwitch(preview).map((line) => (
+          {describeProviderSwitch(preview, handoffSections).map((line) => (
             <li key={line} className={sx(providerSwitchStyles.detail)}>
               {line}
             </li>
@@ -92,3 +111,18 @@ export const ShelfProviderSwitch = memo(function ShelfProviderSwitch(props: { pr
     </div>
   );
 });
+
+/** How many sections the task's handoff record has; undefined until it is read. */
+function useHandoffSectionCount(workspaceId: string, taskId: string) {
+  const key = taskHandoffKey(workspaceId, taskId);
+  const record = useTaskHandoffStore((state) => state.records[key]);
+  const load = useTaskHandoffStore((state) => state.load);
+  useEffect(() => {
+    if (!record && workspaceId && taskId) {
+      load(workspaceId, taskId).catch(() => undefined);
+    }
+  }, [load, record, taskId, workspaceId]);
+  return record
+    ? HANDOFF_SECTION_IDS.filter((id) => record.sections[id]?.text.trim()).length
+    : undefined;
+}

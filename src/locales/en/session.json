@@ -1117,5 +1117,53 @@
       "moreFailures_one": "{{count}} more failed check",
       "moreFailures_other": "{{count}} more failed checks"
     }
+  },
+  "handoff": {
+    "intro": "What someone picking this task up needs: you later, another provider, or the same one after a restart. It is sent to a provider with the conversation when it starts or comes back to this task.",
+    "edit": "Edit",
+    "fill": "Fill from this task",
+    "ask": "Ask the agent to update",
+    "askBusy": "Wait for the current turn to finish.",
+    "askSent": "Asked the agent. Its proposal appears here to review before anything is saved.",
+    "askFailed": "The request could not be sent.",
+    "fillNothing": "Stave has nothing new to add.",
+    "proposalTitle": "The agent proposed changes",
+    "proposalDetail": "Review the proposal. Nothing changes until you save it.",
+    "review": "Review",
+    "dismiss": "Dismiss",
+    "reviewing": "Text from Stave or the agent keeps that author until you change it. Save to keep it.",
+    "empty": "Not written yet.",
+    "updatedByUser": "Updated {{time}} by you",
+    "updatedByAgent": "Updated {{time}} by the agent",
+    "updatedByStave": "Updated {{time}} by Stave",
+    "conflictTitle": "This record changed while you were editing",
+    "conflictDetail": "Keep your version, or discard your changes and read the saved one.",
+    "discardMine": "Discard my changes",
+    "saveMine": "Save my version",
+    "saved": "Handoff record saved.",
+    "saveFailed": "The handoff record could not be saved.",
+    "readFailed": "The handoff record could not be read.",
+    "sections": {
+      "goal": "Goal",
+      "decisions": "Approved decisions",
+      "verified": "Verified results",
+      "remaining": "Remaining work",
+      "cautions": "Cautions"
+    },
+    "hints": {
+      "goal": "What this task is for and what done looks like.",
+      "decisions": "Decisions and constraints you approved, one per line.",
+      "verified": "What was checked, and how.",
+      "remaining": "What is left, in order.",
+      "cautions": "What to watch out for."
+    },
+    "facts": {
+      "checksPassed_one": "Stave's check passed ({{passed}} of {{count}}).",
+      "checksPassed_other": "Stave's checks passed ({{passed}} of {{count}}).",
+      "checksFailed": "Stave's checks failed: {{failures}}",
+      "approval": "Approved: {{tool}}: {{description}}",
+      "approvalTool": "Approved: {{tool}}",
+      "plan": "Plan: {{path}}"
+    }
   }
 }

@@ -7,6 +7,13 @@ import type {
   TurnRecordMessage,
 } from "@/lib/providers/turn-history";
 import type { ChatMessage } from "@/types/chat";
+import {
+  applyHandoffDraft,
+  emptyHandoffRecord,
+  HANDOFF_PROPOSAL_FENCE,
+  type TaskHandoffRecord,
+} from "@/lib/task-context/handoff-record";
+import type { SaveTaskHandoffArgs } from "@/lib/task-context/handoff-record-ipc";
 
 /**
  * Saved turns for the Task panel preview, served the way the desktop bridge
@@ -95,6 +102,67 @@ export function stubTurnHistory(args: { plainTaskId: string; messages: readonly 
             }
           : null;
         return { ok: true, record };
+      },
+    },
+  };
+}
+
+/** A record with a goal, a decision the agent proposed and the user kept, and a caution Stave filled. */
+function previewHandoffRecord(): TaskHandoffRecord {
+  const day = "2026-09-29T09:05:00.000Z";
+  const written = applyHandoffDraft({
+    record: emptyHandoffRecord(),
+    draft: {
+      goal: "Tighten the settings sidebar spacing without changing the keyboard order.",
+      decisions: "- Row gap 8px, list padding 12px (tokens only)\n- Keep the Tab order identical to the visual order",
+      verified: "",
+      remaining: "- Section headers keep their spacing; a separate pass",
+      cautions: "- Stave's checks failed: test: 2 tests failed in tests/settings-sidebar.test.tsx",
+    },
+    authors: { decisions: "agent", cautions: "stave" },
+    at: day,
+  });
+  return written;
+}
+
+/** An agent reply that proposes an update, for `&proposal=1`. */
+export const PREVIEW_HANDOFF_PROPOSAL: ChatMessage = {
+  id: "preview-handoff-proposal",
+  role: "assistant",
+  model: "claude-sonnet-5",
+  providerId: "claude-code",
+  content: [
+    "Here is the updated record.",
+    "```" + HANDOFF_PROPOSAL_FENCE,
+    JSON.stringify({ verified: "- bun test tests/settings-sidebar.test.tsx passes (12 tests)" }),
+    "```",
+  ].join("\n"),
+  parts: [],
+};
+
+/** The handoff record reads and saves, kept in memory for the preview. */
+export function stubTaskHandoff() {
+  const host = window as unknown as {
+    api?: Record<string, unknown> & { persistence?: Record<string, unknown> };
+  };
+  if (host.api?.persistence?.readTaskHandoff) return;
+  const records = new Map<string, TaskHandoffRecord>();
+  const keyOf = (args: { workspaceId: string; taskId: string }) => `${args.workspaceId}:${args.taskId}`;
+  host.api = {
+    ...host.api,
+    persistence: {
+      ...host.api?.persistence,
+      readTaskHandoff: async (args: { workspaceId: string; taskId: string }) => {
+        const key = keyOf(args);
+        if (!records.has(key)) records.set(key, previewHandoffRecord());
+        return { ok: true, record: records.get(key) };
+      },
+      saveTaskHandoff: async (args: SaveTaskHandoffArgs) => {
+        const current = records.get(keyOf(args)) ?? emptyHandoffRecord();
+        if (current.revision !== args.baseRevision) return { ok: false, conflict: true, record: current };
+        const next = applyHandoffDraft({ record: current, draft: args.draft, authors: args.authors, at: new Date().toISOString() });
+        records.set(keyOf(args), next);
+        return { ok: true, record: next };
       },
     },
   };

@@ -27,6 +27,11 @@ import {
   type RunStepRecord,
 } from "@/lib/runs/run-domain";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
+import {
+  emptyHandoffRecord,
+  STAVE_HANDOFF_RECORD_SOURCE_ID,
+  type TaskHandoffRecord,
+} from "@/lib/task-context/handoff-record";
 
 // Regression: the host-service local MCP `runTask` builds a pending provider
 // turn via `buildPendingProviderTurnState`, which requires `messageCountByTask`
@@ -102,6 +107,7 @@ const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
 const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string }> = [];
 let persistedProviderTimeoutMs: number | null = null;
 let persistedPermissionSettings: import("@/lib/runs/delegation-policy").DelegationPermissionSettings | null = null;
+let persistedHandoffRecord: TaskHandoffRecord | null = null;
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   {
@@ -166,6 +172,7 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
 
 const fakeStore = {
   delegationPolicies: { loadSettings: () => persistedPermissionSettings, loadTaskAccounts: () => undefined },
+  taskHandoffs: { read: () => persistedHandoffRecord ?? emptyHandoffRecord() },
   loadRepositoryRegistry: () => [
     {
       repositoryPath: REPOSITORY_PATH,
@@ -455,6 +462,7 @@ afterAll(() => {
 afterEach(() => {
   persistedProviderTimeoutMs = null;
   persistedPermissionSettings = null;
+  persistedHandoffRecord = null;
   providerRuntime.abortTurn = originalAbortTurn;
   providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
@@ -949,6 +957,24 @@ describe("local MCP runtime runTask", () => {
     const sent = call.conversation?.contextParts?.map((part) => part.sourceId) ?? [];
     expect(sent).toContain("crane:CRANE-43");
     expect(sent).toContain("stave:agent-run");
+  });
+
+  test("a host-started turn sends the task's handoff record ahead of the conversation", async () => {
+    persistedHandoffRecord = {
+      version: 1,
+      revision: 1,
+      updatedAt: "2026-01-02T00:00:00.000Z",
+      sections: {
+        decisions: { text: "- Keep the public API stable", updatedAt: "2026-01-02T00:00:00.000Z", updatedBy: "user" },
+      },
+    };
+    await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Start on the search feature" });
+
+    const call = startTurnStreamCalls.at(-1) as {
+      conversation?: { contextParts?: Array<{ sourceId?: string; content?: string }> };
+    };
+    const record = call.conversation?.contextParts?.find((part) => part.sourceId === STAVE_HANDOFF_RECORD_SOURCE_ID);
+    expect(record?.content).toContain("- Keep the public API stable");
   });
 
   test("persists interactive host responses before provider continuation events", async () => {

@@ -1089,5 +1089,52 @@
       "warning": "경고",
       "moreFailures_other": "실패한 검사 {{count}}개 더 있음"
     }
+  },
+  "handoff": {
+    "intro": "이 작업을 이어받는 쪽이 알아야 할 내용입니다. 나중의 나, 다른 프로바이더, 재시작 후의 같은 프로바이더 모두 해당합니다. 프로바이더가 이 작업을 시작하거나 다시 맡을 때 대화와 함께 전달됩니다.",
+    "edit": "편집",
+    "fill": "이 작업에서 채우기",
+    "ask": "에이전트에게 업데이트 요청",
+    "askBusy": "현재 턴이 끝날 때까지 기다리세요.",
+    "askSent": "에이전트에게 요청했습니다. 제안은 저장하기 전에 여기에서 검토할 수 있습니다.",
+    "askFailed": "요청을 보내지 못했습니다.",
+    "fillNothing": "Stave가 새로 추가할 내용이 없습니다.",
+    "proposalTitle": "에이전트가 변경을 제안했습니다",
+    "proposalDetail": "제안을 검토하세요. 저장하기 전까지 아무것도 바뀌지 않습니다.",
+    "review": "검토",
+    "dismiss": "닫기",
+    "reviewing": "Stave나 에이전트가 쓴 내용은 직접 바꾸기 전까지 그 작성자로 남습니다. 유지하려면 저장하세요.",
+    "empty": "아직 작성되지 않았습니다.",
+    "updatedByUser": "{{time}} 사용자가 업데이트함",
+    "updatedByAgent": "{{time}} 에이전트가 업데이트함",
+    "updatedByStave": "{{time}} Stave가 업데이트함",
+    "conflictTitle": "편집하는 동안 이 기록이 바뀌었습니다",
+    "conflictDetail": "내 버전을 저장하거나, 변경을 버리고 저장된 기록을 확인하세요.",
+    "discardMine": "내 변경 버리기",
+    "saveMine": "내 버전 저장",
+    "saved": "인계 기록을 저장했습니다.",
+    "saveFailed": "인계 기록을 저장하지 못했습니다.",
+    "readFailed": "인계 기록을 읽지 못했습니다.",
+    "sections": {
+      "goal": "목표",
+      "decisions": "승인한 결정",
+      "verified": "검증된 결과",
+      "remaining": "남은 작업",
+      "cautions": "주의 사항"
+    },
+    "hints": {
+      "goal": "이 작업의 목적과 완료 기준",
+      "decisions": "승인한 결정과 제약을 한 줄에 하나씩",
+      "verified": "무엇을 어떻게 확인했는지",
+      "remaining": "남은 일을 순서대로",
+      "cautions": "조심해야 할 점"
+    },
+    "facts": {
+      "checksPassed_other": "Stave 검사 통과 ({{count}}개 중 {{passed}}개).",
+      "checksFailed": "Stave 검사 실패: {{failures}}",
+      "approval": "승인함: {{tool}}: {{description}}",
+      "approvalTool": "승인함: {{tool}}",
+      "plan": "계획: {{path}}"
+    }
   }
 }

@@ -10,6 +10,7 @@ import {
   sanitizeFileContextPayload,
 } from "@/lib/file-context-sanitization";
 import { getAssistantResponseTextStartIndex } from "@/lib/session/assistant-response-parts";
+import { STAVE_HANDOFF_RECORD_SOURCE_ID } from "@/lib/task-context/handoff-record";
 import type { SkillPromptContext } from "@/lib/skills/types";
 import {
   STAVE_LATEST_TURN_SUMMARY_SOURCE_ID,
@@ -342,6 +343,10 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   includeImageData?: boolean;
 }) {
   const includeWorkspaceGuidance = args.includeHistory !== false;
+  const handoffRecordPart = args.request.contextParts.find(
+    (part): part is CanonicalRetrievedContextPart =>
+      part.type === "retrieved_context" && part.sourceId === STAVE_HANDOFF_RECORD_SOURCE_ID,
+  );
   const hasVisibleSkillContext = args.request.contextParts.some(
     (part) =>
       part.type === "skill_context" &&
@@ -371,6 +376,12 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
             .join("\n"),
         ]
       : []),
+    // The handoff record travels with the excerpt, ahead of it: a provider
+    // starting or coming back reads what the task settled before the
+    // conversation that led there.
+    ...(args.includeHistory !== false && handoffRecordPart
+      ? ["[Task Handoff Record]", handoffRecordPart.content]
+      : []),
     ...(args.includeHistory !== false
       ? [
           "[Task Shared Context]",
@@ -385,6 +396,9 @@ export function buildLegacyPromptFromCanonicalRequest(args: {
   ];
 
   args.request.contextParts.forEach((part) => {
+    if (part === handoffRecordPart) {
+      return;
+    }
     if (
       !includeWorkspaceGuidance &&
       part.type === "retrieved_context" &&

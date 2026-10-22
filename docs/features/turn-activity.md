@@ -207,6 +207,9 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 - **Subagents**: every agent the task called, in its turn or as a
   [delegated task](delegated-tasks.md), with its state and answer.
 - **Outputs**: saved answers and reported file changes, one entry per ended execution.
+- **Handoff**: the task's handoff record — goal, approved decisions, verified
+  results, remaining work and cautions — sent ahead of the conversation when a
+  provider starts or comes back. See [Task Handoff Record](task-handoff-record.md).
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the

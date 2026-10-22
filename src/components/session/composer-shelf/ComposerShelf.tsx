@@ -81,6 +81,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code", { model: props.model, autoRouting: props.autoRouting });
   const blocker = props.providerId ? accountBlocker : null;
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
+  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const setLayout = useAppStore((state) => state.setLayout);
   const abortTaskTurn = useAppStore((state) => state.abortTaskTurn);
   const detailHost = resolveShelfDetailHost(placement);
@@ -216,7 +217,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
       ) : null}
       {providerSwitch && rows.includes("switch") ? (
         <ShelfRow joining={shownBefore.current}>
-          <ShelfProviderSwitch preview={providerSwitch} />
+          <ShelfProviderSwitch preview={providerSwitch} workspaceId={activeWorkspaceId} taskId={taskId} />
         </ShelfRow>
       ) : null}
       {runSource ? (

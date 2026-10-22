@@ -20,6 +20,7 @@ import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerUsageStatisticsHandlers } from "./usage-statistics";
 import { registerTurnHistoryHandlers } from "./turn-history";
+import { registerTaskHandoffHandlers } from "./task-handoff";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
@@ -56,6 +57,7 @@ export function registerHandlers() {
   registerPersistenceHandlers();
   registerUsageStatisticsHandlers();
   registerTurnHistoryHandlers();
+  registerTaskHandoffHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();

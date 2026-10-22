@@ -108,6 +108,20 @@ describe("provider switch preview", () => {
     });
     expect(resumed).toContain("It receives the 2 messages since it last worked here, 180 characters.");
     expect(resumed).toContain("Nothing is left out.");
+    // The handoff record goes with the excerpt, ahead of it, whenever the excerpt is sent.
+    const withRecord = describeProviderSwitch({
+      fromProviderId: "codex", toProviderId: "claude-code", session: "fresh",
+      totalMessages: 2, keptMessages: 2, shortenedMessages: 0, omittedMessages: 0, chars: 180, maxChars: 12_000, overflowed: false,
+    }, 2);
+    expect(withRecord[1]).toBe("It receives the task's handoff record first: 2 sections.");
+    expect(describeProviderSwitch({
+      fromProviderId: "codex", toProviderId: "claude-code", session: "fresh",
+      totalMessages: 2, keptMessages: 2, shortenedMessages: 0, omittedMessages: 0, chars: 180, maxChars: 12_000, overflowed: false,
+    }, 0)[1]).toBe("This task has no handoff record yet.");
+    expect(describeProviderSwitch({
+      fromProviderId: "codex", toProviderId: "claude-code", session: "resume",
+      totalMessages: 0, keptMessages: 0, shortenedMessages: 0, omittedMessages: 0, chars: 0, maxChars: 12_000, overflowed: false,
+    }, 2).join(" ")).not.toContain("handoff record");
   });
 
   test("the shelf says it before a send, not while a turn runs", () => {
