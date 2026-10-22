@@ -154,7 +154,11 @@ as **What this run does**:
 - **Where**: the task's workspace, its branch, and whether it is the
   repository folder or the run's own worktree.
 - **May change**: an Auto agent edits files and runs commands with the
-  provider's auto mode deciding each action and asking when it cannot; other
+  provider's auto mode deciding each action and asking when it cannot. The
+  line follows the options the run applies: on a Codex without its reviewer
+  for Auto, the run falls back to approvals off, and the line says it edits
+  without asking. (Codex's managed settings or account can still turn the
+  reviewer off when a turn starts; the turn then runs the same way.) Other
   agents edit without asking; a Read only agent changes nothing. Writes outside
   the repository, credential files and irreversible remote actions still come
   to you. Publishing steps (such as **Open draft PR**) say whether they are

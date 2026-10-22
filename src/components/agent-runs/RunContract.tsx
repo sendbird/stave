@@ -44,6 +44,11 @@ export function RunContractView(props: { title: string; contract: RunContract; t
   );
 }
 
+/** Whether the selected Codex has its reviewer for Auto; null until its capabilities are known. */
+function useCodexAutoReview(): boolean | null {
+  return useAppStore((state) => state.providerRuntimeCapabilities.codex?.approval.autoClassifierPolicy ?? null);
+}
+
 /** A workspace as the contract names it; null until the workspace is known. */
 function useContractWorkspace(workspaceId: string): RunContractInput["workspace"] {
   const name = useAppStore((state) => state.workspaces.find((workspace) => workspace.id === workspaceId)?.name ?? null);
@@ -62,6 +67,7 @@ export function RunContractNotice(props: { taskId: string; workspaceId: string }
   const agent = useAgentAssignmentsStore((state) => state.byTaskId[props.taskId]);
   const workspace = useContractWorkspace(props.workspaceId);
   const scripts = useWorkspaceScriptActions();
+  const codexAutoReview = useCodexAutoReview();
   const scriptIds = scripts.available && scripts.state.status === "ready" ? readyWorkspaceScripts(scripts).map((script) => script.id) : null;
   // The run this send would start, exactly as the start builds it; the words are built at render.
   const start = useMemo(() => agent ? buildAgentRunStartInput({
@@ -77,6 +83,8 @@ export function RunContractNotice(props: { taskId: string; workspaceId: string }
   const contract = agent && start ? buildRunContract({
     workspace,
     permission: agent.agentPermission ?? null,
+    providerId: agent.providerId ?? null,
+    codexAutoReview,
     workflow: start.workflow,
     authorizedEffectStageIds: start.consent.authorizedEffectStageIds,
     maxTurns: start.maxTurns ?? AGENT_RUN_LIMITS.defaultMaxTurns,
@@ -94,9 +102,12 @@ export function RunHeaderContract(props: { detail: AgentRunDetail }) {
   const { agentRun } = props.detail;
   const workspace = useContractWorkspace(agentRun.workspaceId);
   const permission = useAgentAssignmentsStore((state) => state.byTaskId[agentRun.leadTaskId]?.agentPermission ?? null);
+  const codexAutoReview = useCodexAutoReview();
   const contract = buildRunContract({
     workspace,
     permission: permission ?? (agentRun.consent.permissionMode === "auto" ? "auto" : null),
+    providerId: agentRun.fingerprint.providerId,
+    codexAutoReview,
     workflow: agentRun.workflow,
     authorizedEffectStageIds: agentRun.consent.authorizedEffectStageIds,
     maxTurns: agentRun.maxTurns,

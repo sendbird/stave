@@ -63,3 +63,27 @@ export function resolveCodexAppServerReasoningEffort(args: {
   // tools when reasoning.effort is "minimal".
   return args.reasoningEffort === "minimal" ? "low" : args.reasoningEffort;
 }
+
+/**
+ * Run Auto without Codex's reviewer: the turn policy already set every other
+ * field of an autonomous Codex turn (file access floor, Stave's prompt-free
+ * tools), so swapping `on-request` back to `never` restores exactly the Auto
+ * behavior from before native auto-review. `reviewerField` says whether the
+ * runtime accepts `approvalsReviewer`; when it does, the thread is reset to
+ * `user` explicitly so it cannot keep a reviewer from an earlier turn.
+ */
+export function withoutCodexAutoReview(
+  options: ProviderRuntimeOptions,
+  reviewerField: boolean,
+): ProviderRuntimeOptions {
+  if (options.codexApprovalsReviewer !== "auto_review") {
+    return reviewerField ? options : { ...options, codexApprovalsReviewer: undefined };
+  }
+  return {
+    ...options,
+    codexApprovalsReviewer: reviewerField ? "user" : undefined,
+    ...(options.codexApprovalPolicy === "on-request"
+      ? { codexApprovalPolicy: "never" as const }
+      : {}),
+  };
+}

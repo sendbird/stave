@@ -6,7 +6,7 @@ import { AgentRunOverview } from "../src/components/agent-runs/AgentRunOverview"
 import { describeQueuedTurnDelivery } from "../src/components/session/composer-shelf/composer-shelf.utils";
 import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
-import { buildRunContract, type RunContractInput } from "../src/lib/agent-runs/run-contract";
+import { buildRunContract, resolveRunApprovalOptions, type RunContractInput } from "../src/lib/agent-runs/run-contract";
 import type { Workflow } from "../src/lib/workflows/schema";
 
 const NOW = new Date("2026-10-22T09:00:00.000Z");
@@ -56,6 +56,18 @@ describe("run contract", () => {
     expect(unknown.done).toEqual(["When the assignment is complete and verified.", "If the workspace has action scripts, one of them must pass before it finishes."]);
     expect(unknown.change[0]).toBe("Edits files and runs commands here without asking.");
     expect(contractFor(startFor({ name: "x", workflow: undefined, checkIns: undefined }), { workspace: { ...workspace, worktree: false, branch: null } }).where).toBe("billing-fix, in the repository folder");
+  });
+
+  test("Auto says what the run applies: a Codex without its reviewer runs with approvals off", () => {
+    const start = startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "auto" });
+    const auto = "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.";
+    expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true }).change[0]).toBe(auto);
+    // The runtime falls back from on-request + auto_review to `never` when Codex has no reviewer.
+    expect(resolveRunApprovalOptions({ providerId: "codex", permission: "auto", codexAutoReview: false })).toMatchObject({ codexApprovalPolicy: "never" });
+    expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: false }).change[0])
+      .toBe("Edits files and runs commands here without asking: this Codex has no reviewer for Auto, so its approvals are off.");
+    // Claude's Auto does not depend on Codex's reviewer.
+    expect(contractFor(start, { permission: "auto", providerId: "claude-code", codexAutoReview: false }).change[0]).toBe(auto);
   });
 
   test("checks name their rule, and publishing asks first unless the agent checks in only when stuck", () => {

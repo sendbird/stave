@@ -1,8 +1,12 @@
 import { i18n } from "@/i18n/runtime";
 import { formatList } from "@/i18n/format";
 import type { AgentPermission } from "@/lib/agents/schema";
+import { withoutCodexAutoReview } from "@/lib/providers/codex-runtime-options";
+import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
+import { isCodexAutoReview } from "@/lib/policy/turn-policy";
 import { STAVE_ACTION_LABELS, type CheckIns, type Workflow, type WorkflowStage } from "@/lib/workflows/schema";
 import { AGENT_RUN_DEFAULT_DONE_WHEN } from "./agent-run";
+import { agentRunPermissionRuntimeOptions } from "./briefing";
 import { stageHasExternalEffect } from "./domain";
 import { resolveConsentStageSignOff } from "./policy";
 import { getStageDisplayTitle } from "./stage-display";
@@ -19,6 +23,10 @@ export interface RunContractInput {
   workspace: { name: string; branch: string | null; worktree: boolean } | null;
   /** The agent's saved permission; null when unknown. */
   permission: AgentPermission | null;
+  /** The provider the run's turns use; null when unknown (the line then follows the permission alone). */
+  providerId?: ProviderId | null;
+  /** Whether the selected Codex has its reviewer for Auto; null when unknown. */
+  codexAutoReview?: boolean | null;
   workflow: Pick<Workflow, "stages" | "checkIns">;
   authorizedEffectStageIds: readonly string[];
   maxTurns: number;
@@ -48,12 +56,32 @@ function describeWhere(workspace: RunContractInput["workspace"]): string {
     : i18n.t("agentRuns:runContract.where.withoutBranch", { workspace: workspace.name, place });
 }
 
+/**
+ * The approval options a run's turns apply for its permission: the run's
+ * permission options, then, for Codex without its reviewer, the fallback the
+ * runtime applies (`on-request` + `auto_review` back to `never`).
+ */
+export function resolveRunApprovalOptions(args: {
+  providerId: ProviderId | null;
+  permission: AgentPermission | null;
+  codexAutoReview: boolean | null;
+}): ProviderRuntimeOptions {
+  if (!args.providerId || !args.permission || args.permission === "read-only") return {};
+  const requested = agentRunPermissionRuntimeOptions(args.providerId, args.permission, undefined);
+  return args.providerId === "codex" && args.codexAutoReview === false ? withoutCodexAutoReview(requested, true) : requested;
+}
+
+/** The first "may change" line, from the options the run applies. */
+function describeApprovals(input: RunContractInput): string {
+  if (input.permission === "read-only") return i18n.t("agentRuns:runContract.change.readOnly");
+  if (input.permission !== "auto") return i18n.t("agentRuns:runContract.change.edits");
+  if (input.providerId !== "codex") return i18n.t("agentRuns:runContract.change.auto");
+  const applied = resolveRunApprovalOptions({ providerId: "codex", permission: "auto", codexAutoReview: input.codexAutoReview ?? null });
+  return isCodexAutoReview(applied) ? i18n.t("agentRuns:runContract.change.auto") : i18n.t("agentRuns:runContract.change.autoWithoutReviewer");
+}
+
 function describeChange(input: RunContractInput): string[] {
-  const lines = [
-    input.permission === "read-only" ? i18n.t("agentRuns:runContract.change.readOnly")
-      : input.permission === "auto" ? i18n.t("agentRuns:runContract.change.auto")
-      : i18n.t("agentRuns:runContract.change.edits"),
-  ];
+  const lines = [describeApprovals(input)];
   if (input.permission !== "read-only") lines.push(i18n.t("agentRuns:runContract.change.guardrails"));
   const effects = input.workflow.stages.filter(stageHasExternalEffect);
   const allowed = effects.filter((stage) => input.authorizedEffectStageIds.includes(stage.id)).map(effectName);
