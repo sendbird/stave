@@ -93,17 +93,29 @@ const REVIEW = {
   headBranch: "feat/x",
 };
 
+/**
+ * Only the asserted fields of captured options. A failing assertion prints what
+ * it received, and the full options carry the account environment (API keys,
+ * sign-in tokens), so nothing else is ever handed to `expect`.
+ */
+function pick(source: Record<string, unknown> | undefined, keys: readonly string[]): Record<string, unknown> {
+  return Object.fromEntries(keys.map((key) => [key, source?.[key]]));
+}
+
+const CODEX_TOOLLESS = {
+  "features.shell_tool": false,
+  "features.unified_exec": false,
+  "features.apps": false,
+  "tools.view_image": false,
+  network_access: false,
+  web_search: "disabled",
+};
+
 /** No shell, exec, apps, image viewing, network or web search, and the configured MCP server off. */
 function expectToolless(start: ThreadStart | undefined) {
-  expect(start?.config).toMatchObject({
-    "features.shell_tool": false,
-    "features.unified_exec": false,
-    "features.apps": false,
-    "tools.view_image": false,
-    network_access: false,
-    web_search: "disabled",
-    mcp_servers: { figma: { enabled: false } },
-  });
+  const servers = start?.config?.mcp_servers as Record<string, { enabled?: unknown }> | undefined;
+  expect({ ...pick(start?.config, Object.keys(CODEX_TOOLLESS)), figmaEnabled: servers?.figma?.enabled })
+    .toEqual({ ...CODEX_TOOLLESS, figmaEnabled: false });
 }
 
 describe("Codex text utilities run without shell or tools", () => {
@@ -160,13 +172,13 @@ describe("Claude text utilities run without tools", () => {
   test("PR description", async () => {
     await claudeRuntime.suggestClaudePRDescription({ cwd: CWD, prompt: "Describe this pull request." });
     expect(claudeOptions).toHaveLength(1);
-    expect(claudeOptions[0]).toMatchObject(TOOLLESS);
+    expect(pick(claudeOptions[0], Object.keys(TOOLLESS))).toEqual(TOOLLESS);
   });
 
   test("pre-PR diff review and the intent check", async () => {
     await claudeRuntime.reviewClaudeWorktreeDiff(REVIEW);
     await claudeRuntime.reviewClaudeWorktreeDiff({ ...REVIEW, mode: "intent", intentContext: "Keep the API" });
     expect(claudeOptions).toHaveLength(2);
-    for (const options of claudeOptions) expect(options).toMatchObject(TOOLLESS);
+    for (const options of claudeOptions) expect(pick(options, Object.keys(TOOLLESS))).toEqual(TOOLLESS);
   });
 });
