@@ -31,6 +31,10 @@ import { useWakeUpsStore, wakeUpTaskKey } from "@/store/wake-ups-store";
 import { useAppStore } from "@/store/app.store";
 import { useSideChatStore, type SideChatExchange } from "@/store/side-chat-store";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
+import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
+import { useTaskReturnStore } from "@/store/task-return-store";
+import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import type { ChatMessage } from "@/types/chat";
 import { PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./turn-history-fixtures";
 
@@ -53,6 +57,8 @@ import { PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./tu
  *   an agent reply that proposes an update.
  * - `side=empty|asking|answered|failed` adds a conversation stand-in with the
  *   side question panel in that state.
+ * - `return=idle|need` adds the stand-in with the direct task's return
+ *   summary: back after its last turn, or with an approval waiting.
  * - The direct task has saved turns: Activity opens the newest as a record
  *   (failed, with a full digest) and the Turn picker lists an older turn
  *   from before records existed.
@@ -661,8 +667,33 @@ export function TaskPanelPreview() {
     applyCustomTheme({ theme: builtinTheme });
   }, [theme, builtinTheme]);
   const side = params.get("side");
+  const returning = params.get("return");
   useLayoutEffect(() => {
     seedStores({ task, tab, pending: params.get("pending"), placement: params.get("placement") });
+    if (returning) {
+      const now = Date.now();
+      useTaskReturnStore.setState({
+        arrivalByTask: { [PLAIN_TASK_ID]: { at: new Date(now).toISOString(), leftAt: null } },
+        dismissedByTask: {},
+      });
+      const approval: FleetAttentionItem = {
+        id: "preview-return-need",
+        kind: "approval",
+        priority: 1,
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "preview-repo",
+        workspaceId: WORKSPACE_ID,
+        workspaceName: "Default Workspace",
+        taskId: PLAIN_TASK_ID,
+        createdAt: new Date(now - 125 * 60_000).toISOString(),
+        waitingSince: new Date(now - 125 * 60_000).toISOString(),
+        source: "live",
+        detail: "Run the sidebar tests",
+      };
+      useFleetAttentionStore.setState({
+        snapshot: { ...EMPTY_FLEET_ATTENTION, items: returning === "need" ? [approval] : [] },
+      });
+    }
     if (side) {
       useSideChatStore.setState({
         openTaskId: PLAIN_TASK_ID,
@@ -671,7 +702,7 @@ export function TaskPanelPreview() {
       });
     }
     setSeeded(true);
-  }, [task, tab, side]);
+  }, [task, tab, side, returning]);
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>
@@ -679,9 +710,10 @@ export function TaskPanelPreview() {
       </p>
       {seeded ? (
         <div className={sx(styles.row)}>
-          {side ? (
+          {side || returning ? (
             <div className={sx(styles.conversation)} data-testid="side-chat-frame">
-              <SideChatPanel taskId={PLAIN_TASK_ID} />
+              {returning ? <ReturnSummaryCard taskId={PLAIN_TASK_ID} /> : null}
+              {side ? <SideChatPanel taskId={PLAIN_TASK_ID} /> : null}
             </div>
           ) : null}
           <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">

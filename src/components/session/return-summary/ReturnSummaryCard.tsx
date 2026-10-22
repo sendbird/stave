@@ -1,0 +1,143 @@
+import { i18n, useTranslation } from "@/i18n";
+import { formatRelativeTime } from "@/i18n/format";
+import { History, X } from "lucide-react";
+import { useEffect, useMemo } from "react";
+import { Button as AdsButton } from "@/components/ads/components/Button";
+import { sx } from "@/components/ads/utils/stylex";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import {
+  buildReturnSummary,
+  hasReturnNews,
+  isReturn,
+  resolveLastVisit,
+} from "@/lib/task-context/return-summary";
+import { useAppStore } from "@/store/app.store";
+import { useFleetAttention } from "@/store/fleet-attention-store";
+import { useSideChatStore } from "@/store/side-chat-store";
+import { taskHandoffKey, useTaskHandoffStore } from "@/store/task-handoff-store";
+import { useTaskReturnStore } from "@/store/task-return-store";
+import type { ChatMessage } from "@/types/chat";
+import { openTaskInspection } from "../task-inspection-navigation";
+import { describeReturnSummary, type ReturnLinkTarget } from "./return-summary.utils";
+import { returnSummaryStyles as styles } from "./return-summary.styles";
+
+const NO_MESSAGES: ChatMessage[] = [];
+
+/** The task's most urgent attention item, from Fleet's shared snapshot. */
+function selectTaskNeed(items: readonly FleetAttentionItem[], workspaceId: string, taskId: string) {
+  let need: FleetAttentionItem | null = null;
+  for (const item of items) {
+    if (item.taskId !== taskId || item.workspaceId !== workspaceId) continue;
+    if (!need || item.priority < need.priority) need = item;
+  }
+  return need;
+}
+
+function follow(target: ReturnLinkTarget, workspaceId: string, taskId: string) {
+  if (target.kind === "tab") {
+    openTaskInspection(workspaceId, taskId, target.tab);
+  } else if (target.kind === "request") {
+    void useAppStore.getState().focusTaskAttention({ taskId, workspaceId });
+  } else if (target.kind === "side-question") {
+    useSideChatStore.getState().open(taskId);
+  } else {
+    useAppStore.setState((state) => ({ promptFocusNonce: state.promptFocusNonce + 1 }));
+  }
+}
+
+/**
+ * What changed while you were away from the task, at the top of its
+ * conversation: the last decision, the news, why it stopped and what to do
+ * next, each with a link to where it comes from. It shows when you come back
+ * after a while and goes when you dismiss it or write to the task.
+ */
+export function ReturnSummaryCard(props: { taskId: string }) {
+  useTranslation();
+  const { taskId } = props;
+  const workspaceId = useAppStore((state) => state.activeWorkspaceId);
+  const arrival = useTaskReturnStore((state) => state.arrivalByTask[taskId]);
+  const dismissedAt = useTaskReturnStore((state) => state.dismissedByTask[taskId]);
+  const messages = useAppStore((state) => state.messagesByTask[taskId] ?? NO_MESSAGES);
+  const running = useAppStore((state) => Boolean(state.activeTurnIdsByTask[taskId]));
+  const need = useFleetAttention((snapshot) => selectTaskNeed(snapshot.items, workspaceId, taskId));
+  const recordKey = taskHandoffKey(workspaceId, taskId);
+  const record = useTaskHandoffStore((state) => state.records[recordKey]);
+  const loadRecord = useTaskHandoffStore((state) => state.load);
+  const showing = Boolean(arrival && dismissedAt !== arrival.at);
+  useEffect(() => {
+    if (showing && !record && workspaceId && taskId) {
+      loadRecord(workspaceId, taskId).catch(() => undefined);
+    }
+  }, [loadRecord, record, showing, taskId, workspaceId]);
+
+  const view = useMemo(() => {
+    if (!arrival || !showing) return null;
+    const arrivedMs = Date.parse(arrival.at);
+    // Writing to the task after coming back means you have caught up.
+    const wroteSince = messages.some(
+      (message) => message.role === "user" && Date.parse(message.startedAt ?? "") > arrivedMs,
+    );
+    if (wroteSince) return null;
+    const visit = resolveLastVisit({
+      messages: messages.filter((message) => Date.parse(message.startedAt ?? "") <= arrivedMs),
+      leftAt: arrival.leftAt,
+    });
+    if (!visit || !isReturn({ lastVisitAt: visit.at, now: arrivedMs })) return null;
+    const summary = buildReturnSummary({ messages, record: record ?? null, need, running, since: visit.at });
+    if (!hasReturnNews(summary)) return null;
+    return { visit, lines: describeReturnSummary(summary, Date.now()) };
+    // Lines are translated.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [arrival, showing, messages, record, need, running, i18n.language]);
+
+  if (!view) return null;
+  const since = formatRelativeTime(view.visit.at);
+  return (
+    <section
+      aria-label={i18n.t("session:returnSummary.title")}
+      className={sx(styles.card)}
+      data-testid="return-summary"
+    >
+      <div className={sx(styles.header)}>
+        <History aria-hidden className={sx(styles.headerIcon)} />
+        <h2 className={sx(styles.title)}>{i18n.t("session:returnSummary.title")}</h2>
+        <p className={sx(styles.since)}>
+          {view.visit.kind === "visit"
+            ? i18n.t("session:returnSummary.sinceVisit", { time: since })
+            : i18n.t("session:returnSummary.sinceMessage", { time: since })}
+        </p>
+        <AdsButton
+          variant="quiet"
+          size="xs"
+          iconOnly
+          aria-label={i18n.t("session:returnSummary.dismiss")}
+          title={i18n.t("session:returnSummary.dismiss")}
+          onClick={() => useTaskReturnStore.getState().dismiss(taskId)}
+        >
+          <X aria-hidden />
+        </AdsButton>
+      </div>
+      <dl className={sx(styles.rows)}>
+        {view.lines.map((line) => (
+          <div key={line.id} className={sx(styles.row)} data-return-line={line.id}>
+            <dt className={sx(styles.label)}>{line.label}</dt>
+            <dd className={sx(styles.value)} title={line.text}>
+              {line.text}
+            </dd>
+            <dd className={sx(styles.action)}>
+              {line.link ? (
+                <AdsButton
+                  variant="quiet"
+                  size="xs"
+                  onClick={() => line.link && follow(line.link.target, workspaceId, taskId)}
+                >
+                  {line.link.label}
+                </AdsButton>
+              ) : null}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}

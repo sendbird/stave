@@ -102,6 +102,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See how full the current task conversation is and compact it from the composer without losing the draft.",
       },
       {
+        routePath: "return-summary",
+        sourcePath: "docs/features/return-summary.md",
+        title: "Return Summary",
+        description:
+          "Come back to a task and see its last decision, what changed while you were away, where it stands and what to do next.",
+      },
+      {
         routePath: "side-questions",
         sourcePath: "docs/features/side-questions.md",
         title: "Side Questions",

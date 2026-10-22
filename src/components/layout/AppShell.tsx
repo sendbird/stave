@@ -32,6 +32,7 @@ import { closePaneSurface } from "@/components/panes/pane-surface-actions";
 import { useEditorPaneFocus } from "@/components/panes/use-editor-pane-focus";
 import { useFleetResultAutoReview } from "@/components/layout/useFleetResultAutoReview";
 import { FleetAttentionProducer } from "@/components/layout/FleetAttentionProducer";
+import { TaskReturnTracker } from "@/components/session/return-summary/TaskReturnTracker";
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
@@ -1013,6 +1014,7 @@ export function AppShell() {
       ) : null}
       <Toaster />
       <FleetAttentionProducer />
+      <TaskReturnTracker />
       <ConfirmDialog
         open={showCloseConfirm}
         title={i18n.t("shell:appShell.closeStave")}
