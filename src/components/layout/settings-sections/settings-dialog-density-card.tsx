@@ -19,6 +19,9 @@ export function DensitySettingsCard() {
   return (
     <SettingsCard
       id={DENSITY_SETTING_FIELD_ID}
+      // Settings search focuses the card it opens; without a tabindex the
+      // section ignores focus() and a keyboard user stays on the result.
+      tabIndex={-1}
       title={t("themeSection.density.title")}
       description={t("themeSection.density.description")}
     >

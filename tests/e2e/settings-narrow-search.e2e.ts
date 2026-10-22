@@ -50,5 +50,14 @@ for (const mode of ["light", "dark"] as const) {
     await search.fill("editor");
     await results.getByRole("button", { name: "Editor", exact: true }).click();
     await expect(settings.getByRole("combobox", { name: "Settings section" })).toContainText("Editor");
+
+    // From the keyboard, choosing a result hands focus to the setting it opens.
+    await search.fill("density");
+    await results.getByRole("button", { name: /^Density/ }).focus();
+    await page.keyboard.press("Enter");
+    await expect(settings.getByRole("combobox", { name: "Settings section" })).toContainText("Design");
+    await expect(settings.locator("#settings-field-density")).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(settings.getByRole("radio", { name: /Regular/ })).toBeFocused();
   });
 }
