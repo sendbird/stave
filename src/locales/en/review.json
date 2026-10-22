@@ -55,7 +55,8 @@
     "comment": "Comment",
     "renamed": "{{from}} → {{to}}",
     "noTextChange": "No text changes (mode, permissions or binary content).",
-    "noChanges": "No changes to show."
+    "noChanges": "No changes to show.",
+    "binary": "This is a binary file, so Review does not show its content."
   },
   "inspector": {
     "title": "Checks and notes"

@@ -36,7 +36,9 @@ export function ReviewDiffPane(props: { scope: ReviewScope; cwd: string | null; 
         </Button>
       </div>
       <AsyncBoundary state={content.state} onRetry={content.refresh} describeError={describeReviewReadError}>
-        {(diff) => diff.oldContent === diff.newContent
+        {(diff) => diff.binary
+          ? <p className={sx(styles.note)}>{i18n.t("review:diff.binary")}</p>
+          : diff.oldContent === diff.newContent
           ? <p className={sx(styles.note)}>{i18n.t("review:diff.noTextChange")}</p>
           // Plain text: token colours depend on the editor's theme being loaded, and Review must read without it.
           : <DiffViewer before={diff.oldContent} after={diff.newContent} mode="unified" granularity="word" xstyle={styles.diffBody} />}

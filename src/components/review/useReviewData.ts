@@ -98,7 +98,7 @@ export function useDiffReviewData(args: {
 }
 
 /** One file's content in a scope, read when it is opened. */
-export function useReviewFileContent(args: { cwd: string | null; data: ReviewData; file: ReviewFile | null }): { state: AsyncState<{ oldContent: string; newContent: string }>; refresh: () => void } {
+export function useReviewFileContent(args: { cwd: string | null; data: ReviewData; file: ReviewFile | null }): { state: AsyncState<{ oldContent: string; newContent: string; binary?: boolean }>; refresh: () => void } {
   const { cwd, data, file } = args;
   const fromTurn = file ? data.contents?.get(file.path) : undefined;
   return useAsync(async () => {
@@ -112,6 +112,6 @@ export function useReviewFileContent(args: { cwd: string | null; data: ReviewDat
     if (!read || !data.baseSha) throw new ReviewReadError("unavailable");
     const result = await read({ cwd, baseSha: data.baseSha, path: file.path, ...(file.oldPath ? { oldPath: file.oldPath } : {}), ...(file.untracked ? { untracked: true } : {}) });
     if (!result.ok) throw new ReviewReadError(result.code ?? "failed", result.stderr);
-    return { oldContent: result.oldContent, newContent: result.newContent };
+    return { oldContent: result.oldContent, newContent: result.newContent, ...(result.binary ? { binary: true } : {}) };
   }, [cwd, data, file?.path, file?.oldPath, fromTurn]);
 }

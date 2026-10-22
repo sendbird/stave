@@ -94,4 +94,18 @@ describe("review diff reads", () => {
     const inner = await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "inner-link.ts", untracked: true });
     expect(inner).toMatchObject({ ok: true, newContent: "export const a = 2;\n" });
   });
+
+  test("a binary file comes back as a binary marker, small enough for the host message frame", async () => {
+    writeFileSync(path.join(repo, "zeros.bin"), Buffer.alloc(400 * 1024));
+    const added = await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "zeros.bin", untracked: true });
+    expect(added).toMatchObject({ ok: true, binary: true, oldContent: "", newContent: "" });
+    expect(Buffer.byteLength(JSON.stringify(added))).toBeLessThan(4 * 1024 * 1024);
+    // A binary at the base is the same, even when the working tree no longer has it.
+    git("add", "zeros.bin");
+    git("commit", "-q", "-m", "binary");
+    const base = git("rev-parse", "HEAD");
+    git("rm", "-q", "zeros.bin");
+    expect(await getScmReviewFileDiff({ cwd: repo, baseSha: base, path: "zeros.bin" })).toMatchObject({ ok: true, binary: true, oldContent: "" });
+  });
 });
+

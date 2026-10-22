@@ -59,6 +59,8 @@ export interface ScmReviewFileDiffResult {
   ok: boolean;
   oldContent: string;
   newContent: string;
+  /** Binary on either side: the content is left out, never sent. */
+  binary?: boolean;
   /**
    * Why a file was not opened: it leads outside the workspace (through a
    * link), it changed while being read, or it is over the size bound.

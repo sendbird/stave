@@ -20,6 +20,16 @@ import { resolveOriginDefaultRef, SCM_READ_TIMEOUT_MS, type ScmCommandRunner } f
 const OUTPUT_LIMIT = 512 * 1024;
 export const SCM_REVIEW_CONTENT_LIMIT = 512 * 1024;
 export const SCM_REVIEW_FILE_LIMIT = 2_000;
+/**
+ * A reply's bound once JSON-encoded, well under the host message frame: a
+ * control character becomes six characters in JSON, so the content bound
+ * alone does not bound the reply.
+ */
+export const SCM_REVIEW_SERIALIZED_LIMIT = 1_500_000;
+
+function serializedSize(value: unknown): number {
+  return Buffer.byteLength(JSON.stringify(value), "utf8");
+}
 const SHA_PATTERN = /^[0-9a-f]{7,64}$/i;
 const UNSAFE_REF = /[\x00-\x1f\x7f]|^-|\.\./;
 
@@ -84,7 +94,8 @@ export async function getScmReviewDiff(args: { cwd?: string; base: ScmReviewBase
   const files = [...tracked, ...added].sort((left, right) => left.path.localeCompare(right.path));
   if (files.length > SCM_REVIEW_FILE_LIMIT)
     return failed(`More than ${SCM_REVIEW_FILE_LIMIT} files changed. Inspect them with Git directly.`, base.ref);
-  return { ok: true, baseSha: base.sha, baseRef: base.ref, headSha, files, stderr: "" };
+  const result: ScmReviewDiffResult = { ok: true, baseSha: base.sha, baseRef: base.ref, headSha, files, stderr: "" };
+  return serializedSize(result) > SCM_REVIEW_SERIALIZED_LIMIT ? failed("The change list is too large to send safely. Inspect it with Git directly.", base.ref) : result;
 }
 
 function invalidPath(value: string | undefined): boolean {
@@ -124,5 +135,12 @@ export async function getScmReviewFileDiff(
   if (current === "too-large" || old?.stdoutTruncated === true)
     return { ok: false, code: "too-large", oldContent: "", newContent: "", stderr: "This file is too large to open safely in the built-in diff viewer." };
   // A path missing at the base was added; one missing now was deleted.
-  return { ok: true, oldContent: old?.ok ? old.stdout : "", newContent: current ?? "", stderr: "" };
+  const oldContent = old?.ok ? old.stdout : "";
+  const newContent = current ?? "";
+  // Binary content is not shown, and would not fit a reply once JSON-encoded.
+  if (oldContent.includes("\0") || newContent.includes("\0")) return { ok: true, binary: true, oldContent: "", newContent: "", stderr: "" };
+  const result: ScmReviewFileDiffResult = { ok: true, oldContent, newContent, stderr: "" };
+  return serializedSize(result) > SCM_REVIEW_SERIALIZED_LIMIT
+    ? { ok: false, code: "too-large", oldContent: "", newContent: "", stderr: "This file is too large to send safely to the built-in diff viewer." }
+    : result;
 }
