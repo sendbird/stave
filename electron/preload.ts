@@ -2,6 +2,7 @@ import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewReque
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
+import { turnHistoryPreload } from "./persistence/turn-history-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import { providerAccountsApi } from "./provider-accounts/preload";
@@ -1801,6 +1802,7 @@ contextBridge.exposeInMainWorld("api", {
     listLatestWorkspaceTurns: (args: { workspaceId: string; limit?: number }) =>
       ipcRenderer.invoke("persistence:list-latest-workspace-turns", args),
     ...usageStatisticsPreload((channel, args) => ipcRenderer.invoke(channel, args)),
+    ...turnHistoryPreload((channel, args) => ipcRenderer.invoke(channel, args)),
     summarizeTurnSpend: (
       args: import("../src/lib/providers/turn-spend").TurnSpendArgs,
     ) => ipcRenderer.invoke("persistence:summarize-turn-spend", args),

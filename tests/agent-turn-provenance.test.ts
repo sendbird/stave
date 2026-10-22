@@ -129,7 +129,7 @@ test("Agent evidence survives production SQL compaction and reopening, without r
   const directory = mkdtempSync(path.join(tmpdir(), "stave-agent-evidence-"));
   const databasePath = path.join(directory, "history.sqlite");
   const db = new Database(databasePath);
-  db.exec(`CREATE TABLE turns (id TEXT PRIMARY KEY, workspace_id TEXT, task_id TEXT, provider_id TEXT, created_at TEXT, completed_at TEXT, usage_json TEXT, receipt_json TEXT);
+  db.exec(`CREATE TABLE turns (id TEXT PRIMARY KEY, workspace_id TEXT, task_id TEXT, provider_id TEXT, created_at TEXT, completed_at TEXT, usage_json TEXT, receipt_json TEXT, digest_json TEXT);
     CREATE TABLE turn_events (id TEXT PRIMARY KEY, turn_id TEXT, sequence INTEGER, event_type TEXT, payload_json TEXT, created_at TEXT);`);
   const store = Object.create(SqliteStore.prototype) as SqliteStore;
   Object.assign(store, { db, _closed: false, usageStatistics: new UsageStatisticsStore(db) });

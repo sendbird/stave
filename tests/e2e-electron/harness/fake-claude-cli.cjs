@@ -17,6 +17,10 @@
  * permission callback about each in turn (`can_use_tool`), so a spec can see
  * one decided by the permission mode and answer the other itself.
  *
+ * The first turn whose prompt contains `[fail]` ends with an execution error,
+ * so a spec can read how Stave records a failed turn. Later turns answer
+ * normally even when the earlier prompt is carried in their history.
+ *
  * Launch it through a wrapper on `STAVE_CLAUDE_CLI_PATH` (see
  * `agent-run-usage-limit.electron.e2e.ts`).
  */
@@ -111,6 +115,14 @@ function answerTurn(line) {
     write({ type: "result", subtype: "error_during_execution", is_error: true, duration_ms: 5, duration_api_ms: 0, num_turns: 0,
       stop_reason: null, session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [],
       errors: ["Claude AI usage limit reached"], uuid: randomUUID() });
+    return;
+  }
+  const failedOnce = path.join(dir, "failed-once");
+  if (line.includes("[fail]") && !fs.existsSync(failedOnce)) {
+    fs.writeFileSync(failedOnce, "");
+    write({ type: "result", subtype: "error_during_execution", is_error: true, duration_ms: 5, duration_api_ms: 0, num_turns: 0,
+      stop_reason: null, session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [],
+      errors: ["Simulated provider failure"], uuid: randomUUID() });
     return;
   }
   if (line.includes("[tool-progress]")) {

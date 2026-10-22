@@ -1,4 +1,5 @@
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
+import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { applyRuntimeLocale } from "../src/i18n/runtime";
@@ -1668,12 +1669,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "workspace-scripts.run-entry":
       await respond(request.id, await runScriptEntry(request.params));
       return;
-    case "workspace-scripts.run-hook":
-      await respond(request.id, {
-        ok: true,
-        summary: await runScriptHook(request.params),
-      });
+    case "workspace-scripts.run-hook": {
+      const summary = await runScriptHook(request.params);
+      recordTurnCompletedChecks(request.params, summary, ensureHostServicePersistenceReady());
+      await respond(request.id, { ok: true, summary });
       return;
+    }
     case "workspace-scripts.stop-entry":
       await stopScriptEntry(request.params);
       await respond(request.id, { ok: true });

@@ -30,6 +30,7 @@ import { useAgentRunsStore, agentRunTaskKey } from "@/store/agent-runs-store";
 import { useWakeUpsStore, wakeUpTaskKey } from "@/store/wake-ups-store";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
+import { stubTurnHistory } from "./turn-history-fixtures";
 
 /**
  * The Task panel on the dev preview (`?stavePreview=task-panel`), in a frame
@@ -46,6 +47,9 @@ import type { ChatMessage } from "@/types/chat";
  * - `placement=docked` keeps the activity list in the composer shelf, so the
  *   Activity tab shows its move-here notice instead of the list.
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
+ * - The direct task has saved turns: Activity opens the newest as a record
+ *   (failed, with a full digest) and the Turn picker lists an older turn
+ *   from before records existed.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -501,6 +505,7 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   const store = useAppStore.getState();
   seedResultReviews();
   stubDelegatedTasks();
+  stubTurnHistory({ plainTaskId: PLAIN_TASK_ID, messages: PLAIN_MESSAGES });
   useAppStore.setState({
     repositoryPath: REPOSITORY_PATH,
     repositoryName: "preview-repo",

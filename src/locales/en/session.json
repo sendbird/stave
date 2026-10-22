@@ -1067,5 +1067,55 @@
       "stage": "No approval requests in this stage.",
       "task": "No approval requests in this task."
     }
+  },
+  "turnHistory": {
+    "label": "Turn",
+    "placeholder": "Choose a turn",
+    "searchPlaceholder": "Search turns…",
+    "empty": "No turn matches.",
+    "loading": "Loading turns…",
+    "readFailed": "Turn history could not be read.",
+    "didNotFinish": "Did not finish"
+  },
+  "turnRecord": {
+    "ariaLabel": "Earlier turn {{id}}",
+    "badge": "Earlier turn",
+    "request": "Request",
+    "recordHeading": "Record",
+    "noRecord": "No record.",
+    "noRecordDetail": "This turn ran before Stave kept turn records, so its errors, retries, stalls and checks were not saved.",
+    "nothingRecorded": "No errors, retries, stalls, model or account changes, or checks were recorded.",
+    "omitted_one": "{{count}} more entry was left out to keep the record small.",
+    "omitted_other": "{{count}} more entries were left out to keep the record small.",
+    "stepsHeading": "Steps",
+    "stepsSource": "from the saved conversation",
+    "noSteps": "No steps were saved for this turn.",
+    "moreSteps_one": "{{count}} more step is in the conversation.",
+    "moreSteps_other": "{{count}} more steps are in the conversation.",
+    "readFailed": "This turn's record could not be read.",
+    "notFound": "This turn is no longer saved.",
+    "offsetTitle": "Time into the turn",
+    "entry": {
+      "error": "Error",
+      "errorRepeated": "Error, {{times}} times",
+      "retry": "Retried",
+      "retryRepeated": "Retried {{times}} times",
+      "stallContinued": "Then it continued.",
+      "stallEnded": "Then the turn ended.",
+      "modelChanged": "Model changed: {{from}} → {{to}}",
+      "modelRoute": "Ran on {{model}}",
+      "accountSincePrevious": "Account changed since the previous turn: {{from}} → {{to}}",
+      "accountDuringTurn": "Account changed during the turn: {{from}} → {{to}}",
+      "checksPassed_one": "{{passed}} of {{count}} check passed",
+      "checksPassed_other": "{{passed}} of {{count}} checks passed",
+      "checksWarned_one": "{{failed}} of {{count}} check reported warnings",
+      "checksWarned_other": "{{failed}} of {{count}} checks reported warnings",
+      "checksFailed_one": "{{failed}} of {{count}} check failed",
+      "checksFailed_other": "{{failed}} of {{count}} checks failed",
+      "blocking": "blocking",
+      "warning": "warning",
+      "moreFailures_one": "{{count}} more failed check",
+      "moreFailures_other": "{{count}} more failed checks"
+    }
   }
 }

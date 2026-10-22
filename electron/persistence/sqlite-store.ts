@@ -73,6 +73,7 @@ import { LensReviewRecordStore } from "./lens-review-record-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { WorkspaceDocumentStore } from "./workspace-document-store";
 import { TurnSpendStore } from "./turn-spend-store";
+import { TurnDigestStore, ensureTurnDigestColumn } from "./turn-digest-store";
 import { UsageStatisticsStore } from "./usage-statistics-store";
 import { beginUsageTrackedTurn, type UsageTrackedTurnArgs } from "./usage-turn-lifecycle";
 import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
@@ -191,6 +192,7 @@ export class SqliteStore {
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly documents: WorkspaceDocumentStore;
   readonly turnSpend: TurnSpendStore;
+  readonly turnDigests: TurnDigestStore;
   readonly usageStatistics: UsageStatisticsStore;
   readonly delegationPolicies: DelegationPolicyStore;
   readonly agentRuns: AgentRunStore;
@@ -237,6 +239,7 @@ export class SqliteStore {
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.documents = new WorkspaceDocumentStore(this.db);
     this.turnSpend = new TurnSpendStore(this.db);
+    this.turnDigests = new TurnDigestStore(this.db);
     this.usageStatistics = new UsageStatisticsStore(this.db);
     this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
@@ -452,6 +455,7 @@ export class SqliteStore {
     } catch {
       // column already exists; older turns deliberately retain unknown evidence.
     }
+    ensureTurnDigestColumn(this.db);
     try {
       this.db.exec("ALTER TABLE notifications ADD COLUMN expires_at TEXT");
     } catch {

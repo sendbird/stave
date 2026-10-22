@@ -19,6 +19,7 @@ import { registerAgentHandlers } from "./agents";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerUsageStatisticsHandlers } from "./usage-statistics";
+import { registerTurnHistoryHandlers } from "./turn-history";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
@@ -54,6 +55,7 @@ export function registerHandlers() {
   registerAgentHandlers();
   registerPersistenceHandlers();
   registerUsageStatisticsHandlers();
+  registerTurnHistoryHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();

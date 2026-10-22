@@ -581,7 +581,7 @@ function formatPathPreview(value: string) {
   return segments.length > 2 ? segments.slice(-2).join("/") : value;
 }
 
-function resolveToolDetail(input: string) {
+export function resolveToolDetail(input: string) {
   const parsed = parseToolInput(input);
   return (
     truncateWorkText(parsed?.prompt) ??
@@ -614,7 +614,7 @@ function formatPathListPreview(values: unknown) {
   return paths.length > 1 ? i18n.t("providers:turnStatus.more", { value1: preview, value2: paths.length - 1 }) : preview;
 }
 
-function resolveGeneralToolDetail(input: string) {
+export function resolveGeneralToolDetail(input: string) {
   const parsed = parseToolInput(input);
   if (!parsed) {
     return truncateWorkText(input);
@@ -641,7 +641,7 @@ function resolveGeneralToolDetail(input: string) {
   );
 }
 
-function resolveToolResultDetail(output: string) {
+export function resolveToolResultDetail(output: string) {
   const parsed = parseToolInput(output);
   const content = Array.isArray(parsed?.content) ? parsed.content : [];
   const contentText = content

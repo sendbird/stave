@@ -10,6 +10,7 @@ import {
   observeTurnEvent,
   parseTurnReceipt,
 } from "./turn-terminal-receipt";
+import { observeTurnDigestEvent, settleTurnDigestOnClose } from "./turn-digest-store";
 
 export function getTurnReceipt(db: Database.Database, turnId: string) {
   const row = db
@@ -25,15 +26,19 @@ export function finalizeTurnReceipt(
   stopReason?: string,
 ) {
   const receipt = getTurnReceipt(db, turnId);
-  if (receipt)
+  if (receipt) {
+    const finished = finishTurnReceipt(receipt, completedAt, stopReason);
     db.prepare("UPDATE turns SET receipt_json = ? WHERE id = ?").run(
-      JSON.stringify(finishTurnReceipt(receipt, completedAt, stopReason)),
+      JSON.stringify(finished),
       turnId,
     );
+    settleTurnDigestOnClose(db, turnId, finished);
+  }
 }
 
 /** Called inside the event-write transaction, before payload truncation/pruning.
- * Only accepted inserts contribute evidence; replays cannot change the result.
+ * Only accepted inserts contribute evidence (to the receipt and the digest);
+ * replays cannot change the result.
  */
 export function insertTurnEventWithReceipt(
   db: Database.Database,
@@ -45,6 +50,7 @@ export function insertTurnEventWithReceipt(
   },
 ) {
   const prepared = prepareTurnEventPayload(args.event);
+  const createdAt = args.createdAt ?? new Date().toISOString();
   const result = db
     .prepare(
       `INSERT OR IGNORE INTO turn_events
@@ -57,7 +63,7 @@ export function insertTurnEventWithReceipt(
       args.sequence,
       prepared.eventType,
       prepared.payloadJson,
-      args.createdAt ?? new Date().toISOString(),
+      createdAt,
     );
   if (Number(result.changes) > 0) {
     const receipt = getTurnReceipt(db, args.turnId);
@@ -66,6 +72,12 @@ export function insertTurnEventWithReceipt(
         JSON.stringify(observeTurnEvent(receipt, args.event)),
         args.turnId,
       );
+    observeTurnDigestEvent(db, {
+      turnId: args.turnId,
+      sequence: args.sequence,
+      event: args.event,
+      createdAt,
+    });
   }
 }
 

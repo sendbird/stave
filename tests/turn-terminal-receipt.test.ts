@@ -13,7 +13,7 @@ import {
 
 function harness() {
   const db = new Database(":memory:");
-  db.exec(`CREATE TABLE turns (id TEXT PRIMARY KEY, workspace_id TEXT, task_id TEXT, provider_id TEXT, created_at TEXT, completed_at TEXT, usage_json TEXT, receipt_json TEXT);
+  db.exec(`CREATE TABLE turns (id TEXT PRIMARY KEY, workspace_id TEXT, task_id TEXT, provider_id TEXT, created_at TEXT, completed_at TEXT, usage_json TEXT, receipt_json TEXT, digest_json TEXT);
     CREATE TABLE turn_events (id TEXT PRIMARY KEY, turn_id TEXT, sequence INTEGER, event_type TEXT, payload_json TEXT, created_at TEXT);`);
   // Execute the production store's SQL and compaction, with Bun's SQLite driver.
   const store = Object.create(SqliteStore.prototype) as SqliteStore;

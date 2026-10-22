@@ -2240,6 +2240,14 @@ interface WindowPersistenceApi {
   usageStatistics?: (
     args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs,
   ) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsResponse>;
+  /** Activity's turn picker: a task's turns, newest first. */
+  listTaskTurnHistory?: (
+    args: import("@/lib/providers/turn-history").ListTaskTurnHistoryArgs,
+  ) => Promise<import("@/lib/providers/turn-history").TurnHistoryListResponse>;
+  /** One earlier turn's digest, request and saved steps. */
+  readTaskTurnRecord?: (
+    args: import("@/lib/providers/turn-history").ReadTaskTurnRecordArgs,
+  ) => Promise<import("@/lib/providers/turn-history").TurnRecordResponse>;
   /**
    * Tokens (input plus output, without cache reads) and cost reported on
    * turns run in Stave, per provider, since the given local day and month
