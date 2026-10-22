@@ -105,6 +105,21 @@ describe("provider runtime run grants", () => {
       model: "gpt-6-sol", codexFileAccess: "read-only", codexReasoningEffort: "high" });
     expect(turn.runtimeOptions?.boundSecretIds).toBeUndefined(); expect(turn.runtimeOptions?.trustedTools).toBeUndefined();
   });
+  test("a tool-less request never becomes a stage reply or an Agent turn, and keeps toolsDisabled", async () => {
+    let stageAsked = 0;
+    let agentAsked = 0;
+    setAgentRunUserTurnResolver(() => { stageAsked += 1; return { agentRunStage: STAGE,
+      context: { type: "retrieved_context", sourceId: "stage", title: "Reply", content: "Continue the stage." },
+      runtimeOptions: { model: "gpt-6-sol", codexFileAccess: "read-only", codexApprovalPolicy: "never" } }; });
+    setTaskAgentTurnResolver(() => { agentAsked += 1; return null; });
+    const turn = await runTurn({ providerId: "codex", turnId: "toolless-reply", conversation: { mode: "chat", history: [], contextParts: [] },
+      runtimeOptions: { toolsDisabled: true, codexFileAccess: "read-only" } });
+    expect(stageAsked).toBe(0);
+    expect(agentAsked).toBe(0);
+    expect(turn.runtimeOptions?.toolsDisabled).toBe(true);
+    expect(turn.agentRunStage).toBeUndefined();
+  });
+
   for (const providerId of ["claude-code", "codex"] as const) {
     test(`${providerId} mints a grant for the stage attempt and revokes it when the turn ends`, async () => {
       const turn = await runTurn({ providerId, turnId: `${providerId}-turn`, agentRunStage: STAGE });

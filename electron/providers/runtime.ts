@@ -718,8 +718,9 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
   let preparingPolicy = true;
   let routeNote: import("../../src/lib/agent-runs/adaptive-route").AgentRunReplyRouteNote | undefined;
   try {
+    // A tool-less request is never a stage reply: rebuilding its options would drop `toolsDisabled`.
     if (rawArgs.taskId && rawArgs.turnId && rawArgs.conversation?.mode === "chat" && !rawArgs.unattendedAutomation && !rawArgs.executionPolicy && !rawArgs.agentRunStage &&
-        (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
+        !isToolsDisabledTurn(rawArgs.runtimeOptions) && (rawArgs.providerId === "claude-code" || rawArgs.providerId === "codex")) {
       // A pinned effort is the user's; the effort option may carry Auto's pick instead.
       const { effort: pinnedEffort, ...selection } = composerSelection ?? { model: "default" as const, effortPinned: false };
       const requestedEffort = selection.effortPinned && pinnedEffort ? pinnedEffort
