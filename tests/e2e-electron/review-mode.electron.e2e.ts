@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test } from "@playwright/test";
@@ -22,6 +22,7 @@ const WORKSPACE_ID = "ws-e2e";
 const TASK_ID = "task-e2e-review";
 let stave: StaveApp;
 let repo: string;
+let outside: string;
 
 function git(...args: string[]) {
   return execFileSync("git", args, {
@@ -44,6 +45,10 @@ test.beforeAll(async () => {
   // After the commit: another file edited, and a new file never added.
   await writeFile(path.join(repo, "b.ts"), "export const b = 2;\n");
   await writeFile(path.join(repo, "notes.md"), "later\n");
+  // And a link to a file outside the workspace, which Review refuses to open.
+  outside = await mkdtemp(path.join(tmpdir(), "stave-e2e-review-outside-"));
+  await writeFile(path.join(outside, "secret.txt"), "outside\n");
+  await symlink(path.join(outside, "secret.txt"), path.join(repo, "zz-link.txt"));
 
   stave = await launchStave();
   await expect(stave.page.getByTestId("workspace-pane-host")).toBeVisible({ timeout: 30_000 });
@@ -70,6 +75,7 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await stave?.close();
   if (repo) await rm(repo, { recursive: true, force: true });
+  if (outside) await rm(outside, { recursive: true, force: true });
 });
 
 test("Review reads the task's changes by scope and tells a later edit from the branch's commit", async ({}, testInfo) => {
@@ -86,13 +92,25 @@ test("Review reads the task's changes by scope and tells a later edit from the b
   await expect(files.getByRole("button", { name: /^notes\.md, Added/ })).toBeVisible();
   await expect(files.getByRole("button", { name: /^a\.ts,/ })).toHaveCount(0);
 
+  // A file counts as read only once its diff has shown: the refused link does not.
+  const diff = review.getByRole("region", { name: "Diff", exact: true });
+  await files.getByRole("button", { name: /^b\.ts, Modified/ }).click();
+  await expect(diff).toContainText("export const b = 2;");
+  await expect(files).toContainText("1 of 3 read");
+  await files.getByRole("button", { name: /^zz-link\.txt,/ }).click();
+  await expect(diff).toContainText("leads outside the workspace");
+  await expect(files).toContainText("1 of 3 read");
+  await files.getByRole("button", { name: /^notes\.md, Added/ }).click();
+  await expect(diff).toContainText("later");
+  await expect(files).toContainText("2 of 3 read");
+
   // The branch scope adds the committed change, from where the branch left main.
   await review.getByRole("button", { name: "Branch", exact: true }).click();
   await expect(review.getByTestId("review-revision")).toContainText("where the branch left main");
   await expect(files.getByRole("button", { name: /^a\.ts, Modified/ })).toBeVisible();
   await files.getByRole("button", { name: /^a\.ts, Modified/ }).click();
   await expect(review.getByRole("region", { name: "Diff", exact: true })).toContainText("export const a = 2;");
-  await expect(files).toContainText("of 3 read");
+  await expect(files).toContainText("of 4 read");
 
   // A plain task: no stage decisions, and nothing to mark or send yet.
   const decision = review.getByRole("region", { name: "Decision" });

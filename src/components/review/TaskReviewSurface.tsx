@@ -96,12 +96,6 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   const selected = files.find((file) => file.path === selectedPath) ?? files[0] ?? null;
   const read = useTaskReviewModeStore((store) => store.readByTask[taskId]?.[reviewScopeKey(scope)]) ?? NOTHING_READ;
   const markRead = useTaskReviewModeStore((store) => store.markRead);
-  const selectedFile = selected?.path ?? null;
-  useEffect(() => {
-    if (selectedFile) markRead(taskId, scope, selectedFile);
-    // The scope is fixed for this body (it is keyed by scope).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedFile, taskId, markRead]);
   return (
     <>
       <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} />
@@ -122,7 +116,8 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
         primary={
           <div className={sx(styles.region)} role="region" aria-label={i18n.t("review:diff.title")}>
             {data && selected
-              ? <ReviewDiffPane key={`${selected.path}:${selected.oldPath ?? ""}`} scope={scope} cwd={props.cwd} data={data} file={selected} />
+              // A file is read once its diff has shown, not when it is selected: a refused or failed read is not.
+              ? <ReviewDiffPane key={`${selected.path}:${selected.oldPath ?? ""}`} scope={scope} cwd={props.cwd} data={data} file={selected} onShown={() => markRead(taskId, scope, selected.path)} />
               : <p className={sx(styles.note)}>{data ? i18n.t("review:diff.noChanges") : ""}</p>}
           </div>
         }

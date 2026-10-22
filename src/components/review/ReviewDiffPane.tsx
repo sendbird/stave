@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { useEffect, useRef } from "react";
 import { MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
@@ -15,10 +16,21 @@ import { useReviewFileContent, type ReviewData } from "./useReviewData";
  * diff, where they anchor to lines; Review lists them in its inspector too,
  * because the editor's comment zones are not reachable by screen readers.
  */
-export function ReviewDiffPane(props: { scope: ReviewScope; cwd: string | null; data: ReviewData; file: ReviewFile }) {
+/** Whether a file's diff has been shown: its content read, or its binary marker. A refused or failed read has not. */
+export function isReviewDiffShown(state: { status: string }): boolean {
+  return state.status === "ready";
+}
+
+export function ReviewDiffPane(props: { scope: ReviewScope; cwd: string | null; data: ReviewData; file: ReviewFile; onShown?: () => void }) {
   useTranslation();
   const { file } = props;
   const content = useReviewFileContent({ cwd: props.cwd, data: props.data, file });
+  const onShown = useRef(props.onShown);
+  onShown.current = props.onShown;
+  const shown = isReviewDiffShown(content.state);
+  useEffect(() => {
+    if (shown) onShown.current?.();
+  }, [shown, file.path]);
   const comment = async () => {
     if (content.state.status !== "ready") return;
     const { oldContent, newContent } = content.state.data;

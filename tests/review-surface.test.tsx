@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
 import { describeReviewReadError } from "../src/components/review/review-errors";
+import { isReviewDiffShown } from "../src/components/review/ReviewDiffPane";
 import { ReviewFileList } from "../src/components/review/ReviewFileList";
 import { ReviewScopeBar, ReviewScopeLimits } from "../src/components/review/ReviewScopeBar";
 import { TaskReviewSurface } from "../src/components/review/TaskReviewSurface";
@@ -27,6 +28,12 @@ function toggles(markup: string): Array<{ label: string; pressed: boolean }> {
 }
 
 describe("Review surface", () => {
+  test("a file counts as read only once its diff has shown, never on a refused or failed read", () => {
+    expect(isReviewDiffShown({ status: "ready" })).toBe(true);
+    expect(isReviewDiffShown({ status: "pending" })).toBe(false);
+    expect(isReviewDiffShown({ status: "error" })).toBe(false);
+  });
+
   test("the scope bar offers only the scopes the task has and says what each compares", () => {
     const render = (scope: Parameters<typeof ReviewScopeBar>[0]["scope"], available: Parameters<typeof ReviewScopeBar>[0]["available"]) =>
       renderToStaticMarkup(createElement(ReviewScopeBar, { scope, available, data, onScope: () => {}, onRefresh: () => {} }));

@@ -70,9 +70,10 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Branch** compares the working tree with where the branch left the default
   branch (`origin/main` or `origin/master`, else local `main` or `master`).
 - **Uncommitted** compares the working tree with `HEAD`.
-- **Changed files** shows each file's status and line counts. Opening a file
-  marks it read (`2 of 5 read`); reading a file is not reviewing the task.
-  Up and Down move through the list.
+- **Changed files** shows each file's status and line counts. A file counts
+  as read once its diff has shown (`2 of 5 read`); a file Review refuses or
+  fails to read does not. Reading a file is not reviewing the task. Up and
+  Down move through the list.
 - **Output** under the files shows the turn's saved answer, whether it was
   marked reviewed and, apart from that, whether it was read (`Not reviewed
   yet · Read Oct 22, 9:30 AM`), or the stage's report.
