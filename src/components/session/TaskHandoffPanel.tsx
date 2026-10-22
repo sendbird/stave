@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatList, formatNumber, formatRelativeTime } from "@/i18n/format";
+import { formatList, formatNumber, formatTimeAgo } from "@/i18n/format";
 import { useEffect, useId, useMemo, useState } from "react";
 import { Banner } from "@/components/ads/components/Banner";
 import { useAsync } from "@/components/ads/utils/async";
@@ -247,7 +247,7 @@ export function TaskHandoffEditor(props: {
                     <>
                       <p className={sx(styles.sectionText)}>{section.text}</p>
                       <p className={sx(styles.sectionMeta)} title={section.updatedAt}>
-                        {describeAuthor(section.updatedBy, formatRelativeTime(section.updatedAt))}
+                        {describeAuthor(section.updatedBy, formatTimeAgo(section.updatedAt))}
                       </p>
                     </>
                   ) : (

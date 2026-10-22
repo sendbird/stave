@@ -5,6 +5,7 @@ import { InboxRow } from "@/components/layout/InboxRow";
 import { WorkspaceResumeBrief } from "@/components/layout/WorkspaceResumeBrief";
 import { ScriptEntryRow } from "@/components/layout/WorkspaceScriptsPanel";
 import { RunHistoryRow } from "@/components/session/TaskResultReviews";
+import { describeReturnSummary } from "@/components/session/return-summary/return-summary.utils";
 import { RelativeTime } from "@/components/system/RelativeTime";
 import { Accordion } from "@/components/ui/accordion";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
@@ -66,5 +67,17 @@ describe("a past event stamped ahead of the clock reads just now", () => {
     const html = renderToStaticMarkup(createElement(RelativeTime, { date: now.getTime() + AHEAD_MS, now, past: true }));
     expect(html).toContain("just now");
     expect(html).not.toContain("in 3h");
+  });
+
+  test("a return summary's last turn, in the short form the other surfaces use", () => {
+    const now = Date.now();
+    const stopLine = (at: string) => describeReturnSummary({
+      decision: null,
+      changes: { turns: 0, files: 0, steps: 0 },
+      stop: { kind: "finished", at },
+      next: { kind: "continue" },
+    }, now).find((line) => line.id === "stop")?.text;
+    expect(stopLine(new Date(now + AHEAD_MS).toISOString())).toBe("Finished its last turn just now.");
+    expect(stopLine(new Date(now - 2 * 60 * 60_000).toISOString())).toBe("Finished its last turn 2h ago.");
   });
 });

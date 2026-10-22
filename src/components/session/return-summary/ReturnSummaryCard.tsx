@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatRelativeTime } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { History, X } from "lucide-react";
 import { useEffect, useMemo } from "react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -98,7 +98,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
   }, [arrival, showing, messages, record, need, running, i18n.language]);
 
   if (!view) return null;
-  const since = formatRelativeTime(view.visit.at);
+  const since = formatTimeAgo(view.visit.at);
   return (
     <section
       aria-label={i18n.t("session:returnSummary.title")}
