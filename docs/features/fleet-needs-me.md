@@ -2,15 +2,16 @@
 
 ## Summary
 
-Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` rail
+Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` band
 combines pending questions and approvals, [agent runs](agent-runs.md) that wait for
 a sign-off or are blocked or stuck, unreviewed failed or completed runs, and
 actionable pull request states in one urgency-ordered list.
 
-Fleet is an auxiliary surface. The task window stays the primary place to answer
-a question, resolve an approval, and review a result, and doing the work there
-clears the matching Fleet item. Fleet only adds a cross-workspace overview and
-optional shortcuts on top of that.
+Fleet is where waiting decisions are answered and running work is told apart.
+Approvals and short questions are answered right in their rows, without opening
+the task; longer forms, results and anything else open the task, which stays the
+place for the full conversation. Answering in either place clears the matching
+Fleet item, and the task records the answer the same way.
 
 ## When To Use It
 
@@ -32,7 +33,7 @@ optional shortcuts on top of that.
 
 1. Open Fleet View from the top bar, the sidebar, or the command palette
    (`Cmd/Ctrl+K` then `F`).
-2. Review the fixed `Action required` rail, which keeps questions and approvals
+2. Review the fixed `Action required` band, which keeps questions and approvals
    ahead of the folded `In review` group.
 3. Select an item to open its exact task or workspace.
 4. Answer approval requests (`Allow once` or `Deny`), mark results as read, or
@@ -54,10 +55,13 @@ optional shortcuts on top of that.
   puts a workspace in `Action required`; an unreviewed result without a blocker
   belongs in `In review`. The queue's expand button opens Fleet view, its full
   view, and the board orders cards and their tasks by the same lanes.
-- Fleet view: `Action required` is a layout-level rail. It stays visible while
-  board filters change; on narrow screens it becomes a compact top rail. The
-  board itself uses workspace cards and activity filters (`Active`, `Running`,
-  `Action required`, and `All`) rather than a task timeline.
+- Fleet view: `Action required` is a band across the top of the view, above
+  the board. It stays put while board filters change, is bounded so the board
+  always keeps room, and scrolls inside itself; on wide screens its decisions
+  sit side by side. Opening a row's control panel lets the band grow, still
+  bounded. Below it, the board uses workspace cards and activity filters
+  (`Active`, `Running`, `Action required`, and `All`) rather than a task
+  timeline.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.

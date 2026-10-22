@@ -604,6 +604,13 @@ test("answers a question and two approvals across three workspaces from Fleet ro
     path: testInfo.outputPath("fleet-inline-answers.png"),
     fullPage: true,
   });
+  // Decisions on top, bounded; the board's toolbar and cards below them.
+  const band = await page.locator("[data-fleet-inbox-band]").boundingBox();
+  const boardFilter = await page.getByRole("button", { name: "Running", exact: true }).boundingBox();
+  expect(band).not.toBeNull();
+  expect(boardFilter).not.toBeNull();
+  expect(band!.y + band!.height).toBeLessThanOrEqual(boardFilter!.y);
+  expect(band!.height).toBeLessThanOrEqual(900 * 0.42 + 1);
 
   const rowFor = (title: string) =>
     rows.filter({ hasText: title }).getByRole("button", { name: new RegExp(title) }).first();

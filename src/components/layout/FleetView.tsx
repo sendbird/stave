@@ -726,14 +726,14 @@ export function FleetView() {
         data-fleet-view-root="true"
         className={sx(styles.body)}
       >
-        {/* On narrow screens the inbox becomes a compact top rail; from the
-            small breakpoint up it remains a layout-level column and widens
-            while an inline task control surface is open. */}
+        {/* Waiting decisions on top, bounded and scrolling, then the board.
+            The band grows (still bounded) while a row's control panel is open. */}
         <aside
           className={sx(
             styles.inbox,
-            selectedAttentionId ? styles.inboxExpanded : styles.inboxRested,
+            Boolean(selectedAttentionId) && styles.inboxExpanded,
           )}
+          data-fleet-inbox-band=""
         >
           <FleetAttentionInbox
             items={attentionTargets}

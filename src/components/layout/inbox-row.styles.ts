@@ -184,6 +184,8 @@ export const inboxRowStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-4"],
+    // A decision reads at a measure, not across a wide band.
+    maxInlineSize: "44rem",
     minWidth: 0,
     paddingBottom: vars["--ads-space-4"],
     paddingInline: vars["--ads-space-12"],
@@ -230,10 +232,14 @@ export const inboxRowStyles = stylex.create({
   inlineNoteError: {
     color: vars["--ads-color-danger-text"],
   },
+  // The open control panel: bounded, scrolling inside itself, so it never
+  // pushes the rest of the inbox out of the band.
   rowControls: {
     backgroundColor: vars["--ads-color-canvas"],
     borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
     borderTopWidth: vars["--ads-border-width-hairline"],
+    maxBlockSize: "min(50vh, 30rem)",
+    overflowY: "auto",
   },
 });

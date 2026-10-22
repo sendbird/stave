@@ -192,6 +192,7 @@ function FleetNeedRow(args: {
   return (
     <InboxRow
       entry={entry}
+      rowStyle={styles.gridRow}
       triggerId={triggerId}
       triggerLabel={tI18n("fleet:fleetAttentionInbox.rowLabel", { action: describeFleetAttentionPrimaryAction(item.kind), title, workspace: item.workspaceName })}
       selected={selected}

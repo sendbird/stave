@@ -111,43 +111,37 @@ export const fleetStyles = stylex.create({
     paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-16"],
   },
+  /*
+   * Decisions on top, the board below. The inbox of waiting decisions is a
+   * band across the whole view, bounded so the board always keeps room and
+   * scrolling inside itself; the board's toolbar and cards follow.
+   */
   body: {
     display: "flex",
     flexBasis: 0,
-    flexDirection: {
-      default: "column",
-      [COLUMN]: "row",
-    },
+    flexDirection: "column",
     flexGrow: 1,
     minHeight: 0,
   },
   inbox: {
     borderBottomColor: vars["--ads-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: {
-      default: vars["--ads-border-width-hairline"],
-      [COLUMN]: 0,
-    },
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    display: "flex",
+    flexDirection: "column",
     flexShrink: 0,
-    height: {
-      default: 160,
-      [COLUMN]: "100%",
+    maxBlockSize: {
+      default: "min(40vh, 20rem)",
+      [COLUMN]: "min(42vh, 26rem)",
     },
     minHeight: 0,
     width: "100%",
   },
-  inboxRested: {
-    width: {
-      default: "100%",
-      [COLUMN]: 256,
-      [ROOMY]: 320,
-    },
-  },
+  // An open control panel needs room: the band grows, still bounded.
   inboxExpanded: {
-    width: {
-      default: "100%",
-      [COLUMN]: 320,
-      [ROOMY]: 448,
+    maxBlockSize: {
+      default: "min(62vh, 32rem)",
+      [ROOMY]: "min(66vh, 40rem)",
     },
   },
   board: {

@@ -5,7 +5,7 @@ import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
@@ -136,6 +136,8 @@ export function InboxRow(props: {
   actions?: ReactNode;
   children?: ReactNode;
   rowRef?: Ref<HTMLLIElement>;
+  /** Placement the list adds (a grid cell's rule, for example). */
+  rowStyle?: StyleXValue;
   onFocus?: (event: FocusEvent<HTMLLIElement>) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLLIElement>) => void;
 }) {
@@ -147,7 +149,7 @@ export function InboxRow(props: {
   return (
     <li
       ref={props.rowRef}
-      className={sx(styles.row, props.selected && styles.rowSelected)}
+      className={sx(styles.row, props.selected && styles.rowSelected, props.rowStyle)}
       data-fleet-attention-row={entry.item ? entry.id : undefined}
       data-inbox-entry={entry.id}
       data-unread={entry.unread ? "true" : undefined}
