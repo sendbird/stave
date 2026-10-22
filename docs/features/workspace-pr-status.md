@@ -76,6 +76,12 @@ Fetched via `gh pr view --json`:
 | `mergedAt`, `baseRefName`, `headRefName`     | Merge and branch info                                              |
 
 The `statusCheckRollup` array is collapsed into a single `"SUCCESS" | "FAILURE" | "PENDING" | null` on the main process side before reaching the renderer.
+The payload also carries an optional `checks` summary beside that rollup:
+`total`, `passed`, `failed` and `pending` counts plus the names of up to ten
+failing and ten still-running checks. A re-run check counts once, at its latest
+result; neutral and skipped checks count as passed because they do not block
+the pull request. `checks` is absent when the pull request reports no checks,
+and payloads cached before it existed stay valid.
 
 ## Visual Mapping
 
@@ -193,6 +199,11 @@ The top bar button changes based on status:
 | --------- | -------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `no_pr`   | `[GitPullRequest] Create PR` (primary badge)       | Opens PR creation dialog _(disabled while any task in the active workspace is responding)_ |
 | Any other | `[StatusIcon] Status Label` (status-colored badge) | Opens dropdown menu                                                                        |
+
+While the pull request is open and reports checks, the status chip also shows
+how many passed, such as **3/5 checks**, and its tooltip names the failing and
+still-running checks (the first three of each, then "and N more"). On a very
+narrow top bar the count folds away and only the tooltip carries it.
 
 ### Dropdown Actions by Status
 

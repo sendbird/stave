@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   Bell,
   Check,
@@ -22,9 +23,6 @@ import {
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   toast,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
@@ -322,10 +320,11 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
           }
         }}
       >
-        <Tooltip>
-          <TooltipTrigger
-            render={<span className={sx(notificationsStyles.triggerWrap)} />}
-          >
+        <Tooltip
+          content={i18n.t("shell:topBarNotifications.notifications2")}
+          side="bottom"
+        >
+          <span className={sx(notificationsStyles.triggerWrap)}>
             <PopoverTrigger
               render={
                 <Button
@@ -345,8 +344,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
             >
               <Bell className={sx(notificationsStyles.triggerIcon)} />
             </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{i18n.t("shell:topBarNotifications.notifications2")}</TooltipContent>
+          </span>
         </Tooltip>
         <PopoverContent
           align="end"

@@ -3,10 +3,16 @@ import {
   normalizeAppShortcutKeys,
   type AppShortcutCommandId,
 } from "@/lib/app-shortcuts";
-import type { KeybindingPlatform } from "@/lib/keybindings/key-chord";
+import {
+  formatKeySequenceParts,
+  parseKeySequence,
+  type KeybindingPlatform,
+} from "@/lib/keybindings/key-chord";
 import {
   getDefaultKeybindingKeys,
+  getKeybinding,
   type KeybindingEntry,
+  type KeybindingId,
 } from "@/lib/keybindings/keybinding-registry";
 import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
 import { normalizeVisualCommentShortcut } from "@/lib/visual-comment-shortcuts";
@@ -60,4 +66,46 @@ export function resolveKeybindingKeys(
     default:
       return getDefaultKeybindingKeys(entry, args.platform);
   }
+}
+
+/**
+ * The visible keys of a shortcut: one list of parts per chord step, joined by
+ * "then", or one per alternative key, joined by "or".
+ */
+export interface KeybindingDisplay {
+  sequences: string[][];
+  sequenceJoiner: "or" | "then";
+}
+
+/** The visible parts of `keys` on `platform`, as the shortcut list shows them. */
+export function formatKeybindingDisplay(
+  keys: readonly string[],
+  platform: KeybindingPlatform,
+): KeybindingDisplay {
+  const parsed = keys.map((value) => parseKeySequence(value));
+  const chord = parsed.find((sequence) => sequence.length > 1);
+  if (chord) {
+    return {
+      sequences: formatKeySequenceParts(chord, platform),
+      sequenceJoiner: "then",
+    };
+  }
+  return {
+    sequences: parsed.map(
+      (sequence) => formatKeySequenceParts(sequence, platform)[0]!,
+    ),
+    sequenceJoiner: "or",
+  };
+}
+
+/**
+ * What a control's tooltip shows for a registry entry right now, with the
+ * user's Settings applied; null while the shortcut is turned off.
+ */
+export function resolveKeybindingDisplay(
+  id: KeybindingId,
+  args: { platform: KeybindingPlatform; settings?: KeybindingSettingsSnapshot },
+): KeybindingDisplay | null {
+  const keys = resolveKeybindingKeys(getKeybinding(id), args);
+  return keys.length > 0 ? formatKeybindingDisplay(keys, args.platform) : null;
 }

@@ -1,29 +1,91 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Globe, TerminalSquare } from "lucide-react";
+import { Globe, TerminalSquare, type LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   focusOrCreateLensSurface,
   paneHost,
 } from "@/components/panes/pane-host-controller";
 import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui";
+  Toolbar,
+  ToolbarButtonGroup,
+} from "@/components/ads/components/Toolbar";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { ToolbarButton } from "@/components/ads/headless/toolbar";
+import { Button } from "@/components/ui";
 import {
   RIGHT_RAIL_PANEL_ICONS,
   RIGHT_RAIL_PANEL_IDS,
   RIGHT_RAIL_PANEL_TITLES,
   type RightRailPanelId,
 } from "@/lib/right-rail-panels";
+import type { KeybindingId } from "@/lib/keybindings/keybinding-registry";
 import { useRunningWorkspaceProcessCount } from "@/lib/workspace-scripts";
 import { workspaceToolsRunningLabel } from "@/lib/workspace-tools-presentation";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { CountBadge } from "@/components/system/CountBadge";
+import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { useAppStore } from "@/store/app.store";
+
+/** The `Cmd/Ctrl+K` shortcut each rail panel answers to, where one exists. */
+const RIGHT_RAIL_PANEL_SHORTCUTS: Partial<Record<RightRailPanelId, KeybindingId>> = {
+  explorer: "view.show-explorer",
+  changes: "view.toggle-changes-panel",
+  information: "view.show-information",
+  scripts: "view.show-scripts",
+};
+
+/**
+ * One rail toggle: a roving item of the rail's toolbar that keeps the rail's
+ * own pressed look (the filled `default` button) instead of the toolbar's.
+ * Disabled toggles stay reachable by arrow keys, as toolbar items do, and
+ * explain themselves in the tooltip.
+ */
+function RailToggle(props: {
+  label: string;
+  /** Tooltip text when it differs from the button's name. */
+  hint?: string;
+  shortcut: KeybindingId | null;
+  icon: LucideIcon;
+  pressed: boolean;
+  disabled: boolean;
+  onClick: () => void;
+  indicator?: ReactNode;
+}) {
+  const shortcut = useShortcutHint(props.shortcut);
+  const Icon = props.icon;
+  return (
+    <Tooltip
+      content={props.hint ?? props.label}
+      shortcut={props.disabled ? undefined : shortcut}
+      side="left"
+    >
+      <ToolbarButton
+        disabled={props.disabled}
+        render={
+          <Button
+            size="sm"
+            variant={props.pressed ? "default" : "ghost"}
+            focusableWhenDisabled
+            xstyle={[
+              rightRailStyles.railButton,
+              props.indicator !== undefined &&
+                rightRailStyles.railButtonRelative,
+              !props.pressed && rightRailStyles.railButtonInactive,
+            ]}
+            onClick={props.onClick}
+            aria-label={props.label}
+            aria-pressed={props.pressed}
+            indicator={props.indicator}
+          />
+        }
+      >
+        <Icon className={sx(rightRailStyles.railIcon)} />
+      </ToolbarButton>
+    </Tooltip>
+  );
+}
 
 function RightRailWorkspaceToolsButton(props: {
   disabled: boolean;
@@ -63,49 +125,40 @@ function RightRailWorkspaceToolsButton(props: {
         }
       : null,
   );
-  const Icon = RIGHT_RAIL_PANEL_ICONS.scripts;
-  const label = workspaceToolsRunningLabel(runningCount);
 
   return (
-    <Tooltip>
-      <TooltipTrigger render={<span className={sx(rightRailStyles.triggerHost)} />}>
-        <Button
-          size="sm"
-          variant={props.isActive ? "default" : "ghost"}
-          disabled={props.disabled}
-          xstyle={[
-            rightRailStyles.railButton,
-            rightRailStyles.railButtonRelative,
-            !props.isActive && rightRailStyles.railButtonInactive,
-          ]}
-          onClick={props.onClick}
-          aria-label={label}
-          aria-pressed={props.isActive}
-          /*
-           * `CountBadge` through ADS `Button indicator`, not a positioned
-           * child. This rail was the fifth hand-written copy of the same accent
-           * pill — the one `CountBadge` was created to delete — and the copy
-           * had dropped the knockout ring, so it merged into the glyph it
-           * overlapped. `indicator` also owns the corner, the overhang and
-           * lifting the button's own overflow clamp, which is why the
-           * hand-placed version had two flat sides.
-           */
-          indicator={
-            runningCount > 0 ? (
-              <span data-testid="workspace-tools-running-count">
-                <CountBadge count={runningCount} />
-              </span>
-            ) : null
-          }
-        >
-          <Icon className={sx(rightRailStyles.railIcon)} />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="left">{label}</TooltipContent>
-    </Tooltip>
+    <RailToggle
+      label={workspaceToolsRunningLabel(runningCount)}
+      shortcut={RIGHT_RAIL_PANEL_SHORTCUTS.scripts ?? null}
+      icon={RIGHT_RAIL_PANEL_ICONS.scripts}
+      pressed={props.isActive}
+      disabled={props.disabled}
+      onClick={props.onClick}
+      /*
+       * `CountBadge` through ADS `Button indicator`, not a positioned
+       * child. This rail was the fifth hand-written copy of the same accent
+       * pill — the one `CountBadge` was created to delete — and the copy
+       * had dropped the knockout ring, so it merged into the glyph it
+       * overlapped. `indicator` also owns the corner, the overhang and
+       * lifting the button's own overflow clamp, which is why the
+       * hand-placed version had two flat sides.
+       */
+      indicator={
+        runningCount > 0 ? (
+          <span data-testid="workspace-tools-running-count">
+            <CountBadge count={runningCount} />
+          </span>
+        ) : null
+      }
+    />
   );
 }
 
+/**
+ * The workspace rail: one toolbar, so it is a single Tab stop and the arrow
+ * keys move between its toggles. The panel toggles form one group and the
+ * Lens and Terminal surfaces another.
+ */
 export function RightRail() {
   useTranslation();
   const [
@@ -128,10 +181,6 @@ export function RightRail() {
   );
   const hasLensApi = typeof window !== "undefined" && Boolean(window.api?.lens);
 
-  function openLensSurface() {
-    focusOrCreateLensSurface();
-  }
-
   function toggleSidebarTab(tab: RightRailPanelId) {
     if (sidebarOverlayVisible && sidebarOverlayTab === tab) {
       setLayout({ patch: { sidebarOverlayVisible: false } });
@@ -153,8 +202,15 @@ export function RightRail() {
       aria-label={i18n.t("shell:rightRail.workspacePanels")}
       className={cx("stave-workspace-rail", sx(rightRailStyles.rail))}
     >
-      <TooltipProvider>
-        <div className={sx(rightRailStyles.stack)}>
+      <Toolbar
+        orientation="vertical"
+        aria-label={i18n.t("shell:rightRail.workspacePanels")}
+        xstyle={rightRailStyles.toolbar}
+      >
+        <ToolbarButtonGroup
+          orientation="vertical"
+          xstyle={rightRailStyles.toolbarGroup}
+        >
           {RIGHT_RAIL_PANEL_IDS.map((panelId) => {
             const isActive =
               sidebarOverlayVisible && sidebarOverlayTab === panelId;
@@ -170,74 +226,46 @@ export function RightRail() {
               );
             }
 
-            const Icon = RIGHT_RAIL_PANEL_ICONS[panelId];
             return (
-              <Tooltip key={panelId}>
-                <TooltipTrigger render={<span className={sx(rightRailStyles.triggerHost)} />}>
-                  <Button
-                    size="sm"
-                    variant={isActive ? "default" : "ghost"}
-                    disabled={!hasRepository}
-                    xstyle={[
-                      rightRailStyles.railButton,
-                      !isActive && rightRailStyles.railButtonInactive,
-                    ]}
-                    onClick={() => toggleSidebarTab(panelId)}
-                    aria-label={RIGHT_RAIL_PANEL_TITLES[panelId]}
-                    aria-pressed={isActive}
-                  >
-                    <Icon className={sx(rightRailStyles.railIcon)} />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="left">
-                  {RIGHT_RAIL_PANEL_TITLES[panelId]}
-                </TooltipContent>
-              </Tooltip>
+              <RailToggle
+                key={panelId}
+                label={RIGHT_RAIL_PANEL_TITLES[panelId]}
+                shortcut={RIGHT_RAIL_PANEL_SHORTCUTS[panelId] ?? null}
+                icon={RIGHT_RAIL_PANEL_ICONS[panelId]}
+                pressed={isActive}
+                disabled={!hasRepository}
+                onClick={() => toggleSidebarTab(panelId)}
+              />
             );
           })}
-          <Tooltip>
-            <TooltipTrigger render={<span className={sx(rightRailStyles.triggerHost)} />}>
-              <Button
-                size="sm"
-                variant={lensActive ? "default" : "ghost"}
-                disabled={!hasRepository || !hasLensApi}
-                xstyle={[
-                  rightRailStyles.railButton,
-                  !lensActive && rightRailStyles.railButtonInactive,
-                ]}
-                onClick={openLensSurface}
-                aria-label="Lens"
-              >
-                <Globe className={sx(rightRailStyles.railIcon)} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="left">
-              {hasLensApi ? "Lens" : i18n.t("shell:rightRail.lensIsAvailableInTheDesktopApp")}
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <Button
-                  size="sm"
-                  variant={terminalActive ? "default" : "ghost"}
-                  disabled={!hasRepository}
-                  xstyle={[
-                    rightRailStyles.railButton,
-                    !terminalActive && rightRailStyles.railButtonInactive,
-                  ]}
-                  onClick={() => paneHost.toggleTerminalGroup()}
-                  aria-label={i18n.t("shell:rightRail.terminal")}
-                  aria-pressed={terminalActive}
-                />
-              }
-            >
-              <TerminalSquare className={sx(rightRailStyles.railIcon)} />
-            </TooltipTrigger>
-            <TooltipContent side="left">{i18n.t("shell:rightRail.terminal")}</TooltipContent>
-          </Tooltip>
-        </div>
-      </TooltipProvider>
+        </ToolbarButtonGroup>
+        <ToolbarButtonGroup
+          orientation="vertical"
+          xstyle={rightRailStyles.toolbarGroup}
+        >
+          <RailToggle
+            label="Lens"
+            hint={
+              hasLensApi
+                ? undefined
+                : i18n.t("shell:rightRail.lensIsAvailableInTheDesktopApp")
+            }
+            shortcut="view.show-lens"
+            icon={Globe}
+            pressed={lensActive}
+            disabled={!hasRepository || !hasLensApi}
+            onClick={focusOrCreateLensSurface}
+          />
+          <RailToggle
+            label={i18n.t("shell:rightRail.terminal")}
+            shortcut="view.toggle-terminal"
+            icon={TerminalSquare}
+            pressed={terminalActive}
+            disabled={!hasRepository}
+            onClick={() => paneHost.toggleTerminalGroup()}
+          />
+        </ToolbarButtonGroup>
+      </Toolbar>
     </aside>
   );
 }

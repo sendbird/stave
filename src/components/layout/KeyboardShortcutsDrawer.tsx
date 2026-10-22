@@ -1,8 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Fragment, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Keyboard, Search, X } from "lucide-react";
-import { Kbd } from "@/components/ads/components/Kbd";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
@@ -16,14 +15,12 @@ import {
   DrawerHeader,
   DrawerTitle,
   Input,
-  KbdGroup,
-  KbdSeparator,
 } from "@/components/ui";
 import {
   buildShortcutListSections,
   filterShortcutListSections,
-  type ShortcutListItem,
 } from "@/components/layout/keyboard-shortcuts-listing";
+import { ShortcutKeys } from "@/components/system/ShortcutKeys";
 import { resolveKeybindingPlatform } from "@/lib/keybindings/key-chord";
 import { useAppStore } from "@/store/app.store";
 import { shortcutsDrawerStyles } from "./keyboard-shortcuts-drawer.styles";
@@ -31,36 +28,6 @@ import { shortcutsDrawerStyles } from "./keyboard-shortcuts-drawer.styles";
 interface KeyboardShortcutsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-}
-
-function ShortcutKeys({
-  sequences,
-  sequenceJoiner,
-}: Pick<ShortcutListItem, "sequences" | "sequenceJoiner">) {
-  useTranslation();
-  return (
-    <div className={sx(shortcutsDrawerStyles.keys)}>
-      {sequences.map((sequence, sequenceIndex) => (
-        <Fragment key={`${sequence.join("-")}-${sequenceIndex}`}>
-          {sequenceIndex > 0 ? (
-            <span className={sx(shortcutsDrawerStyles.keysJoiner)}>
-              {sequenceJoiner === "then"
-                ? i18n.t("shell:keybindings.ui.then")
-                : i18n.t("shell:keybindings.ui.or")}
-            </span>
-          ) : null}
-          <KbdGroup aria-label={i18n.t("shell:keyboardShortcutsDrawer.keyboardShortcut", { value1: sequence.join(" ") })}>
-            {sequence.map((part, partIndex) => (
-              <Fragment key={`${part}-${partIndex}`}>
-                {partIndex > 0 ? <KbdSeparator>+</KbdSeparator> : null}
-                <Kbd size="sm">{part}</Kbd>
-              </Fragment>
-            ))}
-          </KbdGroup>
-        </Fragment>
-      ))}
-    </div>
-  );
 }
 
 /**

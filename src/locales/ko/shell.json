@@ -243,9 +243,11 @@
     "copyWorkspacePath": "워크스페이스 경로 복사",
     "selectAnActiveWorkspaceToOpenThe": "커밋 그래프를 열려면 활성 워크스페이스를 선택하세요",
     "views": "보기",
-    "tools": "도구",
     "expandProjectList": "프로젝트 목록 펼치기",
-    "pathActions": "워크스페이스 경로 동작 열기"
+    "pathActions": "워크스페이스 경로 동작 열기",
+    "location": "위치",
+    "search": "검색",
+    "app": "앱"
   },
   "topBarAutomations": {
     "closeSchedules": "일정 닫기",

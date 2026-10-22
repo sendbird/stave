@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatList } from "@/i18n/format";
 // ---------------------------------------------------------------------------
 // PR Status – types, derivation, and visual config
 // ---------------------------------------------------------------------------
@@ -27,6 +28,22 @@ export type PrMergeMethod = "default" | "merge" | "squash" | "rebase";
  */
 export type ConcretePrMergeMethod = Exclude<PrMergeMethod, "default">;
 
+/**
+ * Per-check counts behind `checksRollup`. A re-run check counts once, at its
+ * latest result; neutral and skipped checks count as passed because they do
+ * not block the pull request.
+ */
+export interface GitHubPrChecks {
+  total: number;
+  passed: number;
+  failed: number;
+  pending: number;
+  /** Names of the failing checks (at most ten). */
+  failedNames?: string[];
+  /** Names of the checks still running (at most ten). */
+  pendingNames?: string[];
+}
+
 /** Raw payload returned by the `scm:get-pr-status` IPC handler. */
 export interface GitHubPrPayload {
   number: number;
@@ -46,6 +63,11 @@ export interface GitHubPrPayload {
     | "UNKNOWN"
     | "UNSTABLE";
   checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null;
+  /**
+   * Optional because payloads cached before per-check counts existed are
+   * still valid; absent also when the pull request has no checks.
+   */
+  checks?: GitHubPrChecks;
   mergedAt: string | null;
   baseRefName: string;
   headRefName: string;
@@ -137,6 +159,63 @@ export function describePrStatusHint(pr: GitHubPrPayload): string | null {
     return i18n.t("sourceControl:prStatus.gitHubRequiresAnApprovingReviewBeforeThis");
   }
   return null;
+}
+
+/** How many check names a tooltip line lists before "and N more". */
+const PR_CHECK_NAMES_SHOWN = 3;
+
+function describeCheckNames(names: readonly string[] | undefined, count: number) {
+  const shown = (names ?? []).slice(0, PR_CHECK_NAMES_SHOWN);
+  if (shown.length === 0) {
+    return i18n.t("sourceControl:prStatus.checkCount", { count });
+  }
+  const list = formatList(shown, { style: "short", type: "unit" });
+  const hidden = count - shown.length;
+  return hidden > 0
+    ? i18n.t("sourceControl:prStatus.checkNamesAndMore", { names: list, count: hidden })
+    : list;
+}
+
+/** "3/5 checks" for the PR chip; null when the pull request reports no checks. */
+export function formatPrChecksCount(checks: GitHubPrChecks | null | undefined) {
+  if (!checks || checks.total <= 0) {
+    return null;
+  }
+  return i18n.t("sourceControl:prStatus.checksCount", {
+    passed: checks.passed,
+    total: checks.total,
+  });
+}
+
+/**
+ * The PR chip tooltip's check lines: how many passed, then which checks fail
+ * and which still run, by name.
+ */
+export function describePrChecks(checks: GitHubPrChecks | null | undefined) {
+  if (!checks || checks.total <= 0) {
+    return [];
+  }
+  const lines = [
+    i18n.t("sourceControl:prStatus.checksPassedOfTotal", {
+      passed: checks.passed,
+      total: checks.total,
+    }),
+  ];
+  if (checks.failed > 0) {
+    lines.push(
+      i18n.t("sourceControl:prStatus.checksFailing", {
+        names: describeCheckNames(checks.failedNames, checks.failed),
+      }),
+    );
+  }
+  if (checks.pending > 0) {
+    lines.push(
+      i18n.t("sourceControl:prStatus.checksStillRunning", {
+        names: describeCheckNames(checks.pendingNames, checks.pending),
+      }),
+    );
+  }
+  return lines;
 }
 
 // ---------------------------------------------------------------------------

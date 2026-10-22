@@ -10,6 +10,7 @@ import {
   mergeScmPr,
   parseExistingPullRequestUrl,
   pickAllowedMergeMethod,
+  summarizePrChecks,
   updateScmPrBranch,
 } from "../electron/host-service/scm-runtime";
 
@@ -317,6 +318,87 @@ describe("fetchGitHubPrStatus", () => {
     const result = await fetchGitHubPrStatus({ cwd: "/tmp/stave-fetch-pr-status-auth", runCommand: run });
     expect(result.ok).toBe(false);
     expect(result.stderr).toContain("not authenticated");
+  });
+});
+
+describe("pull request check counts", () => {
+  const checkRun = (name: string, status: string, conclusion: string | null, startedAt = "2026-01-01T00:00:00Z") => ({
+    __typename: "CheckRun",
+    name,
+    status,
+    conclusion,
+    startedAt,
+  });
+
+  test("counts each check once, at its latest run, and names failing and running ones", () => {
+    expect(
+      summarizePrChecks([
+        checkRun("lint", "COMPLETED", "SUCCESS"),
+        checkRun("e2e", "COMPLETED", "FAILURE", "2026-01-01T00:00:00Z"),
+        // A newer run of e2e replaces the failed one.
+        checkRun("e2e", "IN_PROGRESS", null, "2026-01-01T01:00:00Z"),
+        checkRun("build", "COMPLETED", "TIMED_OUT"),
+        checkRun("docs", "COMPLETED", "SKIPPED"),
+        { __typename: "StatusContext", context: "deploy/preview", state: "PENDING" },
+        { __typename: "StatusContext", context: "license", state: "SUCCESS" },
+      ]),
+    ).toEqual({
+      total: 6,
+      passed: 3,
+      failed: 1,
+      pending: 2,
+      failedNames: ["build"],
+      pendingNames: ["e2e", "deploy/preview"],
+    });
+  });
+
+  test("reports nothing when the pull request has no checks", () => {
+    expect(summarizePrChecks([])).toBeUndefined();
+    expect(summarizePrChecks(undefined)).toBeUndefined();
+  });
+
+  test("the PR status payload carries the counts beside the rollup", async () => {
+    invalidateGhAuthCache();
+    const { run } = scriptedRunner((command, args) => {
+      if (command === "gh" && args[0] === "auth") return ok("authenticated");
+      if (command === "git" && args[0] === "rev-parse") return ok("fix/x\n");
+      if (command === "gh" && args[1] === "list") {
+        return ok(
+          JSON.stringify([
+            {
+              number: 9,
+              title: "fix: checks",
+              state: "OPEN",
+              isDraft: false,
+              url: "https://github.com/acme/repo/pull/9",
+              reviewDecision: "APPROVED",
+              mergeable: "MERGEABLE",
+              mergeStateStatus: "UNSTABLE",
+              statusCheckRollup: [
+                checkRun("lint", "COMPLETED", "SUCCESS"),
+                checkRun("e2e", "COMPLETED", "FAILURE"),
+              ],
+              mergedAt: null,
+              baseRefName: "main",
+              headRefName: "fix/x",
+              headRefOid: "abc",
+            },
+          ]),
+        );
+      }
+      return undefined;
+    });
+
+    const result = await fetchGitHubPrStatus({ cwd: "/tmp/stave-fetch-pr-checks", runCommand: run });
+    expect(result.pr?.checksRollup).toBe("FAILURE");
+    expect(result.pr?.checks).toEqual({
+      total: 2,
+      passed: 1,
+      failed: 1,
+      pending: 0,
+      failedNames: ["e2e"],
+      pendingNames: [],
+    });
   });
 });
 

@@ -14,14 +14,29 @@ export const rightRailStyles = stylex.create({
     paddingBlock: { default: vars["--ads-space-8"], [LG]: vars["--ads-space-12"] },
     width: { default: 48, [LG]: 56 },
   },
-  stack: {
+  // The rail is an ADS `Toolbar` for its keyboard model only: one Tab stop,
+  // arrows between toggles. It keeps the rail's flat column, so the toolbar's
+  // raised panel (fill, border, radius, shadow, padding) is taken off here.
+  toolbar: {
+    alignItems: "center",
+    backgroundColor: "transparent",
+    borderRadius: 0,
+    borderWidth: 0,
+    boxShadow: "none",
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    minBlockSize: 0,
+    padding: 0,
+    width: "100%",
+  },
+  toolbarGroup: {
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-8"],
     width: "100%",
   },
-  triggerHost: { display: "inline-flex" },
   railButton: {
     borderColor: "transparent",
     borderRadius: vars["--ads-radius-control"],

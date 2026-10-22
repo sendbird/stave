@@ -1,14 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import type { CSSProperties } from "react";
 import { Terminal } from "lucide-react";
-import {
-  Button,
-  Popover,
-  PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button, Popover, PopoverTrigger } from "@/components/ui";
 import { StandaloneCliPopoverContent } from "@/components/layout/standalone-cli/StandaloneCliPopover";
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
@@ -60,10 +54,8 @@ export function TopBarStandaloneCli(props: { noDragStyle: CSSProperties }) {
         closeOverlay();
       }}
     >
-      <Tooltip>
-        <TooltipTrigger
-          render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}
-        >
+      <Tooltip content={label} side="bottom">
+        <span {...stylex.props(layoutShellStyles.inlineFlex)}>
           <PopoverTrigger
             render={
               <Button
@@ -80,8 +72,7 @@ export function TopBarStandaloneCli(props: { noDragStyle: CSSProperties }) {
           >
             <Terminal {...stylex.props(layoutShellStyles.icon16)} />
           </PopoverTrigger>
-        </TooltipTrigger>
-        <TooltipContent side="bottom">{label}</TooltipContent>
+        </span>
       </Tooltip>
       <StandaloneCliPopoverContent />
     </Popover>

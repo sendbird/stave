@@ -36,18 +36,15 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Loader,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   toast,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   Dialog,
   DialogContent,
@@ -78,19 +75,15 @@ import {
   TOP_BAR_PR_ACTION_EVENT,
   type TopBarPrActionDetail,
 } from "@/components/layout/top-bar-pr-events";
-import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { TopBarPrStatusTrigger } from "@/components/layout/TopBarPrStatusTrigger";
 import { useAppStore } from "@/store/app.store";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import {
   type WorkspacePrStatus,
-  PR_STATUS_VISUAL,
   PR_STATUS_ACTIONS,
   describePrStatusHint,
 } from "@/lib/pr-status";
-import {
-  prCreateButtonStyles,
-  prToneBadgeStyles,
-} from "./pr-status.styles";
+import { prCreateButtonStyles } from "./pr-status.styles";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { topBarControlStyles } from "./top-bar.styles";
 import { openPrStyles } from "./top-bar-open-pr.styles";
@@ -284,7 +277,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   const prInfo = workspacePrInfoById[activeWorkspaceId];
   const prStatus: WorkspacePrStatus = prInfo?.derived ?? "no_pr";
-  const visual = PR_STATUS_VISUAL[prStatus];
   const actions = PR_STATUS_ACTIONS[prStatus];
 
   // -------------------------------------------------------------------------
@@ -1705,8 +1697,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     ? i18n.t("sourceControl:topBarOpenPR.pauseOrFinishTheRunningTaskBefore2")
     : i18n.t("sourceControl:topBarOpenPR.createANewWorkspaceAndAttachA");
 
-  const badgeToneStyle = prToneBadgeStyles[visual.tone];
-
   useEffect(() => {
     const onTopBarPrAction = (event: Event) => {
       const detail = (event as CustomEvent<TopBarPrActionDetail>).detail;
@@ -1780,98 +1770,51 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       {/* --- Trigger button: "Create PR" or PR status dropdown --- */}
       {prStatus === "no_pr" ? (
         /* No PR – show "Create PR" button */
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <AdsButton
-                layout="host"
-                size="sm"
-                type="button"
-                xstyle={[
-                  topBarControlStyles.control,
-                  openPrStyles.trigger,
-                  prCreateButtonStyles.trigger,
-                ]}
-                style={props.noDragStyle}
-                onClick={() => void handleCreateClick()}
-                disabled={isCreateDisabled}
-              />
-            }
-          >
-            {isBusy ? (
-              <Loader
-                aria-hidden
-                className={sx(openPrStyles.flexNone)}
-                size="xs"
-                variant="persist"
-              />
-            ) : (
-              <GitPullRequest
-                aria-hidden
-                className={sx(openPrStyles.triggerIcon)}
-              />
-            )}
-            {statusLabel ?? i18n.t("sourceControl:topBarOpenPR.createPR")}
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{createPrTooltip}</TooltipContent>
+        <Tooltip content={createPrTooltip} side="bottom">
+          <span {...stylex.props(layoutShellStyles.inlineFlex)}>
+            <AdsButton
+              layout="host"
+              size="sm"
+              type="button"
+              xstyle={[
+                topBarControlStyles.control,
+                openPrStyles.trigger,
+                prCreateButtonStyles.trigger,
+              ]}
+              style={props.noDragStyle}
+              onClick={() => void handleCreateClick()}
+              disabled={isCreateDisabled}
+            >
+              {isBusy ? (
+                <Loader
+                  aria-hidden
+                  className={sx(openPrStyles.flexNone)}
+                  size="xs"
+                  variant="persist"
+                />
+              ) : (
+                <GitPullRequest
+                  aria-hidden
+                  className={sx(openPrStyles.triggerIcon)}
+                />
+              )}
+              {statusLabel ?? i18n.t("sourceControl:topBarOpenPR.createPR")}
+            </AdsButton>
+          </span>
         </Tooltip>
       ) : (
         /* Has PR – show status dropdown */
         <div className={sx(openPrStyles.triggerGroup)}>
           <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span {...stylex.props(layoutShellStyles.inlineFlex)} />
-                }
-              >
-                <DropdownMenuTrigger
-                  render={
-                    <AdsButton
-                      layout="host"
-                      size="sm"
-                      type="button"
-                      xstyle={[
-                        topBarControlStyles.control,
-                        openPrStyles.trigger,
-                        // Draft is the neutral tone. A badge fill here is a
-                        // different chip from the branch switcher and Commit
-                        // graph beside it; those share `surface`. Colored
-                        // tones keep the status fill.
-                        visual.tone === "neutral"
-                          ? topBarControlStyles.surface
-                          : badgeToneStyle,
-                      ]}
-                      style={props.noDragStyle}
-                      disabled={isBusy || continuingWorkspace}
-                      aria-label={i18n.t("sourceControl:topBarOpenPR.statusMenu")}
-                    />
-                  }
-                >
-                  {isBusy ? (
-                    <Loader
-                      aria-hidden
-                      className={sx(openPrStyles.flexNone)}
-                      size="xs"
-                      variant="scan"
-                    />
-                  ) : (
-                    <PrStatusIcon
-                      status={prStatus}
-                      className={sx(openPrStyles.statusIcon)}
-                    />
-                  )}
-                  {statusLabel ?? visual.label}
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {i18n.t("sourceControl:topBarOpenPR.pR")}{prInfo?.pr?.number ?? "?"}: {visual.label}
-                {prStatusHint ? ` — ${prStatusHint}` : ""}
-                {prStatusError
-                  ? i18n.t("sourceControl:topBarOpenPR.statusMayBeStale", { value1: prStatusError })
-                  : ""}
-              </TooltipContent>
-            </Tooltip>
+            <TopBarPrStatusTrigger
+              pr={prInfo?.pr}
+              status={prStatus}
+              busyLabel={statusLabel}
+              disabled={isBusy || continuingWorkspace}
+              hint={prStatusHint}
+              error={prStatusError}
+              noDragStyle={props.noDragStyle}
+            />
 
             <DropdownMenuContent
               align="end"
@@ -1946,37 +1889,34 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           </DropdownMenu>
 
           {canContinueWorkspace ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <AdsButton
-                    layout="host"
-                    size="sm"
-                    type="button"
-                    xstyle={[
-                      topBarControlStyles.control,
-                      openPrStyles.trigger,
-                      openPrStyles.continueTrigger,
-                    ]}
-                    style={props.noDragStyle}
-                    onClick={() => setContinueDialogOpen(true)}
-                    disabled={isContinueDisabled}
-                  />
-                }
-              >
-                {continuingWorkspace ? (
-                  <Loader
-                    aria-hidden
-                    className={sx(openPrStyles.flexNone)}
-                    size="xs"
-                    variant="sync"
-                  />
-                ) : (
-                  <GitBranch />
-                )}
-                {i18n.t("sourceControl:topBarOpenPR.continue")}
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{continueTooltip}</TooltipContent>
+            <Tooltip content={continueTooltip} side="bottom">
+              <span {...stylex.props(layoutShellStyles.inlineFlex)}>
+                <AdsButton
+                  layout="host"
+                  size="sm"
+                  type="button"
+                  xstyle={[
+                    topBarControlStyles.control,
+                    openPrStyles.trigger,
+                    openPrStyles.continueTrigger,
+                  ]}
+                  style={props.noDragStyle}
+                  onClick={() => setContinueDialogOpen(true)}
+                  disabled={isContinueDisabled}
+                >
+                  {continuingWorkspace ? (
+                    <Loader
+                      aria-hidden
+                      className={sx(openPrStyles.flexNone)}
+                      size="xs"
+                      variant="sync"
+                    />
+                  ) : (
+                    <GitBranch />
+                  )}
+                  {i18n.t("sourceControl:topBarOpenPR.continue")}
+                </AdsButton>
+              </span>
             </Tooltip>
           ) : null}
         </div>

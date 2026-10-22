@@ -1,13 +1,8 @@
 import { i18n, useTranslation } from "@/i18n";
 import { Minus, Square, X } from "lucide-react";
 import { memo, useEffect, useState, type CSSProperties } from "react";
-import {
-  Button,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { Button } from "@/components/ui";
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 
@@ -55,69 +50,54 @@ export const TopBarWindowControls = memo(function TopBarWindowControls({
     };
   }, []);
 
+  const maximizeLabel = isMaximized
+    ? i18n.t("shell:topBarWindowControls.restoreWindow")
+    : i18n.t("shell:topBarWindowControls.maximize");
+
   return (
-    <TooltipProvider>
-      <div {...stylex.props(layoutShellStyles.windowControls)}>
-        <span {...stylex.props(layoutShellStyles.windowDivider)} aria-hidden="true" />
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                xstyle={layoutShellStyles.windowButton}
-                onClick={() => void window.api?.window?.minimize?.()}
-                aria-label={i18n.t("shell:topBarWindowControls.minimize")}
-                style={noDragStyle}
-              />
+    <div {...stylex.props(layoutShellStyles.windowControls)}>
+      <span {...stylex.props(layoutShellStyles.windowDivider)} aria-hidden="true" />
+      <Tooltip content={i18n.t("shell:topBarWindowControls.minimize")} side="bottom">
+        <Button
+          variant="ghost"
+          size="sm"
+          xstyle={layoutShellStyles.windowButton}
+          onClick={() => void window.api?.window?.minimize?.()}
+          aria-label={i18n.t("shell:topBarWindowControls.minimize")}
+          style={noDragStyle}
+        >
+          <Minus {...stylex.props(layoutShellStyles.icon14)} />
+        </Button>
+      </Tooltip>
+      <Tooltip content={maximizeLabel} side="bottom">
+        <Button
+          variant="ghost"
+          size="sm"
+          xstyle={layoutShellStyles.windowButton}
+          onClick={async () => {
+            const next = await window.api?.window?.toggleMaximize?.();
+            if (next) {
+              setIsMaximized(next.isMaximized);
             }
-          >
-            <Minus {...stylex.props(layoutShellStyles.icon14)} />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{i18n.t("shell:topBarWindowControls.minimize")}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                xstyle={layoutShellStyles.windowButton}
-                onClick={async () => {
-                  const next = await window.api?.window?.toggleMaximize?.();
-                  if (next) {
-                    setIsMaximized(next.isMaximized);
-                  }
-                }}
-                aria-label={isMaximized ? i18n.t("shell:topBarWindowControls.restoreWindow") : i18n.t("shell:topBarWindowControls.maximize")}
-                style={noDragStyle}
-              />
-            }
-          >
-            <Square {...stylex.props(layoutShellStyles.icon14, isMaximized && layoutShellStyles.subdued)} />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {isMaximized ? i18n.t("shell:topBarWindowControls.restoreWindow") : i18n.t("shell:topBarWindowControls.maximize")}
-          </TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                variant="ghost"
-                size="sm"
-                xstyle={[layoutShellStyles.windowButton, layoutShellStyles.closeWindowButton]}
-                onClick={() => void window.api?.window?.close?.()}
-                aria-label={i18n.t("shell:topBarWindowControls.closeWindow")}
-                style={noDragStyle}
-              />
-            }
-          >
-            <X {...stylex.props(layoutShellStyles.icon14)} />
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{i18n.t("shell:topBarWindowControls.closeWindow")}</TooltipContent>
-        </Tooltip>
-      </div>
-    </TooltipProvider>
+          }}
+          aria-label={maximizeLabel}
+          style={noDragStyle}
+        >
+          <Square {...stylex.props(layoutShellStyles.icon14, isMaximized && layoutShellStyles.subdued)} />
+        </Button>
+      </Tooltip>
+      <Tooltip content={i18n.t("shell:topBarWindowControls.closeWindow")} side="bottom">
+        <Button
+          variant="ghost"
+          size="sm"
+          xstyle={[layoutShellStyles.windowButton, layoutShellStyles.closeWindowButton]}
+          onClick={() => void window.api?.window?.close?.()}
+          aria-label={i18n.t("shell:topBarWindowControls.closeWindow")}
+          style={noDragStyle}
+        >
+          <X {...stylex.props(layoutShellStyles.icon14)} />
+        </Button>
+      </Tooltip>
+    </div>
   );
 });

@@ -6,7 +6,7 @@ Replace the legacy workspace/task shell with a three-part layout:
 
 1. Left sidebar: `Repositories > Workspaces`
 2. Center top strip: task tabs for the selected workspace
-3. Right rail: VS Code-like vertical action strip
+3. Right rail: vertical action strip
 
 ### Implemented Layout
 
@@ -15,7 +15,10 @@ Replace the legacy workspace/task shell with a three-part layout:
 - The left sidebar artwork now supports `Space Haze`, `Wave + Aurora`, and `Gravity Paint`, with `Space Haze` as the default and a selector under `Settings > Design`.
 - The top bar now applies only to the main work area, not the left repository list.
 - The top bar shows the selected workspace path for the current workspace.
-- The top bar exposes an always-visible quick-open file search input, and `Cmd/Ctrl+P` focuses it from anywhere outside text inputs.
+- The top bar reads in four labelled groups: where you are (workspace path and its "Open in" menu, branch, Commit graph, PR) on the left, then search, the views it opens (Fleet, Issues, Schedules, Standalone CLI), and the app's own alerts (Notifications, Update) on the right, with a rule between the right-hand groups. The sidebar toggle leads the bar while the sidebar is collapsed.
+- What gives way on a narrow bar depends on the room the controls have, after the sidebar and, on Windows and Linux, after the window controls: first "Commit graph" keeps only its icon, then the file search folds into its button, then the PR chip's check count folds into its tooltip; the workspace path truncates whenever the left side still runs out of room.
+- The top bar exposes a quick-open file search, and `Cmd/Ctrl+P` focuses it from anywhere outside text inputs. A wide bar shows the field with its keys at its end; on a narrow bar it folds into a search button that opens the same field over the bar, so search is reachable at every width. Escape closes that field and returns focus to the button.
+- Every top bar and right rail tooltip opens below (top bar) or beside (right rail) its control after the same short pause, and shows the control's keys when it has a shortcut, following the keys chosen in Settings.
 - Everything below the top bar is now a two-column region: a left workspace column and the right rail.
 - The left workspace column contains the selected workspace's task tab strip plus the main chat/editor surface.
 - The right rail spans the full region below the top bar, so the task tabs share row width with the rail.
@@ -98,6 +101,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
   - keeps notification deep-links explicit for archived tasks by routing to the owning workspace first, then requiring an explicit restore before the task reopens
 - `RightRail`
   - moves the old workspace-bar utility toggles into a vertical strip on the far right
+  - is one toolbar: a single stop in the Tab order, with the arrow keys moving between the panel toggles and the Lens and Terminal toggles; each toggle says whether it is pressed
   - labels the git panel as `Source Control`, with `Changes` and `History` kept as the internal tabs inside that panel
   - exposes a dedicated Scripts panel for workspace actions, services, hook inspection, Orbit-enabled dev services, runtime path/status summary, and quick navigation back to repository settings
   - exposes a workspace information panel with an auto-updated top `Summary` accordion section that starts expanded, plus shared accordion sections, URL-first linked-resource sections for Jira, Confluence, Storybook, Slack, Figma, and GitHub, notes, todos, saved plans, and custom structured fields that local MCP workflows can register against

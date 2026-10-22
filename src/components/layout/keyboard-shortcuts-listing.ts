@@ -1,9 +1,5 @@
 import { i18n, type I18nKey } from "@/i18n/runtime";
-import {
-  formatKeySequenceParts,
-  parseKeySequence,
-  type KeybindingPlatform,
-} from "@/lib/keybindings/key-chord";
+import type { KeybindingPlatform } from "@/lib/keybindings/key-chord";
 import {
   KEYBINDING_REGISTRY,
   KEYBINDING_SECTION_ORDER,
@@ -13,6 +9,7 @@ import {
 } from "@/lib/keybindings/keybinding-registry";
 import type { KeybindingScope } from "@/lib/keybindings/keybinding-scopes";
 import {
+  formatKeybindingDisplay,
   resolveKeybindingKeys,
   type KeybindingSettingsSnapshot,
 } from "@/lib/keybindings/keybinding-settings";
@@ -93,30 +90,13 @@ function describeMeta(entry: KeybindingEntry) {
   return parts.join(" · ");
 }
 
-function toSequences(keys: readonly string[], platform: KeybindingPlatform) {
-  const parsed = keys.map((value) => parseKeySequence(value));
-  const chord = parsed.find((sequence) => sequence.length > 1);
-  if (chord) {
-    return {
-      sequences: formatKeySequenceParts(chord, platform),
-      sequenceJoiner: "then" as const,
-    };
-  }
-  return {
-    sequences: parsed.map(
-      (sequence) => formatKeySequenceParts(sequence, platform)[0]!,
-    ),
-    sequenceJoiner: "or" as const,
-  };
-}
-
 function baseItem(entry: KeybindingEntry, platform: KeybindingPlatform) {
   return {
     id: entry.id,
     label: translate(entry.titleKey, entry.titleValues?.()),
     description: translate(entry.descriptionKey),
     meta: describeMeta(entry),
-    ...toSequences(entry.keys, platform),
+    ...formatKeybindingDisplay(entry.keys, platform),
   };
 }
 
@@ -208,7 +188,9 @@ function entryItems(
   }
   const keys = resolveKeybindingKeys(entry, { platform, settings });
   if (keys.length > 0) {
-    return [{ ...baseItem(entry, platform), ...toSequences(keys, platform) }];
+    return [
+      { ...baseItem(entry, platform), ...formatKeybindingDisplay(keys, platform) },
+    ];
   }
   if (!entry.customization) {
     // No keys on this platform (a macOS-only menu key, for example).

@@ -10,6 +10,10 @@ the keys you changed in Settings.
 `Cmd/Ctrl` means Cmd on macOS and Ctrl on Windows and Linux. In the in-app list,
 macOS shows the symbols ⌘ ⇧ ⌥ ⌃.
 
+The tooltips of the top bar and right rail controls show the same keys for the
+control's shortcut, with your Settings applied. The right rail is one stop in
+the Tab order; the arrow keys move between its toggles.
+
 ## Typing In A Field
 
 Shortcuts marked **Not while typing** do nothing while focus is in a text field,

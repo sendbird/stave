@@ -24,6 +24,7 @@ import {
 import { AutocompleteInput } from "@/components/ads/headless/autocomplete";
 import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
+import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 import {
@@ -80,6 +81,10 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
     ),
   );
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const compactTriggerRef = useRef<HTMLButtonElement | null>(null);
+  // Set when Escape closes the field opened from the search button, so focus
+  // goes back to that button instead of to the page.
+  const refocusCompactTriggerRef = useRef(false);
   const suppressBlurRef = useRef(false);
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -87,6 +92,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   const [isMobileExpanded, setIsMobileExpanded] = useState(false);
   const deferredQuery = useDeferredValue(query);
   const normalizedQuery = deferredQuery.trim();
+  const quickOpenShortcut = useShortcutHint("file.quick-open");
 
   function getInputElement() {
     return (
@@ -117,6 +123,15 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
       cancelled = true;
     };
   }, [isOpen, repositoryFiles.length, refreshRepositoryFiles]);
+
+  // The button is hidden while the field is open over the bar, so it can take
+  // focus back only once the field has closed.
+  useEffect(() => {
+    if (!isMobileExpanded && refocusCompactTriggerRef.current) {
+      refocusCompactTriggerRef.current = false;
+      compactTriggerRef.current?.focus();
+    }
+  }, [isMobileExpanded]);
 
   // Cmd/Ctrl+P keyboard shortcut to open file search
   useEffect(() => {
@@ -260,11 +275,20 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
         closeSearch();
       }}
     >
-      <Tooltip content={i18n.t("shell:topBarFileSearch.goToFile")}>
+      <Tooltip
+        content={i18n.t("shell:topBarFileSearch.goToFile")}
+        shortcut={quickOpenShortcut}
+        side="bottom"
+      >
         <AdsButton
+          ref={compactTriggerRef}
           layout="host"
-          type="submit"
+          size="sm"
+          type="button"
           xstyle={[
+            topBarControlStyles.control,
+            topBarControlStyles.surface,
+            topBarControlStyles.iconOnly,
             fileSearchStyles.compactTrigger,
             isMobileExpanded && fileSearchStyles.compactTriggerHidden,
           ]}
@@ -321,6 +345,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                   return;
                 }
 
+                refocusCompactTriggerRef.current = isMobileExpanded;
                 closeSearch();
                 getInputElement()?.blur();
               }}
@@ -329,6 +354,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
               aria-expanded={isOpen}
               data-file-search-input
             />
+            {!isOpen && !query && quickOpenShortcut ? (
+              <span aria-hidden="true" className={sx(fileSearchStyles.keyHint)}>
+                {quickOpenShortcut}
+              </span>
+            ) : null}
           </div>
           {isOpen ? (
             <div

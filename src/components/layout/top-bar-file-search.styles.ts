@@ -10,29 +10,45 @@ import { vars } from "../ads/tokens/tokens.stylex";
  * the row is composed here from the headless autocomplete input and owns its
  * own compact geometry.
  */
+/**
+ * The top bar's own width step for the field (`top-bar.styles.ts`
+ * `TOP_BAR_SEARCH`). StyleX resolves each file's queries on its own, so the
+ * string is repeated rather than imported.
+ */
+const TOP_BAR_SEARCH = "@container topBar (min-width: 56rem)";
+
 export const fileSearchStyles = stylex.create({
   // The top bar slot already caps the width; the field just fills it.
   root: { maxWidth: 380, minWidth: 0, position: "relative", width: "100%" },
+  // Geometry and fill are the bar's own control recipe, composed at the call
+  // site; this only says when the button stands in for the field.
   compactTrigger: {
-    alignItems: "center",
-    backgroundColor: {
-      default: vars["--ads-color-canvas"],
-      ":hover": vars["--ads-color-canvas"],
-    },
-    borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-control"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-    display: { default: "flex", "@media (min-width: 48rem)": "none" },
-    height: 36,
-    justifyContent: "center",
-    padding: 0,
-    width: 36,
+    display: { default: "inline-flex", [TOP_BAR_SEARCH]: "none" },
   },
-  compactTriggerHidden: { display: "none" },
-  field: { display: { default: "none", "@media (min-width: 48rem)": "block" } },
-  fieldExpanded: { display: "block" },
+  // While the field is open over the bar the button keeps its box, so the
+  // controls beside it do not shift, but it is out of sight and of the Tab
+  // order.
+  compactTriggerHidden: { visibility: "hidden" },
+  field: { display: { default: "none", [TOP_BAR_SEARCH]: "block" } },
+  // Opened from the button on a narrow bar, the field lies over the controls
+  // beside it, ending where the button ends, instead of pushing them aside.
+  // It sits on the bar's own surface: the row's hover fill is a translucent
+  // overlay, which on its own let the chips underneath show through.
+  fieldExpanded: {
+    backgroundColor: {
+      default: vars["--ads-color-surface"],
+      [TOP_BAR_SEARCH]: "transparent",
+    },
+    borderRadius: vars["--ads-radius-control"],
+    display: "block",
+    insetInlineEnd: { default: 0, [TOP_BAR_SEARCH]: "auto" },
+    position: { default: "absolute", [TOP_BAR_SEARCH]: "static" },
+    top: { default: "50%", [TOP_BAR_SEARCH]: "auto" },
+    transform: { default: "translateY(-50%)", [TOP_BAR_SEARCH]: "none" },
+    width: { default: "min(380px, 60vw)", [TOP_BAR_SEARCH]: "auto" },
+  },
+  // The quick-open keys at the end of the idle field.
+  keyHint: { display: "inline-flex", flexShrink: 0 },
   command: {
     backgroundColor: "transparent",
     height: "auto",
@@ -78,6 +94,10 @@ export const fileSearchStyles = stylex.create({
     minWidth: 0,
     outlineStyle: "none",
     padding: 0,
+    // `flex` sizes the field, not the input's own default width: that
+    // intrinsic ~150px used to set the search slot's floor, so the trailing
+    // groups kept room the lead needed and the lead slid under them.
+    width: 0,
     "::placeholder": { color: vars["--ads-color-text-placeholder"] },
   },
   panel: {

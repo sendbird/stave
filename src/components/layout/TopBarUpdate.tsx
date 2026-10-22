@@ -4,6 +4,7 @@ import { ArrowUpCircle, RefreshCcw } from "lucide-react";
 import * as stylex from "@stylexjs/stylex";
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   Badge,
   Button,
@@ -13,9 +14,6 @@ import {
   PopoverHeader,
   PopoverTitle,
   PopoverTrigger,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   toast,
 } from "@/components/ui";
 import {
@@ -158,10 +156,8 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
   return (
     <>
       <Popover open={open} onOpenChange={setOpen}>
-        <Tooltip>
-          <TooltipTrigger
-            render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}
-          >
+        <Tooltip content={i18n.t("shell:topBarUpdate.appUpdate")} side="bottom">
+          <span {...stylex.props(layoutShellStyles.inlineFlex)}>
             <PopoverTrigger
               render={
                 <Button
@@ -192,8 +188,7 @@ export function TopBarUpdate(props: { noDragStyle: CSSProperties }) {
                 />
               ) : null}
             </PopoverTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{i18n.t("shell:topBarUpdate.appUpdate")}</TooltipContent>
+          </span>
         </Tooltip>
         <PopoverContent
           align="end"

@@ -244,9 +244,11 @@
     "copyWorkspacePath": "Copy workspace path",
     "selectAnActiveWorkspaceToOpenThe": "Select an active workspace to open the commit graph",
     "views": "Views",
-    "tools": "Tools",
     "expandProjectList": "Expand project list",
-    "pathActions": "Open workspace path actions"
+    "pathActions": "Open workspace path actions",
+    "location": "Location",
+    "search": "Search",
+    "app": "App"
   },
   "topBarAutomations": {
     "closeSchedules": "Close Schedules",
