@@ -2,6 +2,7 @@ import { i18n } from "@/i18n";
 import { useCallback, useState } from "react";
 import {
   applyFleetBulkPlan,
+  countFleetBulkOutcome,
   countFleetBulkPlan,
   revertFleetBulkOutcome,
   type FleetBulkOperations,
@@ -18,13 +19,44 @@ import {
 } from "@/lib/fleet/attention-snooze-client";
 import { offerUndoToast } from "@/lib/notifications/pending-undo";
 import { toast } from "@/lib/notifications/toast";
-import { setResultsReviewed } from "@/lib/reviews/result-review-client";
+import {
+  listResultReviews,
+  setResultsReviewed,
+} from "@/lib/reviews/result-review-client";
+import { resultReviewKey, type ResultReviewScope } from "@/lib/reviews/result-review";
 import { useAppStore } from "@/store/app.store";
+
+/** Which of `scopes` still wait for review, from the durable store itself. */
+async function listPendingResults(scopes: ResultReviewScope[]) {
+  const workspaceIds = [...new Set(scopes.map((scope) => scope.workspaceId))];
+  const pendingKeys = new Set<string>();
+  for (let offset = 0; ; offset += 200) {
+    const page = await listResultReviews({
+      workspaceIds,
+      pendingOnly: true,
+      includeEvidence: false,
+      limit: 200,
+      offset,
+    });
+    for (const result of page.results) pendingKeys.add(resultReviewKey(result));
+    if (!page.hasMore || page.results.length === 0) break;
+  }
+  return scopes.filter((scope) => pendingKeys.has(resultReviewKey(scope)));
+}
 
 function bulkOperations(): FleetBulkOperations {
   return {
+    listPendingResults,
     setResultsReviewed,
-    markNotificationRead: (args) => useAppStore.getState().markNotificationRead(args),
+    markNotificationRead: async (args) => {
+      const notification = useAppStore
+        .getState()
+        .notifications.find((item) => item.id === args.id);
+      // Read elsewhere since Fleet listed it: nothing to change or count.
+      if (!notification || notification.readAt) return false;
+      await useAppStore.getState().markNotificationRead(args);
+      return true;
+    },
     snoozeFleetAttention,
     clearFleetAttentionSnoozes,
   };
@@ -53,11 +85,18 @@ export function useFleetBulkActions() {
       snoozedUntil: resolveSnoozeDeadline({ durationMs: FLEET_ATTENTION_CLEAR_SNOOZE_MS }),
     }).finally(() => setApplying(false));
 
-    const cleared = outcome.reviewed.length + outcome.read.length + outcome.snoozed.length;
+    const cleared = countFleetBulkOutcome(outcome);
     if (cleared > 0) {
       const title = i18n.t("fleet:bulk.cleared", { count: cleared });
       const description =
-        outcome.read.length > 0 ? i18n.t("fleet:bulk.readsCannotBeUndone") : undefined;
+        [
+          outcome.read.length > 0 ? i18n.t("fleet:bulk.readsCannotBeUndone") : null,
+          outcome.reviewedUnconfirmed > 0
+            ? i18n.t("fleet:bulk.someReviewsCannotBeUndone")
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" ") || undefined;
       if (outcome.reviewed.length > 0 || outcome.snoozed.length > 0) {
         offerUndoToast(title, {
           undoLabel: i18n.t("fleet:bulk.undo"),
@@ -71,6 +110,9 @@ export function useFleetBulkActions() {
       } else {
         toast.success(title, description ? { description } : undefined);
       }
+    }
+    if (cleared === 0 && outcome.failed === 0) {
+      toast.info(i18n.t("fleet:bulk.alreadyCleared"));
     }
     if (outcome.failed > 0) {
       toast.error(i18n.t("fleet:bulk.failed", { count: outcome.failed }));

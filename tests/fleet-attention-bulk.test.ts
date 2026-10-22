@@ -3,6 +3,7 @@ import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   applyFleetBulkPlan,
   chunkResultScopes,
+  countFleetBulkOutcome,
   countFleetBulkPlan,
   pickFleetBulkEffect,
   planFleetReviewClear,
@@ -60,15 +61,22 @@ describe("clearing In review says what it will do first", () => {
 });
 
 describe("applying a plan", () => {
-  function operations(failing: { snooze?: boolean; results?: boolean } = {}) {
+  function operations(
+    failing: { snooze?: boolean; results?: boolean } = {},
+    store: { reviewedElsewhere?: string[]; raced?: number; readElsewhere?: string[] } = {},
+  ) {
     const calls: string[] = [];
     const ops: FleetBulkOperations = {
+      listPendingResults: async (scopes) =>
+        scopes.filter((scope) => !store.reviewedElsewhere?.includes(scope.taskId)),
       setResultsReviewed: async ({ scopes, reviewed }) => {
-        calls.push(`results:${reviewed}:${scopes.length}`);
+        calls.push(`results:${reviewed}:${scopes.map((scope) => scope.taskId).join(",")}`);
         if (failing.results) throw new Error("store down");
+        return scopes.length - (reviewed ? (store.raced ?? 0) : 0);
       },
       markNotificationRead: async ({ id }) => {
         calls.push(`read:${id}`);
+        return !store.readElsewhere?.includes(id);
       },
       snoozeFleetAttention: async ({ attentionId }) => {
         calls.push(`snooze:${attentionId}`);
@@ -85,7 +93,7 @@ describe("applying a plan", () => {
   test("a failed snooze no longer stops the rest, and failures are counted, not cleared", async () => {
     const { ops, calls } = operations({ snooze: true });
     const outcome = await applyFleetBulkPlan({ plan, operations: ops, resolvedAt: AT, snoozedUntil: AT });
-    expect(calls.sort()).toEqual(["read:n-1", "results:true:1", "snooze:pr:pr-ready-to-merge:ws-2"]);
+    expect(calls.sort()).toEqual(["read:n-1", "results:true:task-1", "snooze:pr:pr-ready-to-merge:ws-2"]);
     expect(outcome).toMatchObject({ read: ["n-1"], snoozed: [], failed: 1 });
     expect(outcome.reviewed).toHaveLength(1);
   });
@@ -96,7 +104,7 @@ describe("applying a plan", () => {
       plan: planFleetReviewClear([durableResult(1), durableResult(2)]),
       operations: ops, resolvedAt: AT, snoozedUntil: AT,
     });
-    expect(outcome).toEqual({ reviewed: [], read: [], snoozed: [], failed: 2 });
+    expect(outcome).toEqual({ reviewed: [], reviewedUnconfirmed: 0, read: [], snoozed: [], failed: 2 });
   });
 
   test("Undo takes back reviews and snoozes, and leaves notification reads alone", async () => {
@@ -104,6 +112,56 @@ describe("applying a plan", () => {
     const outcome = await applyFleetBulkPlan({ plan, operations: applied.ops, resolvedAt: AT, snoozedUntil: AT });
     const reverted = operations();
     expect(await revertFleetBulkOutcome(outcome, reverted.ops)).toBe(true);
-    expect(reverted.calls.sort()).toEqual(["results:false:1", "unsnooze:pr:pr-ready-to-merge:ws-2"]);
+    expect(reverted.calls.sort()).toEqual(["results:false:task-1", "unsnooze:pr:pr-ready-to-merge:ws-2"]);
+  });
+
+  test("a result already reviewed elsewhere is neither counted nor taken back by Undo", async () => {
+    const applied = operations({}, { reviewedElsewhere: ["task-2"] });
+    const outcome = await applyFleetBulkPlan({
+      plan: planFleetReviewClear([durableResult(1), durableResult(2)]),
+      operations: applied.ops, resolvedAt: AT, snoozedUntil: AT,
+    });
+    expect(applied.calls).toEqual(["results:true:task-1"]);
+    expect(outcome.reviewed.map((scope) => scope.taskId)).toEqual(["task-1"]);
+    expect(countFleetBulkOutcome(outcome)).toBe(1);
+    const reverted = operations();
+    await revertFleetBulkOutcome(outcome, reverted.ops);
+    expect(reverted.calls).toEqual(["results:false:task-1"]);
+  });
+
+  test("when another surface reviews a result during the write, the change is counted but not undone", async () => {
+    const applied = operations({}, { raced: 1 });
+    const outcome = await applyFleetBulkPlan({
+      plan: planFleetReviewClear([durableResult(1), durableResult(2)]),
+      operations: applied.ops, resolvedAt: AT, snoozedUntil: AT,
+    });
+    expect(outcome).toMatchObject({ reviewed: [], reviewedUnconfirmed: 1, failed: 0 });
+    expect(countFleetBulkOutcome(outcome)).toBe(1);
+    const reverted = operations();
+    expect(await revertFleetBulkOutcome(outcome, reverted.ops)).toBe(true);
+    expect(reverted.calls).toEqual([]);
+  });
+
+  test("a notification read elsewhere is not counted as cleared", async () => {
+    const applied = operations({}, { readElsewhere: ["n-1"] });
+    const outcome = await applyFleetBulkPlan({
+      plan: planFleetReviewClear([notificationResult]),
+      operations: applied.ops, resolvedAt: AT, snoozedUntil: AT,
+    });
+    expect(outcome.read).toEqual([]);
+    expect(countFleetBulkOutcome(outcome)).toBe(0);
+  });
+
+  test("when the pending read fails, nothing is written and every result counts as failed", async () => {
+    const applied = operations();
+    applied.ops.listPendingResults = async () => {
+      throw new Error("store down");
+    };
+    const outcome = await applyFleetBulkPlan({
+      plan: planFleetReviewClear([durableResult(1), durableResult(2)]),
+      operations: applied.ops, resolvedAt: AT, snoozedUntil: AT,
+    });
+    expect(applied.calls).toEqual([]);
+    expect(outcome).toMatchObject({ reviewed: [], failed: 2 });
   });
 });

@@ -83,12 +83,31 @@ export function countFleetBulkPlan(plan: FleetBulkPlan) {
   return plan.results.length + plan.notificationIds.length + plan.snoozes.length;
 }
 
-/** What actually changed; failures are counted, never reported as cleared. */
+/**
+ * What actually changed; failures are counted, never reported as cleared, and
+ * rows another surface had already cleared are neither.
+ */
 export interface FleetBulkOutcome {
+  /** Results this action marked reviewed, each unreviewed before it: Undo restores exactly these. */
   reviewed: ResultReviewScope[];
+  /**
+   * Results marked reviewed in a batch another surface reviewed at the same
+   * moment: counted, but not undone, since which rows were ours is unknown.
+   */
+  reviewedUnconfirmed: number;
   read: string[];
   snoozed: string[];
   failed: number;
+}
+
+/** How many items the action itself changed, for the toast. */
+export function countFleetBulkOutcome(outcome: FleetBulkOutcome) {
+  return (
+    outcome.reviewed.length +
+    outcome.reviewedUnconfirmed +
+    outcome.read.length +
+    outcome.snoozed.length
+  );
 }
 
 /** Results go in batches; the bulk review contract caps one at 200 scopes. */
@@ -104,8 +123,12 @@ export function chunkResultScopes(scopes: readonly ResultReviewScope[]) {
 
 /** The stores a plan writes to; injected so the effect logic stays testable. */
 export interface FleetBulkOperations {
-  setResultsReviewed: (args: { scopes: ResultReviewScope[]; reviewed: boolean }) => Promise<unknown>;
-  markNotificationRead: (args: { id: string; resolvedAt: string }) => Promise<unknown>;
+  /** Which of `scopes` still wait for review, read just before writing. */
+  listPendingResults: (scopes: ResultReviewScope[]) => Promise<ResultReviewScope[]>;
+  /** Resolves to how many rows changed. */
+  setResultsReviewed: (args: { scopes: ResultReviewScope[]; reviewed: boolean }) => Promise<number>;
+  /** Resolves to whether the notification was still unread. */
+  markNotificationRead: (args: { id: string; resolvedAt: string }) => Promise<boolean>;
   snoozeFleetAttention: (args: { attentionId: string; workspaceId: string; snoozedUntil: string }) => Promise<unknown>;
   clearFleetAttentionSnoozes: (args: { attentionIds: string[] }) => Promise<unknown>;
 }
@@ -113,7 +136,9 @@ export interface FleetBulkOperations {
 /**
  * Applies every effect of a plan and reports what changed. Effects run side by
  * side and one failure never stops the others (a failed result batch counts
- * every scope it carried).
+ * every scope it carried). Only results still waiting for review are written,
+ * so a result reviewed elsewhere since Fleet last read it is neither counted
+ * nor later marked unreviewed by Undo.
  */
 export async function applyFleetBulkPlan(args: {
   plan: FleetBulkPlan;
@@ -122,21 +147,31 @@ export async function applyFleetBulkPlan(args: {
   snoozedUntil: string;
 }): Promise<FleetBulkOutcome> {
   const { plan, operations } = args;
-  const batches = chunkResultScopes(plan.results);
+  let pending: ResultReviewScope[] = [];
+  let unreadable = 0;
+  if (plan.results.length > 0) {
+    try {
+      pending = await operations.listPendingResults(plan.results);
+    } catch {
+      // Without the current state nothing can be claimed: write nothing.
+      unreadable = plan.results.length;
+    }
+  }
+  const batches = chunkResultScopes(pending);
   type Settled =
-    | { kind: "reviewed"; scopes: ResultReviewScope[] }
-    | { kind: "read"; id: string }
+    | { kind: "reviewed"; scopes: ResultReviewScope[]; updated: number }
+    | { kind: "read"; id: string; changed: boolean }
     | { kind: "snoozed"; id: string };
   const settled = await Promise.allSettled<Settled>([
     ...batches.map((scopes) =>
       operations
         .setResultsReviewed({ scopes, reviewed: true })
-        .then((): Settled => ({ kind: "reviewed", scopes })),
+        .then((updated): Settled => ({ kind: "reviewed", scopes, updated })),
     ),
     ...plan.notificationIds.map((id) =>
       operations
         .markNotificationRead({ id, resolvedAt: args.resolvedAt })
-        .then((): Settled => ({ kind: "read", id })),
+        .then((changed): Settled => ({ kind: "read", id, changed })),
     ),
     ...plan.snoozes.map((snooze) =>
       operations
@@ -144,15 +179,26 @@ export async function applyFleetBulkPlan(args: {
         .then((): Settled => ({ kind: "snoozed", id: snooze.attentionId })),
     ),
   ]);
-  const outcome: FleetBulkOutcome = { reviewed: [], read: [], snoozed: [], failed: 0 };
+  const outcome: FleetBulkOutcome = {
+    reviewed: [],
+    reviewedUnconfirmed: 0,
+    read: [],
+    snoozed: [],
+    failed: unreadable,
+  };
   settled.forEach((result, index) => {
     if (result.status === "rejected") {
       outcome.failed += batches[index]?.length ?? 1;
       return;
     }
-    if (result.value.kind === "reviewed") outcome.reviewed.push(...result.value.scopes);
-    else if (result.value.kind === "read") outcome.read.push(result.value.id);
-    else outcome.snoozed.push(result.value.id);
+    const value = result.value;
+    if (value.kind === "reviewed") {
+      // Every row of the batch changed only when the count says so.
+      if (value.updated === value.scopes.length) outcome.reviewed.push(...value.scopes);
+      else outcome.reviewedUnconfirmed += Math.max(0, value.updated);
+    } else if (value.kind === "read") {
+      if (value.changed) outcome.read.push(value.id);
+    } else outcome.snoozed.push(value.id);
   });
   return outcome;
 }

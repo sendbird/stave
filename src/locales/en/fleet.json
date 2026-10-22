@@ -260,7 +260,9 @@
     "failed_one": "{{count}} item was not cleared. Retry.",
     "failed_other": "{{count}} items were not cleared. Retry.",
     "undo": "Undo",
-    "undoFailed": "Some cleared items could not be restored."
+    "undoFailed": "Some cleared items could not be restored.",
+    "someReviewsCannotBeUndone": "Some reviews changed elsewhere at the same time and can't be undone here.",
+    "alreadyCleared": "Already cleared elsewhere. Nothing changed."
   },
   "taskTable": {
     "label": "Open tasks",

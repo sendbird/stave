@@ -134,11 +134,12 @@ Fleet item, and the task records the answer the same way.
   it does it, each effect with its count: `Mark 3 results reviewed`,
   `Mark 2 notifications read (can't be undone)`, `Hide 1 pull request for a
   day`. Pick one effect alone or `Do all of these`. The toast counts only what
-  changed and offers `Undo` for reviewed results and hidden pull requests;
-  notification reads cannot be undone, and the toast says so when there were
-  any. Anything that failed is reported separately, never as cleared. `Clear
-  all` is deliberately absent from `Action required`, where an agent is still
-  waiting for a real answer.
+  changed: a result or notification already cleared elsewhere is skipped, and
+  `Undo` never marks such a result unreviewed. `Undo` covers reviewed results
+  and hidden pull requests; notification reads cannot be undone, and the toast
+  says so when there were any. Anything that failed is reported separately,
+  never as cleared. `Clear all` is deliberately absent from `Action required`,
+  where an agent is still waiting for a real answer.
 - `Restore`: brings every snoozed item back immediately. The rail always reports
   how many items a snooze is hiding, so nothing disappears without a count.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
