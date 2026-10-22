@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import type { TodoItem } from "@/components/ai-elements/todo";
+import type { TodoItem } from "@/lib/todo-progress";
 import {
   describeHookEventLabel,
   formatHookSourcePreview,

@@ -30,7 +30,7 @@ Stave keeps the 50 most recent notifications and deletes older ones automaticall
 You do not have to scroll back through the task chat to approve or deny a tool call.
 
 - Open the bell and find the approval entry.
-- Approve or deny it directly from the notification.
+- Choose `Allow once` or `Deny` directly from the notification.
 - The change is reflected back in the task immediately.
 
 If you prefer, the task itself also shows a pending-approval card above the composer.

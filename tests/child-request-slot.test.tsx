@@ -84,7 +84,12 @@ describe("child requests in the parent composer", () => {
     expect(html).toContain('data-agent-identity="GPT-5.3-Codex"');
     expect(html).toContain("Shell");
     expect(html).toContain("Run focused tests");
-    expect(html).toContain("Approve");
+    // The same approval card as the composer, in the same decision words.
+    expect(html).toContain("Allow once");
+    expect(html).toContain("Deny");
+    expect(html).toContain('data-density="compact"');
+    // Delivered through the delegating host, which keeps no standing grant.
+    expect(html).not.toContain("Always allow");
     expect(html).toContain("+1 more");
     // The child itself, or an unrelated task, has nothing to answer on a child's behalf.
     for (const taskId of ["child", "elsewhere"]) {

@@ -1,4 +1,5 @@
 import type { UserInputQuestion } from "@/types/chat";
+import { getUserInputAnswerKey } from "@/lib/user-input-answers";
 
 /**
  * Request-id prefix of a Codex async question card. The rest of the id is the
@@ -30,7 +31,7 @@ export function formatAsyncQuestionAnswer(args: {
 }): string {
   return args.questions
     .map((question) => {
-      const key = question.key?.trim() || question.question;
+      const key = getUserInputAnswerKey(question);
       const answer = args.denied
         ? ""
         : (args.answers?.[key] ?? args.answers?.[question.question] ?? "").trim();

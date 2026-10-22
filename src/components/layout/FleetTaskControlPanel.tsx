@@ -9,7 +9,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import {
@@ -17,6 +16,7 @@ import {
   DelegatedTaskRows,
 } from "@/components/session/DelegatedTaskRows";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
+import { ToolApprovalCard } from "@/components/session/ToolApprovalCard";
 import { Button, Loader, Textarea } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
@@ -332,6 +332,7 @@ export function FleetTaskControlPanel(args: {
   const runInteractionAction = (input: {
     kind: "approval" | "user-input";
     approved?: boolean;
+    scope?: "once" | "always";
     answers?: Record<string, string>;
     denied?: boolean;
   }) => {
@@ -368,6 +369,9 @@ export function FleetTaskControlPanel(args: {
         messageId: validation.messageId,
         requestId: expected.requestId,
         approved: Boolean(input.approved),
+        ...(input.approved && input.scope === "always"
+          ? { scope: "always" as const }
+          : {}),
       });
     } else {
       resolveUserInput({
@@ -522,23 +526,28 @@ export function FleetTaskControlPanel(args: {
 
       {pendingPart?.type === "approval" ? (
         <div className={sx(styles.section)}>
-          <ConfirmationCompact
-            toolName={pendingPart.toolName}
-            description={pendingPart.description}
-            state={pendingPart.state}
+          {/* A managed task answers through its host, which keeps no
+              standing grant, so it is not offered "Always allow". */}
+          <ToolApprovalCard
+            allowAlways={!managed}
+            busy={busyAction === "approval"}
+            density="compact"
             disabled={busyAction != null}
-            disabledReason={
-              busyAction ? i18n.t("fleet:additionalCopy.message4") : undefined
+            note={
+              busyAction != null && busyAction !== "approval" ? (
+                <span className={sx(styles.replyHint)}>
+                  {i18n.t("fleet:additionalCopy.message4")}
+                </span>
+              ) : undefined
             }
-            comfortableActions
-            showShortcutHint={false}
-            truncateDescription={false}
-            onApprove={() =>
-              runInteractionAction({ kind: "approval", approved: true })
+            onDecide={(decision) =>
+              runInteractionAction({
+                kind: "approval",
+                approved: decision.approved,
+                scope: decision.scope,
+              })
             }
-            onReject={() =>
-              runInteractionAction({ kind: "approval", approved: false })
-            }
+            part={pendingPart}
           />
         </div>
       ) : null}

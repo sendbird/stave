@@ -15,6 +15,12 @@ import {
   displayUserInputOptionLabel,
   shouldShowUserInputRecommendedBadge,
 } from "@/lib/user-input-options";
+import {
+  encodeUserInputSelection,
+  getUserInputAnswerKey,
+  isUserInputAnswerRequired,
+  readUserInputAnswer,
+} from "@/lib/user-input-answers";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -64,9 +70,8 @@ const AUTO_ADVANCE_DELAY_MS = 200;
 /** Number keys 1-9 pick the matching option of the visible question. */
 const SHORTCUT_OPTION_LIMIT = 9;
 
-function getQuestionKey(question: UserInputQuestion) {
-  return question.key?.trim() || question.question;
-}
+/** Answers are filed the way every answering surface files them. */
+const getQuestionKey = getUserInputAnswerKey;
 
 function getOptionValue(option: UserInputQuestion["options"][number]) {
   return option.value ?? option.label;
@@ -196,11 +201,10 @@ export function UserInputCard(args: UserInputCardProps) {
   const initialSelectionByQuestion = useMemo(
     () =>
       Object.fromEntries(
-        questions.map((question) => {
+        questions.map((question, index) => {
           const parsed = parseAnswerValue({
             value:
-              answers?.[getQuestionKey(question)] ??
-              answers?.[question.header] ??
+              readUserInputAnswer({ answers, question, index }) ??
               (readOnly ? undefined : question.defaultValue),
             multiSelect: question.multiSelect,
             optionValues: question.options.map(getOptionValue),
@@ -274,7 +278,7 @@ export function UserInputCard(args: UserInputCardProps) {
           if (values.length === 0) {
             return [];
           }
-          return [[questionKey, values.join(", ")]];
+          return [[questionKey, encodeUserInputSelection(values)]];
         }),
       ) as Record<string, string>,
     [questions, selectionByQuestion],
@@ -283,9 +287,7 @@ export function UserInputCard(args: UserInputCardProps) {
   const hasAnswer = (question: UserInputQuestion) =>
     Boolean(compiledAnswers[getQuestionKey(question)]?.trim());
   const isQuestionSatisfied = (question: UserInputQuestion) =>
-    question.inputType === "url_notice" ||
-    question.required === false ||
-    hasAnswer(question);
+    !isUserInputAnswerRequired(question) || hasAnswer(question);
   const isReady = questions.every(isQuestionSatisfied);
 
   if (

@@ -639,7 +639,21 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                           </div>
                         </div>
                         {showApprovalActions ? (
+                          // The approval card's decision words, allow first.
                           <div className={sx(notificationsStyles.actionRow)}>
+                            <Button
+                              type="button"
+                              size="sm"
+                              disabled={notificationBusy}
+                              onClick={() =>
+                                void handleResolveApproval(
+                                  notification.id,
+                                  true,
+                                )
+                              }
+                            >
+                              {i18n.t("shell:topBarNotifications.allowOnce")}
+                            </Button>
                             <Button
                               type="button"
                               size="sm"
@@ -653,19 +667,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                               }
                             >
                               {i18n.t("shell:topBarNotifications.deny")}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={notificationBusy}
-                              onClick={() =>
-                                void handleResolveApproval(
-                                  notification.id,
-                                  true,
-                                )
-                              }
-                            >
-                              {i18n.t("shell:topBarNotifications.approve")}
                             </Button>
                           </div>
                         ) : null}

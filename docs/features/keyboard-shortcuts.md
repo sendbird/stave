@@ -91,7 +91,7 @@ choice.
 | Focus prompt composer | `Cmd/Ctrl+L` or `Cmd/Ctrl+J` | Active task |
 | Stage comment | `Cmd/Ctrl+Enter` | While typing in the composer; change it in Settings |
 | Stop active turn | `Esc` | Task pane or composer |
-| Approve request | `Enter` | Active task with a pending request, not while typing |
+| Allow request once | `Enter` | Active task with a pending request, not while typing |
 | Answer with guidance | `Tab` | Active task with a pending request, not while typing |
 | Choose an answer | `1..9` | An agent question in the composer, not while typing |
 | Next question or send answers | `Enter` | An agent question in the composer; Shift+Enter adds a line to a written answer |

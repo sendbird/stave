@@ -27,6 +27,23 @@ export const chatInputApprovalQueueStyles = stylex.create({
     marginTop: "0.375rem",
     paddingInline: vars["--ads-space-4"],
   },
+  // The Enter shortcut sits at the trailing end of the decision row.
+  shortcutHint: {
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 60%, transparent)`,
+    fontSize: vars["--ads-font-size-micro"],
+    marginInlineStart: "auto",
+    whiteSpace: "nowrap",
+  },
+  shortcutKbd: {
+    fontSize: vars["--ads-font-size-micro"],
+    height: vars["--ads-space-16"],
+    marginInlineEnd: vars["--ads-space-2"],
+    paddingInline: vars["--ads-space-4"],
+  },
+  blockedNote: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-micro"],
+  },
   linkAction: {
     borderRadius: vars["--ads-radius-mark"],
     color: {

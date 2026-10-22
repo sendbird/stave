@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { i18n } from "@/i18n/runtime";
 import type { UserInputQuestion } from "@/types/chat";
+import { getUserInputAnswerKey } from "@/lib/user-input-answers";
 
 /** A self-contained authorship snapshot; it never depends on loading the source card. */
 export const QuestionReplySchema = z.object({
@@ -30,7 +31,7 @@ export function buildQuestionReply(args: {
     questions: args.questions.map((question) => ({
       header: question.header,
       question: question.question,
-      answer: args.denied ? "" : (args.answers?.[question.key?.trim() || question.question]
+      answer: args.denied ? "" : (args.answers?.[getUserInputAnswerKey(question)]
         ?? args.answers?.[question.question] ?? "").trim(),
     })),
   };

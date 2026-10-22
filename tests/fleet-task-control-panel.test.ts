@@ -17,7 +17,7 @@ const workspaceCardSource = await Bun.file(
 describe("Fleet inline control surface contract", () => {
   test("renders the complete interaction and running-turn controls", () => {
     expect(panelSource).toContain("<UserInputCard");
-    expect(panelSource).toContain("<ConfirmationCompact");
+    expect(panelSource).toContain("<ToolApprovalCard");
     expect(panelSource).toContain("fleet:fleetTaskControlPanel.steerNow");
     expect(i18n.getFixedT("en", "fleet")("fleetTaskControlPanel.steerNow")).toBe("Steer now");
     expect(panelSource).toContain("fleet:fleetTaskControlPanel.queueNext");

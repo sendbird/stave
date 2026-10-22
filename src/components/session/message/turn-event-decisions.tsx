@@ -1,8 +1,13 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
-import { Approval } from "@/components/ads/components/Approval";
-import type { ApprovalOutcome } from "@/components/ads/components/Approval";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Clarification } from "@/components/ads/components/Clarification";
 import type { ClarificationOutcome } from "@/components/ads/components/Clarification";
@@ -14,8 +19,20 @@ import type {
 import { RadioGroup } from "@/components/ads/components/RadioGroup";
 import { TextField } from "@/components/ads/components/TextField";
 import { sx } from "@/components/ads/utils/stylex";
-import { getTodoProgress, type TodoStatus } from "@/components/ai-elements/todo";
+import { getTodoProgress, type TodoStatus } from "@/lib/todo-progress";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
+import { LinkifiedText } from "@/components/ui/linkified-text";
+import {
+  APPROVAL_DELIVERY_GUARD_MS,
+  ToolApprovalCard,
+  type ToolApprovalDecision,
+} from "@/components/session/ToolApprovalCard";
+import {
+  encodeUserInputSelection,
+  getUserInputAnswerKey,
+  isUserInputAnswerRequired,
+  readUserInputAnswer,
+} from "@/lib/user-input-answers";
 import { useAppStore } from "@/store/app.store";
 import type {
   ApprovalPart,
@@ -98,45 +115,17 @@ export function planProgressCount(input: string): string | undefined {
 /* ─── Approval ───────────────────────────────────────────────────── */
 
 /**
- * A recorded approval, or `null` while the gate is still open.
+ * A permission gate on its step in the transcript, drawn by the shared
+ * `ToolApprovalCard` (ADS `Approval`) at the default density.
  *
- * The scope mapping is the interesting half. Stave persists *whether* a request
- * was answered (`approval-responded`) and not which grant was used, so the
- * record is ADS's `allowed` rather than `allow-once`: §5 forbids inventing the
- * precision, and both of the scoped values state a fact nobody wrote down —
- * one claims the grant was single-use, the other claims a standing grant that
- * may not exist. `approval-interrupted` is `lapsed`, which is neither a denial
- * nor a pending gate: the turn that asked ended, and the buttons would be an
- * affordance that can no longer do anything.
- */
-function toApprovalOutcome(
-  state: ApprovalPart["state"],
-): ApprovalOutcome | null {
-  switch (state) {
-    case "approval-requested":
-      return null;
-    case "approval-responded":
-      return { decision: "allowed" };
-    case "output-denied":
-      return { decision: "deny" };
-    case "approval-interrupted":
-      return { decision: "lapsed" };
-  }
-}
-
-/**
- * A permission gate, rendered through ADS `Approval`.
+ * The decisions call straight into the store action every other surface uses,
+ * with the same `scope`, so the IPC round trip is untouched. The card blocks
+ * its controls from the moment a decision is sent until the part leaves
+ * pending, so a second click cannot send a second answer.
  *
- * ADS is presentation only here: the three buttons call straight into the
- * store action Stave already used, with the same `scope` the previous surface
- * passed, so the IPC round trip is untouched. What moves into ADS is the part
- * that kept drifting — the status word and its tone, the focus hand-off when
- * the pressed button unmounts, and the rule that the decision is *preserved*
- * in the transcript rather than replaced by it.
- *
- * There is no disclosure. §4's "approval gate stays open" is absolute for this
- * kind: the payload is a question, and the resolved form is the audit record,
- * so neither state has anything worth collapsing to.
+ * There is no disclosure. The approval gate stays open: the payload is a
+ * question, and the resolved form is the audit record, so neither state has
+ * anything worth collapsing to.
  */
 export function TraceApproval(args: {
   messageId: string;
@@ -146,15 +135,14 @@ export function TraceApproval(args: {
   useTranslation();
   const { messageId, part, taskId } = args;
   const resolveApproval = useAppStore((state) => state.resolveApproval);
-  const outcome = toApprovalOutcome(part.state);
 
   const decide = useCallback(
-    (decision: "allow-once" | "allow-always" | "deny") => {
+    (decision: ToolApprovalDecision) => {
       resolveApproval({
-        approved: decision !== "deny",
+        approved: decision.approved,
         messageId,
         requestId: part.requestId,
-        scope: decision === "allow-always" ? "always" : "once",
+        scope: decision.scope,
         taskId,
       });
     },
@@ -162,34 +150,21 @@ export function TraceApproval(args: {
   );
 
   return (
-    <Approval
-      allowAlways={part.supportsAllowAlways === true}
-      arguments={
-        part.input
-          ? [{ id: "input", label: i18n.t("session:turnEventDecisions.label"), value: part.input }]
-          : undefined
-      }
+    <ToolApprovalCard
       data-pending-interaction={
         part.state === "approval-requested" ? "true" : undefined
       }
       data-pending-interaction-request-id={
         part.state === "approval-requested" ? part.requestId : undefined
       }
-      description={part.description}
       onDecide={decide}
-      outcome={outcome}
+      part={part}
       tabIndex={part.state === "approval-requested" ? -1 : undefined}
-      title={getToolTitle(part.toolName)}
     />
   );
 }
 
 /* ─── Clarification ──────────────────────────────────────────────── */
-
-/** The answer key a question is filed under, matching `resolveUserInput`. */
-function questionKey(question: UserInputQuestion, index: number): string {
-  return question.key ?? question.header ?? `question-${index}`;
-}
 
 function toClarificationOutcome(
   part: UserInputPart,
@@ -198,10 +173,13 @@ function toClarificationOutcome(
     case "input-requested":
       return null;
     case "input-responded": {
-      const answers = part.answers ?? {};
       const recorded = part.questions
         .map((question, index) => {
-          const value = answers[questionKey(question, index)];
+          const value = readUserInputAnswer({
+            answers: part.answers,
+            question,
+            index,
+          });
           return value == null || value.length === 0
             ? null
             : `${question.header}: ${value}`;
@@ -226,23 +204,38 @@ function toClarificationOutcome(
  * seam: the frame is the same for every question, and the control is not. A
  * single-select question is a `RadioGroup` because the options are mutually
  * exclusive and all visible; a multi-select is a column of `Checkbox`es for the
- * same reason in the plural; everything else is a `TextField`, including the
- * numeric types — the provider's `number`/`integer` distinction is a validation
- * rule it enforces itself, and a spinner control would imply a range nobody
- * stated.
+ * same reason in the plural; a link notice asks for nothing and shows its link;
+ * everything else is a `TextField`, including the numeric types — the
+ * provider's `number`/`integer` distinction is a validation rule it enforces
+ * itself, and a spinner control would imply a range nobody stated.
+ *
+ * The draft is the list of picked option values (or the typed text), so an
+ * option whose label contains the multi-select separator stays one pick.
  */
 function ClarificationField(args: {
   disabled: boolean;
-  onChange: (value: string) => void;
+  onChange: (values: readonly string[]) => void;
   question: UserInputQuestion;
-  value: string;
+  values: readonly string[];
 }) {
   useTranslation();
-  const { disabled, onChange, question, value } = args;
+  const { disabled, onChange, question, values } = args;
+
+  if (question.inputType === "url_notice") {
+    return (
+      <LinkifiedText
+        as="p"
+        className={sx(styles.legend)}
+        text={[question.question, question.linkUrl]
+          .filter((line): line is string => Boolean(line?.trim()))
+          .join("\n")}
+      />
+    );
+  }
 
   if (question.options.length > 0) {
     if (question.multiSelect === true) {
-      const selected = new Set(value.length > 0 ? value.split("\n") : []);
+      const selected = new Set(values);
       return (
         <fieldset className={sx(styles.fieldset)}>
           <legend className={sx(styles.legend)}>{question.question}</legend>
@@ -262,8 +255,7 @@ function ClarificationField(args: {
                   onChange(
                     question.options
                       .map((row) => row.value ?? row.label)
-                      .filter((row) => updated.has(row))
-                      .join("\n"),
+                      .filter((row) => updated.has(row)),
                   );
                 }}
               />
@@ -277,13 +269,15 @@ function ClarificationField(args: {
       <RadioGroup
         disabled={disabled}
         label={question.question}
-        onValueChange={(next) => onChange(String(next ?? ""))}
+        onValueChange={(next) =>
+          onChange(next == null || next === "" ? [] : [String(next)])
+        }
         options={question.options.map((option) => ({
           description: option.description || undefined,
           label: option.label,
           value: option.value ?? option.label,
         }))}
-        value={value.length > 0 ? value : null}
+        value={values[0] ?? null}
       />
     );
   }
@@ -292,10 +286,29 @@ function ClarificationField(args: {
     <TextField
       disabled={disabled}
       label={question.question}
-      onChange={(event) => onChange(event.target.value)}
-      value={value}
+      onChange={(event) => onChange([event.target.value])}
+      value={values[0] ?? ""}
     />
   );
+}
+
+/**
+ * The answers to send: every question filed under its answer key, in the
+ * encoding every other answering surface uses (`user-input-answers.ts`), so
+ * the provider matches them however the question was answered.
+ */
+export function encodeClarificationAnswers(args: {
+  questions: readonly UserInputQuestion[];
+  drafts: Readonly<Record<string, readonly string[]>>;
+}): Record<string, string> {
+  const answers: Record<string, string> = {};
+  for (const question of args.questions) {
+    if (question.inputType === "url_notice") continue;
+    const key = getUserInputAnswerKey(question);
+    const value = encodeUserInputSelection(args.drafts[key] ?? []);
+    if (value) answers[key] = value;
+  }
+  return answers;
 }
 
 /**
@@ -308,9 +321,11 @@ function ClarificationField(args: {
  * when there is more than one, because `1 / 1` is a step readout for something
  * that has no steps.
  *
- * `Continue` stays disabled until every `required` question has a value, which
- * is the one piece of truth the host owns and ADS cannot: ADS knows the frame
- * is submittable, the provider knows what it asked to be filled in.
+ * Submit stays disabled until every required question has a value (a question
+ * is required unless the provider marked it optional), which is the one piece
+ * of truth the host owns and ADS cannot. A sent answer blocks the controls
+ * until the request leaves pending or the delivery guard passes, so a lost
+ * delivery can be retried.
  */
 export function TraceClarification(args: {
   messageId: string;
@@ -320,12 +335,22 @@ export function TraceClarification(args: {
   useTranslation();
   const { messageId, part, taskId } = args;
   const resolveUserInput = useAppStore((state) => state.resolveUserInput);
-  const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState(false);
+  const [drafts, setDrafts] = useState<Record<string, readonly string[]>>({});
+  const [sentRequestId, setSentRequestId] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const focusWithinRef = useRef(false);
   const outcome = toClarificationOutcome(part);
   const open = part.state === "input-requested";
+  const busy = open && sentRequestId === part.requestId;
+
+  useEffect(() => {
+    if (!busy) return;
+    const timer = window.setTimeout(
+      () => setSentRequestId(null),
+      APPROVAL_DELIVERY_GUARD_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [busy]);
 
   useLayoutEffect(() => {
     if (part.state !== "input-responded" || !focusWithinRef.current) return;
@@ -336,11 +361,15 @@ export function TraceClarification(args: {
     focusWithinRef.current = false;
   }, [part.state]);
 
-  const missingRequired = part.questions.some((question, index) => {
-    if (question.required !== true) return false;
-    const value = answers[questionKey(question, index)];
-    return value == null || value.length === 0;
+  const answers = encodeClarificationAnswers({
+    questions: part.questions,
+    drafts,
   });
+  const missingRequired = part.questions.some(
+    (question) =>
+      isUserInputAnswerRequired(question) &&
+      !answers[getUserInputAnswerKey(question)],
+  );
 
   return (
     <div
@@ -380,7 +409,7 @@ export function TraceClarification(args: {
             missingRequired
               ? undefined
               : () => {
-                  setBusy(true);
+                  setSentRequestId(part.requestId);
                   resolveUserInput({
                     answers,
                     messageId,
@@ -390,7 +419,7 @@ export function TraceClarification(args: {
                 }
           }
           onSkip={() => {
-            setBusy(true);
+            setSentRequestId(part.requestId);
             resolveUserInput({
               denied: true,
               messageId,
@@ -406,17 +435,17 @@ export function TraceClarification(args: {
             part.questions.length > 1 ? part.questions.length : undefined
           }
         >
-          {part.questions.map((question, index) => {
-            const key = questionKey(question, index);
+          {part.questions.map((question) => {
+            const key = getUserInputAnswerKey(question);
             return (
               <ClarificationField
                 disabled={busy}
                 key={key}
-                onChange={(value) =>
-                  setAnswers((previous) => ({ ...previous, [key]: value }))
+                onChange={(values) =>
+                  setDrafts((previous) => ({ ...previous, [key]: values }))
                 }
                 question={question}
-                value={answers[key] ?? ""}
+                values={drafts[key] ?? []}
               />
             );
           })}

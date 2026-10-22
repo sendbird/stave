@@ -383,7 +383,6 @@
     "archived": "Archived",
     "markRead": "Mark read",
     "deny": "Deny",
-    "approve": "Approve",
     "thisTaskIsArchived": "This task is archived.",
     "restore": "Restore",
     "cancel": "Cancel",
@@ -392,7 +391,8 @@
     "clearNotificationHistory": "Clear notification history?",
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "This permanently removes every notification currently in History, including approval and input requests. Unread notifications remain available.",
     "loadMoreCount": "Load more ({{count}} remaining)",
-    "restoreTask": "Restore {{title}} to reopen it from notifications."
+    "restoreTask": "Restore {{title}} to reopen it from notifications.",
+    "allowOnce": "Allow once"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "Standalone CLI — set a folder in Settings",
@@ -849,8 +849,8 @@
         "description": "Bring back the most recently closed task, file, or Lens tab in this workspace."
       },
       "approve": {
-        "title": "Approve request",
-        "description": "Approve the pending request in the active task when focus is not in a field."
+        "title": "Allow request once",
+        "description": "Allow the pending request once in the active task when focus is not in a field."
       },
       "approvalGuidance": {
         "title": "Answer with guidance",

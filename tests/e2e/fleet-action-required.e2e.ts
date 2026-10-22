@@ -95,7 +95,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: repositoryPath,
+          repositoryPath,
           repositoryName: "stave-fleet-needs",
           workspaces: [
             {
@@ -121,7 +121,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           kind: "task.turn_completed",
           title: "Review summary",
           body: "The provider turn completed.",
-          projectPath: repositoryPath,
+          repositoryPath,
           repositoryName: "stave-fleet-needs",
           workspaceId,
           workspaceName: "fleet-needs",
@@ -141,7 +141,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           kind: "task.approval_requested",
           title: "Approve deployment",
           body: "Allow the deployment command.",
-          projectPath: repositoryPath,
+          repositoryPath,
           repositoryName: "stave-fleet-needs",
           workspaceId,
           workspaceName: "fleet-needs",
@@ -285,10 +285,10 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(controls).toContainText(
     "This request was already answered or expired.",
   );
-  await expect(controls.getByRole("button", { name: "Approve" })).toHaveCount(
-    0,
-  );
-  await expect(controls.getByRole("button", { name: "Reject" })).toHaveCount(0);
+  await expect(
+    controls.getByRole("button", { name: "Allow once" }),
+  ).toHaveCount(0);
+  await expect(controls.getByRole("button", { name: "Deny" })).toHaveCount(0);
   await page.screenshot({
     path: testInfo.outputPath("fleet-action-required.png"),
     fullPage: true,
@@ -299,29 +299,25 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
 
   await page.evaluate(async () => {
     const storeModule = await import("/src/store/app.store.ts");
+    const turnStatus = await import("/src/lib/providers/turn-status.ts");
     const store = storeModule.useAppStore;
     const state = store.getState();
     const taskId = "task-fleet-needs";
     const turnId = "turn-approval";
-    const now = Date.now();
     store.setState({
       activeTurnIdsByTask: {
         ...state.activeTurnIdsByTask,
         [taskId]: turnId,
       },
-      providerTurnActivityByTask: {
-        ...state.providerTurnActivityByTask,
-        [taskId]: {
-          turnId,
-          providerId: "codex",
-          startedAt: now - 12_000,
-          lastEventAt: now,
-          stalledAt: null,
-          pendingInteraction: "approval",
-          workItemsById: {},
-          orderedWorkItemIds: [],
-        },
-      },
+      // The runtime's own constructor, so the snapshot carries its work graph.
+      providerTurnActivityByTask: turnStatus.startProviderTurnActivity({
+        activityByTask: state.providerTurnActivityByTask,
+        taskId,
+        turnId,
+        providerId: "codex",
+        pendingInteraction: "approval",
+        now: Date.now() - 12_000,
+      }),
     });
   });
   await expect(
@@ -333,10 +329,12 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(controls).not.toContainText(
     "This request was already answered or expired.",
   );
-  await expect(controls.getByRole("button", { name: "Approve" })).toBeVisible();
-  await expect(controls.getByRole("button", { name: "Reject" })).toBeVisible();
+  await expect(
+    controls.getByRole("button", { name: "Allow once" }),
+  ).toBeVisible();
+  await expect(controls.getByRole("button", { name: "Deny" })).toBeVisible();
   await expect(controls.getByRole("button", { name: "Stop" })).toBeVisible();
-  const approvalButton = controls.getByRole("button", { name: "Approve" });
+  const approvalButton = controls.getByRole("button", { name: "Allow once" });
   await expect
     .poll(() => measureTextContrast(approvalButton))
     .toBeGreaterThanOrEqual(4.5);

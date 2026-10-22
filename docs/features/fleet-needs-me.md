@@ -35,8 +35,8 @@ optional shortcuts on top of that.
 2. Review the fixed `Action required` rail, which keeps questions and approvals
    ahead of the folded `In review` group.
 3. Select an item to open its exact task or workspace.
-4. Approve or deny approval requests, mark results as read, or open the
-   linked pull request from the item actions.
+4. Answer approval requests (`Allow once` or `Deny`), mark results as read, or
+   open the linked pull request from the item actions.
 
 ## Interface Walkthrough
 
@@ -68,8 +68,10 @@ optional shortcuts on top of that.
 ### Key Controls
 
 - `Open next item`: opens the next item in urgency order.
-- `Approve` and `Deny`: resolve a durable approval request without first opening
-  the task.
+- `Allow once`, `Always allow` and `Deny`: resolve a durable approval request
+  without first opening the task. The request is drawn by the same approval card
+  as the conversation and the composer; `Always allow` appears only when the
+  provider can keep the grant, and not for a task an external host manages.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.

@@ -380,7 +380,6 @@
     "archived": "보관됨",
     "markRead": "읽음 표시",
     "deny": "거부",
-    "approve": "승인",
     "thisTaskIsArchived": "이 작업은 보관되었습니다.",
     "restore": "복원",
     "cancel": "취소",
@@ -389,7 +388,8 @@
     "clearNotificationHistory": "알림 기록을 지우시겠습니까?",
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "승인 및 입력 요청을 포함하여 현재 기록의 모든 알림을 영구 삭제합니다. 읽지 않은 알림은 유지합니다.",
     "loadMoreCount": "더 불러오기 ({{count}}개 남음)",
-    "restoreTask": "{{title}} 작업을 복원하면 알림에서 다시 열 수 있습니다."
+    "restoreTask": "{{title}} 작업을 복원하면 알림에서 다시 열 수 있습니다.",
+    "allowOnce": "한 번 허용"
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "독립 CLI — 설정에서 폴더 지정",
@@ -843,8 +843,8 @@
         "description": "이 워크스페이스에서 가장 최근에 닫은 작업, 파일 또는 Lens 탭을 다시 엽니다."
       },
       "approve": {
-        "title": "요청 승인",
-        "description": "입력란에 포커스가 없을 때 활성 작업의 대기 중인 요청을 승인합니다."
+        "title": "요청 한 번 허용",
+        "description": "입력란에 포커스가 없을 때 활성 작업의 대기 중인 요청을 한 번 허용합니다."
       },
       "approvalGuidance": {
         "title": "안내와 함께 응답",

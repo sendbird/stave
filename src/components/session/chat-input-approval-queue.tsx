@@ -1,8 +1,11 @@
-import { i18n, useTranslation } from "@/i18n";
+import { i18n, Trans, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { useEffect, useRef, useState } from "react";
-import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
+import {
+  APPROVAL_DELIVERY_GUARD_MS,
+  ToolApprovalCard,
+} from "@/components/session/ToolApprovalCard";
 import { Button } from "@/components/ui/button";
 import { Loader } from "@/components/ui/loader";
 import { Kbd } from "@/components/ui/kbd";
@@ -87,8 +90,23 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     onResolveApproval({
       messageId: args.messageId,
       approved: args.approved,
-      ...(args.scope ? { scope: args.scope } : {}),
+      ...(args.scope === "always" ? { scope: args.scope } : {}),
     });
+  }
+
+  /** Why a card's decisions are blocked, or nothing while they are live. */
+  function describeBlockedDecision(item: PendingApprovalQueueItem) {
+    if (pendingDecisionRequestId === item.part.requestId) {
+      return undefined;
+    }
+    const reason = pendingDecisionRequestId
+      ? i18n.t("session:chatInputApprovalQueue.extraCopy143")
+      : disabled
+        ? disabledReason
+        : undefined;
+    return reason ? (
+      <span className={sx(styles.blockedNote)}>{reason}</span>
+    ) : undefined;
   }
 
   function openGuidanceDraft(args: { focusComposer?: boolean }) {
@@ -141,7 +159,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     // retried instead of leaving the approval surface permanently disabled.
     const timeoutId = window.setTimeout(
       () => setPendingDecisionRequestId(null),
-      32_000,
+      APPROVAL_DELIVERY_GUARD_MS,
     );
     return () => window.clearTimeout(timeoutId);
   }, [approvals, pendingDecisionRequestId]);
@@ -194,40 +212,32 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
       )}
     >
       {/* Latest approval */}
-      <ConfirmationCompact
-        toolName={current.part.toolName}
-        description={current.part.description}
-        state={current.part.state}
+      <ToolApprovalCard
+        actions={
+          !disabled && !decisionPending ? (
+            <span className={sx(styles.shortcutHint)}>
+              <Trans
+                i18n={i18n}
+                ns="session"
+                i18nKey="chatInputApprovalQueue.enterToAllowOnce"
+                components={{ key: <Kbd className={sx(styles.shortcutKbd)} /> }}
+              />
+            </span>
+          ) : undefined
+        }
+        busy={pendingDecisionRequestId === current.part.requestId}
+        density="compact"
         disabled={disabled || decisionPending}
-        disabledReason={
-          decisionPending ? i18n.t("session:chatInputApprovalQueue.extraCopy142") : disabledReason
-        }
-        showShortcutHint={!disabled && !decisionPending}
-        onApprove={() =>
+        note={describeBlockedDecision(current)}
+        onDecide={(decision) =>
           resolveApproval({
             messageId: current.messageId,
             requestId: current.part.requestId,
-            approved: true,
+            approved: decision.approved,
+            scope: decision.scope,
           })
         }
-        onApproveAlways={
-          current.part.supportsAllowAlways
-            ? () =>
-                resolveApproval({
-                  messageId: current.messageId,
-                  requestId: current.part.requestId,
-                  approved: true,
-                  scope: "always",
-                })
-            : undefined
-        }
-        onReject={() =>
-          resolveApproval({
-            messageId: current.messageId,
-            requestId: current.part.requestId,
-            approved: false,
-          })
-        }
+        part={current.part}
       />
       {decisionPending ? (
         <p
@@ -329,43 +339,21 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
             <summary className={sx(styles.queuedSummary, transition.colors)}>{i18n.t("session:chatInputApprovalQueue.sentence55", { value1: queuedCount })}</summary>
             <div className={sx(styles.queuedList)}>
               {approvals.slice(1).map((approval) => (
-                <ConfirmationCompact
-                  key={`${approval.messageId}:${approval.part.requestId}`}
-                  toolName={approval.part.toolName}
-                  description={approval.part.description}
-                  state={approval.part.state}
+                <ToolApprovalCard
+                  busy={pendingDecisionRequestId === approval.part.requestId}
+                  density="compact"
                   disabled={disabled || decisionPending}
-                  disabledReason={
-                    decisionPending
-                      ? i18n.t("session:chatInputApprovalQueue.extraCopy143")
-                      : disabledReason
-                  }
-                  showShortcutHint={false}
-                  onApprove={() =>
+                  key={`${approval.messageId}:${approval.part.requestId}`}
+                  note={describeBlockedDecision(approval)}
+                  onDecide={(decision) =>
                     resolveApproval({
                       messageId: approval.messageId,
                       requestId: approval.part.requestId,
-                      approved: true,
+                      approved: decision.approved,
+                      scope: decision.scope,
                     })
                   }
-                  onApproveAlways={
-                    approval.part.supportsAllowAlways
-                      ? () =>
-                          resolveApproval({
-                            messageId: approval.messageId,
-                            requestId: approval.part.requestId,
-                            approved: true,
-                            scope: "always",
-                          })
-                      : undefined
-                  }
-                  onReject={() =>
-                    resolveApproval({
-                      messageId: approval.messageId,
-                      requestId: approval.part.requestId,
-                      approved: false,
-                    })
-                  }
+                  part={approval.part}
                 />
               ))}
             </div>

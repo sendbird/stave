@@ -56,17 +56,6 @@
     "ariaLabel": "More composer controls ({{value1}})",
     "title": "More composer controls"
   },
-  "confirmation": {
-    "getApprovalDecisionText": "Decision: approved.",
-    "getApprovalDecisionText2": "Decision: denied.",
-    "getApprovalDecisionText3": "Request expired because the turn was interrupted.",
-    "confirmationCompact": "Approve",
-    "title": "Approve and let the provider remember this decision.",
-    "confirmationCompact2": "Always allow",
-    "confirmationCompact3": "Reject",
-    "confirmationCompact4": "approve",
-    "confirmationCompact5": "Decision recorded."
-  },
   "conversation": {
     "ariaLabel": "Scroll to bottom",
     "download": "Download conversation"
@@ -431,46 +420,6 @@
   "snippet": {
     "ariaLabel": "Copy",
     "title": "Copy"
-  },
-  "subagent": {
-    "title": "Subagent activity",
-    "subagentCard": "Subagent",
-    "errorText": "Subagent failed.",
-    "extraCopy70": "Subagent progress:"
-  },
-  "todo": {
-    "todoCard": "Todo",
-    "todoCard2": "No todos."
-  },
-  "toolResult": {
-    "running": "Running",
-    "success": "Done",
-    "error": "Failed",
-    "cancelled": "Cancelled",
-    "copyAction": "Copied",
-    "copyAction2": "Copy",
-    "toolResultOutput": "No output.",
-    "footer": "Retry",
-    "toolResult": "Tool"
-  },
-  "tool": {
-    "ariaLabel": "Running",
-    "ariaLabel2": "Input available",
-    "ariaLabel3": "Done",
-    "ariaLabel4": "Error",
-    "ariaLabel5": "Idle",
-    "getToolStatusText": "Running ({{value1}})",
-    "getToolStatusText2": "Running",
-    "getToolStatusText3": "Ready",
-    "getToolStatusText4": "Done ({{value1}})",
-    "getToolStatusText5": "Done",
-    "getToolStatusText6": "Error",
-    "getToolStatusText7": "Idle",
-    "toolInput": "Input",
-    "toolOutput": "Output",
-    "toolOutput2": "No output.",
-    "toolGroup": "Tools",
-    "extraCopy72": "Tool"
   },
   "userInputCard": {
     "title": "Answered",

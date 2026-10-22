@@ -267,7 +267,7 @@ working there. It appears in these places:
   task's own approvals appear, shows the oldest open request from any
   delegated descendant. A task between the root and the child shows it too.
   It names the delegated task and the provider and model that asked, and
-  offers the usual Approve/Reject or answer controls.
+  offers the usual `Allow once` / `Deny` or answer controls.
   Answering there responds to the child without selecting it or switching
   workspaces, including for a child running in its own worktree. Further
   requests wait behind it as `+N more`.

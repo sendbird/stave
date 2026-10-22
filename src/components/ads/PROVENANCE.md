@@ -140,6 +140,17 @@ Further host extensions:
   `consumer-changes/2026-09-07-approval-resolution-beyond-the-decision.json`
   and `2026-09-07-clarification-lapsed-result.json`.
 
+  `Approval` carries one host extension, `density="compact"` (default
+  `"default"`). It fits the same decision into a surface that draws its own
+  boundary — the composer's approval queue, a delegated child's request slot,
+  a Fleet row or panel: the transcript's top rule goes, the gaps and padding
+  tighten one step, and the description and argument values clamp to three
+  lines. The decision set, its words, `busy`, focus hand-off and the recorded
+  outcome are unchanged, so the transcript (which keeps the default) and the
+  compact surfaces answer a request the same way. Stave reaches it only through
+  `src/components/session/ToolApprovalCard.tsx`, which also passes
+  `allowAlways` explicitly instead of relying on the `true` default.
+
   `Checkpoint` is installed but not yet wired: Stave's compaction-boundary
   restore runs a destructive `git restore --worktree` behind a
   confirm-then-restore second click, and `Checkpoint` models a single

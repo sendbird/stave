@@ -1,4 +1,4 @@
-import { getTodoProgress, type TodoItem } from "@/components/ai-elements/todo";
+import { getTodoProgress, type TodoItem } from "@/lib/todo-progress";
 import {
   isStaveToolName,
   toStaveToolDisplayName,

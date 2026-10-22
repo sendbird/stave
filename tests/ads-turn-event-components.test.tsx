@@ -16,6 +16,7 @@ import {
   planProgressCount,
 } from "@/components/session/message/turn-event-decisions";
 import { TraceSystemNotice } from "@/components/session/message/turn-event-notice";
+import { ToolApprovalCard } from "@/components/session/ToolApprovalCard";
 import type { ApprovalPart, UserInputPart } from "@/types/chat";
 
 function todoInput(
@@ -289,6 +290,74 @@ describe("ADS turn-event components", () => {
     expect(markup).toContain("Withdrawn");
     expect(markup).not.toContain("Denied");
     expect(markup).not.toContain("Deny");
+  });
+
+  test("the shared approval card draws the same request the same way at either density", () => {
+    const transcript = renderToStaticMarkup(
+      <ToolApprovalCard
+        onDecide={() => {}}
+        part={approvalPart("approval-requested")}
+      />,
+    );
+    const compact = renderToStaticMarkup(
+      <ToolApprovalCard
+        density="compact"
+        onDecide={() => {}}
+        part={approvalPart("approval-requested")}
+      />,
+    );
+    for (const markup of [transcript, compact]) {
+      expect(markup).toContain("Bash");
+      expect(markup).toContain("Delete the build directory");
+      expect(markup).toContain("rm -rf build");
+      expect(markup).toContain(">Allow once<");
+      expect(markup).toContain(">Always allow<");
+      expect(markup).toContain(">Deny<");
+    }
+    expect(compact).toContain('data-density="compact"');
+    expect(transcript).not.toContain("data-density");
+  });
+
+  test("Always allow appears only where the provider persists it and the surface can send it", () => {
+    const unsupported = renderToStaticMarkup(
+      <ToolApprovalCard
+        onDecide={() => {}}
+        part={{ ...approvalPart("approval-requested"), supportsAllowAlways: false }}
+      />,
+    );
+    const refused = renderToStaticMarkup(
+      <ToolApprovalCard
+        allowAlways={false}
+        onDecide={() => {}}
+        part={approvalPart("approval-requested")}
+      />,
+    );
+    for (const markup of [unsupported, refused]) {
+      expect(markup).toContain(">Allow once<");
+      expect(markup).not.toContain(">Always allow<");
+    }
+  });
+
+  test("a sent decision blocks the card until the request leaves pending", () => {
+    const busy = renderToStaticMarkup(
+      <ToolApprovalCard
+        busy
+        onDecide={() => {}}
+        part={approvalPart("approval-requested")}
+      />,
+    );
+    expect(busy).toContain("Recording decision");
+    expect(busy).toContain('aria-busy="true"');
+    const disabled = renderToStaticMarkup(
+      <ToolApprovalCard
+        disabled
+        note="Another decision is being delivered."
+        onDecide={() => {}}
+        part={approvalPart("approval-requested")}
+      />,
+    );
+    expect(disabled).toContain("Another decision is being delivered.");
+    expect(disabled.match(/<button[^>]*disabled=""/g)?.length).toBe(3);
   });
 
   test("Approval's lapsed resolution takes neutral ink, never danger", () => {

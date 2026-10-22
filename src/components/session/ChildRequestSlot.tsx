@@ -1,6 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useState } from "react";
-import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/ads/utils/stylex";
@@ -21,10 +20,12 @@ import {
 } from "@/store/provider-message.utils";
 import type { ApprovalPart, ChatMessage, UserInputPart } from "@/types/chat";
 import { childRequestSlotStyles as styles } from "./child-request-slot.styles";
+import {
+  APPROVAL_DELIVERY_GUARD_MS,
+  ToolApprovalCard,
+} from "./ToolApprovalCard";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-/** Matches the composer approval queue: just past the provider's 30s acknowledgement. */
-const DELIVERY_RETRY_MS = 32_000;
 
 type ChildRequestIdentity = DelegatedInteractionRequest["identity"];
 
@@ -124,7 +125,10 @@ function ChildRequestCard(props: {
 
   useEffect(() => {
     if (!busy) return;
-    const timer = window.setTimeout(() => setBusy(false), DELIVERY_RETRY_MS);
+    const timer = window.setTimeout(
+      () => setBusy(false),
+      APPROVAL_DELIVERY_GUARD_MS,
+    );
     return () => window.clearTimeout(timer);
   }, [busy]);
 
@@ -203,15 +207,16 @@ export function ChildRequestView(props: {
         ) : null}
       </div>
       {pending?.part.type === "approval" ? (
-        <ConfirmationCompact
-          toolName={pending.part.toolName}
-          description={pending.part.description}
-          state={pending.part.state}
-          disabled={busy}
-          disabledReason={disabledReason}
-          showShortcutHint={false}
-          onApprove={() => props.onRespond({ kind: "approval", approved: true })}
-          onReject={() => props.onRespond({ kind: "approval", approved: false })}
+        // A child's approval is delivered through the delegating host, which
+        // does not carry a standing grant, so "Always allow" is not offered.
+        <ToolApprovalCard
+          allowAlways={false}
+          busy={busy}
+          density="compact"
+          onDecide={(decision) =>
+            props.onRespond({ kind: "approval", approved: decision.approved })
+          }
+          part={pending.part}
         />
       ) : null}
       {pending?.part.type === "user_input" ? (

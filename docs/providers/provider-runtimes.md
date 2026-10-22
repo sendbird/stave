@@ -292,7 +292,7 @@ The Claude runtime takes the same ordering through the `announce` hook on
 signal already aborted.
 
 When a runtime also advertises an `allow_always` option, the approval card shows
-an `Always allow` action alongside approve and reject, and the decision is sent
+an `Always allow` action alongside `Allow once` and `Deny`, and the decision is sent
 with `scope: "always"`. Cursor persists that choice as a rule in its own
 permissions allowlist, so later turns stop asking for the same command. Stave
 never synthesizes the scope: the button appears only when the option was
