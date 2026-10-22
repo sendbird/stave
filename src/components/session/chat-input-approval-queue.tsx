@@ -29,18 +29,25 @@ interface ChatInputApprovalQueueProps {
   disabled?: boolean;
   disabledReason?: string;
   guidanceFocusNonce?: number;
+  /**
+   * Every decision names its request: one message can hold several approvals,
+   * and the store would otherwise answer the message's latest one.
+   */
   onResolveApproval: (args: {
     messageId: string;
+    requestId: string;
     approved: boolean;
     scope?: "once" | "always";
   }) => void;
   onTrustAndApprove?: (args: {
     messageId: string;
+    requestId: string;
     toolName: string;
     input?: string;
   }) => void;
   onDraftGuidance?: (args: {
     messageId: string;
+    requestId: string;
     toolName: string;
     description: string;
     guidance: string;
@@ -89,6 +96,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     setPendingDecisionRequestId(args.requestId);
     onResolveApproval({
       messageId: args.messageId,
+      requestId: args.requestId,
       approved: args.approved,
       ...(args.scope === "always" ? { scope: args.scope } : {}),
     });
@@ -266,6 +274,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
           onClick={() =>
             onTrustAndApprove({
               messageId: current.messageId,
+              requestId: current.part.requestId,
               toolName: current.part.toolName,
               input: current.part.input,
             })
@@ -298,6 +307,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
                   }
                   onDraftGuidance({
                     messageId: current.messageId,
+                    requestId: current.part.requestId,
                     toolName: current.part.toolName,
                     description: current.part.description,
                     guidance,

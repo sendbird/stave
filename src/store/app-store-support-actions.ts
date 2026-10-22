@@ -673,9 +673,11 @@ export function createSupportActions(args: {
         return;
       }
 
+      // The notification names its request; the message may hold others.
       latestState.resolveApproval({
         taskId,
-        messageId: notification.action.messageId ?? locatedApproval.messageId,
+        messageId: locatedApproval.messageId,
+        requestId: locatedApproval.part.requestId,
         approved,
       });
     },
