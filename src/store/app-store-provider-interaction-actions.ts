@@ -23,6 +23,7 @@ import {
   buildRecentTimestamp,
 } from "@/store/chat-state-helpers";
 import { applyApprovalState, applyUserInputState } from "@/store/editor.utils";
+import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
 import {
   buildManagedTaskTurnInterruptionPatch,
   requestManagedTaskStop,
@@ -311,7 +312,7 @@ export function createProviderInteractionActions(args: {
         endedTurnId: activeTurnId,
       });
     },
-    resolveApproval: ({ taskId, messageId, requestId, approved, scope }) => {
+    resolveApproval: ({ taskId, messageId, requestId, approved, scope, decidedBy }) => {
       const stateBefore = get();
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,
@@ -410,8 +411,15 @@ export function createProviderInteractionActions(args: {
         });
       };
 
-      const applyApprovalResponse = (requestId: string) => {
+      const applyApprovalResponse = (requestId: string, grant?: "always") => {
         const resolvedAt = Date.now();
+        // Who decided, recorded with the answer: a person, unless a Stave rule answered.
+        const resolution = buildApprovalResolution({
+          approved,
+          source: decidedBy?.source ?? "user",
+          decidedAt: resolvedAt,
+          ...(decidedBy ? { reason: decidedBy.reason } : { scope: grant ?? "once" }),
+        });
         set((state) => {
           const resolveActivity = (messagesByTask: Record<string, ChatMessage[]>) =>
             activeTurnId
@@ -436,6 +444,7 @@ export function createProviderInteractionActions(args: {
               messageId,
               requestId,
               approved,
+              resolution,
             });
             return {
               workspaceRuntimeCacheById: {
@@ -456,6 +465,7 @@ export function createProviderInteractionActions(args: {
             messageId,
             requestId,
             approved,
+            resolution,
           });
           return {
             ...nextMessagesState,
@@ -483,18 +493,15 @@ export function createProviderInteractionActions(args: {
           if (!release) {
             return;
           }
+          // Only forward `always` when this request advertised it. A stale
+          // caller must not be able to widen an approval the runtime never
+          // offered to persist.
+          const grant = approved && scope === "always" && approvalPart.supportsAllowAlways ? ("always" as const) : undefined;
           void respondApproval({
             turnId: activeTurnId,
             requestId: approvalPart.requestId,
             approved,
-            // Only forward `always` when this request advertised it. A stale
-            // caller must not be able to widen an approval the runtime never
-            // offered to persist.
-            ...(approved &&
-            scope === "always" &&
-            approvalPart.supportsAllowAlways
-              ? { scope: "always" as const }
-              : {}),
+            ...(grant ? { scope: grant } : {}),
           })
             .then((result) => {
               if (!result.ok) {
@@ -503,7 +510,7 @@ export function createProviderInteractionActions(args: {
                 );
                 return;
               }
-              applyApprovalResponse(approvalPart.requestId);
+              applyApprovalResponse(approvalPart.requestId, grant);
             })
             .catch((error) => {
               appendApprovalFailure(
@@ -531,6 +538,7 @@ export function createProviderInteractionActions(args: {
             taskId,
             requestId: approvalPart.requestId,
             approved,
+            ...(decidedBy ? { decidedBy } : {}),
           })
           .then((result) => {
             if (!result.ok) {

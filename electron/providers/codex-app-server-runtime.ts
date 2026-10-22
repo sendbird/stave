@@ -2188,6 +2188,8 @@ export async function streamCodexWithAppServer(
               requestId: args.requestId,
             }),
           );
+          emitBridgeEvent({ type: "approval_resolved", requestId: args.requestId, toolName: args.toolName,
+            decision: "denied", source: "rule", reason: "timeout", decidedAt: new Date().toISOString() });
           void client
             .respond(
               pending.serverRequestId,
@@ -2478,6 +2480,9 @@ export async function streamCodexWithAppServer(
               params,
             })
           ) {
+            // Never shown: Stave's own prompt-free tools are approved by a setting; the record keeps it.
+            emitBridgeEvent({ type: "approval_resolved", requestId, toolName: presentation.event.toolName,
+              decision: "allowed", source: "rule", reason: "stave-tool", decidedAt: new Date().toISOString() });
             void client
               .respond(message.id as JsonRpcId, { action: "accept" })
               .catch((error) => {

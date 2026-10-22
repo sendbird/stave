@@ -1,5 +1,6 @@
 import { webContents } from "electron";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
+import type { ApprovalRuleDecider } from "../../src/lib/approvals/approval-resolution";
 import type {
   HostCraneReleaseTaskControlArgs,
   HostCraneReleaseTaskControlResult,
@@ -423,6 +424,7 @@ export async function respondApproval(args: {
   taskId: string;
   requestId: string;
   approved: boolean;
+  decidedBy?: ApprovalRuleDecider;
 }) {
   return invokeLocalMcp<{
     ok: boolean;

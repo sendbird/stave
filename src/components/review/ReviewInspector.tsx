@@ -4,12 +4,16 @@ import { Button } from "@/components/ads/components/Button";
 import { useAsync } from "@/components/ads/utils/async";
 import { sx } from "@/components/ads/utils/stylex";
 import { AgentRunDoneWhen } from "@/components/agent-runs/AgentRunDoneWhen";
+import { ApprovalRecordView } from "@/components/approvals/ApprovalRecord";
 import { describeLensReviewVerdict, LensReviewRecordView } from "@/components/panes/surfaces/lens/LensReviewRecordView";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { describeAgentRunResult } from "@/lib/agent-runs/agent-run-status";
+import { collectApprovalRecord, messagesInWindow } from "@/lib/approvals/approval-record";
 import type { LensReviewRecord } from "@/lib/lens/lens-review-record";
+import type { ReviewScope } from "@/lib/review/review-scope";
+import { findStageRecord } from "@/lib/review/review-stage";
 import { useAppStore } from "@/store/app.store";
 import { EMPTY_SENT_REVIEW_COMMENTS, useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import type { ChatMessage } from "@/types/chat";
@@ -20,17 +24,45 @@ const NO_COMMENTS: readonly ReviewComment[] = [];
 
 /**
  * What Review weighs besides the diff: the completion checks Stave ran, the
- * Lens verifications kept for the task, and the diff comments, pending and
- * sent. Each says what it is, so passing checks never read as a review.
+ * approvals asked in the scope and who decided them, the Lens verifications
+ * kept for the task, and the diff comments, pending and sent. Each says what
+ * it is, so passing checks never read as a review.
  */
-export function ReviewInspector(props: { taskId: string; detail: AgentRunDetail | undefined }) {
+export function ReviewInspector(props: { taskId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
   useTranslation();
   return (
     <div className={sx(styles.section)}>
       <ReviewChecks detail={props.detail} />
+      <ReviewApprovals taskId={props.taskId} scope={props.scope} detail={props.detail} />
       <ReviewLensRecords taskId={props.taskId} />
       <ReviewComments taskId={props.taskId} />
     </div>
+  );
+}
+
+const NO_MESSAGES: readonly ChatMessage[] = [];
+
+/** The task's messages the scope covers: its turn, the turns its stage ran, or the whole task. */
+function messagesInScope(messages: readonly ChatMessage[], scope: ReviewScope, detail: AgentRunDetail | undefined): readonly ChatMessage[] {
+  if (scope.kind === "turn") return messages.filter((message) => message.turnId === scope.turnId);
+  if (scope.kind !== "stage") return messages;
+  const record = findStageRecord(detail, scope);
+  return record?.startedAt ? messagesInWindow(messages, { startedAt: record.startedAt, endedAt: record.endedAt }) : NO_MESSAGES;
+}
+
+function ReviewApprovals(props: { taskId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
+  useTranslation();
+  const messages = useAppStore((state) => state.messagesByTask[props.taskId] ?? NO_MESSAGES);
+  const { scope, detail } = props;
+  const entries = useMemo(() => collectApprovalRecord(messagesInScope(messages, scope, detail)), [messages, scope, detail]);
+  const emptyText = scope.kind === "turn" ? i18n.t("session:approvalRecord.none.turn")
+    : scope.kind === "stage" ? i18n.t("session:approvalRecord.none.stage")
+    : i18n.t("session:approvalRecord.none.task");
+  return (
+    <section className={sx(styles.section)} aria-label={i18n.t("session:approvalRecord.title")}>
+      <h3 className={sx(styles.sectionTitle)}>{i18n.t("session:approvalRecord.title")}</h3>
+      <ApprovalRecordView entries={entries} emptyText={emptyText} testId="review-approvals" />
+    </section>
   );
 }
 

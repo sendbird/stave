@@ -1516,7 +1516,7 @@ export function createSendUserMessageAction(args: {
               void latestState.resolveApproval({
                 taskId: resolvedTaskId,
                 ...response,
-                approved: true,
+                approved: true, decidedBy: { source: "rule", reason: "trusted-tool" },
               });
             }
           }

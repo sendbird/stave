@@ -321,5 +321,18 @@
     "overlayCurrent": "Overlay the newer version",
     "before": "Before",
     "after": "After"
+  },
+  "avatar": {
+    "status": {
+      "away": "Away",
+      "busy": "Busy",
+      "offline": "Offline",
+      "online": "Online"
+    },
+    "presence": {
+      "idle": "Idle",
+      "offline": "Offline",
+      "online": "Online"
+    }
   }
 }

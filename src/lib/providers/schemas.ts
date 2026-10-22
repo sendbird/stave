@@ -1,4 +1,5 @@
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
+import { ApprovalResolvedEventSchema } from "@/lib/approvals/approval-resolution";
 import { AgentTurnProvenanceSchema } from "../agents/turn-provenance";
 import { ModelExecutionSchema } from "./model-execution";
 import { AgentRunRouteCauseSchema, AutoRoutingModelResolutionSchema } from "./model-resolution";
@@ -331,6 +332,7 @@ export const NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE = {
   tool_result: ToolResultEventSchema,
   diff: DiffEventSchema,
   approval: ApprovalEventSchema,
+  approval_resolved: ApprovalResolvedEventSchema,
   user_input: UserInputEventSchema,
   system: SystemEventSchema,
   error: ErrorEventSchema,
@@ -358,6 +360,7 @@ export const NormalizedProviderEventSchema = z.discriminatedUnion("type", [
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.tool_result,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.diff,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approval,
+  NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.approval_resolved,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.user_input,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.system,
   NORMALIZED_PROVIDER_EVENT_SCHEMA_BY_TYPE.error,

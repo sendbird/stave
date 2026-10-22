@@ -208,7 +208,7 @@ function summarizeMessageActivity(message: ChatMessage) {
         `${part.toolName}${part.output?.trim() ? ` · ${part.output.trim()}` : ""}`,
       );
     }
-    if (part?.type === "approval") {
+    if (part?.type === "approval" && part.prompted !== false) {
       const label =
         part.state === "approval-requested"
           ? i18n.t("fleet:taskExecutionSummary.waitingForApproval")

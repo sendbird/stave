@@ -112,7 +112,7 @@
     "alwaysAllow": "항상 허용",
     "allowOnce": "한 번 허용",
     "deny": "거부",
-    "byAuthor": "<author/> 작성",
+    "byAuthor": "<author/> 결정",
     "recordingdecision": "결정 기록 중",
     "needsyourapproval": "사용자 승인 필요"
   },
@@ -307,5 +307,18 @@
     "overlayCurrent": "새 버전 겹치기",
     "before": "이전",
     "after": "이후"
+  },
+  "avatar": {
+    "status": {
+      "away": "자리 비움",
+      "busy": "다른 용무 중",
+      "offline": "오프라인",
+      "online": "온라인"
+    },
+    "presence": {
+      "idle": "유휴",
+      "offline": "오프라인",
+      "online": "온라인"
+    }
   }
 }

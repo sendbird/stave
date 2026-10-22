@@ -1,4 +1,5 @@
 import { QuestionReplySchema } from "@/lib/question-reply";
+import { ApprovalResolutionSchema } from "@/lib/approvals/approval-resolution";
 import { McpAppViewReferenceSchema } from "@/lib/mcp-app/mcp-app-schemas";
 import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
@@ -106,6 +107,9 @@ const ApprovalPartSchema = z.object({
     z.literal("approval-interrupted"),
     z.literal("output-denied"),
   ]),
+  // Parts saved before the record existed have neither; a malformed record reads as absent.
+  resolution: ApprovalResolutionSchema.optional().catch(undefined),
+  prompted: z.literal(false).optional().catch(undefined),
 });
 
 const UserInputPartSchema = z.object({

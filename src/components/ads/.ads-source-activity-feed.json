@@ -1,0 +1,54 @@
+{
+  "bundleIntegrity": "sha256-da363d1b78ce23bf66daf29cba9afe27c72800827d2acad761eef3e75a0b0c64",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@stylexjs/stylex": "0.19.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "activityfeed",
+      "kind": "component",
+      "name": "Activity Feed",
+      "path": "src/components/ads/components/ActivityFeed.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-a6120ca042b707a4efd8348f06a4ceafb23cab40d06d0bb6c7a7e62cdbfa9d4d",
+      "path": "src/components/ads/components/ActivityFeed.tsx",
+      "sourcePath": "packages/design-system/src/components/ActivityFeed.tsx"
+    },
+    {
+      "integrity": "sha256-da949741f6417705f9c16cad82cf0ddbb6ea0bac101db25f4481531adb290df4",
+      "path": "src/components/ads/components/Avatar.tsx",
+      "sourcePath": "packages/design-system/src/components/Avatar.tsx"
+    },
+    {
+      "integrity": "sha256-a2619fe8096f3c32ba3a28399b9449f65e0637c6f5e4d7632c50e06006b4e392",
+      "path": "src/components/ads/components/Avatar.presence.tsx",
+      "sourcePath": "packages/design-system/src/components/Avatar.presence.tsx"
+    },
+    {
+      "integrity": "sha256-87d66197e1a07398177fbbde6982dc9b7089fd6c193223780731fa0397f6ae78",
+      "path": "src/components/ads/headless/avatar.tsx",
+      "sourcePath": "packages/design-system/src/headless/avatar.tsx"
+    },
+    {
+      "integrity": "sha256-f2c9ded7e6da7671bde0f6a8b57c755e76903be901066e49bf4dfaff4db3fc6f",
+      "path": "src/components/ads/recipes/overlay-mark.ts",
+      "sourcePath": "packages/design-system/src/recipes/overlay-mark.ts"
+    }
+  ],
+  "generatorVersion": "2",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-8789c0ca2adff13ed1164e5568b5fa9c6f4b6d371b7f9e965a7e9c0edb654592",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

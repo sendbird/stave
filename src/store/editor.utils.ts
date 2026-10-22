@@ -9,6 +9,7 @@ import {
   updateUserInputPartsByRequestId,
 } from "@/store/provider-message.utils";
 import type { ChatMessage, EditorTab } from "@/types/chat";
+import type { ApprovalResolution } from "@/lib/approvals/approval-resolution";
 
 export function getTooLargeEditorTabMetadata(
   data: WorkspaceFileData | WorkspaceImageData | null | undefined,
@@ -172,6 +173,7 @@ export function applyApprovalState(args: {
   messageId: string;
   requestId: string;
   approved: boolean;
+  resolution?: ApprovalResolution;
 }): {
   messagesByTask: Record<string, ChatMessage[]>;
   workspaceSnapshotVersion: number;
@@ -189,6 +191,7 @@ export function applyApprovalState(args: {
             parts: message.parts,
             requestId: args.requestId,
             approved: args.approved,
+            resolution: args.resolution,
           }),
         }),
       }),

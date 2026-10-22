@@ -148,7 +148,10 @@ Patterns combine work components into the moments an agent workflow repeats.
   holds an agent run's sign-off in the same place, and `Approval` and `Clarification`
   show the gate or the question on its step in the conversation. Elsewhere
   the waiting reads as the `approval` or `needs-you` state, drawn with
-  `StateMark`.
+  `StateMark`. Once decided, the card's audit line names who decided and
+  when, and `ApprovalRecordView` (`src/components/approvals`, on ADS
+  `ActivityFeed`) counts a run's requests decided by you apart from those
+  decided automatically and lists them, in Review and under Activity.
 - Recovery: a failure says what failed and offers the next step.
   `ProviderErrorRecovery` continues a turn a provider failed, and
   `AsyncBoundary` retries a failed read or keeps the last result after one.

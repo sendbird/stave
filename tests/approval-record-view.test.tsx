@@ -1,0 +1,116 @@
+import { afterEach, describe, expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { applyAppLocale } from "@/i18n";
+import { APPROVAL_RECORD_LIST_LIMIT, ApprovalRecordView } from "../src/components/approvals/ApprovalRecord";
+import { ReviewInspector } from "../src/components/review/ReviewInspector";
+import { ToolApprovalCard } from "../src/components/session/ToolApprovalCard";
+import { TurnApprovalRecord } from "../src/components/session/TurnApprovalRecord";
+import { collectApprovalRecord } from "../src/lib/approvals/approval-record";
+import { useAppStore } from "../src/store/app.store";
+import type { ApprovalPart, ChatMessage } from "../src/types/chat";
+
+const AT = "2026-10-22T09:00:00.000Z";
+
+const part = (requestId: string, overrides: Partial<ApprovalPart>): ApprovalPart => ({
+  type: "approval", toolName: "Bash", description: "Run the tests", input: "bun test", requestId, state: "approval-responded", ...overrides,
+});
+
+/** One run: one request you allowed, two allowed automatically, one denied when nobody answered. */
+const runParts: ApprovalPart[] = [
+  part("a", { resolution: { decision: "allowed", source: "user", decidedAt: AT, scope: "once" } }),
+  part("b", { input: "src/app.ts", toolName: "Edit", prompted: false, resolution: { decision: "allowed", source: "provider-auto", reason: "permission-mode", decidedAt: AT } }),
+  part("c", { prompted: false, resolution: { decision: "allowed", source: "rule", reason: "autonomy", decidedAt: AT } }),
+  part("d", { input: "rm -rf dist", state: "output-denied", resolution: { decision: "denied", source: "rule", reason: "timeout", decidedAt: AT } }),
+];
+
+function message(parts: ApprovalPart[], overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return { id: "m-1", role: "assistant", model: "claude-opus", providerId: "claude-code", content: "", turnId: "turn-1", parts, ...overrides };
+}
+
+/** Server rendering reads the store's initial state, so the task is written there for one render. */
+function renderWithState(patch: Record<string, unknown>, element: Parameters<typeof renderToStaticMarkup>[0]) {
+  const initial = useAppStore.getInitialState() as unknown as Record<string, unknown>;
+  const saved = Object.fromEntries(Object.keys(patch).map((key) => [key, initial[key]]));
+  Object.assign(initial, patch);
+  try {
+    return renderToStaticMarkup(element);
+  } finally {
+    Object.assign(initial, saved);
+  }
+}
+
+const text = (markup: string) => markup.replace(/<[^>]+>/g, " ").replace(/&#x27;/g, "'").replace(/\s+/g, " ");
+
+afterEach(() => applyAppLocale("en"));
+
+describe("approval record view", () => {
+  test("counts what you decided apart from what was decided automatically, and says who decided each", () => {
+    const markup = text(renderToStaticMarkup(createElement(ApprovalRecordView, { entries: collectApprovalRecord([message(runParts)]), emptyText: "none" })));
+    expect(markup).toContain("1 allowed by you · 2 allowed automatically · 1 denied");
+    expect(markup).toContain("Bash · bun test allowed by you");
+    expect(markup).toContain("Edit · src/app.ts allowed by the permission mode");
+    expect(markup).toContain("Bash · bun test allowed by autonomous mode");
+    expect(markup).toContain("Bash · rm -rf dist denied by Stave, after no answer in time");
+
+    applyAppLocale("ko");
+    const korean = text(renderToStaticMarkup(createElement(ApprovalRecordView, { entries: collectApprovalRecord([message(runParts)]), emptyText: "none" })));
+    expect(korean).toContain("사용자 허용 1건 · 자동 허용 2건 · 거부 1건");
+    expect(korean).toContain("Bash · bun test 자율 모드 허용");
+    expect(korean).toContain("Bash · rm -rf dist 응답 시간 초과 거부");
+  });
+
+  test("older requests without a record, open ones and withdrawn ones say so; a long record shows its latest", () => {
+    const markup = text(renderToStaticMarkup(createElement(ApprovalRecordView, {
+      entries: collectApprovalRecord([message([part("old", {}), part("open", { state: "approval-requested" }), part("gone", { state: "approval-interrupted" })])]),
+      emptyText: "none",
+    })));
+    expect(markup).toContain("0 allowed by you · 0 allowed automatically · 1 waiting · 1 withdrawn · 1 without a record of who decided");
+    expect(markup).toContain("allowed; who decided was not recorded");
+    expect(markup).toContain("waiting for your answer");
+    expect(markup).toContain("withdrawn when the turn ended");
+
+    const many = Array.from({ length: APPROVAL_RECORD_LIST_LIMIT + 3 }, (_, index) => part(`r${index}`, { prompted: false, resolution: { decision: "allowed", source: "rule", reason: "autonomy", decidedAt: AT } }));
+    const long = renderToStaticMarkup(createElement(ApprovalRecordView, { entries: collectApprovalRecord([message(many)]), emptyText: "none" }));
+    expect(long.match(/<li/g)?.length).toBe(APPROVAL_RECORD_LIST_LIMIT);
+    expect(text(long)).toContain(`Showing the latest ${APPROVAL_RECORD_LIST_LIMIT} of ${APPROVAL_RECORD_LIST_LIMIT + 3}.`);
+    expect(text(renderToStaticMarkup(createElement(ApprovalRecordView, { entries: [], emptyText: "No approval requests in this turn." })))).toContain("No approval requests in this turn.");
+  });
+
+  test("Review lists the approvals of its scope: the turn, or the whole task", () => {
+    const messages = [message(runParts), message([part("later", { state: "output-denied", resolution: { decision: "denied", source: "user", decidedAt: AT } })], { id: "m-2", turnId: "turn-2" })];
+    const render = (scope: Parameters<typeof ReviewInspector>[0]["scope"]) =>
+      text(renderWithState({ messagesByTask: { "task-1": messages } }, createElement(ReviewInspector, { taskId: "task-1", scope, detail: undefined })));
+    expect(render({ kind: "turn", taskId: "task-1", turnId: "turn-2" })).toContain("0 allowed by you · 0 allowed automatically · 1 denied");
+    expect(render({ kind: "branch" })).toContain("1 allowed by you · 2 allowed automatically · 2 denied");
+    expect(render({ kind: "turn", taskId: "task-1", turnId: "turn-9" })).toContain("No approval requests in this turn.");
+  });
+
+  test("Activity folds the listed turn's approvals to their counts", () => {
+    const state = {
+      activeWorkspaceId: "ws-1",
+      activeTaskId: "task-1",
+      taskWorkspaceIdById: { "task-1": "ws-1" },
+      activeTurnIdsByTask: {},
+      messagesByTask: { "task-1": [message(runParts)] },
+    };
+    const markup = renderWithState(state, createElement(TurnApprovalRecord));
+    expect(markup).toContain('data-testid="turn-approval-record"');
+    expect(text(markup)).toContain("Approvals in this turn 1 allowed by you · 2 allowed automatically · 1 denied");
+    expect(markup.match(/data-testid="approval-record-counts"/g)).toBeNull();
+    expect(renderWithState({ ...state, messagesByTask: { "task-1": [message([])] } }, createElement(TurnApprovalRecord))).toBe("");
+  });
+
+  test("a decided card names who decided and when, and a person's grant", () => {
+    const card = (approval: ApprovalPart) => text(renderToStaticMarkup(createElement(ToolApprovalCard, { part: approval, onDecide: () => {} })));
+    const always = card(part("a", { resolution: { decision: "allowed", source: "user", decidedAt: AT, scope: "always" } }));
+    expect(always).toContain("Always allowed");
+    expect(always).toContain("by you");
+    expect(card(part("d", { state: "output-denied", resolution: { decision: "denied", source: "rule", reason: "timeout", decidedAt: AT } }))).toContain("by Stave, after no answer in time");
+    const old = card(part("old", {}));
+    expect(old).toContain("Allowed");
+    expect(old).not.toContain(" by ");
+    applyAppLocale("ko");
+    expect(card(part("a", { resolution: { decision: "allowed", source: "user", decidedAt: AT, scope: "once" } }))).toContain("사용자 결정");
+  });
+});

@@ -5,7 +5,9 @@ import {
   type ApprovalDecision,
   type ApprovalOutcome,
 } from "@/components/ads/components/Approval";
+import { describeApprovalDecider } from "@/components/approvals/ApprovalRecord";
 import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
+import { formatTime } from "@/i18n/format";
 import type { ApprovalPart } from "@/types/chat";
 
 /**
@@ -23,22 +25,32 @@ export interface ToolApprovalDecision {
 /**
  * A recorded approval, or `null` while the gate is still open.
  *
- * Stave persists *whether* a request was answered (`approval-responded`), not
- * which grant was used, so the record is ADS's `allowed` rather than a scoped
- * decision: both scoped values would state a fact nobody wrote down.
- * `approval-interrupted` is `lapsed` — the turn that asked ended — which is
- * neither a denial nor a pending gate.
+ * The decision word follows the part's state; who decided and when come from
+ * its `resolution`. A person's allow names its grant (once or always) when it
+ * was recorded; a part from before the record, or one allowed automatically,
+ * is ADS's `allowed`, because a scoped word would state a fact nobody wrote
+ * down. `approval-interrupted` is `lapsed` — the turn that asked ended —
+ * which is neither a denial nor a pending gate.
  */
 export function toApprovalOutcome(
-  state: ApprovalPart["state"],
+  part: Pick<ApprovalPart, "state" | "resolution">,
 ): ApprovalOutcome | null {
-  switch (state) {
+  const { resolution } = part;
+  const audit = resolution
+    ? { by: describeApprovalDecider(resolution), at: formatTime(resolution.decidedAt) }
+    : {};
+  switch (part.state) {
     case "approval-requested":
       return null;
     case "approval-responded":
-      return { decision: "allowed" };
+      return {
+        decision: resolution?.source === "user" && resolution.scope
+          ? (resolution.scope === "always" ? "allow-always" : "allow-once")
+          : "allowed",
+        ...audit,
+      };
     case "output-denied":
-      return { decision: "deny" };
+      return { decision: "deny", ...audit };
     case "approval-interrupted":
       return { decision: "lapsed" };
   }
@@ -166,7 +178,7 @@ export function ToolApprovalCard(props: ToolApprovalCardProps) {
               onDecide(toToolApprovalDecision(decision));
             }
       }
-      outcome={toApprovalOutcome(part.state)}
+      outcome={toApprovalOutcome(part)}
       title={getToolTitle(part.toolName)}
     />
   );

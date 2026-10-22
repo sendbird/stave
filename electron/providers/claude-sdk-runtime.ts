@@ -23,7 +23,10 @@ import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./cl
 import { isUsageLimitErrorText } from "../../src/lib/providers/usage-limit-stop";
 import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-stop-reason";
 import { resolveClaudeTurnGuardrail, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
-import { CLAUDE_HANDOFF_ALLOW_MESSAGES, resolveClaudeHandoffDecision } from "./claude-permission-handoff";
+import {
+  buildClaudeApprovalDecisionEvent, CLAUDE_HANDOFF_ALLOW_DECIDERS, CLAUDE_HANDOFF_ALLOW_MESSAGES, resolveClaudeHandoffDecision,
+  type ClaudeApprovalDecider,
+} from "./claude-permission-handoff";
 export {
   describeClaudeAutoModeFallback,
   resolveClaudeAutoModeAvailability,
@@ -3454,6 +3457,12 @@ export async function streamClaudeWithSdk(
         canUseTool: async (toolName, input, options) => {
           const normalizedInput = normalizeClaudeToolInput(input);
           let requestId = options.toolUseID;
+          // The approval record: a call decided here without asking anyone.
+          const recordDecision = (decision: "allowed" | "denied", decider: ClaudeApprovalDecider) => {
+            const event: BridgeEvent = buildClaudeApprovalDecisionEvent({ requestId, toolName, input: normalizedInput, decision, decider });
+            eventCollector.append(event);
+            args.onEvent?.(event);
+          };
           // Hard guardrails (G1-G3) skip every automatic answer below and reach the user.
           const guardrail = resolveClaudeTurnGuardrail({ policy: args.turnPolicy, toolName, input: normalizedInput, cwd: runtimeCwd, decisionReason: options.decisionReason });
           const redirectedSkillSlug = shouldRedirectClaudePreloadedSkillToolUse(
@@ -3485,6 +3494,7 @@ export async function streamClaudeWithSdk(
           }
 
           if (providerBrowserRequested && isClaudeChromeToolName(toolName)) {
+            recordDecision("allowed", { source: "rule", reason: "provider-browser" });
             return buildClaudeApprovalPermissionResult({
               approved: true,
               normalizedInput,
@@ -3524,6 +3534,7 @@ export async function streamClaudeWithSdk(
           });
 
           if (handoff.action === "allow") {
+            recordDecision("allowed", CLAUDE_HANDOFF_ALLOW_DECIDERS[handoff.source]);
             return buildClaudeApprovalPermissionResult({
               approved: true,
               normalizedInput,
@@ -3602,6 +3613,7 @@ export async function streamClaudeWithSdk(
           }
 
           if (handoff.action === "deny") {
+            recordDecision("denied", { source: "provider-auto", reason: "permission-mode" });
             return buildClaudeDenyPermissionResult({
               message: `Claude permission mode ${claudePermissionMode} denied ${toolName} without prompting.`,
               context: "approval:permission-mode-deny",
@@ -3669,6 +3681,7 @@ export async function streamClaudeWithSdk(
                 requestId,
                 timeoutMs: error.timeoutMs,
               });
+              recordDecision("denied", { source: "rule", reason: "timeout" });
               return buildClaudeDenyPermissionResult({
                 message: `Stave did not receive an approval decision for ${toolName} within ${Math.round(error.timeoutMs / 1000)}s. Denied automatically.`,
                 context: "approval:timeout",

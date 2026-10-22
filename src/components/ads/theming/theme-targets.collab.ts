@@ -69,6 +69,7 @@ const controlNoInk = [
  */
 export const collabThemeTargets = {
   "activity-feed": {
+    axes: { density: ["compact", "regular"] },
     /*
      * One target, static slots. The rail (avatar/icon column), the connector
      * hairline and the day header share the feed's surface and only move with

@@ -102,9 +102,14 @@ function seed() {
     messagesByTask: {
       [TASK_ID]: [
         { id: "m1", role: "user", model: "user", providerId: "user", content: "Fix the billing table overflow on narrow screens.", parts: [{ type: "text", text: "Fix the billing table overflow on narrow screens." }] },
-        { id: "m2", role: "assistant", model: "claude", providerId: "claude-code", content: "Done.", turnId: "turn-2", parts: [
+        { id: "m2", role: "assistant", model: "claude", providerId: "claude-code", content: "Done.", turnId: "turn-2", startedAt: "2026-10-22T09:01:00.000Z", parts: [
           { type: "code_diff", filePath: "src/billing/BillingTable.tsx", oldContent: TABLE_BEFORE, newContent: TABLE_AFTER, status: "accepted" },
           { type: "code_diff", filePath: "src/billing/billing-table.test.tsx", oldContent: "", newContent: TEST_AFTER, status: "accepted" },
+          // The approval record: one you answered, two decided automatically, one denied when nobody answered.
+          { type: "approval", toolName: "Edit", description: "", input: "src/billing/BillingTable.tsx", requestId: "a1", state: "approval-responded", prompted: false, resolution: { decision: "allowed", source: "provider-auto", reason: "permission-mode", decidedAt: "2026-10-22T09:02:10.000Z" } },
+          { type: "approval", toolName: "Bash", description: "Run the billing tests", input: "bun test src/billing", requestId: "a2", state: "approval-responded", resolution: { decision: "allowed", source: "user", scope: "once", decidedAt: "2026-10-22T09:03:05.000Z" } },
+          { type: "approval", toolName: "Bash", description: "", input: "bun run lint", requestId: "a3", state: "approval-responded", prompted: false, resolution: { decision: "allowed", source: "rule", reason: "autonomy", decidedAt: "2026-10-22T09:03:40.000Z" } },
+          { type: "approval", toolName: "Bash", description: "Publish the preview", input: "git push origin main", requestId: "a4", state: "output-denied", resolution: { decision: "denied", source: "rule", reason: "timeout", decidedAt: "2026-10-22T09:48:40.000Z" } },
           { type: "text", text: "Replaced the fixed minimum width with a scroll container." },
         ] },
       ],

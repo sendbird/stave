@@ -1876,3 +1876,37 @@ answers for a question. Stopping the turn releases pending requests on both
 providers. For an externally managed (delegated) task the host also denies an
 unanswered approval after `MANAGED_TASK_APPROVAL_TIMEOUT_MS` (five minutes,
 `electron/host-service/local-mcp-runtime.ts`).
+
+### Approval record
+
+Every approval part records who decided it, what and when
+(`resolution: { decision, source, decidedAt, reason?, scope? }`,
+`src/lib/approvals/approval-resolution.ts`). Parts saved before the record load
+without it.
+
+- A person's answer (the transcript card, the composer queue, Fleet, a parent's
+  child slot, a notification) is recorded by `resolveApproval` with source
+  `user` and the grant that was sent (`once`, or `always` when the request
+  offered it); a host-owned turn's answer is recorded by the host's
+  `respondApproval`.
+- A Stave rule answering a shown request records source `rule` with its
+  reason: trusted tools on the renderer (`trusted-tool`), and the managed-task
+  and decision timeouts (`timeout`).
+- A decision the runtime makes without asking anyone is the normalized event
+  `approval_resolved` (`requestId`, `toolName`, a one-line `input`, `decision`,
+  `source` `rule` or `provider-auto`, `reason`, `decidedAt`). Replay records it
+  on the shown request's part, or adds an unprompted part (`prompted: false`)
+  that the transcript, the provider history and Fleet's activity line skip.
+  - Claude (`canUseTool`): the permission mode's allow or deny
+    (`provider-auto`, `permission-mode`), an autonomous turn's allow
+    (`autonomy`; Auto and Bypass turns and agent tasks), a
+    trusted tool (`trusted-tool`), the provider-native browser the user asked
+    for (`provider-browser`), and the decision timeout (`timeout`). A skill
+    redirect and a secondary read-only run's refusal are steering, not
+    decisions, and are not recorded.
+  - Codex records only what reaches Stave: Stave's own tools approved by the
+    setting (`stave-tool`) and the decision timeout (`timeout`). Approvals the
+    App Server decides itself (its approval policy, auto-review) never reach
+    Stave and are not in the record.
+  - ACP providers (Cursor, Kiro, OpenCode) do not report their automatic
+    answers yet.

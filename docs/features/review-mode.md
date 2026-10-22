@@ -80,6 +80,14 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Completion checks** shows the run's **Done when** criteria with the checks
   Stave ran, such as `Stave checks: 1 of 2 passed (lint); still needed: test`.
   Passing checks are not a review or a sign-off.
+- **Approvals** counts the scope's permission requests: how many you allowed,
+  how many were allowed automatically, and any denied, waiting or withdrawn.
+  Below the counts, each request names what was asked (`Bash · bun test`), who
+  decided (you, your trusted tools, autonomous mode, the permission mode,
+  Stave after no answer in time) and when; the latest 50 are listed. **This
+  turn** covers the turn, **This stage** the turns the stage ran, and the
+  other scopes the whole task. Requests answered before Stave kept this record
+  say who decided was not recorded.
 - **Lens checks** lists the task's saved Lens comparisons with their verdict;
   **Show comparison** opens the before and after images.
 - **Diff comments** repeats the task's comments, not sent and sent, because
@@ -121,7 +129,9 @@ them implies another.
 - Review keeps no data of its own apart from the **Mark reviewed** decision,
   which is saved with the turn's output. Its scope and read marks last for
   the session; the conversation, result reviews, Lens records and comments
-  keep their own storage.
+  keep their own storage. **Approvals** reads the approval record kept with
+  the conversation's messages, from the messages Stave has loaded for the
+  task.
 
 ## Limitations And Advanced Options
 

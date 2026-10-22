@@ -148,6 +148,22 @@ How firmly each provider holds them:
   Codex's own approvals, when that matters.
 - **Cursor, Kiro and OpenCode** keep your settings; only a read-only agent changes them.
 
+## Who Decided Each Approval
+
+Stave records how every permission request was decided: by you, by a Stave
+rule (your trusted tools, autonomous mode, Stave's own tools, a request
+nobody answered in time) or by the provider's permission mode, and when. A
+decided card in the conversation names who decided and when, and a grant you
+chose (**Allow once** or **Always allow**). Calls decided without asking
+anyone never show as cards; they are counted and listed in Review's
+**Approvals** and under the Task panel's **Activity** list, so a run's
+automatic allows stay visible next to the ones you gave.
+
+Claude reports every call its permission callback answers without asking.
+Codex reports only what reaches Stave (Stave's own tools and requests that
+timed out); what the App Server decides itself is not in the record. Cursor,
+Kiro and OpenCode do not report automatic answers yet.
+
 ## Provider Differences
 
 ### Claude

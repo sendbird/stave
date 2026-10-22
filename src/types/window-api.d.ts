@@ -804,6 +804,8 @@ interface WindowLocalMcpApi {
     taskId: string;
     requestId: string;
     approved: boolean;
+    /** A Stave rule answered (trusted tools); absent: a person did. */
+    decidedBy?: import("@/lib/approvals/approval-resolution").ApprovalRuleDecider;
   }) => Promise<{
     ok: boolean;
     message?: string;

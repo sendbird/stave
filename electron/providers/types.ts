@@ -1,4 +1,5 @@
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
+import type { ApprovalResolvedEvent } from "../../src/lib/approvals/approval-resolution";
 import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveTurnGrants } from "./stave-turn-grants";
@@ -268,6 +269,8 @@ export type BridgeEvent =
        */
       ownerAgentId?: string;
     }
+  /** A request decided without a person; see `ApprovalResolvedEvent`. */
+  | ApprovalResolvedEvent
   | {
       type: "user_input";
       /** Async messages remain answerable after their emitting turn ends. */

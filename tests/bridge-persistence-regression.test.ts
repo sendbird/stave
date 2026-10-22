@@ -2246,6 +2246,57 @@ describe("workspace snapshot schema compatibility", () => {
     expect(loaded?.activeEditorTabId).toBeNull();
   });
 
+  test("loads approval parts saved before the approval record, keeps a recorded decision and drops a malformed one", async () => {
+    const approval = (requestId: string, extra: Record<string, unknown>) => ({
+      type: "approval",
+      toolName: "Bash",
+      description: "Run the tests",
+      requestId,
+      state: "approval-responded",
+      ...extra,
+    });
+    setWindowApi({
+      persistence: {
+        listWorkspaces: async () => ({ ok: true, rows: [{ id: "base", name: "Base", updatedAt: "2026-10-22T00:00:00.000Z" }] }),
+        loadWorkspace: async () => ({
+          ok: true,
+          snapshot: {
+            activeTaskId: "task-1",
+            tasks: [{ id: "task-1", title: "Task 1", provider: "claude-code", updatedAt: "2026-10-22T00:00:00.000Z", unread: false }],
+            messagesByTask: {
+              "task-1": [{
+                id: "m-1",
+                role: "assistant",
+                model: "claude-opus",
+                providerId: "claude-code",
+                content: "",
+                parts: [
+                  approval("old", {}),
+                  approval("by-you", { resolution: { decision: "allowed", source: "user", decidedAt: "2026-10-22T01:00:00.000Z", scope: "always" } }),
+                  approval("auto", { prompted: false, resolution: { decision: "allowed", source: "rule", decidedAt: "2026-10-22T01:01:00.000Z", reason: "autonomy" } }),
+                  approval("malformed", { prompted: "no", resolution: { decision: "maybe", source: "user" } }),
+                  approval("newer-reason", { resolution: { decision: "denied", source: "rule", decidedAt: "2026-10-22T01:02:00.000Z", reason: "a-later-rule" } }),
+                ],
+              }],
+            },
+          },
+        }),
+        upsertWorkspace: async () => ({ ok: true }),
+      },
+    });
+
+    const loaded = await loadWorkspaceSnapshot({ workspaceId: "base" });
+    const parts = loaded?.messagesByTask["task-1"]?.[0]?.parts ?? [];
+
+    expect(parts).toHaveLength(5);
+    expect(parts[0]).toEqual(approval("old", {}) as never);
+    expect(parts[1]).toMatchObject({ requestId: "by-you", resolution: { decision: "allowed", source: "user", scope: "always" } });
+    expect(parts[2]).toMatchObject({ requestId: "auto", prompted: false, resolution: { source: "rule", reason: "autonomy" } });
+    expect(parts[3]).toEqual(approval("malformed", {}) as never);
+    expect(parts[4]).toMatchObject({ requestId: "newer-reason", resolution: { decision: "denied", source: "rule" } });
+    expect((parts[4] as { resolution?: { reason?: string } }).resolution?.reason).toBeUndefined();
+  });
+
   test("loads snapshots that include usage and prompt suggestions", async () => {
     setWindowApi({
       persistence: {

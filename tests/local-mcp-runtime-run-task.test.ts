@@ -1424,6 +1424,30 @@ describe("local MCP runtime runTask", () => {
     handler?.onEvent?.({ type: "done" });
   });
 
+  test("the host records who answered each approval: a person, or the Stave rule that did", async () => {
+    const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Wait for two decisions" });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "approval", requestId: "approval-person", toolName: "Bash", description: "Run check" });
+    handler?.onEvent?.({ type: "approval", requestId: "approval-rule", toolName: "Bash", description: "Remove build" });
+    for (let i = 0; i < 20; i += 1) {
+      const status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+      if (status.pendingApprovals.length === 2) break;
+      await Bun.sleep(0);
+    }
+    providerRuntime.respondApproval = (async () => ({ ok: true, message: "ok" })) as typeof providerRuntime.respondApproval;
+    const request = { workspaceId: WORKSPACE_ID, taskId: first.taskId };
+    await runtime.respondApproval({ ...request, requestId: "approval-person", approved: true });
+    await runtime.respondApproval({ ...request, requestId: "approval-rule", approved: false, decidedBy: { source: "rule", reason: "timeout" } });
+    const parts = (lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[first.taskId] ?? [])
+      .flatMap((message) => (message as { parts?: Array<{ type: string }> }).parts ?? [])
+      .filter((part) => part.type === "approval");
+    expect(parts).toEqual([
+      expect.objectContaining({ requestId: "approval-person", state: "approval-responded", resolution: expect.objectContaining({ decision: "allowed", source: "user", scope: "once" }) }),
+      expect.objectContaining({ requestId: "approval-rule", state: "output-denied", resolution: expect.objectContaining({ decision: "denied", source: "rule", reason: "timeout" }) }),
+    ]);
+    handler?.onEvent?.({ type: "done" });
+  });
+
   test("takes over an inactive externally managed task through host ownership", async () => {
     const result = await runtime.runTask({
       workspaceId: WORKSPACE_ID,

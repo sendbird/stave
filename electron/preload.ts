@@ -1,5 +1,6 @@
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
 import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
+import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resolution";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
@@ -1910,6 +1911,7 @@ contextBridge.exposeInMainWorld("api", {
       taskId: string;
       requestId: string;
       approved: boolean;
+      decidedBy?: ApprovalRuleDecider;
     }) =>
       ipcRenderer.invoke("local-mcp:respond-approval", args) as Promise<{
         ok: boolean;

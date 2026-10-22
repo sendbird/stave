@@ -20,6 +20,13 @@ Host modifications are intentional and retained when refreshing the bundle:
   ApprovalBar's `stateLabel`) and the decision labels (`approveLabel`, `rejectLabel`,
   `requestChangesLabel`) come from the host, and the request-changes button uses the
   installed Button's `outline` variant name (the bundle calls it `outlined`).
+- ActivityFeed renders every row: the bundle's opt-in `virtualization` prop and its
+  `utils/windowed-list` (which needs `@tanstack/react-virtual`, a package the host does not
+  ship) were not installed, so callers bound their feeds (the approval record shows its
+  latest 50). `emptyText` is a required prop the host fills from its translations, and an
+  avatar mark without initials is decorative (`alt=""`), because the actor's name is the
+  text beside it. Avatar's presence and status labels come from the host's translations
+  (`ui:avatar.*`). The `activity-feed` theme target gained upstream's `density` axis.
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
@@ -40,7 +47,11 @@ does not load were not installed) and `.ads-source-review.json` (WorkspaceLayout
 ApprovalBar in `ReviewStatus.tsx`, ToggleGroup with its `headless/toggle-group`
 primitives and the `busy-action` utility, for Review mode; their theme targets
 already existed, and the bundle's newer Tooltip base, CSS and theme-target files
-were not installed). Only missing files
+were not installed) and `.ads-source-activity-feed.json` (ActivityFeed with Avatar,
+its presence dot, the `headless/avatar` primitives and the `overlay-mark` recipe, for
+the approval record in Review and Activity; IconTile, the tokens and the theme
+targets already existed, and the bundle's windowed-list utilities, newer Tooltip
+base, CSS and theme-target files were not installed). Only missing files
 were installed; existing host modifications were preserved. Their catalog's
 suggested dependency versions are recorded as provenance; the host's compatible
 installed versions are governed by package.json and its validation gates.

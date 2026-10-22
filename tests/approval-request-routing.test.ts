@@ -134,6 +134,11 @@ describe("answers reach the request they were given for", () => {
       "approval-responded",
       "approval-requested",
     ]);
+    // The answer is recorded with who gave it and when; the other request stays open.
+    const answered = (parts[0] as ApprovalPart).resolution;
+    expect(answered).toMatchObject({ decision: "allowed", source: "user", scope: "once" });
+    expect(Number.isNaN(Date.parse(answered?.decidedAt ?? ""))).toBe(false);
+    expect((parts[1] as ApprovalPart).resolution).toBeUndefined();
   });
 
   test("a trusted request is auto-approved alone, even when an untrusted one follows it", async () => {
@@ -214,5 +219,8 @@ describe("answers reach the request they were given for", () => {
       ["approval-trusted", "approval-responded"],
       ["approval-untrusted", "approval-requested"],
     ]);
+    // A trusted tool is recorded as decided by a rule, not by a person.
+    expect(parts[0]?.resolution).toMatchObject({ decision: "allowed", source: "rule", reason: "trusted-tool" });
+    expect(parts[0]?.resolution?.scope).toBeUndefined();
   });
 });

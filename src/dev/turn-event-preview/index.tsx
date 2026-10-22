@@ -4,6 +4,7 @@ import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { AssistantMessageBody } from "@/components/session/message/assistant-trace";
+import { buildApprovalResolution } from "@/lib/approvals/approval-resolution";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
 import { createEventSamples } from "./fixtures";
@@ -32,7 +33,7 @@ export function TurnEventPreview() {
     const original = useAppStore.getState();
     // This isolated dev entrypoint keeps decision clicks inside its fixtures.
     useAppStore.setState({
-      resolveApproval: ({ requestId, approved }) =>
+      resolveApproval: ({ requestId, approved, scope }) =>
         setSamples((rows) =>
           rows.map((row) => ({
             ...row,
@@ -41,6 +42,7 @@ export function TurnEventPreview() {
                 ? {
                     ...part,
                     state: approved ? "approval-responded" : "output-denied",
+                    resolution: buildApprovalResolution({ approved, source: "user", decidedAt: Date.now(), scope: scope ?? "once" }),
                   }
                 : part,
             ),
