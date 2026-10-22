@@ -106,7 +106,12 @@ const CODEX_TOOLLESS = {
   "features.shell_tool": false,
   "features.unified_exec": false,
   "features.apps": false,
+  "features.plugins": false,
+  "features.multi_agent": false,
+  "features.multi_agent_v2": false,
+  "features.view_image": false,
   "tools.view_image": false,
+  "tools.update_plan.enabled": false,
   network_access: false,
   web_search: "disabled",
 };

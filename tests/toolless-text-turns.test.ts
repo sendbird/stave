@@ -118,7 +118,7 @@ import { createInterface } from "node:readline";
 import { appendFileSync } from "node:fs";
 if (process.argv.includes("--version")) { console.log("codex-cli 0.162.1"); process.exit(0); }
 const send = (message) => console.log(JSON.stringify({ jsonrpc: "2.0", ...message }));
-const KEYS = ["features.shell_tool", "features.unified_exec", "features.apps", "tools.view_image", "network_access", "web_search"];
+const KEYS = ["features.shell_tool", "features.unified_exec", "features.apps", "features.plugins", "features.multi_agent", "features.multi_agent_v2", "features.view_image", "tools.view_image", "tools.update_plan.enabled", "network_access", "web_search"];
 createInterface({ input: process.stdin }).on("line", (line) => {
   const m = JSON.parse(line);
   if (!m.method || m.id == null) return;
@@ -131,7 +131,8 @@ createInterface({ input: process.stdin }).on("line", (line) => {
     appendFileSync(${JSON.stringify(receipts)}, JSON.stringify({ method: m.method,
       config: Object.fromEntries(KEYS.map((key) => [key, config[key]])),
       figmaEnabled: config.mcp_servers?.figma?.enabled ?? config["mcp_servers.figma.enabled"],
-      staveLocal: Object.keys(config.mcp_servers ?? {}).some((name) => name.startsWith("stave")) }) + "\\n");
+      staveLocal: Object.keys(config).some((key) => key.startsWith("mcp_servers.stave")) ||
+        Object.keys(config.mcp_servers ?? {}).some((name) => name.startsWith("stave")) }) + "\\n");
     result = { thread: { id: "thread-1" } };
   }
   if (m.method === "turn/start") result = { turn: { id: "turn-1" } };
@@ -161,7 +162,7 @@ function codexLaneOptions(executable: string, toolsDisabled: boolean) {
 }
 
 describe("a tool-less Codex turn", () => {
-  test("has no shell, exec, apps, image viewing, network, web search or MCP server", async () => {
+  test("has no shell, exec, apps, plugins, subagents, image viewing, plan tool, network, web search or MCP server", async () => {
     const server = fakeCodex();
     const events: BridgeEvent[] = [];
     await streamCodexWithAppServer({
@@ -177,7 +178,12 @@ describe("a tool-less Codex turn", () => {
         "features.shell_tool": false,
         "features.unified_exec": false,
         "features.apps": false,
+        "features.plugins": false,
+        "features.multi_agent": false,
+        "features.multi_agent_v2": false,
+        "features.view_image": false,
         "tools.view_image": false,
+        "tools.update_plan.enabled": false,
         network_access: false,
         web_search: "disabled",
       },
