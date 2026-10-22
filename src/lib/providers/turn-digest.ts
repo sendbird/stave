@@ -28,6 +28,8 @@ const TEXT_LIMIT = 400;
 const CHECK_FAILURE_LIMIT = 6;
 const CHECK_MESSAGE_LIMIT = 200;
 const ID_LIMIT = 200;
+/** Decisions followed at once; a turn rarely has more than one or two open. */
+const WAIT_LIMIT = 8;
 
 const AtSchema = z.string().min(1).max(64);
 const TextSchema = z.string().max(TEXT_LIMIT);
@@ -99,6 +101,9 @@ export const TurnDigestEntrySchema = z.discriminatedUnion("kind", [
 export type TurnDigestEntry = z.infer<typeof TurnDigestEntrySchema>;
 export type TurnDigestEntryKind = TurnDigestEntry["kind"];
 
+const TurnDigestWaitSchema = z.object({ requestId: z.string().min(1).max(ID_LIMIT), since: AtSchema });
+const TurnDigestAnswerSchema = z.object({ requestId: z.string().min(1).max(ID_LIMIT), at: AtSchema });
+
 export const TurnDigestSchema = z.object({
   version: z.literal(1),
   entries: z.array(TurnDigestEntrySchema).max(TURN_DIGEST_ENTRY_LIMIT),
@@ -106,6 +111,12 @@ export const TurnDigestSchema = z.object({
   omitted: z.number().int().min(0),
   /** The account the turn last ran on, compared to spot a switch. */
   accountProfileId: z.string().max(ID_LIMIT).nullable(),
+  /** Approvals and questions asked and not answered yet: the turn is waiting on the user. */
+  waits: z.array(TurnDigestWaitSchema).max(WAIT_LIMIT).optional(),
+  /** Answers delivered before their request's event was saved (events are saved in batches). */
+  answered: z.array(TurnDigestAnswerSchema).max(WAIT_LIMIT).optional(),
+  /** When the turn last stopped waiting on the user; a silence that spans it counts from here. */
+  resumedAt: AtSchema.optional(),
 });
 export type TurnDigest = z.infer<typeof TurnDigestSchema>;
 
@@ -149,11 +160,17 @@ export function parseTurnDigest(value: string | null | undefined): TurnDigest | 
       ? record.omitted
       : 0;
   const account = record.accountProfileId;
+  const waits = TurnDigestSchema.shape.waits.safeParse(record.waits);
+  const answered = TurnDigestSchema.shape.answered.safeParse(record.answered);
+  const resumedAt = AtSchema.safeParse(record.resumedAt);
   return {
     version: 1,
     entries,
     omitted: omitted + unreadable,
     accountProfileId: typeof account === "string" && account ? bound(account, ID_LIMIT) : null,
+    ...(waits.success && waits.data?.length ? { waits: waits.data } : {}),
+    ...(answered.success && answered.data?.length ? { answered: answered.data } : {}),
+    ...(resumedAt.success ? { resumedAt: resumedAt.data } : {}),
   };
 }
 
@@ -293,26 +310,96 @@ export function observeTurnDigestAccount(args: {
   );
 }
 
-/** Events a turn waits on the user after, so the silence that follows is not a stall. */
-export function isTurnDigestWaitEvent(eventType: string | null | undefined) {
-  return eventType === "approval" || eventType === "user_input";
+/** The decision an event asks the user for (an approval or a question), or null. */
+function turnDigestWaitRequestId(event: NormalizedProviderEvent) {
+  if (event.type !== "approval" && event.type !== "user_input") return null;
+  return bound(event.requestId, ID_LIMIT) || null;
+}
+
+/** Whether an event can open or close a wait, so the store reads the digest for it. */
+export function isTurnDigestWaitChange(event: NormalizedProviderEvent) {
+  return (
+    event.type === "approval" ||
+    event.type === "user_input" ||
+    event.type === "tool_result" ||
+    event.type === "done" ||
+    event.type === "error"
+  );
+}
+
+function withWaits(digest: TurnDigest, waits: TurnDigest["waits"]): TurnDigest {
+  const { waits: _previous, ...rest } = digest;
+  return waits && waits.length > 0 ? { ...rest, waits } : rest;
+}
+
+function closeTurnDigestWait(digest: TurnDigest, requestId: string, at: string): TurnDigest {
+  const waits = digest.waits ?? [];
+  const remaining = waits.filter((wait) => wait.requestId !== requestId);
+  if (remaining.length === waits.length) return digest;
+  const next = withWaits(digest, remaining);
+  // The turn stops waiting when its last open decision is answered.
+  return remaining.length === 0 ? { ...next, resumedAt: at } : next;
+}
+
+/**
+ * Follow the approvals and questions the turn waits on. One opens when it is
+ * asked. It closes when Stave delivers the user's answer
+ * (`answerTurnDigestDecision`), when the tool it gated returns (a Claude
+ * approval's id is its tool call's), or when the turn ends.
+ */
+export function observeTurnDigestWaits(digest: TurnDigest, event: NormalizedProviderEvent, at: string): TurnDigest {
+  const requestId = turnDigestWaitRequestId(event);
+  if (requestId) {
+    const answered = digest.answered ?? [];
+    if (answered.some((entry) => entry.requestId === requestId)) {
+      // Answered before this event was saved: it never kept the turn waiting.
+      const { answered: _answered, ...rest } = digest;
+      const left = answered.filter((entry) => entry.requestId !== requestId);
+      return left.length > 0 ? { ...rest, answered: left } : rest;
+    }
+    const waits = digest.waits ?? [];
+    if (waits.some((wait) => wait.requestId === requestId)) return digest;
+    return withWaits(digest, [...waits, { requestId, since: at }].slice(-WAIT_LIMIT));
+  }
+  if (!digest.waits?.length) return digest;
+  if (event.type === "tool_result") return closeTurnDigestWait(digest, bound(event.tool_use_id, ID_LIMIT), at);
+  if (event.type === "done" || (event.type === "error" && !event.recoverable)) return withWaits(digest, []);
+  return digest;
+}
+
+/** The user's answer to an approval or question, when Stave delivered it to the provider. */
+export function answerTurnDigestDecision(digest: TurnDigest, requestId: string, at: string): TurnDigest {
+  const id = bound(requestId, ID_LIMIT);
+  if (!id) return digest;
+  if ((digest.waits ?? []).some((wait) => wait.requestId === id)) {
+    return closeTurnDigestWait(digest, id, at);
+  }
+  const answered = [...(digest.answered ?? []).filter((entry) => entry.requestId !== id), { requestId: id, at }];
+  return { ...digest, answered: answered.slice(-WAIT_LIMIT) };
 }
 
 /**
  * The stall entry for the silence between two events, or null when it was
- * short or the turn was waiting for an answer.
+ * short or the turn was waiting on the user. A decision still open through
+ * the silence makes it waiting; one answered during it leaves only the time
+ * after the answer.
  */
 export function turnDigestStallEntry(args: {
   previousAt: string | null;
-  previousEventType: string | null;
   at: string;
   /** The event after the silence ended the turn. */
   endsTurn: boolean;
+  /** An approval or question was open through the silence. */
+  waiting?: boolean;
+  /** When the turn last stopped waiting on the user. */
+  resumedAt?: string | null;
 }): TurnDigestEntry | null {
-  if (!args.previousAt || isTurnDigestWaitEvent(args.previousEventType)) return null;
-  const silentMs = Date.parse(args.at) - Date.parse(args.previousAt);
+  if (!args.previousAt || args.waiting) return null;
+  const start =
+    args.resumedAt && Date.parse(args.resumedAt) > Date.parse(args.previousAt) ? args.resumedAt : args.previousAt;
+  const silentMs = Date.parse(args.at) - Date.parse(start);
   if (!Number.isFinite(silentMs) || silentMs < TURN_DIGEST_STALL_MS) return null;
-  return { kind: "stall", at: args.previousAt, silentMs: Math.round(silentMs), endedTurn: args.endsTurn };
+  return { kind: "stall", at: start, silentMs: Math.round(silentMs), endedTurn: args.endsTurn };
 }
 
 /** Whether an event ends the turn, for a stall entry's wording. */

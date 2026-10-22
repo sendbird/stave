@@ -117,7 +117,11 @@ import type {
   HostServiceMethod,
   HostServiceResponseMap,
 } from "./host-service/protocol";
-import { providerRuntime, setAgentRunUserTurnResolver } from "./providers/runtime";
+import {
+  providerRuntime,
+  setAgentRunUserTurnResolver,
+  setProviderDecisionAnsweredListener,
+} from "./providers/runtime";
 import { prepareDelegatedAgentRun } from "./host-service/supervision/delegated-agent-run-host";
 import { handleMcpAppViewRequest } from "./providers/mcp-app-view-requests";
 import { getProviderModelCatalog } from "./providers/provider-model-catalog";
@@ -599,6 +603,14 @@ const agentRunRuntime = createHostAgentRunRuntime({
   },
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
+// The turn's record counts the time a decision waited on the user as waiting, not a stall.
+setProviderDecisionAnsweredListener((answer) => {
+  try {
+    ensureHostServicePersistenceReady().turnDigests.recordDecisionAnswered(answer);
+  } catch (error) {
+    console.warn("[turn-digest] could not note an answered decision", error);
+  }
+});
 setRunQuestionAnswerer((args) => agentRunRuntime.answerQuestion(args));
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),

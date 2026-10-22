@@ -1,11 +1,14 @@
 import type Database from "better-sqlite3";
 import type { BridgeEvent } from "../providers/types";
 import {
+  answerTurnDigestDecision,
   appendTurnDigestEntry,
   createTurnDigest,
   enforceTurnDigestLimits,
   isTurnDigestEndingEvent,
+  isTurnDigestWaitChange,
   observeTurnDigestAccount,
+  observeTurnDigestWaits,
   parseTurnDigest,
   serializeTurnDigest,
   settleTurnDigestFailure,
@@ -13,6 +16,7 @@ import {
   turnDigestChecksEntry,
   turnDigestEntryForEvent,
   turnDigestStallEntry,
+  TURN_DIGEST_STALL_MS,
   type TurnDigest,
   type TurnDigestCheckSummary,
 } from "../../src/lib/providers/turn-digest";
@@ -42,6 +46,7 @@ type Db = Database.Database;
 interface TurnDigestRow {
   provider_id: string;
   created_at: string;
+  completed_at?: string | null;
   digest_json: string | null;
 }
 
@@ -56,7 +61,7 @@ export function ensureTurnDigestColumn(db: Db) {
 
 function readTurnDigestRow(db: Db, turnId: string) {
   return db
-    .prepare("SELECT provider_id, created_at, digest_json FROM turns WHERE id = ?")
+    .prepare("SELECT provider_id, created_at, completed_at, digest_json FROM turns WHERE id = ?")
     .get(turnId) as TurnDigestRow | undefined;
 }
 
@@ -117,7 +122,8 @@ export function startTurnDigest(
 /**
  * Fold one accepted event into its turn's digest, inside the event-write
  * transaction (before pruning can remove the event before it). Most events
- * add nothing and cost one indexed read; only a fact rewrites the digest.
+ * add nothing and cost one indexed read; only a fact, a long silence or a
+ * decision opening or closing reads the digest, and only a change rewrites it.
  */
 export function observeTurnDigestEvent(
   db: Db,
@@ -125,27 +131,21 @@ export function observeTurnDigestEvent(
 ) {
   const previous = db
     .prepare(
-      `SELECT event_type, created_at FROM turn_events
+      `SELECT created_at FROM turn_events
       WHERE turn_id = ? AND sequence < ? ORDER BY sequence DESC LIMIT 1`,
     )
-    .get(args.turnId, args.sequence) as
-    | { event_type: string; created_at: string }
-    | undefined;
+    .get(args.turnId, args.sequence) as { created_at: string } | undefined;
   let row: TurnDigestRow | undefined;
   let previousAt = previous?.created_at ?? null;
   if (!previous) {
     row = readTurnDigestRow(db, args.turnId);
     previousAt = row?.created_at ?? null;
   }
-  const stall = turnDigestStallEntry({
-    previousAt,
-    previousEventType: previous?.event_type ?? null,
-    at: args.createdAt,
-    endsTurn: isTurnDigestEndingEvent(args.event),
-  });
+  const quiet =
+    previousAt !== null && Date.parse(args.createdAt) - Date.parse(previousAt) >= TURN_DIGEST_STALL_MS;
   const entry = turnDigestEntryForEvent(args.event, args.createdAt);
   const account = turnDigestAccountForEvent(args.event);
-  if (!stall && !entry && !account) {
+  if (!quiet && !entry && !account && !isTurnDigestWaitChange(args.event)) {
     return;
   }
   row ??= readTurnDigestRow(db, args.turnId);
@@ -154,7 +154,18 @@ export function observeTurnDigestEvent(
   }
   const before = parseTurnDigest(row.digest_json) ?? createTurnDigest(null);
   let digest = before;
+  // Judged on what was open through the silence, before this event changes it.
+  const stall = quiet
+    ? turnDigestStallEntry({
+        previousAt,
+        at: args.createdAt,
+        endsTurn: isTurnDigestEndingEvent(args.event),
+        waiting: Boolean(before.waits?.length),
+        resumedAt: before.resumedAt ?? null,
+      })
+    : null;
   if (stall) digest = appendTurnDigestEntry(digest, stall);
+  digest = observeTurnDigestWaits(digest, args.event, args.createdAt);
   if (account) {
     digest = observeTurnDigestAccount({
       digest,
@@ -167,6 +178,27 @@ export function observeTurnDigestEvent(
   if (digest !== before || row.digest_json == null) {
     writeTurnDigest(db, args.turnId, digest);
   }
+}
+
+/**
+ * Note when Stave delivered the user's answer to an approval or question, so
+ * the time the turn waited on the user is never read as a stall. A turn that
+ * already ended (an answer to a question that outlives its turn) is left as
+ * it closed.
+ */
+export function recordTurnDigestDecisionAnswered(
+  db: Db,
+  args: { turnId: string; requestId: string; at?: string },
+) {
+  db.transaction(() => {
+    const row = readTurnDigestRow(db, args.turnId);
+    const digest = parseTurnDigest(row?.digest_json);
+    if (!row || row.completed_at || !digest) {
+      return;
+    }
+    const next = answerTurnDigestDecision(digest, args.requestId, args.at ?? new Date().toISOString());
+    if (next !== digest) writeTurnDigest(db, args.turnId, next);
+  })();
 }
 
 /**
@@ -344,6 +376,10 @@ export class TurnDigestStore {
 
   recordChecks(args: { turnId: string; summary: TurnDigestCheckSummary; at?: string }) {
     return recordTurnDigestChecks(this.db, args);
+  }
+
+  recordDecisionAnswered(args: { turnId: string; requestId: string; at?: string }) {
+    recordTurnDigestDecisionAnswered(this.db, args);
   }
 
   /** A task's turns, newest first, for Activity's turn picker. */

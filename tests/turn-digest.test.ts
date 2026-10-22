@@ -85,11 +85,13 @@ describe("turn digest rules", () => {
 
   test("a stall is five minutes of silence, matching the run line, unless the turn was waiting for an answer", () => {
     expect(TURN_DIGEST_STALL_MS).toBe(PROVIDER_TURN_STALL_THRESHOLD_MS);
-    expect(turnDigestStallEntry({ previousAt: at(0), previousEventType: "text", at: at(4.9), endsTurn: false })).toBeNull();
-    expect(turnDigestStallEntry({ previousAt: at(0), previousEventType: "text", at: at(6), endsTurn: true }))
+    expect(turnDigestStallEntry({ previousAt: at(0), at: at(4.9), endsTurn: false })).toBeNull();
+    expect(turnDigestStallEntry({ previousAt: at(0), at: at(6), endsTurn: true }))
       .toEqual({ kind: "stall", at: at(0), silentMs: 360_000, endedTurn: true });
-    expect(turnDigestStallEntry({ previousAt: at(0), previousEventType: "approval", at: at(30), endsTurn: false })).toBeNull();
-    expect(turnDigestStallEntry({ previousAt: at(0), previousEventType: "user_input", at: at(30), endsTurn: false })).toBeNull();
+    expect(turnDigestStallEntry({ previousAt: at(0), at: at(30), endsTurn: false, waiting: true })).toBeNull();
+    // Answered 20 minutes in: only the 10 minutes after the answer were silent.
+    expect(turnDigestStallEntry({ previousAt: at(0), at: at(30), endsTurn: false, resumedAt: at(20) }))
+      .toEqual({ kind: "stall", at: at(20), silentMs: 600_000, endedTurn: false });
   });
 
   test("the digest keeps at most 64 entries and 16 KB, giving up retries and stalls before errors and checks", () => {
@@ -268,12 +270,40 @@ describe("turn digest store", () => {
     begin(store, "turn", { createdAt: at(0) });
     store.saveStreamEvent({ turnId: "turn", sequence: 1, createdAt: at(6), event: { type: "text", text: "late start" } });
     store.saveStreamEvent({ turnId: "turn", sequence: 2, createdAt: at(7), event: { type: "approval", toolName: "Bash", requestId: "r1", description: "Run tests" } });
+    // The user answers at 39 minutes; the tool starts a minute later.
+    store.turnDigests.recordDecisionAnswered({ turnId: "turn", requestId: "r1", at: at(39) });
     store.saveStreamEvent({ turnId: "turn", sequence: 3, createdAt: at(40), event: { type: "tool", toolUseId: "t1", toolName: "Bash", input: "{}", state: "input-available" } });
     store.saveStreamEvent({ turnId: "turn", sequence: 4, createdAt: at(52), event: { type: "done" } });
     expect(digestOf(db, "turn")?.entries).toEqual([
       { kind: "stall", at: at(0), silentMs: 360_000, endedTurn: false },
       { kind: "stall", at: at(40), silentMs: 720_000, endedTurn: true },
     ]);
+    db.close();
+  });
+
+  test("time a decision waits on the user is never a stall, even when other events arrive while it waits", () => {
+    const { db, store } = harness();
+    // approval -> usage -> 8 minutes waiting on the user -> end: no stall.
+    begin(store, "waited", { createdAt: at(0) });
+    store.saveStreamEvent({ turnId: "waited", sequence: 1, createdAt: at(1), event: { type: "approval", toolName: "Bash", requestId: "r1", description: "Run tests" } });
+    store.saveStreamEvent({ turnId: "waited", sequence: 2, createdAt: at(1), event: { type: "usage", inputTokens: 10, outputTokens: 2 } });
+    store.saveStreamEvent({ turnId: "waited", sequence: 3, createdAt: at(9), event: { type: "done" } });
+    expect(digestOf(db, "waited")?.entries).toEqual([]);
+
+    // After the answer, silence counts again, from the answer on.
+    begin(store, "answered", { createdAt: at(20), taskId: "task-2" });
+    store.saveStreamEvent({ turnId: "answered", sequence: 1, createdAt: at(21), event: { type: "user_input", toolName: "AskUserQuestion", requestId: "q1", questions: [] } });
+    store.saveStreamEvent({ turnId: "answered", sequence: 2, createdAt: at(21), event: { type: "usage", inputTokens: 10, outputTokens: 2 } });
+    store.turnDigests.recordDecisionAnswered({ turnId: "answered", requestId: "q1", at: at(24) });
+    store.saveStreamEvent({ turnId: "answered", sequence: 3, createdAt: at(36), event: { type: "text", text: "Continuing" } });
+    expect(digestOf(db, "answered")?.entries).toEqual([{ kind: "stall", at: at(24), silentMs: 720_000, endedTurn: false }]);
+
+    // An answer delivered before its request's event was saved (events are saved in batches) never held the turn.
+    begin(store, "early", { createdAt: at(40), taskId: "task-3" });
+    store.turnDigests.recordDecisionAnswered({ turnId: "early", requestId: "r2", at: at(41) });
+    store.saveStreamEvent({ turnId: "early", sequence: 1, createdAt: at(41), event: { type: "approval", toolName: "Bash", requestId: "r2", description: "Run tests" } });
+    store.saveStreamEvent({ turnId: "early", sequence: 2, createdAt: at(48), event: { type: "done" } });
+    expect(digestOf(db, "early")?.entries).toEqual([{ kind: "stall", at: at(41), silentMs: 420_000, endedTurn: true }]);
     db.close();
   });
 
