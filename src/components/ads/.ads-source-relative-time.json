@@ -1,0 +1,39 @@
+{
+  "bundleIntegrity": "sha256-3a7dace4e7d1e79cbe427f650da5d89a08885a2ce9f3eaf5dcc290b5d40281d6",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@stylexjs/stylex": "0.19.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "relativetime",
+      "kind": "component",
+      "name": "RelativeTime",
+      "path": "src/components/ads/components/RelativeTime.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-a40c3c02794f36a6515c23d1c5fbe16017ff4b29e1506b4aa85c7a94f91e9477",
+      "path": "src/components/ads/components/RelativeTime.tsx",
+      "sourcePath": "packages/design-system/src/components/RelativeTime.tsx"
+    },
+    {
+      "integrity": "sha256-ae66759c5fda6a75c6a052a1961f496fb73b9b7a233ec1a404f1d4e94a546287",
+      "path": "src/components/ads/headless/preview-card.tsx",
+      "sourcePath": "packages/design-system/src/headless/preview-card.tsx"
+    }
+  ],
+  "generatorVersion": "2",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-8789c0ca2adff13ed1164e5568b5fa9c6f4b6d371b7f9e965a7e9c0edb654592",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

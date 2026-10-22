@@ -107,7 +107,21 @@
     "justNow": "방금",
     "today": "오늘",
     "yesterday": "어제",
-    "never": "없음"
+    "never": "없음",
+    "utc": "UTC"
+  },
+  "duration": {
+    "seconds": "{{value}}초",
+    "minutes": "{{value}}분",
+    "hours": "{{value}}시간",
+    "days": "{{value}}일",
+    "minutesSeconds": "{{minutes}}분 {{seconds}}초",
+    "hoursMinutes": "{{hours}}시간 {{minutes}}분",
+    "daysHours": "{{days}}일 {{hours}}시간"
+  },
+  "relativeTime": {
+    "justNow": "방금",
+    "inMoments": "곧"
   },
   "errors": {
     "generic": "문제가 발생했습니다.",
