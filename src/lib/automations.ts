@@ -363,6 +363,12 @@ export type AutomationRunErrorCode = (typeof AUTOMATION_RUN_ERROR_CODES)[number]
 export const AUTOMATION_WORKSPACE_MISSING_MESSAGE =
   "The workspace this schedule runs in, or its folder, no longer exists. Edit the schedule to choose a workspace.";
 
+/** Saving a schedule whose workspace the registry has under another repository. */
+export function automationWorkspaceRepositoryMismatchMessage(repositoryPath: string) {
+  // i18n-ignore: host save error for Local MCP callers; the window's picker offers only the repository's own workspaces
+  return `The chosen workspace belongs to another repository than the schedule's. Choose a workspace of ${repositoryPath}.`;
+}
+
 export const AutomationRunSchema = z
   .object({
     id: z.string().min(1),

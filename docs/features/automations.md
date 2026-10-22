@@ -122,6 +122,12 @@ and leaves the root checkout, and any uncommitted work in it, alone.
 Changing the workspace clears the attached Information resources, because they
 belong to a workspace's Information panel.
 
+A schedule's workspace must belong to the schedule's repository. Saving a
+schedule that pairs one repository with a workspace of another, from the window
+or through the Local MCP tools, is refused with `The chosen workspace belongs
+to another repository than the schedule's`. If the pair stops matching later,
+its runs fail before they start a task, as for a removed workspace.
+
 If the chosen workspace is removed, or its folder is gone, the schedule's runs
 fail before they start a task, with `The workspace this schedule runs in, or
 its folder, no longer exists`. A workspace other than the Default one runs only

@@ -258,6 +258,53 @@ describe("a workspace without its own folder", () => {
   });
 });
 
+describe("a workspace of another repository", () => {
+  const OTHER: AutomationWorkspaceLocation = {
+    workspaceId: "ws-other",
+    name: "other-feature",
+    path: "/tmp/other/.stave/workspaces/other-feature",
+    branch: "feat/other",
+    repositoryPath: "/tmp/other",
+    isDefault: false,
+  };
+
+  test("is refused when a schedule is saved, from the window and from the Local MCP tools", async () => {
+    const { runtime, runTaskCalls } = harness([ROOT, FEATURE, OTHER]);
+    await expect(runtime.create(input({ workspaceId: "ws-other" }))).rejects.toThrow("belongs to another repository");
+    const saved = await runtime.create(input({ workspaceId: "ws-feature" }));
+    await expect(runtime.update({ id: saved.id, input: input({ workspaceId: "ws-other" }) }))
+      .rejects.toThrow("belongs to another repository");
+    // The same pair through an agent's create call.
+    const server = new McpServer({ name: "test-stave", version: "1" });
+    server.registerTool(
+      "stave_create_automation",
+      { inputSchema: { input: AutomationUpsertInputSchema } },
+      async ({ input: spec }) => ({
+        content: [{ type: "text", text: JSON.stringify(await runtime.create(mcpAutomationCreateInput(spec))) }],
+      }),
+    );
+    const client = new Client({ name: "agent", version: "1" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    await Promise.all([server.connect(serverTransport), client.connect(clientTransport)]);
+    const result = await client.callTool({ name: "stave_create_automation", arguments: { input: input({ workspaceId: "ws-other" }) } });
+    expect(result.isError).toBe(true);
+    expect((result.content as Array<{ text: string }>)[0]!.text).toContain("belongs to another repository");
+    await client.close();
+    await server.close();
+    expect(runTaskCalls).toEqual([]);
+  });
+
+  test("fails a run before any task starts", async () => {
+    const { runtime, runTaskCalls, known } = harness();
+    const automation = await runtime.create(input({ workspaceId: "ws-feature" }));
+    // The registry now has the workspace under another repository.
+    known.set("ws-feature", { ...FEATURE, repositoryPath: "/tmp/other" });
+    const run = await runtime.runNow({ id: automation.id });
+    expect(run).toMatchObject({ status: "failed", errorCode: "workspace-missing", taskId: null });
+    expect(runTaskCalls).toEqual([]);
+  });
+});
+
 describe("schedule location through the Local MCP tools", () => {
   test("an agent's create call keeps old specs on the Default workspace and stores a named workspace paused", async () => {
     const { runtime, runTaskCalls } = harness();

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import path from "node:path";
 import {
   computeNextAutomationRunAt,
   normalizeAutomationState,
@@ -6,6 +7,7 @@ import {
   automationRuntimeToProviderOptions,
   AutomationUpsertInputSchema,
   AUTOMATION_WORKSPACE_MISSING_MESSAGE,
+  automationWorkspaceRepositoryMismatchMessage,
   type AutomationRun,
   type AutomationSnapshot,
   type AutomationSpec,
@@ -47,6 +49,11 @@ class AutomationWorkspaceMissingError extends Error {
   constructor() {
     super(AUTOMATION_WORKSPACE_MISSING_MESSAGE);
   }
+}
+
+/** Whether a registered workspace belongs to the repository a schedule names. */
+function isWorkspaceOfRepository(location: AutomationWorkspaceLocation, repositoryPath: string) {
+  return path.resolve(location.repositoryPath) === path.resolve(repositoryPath);
 }
 
 interface AutomationTaskRunResult {
@@ -279,6 +286,10 @@ export function createAutomationRuntime(
     if (!location) {
       return input;
     }
+    // A schedule runs in a workspace of its own repository; the pair is checked, not trusted.
+    if (!isWorkspaceOfRepository(location, input.environment.repositoryPath)) {
+      throw new Error(automationWorkspaceRepositoryMismatchMessage(input.environment.repositoryPath));
+    }
     const { workspace: _previous, ...environment } = input.environment;
     if (location.isDefault) {
       return { ...input, environment };
@@ -418,13 +429,14 @@ export function createAutomationRuntime(
 
     try {
       // The run uses the stored location, from Run now and from the schedule
-      // alike. A workspace that was removed fails here, before a task exists
-      // anywhere, instead of starting the task in another checkout.
-      if (
-        dependencies.findWorkspace &&
-        !(await dependencies.findWorkspace(args.automation.environment.workspaceId))
-      ) {
-        throw new AutomationWorkspaceMissingError();
+      // alike. A workspace that was removed, or that the registry has under
+      // another repository, fails here, before a task exists anywhere,
+      // instead of starting the task in another checkout.
+      if (dependencies.findWorkspace) {
+        const location = await dependencies.findWorkspace(args.automation.environment.workspaceId);
+        if (!location || !isWorkspaceOfRepository(location, args.automation.environment.repositoryPath)) {
+          throw new AutomationWorkspaceMissingError();
+        }
       }
       const taskRun = await dependencies.runTask({
         workspaceId: args.automation.environment.workspaceId,
