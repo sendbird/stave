@@ -1,4 +1,4 @@
-import { formatNumber, formatPercent, formatRelativeTimeShort, formatDuration } from "@/i18n/format";
+import { formatNumber, formatPercent, formatRelativeTimeShort, formatDuration, formatCost } from "@/i18n/format";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -7,7 +7,6 @@ import { StateMark } from "@/components/ads/components/StateMark";
 import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
 import { sx } from "@/components/ads/utils/stylex";
 import { RUN_END_REASON_LABELS, RUN_OUTCOMES, type AgentRunInsights, type ResultRun, type ResultsAgentRow, type ResultsSummary, type RunOutcome } from "@/lib/agent-runs/insights";
-import { formatCostUsd } from "@/lib/agent-runs/usage";
 import { ResultsCard } from "./ResultsCard";
 import { performanceMetrics } from "./results-metrics";
 import { resultsBarColorStyles, resultsStyles as styles } from "./results.styles";
@@ -28,7 +27,7 @@ export function outcomeColor(outcome: RunOutcome) {
   return WORK_STATE[OUTCOME_STATE[outcome]].color;
 }
 
-const cost = (value: number | null) => value === null ? "—" : formatCostUsd(value);
+const cost = (value: number | null) => value === null ? "—" : formatCost(value);
 
 export function OutcomeStrip({ summary, days }: { summary: ResultsSummary; days: number }) {
   const { t } = useTranslation(I18N_NAMESPACES);

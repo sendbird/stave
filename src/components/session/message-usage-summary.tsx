@@ -1,4 +1,4 @@
-import { formatNumber } from "@/i18n/format";
+import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowDownRight, ArrowUpRight, Gauge, Zap } from "lucide-react";
@@ -49,39 +49,6 @@ function providerMaySeedZeroTokenUsage(
 }
 
 type MessageUsage = NonNullable<ChatMessage["usage"]>;
-
-function formatTokenCount(count: number): string {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
-  if (count >= 10_000) return `${(count / 1_000).toFixed(0)}k`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}k`;
-  return String(count);
-}
-
-function formatCostUsd(usd: number): string {
-  if (usd >= 1) return `$${usd.toFixed(2)}`;
-  if (usd >= 0.01) return `$${usd.toFixed(3)}`;
-  return `$${usd.toFixed(4)}`;
-}
-
-const ISO_CURRENCY_PATTERN = /^[A-Z]{3}$/;
-
-/**
- * `currency` is whatever the provider reported: an ISO code, or a plan-native
- * unit such as "credits". Units are suffixed in their own casing so a Kiro
- * turn reads "0.0541 credits" rather than "CREDITS 0.0541".
- */
-function formatReportedCost(amount: number, currency: string): string {
-  const trimmed = currency.trim();
-  const normalizedCurrency = trimmed.toUpperCase();
-  if (normalizedCurrency === "USD") {
-    return formatCostUsd(amount);
-  }
-  const digits = amount >= 1 ? 2 : 4;
-  if (ISO_CURRENCY_PATTERN.test(normalizedCurrency)) {
-    return `${normalizedCurrency} ${amount.toFixed(digits)}`;
-  }
-  return `${amount.toFixed(digits)} ${trimmed}`;
-}
 
 function formatContextPercent(usedPercent: number): string {
   return `${usedPercent < 10 ? usedPercent.toFixed(1) : Math.round(usedPercent)}%`;
@@ -197,7 +164,7 @@ function DelegatedUsageDetails(props: {
                 <>
                   <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy15")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {formatCostUsd(entry.totalCostUsd)}
+                    {formatCost(entry.totalCostUsd, "USD", { precision: "detail" })}
                   </span>
                 </>
               ) : entry.contextCostAmount !== undefined &&
@@ -205,10 +172,7 @@ function DelegatedUsageDetails(props: {
                 <>
                   <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.copy16")}</span>
                   <span className={sx(styles.metricValue)}>
-                    {formatReportedCost(
-                      entry.contextCostAmount,
-                      entry.contextCostCurrency,
-                    )}
+                    {formatCost(entry.contextCostAmount, entry.contextCostCurrency, { precision: "detail" })}
                   </span>
                 </>
               ) : null}
@@ -332,7 +296,7 @@ function TurnUsageDetails(props: {
             <>
               <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails20")}</span>
               <span className={sx(styles.metricValue)}>
-                {formatCostUsd(usage.totalCostUsd)}
+                {formatCost(usage.totalCostUsd, "USD", { precision: "detail" })}
               </span>
             </>
           ) : usage.contextCostAmount !== undefined &&
@@ -340,10 +304,7 @@ function TurnUsageDetails(props: {
             <>
               <span className={sx(styles.metricLabel)}>{i18n.t("session:messageUsageSummary.turnUsageDetails21")}</span>
               <span className={sx(styles.metricValue)}>
-                {formatReportedCost(
-                  usage.contextCostAmount,
-                  usage.contextCostCurrency,
-                )}
+                {formatCost(usage.contextCostAmount, usage.contextCostCurrency, { precision: "detail" })}
               </span>
             </>
           ) : null}
@@ -487,14 +448,11 @@ export function MessageUsageSummary(props: {
             </span>
           ) : null}
           {usage?.totalCostUsd != null ? (
-            <span>{formatCostUsd(usage.totalCostUsd)}</span>
+            <span>{formatCost(usage.totalCostUsd, "USD", { precision: "detail" })}</span>
           ) : usage?.contextCostAmount !== undefined &&
             usage.contextCostCurrency ? (
             <span>
-              {formatReportedCost(
-                usage.contextCostAmount,
-                usage.contextCostCurrency,
-              )}
+              {formatCost(usage.contextCostAmount, usage.contextCostCurrency, { precision: "detail" })}
             </span>
           ) : null}
           {delegatedUsage.length ? (

@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatDuration } from "@/i18n/format";
+import { formatDuration, formatCost, formatTokenCount } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -8,7 +8,7 @@ import { thresholdTone, type Tone } from "@/components/ads/utils/tone";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { AgentRun } from "@/lib/agent-runs/domain";
 import { describeAgentRunPermissions, explainAgentRunPermissions } from "@/lib/agent-runs/agent-run-view";
-import { formatCostUsd, formatTokenCount, type AgentRunUsage } from "@/lib/agent-runs/usage";
+import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
@@ -45,7 +45,7 @@ function spendMetric(usage: AgentRunUsage | null): Metric {
   if (!usage || usage.measuredTurns === 0) return { label: i18n.t("agentRuns:agentRunSummary.label"), value: "—", detail: i18n.t("agentRuns:agentRunSummary.detail") };
   const tokens = i18n.t("agentRuns:remaining.presentationCopy0", { v1: formatTokenCount(usage.inputTokens + usage.outputTokens) });
   return usage.costUsd !== null
-    ? { label: i18n.t("agentRuns:agentRunSummary.label2"), value: formatCostUsd(usage.costUsd), detail: tokens }
+    ? { label: i18n.t("agentRuns:agentRunSummary.label2"), value: formatCost(usage.costUsd), detail: tokens }
     : { label: i18n.t("agentRuns:agentRunSummary.label3"), value: formatTokenCount(usage.inputTokens + usage.outputTokens), detail: i18n.t("agentRuns:agentRunSummary.detail2") };
 }
 

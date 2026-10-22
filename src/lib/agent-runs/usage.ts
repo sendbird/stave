@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatCost, formatTokenCount } from "@/i18n/format";
 /**
  * What an agent run spent: the provider-reported usage of the turns it started,
  * summed. Claude reports a cost with each turn; Codex reports tokens only, so
@@ -67,24 +68,13 @@ export function addAgentRunUsage(usages: ReadonlyArray<AgentRunUsage | null | un
   );
 }
 
-export function formatTokenCount(tokens: number): string {
-  if (tokens < 1_000) return String(tokens);
-  if (tokens < 1_000_000) return `${Math.round(tokens / 100) / 10}k`.replace(".0k", "k");
-  return `${Math.round(tokens / 100_000) / 10}M`.replace(".0M", "M");
-}
-
-export function formatCostUsd(cost: number): string {
-  if (cost > 0 && cost < 0.01) return "<$0.01";
-  return `$${cost.toFixed(2)}`;
-}
-
 /**
  * The short form: `$1.24` when a cost was reported, otherwise `182k tokens`;
  * null before any turn reported usage.
  */
 export function describeUsageShort(usage: AgentRunUsage | null | undefined): string | null {
   if (!usage || usage.measuredTurns === 0) return null;
-  if (usage.costUsd !== null) return formatCostUsd(usage.costUsd);
+  if (usage.costUsd !== null) return formatCost(usage.costUsd);
   return i18n.t("agentRuns:counts.tokens", { value: formatTokenCount(usage.inputTokens + usage.outputTokens) });
 }
 
@@ -92,7 +82,7 @@ export function describeUsageShort(usage: AgentRunUsage | null | undefined): str
 export function describeUsageLong(usage: AgentRunUsage | null | undefined): string | null {
   if (!usage || usage.measuredTurns === 0) return null;
   const tokens = i18n.t("agentRuns:counts.tokens", { value: formatTokenCount(usage.inputTokens + usage.outputTokens) });
-  const text = usage.costUsd !== null ? `${formatCostUsd(usage.costUsd)} · ${tokens}` : tokens;
+  const text = usage.costUsd !== null ? `${formatCost(usage.costUsd)} · ${tokens}` : tokens;
   const unmeasured = usage.turns - usage.measuredTurns;
   return unmeasured > 0 ? i18n.t("agentRuns:usage.describeUsageLong", { value1: text, value2: unmeasured, count: unmeasured }) : text;
 }

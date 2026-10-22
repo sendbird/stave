@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n/runtime";
-import { formatDuration } from "@/i18n/format";
+import { formatDuration, formatTokenCount } from "@/i18n/format";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
@@ -134,20 +134,6 @@ function formatGoalStatusValue(status: ProviderGoalSnapshot["status"]) {
   }
 }
 
-function formatGoalTokenCount(value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return "0";
-  }
-  if (value >= 1000) {
-    const compact =
-      value % 1000 === 0
-        ? String(value / 1000)
-        : (value / 1000).toFixed(1).replace(/\.0$/, "");
-    return `${compact}k`;
-  }
-  return String(Math.floor(value));
-}
-
 function getGoalProgressPercent(goal: ProviderGoalSnapshot) {
   if (typeof goal.tokenBudget !== "number" || goal.tokenBudget <= 0) {
     return null;
@@ -160,10 +146,10 @@ function getGoalProgressPercent(goal: ProviderGoalSnapshot) {
 }
 
 function formatGoalTokenProgressValue(goal: ProviderGoalSnapshot) {
-  const used = formatGoalTokenCount(goal.tokensUsed);
+  const used = formatTokenCount(goal.tokensUsed);
   const progressPercent = getGoalProgressPercent(goal);
   if (typeof goal.tokenBudget === "number" && goal.tokenBudget > 0) {
-    const budget = formatGoalTokenCount(goal.tokenBudget);
+    const budget = formatTokenCount(goal.tokenBudget);
     return progressPercent == null
       ? i18n.t("session:remaining.presentationCopy301", { v1: used, v2: budget })
       : i18n.t("session:remaining.presentationCopy302", { v1: used, v2: budget, v3: progressPercent });

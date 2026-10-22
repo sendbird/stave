@@ -1,4 +1,4 @@
-import { formatDuration, formatNumber, formatPercent } from "@/i18n/format";
+import { formatDuration, formatNumber, formatPercent, formatCost } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Activity,
@@ -226,15 +226,6 @@ function formatContextPercent(usedPercent: number): string {
   return formatPercent(usedPercent / 100, { minimumFractionDigits: usedPercent < 10 ? 1 : 0, maximumFractionDigits: usedPercent < 10 ? 1 : 0 });
 }
 
-function formatReportedCost(amount: number, currency: string): string {
-  const trimmed = currency.trim();
-  if (trimmed.toUpperCase() === "USD") {
-    return formatNumber(amount, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 });
-  }
-  const digits = amount >= 1 ? 2 : 4;
-  return `${formatNumber(amount, { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${trimmed}`;
-}
-
 interface HeadroomFact {
   /** 0–1. Lower means less room, so the tighter fact becomes the hero. */
   remainingRatio: number | null;
@@ -418,7 +409,7 @@ function buildUsageReadout(
     usage.totalCostUsd != null
       ? formatNumber(usage.totalCostUsd, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 })
       : usage.costAmount !== undefined && usage.costCurrency
-        ? formatReportedCost(usage.costAmount, usage.costCurrency)
+        ? formatCost(usage.costAmount, usage.costCurrency, { precision: "detail" })
         : null;
   const parts: StatPart[] = [];
   if (cacheLabel) {

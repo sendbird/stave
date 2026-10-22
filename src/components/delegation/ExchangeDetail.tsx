@@ -1,4 +1,4 @@
-import { formatTime, formatDuration } from "@/i18n/format";
+import { formatTime, formatDuration, formatCost } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -46,7 +46,7 @@ function formatSpend(spend: NonNullable<DelegationExchange["outcome"]["spend"]>)
     spend.cacheReadTokens ? i18n.t("agentRuns:exchangeDetail.extraCopy75", { value1: spend.cacheReadTokens }) : null,
     spend.cacheCreationTokens ? i18n.t("agentRuns:exchangeDetail.extraCopy76", { value1: spend.cacheCreationTokens }) : null,
   ].filter(Boolean).join(" · ");
-  const cost = spend.totalCostUsd === undefined ? "" : ` · $${spend.totalCostUsd.toFixed(4)}`;
+  const cost = spend.totalCostUsd === undefined ? "" : ` · ${formatCost(spend.totalCostUsd, "USD", { precision: "detail" })}`;
   return i18n.t("agentRuns:exchangeDetail.formatSpend", { value1: spend.inputTokens ?? 0, value2: spend.outputTokens ?? 0, value3: cache ? ` · ${cache}` : "", value4: cost });
 }
 
