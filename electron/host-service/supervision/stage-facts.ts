@@ -67,9 +67,18 @@ export async function readChangedPathsSince(args: {
     git(args.run, args.cwd, ["ls-files", "--others", "--exclude-standard", "-z"]),
   ]);
   if (!tracked.ok || !untracked.ok) return null;
-  const all = [...new Set(`${tracked.stdout}\0${untracked.stdout}`.split("\0").filter(Boolean))].sort();
+  const cut = tracked.stdoutTruncated === true || untracked.stdoutTruncated === true;
+  const all = [...new Set([...completePaths(tracked), ...completePaths(untracked)])].sort();
   const limit = AGENT_RUN_LIMITS.facts.changedPaths;
-  return { paths: all.slice(0, limit), truncated: all.length > limit };
+  // Output cut by the runner's cap is an incomplete list, however short it is.
+  return { paths: all.slice(0, limit), truncated: cut || all.length > limit };
+}
+
+/** NUL-terminated paths; after a cut, the text past the last NUL is a partial path and is dropped. */
+function completePaths(result: { stdout: string; stdoutTruncated?: boolean }): string[] {
+  const fields = result.stdout.split("\0");
+  if (result.stdoutTruncated === true) fields.pop();
+  return fields.filter(Boolean);
 }
 
 /** Facts for one stage attempt from the turns it ran. */

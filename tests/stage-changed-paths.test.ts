@@ -8,14 +8,15 @@ import { AGENT_RUN_NOW, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
 const SHA = "a".repeat(40);
 
-/** A git runner that answers the diff and untracked reads with fixed paths. */
-function runner(tracked: string[], untracked: string[], ok = true): ScmCommandRunner {
+/** A git runner that answers the diff and untracked reads with fixed paths; `cut` ends the tracked output mid-path, as an output cap does. */
+function runner(tracked: string[], untracked: string[], ok = true, cut?: string): ScmCommandRunner {
   return (async (args: { commandArgs: string[] }) => {
     const [command, ...rest] = args.commandArgs;
-    const stdout = command === "diff" && rest.includes("--name-only") ? tracked.map((path) => `${path}\0`).join("")
+    const names = command === "diff" && rest.includes("--name-only");
+    const stdout = names ? tracked.map((path) => `${path}\0`).join("") + (cut ?? "")
       : command === "ls-files" ? untracked.map((path) => `${path}\0`).join("")
       : command === "diff" ? " 2 files changed, 3 insertions(+)\n" : "";
-    return { ok, code: ok ? 0 : 1, stdout, stderr: ok ? "" : "fatal: bad revision" };
+    return { ok, code: ok ? 0 : 1, stdout, stderr: ok ? "" : "fatal: bad revision", ...(names && cut !== undefined ? { stdoutTruncated: true } : {}) };
   }) as unknown as ScmCommandRunner;
 }
 
@@ -55,4 +56,11 @@ describe("stage changed paths", () => {
     expect(store.getAggregate("agent-run-new")?.stages[0]?.facts).toMatchObject({ changedPaths: ["src/a.ts"], changedPathsTruncated: true });
     database.close();
   });
+
+  test("a path list cut by the output cap is marked truncated and drops its partial last path", async () => {
+    const facts = await collect(runner(["src/a.ts", "src/b.ts"], [], true, "src/partial-na"));
+    expect(facts.changedPaths).toEqual(["src/a.ts", "src/b.ts"]);
+    expect(facts.changedPathsTruncated).toBe(true);
+  });
 });
+
