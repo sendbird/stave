@@ -116,6 +116,9 @@ These keys work only while their surface is open or focused.
 | --- | --- | --- |
 | Next item that needs you | `N` | Fleet View, not while typing |
 | Close Fleet View | `Esc` | Fleet View |
+| Allow a Fleet request once | `A` | A focused Fleet row with an approval |
+| Deny a Fleet request | `D` | A focused Fleet row with an approval |
+| Answer a Fleet question | `1..9` | A focused Fleet row with a short question |
 | Next issue | `J` or `ArrowDown` | Issues, not while typing |
 | Previous issue | `K` or `ArrowUp` | Issues, not while typing |
 | Kick off issue | `Enter` or `Cmd/Ctrl+Enter` | Issues, not while typing |

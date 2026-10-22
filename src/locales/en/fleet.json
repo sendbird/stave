@@ -211,5 +211,18 @@
     "actionRequiredCount_other": "{{count}} actions required",
     "inReviewCount_one": "{{count}} in review",
     "inReviewCount_other": "{{count}} in review"
+  },
+  "inlineAnswer": {
+    "otherRepository": "This request belongs to another repository. Open the task to answer it.",
+    "taskUnavailable": "This task is no longer available.",
+    "loading": "Loading request…",
+    "loadFailed": "This request could not be loaded. Open the task to answer it.",
+    "answered": "This request was answered or expired.",
+    "openInTask": "Answer this in the task.",
+    "sending": "Sending the answer…",
+    "open": "Open",
+    "openLabel": "Open {{title}} in {{workspace}}",
+    "approvalKeys": "<key>A</key> allow once · <key>D</key> deny",
+    "optionsLabel": "Answers to: {{question}}"
   }
 }

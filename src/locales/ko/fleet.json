@@ -204,5 +204,18 @@
     },
     "actionRequiredCount_other": "조치 필요 {{count}}개",
     "inReviewCount_other": "리뷰 대기 {{count}}개"
+  },
+  "inlineAnswer": {
+    "otherRepository": "이 요청은 다른 저장소에 있습니다. 작업을 열어 응답하세요.",
+    "taskUnavailable": "이 작업을 더 이상 사용할 수 없습니다.",
+    "loading": "요청 불러오는 중…",
+    "loadFailed": "이 요청을 불러오지 못했습니다. 작업을 열어 응답하세요.",
+    "answered": "이 요청에 응답했거나 요청이 만료되었습니다.",
+    "openInTask": "작업에서 응답하세요.",
+    "sending": "응답을 보내는 중…",
+    "open": "열기",
+    "openLabel": "{{workspace}}의 {{title}} 열기",
+    "approvalKeys": "<key>A</key> 한 번 허용 · <key>D</key> 거부",
+    "optionsLabel": "답변: {{question}}"
   }
 }

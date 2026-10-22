@@ -953,6 +953,18 @@
       "usageClose": {
         "title": "AI 사용량 닫기",
         "description": "AI 사용량 화면을 닫고 워크스페이스로 돌아갑니다."
+      },
+      "fleetRowAllow": {
+        "title": "Fleet 요청 한 번 허용",
+        "description": "승인 요청이 있는 Fleet 행에 포커스가 있을 때 한 번 허용합니다."
+      },
+      "fleetRowDeny": {
+        "title": "Fleet 요청 거부",
+        "description": "승인 요청이 있는 Fleet 행에 포커스가 있을 때 거부합니다."
+      },
+      "fleetRowChoose": {
+        "title": "Fleet 질문에 응답",
+        "description": "짧은 질문이 있는 Fleet 행에 포커스가 있을 때 해당 번호의 옵션을 선택합니다."
       }
     },
     "ui": {

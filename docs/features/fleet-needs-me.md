@@ -68,10 +68,24 @@ optional shortcuts on top of that.
 ### Key Controls
 
 - `Open next item`: opens the next item in urgency order.
-- `Allow once`, `Always allow` and `Deny`: resolve a durable approval request
-  without first opening the task. The request is drawn by the same approval card
-  as the conversation and the composer; `Always allow` appears only when the
-  provider can keep the grant, and not for a task an external host manages.
+- `Allow once`, `Always allow` and `Deny`: an approval is answered in its row,
+  without opening the task. The row draws the same approval card as the
+  conversation and the composer, with the tool and the command it would run;
+  `Always allow` appears only when the provider can keep the grant, and not for
+  a task an external host manages.
+- A short question (one question, one choice, two to six options) is answered
+  in its row by picking an option. Longer forms, free text, numbers and links
+  are answered in the task: the row says so and `Open` takes you there.
+- With a row focused, `A` allows the approval once, `D` denies it, and `1`–`9`
+  picks a short question's option. `Enter` still opens the row's control panel.
+  After an answer, focus moves to the next row.
+- An answer is sent only if the task still shows that exact request (same
+  workspace, task, turn and request); otherwise the row says why. A request in
+  a workspace you have not opened since starting Stave is loaded when you focus
+  or open its row, and a request in another repository is answered with `Open`.
+  An answer cannot be undone, and a second answer to the same request is never
+  sent.
+- `Open`: goes to the item's task.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.

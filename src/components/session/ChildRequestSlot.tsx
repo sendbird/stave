@@ -3,11 +3,11 @@ import { useEffect, useMemo, useState } from "react";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx } from "@/components/ads/utils/stylex";
-import { loadChildInteraction } from "@/components/team/load-child-interaction";
+import { loadFleetInteraction } from "@/lib/fleet/interaction-load";
 import {
-  respondToChildInteraction,
-  type ChildInteractionResponse,
-} from "@/components/team/respond-child-interaction";
+  respondToFleetInteraction,
+  type FleetInteractionResponse,
+} from "@/lib/fleet/interaction-respond";
 import {
   selectDelegatedInteractionRequests,
   type DelegatedInteractionRequest,
@@ -108,7 +108,7 @@ function ChildRequestCard(props: {
 
   useEffect(() => {
     let cancelled = false;
-    loadChildInteraction(expected).then(
+    loadFleetInteraction(expected).then(
       () => {
         if (!cancelled) setLoaded(true);
       },
@@ -137,9 +137,9 @@ function ChildRequestCard(props: {
     [activeTurnId, expected, messages],
   );
 
-  function respond(response: ChildInteractionResponse) {
+  function respond(response: FleetInteractionResponse) {
     if (busy) return;
-    const result = respondToChildInteraction(expected, response);
+    const result = respondToFleetInteraction(expected, response);
     if (!result.ok) {
       setError(result.reason);
       return;
@@ -173,7 +173,7 @@ export function ChildRequestView(props: {
   busy: boolean;
   error: string | null;
   loaded: boolean;
-  onRespond: (response: ChildInteractionResponse) => void;
+  onRespond: (response: FleetInteractionResponse) => void;
 }) {
   useTranslation();
   const { pending, busy, error } = props;

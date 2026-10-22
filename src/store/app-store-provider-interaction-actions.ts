@@ -47,6 +47,25 @@ import type {
 const pendingAsyncAnswers = new Set<string>();
 
 /**
+ * Answers on their way to a provider or host, by `taskId:requestId`. A second
+ * answer to the same request while the first is in flight — a double click,
+ * the keyboard and a button, a Fleet row and the task — is dropped instead of
+ * sent twice; the entry clears when the delivery settles either way.
+ */
+const inFlightInteractionAnswers = new Set<string>();
+
+function claimInteractionAnswer(taskId: string, requestId: string) {
+  const key = `${taskId}:${requestId}`;
+  if (inFlightInteractionAnswers.has(key)) {
+    return null;
+  }
+  inFlightInteractionAnswers.add(key);
+  return () => {
+    inFlightInteractionAnswers.delete(key);
+  };
+}
+
+/**
  * The prompt that still blocks the turn after one is answered, as the turn's
  * single `pendingInteraction` hint: answering one of two approvals leaves the
  * other open. Only the turn's own rows count, so a prompt an earlier turn left
@@ -460,6 +479,10 @@ export function createProviderInteractionActions(args: {
       if (activeTurnId && approvalPart && !respondThroughHost) {
         const respondApproval = window.api?.provider?.respondApproval;
         if (respondApproval) {
+          const release = claimInteractionAnswer(taskId, approvalPart.requestId);
+          if (!release) {
+            return;
+          }
           void respondApproval({
             turnId: activeTurnId,
             requestId: approvalPart.requestId,
@@ -486,7 +509,8 @@ export function createProviderInteractionActions(args: {
               appendApprovalFailure(
                 `Approval delivery failed: ${String(error)}`,
               );
-            });
+            })
+            .finally(release);
           return;
         }
       }
@@ -497,6 +521,10 @@ export function createProviderInteractionActions(args: {
         workspaceId &&
         window.api?.localMcp?.respondApproval
       ) {
+        const release = claimInteractionAnswer(taskId, approvalPart.requestId);
+        if (!release) {
+          return;
+        }
         void window.api.localMcp
           .respondApproval({
             workspaceId,
@@ -515,7 +543,8 @@ export function createProviderInteractionActions(args: {
           })
           .catch((error) => {
             appendApprovalFailure(`Approval delivery failed: ${String(error)}`);
-          });
+          })
+          .finally(release);
         return;
       }
 
@@ -811,6 +840,10 @@ export function createProviderInteractionActions(args: {
       if (activeTurnId && userInputPart && !respondThroughHost) {
         const respondUserInput = window.api?.provider?.respondUserInput;
         if (respondUserInput) {
+          const release = claimInteractionAnswer(taskId, userInputPart.requestId);
+          if (!release) {
+            return;
+          }
           void respondUserInput({
             turnId: activeTurnId,
             requestId: userInputPart.requestId,
@@ -830,7 +863,8 @@ export function createProviderInteractionActions(args: {
               appendUserInputFailure(
                 `User input delivery failed: ${String(error)}`,
               );
-            });
+            })
+            .finally(release);
           return;
         }
       }
@@ -841,6 +875,10 @@ export function createProviderInteractionActions(args: {
         workspaceId &&
         window.api?.localMcp?.respondUserInput
       ) {
+        const release = claimInteractionAnswer(taskId, userInputPart.requestId);
+        if (!release) {
+          return;
+        }
         void window.api.localMcp
           .respondUserInput({
             workspaceId,
@@ -862,7 +900,8 @@ export function createProviderInteractionActions(args: {
             appendUserInputFailure(
               `User input delivery failed: ${String(error)}`,
             );
-          });
+          })
+          .finally(release);
         return;
       }
 

@@ -411,3 +411,250 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(reviewToggle).toHaveCount(0);
   await expect(needs).toContainText("No action required");
 });
+
+test("answers a question and two approvals across three workspaces from Fleet rows with the keyboard", async ({
+  page,
+}, testInfo) => {
+  await page.addInitScript(() => {
+    const repositoryPath = "/tmp/stave-fleet-rows";
+    const workspaces = ["ws-rows-one", "ws-rows-two", "ws-rows-three"].map(
+      (id, index) => ({
+        id,
+        name: ["deploy", "docs", "search"][index]!,
+        updatedAt: "2026-10-22T01:00:00.000Z",
+      }),
+    );
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify(
+        workspaces.map((workspace) => ({
+          ...workspace,
+          snapshot: { activeTaskId: "", tasks: [], messagesByTask: {} },
+        })),
+      ),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath,
+          repositoryName: "stave-fleet-rows",
+          workspaces,
+          activeWorkspaceId: "ws-rows-one",
+          workspaceBranchById: Object.fromEntries(
+            workspaces.map((workspace) => [workspace.id, workspace.name]),
+          ),
+          workspacePathById: Object.fromEntries(
+            workspaces.map((workspace) => [workspace.id, repositoryPath]),
+          ),
+          workspaceDefaultById: { "ws-rows-one": true },
+          activeTaskId: "",
+          tasks: [],
+          messagesByTask: {},
+        },
+        version: 0,
+      }),
+    );
+    const sent: Array<Record<string, unknown>> = [];
+    (window as unknown as { __fleetAnswers: typeof sent }).__fleetAnswers = sent;
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: async () => [],
+        respondApproval: async (args: Record<string, unknown>) => {
+          sent.push({ kind: "approval", ...args });
+          return { ok: true };
+        },
+        respondUserInput: async (args: Record<string, unknown>) => {
+          sent.push({ kind: "user-input", ...args });
+          return { ok: true };
+        },
+      },
+      terminal: {
+        runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }),
+      },
+      sourceControl: {
+        getStatus: async () => ({
+          ok: true,
+          branch: "main",
+          items: [],
+          hasConflicts: false,
+          stderr: "",
+        }),
+        getHistory: async () => ({ ok: true, items: [], stderr: "" }),
+      },
+    };
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  // One request per workspace, each in a running turn: the open workspace's
+  // own session, and two workspaces another surface already loaded.
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const { createEmptyWorkspaceState } = await import(
+      "/src/store/workspace-session-state.ts"
+    );
+    const task = (id: string, title: string) => ({
+      id,
+      title,
+      provider: "codex" as const,
+      updatedAt: "2026-10-22T01:00:00.000Z",
+      unread: false,
+      archivedAt: null,
+    });
+    const message = (id: string, turnId: string, part: Record<string, unknown>) => ({
+      id,
+      role: "assistant" as const,
+      model: "gpt-5.5",
+      providerId: "codex" as const,
+      content: "",
+      turnId,
+      parts: [part],
+    });
+    const cached = (taskValue: ReturnType<typeof task>, messages: unknown[], turnId: string) => ({
+      ...createEmptyWorkspaceState(),
+      nativeSessionReadyByTask: {},
+      tasks: [taskValue],
+      activeTaskId: taskValue.id,
+      messagesByTask: { [taskValue.id]: messages },
+      activeTurnIdsByTask: { [taskValue.id]: turnId },
+    });
+    // The browser build lists only the worktrees it can find, so the three
+    // workspaces are restated after hydration.
+    useAppStore.setState({
+      workspaces: [
+        { id: "ws-rows-one", name: "deploy", updatedAt: "2026-10-22T01:00:00.000Z" },
+        { id: "ws-rows-two", name: "docs", updatedAt: "2026-10-22T01:00:00.000Z" },
+        { id: "ws-rows-three", name: "search", updatedAt: "2026-10-22T01:00:00.000Z" },
+      ],
+      tasks: [task("task-deploy", "Ship the release")],
+      activeTaskId: "task-deploy",
+      messagesByTask: {
+        "task-deploy": [
+          message("m-deploy", "turn-deploy", {
+            type: "approval",
+            requestId: "approval-deploy",
+            toolName: "Bash",
+            description: "Publish the release build",
+            input: "bun run release",
+            state: "approval-requested",
+          }),
+        ],
+      },
+      activeTurnIdsByTask: { "task-deploy": "turn-deploy" },
+      taskWorkspaceIdById: {
+        "task-deploy": "ws-rows-one",
+        "task-docs": "ws-rows-two",
+        "task-search": "ws-rows-three",
+      },
+      workspaceRuntimeCacheById: {
+        "ws-rows-two": cached(
+          task("task-docs", "Rewrite the setup guide"),
+          [
+            message("m-docs", "turn-docs", {
+              type: "user_input",
+              requestId: "question-docs",
+              toolName: "AskUserQuestion",
+              state: "input-requested",
+              questions: [
+                {
+                  question: "Which audience should the guide target?",
+                  header: "Audience",
+                  options: [
+                    { label: "New users" },
+                    { label: "Maintainers" },
+                  ],
+                },
+              ],
+            }),
+          ],
+          "turn-docs",
+        ),
+        "ws-rows-three": cached(
+          task("task-search", "Tune the search index"),
+          [
+            message("m-search", "turn-search", {
+              type: "approval",
+              requestId: "approval-search",
+              toolName: "Bash",
+              description: "Drop the stale index",
+              input: "rm -rf .cache/search",
+              state: "approval-requested",
+            }),
+          ],
+          "turn-search",
+        ),
+      },
+    });
+  });
+  await page
+    .getByTestId("top-bar")
+    .getByRole("button", { name: "Open Fleet View" })
+    .click();
+
+  const needs = page.getByRole("region", { name: "Action required" });
+  const rows = needs.locator("[data-fleet-attention-row]");
+  await expect(rows).toHaveCount(3);
+  // Each request is answerable in its row: two approval cards and one question.
+  await expect(needs.locator('[data-fleet-inline-answer="approval"]')).toHaveCount(2);
+  await expect(
+    needs.locator('[data-fleet-inline-answer="short-question"]'),
+  ).toHaveCount(1);
+  await page.screenshot({
+    path: testInfo.outputPath("fleet-inline-answers.png"),
+    fullPage: true,
+  });
+
+  const rowFor = (title: string) =>
+    rows.filter({ hasText: title }).getByRole("button", { name: new RegExp(title) }).first();
+
+  // Keyboard only: focus a row, answer it, and focus moves on to the next.
+  await rowFor("Rewrite the setup guide").focus();
+  await page.keyboard.press("2");
+  await expect(rows).toHaveCount(2);
+  await expect(rows.filter({ hasText: "Rewrite the setup guide" })).toHaveCount(0);
+  await expect
+    .poll(() => page.evaluate(() => document.activeElement?.id ?? ""))
+    .toMatch(/^fleet-attention-trigger-interaction:approval:/);
+
+  await rowFor("Ship the release").focus();
+  await page.keyboard.press("a");
+  await expect(rows).toHaveCount(1);
+  await rowFor("Tune the search index").focus();
+  await page.keyboard.press("d");
+  await expect(rows).toHaveCount(0);
+  await expect(needs).toContainText("No action required");
+
+  const sent = await page.evaluate(
+    () => (window as unknown as { __fleetAnswers: unknown[] }).__fleetAnswers,
+  );
+  expect(sent).toEqual([
+    {
+      kind: "user-input",
+      turnId: "turn-docs",
+      requestId: "question-docs",
+      answers: { "Which audience should the guide target?": "Maintainers" },
+    },
+    { kind: "approval", turnId: "turn-deploy", requestId: "approval-deploy", approved: true },
+    { kind: "approval", turnId: "turn-search", requestId: "approval-search", approved: false },
+  ]);
+  // Each task records the answer exactly as if it had been given there, and
+  // Fleet never switched the workspace.
+  const recorded = await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const state = useAppStore.getState();
+    return {
+      activeWorkspaceId: state.activeWorkspaceId,
+      deploy: state.messagesByTask["task-deploy"]?.[0]?.parts[0],
+      docs: state.workspaceRuntimeCacheById["ws-rows-two"]?.messagesByTask["task-docs"]?.[0]?.parts[0],
+      search: state.workspaceRuntimeCacheById["ws-rows-three"]?.messagesByTask["task-search"]?.[0]?.parts[0],
+    };
+  });
+  expect(recorded.activeWorkspaceId).toBe("ws-rows-one");
+  expect(recorded.deploy).toMatchObject({ state: "approval-responded" });
+  expect(recorded.search).toMatchObject({ state: "output-denied" });
+  expect(recorded.docs).toMatchObject({
+    state: "input-responded",
+    answers: { "Which audience should the guide target?": "Maintainers" },
+  });
+});

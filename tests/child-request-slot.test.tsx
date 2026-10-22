@@ -102,7 +102,7 @@ describe("child requests in the parent composer", () => {
 
   test("approving from the parent answers the child's request and settles its notification", async () => {
     const { useAppStore } = await import("@/store/app.store");
-    const { respondToChildInteraction } = await import("@/components/team/respond-child-interaction");
+    const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
     const { selectDelegatedInteractionRequests } = await import("@/lib/notifications/delegated-attention");
     const select = () => selectDelegatedInteractionRequests({ notifications: useAppStore.getState().notifications,
       taskId: "parent", repositoryPath: REPOSITORY_PATH, now: Date.parse(NOW) });
@@ -110,7 +110,7 @@ describe("child requests in the parent composer", () => {
     expect(request.identity).toEqual({ repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child",
       turnId: "child-turn", kind: "approval", requestId: "approval-1", messageId: "approval-message" });
 
-    expect(respondToChildInteraction(request.identity, { kind: "approval", approved: true })).toEqual({ ok: true, messageId: "approval-message" });
+    expect(respondToFleetInteraction(request.identity, { kind: "approval", approved: true })).toEqual({ ok: true, messageId: "approval-message" });
     await flush();
 
     expect(responses).toEqual([{ kind: "approval", workspaceId: "child-workspace", taskId: "child", requestId: "approval-1", approved: true }]);
@@ -120,10 +120,10 @@ describe("child requests in the parent composer", () => {
   });
 
   test("answering the child's question carries the child identity and answers", async () => {
-    const { respondToChildInteraction } = await import("@/components/team/respond-child-interaction");
+    const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
     const identity = { repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child", turnId: "child-turn",
       kind: "user-input" as const, requestId: "question-1", messageId: "question-message" };
-    expect(respondToChildInteraction(identity, { kind: "user-input", answers: { "Which branch?": "Current" } }).ok).toBe(true);
+    expect(respondToFleetInteraction(identity, { kind: "user-input", answers: { "Which branch?": "Current" } }).ok).toBe(true);
     await flush();
     expect(responses).toEqual([{ kind: "user-input", workspaceId: "child-workspace", taskId: "child", requestId: "question-1",
       answers: { "Which branch?": "Current" }, denied: undefined }]);
@@ -131,10 +131,10 @@ describe("child requests in the parent composer", () => {
 
   test("a response prepared for another child turn is refused", async () => {
     const { useAppStore } = await import("@/store/app.store");
-    const { respondToChildInteraction } = await import("@/components/team/respond-child-interaction");
+    const { respondToFleetInteraction } = await import("@/lib/fleet/interaction-respond");
     useAppStore.setState((state) => ({ workspaceRuntimeCacheById: { "child-workspace": {
       ...state.workspaceRuntimeCacheById["child-workspace"]!, activeTurnIdsByTask: { child: "replacement-turn" } } } }));
-    const result = respondToChildInteraction({ repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child",
+    const result = respondToFleetInteraction({ repositoryPath: REPOSITORY_PATH, workspaceId: "child-workspace", taskId: "child",
       turnId: "child-turn", kind: "approval", requestId: "approval-1", messageId: "approval-message" }, { kind: "approval", approved: true });
     await flush();
     expect(result.ok).toBe(false);

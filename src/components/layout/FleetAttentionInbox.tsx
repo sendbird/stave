@@ -10,12 +10,25 @@ import {
   GitMerge,
   Inbox,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import {
+  describeFleetRowKeys,
+  FleetRowInlineAnswer,
+  resolveFleetRowKey,
+} from "@/components/layout/FleetRowInlineAnswer";
+import { useFleetRowInteraction } from "@/components/layout/useFleetRowInteraction";
+import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
@@ -157,9 +170,52 @@ function FleetNeedRow(args: {
   onDismiss: (item: FleetAttentionItem) => void;
   onSnooze: (item: FleetAttentionItem, durationMs: number) => void;
   onOpenPr: (item: FleetAttentionItem) => void;
+  /** After an answer leaves this row, so triage can continue on the next. */
+  onAnswered: (item: FleetAttentionItem) => void;
 }) {
   const { t: tI18n } = useTranslation(["fleet"]);
   const { item, selected, busy } = args;
+  const interaction = useFleetRowInteraction(item);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const { onAnswered } = args;
+  const answer = useCallback(
+    (response: FleetInteractionResponse) => {
+      if (interaction.respond(response).ok) {
+        onAnswered(item);
+      }
+    },
+    [interaction, item, onAnswered],
+  );
+  // A focused row answers with A / D / 1–9 while its inline answer shows. The
+  // open control panel and any text field keep their own keys, and the key is
+  // consumed so Fleet's window shortcuts skip it.
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+    if (
+      event.defaultPrevented ||
+      selected ||
+      (event.target instanceof Node && panelRef.current?.contains(event.target))
+    ) {
+      return;
+    }
+    const response = resolveFleetRowKey(
+      {
+        key: event.key,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        repeat: event.repeat,
+        isComposing: event.nativeEvent.isComposing,
+        target: event.target,
+      },
+      interaction,
+    );
+    if (!response) {
+      return;
+    }
+    event.preventDefault();
+    answer(response);
+  };
   const detail = getFleetNeedDetail(item);
   const title = getFleetNeedTitle(item);
   const canMarkRead =
@@ -186,7 +242,12 @@ function FleetNeedRow(args: {
     : null;
 
   return (
-    <li className={sx(styles.row, selected && styles.rowSelected)}>
+    <li
+      className={sx(styles.row, selected && styles.rowSelected)}
+      data-fleet-attention-row={item.id}
+      onFocus={interaction.ensureLoaded}
+      onKeyDown={handleRowKeyDown}
+    >
       <AdsButton
         layout="host"
         id={triggerId}
@@ -199,8 +260,12 @@ function FleetNeedRow(args: {
             ? `fleet-attention-controls-${item.id}`
             : undefined
         }
+        aria-keyshortcuts={selected ? undefined : describeFleetRowKeys(interaction)}
         disabled={busy}
-        onClick={() => args.onOpen(item)}
+        onClick={() => {
+          interaction.ensureLoaded();
+          args.onOpen(item);
+        }}
       >
         <span className={sx(styles.rowTop)}>
           <Badge
@@ -221,11 +286,27 @@ function FleetNeedRow(args: {
           <span aria-hidden="true">·</span>
           <span className={sx(styles.rowMetaPart)}>{item.repositoryName}</span>
         </span>
-        {detail ? (
+        {/* The inline approval card already names the tool and its request. */}
+        {detail && (selected || interaction.inline.kind !== "approval") ? (
           <span className={sx(styles.rowDetail)}>{detail}</span>
         ) : null}
       </AdsButton>
+      {selected ? null : (
+        <FleetRowInlineAnswer interaction={interaction} onAnswer={answer} />
+      )}
       <div className={sx(styles.rowActions)}>
+          {controlTarget ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              xstyle={styles.rowAction}
+              disabled={busy}
+              aria-label={tI18n("fleet:inlineAnswer.openLabel", { title, workspace: item.workspaceName })}
+              onClick={() => args.onOpenTask(controlTarget)}
+            >
+              {tI18n("fleet:inlineAnswer.open")}</Button>
+          ) : null}
           {item.kind === "agent-run-sign-off" && item.agentRunStage ? (
             <AgentRunSignOffAction item={item} agentRunStage={item.agentRunStage} disabled={busy} />
           ) : null}
@@ -305,6 +386,7 @@ function FleetNeedRow(args: {
         </div>
       {selected && controlTarget ? (
         <div
+          ref={panelRef}
           id={`fleet-attention-controls-${item.id}`}
           className={sx(styles.rowControls)}
         >
@@ -313,7 +395,11 @@ function FleetNeedRow(args: {
             expectedInteraction={
               (item.kind === "approval" || item.kind === "user-input") &&
               item.requestId
-                ? { kind: item.kind, requestId: item.requestId }
+                ? {
+                    kind: item.kind,
+                    requestId: item.requestId,
+                    messageId: item.messageId ?? null,
+                  }
                 : undefined
             }
             returnFocusElementId={triggerId}
@@ -375,6 +461,27 @@ export function FleetAttentionInbox(args: {
     setShowReview(true);
   };
 
+  // Rows in the order they are drawn, so an answer can hand focus onward.
+  const visibleRowIds = [
+    ...blocking.map((item) => item.id),
+    ...(showReviewGroup ? review.map((item) => item.id) : []),
+  ];
+  const visibleRowKey = visibleRowIds.join("\u0000");
+  const focusNextRow = useCallback(
+    (answered: FleetAttentionItem) => {
+      const ids = visibleRowKey.split("\u0000");
+      const index = ids.indexOf(answered.id);
+      const nextId = index >= 0 ? (ids[index + 1] ?? ids[index - 1]) : undefined;
+      if (!nextId) {
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        document.getElementById(`fleet-attention-trigger-${nextId}`)?.focus();
+      });
+    },
+    [visibleRowKey],
+  );
+
   const renderRow = (item: FleetAttentionItem) => (
     <FleetNeedRow
       key={item.id}
@@ -387,6 +494,7 @@ export function FleetAttentionInbox(args: {
       onDismiss={args.onDismiss}
       onSnooze={args.onSnooze}
       onOpenPr={args.onOpenPr}
+      onAnswered={focusNextRow}
     />
   );
 

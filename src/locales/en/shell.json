@@ -959,6 +959,18 @@
       "usageClose": {
         "title": "Close AI usage",
         "description": "Close AI usage and return to the workspace."
+      },
+      "fleetRowAllow": {
+        "title": "Allow a Fleet request once",
+        "description": "In a focused Fleet row with an approval, allow it once."
+      },
+      "fleetRowDeny": {
+        "title": "Deny a Fleet request",
+        "description": "In a focused Fleet row with an approval, deny it."
+      },
+      "fleetRowChoose": {
+        "title": "Answer a Fleet question",
+        "description": "In a focused Fleet row with a short question, pick the option with that number."
       }
     },
     "ui": {

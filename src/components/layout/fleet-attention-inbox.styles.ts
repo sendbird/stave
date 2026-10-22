@@ -199,6 +199,57 @@ export const attentionStyles = stylex.create({
     order: 1,
     overflowWrap: "anywhere",
   },
+  /** A request answered in the row, under the row's own summary. */
+  inlineAnswer: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
+    paddingBottom: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-12"],
+  },
+  inlineKeyHint: {
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-micro"],
+    marginInlineStart: "auto",
+    whiteSpace: "nowrap",
+  },
+  inlineQuestion: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
+  },
+  inlineQuestionText: {
+    color: vars["--ads-color-text"],
+    display: "-webkit-box",
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    margin: 0,
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 3,
+  },
+  inlineOptions: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-4"],
+  },
+  inlineOption: {
+    gap: vars["--ads-space-4"],
+    maxWidth: "100%",
+  },
+  inlineNote: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    margin: 0,
+    overflowWrap: "anywhere",
+  },
+  inlineNoteError: {
+    color: vars["--ads-color-danger-text"],
+  },
   rowControls: {
     backgroundColor: vars["--ads-color-canvas"],
     borderTopColor: vars["--ads-color-border"],
