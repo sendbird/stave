@@ -38,6 +38,8 @@
   in **Settings → Command Palette → Shell chords**.
 - The question button next to the **Turn** picker in the Task panel's
   **Activity** tab.
+- The panel sits over the task's conversation. Opening it while the task
+  shows [Review](review-mode.md) switches the task back to its conversation.
 
 ### Key Controls
 

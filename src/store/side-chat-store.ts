@@ -14,6 +14,7 @@ import {
 } from "@/lib/side-chat/side-chat";
 import { useAppStore } from "@/store/app.store";
 import { resolvePromptDraftModelForProvider } from "@/store/prompt-draft-runtime";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 
 /**
  * Side questions, kept in memory only: the open panel, the question being
@@ -112,6 +113,10 @@ export const useSideChatStore = create<SideChatState>((set, get) => ({
   draftByTask: {},
   exchangeByTask: {},
   open: (taskId, question) => {
+    // The panel sits over the task's conversation, which Review hides: an
+    // entry point outside the conversation (the chord, Activity's button)
+    // brings it back.
+    useTaskReviewModeStore.getState().showConversation(taskId);
     set((state) => ({
       openTaskId: taskId,
       focusNonce: state.focusNonce + 1,

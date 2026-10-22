@@ -54,6 +54,9 @@
   while it works, or the composer.
 - The close button dismisses the card until your next return. Writing to the
   task dismisses it too.
+- The card sits over the conversation: while the task shows
+  [Review](review-mode.md) it is out of sight, and it is there again when you
+  switch back.
 
 ## Files And Data
 

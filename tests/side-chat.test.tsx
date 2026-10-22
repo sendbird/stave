@@ -252,6 +252,20 @@ describe("the side question panel", () => {
     expect(render()).toContain("컴포저에 복사");
   });
 
+  test("opening it while the task shows Review brings the task's conversation back, where the panel sits", async () => {
+    const { useTaskReviewModeStore } = await import("@/store/task-review-mode-store");
+    const before = useSideChatStore.getState().openTaskId;
+    try {
+      useTaskReviewModeStore.getState().openReview("task-review");
+      expect(useTaskReviewModeStore.getState().byTask["task-review"]?.mode).toBe("review");
+      useSideChatStore.getState().open("task-review");
+      expect(useTaskReviewModeStore.getState().byTask["task-review"]?.mode).toBe("conversation");
+      expect(useSideChatStore.getState().openTaskId).toBe("task-review");
+    } finally {
+      useSideChatStore.setState({ openTaskId: before });
+    }
+  });
+
   test("Escape inside the panel never stops the task's turn", () => {
     const inside = { closest: (selector: string) => (selector === "[data-task-abort-exempt]" || selector === "[data-task-abort-scope]" ? {} : null) };
     const pane = { closest: (selector: string) => (selector === "[data-task-abort-scope]" ? {} : null) };
