@@ -1129,6 +1129,8 @@
     "askSent": "Asked the agent. Its proposal appears here to review before anything is saved.",
     "askFailed": "The request could not be sent.",
     "fillNothing": "Stave has nothing new to add.",
+    "fillLeftOut_one": "{{count}} line did not fit in {{sections}} and was left out. Each section holds up to {{limit}} characters.",
+    "fillLeftOut_other": "{{count}} lines did not fit in {{sections}} and were left out. Each section holds up to {{limit}} characters.",
     "proposalTitle": "The agent proposed changes",
     "proposalDetail": "Review the proposal. Nothing changes until you save it.",
     "review": "Review",

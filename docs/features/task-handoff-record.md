@@ -47,7 +47,9 @@
     failing ones to Cautions;
   - approvals you granted in the loaded conversation go to Approved decisions;
   - plans linked to the task go to Remaining work.
-  Lines a section already has are not added twice.
+  Lines a section already has are not added twice. A section never grows
+  past its 2,000 characters this way: lines that do not fit are left out, and
+  Stave says how many and in which sections.
 - **Ask the agent to update** sends the task's agent a message that asks for a
   proposed record. Its reply carries the proposal in a block Stave reads; the
   tab then shows **The agent proposed changes** with **Review** and

@@ -146,11 +146,14 @@ export function useHandoffEditor(args: {
     startEditing: () => begin({ draft: handoffRecordToDraft(args.record), authors: {} }),
     updateSection: (id: HandoffSectionId, text: string) =>
       remember({ draft: { ...draft, [id]: text }, authors: { ...authors, [id]: "user" }, baseRevision }),
-    /** Stave's facts, appended where a section lacks them; returns how many sections changed. */
+    /**
+     * Stave's facts, appended where a section lacks them and has room; returns
+     * the sections that changed and how many lines each section left out.
+     */
     applySuggestions: (suggestions: Partial<HandoffDraft>) => {
       const base = isEditing ? draft : handoffRecordToDraft(args.record);
       const merged = mergeHandoffSuggestions(base, suggestions);
-      if (merged.changed.length === 0) return 0;
+      if (merged.changed.length === 0) return { changed: merged.changed, leftOut: merged.leftOut };
       const nextAuthors = { ...(isEditing ? authors : {}) };
       for (const id of merged.changed) nextAuthors[id] = "stave";
       if (isEditing) {
@@ -158,7 +161,7 @@ export function useHandoffEditor(args: {
       } else {
         begin({ draft: merged.draft, authors: nextAuthors });
       }
-      return merged.changed.length;
+      return { changed: merged.changed, leftOut: merged.leftOut };
     },
     /** The agent's proposal, section by section, for the user to review and save. */
     applyProposal: (proposal: Partial<HandoffDraft>) => {

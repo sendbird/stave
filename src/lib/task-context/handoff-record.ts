@@ -236,21 +236,36 @@ export function buildHandoffSuggestions(facts: HandoffFacts, words: {
 
 /**
  * Merge suggestions into a draft: lines a section does not already contain
- * are appended. Returns the sections that changed, so their author is Stave
- * unless the user edits them before saving.
+ * are appended while the section stays within `HANDOFF_SECTION_MAX_CHARS`
+ * (text set here is not bounded by the field's own limit). Returns the
+ * sections that changed, so their author is Stave unless the user edits them
+ * before saving, and per section how many lines did not fit.
  */
 export function mergeHandoffSuggestions(draft: HandoffDraft, suggestions: Partial<HandoffDraft>) {
   const next = { ...draft };
   const changed: HandoffSectionId[] = [];
+  const leftOut: Partial<Record<HandoffSectionId, number>> = {};
   for (const id of HANDOFF_SECTION_IDS) {
     const lines = (suggestions[id] ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
     const existing = new Set(next[id].split("\n").map((line) => line.trim()));
     const added = lines.filter((line) => !existing.has(line));
     if (added.length === 0) continue;
-    next[id] = [next[id].trim(), ...added].filter(Boolean).join("\n");
+    let text = next[id].trim();
+    let skipped = 0;
+    for (const line of added) {
+      const candidate = text ? `${text}\n${line}` : line;
+      if (candidate.length > HANDOFF_SECTION_MAX_CHARS) {
+        skipped += 1;
+        continue;
+      }
+      text = candidate;
+    }
+    if (skipped > 0) leftOut[id] = skipped;
+    if (skipped === added.length) continue;
+    next[id] = text;
     changed.push(id);
   }
-  return { draft: next, changed };
+  return { draft: next, changed, leftOut };
 }
 
 /** The fenced block an agent answers with when asked to update the record. */

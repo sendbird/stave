@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatRelativeTime } from "@/i18n/format";
+import { formatList, formatNumber, formatRelativeTime } from "@/i18n/format";
 import { useEffect, useId, useMemo, useState } from "react";
 import { Banner } from "@/components/ads/components/Banner";
 import { useAsync } from "@/components/ads/utils/async";
@@ -97,6 +97,17 @@ export function TaskHandoffPanel(props: { workspaceId: string; taskId: string })
   );
 }
 
+/** What Fill could not add because a section would pass its limit, or null when everything fit. */
+export function describeHandoffLeftOut(leftOut: Partial<Record<HandoffSectionId, number>>) {
+  const sections = HANDOFF_SECTION_IDS.filter((id) => (leftOut[id] ?? 0) > 0);
+  if (sections.length === 0) return null;
+  return i18n.t("session:handoff.fillLeftOut", {
+    count: sections.reduce((total, id) => total + (leftOut[id] ?? 0), 0),
+    sections: formatList(sections.map((id) => i18n.t(SECTION_TITLE_KEYS[id]))),
+    limit: formatNumber(HANDOFF_SECTION_MAX_CHARS),
+  });
+}
+
 function describeAuthor(updatedBy: "user" | "agent" | "stave", time: string) {
   if (updatedBy === "agent") return i18n.t("session:handoff.updatedByAgent", { time });
   if (updatedBy === "stave") return i18n.t("session:handoff.updatedByStave", { time });
@@ -152,7 +163,11 @@ export function TaskHandoffEditor(props: {
         messages,
         planFilePaths,
       });
-      if (editor.applySuggestions(suggestions) === 0) {
+      const result = editor.applySuggestions(suggestions);
+      const leftOut = describeHandoffLeftOut(result.leftOut);
+      if (leftOut) {
+        toast.warning(leftOut);
+      } else if (result.changed.length === 0) {
         toast.info(i18n.t("session:handoff.fillNothing"));
       }
     } finally {

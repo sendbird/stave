@@ -1100,6 +1100,7 @@
     "askSent": "에이전트에게 요청했습니다. 제안은 저장하기 전에 여기에서 검토할 수 있습니다.",
     "askFailed": "요청을 보내지 못했습니다.",
     "fillNothing": "Stave가 새로 추가할 내용이 없습니다.",
+    "fillLeftOut_other": "{{sections}}에 들어가지 않아 {{count}}줄을 넣지 않았습니다. 섹션마다 최대 {{limit}}자까지 담을 수 있습니다.",
     "proposalTitle": "에이전트가 변경을 제안했습니다",
     "proposalDetail": "제안을 검토하세요. 저장하기 전까지 아무것도 바뀌지 않습니다.",
     "review": "검토",

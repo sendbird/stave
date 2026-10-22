@@ -15,6 +15,8 @@ import {
   buildHandoffUpdateRequest,
   emptyHandoffRecord,
   HANDOFF_PROPOSAL_FENCE,
+  HANDOFF_SECTION_IDS,
+  HANDOFF_SECTION_MAX_CHARS,
   mergeHandoffSuggestions,
   parseHandoffProposal,
   resolveHandoffCommit,
@@ -114,6 +116,46 @@ describe("handoff record rules", () => {
     const merged = mergeHandoffSuggestions({ ...EMPTY_DRAFT, decisions: "- approved Run command: bun run migrate" }, suggestions);
     expect(merged.changed).toEqual(["remaining", "cautions"]);
     expect(merged.draft.decisions).toBe("- approved Run command: bun run migrate");
+  });
+
+  test("Fill keeps each section within its limit and counts the lines that did not fit", () => {
+    const nearlyFull = "x".repeat(HANDOFF_SECTION_MAX_CHARS - 40);
+    const merged = mergeHandoffSuggestions(
+      { ...EMPTY_DRAFT, verified: nearlyFull, cautions: "- watch the cache" },
+      {
+        decisions: "- approved bun run migrate",
+        verified: "- short line that fits\n- a second line that is too long to fit in what is left",
+        cautions: `- ${"y".repeat(HANDOFF_SECTION_MAX_CHARS)}`,
+      },
+    );
+    for (const id of HANDOFF_SECTION_IDS) {
+      expect(merged.draft[id].length).toBeLessThanOrEqual(HANDOFF_SECTION_MAX_CHARS);
+    }
+    expect(merged.draft.verified).toBe(`${nearlyFull}\n- short line that fits`);
+    expect(merged.draft.cautions).toBe("- watch the cache");
+    expect(merged.changed).toEqual(["decisions", "verified"]);
+    expect(merged.leftOut).toEqual({ verified: 1, cautions: 1 });
+  });
+
+  test("the Handoff tab says which sections had lines left out, in English and Korean", async () => {
+    const { describeHandoffLeftOut } = await import("@/components/session/TaskHandoffPanel");
+    const { applyAppLocale } = await import("@/i18n");
+    try {
+      expect(describeHandoffLeftOut({})).toBeNull();
+      applyAppLocale("en");
+      expect(describeHandoffLeftOut({ verified: 1 })).toBe(
+        "1 line did not fit in Verified results and was left out. Each section holds up to 2,000 characters.",
+      );
+      expect(describeHandoffLeftOut({ verified: 1, cautions: 2 })).toBe(
+        "3 lines did not fit in Verified results and Cautions and were left out. Each section holds up to 2,000 characters.",
+      );
+      applyAppLocale("ko");
+      expect(describeHandoffLeftOut({ verified: 1, cautions: 2 })).toBe(
+        "검증된 결과 및 주의 사항에 들어가지 않아 3줄을 넣지 않았습니다. 섹션마다 최대 2,000자까지 담을 수 있습니다.",
+      );
+    } finally {
+      applyAppLocale("en");
+    }
   });
 
   test("an agent's proposal is read from its last fenced block; anything else is ignored", () => {
