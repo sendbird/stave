@@ -891,7 +891,16 @@
     "revisionCount_other": "리비전 {{count}}개 기록됨",
     "compareWithPreviousRevision": "이전 리비전과 비교",
     "compareValueWithPreviousRevision": "{{value1}}을(를) 이전 리비전과 비교",
-    "couldNotLoadRevision": "이 리비전을 불러올 수 없습니다."
+    "couldNotLoadRevision": "이 리비전을 불러올 수 없습니다.",
+    "searchLabel": "문서 검색",
+    "searchPlaceholder": "이름이나 작업으로 검색",
+    "clearSearch": "검색 지우기",
+    "recentOfTotal": "전체 {{total}}개 중 최근 {{shown}}개 표시",
+    "showingAll": "전체 {{total}}개 표시",
+    "showAll": "모두 보기",
+    "showRecentOnly": "최근 항목만 보기",
+    "matchCount": "문서 {{total}}개 중 {{matched}}개 일치",
+    "noMatch": "검색과 일치하는 문서가 없습니다."
   },
   "workspaceProgressTaskTree": {
     "valueProvider": "{{label}} 프로바이더",

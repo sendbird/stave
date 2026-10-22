@@ -35,11 +35,15 @@ import { transition } from "@/components/ads/recipes/transition";
 import { hostSurface } from "@/components/ui/host-surface.styles";
 import { informationRow } from "./information-row.styles";
 import { planStyles } from "./workspace-plans.styles";
+import { PlansListStatus, PlansSearchField } from "./workspace-plans-list-controls";
 import {
   EMPTY_FILE_PATHS,
   initialPlansListState,
   reducePlansList,
   resolvePlansListView,
+  selectPlansListRows,
+  shouldOfferPlansSearch,
+  shouldShowPlansStatus,
   type WorkspaceDocumentFilePaths,
 } from "./workspace-plans-list-state";
 
@@ -58,7 +62,8 @@ const EMPTY_DOCUMENT_SUMMARIES: Readonly<
   Record<string, WorkspaceDocumentSummary>
 > = {};
 
-async function listWorkspaceDocumentFilePaths(
+/** The Markdown files in the workspace's document folders; throws when a folder could not be read. */
+export async function listWorkspaceDocumentFilePaths(
   rootPath: string,
 ): Promise<WorkspaceDocumentFilePaths> {
   const listDirectory = window.api?.fs?.listDirectory;
@@ -74,9 +79,10 @@ async function listWorkspaceDocumentFilePaths(
     }),
   ]);
   const markdownPaths = (result: typeof currentResult) => {
-    // An absent folder holds no plans; any other failed read is a failure, not "no plans".
-    if (!result?.ok) {
-      if (result?.missing) return [];
+    // An absent folder holds no plans; any other failed read is a failure, not
+    // "no plans", including a folder the OS refused to list.
+    if (!result?.ok || result.unreadable) {
+      if (!result?.ok && result?.missing) return [];
       throw new Error(result?.stderr || "The plans folder could not be read.");
     }
     return result.entries
@@ -119,12 +125,24 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     for (const [filePath, summary] of Object.entries(documentsByPath)) {
       updatedAtByPath[filePath] = summary.latestCreatedAt;
     }
+    // Every document, newest first: the list draws the recent ten, all of
+    // them, or a search's matches from this (`selectPlansListRows`).
     return buildWorkspacePlanListEntries({
       currentFilePaths: filePaths.current,
       legacyFilePaths: filePaths.legacy,
       updatedAtByPath,
+      maxEntries: Number.POSITIVE_INFINITY,
     });
   }, [documentsByPath, filePaths]);
+  const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const listRows = useMemo(
+    () => selectPlansListRows({ entries, query, showAll }),
+    [entries, query, showAll],
+  );
+  const offerSearch = shouldOfferPlansSearch({ total: entries.length, query, focused: searchFocused });
   const [creatingPlan, setCreatingPlan] = useState(false);
   const [deletingPlan, setDeletingPlan] = useState(false);
   const [deleteTarget, setDeleteTarget] =
@@ -387,7 +405,15 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 {retryButton}
               </div>
             ) : null}
-            {entries.map((entry) => {
+            {offerSearch ? (
+              <PlansSearchField
+                query={query}
+                onQueryChange={setQuery}
+                onFocusChange={setSearchFocused}
+                inputRef={searchInputRef}
+              />
+            ) : null}
+            {listRows.rows.map((entry) => {
               const summary = documentsByPath[entry.filePath];
               return (
               <div
@@ -491,6 +517,17 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
               </div>
               );
             })}
+            {shouldShowPlansStatus(listRows) ? (
+              <PlansListStatus
+                view={listRows}
+                showAll={showAll}
+                onShowAllChange={setShowAll}
+                onClearSearch={() => {
+                  setQuery("");
+                  searchInputRef.current?.focus();
+                }}
+              />
+            ) : null}
           </div>
         )}
       </div>

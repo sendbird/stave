@@ -31,6 +31,20 @@ async function resolveRealPath(targetPath: string) {
   }
 }
 
+/**
+ * A directory's real path, or null when it does not exist. A path the OS
+ * refuses to resolve (EACCES, EPERM) exists but is unreadable, not missing.
+ */
+async function resolveDirectoryRealPath(targetPath: string) {
+  try {
+    return await fs.realpath(targetPath);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === "EACCES" || code === "EPERM") throw new DirectoryUnreadableError(code);
+    return null;
+  }
+}
+
 async function statResolvedTarget(targetPath: string) {
   try {
     return await fs.stat(targetPath);
@@ -205,6 +219,19 @@ export class DirectoryNotFoundError extends Error {
   }
 }
 
+/**
+ * The directory exists but the OS refused to list it (EACCES, EPERM). The
+ * listing IPC still answers it as an empty folder, so the file tree stays
+ * usable, and flags it so a caller that needs its contents treats it as a
+ * read that failed rather than as nothing there.
+ */
+export class DirectoryUnreadableError extends Error {
+  constructor(code: string) {
+    super(`Directory cannot be read (${code}).`);
+    this.name = "DirectoryUnreadableError";
+  }
+}
+
 export async function listDirectoryEntries(args: { rootPath?: string | null; directoryPath?: string | null }) {
   const absolutePath = resolveRootDirectoryPath(args);
   if (!absolutePath) {
@@ -215,7 +242,7 @@ export async function listDirectoryEntries(args: { rootPath?: string | null; dir
     throw new Error("Workspace root path is required.");
   }
   const rootRealPath = await fs.realpath(path.resolve(rootPath));
-  const directoryRealPath = await resolveRealPath(absolutePath);
+  const directoryRealPath = await resolveDirectoryRealPath(absolutePath);
   if (!directoryRealPath) {
     throw new DirectoryNotFoundError();
   }
@@ -226,7 +253,7 @@ export async function listDirectoryEntries(args: { rootPath?: string | null; dir
     let currentPath = path.resolve(rootPath);
     for (const segment of relativeDirectoryPath.split("/").filter(Boolean)) {
       currentPath = path.join(currentPath, segment);
-      const currentRealPath = await resolveRealPath(currentPath);
+      const currentRealPath = await resolveDirectoryRealPath(currentPath);
       if (!currentRealPath) {
         throw new DirectoryNotFoundError();
       }
@@ -240,7 +267,7 @@ export async function listDirectoryEntries(args: { rootPath?: string | null; dir
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     if (code === "EPERM" || code === "EACCES") {
-      return [];
+      throw new DirectoryUnreadableError(code);
     }
     throw error;
   }

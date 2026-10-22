@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdtempSync, mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdtempSync, mkdirSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { tmpdir } from "node:os";
 import {
@@ -10,6 +10,7 @@ import {
 } from "../electron/main/ipc/schemas";
 import {
   DirectoryNotFoundError,
+  DirectoryUnreadableError,
   listDirectoryEntries,
   listFilesRecursive,
   resolveRootFilePath,
@@ -116,6 +117,35 @@ describe("filesystem path helpers", () => {
     const workspaceRoot = createTempWorkspace();
     await expect(listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: "missing/plans" }))
       .rejects.toBeInstanceOf(DirectoryNotFoundError);
+  });
+
+  test("reports a directory it may not read apart from an empty one", async () => {
+    const workspaceRoot = createTempWorkspace();
+    const locked = path.join(workspaceRoot, ".stave/context/plans");
+    writeText(path.join(locked, "a.md"), "# A\n");
+    chmodSync(locked, 0o000);
+    try {
+      // Running as root reads it anyway; the rule is about a read the OS refuses.
+      if (process.getuid?.() === 0) return;
+      await expect(listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: ".stave/context/plans" }))
+        .rejects.toBeInstanceOf(DirectoryUnreadableError);
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
+  test("a folder below one it may not enter is unreadable too, not missing", async () => {
+    const workspaceRoot = createTempWorkspace();
+    const ancestor = path.join(workspaceRoot, ".stave");
+    writeText(path.join(ancestor, "context/plans/a.md"), "# A\n");
+    chmodSync(ancestor, 0o000);
+    try {
+      if (process.getuid?.() === 0) return;
+      await expect(listDirectoryEntries({ rootPath: workspaceRoot, directoryPath: ".stave/context/plans" }))
+        .rejects.toBeInstanceOf(DirectoryUnreadableError);
+    } finally {
+      chmodSync(ancestor, 0o755);
+    }
   });
 
   test("surfaces symlinked files and directories that resolve inside the workspace root", async () => {

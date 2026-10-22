@@ -905,7 +905,16 @@
     "revisionCount_other": "{{count}} revisions recorded",
     "compareWithPreviousRevision": "Compare with the previous revision",
     "compareValueWithPreviousRevision": "Compare {{value1}} with its previous revision",
-    "couldNotLoadRevision": "Could not load this revision."
+    "couldNotLoadRevision": "Could not load this revision.",
+    "searchLabel": "Search documents",
+    "searchPlaceholder": "Search by name or task",
+    "clearSearch": "Clear search",
+    "recentOfTotal": "Showing the {{shown}} most recent of {{total}}",
+    "showingAll": "Showing all {{total}}",
+    "showAll": "Show all",
+    "showRecentOnly": "Show recent only",
+    "matchCount": "{{matched}} of {{total}} documents match",
+    "noMatch": "No documents match this search."
   },
   "workspaceProgressTaskTree": {
     "valueProvider": "{{label}} provider",

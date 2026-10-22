@@ -24,6 +24,23 @@ const PLAN_FILES = [
   ".stave/context/plans/1f82d08b_20260905_controls-and-overlay-geometry.md",
 ];
 
+/**
+ * `&plans=many`: ten newer task documents push the three above, one more
+ * content-named document and the legacy one past the list's recent ten.
+ */
+const MANY_PLAN_FILES = [
+  ...PLAN_FILES,
+  ...Array.from(
+    { length: 10 },
+    (_, index) => `.stave/context/plans/7c41e0${String(index).padStart(2, "0")}_2026-09-${String(10 + index)}T09-00-00.md`,
+  ),
+  ".stave/context/plans/oldest-audit-notes.md",
+];
+
+function previewPlanFiles() {
+  return new URLSearchParams(window.location.search).get("plans") === "many" ? MANY_PLAN_FILES : PLAN_FILES;
+}
+
 /** Recorded revisions for two of the documents above. */
 export const PREVIEW_DOCUMENT_ACTIVITY = {
   documentsByPath: {
@@ -118,7 +135,7 @@ export function installInformationRowPreviewApi() {
     listDirectory: async (args: { directoryPath: string }) => ({
       ok: true,
       entries: (args.directoryPath.startsWith(".stave/context")
-        ? PLAN_FILES
+        ? previewPlanFiles()
         : LEGACY_PLAN_FILES
       ).map((path) => ({ path, type: "file" as const })),
     }),

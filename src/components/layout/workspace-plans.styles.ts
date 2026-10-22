@@ -141,3 +141,19 @@ export const planStyles = stylex.create({
   },
   cardContent: { paddingTop: vars["--ads-space-16"] },
 });
+
+/** The search above a long list and the count line under it. */
+export const planListControlStyles = stylex.create({
+  status: {
+    alignItems: "center",
+    color: vars["--ads-color-text-muted"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    justifyContent: "space-between",
+    lineHeight: vars["--ads-line-height-tight"],
+    paddingInlineStart: vars["--ads-space-8"],
+  },
+  statusText: { minWidth: 0 },
+});
