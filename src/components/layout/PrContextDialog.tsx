@@ -208,7 +208,13 @@ export function PrContextDialog(props: PrContextDialogProps) {
               className={sx(prContextStyles.errorIcon)}
               aria-hidden="true"
             />
-            {error}
+            <span className={sx(prContextStyles.errorMessage)}>{error}</span>
+            {/* A read that failed outright can be tried again; a warning beside a loaded index cannot. */}
+            {!index && !loading && prUrl ? (
+              <Button type="button" size="sm" variant="outline" onClick={() => void loadIndex()}>
+                {i18n.t("common:actions.retry")}
+              </Button>
+            ) : null}
           </p>
         ) : null}
 

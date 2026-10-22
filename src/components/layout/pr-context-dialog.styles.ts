@@ -32,6 +32,7 @@ export const prContextStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
   },
   errorIcon: { flexShrink: 0, height: 14, marginTop: vars["--ads-space-2"], width: 14 },
+  errorMessage: { flex: 1, minWidth: 0 },
   body: {
     display: "flex",
     flex: 1,
