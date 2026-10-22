@@ -95,6 +95,9 @@
     "noStageStart": "This stage has no recorded start commit, so its changes cannot be read.",
     "unavailable": "Reading changes is not available here.",
     "failed": "Could not read the changes.",
-    "failedWithDetail": "Could not read the changes: {{detail}}"
+    "failedWithDetail": "Could not read the changes: {{detail}}",
+    "outside": "This path is a link that leads outside the workspace, so Review does not open it.",
+    "changed": "The file changed while it was being read. Refresh to read it again.",
+    "tooLarge": "This file is too large to show here. Open it in the editor or inspect it with Git."
   }
 }

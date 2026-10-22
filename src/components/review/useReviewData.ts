@@ -25,7 +25,7 @@ export interface ReviewData {
   contents?: ReadonlyMap<string, { oldContent: string; newContent: string }>;
 }
 
-export type ReviewReadFailure = "no-workspace" | "no-stage-start" | "unavailable" | "failed";
+export type ReviewReadFailure = "no-workspace" | "no-stage-start" | "unavailable" | "failed" | "outside" | "changed" | "too-large";
 
 /** Why a review read failed; the boundary turns it into words. */
 export class ReviewReadError extends Error {
@@ -111,7 +111,7 @@ export function useReviewFileContent(args: { cwd: string | null; data: ReviewDat
     const read = typeof window === "undefined" ? undefined : window.api?.sourceControl?.getReviewFileDiff;
     if (!read || !data.baseSha) throw new ReviewReadError("unavailable");
     const result = await read({ cwd, baseSha: data.baseSha, path: file.path, ...(file.oldPath ? { oldPath: file.oldPath } : {}), ...(file.untracked ? { untracked: true } : {}) });
-    if (!result.ok) throw new ReviewReadError("failed", result.stderr);
+    if (!result.ok) throw new ReviewReadError(result.code ?? "failed", result.stderr);
     return { oldContent: result.oldContent, newContent: result.newContent };
   }, [cwd, data, file?.path, file?.oldPath, fromTurn]);
 }

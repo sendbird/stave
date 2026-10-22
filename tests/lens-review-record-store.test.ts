@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { existsSync, mkdtempSync, readdirSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, rmSync, symlinkSync, unlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { decodeLensReviewPng, LensReviewRecordStore, type NewLensReviewRecord } from "../electron/persistence/lens-review-record-store";
@@ -133,5 +133,20 @@ describe("lens review record store", () => {
     expect(decodeLensReviewPng("data:image/jpeg;base64,AAAA")).toBeNull();
     expect(SaveLensReviewRecordArgsSchema.shape.afterDataUrl.safeParse(png).success).toBe(true);
     expect(SaveLensReviewRecordArgsSchema.shape.afterDataUrl.safeParse("data:image/png;base64," + "A".repeat(12_000_000)).success).toBe(false);
+  });
+
+  test("a capture replaced by a link to a file outside the captures folder is never read", async () => {
+    const saved = await store.save({ ...input(), afterPng: PNG, now: T0 });
+    const outsideDir = mkdtempSync(path.join(tmpdir(), "stave-lens-outside-"));
+    const secret = path.join(outsideDir, "secret.png");
+    writeFileSync(secret, Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9, 9, 9]));
+    const file = path.join(root, saved.afterImagePath);
+    unlinkSync(file);
+    symlinkSync(secret, file);
+    try {
+      expect(await store.readAfterImage(saved.id)).toBeNull();
+    } finally {
+      rmSync(outsideDir, { recursive: true, force: true });
+    }
   });
 });

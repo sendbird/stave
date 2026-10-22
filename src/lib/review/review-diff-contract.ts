@@ -59,5 +59,10 @@ export interface ScmReviewFileDiffResult {
   ok: boolean;
   oldContent: string;
   newContent: string;
+  /**
+   * Why a file was not opened: it leads outside the workspace (through a
+   * link), it changed while being read, or it is over the size bound.
+   */
+  code?: "outside" | "changed" | "too-large";
   stderr: string;
 }

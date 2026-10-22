@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { getScmReviewDiff, getScmReviewFileDiff } from "../electron/host-service/scm-review-diff";
@@ -9,6 +9,7 @@ import { runCommandArgs } from "../electron/main/utils/command";
 import { classifyStageFiles, reviewFileStatus } from "../src/lib/review/review-scope";
 
 let repo: string;
+let outside: string;
 let stageStart: string;
 let stagePaths: { paths: string[]; truncated: boolean } | null;
 
@@ -36,7 +37,10 @@ beforeAll(async () => {
   write("b.ts", "export const b = 2;\n");
   write("notes.md", "later\n");
 });
-afterAll(() => rmSync(repo, { recursive: true, force: true }));
+afterAll(() => {
+  rmSync(repo, { recursive: true, force: true });
+  if (outside) rmSync(outside, { recursive: true, force: true });
+});
 
 describe("review diff reads", () => {
   test("the stage scope tells the stage's committed files from a later edit to another file", async () => {
@@ -76,5 +80,18 @@ describe("review diff reads", () => {
     expect((await getScmReviewDiff({ cwd: repo, base: { kind: "merge-base", ref: "--output=x" } })).ok).toBe(false);
     expect((await getScmReviewFileDiff({ cwd: repo, baseSha: "not-a-sha", path: "a.ts" })).ok).toBe(false);
     expect((await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "../outside.ts" })).newContent).toBe("");
+  });
+
+  test("a link inside the workspace never reads a file outside it; a link to a file inside reads it", async () => {
+    outside = mkdtempSync(path.join(tmpdir(), "stave-review-outside-"));
+    writeFileSync(path.join(outside, "secret.txt"), "outside secret\n");
+    symlinkSync(path.join(outside, "secret.txt"), path.join(repo, "leak.txt"));
+    symlinkSync("a.ts", path.join(repo, "inner-link.ts"));
+    const leaked = await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "leak.txt", untracked: true });
+    expect(leaked.ok).toBe(false);
+    expect(leaked.newContent).not.toContain("outside secret");
+    expect(leaked.stderr).not.toBe("");
+    const inner = await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "inner-link.ts", untracked: true });
+    expect(inner).toMatchObject({ ok: true, newContent: "export const a = 2;\n" });
   });
 });

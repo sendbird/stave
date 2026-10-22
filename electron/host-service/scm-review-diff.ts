@@ -1,4 +1,3 @@
-import { promises as fs } from "node:fs";
 import {
   mergeGraphFileChanges,
   parseGraphNameStatus,
@@ -6,6 +5,7 @@ import {
 } from "../../src/lib/git-graph/commit-details";
 import type { ScmReviewBase, ScmReviewDiffResult, ScmReviewFileDiffResult } from "../../src/lib/review/review-diff-contract";
 import { resolveCommandCwd, runCommandArgs } from "../main/utils/command";
+import { readContainedFile } from "../main/utils/contained-file";
 import { resolveRootFilePath } from "../main/utils/filesystem";
 import { resolveOriginDefaultRef, SCM_READ_TIMEOUT_MS, type ScmCommandRunner } from "./scm-runtime";
 
@@ -91,18 +91,18 @@ function invalidPath(value: string | undefined): boolean {
   return value !== undefined && (!value.trim() || value.length > 4096 || value.includes("\0"));
 }
 
-/** A working-tree file's content, or null when it is missing; "too-large" beyond the bound. */
-async function readWorkingFile(cwd: string | undefined, filePath: string): Promise<string | null | "too-large"> {
-  const absolutePath = resolveRootFilePath({ rootPath: resolveCommandCwd({ cwd }), filePath });
-  if (!absolutePath) return null;
-  try {
-    const stat = await fs.stat(absolutePath);
-    if (!stat.isFile()) return null;
-    if (stat.size > SCM_REVIEW_CONTENT_LIMIT) return "too-large";
-    return await fs.readFile(absolutePath, "utf8");
-  } catch {
-    return null;
-  }
+/**
+ * A working-tree file's content, or null when it is missing or not a file. A
+ * link is followed only while it stays inside the workspace; one that leads
+ * outside is refused, never read.
+ */
+async function readWorkingFile(cwd: string | undefined, filePath: string): Promise<string | null | "too-large" | "outside" | "changed"> {
+  const root = resolveCommandCwd({ cwd });
+  const absolutePath = resolveRootFilePath({ rootPath: root, filePath });
+  if (!absolutePath) return "outside";
+  const read = await readContainedFile({ root, filePath: absolutePath, maxBytes: SCM_REVIEW_CONTENT_LIMIT });
+  if (read.ok) return read.content.toString("utf8");
+  return read.reason === "missing" || read.reason === "not-file" ? null : read.reason;
 }
 
 export async function getScmReviewFileDiff(
@@ -117,8 +117,12 @@ export async function getScmReviewFileDiff(
     args.untracked ? Promise.resolve(null) : git(["show", `${sha}:${args.oldPath ?? args.path}`]),
     readWorkingFile(args.cwd, args.path),
   ]);
+  if (current === "outside")
+    return { ok: false, code: "outside", oldContent: "", newContent: "", stderr: "This path leads outside the workspace, so it is not opened." };
+  if (current === "changed")
+    return { ok: false, code: "changed", oldContent: "", newContent: "", stderr: "The file changed while it was being read." };
   if (current === "too-large" || old?.stdoutTruncated === true)
-    return { ok: false, oldContent: "", newContent: "", stderr: "This file is too large to open safely in the built-in diff viewer." };
+    return { ok: false, code: "too-large", oldContent: "", newContent: "", stderr: "This file is too large to open safely in the built-in diff viewer." };
   // A path missing at the base was added; one missing now was deleted.
   return { ok: true, oldContent: old?.ok ? old.stdout : "", newContent: current ?? "", stderr: "" };
 }

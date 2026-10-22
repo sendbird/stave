@@ -11,6 +11,12 @@ export function describeReviewReadError(error: unknown): string {
       return i18n.t("review:errors.noStageStart");
     case "unavailable":
       return i18n.t("review:errors.unavailable");
+    case "outside":
+      return i18n.t("review:errors.outside");
+    case "changed":
+      return i18n.t("review:errors.changed");
+    case "too-large":
+      return i18n.t("review:errors.tooLarge");
     case "failed":
       return error.detail ? i18n.t("review:errors.failedWithDetail", { detail: error.detail }) : i18n.t("review:errors.failed");
   }

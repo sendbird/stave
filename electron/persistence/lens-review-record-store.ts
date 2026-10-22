@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import {
   LensReviewRecordSchema,
@@ -11,6 +11,7 @@ import {
   type LensReviewRecord,
   type LensReviewVerdict,
 } from "../../src/lib/lens/lens-review-record";
+import { readContainedFile } from "../main/utils/contained-file";
 
 interface LensReviewDatabase {
   exec(sql: string): unknown;
@@ -152,15 +153,13 @@ export class LensReviewRecordStore {
     return this.setVerdict({ id: record.id, verdict: "needs-recheck", reason: "page-changed", now }) ?? record;
   }
 
+  /** The capture's bytes; a capture replaced by a link that leaves the captures folder is never read. */
   async readAfterImage(id: string): Promise<Uint8Array | null> {
     const record = this.get(id);
     const file = record ? this.resolveImage(record.afterImagePath) : null;
     if (!file) return null;
-    try {
-      return new Uint8Array(await readFile(file));
-    } catch {
-      return null;
-    }
+    const read = await readContainedFile({ root: path.resolve(this.artifactRootDir, LENS_REVIEW_IMAGE_DIR), filePath: file, maxBytes: MAX_LENS_REVIEW_IMAGE_BYTES });
+    return read.ok ? new Uint8Array(read.content) : null;
   }
 
   async deleteTask(taskId: string): Promise<void> {

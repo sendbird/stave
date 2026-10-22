@@ -104,6 +104,8 @@ Review is not saved across restarts: every task opens on its conversation.
   untracked file that existed before the stage, cannot be told apart.
 - Review lists up to 2,000 changed files and opens files up to 512 KB per
   side; larger changes need Git directly.
+- A link in the workspace is opened only when its target is inside the
+  workspace; a link that leads outside is listed but not opened.
 
 ## Troubleshooting
 
