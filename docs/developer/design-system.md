@@ -41,19 +41,24 @@ Application routing, persisted settings, task drafts, provider state, menu
 actions, and panel placement remain host-owned. Replacing a control must preserve
 these contracts, including the composer lanes and configurable activity placement.
 
-## Theme and layout
+## Semantic layers
 
-Saved theme colors and fonts remain authoritative in `src/lib/themes` and
-`src/globals.css`. `src/components/system/ads-theme.ts` maps those roles to the
-canonical variables and preserves the application's overlay stacking order.
-Components import canonical tokens directly; do not introduce token aliases in a
-new StyleX variable module.
+Each layer builds only on the layers before it. A new surface starts from the
+highest layer that already says what it needs and adds to that layer, never
+below it.
 
-Agent work states have their own theme colors: `--state-running`,
+### Foundations: theme roles and state tokens
+
+Theme roles (`background`, `card`, `foreground`, `primary`, `destructive`,
+`warning`, `success`, `info`, the chart colors and the rest of
+`src/lib/themes/types.ts`) are the only colors. `src/components/system/ads-theme.ts`
+maps them onto the canonical variables that components read through `vars`.
+
+Agent work states have their own tokens: `--state-running`,
 `--state-needs-answer`, `--state-paused`, `--state-halted`,
 `--state-completed` and `--state-stopped`. Failed keeps the destructive role.
 They exist because several themes paint their accent and warning, or their
-primary and success, the same hue, so state could not borrow those roles.
+primary and success, the same hue, so a state cannot borrow those roles.
 `src/lib/themes/state-colors.ts` derives them from a theme's own colors
 (needing an answer and halted from warning, completed from success, paused and
 stopped from the muted text, running from the first of primary, info and the
@@ -62,11 +67,73 @@ chart colors that stays apart from the others) and checks them: the pairs in
 `STATE_COLOR_MIN_DISTANCE`, glyphs reach 3:1 and state text 4.5:1 on the card.
 A built-in theme that fails sets the failing state color by hand, and
 `tests/theme-state-colors.test.ts` checks every built-in theme. User themes get
-the same derivation when applied. Draw a state with `StateMark`
-(`src/components/ads/components/StateMark.tsx`): it takes a `WorkState` from
-the vocabulary in `state-vocabulary.ts` and draws its glyph in its state color,
-optionally with its word. Each domain keeps its own state type and maps it to a
-`WorkState`; never paint a state with a role color directly.
+the same derivation when applied.
+
+### Primitives: ADS components
+
+`src/components/ads/components` holds the canonical components. Controls
+(`Button`, `Select`, `Checkbox`, `Switch`, `TextField`), surfaces (`Card`,
+`Dialog`, `Popover`, `Drawer`), feedback (`Banner`, `EmptyState`,
+`LoadingSurface`, `Toast`) and the agent-facing pieces (`Approval`,
+`Clarification`, `Plan`, `DiffViewer`, `FileChangeSummary`, `ToolRun`) know
+nothing about Stave's data and carry no English copy of their own: the host
+passes words in. `src/components/ui` adapts them to existing imports.
+
+### Work components
+
+Work components give a primitive Stave's meaning, so every surface says the
+same thing the same way.
+
+- A state is drawn with `StateMark` (`src/components/ads/components/StateMark.tsx`).
+  It takes a `WorkState` from the vocabulary in `state-vocabulary.ts` and draws
+  its glyph in its state token, optionally with its word; only `working`
+  moves, and reduced motion keeps it still. Each domain keeps its own state
+  type and maps it to a `WorkState`, as Fleet rows, run badges, the task panel
+  and the sidebar do. The path for a new state display is token, then
+  `WorkState`, then `StateMark`: never paint a state with a role color, and
+  never draw a second glyph set.
+- A panel that reads data renders through `AsyncBoundary`
+  (`src/components/system/AsyncBoundary.tsx`, which fills the ADS boundary
+  with Stave's words). It tells four things apart: a read that is running
+  (pending), a read that failed before anything loaded (an error with Retry),
+  a read that answered with nothing (empty), and data. A failed refresh keeps
+  the last data on screen under a banner instead of wiping it. A failed read
+  is never shown as empty, zero, off or "not connected". `panelLoadState` maps
+  a panel that tracks its own `loaded`, `loading` and `error` flags onto the
+  boundary; a store that keeps the last list after a failure marks when that
+  list was read (the skill catalog's `loadedAt` is an example).
+
+### Patterns
+
+Patterns combine work components into the moments an agent workflow repeats.
+
+- Resume: picking work back up starts from what is known. Fleet's attention
+  column (`FleetAttentionInbox`) keeps work that needs you in view, and
+  `WorkspaceResumeBrief` keeps a workspace's shared instructions across its
+  tasks.
+- Review: work is checked against what it produced. `DiffViewer` and
+  `FileChangeSummary` show what changed, review comments are anchored to the
+  lines they are about, and `TaskResultReviews` keeps each run's saved answer,
+  files and run details.
+- Approval: a waiting agent asks where the answer is given.
+  `ChatInputApprovalQueue` holds tool approvals in the composer, `SignOffCard`
+  holds an agent run's sign-off in the same place, and `Approval` and `Clarification`
+  show the gate or the question on its step in the conversation. Elsewhere
+  the waiting reads as the `approval` or `needs-you` state, drawn with
+  `StateMark`.
+- Recovery: a failure says what failed and offers the next step.
+  `ProviderErrorRecovery` continues a turn a provider failed, and
+  `AsyncBoundary` retries a failed read or keeps the last result after one.
+
+## Theme and layout
+
+Saved theme colors and fonts remain authoritative in `src/lib/themes` and
+`src/globals.css`. `src/components/system/ads-theme.ts` maps those roles to the
+canonical variables and preserves the application's overlay stacking order.
+Components import canonical tokens directly; do not introduce token aliases in a
+new StyleX variable module.
+
+Agent work state colors are a foundation of their own; see Semantic layers.
 
 The CSS layer order is explicit: theme and resets, canonical component layers,
 then host integration styles and the remaining legacy utilities. Host width, padding, and positioning
