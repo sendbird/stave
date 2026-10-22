@@ -35,6 +35,8 @@ export const SHELF_CASES = [
   { id: "limited-armed", label: "Resume at reset" },
   { id: "restored", label: "Restored queue" },
   { id: "reviews", label: "Reviews" },
+  { id: "switch", label: "Switch provider" },
+  { id: "switch-back", label: "Switch back" },
 ] as const;
 
 export type ShelfCaseId = (typeof SHELF_CASES)[number]["id"];
@@ -196,9 +198,13 @@ export function seedShelfCase(args: {
     providerTurnActivityByTask: turnLive ? { [PREVIEW_TASK_ID]: activityFor(caseId) } : {},
     retainedTurnActivityByTask: {},
     messagesByTask: {
-      [PREVIEW_TASK_ID]: messages,
+      [PREVIEW_TASK_ID]: caseId === "switch" || caseId === "switch-back" ? switchMessages(caseId) : messages,
       ...(caseId === "reviews" ? previewReviewMessages() : {}),
     },
+    // Switch back: Codex worked here before, through the third request.
+    providerSessionByTask: (caseId === "switch-back"
+      ? { [PREVIEW_TASK_ID]: { codex: { nativeSessionId: "preview-codex-session", syncedThroughMessageId: "switch-a2" } } }
+      : {}) as typeof state.providerSessionByTask,
     usageLimitPauseByTask: usageLimitPauseFor(caseId),
     restoredQueueReleasedByTask: {},
     settings: {
@@ -220,6 +226,8 @@ export function seedShelfCase(args: {
 
 const IDLE_CASES: readonly ShelfCaseId[] = [
   "idle",
+  "switch",
+  "switch-back",
   "agent-needs",
   "limited",
   "limited-armed",
@@ -474,4 +482,41 @@ function previewReviewMessages(): Record<string, ChatMessage[]> {
     }
   }
   return messages;
+}
+
+// ── Provider switch ────────────────────────────────────────────────────────
+
+/** The provider the next message goes to in the switch cases. */
+export function nextProviderFor(caseId: ShelfCaseId) {
+  return caseId === "switch" || caseId === "switch-back" ? ("codex" as const) : undefined;
+}
+
+/**
+ * Switch: a long Claude conversation, so a new Codex session gets an excerpt
+ * that leaves messages out. Switch back: Codex answered the first three
+ * requests, Claude the rest, so Codex resumes with what happened since.
+ */
+function switchMessages(caseId: "switch" | "switch-back"): ChatMessage[] {
+  const exchanges = caseId === "switch" ? 24 : 6;
+  return Array.from({ length: exchanges }, (_, index) => {
+    const provider: "codex" | "claude-code" = caseId === "switch-back" && index < 3 ? "codex" : "claude-code";
+    return [
+      {
+        id: `switch-u${index}`,
+        role: "user" as const,
+        model: "user",
+        providerId: "user" as const,
+        content: `Step ${index + 1}: tighten the composer shelf and keep the queue order. ${"Context. ".repeat(30)}`,
+        parts: [],
+      },
+      {
+        id: `switch-a${index}`,
+        role: "assistant" as const,
+        model: provider === "codex" ? "gpt-5.5" : "claude-sonnet-5",
+        providerId: provider,
+        content: `Done with step ${index + 1}. ${"Details. ".repeat(40)}`,
+        parts: [],
+      },
+    ];
+  }).flat();
 }

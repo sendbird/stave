@@ -47,6 +47,7 @@ when there is no run, usage-limit pause, review or queued message to show.
 | State | Shelf |
 | --- | --- |
 | Idle | Nothing. A queue left after you stopped a turn, or restored after a restart, keeps its own row. |
+| The next message switches provider | The switch line: `Switching to <provider>`, what it will receive, and `What it receives` for the details. See [Conversation Context](conversation-context.md#seeing-what-a-switch-sends). |
 | A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. While the agent reasons, its newest thought shows in italics under the line, up to two lines, so you can stop a turn heading the wrong way without opening the details. |
 | Running with queued messages | The run line, then the queue line. |
 | Waiting on an approval or a question | The request's card asks above the shelf; the run line turns amber and reads `Waiting for approval` or `Waiting for your input` without asking again. The details stay folded behind the card. |

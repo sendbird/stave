@@ -709,5 +709,27 @@
     "manage": "Manage accounts and connections…",
     "addGatewayModels": "Add other models with Vercel AI Gateway…",
     "editModels": "Edit models"
+  },
+  "providerSwitch": {
+    "ariaLabel": "Provider switch",
+    "title": "Switching to {{to}}",
+    "summaryFresh": "a new session with a {{chars}}-character excerpt of this task",
+    "summaryResume_one": "its own session, with {{count}} message since it last worked here",
+    "summaryResume_other": "its own session, with {{count}} messages since it last worked here",
+    "showDetails": "What it receives",
+    "hideDetails": "Hide",
+    "sessionFresh": "It starts its own session: it has not worked on this task before.",
+    "sessionResume": "It resumes the session it had for this task.",
+    "receivesNothing": "It has nothing new to receive.",
+    "receivesFresh_one": "It receives a {{chars}}-character excerpt of the conversation: {{kept}} of {{count}} message.",
+    "receivesFresh_other": "It receives a {{chars}}-character excerpt of the conversation: {{kept}} of {{count}} messages.",
+    "receivesResume_one": "It receives the {{count}} message since it last worked here, {{chars}} characters.",
+    "receivesResume_other": "It receives the {{count}} messages since it last worked here, {{chars}} characters.",
+    "leftOut_one": "To fit {{max}} characters, the first request and the latest messages are kept and {{count}} message in between is left out.",
+    "leftOut_other": "To fit {{max}} characters, the first request and the latest messages are kept and {{count}} messages in between are left out.",
+    "shortened_one": "{{count}} long message is shortened in the middle.",
+    "shortened_other": "{{count}} long messages are shortened in the middle.",
+    "nothingLeftOut": "Nothing is left out.",
+    "textOnly": "Messages travel as text: tool output, images and attached files stay behind."
   }
 }

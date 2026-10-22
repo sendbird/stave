@@ -302,6 +302,11 @@ function canonicalPartToContextText(
   }
 }
 
+/** A history message as the replay writes it: its text, or its parts summarized. */
+export function canonicalHistoryText(message: CanonicalConversationMessage) {
+  return toHistoryText({ message });
+}
+
 function toHistoryText(args: { message: CanonicalConversationMessage }) {
   const primary = args.message.content.trim();
   if (primary.length > 0) {

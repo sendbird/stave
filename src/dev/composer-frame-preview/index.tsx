@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { applyAppLocale } from "@/i18n";
 import {
   buildModelPickerAgents,
   useTaskAgentChoice,
@@ -103,6 +104,7 @@ import {
   SHELF_CASES,
   seedShelfCase,
   type ShelfCaseId,
+  nextProviderFor,
 } from "./shelf-cases";
 
 /**
@@ -121,7 +123,7 @@ import {
  * `&auto=off` turns Stave Auto off; `&effort=xhigh` passes the label of a
  * Claude effort setting, as the real composer always does; `&theme=light`
  * starts in light mode, and `&theme=<built-in theme id>` renders under that
- * theme.
+ * theme; `&lang=ko` renders it in Korean.
  * `&attachments=all` attaches one Information item, one task and one document,
  * so the three context chips render side by side; `&partial=1` attaches a task
  * whose reply is still streaming.
@@ -307,6 +309,9 @@ export function ComposerFramePreviewApp() {
       } }));
     }
   }, [caseId, placement]);
+  useLayoutEffect(() => {
+    applyAppLocale(previewParams.get("lang") ?? "en");
+  }, []);
   useEffect(() => {
     document.title = "Composer frame mock";
     // `&theme=<built-in theme id>` renders under that theme.
@@ -337,7 +342,7 @@ export function ComposerFramePreviewApp() {
     onResume: () => undefined,
   });
   const shelf = (
-    <ComposerShelf framed={framed} steering={caseId === "steering"} queue={shelfQueue} />
+    <ComposerShelf framed={framed} steering={caseId === "steering"} queue={shelfQueue} providerId={nextProviderFor(caseId)} />
   );
 
   const providerModeStatus = useMemo(() => {

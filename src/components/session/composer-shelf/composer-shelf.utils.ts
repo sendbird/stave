@@ -47,7 +47,7 @@ import type { Tone } from "@/components/ads/utils/tone";
 /** What heads the run line: an active agent run (or legacy run), else the turn. */
 export type ShelfRunSource = "agentRun" | "turn";
 
-export type ComposerShelfRow = "account" | "run" | "limit" | "review" | "queue";
+export type ComposerShelfRow = "account" | "switch" | "run" | "limit" | "review" | "queue";
 
 /**
  * The run line names one thing. An active run owns it for its whole life, the
@@ -77,10 +77,16 @@ export function selectComposerShelfRows(args: {
   reviewCount?: number;
   /** The selected account cannot send; the usage-limit line wins when work already paused. */
   accountBlocked?: boolean;
+  /** The next message goes to another provider than the one that answered last. */
+  providerSwitch?: boolean;
 }): ComposerShelfRow[] {
   const rows: ComposerShelfRow[] = [];
   if (args.accountBlocked && !args.limited) {
     rows.push("account");
+  }
+  // Said before a send only: once a turn runs, the switch has happened.
+  if (args.providerSwitch && !args.run) {
+    rows.push("switch");
   }
   if (args.run) {
     rows.push("run");
