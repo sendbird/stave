@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import { useId } from "react";
 import {
   ArrowDown,
@@ -406,7 +407,7 @@ function ActionStageFields(props: {
                 )
                 .map((minutes) => ({
                   value: String(minutes),
-                  label: minutes >= 60 ? `${minutes / 60}h` : `${minutes}m`,
+                  label: formatDuration(minutes * 60_000),
                 }))}
               onChange={(next) =>
                 props.onChange({
