@@ -29,7 +29,14 @@ import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAgentRunsStore, agentRunTaskKey } from "@/store/agent-runs-store";
 import { useWakeUpsStore, wakeUpTaskKey } from "@/store/wake-ups-store";
 import { useAppStore } from "@/store/app.store";
+import { useSideChatStore, type SideChatExchange } from "@/store/side-chat-store";
+import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
+import { ReturnSummaryCard } from "@/components/session/return-summary/ReturnSummaryCard";
+import { useTaskReturnStore } from "@/store/task-return-store";
+import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import type { ChatMessage } from "@/types/chat";
+import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./turn-history-fixtures";
 
 /**
  * The Task panel on the dev preview (`?stavePreview=task-panel`), in a frame
@@ -46,6 +53,15 @@ import type { ChatMessage } from "@/types/chat";
  * - `placement=docked` keeps the activity list in the composer shelf, so the
  *   Activity tab shows its move-here notice instead of the list.
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
+ * - `tab=handoff` shows the direct task's handoff record; `proposal=1` adds
+ *   an agent reply that proposes an update.
+ * - `side=empty|asking|answered|failed` adds a conversation stand-in with the
+ *   side question panel in that state.
+ * - `return=idle|need` adds the stand-in with the direct task's return
+ *   summary: back after its last turn, or with an approval waiting.
+ * - The direct task has saved turns: Activity opens the newest as a record
+ *   (failed, with a full digest) and the Turn picker lists an older turn
+ *   from before records existed.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -501,6 +517,8 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   const store = useAppStore.getState();
   seedResultReviews();
   stubDelegatedTasks();
+  stubTurnHistory({ plainTaskId: PLAIN_TASK_ID, messages: PLAIN_MESSAGES });
+  stubTaskHandoff();
   useAppStore.setState({
     repositoryPath: REPOSITORY_PATH,
     repositoryName: "preview-repo",
@@ -537,7 +555,11 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       },
     ],
     messagesByTask: {
-      [PLAIN_TASK_ID]: PLAIN_MESSAGES,
+      [PLAIN_TASK_ID]: [
+        ...PLAIN_MESSAGES,
+        ...(params.get("proposal") === "1" ? [PREVIEW_HANDOFF_PROPOSAL] : []),
+        ...(params.get("record") === "empty" ? [PREVIEW_ANSWERED_APPROVAL] : []),
+      ],
       [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES,
     },
     // The whole history is resident, so "Show the turn" reads it from here.
@@ -610,6 +632,28 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
   } as never);
 }
 
+const SIDE_QUESTION = "What is it doing right now, and why the 8px gap?";
+
+function sideExchange(state: string | null): SideChatExchange | undefined {
+  const base = { id: "preview-side", question: SIDE_QUESTION, providerId: "claude-code" as const };
+  if (state === "asking") return { ...base, status: "asking" };
+  if (state === "answered") {
+    return {
+      ...base,
+      status: "answered",
+      answer: [
+        "It is tightening the settings sidebar. It has read `Sidebar.tsx`, changed the row gap from **12px to 8px**, and is now running the tests.",
+        "",
+        "The 8px gap matches the list padding the design tokens use, so rows line up with the section headers.",
+      ].join("\n"),
+    };
+  }
+  if (state === "failed") {
+    return { ...base, status: "failed", reason: "error", detail: "Claude Side question failed: the account is signed out." };
+  }
+  return undefined;
+}
+
 export function TaskPanelPreview() {
   const theme = params.get("theme");
   const builtinTheme = BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === theme) ?? null;
@@ -626,20 +670,61 @@ export function TaskPanelPreview() {
     applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
     applyCustomTheme({ theme: builtinTheme });
   }, [theme, builtinTheme]);
+  const side = params.get("side");
+  const returning = params.get("return");
   useLayoutEffect(() => {
     seedStores({ task, tab, pending: params.get("pending"), placement: params.get("placement") });
+    if (returning) {
+      const now = Date.now();
+      useTaskReturnStore.setState({
+        arrivalByTask: { [PLAIN_TASK_ID]: { at: new Date(now).toISOString(), leftAt: null, baseline: null } },
+        dismissedByTask: {},
+      });
+      const approval: FleetAttentionItem = {
+        id: "preview-return-need",
+        kind: "approval",
+        priority: 1,
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "preview-repo",
+        workspaceId: WORKSPACE_ID,
+        workspaceName: "Default Workspace",
+        taskId: PLAIN_TASK_ID,
+        createdAt: new Date(now - 125 * 60_000).toISOString(),
+        waitingSince: new Date(now - 125 * 60_000).toISOString(),
+        source: "live",
+        detail: "Run the sidebar tests",
+      };
+      useFleetAttentionStore.setState({
+        snapshot: { ...EMPTY_FLEET_ATTENTION, items: returning === "need" ? [approval] : [] },
+      });
+    }
+    if (side) {
+      useSideChatStore.setState({
+        openTaskId: PLAIN_TASK_ID,
+        draftByTask: { [PLAIN_TASK_ID]: side === "empty" ? "Why did it pick the 8px gap?" : "" },
+        exchangeByTask: { [PLAIN_TASK_ID]: sideExchange(side) },
+      });
+    }
     setSeeded(true);
-  }, [task, tab]);
+  }, [task, tab, side, returning]);
   return (
     <main className={sx(styles.page)}>
       <p className={sx(styles.caption)}>
         Task panel · {task === "agent-run" ? "agent run task" : "direct task"} · {panelWidth}px
       </p>
       {seeded ? (
-        <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">
-          <RightRailPanelShell panelId="task" ownHeader>
-            <TaskPanel />
-          </RightRailPanelShell>
+        <div className={sx(styles.row)}>
+          {side || returning ? (
+            <div className={sx(styles.conversation)} data-testid="side-chat-frame">
+              {returning ? <ReturnSummaryCard taskId={PLAIN_TASK_ID} /> : null}
+              {side ? <SideChatPanel taskId={PLAIN_TASK_ID} /> : null}
+            </div>
+          ) : null}
+          <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">
+            <RightRailPanelShell panelId="task" ownHeader>
+              <TaskPanel />
+            </RightRailPanelShell>
+          </div>
         </div>
       ) : null}
     </main>
@@ -661,6 +746,22 @@ const styles = stylex.create({
     flex: "none",
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
+  },
+  row: {
+    display: "flex",
+    flex: "1 1 auto",
+    gap: vars["--ads-space-12"],
+    minHeight: 0,
+  },
+  conversation: {
+    backgroundColor: vars["--ads-color-canvas"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
+    borderStyle: "dashed",
+    borderWidth: vars["--ads-border-width-hairline"],
+    flex: "none",
+    position: "relative",
+    width: 560,
   },
   frame: {
     flex: "1 1 auto",

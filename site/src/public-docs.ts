@@ -102,6 +102,27 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See how full the current task conversation is and compact it from the composer without losing the draft.",
       },
       {
+        routePath: "return-summary",
+        sourcePath: "docs/features/return-summary.md",
+        title: "Return Summary",
+        description:
+          "Come back to a task and see its last decision, what changed while you were away, where it stands and what to do next.",
+      },
+      {
+        routePath: "side-questions",
+        sourcePath: "docs/features/side-questions.md",
+        title: "Side Questions",
+        description:
+          "Ask the task's provider about a running task without interrupting it; the answer stays beside the conversation.",
+      },
+      {
+        routePath: "task-handoff-record",
+        sourcePath: "docs/features/task-handoff-record.md",
+        title: "Task Handoff Record",
+        description:
+          "Keep a task's goal, approved decisions, verified results, remaining work and cautions, sent ahead of the conversation when a provider starts or comes back.",
+      },
+      {
         routePath: "conversation-history-actions",
         sourcePath: "docs/features/conversation-history-actions.md",
         title: "Conversation History Actions",

@@ -49,10 +49,11 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
  * The Task panel's tabs. One rail entry answers "what is this task doing,
  * what does it need from me, what did it produce": Activity is the live or
  * last turn, Progress is the agent run when the task has one and the flow
- * overview otherwise, Subagents (tab id `team`) is every agent it called, and
- * Results is its run history.
+ * overview otherwise, Subagents (tab id `team`) is every agent it called,
+ * Results is its run history, and Handoff is the record for whoever picks the
+ * task up next.
  */
-export type TaskPanelTab = "activity" | "progress" | "team" | "results";
+export type TaskPanelTab = "activity" | "progress" | "team" | "results" | "handoff";
 
 export const TASK_PANEL_TABS: ReadonlyArray<{
   id: TaskPanelTab;
@@ -64,6 +65,7 @@ export const TASK_PANEL_TABS: ReadonlyArray<{
   { id: "progress", get label() { return i18n.t("shell:rightRailPanels.progress"); }, get description() { return i18n.t("shell:rightRailPanels.theRunSStagesOrTheTaskSFlow"); } },
   { id: "team", get label() { return i18n.t("shell:rightRailPanels.subagents"); }, get description() { return i18n.t("shell:rightRailPanels.everyAgentTheTaskCalled"); } },
   { id: "results", get label() { return i18n.t("shell:rightRailPanels.results"); }, get description() { return i18n.t("shell:rightRailPanels.eachRunSAnswerAndChangesToReview"); } },
+  { id: "handoff", get label() { return i18n.t("shell:rightRailPanels.handoff"); }, get description() { return i18n.t("shell:rightRailPanels.handoffDescription"); } },
 ];
 
 export const DEFAULT_TASK_PANEL_TAB: TaskPanelTab = "activity";

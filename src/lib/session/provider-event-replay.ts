@@ -976,6 +976,8 @@ export function replayProviderEventsToTaskState(args: {
   providerSession?: TaskProviderSessionState;
   providerGoal?: ProviderGoalSnapshot | null;
   messageCount?: number;
+  /** The handoff record revision this turn started with; a completed turn's session now has it. */
+  handoffRevision?: number;
 }) {
   let current = args.messages;
   // `current` may be a trimmed tail window. Positional IDs must continue from the
@@ -1185,6 +1187,7 @@ export function replayProviderEventsToTaskState(args: {
           ? advanceProviderSessionCursor({
               current: getProviderSessionEntry({ sessions: nextProviderSession, providerId: args.provider, accountProfileId: event.accountProfileId }),
               syncedThroughMessageId: updated.id,
+              handoffRevision: args.handoffRevision,
             })
           : undefined;
         if (

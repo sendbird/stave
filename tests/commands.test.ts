@@ -151,13 +151,14 @@ describe("buildCommandPaletteItems", () => {
     );
   });
 
-  test("lists only provider-native commands from the loaded catalog", () => {
+  test("lists Stave's /aside, then the provider-native commands from the loaded catalog", () => {
     const palette = buildCommandPaletteItems({
       provider: "claude-code",
       providerCommandCatalog: claudeCommandCatalog,
     });
 
     expect(palette.items.map((item) => item.command)).toEqual([
+      "/aside",
       "/claude-api",
       "/keybindings-help",
       "/simplify",
@@ -188,6 +189,7 @@ describe("buildCommandPaletteItems", () => {
     });
 
     expect(palette.items.map((item) => item.command)).toEqual([
+      "/aside",
       "/model",
       "/review",
     ]);

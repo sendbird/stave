@@ -191,10 +191,13 @@ function defaultRunners(): UtilityInferenceRunners {
     // Haiku 4.5 rejects `effort` (400); the read-only runner drops the field
     // for it. Haiku 5.5 accepts every level.
     "claude-code": (args) => runClaudeReadOnlyPrompt(args),
+    // Every utility writes text from what Stave passes in: no shell, exec,
+    // apps, MCP or network. A read-only sandbox alone still runs commands.
     codex: (args) =>
       runCodexReadOnlyPrompt({
         ...args,
         isolated: true,
+        toolsDisabled: true,
         runtimeOptions: buildUtilityCodexRuntimeOptions(args),
       }),
     cursor: async (args) => {

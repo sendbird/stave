@@ -105,9 +105,10 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
-const { providerRuntime } = await import("../electron/providers/runtime");
+const { providerRuntime, setProviderDecisionAnsweredListener } = await import("../electron/providers/runtime");
 
 afterEach(async () => {
+  setProviderDecisionAnsweredListener(null);
   streamController.release?.();
   streamController.release = undefined;
   streamController.eventEmitter = undefined;
@@ -155,12 +156,18 @@ describe("providerRuntime pausable turn timeout", () => {
 
     // User approves — this should resume the timer AND satisfy the pending
     // approval, unblocking the mocked stream so it can emit done.
+    const answered: Array<{ turnId: string; requestId: string }> = [];
+    setProviderDecisionAnsweredListener(({ turnId: answeredTurnId, requestId }) => {
+      answered.push({ turnId: answeredTurnId, requestId });
+    });
     const result = await providerRuntime.respondApproval({
       turnId,
       requestId: "approval-req-1",
       approved: true,
     });
     expect(result.ok).toBe(true);
+    // The turn's record learns when the user answered, to tell waiting from a stall.
+    expect(answered).toEqual([{ turnId, requestId: "approval-req-1" }]);
 
     // Give the stream a moment to finish.
     await sleep(50);

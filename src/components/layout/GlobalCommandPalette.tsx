@@ -2,6 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
@@ -31,6 +32,14 @@ import {
   type CommandPaletteRuntimeContext,
 } from "@/components/layout/command-palette-registry";
 import { useAppStore } from "@/store/app.store";
+import {
+  filterSectionsForTaskScope,
+  openTaskSearchResult,
+  renderTaskSearchGroup,
+  taskSearchItemValue,
+  usePaletteTaskSearch,
+  type PaletteTaskScope,
+} from "./command-palette-task-search";
 import { commandPaletteStyles } from "./global-command-palette.styles";
 
 interface GlobalCommandPaletteProps {
@@ -44,15 +53,24 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
   const [selectedActionId, setSelectedActionId] = useState("");
+  const scopeLabelId = useId();
   const [pinAnnouncement, setPinAnnouncement] = useState("");
+  const [taskScope, setTaskScope] = useState<PaletteTaskScope>("workspace");
+  const taskSearch = usePaletteTaskSearch({ query, enabled: args.open && taskScope === "all" });
   const sections = useMemo(
     () => buildCommandPaletteGroups(args.runtimeContext),
     [args.runtimeContext, i18n.language],
   );
   const visibleSections = useMemo(
-    () => searchCommandPaletteGroups({ groups: sections, query }),
-    [query, sections],
+    () => filterSectionsForTaskScope(searchCommandPaletteGroups({ groups: sections, query }), taskScope),
+    [query, sections, taskScope],
   );
+  const searchResultCount = taskSearch.status === "idle" ? 0 : taskSearch.results.length;
+  // A fresh search across repositories starts on its best match.
+  const firstSearchResult = taskSearch.status === "ready" ? taskSearch.results[0] : undefined;
+  useEffect(() => {
+    if (firstSearchResult) setSelectedActionId(taskSearchItemValue(firstSearchResult));
+  }, [firstSearchResult]);
   const actionById = useMemo(
     () =>
       new Map(
@@ -79,8 +97,8 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       visibleSections.reduce(
         (count, section) => count + section.items.length,
         0,
-      ),
-    [visibleSections],
+      ) + searchResultCount,
+    [searchResultCount, visibleSections],
   );
 
   useEffect(() => {
@@ -90,6 +108,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
     setQuery("");
     setSelectedActionId("");
     setPinAnnouncement("");
+    setTaskScope("workspace");
   }, [args.open]);
 
   const toggleSelectedActionPin = useCallback(() => {
@@ -155,6 +174,30 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           onValueChange={setQuery}
           placeholder={i18n.t("shell:globalCommandPalette.findACommandTaskWorkspaceOrSetting")}
         />
+        <div className={sx(commandPaletteStyles.scopeRow)}>
+          <span id={scopeLabelId} className={sx(commandPaletteStyles.scopeLabel)}>
+            {i18n.t("shell:taskSearch.scopeLabel")}
+          </span>
+          <div className={sx(commandPaletteStyles.scopeButtons)} role="group" aria-labelledby={scopeLabelId}>
+            {(["workspace", "all"] as const).map((scope) => (
+              <Button
+                key={scope}
+                type="button"
+                size="sm"
+                variant={taskScope === scope ? "secondary" : "ghost"}
+                aria-pressed={taskScope === scope}
+                data-task-scope={scope}
+                // Keep typing in the search field while switching.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => setTaskScope(scope)}
+              >
+                {scope === "workspace"
+                  ? i18n.t("shell:taskSearch.scopeWorkspace")
+                  : i18n.t("shell:taskSearch.scopeAll")}
+              </Button>
+            ))}
+          </div>
+        </div>
         <CommandList className={sx(commandPaletteStyles.list)}>
           {/*
             Gated on this palette's own result count. `Command.Empty` wraps Base
@@ -165,7 +208,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
             every result list, which is the blank band that appeared between the
             query row and the first group.
           */}
-          {visibleSections.length === 0 ? (
+          {visibleSections.length === 0 && taskScope === "workspace" ? (
             <CommandEmpty className={sx(commandPaletteStyles.empty)}>
               <p className={sx(commandPaletteStyles.emptyTitle)}>
                 {query.trim()
@@ -179,6 +222,16 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               </p>
             </CommandEmpty>
           ) : null}
+          {taskScope === "all"
+            ? renderTaskSearchGroup({
+                search: taskSearch,
+                query,
+                onOpen: (result) => {
+                  args.onOpenChange(false);
+                  openTaskSearchResult(result);
+                },
+              })
+            : null}
           {visibleSections.map((section) => (
             <CommandGroup
               key={section.key}

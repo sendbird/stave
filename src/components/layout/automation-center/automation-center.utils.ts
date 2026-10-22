@@ -8,18 +8,33 @@ import {
   type AutomationSpec,
   type AutomationUpsertInput,
 } from "@/lib/automations";
+import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import {
   resolveCurrentRepositoryDefaultWorkspaceId,
   type RecentRepositoryState,
 } from "@/store/repository.utils";
 import type { Tone } from "@/components/ads/utils/tone";
 
+/** A workspace a schedule can run in. */
+export interface AutomationWorkspaceOption {
+  workspaceId: string;
+  name: string;
+  /** The directory runs start in. */
+  path: string;
+  branch: string | null;
+  /** The repository's Default workspace (its root). */
+  isDefault: boolean;
+}
+
 export interface AutomationEnvironmentOption {
   value: string;
+  /** The repository's Default workspace. */
   workspaceId: string;
   path: string;
   repositoryPath: string;
   label: string;
+  /** The repository's workspaces, its Default workspace first. */
+  workspaces: AutomationWorkspaceOption[];
 }
 
 export type AutomationRepositorySource = Pick<
@@ -29,7 +44,8 @@ export type AutomationRepositorySource = Pick<
   | "workspaces"
   | "workspacePathById"
   | "workspaceDefaultById"
->;
+> &
+  Partial<Pick<RecentRepositoryState, "workspaceBranchById" | "defaultBranch">>;
 
 export function getAutomationErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
@@ -47,12 +63,39 @@ export function buildEnvironmentOptions(args: {
       workspaceDefaultById: repository.workspaceDefaultById,
       workspacePathById: repository.workspacePathById,
     });
+    const branchOf = (id: string) =>
+      repository.workspaceBranchById?.[id] ??
+      (id === workspaceId ? repository.defaultBranch ?? null : null);
+    const rootPath = normalizeComparablePath(repository.repositoryPath);
+    // Another workspace runs only in a folder of its own. One without a folder,
+    // or with the root as its folder, would run in the Default workspace's
+    // checkout, so it is not offered; a schedule naming it reads as missing.
+    const workspaces: AutomationWorkspaceOption[] = repository.workspaces
+      .filter((workspace) => workspace.id !== workspaceId)
+      .flatMap((workspace) => {
+        const ownPath = repository.workspacePathById[workspace.id]?.trim() ?? "";
+        return ownPath && normalizeComparablePath(ownPath) !== rootPath
+          ? [{ workspaceId: workspace.id, name: workspace.name, path: ownPath, branch: branchOf(workspace.id), isDefault: false }]
+          : [];
+      })
+      .sort((left, right) => left.name.localeCompare(right.name));
+    const defaultWorkspace = repository.workspaces.find((workspace) => workspace.id === workspaceId);
     options.set(repository.repositoryPath, {
       value: `repository:${repository.repositoryPath}`,
       workspaceId,
       path: repository.repositoryPath,
       repositoryPath: repository.repositoryPath,
       label: repository.repositoryName,
+      workspaces: [
+        {
+          workspaceId,
+          name: defaultWorkspace?.name ?? repository.repositoryName,
+          path: repository.repositoryPath,
+          branch: branchOf(workspaceId),
+          isDefault: true,
+        },
+        ...workspaces,
+      ],
     });
   };
   args.recentRepositories.forEach(addRepository);

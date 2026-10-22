@@ -728,7 +728,9 @@
     "focusTheActiveEditorTab": "Focus the active editor tab.",
     "toggleTerminal": "Toggle terminal",
     "focusTheTerminalPaneCreatingOneIf": "Focus the terminal pane (creating one if needed), or return to the previous tab.",
-    "disabled": "Disabled"
+    "disabled": "Disabled",
+    "askSideQuestion": "Ask a side question",
+    "askSideQuestionDescription": "Open the side question panel for the active task; asking does not interrupt its turn."
   },
   "commands": {
     "slashCommands": "{{value1}} slash commands",
@@ -738,7 +740,8 @@
     "nativeSlashCommandsHaveNotBeen": "{{value1}} native slash commands have not been loaded yet for this workspace.",
     "loadingTheBundledSlashCommandReferenceForThe": "Loading the bundled {{value1}} slash-command reference for the current workspace...",
     "loadingNativeSlashCommandsForTheCurrent": "Loading {{value1}} native slash commands for the current workspace...",
-    "slashCommandsAreStillPassedThrough": "{{value1}} Slash commands are still passed through unchanged while the catalog is unavailable."
+    "slashCommandsAreStillPassedThrough": "{{value1}} Slash commands are still passed through unchanged while the catalog is unavailable.",
+    "asideDescription": "Ask a side question about this task without interrupting it; the answer is not added to the conversation."
   },
   "promptCommentShortcuts": {
     "stageTheCurrentPromptTextAsA": "Stage the current prompt text as a comment.",
@@ -759,7 +762,9 @@
     "subagents": "Subagents",
     "everyAgentTheTaskCalled": "Every agent the task called",
     "results": "Outputs",
-    "eachRunSAnswerAndChangesToReview": "Saved answers and file changes from this task"
+    "eachRunSAnswerAndChangesToReview": "Saved answers and file changes from this task",
+    "handoff": "Handoff",
+    "handoffDescription": "What to know to carry this task on"
   },
   "steerQueueShortcuts": {
     "enterQueuesTabSteers": "Enter queues, Tab steers",
@@ -992,6 +997,14 @@
       "toggleTaskReview": {
         "title": "Switch between conversation and Review",
         "description": "Show the active task's conversation, or Review of its work."
+      },
+      "sideChatAsk": {
+        "title": "Ask the side question",
+        "description": "Send the question in the side question panel; Shift+Enter adds a line."
+      },
+      "sideChatClose": {
+        "title": "Close the side question panel",
+        "description": "Close the side question panel; the task's turn keeps running."
       }
     },
     "ui": {
@@ -1015,10 +1028,31 @@
         "taskPane": "Task pane",
         "editor": "Editor",
         "lens": "Lens",
-        "gitGraph": "Commit graph"
+        "gitGraph": "Commit graph",
+        "sideChat": "Side question panel"
       },
       "or": "or",
       "then": "then"
+    }
+  },
+  "taskSearch": {
+    "scopeLabel": "Tasks in",
+    "scopeWorkspace": "This workspace",
+    "scopeAll": "All repositories",
+    "heading": "Tasks in all repositories",
+    "searching": "Searching every repository…",
+    "failed": "Tasks could not be searched.",
+    "noMatch": "No task in any repository matches “{{query}}”.",
+    "noTasks": "No tasks in any repository yet.",
+    "untitled": "Untitled task",
+    "defaultWorkspace": "Default workspace",
+    "state": {
+      "running": "Running",
+      "completed": "Done",
+      "failed": "Failed",
+      "cancelled": "Stopped",
+      "new": "New",
+      "archived": "Archived"
     }
   }
 }

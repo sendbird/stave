@@ -52,6 +52,7 @@ import {
 } from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { editorStyles } from "./automation-editor.styles";
+import { AutomationLocationFields } from "./AutomationLocationFields";
 import {
   applyAutomationScheduleUnit,
   formatRelativeTime,
@@ -637,9 +638,6 @@ export function AutomationEditor(props: {
   onSave: () => void;
 }) {
   const { t: tI18n } = useTranslation(["automation"]);
-  const environmentValue = props.draft.environment.repositoryPath
-    ? `repository:${props.draft.environment.repositoryPath}`
-    : "";
   const selectedReferenceKeys = new Set(
     props.draft.informationReferences.map(getAutomationInformationReferenceKey),
   );
@@ -786,44 +784,11 @@ export function AutomationEditor(props: {
               description={tI18n("automation:automationEditor.startsANewTaskInThisRepository")}
             />
             {props.kindSwitch}
-            <Select
-              value={environmentValue}
-              onValueChange={(value) => {
-                const selected = props.environmentOptions.find(
-                  (option) => option.value === value,
-                );
-                if (!selected) {
-                  return;
-                }
-                props.onDraftChange({
-                  ...props.draft,
-                  environment: {
-                    kind: "repository",
-                    workspaceId: selected.workspaceId,
-                    path: selected.path,
-                    repositoryPath: selected.repositoryPath,
-                    label: selected.label,
-                  },
-                  informationReferences: [],
-                });
-              }}
-            >
-              <SelectTrigger className={sx(editorStyles.repositorySelect)}>
-                <SelectValue placeholder={tI18n("automation:automationEditor.selectARepository")} />
-              </SelectTrigger>
-              <SelectContent>
-                {props.environmentOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {props.draft.environment.path ? (
-              <div className={sx(editorStyles.environmentPath)}>
-                {props.draft.environment.path}
-              </div>
-            ) : null}
+            <AutomationLocationFields
+              draft={props.draft}
+              environmentOptions={props.environmentOptions}
+              onDraftChange={props.onDraftChange}
+            />
           </section>
 
           <CadenceSection
@@ -911,6 +876,7 @@ export function AutomationEditor(props: {
                 <AutomationInformationResourceCreator
                   workspaceId={props.draft.environment.workspaceId}
                   repositoryLabel={props.draft.environment.label}
+                  workspaceLabel={props.draft.environment.workspace?.name}
                   disabled={props.saving}
                   onCreated={(option) => {
                     props.onInformationCreated(option);

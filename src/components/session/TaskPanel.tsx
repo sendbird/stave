@@ -25,6 +25,7 @@ import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import { useAppStore } from "@/store/app.store";
 import { useTaskAgentRun } from "@/store/agent-runs-store";
 import { TaskResultReviews } from "./TaskResultReviews";
+import { TaskHandoffPanel } from "./TaskHandoffPanel";
 import { SubagentsSection } from "./SubagentsSection";
 import { TaskPanelEmpty } from "./TaskPanelEmpty";
 import { TurnActivityPanel } from "./TurnActivityPanel";
@@ -155,6 +156,9 @@ export function TaskPanelView(props: {
       <TabsContent value="results" xstyle={[styles.panel, styles.panelScroll]}>
         <TaskResultReviews key={scopeKey} workspaceId={workspaceId} taskId={taskId} />
       </TabsContent>
+      <TabsContent value="handoff" xstyle={[styles.panel, styles.panelScroll]}>
+        <TaskHandoffPanel key={scopeKey} workspaceId={workspaceId} taskId={taskId} />
+      </TabsContent>
     </Tabs>
   );
 }
@@ -181,6 +185,8 @@ function TaskTabMark(props: {
       return <SubagentsMark taskId={props.taskId} />;
     case "results":
       return <ResultsMark workspaceId={props.workspaceId} taskId={props.taskId} />;
+    case "handoff":
+      return null;
   }
 }
 

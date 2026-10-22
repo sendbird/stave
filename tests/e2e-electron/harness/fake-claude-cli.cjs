@@ -17,6 +17,17 @@
  * permission callback about each in turn (`can_use_tool`), so a spec can see
  * one decided by the permission mode and answer the other itself.
  *
+ * The first turn whose prompt contains `[fail]` ends with an execution error,
+ * so a spec can read how Stave records a failed turn. Later turns answer
+ * normally even when the earlier prompt is carried in their history.
+ *
+ * `FAKE_CLAUDE_PROMPT_MARKERS` (comma-separated strings) records, per turn,
+ * whether the turn's input contained each one: booleans only, never the text.
+ *
+ * The first turn whose prompt contains `[hold]` keeps running until a
+ * `release` file appears in `FAKE_CLAUDE_DIR`, so a spec can act while a turn
+ * runs. Later prompts that carry it in their history answer at once.
+ *
  * Launch it through a wrapper on `STAVE_CLAUDE_CLI_PATH` (see
  * `agent-run-usage-limit.electron.e2e.ts`).
  */
@@ -51,9 +62,12 @@ const progressToolIds = (process.env.FAKE_CLAUDE_TOOL_PROGRESS ?? "").split(",")
 const resumed = args.some((arg) => arg.startsWith("--resume"));
 
 /** The number of this Agent run turn among the run turns so far; 0 for any other turn. */
-function recordTurn() {
-  const previous = fs.existsSync(turnsFile) ? fs.readFileSync(turnsFile, "utf8").split("\n").filter(Boolean).map((line) => JSON.parse(line)) : [];
-  fs.appendFileSync(turnsFile, `${JSON.stringify({ at: new Date().toISOString(), runTurn, resumed })}\n`);
+const promptMarkers = (process.env.FAKE_CLAUDE_PROMPT_MARKERS ?? "").split(",").filter(Boolean);
+
+function recordTurn(line) {
+  const previous = fs.existsSync(turnsFile) ? fs.readFileSync(turnsFile, "utf8").split("\n").filter(Boolean).map((entry) => JSON.parse(entry)) : [];
+  const markers = Object.fromEntries(promptMarkers.map((marker) => [marker, line.includes(marker)]));
+  fs.appendFileSync(turnsFile, `${JSON.stringify({ at: new Date().toISOString(), runTurn, resumed, markers })}\n`);
   return runTurn ? previous.filter((entry) => entry.runTurn).length + 1 : 0;
 }
 
@@ -96,7 +110,7 @@ async function answerPermissionsTurn() {
 }
 
 function answerTurn(line) {
-  const turn = recordTurn();
+  const turn = recordTurn(line);
   write({ type: "system", subtype: "init", session_id: sessionId, uuid: randomUUID(), cwd: process.cwd(), tools: [], mcp_servers: [],
     model: "claude-sonnet-fake", permissionMode: "default", slash_commands: [], apiKeySource: "none", claude_code_version: "99.0.0",
     output_style: "default", agents: [], skills: [], plugins: [] });
@@ -113,6 +127,14 @@ function answerTurn(line) {
       errors: ["Claude AI usage limit reached"], uuid: randomUUID() });
     return;
   }
+  const failedOnce = path.join(dir, "failed-once");
+  if (line.includes("[fail]") && !fs.existsSync(failedOnce)) {
+    fs.writeFileSync(failedOnce, "");
+    write({ type: "result", subtype: "error_during_execution", is_error: true, duration_ms: 5, duration_api_ms: 0, num_turns: 0,
+      stop_reason: null, session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [],
+      errors: ["Simulated provider failure"], uuid: randomUUID() });
+    return;
+  }
   if (line.includes("[tool-progress]")) {
     for (const toolUseId of progressToolIds) {
       write({ type: "tool_progress", tool_use_id: toolUseId, tool_name: "Read", parent_tool_use_id: null,
@@ -120,11 +142,25 @@ function answerTurn(line) {
     }
   }
   const text = turn ? `Run turn ${turn} ran after the usage reset.` : "Done.";
-  write({ type: "assistant", session_id: sessionId, uuid: randomUUID(), parent_tool_use_id: null,
-    message: { id: `msg_${turn}`, type: "message", role: "assistant", model: "claude-sonnet-fake",
-      content: [{ type: "text", text }], stop_reason: "end_turn", stop_sequence: null, usage } });
-  write({ type: "result", subtype: "success", is_error: false, result: text, duration_ms: 5, duration_api_ms: 1, num_turns: 1,
-    stop_reason: "end_turn", session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [], uuid: randomUUID() });
+  const reply = () => {
+    write({ type: "assistant", session_id: sessionId, uuid: randomUUID(), parent_tool_use_id: null,
+      message: { id: `msg_${turn}`, type: "message", role: "assistant", model: "claude-sonnet-fake",
+        content: [{ type: "text", text }], stop_reason: "end_turn", stop_sequence: null, usage } });
+    write({ type: "result", subtype: "success", is_error: false, result: text, duration_ms: 5, duration_api_ms: 1, num_turns: 1,
+      stop_reason: "end_turn", session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [], uuid: randomUUID() });
+  };
+  const heldOnce = path.join(dir, "held-once");
+  if (line.includes("[hold]") && !fs.existsSync(heldOnce)) {
+    fs.writeFileSync(heldOnce, "");
+    const release = path.join(dir, "release");
+    const timer = setInterval(() => {
+      if (!fs.existsSync(release)) return;
+      clearInterval(timer);
+      reply();
+    }, 100);
+    return;
+  }
+  reply();
 }
 
 const input = readline.createInterface({ input: process.stdin });

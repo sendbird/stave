@@ -4126,22 +4126,16 @@ export async function suggestClaudePRDescription(args: {
       return { ok: false };
     }
 
-    const prModel = validateClaudeGatewayModel(args.model?.trim() || DEFAULT_CLAUDE_HAIKU_MODEL);
-    const prFallbackModel = resolveClaudeFallbackModel({ model: prModel });
+    // The prompt carries the diff and log: no tools, MCP or settings, as
+    // every read-only utility (`buildClaudeReadOnlyPromptOptions`).
     const stream = queryFn({
       prompt: prPrompt,
-      options: {
-        permissionMode: "default",
-        maxTurns: 1,
+      options: buildClaudeReadOnlyPromptOptions({
+        abortController: new AbortController(),
         cwd: args.cwd || process.cwd(),
-        model: prModel,
-        ...(prFallbackModel ? { fallbackModel: prFallbackModel } : {}),
-        ...(currentClaudeGateway() ? { settingSources: [] } : {}),
-        ...(claudeExecutablePath
-          ? { pathToClaudeCodeExecutable: claudeExecutablePath }
-          : {}),
-        env: buildClaudeEnv({ executablePath: claudeExecutablePath }),
-      },
+        model: args.model?.trim() || DEFAULT_CLAUDE_HAIKU_MODEL,
+        claudeExecutablePath,
+      }),
     }) as Query;
 
     const textParts: string[] = [];
@@ -4206,19 +4200,15 @@ export async function reviewClaudeWorktreeDiff(args: {
           })
         : buildReviewDiffPrompt(args);
 
+    // The diff under review is untrusted: no tools, MCP or settings.
     const stream = queryFn({
       prompt: reviewPrompt,
-      options: {
-        permissionMode: "default",
-        maxTurns: 1,
+      options: buildClaudeReadOnlyPromptOptions({
+        abortController: new AbortController(),
         cwd: args.cwd || process.cwd(),
-        model: validateClaudeGatewayModel(args.model?.trim() || "claude-sonnet-5"),
-        ...(currentClaudeGateway() ? { settingSources: [] } : {}),
-        ...(claudeExecutablePath
-          ? { pathToClaudeCodeExecutable: claudeExecutablePath }
-          : {}),
-        env: buildClaudeEnv({ executablePath: claudeExecutablePath }),
-      },
+        model: args.model?.trim() || "claude-sonnet-5",
+        claudeExecutablePath,
+      }),
     }) as Query;
 
     const textParts: string[] = [];

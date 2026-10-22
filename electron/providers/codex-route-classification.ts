@@ -1,4 +1,5 @@
 import { buildCodexThreadStartParams } from "./codex-app-server-params";
+import { CODEX_TOOLLESS_CONFIG_OVERRIDES } from "./codex-read-only-prompt";
 
 /** Minimal per-request context for classification; never modifies user config. */
 export function buildCodexRouteClassificationThreadStartParams(
@@ -19,12 +20,7 @@ export function buildCodexRouteClassificationThreadStartParams(
       ...params.config,
       project_doc_max_bytes: 0,
       "skills.max_context_tokens": 1,
-      "features.shell_tool": false,
-      "features.unified_exec": false,
-      "features.apps": false,
-      "tools.view_image": false,
-      network_access: false,
-      web_search: "disabled",
+      ...CODEX_TOOLLESS_CONFIG_OVERRIDES,
     },
   };
 }

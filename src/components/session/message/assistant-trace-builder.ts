@@ -234,6 +234,15 @@ export function traceHasToolStep(entries: readonly AssistantTraceEntry[], toolUs
   );
 }
 
+/** Whether the trace holds the approval or question with this request id. */
+export function traceHasDecision(entries: readonly AssistantTraceEntry[], requestId: string): boolean {
+  return entries.some(
+    (entry) =>
+      (entry.kind === "approval" || entry.kind === "user_input") &&
+      entry.part.requestId === requestId,
+  );
+}
+
 export function joinReasoningText(parts: ThinkingPart[]) {
   return parts.map((part) => part.text).join("");
 }

@@ -408,7 +408,9 @@
     "thinkingValue": "사고 · {{value}}",
     "thinkingTitle": "사고: {{value}}. 모든 Claude 작업에 적용됩니다.",
     "thinkingMenuTitle": "사고 모드",
-    "thinkingMenuScope": "이 작업만이 아니라 모든 Claude 작업에 적용됩니다."
+    "thinkingMenuScope": "이 작업만이 아니라 모든 Claude 작업에 적용됩니다.",
+    "staveCommands": "Stave 명령",
+    "staveBadge": "Stave"
   },
   "promptLexicalEditor": {
     "ariaLabel": "프롬프트"
@@ -703,5 +705,27 @@
     "manage": "계정과 연결 관리…",
     "addGatewayModels": "Vercel AI Gateway로 다른 모델 추가…",
     "editModels": "모델 편집"
+  },
+  "providerSwitch": {
+    "ariaLabel": "프로바이더 전환",
+    "title": "프로바이더 전환: {{to}}",
+    "summaryFresh": "새 세션에서 이 작업의 {{chars}}자 발췌를 받습니다",
+    "summaryResume_other": "기존 세션을 이어 마지막 작업 뒤의 메시지 {{count}}개를 받습니다",
+    "summaryCommand": "{{command}} 명령은 입력한 그대로 가며, 이 작업의 대화는 함께 가지 않습니다",
+    "showDetails": "받는 내용",
+    "hideDetails": "숨기기",
+    "sessionFresh": "이 작업을 처음 맡으므로 새 세션을 시작합니다.",
+    "sessionResume": "이 작업에서 쓰던 세션을 이어 갑니다.",
+    "commandAsTyped": "프로바이더 명령은 입력한 그대로 갑니다. 이 작업의 대화도, 인계 기록도 함께 받지 않습니다.",
+    "receivesNothing": "새로 받을 내용이 없습니다.",
+    "receivesFresh_other": "대화에서 {{chars}}자 분량의 발췌를 받습니다. 메시지 {{count}}개 중 {{kept}}개가 들어갑니다.",
+    "receivesResume_other": "마지막으로 작업한 뒤의 메시지 {{count}}개({{chars}}자)를 받습니다.",
+    "leftOut_other": "{{max}}자에 맞추려고 첫 요청과 최근 메시지를 남기고 그 사이 메시지 {{count}}개를 뺍니다.",
+    "shortened_other": "긴 메시지 {{count}}개는 가운데를 줄입니다.",
+    "nothingLeftOut": "빠지는 메시지가 없습니다.",
+    "textOnly": "메시지는 텍스트로만 전달되며, 메시지에 딸린 도구 호출, 이미지, 첨부 파일은 전달되지 않습니다.",
+    "textAndParts_other": "메시지는 텍스트로 전달됩니다. 텍스트가 없는 메시지 {{count}}개는 대신 구성 요소의 요약으로 전달됩니다. 도구 호출은 입력과 출력까지, 이미지와 파일은 이름만 들어갑니다.",
+    "recordFirst_other": "이 작업의 인계 기록을 먼저 받습니다. 섹션 {{count}}개입니다.",
+    "recordNone": "이 작업에는 아직 인계 기록이 없습니다."
   }
 }

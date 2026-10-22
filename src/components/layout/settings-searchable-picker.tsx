@@ -29,6 +29,8 @@ export type SearchablePickerOption = {
   detail?: string;
   /** Decorative leading mark, such as a provider logo. */
   icon?: ReactNode;
+  /** More words the search matches, such as a full identifier or a description. */
+  keywords?: readonly string[];
 };
 
 /**
@@ -116,7 +118,7 @@ export function SearchablePicker(props: {
                   <CommandItem
                     key={option.value}
                     value={option.value}
-                    keywords={[option.label]}
+                    keywords={[option.label, ...(option.keywords ?? [])]}
                     data-checked={option.value === props.value}
                     className={sx(styles.item)}
                     onSelect={() => {

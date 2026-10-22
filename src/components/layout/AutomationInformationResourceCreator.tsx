@@ -453,6 +453,8 @@ function CustomFieldValue(props: {
 export function AutomationInformationResourceCreator(props: {
   workspaceId: string;
   repositoryLabel: string;
+  /** Set when the schedule runs in a workspace other than the repository's Default workspace. */
+  workspaceLabel?: string;
   disabled?: boolean;
   onCreated: (option: WorkspaceInformationReferenceOption) => void;
 }) {
@@ -579,7 +581,9 @@ export function AutomationInformationResourceCreator(props: {
               </DialogTitle>
               <DialogDescription className={sx(resourceCreatorStyles.headerDescription)}>
                 {definition
-                  ? tI18n("workspace:automationInformationResourceCreator.createItInValueDefaultWorkspaceAnd", { value1: props.repositoryLabel })
+                  ? props.workspaceLabel
+                    ? tI18n("workspace:automationInformationResourceCreator.createItInWorkspaceAnd", { value1: props.workspaceLabel })
+                    : tI18n("workspace:automationInformationResourceCreator.createItInValueDefaultWorkspaceAnd", { value1: props.repositoryLabel })
                   : tI18n("workspace:automationInformationResourceCreator.chooseTheResourceTypeYouWantTo")}
               </DialogDescription>
             </div>

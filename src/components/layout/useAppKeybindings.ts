@@ -27,6 +27,7 @@ import { buildPanePanelId } from "@/lib/panes/types";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { useAppStore } from "@/store/app.store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
+import { useSideChatStore } from "@/store/side-chat-store";
 
 /** Settings (and anything else outside the shell) asks for the shortcut list. */
 export const OPEN_KEYBOARD_SHORTCUTS_EVENT = "stave:open-keyboard-shortcuts";
@@ -111,6 +112,11 @@ function runAppChordAction(
     }
     case "view.toggle-terminal":
       paneHost.toggleTerminalGroup();
+      return;
+    case "view.side-question":
+      if (store.activeTaskId) {
+        useSideChatStore.getState().open(store.activeTaskId);
+      }
       return;
   }
 }

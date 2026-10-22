@@ -1032,10 +1032,10 @@ export function createSendUserMessageAction(args: {
         }),
         ...freshSourceContexts,
       ];
-      // ── Project memory + delegated task receipts ───────────────────────────
-      // Both are cross-turn state read from main; see repository-memory-runtime.
+      // ── Memory, subagent receipts, handoff record: cross-turn state from main ──
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
+          workspaceId: taskWorkspaceId, turnId, providerSession: providerSessionCursor,
           repositoryPath: state.repositoryPath,
           parentTaskId: resolvedTaskId,
           history: latestHistory,

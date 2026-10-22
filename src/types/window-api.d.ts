@@ -5,6 +5,7 @@ import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-account
 import type { ApiConnectionsBridgeApi } from "@/lib/providers/api-connections";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
+import type { AskSideQuestionArgs, AskSideQuestionResponse } from "@/lib/side-chat/side-chat-ipc";
 import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
 import type { InlineRenderModelContextEntry as InlineRenderModelContextEntryPayload } from "@/lib/inline-render/inline-render-interaction";
 import type {
@@ -595,6 +596,8 @@ interface WindowProviderApi {
     prompt?: string;
     utility: UtilityInferenceMetadata;
   }>;
+  /** Answers a side question about a task in a read-only turn; nothing is saved to the task. */
+  askSideQuestion?: (args: AskSideQuestionArgs) => Promise<AskSideQuestionResponse>;
   /** Generates a conventional commit message in a read-only utility turn. */
   suggestCommitMessage?: (args: UtilityInferenceContext) => Promise<{
     ok: boolean;
@@ -2240,6 +2243,26 @@ interface WindowPersistenceApi {
   usageStatistics?: (
     args: import("@/lib/providers/usage-statistics").UsageStatisticsArgs,
   ) => Promise<import("@/lib/providers/usage-statistics").UsageStatisticsResponse>;
+  /** Activity's turn picker: a task's turns, newest first. */
+  listTaskTurnHistory?: (
+    args: import("@/lib/providers/turn-history").ListTaskTurnHistoryArgs,
+  ) => Promise<import("@/lib/providers/turn-history").TurnHistoryListResponse>;
+  /** One earlier turn's digest, request and saved steps. */
+  readTaskTurnRecord?: (
+    args: import("@/lib/providers/turn-history").ReadTaskTurnRecordArgs,
+  ) => Promise<import("@/lib/providers/turn-history").TurnRecordResponse>;
+  /** A task's handoff record; an empty record when none was saved. */
+  readTaskHandoff?: (
+    args: import("@/lib/task-context/handoff-record-ipc").ReadTaskHandoffArgs,
+  ) => Promise<import("@/lib/task-context/handoff-record-ipc").ReadTaskHandoffResponse>;
+  /** Save a handoff draft made from a revision; a newer stored revision answers a conflict. */
+  saveTaskHandoff?: (
+    args: import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffArgs,
+  ) => Promise<import("@/lib/task-context/handoff-record-ipc").SaveTaskHandoffResponse>;
+  /** Every registered repository's tasks matching a query, for the palette's All repositories scope. */
+  searchTasks?: (
+    args: import("@/lib/task-search/task-search-ipc").SearchTasksArgs,
+  ) => Promise<import("@/lib/task-search/task-search-ipc").SearchTasksResponse>;
   /**
    * Tokens (input plus output, without cache reads) and cost reported on
    * turns run in Stave, per provider, since the given local day and month

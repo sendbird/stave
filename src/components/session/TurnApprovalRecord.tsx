@@ -26,9 +26,11 @@ function runTurnId(activeTurnId: string | null, messages: readonly ChatMessage[]
  * Under the Activity tab's list: the approval record of the turn it lists —
  * how many requests you, a Stave rule and the provider's mode allowed, and
  * each request with who decided it. Folded to its counts until opened; absent
- * when the turn asked for nothing.
+ * when the turn asked for nothing. `turnId` is an earlier turn chosen in the
+ * Activity tab's turn picker (its loaded messages are read); without it, the
+ * live turn or the latest answered one.
  */
-export function TurnApprovalRecord() {
+export function TurnApprovalRecord(props: { turnId?: string } = {}) {
   useTranslation();
   const [taskId, activeTurnId, messages] = useAppStore(
     useShallow((state) => {
@@ -42,7 +44,7 @@ export function TurnApprovalRecord() {
       ] as const;
     }),
   );
-  const turnId = runTurnId(activeTurnId, messages);
+  const turnId = props.turnId ?? runTurnId(activeTurnId, messages);
   const entries = useMemo(
     () => (turnId ? collectApprovalRecord(messages.filter((message) => message.turnId === turnId)) : []),
     [messages, turnId],

@@ -109,13 +109,33 @@ export const AUTOMATION_TRUST_POLICIES = [
 export const AutomationTrustPolicySchema = z.enum(AUTOMATION_TRUST_POLICIES);
 export type AutomationTrustPolicy = z.infer<typeof AutomationTrustPolicySchema>;
 
+/**
+ * An existing workspace of the repository that runs use instead of its
+ * Default workspace. Absent means the Default workspace: every schedule saved
+ * before this field existed, and any caller that does not name one. Runs use
+ * `workspaceId`; this keeps the name and branch to show, including after the
+ * workspace is gone.
+ */
+export const AutomationEnvironmentWorkspaceSchema = z
+  .object({
+    name: z.string().trim().min(1).max(200),
+    branch: z.string().trim().max(500).optional(),
+  })
+  .strict();
+export type AutomationEnvironmentWorkspace = z.infer<
+  typeof AutomationEnvironmentWorkspaceSchema
+>;
+
 export const AutomationEnvironmentInputSchema = z
   .object({
     kind: z.literal("repository"),
     workspaceId: z.string().min(1),
+    /** The directory runs start in: the repository root, or the chosen workspace's path. */
     path: z.string().min(1),
     repositoryPath: z.string().min(1),
+    /** The repository's name. */
     label: z.string().min(1),
+    workspace: AutomationEnvironmentWorkspaceSchema.optional(),
   })
   .strict();
 export type AutomationEnvironmentInput = z.infer<
@@ -335,6 +355,20 @@ export const AUTOMATION_RUN_STATUSES = [
 export const AutomationRunStatusSchema = z.enum(AUTOMATION_RUN_STATUSES);
 export type AutomationRunStatus = z.infer<typeof AutomationRunStatusSchema>;
 
+/** Failures the window words itself and offers a fix for. */
+export const AUTOMATION_RUN_ERROR_CODES = ["workspace-missing"] as const;
+export type AutomationRunErrorCode = (typeof AUTOMATION_RUN_ERROR_CODES)[number];
+
+// i18n-ignore: stored run error and MCP text; the window translates it by code
+export const AUTOMATION_WORKSPACE_MISSING_MESSAGE =
+  "The workspace this schedule runs in, or its folder, no longer exists. Edit the schedule to choose a workspace.";
+
+/** Saving a schedule whose workspace the registry has under another repository. */
+export function automationWorkspaceRepositoryMismatchMessage(repositoryPath: string) {
+  // i18n-ignore: host save error for Local MCP callers; the window's picker offers only the repository's own workspaces
+  return `The chosen workspace belongs to another repository than the schedule's. Choose a workspace of ${repositoryPath}.`;
+}
+
 export const AutomationRunSchema = z
   .object({
     id: z.string().min(1),
@@ -350,6 +384,7 @@ export const AutomationRunSchema = z
     completedAt: z.string().datetime().nullable(),
     resultPreview: z.string().nullable(),
     error: z.string().nullable(),
+    errorCode: z.enum(AUTOMATION_RUN_ERROR_CODES).optional(),
     configHash: z
       .string()
       .regex(/^[a-f0-9]{16}$/)

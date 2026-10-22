@@ -72,6 +72,7 @@ const SCOPE_LABEL_KEYS: Partial<Record<KeybindingScope, I18nKey>> = {
   sidebar: "shell:keybindings.ui.scope.sidebar",
   composer: "shell:keybindings.ui.scope.composer",
   "task-pane": "shell:keybindings.ui.scope.taskPane",
+  "side-chat": "shell:keybindings.ui.scope.sideChat",
   editor: "shell:keybindings.ui.scope.editor",
   lens: "shell:keybindings.ui.scope.lens",
   "git-graph": "shell:keybindings.ui.scope.gitGraph",

@@ -87,6 +87,7 @@ import { resolveQueuePause } from "@/store/task-work-pause";
 import { useTaskContextMentions } from "./use-task-context-mentions";
 import { useDocumentContextMentions } from "./use-document-context-mentions";
 import { useAppStore } from "@/store/app.store";
+import { askAsideFromComposer } from "@/store/side-chat-store";
 import { getImageAttachmentMimeType } from "@/store/prompt-draft-message-content";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
 import { resolveActiveTurnProviderId } from "@/store/chat-state-helpers";
@@ -1786,6 +1787,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           onSubmit={async ({ text, intent }) => {
             const steerSubmission = intent === "steer";
             const submissionTaskId = args.providerSelectionTarget;
+            // `/aside`: a side question goes to its panel; nothing is sent, queued or steered.
+            if (askAsideFromComposer({ taskId: args.activeTaskId, text })) {
+              adoptPromptDraftText({ taskId: submissionTaskId, text: "" });
+              return commitPromptDraftText({ taskId: submissionTaskId, text: "" });
+            }
             if (
               steerSubmission &&
               pendingSteerTaskIdsRef.current.has(submissionTaskId)

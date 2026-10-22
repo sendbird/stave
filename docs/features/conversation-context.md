@@ -82,6 +82,35 @@ Native automatic compaction remains the provider's responsibility. Stave does
 not add another automatic summarizer or repeatedly resend the entire transcript
 to a healthy resumed session.
 
+### Seeing What A Switch Sends
+
+When the next message will go to another provider than the one that answered
+last, the composer shelf shows `Switching to <provider>` before you send, with
+a one-line summary. Choose `What it receives` for the details:
+
+- whether the provider starts its own session (it has not worked on the task
+  before) or resumes the one it had;
+- that the task's [handoff record](task-handoff-record.md) goes first, when
+  the task has one;
+- how many messages it receives and how many characters that is: the whole
+  loaded conversation for a new session, or what happened since it last worked
+  here for a resumed one;
+- what the 12,000-character budget leaves out, and how many long messages are
+  shortened in the middle;
+- that messages travel as their text, so their tool calls, images and
+  attached files stay behind; a message without text travels as a summary of
+  its parts instead (tool calls with their input and output, images and files
+  by name), and the notice says how many do.
+
+When the draft starts with a provider command such as `/compact`, the command
+goes to the provider as typed, with no excerpt and no handoff record, and the
+notice says so instead.
+
+The notice uses the same rules that build the prompt, so the numbers are what
+the provider receives. It changes nothing about the message; there is no
+setting to choose. It is not shown while a turn runs or when Stave Auto picks
+the provider at send time.
+
 Fresh sessions and provider switch-back use bounded history. The prompt budget
 is 12,000 characters: when it overflows, Stave keeps the earliest available user
 request plus recent message excerpts, retains role labels, and explicitly marks
@@ -90,10 +119,13 @@ lossless summary. The earliest available request may not be the original request
 if older messages have already been paged out or transport bounds applied.
 
 Keep the task objective, accepted constraints, verified results, and next steps
-in a maintained plan or task source context. Older messages remain stored, but
-they are not all automatically loaded into every provider session. Attached
-task sources and workspace information help continuity; Stave does not yet
-maintain a versioned, provider-independent summary of every task.
+in the task's [handoff record](task-handoff-record.md). It is sent ahead of the
+excerpt whenever the excerpt is sent, so a provider starting on the task, or
+coming back to it, reads what the task settled before the conversation that led
+there; a provider continuing its own session receives it again once after you
+save a change. Older messages remain stored, but they are not all automatically loaded
+into every provider session. Attached task sources and workspace information
+help continuity too.
 
 ## Troubleshooting
 

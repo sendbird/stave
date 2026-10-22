@@ -13,6 +13,7 @@ import type { HostServiceResourceMetrics } from "./resource-metrics";
 import type { ScmReviewDiffArgs, ScmReviewDiffResult, ScmReviewFileDiffArgs, ScmReviewFileDiffResult } from "../../src/lib/review/review-diff-contract";
 export type { HostServiceResourceMetrics } from "./resource-metrics";
 import type { PromptEnhancementContext } from "../../src/lib/providers/prompt-enhancement-context";
+import type { AskSideQuestionArgs, AskSideQuestionResponse } from "../../src/lib/side-chat/side-chat-ipc";
 import type {
   PrCheckLogExcerpt,
   PrContextIndex,
@@ -842,6 +843,7 @@ export interface HostServiceRequestMap {
   "provider.classify-route": HostProviderClassifyRouteArgs;
   "provider.cancel-route-classification": { requestId: string };
   "provider.enhance-prompt": HostProviderEnhancePromptArgs;
+  "provider.ask-side-question": AskSideQuestionArgs;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageArgs;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionArgs;
   "provider.review-diff": HostProviderReviewDiffArgs;
@@ -1158,6 +1160,7 @@ export interface HostServiceResponseMap {
   "provider.classify-route": HostProviderClassifyRouteResult;
   "provider.cancel-route-classification": void;
   "provider.enhance-prompt": HostProviderEnhancePromptResult;
+  "provider.ask-side-question": AskSideQuestionResponse;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageResult;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionResult;
   "provider.review-diff": HostProviderReviewDiffResult;

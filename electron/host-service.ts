@@ -1,4 +1,6 @@
 import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
+import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
+import { findAutomationWorkspace } from "./host-service/automation-workspace-location";
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { applyRuntimeLocale } from "../src/i18n/runtime";
@@ -115,7 +117,11 @@ import type {
   HostServiceMethod,
   HostServiceResponseMap,
 } from "./host-service/protocol";
-import { providerRuntime, setAgentRunUserTurnResolver } from "./providers/runtime";
+import {
+  providerRuntime,
+  setAgentRunUserTurnResolver,
+  setProviderDecisionAnsweredListener,
+} from "./providers/runtime";
 import { prepareDelegatedAgentRun } from "./host-service/supervision/delegated-agent-run-host";
 import { handleMcpAppViewRequest } from "./providers/mcp-app-view-requests";
 import { getProviderModelCatalog } from "./providers/provider-model-catalog";
@@ -167,6 +173,7 @@ import {
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
 } from "./providers/utility-inference";
+import { askSideQuestion } from "./host-service/side-question";
 import {
   normalizePrePrReviewProvider,
   PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS,
@@ -583,6 +590,7 @@ const automationRuntime = createAutomationRuntime({
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
   getWorkspaceInformation: localMcpRuntime.getWorkspaceInformation,
+  findWorkspace: findAutomationWorkspace,
   emitUnattendedAutomationsChanged: (payload) => {
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
@@ -596,6 +604,14 @@ const agentRunRuntime = createHostAgentRunRuntime({
   },
 });
 setAgentRunUserTurnResolver((args) => agentRunRuntime.prepareUserTurn(args));
+// The turn's record counts the time a decision waited on the user as waiting, not a stall.
+setProviderDecisionAnsweredListener((answer) => {
+  try {
+    ensureHostServicePersistenceReady().turnDigests.recordDecisionAnswered(answer);
+  } catch (error) {
+    console.warn("[turn-digest] could not note an answered decision", error);
+  }
+});
 setRunQuestionAnswerer((args) => agentRunRuntime.answerQuestion(args));
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),
@@ -1668,12 +1684,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
     case "workspace-scripts.run-entry":
       await respond(request.id, await runScriptEntry(request.params));
       return;
-    case "workspace-scripts.run-hook":
-      await respond(request.id, {
-        ok: true,
-        summary: await runScriptHook(request.params),
-      });
+    case "workspace-scripts.run-hook": {
+      const summary = await runScriptHook(request.params);
+      recordTurnCompletedChecks(request.params, summary, ensureHostServicePersistenceReady());
+      await respond(request.id, { ok: true, summary });
       return;
+    }
     case "workspace-scripts.stop-entry":
       await stopScriptEntry(request.params);
       await respond(request.id, { ok: true });
@@ -1908,6 +1924,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.enhance-prompt":
       await respond(request.id, await enhanceUtilityPrompt(request.params));
+      return;
+    case "provider.ask-side-question":
+      await respond(request.id, await askSideQuestion(request.params));
       return;
     case "provider.suggest-commit-message":
       await respond(

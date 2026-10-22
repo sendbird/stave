@@ -420,7 +420,8 @@
     "addASlackMessagePermalink": "Slack 메시지 영구 링크를 추가합니다.",
     "addADesignBoardOrNodeUrl": "디자인, 보드 또는 노드 URL을 추가합니다.",
     "customField": "사용자 지정 필드",
-    "addTypedRepositorySpecificContext": "유형을 지정한 저장소별 맥락을 추가합니다."
+    "addTypedRepositorySpecificContext": "유형을 지정한 저장소별 맥락을 추가합니다.",
+    "createItInWorkspaceAnd": "{{value1}} 워크스페이스에 만들고 이 일정에 첨부합니다."
   },
   "repositoryWorkspaceSidebar": {
     "openRepository": "저장소 열기",

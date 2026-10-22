@@ -80,6 +80,7 @@ test("the rail has one Task entry whose tabs replace the five task panels", () =
     "Progress",
     "Subagents",
     "Outputs",
+    "Handoff",
   ]);
 });
 
@@ -87,7 +88,7 @@ test("the panel is a tab strip that shows only the selected tab's view", () => {
   let html = render({ tab: "progress" });
   expect(html).toContain('role="tablist"');
   expect(html).toContain('aria-label="Task sections"');
-  expect(html.match(/role="tab"/g)).toHaveLength(4);
+  expect(html.match(/role="tab"/g)).toHaveLength(5);
   expect(selectedTab(html)).toBe("Progress");
   expect(html).toContain('aria-label="Flow"');
   expect(html).not.toContain('aria-label="Task outputs"');

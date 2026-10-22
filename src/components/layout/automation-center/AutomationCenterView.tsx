@@ -59,6 +59,13 @@ import {
 import { useScheduleRequestStore } from "@/store/schedule-request-store";
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { AutomationEditor } from "./AutomationEditor";
+import { AutomationWorkspaceMissingNotice } from "./AutomationLocationFields";
+import {
+  defaultEnvironmentFor,
+  describeAutomationRunError,
+  describeAutomationWorkspace,
+  resolveAutomationLocation,
+} from "./automation-location";
 import { CheckBackDetail } from "./CheckBackDetail";
 import { CheckBackEditor } from "./CheckBackEditor";
 import { ScheduleKindSwitch } from "./ScheduleKindSwitch";
@@ -109,6 +116,8 @@ export function AutomationCenterView() {
     workspaces,
     workspacePathById,
     workspaceDefaultById,
+    workspaceBranchById,
+    defaultBranch,
     activeWorkspaceId,
     flushActiveWorkspaceSnapshot,
     focusTaskAttention,
@@ -125,6 +134,8 @@ export function AutomationCenterView() {
           state.workspaces,
           state.workspacePathById,
           state.workspaceDefaultById,
+          state.workspaceBranchById,
+          state.defaultBranch,
           state.activeWorkspaceId,
           state.flushActiveWorkspaceSnapshot,
           state.focusTaskAttention,
@@ -178,11 +189,15 @@ export function AutomationCenterView() {
             workspaces,
             workspacePathById,
             workspaceDefaultById,
+            workspaceBranchById,
+            defaultBranch,
           }
         : null,
     [
+      defaultBranch,
       repositoryName,
       repositoryPath,
+      workspaceBranchById,
       workspaceDefaultById,
       workspacePathById,
       workspaces, i18n.resolvedLanguage],
@@ -389,6 +404,9 @@ export function AutomationCenterView() {
   const selectedKey = selectedRow?.key ?? null;
   const selectedAutomation =
     selectedRow?.kind === "start" ? (automationById.get(selectedRow.id) ?? null) : null;
+  const selectedLocation = selectedAutomation
+    ? resolveAutomationLocation(selectedAutomation.environment, environmentOptions)
+    : null;
   const selectedCheckBack =
     selectedRow?.kind === "check-back"
       ? (checkBacks.wakeUps.find((wakeUp) => wakeUp.id === selectedRow.id) ?? null)
@@ -526,7 +544,7 @@ export function AutomationCenterView() {
       }
       await loadSnapshot({ quiet: true });
       if (result.run.status === "failed") {
-        toast.error(result.run.error ?? tI18n("automation:automationCenterView.failedToStartAutomation"));
+        toast.error(describeAutomationRunError(result.run) ?? tI18n("automation:automationCenterView.failedToStartAutomation"));
         return;
       }
       toast.success(tI18n("automation:automationCenterView.scheduleStarted"));
@@ -534,6 +552,37 @@ export function AutomationCenterView() {
       toast.error(
         getAutomationErrorMessage(runError, tI18n("automation:automationCenterView.failedToStartAutomation")),
       );
+    } finally {
+      setBusyAutomationId(null);
+    }
+  }
+
+  /** Point a schedule whose workspace is gone back at its repository's Default workspace. */
+  async function moveToDefaultWorkspace(automation: AutomationSpec) {
+    const api = window.api?.automations?.update;
+    const repository = environmentOptions.find(
+      (option) => option.repositoryPath === automation.environment.repositoryPath,
+    );
+    const environment = repository ? defaultEnvironmentFor(repository) : null;
+    if (!api || !environment) {
+      toast.error(tI18n("automation:automationCenterView.automationServiceIsUnavailable"));
+      return;
+    }
+    setBusyAutomationId(automation.id);
+    try {
+      // The gone workspace's Information resources went with it.
+      const result = await api({
+        id: automation.id,
+        input: { ...automationToDraft(automation), environment, informationReferences: [] },
+      });
+      if (!result.ok) {
+        toast.error(result.message ?? tI18n("automation:automationCenterView.failedToUpdateAutomation"));
+        return;
+      }
+      await loadSnapshot({ quiet: true });
+      toast.success(tI18n("automation:location.movedToDefault"));
+    } catch (updateError) {
+      toast.error(getAutomationErrorMessage(updateError, tI18n("automation:automationCenterView.failedToUpdateAutomation")));
     } finally {
       setBusyAutomationId(null);
     }
@@ -1036,6 +1085,16 @@ export function AutomationCenterView() {
                     </div>
                   </div>
 
+                  {selectedLocation?.state === "missing" ? (
+                    <AutomationWorkspaceMissingNotice
+                      workspaceName={selectedLocation.workspaceName}
+                      busy={busyAutomationId === selectedAutomation.id}
+                      {...(selectedLocation.repository
+                        ? { onUseDefault: () => void moveToDefaultWorkspace(selectedAutomation) }
+                        : {})}
+                      onEdit={() => startEdit(selectedAutomation)}
+                    />
+                  ) : null}
                   <dl className={sx(centerStyles.facts)}>
                     <Detail
                       label={tI18n("automation:automationCenterView.status")}
@@ -1077,6 +1136,14 @@ export function AutomationCenterView() {
                       label={tI18n("automation:automationCenterView.repository")}
                       value={selectedAutomation.environment.label}
                     />
+                    {selectedLocation ? (
+                      <Detail
+                        label={tI18n("automation:location.workspace")}
+                        value={[describeAutomationWorkspace(selectedLocation), selectedLocation.branch]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      />
+                    ) : null}
                     <Detail
                       label={tI18n("automation:automationCenterView.concurrency")}
                       value={`${selectedAutomationActiveRunCount}/${selectedAutomation.maxConcurrentRuns}`}

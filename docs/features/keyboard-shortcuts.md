@@ -80,6 +80,7 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Focus editor | `Cmd/Ctrl+K` then `\` | Anywhere |
 | Toggle terminal | `Cmd/Ctrl+K` then `` ` `` | Anywhere |
 | Switch between conversation and Review | `Cmd/Ctrl+Alt+R` | Workspace; switches the active task |
+| Ask a side question | `Cmd/Ctrl+K` then `Q` | Anywhere; opens the panel beside the active task's conversation |
 
 The letter after `Cmd/Ctrl+K` is the default. Change or turn off any of them under
 **Settings → Command Palette → Shell chords**; the list in the app follows your
@@ -96,6 +97,8 @@ choice.
 | Answer with guidance | `Tab` | Active task with a pending request, not while typing |
 | Choose an answer | `1..9` | An agent question in the composer, not while typing |
 | Next question or send answers | `Enter` | An agent question in the composer; Shift+Enter adds a line to a written answer |
+| Ask the side question | `Enter` | While typing in the side question panel; Shift+Enter adds a line |
+| Close the side question panel | `Esc` | Side question panel; the task's turn keeps running |
 | Open model selector | `Alt+P` | Active task |
 | Model shortcut slots | `Alt+1..0` | Active task; assign them in Settings → Command Palette |
 | Preset shortcut slots | `Ctrl+1..9` | Anywhere; the first nine presets in Settings → Presets |

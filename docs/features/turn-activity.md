@@ -17,6 +17,8 @@ over the chat, or in the **Activity** tab of the right rail's Task panel.
 - Use `Floating card` when the rows should stay visible over the chat.
 - Use `Task panel` when a long or data-heavy turn needs the full right rail,
   or when the turn has already ended and you still want to read what it did.
+- Use the panel's **Turn** picker to read an earlier turn of the task: how it
+  ended, what failed, which checks ran, and its steps, after a restart too.
 
 ## Before You Start
 
@@ -45,6 +47,7 @@ when there is no run, usage-limit pause, review or queued message to show.
 | State | Shelf |
 | --- | --- |
 | Idle | Nothing. A queue left after you stopped a turn, or restored after a restart, keeps its own row. |
+| The next message switches provider | The switch line: `Switching to <provider>`, what it will receive, and `What it receives` for the details. See [Conversation Context](conversation-context.md#seeing-what-a-switch-sends). |
 | A turn is running | The run line: a status mark, `Working · <current step>`, the to-do count and cells, the elapsed time, **Stop**, the panel button and the details toggle. While the agent reasons, its newest thought shows in italics under the line, up to two lines, so you can stop a turn heading the wrong way without opening the details. |
 | Running with queued messages | The run line, then the queue line. |
 | Waiting on an approval or a question | The request's card asks above the shelf; the run line turns amber and reads `Waiting for approval` or `Waiting for your input` without asking again. The details stay folded behind the card. |
@@ -190,10 +193,13 @@ The shelf reads the composer's own width, not the window's:
 The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
-  ends — under every placement. Under them, **Approvals in this turn** counts
-  the turn's permission requests by who allowed them (`1 allowed by you ·
-  1 allowed by a Stave rule · 1 allowed by the provider's mode · 1 denied`);
-  open it to list each request with who decided it and when. It is absent when the turn asked for nothing. See
+  ends — under every placement, with a **Turn** picker for the task's earlier
+  turns. See [Earlier Turns](#earlier-turns). Under them, **Approvals in this
+  turn** counts the turn's permission requests by who allowed them (`1 allowed
+  by you · 1 allowed by a Stave rule · 1 allowed by the provider's mode ·
+  1 denied`); open it to list each request with who decided it and when. It
+  follows the turn the picker shows while that turn's messages are loaded, and
+  is absent when the turn asked for nothing. See
   [Who decided each approval](provider-sandbox-and-approval.md#who-decided-each-approval).
 - **Progress**: the task's [agent run](agent-runs.md) while it has one — running,
   paused or ended — and otherwise its flow (Request → Plan → Changes →
@@ -201,6 +207,9 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 - **Subagents**: every agent the task called, in its turn or as a
   [delegated task](delegated-tasks.md), with its state and answer.
 - **Outputs**: saved answers and reported file changes, one entry per ended execution.
+- **Handoff**: the task's handoff record — goal, approved decisions, verified
+  results, remaining work and cautions — sent ahead of the conversation when a
+  provider starts or comes back. See [Task Handoff Record](task-handoff-record.md).
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
@@ -325,6 +334,56 @@ exactly as the turn left them. The next turn replaces it.
   has to give the composer its space back, and a floating card would leave a
   finished turn hanging over the chat with no reason to go away.
 
+### Earlier Turns
+
+The **Turn** picker at the top of the Activity tab lists the task's turns,
+newest first, each named by when it started and how it ended, with the request
+that started it (when that part of the conversation is loaded), the provider
+and the first characters of the turn's id. Type to search: the search matches
+the time, the outcome, the request, the provider, the turn id and the error a
+turn failed with. The question button beside the picker opens a
+[side question](side-questions.md) about the task, beside the conversation,
+without interrupting the turn.
+
+- The running turn, and the last turn while Stave still holds it, open the
+  activity described above.
+- Any other turn opens its record, marked `Earlier turn`. After a restart the
+  newest turn opens as a record, so the tab is not empty.
+- Choosing a turn keeps it on screen while you read; a new turn does not take
+  the tab away. The run line above the prompt still shows the new turn.
+
+A turn's record has three parts:
+
+- **The header**: the outcome (`Turn finished`, `Turn failed`, `Turn stopped`
+  or `Turn result unknown`), how long the turn took, when it started, the
+  provider and the turn's id. The same id names the turn in the picker, so a
+  failure you saw live can be found again by it.
+- **Record**: what happened that the conversation does not keep. Each entry
+  shows how far into the turn it happened.
+  - `Error` and `Retried`: a provider error the turn did not recover from, and
+    the ones it retried. A repeated failure counts on one entry
+    (`Retried 3 times`).
+  - `No updates for 6m`: the turn went quiet for five minutes or more, then
+    continued or ended. Time an approval or question waited for your answer
+    is not counted, even when other updates arrived while it waited; the
+    silence after you answered is, and so is the silence after a request was
+    decided without you (it timed out, or a Stave rule took it).
+  - `Model changed`: the runtime ran the turn on another model than the one
+    requested, with the reason it gave, or an agent run routed the reply.
+  - `Account changed`: the turn ran on another account than the task's previous
+    turn on the same provider, or switched accounts during the turn.
+  - `Checks passed` or `Checks failed`: the checks Stave ran on the workspace
+    when the turn completed, with each failing check and whether it blocks.
+    Checks that finish after the turn ended are added to it.
+- **Steps**: rebuilt from the saved conversation: every tool call and agent the
+  turn started, each approval and question with its answer, and the turn's
+  last todo list. A subagent's own tool calls stay folded into its row, as in
+  the conversation. Choosing a step shows it in the conversation.
+
+A turn that ran before Stave kept turn records shows **No record**: its errors,
+retries, stalls and checks were not saved, so the record cannot say whether
+anything went wrong. Its steps are still rebuilt from the conversation.
+
 ### Execution Metrics
 
 The activity list ends with a six-tile metrics grid: `Elapsed`, `Changes`,
@@ -361,6 +420,15 @@ row when it is narrower.
    that step's input and output. A finished turn's steps open, and the step
    takes keyboard focus.
 
+### Read an earlier turn after a restart
+
+1. Open the Task panel's **Activity** tab. After a restart the newest turn
+   opens as a record.
+2. Choose the **Turn** picker and pick a turn, or type part of its request,
+   its id or the error it failed with.
+3. Read **Record** for the failure, the retries and stalls, and the checks Stave
+   ran; choose a step under **Steps** to see it in the conversation.
+
 ### Pick up work a usage limit stopped
 
 1. When the usage-limit line appears, choose **Resume at reset** and leave
@@ -387,6 +455,13 @@ row when it is narrower.
 - Queued messages are saved with the workspace. Whether a restored queue was
   resumed, a usage-limit pause and its **Resume at reset** choice are kept in
   memory only: after a restart the queue is paused again and you choose anew.
+- Each turn's record is saved with the turn in the app database: at most 64
+  entries and 16 KB per turn. When a turn has more, retries and stalls give way
+  first, then model and account changes, then errors; the record says how many
+  entries were left out. Records last as long as the task: archiving a task
+  keeps them, and deleting the task, or closing or removing its workspace,
+  deletes them. Steps are not saved twice: they are read from the saved
+  conversation when you open the record.
 
 ## Limitations And Advanced Options
 
@@ -405,13 +480,23 @@ row when it is narrower.
   throttle is not treated as one.
 - `Headroom` reports remaining context only when the provider states it. A
   live turn usually shows the account limit alone.
-- Only the most recent turn is kept, only for the last several tasks you ran
-  one in, and only until the app is restarted. Turn history older than that
-  lives in the conversation itself, not here: the stored turn journal keeps
-  only terminal events once a turn closes, so there is nothing to rebuild an
-  older activity list from.
+- The full activity view (timings, the agent tree, the metrics) is kept only
+  for the most recent turn, only for the last several tasks you ran one in, and
+  only until the app is restarted. Earlier turns open as records: their steps
+  carry the durations providers reported, not their start times, and their
+  agents are rows rather than a tree.
+- The picker lists a task's latest 200 turns. A record lists up to 300 steps;
+  the rest are in the conversation.
+- A turn you steered saves one reply per stretch. A record reads all of them,
+  up to its latest 200 replies (and about 2 MB once shortened); when a long
+  turn has more, the earliest are left out and the record says how many, so
+  its last steps and todos are always there.
+- A request shows in the picker only for turns whose reply is loaded in the
+  conversation; older turns are named by time, and their record shows the
+  request.
 - A task that is archived, or whose workspace or repository is removed, drops its
-  last turn with it.
+  last turn's activity view with it. Removing the workspace or repository also
+  deletes the task's turn records; archiving keeps them.
 
 ## Troubleshooting
 

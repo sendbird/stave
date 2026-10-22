@@ -412,7 +412,9 @@
     "thinkingValue": "Thinking · {{value}}",
     "thinkingTitle": "Thinking: {{value}}. Applies to every Claude task.",
     "thinkingMenuTitle": "Thinking mode",
-    "thinkingMenuScope": "Applies to every Claude task, not only this one."
+    "thinkingMenuScope": "Applies to every Claude task, not only this one.",
+    "staveCommands": "Stave commands",
+    "staveBadge": "Stave"
   },
   "promptLexicalEditor": {
     "ariaLabel": "Prompt"
@@ -709,5 +711,34 @@
     "manage": "Manage accounts and connections…",
     "addGatewayModels": "Add other models with Vercel AI Gateway…",
     "editModels": "Edit models"
+  },
+  "providerSwitch": {
+    "ariaLabel": "Provider switch",
+    "title": "Switching to {{to}}",
+    "summaryFresh": "a new session with a {{chars}}-character excerpt of this task",
+    "summaryResume_one": "its own session, with {{count}} message since it last worked here",
+    "summaryResume_other": "its own session, with {{count}} messages since it last worked here",
+    "summaryCommand": "{{command}} goes as typed, without this task's conversation",
+    "showDetails": "What it receives",
+    "hideDetails": "Hide",
+    "sessionFresh": "It starts its own session: it has not worked on this task before.",
+    "sessionResume": "It resumes the session it had for this task.",
+    "commandAsTyped": "A provider command goes as typed: it receives no part of this task's conversation and no handoff record.",
+    "receivesNothing": "It has nothing new to receive.",
+    "receivesFresh_one": "It receives a {{chars}}-character excerpt of the conversation: {{kept}} of {{count}} message.",
+    "receivesFresh_other": "It receives a {{chars}}-character excerpt of the conversation: {{kept}} of {{count}} messages.",
+    "receivesResume_one": "It receives the {{count}} message since it last worked here, {{chars}} characters.",
+    "receivesResume_other": "It receives the {{count}} messages since it last worked here, {{chars}} characters.",
+    "leftOut_one": "To fit {{max}} characters, the first request and the latest messages are kept and {{count}} message in between is left out.",
+    "leftOut_other": "To fit {{max}} characters, the first request and the latest messages are kept and {{count}} messages in between are left out.",
+    "shortened_one": "{{count}} long message is shortened in the middle.",
+    "shortened_other": "{{count}} long messages are shortened in the middle.",
+    "nothingLeftOut": "Nothing is left out.",
+    "textOnly": "Messages travel as their text: their tool calls, images and attached files stay behind.",
+    "textAndParts_one": "Messages travel as their text. {{count}} message without text travels as a summary of its parts instead: tool calls with their input and output, and images and files by name.",
+    "textAndParts_other": "Messages travel as their text. {{count}} messages without text travel as a summary of their parts instead: tool calls with their input and output, and images and files by name.",
+    "recordFirst_one": "It receives the task's handoff record first: {{count}} section.",
+    "recordFirst_other": "It receives the task's handoff record first: {{count}} sections.",
+    "recordNone": "This task has no handoff record yet."
   }
 }

@@ -1527,7 +1527,7 @@ function TurnActivityFloatingGrip(props: {
 // Memoized so the shelf's per-second clock tick and the surrounding 60fps store
 // churn do not re-render every row. Row objects are rebuilt only when their
 // throttled source data actually changes.
-const TurnActivityRow = memo(function TurnActivityRow({
+export const TurnActivityRow = memo(function TurnActivityRow({
   item,
   onSelectTool,
   onInspect,

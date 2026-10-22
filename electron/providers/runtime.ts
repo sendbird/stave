@@ -258,6 +258,15 @@ function emitBridgeWarningForTurn(args: { turnId: string; message: string }) {
 
 type ResponderKind = "approval" | "user-input" | "steer";
 
+let decisionAnsweredListener: ((args: { turnId: string; requestId: string; at: string }) => void) | null = null;
+/**
+ * Told when Stave delivered the user's answer to an approval or question, so
+ * the turn's record can tell time spent waiting on the user from a stall.
+ */
+export function setProviderDecisionAnsweredListener(listener: typeof decisionAnsweredListener) {
+  decisionAnsweredListener = listener;
+}
+
 function describeResponderKind(kind: ResponderKind) {
   if (kind === "approval") {
     return "approval";
@@ -346,6 +355,13 @@ async function deliverResponderResult<
     // answered: steering is additive (it answers no pending decision) and its
     // own request id is never in the paused set, so it stays a no-op.
     session.timeoutController?.resumeAfterDecision({ key: args.requestId });
+    if (args.kind !== "steer") {
+      try {
+        decisionAnsweredListener?.({ turnId: args.turnId, requestId: args.requestId, at: new Date().toISOString() });
+      } catch (error) {
+        console.warn("[provider-runtime] could not note an answered decision", error);
+      }
+    }
     return {
       ok: true,
       message: `${successLabel} response delivered to turn ${args.turnId}. requestId=${args.requestId}`,

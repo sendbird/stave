@@ -22,6 +22,7 @@ import {
 } from "./automation-center.utils";
 import { runDetailStyles } from "./automation-run-detail.styles";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import { describeAutomationRunError } from "./automation-location";
 
 export function AutomationRunRow(props: {
   run: AutomationRun;
@@ -216,7 +217,7 @@ export function AutomationRunDetail(props: {
                     : runDetailStyles.proseError,
                 )}
               >
-                {props.run.error}
+                {describeAutomationRunError(props.run)}
               </p>
             </section>
           ) : null}

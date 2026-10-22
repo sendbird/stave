@@ -34,6 +34,8 @@ import { ShelfQueue, type ComposerShelfQueueProps } from "./ShelfQueue";
 import { ReviewActivityDialog, ShelfReviews } from "./ShelfReviews";
 import { ShelfUsageLimit } from "./ShelfUsageLimit";
 import { ShelfAccountNotice } from "./ShelfAccountNotice";
+import { ShelfProviderSwitch } from "./ShelfProviderSwitch";
+import { useProviderSwitchPreview } from "./use-provider-switch-preview";
 import { useProviderAccountBlocker } from "@/lib/providers/use-provider-account-blocker";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useShelfReviews } from "./use-shelf-reviews";
@@ -79,6 +81,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code", { model: props.model, autoRouting: props.autoRouting });
   const blocker = props.providerId ? accountBlocker : null;
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
+  const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const setLayout = useAppStore((state) => state.setLayout);
   const abortTaskTurn = useAppStore((state) => state.abortTaskTurn);
   const detailHost = resolveShelfDetailHost(placement);
@@ -102,7 +105,19 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     hasPausedUsageLimitWork({ pause: usageLimitPause, queuedTurnCount: queueCount });
   const reviews = useShelfReviews(taskId);
   const reviewCount = reviews.items.length;
-  const rows = selectComposerShelfRows({ run: runSource, queueCount, limited, reviewCount, accountBlocked: blocker != null });
+  const providerSwitch = useProviderSwitchPreview({
+    taskId,
+    providerId: props.providerId,
+    enabled: runSource == null && !props.autoRouting,
+  });
+  const rows = selectComposerShelfRows({
+    run: runSource,
+    queueCount,
+    limited,
+    reviewCount,
+    accountBlocked: blocker != null,
+    providerSwitch: providerSwitch != null,
+  });
   const onResumeNow = useCallback(
     () => void resumePausedTaskWork({ taskId }),
     [resumePausedTaskWork, taskId],
@@ -198,6 +213,11 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
       {blocker && rows.includes("account") ? (
         <ShelfRow joining={shownBefore.current}>
           <ShelfAccountNotice blocker={blocker} />
+        </ShelfRow>
+      ) : null}
+      {providerSwitch && rows.includes("switch") ? (
+        <ShelfRow joining={shownBefore.current}>
+          <ShelfProviderSwitch preview={providerSwitch} workspaceId={activeWorkspaceId} taskId={taskId} />
         </ShelfRow>
       ) : null}
       {runSource ? (
