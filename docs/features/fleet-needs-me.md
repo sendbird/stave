@@ -107,7 +107,9 @@ Fleet item, and the task records the answer the same way.
   picks a short question's option. `Enter` still opens the row's control panel.
   After an answer, focus moves to the next row.
 - An answer is sent only if the task still shows that exact request (same
-  workspace, task, turn and request); otherwise the row says why. A request in
+  workspace, task, turn and request); otherwise the row says why. A question
+  that did not pause its turn can still be answered after the turn ends, in
+  the row and in its expanded panel alike. A request in
   a workspace you have not opened since starting Stave is loaded when you focus
   or open its row, and one older than the task's loaded messages is looked up
   in its older messages before the row calls it answered or expired. A request

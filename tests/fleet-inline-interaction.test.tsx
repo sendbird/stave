@@ -136,6 +136,14 @@ describe("which requests a Fleet row answers itself", () => {
     expect(classifyFleetInlineInteraction(null).kind).toBe("open");
   });
 
+  test("only a question that did not pause its turn outlives it", async () => {
+    const { fleetInteractionOutlivesTurn } = await import("@/lib/fleet/interaction-respond");
+    expect(fleetInteractionOutlivesTurn({ ...userInput("q", [question()]), delivery: "async" })).toBe(true);
+    expect(fleetInteractionOutlivesTurn(userInput("q", [question()]))).toBe(false);
+    expect(fleetInteractionOutlivesTurn(approval("a"))).toBe(false);
+    expect(fleetInteractionOutlivesTurn(null)).toBe(false);
+  });
+
   test("a picked option is filed like every other surface files it", () => {
     expect(buildShortQuestionAnswers(question(), { value: "Production" })).toEqual({
       "Which environment should this deploy to?": "Production",

@@ -15,6 +15,7 @@ import {
   loadFleetRequestFromOlderMessages,
 } from "@/lib/fleet/interaction-load";
 import {
+  fleetInteractionOutlivesTurn,
   respondToFleetInteraction,
   type FleetInteractionResponse,
 } from "@/lib/fleet/interaction-respond";
@@ -172,9 +173,11 @@ export function useFleetRowInteraction(
     if (!found || (identity.messageId && found.messageId !== identity.messageId)) {
       return null;
     }
-    const outlivesTurn =
-      found.part.type === "user_input" && found.part.delivery === "async";
-    if (identity.turnId && !outlivesTurn && activeTurnId !== identity.turnId) {
+    if (
+      identity.turnId &&
+      !fleetInteractionOutlivesTurn(found.part) &&
+      activeTurnId !== identity.turnId
+    ) {
       return null;
     }
     return found.part;

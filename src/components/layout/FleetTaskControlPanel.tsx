@@ -34,6 +34,7 @@ import {
   isOtherRepositoryInteraction,
   loadFleetInteraction,
 } from "@/lib/fleet/interaction-load";
+import { fleetInteractionOutlivesTurn } from "@/lib/fleet/interaction-respond";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
@@ -207,7 +208,10 @@ export function FleetTaskControlPanel(args: {
     }
     return findLatestPendingToolInteraction({ messages });
   }, [args.expectedInteraction, messages, i18n.resolvedLanguage]);
+  // As in the row: a question that did not pause its turn outlives it.
+  const outlivesTurn = fleetInteractionOutlivesTurn(pendingInteraction?.part);
   const interactionTurnMatches =
+    outlivesTurn ||
     (!args.interactionOnly && managed) ||
     (Boolean(activeTurnId) &&
       (!expectedTurnId || activeTurnId === expectedTurnId));
@@ -421,7 +425,13 @@ export function FleetTaskControlPanel(args: {
     }
     const expected: FleetInteractionControlIdentity = {
       ...args.target,
-      turnId: args.interactionOnly ? expectedTurnId : managed ? activeTurnId : expectedTurnId,
+      turnId: fleetInteractionOutlivesTurn(pendingInteraction.part)
+        ? null
+        : args.interactionOnly
+          ? expectedTurnId
+          : managed
+            ? activeTurnId
+            : expectedTurnId,
       kind: input.kind,
       requestId: pendingInteraction.part.requestId,
       messageId: args.expectedInteraction?.messageId ?? pendingInteraction.messageId,

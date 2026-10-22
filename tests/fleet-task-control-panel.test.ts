@@ -46,6 +46,12 @@ describe("Fleet inline control surface contract", () => {
     expect(workspaceCardSource).toContain('data-fleet-task-row="true"');
   });
 
+  test("matches a question that outlived its turn the way its row does", () => {
+    // Shown and sent without the turn, through the helper the row uses.
+    expect(panelSource).toContain("fleetInteractionOutlivesTurn(pendingInteraction?.part)");
+    expect(panelSource).toContain("fleetInteractionOutlivesTurn(pendingInteraction.part)");
+  });
+
   test("mounts the control panel from both the needs rail and the board card", () => {
     expect(inboxSource).toContain("<FleetTaskControlPanel");
     expect(workspaceCardSource).toContain("<FleetTaskControlPanel");
