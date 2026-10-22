@@ -556,7 +556,9 @@
     "ariaLabel11": "Edit queued prompt {{value1}}",
     "title9": "Edit",
     "ariaLabel12": "Delete queued prompt {{value1}}",
-    "title10": "Delete"
+    "title10": "Delete",
+    "moveQueued": "Move queued message {{position}} of {{total}}",
+    "movedTo": "Moved to position {{position}} of {{total}}"
   },
   "shelfReviews": {
     "ariaLabel": "Reviews",

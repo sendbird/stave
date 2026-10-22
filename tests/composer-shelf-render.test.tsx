@@ -105,8 +105,24 @@ describe("queue line", () => {
     expect(html).not.toContain("Sends as Claude");
     expect(html).not.toContain("Next to send");
     expect(html).toContain("1 file · 1 image");
-    // Two real items can be dragged into another order.
-    expect(html).toContain('title="Drag to reorder"');
+    // Two real items can be dragged, or moved from the keyboard, into another
+    // order: each grip is a named button that states its keys.
+    expect(html).not.toContain('title="Drag to reorder"');
+    expect(html).toMatch(
+      /<button[^>]*aria-label="Move queued message 1 of 2"[^>]*aria-keyshortcuts="Alt\+ArrowUp Alt\+ArrowDown"/,
+    );
+    expect(html).toContain('aria-label="Move queued message 2 of 2"');
+    // Where a keyboard move is announced.
+    expect(html).toContain('aria-live="polite"');
+  });
+
+  test("a single queued message has no grip to move it", () => {
+    const [first] = queueProps().items;
+    const html = renderToStaticMarkup(
+      createElement(ShelfQueue, queueProps({ defaultOpen: true, items: [first!] })),
+    );
+    expect(html).not.toContain("Move queued message");
+    expect(html).not.toContain("aria-keyshortcuts");
   });
 
   test("with nothing running, the next message can be sent now instead", () => {

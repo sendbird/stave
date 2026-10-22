@@ -630,6 +630,35 @@ export function describeUsageLimitLine(args: {
   };
 }
 
+/** One queued item placed before (`top`) or after (`bottom`) another. */
+export interface QueuedTurnMove {
+  sourceId: string;
+  targetId: string;
+  edge: "top" | "bottom" | null;
+}
+
+/**
+ * The move that takes one queued item a place up (`-1`) or down (`1`): the
+ * same move a drag onto its neighbour makes. Null at either end of the queue
+ * and for an id that is no longer queued.
+ */
+export function stepQueuedTurnMove(
+  items: readonly { id: string }[],
+  id: string,
+  direction: -1 | 1,
+): QueuedTurnMove | null {
+  const index = items.findIndex((item) => item.id === id);
+  const neighbour = index < 0 ? undefined : items[index + direction];
+  if (!neighbour) {
+    return null;
+  }
+  return {
+    sourceId: id,
+    targetId: neighbour.id,
+    edge: direction === 1 ? "bottom" : "top",
+  };
+}
+
 /**
  * Move one queued item before or after another. Works on ids, so a list that
  * changed since the drag began (an item dispatched, another queued) is
@@ -637,7 +666,7 @@ export function describeUsageLimitLine(args: {
  */
 export function reorderQueuedTurns<T extends { id: string }>(
   items: readonly T[],
-  move: { sourceId: string; targetId: string; edge: "top" | "bottom" | null },
+  move: QueuedTurnMove,
 ): readonly T[] {
   if (move.sourceId === move.targetId) {
     return items;

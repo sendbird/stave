@@ -7,6 +7,7 @@ import {
   describeUsageLimitLine,
   reorderQueuedTurns,
   resolveQueuedTurnActions,
+  stepQueuedTurnMove,
   resolveShelfDetailHost,
   resolveShelfDetailOpen,
   resolveShelfRunControls,
@@ -459,5 +460,19 @@ describe("queue line", () => {
     // A dropped item that has meanwhile been dispatched leaves the list as it is.
     expect(reorderQueuedTurns(items, { sourceId: "gone", targetId: "a", edge: "top" })).toBe(items);
     expect(reorderQueuedTurns(items, { sourceId: "a", targetId: "b", edge: "top" })).toBe(items);
+  });
+
+  test("a keyboard step is the drag onto the neighbour, and stops at either end", () => {
+    const items = [item("a"), item("b"), item("c")];
+    const up = stepQueuedTurnMove(items, "b", -1);
+    expect(up).toEqual({ sourceId: "b", targetId: "a", edge: "top" });
+    expect(reorderQueuedTurns(items, up!).map((x) => x.id)).toEqual(["b", "a", "c"]);
+    const down = stepQueuedTurnMove(items, "b", 1);
+    expect(down).toEqual({ sourceId: "b", targetId: "c", edge: "bottom" });
+    expect(reorderQueuedTurns(items, down!).map((x) => x.id)).toEqual(["a", "c", "b"]);
+    expect(stepQueuedTurnMove(items, "a", -1)).toBeNull();
+    expect(stepQueuedTurnMove(items, "c", 1)).toBeNull();
+    // An item sent or removed meanwhile has nowhere to go.
+    expect(stepQueuedTurnMove(items, "gone", 1)).toBeNull();
   });
 });

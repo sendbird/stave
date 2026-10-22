@@ -552,7 +552,9 @@
     "ariaLabel11": "대기열 프롬프트 {{value1}} 편집",
     "title9": "편집",
     "ariaLabel12": "대기열 프롬프트 {{value1}} 삭제",
-    "title10": "삭제"
+    "title10": "삭제",
+    "moveQueued": "대기 중인 메시지 {{total}}개 중 {{position}}번째 이동",
+    "movedTo": "{{total}}개 중 {{position}}번째로 이동함"
   },
   "shelfReviews": {
     "ariaLabel": "리뷰",
