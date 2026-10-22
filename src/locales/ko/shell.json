@@ -218,7 +218,9 @@
     "usageAndChargesAreManagedByYour": "사용량과 비용은 게이트웨이에서 관리합니다. 구독 할당량은 사용할 수 없습니다.",
     "viewUsageStatistics": "사용량 통계 보기",
     "providerUsage": "{{provider}} 사용량",
-    "refreshUsage": "사용 한도 새로고침"
+    "refreshUsage": "사용 한도 새로고침",
+    "noLimitsReported": "보고된 한도 없음",
+    "noLimitsReportedHint": "{{provider}}에서는 사용량 한도를 보고하지 않으므로 표시할 할당량이 없습니다. Stave에서 실행한 턴의 토큰은 계속 집계됩니다."
   },
   "staveAppMenuButton": {
     "openStaveMenu": "Stave 메뉴 열기",

@@ -226,6 +226,46 @@ describe("strip segment", () => {
     expect(describeUsageSegmentForAssistiveTech(empty, NOW)).toBe("Claude usage unavailable");
   });
 
+  test("OpenCode reports no limits: its segment says so and keeps its tokens", () => {
+    const opencode = buildUsageStripSegment({
+      provider: "opencode",
+      providerName: "OpenCode",
+      windows: [],
+      account: null,
+      spend: {
+        providerId: "opencode",
+        todayUsd: 0,
+        monthUsd: 0,
+        monthTurns: 0,
+        todayTokens: 1_200,
+        monthTokens: 5_000,
+        monthTokenTurns: 2,
+      },
+      stale: false,
+      // Never read, so never waiting on a reading.
+      pending: false,
+    });
+    expect(opencode.reportsLimits).toBe(false);
+    expect(opencode.tokens).toEqual({ todayTokens: 1_200, monthTokens: 5_000, monthTurns: 2 });
+    expect(describeUsageSegmentForAssistiveTech(opencode, NOW)).toMatch(
+      /^OpenCode usage: No limits reported; /,
+    );
+    // The width rule makes room for the words, not for a dash.
+    const claude = buildUsageStripSegment({
+      provider: "claude",
+      providerName: "OpenCode",
+      windows: [],
+      account: null,
+      spend: undefined,
+      stale: false,
+      pending: false,
+    });
+    expect(claude.reportsLimits).toBe(true);
+    expect(
+      estimateUsageStripRem([{ ...opencode, tokens: null }], { tokens: false }),
+    ).toBeGreaterThan(estimateUsageStripRem([claude], { tokens: false }));
+  });
+
   test("a provider waiting on its first reading says so; a gateway never waits", () => {
     const reading = buildUsageStripSegment({
       provider: "codex",
@@ -336,6 +376,7 @@ describe("responsive mode", () => {
       gateway: false,
       stale: false,
       pending: false,
+      reportsLimits: true,
       ...patch,
     };
   }

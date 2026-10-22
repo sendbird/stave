@@ -10,6 +10,8 @@ import {
   type ProviderAccountProfile,
 } from "@/lib/providers/provider-accounts";
 import { canSwitchProviderAccount } from "@/lib/providers/provider-account-selection";
+import { PROVIDER_IDENTITIES } from "@/lib/providers/provider-identity";
+import type { ProviderId } from "@/lib/providers/provider.types";
 
 export const FIVE_HOURS_MS = 5 * 3_600_000;
 export const SEVEN_DAYS_MS = 7 * 24 * 3_600_000;
@@ -85,7 +87,7 @@ function codexWindow(
  * breakdown, so they stay in the popover.
  */
 export function buildUsageHeadlineWindows(args: {
-  provider: "claude" | "codex" | "cursor" | "kiro";
+  provider: StatusBarUsageProvider;
   claude?: ClaudeUsageSnapshot | null;
   codex?: CodexUsageSnapshot | null;
   cursor?: CursorUsageSnapshot | null;
@@ -186,29 +188,39 @@ export function headlineUsagePercent(
     : null;
 }
 
-export type StatusBarUsageProvider = "claude" | "codex" | "cursor" | "kiro";
+/**
+ * Every provider with a meter. OpenCode reports no quota windows, so its
+ * segment says so and carries only the tokens of turns run in Stave.
+ */
+export type StatusBarUsageProvider = "claude" | "codex" | "cursor" | "kiro" | "opencode";
 
 const STATUS_BAR_USAGE_PROVIDERS: ReadonlyArray<{
   provider: StatusBarUsageProvider;
-  providerId: "claude-code" | "codex" | "cursor" | "kiro";
+  providerId: ProviderId;
 }> = [
   { provider: "claude", providerId: "claude-code" },
   { provider: "codex", providerId: "codex" },
   { provider: "cursor", providerId: "cursor" },
   { provider: "kiro", providerId: "kiro" },
+  { provider: "opencode", providerId: "opencode" },
 ];
 
 /** The meter labels its segments by display name; policies key on the provider id. */
-export const STATUS_BAR_USAGE_PROVIDER_IDS: Record<
-  StatusBarUsageProvider,
-  "claude-code" | "codex" | "cursor" | "kiro"
-> = { claude: "claude-code", codex: "codex", cursor: "cursor", kiro: "kiro" };
+export const STATUS_BAR_USAGE_PROVIDER_IDS: Record<StatusBarUsageProvider, ProviderId> = {
+  claude: "claude-code",
+  codex: "codex",
+  cursor: "cursor",
+  kiro: "kiro",
+  opencode: "opencode",
+};
 
+/** Each meter's name: the provider's short name from its identity. */
 export const STATUS_BAR_USAGE_PROVIDER_NAMES: Record<StatusBarUsageProvider, string> = {
-  claude: "Claude",
-  codex: "Codex",
-  cursor: "Cursor",
-  kiro: "Kiro",
+  claude: PROVIDER_IDENTITIES["claude-code"].shortLabel,
+  codex: PROVIDER_IDENTITIES.codex.shortLabel,
+  cursor: PROVIDER_IDENTITIES.cursor.shortLabel,
+  kiro: PROVIDER_IDENTITIES.kiro.shortLabel,
+  opencode: PROVIDER_IDENTITIES.opencode.shortLabel,
 };
 
 /**

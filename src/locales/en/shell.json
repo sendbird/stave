@@ -219,7 +219,9 @@
     "usageAndChargesAreManagedByYour": "Usage and charges are managed by your Gateway. Subscription quota is unavailable.",
     "viewUsageStatistics": "View usage statistics",
     "providerUsage": "{{provider}} usage",
-    "refreshUsage": "Refresh rate limits"
+    "refreshUsage": "Refresh rate limits",
+    "noLimitsReported": "No limits reported",
+    "noLimitsReportedHint": "{{provider}} does not report usage limits, so there is no quota to show. Tokens of turns run in Stave still count."
   },
   "staveAppMenuButton": {
     "openStaveMenu": "Open Stave menu",

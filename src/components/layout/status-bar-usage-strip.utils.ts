@@ -1,12 +1,14 @@
 import { i18n, getIntlLocale } from "@/i18n";
 import { formatNumber } from "@/i18n/format";
 import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
+import { providerReportsQuota } from "@/lib/providers/account-usage-block";
 import type { ApiConnectionCreditsView } from "@/lib/providers/use-api-connection-credits";
 import type { ProviderTurnSpend } from "@/lib/providers/turn-spend";
-import type {
-  StatusBarAccountView,
-  StatusBarUsageProvider,
-  UsageHeadlineWindow,
+import {
+  STATUS_BAR_USAGE_PROVIDER_IDS,
+  type StatusBarAccountView,
+  type StatusBarUsageProvider,
+  type UsageHeadlineWindow,
 } from "@/components/layout/status-bar-usage.utils";
 
 /**
@@ -277,6 +279,11 @@ export interface UsageStripSegmentModel {
   stale: boolean;
   /** Nothing to show yet: the first reading for the current account is on its way. */
   pending: boolean;
+  /**
+   * False for a provider that reports no quota windows at all (OpenCode): its
+   * segment says so instead of showing a missing reading.
+   */
+  reportsLimits: boolean;
 }
 
 export function buildUsageStripSegment(args: {
@@ -319,6 +326,7 @@ export function buildUsageStripSegment(args: {
     stale: args.stale,
     // Only when there is nothing to show yet; a gateway is never read at all.
     pending: !gateway && args.pending && args.windows.length === 0,
+    reportsLimits: providerReportsQuota(STATUS_BAR_USAGE_PROVIDER_IDS[args.provider]),
   };
 }
 
@@ -420,6 +428,8 @@ export function estimateUsageStripSegmentRem(
   const credits = segment.credits?.status === "ok" ? describeApiConnectionCredits(segment.credits) : null;
   if (credits) {
     rem += PART_GAP_REM + textRem(credits);
+  } else if (!segment.reportsLimits) {
+    rem += PART_GAP_REM + textRem(i18n.t("shell:statusBarUsageSegment.noLimitsReported"));
   } else if (segment.windows.length === 0 && (!segment.gateway || segment.credits)) {
     // A dash, or a spinner while the first reading is on its way.
     rem += PART_GAP_REM + GLYPH_REM;
@@ -498,6 +508,7 @@ export function describeUsageSegmentForAssistiveTech(
     parts.push(i18n.t("shell:statusBarUsageStripUtils.tokensToday", { value1: formatTokenCount(segment.tokens.todayTokens) }));
   }
   if (segment.pending) parts.unshift(i18n.t("shell:usageUnits.reading"));
+  if (!segment.reportsLimits) parts.unshift(i18n.t("shell:statusBarUsageSegment.noLimitsReported"));
   // Nothing to report is what the strip's dash shows: say so instead of a
   // bare "usage" that sounds like data is there.
   return parts.length ? i18n.t("shell:usageUnits.segmentUsageDetails", { name: segment.name, details: parts.join("; ") }) : i18n.t("shell:usageUnits.segmentUsageUnavailable", { name: segment.name });

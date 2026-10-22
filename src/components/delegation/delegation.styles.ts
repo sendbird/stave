@@ -31,26 +31,6 @@ export const delegationStyles = stylex.create({
     flexWrap: "nowrap",
     overflow: "hidden",
   },
-  identityIcon: {
-    display: "block",
-    flexShrink: 0,
-    height: 14,
-    objectFit: "contain",
-    width: 14,
-  },
-  identityIconFallback: {
-    alignItems: "center",
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
-    display: "inline-flex",
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    height: 14,
-    justifyContent: "center",
-    width: 14,
-  },
   identityRole: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
@@ -403,17 +383,4 @@ export const delegationStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
   },
-});
-
-/**
- * Provider ink for the model name. The themed provider CSS variables carry the
- * brand colors; a non-provider presentation falls back to the ADS accent token.
- */
-export const delegationWaveTone = stylex.create({
-  claude: { color: "var(--provider-claude)" },
-  codex: { color: "var(--provider-codex)" },
-  cursor: { color: "var(--provider-cursor)" },
-  kiro: { color: "var(--provider-kiro)" },
-  opencode: { color: "var(--provider-opencode)" },
-  accent: { color: vars["--ads-color-accent"] },
 });

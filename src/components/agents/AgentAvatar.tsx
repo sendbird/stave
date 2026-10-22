@@ -7,8 +7,8 @@ import { cx, sx, type XstyleProp } from "../ads/utils/stylex";
 import { agentAvatarTone, agentColor, agentInitials } from "@/lib/agents/agent-appearance";
 import { getAgentIcon } from "@/lib/agents/agent-icons";
 import type { AgentConfig } from "@/lib/agents/schema";
-import { getProviderIconUrl } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { ProviderMark } from "../system/ProviderMark";
 import { useAgentAvatarPalette } from "./use-agent-avatar-palette";
 
 /**
@@ -61,7 +61,6 @@ export function AgentAvatar({
   const label = decorative ? undefined : (ariaLabel ?? getAgentDisplayName(agent));
   const palette = useAgentAvatarPalette();
   const tone = palette?.[agentColor(agent)] ?? agentAvatarTone(agent);
-  const providerIcon = providerId ? getProviderIconUrl({ providerId }) : null;
   const Icon = getAgentIcon(agent.appearance?.icon)?.icon ?? null;
   return (
     <span
@@ -78,9 +77,9 @@ export function AgentAvatar({
           {agentInitials(getAgentDisplayName(agent))}
         </span>
       )}
-      {providerIcon ? (
+      {providerId ? (
         <span aria-hidden className={sx(styles.provider)}>
-          <img src={providerIcon} alt="" className={sx(styles.providerMark)} />
+          <ProviderMark providerId={providerId} size="xs" />
         </span>
       ) : null}
       {status !== "idle" ? (
@@ -133,7 +132,6 @@ const styles = stylex.create({
     backgroundColor: vars["--ads-color-surface"],
     boxShadow: `0 0 0 1px ${vars["--ads-color-surface"]}`,
   },
-  providerMark: { display: "block", width: 10, height: 10, objectFit: "contain" },
   statusRunning: { backgroundColor: vars["--ads-color-success"] },
   statusNeedsYou: { backgroundColor: vars["--ads-color-warning"] },
 });

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n";
 import type {
   UsageStripBreakpoint,
   UsageStripSegmentModel,
@@ -51,6 +52,10 @@ export function estimateCompactUsageSegmentRem(segment: UsageStripSegmentModel):
   let rem = TRIGGER_INSET_REM + DOT_REM + PART_GAP_REM + segment.name.length * CHAR_REM;
   if (segment.stale) rem += " (unverified)".length * CHAR_REM;
   if (segment.gateway) return rem;
+  // A provider without limits says so in words, in the compact meter too.
+  if (!segment.reportsLimits) {
+    return rem + PART_GAP_REM + i18n.t("shell:statusBarUsageSegment.noLimitsReported").length * CHAR_REM;
+  }
   if (segment.windows.length === 0) return rem + PART_GAP_REM + GLYPH_REM;
   for (const window of segment.windows) {
     const text = `${window.short ? `${window.short} ` : ""}100%`;

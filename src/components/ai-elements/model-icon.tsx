@@ -1,12 +1,5 @@
-import { useTranslation } from "@/i18n";
-import { useState } from "react";
-import {
-  getProviderFallbackLabel,
-  getProviderIconUrl,
-} from "@/lib/providers/model-catalog";
+import { ProviderMark } from "@/components/system/ProviderMark";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { coreStyles } from "./ai-element-core.styles";
-import { cx, sx } from "../ads/utils/stylex";
 
 interface ModelIconProps {
   providerId: ProviderId;
@@ -19,31 +12,11 @@ interface ModelIconProps {
   className?: string;
 }
 
+/**
+ * The provider mark beside a model, under the name the model pickers and rows
+ * already use: it is `ProviderMark` (`src/components/system/ProviderMark.tsx`),
+ * sized by the caller's class.
+ */
 export function ModelIcon(args: ModelIconProps) {
-  useTranslation();
-  const { providerId, className } = args;
-  const [failed, setFailed] = useState(false);
-  const iconUrl = getProviderIconUrl({ providerId });
-
-  if (failed || !iconUrl) {
-    return (
-      <span
-        className={cx(sx(coreStyles.modelFallback), className)}
-        aria-hidden
-      >
-        {getProviderFallbackLabel({ providerId })}
-      </span>
-    );
-  }
-
-  return (
-    <img
-      src={iconUrl}
-      alt=""
-      aria-hidden
-      className={cx(sx(coreStyles.modelImage), className)}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
-  );
+  return <ProviderMark providerId={args.providerId} className={args.className} />;
 }

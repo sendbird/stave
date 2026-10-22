@@ -41,7 +41,20 @@ Follow the existing runtime for the provider's shape — a native runtime
 [`codex-app-server-runtime.ts`](../../electron/providers/codex-app-server-runtime.ts))
 or an ACP one (`electron/providers/acp`). Keep the two native runtimes
 symmetric; see the `the-provider-runtime-symmetry` skill. Then add the provider
-to the model catalog, the provider icon/fallback label, and tooling status.
+to the model catalog and tooling status.
+
+Its identity goes in one place,
+[`provider-identity.ts`](../../src/lib/providers/provider-identity.ts): its
+names, its hue and the `--provider-<hue>` theme token for its ink, its mark (an
+SVG in `public/`, or `null`) and its monogram. The model catalog's descriptor,
+`ProviderMark`, the ink styles
+([`provider-ink.styles.ts`](../../src/components/system/provider-ink.styles.ts),
+one line per hue) and the status bar meter read it from there; nothing else
+names a provider color. A new token also needs light, dark and every built-in
+theme (see the theme guardrails in `AGENTS.md`). `tests/provider-identity.test.ts`
+fails until the registry, the ink styles and the theme token agree. A provider
+that reports no usage limits still gets a meter: return `false` from
+`providerReportsQuota` and the meter says "No limits reported".
 
 ## 4. Standalone CLI Tab — Required, Not Optional
 

@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Minus } from "lucide-react";
 import { type CSSProperties, Fragment, type KeyboardEvent, type ReactNode, useMemo, useRef } from "react";
-import { getProviderAccentColor } from "@/lib/providers/model-catalog";
+import { providerInkColor } from "@/lib/providers/provider-identity";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { modelEffortGridStyles as styles } from "./model-effort-grid.styles";
@@ -14,14 +14,6 @@ import {
   type ModelEffortValue,
 } from "./model-effort-selector.utils";
 import type { ModelSelectorOption } from "./model-selector.utils";
-
-export const PROVIDER_ACCENT_COLORS: Record<ProviderId, string> = {
-  "claude-code": getProviderAccentColor({ providerId: "claude-code" }),
-  codex: getProviderAccentColor({ providerId: "codex" }),
-  cursor: getProviderAccentColor({ providerId: "cursor" }),
-  kiro: getProviderAccentColor({ providerId: "kiro" }),
-  opencode: getProviderAccentColor({ providerId: "opencode" }),
-};
 
 function getCellKey(option: ModelSelectorOption, effort: ModelEffortValue) {
   return `${option.key}:${effort}`;
@@ -50,7 +42,7 @@ function getCellColor(args: {
   // left olive and arrived cyan. Alpha over the same surface keeps one hue for
   // every provider — Claude only looked right because orange sits near the
   // neutral's hue to begin with.
-  return `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[args.providerId]} ${mix}%, transparent)`;
+  return `color-mix(in oklch, ${providerInkColor(args.providerId)} ${mix}%, transparent)`;
 }
 
 export function ModelEffortGrid(args: {
@@ -177,7 +169,7 @@ export function ModelEffortGrid(args: {
         style={
           {
             gridTemplateColumns: `minmax(var(--model-effort-row-width), 1fr) repeat(${scale.length}, 2.75rem)`,
-            "--model-effort-provider": PROVIDER_ACCENT_COLORS[args.providerId],
+            "--model-effort-provider": providerInkColor(args.providerId),
           } as CSSProperties
         }
       >

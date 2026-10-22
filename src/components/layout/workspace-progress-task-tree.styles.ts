@@ -60,7 +60,6 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     justifyContent: "center",
     width: 16,
   },
-  providerIcon: { height: vars["--ads-control-icon-size-sm"], width: vars["--ads-control-icon-size-sm"] },
   accent: { color: vars["--ads-color-accent"] },
 });
 

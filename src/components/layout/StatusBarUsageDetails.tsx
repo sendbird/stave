@@ -336,6 +336,16 @@ export function UsageReadPending({
   );
 }
 
+/** The details of a provider that reports no usage limits (OpenCode). */
+export function UsageNoLimitsDetail({ providerName }: { providerName: string }) {
+  useTranslation();
+  return (
+    <p className={sx(statusBarUsageStyles.note)}>
+      {i18n.t("shell:statusBarUsageSegment.noLimitsReportedHint", { provider: providerName })}
+    </p>
+  );
+}
+
 /** Whose numbers these are, when the provider has more than one account. */
 export function UsageAccountNote({ accountLabel }: { accountLabel: string }) {
   useTranslation();

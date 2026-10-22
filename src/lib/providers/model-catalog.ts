@@ -6,10 +6,13 @@ import type {
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 
-const CLAUDE_COLOR_ICON_URL = `${import.meta.env.BASE_URL}claude-color.svg`;
-const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
-const CURSOR_COLOR_ICON_URL = `${import.meta.env.BASE_URL}cursor-color.svg`;
-const KIRO_COLOR_ICON_URL = `${import.meta.env.BASE_URL}kiro-color.svg`;
+import {
+  findProviderIdentity,
+  PROVIDER_IDENTITIES,
+  providerInkColor,
+  type ProviderHue,
+} from "./provider-identity";
+
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
 export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5-5";
 export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5-5[1m]";
@@ -126,10 +129,10 @@ export type ProviderThreadActionCapability =
 export const PROVIDER_DESCRIPTORS = [
   {
     id: "claude-code",
-    label: "Claude Code",
-    shortLabel: "Claude",
-    iconUrl: CLAUDE_COLOR_ICON_URL,
-    fallbackLabel: "C",
+    get label() { return PROVIDER_IDENTITIES["claude-code"].label; },
+    shortLabel: PROVIDER_IDENTITIES["claude-code"].shortLabel,
+    iconUrl: PROVIDER_IDENTITIES["claude-code"].markUrl,
+    fallbackLabel: PROVIDER_IDENTITIES["claude-code"].monogram,
     models: CLAUDE_SDK_MODEL_OPTIONS,
     modelCatalogSource: "static",
     defaultModel: DEFAULT_CLAUDE_OPUS_MODEL,
@@ -159,10 +162,10 @@ export const PROVIDER_DESCRIPTORS = [
   },
   {
     id: "codex",
-    label: "Codex",
-    shortLabel: "Codex",
-    iconUrl: CODEX_COLOR_ICON_URL,
-    fallbackLabel: "O",
+    get label() { return PROVIDER_IDENTITIES.codex.label; },
+    shortLabel: PROVIDER_IDENTITIES.codex.shortLabel,
+    iconUrl: PROVIDER_IDENTITIES.codex.markUrl,
+    fallbackLabel: PROVIDER_IDENTITIES.codex.monogram,
     models: CODEX_MODEL_OPTIONS,
     modelCatalogSource: "runtime",
     defaultModel: DEFAULT_CODEX_MODEL,
@@ -189,11 +192,10 @@ export const PROVIDER_DESCRIPTORS = [
   },
   {
     id: "cursor",
-    get label() { return i18n.t("settings:taskPresetEditor.cursorAgent"); },
-    shortLabel: "Cursor",
-    iconUrl: CURSOR_COLOR_ICON_URL,
-    // i18n-ignore: provider icon initials
-    fallbackLabel: "Cu",
+    get label() { return PROVIDER_IDENTITIES.cursor.label; },
+    shortLabel: PROVIDER_IDENTITIES.cursor.shortLabel,
+    iconUrl: PROVIDER_IDENTITIES.cursor.markUrl,
+    fallbackLabel: PROVIDER_IDENTITIES.cursor.monogram,
     models: ["auto"],
     modelCatalogSource: "runtime",
     defaultModel: "auto",
@@ -229,11 +231,10 @@ export const PROVIDER_DESCRIPTORS = [
   },
   {
     id: "kiro",
-    label: "Kiro CLI",
-    shortLabel: "Kiro",
-    iconUrl: KIRO_COLOR_ICON_URL,
-    // i18n-ignore: provider icon initials
-    fallbackLabel: "Ki",
+    get label() { return PROVIDER_IDENTITIES.kiro.label; },
+    shortLabel: PROVIDER_IDENTITIES.kiro.shortLabel,
+    iconUrl: PROVIDER_IDENTITIES.kiro.markUrl,
+    fallbackLabel: PROVIDER_IDENTITIES.kiro.monogram,
     models: ["auto"],
     modelCatalogSource: "runtime",
     defaultModel: "auto",
@@ -269,12 +270,11 @@ export const PROVIDER_DESCRIPTORS = [
   },
   {
     id: "opencode",
-    label: "OpenCode",
-    shortLabel: "OpenCode",
+    get label() { return PROVIDER_IDENTITIES.opencode.label; },
+    shortLabel: PROVIDER_IDENTITIES.opencode.shortLabel,
     // No mark ships with Stave; the monogram stands in.
-    iconUrl: null,
-    // i18n-ignore: provider icon initials
-    fallbackLabel: "Oc",
+    iconUrl: PROVIDER_IDENTITIES.opencode.markUrl,
+    fallbackLabel: PROVIDER_IDENTITIES.opencode.monogram,
     models: ["auto"],
     modelCatalogSource: "runtime",
     defaultModel: "auto",
@@ -395,57 +395,26 @@ export function resolveProviderDisplayId(args: {
 
 /**
  * Semantic provider-wave tone. A presentation value, not a color: the consuming
- * component maps it to a StyleX style using the themed provider CSS variables
- * (`--provider-claude` / `--provider-codex` / `--provider-cursor` /
- * `--provider-kiro` / `--provider-opencode`) or the ADS accent token. `"accent"` is only for a
- * presentation that is not a known provider (for example a user-authored row).
+ * component maps it to the provider ink styles (`providerInkStyles`), which
+ * paint the themed `--provider-*` token the identity registry names, or the ADS
+ * accent token. `"accent"` is only for a presentation that is not a known
+ * provider (for example a user-authored row).
  */
-export type ProviderWaveTone =
-  | "claude"
-  | "codex"
-  | "cursor"
-  | "kiro"
-  | "opencode"
-  | "accent";
-
-const PROVIDER_WAVE_COLOR: Record<ProviderWaveTone, string> = {
-  claude: "var(--provider-claude)",
-  codex: "var(--provider-codex)",
-  cursor: "var(--provider-cursor)",
-  kiro: "var(--provider-kiro)",
-  opencode: "var(--provider-opencode)",
-  accent: "var(--primary)",
-};
+export type ProviderWaveTone = ProviderHue | "accent";
 
 export function getProviderWaveTone(args: {
   providerId: ProviderId;
   model?: string;
 }): ProviderWaveTone {
-  const displayProviderId = resolveProviderDisplayId(args);
-
-  if (displayProviderId === "claude-code") {
-    return "claude";
-  }
-  if (displayProviderId === "codex") {
-    return "codex";
-  }
-  if (displayProviderId === "cursor") {
-    return "cursor";
-  }
-  if (displayProviderId === "kiro") {
-    return "kiro";
-  }
-  if (displayProviderId === "opencode") {
-    return "opencode";
-  }
-  return "accent";
+  return findProviderIdentity(resolveProviderDisplayId(args))?.hue ?? "accent";
 }
 
+/** The provider's ink as a CSS value, from the identity registry. */
 export function getProviderAccentColor(args: {
   providerId: ProviderId;
   model?: string;
 }) {
-  return PROVIDER_WAVE_COLOR[getProviderWaveTone(args)];
+  return providerInkColor(resolveProviderDisplayId(args));
 }
 
 export function getProviderFallbackLabel(args: { providerId: ProviderId }) {

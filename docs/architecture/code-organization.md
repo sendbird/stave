@@ -43,6 +43,13 @@ usage surfaces. `src/store/app-store-provider-actions.ts` owns availability and
 usage refresh actions. Focused checks are `tests/optional-provider-tooling.test.ts`,
 `tests/provider-readiness.test.ts`, and `tests/kiro-usage-connection.test.ts`.
 
+How a provider is shown (names, the theme token for its ink, its mark and
+monogram) is `src/lib/providers/provider-identity.ts`; `ProviderMark`
+(`src/components/system/ProviderMark.tsx`, also exported as `ModelIcon`) draws
+the mark and `src/components/system/provider-ink.styles.ts` is the one StyleX map
+of provider ink. `tests/provider-identity.test.ts` keeps the three in step and
+`tests/provider-mark-affordances.test.tsx` covers the mark.
+
 The status bar usage strip is composed in `src/components/layout/StatusBar.tsx`;
 `status-bar-usage-strip.utils.ts` holds its pure parts (ring and clock geometry,
 reset formatting, hint copy, and the width estimate behind the container-query

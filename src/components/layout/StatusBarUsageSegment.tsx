@@ -19,9 +19,11 @@ import {
   TurnUsageDetail,
   UsageAccountNote,
   UsageLimitNote,
+  UsageNoLimitsDetail,
   UsageReadPending,
 } from "@/components/layout/StatusBarUsageDetails";
 import {
+  UsageNoLimitsItem,
   UsageTokensItem,
   UsageWindowItem,
   UsageUnavailableItem,
@@ -158,6 +160,8 @@ export function StatusBarUsageSegment({
         </span>
         {gateway ? (
           <GatewayCreditsItem credits={segment.credits} visibility={visibility} />
+        ) : !segment.reportsLimits ? (
+          <UsageNoLimitsItem providerName={providerName} hintsDisabled={open} />
         ) : segment.windows.length === 0 ? (
           segment.pending ? (
             <Loader aria-hidden size="xs" variant="spinner" />
@@ -198,7 +202,7 @@ export function StatusBarUsageSegment({
       >
         <div className={sx(statusBarUsageStyles.popoverHeader)}>
           <span className={sx(statusBarUsageStyles.popoverTitle)}>{i18n.t("shell:statusBarUsageSegment.providerUsage", { provider: providerName })}</span>
-          {gateway ? null : (
+          {gateway || !segment.reportsLimits ? null : (
             <Tooltip content={i18n.t("shell:statusBarUsageSegment.refreshUsage")}>
               <Button
                 variant="ghost"
@@ -232,6 +236,8 @@ export function StatusBarUsageSegment({
                 {i18n.t("shell:statusBarUsageSegment.usageAndChargesAreManagedByYour")}
               </p>
             </>
+          ) : !segment.reportsLimits ? (
+            <UsageNoLimitsDetail providerName={providerName} />
           ) : segment.pending ? (
             <UsageReadPending providerName={providerName} accountLabel={accountLabel} />
           ) : (
@@ -240,13 +246,13 @@ export function StatusBarUsageSegment({
                 <ClaudeDetail snapshot={snapshot?.claude ?? null} now={now} />
               ) : provider === "codex" ? (
                 <CodexDetail snapshot={snapshot?.codex ?? null} now={now} />
-              ) : (
+              ) : provider === "cursor" || provider === "kiro" ? (
                 <AccountDetail
                   provider={provider}
                   snapshot={snapshot?.[provider] ?? null}
                   now={now}
                 />
-              )}
+              ) : null}
               {accountLabel && segment.windows.length > 0 ? (
                 <UsageAccountNote accountLabel={accountLabel} />
               ) : null}
