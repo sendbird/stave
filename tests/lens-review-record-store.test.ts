@@ -175,4 +175,3 @@ describe("lens review record store", () => {
     expect(store.list({ taskId: "task-1" })).toEqual([]);
   });
 });
-

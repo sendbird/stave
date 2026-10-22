@@ -123,4 +123,3 @@ describe("review diff reads", () => {
     expect(await getScmReviewFileDiff({ cwd: repo, baseSha: base, path: "zeros.bin" })).toMatchObject({ ok: true, binary: true, oldContent: "" });
   });
 });
-

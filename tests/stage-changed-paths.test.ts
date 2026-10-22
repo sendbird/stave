@@ -63,4 +63,3 @@ describe("stage changed paths", () => {
     expect(facts.changedPathsTruncated).toBe(true);
   });
 });
-
