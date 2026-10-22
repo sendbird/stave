@@ -1,5 +1,5 @@
 import { getIntlLocale, i18n, useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatRelativeTimeShort, formatTimeAgo } from "@/i18n/format";
 import {
   RelativeTime as AdsRelativeTime,
   type RelativeTimeProps,
@@ -13,13 +13,19 @@ type HostWords = "formatRelative" | "utcLabel" | "locale";
  * times in the display language's locale on hover or focus. It does not tick
  * on its own; a live surface passes `now` from the clock it already keeps.
  */
-export function RelativeTime(props: Omit<RelativeTimeProps, HostWords>) {
+export function RelativeTime({ past = false, ...props }: Omit<RelativeTimeProps, HostWords> & {
+  /**
+   * The moment already happened (a run ended, a message arrived): a time the
+   * clock puts ahead reads "just now", not "in 3h".
+   */
+  past?: boolean;
+}) {
   useTranslation();
   return (
     <AdsRelativeTime
       {...props}
       locale={getIntlLocale()}
-      formatRelative={formatRelativeTimeShort}
+      formatRelative={past ? formatTimeAgo : formatRelativeTimeShort}
       utcLabel={i18n.t("common:time.utc")}
     />
   );

@@ -1,4 +1,4 @@
-import { formatDateTime as formatLocaleDateTime, formatDuration as formatLocaleDuration, formatRelativeTimeShort } from "@/i18n/format";
+import { formatDateTime as formatLocaleDateTime, formatDuration as formatLocaleDuration, formatRelativeTimeShort, formatTimeAgo as formatLocaleTimeAgo } from "@/i18n/format";
 import { i18n } from "@/i18n";
 import {
   createDefaultAutomationRuntime,
@@ -198,8 +198,14 @@ export function formatDateTime(value: string | null) {
   return value ? formatLocaleDateTime(value) : "—";
 }
 
+/** Either way in time: a next run reads "in 3h", a last one "2m ago". */
 export function formatRelativeTime(value: string | null, now = Date.now()) {
   return value ? formatRelativeTimeShort(value, now) || "—" : "—";
+}
+
+/** A run that already happened; a time the clock puts ahead reads "just now". */
+export function formatTimeAgo(value: string | null, now = Date.now()) {
+  return value ? formatLocaleTimeAgo(value, now) || "—" : "—";
 }
 
 export function formatRunDuration(run: AutomationRun, now = Date.now()) {

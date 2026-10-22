@@ -1,5 +1,5 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { useEffect, useState } from "react";
 import {
   Bird,
@@ -315,7 +315,7 @@ export function MartinSyncSettingsSection() {
             </div>
             <p className={sx(styles.headerDescription)}>
               {paired
-                ? t(connector.connector?.lastSeenAt ? "settingsConnections:messages.connectorPairedLastSeen" : "settingsConnections:messages.connectorPaired", { name: connector.connector?.name ?? t("settingsConnections:messages.thisInstallation"), time: connector.connector?.lastSeenAt ? formatRelativeTimeShort(connector.connector.lastSeenAt) : "" })
+                ? t(connector.connector?.lastSeenAt ? "settingsConnections:messages.connectorPairedLastSeen" : "settingsConnections:messages.connectorPaired", { name: connector.connector?.name ?? t("settingsConnections:messages.thisInstallation"), time: connector.connector?.lastSeenAt ? formatTimeAgo(connector.connector.lastSeenAt) : "" })
                 : t("settingsConnections:settingsDialogMartinSync.pairThisInstallationWithAShort")}
             </p>
           </div>
@@ -476,7 +476,7 @@ export function MartinSyncSettingsSection() {
               ? t("settingsConnections:settingsDialogMartinSync.outboxUnavailable")
               : ` · ${t("common:status.loading")}`}
           {status?.lastDeliveredAt
-            ? t("settingsConnections:settingsDialogMartinSync.lastDelivered", { value1: formatRelativeTimeShort(status.lastDeliveredAt) })
+            ? t("settingsConnections:settingsDialogMartinSync.lastDelivered", { value1: formatTimeAgo(status.lastDeliveredAt) })
             : ""}
         </div>
         {(status?.failedCount ?? 0) > 0 ? (

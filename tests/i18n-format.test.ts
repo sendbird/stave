@@ -5,6 +5,7 @@ import {
   formatDuration,
   formatElapsed,
   formatRelativeTimeShort,
+  formatTimeAgo,
   formatTokenCount,
 } from "@/i18n/format";
 
@@ -93,6 +94,20 @@ describe("formatRelativeTimeShort", () => {
     expect(formatRelativeTimeShort(now.getTime() - 2 * MINUTE, now)).toBe("2분 전");
     expect(formatRelativeTimeShort(now.getTime() + 3 * HOUR, now)).toBe("3시간 후");
     expect(formatRelativeTimeShort("2026-10-10T12:00:00.000Z", now)).toBe("10월 10일");
+  });
+});
+
+describe("formatTimeAgo", () => {
+  const now = new Date("2026-10-22T12:00:00.000Z");
+
+  test("reads something that already happened, even when the clock puts it ahead", () => {
+    expect(formatTimeAgo(now.getTime() - 2 * MINUTE, now)).toBe("2m ago");
+    expect(formatTimeAgo("2026-10-10T12:00:00.000Z", now)).toBe("Oct 10");
+    // The clock moved back after it happened: it still happened.
+    expect(formatTimeAgo(now.getTime() + 3 * HOUR, now)).toBe("just now");
+    expect(formatTimeAgo("not a date", now)).toBe("");
+    applyAppLocale("ko");
+    expect(formatTimeAgo(now.getTime() + 3 * HOUR, now)).toBe("방금");
   });
 });
 

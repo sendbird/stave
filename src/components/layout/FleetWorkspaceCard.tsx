@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { agentRunDecisionOfMessages, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
@@ -310,7 +310,7 @@ export function FleetWorkspaceCard(args: {
             activity: providerTurnActivityByTask[task.id] ?? null,
           })
         : ("unknown" as const),
-      updatedLabel: formatRelativeTimeShort(task.updatedAt),
+      updatedLabel: formatTimeAgo(task.updatedAt),
     })) satisfies FleetCardTaskView[];
     return orderByWorkAttention(views, (row) =>
       rankWorkAttention({
@@ -728,7 +728,7 @@ export function FleetWorkspaceCard(args: {
         ) : null}
         <span className={sx(styles.activity)}>
           {activityAt
-            ? formatRelativeTimeShort(activityAt)
+            ? formatTimeAgo(activityAt)
             : tI18n("fleet:fleetWorkspaceCard.noRecordedActivity")}
         </span>
         <Button

@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { toolStyles } from "./workspace-tools.styles";
 import { sx } from "../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -225,7 +225,8 @@ function HookRow(props: {
 }
 
 /* ---------- Script entry row ---------- */
-function ScriptEntryRow(props: {
+/** One action or service: what it is, whether it runs, how its last run ended. */
+export function ScriptEntryRow(props: {
   scriptId: string;
   scriptKind: ScriptKind;
   label: string;
@@ -302,7 +303,7 @@ function ScriptEntryRow(props: {
                 {state?.endedAt !== undefined ? (
                   <>
                     <span className={sx(toolStyles.separator)}>·</span>
-                    <span>{formatRelativeTimeShort(state.endedAt)}</span>
+                    <span>{formatTimeAgo(state.endedAt)}</span>
                   </>
                 ) : null}
               </span>

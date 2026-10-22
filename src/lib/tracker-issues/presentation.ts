@@ -1,4 +1,4 @@
-import { formatDate, formatRelativeTimeShort } from "@/i18n/format";
+import { formatDate, formatTimeAgo } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 import {
   parseLocalTrackerDueDate,
@@ -182,7 +182,7 @@ export function formatTrackerSyncedAt(iso: string | null, now: Date): string {
     return i18n.t("issues:presentation.never");
   }
   // A clock that jumped backwards must not print "in 3m" for a past sync.
-  return formatRelativeTimeShort(Math.min(stamp, now.getTime()), now);
+  return formatTimeAgo(stamp, now);
 }
 
 /**

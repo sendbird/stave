@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -835,7 +835,7 @@ export function WorkspaceInformationPanel() {
                   action={
                     latestTurnSummary ? (
                       <span className={sx(styles.sectionStamp)}>
-                        {formatRelativeTimeShort(latestTurnSummary.generatedAt)}
+                        {formatTimeAgo(latestTurnSummary.generatedAt)}
                       </span>
                     ) : null
                   }

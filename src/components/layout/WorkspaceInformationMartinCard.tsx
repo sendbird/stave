@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -228,7 +228,7 @@ export function WorkspaceInformationMartinCard() {
           </AdsButton>
           <p className={sx(styles.meta)}>
             {project.lastPulledAt
-              ? tI18n("workspace:workspaceInformationMartinCard.lastPulledValue", { value1: formatRelativeTimeShort(project.lastPulledAt) })
+              ? tI18n("workspace:workspaceInformationMartinCard.lastPulledValue", { value1: formatTimeAgo(project.lastPulledAt) })
               : tI18n("workspace:workspaceInformationMartinCard.contextHasNotBeenPulledYet")}
           </p>
           {project.stale ? (

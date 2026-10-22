@@ -78,6 +78,7 @@ import {
   buildEnvironmentOptions,
   createAutomationDraft,
   formatRelativeTime,
+  formatTimeAgo,
   getAutomationErrorMessage,
   isActiveRunStatus,
   matchesRunFilter,
@@ -1116,7 +1117,7 @@ export function AutomationCenterView() {
                     ) : null}
                     <Detail
                       label={tI18n("automation:automationCenterView.lastRun")}
-                      value={formatRelativeTime(selectedAutomation.lastRunAt)}
+                      value={formatTimeAgo(selectedAutomation.lastRunAt)}
                     />
                     <Detail
                       label={tI18n("automation:automationCenterView.permissions")}

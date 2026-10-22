@@ -1,5 +1,5 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   CheckCircle2,
@@ -196,7 +196,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                         {entry.judgeLabel ? (
                           <span>{entry.judgeLabel}</span>
                         ) : null}
-                        <span>{t("compare:messages.updated", { updatedAt: formatRelativeTimeShort(entry.updatedAt) })}</span>
+                        <span>{t("compare:messages.updated", { updatedAt: formatTimeAgo(entry.updatedAt) })}</span>
                       </span>
                     </span>
                   </AdsButton>

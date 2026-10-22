@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { AlertTriangle, CheckCircle2, GitMerge } from "lucide-react";
 import type { FocusEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
@@ -178,7 +178,7 @@ export function InboxRow(props: {
             {FLEET_ATTENTION_KIND_LABEL[entry.kind]}
           </Badge>
           <span className={sx(styles.rowTime)}>
-            {formatRelativeTimeShort(entry.at)}
+            {formatTimeAgo(entry.at)}
           </span>
         </span>
         <span className={sx(styles.rowTitle)}>{entry.title}</span>

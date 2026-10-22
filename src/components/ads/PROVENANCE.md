@@ -30,7 +30,8 @@ Host modifications are intentional and retained when refreshing the bundle:
 - RelativeTime carries no English copy: the relative phrase (`formatRelative`) and
   the card's `utcLabel` are required props the host fills
   (`src/components/system/RelativeTime.tsx`, with `formatRelativeTimeShort` from
-  `src/i18n/format.ts` and the display language's locale).
+  `src/i18n/format.ts`, or `formatTimeAgo` for a moment that already happened,
+  and the display language's locale).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.

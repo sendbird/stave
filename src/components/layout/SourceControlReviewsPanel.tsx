@@ -1,4 +1,4 @@
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -42,7 +42,7 @@ import { reviewsStyles } from "./source-control-reviews-panel.styles";
 type ReviewDetailTab = "files" | "conversation" | "checks";
 
 function formatRelativeTime(value: string) {
-  return formatRelativeTimeShort(value) || i18n.t("sourceControl:sourceControlReviewsPanel.unknownActivity");
+  return formatTimeAgo(value) || i18n.t("sourceControl:sourceControlReviewsPanel.unknownActivity");
 }
 
 function reviewDecisionLabel(value: string) {

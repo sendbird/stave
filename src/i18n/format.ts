@@ -109,6 +109,18 @@ export function formatRelativeTimeShort(value: DateInput, now: DateInput = Date.
   return formatter.format(Math.round(diff / size), unit);
 }
 
+/**
+ * When something already happened, in the short relative form: `2m ago`,
+ * `5d ago`, then the date. A time the clock puts ahead, because it moved back
+ * or another machine stamped it, reads `just now`, never `in 3h`.
+ */
+export function formatTimeAgo(value: DateInput, now: DateInput = Date.now()): string {
+  const at = toDate(value).getTime();
+  const reference = toDate(now).getTime();
+  if (Number.isNaN(at) || Number.isNaN(reference)) return "";
+  return formatRelativeTimeShort(Math.min(at, reference), reference);
+}
+
 export interface DurationFormatOptions {
   /** The largest units shown: `2` (default) reads `1m 4s` and `1h 2m`; `1` reads `1m` and `1h`. */
   units?: 1 | 2;

@@ -1,5 +1,5 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
-import { formatRelativeTimeShort } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { useEffect } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ads/components/Button";
@@ -138,7 +138,7 @@ export function SkillsSection() {
             </p>
             {skillCatalog.status !== "error" ? <p className={sx(styles.mutedBody)}>{skillCatalog.detail}</p> : null}
             {skillCatalog.loadedAt ? (
-              <p className={sx(styles.captionMuted)}>{t("settings:messages.skillsUpdated", { updatedAt: formatRelativeTimeShort(skillCatalog.loadedAt) })}</p>
+              <p className={sx(styles.captionMuted)}>{t("settings:messages.skillsUpdated", { updatedAt: formatTimeAgo(skillCatalog.loadedAt) })}</p>
             ) : null}
           </div>
           <Button

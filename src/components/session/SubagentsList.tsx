@@ -139,7 +139,7 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
         />
         {endedAt !== undefined ? (
           <span className={sx(styles.when)}>
-            <RelativeTime date={endedAt} now={new Date(now)} />
+            <RelativeTime date={endedAt} now={new Date(now)} past />
           </span>
         ) : null}
       </div>
