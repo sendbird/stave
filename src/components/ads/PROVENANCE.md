@@ -19,11 +19,14 @@ Host-authored files that live here but are not from the bundle: `components/stat
 
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.
 
-Additional control/sidebar, lightbox and async-state closures are recorded in
-`.ads-source-controls.json`, `.ads-source-lightbox.json` and
+Additional control/sidebar, lightbox, async-state and toolbar closures are recorded in
+`.ads-source-controls.json`, `.ads-source-lightbox.json`,
 `.ads-source-async.json` (AsyncBoundary with Banner, LoadingSurface,
 feedback-dismiss and the `async` and `tone` utilities; the bundle's `prose.css`
-was not installed because the host's `styles.css` does not import it). Only missing files
+was not installed because the host's `styles.css` does not import it) and
+`.ads-source-toolbar.json` (Toolbar with its `headless/toolbar` primitives, for the
+right rail's single tab stop; the bundle's unrelated theme-target and CSS files the
+host does not load were not installed). Only missing files
 were installed; existing host modifications were preserved. Their catalog's
 suggested dependency versions are recorded as provenance; the host's compatible
 installed versions are governed by package.json and its validation gates.
