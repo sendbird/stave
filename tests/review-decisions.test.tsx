@@ -20,8 +20,21 @@ function waitingRun(): AgentRunDetail {
 }
 const reviewed = (detail: AgentRunDetail) => ({ agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: 1 });
 
-function event(detail: AgentRunDetail, kind: "sign-off" | "changes-requested", createdAt: string, sequence: number) {
-  return { id: `event-${sequence}`, agentRunId: detail.agentRun.id, sequence, kind, idempotencyKey: null, detail: {}, createdAt };
+/** A decision at a gate: a sign-off names the stage it starts, a request for changes the stage it was asked at. */
+function event(detail: AgentRunDetail, kind: "sign-off" | "changes-requested", createdAt: string, sequence: number, gate = "cause", rerun?: { stageId: string; attempt: number }) {
+  const eventDetail = kind === "sign-off" ? { stageId: gate, attempt: 1 } : { atStageId: gate, rerunStageId: rerun?.stageId ?? "reproduce", attempt: rerun?.attempt ?? 2 };
+  return { id: `event-${sequence}`, agentRunId: detail.agentRun.id, sequence, kind, idempotencyKey: null, detail: eventDetail, createdAt };
+}
+
+/** Reproduce (A) and Cause (B) ran; Fix (C) waits for sign-off, which is about B. A was signed off at its own gate. */
+function laterRun(): AgentRunDetail {
+  const detail = waitingRun();
+  const [reproduce, cause] = detail.stages as [AgentRunDetail["stages"][number], AgentRunDetail["stages"][number]];
+  const ranCause = { ...cause, status: "completed" as const, startedAt: "2026-10-22T09:21:00.000Z", endedAt: "2026-10-22T09:40:00.000Z", startHeadSha: "b".repeat(40) };
+  detail.stages = [reproduce, ranCause, { ...cause, stageId: "fix", status: "awaiting-sign-off" as const, startedAt: null, endedAt: null, startHeadSha: null }];
+  detail.agentRun.currentStageIndex = 2;
+  detail.events = [event(detail, "sign-off", "2026-10-22T09:20:30.000Z", 1, "cause")];
+  return detail;
 }
 
 afterEach(() => applyAppLocale("en"));
@@ -56,6 +69,31 @@ describe("Review decisions", () => {
     expect(markup).toContain("Sign off");
     expect(markup).toContain("Ask for changes");
     expect(markup).not.toContain("Mark reviewed");
+  });
+
+  test("a sign-off waiting about a later stage is not offered on an earlier one", () => {
+    const detail = laterRun();
+    const a = { agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: 1 };
+    const b = { agentRunId: detail.agentRun.id, stageId: "cause", attempt: 1 };
+    // C waits about B: only B offers Sign off; A shows its own, earlier decision.
+    expect(describeStageDecision(detail, b)).toMatchObject({ status: "waiting", signOff: { stageId: "fix", attempt: 1 } });
+    expect(describeStageDecision(detail, a)).toEqual({ status: "signed-off", at: "2026-10-22T09:20:30.000Z" });
+    const markup = renderToStaticMarkup(createElement(ReviewDecisions, {
+      taskId: "preview-task", workspaceId: "preview-workspace", scope: { kind: "stage", ...a }, detail, read: [], data: null, latestTurnId: null,
+    }));
+    expect(markup).not.toContain(">Sign off<");
+    expect(markup).not.toContain("Ask for changes");
+  });
+
+  test("a later stage's decision is not shown on an earlier stage", () => {
+    const detail = laterRun();
+    detail.agentRun.state = "completed" as never;
+    // B's gate asked for changes after A's gate signed A off.
+    detail.events = [...detail.events, event(detail, "changes-requested", "2026-10-22T09:41:00.000Z", 2, "fix", { stageId: "cause", attempt: 2 })];
+    const a = { agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: 1 };
+    const b = { agentRunId: detail.agentRun.id, stageId: "cause", attempt: 1 };
+    expect(describeStageDecision(detail, a)).toEqual({ status: "signed-off", at: "2026-10-22T09:20:30.000Z" });
+    expect(describeStageDecision(detail, b)).toEqual({ status: "changes-asked", at: "2026-10-22T09:41:00.000Z" });
   });
 
   test("after the decision the stage says how it was decided, latest first", () => {

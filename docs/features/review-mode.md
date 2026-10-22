@@ -94,9 +94,12 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Diff comments** repeats the task's comments, not sent and sent, because
   the editor's comment areas are not reachable by screen readers.
 - The decision bar at the bottom says where the decision stands and offers it:
-  - In **This stage**, while the run waits for your sign-off: **Sign off**, or
-    **Ask for changes** with a note that runs the last AI stage again. After
-    the decision it shows **Signed off** or **Changes asked** with the time.
+  - In **This stage**, while the run waits for your sign-off about this stage
+    (the latest stage that ran before the waiting one, at this attempt):
+    **Sign off**, or **Ask for changes** with a note that runs the last AI
+    stage again. An earlier stage offers neither. After the decision it shows
+    **Signed off** or **Changes asked** with the time, from the decision made
+    about this stage only; a later stage's decision never shows on it.
   - In the other scopes: **Mark reviewed** marks the turn's output reviewed,
     and **Send comments** sends the pending diff comments to the agent.
 
