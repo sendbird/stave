@@ -79,6 +79,7 @@ Ctrl-only combinations stay with the shell (for example Ctrl+C).
 | Visual comment | `Cmd/Ctrl+Alt+.` | Lens, not while typing; change it in Settings |
 | Focus editor | `Cmd/Ctrl+K` then `\` | Anywhere |
 | Toggle terminal | `Cmd/Ctrl+K` then `` ` `` | Anywhere |
+| Switch between conversation and Review | `Cmd/Ctrl+Alt+R` | Workspace; switches the active task |
 
 The letter after `Cmd/Ctrl+K` is the default. Change or turn off any of them under
 **Settings → Command Palette → Shell chords**; the list in the app follows your

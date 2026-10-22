@@ -24,6 +24,7 @@ import en_session from "@/locales/en/session.json";
 import en_composer from "@/locales/en/composer.json";
 import en_panes from "@/locales/en/panes.json";
 import en_lens from "@/locales/en/lens.json";
+import en_review from "@/locales/en/review.json";
 import en_scripts from "@/locales/en/scripts.json";
 import en_agents from "@/locales/en/agents.json";
 import en_agentRuns from "@/locales/en/agentRuns.json";
@@ -52,6 +53,7 @@ import ko_session from "@/locales/ko/session.json";
 import ko_composer from "@/locales/ko/composer.json";
 import ko_panes from "@/locales/ko/panes.json";
 import ko_lens from "@/locales/ko/lens.json";
+import ko_review from "@/locales/ko/review.json";
 import ko_scripts from "@/locales/ko/scripts.json";
 import ko_agents from "@/locales/ko/agents.json";
 import ko_agentRuns from "@/locales/ko/agentRuns.json";
@@ -88,6 +90,7 @@ export const I18N_NAMESPACES = [
   "providers",
   "usage",
   "compare",
+  "review",
   "ui",
   "notifications",
   "app",
@@ -116,6 +119,7 @@ export const sourceResources = {
   composer: en_composer,
   panes: en_panes,
   lens: en_lens,
+  review: en_review,
   scripts: en_scripts,
   agents: en_agents,
   agentRuns: en_agentRuns,
@@ -149,6 +153,7 @@ export const resources = {
     composer: ko_composer,
     panes: ko_panes,
     lens: ko_lens,
+    review: ko_review,
     scripts: ko_scripts,
     agents: ko_agents,
     agentRuns: ko_agentRuns,

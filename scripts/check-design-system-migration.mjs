@@ -196,6 +196,7 @@ for (const file of [
   ".ads-source-async.json",
   ".ads-source-toolbar.json",
   ".ads-source-version-compare.json",
+  ".ads-source-review.json",
 ]) {
   const source = JSON.parse(
     readFileSync(new URL(`../src/components/ads/${file}`, import.meta.url), "utf8"),

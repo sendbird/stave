@@ -26,6 +26,7 @@ import { runPendingUndo } from "@/lib/notifications/pending-undo";
 import { buildPanePanelId } from "@/lib/panes/types";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { useAppStore } from "@/store/app.store";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 
 /** Settings (and anything else outside the shell) asks for the shortcut list. */
 export const OPEN_KEYBOARD_SHORTCUTS_EVENT = "stave:open-keyboard-shortcuts";
@@ -164,6 +165,19 @@ function createAppKeybindingHandlers(
     },
     "tabs.reopen-closed": () => {
       void reopenLastClosedPaneTab();
+      return true;
+    },
+    // Switches the active task between its conversation and Review, bringing
+    // the task to the front when another tab has focus.
+    "task.toggle-review": () => {
+      const { activeTaskId, activeSurface } = store();
+      if (!activeTaskId) {
+        return false;
+      }
+      if (activeSurface.kind !== "task" || activeSurface.taskId !== activeTaskId) {
+        paneHost.openSurface({ kind: "task", taskId: activeTaskId });
+      }
+      useTaskReviewModeStore.getState().toggle(activeTaskId);
       return true;
     },
     "pane.split-right": () => {

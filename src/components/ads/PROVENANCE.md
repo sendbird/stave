@@ -16,6 +16,10 @@ Host modifications are intentional and retained when refreshing the bundle:
 - VersionCompare carries no English copy: its mode names, the mode switch's accessible name,
   the range labels (`copy`) and both version labels (`baselineLabel`, `currentLabel`) are
   required props the host fills from its translations (`src/components/system/ReviewVersionCompare.tsx`).
+- ReviewStatus and ApprovalBar carry no English copy: the state pill's label (`children`,
+  ApprovalBar's `stateLabel`) and the decision labels (`approveLabel`, `rejectLabel`,
+  `requestChangesLabel`) come from the host, and the request-changes button uses the
+  installed Button's `outline` variant name (the bundle calls it `outlined`).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
@@ -32,7 +36,11 @@ right rail's single tab stop; the bundle's unrelated theme-target and CSS files 
 host does not load were not installed) and `.ads-source-version-compare.json`
 (VersionCompare, for Lens review records' before/after comparison; its theme target
 already existed, and the bundle's CSS and editing/graph theme-target files the host
-does not load were not installed). Only missing files
+does not load were not installed) and `.ads-source-review.json` (WorkspaceLayout,
+ApprovalBar in `ReviewStatus.tsx`, ToggleGroup with its `headless/toggle-group`
+primitives and the `busy-action` utility, for Review mode; their theme targets
+already existed, and the bundle's newer Tooltip base, CSS and theme-target files
+were not installed). Only missing files
 were installed; existing host modifications were preserved. Their catalog's
 suggested dependency versions are recorded as provenance; the host's compatible
 installed versions are governed by package.json and its validation gates.

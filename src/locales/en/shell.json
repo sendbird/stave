@@ -988,6 +988,10 @@
       "fleetRowOpen": {
         "title": "Open inbox row",
         "description": "Open the focused row: its control panel in Fleet, its task from the notification list."
+      },
+      "toggleTaskReview": {
+        "title": "Switch between conversation and Review",
+        "description": "Show the active task's conversation, or Review of its work."
       }
     },
     "ui": {

@@ -982,6 +982,10 @@
       "fleetRowOpen": {
         "title": "받은 항목 행 열기",
         "description": "포커스된 행을 엽니다. Fleet에서는 제어 패널을, 알림 목록에서는 작업을 엽니다."
+      },
+      "toggleTaskReview": {
+        "title": "대화와 검토 전환",
+        "description": "활성 작업의 대화 또는 작업 검토를 표시합니다."
       }
     },
     "ui": {

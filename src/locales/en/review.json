@@ -1,0 +1,100 @@
+{
+  "surface": {
+    "label": "Review"
+  },
+  "mode": {
+    "label": "Task view",
+    "conversation": "Conversation",
+    "review": "Review"
+  },
+  "scope": {
+    "label": "Review scope",
+    "turn": "This turn",
+    "stage": "This stage",
+    "branch": "Branch",
+    "uncommitted": "Uncommitted",
+    "refresh": "Refresh changes"
+  },
+  "revision": {
+    "turn": "Edits the agent reported in this turn",
+    "stage": "Since {{base}}, where the stage started, to the working tree at {{head}}",
+    "branch": "Since {{base}}, where the branch left {{ref}}, to the working tree at {{head}}",
+    "uncommitted": "Working tree against HEAD {{head}}"
+  },
+  "limits": {
+    "label": "What this scope cannot show",
+    "reportedEditsOnly": "Only the edits the agent reported. Changes made through shell commands are not here; Uncommitted or Branch shows every change.",
+    "laterEditsMerge": "A later edit to one of this stage's own files cannot be told apart from the stage's edit.",
+    "noRecordedPaths": "This stage ran before Stave recorded the paths a stage changes, so its files cannot be told from later changes.",
+    "pathsTruncated": "This stage changed more files than Stave records; files past the first 200 are not attributed."
+  },
+  "files": {
+    "title": "Changed files",
+    "readCount_one": "{{read}} of {{count}} read",
+    "readCount_other": "{{read}} of {{count}} read",
+    "none": "No changes in this scope.",
+    "turnMissing": "This turn is no longer in the task's saved history.",
+    "status": {
+      "added": "Added",
+      "modified": "Modified",
+      "deleted": "Deleted",
+      "renamed": "Renamed",
+      "copied": "Copied"
+    },
+    "groups": {
+      "stage": "This stage",
+      "afterStage": "After the stage",
+      "unknown": "Not attributed"
+    },
+    "groupWithCount": "{{group}} ({{count}})",
+    "row": "{{path}}, {{status}}",
+    "rowRead": "{{path}}, {{status}}, read"
+  },
+  "diff": {
+    "title": "Diff",
+    "comment": "Comment",
+    "renamed": "{{from}} → {{to}}",
+    "noTextChange": "No text changes (mode, permissions or binary content).",
+    "noChanges": "No changes to show."
+  },
+  "inspector": {
+    "title": "Checks and notes"
+  },
+  "checks": {
+    "title": "Completion checks",
+    "noRun": "This task has no agent run, so it has no completion checks.",
+    "none": "The run has no completion criteria."
+  },
+  "lens": {
+    "title": "Lens checks",
+    "none": "No Lens comparisons were saved for this task.",
+    "readFailed": "Could not read the saved Lens checks.",
+    "show": "Show comparison",
+    "hide": "Hide comparison"
+  },
+  "comments": {
+    "title": "Diff comments",
+    "none": "No comments yet. Use Comment on a file to add one.",
+    "pending_one": "Not sent ({{count}})",
+    "pending_other": "Not sent ({{count}})",
+    "sent_one": "Sent ({{count}})",
+    "sent_other": "Sent ({{count}})",
+    "where": "{{path}}:{{line}}",
+    "sentWhere": "{{where}} · sent {{time}}"
+  },
+  "outputs": {
+    "title": "Output",
+    "noResult": "No saved result for this turn yet.",
+    "reviewedAt": "Reviewed {{time}}",
+    "notReviewed": "Not reviewed yet",
+    "noReport": "The stage has not reported yet.",
+    "blocked": "Blocked: {{missing}}"
+  },
+  "errors": {
+    "noWorkspace": "Open the task's workspace to read its changes.",
+    "noStageStart": "This stage has no recorded start commit, so its changes cannot be read.",
+    "unavailable": "Reading changes is not available here.",
+    "failed": "Could not read the changes.",
+    "failedWithDetail": "Could not read the changes: {{detail}}"
+  }
+}

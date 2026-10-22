@@ -178,6 +178,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Compare delegated run performance across workspaces, inspect a task's saved outputs, and choose a follow-up.",
       },
       {
+        routePath: "review-mode",
+        sourcePath: "docs/features/review-mode.md",
+        title: "Review mode",
+        description:
+          "Read a task's work against one scope: a turn, a stage, the branch or uncommitted changes, with its checks, Lens checks and comments.",
+      },
+      {
         routePath: "playbooks",
         sourcePath: "docs/features/playbooks.md",
         title: "Playbooks (retired)",
