@@ -217,7 +217,8 @@ to read all of it. Its tabs:
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
-agent run needs you or is blocked, the number of running agents on **Subagents**, and
+agent run needs you or is blocked, the number of running agents on **Subagents**
+(with how many wait on you, such as `2 · 1 needs you`), and
 the number of unchecked outputs on **Outputs**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
 menu opens it straight to **Outputs**, **Progress** or **Subagents**.

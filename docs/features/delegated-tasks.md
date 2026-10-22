@@ -88,10 +88,19 @@ is refused with `invalid-ownership`. A subagent cannot start subagents of its
 own. A client Stave did not start (a terminal CLI with your token) names the
 parent explicitly.
 
-The Subagents tab shows each subagent's agent (or model), what it is doing and
-its state, folds its answer under the row, and offers View activity (its
-answer, assignment and tool calls in a dialog over the current task), Open
-transcript and Stop.
+The Subagents tab shows each subagent's agent (or model), what it is doing,
+its state and how long it ran (still counting while it runs; a finished one also
+says when it ended, with the exact time on hover), folds its answer under the
+row, and offers View activity (its answer, assignment and tool calls in a dialog
+over the current task), Open transcript and Stop.
+
+A child that waits on you comes first: one that asks a question or an
+approval, then a delegated task that failed (only you can open and retry it).
+Running subagents follow, then finished ones, newest first. A line above the
+list counts them (`1 needs you · 2 running · 3 done`) and opens the first child
+that waits on you in one click; the tab itself reads `2 · 1 needs you`. An
+in-turn subagent that failed is reported by the turn that called it, so it is
+listed with the finished ones.
 Turn Activity retains its compact child rows with follow-up, retry and release
 controls. Settings → Providers → Delegated tasks documents provider availability,
 per-call parameters and how many helper Agents one Agent run can call ([team limits](./agents.md#team-limits)).

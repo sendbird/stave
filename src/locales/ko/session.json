@@ -366,7 +366,12 @@
     "subagentRow2": "답변",
     "subagentRow3": "활동 보기",
     "subagentRow4": "대화 기록 열기",
-    "subagentRow5": "중지"
+    "subagentRow5": "중지",
+    "countNeedsYou_other": "{{count}}개 확인 필요",
+    "countRunning": "{{value}}개 실행 중",
+    "summaryLabel": "하위 에이전트 요약",
+    "openFirstNeedsYou": "{{name}} 열기",
+    "openFirstNeedsYouTitle": "{{name}}: {{reason}}"
   },
   "taskPanel": {
     "ariaLabel": "작업 섹션",
@@ -778,7 +783,11 @@
     "label": "승인 필요",
     "label2": "입력 필요",
     "label3": "실행 중",
-    "label4": "안 읽음 {{value1}}개"
+    "label4": "안 읽음 {{value1}}개",
+    "subagentsRunningNeedsYou_other": "{{running}} · {{shown}} 확인 필요",
+    "subagentsNeedsYou_other": "{{shown}} 확인 필요",
+    "subagentsRunningNeedsYouLabel_other": "{{running}}개 실행 중, {{count}}개 확인 필요",
+    "subagentsNeedsYouLabel_other": "하위 에이전트 {{count}}개 확인 필요"
   },
   "turnActivityStatusIcon": {
     "getTurnActivityStatusLabel": "완료됨",

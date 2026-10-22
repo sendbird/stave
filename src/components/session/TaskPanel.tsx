@@ -23,7 +23,9 @@ import {
 } from "@/lib/right-rail-panels";
 import { untitledTaskTitle } from "@/lib/task-context/attached-task-context";
 import { isTaskManaged } from "@/lib/tasks";
-import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
+import { selectDelegationExchanges } from "@/lib/delegation/exchange";
+import { countSubagentList } from "@/lib/delegation/subagent-list";
+import { selectDelegatedTaskBlockedKinds } from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useTaskAgentRun } from "@/store/agent-runs-store";
@@ -32,6 +34,7 @@ import { TaskHandoffPanel } from "./TaskHandoffPanel";
 import { SubagentsSection } from "./SubagentsSection";
 import { TaskPanelEmpty } from "./TaskPanelEmpty";
 import { TurnActivityPanel } from "./TurnActivityPanel";
+import { useDelegatedTasks } from "./useDelegatedTasks";
 import {
   resolveActivityTabMark,
   resolveProgressTabMark,
@@ -257,6 +260,11 @@ function ProgressMark(props: { agentRun: AgentRunDetail | undefined }) {
   return <Mark mark={resolveProgressTabMark(describeAgentRunStatus(agentRun, decision))} />;
 }
 
+/*
+ * The live turn's subagents and the task's delegated tasks, read from the same
+ * listing the Subagents tab uses, so a child that waits on the user marks the
+ * tab before anyone opens it.
+ */
 function SubagentsMark(props: { taskId: string }) {
   useTranslation();
   const graph = useAppStore(
@@ -265,11 +273,24 @@ function SubagentsMark(props: { taskId: string }) {
       state.retainedTurnActivityByTask[props.taskId]?.snapshot.workGraph ??
       null,
   );
-  const running = useMemo(
-    () => (graph ? summarizeWorkGraph(graph).runningCount : 0),
-    [graph],
-  );
-  return <Mark mark={resolveSubagentsTabMark(running)} />;
+  const listing = useDelegatedTasks({ parentTaskId: props.taskId });
+  // The stable store array; blocked kinds are derived below, never in the selector.
+  const notifications = useAppStore((state) => state.notifications);
+  const counts = useMemo(() => {
+    const childBlockedByDelegationKey = selectDelegatedTaskBlockedKinds({
+      children: listing.children,
+      notifications,
+    });
+    return countSubagentList(
+      selectDelegationExchanges({
+        delegatedTasks: listing.children,
+        childBlockedByDelegationKey,
+        workGraph: graph,
+        includeSubagents: true,
+      }),
+    );
+  }, [graph, listing.children, notifications]);
+  return <Mark mark={resolveSubagentsTabMark(counts)} />;
 }
 
 function ResultsMark(props: { workspaceId: string; taskId: string }) {
@@ -300,7 +321,12 @@ function Mark(props: { mark: TaskTabMark | null }) {
     );
   }
   return (
-    <span role="img" title={mark.label} aria-label={mark.label} className={sx(styles.count)}>
+    <span
+      role="img"
+      title={mark.label}
+      aria-label={mark.label}
+      className={sx(styles.count, mark.attention && styles.countAttention)}
+    >
       {mark.text}
     </span>
   );
@@ -411,5 +437,11 @@ const styles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
     lineHeight: 1,
+    whiteSpace: "nowrap",
+  },
+  // An ask in the needs-answer state's word color (as StateMark mixes it), so
+  // it reads apart from a plain count and keeps 4.5:1 on the panel.
+  countAttention: {
+    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--state-needs-answer))`,
   },
 });

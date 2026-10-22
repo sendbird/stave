@@ -4,22 +4,17 @@ import * as stylex from "@stylexjs/stylex";
 import { useMemo, useState } from "react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { CollapsibleResponse } from "@/components/ai-elements/collapsible-response";
 import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
-import { ExchangeStatusBadge } from "@/components/delegation/ExchangeStatusBadge";
-import { ActionButton } from "@/components/system/ActionButton";
 import { listAgents } from "@/lib/agents/library";
-import {
-  isDelegationExchangeLive,
-  partitionDelegationExchanges,
-  type DelegationExchange,
-} from "@/lib/delegation/exchange";
+import type { DelegationExchange } from "@/lib/delegation/exchange";
+import { orderSubagentList } from "@/lib/delegation/subagent-list";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { resolveDelegatedTaskControls, type DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { useAppStore } from "@/store/app.store";
 import { useDelegatedTaskRowController } from "./DelegatedTaskRows";
 import { useDelegatedTasks } from "./useDelegatedTasks";
-import { selectTaskSubagents, subagentResultLine } from "@/lib/delegation/subagent-summary";
+import { selectTaskSubagents } from "@/lib/delegation/subagent-summary";
+import { SubagentsList, type SubagentListItem } from "./SubagentsList";
 import type { ChatMessage } from "@/types/chat";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
@@ -34,9 +29,11 @@ function describeWork(child: DelegatedTaskSummary, title: string | undefined) {
 /**
  * The Task panel's Subagents tab: every agent this task called, durable
  * (a Stave task, possibly on the other provider or in its own worktree) or
- * in-turn (a provider subagent), as one list with live rows first. A row says
- * who the subagent is, what it is doing and how it stands, and offers only
- * Open transcript and Stop; its answer folds under the row.
+ * in-turn (a provider subagent), as one list. Children that wait on the user
+ * come first and the summary above the list opens the first of them; then
+ * the live rows, then the settled ones. A row says who the subagent is, what
+ * it is doing, how it stands and for how long, and offers only Open
+ * transcript and Stop; its answer folds under the row.
  */
 export function SubagentsSection(props: {
   workspaceId: string;
@@ -80,8 +77,7 @@ export function SubagentsSection(props: {
       workGraph: graph,
       includeSubagents: true,
     });
-    const { live, settled } = partitionDelegationExchanges(exchanges);
-    return [...live, ...settled.reverse()];
+    return orderSubagentList(exchanges);
   }, [controller.blockedByDelegationKey, controller.children, graph, messages]);
 
   const viewing = useMemo(() => {
@@ -113,33 +109,29 @@ export function SubagentsSection(props: {
       </p>
     );
   }
+  const items: SubagentListItem[] = rows.map((exchange) => {
+    const child = exchange.ref.delegationKey && exchange.kind === "delegated-task"
+      ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
+      : undefined;
+    return {
+      exchange,
+      who: whoLabel(exchange, child, agentNames),
+      what: child ? describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title) : exchange.ask,
+      canStop: Boolean(child && !props.readOnly && resolveDelegatedTaskControls(child).canStop),
+      busy: Boolean(child && controller.busyDelegationKey === child.delegationKey),
+      error: child ? controller.errorByDelegationKey[child.delegationKey] : undefined,
+      onOpen: child
+        ? () => controller.onOpen(child)
+        : exchange.ref.toolUseId
+          ? () => focusTranscriptTool({ taskId: props.taskId, toolUseId: exchange.ref.toolUseId! })
+          : undefined,
+      onStop: child ? () => controller.onStop(child) : undefined,
+      onView: child ? () => setViewingId(exchange.id) : undefined,
+    };
+  });
   return (
     <>
-      <ul aria-label={i18n.t("session:subagentsSection.ariaLabel")} className={sx(styles.list)} data-testid="subagents-list">
-        {rows.map((exchange) => {
-          const child = exchange.ref.delegationKey && exchange.kind === "delegated-task"
-            ? controller.children.find((row) => row.delegationKey === exchange.ref.delegationKey)
-            : undefined;
-          return (
-            <SubagentRow
-              key={exchange.id}
-              exchange={exchange}
-              who={whoLabel(exchange, child, agentNames)}
-              what={child ? describeWork(child, tasks.find((task) => task.id === child.delegatedTaskId)?.title) : exchange.ask}
-              canStop={Boolean(child && !props.readOnly && resolveDelegatedTaskControls(child).canStop)}
-              busy={Boolean(child && controller.busyDelegationKey === child.delegationKey)}
-              error={child ? controller.errorByDelegationKey[child.delegationKey] : undefined}
-              onOpen={child
-                ? () => controller.onOpen(child)
-                : exchange.ref.toolUseId
-                  ? () => focusTranscriptTool({ taskId: props.taskId, toolUseId: exchange.ref.toolUseId! })
-                  : undefined}
-              onStop={child ? () => controller.onStop(child) : undefined}
-              onView={child ? () => setViewingId(exchange.id) : undefined}
-            />
-          );
-        })}
-      </ul>
+      <SubagentsList items={items} />
       {viewing ? (
         <ActivityDetailDialog
           key={viewing.exchange.id}
@@ -175,136 +167,7 @@ function whoLabel(
   return i18n.t("session:subagentsSection.whoLabel");
 }
 
-function SubagentRow(props: {
-  exchange: DelegationExchange;
-  who: string;
-  what: string;
-  canStop: boolean;
-  busy: boolean;
-  error?: string;
-  onOpen?: () => void;
-  onStop?: () => void;
-  onView?: () => void;
-}) {
-  useTranslation();
-  const { exchange } = props;
-  const { error, result } = exchange.outcome;
-  // The answer renders like the conversation, and only once it is opened, so
-  // a long list never parses every answer it folds away.
-  const [answerOpen, setAnswerOpen] = useState(false);
-  return (
-    <li className={sx(styles.row)} data-subagent-kind={exchange.kind}>
-      <div className={sx(styles.head)}>
-        <span className={sx(styles.who)}>{props.who}</span>
-        <ExchangeStatusBadge status={exchange.outcome.status} />
-      </div>
-      {props.what !== props.who ? <p className={sx(styles.what)}>{props.what}</p> : null}
-      {exchange.outcome.progress?.at(-1) ? <p className={sx(styles.what)}>{exchange.outcome.progress.at(-1)}</p> : null}
-      {subagentResultLine(exchange) ? <p className={sx(styles.what)} title={error ?? result}>{subagentResultLine(exchange)}</p> : null}
-      {(error ?? result) && !isDelegationExchangeLive(exchange) ? (
-        <details
-          className={sx(styles.answer)}
-          onToggle={(event) => setAnswerOpen(event.currentTarget.open)}
-        >
-          <summary className={sx(styles.answerSummary)}>
-            {error ? i18n.t("session:subagentsSection.subagentRow") : i18n.t("session:subagentsSection.subagentRow2")}
-          </summary>
-          {error ? (
-            <p className={sx(styles.answerText)}>{error}</p>
-          ) : answerOpen && result ? (
-            <div className={sx(styles.answerBody)}>
-              <CollapsibleResponse text={result} label={i18n.t("session:remaining.presentationCopy283", { v1: props.who })} />
-            </div>
-          ) : null}
-        </details>
-      ) : null}
-      {props.error ? <p role="alert" className={sx(styles.error)}>{props.error}</p> : null}
-      {props.onOpen || props.canStop || props.onView ? (
-        <div className={sx(styles.actions)}>
-          {props.onView ? (
-            <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onView}>
-              {i18n.t("session:subagentsSection.subagentRow3")}</ActionButton>
-          ) : null}
-          {props.onOpen ? (
-            <ActionButton size="md" weight="quiet" xstyle={styles.target} onClick={props.onOpen}>
-              {i18n.t("session:subagentsSection.subagentRow4")}</ActionButton>
-          ) : null}
-          {props.canStop && props.onStop ? (
-            <ActionButton size="md" weight="quiet" tone="danger" xstyle={styles.target} disabled={props.busy} onClick={props.onStop}>
-              {i18n.t("session:subagentsSection.subagentRow5")}</ActionButton>
-          ) : null}
-        </div>
-      ) : null}
-    </li>
-  );
-}
-
 const styles = stylex.create({
-  list: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-8"],
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-  },
-  row: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    minWidth: 0,
-    paddingBlock: vars["--ads-space-8"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
-  },
-  head: {
-    display: "flex",
-    alignItems: "center",
-    gap: vars["--ads-space-8"],
-    minWidth: 0,
-  },
-  who: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text"],
-  },
-  what: {
-    margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text-muted"],
-    overflowWrap: "anywhere",
-  },
-  answer: { minWidth: 0 },
-  answerSummary: {
-    cursor: "pointer",
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
-  },
-  answerBody: { minWidth: 0, marginBlockStart: vars["--ads-space-4"] },
-  answerText: {
-    margin: 0,
-    marginBlockStart: vars["--ads-space-4"],
-    whiteSpace: "pre-wrap",
-    overflowWrap: "anywhere",
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    color: vars["--ads-color-text"],
-  },
-  error: {
-    margin: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-danger-text"],
-  },
-  actions: { display: "flex", gap: vars["--ads-space-8"] },
-  // Row controls are used often from a narrow rail: keep a 40px target.
-  target: { minBlockSize: 40 },
   muted: {
     margin: 0,
     fontSize: vars["--ads-font-size-caption"],
