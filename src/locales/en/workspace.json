@@ -1087,7 +1087,9 @@
       "projectAttention": "Project needs attention: {{value1}}",
       "editWorkspaceLabel": "Edit workspace label: {{value1}}",
       "workspaceActions": "Workspace actions: {{value1}}"
-    }
+    },
+    "unansweredCount_one": "{{count}} request waiting for an answer",
+    "unansweredCount_other": "{{count}} requests waiting for an answer"
   },
   "workspaceInformationReferenceChip": {
     "section": "Section",

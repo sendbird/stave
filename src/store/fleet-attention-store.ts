@@ -14,8 +14,11 @@ import type {
   FleetAttentionProjection,
 } from "@/lib/fleet/attention-projection";
 import type { FleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
+import { EMPTY_FLEET_INBOX, type FleetInbox } from "@/lib/fleet/inbox-model";
 
 export interface FleetAttentionSnapshot extends FleetAttentionProjection {
+  /** The items with the notifications that speak for them, for Fleet and the bell. */
+  inbox: FleetInbox;
   /** What the Fleet header may claim; never "clear" before every source answered. */
   queueStatus: FleetQueueStatus;
   resultReviewError: string;
@@ -40,6 +43,7 @@ export const EMPTY_FLEET_ATTENTION: FleetAttentionSnapshot = {
   snoozedItems: EMPTY_ITEMS,
   highestAttentionByWorkspaceId: {},
   attentionItemsByWorkspaceId: {},
+  inbox: EMPTY_FLEET_INBOX,
   queueStatus: "checking",
   resultReviewError: "",
   resultReviewTracked: false,

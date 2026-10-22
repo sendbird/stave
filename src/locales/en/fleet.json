@@ -17,7 +17,8 @@
     "clearOneInReview": "Clear the 1 item in review",
     "clearAllInReview": "Clear all {{reviewCount}} items in review",
     "noActionRequired": "No action required",
-    "noAgentIsWaitingOnYou": "No agent is waiting on you right now."
+    "noAgentIsWaitingOnYou": "No agent is waiting on you right now.",
+    "rowLabelNoWorkspace": "{{action}} for {{title}}"
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "Reply steered into the active turn.",
@@ -233,5 +234,8 @@
     "running": "Running for {{duration}}",
     "waiting": "Waiting for {{duration}}",
     "quiet": "No updates for {{duration}}"
+  },
+  "inbox": {
+    "unreadLabel": "{{label}}, unread"
   }
 }

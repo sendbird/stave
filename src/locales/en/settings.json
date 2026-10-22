@@ -56,7 +56,7 @@
     "description": "Show task completion, approval, input requests and run sign-offs through the operating system.",
     "native": {
       "title": "Native Notifications",
-      "description": "Notify you when a task needs attention outside the active workspace."
+      "description": "Notify you through the operating system when a task needs attention while the Stave window is not focused."
     },
     "signOffReminder": {
       "title": "Run Sign-off Reminders",

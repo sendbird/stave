@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { buildFleetInbox } from "@/lib/fleet/inbox-model";
 import {
   buildFleetAttentionProjection,
   getFleetAttentionTaskKey,
@@ -267,6 +268,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
 
     return {
       ...projection,
+      inbox: buildFleetInbox({ items: projection.items, notifications }),
       queueStatus: resolveFleetQueueStatus({
         blockingCount: projection.blockingItems.length,
         itemCount: projection.items.length,

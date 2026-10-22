@@ -389,7 +389,12 @@
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "승인 및 입력 요청을 포함하여 현재 기록의 모든 알림을 영구 삭제합니다. 읽지 않은 알림은 유지합니다.",
     "loadMoreCount": "더 불러오기 ({{count}}개 남음)",
     "restoreTask": "{{title}} 작업을 복원하면 알림에서 다시 열 수 있습니다.",
-    "allowOnce": "한 번 허용"
+    "allowOnce": "한 번 허용",
+    "all": "전체",
+    "errors": "오류",
+    "nothingInTheInbox": "받은 항목이 없습니다.",
+    "noErrors": "오류가 없습니다.",
+    "failedRunsAndChecksWillAppear": "실패한 실행, 차단된 실행, 실패한 풀 리퀘스트 검사가 여기에 표시됩니다."
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "독립 CLI — 설정에서 폴더 지정",
@@ -868,7 +873,7 @@
       },
       "fleetClose": {
         "title": "Fleet 보기 닫기",
-        "description": "필터를 지우거나, 필터가 비어 있으면 Fleet 보기를 닫습니다."
+        "description": "한 단계씩 되돌아갑니다. 열린 패널을 닫고, 포커스된 행에서 나오고, 검색을 지운 뒤 Fleet 보기를 닫습니다."
       },
       "issuesNext": {
         "title": "다음 이슈",
@@ -965,6 +970,18 @@
       "fleetRowChoose": {
         "title": "Fleet 질문에 응답",
         "description": "짧은 질문이 있는 Fleet 행에 포커스가 있을 때 해당 번호의 옵션을 선택합니다."
+      },
+      "fleetRowNext": {
+        "title": "다음 받은 항목 행",
+        "description": "Fleet 받은 항목이나 알림 목록의 다음 행으로 이동합니다."
+      },
+      "fleetRowPrevious": {
+        "title": "이전 받은 항목 행",
+        "description": "Fleet 받은 항목이나 알림 목록의 이전 행으로 이동합니다."
+      },
+      "fleetRowOpen": {
+        "title": "받은 항목 행 열기",
+        "description": "포커스된 행을 엽니다. Fleet에서는 제어 패널을, 알림 목록에서는 작업을 엽니다."
       }
     },
     "ui": {

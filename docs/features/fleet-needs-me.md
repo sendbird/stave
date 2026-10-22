@@ -95,7 +95,15 @@ optional shortcuts on top of that.
   or open its row, and a request in another repository is answered with `Open`.
   An answer cannot be undone, and a second answer to the same request is never
   sent.
-- `Open`: goes to the item's task.
+- `Open`: goes to the item's task, the same place the bell opens it (a
+  delegated child's request opens its root task).
+- A dot marks an item whose notification you have not read, the same in the
+  bell. Opening an item with `Open`, here or in the bell, reads it; expanding
+  its row to see its controls does not.
+- With a row focused, `ArrowUp` and `ArrowDown` move between rows and `Enter`
+  opens the row's control panel. `Esc` steps back one level at a time: it
+  closes an open panel, then leaves the focused row, then clears the search,
+  and only then closes Fleet View.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import { describeNotificationRow } from "@/components/layout/top-bar-notifications.utils";
+import { buildFleetInbox } from "@/lib/fleet/inbox-model";
+import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   getDelegatedAttentionRoot,
   resolveNotificationOpenTarget,
@@ -61,11 +62,22 @@ describe("delegated attention", () => {
       kind: "approval", requestId: "approval-1", messageId: "message-1" } });
   });
 
-  test("the notification row reads as the root task and names the child", () => {
-    expect(describeNotificationRow(childApproval())).toEqual({ taskId: "root", title: "Consult two models",
-      detail: "Review cache · Shell: rg cache", workspaceName: "Root workspace" });
-    expect(describeNotificationRow(childApproval({ payload: { toolName: "Shell", description: "rg cache" } }))).toEqual({
-      taskId: "child", title: "Review cache", detail: "Shell: rg cache", workspaceName: "Child workspace" });
+  test("the inbox entry reads as the root task and names the child, in the bell and in Fleet", () => {
+    const describe = (entry: { taskId: string | null; title: string; detail: string | null; workspaceName: string | null }) =>
+      ({ taskId: entry.taskId, title: entry.title, detail: entry.detail, workspaceName: entry.workspaceName });
+    // A notification with no item left (the bell's history).
+    expect(describe(buildFleetInbox({ items: [], notifications: [childApproval()] }).unlinkedEntries[0]!)).toEqual({
+      taskId: "root", title: "Consult two models", detail: "Review cache · Shell: rg cache", workspaceName: "Root workspace" });
+    // Fleet's item for the same request settles on the same title.
+    const item: FleetAttentionItem = { id: "interaction:approval:child-workspace:child:approval-1", kind: "approval", priority: 1,
+      repositoryPath: "/tmp/project", repositoryName: "project", workspaceId: "child-workspace", workspaceName: "Child workspace",
+      taskId: "child", taskTitle: "Review cache", requestId: "approval-1", createdAt: NOW, source: "live", detail: "Shell: rg cache" };
+    const inbox = buildFleetInbox({ items: [item], notifications: [childApproval()] });
+    expect(inbox.unlinkedEntries).toEqual([]);
+    expect(describe(inbox.itemEntries[0]!)).toEqual({
+      taskId: "root", title: "Consult two models", detail: "Review cache · Shell: rg cache", workspaceName: "Root workspace" });
+    expect(describe(buildFleetInbox({ items: [], notifications: [childApproval({ payload: { toolName: "Shell", description: "rg cache" } })] })
+      .unlinkedEntries[0]!)).toEqual({ taskId: "child", title: "Review cache", detail: "Shell: rg cache", workspaceName: "Child workspace" });
   });
 });
 

@@ -28,6 +28,7 @@ import {
   type FleetWorkspaceCardVisibility,
 } from "@/components/layout/FleetWorkspaceCard";
 import { useFleetAttention } from "@/store/fleet-attention-store";
+import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
 import {
   Badge,
   Button,
@@ -219,6 +220,7 @@ export function FleetView() {
   const highestAttentionByWorkspaceId = useFleetAttention(
     (snapshot) => snapshot.highestAttentionByWorkspaceId,
   );
+  const inboxEntryByItemId = useFleetAttention((snapshot) => snapshot.inbox.entryByItemId);
   const queueStatus = useFleetAttention((snapshot) => snapshot.queueStatus);
   const resultReviewError = useFleetAttention((snapshot) => snapshot.resultReviewError);
   const resultReviewTotal = useFleetAttention((snapshot) => snapshot.resultReviewTotal);
@@ -251,6 +253,11 @@ export function FleetView() {
   const [busyAttentionId, setBusyAttentionId] = useState<string | null>(null);
   const [clearingReview, setClearingReview] = useState(false);
   const filterInputRef = useRef<HTMLInputElement>(null);
+  // The Esc handler reads the latest selection without re-subscribing.
+  const selectedAttentionIdRef = useRef(selectedAttentionId);
+  selectedAttentionIdRef.current = selectedAttentionId;
+  const expandedTaskKeyRef = useRef(expandedTaskKey);
+  expandedTaskKeyRef.current = expandedTaskKey;
 
   const allCardKeys = useMemo(
     () =>
@@ -347,12 +354,16 @@ export function FleetView() {
   const openAttentionItem = useCallback(
     (target: FleetAttentionItem) => {
       if (target.taskId) {
+        // Expanding a row shows its controls; it does not open (or read) the
+        // entry. A result stays until it is opened, marked read, or read in
+        // its task.
         setExpandedTaskKey(null);
         setSelectedAttentionId((current) =>
           current === target.id ? null : target.id,
         );
         return;
       }
+      markInboxEntryRead(inboxEntryByItemId.get(target.id));
       // PR-only attention items navigate directly and have no inline control panel. Do
       // not select them: selection widens the rail, which would otherwise stay
       // expanded with no control surface to justify the extra space.
@@ -378,7 +389,29 @@ export function FleetView() {
         );
       });
     },
-    [openNotificationContext, openRepository, switchWorkspace],
+    [inboxEntryByItemId, openNotificationContext, openRepository, switchWorkspace],
+  );
+
+  // A row's Open: the entry's own target, through its notification when one
+  // speaks for it, exactly as the bell opens it.
+  const openAttentionEntry = useCallback(
+    (target: FleetAttentionItem) => {
+      const entry = inboxEntryByItemId.get(target.id);
+      if (!entry) {
+        if (target.taskId) {
+          handleOpenTask({
+            repositoryPath: target.repositoryPath,
+            workspaceId: target.workspaceId,
+            taskId: target.taskId,
+          });
+        }
+        return;
+      }
+      setExpandedTaskKey(null);
+      setSelectedAttentionId(null);
+      void openInboxEntry(entry);
+    },
+    [handleOpenTask, inboxEntryByItemId],
   );
 
   const markNeedRead = useCallback(
@@ -588,12 +621,28 @@ export function FleetView() {
       ) {
         return;
       }
+      // Esc steps back one level at a time: an open panel, then the row
+      // being triaged, then the search, and only then Fleet itself.
       if (event.key === "Escape") {
-        const filterInput = filterInputRef.current;
-        if (
-          document.activeElement === filterInput &&
-          filterInput?.value.trim()
-        ) {
+        if (selectedAttentionIdRef.current || expandedTaskKeyRef.current) {
+          event.preventDefault();
+          const triggerId = selectedAttentionIdRef.current
+            ? `fleet-attention-trigger-${selectedAttentionIdRef.current}`
+            : null;
+          setSelectedAttentionId(null);
+          setExpandedTaskKey(null);
+          if (triggerId) {
+            window.requestAnimationFrame(() => document.getElementById(triggerId)?.focus());
+          }
+          return;
+        }
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active.closest("[data-inbox-entry]")) {
+          event.preventDefault();
+          active.blur();
+          return;
+        }
+        if (filterInputRef.current?.value.trim()) {
           event.preventDefault();
           setSearchQuery("");
           return;
@@ -767,6 +816,7 @@ export function FleetView() {
             snoozedCount={snoozedItems.length}
             clearingReview={clearingReview}
             onOpen={openAttentionItem}
+            onOpenEntry={openAttentionEntry}
             onOpenTask={handleOpenTask}
             onMarkRead={markNeedRead}
             onDismiss={dismissNeed}

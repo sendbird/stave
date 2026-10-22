@@ -392,7 +392,12 @@
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "This permanently removes every notification currently in History, including approval and input requests. Unread notifications remain available.",
     "loadMoreCount": "Load more ({{count}} remaining)",
     "restoreTask": "Restore {{title}} to reopen it from notifications.",
-    "allowOnce": "Allow once"
+    "allowOnce": "Allow once",
+    "all": "All",
+    "errors": "Errors",
+    "nothingInTheInbox": "Nothing in the inbox.",
+    "noErrors": "No errors.",
+    "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here."
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "Standalone CLI — set a folder in Settings",
@@ -874,7 +879,7 @@
       },
       "fleetClose": {
         "title": "Close Fleet View",
-        "description": "Clear the filter, or close Fleet View when it is empty."
+        "description": "Step back one level: close the open panel, leave the focused row, clear the search, then close Fleet View."
       },
       "issuesNext": {
         "title": "Next issue",
@@ -971,6 +976,18 @@
       "fleetRowChoose": {
         "title": "Answer a Fleet question",
         "description": "In a focused Fleet row with a short question, pick the option with that number."
+      },
+      "fleetRowNext": {
+        "title": "Next inbox row",
+        "description": "Move to the next row of Fleet's inbox or the notification list."
+      },
+      "fleetRowPrevious": {
+        "title": "Previous inbox row",
+        "description": "Move to the previous row of Fleet's inbox or the notification list."
+      },
+      "fleetRowOpen": {
+        "title": "Open inbox row",
+        "description": "Open the focused row: its control panel in Fleet, its task from the notification list."
       }
     },
     "ui": {

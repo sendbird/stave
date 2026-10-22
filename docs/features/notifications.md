@@ -22,8 +22,18 @@ Stave keeps the 50 most recent notifications and deletes older ones automaticall
 
 - Click the bell icon in the top bar.
 - A badge shows how many unread items you have.
-- Unread items sit in the main inbox.
-- Items you read move into a history view but stay available.
+- The bell holds the same inbox as [Fleet View](fleet-needs-me.md), drawn with
+  the same rows: every request, failure, result and pull request item Fleet
+  lists, plus notifications that no longer have an item behind them. An item
+  reads and is read the same in both places.
+- `All` lists the whole inbox, `Unread` the items you have not opened, and
+  `Errors` the failures: failed and blocked runs, stuck stages, and pull
+  requests with failing checks, requested changes or conflicts. `History` keeps
+  every notification you have read, and `Clear history` removes them.
+- Opening an item reads it, in the bell or in Fleet. `Mark read` reads it
+  without opening, and `Mark all read` reads everything.
+- With a row focused, `ArrowUp` and `ArrowDown` move between rows and `Enter`
+  opens one.
 
 ## Respond To Approvals
 
@@ -40,6 +50,13 @@ If you prefer, the task itself also shows a pending-approval card above the comp
 - Click a notification.
 - Stave switches to the right repository, workspace, and task.
 - If the task was archived, Stave asks you to restore it before reopening.
+
+## System Notifications
+
+With `Settings > General > Desktop Notifications > Native Notifications` on,
+Stave also notifies you through the operating system, but only while its window
+is not focused. While you are in Stave, the bell, the in-app toast and the sound
+already say it, whichever workspace the notification belongs to.
 
 ## Notification Sound
 

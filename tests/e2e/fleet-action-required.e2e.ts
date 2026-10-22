@@ -658,3 +658,160 @@ test("answers a question and two approvals across three workspaces from Fleet ro
     answers: { "Which audience should the guide target?": "Maintainers" },
   });
 });
+
+test("the bell and Fleet share one inbox: one read state, and ten requests answered from the keyboard", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    const repositoryPath = "/tmp/stave-fleet-inbox";
+    const workspace = { id: "ws-inbox", name: "inbox", updatedAt: "2026-10-22T01:00:00.000Z" };
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify([{ ...workspace, snapshot: { activeTaskId: "", tasks: [], messagesByTask: {} } }]),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath,
+          repositoryName: "stave-fleet-inbox",
+          workspaces: [workspace],
+          activeWorkspaceId: workspace.id,
+          workspaceBranchById: { [workspace.id]: "main" },
+          workspacePathById: { [workspace.id]: repositoryPath },
+          workspaceDefaultById: { [workspace.id]: true },
+          activeTaskId: "",
+          tasks: [],
+          messagesByTask: {},
+        },
+        version: 0,
+      }),
+    );
+    // A finished turn nobody has read yet: the same entry in the bell and Fleet.
+    window.localStorage.setItem(
+      "stave:notifications-fallback:v1",
+      JSON.stringify([
+        {
+          id: "notification-result",
+          kind: "task.turn_completed",
+          title: "Summarize the release",
+          body: "The provider turn completed.",
+          repositoryPath,
+          repositoryName: "stave-fleet-inbox",
+          workspaceId: workspace.id,
+          workspaceName: workspace.name,
+          taskId: "task-summary",
+          taskTitle: "Summarize the release",
+          turnId: "turn-summary",
+          providerId: "codex",
+          action: null,
+          payload: {},
+          createdAt: "2026-10-22T00:50:00.000Z",
+          readAt: null,
+          resolvedAt: null,
+          expiresAt: null,
+        },
+      ]),
+    );
+    const sent: unknown[] = [];
+    (window as unknown as { __fleetAnswers: unknown[] }).__fleetAnswers = sent;
+    (window as unknown as { api?: Record<string, unknown> }).api = {
+      provider: {
+        streamTurn: async () => [],
+        respondApproval: async (args: unknown) => {
+          sent.push(args);
+          return { ok: true };
+        },
+      },
+      terminal: {
+        runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }),
+      },
+      sourceControl: {
+        getStatus: async () => ({ ok: true, branch: "main", items: [], hasConflicts: false, stderr: "" }),
+        getHistory: async () => ({ ok: true, items: [], stderr: "" }),
+      },
+    };
+  });
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  // Ten tasks, each blocked on an approval in a running turn.
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const ids = Array.from({ length: 10 }, (_, index) => index + 1);
+    useAppStore.setState({
+      tasks: ids.map((index) => ({
+        id: `task-${index}`,
+        title: `Release step ${index}`,
+        provider: "codex" as const,
+        updatedAt: "2026-10-22T01:00:00.000Z",
+        unread: false,
+        archivedAt: null,
+      })),
+      activeTaskId: "task-1",
+      messagesByTask: Object.fromEntries(
+        ids.map((index) => [
+          `task-${index}`,
+          [
+            {
+              id: `message-${index}`,
+              role: "assistant" as const,
+              model: "gpt-5.5",
+              providerId: "codex" as const,
+              content: "",
+              turnId: `turn-${index}`,
+              parts: [
+                {
+                  type: "approval" as const,
+                  requestId: `approval-${index}`,
+                  toolName: "Bash",
+                  description: `Run release step ${index}`,
+                  state: "approval-requested" as const,
+                },
+              ],
+            },
+          ],
+        ]),
+      ),
+      activeTurnIdsByTask: Object.fromEntries(ids.map((index) => [`task-${index}`, `turn-${index}`])),
+    } as never);
+  });
+  await page.getByTestId("top-bar").getByRole("button", { name: "Open Fleet View" }).click();
+  const needs = page.getByRole("region", { name: "Action required" });
+  const rows = needs.locator("[data-fleet-attention-row]");
+  await expect(rows).toHaveCount(10);
+
+  // One read state: unread in Fleet and in the bell, read in both after the bell.
+  const reviewToggle = needs.getByRole("button", { name: /In review/ });
+  await reviewToggle.click();
+  const fleetResult = needs.locator('[data-inbox-entry^="turn:result-ready"]');
+  await expect(fleetResult).toHaveAttribute("data-unread", "true");
+  await page.getByRole("button", { name: "notifications" }).click();
+  const bell = page.getByRole("dialog").filter({ hasText: "Notifications" });
+  const bellResult = bell.locator('[data-inbox-entry^="turn:result-ready"]');
+  await expect(bellResult).toHaveAttribute("data-unread", "true");
+  await bellResult.getByRole("button", { name: "Mark read" }).click();
+  await expect(fleetResult).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  // Keyboard only: focus the first row, then Down / Up move between rows and
+  // A allows each request once; focus moves on after every answer.
+  const triggerIds = await rows.evaluateAll((elements) =>
+    elements.map((element) => element.querySelector("[data-inbox-trigger]")?.id ?? ""),
+  );
+  const focusedId = () => page.evaluate(() => document.activeElement?.id ?? "");
+  await rows.first().locator("[data-inbox-trigger]").focus();
+  await page.keyboard.press("ArrowDown");
+  await expect.poll(focusedId).toBe(triggerIds[1]);
+  await page.keyboard.press("ArrowUp");
+  await expect.poll(focusedId).toBe(triggerIds[0]);
+  for (let answered = 0; answered < 10; answered += 1) {
+    await page.keyboard.press("a");
+    await expect(rows).toHaveCount(9 - answered);
+  }
+  await expect(needs).toContainText("No action required");
+  const sent = await page.evaluate(
+    () => (window as unknown as { __fleetAnswers: unknown[] }).__fleetAnswers,
+  );
+  expect(sent).toHaveLength(10);
+});

@@ -17,7 +17,8 @@
     "clearOneInReview": "리뷰 대기 항목 1개 지우기",
     "clearAllInReview": "리뷰 대기 항목 {{reviewCount}}개 모두 지우기",
     "noActionRequired": "조치가 필요한 항목 없음",
-    "noAgentIsWaitingOnYou": "현재 응답을 기다리는 에이전트가 없습니다."
+    "noAgentIsWaitingOnYou": "현재 응답을 기다리는 에이전트가 없습니다.",
+    "rowLabelNoWorkspace": "{{title}} 작업: {{action}}"
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "활성 턴에 응답으로 방향을 조정했습니다.",
@@ -226,5 +227,8 @@
     "running": "{{duration}}째 실행 중",
     "waiting": "{{duration}}째 대기 중",
     "quiet": "{{duration}}째 업데이트 없음"
+  },
+  "inbox": {
+    "unreadLabel": "{{label}}, 읽지 않음"
   }
 }

@@ -5,7 +5,7 @@ import { ToolApprovalCard } from "@/components/session/ToolApprovalCard";
 import { Button, Kbd } from "@/components/ui";
 import { buildShortQuestionAnswers } from "@/lib/fleet/inline-interaction";
 import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
-import { attentionStyles as styles } from "./fleet-attention-inbox.styles";
+import { inboxRowStyles as styles } from "./inbox-row.styles";
 import type { FleetRowInteraction } from "./useFleetRowInteraction";
 
 /** A field that takes typed text; its keys are letters, not answers. */

@@ -56,7 +56,7 @@
     "description": "작업 완료, 승인, 입력 요청, 실행 승인 대기를 운영체제 알림으로 표시합니다.",
     "native": {
       "title": "시스템 알림",
-      "description": "활성 워크스페이스 밖에서 작업에 주의가 필요할 때 알립니다."
+      "description": "Stave 창에 포커스가 없을 때 작업에 주의가 필요하면 운영체제 알림으로 알립니다."
     },
     "signOffReminder": {
       "title": "실행 승인 미리 알림",

@@ -1072,7 +1072,8 @@
       "projectAttention": "확인이 필요한 프로젝트: {{value1}}",
       "editWorkspaceLabel": "워크스페이스 이름 편집: {{value1}}",
       "workspaceActions": "워크스페이스 작업: {{value1}}"
-    }
+    },
+    "unansweredCount_other": "답변을 기다리는 요청 {{count}}개"
   },
   "workspaceInformationReferenceChip": {
     "section": "섹션",
