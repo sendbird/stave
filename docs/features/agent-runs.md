@@ -308,6 +308,13 @@ omitted. A bound Run script action checks its admitted definition before executi
 and accepts a successful result only when its receipt names that same definition.
 Other action stages cannot require a workspace script check. At admission, AI-stage `stave-check` criteria in custom and saved workflows also bind the configured action definitions; an existing default criterion is upgraded in place without changing `required: false`. Explicit `scriptIds` restrict the accepted actions; omitting them accepts any configured action. Missing action IDs, no configured actions for an explicit check, and delegated runs with AI-stage `stave-check` criteria are refused at start because those checks cannot be executed.
 
+A workspace check is met by any one of its actions that passes on the final
+revision. Wherever Stave shows such a criterion (Done when on the result, the
+Run panel's checks and the sign-off card's summary), it adds how many of the
+criterion's actions passed and which ones, for example
+`Stave checks: 1 of 3 passed (setup)`, so a passing setup action is never
+read as passing tests.
+
 Read-only Agents cannot execute host action stages. Pausing, taking over,
 cancelling or releasing the Agent withdraws permission for further work as soon
 as the request arrives, including while the host is still reading task state.

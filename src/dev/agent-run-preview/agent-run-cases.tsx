@@ -246,6 +246,10 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
         <p className={sx(styles.caption)}>Conversation · Result card, ready</p>
         <AgentRunResultCardView detail={runs.ready} now={now} actions={runActions} />
       </section>
+      <section className={sx(styles.case)} data-preview-case="Agent run result checks">
+        <p className={sx(styles.caption)}>Conversation · Result card, a three-action workspace check met by setup alone</p>
+        <AgentRunResultCardView detail={withPartlyPassedChecks(runs.ready)} now={now} actions={runActions} />
+      </section>
       <section className={sx(styles.case)} data-preview-case="Agent run failed">
         <p className={sx(styles.caption)}>Conversation · reason card, stopped at its turn limit</p>
         <AgentRunResultCardView detail={runs.failed} now={now} actions={runActions} />
@@ -265,6 +269,8 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run panel blocked", "Progress tab · Halted · blocked", working.blocked, null],
           ["Agent run panel stuck", "Progress tab · Halted · stuck (the bar has Retry)", working.stuck, null],
           ["Agent run panel ready", "Progress tab · Completed", runs.ready, null],
+          ["Agent run panel checks", "Progress tab · Completed · workspace check met by setup alone", withPartlyPassedChecks(runs.ready), null],
+          ["Agent run panel legacy checks", "Progress tab · legacy workflow run · workspace check met by setup alone", { ...withPartlyPassedChecks(runs.ready), agentRun: { ...withPartlyPassedChecks(runs.ready).agentRun, origin: undefined } }, null],
           ["Agent run panel failed", "Progress tab · Stopped at its turn limit", runs.failed, null],
           ["Agent run panel stopped", "Progress tab · Stopped by you", runs.stopped, null],
         ] as const
@@ -335,3 +341,35 @@ const styles = stylex.create({
   },
   fleetHeader: { display: "flex", flexDirection: "column", gap: 2, padding: vars["--ads-space-12"], fontSize: vars["--ads-font-size-body"] },
 });
+
+/**
+ * The ready run with a `lint`/`setup`/`test` workspace check on its last AI
+ * stage, met by `setup` alone: the case where "checks pass" must say which one.
+ */
+function withPartlyPassedChecks(detail: AgentRunDetail): AgentRunDetail {
+  const run = structuredClone(detail);
+  const revision = { status: "known" as const, revision: "preview" };
+  const scripts = ["lint", "setup", "test"];
+  const definitions = scripts.map((scriptId, index) => ({ scriptId, definitionHash: String(index).repeat(64) }));
+  const text = "Workspace checks pass (lint, setup, test)";
+  const stage = run.agentRun.workflow.stages.findLast((candidate) => candidate.kind === "ai");
+  const record = stage ? run.stages.findLast((candidate) => candidate.stageId === stage.id) : undefined;
+  if (stage?.kind !== "ai" || record?.report?.outcome !== "complete") return run;
+  stage.acceptanceCriteria = [{ text, required: true, verification: "stave-check", scriptIds: scripts, scriptDefinitions: definitions }];
+  record.report = { ...record.report, workspaceRevision: revision, acceptanceCriteria: [{ text, status: "met" }] };
+  record.facts = {
+    ...record.facts!,
+    workspaceRevision: revision,
+    workspaceScripts: scripts.map((scriptId, index) => ({
+      source: "stave" as const,
+      type: "run-script" as const,
+      scriptId,
+      definitionHash: definitions[index]!.definitionHash,
+      exitCode: scriptId === "setup" ? 0 : 1,
+      durationMs: 1200,
+      outputTail: "",
+      verification: { sourceRevision: revision, completedRevision: revision },
+    })),
+  };
+  return run;
+}

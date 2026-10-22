@@ -71,6 +71,7 @@ import {
 import {
   buildAssistantTrace,
   joinReasoningText,
+  traceHasToolStep,
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
 import { CommandResult } from "./command-result";
@@ -561,6 +562,9 @@ function AssistantTraceEntryView(args: {
       return (
         <StepRail.Step
           connector={!isLast}
+          /* Anchor for Turn Activity's "show in conversation" jump. */
+          data-tool-use-id={entry.part.toolUseId}
+          tabIndex={entry.part.toolUseId ? -1 : undefined}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
           <ToolRun
@@ -780,6 +784,8 @@ export function AssistantMessageBody(args: {
    * diff and Open in Editor, without Accept or Reject.
    */
   readOnly?: boolean;
+  /** The tool step the transcript is jumping to: its trace opens to show it. */
+  revealToolUseId?: string;
 }) {
   useTranslation();
   const {
@@ -790,6 +796,7 @@ export function AssistantMessageBody(args: {
     traceExpansionMode = "auto",
     showInterimMessages = false,
     readOnly = false,
+    revealToolUseId,
   } = args;
   const isActivelyStreaming = Boolean(message.isStreaming);
   const isStreaming = streamingEnabled && isActivelyStreaming;
@@ -811,6 +818,10 @@ export function AssistantMessageBody(args: {
     });
   }, [message.displayParts, message.parts, message.terminalStopReason]);
   const trace = useMemo(() => buildAssistantTrace({ message }), [message, i18n.language]);
+  const revealsStep = useMemo(
+    () => revealToolUseId !== undefined && traceHasToolStep(trace.entries, revealToolUseId),
+    [revealToolUseId, trace.entries],
+  );
 
   const summaryItems = useMemo(
     () => buildTraceSummary(trace.entries),
@@ -908,7 +919,8 @@ export function AssistantMessageBody(args: {
           }
           openWhen={
             hasActionableCapacityFailure ||
-            (shouldAutoExpandTrace && isStreaming)
+            (shouldAutoExpandTrace && isStreaming) ||
+            revealsStep
           }
           collapseWhen={
             !hasActionableCapacityFailure &&

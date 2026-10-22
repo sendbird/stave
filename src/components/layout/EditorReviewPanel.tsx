@@ -1,20 +1,34 @@
 import { i18n, useTranslation } from "@/i18n";
 import { MessageSquarePlus, Trash2, X } from "lucide-react";
-import type { KeyboardEvent, MouseEvent } from "react";
+import { useEffect, useRef, type KeyboardEvent, type MouseEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { editorReviewPanelStyles as styles } from "@/components/layout/editor-review-panel.styles";
 import { Button, Kbd, Textarea } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
+import type { SentReviewCommentState, SentReviewCommentView } from "@/lib/sent-review-comments";
+import type { I18nKey } from "@/i18n";
+
+const SENT_STATE_LABEL_KEYS = {
+  changed: "editor:editorReviewPanel.sentLinesChanged",
+  unchanged: "editor:editorReviewPanel.sentNotChanged",
+  unknown: "editor:editorReviewPanel.sent",
+} as const satisfies Record<SentReviewCommentState, I18nKey>;
 
 function stopEditorMouseEvent(event: MouseEvent<HTMLElement>) {
   event.stopPropagation();
 }
 
+/** Frames to keep offering focus to a new draft while its zone appears. */
+const DRAFT_FOCUS_MAX_FRAMES = 10;
+
 export function EditorReviewPanel(args: {
   line: number;
   draft: ReviewCommentDraft | null;
   comments: ReviewComment[];
+  /** Comments already sent to the agent on this line. */
+  sentComments?: readonly SentReviewCommentView[];
+  onResolveSentComment?: (commentId: string) => void;
   onStartDraft: () => void;
   onDraftBodyChange: (body: string) => void;
   onCancelDraft: () => void;
@@ -22,6 +36,31 @@ export function EditorReviewPanel(args: {
   onRemoveComment: (commentId: string) => void;
 }) {
   useTranslation();
+  const sentComments = args.sentComments ?? [];
+  const draftInputRef = useRef<HTMLTextAreaElement | null>(null);
+  const hasDraft = Boolean(args.draft);
+  // Monaco adds a view zone hidden and shows it on its next frame, so focus on
+  // mount lands nowhere and typing would go into the file. Offer focus to the
+  // draft until it can take it.
+  useEffect(() => {
+    if (!hasDraft) {
+      return;
+    }
+    let frame = 0;
+    let attempts = 0;
+    const focusDraft = () => {
+      const input = draftInputRef.current;
+      if (!input) {
+        return;
+      }
+      input.focus({ preventScroll: true });
+      if (input.ownerDocument.activeElement !== input && ++attempts < DRAFT_FOCUS_MAX_FRAMES) {
+        frame = requestAnimationFrame(focusDraft);
+      }
+    };
+    frame = requestAnimationFrame(focusDraft);
+    return () => cancelAnimationFrame(frame);
+  }, [hasDraft]);
   const handleDraftKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
     event.stopPropagation();
     if (event.key === "Escape") {
@@ -50,6 +89,8 @@ export function EditorReviewPanel(args: {
           <span className={sx(styles.headerTitle)}>{i18n.t("editor:editorReviewPanel.reviewComment")}</span>
           {args.comments.length > 0 ? (
             <span className={sx(styles.headerMeta)}>{i18n.t("editor:editorReviewPanel.commentCount", { count: args.comments.length })}</span>
+          ) : sentComments.length > 0 && !args.draft ? (
+            <span className={sx(styles.headerMeta)}>{i18n.t("editor:editorReviewPanel.sentCount", { count: sentComments.length })}</span>
           ) : (
             <span className={sx(styles.headerMeta)}>{i18n.t("editor:editorReviewPanel.newComment")}</span>
           )}
@@ -101,10 +142,35 @@ export function EditorReviewPanel(args: {
         </div>
       ) : null}
 
+      {sentComments.length > 0 ? (
+        <div className={sx(styles.commentList)}>
+          {sentComments.map(({ comment, state }) => (
+            <div key={comment.id} className={sx(styles.commentRow, styles.sentRow)}>
+              <div className={sx(styles.sentBody)}>
+                <span className={sx(styles.sentState, state === "changed" && styles.sentStateChanged)}>
+                  {i18n.t(SENT_STATE_LABEL_KEYS[state])}
+                </span>
+                <p className={sx(styles.commentBody)}>{comment.body}</p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                xstyle={styles.resolveButton}
+                onClick={() => args.onResolveSentComment?.(comment.id)}
+                aria-label={i18n.t("editor:editorReviewPanel.resolveSentCommentOnLine", { value1: args.line })}
+              >
+                {i18n.t("editor:editorReviewPanel.resolve")}
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {args.draft ? (
         <div className={sx(styles.draft)}>
           <Textarea
-            autoFocus
+            ref={draftInputRef}
             value={args.draft.body}
             onChange={(event) => args.onDraftBodyChange(event.target.value)}
             onKeyDown={handleDraftKeyDown}

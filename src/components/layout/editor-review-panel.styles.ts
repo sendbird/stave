@@ -73,6 +73,11 @@ export const editorReviewPanelStyles = stylex.create({
     padding: 0,
   },
   commentList: { display: "flex", flexDirection: "column" },
+  sentRow: { alignItems: "center" },
+  sentBody: { display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 1, gap: 2, minWidth: 0 },
+  sentState: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"], fontWeight: vars["--ads-font-weight-medium"] },
+  sentStateChanged: { color: vars["--ads-color-info-text"] },
+  resolveButton: { flexShrink: 0 },
   commentRow: {
     alignItems: "flex-start",
     borderTopColor: vars["--ads-color-border"],

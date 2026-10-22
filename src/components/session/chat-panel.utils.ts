@@ -503,6 +503,46 @@ export function findMessageIndexByToolUseId(args: {
   return -1;
 }
 
+/**
+ * How many older pages a Turn Activity row may load while looking for its
+ * tool call. A page is `TASK_MESSAGES_PAGE_SIZE` messages.
+ */
+export const TRANSCRIPT_REVEAL_MAX_PAGES = 10;
+
+/**
+ * Frames to wait for a revealed step to mount before giving up on focus
+ * (about 1.5 s at 60 Hz): a smooth scroll has to reach a far row, and the
+ * row's trace has to open.
+ */
+export const TRANSCRIPT_STEP_FOCUS_MAX_FRAMES = 90;
+
+export type TranscriptRevealStep =
+  | "reveal"
+  | "wait"
+  | "load-older"
+  | "not-found"
+  | "page-limit";
+
+/**
+ * The next step for a Turn Activity row asking the transcript to show its tool
+ * call. A call outside the loaded window pages older messages in, one page at a
+ * time and at most `maxPages`, instead of waiting for a load nobody starts.
+ * Every step except `wait` and `load-older` ends the request.
+ */
+export function decideTranscriptReveal(args: {
+  found: boolean;
+  loading: boolean;
+  hasOlderMessages: boolean;
+  pagesLoaded: number;
+  maxPages: number;
+}): TranscriptRevealStep {
+  if (args.found) return "reveal";
+  if (args.loading) return "wait";
+  if (!args.hasOlderMessages) return "not-found";
+  if (args.pagesLoaded >= args.maxPages) return "page-limit";
+  return "load-older";
+}
+
 export function summarizeReplayOnlyToolParts(parts: MessagePart[]): ReplayOnlyToolSummary {
   const counts = new Map<string, number>();
   let totalActions = 0;

@@ -123,6 +123,8 @@
     "exitedWithCode": "Exited ({{code}})"
   },
   "editorSurfaceToolbar": {
+    "sendThisFileReviewComments_one": "Send only this file's comment",
+    "sendThisFileReviewComments_other": "Send only this file's {{count}} comments",
     "saveCtrlS": "Save (Ctrl S)",
     "backToEdit": "Back to Edit",
     "viewDiff": "View Diff",

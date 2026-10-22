@@ -198,6 +198,36 @@ describe("review comment store actions", () => {
     ).toBeUndefined();
   });
 
+  test("sends only one file's comments when asked, and remembers what was sent", async () => {
+    const { useSentReviewCommentsStore } = await import("../src/store/sent-review-comments-store");
+    useSentReviewCommentsStore.setState({ byTask: {} });
+    let sentContent = "";
+    useAppStore.setState({
+      reviewCommentsByTask: {
+        "task-1": [
+          { id: "comment-a", filePath: "src/a.ts", line: 2, side: "modified", body: "Rename this.", createdAt: "2026-06-18T01:00:00.000Z" },
+          { id: "comment-b", filePath: "src/b.ts", line: 1, side: "modified", body: "Not yet.", createdAt: "2026-06-18T01:01:00.000Z" },
+        ],
+      },
+      editorTabs: [
+        { id: "tab-a", filePath: "src/a.ts", language: "typescript", content: "line one\nline two\nline three\n", hasConflict: false, isDirty: false },
+      ],
+      sendUserMessage: async (args) => {
+        sentContent = args.content;
+        return { status: "queued", taskId: "task-1", workspaceId: "workspace-1" };
+      },
+    });
+
+    await useAppStore.getState().submitReviewFeedback({ taskId: "task-1", filePath: "src/a.ts" });
+
+    expect(sentContent).toContain("Rename this.");
+    expect(sentContent).not.toContain("Not yet.");
+    expect(useAppStore.getState().reviewCommentsByTask["task-1"]?.map((entry) => entry.id)).toEqual(["comment-b"]);
+    const sent = useSentReviewCommentsStore.getState().byTask["task-1"] ?? [];
+    expect(sent.map((entry) => entry.comment.id)).toEqual(["comment-a"]);
+    expect(sent[0]?.anchor).toEqual(["line one", "line two", "line three"]);
+  });
+
   test("keeps comments when feedback dispatch is blocked", async () => {
     useAppStore.setState({
       reviewCommentsByTask: {

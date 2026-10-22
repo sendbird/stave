@@ -8,20 +8,26 @@ import { createDiffReviewLineHoverController } from "@/components/layout/editor-
 import {
   buildDiffReviewThreads,
   registerDiffReviewCommentAction,
+  registerDiffReviewSendAction,
   type DiffReviewThread,
 } from "@/components/layout/editor-diff-review";
+import type { SentReviewCommentView } from "@/lib/sent-review-comments";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 
 type MonacoNamespace = typeof import("monaco-editor");
 
 export interface DiffReviewControllerUpdate {
   comments: ReviewComment[];
+  sentComments: readonly SentReviewCommentView[];
   draft: ReviewCommentDraft | null;
   onStartDraft: (line: number) => void;
   onDraftBodyChange: (body: string) => void;
   onCancelDraft: () => void;
   onSubmitDraft: () => void;
   onRemoveComment: (commentId: string) => void;
+  onResolveSentComment: (commentId: string) => void;
+  /** Send the task's pending comments, as the toolbar's Send review does. */
+  onSendReview: () => void;
 }
 
 export interface DiffReviewController {
@@ -69,6 +75,8 @@ function DiffReviewZone(args: {
         line={args.thread.line}
         draft={args.thread.draft}
         comments={args.thread.comments}
+        sentComments={args.thread.sent}
+        onResolveSentComment={args.update.onResolveSentComment}
         onStartDraft={() => args.update.onStartDraft(args.thread.line)}
         onDraftBodyChange={args.update.onDraftBodyChange}
         onCancelDraft={args.update.onCancelDraft}
@@ -125,6 +133,7 @@ function createReviewZoneManager(args: {
       const lineCount = args.editor.getModel()?.getLineCount() ?? 0;
       const threads = buildDiffReviewThreads({
         comments: update.comments,
+        sentComments: update.sentComments,
         draft: update.draft,
         lineCount,
       });
@@ -185,6 +194,11 @@ export function createDiffReviewController(args: {
     monaco: args.monaco,
     onAddComment: (line) => currentUpdate?.onStartDraft(line),
   });
+  const sendAction = registerDiffReviewSendAction({
+    editor,
+    monaco: args.monaco,
+    onSend: () => currentUpdate?.onSendReview(),
+  });
   const action = registerDiffReviewCommentAction({
     editor,
     onAddComment: (target) => {
@@ -201,6 +215,7 @@ export function createDiffReviewController(args: {
       zones.update(update);
       const threadLines = buildDiffReviewThreads({
         comments: update.comments,
+        sentComments: update.sentComments,
         draft: update.draft,
         lineCount: editor.getModel()?.getLineCount() ?? 0,
       }).map((thread) => thread.line);
@@ -208,6 +223,7 @@ export function createDiffReviewController(args: {
     },
     dispose() {
       currentUpdate = null;
+      sendAction.dispose();
       action.dispose();
       lineHover.dispose();
       zones.dispose();

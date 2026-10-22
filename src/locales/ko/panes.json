@@ -123,6 +123,7 @@
     "exitedWithCode": "종료됨 ({{code}})"
   },
   "editorSurfaceToolbar": {
+    "sendThisFileReviewComments_other": "이 파일의 코멘트 {{count}}개만 보내기",
     "saveCtrlS": "저장 (Ctrl S)",
     "backToEdit": "편집으로 돌아가기",
     "viewDiff": "비교 보기",

@@ -867,7 +867,9 @@ export function ConversationVirtualList<T>(
         }
         rafIds.push(
           requestAnimationFrame(() => {
-            if (getDistanceFromBottom(containerEl) > AT_BOTTOM_THRESHOLD) {
+            if (!stickToBottomRef.current) {
+              stopForScrollIntent();
+            } else if (getDistanceFromBottom(containerEl) > AT_BOTTOM_THRESHOLD) {
               runSync(attempt + 1);
             } else {
               finishRestore();
@@ -876,7 +878,23 @@ export function ConversationVirtualList<T>(
         );
       };
 
-      rafIds.push(requestAnimationFrame(() => runSync(1)));
+      // A wheel, key or scrollbar gesture, or an explicit jump such as the
+      // turn rail's, turns following off between frames. The sync must not
+      // pull the transcript back down after that.
+      const stopForScrollIntent = () => {
+        isRestoringRef.current = false;
+        debugConversationScroll("container-bottom-sync-stopped", { reason });
+      };
+
+      rafIds.push(
+        requestAnimationFrame(() => {
+          if (stickToBottomRef.current) {
+            runSync(1);
+          } else {
+            stopForScrollIntent();
+          }
+        }),
+      );
     };
 
     const restoreToBottom = (reason: string) => {

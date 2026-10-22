@@ -221,6 +221,18 @@ export function buildAssistantTrace(args: {
   };
 }
 
+/**
+ * Whether the trace draws a row for this tool call: a tool, subagent or plan
+ * row, the anchors a Turn Activity jump lands on.
+ */
+export function traceHasToolStep(entries: readonly AssistantTraceEntry[], toolUseId: string): boolean {
+  return entries.some(
+    (entry) =>
+      (entry.kind === "tool" || entry.kind === "subagent" || entry.kind === "todo") &&
+      entry.part.toolUseId === toolUseId,
+  );
+}
+
 export function joinReasoningText(parts: ThinkingPart[]) {
   return parts.map((part) => part.text).join("");
 }

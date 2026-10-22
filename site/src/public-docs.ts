@@ -249,6 +249,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Review local changes or a task's latest answer in a separate read-only task on the model you pick, then attach only the findings.",
       },
       {
+        routePath: "diff-review-comments",
+        sourcePath: "docs/features/diff-review-comments.md",
+        title: "Diff Review Comments",
+        description:
+          "Comment on changed lines in a diff, send them to the agent, and see which commented lines changed afterwards.",
+      },
+      {
         routePath: "review-prompts",
         sourcePath: "docs/features/review-prompts.md",
         title: "Review Prompt Rubrics",

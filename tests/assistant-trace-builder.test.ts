@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildAssistantTrace, joinReasoningText } from "@/components/session/message/assistant-trace-builder";
+import { buildAssistantTrace, joinReasoningText, traceHasToolStep } from "@/components/session/message/assistant-trace-builder";
 import type { ChatMessage } from "@/types/chat";
 
 function createAssistantMessage(args: Partial<Pick<ChatMessage, "content" | "parts" | "isStreaming">>): Pick<ChatMessage, "content" | "parts" | "isStreaming"> {
@@ -245,4 +245,29 @@ test("plan rows retain their worker's identity instead of reading as the lead's 
     { type: "tool_use", toolName: "TodoWrite", ownerAgentId: "unknown", input: '{"todos":[]}', state: "output-available" },
   ] }) });
   expect(trace.entries.flatMap((entry) => entry.kind === "todo" ? [entry.title] : [])).toEqual(["Plan", "Reviewer · Plan", "Reviewer · Plan", "Subagent · Plan"]);
+});
+
+describe("traceHasToolStep", () => {
+  const trace = buildAssistantTrace({
+    message: createAssistantMessage({
+      parts: [
+        { type: "tool_use", toolUseId: "shell-1", toolName: "Bash", input: "bun test", state: "output-available" },
+        { type: "tool_use", toolUseId: "plan-1", toolName: "TodoWrite", input: '{"todos":[]}', state: "output-available" },
+        { type: "tool_use", toolUseId: "agent-1", toolName: "Task", input: '{"description":"Review"}', state: "output-available" },
+        { type: "tool_use", toolUseId: "question-1", toolName: "AskUserQuestion", input: '{"questions":[]}', state: "output-available" },
+        { type: "user_input", requestId: "question-1", toolName: "AskUserQuestion", questions: [], answers: {}, state: "input-responded" },
+      ],
+    }),
+  });
+
+  test("finds the tool, plan and subagent rows a Turn Activity jump can land on", () => {
+    expect(traceHasToolStep(trace.entries, "shell-1")).toBe(true);
+    expect(traceHasToolStep(trace.entries, "plan-1")).toBe(true);
+    expect(traceHasToolStep(trace.entries, "agent-1")).toBe(true);
+  });
+
+  test("does not claim a call the trace draws as something else, or one it lacks", () => {
+    expect(traceHasToolStep(trace.entries, "question-1")).toBe(false);
+    expect(traceHasToolStep(trace.entries, "missing")).toBe(false);
+  });
 });
