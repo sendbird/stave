@@ -1,5 +1,6 @@
 import { i18n } from "@/i18n/runtime";
 import type { AppSettings } from "@/store/app.store";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export type ProviderModePresetId = "manual" | "guided" | "auto";
 export type ProviderModeDisplayId = ProviderModePresetId | "custom";
@@ -50,7 +51,7 @@ export interface ProviderModePresentation {
   label: string;
   description: string;
   detail: string;
-  tone: "default" | "accent" | "warning";
+  tone: Extract<Tone, "neutral" | "accent" | "warning">;
 }
 
 export const CLAUDE_PROVIDER_MODE_PRESETS = [
@@ -284,7 +285,7 @@ function toPresentation(args: {
         ? "accent"
         : preset.id === "auto"
           ? "warning"
-          : "default",
+          : "neutral",
   };
 }
 

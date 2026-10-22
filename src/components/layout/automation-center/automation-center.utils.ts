@@ -12,6 +12,7 @@ import {
   resolveCurrentRepositoryDefaultWorkspaceId,
   type RecentRepositoryState,
 } from "@/store/repository.utils";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export interface AutomationEnvironmentOption {
   value: string;
@@ -188,13 +189,10 @@ export function formatRunDuration(run: AutomationRun, now = Date.now()) {
  * tones use. Values only: this module stays free of styling so a worker, a
  * test, or a menu can import it without pulling in a stylesheet.
  */
-export type AutomationRunTone =
-  | "neutral"
-  | "accent"
-  | "info"
-  | "warning"
-  | "success"
-  | "danger";
+export type AutomationRunTone = Extract<
+  Tone,
+  "neutral" | "accent" | "info" | "warning" | "success" | "danger"
+>;
 
 export interface AutomationRunStatusPresentation {
   label: string;

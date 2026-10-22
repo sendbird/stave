@@ -8,6 +8,7 @@ import type {
   TrackerPriorityLevel,
   TrackerStatusCategory,
 } from "@/lib/tracker-issues/types";
+import type { Tone } from "@/components/ads/utils/tone";
 
 /**
  * Presentation mapping for the tracker list.
@@ -25,7 +26,7 @@ import type {
  */
 export const TRACKER_STATUS_PRESENTATION: Record<
   TrackerStatusCategory,
-  { label: string; tone: "neutral" | "info" | "warning" }
+  { label: string; tone: Extract<Tone, "neutral" | "info" | "warning"> }
 > = {
   todo: {
     get label() { return i18n.t("issues:presentation.toDo"); },
@@ -54,6 +55,13 @@ export type TrackerPriorityIconName =
   "ChevronsUp" | "ChevronUp" | "Equal" | "ChevronDown" | "Minus";
 
 /**
+ * The ink a priority is drawn in: danger and warning for the urgent levels,
+ * then three steps of plain text (full, muted, subtle) for medium, low and
+ * none. `subtle` is a text emphasis step below `muted`, not a tone.
+ */
+export type TrackerPriorityInk = Extract<Tone, "danger" | "warning" | "neutral" | "muted"> | "subtle";
+
+/**
  * Priority glyph and tone.
  *
  * Only the top two levels get a colour: if every row is coloured, none of them
@@ -64,7 +72,7 @@ export const TRACKER_PRIORITY_PRESENTATION: Record<
   {
     label: string;
     iconName: TrackerPriorityIconName;
-    tone: "danger" | "warning" | "default" | "muted" | "subtle";
+    tone: TrackerPriorityInk;
   }
 > = {
   urgent: {
@@ -80,7 +88,7 @@ export const TRACKER_PRIORITY_PRESENTATION: Record<
   medium: {
     get label() { return i18n.t("issues:presentation.medium"); },
     iconName: "Equal",
-    tone: "default",
+    tone: "neutral",
   },
   low: {
     get label() { return i18n.t("issues:presentation.low"); },
@@ -94,7 +102,8 @@ export const TRACKER_PRIORITY_PRESENTATION: Record<
   },
 };
 
-export type TrackerDueTone = "overdue" | "today" | "soon" | "normal" | "none";
+/** How near a due date is: a state of the issue, drawn by the row and board. */
+export type TrackerDueState = "overdue" | "today" | "soon" | "normal" | "none";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -130,7 +139,7 @@ function localDaysBetween(from: Date, to: Date): number {
 export function formatTrackerDue(
   dueDate: string | null,
   now: Date,
-): { label: string; tone: TrackerDueTone } | null {
+): { label: string; tone: TrackerDueState } | null {
   if (dueDate === null) {
     return null;
   }

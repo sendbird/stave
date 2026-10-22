@@ -1,4 +1,5 @@
 import { formatNumber } from "@/i18n/format";
+import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
 import type { CommandPaletteItem } from "@/lib/commands";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
@@ -368,7 +369,7 @@ export function navigatePromptHistory(args: {
   };
 }
 
-export type ConversationContextUsageTone = "ok" | "warn" | "critical";
+export type ConversationContextUsageTone = Extract<Tone, "success" | "warning" | "danger">;
 
 export interface ConversationContextUsage {
   usedPercent: number;
@@ -378,19 +379,16 @@ export interface ConversationContextUsage {
   messageId: string;
 }
 
-const CONTEXT_WARN_PERCENT = 60;
-const CONTEXT_CRITICAL_PERCENT = 85;
+/** Under 60% of the window is fine, under 85% is worth watching. */
+const CONTEXT_USAGE_THRESHOLDS = [
+  { from: 60, tone: "warning" },
+  { from: 85, tone: "danger" },
+] as const satisfies readonly ToneThreshold<ConversationContextUsageTone>[];
 
 export function conversationContextUsageTone(
   usedPercent: number,
 ): ConversationContextUsageTone {
-  if (usedPercent < CONTEXT_WARN_PERCENT) {
-    return "ok";
-  }
-  if (usedPercent < CONTEXT_CRITICAL_PERCENT) {
-    return "warn";
-  }
-  return "critical";
+  return thresholdTone(usedPercent, CONTEXT_USAGE_THRESHOLDS, "success");
 }
 
 export function formatConversationContextPercent(usedPercent: number): string {

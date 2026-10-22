@@ -29,11 +29,12 @@ import {
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
 import { describeWorkspaceCheckProgress, workspaceCheckProgress } from "./workspace-check";
 import { CHECK_IN_LABELS, type WorkflowStage, type StaveAction } from "@/lib/workflows/schema";
+import type { Tone } from "@/components/ads/utils/tone";
 
-/** How a stage status reads and which tone its icon takes. */
-export type StageTone = "done" | "active" | "waiting" | "attention" | "idle" | "skipped";
+/** How a stage status reads and which state its icon draws. */
+export type StageState = "done" | "active" | "waiting" | "attention" | "idle" | "skipped";
 
-export const STAGE_STATUS_PRESENTATION: Record<StageStatus, { label: string; tone: StageTone }> = {
+export const STAGE_STATUS_PRESENTATION: Record<StageStatus, { label: string; tone: StageState }> = {
   pending: { get label() { return i18n.t("agentRuns:agentRunView.label"); }, tone: "idle" },
   "awaiting-sign-off": { get label() { return i18n.t("agentRuns:agentRunView.label2"); }, tone: "waiting" },
   running: { get label() { return i18n.t("agentRuns:agentRunView.label3"); }, tone: "active" },
@@ -96,11 +97,11 @@ export function formatAge(ms: number): string {
   return i18n.t("agentRuns:agentRunView.days", { value: Math.floor(hours / 24) });
 }
 
-export type AgentRunHeadlineTone = "active" | "waiting" | "attention" | "done" | "ended";
+export type AgentRunHeadlineState = "active" | "waiting" | "attention" | "done" | "ended";
 
 export interface AgentRunHeadline {
   text: string;
-  tone: AgentRunHeadlineTone;
+  tone: AgentRunHeadlineState;
   /** When the state this headline names began, for the age. */
   since: string;
 }
@@ -269,7 +270,7 @@ export function describeAgentRunStatusLine(detail: AgentRunDetail): AgentRunStat
   }
 }
 
-export type AgentRunBadgeTone = "accent" | "warning" | "danger" | "success" | "neutral";
+export type AgentRunBadgeTone = Extract<Tone, "accent" | "warning" | "danger" | "success" | "neutral">;
 
 /** `manual` is stored as is; people see it as "Your settings". */
 export const AGENT_RUN_PERMISSION_LABELS: Record<AgentRun["consent"]["permissionMode"], string> = {

@@ -3,6 +3,7 @@ import { Target } from "lucide-react";
 import { Badge } from "@/components/ui";
 import { sx } from "../ads/utils/stylex";
 import { goalStatusStyles } from "./prompt-input-goal-status.styles";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export interface PromptInputGoalStatus {
   statusLabel: string;
@@ -10,7 +11,7 @@ export interface PromptInputGoalStatus {
   tokenLabel: string;
   elapsedLabel: string;
   progressPercent: number | null;
-  tone: "default" | "warning" | "success";
+  tone: Extract<Tone, "neutral" | "warning" | "success">;
 }
 
 function goalStatusToneStyle(tone: PromptInputGoalStatus["tone"]) {

@@ -901,8 +901,7 @@
     "awaitingApproval": "승인 대기 중",
     "error": "오류",
     "running": "실행 중",
-    "idle": "유휴",
-    "providerName": "{{label}} 프로바이더"
+    "idle": "유휴"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "공유 지침",

@@ -88,18 +88,21 @@ function OpenedFileDiff(args: {
   );
 }
 
-function ChangeCount(args: { value: number; tone: "added" | "removed" }) {
+/** A side of a diff: a category drawn in the diff tokens, not a tone. */
+type DiffHue = "added" | "removed";
+
+function ChangeCount(args: { value: number; hue: DiffHue }) {
   useTranslation();
   return (
     <span
       className={sx(
         styles.changeCountBase,
-        args.tone === "added"
+        args.hue === "added"
           ? styles.changeCountAdded
           : styles.changeCountRemoved,
       )}
     >
-      {args.tone === "added" ? "+" : "-"}
+      {args.hue === "added" ? "+" : "-"}
       {args.value}
     </span>
   );
@@ -192,8 +195,8 @@ export function ChangedFilesBlock(args: {
         <div className={sx(styles.cardHeaderInfo)}>
           <span className={sx(styles.headerTitleSmall)}>
             {parts.length} {parts.length === 1 ? i18n.t("session:chatPanelFileBlocks.changedFilesBlock") : i18n.t("session:chatPanelFileBlocks.changedFilesBlock2")} {i18n.t("session:chatPanelFileBlocks.changedFilesBlock3")}</span>
-          <ChangeCount value={totalAdded} tone="added" />
-          <ChangeCount value={totalRemoved} tone="removed" />
+          <ChangeCount value={totalAdded} hue="added" />
+          <ChangeCount value={totalRemoved} hue="removed" />
           {/* "Pending" is a not-yet state, not a fault, and `failed` two
               hundred lines down is already `destructive` — painting both red
               collapsed two counts that mean different things onto one pair.

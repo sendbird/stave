@@ -2639,6 +2639,14 @@ contextBridge.exposeInMainWorld("api", {
           mergeable: string;
           mergeStateStatus: string;
           checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null;
+          checks?: {
+            total: number;
+            passed: number;
+            failed: number;
+            pending: number;
+            failedNames?: string[];
+            pendingNames?: string[];
+          };
           mergedAt: string | null;
           baseRefName: string;
           headRefName: string;
@@ -2659,6 +2667,14 @@ contextBridge.exposeInMainWorld("api", {
           mergeable: string;
           mergeStateStatus: string;
           checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null;
+          checks?: {
+            total: number;
+            passed: number;
+            failed: number;
+            pending: number;
+            failedNames?: string[];
+            pendingNames?: string[];
+          };
           mergedAt: string | null;
           baseRefName: string;
           headRefName: string;

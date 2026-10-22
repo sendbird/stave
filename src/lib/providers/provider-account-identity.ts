@@ -4,6 +4,7 @@ import {
   ProviderAccountProfileIdSchema,
   ProviderAccountProviderIdSchema,
 } from "./provider-accounts";
+import type { Tone } from "@/components/ads/utils/tone";
 
 /**
  * Who an account is signed in as. Only an email and a plan label cross the
@@ -73,8 +74,8 @@ export function registeredAccountSignedIn(args: {
 
 export interface ProviderAccountIdentityLine {
   text: string;
-  /** `attention` for states that need the reader to act; `quiet` otherwise. */
-  tone: "quiet" | "attention";
+  /** `warning` for states that need the reader to act; `muted` otherwise. */
+  tone: Extract<Tone, "muted" | "warning">;
 }
 
 /**
@@ -86,18 +87,18 @@ export function describeProviderAccountIdentity(
   identity: ProviderAccountIdentity | undefined,
   providerName: string,
 ): ProviderAccountIdentityLine {
-  if (!identity) return { text: i18n.t("providers:providerAccountIdentity.checkingSignIn"), tone: "quiet" };
+  if (!identity) return { text: i18n.t("providers:providerAccountIdentity.checkingSignIn"), tone: "muted" };
   switch (identity.state) {
     case "signed-in": {
       const who = identity.email ? `Signed in as ${identity.email}` : "Signed in";
-      return { text: identity.plan ? `${who} · ${identity.plan}` : who, tone: "quiet" };
+      return { text: identity.plan ? `${who} · ${identity.plan}` : who, tone: "muted" };
     }
     case "signed-out":
-      return { text: i18n.t("providers:mcpManagement.notSignedIn"), tone: "attention" };
+      return { text: i18n.t("providers:mcpManagement.notSignedIn"), tone: "warning" };
     case "unknown":
       return {
         text: identity.reason === "cli-missing" ? i18n.t("providers:providerAccountIdentity.cliNotFound", { value1: providerName }) : i18n.t("providers:providerAccountIdentity.canTCheckSignIn"),
-        tone: "attention",
+        tone: "warning",
       };
   }
 }

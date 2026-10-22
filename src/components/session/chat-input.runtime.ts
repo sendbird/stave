@@ -208,7 +208,7 @@ export function buildChatInputGoalStatus(
     goal.status === "complete"
       ? "success"
       : goal.status === "active"
-        ? "default"
+        ? "neutral"
         : "warning";
 
   return {
@@ -238,19 +238,19 @@ export function buildChatInputRuntimeStatusItems(
         tone:
           args.claudePermissionMode === "bypassPermissions"
             ? "warning"
-            : "default",
+            : "neutral",
       },
       {
         id: "sandbox",
         label: i18n.t("session:chatInputRuntime.label2"),
         value: args.claudeSandboxEnabled ? i18n.t("session:chatInputRuntime.extraCopy144") : i18n.t("session:chatInputRuntime.extraCopy145"),
-        tone: args.claudeSandboxEnabled ? "default" : "warning",
+        tone: args.claudeSandboxEnabled ? "neutral" : "warning",
       },
       {
         id: "unsandboxed",
         label: i18n.t("session:chatInputRuntime.label3"),
         value: args.claudeAllowUnsandboxedCommands ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
-        tone: args.claudeAllowUnsandboxedCommands ? "warning" : "default",
+        tone: args.claudeAllowUnsandboxedCommands ? "warning" : "neutral",
       },
       {
         id: "dangerous-skip",
@@ -258,7 +258,7 @@ export function buildChatInputRuntimeStatusItems(
         value: args.claudeAllowDangerouslySkipPermissions ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
         tone: args.claudeAllowDangerouslySkipPermissions
           ? "warning"
-          : "default",
+          : "neutral",
       },
       {
         id: "setting-sources",
@@ -287,7 +287,7 @@ export function buildChatInputRuntimeStatusItems(
         id: "task-budget",
         label: i18n.t("session:chatInputRuntime.label9"),
         value: formatTokenBudget(args.claudeTaskBudgetTokens),
-        tone: args.claudeTaskBudgetTokens > 0 ? "warning" : "default",
+        tone: args.claudeTaskBudgetTokens > 0 ? "warning" : "neutral",
       },
       {
         id: "progress-summaries",
@@ -319,7 +319,7 @@ export function buildChatInputRuntimeStatusItems(
       tone:
         effectiveCodexFileAccess === "danger-full-access"
           ? "warning"
-          : "default",
+          : "neutral",
     },
     {
       id: "network",
@@ -335,7 +335,7 @@ export function buildChatInputRuntimeStatusItems(
           args.codexApprovalPolicy,
         ),
       ),
-      tone: args.codexApprovalPolicy === "never" ? "warning" : "default",
+      tone: args.codexApprovalPolicy === "never" ? "warning" : "neutral",
     },
     {
       id: "web-search",
@@ -377,7 +377,7 @@ export function buildChatInputRuntimeStatusItems(
       id: "fast-mode",
       label: i18n.t("session:chatInputRuntime.label22"),
       value: args.codexFastMode ? i18n.t("session:chatInputRuntime.extraCopy158") : i18n.t("session:chatInputRuntime.extraCopy159"),
-      tone: args.codexFastMode ? "warning" : "default",
+      tone: args.codexFastMode ? "warning" : "neutral",
     },
     ...(args.codexBinaryPath.trim()
       ? [

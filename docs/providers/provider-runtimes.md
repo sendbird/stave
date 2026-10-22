@@ -978,6 +978,9 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `adaptive`: think more only when useful.
   - `enabled`: always request extra thinking.
   - `disabled`: prefer direct answers.
+  - The composer's Thinking menu writes this same setting for every task;
+    Settings and the menu describe the modes from one list
+    (`src/lib/providers/claude-thinking-mode.ts`).
 - `effort`
   - `low`: fastest.
   - `medium`: balanced default.

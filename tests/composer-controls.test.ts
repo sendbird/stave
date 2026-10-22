@@ -68,7 +68,7 @@ describe("collectActiveComposerControls", () => {
     expect(
       collectActiveComposerControls({
         thinkingMode: "adaptive",
-        runtimeTone: "default",
+        runtimeTone: "success",
         boundSecretCount: 0,
       }),
     ).toEqual([]);

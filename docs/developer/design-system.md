@@ -69,6 +69,16 @@ A built-in theme that fails sets the failing state color by hand, and
 `tests/theme-state-colors.test.ts` checks every built-in theme. User themes get
 the same derivation when applied.
 
+Tones have one vocabulary: `Tone` in `src/components/ads/utils/tone.tsx`, the
+seven values `StatusDot` draws (`neutral`, `muted`, `accent`, `info`, `warning`,
+`success`, `danger`). A product type that means a tone is `Tone` or an
+`Extract<Tone, …>`; a work state is a `*State` drawn through `StateMark`; an
+identity or a category (a provider, the PR status palette, folder colors, a
+diff side) is a `*Hue`. A reading that turns into a tone at thresholds (usage,
+context, quota, budget) goes through `thresholdTone` with its scale written
+out as named data. `tests/tone-vocabulary.test.ts` fails when a new `…Tone`
+type declares its own values.
+
 ### Primitives: ADS components
 
 `src/components/ads/components` holds the canonical components. Controls
@@ -102,6 +112,15 @@ same thing the same way.
   a panel that tracks its own `loaded`, `loading` and `error` flags onto the
   boundary; a store that keeps the last list after a failure marks when that
   list was read (the skill catalog's `loadedAt` is an example).
+- A provider is drawn with `ProviderMark` (`src/components/system/ProviderMark.tsx`):
+  the vendor's SVG where Stave ships one, otherwise its monogram in the
+  provider's ink on a tint of that ink. It is decorative (`alt=""`,
+  `aria-hidden`) unless given a `label`, which becomes a hover title and
+  visually hidden text. Sizes are `xs` (10px, an avatar corner), `sm` (14px,
+  beside a name) and `md` (16px, rows and pickers); `ModelIcon` is the same mark
+  under its older name. Provider ink comes from `providerInkStyles`
+  (`provider-ink.styles.ts`) or `providerInkColor`, both read from the provider
+  identity registry; never write a `--provider-*` value anywhere else.
 
 ### Patterns
 

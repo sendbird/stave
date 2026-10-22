@@ -287,16 +287,22 @@ export const shelfStyles = stylex.create({
     transitionDuration: vars["--ads-motion-duration-fast"],
     transitionTimingFunction: "ease",
   },
+  // The grip is an ADS icon Button laid over the row number: it fills the
+  // 20px slot rather than its own 28px square, and fades in with the row's
+  // actions (hover or keyboard focus) while the number fades out. The
+  // transition keeps the button's own hover fill and ink easing in too.
   itemGrip: {
     position: "absolute",
     inset: 0,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
+    blockSize: "100%",
+    inlineSize: "100%",
+    minBlockSize: 0,
+    minInlineSize: 0,
+    padding: 0,
     color: vars["--ads-color-text-muted"],
     cursor: "grab",
     opacity: `var(${HOVER_ACTIONS})`,
-    transitionProperty: "opacity",
+    transitionProperty: "opacity, background-color, color",
     transitionDuration: vars["--ads-motion-duration-fast"],
     transitionTimingFunction: "ease",
   },

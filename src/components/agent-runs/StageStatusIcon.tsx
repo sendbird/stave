@@ -3,10 +3,10 @@ import { type LucideIcon } from "lucide-react";
 import { StateMark } from "@/components/ads/components/StateMark";
 import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import type { XstyleProp } from "@/components/ads/utils/stylex";
-import type { StageTone } from "@/lib/agent-runs/agent-run-view";
+import type { StageState } from "@/lib/agent-runs/agent-run-view";
 
 /** The shared work state each stage tone stands for (`state-vocabulary.ts`). */
-export const STAGE_TONE_WORK_STATE: Record<StageTone, WorkState> = {
+export const STAGE_STATE_WORK_STATE: Record<StageState, WorkState> = {
   done: "ready",
   active: "working",
   waiting: "needs-you",
@@ -26,12 +26,12 @@ export function StageStatusIcon({
   state,
   xstyle,
 }: {
-  tone: StageTone;
+  tone: StageState;
   /** Replaces the state's glyph, keeping its color. */
   icon?: LucideIcon;
   /** The work state to draw, when the tone alone is not specific enough (stopped). */
   state?: WorkState;
 } & XstyleProp) {
   useTranslation();
-  return <StateMark state={state ?? STAGE_TONE_WORK_STATE[tone]} icon={icon} motion="still" xstyle={xstyle} />;
+  return <StateMark state={state ?? STAGE_STATE_WORK_STATE[tone]} icon={icon} motion="still" xstyle={xstyle} />;
 }

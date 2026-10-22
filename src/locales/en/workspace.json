@@ -915,8 +915,7 @@
     "awaitingApproval": "Awaiting approval",
     "error": "Error",
     "running": "Running",
-    "idle": "Idle",
-    "providerName": "{{label}} provider"
+    "idle": "Idle"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "Shared instructions",

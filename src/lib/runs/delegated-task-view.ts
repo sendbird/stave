@@ -15,12 +15,12 @@ import {
  * without a renderer, and so both parent surfaces phrase a child the same way.
  */
 
-export type DelegatedTaskPhaseTone =
+export type DelegatedTaskPhaseState =
   "active" | "waiting" | "done" | "failed" | "released";
 
 export interface DelegatedTaskPhaseDescription {
   label: string;
-  tone: DelegatedTaskPhaseTone;
+  tone: DelegatedTaskPhaseState;
   /** True while the child cannot progress without a human answer. */
   blocked: boolean;
 }

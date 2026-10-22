@@ -82,7 +82,7 @@ import type { ClaudeFileRewindResponse } from "@/lib/providers/provider.types";
 import { useShallow } from "zustand/react/shallow";
 import {
   CopyButton,
-  toProviderWaveToneClass,
+  toProviderWaveHueClass,
 } from "./chat-panel-message-parts";
 import { ConversationTurnActions } from "./ConversationTurnActions";
 import {
@@ -526,7 +526,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   {showRespondingWave ? (
                     <Loader
                       aria-hidden
-                      className={toProviderWaveToneClass({
+                      className={toProviderWaveHueClass({
                         providerId: message.providerId,
                         model: message.model,
                       })}

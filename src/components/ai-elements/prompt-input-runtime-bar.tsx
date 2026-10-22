@@ -1,12 +1,13 @@
 import { i18n, useTranslation } from "@/i18n";
 import { cx, sx } from "../ads/utils/stylex";
 import { runtimeBarStyles } from "./prompt-input-runtime-bar.styles";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export interface PromptInputRuntimeStatusItem {
   id: string;
   label: string;
   value: string;
-  tone?: "default" | "warning";
+  tone?: Extract<Tone, "neutral" | "warning">;
 }
 
 interface PromptInputRuntimeBarProps {
@@ -17,7 +18,8 @@ interface PromptInputRuntimeBarProps {
 
 export interface PromptInputRuntimeProfile {
   label: string;
-  tone: "default" | "custom" | "warning";
+  /** Safe (the default profile), custom, or elevated. */
+  tone: Extract<Tone, "success" | "accent" | "warning">;
   description: string;
 }
 
@@ -128,14 +130,14 @@ export function getPromptInputRuntimeProfile(
   if (statusItems.some(isCustomRuntimeItem)) {
     return {
       label: i18n.t("composer:promptInputRuntimeBar.label5"),
-      tone: "custom",
+      tone: "accent",
       description: i18n.t("composer:promptInputRuntimeBar.description2"),
     };
   }
 
   return {
     label: i18n.t("composer:promptInputRuntimeBar.label6"),
-    tone: "default",
+    tone: "success",
     description: i18n.t("composer:promptInputRuntimeBar.description3"),
   };
 }

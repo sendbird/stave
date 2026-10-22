@@ -1,5 +1,14 @@
 import { i18n, useTranslation } from "@/i18n";
-import { memo, useEffect, useState } from "react";
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import {
   ChevronDown,
   ChevronUp,
@@ -13,31 +22,39 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
+import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "@/components/ads/utils/stylex";
 import { describeQueuedTurnDispatch } from "@/components/ai-elements/prompt-input-queued-turn";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
+import { ShortcutKeys } from "@/components/system/ShortcutKeys";
 import { Textarea } from "@/components/ui";
 import {
   SortableDropIndicator,
   useSortableListMonitor,
   useSortableRow,
 } from "@/hooks/use-sortable-list";
+import { resolveKeybindingPlatform } from "@/lib/keybindings/key-chord";
+import { formatKeybindingDisplay } from "@/lib/keybindings/keybinding-settings";
 import type { QueuePauseReason } from "@/store/task-work-pause";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 import {
   canSteerQueuedTurnItem,
   describeQueuedTurnAttachments,
   describeQueueLine,
+  reorderQueuedTurns,
+  stepQueuedTurnMove,
   summarizeQueuedTurnText,
   type QueuedTurnActions,
+  type QueuedTurnMove,
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 
-export interface QueuedTurnMove {
-  sourceId: string;
-  targetId: string;
-  edge: "top" | "bottom" | null;
-}
+export type { QueuedTurnMove } from "./composer-shelf.utils";
+
+/** The keys that move a focused queue row, for `aria-keyshortcuts`. */
+const QUEUE_MOVE_ARIA_KEYS = "Alt+ArrowUp Alt+ArrowDown";
+/** The same keys in the keybinding grammar, drawn in the grip's tooltip. */
+const QUEUE_MOVE_KEYS = ["alt+arrowup", "alt+arrowdown"] as const;
 
 export interface ComposerShelfQueueProps {
   /** Rows only accept drops from their own list. */
@@ -73,8 +90,9 @@ export interface ComposerShelfQueueProps {
  * The queue's line in the composer shelf: how many wait, the one that goes
  * next, and its Steer (or Send, when nothing runs). The chevron opens the list
  * with Steer, Send, Edit and Delete on each row, in the order they will send;
- * drag a row by its grip to change that order. A queued message that will go
- * to another model than the composer's says so, on its row.
+ * drag a row by its grip, or press Alt+ArrowUp/ArrowDown on it, to change that
+ * order. A queued message that will go to another model than the composer's
+ * says so, on its row.
  */
 export const ShelfQueue = memo(function ShelfQueue(props: ComposerShelfQueueProps) {
   useTranslation();
@@ -255,6 +273,11 @@ interface QueueListProps extends ComposerShelfQueueProps {
 function QueueList(props: QueueListProps) {
   useTranslation();
   const { onReorder, listId } = props;
+  const listRef = useRef<HTMLOListElement | null>(null);
+  // The row a keyboard move just placed; its grip takes focus once the list
+  // re-renders in the new order.
+  const movedIdRef = useRef<string | null>(null);
+  const [announcement, setAnnouncement] = useState("");
   useSortableListMonitor({
     isListMatch: (candidate) => candidate === listId,
     onReorder: (event) =>
@@ -269,19 +292,82 @@ function QueueList(props: QueueListProps) {
               : null,
       }),
   });
+  // Moving a row can take the focused control out of the document and back,
+  // which drops focus; put it on the moved row's grip again.
+  useLayoutEffect(() => {
+    const movedId = movedIdRef.current;
+    if (!movedId) {
+      return;
+    }
+    movedIdRef.current = null;
+    listRef.current
+      ?.querySelector<HTMLElement>(
+        `[data-queued-turn-id="${CSS.escape(movedId)}"] [data-queue-grip]`,
+      )
+      ?.focus();
+  }, [props.items]);
   // Only real queue entries can move; a legacy single item has nothing to swap with.
   const sortable = Boolean(onReorder) && props.items.length > 1 && props.editingId == null;
+  const moveKeys = useMemo(
+    () => (
+      <ShortcutKeys
+        {...formatKeybindingDisplay(QUEUE_MOVE_KEYS, resolveKeybindingPlatform())}
+        placement="tooltip"
+      />
+    ),
+    [],
+  );
+  const moveByKeyboard = (itemId: string, direction: -1 | 1) => {
+    const move = stepQueuedTurnMove(props.items, itemId, direction);
+    if (!move || !onReorder) {
+      return;
+    }
+    const next = reorderQueuedTurns(props.items, move);
+    const text = i18n.t("composer:shelfQueue.movedTo", {
+      position: next.findIndex((item) => item.id === itemId) + 1,
+      total: next.length,
+    });
+    onReorder(move);
+    movedIdRef.current = itemId;
+    // The same words twice in a row would not be read again; a trailing
+    // no-break space makes the second one a change.
+    setAnnouncement((current) => (current === text ? `${text} ` : text));
+  };
   return (
-    <ol className={sx(styles.queueList)} aria-label={i18n.t("composer:shelfQueue.ariaLabel7")}>
-      {props.items.map((item, index) => (
-        <QueueItem key={item.id} {...props} item={item} index={index} sortable={sortable} />
-      ))}
-    </ol>
+    <>
+      <ol
+        ref={listRef}
+        className={sx(styles.queueList)}
+        aria-label={i18n.t("composer:shelfQueue.ariaLabel7")}
+      >
+        {props.items.map((item, index) => (
+          <QueueItem
+            key={item.id}
+            {...props}
+            item={item}
+            index={index}
+            sortable={sortable}
+            moveKeys={moveKeys}
+            onMove={moveByKeyboard}
+          />
+        ))}
+      </ol>
+      <VisuallyHidden aria-live="polite" role="status">
+        {announcement}
+      </VisuallyHidden>
+    </>
   );
 }
 
 function QueueItem(
-  props: QueueListProps & { item: PromptDraftQueuedTurn; index: number; sortable: boolean },
+  props: QueueListProps & {
+    item: PromptDraftQueuedTurn;
+    index: number;
+    sortable: boolean;
+    /** The move keys, drawn in the grip's tooltip. */
+    moveKeys: ReactNode;
+    onMove: (itemId: string, direction: -1 | 1) => void;
+  },
 ) {
   useTranslation();
   const { item, index } = props;
@@ -341,18 +427,52 @@ function QueueItem(
   });
   const attachments = describeQueuedTurnAttachments(item);
   const position = index + 1;
+  // Alt+ArrowUp/Down moves the row from its grip or any of its actions.
+  const onRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+    if (
+      !props.sortable ||
+      !event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      (event.key !== "ArrowUp" && event.key !== "ArrowDown")
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    props.onMove(item.id, event.key === "ArrowUp" ? -1 : 1);
+  };
   return (
     <li
       ref={setRowElement}
       className={sx(styles.item, isDragging && styles.itemDragging)}
       data-queued-turn-id={item.id}
+      onKeyDown={onRowKeyDown}
     >
       <span className={sx(styles.itemSlot)}>
         <span className={sx(styles.itemIndex)}>{position}</span>
         {props.sortable ? (
-          <span ref={setHandleElement} className={sx(styles.itemGrip)} title={i18n.t("composer:shelfQueue.title6")}>
-            <GripVertical aria-hidden className={sx(styles.itemGripIcon)} />
-          </span>
+          // The drag handle, and the row's keyboard handle: focus it and
+          // press Alt+ArrowUp/Down to move the message.
+          <Tooltip content={i18n.t("composer:shelfQueue.title6")} shortcut={props.moveKeys}>
+            <Button
+              ref={setHandleElement}
+              variant="quiet"
+              size="xs"
+              iconOnly
+              press="none"
+              data-queue-grip=""
+              aria-label={i18n.t("composer:shelfQueue.moveQueued", {
+                position,
+                total: props.items.length,
+              })}
+              aria-keyshortcuts={QUEUE_MOVE_ARIA_KEYS}
+              xstyle={styles.itemGrip}
+            >
+              <GripVertical aria-hidden className={sx(styles.itemGripIcon)} />
+            </Button>
+          </Tooltip>
         ) : null}
       </span>
       <div className={sx(styles.itemBody)}>

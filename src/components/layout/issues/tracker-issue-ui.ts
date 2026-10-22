@@ -6,6 +6,7 @@ import type {
   TrackerIssueStaveLink,
 } from "@/lib/tracker-issues/types";
 import { toast } from "@/components/ui";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export { TRACKER_SOURCE_LABELS };
 
@@ -20,7 +21,7 @@ export const TRACKER_LINK_STATE_PRESENTATION: Record<
   TrackerIssueLinkState,
   {
     label: string;
-    tone: "neutral" | "info" | "warning" | "success" | "danger";
+    tone: Extract<Tone, "neutral" | "info" | "warning" | "success" | "danger">;
     live: boolean;
   }
 > = {

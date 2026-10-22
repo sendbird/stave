@@ -51,7 +51,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   PR_STATUS_VISUAL,
-  type PrStatusTone,
+  type PrStatusHue,
   type WorkspacePrStatus,
 } from "@/lib/pr-status";
 import { prToneIconStyles } from "./pr-status.styles";
@@ -85,6 +85,7 @@ import type {
   SourceControlSection,
   SourceControlSummary,
 } from "./editor-panel.utils";
+import type { Tone } from "@/components/ads/utils/tone";
 
 type SourceControlPanelView = "changes" | "history" | "checks";
 type SourceControlPanelMode = "workspace" | "reviews";
@@ -102,20 +103,20 @@ export interface WorkspaceChecksViewModel {
   openTodos: string[];
 }
 
-type ChecksTone = "ok" | "warn" | "fail" | "neutral";
+type ChecksTone = Extract<Tone, "success" | "warning" | "danger" | "neutral">;
 
 /** Collapse a verification/intent status into the local check tone. */
 function statusToChecksTone(status: TurnVerificationStatus): ChecksTone {
-  if (status === "pass") return "ok";
-  if (status === "warn") return "warn";
-  return "fail";
+  if (status === "pass") return "success";
+  if (status === "warn") return "warning";
+  return "danger";
 }
 
 /** Collapse a GitHub PR tone into the local check tone. */
-function prToneToChecksTone(tone: PrStatusTone): ChecksTone {
-  if (tone === "open" || tone === "done") return "ok";
-  if (tone === "attention") return "warn";
-  if (tone === "danger" || tone === "closed") return "fail";
+function prToneToChecksTone(tone: PrStatusHue): ChecksTone {
+  if (tone === "open" || tone === "done") return "success";
+  if (tone === "attention") return "warning";
+  if (tone === "danger" || tone === "closed") return "danger";
   return "neutral";
 }
 
@@ -175,7 +176,7 @@ function ChecksTabContent(props: {
       ? tI18n("workspace:workspaceChangesPanel.consistent")
       : tI18n("workspace:workspaceChangesPanel.valueToReview", { intentfindingsCount: intent.findings.length });
   const treeTone: ChecksTone =
-    conflictCount > 0 ? "fail" : props.changedCount > 0 ? "neutral" : "ok";
+    conflictCount > 0 ? "danger" : props.changedCount > 0 ? "neutral" : "success";
   const treeSummary =
     conflictCount > 0
       ? `${conflictCount} conflict${conflictCount === 1 ? "" : "s"}`
@@ -346,7 +347,7 @@ function ChecksTabContent(props: {
             ? tI18n("workspace:workspaceChangesPanel.none")
             : `${openTodoCount} open / ${totalTodoCount}`
         }
-        tone={openTodoCount > 0 ? "warn" : "ok"}
+        tone={openTodoCount > 0 ? "warning" : "success"}
       >
         {openTodos.length > 0 ? (
           <ul className={sx(changesStyles.checksTodoList)}>
@@ -397,7 +398,7 @@ function SourceControlActionButton(args: {
   icon: ReactNode;
   label: string;
   onClick: () => void;
-  tone?: "default" | "destructive" | "success";
+  tone?: Extract<Tone, "neutral" | "danger" | "success">;
 }) {
   return (
     <Tooltip content={args.label}>
@@ -409,7 +410,7 @@ function SourceControlActionButton(args: {
         xstyle={[
           changesStyles.rowActionButton,
           transition.colors,
-          scmActionToneStyles[args.tone ?? "default"],
+          scmActionToneStyles[args.tone ?? "neutral"],
         ]}
         disabled={args.disabled}
         onClick={args.onClick}
@@ -514,7 +515,7 @@ function SourceControlRow(args: {
                 disabled={args.isScmBusy}
                 icon={<Minus className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onUnstage(args.item.item)}
-                tone="default"
+                tone="neutral"
               />
             ) : null}
             {args.item.canDiscard ? (
@@ -523,7 +524,7 @@ function SourceControlRow(args: {
                 disabled={args.isScmBusy}
                 icon={<RotateCcw className={sx(changesStyles.glyphSm)} />}
                 onClick={() => args.onDiscard(args.item.item)}
-                tone="destructive"
+                tone="danger"
               />
             ) : null}
           </div>

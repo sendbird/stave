@@ -46,7 +46,7 @@ export function AgentRouteRow(props: {
   if (!props.fixedModel && !props.autoAvailable) {
     return (
       <div className={sx(styles.routeRow)}>
-        <ComposerOptionMenuCallout tone="note" testId="agent-route-auto-off">{i18n.t("composer:agentRouteRow.sentence21", { value1: props.agentName })}</ComposerOptionMenuCallout>
+        <ComposerOptionMenuCallout tone="info" testId="agent-route-auto-off">{i18n.t("composer:agentRouteRow.sentence21", { value1: props.agentName })}</ComposerOptionMenuCallout>
       </div>
     );
   }

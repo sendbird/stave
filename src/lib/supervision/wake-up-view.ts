@@ -23,9 +23,12 @@ export function describeWakeUpTrigger(wakeUp: WakeUp): string {
   return formatAutomationSchedule(wakeUp.trigger.schedule, undefined, { compact: true });
 }
 
+/** Where a wake-up stands: a work state, drawn by the Schedules row. */
+export type WakeUpState = "active" | "waiting" | "attention" | "ended";
+
 export interface WakeUpStatusLine {
   text: string;
-  tone: "active" | "waiting" | "attention" | "ended";
+  tone: WakeUpState;
 }
 
 export function describeWakeUpStatus(summary: WakeUpSummary, now: number): WakeUpStatusLine {

@@ -5,6 +5,7 @@ import {
   Tabs,
   TabsContent,
 } from "@/components/ui";
+import { CLAUDE_THINKING_MODE_HELP } from "@/lib/providers/claude-thinking-mode";
 import {
   formatTrustedToolEntry,
   removeTrustedToolEntry,
@@ -68,29 +69,6 @@ const PROVIDER_SETTINGS_TAB_IDS = [
   "kiro",
   "opencode",
 ] as const satisfies readonly ProviderId[];
-
-const CLAUDE_THINKING_MODE_HELP = [
-  {
-    value: "adaptive",
-    get label() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.label"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.adaptive.example"); },
-  },
-  {
-    value: "enabled",
-    get label() { return i18n.t("common:status.enabled"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.enabled.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.enabled.example"); },
-  },
-  {
-    value: "disabled",
-    get label() { return i18n.t("common:status.disabled"); },
-    get description() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.disabled.description"); },
-    get example() { return i18n.t("settingsProviders:providersSection.claudeRuntime.thinkingMode.options.disabled.example"); },
-  },
-] as const satisfies readonly ExplainedSelectOption<
-  NonNullable<ProviderRuntimeOptions["claudeThinkingMode"]>
->[];
 
 const CLAUDE_SETTING_SOURCE_HELP = [
   {

@@ -23,9 +23,6 @@ import {
   DropdownMenuTrigger,
   Input,
   Loader,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   toast,
 } from "@/components/ui";
 import {
@@ -698,10 +695,17 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
 
     return (
       <DropdownMenu open={branchOpen} onOpenChange={setBranchOpen}>
-        <Tooltip>
-          <TooltipTrigger
-            render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}
-          >
+        <AdsTooltip
+          content={
+            branchStatus.dirtyCount > 0
+              ? i18n.t("shell:topBarBranchDropdown.localChange", { count: branchStatus.dirtyCount })
+              : branchDrift
+                ? i18n.t("shell:topBarBranchDropdown.returnTo", { value1: branchDrift.expectedBranch })
+                : i18n.t("shell:topBarBranchDropdown.switchBranch")
+          }
+          side="bottom"
+        >
+          <span {...stylex.props(layoutShellStyles.inlineFlex)}>
             <DropdownMenuTrigger
               render={
                 <AdsButton
@@ -752,15 +756,8 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 )}
               />
             </DropdownMenuTrigger>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">
-            {branchStatus.dirtyCount > 0
-              ? i18n.t("shell:topBarBranchDropdown.localChange", { count: branchStatus.dirtyCount })
-              : branchDrift
-                ? i18n.t("shell:topBarBranchDropdown.returnTo", { value1: branchDrift.expectedBranch })
-                : i18n.t("shell:topBarBranchDropdown.switchBranch")}
-          </TooltipContent>
-        </Tooltip>
+          </span>
+        </AdsTooltip>
 
         <DropdownMenuContent
           align="start"
@@ -901,12 +898,15 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   )}
                   {i18n.t("shell:topBarBranchDropdown.pull")}
                 </Button>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <span {...stylex.props(branchDropdownStyles.detachSlot)} />
-                    }
-                  >
+                <AdsTooltip
+                  content={
+                    originDefaultRef
+                      ? i18n.t("shell:topBarBranchDropdown.fetchOriginAndCheckOutAsA", { value1: originDefaultRef })
+                      : i18n.t("shell:topBarBranchDropdown.neitherOriginMainNorOriginMasterIsAvailable")
+                  }
+                  side="bottom"
+                >
+                  <span {...stylex.props(branchDropdownStyles.detachSlot)}>
                     <Button
                       type="button"
                       variant="outline"
@@ -926,13 +926,8 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                           : i18n.t("shell:topBarBranchDropdown.checkoutOriginDefault")}
                       </span>
                     </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom">
-                    {originDefaultRef
-                      ? i18n.t("shell:topBarBranchDropdown.fetchOriginAndCheckOutAsA", { value1: originDefaultRef })
-                      : i18n.t("shell:topBarBranchDropdown.neitherOriginMainNorOriginMasterIsAvailable")}
-                  </TooltipContent>
-                </Tooltip>
+                  </span>
+                </AdsTooltip>
               </div>
             </div>
 
@@ -1065,31 +1060,31 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <div
-            className={sx(
-              topBarControlStyles.control,
-              topBarControlStyles.surface,
-              branchDropdownStyles.staticChip,
-            )}
-            style={props.noDragStyle}
-          />
-        }
+    <AdsTooltip
+      content={
+        <>
+          {i18n.t("shell:topBarBranchDropdown.branchIsManagedByThisWorktree")}
+          {workspaceCwd
+            ? `: ${formatWorkspacePathLabel({ workspacePath: workspaceCwd, repositoryPath })}`
+            : `: ${currentBranchLabel}`}
+        </>
+      }
+      side="bottom"
+    >
+      <div
+        className={sx(
+          topBarControlStyles.control,
+          topBarControlStyles.surface,
+          branchDropdownStyles.staticChip,
+        )}
+        style={props.noDragStyle}
       >
         <GitBranch {...stylex.props(topBarControlStyles.icon)} />
         <span className={sx(branchDropdownStyles.truncate)}>
           {currentBranchLabel}
         </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom">
-        {i18n.t("shell:topBarBranchDropdown.branchIsManagedByThisWorktree")}
-        {workspaceCwd
-          ? `: ${formatWorkspacePathLabel({ workspacePath: workspaceCwd, repositoryPath })}`
-          : `: ${currentBranchLabel}`}
-      </TooltipContent>
-    </Tooltip>
+      </div>
+    </AdsTooltip>
   );
 }
 

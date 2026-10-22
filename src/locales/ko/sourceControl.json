@@ -327,7 +327,13 @@
     "refresh": "새로고침",
     "updateBranch": "브랜치 업데이트",
     "mergePR": "PR 병합",
-    "viewOnGitHub": "GitHub에서 보기"
+    "viewOnGitHub": "GitHub에서 보기",
+    "checksCount": "검사 {{passed}}/{{total}}",
+    "checksPassedOfTotal": "검사 {{total}}개 중 {{passed}}개 통과",
+    "checksFailing": "실패: {{names}}",
+    "checksStillRunning": "실행 중: {{names}}",
+    "checkNamesAndMore": "{{names}} 외 {{count}}개",
+    "checkCount_other": "검사 {{count}}개"
   },
   "reviewFindings": {
     "noFindings": "발견 사항 없음",

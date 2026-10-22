@@ -43,10 +43,9 @@ export interface ShelfReviewsProps {
 }
 
 const TONE_INK = {
-  active: styles.labelAccent,
-  ready: styles.labelAccent,
+  accent: styles.labelAccent,
   danger: styles.labelDanger,
-  muted: styles.strong,
+  neutral: styles.strong,
 } as const;
 
 /**

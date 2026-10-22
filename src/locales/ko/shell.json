@@ -218,7 +218,9 @@
     "usageAndChargesAreManagedByYour": "사용량과 비용은 게이트웨이에서 관리합니다. 구독 할당량은 사용할 수 없습니다.",
     "viewUsageStatistics": "사용량 통계 보기",
     "providerUsage": "{{provider}} 사용량",
-    "refreshUsage": "사용 한도 새로고침"
+    "refreshUsage": "사용 한도 새로고침",
+    "noLimitsReported": "보고된 한도 없음",
+    "noLimitsReportedHint": "{{provider}}에서는 사용량 한도를 보고하지 않으므로 표시할 할당량이 없습니다. Stave에서 실행한 턴의 토큰은 계속 집계됩니다."
   },
   "staveAppMenuButton": {
     "openStaveMenu": "Stave 메뉴 열기",
@@ -243,9 +245,11 @@
     "copyWorkspacePath": "워크스페이스 경로 복사",
     "selectAnActiveWorkspaceToOpenThe": "커밋 그래프를 열려면 활성 워크스페이스를 선택하세요",
     "views": "보기",
-    "tools": "도구",
     "expandProjectList": "프로젝트 목록 펼치기",
-    "pathActions": "워크스페이스 경로 동작 열기"
+    "pathActions": "워크스페이스 경로 동작 열기",
+    "location": "위치",
+    "search": "검색",
+    "app": "앱"
   },
   "topBarAutomations": {
     "closeSchedules": "일정 닫기",

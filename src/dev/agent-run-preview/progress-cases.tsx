@@ -5,16 +5,16 @@ import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { StageTrack } from "@/components/agent-runs/StageTrack";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { projectAgentRunStages, type StageTone } from "@/lib/agent-runs/agent-run-view";
+import { projectAgentRunStages, type StageState } from "@/lib/agent-runs/agent-run-view";
 
 /*
  * The stage track in every tone, for the agent run preview:
  * `?stavePreview=agent-run&only=progress`. `w=384` narrows it to the Task panel.
  */
 
-export type ProgressCase = readonly [label: string, detail: AgentRunDetail, tone?: StageTone];
+export type ProgressCase = readonly [label: string, detail: AgentRunDetail, tone?: StageState];
 
-function Track({ detail, tone, now, size }: { detail: AgentRunDetail; tone?: StageTone; now: number; size: "sm" | "md" }) {
+function Track({ detail, tone, now, size }: { detail: AgentRunDetail; tone?: StageState; now: number; size: "sm" | "md" }) {
   const rows = projectAgentRunStages(detail, new Date(now));
   const { state } = detail.agentRun;
   return <StageTrack rows={rows} size={size} live={state === "running"} paused={state === "paused"} tone={tone} />;

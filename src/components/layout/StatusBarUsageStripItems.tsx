@@ -129,6 +129,33 @@ export function UsageUnavailableItem({ hintsDisabled }: { hintsDisabled: boolean
 }
 
 /**
+ * A provider that reports no usage limits at all (OpenCode) says so, in both
+ * the full strip and the compact meter, rather than showing a missing reading.
+ */
+export function UsageNoLimitsItem({
+  providerName,
+  hintsDisabled,
+}: {
+  providerName: string;
+  hintsDisabled: boolean;
+}) {
+  const { t } = useTranslation(["shell"]);
+  return (
+    <Tooltip disabled={hintsDisabled}>
+      <TooltipTrigger
+        delay={HINT_DELAY_MS}
+        render={<span className={sx(statusBarUsageStyles.note)} />}
+      >
+        {t("shell:statusBarUsageSegment.noLimitsReported")}
+      </TooltipTrigger>
+      <TooltipContent side="top">
+        {t("shell:statusBarUsageSegment.noLimitsReportedHint", { provider: providerName })}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+/**
  * Tokens of turns run in Stave appear in the full strip only; the compact
  * meter stays as it was. Dollars are not on the bar: the popover has them.
  */

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
+import type { Tone } from "@/components/ads/utils/tone";
 
 export function WorkspaceSurface({
   title,
@@ -33,7 +34,7 @@ export function StatusBadge({
   tone = "neutral",
 }: {
   children: ReactNode;
-  tone?: "neutral" | "active" | "warning" | "success" | "danger";
+  tone?: Extract<Tone, "neutral" | "accent" | "warning" | "success" | "danger">;
 }) {
   return <span {...stylex.props(styles.badge, styles[tone])}>{children}</span>;
 }
@@ -82,7 +83,7 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   neutral: { color: vars["--ads-color-text-muted"] },
-  active: { color: vars["--ads-color-accent"] },
+  accent: { color: vars["--ads-color-accent"] },
   warning: { color: vars["--ads-color-warning"] },
   success: { color: vars["--ads-color-success"] },
   danger: { color: vars["--ads-color-danger"] },

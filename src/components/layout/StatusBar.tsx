@@ -13,6 +13,7 @@ import {
   statusBarAccountProviderId,
   STATUS_BAR_USAGE_PROVIDER_IDS,
   STATUS_BAR_USAGE_PROVIDER_NAMES,
+  type StatusBarUsageProvider,
 } from "@/components/layout/status-bar-usage.utils";
 import {
   buildUsageStripSegment,
@@ -37,6 +38,13 @@ import { providerSurfaceVisible, useProviderReadinessStore } from "@/lib/provide
 import * as stylex from "@stylexjs/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 
+/** Cursor, Kiro and OpenCode: installed separately, read only once ready. */
+function isOptionalUsageProvider(
+  provider: StatusBarUsageProvider,
+): provider is "cursor" | "kiro" | "opencode" {
+  return provider === "cursor" || provider === "kiro" || provider === "opencode";
+}
+
 /**
  * Wall clock for countdowns and time-left clocks. A minute is the finest unit
  * they show, and between usage reads nothing else would re-render them.
@@ -51,7 +59,7 @@ function useMinuteClock(): number {
 }
 
 /**
- * Global, VSCode-style bottom status bar. Spans the full window width below
+ * Global bottom status bar. Spans the full window width below
  * the project sidebar, chat/editor column, and right rail — a persistent
  * home for provider usage plus other bottom-of-window info (memory today,
  * more segments later).
@@ -69,9 +77,13 @@ export function StatusBar() {
   const readiness = useProviderReadinessStore((state) => state.providers);
   const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
-  const runtimeOptions = { cursorBinaryPath, kiroBinaryPath };
+  const opencodeBinaryPath = useAppStore((state) => state.settings.opencodeBinaryPath);
+  const runtimeOptions = { cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath };
+  // Optional providers show only once their tooling allows reads.
   const usageProviders = listCliConnectedUsageProviders(providerAvailability).filter(
-    (provider) => (provider !== "cursor" && provider !== "kiro") || providerSurfaceVisible(provider, runtimeOptions),
+    (provider) =>
+      !isOptionalUsageProvider(provider) ||
+      providerSurfaceVisible(provider, runtimeOptions),
   );
   useLoadTurnSpend();
   const now = useMinuteClock();
@@ -112,9 +124,7 @@ export function StatusBar() {
       account,
       spend: spendByProvider[STATUS_BAR_USAGE_PROVIDER_IDS[provider]],
       credits: creditsId ? (creditsById[creditsId] ?? { status: "loading" }) : null,
-      stale:
-        (provider === "cursor" || provider === "kiro") &&
-        readiness[provider]?.stale === true,
+      stale: isOptionalUsageProvider(provider) && readiness[provider]?.stale === true,
       pending: isRateLimitsReadPending(
         {
           rateLimitsUpdatedAtByProvider,

@@ -1,16 +1,13 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useState } from "react";
 import { Badge } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
+import { ProviderMark } from "@/components/system/ProviderMark";
+import { providerInkStyles } from "@/components/system/provider-ink.styles";
 import { describeAgentIdentity } from "@/lib/delegation/format";
 import type { DelegationIdentitySource } from "@/lib/delegation/exchange";
-import {
-  getProviderFallbackLabel,
-  getProviderIconUrl,
-  getProviderWaveTone,
-} from "@/lib/providers/model-catalog";
+import { getProviderWaveHue } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { delegationStyles as styles, delegationWaveTone } from "./delegation.styles";
+import { delegationStyles as styles } from "./delegation.styles";
 
 const SOURCE_LABEL: Record<DelegationIdentitySource, string> = {
   get auto() { return i18n.t("agentRuns:agentIdentity.auto"); },
@@ -34,28 +31,6 @@ export interface AgentIdentityProps {
   className?: string;
 }
 
-function ProviderMark(props: { providerId: ProviderId }) {
-  useTranslation();
-  const [failed, setFailed] = useState(false);
-  const url = getProviderIconUrl({ providerId: props.providerId });
-  if (failed || !url) {
-    return (
-      <span aria-hidden className={sx(styles.identityIconFallback)}>
-        {getProviderFallbackLabel({ providerId: props.providerId })}
-      </span>
-    );
-  }
-  return (
-    <img
-      alt=""
-      aria-hidden
-      className={sx(styles.identityIcon)}
-      src={url}
-      onError={() => setFailed(true)}
-    />
-  );
-}
-
 /**
  * Who ran something: provider mark · human model name · effort chip · role.
  *
@@ -72,13 +47,13 @@ export function AgentIdentity(props: AgentIdentityProps) {
     role: props.role,
   });
   const tone = props.providerId
-    ? getProviderWaveTone({ providerId: props.providerId })
+    ? getProviderWaveHue({ providerId: props.providerId })
     : null;
   const nameLabel =
     identity.modelLabel ?? identity.providerLabel ?? i18n.t("agentRuns:agentIdentity.nameLabel");
   const nameStyle = [
     styles.identityModel,
-    tone ? delegationWaveTone[tone] : styles.identityModelMuted,
+    tone ? providerInkStyles[tone] : styles.identityModelMuted,
   ] as const;
   return (
     <span
@@ -89,7 +64,9 @@ export function AgentIdentity(props: AgentIdentityProps) {
       {identity.roleLabel ? (
         <span className={sx(styles.identityRole)}>{identity.roleLabel}</span>
       ) : null}
-      {props.providerId ? <ProviderMark providerId={props.providerId} /> : null}
+      {props.providerId ? (
+        <ProviderMark providerId={props.providerId} size="sm" />
+      ) : null}
       <span className={sx(...nameStyle)}>
         {props.compact && identity.effortLabel
           ? `${nameLabel} · ${identity.effortLabel}`

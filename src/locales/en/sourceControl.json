@@ -332,7 +332,14 @@
     "refresh": "Refresh",
     "updateBranch": "Update Branch",
     "mergePR": "Merge PR",
-    "viewOnGitHub": "View on GitHub"
+    "viewOnGitHub": "View on GitHub",
+    "checksCount": "{{passed}}/{{total}} checks",
+    "checksPassedOfTotal": "{{passed}} of {{total}} checks passed",
+    "checksFailing": "Failing: {{names}}",
+    "checksStillRunning": "Still running: {{names}}",
+    "checkNamesAndMore": "{{names}} and {{count}} more",
+    "checkCount_one": "{{count}} check",
+    "checkCount_other": "{{count}} checks"
   },
   "reviewFindings": {
     "noFindings": "No findings",

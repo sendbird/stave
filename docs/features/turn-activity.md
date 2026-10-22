@@ -364,7 +364,11 @@ row when it is narrower.
 
 1. Send a follow-up while a turn runs; it joins the queue line.
 2. Choose **Steer** to push the next message into the running response, or
-   open the queue and drag rows into the order they should send.
+   open the queue to change the order the messages send in.
+3. Drag a row by its grip, or move it from the keyboard: Tab to the row's
+   grip (or any of its actions) and press `Alt+ArrowUp` or `Alt+ArrowDown`.
+   The row moves one place at a time, keeps focus on its grip, and a screen
+   reader hears its new position, such as "Moved to position 1 of 3".
 
 ## Files And Data
 
@@ -388,7 +392,6 @@ row when it is narrower.
   the step appears, up to ten pages. If the step is no longer in the
   conversation, is further back than that, or earlier messages fail to load,
   a notice says so.
-- Dragging a queued message needs a pointer; there is no keyboard reorder.
 - **Resume at reset** runs only while Stave is open. A usage limit is
   recognized from the provider's own limit message; a short per-request
   throttle is not treated as one.

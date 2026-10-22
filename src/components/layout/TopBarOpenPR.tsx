@@ -36,18 +36,15 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
   Loader,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
   toast,
 } from "@/components/ui";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
   Dialog,
   DialogContent,
@@ -78,19 +75,15 @@ import {
   TOP_BAR_PR_ACTION_EVENT,
   type TopBarPrActionDetail,
 } from "@/components/layout/top-bar-pr-events";
-import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { TopBarPrStatusTrigger } from "@/components/layout/TopBarPrStatusTrigger";
 import { useAppStore } from "@/store/app.store";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import {
   type WorkspacePrStatus,
-  PR_STATUS_VISUAL,
   PR_STATUS_ACTIONS,
   describePrStatusHint,
 } from "@/lib/pr-status";
-import {
-  prCreateButtonStyles,
-  prToneBadgeStyles,
-} from "./pr-status.styles";
+import { prCreateButtonStyles } from "./pr-status.styles";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { topBarControlStyles } from "./top-bar.styles";
 import { openPrStyles } from "./top-bar-open-pr.styles";
@@ -284,7 +277,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   const prInfo = workspacePrInfoById[activeWorkspaceId];
   const prStatus: WorkspacePrStatus = prInfo?.derived ?? "no_pr";
-  const visual = PR_STATUS_VISUAL[prStatus];
   const actions = PR_STATUS_ACTIONS[prStatus];
 
   // -------------------------------------------------------------------------
@@ -616,7 +608,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     setInlineNotice(
       mergeSettingsAuthFailure
         ? {
-            tone: "error",
+            tone: "danger",
             title: i18n.t("sourceControl:topBarOpenPR.gitHubAuthenticationIsRequired"),
             description: describeGitHubAuthFailure(mergeSettingsResult),
           }
@@ -664,7 +656,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (!runCommand || !createPR) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.unableToCreatePR"),
         description:
           i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeIsUnavailableIn"),
@@ -682,7 +674,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!isCurrentOperation()) return;
       if (!statusResult.ok) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.unableToRefreshWorkspaceChanges"),
           description: statusResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitStatusFailed"),
         });
@@ -692,7 +684,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
       if (statusResult.hasConflicts) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.cannotCreatePRWithUnresolvedConflicts"),
           description:
             i18n.t("sourceControl:topBarOpenPR.resolveTheMergeConflictsInThisWorkspace"),
@@ -744,7 +736,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
     } else if (changedFiles.length > 0 && pendingFiles.length === 0) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.unableToVerifyFileScope"),
         description:
           i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotRefreshWorkspace"),
@@ -764,7 +756,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     const title = prTitle.trim() || fallbackDraft.title;
     if (!isReasonablePullRequestTitle(title)) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.pRTitleMustUseTheRepositoryConvention"),
         description:
           i18n.t("sourceControl:topBarOpenPR.useALowercaseConventionalCommitTitleSuch"),
@@ -959,7 +951,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         // Infra error (invalid config / spawn failure) — hard stop.
         if (hookResult.error) {
           setInlineNotice({
-            tone: "error",
+            tone: "danger",
             title: i18n.t("sourceControl:topBarOpenPR.pRPreflightFailed"),
             description: hookResult.error,
           });
@@ -975,7 +967,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         setVerificationFailures(hookResult.summary.failures);
         setVerificationBlocking(blocking);
         setInlineNotice({
-          tone: blocking ? "error" : "warning",
+          tone: blocking ? "danger" : "warning",
           title: blocking
             ? i18n.t("sourceControl:topBarOpenPR.verificationFailed")
             : i18n.t("sourceControl:topBarOpenPR.verificationReportedWarnings"),
@@ -996,7 +988,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       const commit = window.api?.sourceControl?.commit;
       if ((!stageFiles && !stageFile) || !commit) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.automaticCommitIsUnavailable"),
           description:
             i18n.t("sourceControl:topBarOpenPR.theSourceControlBridgeCannotIntentionallyStage"),
@@ -1040,7 +1032,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       }
       if (!isConventionalCommitMessage(message)) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.commitMessageMustUseConventionalCommits"),
           description:
             i18n.t("sourceControl:topBarOpenPR.useAMessageSuchAsFixTopbarStabilize"),
@@ -1078,7 +1070,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       if (!isCurrentOperation()) return;
       if (!stageResult.ok) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.stagingFailed"),
           description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
         });
@@ -1118,7 +1110,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             if (!isCurrentOperation()) return;
             if (!stageResult.ok) {
               setInlineNotice({
-                tone: "error",
+                tone: "danger",
                 title: i18n.t("sourceControl:topBarOpenPR.reStagingAfterAutoFixFailed"),
                 description: stageResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitAddFailed"),
               });
@@ -1138,7 +1130,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
       if (!commitResult.ok) {
         setInlineNotice({
-          tone: "error",
+          tone: "danger",
           title: i18n.t("sourceControl:topBarOpenPR.commitFailed"),
           description: commitResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitCommitFailed"),
         });
@@ -1170,7 +1162,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!isCurrentOperation()) return;
     if (!pushResult.ok) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: i18n.t("sourceControl:topBarOpenPR.pushFailed"),
         description: pushResult.stderr || i18n.t("sourceControl:topBarOpenPR.gitPushFailed"),
       });
@@ -1215,7 +1207,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
     if (!prResult.ok) {
       setInlineNotice({
-        tone: "error",
+        tone: "danger",
         title: prResult.prUrl
           ? i18n.t("sourceControl:topBarOpenPR.pRCreatedButAutoMergeFailed")
           : i18n.t("sourceControl:topBarOpenPR.pRCreationFailed"),
@@ -1705,8 +1697,6 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     ? i18n.t("sourceControl:topBarOpenPR.pauseOrFinishTheRunningTaskBefore2")
     : i18n.t("sourceControl:topBarOpenPR.createANewWorkspaceAndAttachA");
 
-  const badgeToneStyle = prToneBadgeStyles[visual.tone];
-
   useEffect(() => {
     const onTopBarPrAction = (event: Event) => {
       const detail = (event as CustomEvent<TopBarPrActionDetail>).detail;
@@ -1780,98 +1770,51 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       {/* --- Trigger button: "Create PR" or PR status dropdown --- */}
       {prStatus === "no_pr" ? (
         /* No PR – show "Create PR" button */
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <AdsButton
-                layout="host"
-                size="sm"
-                type="button"
-                xstyle={[
-                  topBarControlStyles.control,
-                  openPrStyles.trigger,
-                  prCreateButtonStyles.trigger,
-                ]}
-                style={props.noDragStyle}
-                onClick={() => void handleCreateClick()}
-                disabled={isCreateDisabled}
-              />
-            }
-          >
-            {isBusy ? (
-              <Loader
-                aria-hidden
-                className={sx(openPrStyles.flexNone)}
-                size="xs"
-                variant="persist"
-              />
-            ) : (
-              <GitPullRequest
-                aria-hidden
-                className={sx(openPrStyles.triggerIcon)}
-              />
-            )}
-            {statusLabel ?? i18n.t("sourceControl:topBarOpenPR.createPR")}
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{createPrTooltip}</TooltipContent>
+        <Tooltip content={createPrTooltip} side="bottom">
+          <span {...stylex.props(layoutShellStyles.inlineFlex)}>
+            <AdsButton
+              layout="host"
+              size="sm"
+              type="button"
+              xstyle={[
+                topBarControlStyles.control,
+                openPrStyles.trigger,
+                prCreateButtonStyles.trigger,
+              ]}
+              style={props.noDragStyle}
+              onClick={() => void handleCreateClick()}
+              disabled={isCreateDisabled}
+            >
+              {isBusy ? (
+                <Loader
+                  aria-hidden
+                  className={sx(openPrStyles.flexNone)}
+                  size="xs"
+                  variant="persist"
+                />
+              ) : (
+                <GitPullRequest
+                  aria-hidden
+                  className={sx(openPrStyles.triggerIcon)}
+                />
+              )}
+              {statusLabel ?? i18n.t("sourceControl:topBarOpenPR.createPR")}
+            </AdsButton>
+          </span>
         </Tooltip>
       ) : (
         /* Has PR – show status dropdown */
         <div className={sx(openPrStyles.triggerGroup)}>
           <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <span {...stylex.props(layoutShellStyles.inlineFlex)} />
-                }
-              >
-                <DropdownMenuTrigger
-                  render={
-                    <AdsButton
-                      layout="host"
-                      size="sm"
-                      type="button"
-                      xstyle={[
-                        topBarControlStyles.control,
-                        openPrStyles.trigger,
-                        // Draft is the neutral tone. A badge fill here is a
-                        // different chip from the branch switcher and Commit
-                        // graph beside it; those share `surface`. Colored
-                        // tones keep the status fill.
-                        visual.tone === "neutral"
-                          ? topBarControlStyles.surface
-                          : badgeToneStyle,
-                      ]}
-                      style={props.noDragStyle}
-                      disabled={isBusy || continuingWorkspace}
-                      aria-label={i18n.t("sourceControl:topBarOpenPR.statusMenu")}
-                    />
-                  }
-                >
-                  {isBusy ? (
-                    <Loader
-                      aria-hidden
-                      className={sx(openPrStyles.flexNone)}
-                      size="xs"
-                      variant="scan"
-                    />
-                  ) : (
-                    <PrStatusIcon
-                      status={prStatus}
-                      className={sx(openPrStyles.statusIcon)}
-                    />
-                  )}
-                  {statusLabel ?? visual.label}
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent side="bottom">
-                {i18n.t("sourceControl:topBarOpenPR.pR")}{prInfo?.pr?.number ?? "?"}: {visual.label}
-                {prStatusHint ? ` — ${prStatusHint}` : ""}
-                {prStatusError
-                  ? i18n.t("sourceControl:topBarOpenPR.statusMayBeStale", { value1: prStatusError })
-                  : ""}
-              </TooltipContent>
-            </Tooltip>
+            <TopBarPrStatusTrigger
+              pr={prInfo?.pr}
+              status={prStatus}
+              busyLabel={statusLabel}
+              disabled={isBusy || continuingWorkspace}
+              hint={prStatusHint}
+              error={prStatusError}
+              noDragStyle={props.noDragStyle}
+            />
 
             <DropdownMenuContent
               align="end"
@@ -1946,37 +1889,34 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           </DropdownMenu>
 
           {canContinueWorkspace ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <AdsButton
-                    layout="host"
-                    size="sm"
-                    type="button"
-                    xstyle={[
-                      topBarControlStyles.control,
-                      openPrStyles.trigger,
-                      openPrStyles.continueTrigger,
-                    ]}
-                    style={props.noDragStyle}
-                    onClick={() => setContinueDialogOpen(true)}
-                    disabled={isContinueDisabled}
-                  />
-                }
-              >
-                {continuingWorkspace ? (
-                  <Loader
-                    aria-hidden
-                    className={sx(openPrStyles.flexNone)}
-                    size="xs"
-                    variant="sync"
-                  />
-                ) : (
-                  <GitBranch />
-                )}
-                {i18n.t("sourceControl:topBarOpenPR.continue")}
-              </TooltipTrigger>
-              <TooltipContent side="bottom">{continueTooltip}</TooltipContent>
+            <Tooltip content={continueTooltip} side="bottom">
+              <span {...stylex.props(layoutShellStyles.inlineFlex)}>
+                <AdsButton
+                  layout="host"
+                  size="sm"
+                  type="button"
+                  xstyle={[
+                    topBarControlStyles.control,
+                    openPrStyles.trigger,
+                    openPrStyles.continueTrigger,
+                  ]}
+                  style={props.noDragStyle}
+                  onClick={() => setContinueDialogOpen(true)}
+                  disabled={isContinueDisabled}
+                >
+                  {continuingWorkspace ? (
+                    <Loader
+                      aria-hidden
+                      className={sx(openPrStyles.flexNone)}
+                      size="xs"
+                      variant="sync"
+                    />
+                  ) : (
+                    <GitBranch />
+                  )}
+                  {i18n.t("sourceControl:topBarOpenPR.continue")}
+                </AdsButton>
+              </span>
             </Tooltip>
           ) : null}
         </div>
@@ -2162,7 +2102,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             {mergeDialogError ? (
               <InlineNoticeBanner
                 notice={{
-                  tone: "error",
+                  tone: "danger",
                   title: i18n.t("sourceControl:topBarOpenPR.mergeFailed"),
                   description: mergeDialogError,
                 }}

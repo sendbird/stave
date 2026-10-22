@@ -25,9 +25,9 @@ const dangerEdge = `color-mix(in oklch, ${vars["--ads-color-danger"]} 40%, trans
 
 /** Verification / PR / working-tree signal colors, keyed by local check tone. */
 export const checkToneStyles = stylex.create({
-  ok: { color: vars["--ads-color-success-text"] },
-  warn: { color: vars["--ads-color-warning-text"] },
-  fail: { color: vars["--ads-color-danger-text"] },
+  success: { color: vars["--ads-color-success-text"] },
+  warning: { color: vars["--ads-color-warning-text"] },
+  danger: { color: vars["--ads-color-danger-text"] },
   neutral: { color: vars["--ads-color-text-muted"] },
 });
 
@@ -45,13 +45,13 @@ export const scmStatusToneStyles = stylex.create({
   none: { color: vars["--ads-color-text-muted"] },
 });
 
-/** Row-action ink, per destructive / affirmative / neutral intent. */
+/** Row-action ink, per destructive (danger) / affirmative (success) / neutral intent. */
 export const scmActionToneStyles = stylex.create({
-  default: {
+  neutral: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-canvas-subtle"] },
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
-  destructive: {
+  danger: {
     backgroundColor: { default: "transparent", ":hover": dangerHoverWash },
     color: { default: vars["--ads-color-danger-text"], ":hover": vars["--ads-color-danger-text"] },
   },

@@ -234,7 +234,7 @@ OpenCode needs its own CLI and its own provider sign-in. Stave does not pass an 
 
 What to expect:
 
-- Billing and rate limits are your OpenCode provider's, for example the Vercel AI Gateway key you connected in OpenCode. Stave shows no quota meter for OpenCode.
+- Billing and rate limits are your OpenCode provider's, for example the Vercel AI Gateway key you connected in OpenCode. OpenCode reports no usage limits, so its status bar meter reads **No limits reported** and shows only the tokens of turns run in Stave.
 - If a model needs a sign-in OpenCode does not have, the turn ends with an "Authentication required" error that names the commands above.
 - The models in the selector are the ones `opencode models` reports. If the list is empty, connect a provider in OpenCode and choose **Refresh** in the selector.
 

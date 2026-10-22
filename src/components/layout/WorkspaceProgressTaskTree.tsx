@@ -6,7 +6,6 @@ import {
 } from "@/lib/task-context/attached-task-context";
 import { memo, useMemo, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   buildWorkspaceProgressTaskItems,
   type WorkspaceProgressTaskItem,
@@ -15,6 +14,7 @@ import { StateMark } from "@/components/ads/components/StateMark";
 import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import { Loader } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { ProviderMark } from "@/components/system/ProviderMark";
 import { sx } from "@/components/ads/utils/stylex";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -44,18 +44,19 @@ const STATUS_WORK_STATE: Record<FleetTaskStatus, WorkState> = {
   idle: "idle",
 };
 
-function ProviderMark(args: {
+/** The task's provider: its mark, named on hover and to assistive tech. */
+function TaskProviderMark(args: {
   providerId: WorkspaceProgressTaskItem["providerId"];
 }) {
   const { t: tI18n } = useTranslation(["workspace"]);
   const label = getProviderLabel({ providerId: args.providerId });
   return (
-    <span
-      className={sx(styles.providerMark)}
-      title={tI18n("workspace:workspaceProgressTaskTree.valueProvider", { label: label })}
-    >
-      <ModelIcon providerId={args.providerId} className={sx(styles.providerIcon)} />
-      <VisuallyHidden>{tI18n("workspace:workspaceProgressTaskTree.providerName", { label })}</VisuallyHidden>
+    <span className={sx(styles.providerMark)}>
+      <ProviderMark
+        providerId={args.providerId}
+        size="sm"
+        label={tI18n("workspace:workspaceProgressTaskTree.valueProvider", { label })}
+      />
     </span>
   );
 }
@@ -119,7 +120,7 @@ export function WorkspaceProgressTaskTreeView(args: {
               );
             }}
           >
-            <ProviderMark providerId={item.providerId} />
+            <TaskProviderMark providerId={item.providerId} />
             <span className={sx(styles.rowTitle)}>{item.title}</span>
             <span className={sx(styles.statusSlot)} title={statusLabel}>
               <StateMark state={STATUS_WORK_STATE[item.status]} />

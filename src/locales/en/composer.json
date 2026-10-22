@@ -319,16 +319,11 @@
     "copy2": "Style edit failed",
     "description2": "Lens could not edit that element.",
     "copy3": "Style updated",
-    "ariaLabel7": "Thinking: {{value1}}",
-    "thinking": "Thinking",
-    "thinking2": "Thinking: {{value1}}",
     "ariaLabel8": "Runtime · {{value1}}",
     "title": "Runtime profile for the next turn",
-    "runtime": "Runtime",
     "runtime2": "Runtime profile",
     "ariaLabel9": "Runtime · {{value1}}",
     "title2": "Runtime profile for the next turn",
-    "runtime4": "Runtime",
     "runtime5": "Runtime profile",
     "composerCustomizeMenuFooter": "Customize controls…",
     "ariaLabel10": "More composer controls ({{value1}})",
@@ -424,7 +419,11 @@
     "documentsHeading": "Documents from other workspaces",
     "documentFromWorkspace": "Workspace {{workspace}}",
     "documentFromDeletedWorkspace": "Deleted workspace {{workspace}}",
-    "documentPaletteHint": "Enter or Tab attaches the highlighted document as context."
+    "documentPaletteHint": "Enter or Tab attaches the highlighted document as context.",
+    "thinkingValue": "Thinking · {{value}}",
+    "thinkingTitle": "Thinking: {{value}}. Applies to every Claude task.",
+    "thinkingMenuTitle": "Thinking mode",
+    "thinkingMenuScope": "Applies to every Claude task, not only this one."
   },
   "promptLexicalEditor": {
     "ariaLabel": "Prompt"
@@ -556,7 +555,9 @@
     "ariaLabel11": "Edit queued prompt {{value1}}",
     "title9": "Edit",
     "ariaLabel12": "Delete queued prompt {{value1}}",
-    "title10": "Delete"
+    "title10": "Delete",
+    "moveQueued": "Move queued message {{position}} of {{total}}",
+    "movedTo": "Moved to position {{position}} of {{total}}"
   },
   "shelfReviews": {
     "ariaLabel": "Reviews",

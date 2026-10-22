@@ -17,9 +17,14 @@ import type {
   GraphResult,
 } from "../../src/lib/git-graph/types";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
-import type { PullRequestCheck } from "../../src/lib/agent-runs/checks";
+import {
+  bucketOfRollupCheck,
+  type CheckBucket,
+  type PullRequestCheck,
+} from "../../src/lib/agent-runs/checks";
 import type {
   ConcretePrMergeMethod,
+  GitHubPrChecks,
   GitHubPrPayload,
   PrMergeMethod,
 } from "../../src/lib/pr-status";
@@ -154,71 +159,111 @@ export async function discardSourceControlPath(args: {
 
 export type ScmCommandRunner = typeof runCommandArgs;
 
-function parseGitHubPrPayload(raw: Record<string, unknown>): GitHubPrPayload {
-  let checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null = null;
-  const checks: unknown[] = Array.isArray(raw.statusCheckRollup)
-    ? raw.statusCheckRollup
-    : [];
-  if (checks.length > 0) {
-    const latestCheckRunByName = new Map<string, Record<string, unknown>>();
-    const nonCheckRuns: Array<Record<string, unknown>> = [];
-    for (const check of checks as Array<Record<string, unknown>>) {
-      if (
-        check.__typename === "CheckRun" &&
-        typeof check.name === "string" &&
-        check.name
-      ) {
-        const existing = latestCheckRunByName.get(check.name);
-        if (!existing) {
-          latestCheckRunByName.set(check.name, check);
-        } else {
-          const existingTime =
-            typeof existing.startedAt === "string"
-              ? new Date(existing.startedAt).getTime()
-              : 0;
-          const currentTime =
-            typeof check.startedAt === "string"
-              ? new Date(check.startedAt).getTime()
-              : 0;
-          if (currentTime > existingTime) {
-            latestCheckRunByName.set(check.name, check);
-          }
-        }
-      } else {
-        nonCheckRuns.push(check);
-      }
-    }
-    const dedupedChecks = [...latestCheckRunByName.values(), ...nonCheckRuns];
+/** How many failing or running check names a payload carries. */
+const PR_CHECK_NAME_LIMIT = 10;
 
-    const hasFailure = dedupedChecks.some((check) => {
-      if (check.__typename === "CheckRun") {
-        return (
-          check.conclusion === "FAILURE" ||
-          check.conclusion === "CANCELLED" ||
-          check.conclusion === "TIMED_OUT" ||
-          check.conclusion === "ACTION_REQUIRED"
-        );
+/** The summary field each shared check bucket is counted in. */
+const PR_CHECK_COUNT_KEY = {
+  pass: "passed",
+  fail: "failed",
+  pending: "pending",
+} as const satisfies Record<CheckBucket, keyof GitHubPrChecks>;
+
+function prCheckName(check: Record<string, unknown>) {
+  const name = check.__typename === "StatusContext" ? check.context : check.name;
+  return typeof name === "string" ? name.trim() : "";
+}
+
+/**
+ * The latest run of each named check plus every status context, so a
+ * re-run check counts once, at its newest result.
+ */
+function dedupePrChecks(checks: Array<Record<string, unknown>>) {
+  const latestCheckRunByName = new Map<string, Record<string, unknown>>();
+  const nonCheckRuns: Array<Record<string, unknown>> = [];
+  for (const check of checks) {
+    if (
+      check.__typename === "CheckRun" &&
+      typeof check.name === "string" &&
+      check.name
+    ) {
+      const existing = latestCheckRunByName.get(check.name);
+      if (!existing) {
+        latestCheckRunByName.set(check.name, check);
+      } else {
+        const existingTime =
+          typeof existing.startedAt === "string"
+            ? new Date(existing.startedAt).getTime()
+            : 0;
+        const currentTime =
+          typeof check.startedAt === "string"
+            ? new Date(check.startedAt).getTime()
+            : 0;
+        if (currentTime > existingTime) {
+          latestCheckRunByName.set(check.name, check);
+        }
       }
-      if (check.__typename === "StatusContext") {
-        return check.state === "FAILURE" || check.state === "ERROR";
-      }
-      return false;
-    });
-    if (hasFailure) {
-      checksRollup = "FAILURE";
     } else {
-      const hasPending = dedupedChecks.some((check) => {
-        if (check.__typename === "CheckRun") {
-          return check.status !== "COMPLETED";
-        }
-        if (check.__typename === "StatusContext") {
-          return check.state === "PENDING" || check.state === "EXPECTED";
-        }
-        return false;
-      });
-      checksRollup = hasPending ? "PENDING" : "SUCCESS";
+      nonCheckRuns.push(check);
     }
   }
+  return [...latestCheckRunByName.values(), ...nonCheckRuns];
+}
+
+/**
+ * Per-check counts and the names of checks that fail or still run. Each check
+ * is bucketed by `bucketOfRollupCheck`, the rules the checks watch uses, so
+ * the chip's count and `checksRollup` (derived from these counts) agree with
+ * it: an expired (stale) or failed-to-start check fails, a neutral or skipped
+ * one passes, and one that has not finished is still running.
+ */
+export function summarizePrChecks(
+  rawChecks: unknown,
+): GitHubPrChecks | undefined {
+  const checks = Array.isArray(rawChecks)
+    ? rawChecks.filter(
+        (check): check is Record<string, unknown> =>
+          Boolean(check) && typeof check === "object",
+      )
+    : [];
+  if (checks.length === 0) {
+    return undefined;
+  }
+  const summary: GitHubPrChecks = {
+    total: 0,
+    passed: 0,
+    failed: 0,
+    pending: 0,
+    failedNames: [],
+    pendingNames: [],
+  };
+  for (const check of dedupePrChecks(checks)) {
+    const bucket = bucketOfRollupCheck(check);
+    summary.total += 1;
+    summary[PR_CHECK_COUNT_KEY[bucket]] += 1;
+    const names =
+      bucket === "fail"
+        ? summary.failedNames
+        : bucket === "pending"
+          ? summary.pendingNames
+          : null;
+    const name = prCheckName(check);
+    if (names && name && names.length < PR_CHECK_NAME_LIMIT) {
+      names.push(name);
+    }
+  }
+  return summary;
+}
+
+function parseGitHubPrPayload(raw: Record<string, unknown>): GitHubPrPayload {
+  const checks = summarizePrChecks(raw.statusCheckRollup);
+  const checksRollup: GitHubPrPayload["checksRollup"] = !checks
+    ? null
+    : checks.failed > 0
+      ? "FAILURE"
+      : checks.pending > 0
+        ? "PENDING"
+        : "SUCCESS";
 
   const payload: GitHubPrPayload = {
     number: typeof raw.number === "number" ? raw.number : 0,
@@ -235,6 +280,7 @@ function parseGitHubPrPayload(raw: Record<string, unknown>): GitHubPrPayload {
       (raw.mergeStateStatus as GitHubPrPayload["mergeStateStatus"] | undefined) ??
       "UNKNOWN",
     checksRollup,
+    ...(checks ? { checks } : {}),
     mergedAt: typeof raw.mergedAt === "string" ? raw.mergedAt : null,
     baseRefName: typeof raw.baseRefName === "string" ? raw.baseRefName : "",
     headRefName: typeof raw.headRefName === "string" ? raw.headRefName : "",

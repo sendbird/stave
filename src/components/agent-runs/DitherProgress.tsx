@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import { Check, CircleAlert, Hand, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import type { StageTone } from "@/lib/agent-runs/agent-run-view";
+import type { StageState } from "@/lib/agent-runs/agent-run-view";
 import { clampHeadLabel } from "@/lib/agent-runs/stage-progress";
 import { subscribeToThemeChanges } from "@/lib/themes/theme-change";
 import {
@@ -18,7 +18,7 @@ import { ditherProgressStyles as styles, HEAD_TONES, MARK_TONES } from "./dither
 const cssVar = (reference: string) => reference.slice(4, -1);
 
 /** Each stage tone fills in its work state's theme color, as `StateMark` draws it. */
-const FILL_TOKENS: Record<StageTone, string> = {
+const FILL_TOKENS: Record<StageState, string> = {
   active: "--state-running",
   waiting: "--state-needs-answer",
   attention: "--state-halted",
@@ -30,7 +30,7 @@ const TICK_TOKEN = cssVar(vars["--ads-color-border-strong"]);
 const PASSED_TICK_TOKEN = cssVar(vars["--ads-color-text"]);
 
 /** The head's mark: the tone is never carried by color alone. */
-const MARKS: Partial<Record<StageTone, { icon: LucideIcon; tone: StyleXValue }>> = {
+const MARKS: Partial<Record<StageState, { icon: LucideIcon; tone: StyleXValue }>> = {
   waiting: { icon: Hand, tone: MARK_TONES.waiting },
   attention: { icon: CircleAlert, tone: MARK_TONES.attention },
   done: { icon: Check, tone: MARK_TONES.done },
@@ -55,7 +55,7 @@ export function DitherProgress(props: {
   value: number;
   /** Boundaries to mark, 0..1. */
   ticks?: readonly number[];
-  tone: StageTone;
+  tone: StageState;
   /** What the head names: the stage in progress. */
   label: string;
   /** "3/5", beside the label. */
@@ -122,7 +122,7 @@ export function DitherProgress(props: {
 interface DitherInput {
   value: number;
   ticks: readonly number[];
-  tone: StageTone;
+  tone: StageState;
   live: boolean;
 }
 

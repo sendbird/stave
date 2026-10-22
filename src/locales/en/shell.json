@@ -219,7 +219,9 @@
     "usageAndChargesAreManagedByYour": "Usage and charges are managed by your Gateway. Subscription quota is unavailable.",
     "viewUsageStatistics": "View usage statistics",
     "providerUsage": "{{provider}} usage",
-    "refreshUsage": "Refresh rate limits"
+    "refreshUsage": "Refresh rate limits",
+    "noLimitsReported": "No limits reported",
+    "noLimitsReportedHint": "{{provider}} does not report usage limits, so there is no quota to show. Tokens of turns run in Stave still count."
   },
   "staveAppMenuButton": {
     "openStaveMenu": "Open Stave menu",
@@ -244,9 +246,11 @@
     "copyWorkspacePath": "Copy workspace path",
     "selectAnActiveWorkspaceToOpenThe": "Select an active workspace to open the commit graph",
     "views": "Views",
-    "tools": "Tools",
     "expandProjectList": "Expand project list",
-    "pathActions": "Open workspace path actions"
+    "pathActions": "Open workspace path actions",
+    "location": "Location",
+    "search": "Search",
+    "app": "App"
   },
   "topBarAutomations": {
     "closeSchedules": "Close Schedules",

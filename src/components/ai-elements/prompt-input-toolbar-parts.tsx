@@ -30,7 +30,7 @@ export function getRuntimeProfileToneStyle(tone: PromptInputRuntimeProfile["tone
   if (tone === "warning") {
     return promptInputStyles.toneWarning;
   }
-  if (tone === "custom") {
+  if (tone === "accent") {
     return promptInputStyles.tonePrimary;
   }
   return promptInputStyles.toneSuccess;
@@ -52,7 +52,7 @@ export function PromptInputRuntimeTriggerIcon(args: {
           promptInputStyles.runtimeTriggerDot,
           args.profile.tone === "warning"
             ? promptInputStyles.runtimeDotWarning
-            : args.profile.tone === "custom"
+            : args.profile.tone === "accent"
               ? promptInputStyles.runtimeDotCustom
               : promptInputStyles.runtimeDotSuccess,
         )}

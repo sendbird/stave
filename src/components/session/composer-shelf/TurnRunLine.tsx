@@ -3,7 +3,7 @@ import { memo, useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { sx } from "@/components/ads/utils/stylex";
-import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
+import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { usePrefersReducedMotion } from "@/components/agent-runs/useAgentRun";
 import {
   TurnRestMark,
@@ -31,12 +31,12 @@ import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import {
   describeTurnRunLabel,
   resolveTurnRunHeadline,
-  resolveTurnRunTone,
+  resolveTurnRunState,
   summarizeShelfTodos,
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
 import {
-  SHELF_RUN_TONE_INK,
+  SHELF_RUN_STATE_INK,
   ShelfRunLine,
   ShelfRunText,
   ShelfTodoProgressView,
@@ -130,7 +130,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     [surface.todos],
   );
 
-  const tone = resolveTurnRunTone({
+  const tone = resolveTurnRunState({
     pendingInteraction,
     isStalled,
     steering: props.steering,
@@ -195,7 +195,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
                 cadence="reduced"
                 className={
                   activity
-                    ? toProviderWaveToneClass({ providerId: activity.providerId })
+                    ? toProviderWaveHueClass({ providerId: activity.providerId })
                     : undefined
                 }
                 paused={tone !== "active" && tone !== "steering"}
@@ -208,7 +208,7 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
         text={
           <ShelfRunText
             label={label}
-            tone={SHELF_RUN_TONE_INK[tone]}
+            tone={SHELF_RUN_STATE_INK[tone]}
             title={words}
             narrow={todo ? `${todo.done}/${todo.total}` : null}
             parts={[

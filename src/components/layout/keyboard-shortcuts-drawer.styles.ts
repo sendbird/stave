@@ -222,16 +222,7 @@ export const shortcutsDrawerStyles = stylex.create({
     marginBlockEnd: 0,
     marginBlockStart: vars["--ads-space-4"],
   },
-
-  keys: {
-    alignItems: "center",
-    columnGap: vars["--ads-space-8"],
-    display: "flex",
-    flexWrap: "wrap",
-    minInlineSize: 0,
-    rowGap: 6,
-  },
-  keysJoiner: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  // The keycaps themselves are `ShortcutKeys` (`src/components/system`).
   /** Where the shortcut is live and how it treats typing, under the description. */
   shortcutMeta: {
     color: vars["--ads-color-text-muted"],

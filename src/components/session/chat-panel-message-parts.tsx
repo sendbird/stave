@@ -43,7 +43,7 @@ import {
 } from "./chat-panel-file-blocks";
 
 export { toToolDisplayName } from "@/lib/tool-display-name";
-export { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
+export { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 
 export function CopyButton({ text }: { text: string }) {
   useTranslation();

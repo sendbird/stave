@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
+import { applyAppLocale } from "@/i18n";
 import {
   derivePrStatus,
+  describePrChecks,
   describePrStatusHint,
+  formatPrChecksCount,
   PR_STATUS_ACTIONS,
   PR_STATUS_VISUAL,
   type GitHubPrPayload,
@@ -96,5 +99,54 @@ describe("derivePrStatus", () => {
     expect(PR_STATUS_ACTIONS.blocked.primary).toBeNull();
     expect(describePrStatusHint(pr({ mergeStateStatus: "BLOCKED" }))).toContain("branch protection");
     expect(describePrStatusHint(pr())).toBeNull();
+  });
+});
+
+describe("PR check counts", () => {
+  test("payloads without per-check counts stay valid and show no count", () => {
+    expect(formatPrChecksCount(pr().checks)).toBeNull();
+    expect(describePrChecks(pr().checks)).toEqual([]);
+  });
+
+  test("the chip shows passed of total and the tooltip names failing and running checks", () => {
+    const checks = {
+      total: 7,
+      passed: 2,
+      failed: 4,
+      pending: 1,
+      failedNames: ["lint", "e2e", "build", "docs"],
+      pendingNames: ["deploy"],
+    };
+    expect(formatPrChecksCount(checks)).toBe("2/7 checks");
+    expect(describePrChecks(checks)).toEqual([
+      "2 of 7 checks passed",
+      "Failing: lint, e2e, build and 1 more",
+      "Still running: deploy",
+    ]);
+  });
+
+  test("checks without names are counted instead", () => {
+    expect(
+      describePrChecks({ total: 2, passed: 0, failed: 2, pending: 0 }),
+    ).toEqual(["0 of 2 checks passed", "Failing: 2 checks"]);
+  });
+
+  test("Korean copy", () => {
+    applyAppLocale("ko");
+    try {
+      expect(formatPrChecksCount({ total: 5, passed: 3, failed: 1, pending: 1 })).toBe("검사 3/5");
+      expect(
+        describePrChecks({
+          total: 5,
+          passed: 3,
+          failed: 1,
+          pending: 1,
+          failedNames: ["lint"],
+          pendingNames: ["e2e"],
+        }),
+      ).toEqual(["검사 5개 중 3개 통과", "실패: lint", "실행 중: e2e"]);
+    } finally {
+      applyAppLocale("en");
+    }
   });
 });

@@ -318,16 +318,11 @@
     "copy2": "스타일 편집 실패",
     "description2": "Lens가 해당 요소를 편집하지 못했습니다.",
     "copy3": "스타일 업데이트됨",
-    "ariaLabel7": "생각: {{value1}}",
-    "thinking": "생각 중",
-    "thinking2": "생각: {{value1}}",
     "ariaLabel8": "런타임 · {{value1}}",
     "title": "다음 턴의 런타임 프로필",
-    "runtime": "런타임",
     "runtime2": "런타임 프로필",
     "ariaLabel9": "런타임 · {{value1}}",
     "title2": "다음 턴의 런타임 프로필",
-    "runtime4": "런타임",
     "runtime5": "런타임 프로필",
     "composerCustomizeMenuFooter": "컨트롤 사용자 지정…",
     "ariaLabel10": "입력창 추가 컨트롤 ({{value1}})",
@@ -420,7 +415,11 @@
     "documentsHeading": "다른 워크스페이스의 문서",
     "documentFromWorkspace": "{{workspace}} 워크스페이스",
     "documentFromDeletedWorkspace": "삭제된 워크스페이스 {{workspace}}",
-    "documentPaletteHint": "Enter 또는 Tab을 누르면 강조된 문서를 컨텍스트로 첨부합니다."
+    "documentPaletteHint": "Enter 또는 Tab을 누르면 강조된 문서를 컨텍스트로 첨부합니다.",
+    "thinkingValue": "사고 · {{value}}",
+    "thinkingTitle": "사고: {{value}}. 모든 Claude 작업에 적용됩니다.",
+    "thinkingMenuTitle": "사고 모드",
+    "thinkingMenuScope": "이 작업만이 아니라 모든 Claude 작업에 적용됩니다."
   },
   "promptLexicalEditor": {
     "ariaLabel": "프롬프트"
@@ -552,7 +551,9 @@
     "ariaLabel11": "대기열 프롬프트 {{value1}} 편집",
     "title9": "편집",
     "ariaLabel12": "대기열 프롬프트 {{value1}} 삭제",
-    "title10": "삭제"
+    "title10": "삭제",
+    "moveQueued": "대기 중인 메시지 {{total}}개 중 {{position}}번째 이동",
+    "movedTo": "{{total}}개 중 {{position}}번째로 이동함"
   },
   "shelfReviews": {
     "ariaLabel": "리뷰",

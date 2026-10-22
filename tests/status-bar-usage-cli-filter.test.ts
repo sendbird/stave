@@ -21,6 +21,12 @@ describe("listCliConnectedUsageProviders", () => {
   test("hides engines until authentication is verified", () => {
     expect(listCliConnectedUsageProviders({})).toEqual([]);
   });
+
+  test("lists OpenCode too, though it reports no limits", () => {
+    expect(
+      listCliConnectedUsageProviders({ "claude-code": true, opencode: true }),
+    ).toEqual(["claude", "opencode"]);
+  });
 });
 
 describe("resolveWindowTimeLeftRatio", () => {

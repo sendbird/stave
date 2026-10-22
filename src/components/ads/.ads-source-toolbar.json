@@ -1,0 +1,39 @@
+{
+  "bundleIntegrity": "sha256-0ee643d08d1963fe3c8ed05a92bab86e099a80740ec67f0ea951e309b536a577",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@base-ui/react": "1.6.0",
+    "@stylexjs/stylex": "0.19.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "toolbar",
+      "kind": "component",
+      "name": "Toolbar",
+      "path": "src/components/ads/components/Toolbar.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-85fa917c59c998c8c0fdfc95912fdf4c681a412a3c859748dfa71f8315578b25",
+      "path": "src/components/ads/components/Toolbar.tsx",
+      "sourcePath": "packages/design-system/src/components/Toolbar.tsx"
+    },
+    {
+      "integrity": "sha256-da968c5fc6aa2a779ba6eea6dc5b68d841f82c2aaef7e10952400d626ceada44",
+      "path": "src/components/ads/headless/toolbar.tsx",
+      "sourcePath": "packages/design-system/src/headless/toolbar.tsx"
+    }
+  ],
+  "generatorVersion": "2",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-8789c0ca2adff13ed1164e5568b5fa9c6f4b6d371b7f9e965a7e9c0edb654592",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

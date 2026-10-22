@@ -41,7 +41,7 @@ function AccountIdentityText(props: {
         delay={400}
         render={
           <span
-            className={sx(styles.accountIdentity, line.tone === "attention" && styles.accountIdentityAttention)}
+            className={sx(styles.accountIdentity, line.tone === "warning" && styles.accountIdentityAttention)}
           />
         }
       >

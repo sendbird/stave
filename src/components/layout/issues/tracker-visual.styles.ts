@@ -5,7 +5,7 @@ import { vars } from "../../ads/tokens/tokens.stylex";
 export const priorityToneStyles = stylex.create({
   danger: { color: vars["--ads-color-danger-text"] },
   warning: { color: vars["--ads-color-warning-text"] },
-  default: { color: vars["--ads-color-text"] },
+  neutral: { color: vars["--ads-color-text"] },
   muted: { color: vars["--ads-color-text-muted"] },
   subtle: { color: vars["--ads-color-text-subtle"] },
 });

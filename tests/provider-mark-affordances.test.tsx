@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { ProviderMark } from "@/components/system/ProviderMark";
 import {
   ChoiceButtons,
   LabeledField,
@@ -140,6 +141,46 @@ describe("provider marks", () => {
     // the items is what marks the closed trigger. Two triggers, two marks —
     // before this change the model trigger showed bare text.
     expect(html.match(/codex-color\.svg/g)).toHaveLength(2);
+  });
+});
+
+describe("ProviderMark", () => {
+  test("draws the vendor mark, decorative, at the size asked for", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProviderMark, { providerId: "claude-code", size: "sm" }),
+    );
+    expect(html).toContain("claude-color.svg");
+    expect(html).toContain('alt=""');
+    expect(html).toContain("aria-hidden");
+  });
+
+  test("a provider without a mark gets its monogram in its own ink", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProviderMark, { providerId: "opencode" }),
+    );
+    expect(html).not.toContain("<img");
+    expect(html).toContain('data-provider-monogram="opencode"');
+    expect(html).toContain(">Oc<");
+    expect(html).toContain("--provider-mark-ink:var(--provider-opencode)");
+    // The avatar corner has room for one letter.
+    const corner = renderToStaticMarkup(
+      createElement(ProviderMark, { providerId: "opencode", size: "xs" }),
+    );
+    expect(corner).toContain(">O<");
+  });
+
+  test("a label names the mark on hover and to assistive tech", () => {
+    const html = renderToStaticMarkup(
+      createElement(ProviderMark, { providerId: "codex", label: "Codex provider" }),
+    );
+    expect(html).toContain('title="Codex provider"');
+    expect(html.match(/Codex provider/g)).toHaveLength(2);
+  });
+
+  test("ModelIcon is the same mark", () => {
+    expect(
+      renderToStaticMarkup(createElement(ModelIcon, { providerId: "opencode" })),
+    ).toBe(renderToStaticMarkup(createElement(ProviderMark, { providerId: "opencode" })));
   });
 });
 

@@ -12,7 +12,7 @@ import { cx, sx } from "@/components/ads/utils/stylex";
 import type { StyleXValue } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { cursorModelConfigStyles as styles } from "./cursor-model-config-list.styles";
-import { PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
+import { providerInkColor } from "@/lib/providers/provider-identity";
 import { ModelIcon } from "./model-icon";
 import {
   CURSOR_MODEL_EFFORT_OPTIONS,
@@ -23,7 +23,7 @@ import {
 } from "./model-effort-selector.utils";
 import type { ModelSelectorOption } from "./model-selector.utils";
 
-const CURSOR_ACCENT_COLOR = PROVIDER_ACCENT_COLORS.cursor;
+const CURSOR_ACCENT_COLOR = providerInkColor("cursor");
 
 const FIXED_PARAMETER_TITLE =
   "composer:cursorModelConfigList.fIXEDPARAMETERTITLE";

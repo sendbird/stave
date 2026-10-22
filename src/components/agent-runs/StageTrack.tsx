@@ -3,7 +3,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { useMemo } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow, type StageTone } from "@/lib/agent-runs/agent-run-view";
+import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow, type StageState } from "@/lib/agent-runs/agent-run-view";
 import { projectStageProgress } from "@/lib/agent-runs/stage-progress";
 import { DitherProgress } from "./DitherProgress";
 import { agentRunStyles } from "./agent-runs.styles";
@@ -28,7 +28,7 @@ export function StageTrack(props: {
   /** The agent run is paused: the current stage reads as waiting, not running. */
   paused?: boolean;
   /** The run's own verdict when its stages do not name it, such as a stopped agent run. */
-  tone?: StageTone;
+  tone?: StageState;
   /** The percent beside the track. A one-line host that names the count already drops it. */
   showPercent?: boolean;
   "aria-label"?: string;

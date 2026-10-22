@@ -35,8 +35,8 @@ import type {
  */
 
 const TONE_FILL = {
-  ok: statusBarUsageStyles.toneOk,
-  warn: statusBarUsageStyles.toneWarn,
+  success: statusBarUsageStyles.toneOk,
+  warning: statusBarUsageStyles.toneWarn,
   danger: statusBarUsageStyles.toneDanger,
 } as const;
 
@@ -332,6 +332,16 @@ export function UsageReadPending({
       {accountLabel
         ? i18n.t("shell:statusBarUsageDetails.readingUsageForTheAccount", { value1: providerName, value2: accountLabel })
         : i18n.t("shell:statusBarUsageDetails.readingUsage", { value1: providerName })}
+    </p>
+  );
+}
+
+/** The details of a provider that reports no usage limits (OpenCode). */
+export function UsageNoLimitsDetail({ providerName }: { providerName: string }) {
+  useTranslation();
+  return (
+    <p className={sx(statusBarUsageStyles.note)}>
+      {i18n.t("shell:statusBarUsageSegment.noLimitsReportedHint", { provider: providerName })}
     </p>
   );
 }
