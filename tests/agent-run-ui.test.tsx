@@ -178,7 +178,9 @@ describe("agent run in the Progress tab", () => {
     expect(html).not.toContain("Stages");
     expect(html).not.toContain("Save as workflow");
     expect(html).not.toContain("Stop run");
-    expect(html).not.toContain("Pause");
+    // No Pause control; the run contract's "Pauses after 30 turns" is not one.
+    expect(html).not.toMatch(/>Pause</);
+    expect(html).toContain('data-testid="run-contract-header"');
   });
 
   test("keeps the state and the reason, and leaves Stop, Take control and Retry to the bar and the card", () => {
