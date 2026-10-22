@@ -223,6 +223,65 @@ describe("handoff record store", () => {
   });
 });
 
+describe("saving while still typing", () => {
+  const KEY = "ws:typing-task";
+  const submitted: HandoffDraft = { ...EMPTY_DRAFT, goal: "Ship the export" };
+  const saved = applyHandoffDraft({ record: emptyHandoffRecord(), draft: submitted, at: AT });
+
+  /** A window whose save answers only when `answer` is called. */
+  function deferredSaveWindow() {
+    const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+    let answer: (response: unknown) => void = () => {};
+    Object.defineProperty(globalThis, "window", {
+      configurable: true,
+      value: { api: { persistence: { saveTaskHandoff: () => new Promise((resolve) => { answer = resolve; }) } } },
+    });
+    return {
+      answer: (response: unknown) => answer(response),
+      restore: () => {
+        if (previousWindow) Object.defineProperty(globalThis, "window", previousWindow);
+        else Reflect.deleteProperty(globalThis, "window");
+      },
+    };
+  }
+
+  test("text typed after Save survives the save and stays in the editor on top of the saved record", async () => {
+    const { saveHandoffEdit } = await import("@/components/session/use-handoff-editor");
+    const { readHandoffDraft, writeHandoffDraft, clearHandoffDraft } = await import("@/components/session/handoff-draft");
+    const ipc = deferredSaveWindow();
+    try {
+      writeHandoffDraft(KEY, { draft: submitted, authors: { goal: "user" }, baseRevision: 0 });
+      const pending = saveHandoffEdit({ draftKey: KEY, workspaceId: "ws", taskId: "typing-task", baseRevision: 0, draft: submitted, authors: { goal: "user" } });
+      // The fields stay editable: the user keeps typing while the save is in flight.
+      writeHandoffDraft(KEY, { draft: { ...submitted, goal: "Ship the export and its docs" }, authors: { goal: "user" }, baseRevision: 0 });
+      ipc.answer({ ok: true, record: saved });
+      const result = await pending;
+      expect(result).toMatchObject({ outcome: "saved", record: { revision: 1 }, keep: { draft: { goal: "Ship the export and its docs" }, baseRevision: 1 } });
+      expect(readHandoffDraft(KEY)?.draft.goal).toBe("Ship the export and its docs");
+      // Saving from there is a save over the record just saved, not a conflict.
+      const keep = result.outcome === "saved" ? result.keep : null;
+      expect(keep && resolveHandoffCommit({ draft: keep.draft, baseRevision: keep.baseRevision, current: saved })).toBe("save");
+      clearHandoffDraft(KEY);
+    } finally {
+      ipc.restore();
+    }
+  });
+
+  test("with nothing typed meanwhile, the save ends editing", async () => {
+    const { saveHandoffEdit } = await import("@/components/session/use-handoff-editor");
+    const { writeHandoffDraft } = await import("@/components/session/handoff-draft");
+    const ipc = deferredSaveWindow();
+    try {
+      writeHandoffDraft(KEY, { draft: submitted, authors: { goal: "user" }, baseRevision: 0 });
+      const pending = saveHandoffEdit({ draftKey: KEY, workspaceId: "ws", taskId: "typing-task", baseRevision: 0, draft: submitted, authors: { goal: "user" } });
+      ipc.answer({ ok: true, record: saved });
+      expect(await pending).toMatchObject({ outcome: "saved", keep: null });
+    } finally {
+      ipc.restore();
+    }
+  });
+});
+
 describe("handoff record in the provider prompt", () => {
   const record: TaskHandoffRecord = applyHandoffDraft({
     record: emptyHandoffRecord(),

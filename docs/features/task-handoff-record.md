@@ -90,7 +90,8 @@
   meanwhile is refused; a task created a moment ago is stored first, then its
   record.
 - Unsaved edits stay while Stave is open, also when you switch tabs or tasks;
-  a restart ends them, like an unsaved editor.
+  a restart ends them, like an unsaved editor. Text you type while a save is
+  in progress stays in the editor after the save; save again to keep it.
 - The record is sent as part of the turn's prompt whenever the conversation
   excerpt is: when a provider starts a session for the task, or resumes after
   another provider worked on it.

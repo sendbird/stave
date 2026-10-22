@@ -11,9 +11,53 @@ import {
   type HandoffSectionId,
   type TaskHandoffRecord,
 } from "@/lib/task-context/handoff-record";
-import { clearHandoffDraft, readHandoffDraft, writeHandoffDraft } from "./handoff-draft";
+import {
+  clearHandoffDraft,
+  readHandoffDraft,
+  writeHandoffDraft,
+  type HandoffDraftState,
+} from "./handoff-draft";
 
 export type HandoffSaveOutcome = "saved" | "unchanged" | "conflict" | "failed";
+
+/**
+ * One save of the editor's draft. The fields stay editable while it runs, so
+ * the stored draft may hold newer text when the answer comes: then editing
+ * goes on with that text over the record just saved (`keep`); otherwise
+ * editing ends (`keep` is null).
+ */
+export async function saveHandoffEdit(args: {
+  draftKey: string;
+  workspaceId: string;
+  taskId: string;
+  baseRevision: number;
+  draft: HandoffDraft;
+  authors: HandoffDraftAuthors;
+  storeTask?: () => Promise<void>;
+}): Promise<
+  | { outcome: "saved"; record: TaskHandoffRecord; keep: HandoffDraftState | null }
+  | { outcome: "conflict"; record: TaskHandoffRecord }
+  | { outcome: "failed" }
+> {
+  try {
+    const response = await saveTaskHandoff(
+      { workspaceId: args.workspaceId, taskId: args.taskId, baseRevision: args.baseRevision, draft: args.draft, authors: args.authors },
+      { storeTask: args.storeTask },
+    );
+    if (response.ok) {
+      const latest = readHandoffDraft(args.draftKey);
+      const typedSince = latest !== null && HANDOFF_SECTION_IDS.some((id) => latest.draft[id] !== args.draft[id]);
+      return {
+        outcome: "saved",
+        record: response.record,
+        keep: typedSince ? { draft: latest.draft, authors: latest.authors, baseRevision: response.record.revision } : null,
+      };
+    }
+    return response.conflict ? { outcome: "conflict", record: response.record } : { outcome: "failed" };
+  } catch {
+    return { outcome: "failed" };
+  }
+}
 
 /**
  * Editing state for one task's handoff record, on the Notes draft contract:
@@ -62,23 +106,31 @@ export function useHandoffEditor(args: {
   const save = async (fromRevision: number): Promise<HandoffSaveOutcome> => {
     setSaving(true);
     try {
-      const response = await saveTaskHandoff(
-        { workspaceId: args.workspaceId, taskId: args.taskId, baseRevision: fromRevision, draft, authors },
+      const result = await saveHandoffEdit({
+        draftKey: args.draftKey,
+        workspaceId: args.workspaceId,
+        taskId: args.taskId,
+        baseRevision: fromRevision,
+        draft,
+        authors,
         // A task created a moment ago is stored with its workspace's next snapshot; store it now.
-        { storeTask: () => useAppStore.getState().flushActiveWorkspaceSnapshot() },
-      );
-      if (response.ok) {
-        args.onSaved(response.record);
-        finish();
+        storeTask: () => useAppStore.getState().flushActiveWorkspaceSnapshot(),
+      });
+      if (result.outcome === "saved") {
+        args.onSaved(result.record);
+        if (result.keep) {
+          setConflict(null);
+          remember(result.keep);
+        } else {
+          finish();
+        }
         return "saved";
       }
-      if (response.conflict) {
-        args.onSaved(response.record);
-        setConflict(response.record);
+      if (result.outcome === "conflict") {
+        args.onSaved(result.record);
+        setConflict(result.record);
         return "conflict";
       }
-      return "failed";
-    } catch {
       return "failed";
     } finally {
       setSaving(false);
