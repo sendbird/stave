@@ -36,7 +36,7 @@ import { useTaskReturnStore } from "@/store/task-return-store";
 import { EMPTY_FLEET_ATTENTION, useFleetAttentionStore } from "@/store/fleet-attention-store";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import type { ChatMessage } from "@/types/chat";
-import { PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./turn-history-fixtures";
+import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, stubTurnHistory } from "./turn-history-fixtures";
 
 /**
  * The Task panel on the dev preview (`?stavePreview=task-panel`), in a frame
@@ -555,7 +555,11 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       },
     ],
     messagesByTask: {
-      [PLAIN_TASK_ID]: params.get("proposal") === "1" ? [...PLAIN_MESSAGES, PREVIEW_HANDOFF_PROPOSAL] : PLAIN_MESSAGES,
+      [PLAIN_TASK_ID]: [
+        ...PLAIN_MESSAGES,
+        ...(params.get("proposal") === "1" ? [PREVIEW_HANDOFF_PROPOSAL] : []),
+        ...(params.get("record") === "empty" ? [PREVIEW_ANSWERED_APPROVAL] : []),
+      ],
       [AGENT_RUN_TASK_ID]: AGENT_RUN_MESSAGES,
     },
     // The whole history is resident, so "Show the turn" reads it from here.

@@ -504,6 +504,40 @@ export function findMessageIndexByToolUseId(args: {
 }
 
 /**
+ * The message that holds the approval or question `requestId`: its own
+ * message when that is shown as is, else any message holding the request (a
+ * reply split for display keeps the request, not the message id).
+ */
+export function findMessageIndexByDecision(args: {
+  messages: Pick<ChatMessage, "id" | "parts">[];
+  messageId: string;
+  requestId: string;
+}): number {
+  if (!args.requestId) {
+    return -1;
+  }
+  const holds = (message: Pick<ChatMessage, "parts">) =>
+    message.parts.some(
+      (part) =>
+        (part.type === "approval" || part.type === "user_input") &&
+        part.requestId === args.requestId,
+    );
+  const own = args.messages.findIndex(
+    (message) => message.id === args.messageId && holds(message),
+  );
+  if (own >= 0) {
+    return own;
+  }
+  for (let index = args.messages.length - 1; index >= 0; index -= 1) {
+    const message = args.messages[index];
+    if (message && holds(message)) {
+      return index;
+    }
+  }
+  return -1;
+}
+
+/**
  * How many older pages a Turn Activity row may load while looking for its
  * tool call. A page is `TASK_MESSAGES_PAGE_SIZE` messages.
  */
@@ -515,6 +549,15 @@ export const TRANSCRIPT_REVEAL_MAX_PAGES = 10;
  * row's trace has to open.
  */
 export const TRANSCRIPT_STEP_FOCUS_MAX_FRAMES = 90;
+
+/** While a revealed step has not mounted, the transcript aims at its row again this often. */
+export const TRANSCRIPT_STEP_REAIM_FRAMES = 6;
+
+/**
+ * How long a jump to a step keeps scroll reports from saving a reading anchor
+ * (longer than the focus wait): the step's own position is saved instead.
+ */
+export const TRANSCRIPT_STEP_ANCHOR_HOLD_MS = 2_000;
 
 export type TranscriptRevealStep =
   | "reveal"

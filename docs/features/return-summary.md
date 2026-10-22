@@ -37,7 +37,8 @@
 - **Last decision**: the newest line of the task's
   [handoff record](task-handoff-record.md) under Approved decisions, or else
   the newest approval or answer you gave in the conversation. **Handoff**
-  opens the record.
+  opens the record; for an approval or answer, **Show** closes the card and
+  scrolls the conversation to it, opening its turn's steps, and focuses it.
 - **While you were away**: how many turns finished, files changed and steps
   ran since your last visit. They are counted against what you had seen when
   you left: a turn that was already running counts only the steps it made

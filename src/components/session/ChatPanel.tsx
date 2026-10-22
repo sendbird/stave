@@ -40,10 +40,13 @@ import {
 } from "@/components/ai-elements";
 import {
   decideTranscriptReveal,
+  findMessageIndexByDecision,
   findMessageIndexByToolUseId,
   getReasoningTraceExpansionMode,
   TRANSCRIPT_REVEAL_MAX_PAGES,
+  TRANSCRIPT_STEP_ANCHOR_HOLD_MS,
   TRANSCRIPT_STEP_FOCUS_MAX_FRAMES,
+  TRANSCRIPT_STEP_REAIM_FRAMES,
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
@@ -199,6 +202,8 @@ interface MessageRowProps {
   documentTurnId?: string;
   /** The tool step a Turn Activity jump is revealing in this message. */
   revealToolUseId?: string;
+  /** The approval or answer the return summary is revealing in this message. */
+  revealRequestId?: string;
 }
 
 /**
@@ -473,6 +478,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   traceExpansionMode={traceExpansionMode}
                   showInterimMessages={showInterimMessages}
                   revealToolUseId={args.revealToolUseId}
+                  revealRequestId={args.revealRequestId}
                 />
                 {message.role === "assistant" && args.documentTurnId ? (
                   <TurnDocumentRevisions turnId={args.documentTurnId} />
@@ -1073,9 +1079,14 @@ function ChatPanelMessageList(props: {
   const handledFocusTranscriptNonceRef = useRef<number | null>(null);
   const transcriptRevealRef = useRef<{ nonce: number; pages: number; inFlight: boolean } | null>(null);
   const [transcriptRevealTick, setTranscriptRevealTick] = useState(0);
-  // The step being revealed: its row opens the trace that holds it, and focus
-  // moves once the step is on screen.
-  const [revealedStep, setRevealedStep] = useState<{ messageId: string; toolUseId: string } | null>(null);
+  // The step being revealed (a tool call, or an approval or answer you gave):
+  // its row opens the trace that holds it, and focus moves once it is on screen.
+  const [revealedStep, setRevealedStep] = useState<{ messageId: string; toolUseId?: string; requestId?: string } | null>(null);
+  // Read by the focus wait below without restarting it on every provider flush.
+  const visibleMessagesRef = useRef(visibleMessages);
+  useEffect(() => {
+    visibleMessagesRef.current = visibleMessages;
+  }, [visibleMessages]);
   useEffect(() => {
     if (
       !focusTranscriptToolRequest ||
@@ -1085,11 +1096,10 @@ function ChatPanelMessageList(props: {
     ) {
       return;
     }
-    const { toolUseId, nonce } = focusTranscriptToolRequest;
-    const messageIndex = findMessageIndexByToolUseId({
-      messages: visibleMessages,
-      toolUseId,
-    });
+    const { toolUseId, decision, nonce } = focusTranscriptToolRequest;
+    const messageIndex = decision
+      ? findMessageIndexByDecision({ messages: visibleMessages, ...decision })
+      : findMessageIndexByToolUseId({ messages: visibleMessages, toolUseId: toolUseId ?? "" });
     if (transcriptRevealRef.current?.nonce !== nonce) {
       transcriptRevealRef.current = { nonce, pages: 0, inFlight: false };
     }
@@ -1136,6 +1146,11 @@ function ChatPanelMessageList(props: {
     // height change (a row measured on the way, the trace opening) pulls the
     // transcript back to the latest message.
     manualScrollIntentRef.current?.markManualScrollIntent();
+    // The jump renders the target's rows a frame late. A scroll report in
+    // between would save a reading anchor from rows on their way out, and the
+    // next render would restore to it, away from the step. The focus wait
+    // below saves the anchor once the step is on screen.
+    suppressAnchorUntilRef.current = Date.now() + TRANSCRIPT_STEP_ANCHOR_HOLD_MS;
     virtuosoRef.current?.scrollToIndex({
       index: messageIndex,
       align: "center",
@@ -1143,7 +1158,7 @@ function ChatPanelMessageList(props: {
     });
     const messageId = visibleMessages[messageIndex]?.id;
     if (messageId) {
-      setRevealedStep({ messageId, toolUseId });
+      setRevealedStep(decision ? { messageId, requestId: decision.requestId } : { messageId, toolUseId });
     }
   }, [
     focusTranscriptToolRequest,
@@ -1162,7 +1177,28 @@ function ChatPanelMessageList(props: {
     if (!revealedStep) {
       return;
     }
-    const selector = `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId)}"]`;
+    const selector = revealedStep.requestId
+      ? [
+          `[data-approval-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+          `[data-user-input-request-id="${escapeAttributeSelectorValue(revealedStep.requestId)}"]`,
+        ].join(", ")
+      : `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId ?? "")}"]`;
+    // Where the step now is becomes the reading anchor a later render keeps.
+    const anchorAtStep = () => {
+      suppressAnchorUntilRef.current = 0;
+      const container = document.querySelector<HTMLElement>(
+        `[data-testid="conversation-scroll-${escapeAttributeSelectorValue(taskId)}"]`,
+      );
+      const row = container?.querySelector<HTMLElement>(
+        `[data-message-id="${escapeAttributeSelectorValue(revealedStep.messageId)}"]`,
+      );
+      if (container && row) {
+        taskScrollAnchorCache.save(scrollContextKey, {
+          messageId: revealedStep.messageId,
+          offset: Math.round(container.getBoundingClientRect().top - row.getBoundingClientRect().top),
+        });
+      }
+    };
     let frames = 0;
     let frame = 0;
     const focusStep = () => {
@@ -1170,8 +1206,22 @@ function ChatPanelMessageList(props: {
       if (node) {
         node.scrollIntoView({ block: "center", behavior: "auto" });
         node.focus({ preventScroll: true });
+        anchorAtStep();
+      } else if (frames > 0 && frames % TRANSCRIPT_STEP_REAIM_FRAMES === 0) {
+        // Rows on the way measure taller or shorter than estimated, so the
+        // first jump can land a few rows off with the target not mounted:
+        // aim again until it mounts.
+        const index = visibleMessagesRef.current.findIndex(
+          (message) => message.id === revealedStep.messageId,
+        );
+        if (index >= 0) {
+          virtuosoRef.current?.scrollToIndex({ index, align: "center", behavior: "auto" });
+        }
       }
       if (node || ++frames >= TRANSCRIPT_STEP_FOCUS_MAX_FRAMES) {
+        if (!node) {
+          suppressAnchorUntilRef.current = 0;
+        }
         setRevealedStep((current) => (current === revealedStep ? null : current));
         return;
       }
@@ -1179,7 +1229,7 @@ function ChatPanelMessageList(props: {
     };
     frame = window.requestAnimationFrame(focusStep);
     return () => window.cancelAnimationFrame(frame);
-  }, [revealedStep]);
+  }, [revealedStep, scrollContextKey, taskId]);
 
   return (
     <>
@@ -1321,6 +1371,11 @@ function ChatPanelMessageList(props: {
                 revealToolUseId={
                   revealedStep?.messageId === message.id
                     ? revealedStep.toolUseId
+                    : undefined
+                }
+                revealRequestId={
+                  revealedStep?.messageId === message.id
+                    ? revealedStep.requestId
                     : undefined
                 }
               />

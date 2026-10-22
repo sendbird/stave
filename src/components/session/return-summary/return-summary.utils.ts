@@ -11,10 +11,15 @@ import type {
   ReturnSummary,
 } from "@/lib/task-context/return-summary";
 
-/** Where a line's link leads: a Task panel tab, the waiting request, a side question or the composer. */
+/**
+ * Where a line's link leads: a Task panel tab, the waiting request, the
+ * approval or answer you gave (its message and request), a side question or
+ * the composer.
+ */
 export type ReturnLinkTarget =
   | { kind: "tab"; tab: TaskPanelTab }
   | { kind: "request" }
+  | { kind: "decision"; messageId: string; requestId: string }
   | { kind: "side-question" }
   | { kind: "composer" };
 
@@ -38,6 +43,17 @@ function describeDecision(decision: ReturnDecision | null): string {
   return decision.approved
     ? i18n.t("session:returnSummary.decisionAllowed", { tool: toolLabel(decision.toolName), description: decision.description })
     : i18n.t("session:returnSummary.decisionDenied", { tool: toolLabel(decision.toolName), description: decision.description });
+}
+
+function decisionLink(decision: ReturnDecision | null): ReturnLine["link"] {
+  if (!decision) return null;
+  if (decision.kind === "record") {
+    return { label: i18n.t("session:returnSummary.linkHandoff"), target: { kind: "tab", tab: "handoff" } };
+  }
+  return {
+    label: i18n.t("session:returnSummary.linkShow"),
+    target: { kind: "decision", messageId: decision.messageId, requestId: decision.requestId },
+  };
 }
 
 function describeChanges(summary: ReturnSummary): string {
@@ -136,9 +152,7 @@ export function describeReturnSummary(summary: ReturnSummary, now: number): Retu
       id: "decision",
       label: i18n.t("session:returnSummary.labelDecision"),
       text: describeDecision(summary.decision),
-      link: summary.decision?.kind === "record"
-        ? { label: i18n.t("session:returnSummary.linkHandoff"), target: { kind: "tab", tab: "handoff" } }
-        : null,
+      link: decisionLink(summary.decision),
     },
     {
       id: "changes",

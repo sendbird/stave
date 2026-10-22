@@ -33,11 +33,17 @@ function selectTaskNeed(items: readonly FleetAttentionItem[], workspaceId: strin
   return need;
 }
 
-function follow(target: ReturnLinkTarget, workspaceId: string, taskId: string) {
+/** Go where a summary line's link points. */
+export function followReturnLink(target: ReturnLinkTarget, workspaceId: string, taskId: string) {
   if (target.kind === "tab") {
     openTaskInspection(workspaceId, taskId, target.tab);
   } else if (target.kind === "request") {
     void useAppStore.getState().focusTaskAttention({ taskId, workspaceId });
+  } else if (target.kind === "decision") {
+    // The card sits over the top of the conversation, where an early decision
+    // lands: it closes so the decision it points at is not under it.
+    useTaskReturnStore.getState().dismiss(taskId);
+    useAppStore.getState().focusTranscriptDecision({ taskId, messageId: target.messageId, requestId: target.requestId });
   } else if (target.kind === "side-question") {
     useSideChatStore.getState().open(taskId);
   } else {
@@ -130,7 +136,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
                 <AdsButton
                   variant="quiet"
                   size="xs"
-                  onClick={() => line.link && follow(line.link.target, workspaceId, taskId)}
+                  onClick={() => line.link && followReturnLink(line.link.target, workspaceId, taskId)}
                 >
                   {line.link.label}
                 </AdsButton>

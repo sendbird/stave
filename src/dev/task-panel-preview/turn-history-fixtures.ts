@@ -127,6 +127,29 @@ function previewHandoffRecord(): TaskHandoffRecord {
   return written;
 }
 
+/** A reply with an approval you answered, for `&record=empty`: the return summary's last decision. */
+export const PREVIEW_ANSWERED_APPROVAL: ChatMessage = {
+  id: "preview-answered-approval",
+  role: "assistant",
+  model: "claude-sonnet-5",
+  providerId: "claude-code",
+  content: "Ran the migration.",
+  turnId: "preview-answered-approval-turn",
+  startedAt: "2026-09-29T10:20:00.000Z",
+  completedAt: "2026-09-29T10:21:00.000Z",
+  parts: [
+    {
+      type: "approval",
+      toolName: "Bash",
+      requestId: "preview-answered-approval-request",
+      description: "Run the settings migration",
+      state: "approval-responded",
+      resolution: { decision: "allowed", source: "user", scope: "once", decidedAt: "2026-09-29T10:20:30.000Z" },
+    },
+    { type: "text", text: "Ran the migration." },
+  ],
+};
+
 /** An agent reply that proposes an update, for `&proposal=1`. */
 export const PREVIEW_HANDOFF_PROPOSAL: ChatMessage = {
   id: "preview-handoff-proposal",
@@ -142,7 +165,11 @@ export const PREVIEW_HANDOFF_PROPOSAL: ChatMessage = {
   parts: [],
 };
 
-/** The handoff record reads and saves, kept in memory for the preview. */
+/**
+ * The handoff record reads and saves, kept in memory for the preview.
+ * `&record=empty` starts with no record, so the return summary's last
+ * decision is the newest approval you answered.
+ */
 export function stubTaskHandoff() {
   const host = window as unknown as {
     api?: Record<string, unknown> & { persistence?: Record<string, unknown> };
@@ -156,7 +183,8 @@ export function stubTaskHandoff() {
       ...host.api?.persistence,
       readTaskHandoff: async (args: { workspaceId: string; taskId: string }) => {
         const key = keyOf(args);
-        if (!records.has(key)) records.set(key, previewHandoffRecord());
+        const empty = new URLSearchParams(window.location.search).get("record") === "empty";
+        if (!records.has(key)) records.set(key, empty ? emptyHandoffRecord() : previewHandoffRecord());
         return { ok: true, record: records.get(key) };
       },
       saveTaskHandoff: async (args: SaveTaskHandoffArgs) => {

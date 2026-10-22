@@ -68,7 +68,9 @@ afterEach(() => applyAppLocale("en"));
 
 describe("the return summary's facts", () => {
   test("the last decision is the handoff record's newest approved decision, else your newest approval or answer", () => {
-    expect(findLastDecision(MESSAGES, null)).toMatchObject({ kind: "approval", toolName: "Bash", description: "Run the migration", approved: true });
+    expect(findLastDecision(MESSAGES, null)).toEqual({
+      kind: "approval", toolName: "Bash", description: "Run the migration", approved: true, at: at(5), messageId: "a1", requestId: "r1",
+    });
     const record = applyHandoffDraft({
       record: emptyHandoffRecord(),
       draft: { ...EMPTY_DRAFT, decisions: "- Use semicolons\n- Keep the public API stable" },
@@ -79,7 +81,7 @@ describe("the return summary's facts", () => {
       type: "user_input", requestId: "q1", toolName: "AskUserQuestion", state: "input-responded",
       questions: [{ question: "Which format?", header: "Format", options: [] }], answers: { "Which format?": "CSV" },
     }])];
-    expect(findLastDecision(answered, null)).toEqual({ kind: "answer", question: "Which format?", answer: "CSV", at: at(3) });
+    expect(findLastDecision(answered, null)).toEqual({ kind: "answer", question: "Which format?", answer: "CSV", at: at(3), messageId: "q", requestId: "q1" });
     expect(findLastDecision([user("u", 0, "hi")], null)).toBeNull();
   });
 
@@ -121,11 +123,13 @@ describe("the return summary's facts", () => {
     const now = Date.parse(at(220));
     const lines = describeReturnSummary(summary, now);
     expect(lines.map((line) => [line.id, line.text, line.link?.target.kind ?? null])).toEqual([
-      ["decision", "You allowed Run command: Run the migration", null],
+      ["decision", "You allowed Run command: Run the migration", "decision"],
       ["changes", "2 turns finished, 2 files changed, 2 steps", "tab"],
       ["stop", "Waiting for your approval for 2h 5m: Run tests", "request"],
       ["next", "Answer the request.", "request"],
     ]);
+    // An approval or answer links to where it was given in the conversation.
+    expect(lines[0]?.link).toEqual({ label: "Show", target: { kind: "decision", messageId: "a1", requestId: "r1" } });
     applyAppLocale("ko");
     const ko = describeReturnSummary(summary, now);
     expect(ko[1]?.text).toBe("턴 2개 완료, 파일 2개 변경, 단계 2개");
@@ -174,6 +178,37 @@ describe("what changed while you were away, against what you had seen", () => {
     store.noteLeft("task-seen", LEFT, atDeparture);
     store.noteArrived("task-seen", at(60));
     expect(useTaskReturnStore.getState().arrivalByTask["task-seen"]).toEqual({ at: at(60), leftAt: LEFT, baseline: seen });
+  });
+});
+
+describe("going to the last decision", () => {
+  test("following an approval or answer asks the conversation to reveal it by its message and request", async () => {
+    const { followReturnLink } = await import("@/components/session/return-summary/ReturnSummaryCard");
+    const before = useAppStore.getState().focusTranscriptToolRequest;
+    try {
+      useTaskReturnStore.getState().noteArrived("task-1", at(220));
+      followReturnLink({ kind: "decision", messageId: "a1", requestId: "r1" }, "ws-1", "task-1");
+      expect(useAppStore.getState().focusTranscriptToolRequest).toMatchObject({
+        taskId: "task-1",
+        decision: { messageId: "a1", requestId: "r1" },
+      });
+      // The card closes so it does not cover the decision near the top of the conversation.
+      expect(useTaskReturnStore.getState().dismissedByTask["task-1"]).toBe(at(220));
+    } finally {
+      useAppStore.setState({ focusTranscriptToolRequest: before });
+    }
+  });
+
+  test("the conversation finds the decision in its own message, else wherever its request is, and opens that trace", async () => {
+    const { findMessageIndexByDecision } = await import("@/components/session/chat-panel.utils");
+    const { buildAssistantTrace, traceHasDecision } = await import("@/components/session/message/assistant-trace-builder");
+    expect(findMessageIndexByDecision({ messages: MESSAGES, messageId: "a1", requestId: "r1" })).toBe(1);
+    // A reply split for display keeps the request, not the message id.
+    expect(findMessageIndexByDecision({ messages: MESSAGES, messageId: "a1:segment-0", requestId: "r1" })).toBe(1);
+    expect(findMessageIndexByDecision({ messages: MESSAGES, messageId: "a1", requestId: "gone" })).toBe(-1);
+    const trace = buildAssistantTrace({ message: MESSAGES[1]! });
+    expect(traceHasDecision(trace.entries, "r1")).toBe(true);
+    expect(traceHasDecision(trace.entries, "t1")).toBe(false);
   });
 });
 

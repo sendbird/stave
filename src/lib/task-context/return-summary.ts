@@ -14,10 +14,11 @@ import type { ChatMessage } from "@/types/chat";
 /** Away this long, a task you come back to shows its summary. */
 export const RETURN_AWAY_MS = 15 * 60 * 1000;
 
+/** An approval or answer keeps the message and request it was given in, so the summary links there. */
 export type ReturnDecision =
   | { kind: "record"; text: string; at: string | null }
-  | { kind: "approval"; toolName: string; description: string; approved: boolean; at: string | null }
-  | { kind: "answer"; question: string; answer: string; at: string | null };
+  | { kind: "approval"; toolName: string; description: string; approved: boolean; at: string | null; messageId: string; requestId: string }
+  | { kind: "answer"; question: string; answer: string; at: string | null; messageId: string; requestId: string };
 
 export interface ReturnChanges {
   /** Turns that finished after the visit. */
@@ -108,13 +109,22 @@ export function findLastDecision(
           description: part.description.trim().split("\n")[0] ?? "",
           approved: part.state === "approval-responded",
           at: messageTime(message),
+          messageId: message.id,
+          requestId: part.requestId,
         };
       }
       if (part?.type === "user_input" && part.state === "input-responded" && part.answers) {
         const question = part.questions[0];
         const answer = question ? part.answers[question.key ?? question.question] ?? Object.values(part.answers)[0] : undefined;
         if (question && answer) {
-          return { kind: "answer", question: question.question, answer, at: messageTime(message) };
+          return {
+            kind: "answer",
+            question: question.question,
+            answer,
+            at: messageTime(message),
+            messageId: message.id,
+            requestId: part.requestId,
+          };
         }
       }
     }

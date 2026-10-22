@@ -159,7 +159,8 @@ export function TraceApproval(args: {
       }
       onDecide={decide}
       part={part}
-      tabIndex={part.state === "approval-requested" ? -1 : undefined}
+      /* Focusable once answered too: the return summary's link reveals it. */
+      tabIndex={-1}
     />
   );
 }
@@ -374,6 +375,9 @@ export function TraceClarification(args: {
   return (
     <div
       ref={containerRef}
+      /* Anchor for the return summary's link to an answer you gave. */
+      data-user-input-request-id={part.requestId}
+      tabIndex={-1}
       onFocusCapture={() => {
         focusWithinRef.current = true;
       }}

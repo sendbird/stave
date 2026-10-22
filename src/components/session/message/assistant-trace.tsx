@@ -52,6 +52,7 @@ import { normalizeTraceToolName } from "./assistant-trace.utils";
 import {
   buildAssistantTrace,
   joinReasoningText,
+  traceHasDecision,
   traceHasToolStep,
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
@@ -545,6 +546,8 @@ export function AssistantMessageBody(args: {
   readOnly?: boolean;
   /** The tool step the transcript is jumping to: its trace opens to show it. */
   revealToolUseId?: string;
+  /** The approval or answer the transcript is jumping to, by request id: its trace opens too. */
+  revealRequestId?: string;
 }) {
   useTranslation();
   const {
@@ -556,6 +559,7 @@ export function AssistantMessageBody(args: {
     showInterimMessages = false,
     readOnly = false,
     revealToolUseId,
+    revealRequestId,
   } = args;
   const isActivelyStreaming = Boolean(message.isStreaming);
   const isStreaming = streamingEnabled && isActivelyStreaming;
@@ -578,8 +582,10 @@ export function AssistantMessageBody(args: {
   }, [message.displayParts, message.parts, message.terminalStopReason]);
   const trace = useMemo(() => buildAssistantTrace({ message }), [message, i18n.language]);
   const revealsStep = useMemo(
-    () => revealToolUseId !== undefined && traceHasToolStep(trace.entries, revealToolUseId),
-    [revealToolUseId, trace.entries],
+    () =>
+      (revealToolUseId !== undefined && traceHasToolStep(trace.entries, revealToolUseId)) ||
+      (revealRequestId !== undefined && traceHasDecision(trace.entries, revealRequestId)),
+    [revealRequestId, revealToolUseId, trace.entries],
   );
 
   const summaryItems = useMemo(

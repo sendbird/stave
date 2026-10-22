@@ -242,12 +242,14 @@ export interface AppState
     nonce: number;
   } | null;
   /**
-   * A Turn Activity row asked the transcript to reveal the tool call behind it.
+   * A Turn Activity row asked the transcript to reveal the tool call behind it,
+   * or the return summary an approval or answer you gave (`decision`).
    * The nonce lets the same row be clicked twice in a row and still scroll.
    */
   focusTranscriptToolRequest: {
     taskId: string;
-    toolUseId: string;
+    toolUseId?: string;
+    decision?: { messageId: string; requestId: string };
     nonce: number;
   } | null;
   scrollToLatestMessageRequest: TaskScrollToLatestRequest | null;
@@ -449,6 +451,8 @@ export interface AppState
   }) => Promise<void>;
   requestTaskScrollToLatest: (args: { taskId: string }) => void;
   focusTranscriptTool: (args: { taskId: string; toolUseId: string }) => void;
+  /** Reveal an approval or answer you gave, in its message, in the transcript. */
+  focusTranscriptDecision: (args: { taskId: string; messageId: string; requestId: string }) => void;
   selectTask: (args: { taskId: string }) => void;
   loadTaskMessages: (args: {
     taskId: string;
