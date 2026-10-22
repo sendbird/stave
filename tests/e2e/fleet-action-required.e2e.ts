@@ -198,7 +198,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   const needs = page.getByRole("region", { name: "Action required" });
   // The rail is layout-level, so it stays mounted regardless of board filter.
   await expect(needs).toBeVisible();
-  // Blocking needs lead; a completed-turn result is only "worth a look" and
+  // Blocking needs lead; a completed-turn result is only "in review" and
   // stays folded so it cannot crowd out the item an agent is stalled on.
   const items = needs.getByRole("listitem");
   await expect(items).toHaveCount(1);
@@ -207,7 +207,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
     items.nth(0).getByRole("button", { name: "Dismiss" }),
   ).toBeVisible();
 
-  const reviewToggle = needs.getByRole("button", { name: /Worth a look/ });
+  const reviewToggle = needs.getByRole("button", { name: /In review/ });
   await expect(reviewToggle).toHaveAttribute("aria-expanded", "false");
   await reviewToggle.click();
   await expect(items).toHaveCount(2);
@@ -405,11 +405,11 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await expect(items).toHaveCount(0);
 
   // Marking the completed-turn result reviewed clears it from the rail, and the
-  // "Worth a look" group disappears with its last member.
+  // "In review" group disappears with its last member.
   await reviewToggle.click();
   await items.nth(0).getByRole("button", { name: "Mark read" }).click();
   await expect(items).toHaveCount(0);
   await expect(needs).not.toContainText("Review summary");
   await expect(reviewToggle).toHaveCount(0);
-  await expect(needs).toContainText("Nothing blocked");
+  await expect(needs).toContainText("No action required");
 });

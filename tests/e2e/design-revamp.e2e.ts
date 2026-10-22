@@ -295,7 +295,7 @@ test("Fleet View exposes its operating model at a glance", async ({
   // it is present before any filtering and regardless of what the board shows.
   const attentionRail = page.getByRole("region", { name: "Action required" });
   await expect(attentionRail).toBeVisible();
-  await expect(attentionRail).toContainText("Nothing blocked");
+  await expect(attentionRail).toContainText("No action required");
 
   // The board is filtered by workspace activity rather than task status.
   for (const label of ["Active", "Running", "Blocked", "All"]) {

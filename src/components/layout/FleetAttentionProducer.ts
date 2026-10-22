@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   buildFleetAttentionProjection,
@@ -15,6 +15,11 @@ import { hasDurableResultReviewStore } from "@/lib/reviews/result-review-client"
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { useFleetAttentionSnoozes } from "@/lib/fleet/useFleetAttentionSnoozes";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
+import { resolveFleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
+import {
+  publishFleetAttention,
+  type FleetAttentionSnapshot,
+} from "@/store/fleet-attention-store";
 
 interface FleetWorkspaceIdentity {
   repositoryPath: string;
@@ -45,7 +50,12 @@ function loadColdWorkspaceTasks(workspaceId: string) {
   return pending;
 }
 
-export function useFleetAttentionProjection() {
+/**
+ * Computes Fleet's attention snapshot from every source. Only
+ * `FleetAttentionProducer` calls it; entry points read the published snapshot
+ * through `useFleetAttention` (`src/store/fleet-attention-store.ts`).
+ */
+function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
   const [
     currentRepositoryPath,
     currentRepositoryName,
@@ -59,6 +69,7 @@ export function useFleetAttentionProjection() {
     workspaceRuntimeCacheById,
     workspacePrInfoById,
     notifications,
+    notificationsLoadStatus,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -75,6 +86,7 @@ export function useFleetAttentionProjection() {
           state.workspaceRuntimeCacheById,
           state.workspacePrInfoById,
           state.notifications,
+          state.notificationsLoad.status,
         ] as const,
     ),
   );
@@ -191,7 +203,6 @@ export function useFleetAttentionProjection() {
 
     const liveWorkspaces: FleetLiveWorkspaceInput[] = [];
     const prWorkspaces: FleetPrWorkspaceInput[] = [];
-    const coveredWorkspaceIds = new Set<string>();
 
     for (const identity of identityByWorkspaceId.values()) {
       const isActive =
@@ -206,7 +217,6 @@ export function useFleetAttentionProjection() {
         : workspaceRuntimeCacheById[identity.workspaceId];
 
       if (runtimeState) {
-        coveredWorkspaceIds.add(identity.workspaceId);
         liveWorkspaces.push({
           ...identity,
           tasks: runtimeState.tasks,
@@ -218,7 +228,6 @@ export function useFleetAttentionProjection() {
 
       const prInfo = workspacePrInfoById[identity.workspaceId];
       if (prInfo) {
-        coveredWorkspaceIds.add(identity.workspaceId);
         prWorkspaces.push({
           ...identity,
           status: prInfo.derived,
@@ -256,14 +265,19 @@ export function useFleetAttentionProjection() {
       snoozedAttentionIds: snoozes.activeIds,
     });
 
-    for (const item of projection.items) {
-      coveredWorkspaceIds.add(item.workspaceId);
-    }
-
     return {
       ...projection,
-      coveredWorkspaceIds,
-      workspaceCount: identityByWorkspaceId.size,
+      queueStatus: resolveFleetQueueStatus({
+        blockingCount: projection.blockingItems.length,
+        itemCount: projection.items.length,
+        resultReviews: {
+          tracked: durableResultStore,
+          loaded: reviews.loaded,
+          error: reviews.error,
+        },
+        notifications: notificationsLoadStatus,
+        snoozeError: snoozes.error,
+      }),
       resultReviewError: reviews.error,
       resultReviewTracked: durableResultStore,
       resultReviewLoaded: reviews.loaded,
@@ -283,6 +297,7 @@ export function useFleetAttentionProjection() {
     currentRepositoryPath,
     durableResultStore,
     notifications,
+    notificationsLoadStatus,
     providerTurnActivityByTask,
     recentRepositories,
     workspacePrInfoById,
@@ -297,4 +312,18 @@ export function useFleetAttentionProjection() {
     snoozes.refresh,
     agentRunDetails,
   ]);
+}
+
+/**
+ * Publishes the attention snapshot for the whole app. Mount it once, in the
+ * shell: it renders nothing, so the streamed state it reads re-renders only
+ * this component, and each entry point re-renders only when its own slice of
+ * the snapshot changes.
+ */
+export function FleetAttentionProducer() {
+  const snapshot = useFleetAttentionSnapshot();
+  useLayoutEffect(() => {
+    publishFleetAttention(snapshot);
+  }, [snapshot]);
+  return null;
 }

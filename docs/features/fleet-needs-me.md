@@ -32,9 +32,9 @@ optional shortcuts on top of that.
 
 1. Open Fleet from the top-bar fleet button or the workspace sidebar.
 2. Review the fixed `Action required` rail, which keeps questions and approvals
-   ahead of the folded `Worth a look` review queue.
+   ahead of the folded `In review` group.
 3. Select an item to open its exact task or workspace.
-4. Approve or deny approval requests, mark outputs as checked, or open the
+4. Approve or deny approval requests, mark results as read, or open the
    linked pull request from the item actions.
 
 ## Interface Walkthrough
@@ -50,7 +50,7 @@ optional shortcuts on top of that.
 - Fleet view: `Action required` is a layout-level rail. It stays visible while
   board filters change; on narrow screens it becomes a compact top rail. The
   board itself uses workspace cards and activity filters (`Active`, `Running`,
-  `Blocked`, and `All`) rather than a task timeline.
+  `Action required`, and `All`) rather than a task timeline.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.
@@ -66,15 +66,15 @@ optional shortcuts on top of that.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.
-- `Mark checked`: records that you checked that specific output in durable result
+- `Mark read`: records that you read that specific result in durable result
   history. It does not mark the task or original ticket complete. Use `Outputs`
-  in the task to inspect history or select `Mark unchecked`.
+  in the task to inspect history or select `Mark unread`.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
 - `Snooze`: hides one item for 1 hour, 4 hours, 1 day, or 1 week. Available on
   every item, including blocking ones. A snooze is time-bounded and never
   answers the request behind the item, so the item returns on its own when the
   deadline passes.
-- `Clear all` on `Worth a look`: acknowledges the whole review group in one
+- `Clear all` on `In review`: acknowledges the whole review group in one
   action. It is deliberately absent from `Action required`, where an agent is
   still waiting for a real answer.
 - `Restore`: brings every snoozed item back immediately. The rail always reports
@@ -93,7 +93,7 @@ optional shortcuts on top of that.
   turns stay listed until you mark them reviewed, because opening the task does
   not show them.
 - Opening a task also reads its notifications. `Outputs` in the task still shows
-  the saved review and offers `Mark unchecked`.
+  the saved review and offers `Mark unread`.
 - Answering a question or resolving an approval in the task window clears the
   item, including when an agent answers through the managed host.
 - Stopping a turn, archiving a task, or restarting Stave settles the requests
@@ -120,6 +120,15 @@ optional shortcuts on top of that.
 ## Files And Data
 
 - Fleet does not create a separate task ledger or execution database.
+- The top bar, the sidebar Work queue and Fleet read one attention projection,
+  computed once for the app, so they always list the same items. Fleet says
+  `All clear` only after notifications, durable results and snoozes have all
+  been read; while one is loading it says `Checking…`, and after a failed read
+  it says `Not fully checked`.
+- Each item records when its wait began from the source that saw it start:
+  the request's turn, its notification, the result, or the agent run event
+  that stopped the stage. Pull request items have no such start, so they show
+  none.
 - Live task state is preferred when available. Historical waiting/error labels
   do not make a workspace look `Running` after its provider turn has ended.
 - Snoozes are stored per item, keyed by the item's identity rather than by its
@@ -170,7 +179,7 @@ optional shortcuts on top of that.
 
 - Symptom: a result no longer appears in Fleet.
 - Cause: it is reviewed and has left the pending queue, either from
-  `Mark checked`, from `Clear all`, or because the task window showed that turn
+  `Mark read`, from `Clear all`, or because the task window showed that turn
   while focused for long enough to count as read.
 - Fix: open the task's `Outputs` panel to inspect the saved review or reopen it.
   Clearing notifications alone never acknowledges a review.

@@ -1,37 +1,23 @@
 {
   "fleetAttentionInbox": {
-    "valueForValueInValue": "{{value1}} for {{title}} in {{value2}}",
     "markReviewed": "Mark read",
     "markRead": "Mark read",
-    "dismissValueForValueInValue": "Dismiss {{value1}} for {{title}} in {{value2}}",
     "dismiss": "Dismiss",
     "openPr": "Open PR",
     "snoozeValueForValueInValue": "Snooze {{value1}} for {{title}} in {{value2}}",
     "snooze": "Snooze",
     "hideUntil": "Hide until",
-    "actionRequired": "Action required",
-    "nothingBlocked": "Nothing blocked",
-    "noAgentIsWaitingOnYouRight": "No agent is waiting on you right now.",
-    "worthALook": "Worth a look",
-    "clearThe1ItemWorthALook": "Clear the 1 item worth a look",
-    "clearAllValueItemsWorthALook": "Clear all {{reviewCount}} items worth a look",
     "clearAll": "Clear all",
-    "snoozed": "snoozed",
     "restoreValueSnoozedItems": "Restore {{snoozedCount}} snoozed items",
     "restore": "Restore",
-    "question": "Question",
-    "approval": "Approval",
-    "runFailed": "Run failed",
-    "resultReady": "Result ready",
-    "changesRequested": "Changes requested",
-    "checksFailed": "Checks failed",
-    "mergeConflict": "Merge conflict",
-    "behindBase": "Behind base",
-    "readyToMerge": "Ready to merge",
-    "runBlocked": "Run blocked",
-    "runStuck": "Run stuck",
     "snoozedCount": "{{count}} snoozed",
-    "signOff": "Sign-off"
+    "rowLabel": "{{action}} for {{title}} in {{workspace}}",
+    "dismissApproval": "Dismiss approval for {{title}} in {{workspace}}",
+    "dismissQuestion": "Dismiss question for {{title}} in {{workspace}}",
+    "clearOneInReview": "Clear the 1 item in review",
+    "clearAllInReview": "Clear all {{reviewCount}} items in review",
+    "noActionRequired": "No action required",
+    "noAgentIsWaitingOnYou": "No agent is waiting on you right now."
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "Reply steered into the active turn.",
@@ -98,7 +84,6 @@
     "noWorkspacesMatchTheCurrentFilter": "No workspaces match the current filter.",
     "showDormant": "Show dormant",
     "resetFilters": "Reset filters",
-    "valueValueProject": "{{value1}} {{value2}} project",
     "current": "Current",
     "rememberedRepositoriesAlwaysCarryADefaultWorkspace": "Remembered repositories always carry a default workspace row. These have no tasks, no messages, and no recorded activity.",
     "unusedDefault": "unused default",
@@ -111,7 +96,9 @@
     "pendingResultsLimit": "Showing the latest 200 of {{count}} unread results. Open a task to see its full result history.",
     "accessibility": {
       "closeFleetView": "Close Fleet view"
-    }
+    },
+    "expandRepository": "Expand {{name}}",
+    "collapseRepository": "Collapse {{name}}"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "Default · {{branchLabel}}",
@@ -142,7 +129,9 @@
   },
   "attentionProjection": {
     "untitledTask": "Untitled task",
-    "theActiveProviderTurnNeedsReview": "The active provider turn needs review."
+    "theActiveProviderTurnNeedsReview": "The active provider turn needs review.",
+    "repository": "Repository",
+    "workspace": "Workspace"
   },
   "taskExecutionSummary": {
     "derivedFromPersistedAssistantMessageTimestamps": "Derived from persisted assistant message timestamps.",
@@ -162,10 +151,6 @@
     "cumulativeUsageFromValuePersistedMessagevalue_other": "Cumulative usage from {{count}} persisted messages."
   },
   "sidebarWorkQueue": {
-    "actionRequired": "Action required",
-    "inProgress": "In progress",
-    "inReview": "In review",
-    "idle": "Idle",
     "openFullView": "Open the full Work queue in Fleet View",
     "snoozed": "Snoozed",
     "settled": "Settled"
@@ -175,7 +160,6 @@
     "workedInRecently": "Worked in recently",
     "running": "Running",
     "anAgentTurnIsInFlight": "An agent turn is in flight",
-    "blocked": "Blocked",
     "waitingOnYou": "Waiting on you",
     "all": "All",
     "includeDormantWorkspaces": "Include dormant workspaces"
@@ -193,5 +177,35 @@
     "agentRunNeedsAttention": "{{stage}} · {{detail}}",
     "stoppedMoving": "stopped moving",
     "needsYou": "needs you"
+  },
+  "vocabulary": {
+    "actionRequired": "Action required",
+    "inReview": "In review",
+    "inProgress": "In progress",
+    "idle": "Idle",
+    "kind": {
+      "userInput": "Question",
+      "approval": "Approval",
+      "runFailed": "Run failed",
+      "resultReady": "Result ready",
+      "prChangesRequested": "Changes requested",
+      "prChecksFailed": "Checks failed",
+      "prMergeConflict": "Merge conflict",
+      "prBehindBase": "Behind base",
+      "prReadyToMerge": "Ready to merge",
+      "agentRunSignOff": "Sign-off",
+      "agentRunBlocked": "Run blocked",
+      "agentRunStuck": "Run stuck"
+    },
+    "primaryAction": {
+      "openQuestion": "Open question",
+      "openApproval": "Open approval",
+      "openFailure": "Open failure",
+      "reviewResult": "Review result",
+      "openWorkspace": "Open workspace",
+      "openMergeControls": "Open merge controls",
+      "reviewSignOff": "Review sign-off",
+      "openRun": "Open run"
+    }
   }
 }

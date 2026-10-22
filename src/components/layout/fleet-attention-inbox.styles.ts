@@ -77,7 +77,7 @@ export const attentionStyles = stylex.create({
   /*
    * Body, not Lead. This is a panel-level empty state inside a 320px column
    * whose eyebrow runs Caption and whose rows run Body — a Lead title made
-   * "Nothing blocked" the largest type anywhere in the Fleet surface, two steps
+   * "No action required" the largest type anywhere in the Fleet surface, two steps
    * above the copy directly beneath it, and it read as a page heading that had
    * wandered into a sidebar. Body + semibold keeps it the strongest thing in
    * the column without leaving the column's scale.

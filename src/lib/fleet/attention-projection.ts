@@ -3,6 +3,7 @@ import type { AppNotification } from "@/lib/notifications/notification.types";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { currentStageRecord } from "@/lib/agent-runs/domain";
 import { projectAgentRunStages, summarizePreviousStage } from "@/lib/agent-runs/agent-run-view";
+import { resolveAgentRunAttentionSince } from "@/lib/agent-runs/attention-since";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -17,6 +18,10 @@ import {
   findLatestPendingApproval,
   findLatestPendingUserInput,
 } from "@/store/provider-message.utils";
+import {
+  approvalInteractionId,
+  userInputInteractionId,
+} from "@/lib/work-graph/work-graph-reducer";
 import type { ChatMessage, Task } from "@/types/chat";
 import { classifyTaskStatus } from "./task-status";
 
@@ -78,9 +83,23 @@ export interface FleetAttentionItem {
   turnId?: string;
   requestId?: string;
   notificationId?: string;
+  /** The message holding the pending request part, when a source named it. */
+  messageId?: string;
   resultReview?: ResultReview;
   providerId?: ProviderId;
+  /**
+   * A coarse timestamp every source can supply (a live row uses the task's last
+   * update). It only breaks ties; it is not when the wait began.
+   */
   createdAt: string;
+  /**
+   * When the wait behind this item began, from the source that observed it:
+   * the work graph's `raisedAt` for a live request, the notification's or the
+   * result's `createdAt`, or the agent run event that stopped the stage.
+   * Absent when no source recorded the start (pull request rows), so a row
+   * shows no waiting time instead of a guessed one.
+   */
+  waitingSince?: string;
   source: FleetAttentionSource;
   detail?: string;
   prStatus?: WorkspacePrStatus;
@@ -164,6 +183,42 @@ function normalizeTimestamp(value: string) {
 function normalizeRequired(value: string | null | undefined) {
   const normalized = value?.trim() ?? "";
   return normalized || null;
+}
+
+/** A valid ISO timestamp, or undefined; never the epoch placeholder. */
+function normalizeOptionalTimestamp(value: string | number | null | undefined) {
+  if (value === null || value === undefined) {
+    return undefined;
+  }
+  const timestamp = typeof value === "number" ? value : Date.parse(value);
+  return Number.isFinite(timestamp) && timestamp > 0
+    ? new Date(timestamp).toISOString()
+    : undefined;
+}
+
+function earliestTimestamp(left?: string, right?: string) {
+  if (!left) return right;
+  if (!right) return left;
+  return left.localeCompare(right) <= 0 ? left : right;
+}
+
+/**
+ * When the live turn raised this request, read from its work graph. Only the
+ * snapshot of the turn the request belongs to counts: a later turn's graph
+ * says nothing about an earlier request.
+ */
+function resolveLiveRaisedAt(args: {
+  activity: ProviderTurnActivitySnapshot | undefined;
+  activeTurnId: string | undefined;
+  interactionId: string;
+}) {
+  const { activity } = args;
+  if (!activity || !args.activeTurnId || activity.turnId !== args.activeTurnId) {
+    return undefined;
+  }
+  return normalizeOptionalTimestamp(
+    activity.workGraph?.interactionsById[args.interactionId]?.raisedAt,
+  );
 }
 
 function buildInteractionAttentionId(args: {
@@ -282,6 +337,7 @@ export function collectFleetLiveAttentionItems(
       }
 
       const messages = workspace.messagesByTask[task.id] ?? [];
+      const activity = workspace.providerTurnActivityByTask[task.id];
       const pendingInput = findLatestPendingUserInput({ messages });
       if (pendingInput) {
         const requestId = normalizeRequired(pendingInput.part.requestId);
@@ -298,7 +354,13 @@ export function collectFleetLiveAttentionItems(
             kind,
             priority: FLEET_ATTENTION_PRIORITY[kind],
             requestId,
+            messageId: pendingInput.messageId,
             turnId: activeTurnId,
+            waitingSince: resolveLiveRaisedAt({
+              activity,
+              activeTurnId,
+              interactionId: userInputInteractionId(requestId),
+            }),
           });
           continue;
         }
@@ -320,7 +382,13 @@ export function collectFleetLiveAttentionItems(
             kind,
             priority: FLEET_ATTENTION_PRIORITY[kind],
             requestId,
+            messageId: pendingApproval.messageId,
             turnId: activeTurnId,
+            waitingSince: resolveLiveRaisedAt({
+              activity,
+              activeTurnId,
+              interactionId: approvalInteractionId(requestId),
+            }),
             detail: `${pendingApproval.part.toolName}: ${pendingApproval.part.description}`,
           });
           continue;
@@ -333,7 +401,7 @@ export function collectFleetLiveAttentionItems(
           task,
           messages,
           activeTurnId,
-          activity: workspace.providerTurnActivityByTask[task.id] ?? null,
+          activity: activity ?? null,
         }) === "error"
       ) {
         const kind = "run-failed" as const;
@@ -368,6 +436,20 @@ function getNotificationRequestId(notification: AppNotification) {
   return null;
 }
 
+/** Approvals name the message on their action; questions in the payload. */
+function getNotificationMessageId(notification: AppNotification) {
+  if (notification.kind === "task.approval_requested") {
+    return normalizeRequired(notification.action?.messageId) ?? undefined;
+  }
+  if (notification.kind === "task.user_input_requested") {
+    const messageId = notification.payload.messageId;
+    return typeof messageId === "string"
+      ? (normalizeRequired(messageId) ?? undefined)
+      : undefined;
+  }
+  return undefined;
+}
+
 export function collectFleetNotificationAttentionItems(
   notifications: readonly AppNotification[],
 ) {
@@ -383,10 +465,13 @@ export function collectFleetNotificationAttentionItems(
 
     const base = {
       repositoryPath,
-      repositoryName: normalizeRequired(notification.repositoryName) ?? "Repository",
+      repositoryName:
+        normalizeRequired(notification.repositoryName) ??
+        i18n.t("fleet:attentionProjection.repository"),
       workspaceId,
       workspaceName:
-        normalizeRequired(notification.workspaceName) ?? "Workspace",
+        normalizeRequired(notification.workspaceName) ??
+        i18n.t("fleet:attentionProjection.workspace"),
       taskId,
       taskTitle:
         normalizeRequired(notification.taskTitle) ??
@@ -395,6 +480,7 @@ export function collectFleetNotificationAttentionItems(
       notificationId: notification.id,
       providerId: notification.providerId ?? undefined,
       createdAt: normalizeTimestamp(notification.createdAt),
+      waitingSince: normalizeOptionalTimestamp(notification.createdAt),
       source: "notification" as const,
       detail: normalizeRequired(notification.body) ?? undefined,
     };
@@ -428,6 +514,7 @@ export function collectFleetNotificationAttentionItems(
         kind,
         priority: FLEET_ATTENTION_PRIORITY[kind],
         requestId,
+        messageId: getNotificationMessageId(notification),
         turnId: notification.turnId ?? undefined,
       });
       continue;
@@ -523,7 +610,11 @@ function choosePreferredNeed(
     ...fallback,
     ...preferred,
     notificationId: preferred.notificationId ?? fallback.notificationId,
+    messageId: preferred.messageId ?? fallback.messageId,
     detail: preferred.detail ?? fallback.detail,
+    // Every source that saw the request start observed the same wait; the
+    // earliest observation is the closest to when it really began.
+    waitingSince: earliestTimestamp(preferred.waitingSince, fallback.waitingSince),
     createdAt:
       preferred.createdAt.localeCompare(fallback.createdAt) <= 0
         ? preferred.createdAt
@@ -579,6 +670,7 @@ export function collectFleetAgentRunAttentionItems(
         taskTitle: input.taskTitle,
         providerId: agentRun.fingerprint.providerId,
         createdAt: normalizeTimestamp(agentRun.updatedAt),
+        waitingSince: normalizeOptionalTimestamp(resolveAgentRunAttentionSince(input.detail)),
         detail:
           kind === "agent-run-sign-off"
             ? describeSignOffDetail(input.detail, stage.title)
@@ -589,6 +681,7 @@ export function collectFleetAgentRunAttentionItems(
   });
 }
 
+/** Urgency first; inside one urgency, whatever has waited longest. */
 export function compareFleetAttentionItems(
   left: FleetAttentionItem,
   right: FleetAttentionItem,
@@ -596,8 +689,10 @@ export function compareFleetAttentionItems(
   if (left.priority !== right.priority) {
     return left.priority - right.priority;
   }
-  if (left.createdAt !== right.createdAt) {
-    return left.createdAt.localeCompare(right.createdAt);
+  const leftSince = left.waitingSince ?? left.createdAt;
+  const rightSince = right.waitingSince ?? right.createdAt;
+  if (leftSince !== rightSince) {
+    return leftSince.localeCompare(rightSince);
   }
   return left.id.localeCompare(right.id);
 }
@@ -674,6 +769,7 @@ export function buildFleetAttentionProjection(args: {
             taskTitle: result.taskTitle,
             turnId: result.turnId,
             createdAt: result.createdAt,
+            waitingSince: normalizeOptionalTimestamp(result.createdAt),
             detail: result.summary,
             resultReview: result,
           };

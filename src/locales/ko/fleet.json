@@ -1,37 +1,23 @@
 {
   "fleetAttentionInbox": {
-    "valueForValueInValue": "{{value2}}의 {{title}} 작업: {{value1}}",
     "markReviewed": "읽음 표시",
     "markRead": "읽음 표시",
-    "dismissValueForValueInValue": "{{value2}}의 {{title}} 작업에서 {{value1}} 닫기",
     "dismiss": "닫기",
     "openPr": "PR 열기",
     "snoozeValueForValueInValue": "{{value2}}의 {{title}} 작업에서 {{value1}} 알림 미루기",
     "snooze": "알림 미루기",
     "hideUntil": "숨길 기간",
-    "actionRequired": "조치 필요",
-    "nothingBlocked": "차단된 작업 없음",
-    "noAgentIsWaitingOnYouRight": "현재 응답을 기다리는 에이전트가 없습니다.",
-    "worthALook": "확인할 항목",
-    "clearThe1ItemWorthALook": "확인할 항목 1개 지우기",
-    "clearAllValueItemsWorthALook": "확인할 항목 {{reviewCount}}개 모두 지우기",
     "clearAll": "모두 지우기",
-    "snoozed": "미뤄짐",
     "restoreValueSnoozedItems": "미룬 항목 {{snoozedCount}}개 복원",
     "restore": "복원",
-    "question": "질문",
-    "approval": "승인",
-    "runFailed": "실행 실패",
-    "resultReady": "결과 준비됨",
-    "changesRequested": "변경 요청됨",
-    "checksFailed": "검사 실패",
-    "mergeConflict": "병합 충돌",
-    "behindBase": "기준 브랜치보다 뒤처짐",
-    "readyToMerge": "병합 준비됨",
-    "runBlocked": "실행 차단됨",
-    "runStuck": "실행 멈춤",
     "snoozedCount": "{{count}}개 미뤄짐",
-    "signOff": "단계 승인"
+    "rowLabel": "{{workspace}}의 {{title}} 작업: {{action}}",
+    "dismissApproval": "{{workspace}}의 {{title}} 작업에서 승인 닫기",
+    "dismissQuestion": "{{workspace}}의 {{title}} 작업에서 질문 닫기",
+    "clearOneInReview": "리뷰 대기 항목 1개 지우기",
+    "clearAllInReview": "리뷰 대기 항목 {{reviewCount}}개 모두 지우기",
+    "noActionRequired": "조치가 필요한 항목 없음",
+    "noAgentIsWaitingOnYou": "현재 응답을 기다리는 에이전트가 없습니다."
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "활성 턴에 응답으로 방향을 조정했습니다.",
@@ -98,7 +84,6 @@
     "noWorkspacesMatchTheCurrentFilter": "현재 필터에 맞는 워크스페이스가 없습니다.",
     "showDormant": "비활성 항목 표시",
     "resetFilters": "필터 초기화",
-    "valueValueProject": "{{value1}} {{value2}} 프로젝트",
     "current": "현재",
     "rememberedRepositoriesAlwaysCarryADefaultWorkspace": "기억된 저장소에는 항상 기본 워크스페이스 행이 있습니다. 작업, 메시지, 기록된 활동이 없는 항목입니다.",
     "unusedDefault": "미사용 기본 항목",
@@ -108,7 +93,9 @@
     "pendingResultsLimit": "안 읽은 결과 {{count}}개 중 최신 200개를 표시합니다. 전체 결과 기록을 보려면 작업을 여세요.",
     "accessibility": {
       "closeFleetView": "Fleet 보기 닫기"
-    }
+    },
+    "expandRepository": "{{name}} 펼치기",
+    "collapseRepository": "{{name}} 접기"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "기본 · {{branchLabel}}",
@@ -138,7 +125,9 @@
   },
   "attentionProjection": {
     "untitledTask": "제목 없는 작업",
-    "theActiveProviderTurnNeedsReview": "활성 프로바이더 턴을 리뷰해야 합니다."
+    "theActiveProviderTurnNeedsReview": "활성 프로바이더 턴을 리뷰해야 합니다.",
+    "repository": "저장소",
+    "workspace": "워크스페이스"
   },
   "taskExecutionSummary": {
     "derivedFromPersistedAssistantMessageTimestamps": "저장된 어시스턴트 메시지의 타임스탬프에서 계산합니다.",
@@ -157,10 +146,6 @@
     "cumulativeUsageFromValuePersistedMessagevalue_other": "저장된 메시지 {{count}}개의 누적 사용량입니다."
   },
   "sidebarWorkQueue": {
-    "actionRequired": "조치 필요",
-    "inProgress": "진행 중",
-    "inReview": "리뷰 중",
-    "idle": "유휴",
     "openFullView": "Fleet 보기에서 전체 작업 대기열 열기",
     "snoozed": "미뤄 둠",
     "settled": "정리됨"
@@ -170,7 +155,6 @@
     "workedInRecently": "최근 작업함",
     "running": "실행 중",
     "anAgentTurnIsInFlight": "에이전트 턴 실행 중",
-    "blocked": "차단됨",
     "waitingOnYou": "응답 대기 중",
     "all": "전체",
     "includeDormantWorkspaces": "비활성 워크스페이스 포함"
@@ -188,5 +172,35 @@
     "agentRunNeedsAttention": "{{stage}} · {{detail}}",
     "stoppedMoving": "진행이 멈춤",
     "needsYou": "확인이 필요함"
+  },
+  "vocabulary": {
+    "actionRequired": "조치 필요",
+    "inReview": "리뷰 대기",
+    "inProgress": "진행 중",
+    "idle": "유휴",
+    "kind": {
+      "userInput": "질문",
+      "approval": "승인",
+      "runFailed": "실행 실패",
+      "resultReady": "결과 준비됨",
+      "prChangesRequested": "변경 요청됨",
+      "prChecksFailed": "검사 실패",
+      "prMergeConflict": "병합 충돌",
+      "prBehindBase": "기준 브랜치보다 뒤처짐",
+      "prReadyToMerge": "병합 준비됨",
+      "agentRunSignOff": "단계 승인",
+      "agentRunBlocked": "실행 차단됨",
+      "agentRunStuck": "실행 멈춤"
+    },
+    "primaryAction": {
+      "openQuestion": "질문 열기",
+      "openApproval": "승인 열기",
+      "openFailure": "실패 내용 열기",
+      "reviewResult": "결과 리뷰",
+      "openWorkspace": "워크스페이스 열기",
+      "openMergeControls": "병합 제어 열기",
+      "reviewSignOff": "단계 승인 리뷰",
+      "openRun": "실행 열기"
+    }
   }
 }

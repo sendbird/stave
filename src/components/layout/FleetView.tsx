@@ -16,7 +16,6 @@ import {
   ShieldEllipsis,
   X,
 } from "lucide-react";
-import { resolveFleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
@@ -28,7 +27,7 @@ import {
   type FleetWorkspaceCardView,
   type FleetWorkspaceCardVisibility,
 } from "@/components/layout/FleetWorkspaceCard";
-import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
+import { useFleetAttention } from "@/store/fleet-attention-store";
 import {
   Badge,
   Button,
@@ -211,29 +210,22 @@ export function FleetView() {
         ] as const,
     ),
   );
-  const {
-    items: attentionTargets,
-    blockingItems,
-    snoozedItems,
-    attentionItemsByWorkspaceId,
-    highestAttentionByWorkspaceId,
-    resultReviewError,
-    resultReviewTracked,
-    resultReviewLoaded,
-    resultReviewTotal,
-    resultReviewHasMore,
-    refreshResultReviews,
-  } = useFleetAttentionProjection();
-
-  const queueStatus = resolveFleetQueueStatus({
-    blockingCount: blockingItems.length,
-    itemCount: attentionTargets.length,
-    resultReviews: {
-      tracked: resultReviewTracked,
-      loaded: resultReviewLoaded,
-      error: resultReviewError,
-    },
-  });
+  const attentionTargets = useFleetAttention((snapshot) => snapshot.items);
+  const blockingItems = useFleetAttention((snapshot) => snapshot.blockingItems);
+  const snoozedItems = useFleetAttention((snapshot) => snapshot.snoozedItems);
+  const attentionItemsByWorkspaceId = useFleetAttention(
+    (snapshot) => snapshot.attentionItemsByWorkspaceId,
+  );
+  const highestAttentionByWorkspaceId = useFleetAttention(
+    (snapshot) => snapshot.highestAttentionByWorkspaceId,
+  );
+  const queueStatus = useFleetAttention((snapshot) => snapshot.queueStatus);
+  const resultReviewError = useFleetAttention((snapshot) => snapshot.resultReviewError);
+  const resultReviewTotal = useFleetAttention((snapshot) => snapshot.resultReviewTotal);
+  const resultReviewHasMore = useFleetAttention((snapshot) => snapshot.resultReviewHasMore);
+  const refreshResultReviews = useFleetAttention(
+    (snapshot) => snapshot.refreshResultReviews,
+  );
   const nowMs = useCoarseClock();
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
@@ -483,7 +475,7 @@ export function FleetView() {
   }, [snoozedItems, tI18n]);
 
   /**
-   * Acknowledges the whole `Worth a look` group in one gesture.
+   * Acknowledges the whole `In review` group in one gesture.
    *
    * Each row is cleared through whichever mechanism actually owns it, because
    * Fleet owns none of them: a durable result is marked reviewed, a
@@ -911,7 +903,11 @@ export function FleetView() {
                         type="button"
                         xstyle={[styles.repositoryHeader, focusRing.ringInset]}
                         aria-expanded={!isCollapsed}
-                        aria-label={tI18n("fleet:fleetView.valueValueProject", { value1: isCollapsed ? "Expand" : "Collapse", value2: repository.repositoryName })}
+                        aria-label={
+                          isCollapsed
+                            ? tI18n("fleet:fleetView.expandRepository", { name: repository.repositoryName })
+                            : tI18n("fleet:fleetView.collapseRepository", { name: repository.repositoryName })
+                        }
                         onClick={() => toggleRepository(repository.repositoryPath)}
                       >
                         {isCollapsed ? (

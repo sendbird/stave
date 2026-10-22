@@ -63,4 +63,58 @@ describe("resolveFleetQueueStatus", () => {
       }),
     ).toBe("review");
   });
+
+  test("is never clear while notifications have not been read", () => {
+    expect(
+      resolveFleetQueueStatus({
+        blockingCount: 0,
+        itemCount: 0,
+        resultReviews: settled,
+        notifications: "pending",
+      }),
+    ).toBe("checking");
+    expect(
+      resolveFleetQueueStatus({
+        blockingCount: 0,
+        itemCount: 0,
+        resultReviews: settled,
+        notifications: "error",
+      }),
+    ).toBe("incomplete");
+  });
+
+  test("a failed snooze read is reported as incomplete, not clear", () => {
+    expect(
+      resolveFleetQueueStatus({
+        blockingCount: 0,
+        itemCount: 0,
+        resultReviews: settled,
+        notifications: "ready",
+        snoozeError: "Could not load snoozed Fleet items.",
+      }),
+    ).toBe("incomplete");
+  });
+
+  test("a failure outranks a source that is still loading", () => {
+    expect(
+      resolveFleetQueueStatus({
+        blockingCount: 0,
+        itemCount: 0,
+        resultReviews: { tracked: true, loaded: false, error: "" },
+        notifications: "error",
+      }),
+    ).toBe("incomplete");
+  });
+
+  test("is clear once every source answered with nothing", () => {
+    expect(
+      resolveFleetQueueStatus({
+        blockingCount: 0,
+        itemCount: 0,
+        resultReviews: settled,
+        notifications: "ready",
+        snoozeError: "",
+      }),
+    ).toBe("clear");
+  });
 });

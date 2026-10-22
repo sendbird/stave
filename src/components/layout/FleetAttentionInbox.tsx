@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
@@ -35,27 +35,17 @@ import {
   type FleetAttentionItem,
   type FleetAttentionKind,
 } from "@/lib/fleet/attention-projection";
+import {
+  describeFleetAttentionPrimaryAction,
+  FLEET_ATTENTION_KIND_LABEL,
+  FLEET_TIER_LABEL,
+} from "@/lib/fleet/fleet-vocabulary";
 import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
 import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { describeSignOffAction } from "@/lib/agent-runs/agent-run-view";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store/agent-runs-store";
-
-const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
-  get "user-input"() { return i18n.t("fleet:fleetAttentionInbox.question"); },
-  get approval() { return i18n.t("fleet:fleetAttentionInbox.approval"); },
-  get "run-failed"() { return i18n.t("fleet:fleetAttentionInbox.runFailed"); },
-  get "result-ready"() { return i18n.t("fleet:fleetAttentionInbox.resultReady"); },
-  get "pr-changes-requested"() { return i18n.t("fleet:fleetAttentionInbox.changesRequested"); },
-  get "pr-checks-failed"() { return i18n.t("fleet:fleetAttentionInbox.checksFailed"); },
-  get "pr-merge-conflict"() { return i18n.t("fleet:fleetAttentionInbox.mergeConflict"); },
-  get "pr-behind-base"() { return i18n.t("fleet:fleetAttentionInbox.behindBase"); },
-  get "pr-ready-to-merge"() { return i18n.t("fleet:fleetAttentionInbox.readyToMerge"); },
-  get "agent-run-sign-off"() { return i18n.t("fleet:fleetAttentionInbox.signOff"); },
-  get "agent-run-blocked"() { return i18n.t("fleet:fleetAttentionInbox.runBlocked"); },
-  get "agent-run-stuck"() { return i18n.t("fleet:fleetAttentionInbox.runStuck"); },
-};
 
 /** Which semantic family the need belongs to; the Badge owns the colors. */
 const FLEET_NEED_TONE: Record<FleetAttentionKind, BadgeTone> = {
@@ -101,31 +91,6 @@ function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
 
 function getFleetNeedTitle(item: FleetAttentionItem) {
   return item.taskTitle?.trim() || item.workspaceName;
-}
-
-function getFleetNeedPrimaryAction(item: FleetAttentionItem) {
-  switch (item.kind) {
-    case "user-input":
-      return "Open question";
-    case "approval":
-      return "Open approval";
-    case "run-failed":
-      return "Open failure";
-    case "result-ready":
-      return "Review result";
-    case "pr-changes-requested":
-    case "pr-checks-failed":
-    case "pr-merge-conflict":
-    case "pr-behind-base":
-      return "Open workspace";
-    case "pr-ready-to-merge":
-      return "Open merge controls";
-    case "agent-run-sign-off":
-      return "Review sign-off";
-    case "agent-run-blocked":
-    case "agent-run-stuck":
-      return "Open run";
-  }
 }
 
 function getFleetNeedDetail(item: FleetAttentionItem) {
@@ -227,7 +192,7 @@ function FleetNeedRow(args: {
         id={triggerId}
         type="button"
         xstyle={[styles.rowTrigger, focusRing.ringInset]}
-        aria-label={tI18n("fleet:fleetAttentionInbox.valueForValueInValue", { value1: getFleetNeedPrimaryAction(item), title: title, value2: item.workspaceName })}
+        aria-label={tI18n("fleet:fleetAttentionInbox.rowLabel", { action: describeFleetAttentionPrimaryAction(item.kind), title, workspace: item.workspaceName })}
         aria-expanded={controlTarget ? selected : undefined}
         aria-controls={
           controlTarget && selected
@@ -244,7 +209,7 @@ function FleetNeedRow(args: {
             xstyle={styles.needBadge}
           >
             {getFleetNeedIcon(item)}
-            {FLEET_NEED_LABEL[item.kind]}
+            {FLEET_ATTENTION_KIND_LABEL[item.kind]}
           </Badge>
           <span className={sx(styles.rowTime)}>
             {formatTaskUpdatedAt({ value: item.createdAt })}
@@ -283,7 +248,11 @@ function FleetNeedRow(args: {
               variant="ghost"
               xstyle={styles.rowAction}
               disabled={busy}
-              aria-label={tI18n("fleet:fleetAttentionInbox.dismissValueForValueInValue", { value1: item.kind === "approval" ? "approval" : "question", title: title, value2: item.workspaceName })}
+              aria-label={
+                item.kind === "approval"
+                  ? tI18n("fleet:fleetAttentionInbox.dismissApproval", { title, workspace: item.workspaceName })
+                  : tI18n("fleet:fleetAttentionInbox.dismissQuestion", { title, workspace: item.workspaceName })
+              }
               onClick={() => args.onDismiss(item)}
             >
               {tI18n("fleet:fleetAttentionInbox.dismiss")}</Button>
@@ -315,7 +284,7 @@ function FleetNeedRow(args: {
                   variant="ghost"
                   xstyle={styles.rowAction}
                   disabled={busy}
-                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_NEED_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
+                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
                 />
               }
             >
@@ -387,7 +356,7 @@ export function FleetAttentionInbox(args: {
     (item) => getFleetAttentionTier(item.kind) === "blocking",
   );
   // Nothing is stalled on these, so they stay folded until asked for. That is
-  // the difference between "an agent is waiting on you" and "worth a look".
+  // the difference between "an agent is waiting on you" and "in review".
   const review = args.items.filter(
     (item) => getFleetAttentionTier(item.kind) === "review",
   );
@@ -428,7 +397,7 @@ export function FleetAttentionInbox(args: {
     >
       <div className={sx(styles.header)}>
         <h2 id="fleet-attention-heading" className={sx(styles.groupHeading)}>
-          {tI18n("fleet:fleetAttentionInbox.actionRequired")}</h2>
+          {FLEET_TIER_LABEL.blocking}</h2>
         <span
           className={sx(
             styles.count,
@@ -445,9 +414,9 @@ export function FleetAttentionInbox(args: {
         {blocking.length === 0 ? (
           <div className={sx(styles.empty)}>
             <Inbox className={sx(styles.emptyIcon)} aria-hidden="true" />
-            <p className={sx(styles.emptyTitle)}>{tI18n("fleet:fleetAttentionInbox.nothingBlocked")}</p>
+            <p className={sx(styles.emptyTitle)}>{tI18n("fleet:fleetAttentionInbox.noActionRequired")}</p>
             <p className={sx(styles.emptyHint)}>
-              {tI18n("fleet:fleetAttentionInbox.noAgentIsWaitingOnYouRight")}</p>
+              {tI18n("fleet:fleetAttentionInbox.noAgentIsWaitingOnYou")}</p>
           </div>
         ) : (
           <ul className={sx(styles.list)}>{blocking.map(renderRow)}</ul>
@@ -474,7 +443,7 @@ export function FleetAttentionInbox(args: {
                     aria-hidden="true"
                   />
                 )}
-                <span className={sx(styles.groupHeading)}>{tI18n("fleet:fleetAttentionInbox.worthALook")}</span>
+                <span className={sx(styles.groupHeading)}>{FLEET_TIER_LABEL.review}</span>
                 <span className={sx(styles.reviewCount)}>{review.length}</span>
               </AdsButton>
               {/*
@@ -491,8 +460,8 @@ export function FleetAttentionInbox(args: {
                 disabled={args.clearingReview}
                 aria-label={
                   review.length === 1
-                    ? tI18n("fleet:fleetAttentionInbox.clearThe1ItemWorthALook")
-                    : tI18n("fleet:fleetAttentionInbox.clearAllValueItemsWorthALook", { reviewCount: review.length })
+                    ? tI18n("fleet:fleetAttentionInbox.clearOneInReview")
+                    : tI18n("fleet:fleetAttentionInbox.clearAllInReview", { reviewCount: review.length })
                 }
                 onClick={args.onClearReview}
               >
