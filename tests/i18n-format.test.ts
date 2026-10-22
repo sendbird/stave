@@ -109,6 +109,10 @@ describe("formatTokenCount", () => {
     expect(formatTokenCount(1_234_567)).toBe("1.2M");
     expect(formatTokenCount(18_234_567)).toBe("18M");
     expect(formatTokenCount(Number.NaN)).toBe("0");
+    // A number someone set reads exactly.
+    expect(formatTokenCount(12_500, { exact: true })).toBe("12.5k");
+    expect(formatTokenCount(13_000, { exact: true })).toBe("13k");
+    expect(formatTokenCount(1_250_000, { exact: true })).toBe("1.25M");
     expect(formatTokenCount(-20)).toBe("0");
   });
 });

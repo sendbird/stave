@@ -149,7 +149,8 @@ function formatGoalTokenProgressValue(goal: ProviderGoalSnapshot) {
   const used = formatTokenCount(goal.tokensUsed);
   const progressPercent = getGoalProgressPercent(goal);
   if (typeof goal.tokenBudget === "number" && goal.tokenBudget > 0) {
-    const budget = formatTokenCount(goal.tokenBudget);
+    // A budget is a number someone set: read it exactly, not rounded.
+    const budget = formatTokenCount(goal.tokenBudget, { exact: true });
     return progressPercent == null
       ? i18n.t("session:remaining.presentationCopy301", { v1: used, v2: budget })
       : i18n.t("session:remaining.presentationCopy302", { v1: used, v2: budget, v3: progressPercent });

@@ -177,13 +177,26 @@ export function formatElapsed(since: DateInput, now: DateInput = Date.now(), opt
   return formatDuration(end - start, options);
 }
 
+export interface TokenCountFormatOptions {
+  /**
+   * Every digit the count has, in its unit (`12.5k`, `12.345k`, `1.25M`), for
+   * a number someone set, such as a budget, which rounding would misstate.
+   */
+  exact?: boolean;
+}
+
 /**
  * Token counts as people say them: `950`, `1.2k`, `18k`, `1.2M`, `18M`. One
  * decimal below ten of a unit, whole units above, with the locale's digits.
  */
-export function formatTokenCount(count: number): string {
+export function formatTokenCount(count: number, options: TokenCountFormatOptions = {}): string {
   const tokens = Number.isFinite(count) ? Math.max(0, Math.round(count)) : 0;
   if (tokens < 1_000) return formatNumber(tokens);
+  if (options.exact) {
+    return tokens < 1_000_000
+      ? `${formatNumber(tokens / 1_000, { maximumFractionDigits: 3 })}k`
+      : `${formatNumber(tokens / 1_000_000, { maximumFractionDigits: 6 })}M`;
+  }
   const thousands = tokens / 1_000;
   const shownThousands = thousands < 10 ? Math.round(thousands * 10) / 10 : Math.round(thousands);
   if (shownThousands < 1_000) {
