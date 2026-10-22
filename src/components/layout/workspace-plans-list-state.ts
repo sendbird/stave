@@ -1,7 +1,11 @@
 /**
  * The Plans list's load state. A failed read keeps the last list it loaded and
  * never falls through to the empty state, which would read as "no plans".
+ * Which of the loaded documents are drawn (recent ten, all, or a search's
+ * matches) is chosen at the end of this file.
  */
+
+import { MAX_WORKSPACE_PLANS } from "@/lib/plans";
 
 export interface WorkspaceDocumentFilePaths {
   current: string[];
@@ -70,4 +74,60 @@ export function resolvePlansListView(args: {
   if (args.loadFailed) return "failed";
   if (args.loading) return "loading";
   return "empty";
+}
+
+/** The fields a Plans search reads. */
+export interface PlanSearchFields {
+  filePath: string;
+  label: string;
+  taskIdPrefix: string;
+}
+
+/** What the Plans list draws from every document it holds. */
+export interface PlansListRows<T> {
+  rows: T[];
+  /** Every document the list holds. */
+  total: number;
+  /** While searching, how many documents match; otherwise the rows drawn. */
+  matched: number;
+  searching: boolean;
+  /** Documents the recent cut leaves out: 0 while searching or showing all. */
+  hidden: number;
+}
+
+function queryWords(query: string): string[] {
+  return query.trim().toLocaleLowerCase().split(/\s+/u).filter(Boolean);
+}
+
+/** Every word appears, in any case, in the document's label, file name or task reference. */
+function planMatchesWords(entry: PlanSearchFields, words: readonly string[]): boolean {
+  const fileName = entry.filePath.slice(entry.filePath.lastIndexOf("/") + 1);
+  const haystack = `${entry.label}\n${fileName}\n${entry.taskIdPrefix}`.toLocaleLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
+/**
+ * The rows the Plans list draws from `entries` (newest first, uncut): the
+ * `recentLimit` most recent by default, every one when `showAll`, and every
+ * match across all of them while a query is typed.
+ */
+export function selectPlansListRows<T extends PlanSearchFields>(args: {
+  entries: readonly T[];
+  query: string;
+  showAll: boolean;
+  recentLimit?: number;
+}): PlansListRows<T> {
+  const total = args.entries.length;
+  const words = queryWords(args.query);
+  if (words.length > 0) {
+    const rows = args.entries.filter((entry) => planMatchesWords(entry, words));
+    return { rows, total, matched: rows.length, searching: true, hidden: 0 };
+  }
+  const rows = args.showAll ? [...args.entries] : args.entries.slice(0, args.recentLimit ?? MAX_WORKSPACE_PLANS);
+  return { rows, total, matched: rows.length, searching: false, hidden: total - rows.length };
+}
+
+/** The search earns its place once the recent cut hides documents, and stays while a query is typed. */
+export function shouldOfferPlansSearch(args: { total: number; query: string; recentLimit?: number }): boolean {
+  return args.total > (args.recentLimit ?? MAX_WORKSPACE_PLANS) || queryWords(args.query).length > 0;
 }

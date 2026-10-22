@@ -50,8 +50,9 @@ as usual; the agent answers there without writing a document.
 
 - **Under a reply**: the turn's last reply lists every document that turn
   wrote, with its revision number.
-- **Information panel → Documents**: every document in the workspace, the most
-  recently updated first.
+- **Information panel → Documents**: the workspace's documents, the most
+  recently updated first. The section header counts all of them. With more
+  than ten, the list shows the ten most recent and says how many there are.
 - **`@` in the composer**: documents from your other workspaces, including
   deleted ones, under **Documents from other workspaces**.
 - **Review → Load from a document**: a document as the review's criteria.
@@ -64,6 +65,12 @@ as usual; the agent answers there without writing a document.
   revision.
 - **v3** is the revision number. Hover it in the Information panel to see how
   many revisions are recorded.
+- **Show all** (under a list of more than ten documents) lists every one;
+  **Show recent only** goes back to the ten most recent.
+- **Search documents** (above a list of more than ten) finds a document
+  among all of them, not only the recent ten. Every word you type must appear
+  in the document's name, file name or task reference; case does not matter.
+  `Escape` clears the search.
 - **New plan** creates a plan document from a short template.
 - The checklist icon turns the document's checklist items into workspace
   todos.

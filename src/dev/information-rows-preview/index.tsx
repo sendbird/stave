@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
+import { applyAppLocale } from "@/i18n";
+import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 
 import { Badge as AdsBadge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
@@ -35,10 +37,14 @@ import {
  * that only reads well at page width is not the row this panel needs.
  */
 export function InformationRowsPreview() {
-  const [dark, setDark] = useState(false);
+  // `&theme=<built-in id>|dark` and `&lang=ko`, as the other previews take them.
+  const [params] = useState(() => new URLSearchParams(window.location.search));
+  const [builtinTheme] = useState(() => BUILTIN_CUSTOM_THEMES.find((candidate) => candidate.id === params.get("theme")) ?? null);
+  const [dark, setDark] = useState(() => params.get("theme") === "dark" || builtinTheme?.baseMode === "dark");
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    applyAppLocale(params.get("lang") ?? "en");
     installInformationRowPreviewApi();
     useWorkspaceDocumentsStore.setState({
       activityByWorkspace: {
@@ -46,12 +52,12 @@ export function InformationRowsPreview() {
       },
     });
     setReady(true);
-  }, []);
+  }, [params]);
 
   useEffect(() => {
-    applyCustomTheme({ theme: null });
+    applyCustomTheme({ theme: builtinTheme });
     applyThemeClass({ enabled: dark });
-  }, [dark]);
+  }, [builtinTheme, dark]);
 
   return (
     <div className={sx(styles.page)}>
