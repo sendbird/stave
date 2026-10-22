@@ -21,6 +21,7 @@ import { useAppStore } from "@/store/app.store";
 import { useAgentRunsStore } from "@/store/agent-runs-store";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { AgentRunLineView } from "./AgentRunLine";
+import { ELAPSED_CLOCK_MS } from "./ElapsedClock";
 import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
@@ -285,7 +286,7 @@ export function AgentRunBar(props: AgentRunBarProps) {
     active ? selectNowPhrase(state.providerTurnActivityByTask[taskId]) : null,
   );
   const shownPhrase = useNowLine(nowPhrase);
-  const now = useNow(active);
+  const now = useNow(active, ELAPSED_CLOCK_MS);
   const reducedMotion = usePrefersReducedMotion();
   const runCommand = useAgentRunsStore((state) => state.runCommand);
   const agentRunId = detail?.agentRun.id ?? "";

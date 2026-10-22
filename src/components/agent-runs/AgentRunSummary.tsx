@@ -1,6 +1,7 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatDuration, formatCost, formatTokenCount } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
@@ -11,6 +12,7 @@ import { describeAgentRunPermissions, explainAgentRunPermissions } from "@/lib/a
 import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { ElapsedClock } from "./ElapsedClock";
 
 /** The share of its turn budget from which a run reads as near its limit. */
 const TURN_BUDGET_WARNING_SHARE = 0.8;
@@ -32,7 +34,7 @@ export interface AgentRunSummaryProps {
 
 interface Metric {
   label: string;
-  value: string;
+  value: ReactNode;
   unit?: string;
   detail: string | null;
   tone?: Extract<Tone, "warning">;
@@ -81,7 +83,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
     "neutral",
   );
   const nearLimit = turnTone === "warning";
-  const endedAt = props.active ? props.now : Date.parse(agentRun.updatedAt);
+  const startedAt = Date.parse(agentRun.createdAt);
   const unmeasured = usage ? usage.turns - usage.measuredTurns : 0;
   const model = describeRunModel(providerId, agentRun.fingerprint.model);
 
@@ -97,7 +99,10 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
     spendMetric(usage),
     {
       label: props.active ? i18n.t("agentRuns:agentRunSummary.label5") : i18n.t("agentRuns:agentRunSummary.label6"),
-      value: formatDuration(endedAt - Date.parse(agentRun.createdAt)),
+      // A running run's time counts on its own clock, so only the figure re-renders.
+      value: props.active ? (
+        <ElapsedClock live now={props.now}>{(clock) => formatDuration(clock - startedAt)}</ElapsedClock>
+      ) : formatDuration(Date.parse(agentRun.updatedAt) - startedAt),
       detail: i18n.t(props.active ? "agentRuns:agentRunSummary.startedAt" : "agentRuns:agentRunSummary.fromStartedAt", { time: props.formatClock(agentRun.createdAt) }),
     },
   ];

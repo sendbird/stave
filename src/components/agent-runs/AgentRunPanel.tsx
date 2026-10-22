@@ -41,6 +41,7 @@ import { AgentRunDecisionLog } from "./AgentRunDecisionLog";
 import { AgentRunReportView } from "./AgentRunReportView";
 import { useAgentRunReportActions, type AgentRunReportActions } from "./useAgentRunReportActions";
 import { AgentRunSummary } from "./AgentRunSummary";
+import { ElapsedClock } from "./ElapsedClock";
 import { StageCard } from "./StageCard";
 import { StageTrack } from "./StageTrack";
 import { useAgentRunDecision, useNow, usePrefersReducedMotion } from "./useAgentRun";
@@ -124,12 +125,12 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
   const userPause = agentRun.pauseReason === "paused-by-user" || agentRun.pauseReason === "taken-over" ||
     agentRun.pauseReason === "usage-limit" || agentRun.pauseReason === "wait-expired" || agentRun.pauseReason === "limit-reached";
   // The badge already names the state; its subtitle and the line beside it say where and why.
-  const statusText = active
+  const describeStatus = (clock: number) => active
     ? [
         badge.subtitle,
         line.title,
         line.detail,
-        formatDuration(now - Date.parse(line.since)),
+        formatDuration(clock - Date.parse(line.since)),
       ]
         .filter(Boolean)
         .join(" · ")
@@ -205,9 +206,17 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
             <StateMark state={badge.mark.state} size="xs" motion="still" />
             {badge.label}
           </Badge>
-          <span className={sx(styles.statusText)} title={statusText}>
-            {statusText}
-          </span>
+          {/* The elapsed part reads to the second on its own clock; the panel keeps a slower one. */}
+          <ElapsedClock live={active} now={now}>
+            {(clock) => {
+              const statusText = describeStatus(clock);
+              return (
+                <span className={sx(styles.statusText)} title={statusText}>
+                  {statusText}
+                </span>
+              );
+            }}
+          </ElapsedClock>
         </div>
         {/* The track names the stage and the count; the Stages list below names them all. */}
         <StageTrack

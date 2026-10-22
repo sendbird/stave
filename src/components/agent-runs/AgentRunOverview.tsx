@@ -13,7 +13,7 @@ import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTi
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState, latestStageRecord } from "@/lib/agent-runs/domain";
-import { describeAgentRunResult, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
+import { agentRunDuration, describeAgentRunResult, formatAgentRunBadge, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
 import { describeRunPlan } from "@/lib/agent-runs/progress";
 import { describeRunWaitLiveness } from "@/lib/agent-runs/wait-liveness";
 import { useAgentRunProgress } from "./useAgentRunProgress";
@@ -28,6 +28,7 @@ import { AgentRunPlan, describePlanProgress } from "./AgentRunPlan";
 import { AgentRunOutcome } from "./AgentRunResultCard";
 import { AgentRunReportView } from "./AgentRunReportView";
 import { AgentRunSummary } from "./AgentRunSummary";
+import { ElapsedClock } from "./ElapsedClock";
 import { StageCard } from "./StageCard";
 import type { AgentRunReportActions } from "./useAgentRunReportActions";
 import type { AgentRunActions } from "./useAgentRunActions";
@@ -67,9 +68,9 @@ export function AgentRunOverview(props: {
   const active = isActiveAgentRunState(agentRun.state);
   const met = result.doneWhen.filter((line) => line.status.startsWith("met")).length;
   // The badge names the state; its subtitle and the line beside it say why, or how long.
-  const statusText = [
+  const describeStatus = (clock: number) => [
     status.subtitle,
-    status.reason ?? (active ? i18n.t("agentRuns:agentRunOverview.statusText", { value1: result.duration }) : result.duration),
+    status.reason ?? (active ? i18n.t("agentRuns:agentRunOverview.statusText", { value1: agentRunDuration(detail, clock) }) : result.duration),
   ]
     .filter(Boolean)
     .join(" · ");
@@ -80,15 +81,18 @@ export function AgentRunOverview(props: {
   const delegates = useTaskSubagentSources(agentRun.leadTaskId, detail);
   const subagents = delegates.rows;
   // A waiting run says how long, when Stave last looked and what its delegates need, as the composer line does.
-  const liveness = describeRunWaitLiveness({
-    eventWait: status.eventWait,
-    observedAt: detail.eventWaitObservedAt,
-    delegates: { ...delegates, parentTaskId: agentRun.leadTaskId },
-    now,
-  });
-  const livenessText = liveness.since
-    ? [i18n.t("agentRuns:eventWait.waitedFor", { time: liveness.since.text }), ...liveness.notes.map((note) => note.text)].join(" · ")
-    : liveness.notes.map((note) => note.text).join(" · ");
+  const describeLiveness = (clock: number) => {
+    const liveness = describeRunWaitLiveness({
+      eventWait: status.eventWait,
+      observedAt: detail.eventWaitObservedAt,
+      delegates: { ...delegates, parentTaskId: agentRun.leadTaskId },
+      now: clock,
+    });
+    const text = liveness.since
+      ? [i18n.t("agentRuns:eventWait.waitedFor", { time: liveness.since.text }), ...liveness.notes.map((note) => note.text)].join(" · ")
+      : liveness.notes.map((note) => note.text).join(" · ");
+    return { ...liveness, text };
+  };
   // The run follows the agent's workflow: say which, so its stages are never a surprise.
   const workflowTitle = staged ? agentRun.workflow.stages.map((stage) => getStageDisplayTitle(stage)).join(" → ") : null;
   return (
@@ -113,23 +117,39 @@ export function AgentRunOverview(props: {
             <StateMark state={status.mark.state} size="xs" motion="still" />
             {status.label}
           </Badge>
-          <span className={sx(styles.statusText)} title={statusText}>
-            {statusText}
-          </span>
+          {/* How long reads to the second on its own clock; the panel keeps a slower one. */}
+          <ElapsedClock live={active} now={now}>
+            {(clock) => {
+              const statusText = describeStatus(clock);
+              return (
+                <span className={sx(styles.statusText)} title={statusText}>
+                  {statusText}
+                </span>
+              );
+            }}
+          </ElapsedClock>
         </div>
         {status.recovery === "extend" && actions.onExtend ? (
           <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onExtend}>
             {i18n.t("agentRuns:limit.extend")}
           </Button>
         ) : null}
-        {active && livenessText ? (
-          <p
-            data-testid="agent-run-wait-liveness"
-            className={sx(styles.notice, styles.statusText, liveness.notes.some((note) => note.tone === "warning") && styles.toneWaiting)}
-            title={[liveness.since?.title, livenessText].filter(Boolean).join(" · ")}
-          >
-            {livenessText}
-          </p>
+        {/* Only a run with something to say about its wait keeps that clock running. */}
+        {active && describeLiveness(now).text ? (
+          <ElapsedClock live now={now}>
+            {(clock) => {
+              const liveness = describeLiveness(clock);
+              return liveness.text ? (
+                <p
+                  data-testid="agent-run-wait-liveness"
+                  className={sx(styles.notice, styles.statusText, liveness.notes.some((note) => note.tone === "warning") && styles.toneWaiting)}
+                  title={[liveness.since?.title, liveness.text].filter(Boolean).join(" · ")}
+                >
+                  {liveness.text}
+                </p>
+              ) : null;
+            }}
+          </ElapsedClock>
         ) : null}
         {!staged && (plan || active) ? <p className={sx(styles.notice, styles.statusText)} title={describeRunPlan(plan)}>{describeRunPlan(plan)}</p> : null}
         <RunHeaderContract detail={detail} />
