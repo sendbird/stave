@@ -107,6 +107,16 @@ describe("Plans list rows", () => {
     expect(labels("2026-04-12")).toEqual([".stave/context/plans/task0010_2026-04-12T01-00-00.md"]);
   });
 
+  test("a Korean name matches whether the file system stored it composed or decomposed", () => {
+    // macOS tools can write file names decomposed (NFD); typed queries are composed (NFC).
+    const decomposed = `.stave/context/plans/${"배포 계획".normalize("NFD")}.md`;
+    const composed = ".stave/context/plans/리뷰 메모.md";
+    const entries = buildWorkspacePlanListEntries({ currentFilePaths: [decomposed, composed], maxEntries: Number.POSITIVE_INFINITY });
+    const find = (query: string) => selectPlansListRows({ entries, query, showAll: false }).rows.map((entry) => entry.filePath);
+    expect(find("배포")).toEqual([decomposed]);
+    expect(find("리뷰".normalize("NFD"))).toEqual([composed]);
+  });
+
   test("a query with no match draws nothing and says so through matched", () => {
     const view = selectPlansListRows({ entries: TWELVE, query: "zzz", showAll: true });
     expect(view.rows).toEqual([]);

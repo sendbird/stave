@@ -95,14 +95,22 @@ export interface PlansListRows<T> {
   hidden: number;
 }
 
-function queryWords(query: string): string[] {
-  return query.trim().toLocaleLowerCase().split(/\s+/u).filter(Boolean);
+/**
+ * Compared composed (NFC) and lower-cased: a file system can store a Korean
+ * name decomposed while a typed query is composed, and the two must match.
+ */
+function searchForm(text: string): string {
+  return text.normalize("NFC").toLocaleLowerCase();
 }
 
-/** Every word appears, in any case, in the document's label, file name or task reference. */
+function queryWords(query: string): string[] {
+  return searchForm(query).trim().split(/\s+/u).filter(Boolean);
+}
+
+/** Every word appears, in any case or Unicode form, in the document's label, file name or task reference. */
 function planMatchesWords(entry: PlanSearchFields, words: readonly string[]): boolean {
   const fileName = entry.filePath.slice(entry.filePath.lastIndexOf("/") + 1);
-  const haystack = `${entry.label}\n${fileName}\n${entry.taskIdPrefix}`.toLocaleLowerCase();
+  const haystack = searchForm(`${entry.label}\n${fileName}\n${entry.taskIdPrefix}`);
   return words.every((word) => haystack.includes(word));
 }
 

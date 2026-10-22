@@ -157,6 +157,9 @@ describe("workspace document sync", () => {
     expect(await listWorkspaceDocumentPaths("/tmp/ws")).toEqual({ paths: [".stave/context/plans/a.md"], failed: false });
     respond({ ok: false, entries: [], stderr: "EIO: i/o error" });
     expect(await listWorkspaceDocumentPaths("/tmp/ws")).toEqual({ paths: [".stave/context/plans/a.md"], failed: true });
+    // A folder the OS will not let Stave read lists as empty for the file tree, but its documents are unknown.
+    respond({ ok: true, entries: [], unreadable: true });
+    expect(await listWorkspaceDocumentPaths("/tmp/ws")).toEqual({ paths: [".stave/context/plans/a.md"], failed: true });
   });
 
   test("a failed document catalog read is null, so the @ list keeps what it had", async () => {

@@ -61,7 +61,8 @@ const EMPTY_DOCUMENT_SUMMARIES: Readonly<
   Record<string, WorkspaceDocumentSummary>
 > = {};
 
-async function listWorkspaceDocumentFilePaths(
+/** The Markdown files in the workspace's document folders; throws when a folder could not be read. */
+export async function listWorkspaceDocumentFilePaths(
   rootPath: string,
 ): Promise<WorkspaceDocumentFilePaths> {
   const listDirectory = window.api?.fs?.listDirectory;
@@ -77,9 +78,10 @@ async function listWorkspaceDocumentFilePaths(
     }),
   ]);
   const markdownPaths = (result: typeof currentResult) => {
-    // An absent folder holds no plans; any other failed read is a failure, not "no plans".
-    if (!result?.ok) {
-      if (result?.missing) return [];
+    // An absent folder holds no plans; any other failed read is a failure, not
+    // "no plans", including a folder the OS refused to list.
+    if (!result?.ok || result.unreadable) {
+      if (!result?.ok && result?.missing) return [];
       throw new Error(result?.stderr || "The plans folder could not be read.");
     }
     return result.entries
@@ -132,6 +134,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
     });
   }, [documentsByPath, filePaths]);
   const [query, setQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [showAll, setShowAll] = useState(false);
   const listRows = useMemo(
     () => selectPlansListRows({ entries, query, showAll }),
@@ -400,7 +403,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 {retryButton}
               </div>
             ) : null}
-            {offerSearch ? <PlansSearchField query={query} onQueryChange={setQuery} /> : null}
+            {offerSearch ? <PlansSearchField query={query} onQueryChange={setQuery} inputRef={searchInputRef} /> : null}
             {listRows.rows.map((entry) => {
               const summary = documentsByPath[entry.filePath];
               return (
@@ -510,7 +513,10 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 view={listRows}
                 showAll={showAll}
                 onShowAllChange={setShowAll}
-                onClearSearch={() => setQuery("")}
+                onClearSearch={() => {
+                  setQuery("");
+                  searchInputRef.current?.focus();
+                }}
               />
             ) : null}
           </div>

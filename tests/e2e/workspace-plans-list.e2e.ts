@@ -35,12 +35,22 @@ test("the Documents list shows the ten most recent, says how many there are and 
   await expect(search).toHaveValue("");
   await expect(rows).toHaveCount(10);
 
-  // Escape clears a typed query.
+  // Escape clears a typed query, but not while an input method is composing.
   await search.fill("retry");
   await expect(rows).toHaveCount(1);
+  await search.dispatchEvent("keydown", { key: "Escape", isComposing: true, bubbles: true });
+  await expect(search).toHaveValue("retry");
   await search.press("Escape");
   await expect(search).toHaveValue("");
   await expect(rows).toHaveCount(10);
+
+  // The field's clear action leaves the keyboard in the field, ready for the next query.
+  await search.fill("audit");
+  await search.press("Tab");
+  await expect(section.getByRole("button", { name: "Clear search" })).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(search).toHaveValue("");
+  await expect(search).toBeFocused();
 
   // Show all draws every document; Show recent only goes back to ten.
   await section.getByRole("button", { name: "Show all" }).click();

@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import type { ReactElement } from "react";
-import { WorkspacePlansSection } from "@/components/layout/WorkspacePlansSection";
+import { listWorkspaceDocumentFilePaths, WorkspacePlansSection } from "@/components/layout/WorkspacePlansSection";
 
 const BASE_PROPS = {
   embedded: true,
@@ -23,5 +23,18 @@ describe("WorkspacePlansSection", () => {
     expect(sourceWorkspace.key).toBe("/tmp/workspaces/source");
     expect(targetWorkspace.key).toBe("/tmp/workspaces/target");
     expect(targetWorkspace.key).not.toBe(sourceWorkspace.key);
+  });
+
+  test("a documents folder the OS will not let Stave read is a failed read, not an empty list", async () => {
+    const listing = (current: Record<string, unknown>) => {
+      (globalThis as { window: unknown }).window = {
+        api: { fs: { listDirectory: async ({ directoryPath }: { directoryPath: string }) =>
+          directoryPath === ".stave/context/plans" ? current : { ok: false, entries: [], missing: true } } },
+      };
+      return listWorkspaceDocumentFilePaths("/tmp/workspaces/source");
+    };
+    await expect(listing({ ok: true, entries: [{ name: "a.md", path: ".stave/context/plans/a.md", type: "file" }] }))
+      .resolves.toEqual({ current: [".stave/context/plans/a.md"], legacy: [] });
+    await expect(listing({ ok: true, entries: [], unreadable: true })).rejects.toThrow();
   });
 });

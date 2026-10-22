@@ -686,6 +686,12 @@ interface WindowFsApi {
     }>;
     /** With `ok: false`: the directory does not exist, so it holds nothing; any other failure is a read that failed. */
     missing?: boolean;
+    /**
+     * With `ok: true` and no entries: the directory exists but the OS refused
+     * to list it. A tree shows it empty; a caller that needs its contents
+     * treats it as a read that failed.
+     */
+    unreadable?: boolean;
     stderr?: string;
   }>;
   readFile?: (args: { rootPath: string; filePath: string }) => Promise<{

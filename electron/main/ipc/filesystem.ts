@@ -25,6 +25,7 @@ import {
 } from "../../../src/lib/fs/file-preview-limits";
 import {
   DirectoryNotFoundError,
+  DirectoryUnreadableError,
   listDirectoryEntries,
   listFilesRecursive,
   mimeTypeFromFilePath,
@@ -357,6 +358,11 @@ export function registerFilesystemHandlers() {
       });
       return { ok: true, entries };
     } catch (error) {
+      // A folder the OS will not list stays an empty folder in the file tree,
+      // as before; `unreadable` lets a caller that needs its contents tell it apart.
+      if (error instanceof DirectoryUnreadableError) {
+        return { ok: true, entries: [], unreadable: true, stderr: String(error) };
+      }
       return {
         ok: false,
         entries: [],

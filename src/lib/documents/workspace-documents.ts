@@ -55,7 +55,8 @@ export async function listWorkspaceDocumentPaths(
     .map((entry) => entry.path)
     .sort()
     .slice(0, MAX_WORKSPACE_DOCUMENTS_PER_SYNC);
-  return { paths, failed: listings.some((listing) => !listing || (!listing.ok && !listing.missing)) };
+  // A folder the OS refused to list answers as empty but `unreadable`: its documents are unknown, not absent.
+  return { paths, failed: listings.some((listing) => !listing || listing.unreadable === true || (!listing.ok && !listing.missing)) };
 }
 
 /** One workspace document's current text, or null when it cannot be read. */
