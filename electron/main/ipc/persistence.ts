@@ -315,6 +315,8 @@ export function registerPersistenceHandlers() {
       void removeWorkspaceInlineRenders(parsedArgs.data.workspaceId);
       // The workspace's conversation is gone, so the images it showed go too.
       void removeWorkspaceToolImages(parsedArgs.data.workspaceId);
+      // Its tasks are gone, so their Lens review records and captures go too.
+      void store.lensReviewRecords.deleteWorkspace(parsedArgs.data.workspaceId);
       return { ok: true };
     },
   );

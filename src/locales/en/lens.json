@@ -111,14 +111,11 @@
   "lensFeedbackComparison": {
     "capturing": "Capturing…",
     "compareCurrentTarget": "Compare current target",
-    "reopenReview": "Reopen review",
-    "markResolved": "Mark resolved",
     "noOriginalImageWasCapturedSelectThe": "No original image was captured. Select the target again to start a visual comparison.",
     "originalTarget": "Original target",
     "before": "Before",
     "currentTargetCandidate": "Current target candidate",
     "currentCapture": "Current capture",
-    "markedResolvedByYouInThisView": "Marked resolved by you in this view. Reloading or leaving this target resets the review.",
     "confirmThisIsTheSameTargetAnd": "Confirm this is the same target and inspect the change. Matching a selector does not prove the issue is fixed.",
     "thePageChangedCaptureItAgainTo": "The page changed. Capture it again to review.",
     "couldNotCaptureTheCurrentTarget": "Could not capture the current target.",
@@ -391,5 +388,22 @@
     "waiting": "Waiting",
     "headers": "Headers",
     "download": "Download"
+  },
+  "lensReviewRecord": {
+    "compareAgain": "Compare again",
+    "confirm": "Confirm fixed",
+    "needsRecheck": "Needs re-check",
+    "markNeedsRecheck": "Mark needs re-check",
+    "pendingRegion": "New comparison",
+    "savedRegion": "Saved Lens review",
+    "confirmedAt": "Confirmed as fixed {{time}}",
+    "recheckPageChanged": "Needs re-check: the page changed after it was confirmed ({{time}}).",
+    "recheckByReviewer": "Marked as needing a re-check {{time}}",
+    "capturedAt": "Captured {{time}}",
+    "savedCapture": "Saved capture of the target",
+    "captureMissing": "The saved capture is no longer available.",
+    "pageChangedBeforeConfirm": "The page changed after this capture, so it cannot confirm the fix. Compare again.",
+    "saveFailed": "Could not save this review.",
+    "readFailed": "Could not read the saved review."
   }
 }

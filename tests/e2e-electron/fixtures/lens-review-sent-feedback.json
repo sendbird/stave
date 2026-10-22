@@ -1,0 +1,144 @@
+{
+  "annotation": {
+    "id": "lens-review-e2e",
+    "kind": "element",
+    "pin": 1,
+    "rect": {
+      "x": 24,
+      "y": 120,
+      "width": 180,
+      "height": 56
+    },
+    "comment": "Make the fixture action easier to find",
+    "createdAt": "2026-10-22T00:00:00.000Z",
+    "selector": "#target",
+    "styleEdits": [],
+    "review": {
+      "version": 1,
+      "page": {
+        "url": "http://127.0.0.1:59999/fixture",
+        "title": "lens review fixture",
+        "viewport": {
+          "width": 0,
+          "height": 0,
+          "devicePixelRatio": 1
+        },
+        "scroll": {
+          "x": 0,
+          "y": 0
+        },
+        "documentId": "sent-document"
+      },
+      "anchor": {
+        "bounds": {
+          "x": 24,
+          "y": 120,
+          "width": 180,
+          "height": 56
+        },
+        "selector": "#target",
+        "attributes": {},
+        "ancestors": [],
+        "nearby": [],
+        "computedStyles": {}
+      },
+      "evidence": {
+        "screenshot": {
+          "kind": "clipped",
+          "bounds": {
+            "x": 24,
+            "y": 120,
+            "width": 180,
+            "height": 56
+          }
+        },
+        "styleEdits": []
+      },
+      "feedback": {
+        "comment": "Make the fixture action easier to find",
+        "intent": "fix",
+        "priority": "medium"
+      },
+      "trust": "untrusted-page-evidence"
+    }
+  },
+  "displayParts": [
+    {
+      "type": "text",
+      "text": "Make the fixture action easier to find"
+    },
+    {
+      "type": "image_context",
+      "dataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGNk+M+ABzAxjEoDAJBwAQFP8z9/AAAAAElFTkSuQmCC",
+      "lensFeedback": {
+        "workspaceId": "__WORKSPACE_ID__",
+        "lensSessionId": "__LENS_SESSION_ID__",
+        "annotation": {
+          "id": "lens-review-e2e",
+          "kind": "element",
+          "pin": 1,
+          "rect": {
+            "x": 24,
+            "y": 120,
+            "width": 180,
+            "height": 56
+          },
+          "comment": "Make the fixture action easier to find",
+          "createdAt": "2026-10-22T00:00:00.000Z",
+          "selector": "#target",
+          "styleEdits": [],
+          "review": {
+            "version": 1,
+            "page": {
+              "url": "http://127.0.0.1:59999/fixture",
+              "title": "lens review fixture",
+              "viewport": {
+                "width": 0,
+                "height": 0,
+                "devicePixelRatio": 1
+              },
+              "scroll": {
+                "x": 0,
+                "y": 0
+              },
+              "documentId": "sent-document"
+            },
+            "anchor": {
+              "bounds": {
+                "x": 24,
+                "y": 120,
+                "width": 180,
+                "height": 56
+              },
+              "selector": "#target",
+              "attributes": {},
+              "ancestors": [],
+              "nearby": [],
+              "computedStyles": {}
+            },
+            "evidence": {
+              "screenshot": {
+                "kind": "clipped",
+                "bounds": {
+                  "x": 24,
+                  "y": 120,
+                  "width": 180,
+                  "height": 56
+                }
+              },
+              "styleEdits": []
+            },
+            "feedback": {
+              "comment": "Make the fixture action easier to find",
+              "intent": "fix",
+              "priority": "medium"
+            },
+            "trust": "untrusted-page-evidence"
+          }
+        }
+      },
+      "label": "Make the fixture action easier to find",
+      "mimeType": "image/png"
+    }
+  ]
+}

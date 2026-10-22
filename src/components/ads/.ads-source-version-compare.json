@@ -1,0 +1,33 @@
+{
+  "bundleIntegrity": "sha256-8bb9ee54c3e9825362314ddf37e720af3d1b6e5622c2451bc62644e0ec15748d",
+  "catalogVersion": "1.1",
+  "dependencies": {
+    "@stylexjs/stylex": "0.19.0",
+    "react": "19.2.7"
+  },
+  "distribution": {
+    "license": null,
+    "ownership": "host-owned-copy",
+    "visibility": "authenticated-internal"
+  },
+  "entrypoints": [
+    {
+      "id": "versioncompare",
+      "kind": "component",
+      "name": "Version Compare",
+      "path": "src/components/ads/components/VersionCompare.tsx"
+    }
+  ],
+  "files": [
+    {
+      "integrity": "sha256-656a3c975ec336602fdc2c069e9551f5c1f7eeca23ad9c330e9ce5f960fd38aa",
+      "path": "src/components/ads/components/VersionCompare.tsx",
+      "sourcePath": "packages/design-system/src/components/VersionCompare.tsx"
+    }
+  ],
+  "generatorVersion": "2",
+  "schemaVersion": "1.0",
+  "sourceRevision": "sha256-8789c0ca2adff13ed1164e5568b5fa9c6f4b6d371b7f9e965a7e9c0edb654592",
+  "sourceVersion": "0.1.0",
+  "targetDir": "src/components/ads"
+}

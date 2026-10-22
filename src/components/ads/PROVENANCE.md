@@ -13,6 +13,9 @@ Host modifications are intentional and retained when refreshing the bundle:
 - Badge, Breadcrumb, EmptyState, Table, Slider, Toggle, and Tooltip export their canonical styles for existing compound APIs.
 - EmptyState's medallion defaults to the `neutral` tone instead of `accent`. The host's empty states are the absence of data, not brand moments; callers that want the accent medallion (onboarding invitations) pass `tone="accent"` explicitly.
 - Calendar satisfies strict indexed access checks; malformed date keys resolve to an invalid date instead of assuming missing numbers exist.
+- VersionCompare carries no English copy: its mode names, the mode switch's accessible name,
+  the range labels (`copy`) and both version labels (`baselineLabel`, `currentLabel`) are
+  required props the host fills from its translations (`src/components/system/ReviewVersionCompare.tsx`).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
@@ -26,7 +29,10 @@ feedback-dismiss and the `async` and `tone` utilities; the bundle's `prose.css`
 was not installed because the host's `styles.css` does not import it) and
 `.ads-source-toolbar.json` (Toolbar with its `headless/toolbar` primitives, for the
 right rail's single tab stop; the bundle's unrelated theme-target and CSS files the
-host does not load were not installed). Only missing files
+host does not load were not installed) and `.ads-source-version-compare.json`
+(VersionCompare, for Lens review records' before/after comparison; its theme target
+already existed, and the bundle's CSS and editing/graph theme-target files the host
+does not load were not installed). Only missing files
 were installed; existing host modifications were preserved. Their catalog's
 suggested dependency versions are recorded as provenance; the host's compatible
 installed versions are governed by package.json and its validation gates.

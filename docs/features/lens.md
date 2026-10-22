@@ -134,6 +134,15 @@ Automatic presentation is limited to actions that are inherently visual or inter
 5. Optionally use the style editor on an element comment to record live before/after style edits.
 6. Click `Send` in the comment list to append the formatted visual comments to the active task draft.
 
+### Check A Fix Against Sent Feedback
+
+After visual comments are sent, the feedback tray keeps the task's latest sent feedback beside the live page.
+
+1. Open the captured page in the same Lens session.
+2. Click `Compare current target`. Lens captures the same target at the recorded viewport and shows it with the original image: side by side, slider, onion skin or difference.
+3. Click `Confirm fixed` or `Needs re-check`. Either saves a Lens review record for the task.
+4. The record stays after you navigate, reload or restart Stave. A confirmation holds only for the page document it was captured from; once the page changes, the record shows `Needs re-check` with the time it was confirmed. Click `Compare again` to check the current page.
+
 ### Save Screenshots And Downloads
 
 - Use the Screenshot menu to save viewport or full-page PNG captures.
@@ -174,6 +183,8 @@ removes it when the workspace is archived.
 ```
 
 - Saved Lens accounts are stored separately under the app's `userData` directory in `lens-credentials.v1.json`. Usernames and passwords are kept together in OS-encrypted ciphertext; the file keeps only matching metadata such as the exact host outside that ciphertext, uses owner-only permissions where supported, and is never part of persisted renderer settings.
+
+- Lens review records are stored in the app database with their task. Each record's "after" capture is a PNG under the `userData` directory's `artifacts/lens-reviews` folder; the "before" image stays in the conversation's sent feedback. A task keeps its 20 newest records, and closing the task's workspace deletes them with their captures.
 
 - External tooling accesses Lens through the Local MCP tool family. `stave_lens_snapshot` returns an indented accessibility outline with a `ref` on every element an agent can act on, and `stave_lens_click`, `_type`, `_inspect`, `_measure`, `_get_text`, and `_set_style` accept either a ref or a CSS selector. A ref is minted per snapshot and keyed to the document that produced it, so acting through a ref after the page changed fails with an instruction to re-snapshot instead of acting on whatever now matches. Selectors remain supported for anything a snapshot cannot name.
 

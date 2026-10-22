@@ -69,6 +69,7 @@ import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
+import { LensReviewRecordStore } from "./lens-review-record-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { WorkspaceDocumentStore } from "./workspace-document-store";
 import { TurnSpendStore } from "./turn-spend-store";
@@ -186,6 +187,7 @@ export class SqliteStore {
   private notifications: NotificationStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
+  readonly lensReviewRecords: LensReviewRecordStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly documents: WorkspaceDocumentStore;
   readonly turnSpend: TurnSpendStore;
@@ -231,6 +233,7 @@ export class SqliteStore {
     );
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
+    this.lensReviewRecords = new LensReviewRecordStore(this.db, this.artifactRootDir);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.documents = new WorkspaceDocumentStore(this.db);
     this.turnSpend = new TurnSpendStore(this.db);
@@ -2296,6 +2299,7 @@ export class SqliteStore {
           : []),
       ],
     });
+    void this.lensReviewRecords.deleteTask(args.taskId);
   }
 
   closeWorkspace(args: { workspaceId: string }) {

@@ -296,5 +296,16 @@
   "selectionRail": {
     "models_other": "{{label}}, 모델 {{count}}개",
     "agents_other": "{{label}}, 에이전트 {{count}}개"
+  },
+  "versionCompare": {
+    "mode": "비교 방식",
+    "sideBySide": "나란히",
+    "slider": "슬라이더",
+    "onion": "겹쳐 보기",
+    "diff": "차이",
+    "revealCurrent": "새 버전 드러내기",
+    "overlayCurrent": "새 버전 겹치기",
+    "before": "이전",
+    "after": "이후"
   }
 }
