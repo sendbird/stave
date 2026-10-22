@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import { i18n } from "@/i18n";
-import { Brain } from "lucide-react";
 import {
   Button,
   Drawer,
@@ -14,12 +13,9 @@ import {
   PopoverDescription,
   PopoverTrigger,
   PopoverTitle,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
 } from "@/components/ui";
 import type { ComposerControlId } from "@/lib/composer-controls";
-import { sx, cx } from "../ads/utils/stylex";
+import { sx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import { PromptInputRunAccountPoolControl } from "./prompt-input-run-account-pool";
 import { PromptInputProviderModePill } from "./prompt-input-provider-mode";
@@ -27,18 +23,16 @@ import {
   PromptInputRuntimeBar,
   type PromptInputRuntimeProfile,
 } from "./prompt-input-runtime-bar";
+import { PromptInputThinkingControl } from "./prompt-input-thinking-control";
 import { LocalChangeReviewDialog } from "./local-change-review-dialog";
 import {
-  COMPOSER_CONTROL_BUTTON,
   ComposerControlLabel,
   composerControlAttributes,
 } from "./composer-control-density";
 import {
   PROMPT_TOOLBAR_ICON_BUTTON,
   PromptInputRuntimeTriggerIcon,
-  getPromptToolbarAccentStyle,
   getRuntimeProfileToneStyle,
-  tooltipTriggerButtonClassName,
 } from "./prompt-input-toolbar-parts";
 import type { PromptInputProps } from "./prompt-input.types";
 
@@ -106,46 +100,11 @@ export function renderComposerControlNodes(args: {
       />
     ) : null,
     thinking: onThinkingModeChange ? (
-      <Tooltip>
-        <TooltipTrigger
-          type="button"
-          disabled={interactionsDisabled}
-          aria-label={i18n.t("composer:promptInput.ariaLabel7", { value1: thinkingMode ?? "adaptive" })}
-          onClick={() => {
-            const cycle = {
-              adaptive: "enabled",
-              enabled: "disabled",
-              disabled: "adaptive",
-            } as const;
-            onThinkingModeChange(cycle[thinkingMode ?? "adaptive"]);
-          }}
-          {...composerControlAttributes}
-          className={tooltipTriggerButtonClassName({
-            className: cx(
-              COMPOSER_CONTROL_BUTTON,
-              sx(
-                thinkingMode === "enabled"
-                  ? getPromptToolbarAccentStyle("thinking")
-                  : thinkingMode === "disabled"
-                    ? promptInputStyles.toneMutedHalf
-                    : undefined,
-                interactionsDisabled && promptInputStyles.cursorDisabled,
-              ),
-            ),
-          })}
-        >
-          <Brain
-            className={sx(
-              promptInputStyles.icon4,
-              thinkingMode === "adaptive" && promptInputStyles.iconThinking,
-            )}
-          />
-          <ComposerControlLabel>
-            <span>{i18n.t("composer:promptInput.thinking")}</span>
-          </ComposerControlLabel>
-        </TooltipTrigger>
-        <TooltipContent side="top">{i18n.t("composer:promptInput.thinking2", { value1: thinkingMode ?? "adaptive" })}</TooltipContent>
-      </Tooltip>
+      <PromptInputThinkingControl
+        mode={thinkingMode}
+        disabled={interactionsDisabled}
+        onChange={onThinkingModeChange}
+      />
     ) : null,
     review: hasReviewControl ? (
       <LocalChangeReviewDialog
@@ -177,7 +136,7 @@ export function renderComposerControlNodes(args: {
             }
           >
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
-            <ComposerControlLabel wingOnly>{i18n.t("composer:promptInput.runtime")}</ComposerControlLabel>
+            <ComposerControlLabel wingOnly>{runtimeProfile.label}</ComposerControlLabel>
           </DrawerTrigger>
           <DrawerContent className={sx(promptInputStyles.drawerContent)}>
             <DrawerHeader className={sx(promptInputStyles.drawerHeader)}>
@@ -217,7 +176,7 @@ export function renderComposerControlNodes(args: {
             }
           >
             <PromptInputRuntimeTriggerIcon profile={runtimeProfile} />
-            <ComposerControlLabel wingOnly>{i18n.t("composer:promptInput.runtime4")}</ComposerControlLabel>
+            <ComposerControlLabel wingOnly>{runtimeProfile.label}</ComposerControlLabel>
           </PopoverTrigger>
           <PopoverContent
             align="start"

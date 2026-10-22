@@ -28,6 +28,17 @@ These controls are product-facing workflow settings. They are the fastest way to
 
 You can also confirm the effective state from the runtime chips near the composer.
 
+## Thinking And Runtime In The Composer
+
+- **Thinking** (Claude) says the mode in use, such as `Thinking · Adaptive`; in
+  a side wing, where the label is short, it shows just `Adaptive`. Choose it
+  to open a menu of the three modes with what each one does. The mode changes
+  only when you choose one; Esc, Tab or a click elsewhere leaves it as it was.
+  Thinking is one Claude setting shared by every task, the same one as
+  `Settings > Providers > Claude > Thinking Mode`, and the menu says so.
+- **Runtime** names the profile in use (`Safe`, `Custom` or `Elevated`) in its
+  side-wing label; open it for the details behind that profile.
+
 ## Per-project defaults
 
 Settings normally apply to every project. A few defaults can differ for one

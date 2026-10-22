@@ -167,7 +167,8 @@ describe("composer control placement in the toolbar", () => {
   test("renders every control and no tray button by default", async () => {
     const html = await renderToolbar();
     expect(html).toContain('aria-label="Review local changes"');
-    expect(html).toContain(">Thinking<");
+    // Thinking says the mode in use, not just its name.
+    expect(html).toContain(">Thinking · Adaptive<");
     // An empty tray must not cost a toolbar slot.
     expect(html).not.toContain('data-composer-tray-trigger="true"');
   });
@@ -196,7 +197,7 @@ describe("composer control placement in the toolbar", () => {
       composerControlPlacements: { thinking: "hidden" },
       thinkingMode: "adaptive",
     });
-    expect(html).not.toContain(">Thinking<");
+    expect(html).not.toContain(">Thinking · ");
   });
 
   test("treats a forced-off thinking mode as active", async () => {
@@ -204,7 +205,7 @@ describe("composer control placement in the toolbar", () => {
       composerControlPlacements: { thinking: "hidden" },
       thinkingMode: "disabled",
     });
-    expect(html).toContain(">Thinking<");
+    expect(html).toContain(">Thinking · Disabled<");
   });
 
   test("keeps the placement editor out of accessible names on the toolbar", async () => {
@@ -263,10 +264,13 @@ describe("composer control placement in the toolbar", () => {
     // no reason to exist — an empty shelf is never drawn.
     expect(html).not.toContain('data-composer-frame-wing="left"');
     expect(html).toContain("Turn activity");
-    // Thinking is provider-owned, so it stays in the right wing.
-    expect(html).toContain('aria-label="Thinking: adaptive"');
+    // Thinking is provider-owned, so it stays in the right wing. A wing only
+    // reveals a short label, so there it shows the mode alone; its name still
+    // says both.
+    expect(html).toContain('aria-label="Thinking · Adaptive"');
     expect(html).toContain('data-composer-control-label=""');
-    expect(html).toContain(">Thinking<");
+    expect(html).toContain("><span>Adaptive</span><");
+    expect(html).not.toContain(">Thinking · Adaptive<");
     // Hover, focus and reduced-motion geometry are exercised in the renderer.
     expect(html).toContain('data-wing-reveal="on"');
     expect(html).toContain('data-testid="context-meter-slot"');
@@ -346,10 +350,10 @@ describe("composer control placement in the toolbar", () => {
     const html = await renderToolbar();
 
     // Provider mode, Thinking, Review and Runtime all render through
-    // different primitives (tooltip trigger, popover pill, dialog trigger).
+    // different primitives (menu trigger, popover pill, dialog trigger).
     // The lane can only reach them if each one carries the marker.
     for (const label of [
-      'aria-label="Thinking: adaptive"',
+      'aria-label="Thinking · Adaptive"',
       'aria-label="Review local changes"',
       'aria-label="Runtime · ',
     ]) {
