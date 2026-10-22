@@ -1121,7 +1121,7 @@
     }
   },
   "handoff": {
-    "intro": "What someone picking this task up needs: you later, another provider, or the same one after a restart. It is sent to a provider with the conversation when it starts or comes back to this task.",
+    "intro": "What someone picking this task up needs: you later, another provider, or the same one after a restart. It is sent to a provider with the conversation when it starts or comes back to this task, and once more after you save a change.",
     "edit": "Edit",
     "fill": "Fill from this task",
     "ask": "Ask the agent to update",

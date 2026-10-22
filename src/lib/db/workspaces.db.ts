@@ -29,6 +29,8 @@ export interface WorkspaceSummary {
 export interface ProviderSessionCursor {
   nativeSessionId: string;
   syncedThroughMessageId?: string;
+  /** The task's handoff record revision this session had when its last turn completed. */
+  handoffRevision?: number;
 }
 
 export type TaskProviderSessionEntry = string | ProviderSessionCursor;

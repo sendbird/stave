@@ -1,5 +1,6 @@
+import type { ProviderSessionCursor } from "@/lib/db/workspaces.db";
+import { buildTurnHandoffContextPart } from "@/lib/task-context/handoff-delivery";
 import {
-  buildHandoffRecordContextPart,
   emptyHandoffRecord,
   TaskHandoffRecordSchema,
   type TaskHandoffRecord,
@@ -46,14 +47,21 @@ export async function saveTaskHandoff(args: SaveTaskHandoffArgs): Promise<SaveTa
 /**
  * The record as context for the next turn. A record that cannot be read is
  * left out rather than holding the message back; the turn still carries the
- * conversation excerpt.
+ * conversation excerpt, and its session is not counted as having the record.
  */
 export async function collectTaskHandoffContextParts(args: {
   workspaceId: string;
   taskId: string;
+  turnId?: string;
+  /** The turn's provider session; a record it has not received goes as an update. */
+  providerSession?: ProviderSessionCursor | null;
 }): Promise<CanonicalRetrievedContextPart[]> {
   try {
-    const part = buildHandoffRecordContextPart(await readTaskHandoff(args));
+    const part = buildTurnHandoffContextPart({
+      record: await readTaskHandoff({ workspaceId: args.workspaceId, taskId: args.taskId }),
+      turnId: args.turnId,
+      session: args.providerSession,
+    });
     return part ? [part] : [];
   } catch (error) {
     console.warn("[handoff-record] could not read the record for this turn", { taskId: args.taskId, error: String(error) });

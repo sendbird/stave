@@ -38,10 +38,16 @@ export function normalizeProviderSessionEntry(
     return null;
   }
   const syncedThroughMessageId = entry?.syncedThroughMessageId?.trim();
+  const handoffRevision = entry?.handoffRevision;
   return {
     nativeSessionId,
     ...(syncedThroughMessageId ? { syncedThroughMessageId } : {}),
+    ...(isHandoffRevision(handoffRevision) ? { handoffRevision } : {}),
   };
+}
+
+function isHandoffRevision(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 export function getProviderSessionId(args: {
@@ -90,21 +96,34 @@ export function rememberProviderSession(args: {
     : { nativeSessionId };
 }
 
+/**
+ * After a completed turn: the session has the conversation through
+ * `syncedThroughMessageId`, and the handoff record at `handoffRevision` when
+ * the turn carried one (a new revision is sent to a resumed session once).
+ */
 export function advanceProviderSessionCursor(args: {
   current?: TaskProviderSessionEntry;
   syncedThroughMessageId: string;
+  handoffRevision?: number;
 }): ProviderSessionCursor | null {
   const current = normalizeProviderSessionEntry(args.current);
   const syncedThroughMessageId = args.syncedThroughMessageId.trim();
   if (!current || !syncedThroughMessageId) {
     return current;
   }
-  if (current.syncedThroughMessageId === syncedThroughMessageId) {
+  const handoffRevision = isHandoffRevision(args.handoffRevision)
+    ? args.handoffRevision
+    : current.handoffRevision;
+  if (
+    current.syncedThroughMessageId === syncedThroughMessageId
+    && current.handoffRevision === handoffRevision
+  ) {
     return current;
   }
   return {
     ...current,
     syncedThroughMessageId,
+    ...(handoffRevision !== undefined ? { handoffRevision } : {}),
   };
 }
 

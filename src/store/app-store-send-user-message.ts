@@ -1035,7 +1035,7 @@ export function createSendUserMessageAction(args: {
       // ── Memory, subagent receipts, handoff record: cross-turn state from main ──
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
-          workspaceId: taskWorkspaceId,
+          workspaceId: taskWorkspaceId, turnId, providerSession: providerSessionCursor,
           repositoryPath: state.repositoryPath,
           parentTaskId: resolvedTaskId,
           history: latestHistory,

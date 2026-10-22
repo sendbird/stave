@@ -8,6 +8,7 @@ import {
 import { getPromptDraftAttachments } from "@/store/prompt-draft-context";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 import { collectTaskHandoffContextParts } from "@/lib/db/task-handoff.db";
+import type { ProviderSessionCursor } from "@/lib/db/workspaces.db";
 
 /**
  * Renderer side of project memory for a UI-initiated turn.
@@ -20,6 +21,9 @@ import { collectTaskHandoffContextParts } from "@/lib/db/task-handoff.db";
 export async function collectTurnStartRetrievedContextParts(args: {
   /** The task's workspace; its handoff record travels with the conversation excerpt. */
   workspaceId?: string;
+  /** The turn, and its provider session: a record the session has not received goes again. */
+  turnId?: string;
+  providerSession?: ProviderSessionCursor | null;
   repositoryPath: string | null;
   parentTaskId: string;
   history: readonly Pick<ChatMessage, "role" | "content" | "startedAt">[];
@@ -34,7 +38,12 @@ export async function collectTurnStartRetrievedContextParts(args: {
     }) ?? Promise.resolve([]),
     recallRepositoryMemoryRetrievedContext(args),
     args.workspaceId
-      ? collectTaskHandoffContextParts({ workspaceId: args.workspaceId, taskId: args.parentTaskId })
+      ? collectTaskHandoffContextParts({
+          workspaceId: args.workspaceId,
+          taskId: args.parentTaskId,
+          turnId: args.turnId,
+          providerSession: args.providerSession,
+        })
       : Promise.resolve([]),
   ]);
   const parts: CanonicalRetrievedContextPart[] = [...handoffParts];

@@ -21,6 +21,11 @@ export type HandoffAuthor = (typeof HANDOFF_AUTHORS)[number];
 export const HANDOFF_SECTION_MAX_CHARS = 2_000;
 
 export const STAVE_HANDOFF_RECORD_SOURCE_ID = "stave:handoff-record";
+/**
+ * The record when a resumed session last received another revision of it: it
+ * travels even when the session is otherwise up to date and gets no excerpt.
+ */
+export const STAVE_HANDOFF_RECORD_UPDATE_SOURCE_ID = "stave:handoff-record:update";
 
 const HandoffSectionSchema = z
   .object({
@@ -148,9 +153,30 @@ const MODEL_SECTION_TITLES: Record<HandoffSectionId, string> = {
   cautions: "Cautions",
 };
 
-/** The record as the provider reads it, or null when there is nothing in it. */
-export function buildHandoffRecordContextPart(record: TaskHandoffRecord | null): CanonicalRetrievedContextPart | null {
-  if (!record || isHandoffRecordEmpty(record)) return null;
+/**
+ * The record as the provider reads it, or null when there is nothing to send.
+ * `sessionRevision` is the revision the turn's resumed session last received
+ * (0 when it never received one); omitted or null for a new session. Another
+ * revision goes as an update, and a record emptied since says so.
+ */
+export function buildHandoffRecordContextPart(
+  record: TaskHandoffRecord | null,
+  options: { sessionRevision?: number | null } = {},
+): CanonicalRetrievedContextPart | null {
+  const sessionRevision = options.sessionRevision ?? null;
+  const update = record !== null && sessionRevision !== null && record.revision !== sessionRevision;
+  if (!record || isHandoffRecordEmpty(record)) {
+    return update && sessionRevision > 0
+      ? {
+          type: "retrieved_context",
+          sourceId: STAVE_HANDOFF_RECORD_UPDATE_SOURCE_ID,
+          // i18n-ignore: model-facing context title, sent to the provider as-is
+          title: "Task handoff record",
+          // i18n-ignore: model-facing notice, sent to the provider as-is
+          content: "The user emptied this task's handoff record. The record you received earlier in this session no longer applies.",
+        }
+      : null;
+  }
   const blocks = HANDOFF_SECTION_IDS.flatMap((id) => {
     const section = record.sections[id];
     if (!section?.text.trim()) return [];
@@ -158,10 +184,12 @@ export function buildHandoffRecordContextPart(record: TaskHandoffRecord | null):
   });
   return {
     type: "retrieved_context",
-    sourceId: STAVE_HANDOFF_RECORD_SOURCE_ID,
+    sourceId: update ? STAVE_HANDOFF_RECORD_UPDATE_SOURCE_ID : STAVE_HANDOFF_RECORD_SOURCE_ID,
     // i18n-ignore: model-facing context title, sent to the provider as-is
     title: "Task handoff record",
     content: [
+      // i18n-ignore: model-facing notice, sent to the provider as-is
+      ...(update ? ["The user changed this record since you last received it. This version replaces the earlier one."] : []),
       // i18n-ignore: model-facing instruction, sent to the provider as-is
       "The user keeps this record for this task; Stave or an agent changes it only when the user accepts. Where it disagrees with the conversation excerpt, follow the record and mention the disagreement.",
       ...blocks,

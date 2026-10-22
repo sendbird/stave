@@ -7,6 +7,8 @@
 - When a provider starts on the task, or comes back to it after another
   provider worked on it, the record is sent ahead of the conversation, so the
   constraint you settled on is what the new provider reads first.
+- When you save a change, the provider working on the task receives the new
+  record with its next message, once.
 
 ## When To Use It
 
@@ -89,8 +91,14 @@
   a restart ends them, like an unsaved editor.
 - The record is sent as part of the turn's prompt whenever the conversation
   excerpt is: when a provider starts a session for the task, or resumes after
-  another provider worked on it. A provider continuing its own session does
-  not receive it again.
+  another provider worked on it.
+- A provider continuing its own session receives the record again only when
+  you saved a change since that session last received it: its next message
+  carries the new record once, marked as replacing the earlier one, without
+  the excerpt. If you emptied the record, that message says the earlier record
+  no longer applies. Each provider session keeps the record revision it has,
+  also across restarts; a message that fails does not count, so the next one
+  sends the record again.
 
 ## Limitations And Advanced Options
 

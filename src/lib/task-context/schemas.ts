@@ -615,6 +615,8 @@ const TaskSchema = z.object({
 const ProviderSessionCursorSchema = z.object({
   nativeSessionId: z.string(),
   syncedThroughMessageId: z.string().optional(),
+  // Expand-only; a malformed revision is dropped, so the record goes again once.
+  handoffRevision: z.number().int().min(0).optional().catch(undefined),
 });
 
 const TaskProviderSessionEntrySchema = z.union([

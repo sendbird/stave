@@ -148,7 +148,7 @@ import {
 import { providerRuntime } from "../providers/runtime";
 import type { BridgeEvent } from "../providers/types";
 import { runCommand, runCommandArgs } from "../main/utils/command";
-import { buildHandoffRecordContextPart } from "../../src/lib/task-context/handoff-record";
+import { buildTurnHandoffContextPart } from "../../src/lib/task-context/handoff-delivery";
 
 export interface RegisteredWorkspaceInfo {
   id: string;
@@ -1934,7 +1934,7 @@ async function runTaskImpl(args: {
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
     resultsSince: ensureHostServicePersistenceReady().listTurns({ workspaceId: args.workspaceId, taskId: task.id, limit: 1 })[0]?.createdAt ?? null,
   });
-  const handoffRecordPart = buildHandoffRecordContextPart(ensureHostServicePersistenceReady().taskHandoffs.read({ workspaceId: args.workspaceId, taskId: task.id }));
+  const handoffRecordPart = buildTurnHandoffContextPart({ record: ensureHostServicePersistenceReady().taskHandoffs.read({ workspaceId: args.workspaceId, taskId: task.id }), turnId, session: providerSessionCursor });
   const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
     repositoryPath: registration.project.repositoryPath,
     history: existingHistory,

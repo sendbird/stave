@@ -1,5 +1,6 @@
 import type { NormalizedProviderEvent, ProviderId } from "@/lib/providers/provider.types";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
+import { turnHandoffRevision } from "@/lib/task-context/handoff-delivery";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import { trimLoadedTaskMessages } from "@/store/task-message-loading";
 
@@ -23,6 +24,7 @@ export function applyProviderEventsToWorkspaceSession(args: {
     providerSession: args.session.providerSessionByTask[args.taskId],
     providerGoal: providerGoalByTask[args.taskId] ?? null,
     messageCount: args.session.messageCountByTask[args.taskId],
+    handoffRevision: turnHandoffRevision(args.turnId),
   });
   const activeTurnMatches = args.session.activeTurnIdsByTask[args.taskId] === replayed.activeTurnId;
   const nativeSessionReadyMatches =

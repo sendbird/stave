@@ -122,7 +122,8 @@ Keep the task objective, accepted constraints, verified results, and next steps
 in the task's [handoff record](task-handoff-record.md). It is sent ahead of the
 excerpt whenever the excerpt is sent, so a provider starting on the task, or
 coming back to it, reads what the task settled before the conversation that led
-there. Older messages remain stored, but they are not all automatically loaded
+there; a provider continuing its own session receives it again once after you
+save a change. Older messages remain stored, but they are not all automatically loaded
 into every provider session. Attached task sources and workspace information
 help continuity too.
 
