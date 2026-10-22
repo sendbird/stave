@@ -524,6 +524,8 @@ export function buildReadOnlyAuxRuntimeOptions(args: {
     ...(args.model ? { model: args.model } : {}),
     ...(args.effortOverrides ?? {}),
     chatStreamingEnabled: false,
+    // These calls only write text from what Stave sends: no tool or MCP server at all.
+    toolsDisabled: true,
     ...(args.providerId === "claude-code"
       ? {
           claudeAllowedTools: [],

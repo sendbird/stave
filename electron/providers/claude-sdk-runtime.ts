@@ -2,6 +2,7 @@ import { runQuestionRequestId, RUN_QUESTION_WAIT_STOP_REASON } from "../../src/l
 import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
 import { createClaudeModelResolutionTracker } from "./claude-model-resolution";
+import { CLAUDE_TOOLLESS_QUERY_OPTIONS, isToolsDisabledTurn } from "./toolless-turn";
 import {
   buildClaudeDenyPermissionResult,
   resolveClaudeDisallowedTools,
@@ -1356,6 +1357,8 @@ export function buildClaudeQueryOptions(args: {
     ...(args.claudeExecutablePath.length > 0
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
+    // Last, so no option above brings a tool or an MCP server back.
+    ...(isToolsDisabledTurn(args.runtimeOptions) ? CLAUDE_TOOLLESS_QUERY_OPTIONS : {}),
   };
 }
 
@@ -3170,7 +3173,8 @@ export async function streamClaudeWithSdk(
       freshClaudeSessionScopes.add(claudeMcpScopeKey);
     }
 
-    const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
+    // A tool-less turn (`isToolsDisabledTurn`) is a secondary read-only turn too.
+    const secondaryReadOnly = args.executionPolicy === "secondary-read-only" || isToolsDisabledTurn(args.runtimeOptions);
     // Resolve bound-secret env for the primary user turn only. Secondary
     // read-only analysis turns never receive injected secrets.
     const boundSecretEnv =

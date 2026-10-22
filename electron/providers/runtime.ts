@@ -51,6 +51,7 @@ import {
   waitForSteerDelivery,
 } from "../../src/lib/providers/steer-delivery";
 import { registerAgentRunGrant } from "./agent-run-grants";
+import { isToolsDisabledTurn, TOOLLESS_TURN_UNSUPPORTED_MESSAGE } from "./toolless-turn";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
   createProviderTurnLifecycle,
@@ -731,7 +732,8 @@ async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: Bri
         ...(stage.runtimeOptions ? { runtimeOptions: stage.runtimeOptionsMode === "routing" ? { ...rawArgs.runtimeOptions, ...stage.runtimeOptions } : delegatedReplyRuntimeOptions(rawArgs.runtimeOptions, stage.runtimeOptions) } : {}),
         conversation: { ...rawArgs.conversation, contextParts: [...rawArgs.conversation.contextParts, stage.context] } };
     }
-    const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy
+    // A tool-less turn never becomes an Agent turn: the Agent's options would replace `toolsDisabled`.
+    const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy && !isToolsDisabledTurn(rawArgs.runtimeOptions)
       ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
     // Native agent tools come only from the saved assignment; caller values are dropped.
     const { nativeSubagents: _unowned, nativePlanTools: _unownedPlan, ...ownOptions } = rawArgs.runtimeOptions ?? {};
@@ -798,6 +800,11 @@ async function runProviderTurnImpl(
     lastCompletedLifecycleSnapshot = lifecycle.snapshot();
     return lifecycle.events();
   };
+  // Only Claude and Codex can run a turn with every tool off; any other provider refuses it.
+  if (isToolsDisabledTurn(args.runtimeOptions) && args.providerId !== "claude-code" && args.providerId !== "codex") {
+    lifecycle.emit({ type: "error", recoverable: false, message: TOOLLESS_TURN_UNSUPPORTED_MESSAGE });
+    return finishLifecycle("runtime_failure");
+  }
   // A turn runs shell commands, file writes and git operations inside `cwd`.
   // Each adapter used to fall back to the host process directory when the
   // caller supplied no workspace path, which silently pointed a task at an

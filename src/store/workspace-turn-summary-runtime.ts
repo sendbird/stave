@@ -189,6 +189,8 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
             settings: settingsSnapshot,
           }),
           chatStreamingEnabled: false,
+          // The summary only writes text from the turn Stave sends: no tool or MCP server.
+          toolsDisabled: true,
           responseStylePrompt: undefined,
           promptPrDescription: undefined,
           promptInlineCompletion: undefined,
