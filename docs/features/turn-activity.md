@@ -110,6 +110,10 @@ Choose the chevron to open the queue, in the order it sends:
 - Drag a row by its grip to change the order.
 - A row bound for another model says `Sends as <model>, not <composer model>`;
   a row with files or images counts them.
+- Each row says how it will be delivered while a turn runs: **Waits for the
+  next turn**, adding that steering delivers it to the current response when
+  it can be steered. A row open for editing is **Held while you edit it** and
+  does not send until you save or cancel.
 - **Clear all** empties the queue.
 
 Messages with attachments cannot be steered, so they wait for the current

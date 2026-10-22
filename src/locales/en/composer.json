@@ -506,7 +506,10 @@
     "ariaLabel12": "Delete queued prompt {{value1}}",
     "title10": "Delete",
     "moveQueued": "Move queued message {{position}} of {{total}}",
-    "movedTo": "Moved to position {{position}} of {{total}}"
+    "movedTo": "Moved to position {{position}} of {{total}}",
+    "deliveryHeld": "Held while you edit it; it does not send until you save or cancel.",
+    "deliveryNextTurn": "Waits for the next turn.",
+    "deliverySteerable": "Waits for the next turn; steering delivers it to the current response."
   },
   "shelfReviews": {
     "ariaLabel": "Reviews",

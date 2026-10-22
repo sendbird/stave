@@ -57,10 +57,20 @@ export function withWorkspaceCheck(workflow: Workflow, agent: Pick<AgentConfig, 
   return withDefaultWorkspaceCheck(freezeWorkspaceChecks(workflow, scripts), agent, scripts);
 }
 
+/**
+ * Whether an agent's runs get the default "Workspace checks pass" criterion
+ * (when its workspace has action scripts): a primary write agent, not one of
+ * the researching or reviewing built-ins, and without a workflow of its own
+ * unless it is one of the built-ins whose workflow ends in a fix.
+ */
+export function defaultWorkspaceCheckApplies(agent: Pick<AgentConfig, "id" | "permission" | "workflow"> | null): boolean {
+  if (!agent || agent.permission === "read-only" || ["researcher", "reviewer", "lead"].includes(agent.id)) return false;
+  return !(agent.workflow?.length && !["implementer", "debugger", "ui-polisher"].includes(agent.id));
+}
+
 /** Add or upgrade the primary write run's default after rebinding explicit checks. */
 export function withDefaultWorkspaceCheck(bound: Workflow, agent: Pick<AgentConfig, "id" | "permission" | "workflow"> | null, scripts: readonly FrozenWorkspaceScript[]): Workflow {
-  if (!agent || agent.permission === "read-only" || ["researcher", "reviewer", "lead"].includes(agent.id) || !scripts.length) return bound;
-  if (agent.workflow?.length && !["implementer", "debugger", "ui-polisher"].includes(agent.id)) return bound;
+  if (!agent || !defaultWorkspaceCheckApplies(agent) || !scripts.length) return bound;
   const stage = [...bound.stages].reverse().find((entry) => entry.kind === "ai");
   if (!stage || stage.kind !== "ai") return bound;
   const definitions = [...scripts].sort((left, right) => left.scriptId < right.scriptId ? -1 : left.scriptId > right.scriptId ? 1 : 0);

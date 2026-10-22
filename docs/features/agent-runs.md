@@ -145,6 +145,28 @@ agents and checks each result before it reports.
 - **Who** in [Workspace Kickoff](workspace-kickoff.md): pick an agent and
   click **Assign**.
 
+### What a run will do
+
+When the next send will start an agent run, the composer says **Sending this
+starts an agent run** with four lines, and the Run panel's header repeats them
+as **What this run does**:
+
+- **Where**: the task's workspace, its branch, and whether it is the
+  repository folder or the run's own worktree.
+- **May change**: an Auto agent edits files and runs commands with the
+  provider's auto mode deciding each action and asking when it cannot; other
+  agents edit without asking; a Read only agent changes nothing. Writes outside
+  the repository, credential files and irreversible remote actions still come
+  to you. Publishing steps (such as **Open draft PR**) say whether they are
+  allowed from the start or wait for your sign-off.
+- **Done when**: the assignment, or each stage of the workflow, and the
+  workspace checks Stave runs itself, with whether every script must pass or
+  one is enough. For a write agent whose workspace has action scripts, the
+  default check (one passing script) is named too.
+- **Comes back to you**: the check-in level, the stages that ask first,
+  questions it cannot settle, and the turn limit (it pauses there until you
+  extend it) and usage limits.
+
 ### Check in with me
 
 An agent's **Check in with me** decides where a run waits for you between

@@ -1,4 +1,5 @@
 import { RunTeamLimits } from "./RunTeamLimits";
+import { RunHeaderContract } from "./RunContract";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
 import { formatTime } from "@/i18n/format";
@@ -131,6 +132,7 @@ export function AgentRunOverview(props: {
           </p>
         ) : null}
         {!staged && (plan || active) ? <p className={sx(styles.notice, styles.statusText)} title={describeRunPlan(plan)}>{describeRunPlan(plan)}</p> : null}
+        <RunHeaderContract detail={detail} />
       </header>
 
       {props.failure ? (

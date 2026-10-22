@@ -1100,5 +1100,53 @@
     "modeAny": "Any one passes",
     "modeAnyDescription": "One passing script is enough.",
     "optional": "Optional: this check does not block the stage."
+  },
+  "runContract": {
+    "notice": {
+      "title": "Sending this starts an agent run"
+    },
+    "header": {
+      "title": "What this run does"
+    },
+    "label": {
+      "where": "Where",
+      "change": "May change",
+      "done": "Done when",
+      "comesBack": "Comes back to you"
+    },
+    "where": {
+      "unknown": "In the task's workspace",
+      "worktree": "in its own worktree",
+      "repository": "in the repository folder",
+      "withBranch": "{{workspace}}, branch {{branch}}, {{place}}",
+      "withoutBranch": "{{workspace}}, {{place}}"
+    },
+    "change": {
+      "readOnly": "Reads files and runs read-only commands; it changes nothing.",
+      "auto": "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.",
+      "edits": "Edits files and runs commands here without asking.",
+      "guardrails": "Writes outside the repository, credential files and irreversible remote actions still come to you.",
+      "effectsAllowed": "Outside the workspace it may also: {{effects}}, without asking.",
+      "effectsAsk": "Outside the workspace it may also: {{effects}}, after you sign off."
+    },
+    "done": {
+      "default": "When the assignment is complete and verified.",
+      "when": "When: {{doneWhen}}",
+      "stages_one": "When its stage reports done: {{stages}}",
+      "stages_other": "When each of its {{count}} stages reports done: {{stages}}",
+      "checkAll": "Stave runs {{scripts}} itself; every one must pass.",
+      "checkAny": "Stave runs {{scripts}} itself; one passing script is enough.",
+      "defaultCheck": "Stave also runs {{scripts}} before it finishes; one passing script is enough.",
+      "defaultCheckUnknown": "If the workspace has action scripts, one of them must pass before it finishes."
+    },
+    "comesBack": {
+      "everyStage": "For your sign-off before each stage after the first.",
+      "planAndPublishing": "For your sign-off after planning and before publishing.",
+      "whenStuck": "Only when it is stuck or needs an answer.",
+      "asksBefore": "Asks you before: {{stages}}.",
+      "questions": "Questions it cannot settle come to you.",
+      "stops_one": "Pauses after {{count}} turn until you extend it, and at a usage limit.",
+      "stops_other": "Pauses after {{count}} turns until you extend it, and at a usage limit."
+    }
   }
 }

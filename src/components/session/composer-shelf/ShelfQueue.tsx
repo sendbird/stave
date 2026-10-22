@@ -1,4 +1,4 @@
-import { i18n, useTranslation } from "@/i18n";
+import { i18n, useTranslation, type I18nKey } from "@/i18n";
 import {
   memo,
   useEffect,
@@ -40,11 +40,13 @@ import type { PromptDraftQueuedTurn } from "@/types/chat";
 import {
   canSteerQueuedTurnItem,
   describeQueuedTurnAttachments,
+  describeQueuedTurnDelivery,
   describeQueueLine,
   reorderQueuedTurns,
   stepQueuedTurnMove,
   summarizeQueuedTurnText,
   type QueuedTurnActions,
+  type QueuedTurnDelivery,
   type QueuedTurnMove,
 } from "./composer-shelf.utils";
 import { shelfStyles as styles } from "./composer-shelf.styles";
@@ -359,6 +361,12 @@ function QueueList(props: QueueListProps) {
   );
 }
 
+const DELIVERY_KEYS = {
+  held: "composer:shelfQueue.deliveryHeld",
+  "next-turn": "composer:shelfQueue.deliveryNextTurn",
+  steerable: "composer:shelfQueue.deliverySteerable",
+} as const satisfies Record<QueuedTurnDelivery, I18nKey>;
+
 function QueueItem(
   props: QueueListProps & {
     item: PromptDraftQueuedTurn;
@@ -410,6 +418,7 @@ function QueueItem(
             }}
             xstyle={styles.editTextarea}
           />
+          <p className={sx(styles.itemDelivery)}>{i18n.t("composer:shelfQueue.deliveryHeld")}</p>
           <div className={sx(styles.editActions)}>
             <Button variant="quiet" size="xs" onClick={props.onCancelEdit}>
               {i18n.t("composer:shelfQueue.queueItem")}</Button>
@@ -426,6 +435,7 @@ function QueueItem(
     modelOptions: props.modelOptions,
   });
   const attachments = describeQueuedTurnAttachments(item);
+  const delivery = describeQueuedTurnDelivery({ editing: false, turnActive: props.isTurnActive, paused: Boolean(props.pause), canSteer: props.actions.canSteer, item });
   const position = index + 1;
   // Alt+ArrowUp/Down moves the row from its grip or any of its actions.
   const onRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
@@ -482,6 +492,7 @@ function QueueItem(
         {dispatch.mismatchesComposer ? (
           <p className={sx(styles.itemCaution)}>{dispatch.caption}</p>
         ) : null}
+        {delivery ? <p className={sx(styles.itemDelivery)}>{i18n.t(DELIVERY_KEYS[delivery])}</p> : null}
       </div>
       {attachments ? <span className={sx(styles.itemMeta)}>{attachments}</span> : null}
       <span className={sx(styles.itemActions)}>
