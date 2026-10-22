@@ -196,6 +196,13 @@ export function usePromptInputPaletteState(args: {
       })),
     [filteredWorkspaceInformationItems],
   );
+  const staveCommandItems = useMemo(
+    () =>
+      indexedCommandItems.filter(
+        ({ item }) => item.source === "stave_builtin",
+      ),
+    [indexedCommandItems],
+  );
   const providerCommandItems = useMemo(
     () =>
       indexedCommandItems.filter(
@@ -500,6 +507,7 @@ export function usePromptInputPaletteState(args: {
     filteredMacroItems,
     filteredWorkspaceInformationItems,
     indexedMacroItems,
+    staveCommandItems,
     providerCommandItems,
     localSkillItems,
     userSkillItems,

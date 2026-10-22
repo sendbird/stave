@@ -5,6 +5,7 @@ import type { ProviderAccountsBridgeApi } from "@/lib/providers/provider-account
 import type { ApiConnectionsBridgeApi } from "@/lib/providers/api-connections";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
+import type { AskSideQuestionArgs, AskSideQuestionResponse } from "@/lib/side-chat/side-chat-ipc";
 import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
 import type { InlineRenderModelContextEntry as InlineRenderModelContextEntryPayload } from "@/lib/inline-render/inline-render-interaction";
 import type {
@@ -595,6 +596,8 @@ interface WindowProviderApi {
     prompt?: string;
     utility: UtilityInferenceMetadata;
   }>;
+  /** Answers a side question about a task in a read-only turn; nothing is saved to the task. */
+  askSideQuestion?: (args: AskSideQuestionArgs) => Promise<AskSideQuestionResponse>;
   /** Generates a conventional commit message in a read-only utility turn. */
   suggestCommitMessage?: (args: UtilityInferenceContext) => Promise<{
     ok: boolean;

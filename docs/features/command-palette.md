@@ -103,6 +103,15 @@ The same four bindings back the model picker's **Recommended** group.
 
 That separation matters: the Command Palette controls Stave itself, while slash commands affect what the model does inside a task.
 
+### Stave Slash Commands
+
+Stave answers these itself; they are never sent to the provider. They are
+listed under **Stave commands** when you type `/` in the composer.
+
+| Command | What it does |
+| --- | --- |
+| `/aside <question>` | Ask a [side question](side-questions.md) about the task without interrupting it. The answer appears beside the conversation; nothing is added to the conversation or your draft. |
+
 ## Related Shortcuts
 
 The full list is in [Keyboard Shortcuts](keyboard-shortcuts.md), and in the app:

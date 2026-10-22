@@ -24,6 +24,10 @@
  * `FAKE_CLAUDE_PROMPT_MARKERS` (comma-separated strings) records, per turn,
  * whether the turn's input contained each one: booleans only, never the text.
  *
+ * The first turn whose prompt contains `[hold]` keeps running until a
+ * `release` file appears in `FAKE_CLAUDE_DIR`, so a spec can act while a turn
+ * runs. Later prompts that carry it in their history answer at once.
+ *
  * Launch it through a wrapper on `STAVE_CLAUDE_CLI_PATH` (see
  * `agent-run-usage-limit.electron.e2e.ts`).
  */
@@ -138,11 +142,25 @@ function answerTurn(line) {
     }
   }
   const text = turn ? `Run turn ${turn} ran after the usage reset.` : "Done.";
-  write({ type: "assistant", session_id: sessionId, uuid: randomUUID(), parent_tool_use_id: null,
-    message: { id: `msg_${turn}`, type: "message", role: "assistant", model: "claude-sonnet-fake",
-      content: [{ type: "text", text }], stop_reason: "end_turn", stop_sequence: null, usage } });
-  write({ type: "result", subtype: "success", is_error: false, result: text, duration_ms: 5, duration_api_ms: 1, num_turns: 1,
-    stop_reason: "end_turn", session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [], uuid: randomUUID() });
+  const reply = () => {
+    write({ type: "assistant", session_id: sessionId, uuid: randomUUID(), parent_tool_use_id: null,
+      message: { id: `msg_${turn}`, type: "message", role: "assistant", model: "claude-sonnet-fake",
+        content: [{ type: "text", text }], stop_reason: "end_turn", stop_sequence: null, usage } });
+    write({ type: "result", subtype: "success", is_error: false, result: text, duration_ms: 5, duration_api_ms: 1, num_turns: 1,
+      stop_reason: "end_turn", session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [], uuid: randomUUID() });
+  };
+  const heldOnce = path.join(dir, "held-once");
+  if (line.includes("[hold]") && !fs.existsSync(heldOnce)) {
+    fs.writeFileSync(heldOnce, "");
+    const release = path.join(dir, "release");
+    const timer = setInterval(() => {
+      if (!fs.existsSync(release)) return;
+      clearInterval(timer);
+      reply();
+    }, 100);
+    return;
+  }
+  reply();
 }
 
 const input = readline.createInterface({ input: process.stdin });

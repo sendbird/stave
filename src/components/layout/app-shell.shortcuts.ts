@@ -11,6 +11,8 @@ export const EDITABLE_SHORTCUT_SELECTOR =
 export const PROMPT_INPUT_ROOT_SELECTOR = "[data-prompt-input-root]";
 export const TERMINAL_SURFACE_SELECTOR = "[data-terminal-surface]";
 export const TASK_ABORT_SHORTCUT_SCOPE_SELECTOR = "[data-task-abort-scope]";
+/** A surface inside the task pane whose Escape is its own (the side question panel). */
+export const TASK_ABORT_SHORTCUT_EXEMPT_SELECTOR = "[data-task-abort-exempt]";
 export const APP_SHORTCUT_CHORD_TIMEOUT_MS = 2000;
 
 export interface PendingShortcutChord {
@@ -227,6 +229,13 @@ export function shouldAbortTaskOnEscape(args: {
   }
 
   if (isEditableShortcutTarget(args.target)) {
+    return false;
+  }
+
+  if (
+    matchesClosest(args.target, TASK_ABORT_SHORTCUT_EXEMPT_SELECTOR) ||
+    matchesClosest(args.activeElement, TASK_ABORT_SHORTCUT_EXEMPT_SELECTOR)
+  ) {
     return false;
   }
 

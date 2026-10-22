@@ -20,6 +20,8 @@ export const KEYBINDING_SCOPES = {
   sidebar: { parent: "global", exclusiveGroup: null },
   composer: { parent: "workspace", exclusiveGroup: null },
   "task-pane": { parent: "workspace", exclusiveGroup: null },
+  // Drawn over the task pane, but its keys stay its own: Escape closes it and never stops the turn.
+  "side-chat": { parent: "workspace", exclusiveGroup: null },
   editor: { parent: "workspace", exclusiveGroup: null },
   lens: { parent: "workspace", exclusiveGroup: null },
   "git-graph": { parent: "workspace", exclusiveGroup: null },

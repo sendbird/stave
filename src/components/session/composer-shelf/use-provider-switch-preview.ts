@@ -3,6 +3,7 @@ import { snapshotProviderAccounts, selectedProviderAccount } from "@/lib/provide
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { buildProviderSwitchPreview } from "@/lib/providers/provider-switch-preview";
 import { isProviderNativeSlashCommandInput } from "@/lib/providers/provider-request-translators";
+import { parseSideChatCommand } from "@/lib/side-chat/side-chat";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
@@ -31,9 +32,10 @@ export function useProviderSwitchPreview(args: {
     (state) => state.promptDraftByTask[args.taskId]?.runtimeOverrides?.codexAccountProfileId,
   );
   // Only a provider command changes what is sent, so ordinary typing does not recompute.
+  // Stave's own `/aside` sends nothing to the provider, so it changes nothing here.
   const commandInput = useAppStore((state) => {
     const text = state.promptDraftByTask[args.taskId]?.text ?? "";
-    return isProviderNativeSlashCommandInput(text) ? text : "";
+    return isProviderNativeSlashCommandInput(text) && !parseSideChatCommand(text) ? text : "";
   });
   const providerId = args.providerId;
   return useMemo(() => {

@@ -19,6 +19,7 @@ import {
 } from "@/components/session/chat-area.utils";
 import { EmptySplash } from "@/components/session/EmptySplash";
 import { TurnActivity } from "@/components/session/TurnActivity";
+import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { SessionLoadingState } from "@/components/session/SessionLoadingState";
 import {
   Button,
@@ -255,7 +256,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
       // session focus handler from stealing focus before the click lands.
       if (
         target.closest(
-          "button, summary, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-ui-popup-positioner]",
+          "button, summary, a, input, textarea, select, [role='button'], [role='link'], [role='textbox'], [role='option'], [contenteditable='true'], [data-ui-popup-positioner], [data-task-abort-exempt]",
         )
       ) {
         return;
@@ -379,6 +380,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <RenderProfiler id="TurnActivityFloating">
               <TurnActivity host="floating" />
             </RenderProfiler>
+            {/* A side question about this task, beside the conversation. */}
+            <SideChatPanel taskId={activeTaskId} />
           </div>
           {/* Outside the pointer-events-none overlay, and outside both of its
               triggers: the exchange card clears on a linger timer and the

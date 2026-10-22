@@ -341,7 +341,9 @@ newest first, each named by when it started and how it ended, with the request
 that started it (when that part of the conversation is loaded), the provider
 and the first characters of the turn's id. Type to search: the search matches
 the time, the outcome, the request, the provider, the turn id and the error a
-turn failed with.
+turn failed with. The question button beside the picker opens a
+[side question](side-questions.md) about the task, beside the conversation,
+without interrupting the turn.
 
 - The running turn, and the last turn while Stave still holds it, open the
   activity described above.

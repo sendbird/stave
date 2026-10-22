@@ -68,6 +68,7 @@ export function PromptInputPaletteMenu(args: {
     filteredWorkspaceInformationItems,
     selectedWorkspaceInformationIndex,
     indexedMacroItems,
+    staveCommandItems,
     providerCommandItems,
     localSkillItems,
     userSkillItems,
@@ -299,6 +300,42 @@ export function PromptInputPaletteMenu(args: {
                         title={item.description ?? item.body}
                       >
                         {item.description || item.body}
+                      </p>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            ) : null}
+            {activePalette === "command" &&
+            staveCommandItems.length > 0 ? (
+              <CommandGroup heading={i18n.t("composer:promptInput.staveCommands")}>
+                {staveCommandItems.map(({ item, index }) => (
+                  <CommandItem
+                    key={item.id}
+                    value={item.command}
+                    className={sx(promptInputStyles.itemStandard)}
+                    data-palette-index={index}
+                    onMouseEnter={() => setSelectedCommandIndex(index)}
+                    onMouseDown={(event) => {
+                      event.preventDefault();
+                      rememberActivePaletteTokenSelection();
+                    }}
+                    onSelect={() => applyCommandSelection(item)}
+                  >
+                    <div className={sx(promptInputStyles.flex1Min)}>
+                      <div className={sx(promptInputStyles.rowCenter)}>
+                        <span className={sx(promptInputStyles.fontMedium)}>
+                          {item.command}
+                        </span>
+                        <Badge
+                          variant="outline"
+                          className={sx(promptInputStyles.badgeUpper)}
+                        >
+                          {i18n.t("composer:promptInput.staveBadge")}
+                        </Badge>
+                      </div>
+                      <p className={sx(promptInputStyles.itemDesc)}>
+                        {item.description}
                       </p>
                     </div>
                   </CommandItem>

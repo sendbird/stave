@@ -19,6 +19,7 @@ import { CLAUDE_EFFORT_OPTIONS, findOptionLabel } from "@/lib/providers/runtime-
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
+import { buildCommandPaletteItems } from "@/lib/commands";
 import { useComposerRunAccountPool } from "@/components/session/use-run-account-pool";
 import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
 import {
@@ -518,6 +519,8 @@ export function ComposerFramePreviewApp() {
                   }
                   value={draft}
                   onValueChange={setDraft}
+                  // The slash menu: Stave's own commands (no provider catalog in the preview).
+                  commandPaletteItems={buildCommandPaletteItems({ provider: selectedModel.providerId }).items}
                   selectedModel={selectedModel}
                   modelOptions={modelOptions}
                   effortValue={effort}

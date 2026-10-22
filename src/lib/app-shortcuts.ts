@@ -25,7 +25,8 @@ export type AppShortcutCommandId =
   | "view.show-scripts"
   | "view.show-lens"
   | "view.toggle-editor"
-  | "view.toggle-terminal";
+  | "view.toggle-terminal"
+  | "view.side-question";
 
 export interface AppShortcutDefinition {
   commandId: AppShortcutCommandId;
@@ -114,6 +115,12 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     get title() { return i18n.t("shell:appShortcuts.toggleTerminal"); },
     get description() { return i18n.t("shell:appShortcuts.focusTheTerminalPaneCreatingOneIf"); },
     defaultKey: "`",
+  },
+  {
+    commandId: "view.side-question",
+    get title() { return i18n.t("shell:appShortcuts.askSideQuestion"); },
+    get description() { return i18n.t("shell:appShortcuts.askSideQuestionDescription"); },
+    defaultKey: "q",
   },
 ] as const;
 

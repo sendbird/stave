@@ -412,7 +412,9 @@
     "thinkingValue": "Thinking · {{value}}",
     "thinkingTitle": "Thinking: {{value}}. Applies to every Claude task.",
     "thinkingMenuTitle": "Thinking mode",
-    "thinkingMenuScope": "Applies to every Claude task, not only this one."
+    "thinkingMenuScope": "Applies to every Claude task, not only this one.",
+    "staveCommands": "Stave commands",
+    "staveBadge": "Stave"
   },
   "promptLexicalEditor": {
     "ariaLabel": "Prompt"

@@ -21,6 +21,7 @@ import { registerPersistenceHandlers } from "./persistence";
 import { registerUsageStatisticsHandlers } from "./usage-statistics";
 import { registerTurnHistoryHandlers } from "./turn-history";
 import { registerTaskHandoffHandlers } from "./task-handoff";
+import { registerSideQuestionHandlers } from "./side-question";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerProviderAccountHandlers } from "./provider-accounts";
@@ -58,6 +59,7 @@ export function registerHandlers() {
   registerUsageStatisticsHandlers();
   registerTurnHistoryHandlers();
   registerTaskHandoffHandlers();
+  registerSideQuestionHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();
   registerTaskControlHandlers();

@@ -90,6 +90,8 @@ const APP_SHELL = APP_SHELL_KEYBINDING_OWNER;
 const MAIN_WINDOW = "electron/main/window.ts";
 const PROMPT_INPUT = "src/components/ai-elements/prompt-input.tsx";
 const USER_INPUT_CARD = "src/components/ai-elements/user-input-card.tsx";
+/** The side question panel beside the conversation; its keys never reach the task pane's. */
+const SIDE_CHAT_PANEL = "src/components/session/side-chat/SideChatPanel.tsx";
 /** Up and Down between inbox rows, in Fleet's rail and in the bell. */
 const INBOX_ROWS = [
   "src/components/layout/InboxRow.tsx",
@@ -412,6 +414,11 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:appShortcuts.focusTheTerminalPaneCreatingOneIf",
     section: "panels",
   }),
+  appChord("view.side-question", {
+    titleKey: "shell:appShortcuts.askSideQuestion",
+    descriptionKey: "shell:appShortcuts.askSideQuestionDescription",
+    section: "panels",
+  }),
 
   // ── composer ────────────────────────────────────────────────────────────
   {
@@ -562,6 +569,28 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:keybindings.entries.undo.description",
     section: "editing",
     handledBy: [APP_SHELL, "src/lib/notifications/pending-undo.ts"],
+  },
+  {
+    id: "side-chat.ask",
+    keys: ["enter"],
+    scope: "side-chat",
+    focus: true,
+    editable: "only",
+    titleKey: "shell:keybindings.entries.sideChatAsk.title",
+    descriptionKey: "shell:keybindings.entries.sideChatAsk.description",
+    section: "composer",
+    handledBy: [SIDE_CHAT_PANEL],
+  },
+  {
+    id: "side-chat.close",
+    keys: ["escape"],
+    scope: "side-chat",
+    focus: true,
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.sideChatClose.title",
+    descriptionKey: "shell:keybindings.entries.sideChatClose.description",
+    section: "composer",
+    handledBy: [SIDE_CHAT_PANEL],
   },
   {
     id: "dialog.primary-action",

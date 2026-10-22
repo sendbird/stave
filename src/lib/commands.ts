@@ -8,6 +8,7 @@ import {
   getProviderLabel,
   providerSupportsNativeCommandCatalog,
 } from "@/lib/providers/model-catalog";
+import { isSideChatProvider, SIDE_CHAT_COMMAND } from "@/lib/side-chat/side-chat";
 
 export interface CommandContext {
   provider: ProviderId;
@@ -201,6 +202,19 @@ export function buildCommandPaletteItems(args: {
   providerCommandCatalog?: ProviderCommandCatalogState;
 }) {
   const items: CommandPaletteItem[] = [];
+
+  // Stave's own commands come first; Stave answers them and sends nothing to the provider.
+  if (isSideChatProvider(args.provider)) {
+    const description = i18n.t("shell:commands.asideDescription");
+    items.push({
+      id: `stave:${SIDE_CHAT_COMMAND}`,
+      command: SIDE_CHAT_COMMAND,
+      insertText: `${SIDE_CHAT_COMMAND} `,
+      description,
+      source: "stave_builtin",
+      searchText: toCommandSearchText({ command: SIDE_CHAT_COMMAND, description }),
+    });
+  }
 
   if (
     providerSupportsNativeCommandCatalog({ providerId: args.provider }) &&

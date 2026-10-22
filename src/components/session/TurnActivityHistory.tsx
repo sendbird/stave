@@ -9,6 +9,7 @@ import { useAppStore } from "@/store/app.store";
 import { TurnActivity } from "./TurnActivity";
 import { TurnApprovalRecord } from "./TurnApprovalRecord";
 import { TurnRecordView } from "./TurnRecordView";
+import { SideChatActivityButton } from "./side-chat/SideChatActivityButton";
 import {
   buildTurnPickerOptions,
   collectTurnPrompts,
@@ -97,6 +98,7 @@ export function TurnActivityHistory(props: { workspaceId: string; taskId: string
               triggerXstyle={styles.picker}
             />
           )}
+          <SideChatActivityButton taskId={taskId} />
         </div>
       ) : null}
       <div className={sx(styles.body)}>

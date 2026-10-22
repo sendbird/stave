@@ -102,6 +102,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See how full the current task conversation is and compact it from the composer without losing the draft.",
       },
       {
+        routePath: "side-questions",
+        sourcePath: "docs/features/side-questions.md",
+        title: "Side Questions",
+        description:
+          "Ask the task's provider about a running task without interrupting it; the answer stays beside the conversation.",
+      },
+      {
         routePath: "task-handoff-record",
         sourcePath: "docs/features/task-handoff-record.md",
         title: "Task Handoff Record",

@@ -173,6 +173,7 @@ import {
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
 } from "./providers/utility-inference";
+import { askSideQuestion } from "./host-service/side-question";
 import {
   normalizePrePrReviewProvider,
   PRE_PR_REVIEW_BRANCH_DIFF_MAX_CHARS,
@@ -1923,6 +1924,9 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.enhance-prompt":
       await respond(request.id, await enhanceUtilityPrompt(request.params));
+      return;
+    case "provider.ask-side-question":
+      await respond(request.id, await askSideQuestion(request.params));
       return;
     case "provider.suggest-commit-message":
       await respond(

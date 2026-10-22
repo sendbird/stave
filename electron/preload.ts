@@ -4,6 +4,11 @@ import type { ApprovalRuleDecider } from "../src/lib/approvals/approval-resoluti
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { turnHistoryPreload } from "./persistence/turn-history-preload";
 import { taskHandoffPreload } from "./persistence/task-handoff-preload";
+import {
+  SIDE_QUESTION_IPC,
+  type AskSideQuestionArgs,
+  type AskSideQuestionResponse,
+} from "../src/lib/side-chat/side-chat-ipc";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import { providerAccountsApi } from "./provider-accounts/preload";
@@ -1564,6 +1569,8 @@ contextBridge.exposeInMainWorld("api", {
         prompt?: string;
         utility: UtilityInferenceMetadata;
       }>,
+    askSideQuestion: (args: AskSideQuestionArgs) =>
+      ipcRenderer.invoke(SIDE_QUESTION_IPC, args) as Promise<AskSideQuestionResponse>,
     suggestCommitMessage: (args: UtilityInferenceContext) =>
       ipcRenderer.invoke("provider:suggest-commit-message", args) as Promise<{
         ok: boolean;

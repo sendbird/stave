@@ -724,7 +724,9 @@
     "focusTheActiveEditorTab": "활성 편집기 탭에 포커스합니다.",
     "toggleTerminal": "터미널 전환",
     "focusTheTerminalPaneCreatingOneIf": "터미널 패널에 포커스하거나 필요하면 생성합니다. 또는 이전 탭으로 돌아갑니다.",
-    "disabled": "비활성화됨"
+    "disabled": "비활성화됨",
+    "askSideQuestion": "곁질문하기",
+    "askSideQuestionDescription": "활성 작업의 곁질문 패널을 엽니다. 질문해도 작업의 턴은 중단되지 않습니다."
   },
   "commands": {
     "slashCommands": "{{value1}} 슬래시 명령",
@@ -734,7 +736,8 @@
     "nativeSlashCommandsHaveNotBeen": "이 워크스페이스에서 {{value1}} 네이티브 슬래시 명령을 아직 불러오지 않았습니다.",
     "loadingTheBundledSlashCommandReferenceForThe": "현재 워크스페이스의 번들된 {{value1}} 슬래시 명령 안내 불러오는 중...",
     "loadingNativeSlashCommandsForTheCurrent": "현재 워크스페이스의 {{value1}} 네이티브 슬래시 명령 불러오는 중...",
-    "slashCommandsAreStillPassedThrough": "{{value1}} 카탈로그를 사용할 수 없어도 슬래시 명령은 그대로 전달합니다."
+    "slashCommandsAreStillPassedThrough": "{{value1}} 카탈로그를 사용할 수 없어도 슬래시 명령은 그대로 전달합니다.",
+    "asideDescription": "작업을 중단하지 않고 이 작업에 대해 곁질문을 합니다. 답은 대화에 추가되지 않습니다."
   },
   "promptCommentShortcuts": {
     "stageTheCurrentPromptTextAsA": "현재 프롬프트 텍스트를 댓글로 준비합니다.",
@@ -988,6 +991,14 @@
       "toggleTaskReview": {
         "title": "대화와 검토 전환",
         "description": "활성 작업의 대화 또는 작업 검토를 표시합니다."
+      },
+      "sideChatAsk": {
+        "title": "곁질문 보내기",
+        "description": "곁질문 패널의 질문을 보냅니다. Shift+Enter는 줄을 바꿉니다."
+      },
+      "sideChatClose": {
+        "title": "곁질문 패널 닫기",
+        "description": "곁질문 패널을 닫습니다. 작업의 턴은 계속 실행됩니다."
       }
     },
     "ui": {
@@ -1011,7 +1022,8 @@
         "taskPane": "작업 패널",
         "editor": "편집기",
         "lens": "Lens",
-        "gitGraph": "커밋 그래프"
+        "gitGraph": "커밋 그래프",
+        "sideChat": "곁질문 패널"
       },
       "or": "또는",
       "then": "다음"

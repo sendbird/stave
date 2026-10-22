@@ -408,7 +408,9 @@
     "thinkingValue": "사고 · {{value}}",
     "thinkingTitle": "사고: {{value}}. 모든 Claude 작업에 적용됩니다.",
     "thinkingMenuTitle": "사고 모드",
-    "thinkingMenuScope": "이 작업만이 아니라 모든 Claude 작업에 적용됩니다."
+    "thinkingMenuScope": "이 작업만이 아니라 모든 Claude 작업에 적용됩니다.",
+    "staveCommands": "Stave 명령",
+    "staveBadge": "Stave"
   },
   "promptLexicalEditor": {
     "ariaLabel": "프롬프트"
