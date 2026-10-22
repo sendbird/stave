@@ -525,6 +525,10 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     defaultBranch: "main",
     activeWorkspaceId: WORKSPACE_ID,
     activeTaskId,
+    // Named like a real worktree, so the panel's caption reads as it does in the app.
+    workspaces: [{ id: WORKSPACE_ID, name: "sidebar-spacing", updatedAt: "2026-09-29T09:04:00.000Z" }],
+    workspaceBranchById: { [WORKSPACE_ID]: "feat/sidebar-spacing" },
+    workspaceDefaultById: { [WORKSPACE_ID]: false },
     workspacePathById: { [WORKSPACE_ID]: REPOSITORY_PATH },
     // Known files, so inline code in answers stays code unless it names one.
     repositoryFiles: [

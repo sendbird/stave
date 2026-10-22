@@ -190,7 +190,11 @@ The shelf reads the composer's own width, not the window's:
 
 ### The Task Panel
 
-The right rail's **Task** panel is the one place for the active task. Its tabs:
+The right rail's **Task** panel is the one place for the active task. A line
+under its tabs names that task and its workspace (the workspace's name, or its
+branch), so after you switch tasks, or move to an editor tab, the panel still
+says which task it describes. A long title or name is cut short; hover the line
+to read all of it. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
   ends — under every placement, with a **Turn** picker for the task's earlier

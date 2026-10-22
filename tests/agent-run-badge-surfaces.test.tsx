@@ -108,7 +108,7 @@ function renderSurfaces(detail: AgentRunDetail, messages: ChatMessage[]) {
   return {
     bar: render(AgentRunBar, {}),
     taskPanel: render(TaskPanelView, {
-      workspaceId, taskId: leadTaskId, repositoryPath: null, managed: false, agentRun: detail, tab: "progress", onTabChange: () => {},
+      workspaceId, taskId: leadTaskId, repositoryPath: null, managed: false, taskTitle: "Billing export", workspaceLabel: "main", agentRun: detail, tab: "progress", onTabChange: () => {},
     }),
     sidebar: render(TaskSupervisionMarks, { taskId: leadTaskId }),
     // What FleetWorkspaceCard hands its strip: the same derivation over the lead task's messages.
