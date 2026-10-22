@@ -43,6 +43,27 @@ export const FLEET_ATTENTION_KIND_LABEL: Record<FleetAttentionKind, string> = {
   get "agent-run-stuck"() { return i18n.t("fleet:vocabulary.kind.agentRunStuck"); },
 };
 
+/**
+ * "Fleet View · 2 actions required · 3 in review": the blocking count first,
+ * review items named separately, each part present only when it counts.
+ */
+export function describeFleetAttentionCounts(args: {
+  blockingCount: number;
+  reviewCount: number;
+}) {
+  return [
+    i18n.t("fleet:fleetView.fleetView"),
+    args.blockingCount > 0
+      ? i18n.t("fleet:vocabulary.actionRequiredCount", { count: args.blockingCount })
+      : null,
+    args.reviewCount > 0
+      ? i18n.t("fleet:vocabulary.inReviewCount", { count: args.reviewCount })
+      : null,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(" · ");
+}
+
 /** What opening an attention item does, for its accessible name. */
 export function describeFleetAttentionPrimaryAction(kind: FleetAttentionKind) {
   switch (kind) {

@@ -348,10 +348,7 @@
     "workspaceFiles": "Workspace files ({{value1}})"
   },
   "topBarFleetAttention": {
-    "closeFleetView": "Close Fleet View",
-    "fleetView": "Fleet View",
-    "fleetViewActionRequired_one": "Fleet View · {{count}} action required",
-    "fleetViewActionRequired_other": "Fleet View · {{count}} actions required"
+    "closeFleetView": "Close Fleet View"
   },
   "topBarIssues": {
     "closeIssues": "Close Issues",
@@ -873,11 +870,11 @@
       },
       "fleetNext": {
         "title": "Next item that needs you",
-        "description": "Open the next item in Fleet that is waiting on you."
+        "description": "Open the next item in Fleet View that is waiting on you."
       },
       "fleetClose": {
-        "title": "Close Fleet",
-        "description": "Clear the filter, or close Fleet when it is empty."
+        "title": "Close Fleet View",
+        "description": "Clear the filter, or close Fleet View when it is empty."
       },
       "issuesNext": {
         "title": "Next issue",

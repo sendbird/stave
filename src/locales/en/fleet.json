@@ -206,6 +206,10 @@
       "openMergeControls": "Open merge controls",
       "reviewSignOff": "Review sign-off",
       "openRun": "Open run"
-    }
+    },
+    "actionRequiredCount_one": "{{count}} action required",
+    "actionRequiredCount_other": "{{count}} actions required",
+    "inReviewCount_one": "{{count}} in review",
+    "inReviewCount_other": "{{count}} in review"
   }
 }

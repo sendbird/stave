@@ -114,8 +114,8 @@ These keys work only while their surface is open or focused.
 
 | Action | Keys | Where |
 | --- | --- | --- |
-| Next item that needs you | `N` | Fleet, not while typing |
-| Close Fleet | `Esc` | Fleet |
+| Next item that needs you | `N` | Fleet View, not while typing |
+| Close Fleet View | `Esc` | Fleet View |
 | Next issue | `J` or `ArrowDown` | Issues, not while typing |
 | Previous issue | `K` or `ArrowUp` | Issues, not while typing |
 | Kick off issue | `Enter` or `Cmd/Ctrl+Enter` | Issues, not while typing |

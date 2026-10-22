@@ -192,7 +192,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   await page.goto("/");
   await page
     .getByTestId("top-bar")
-    .getByRole("button", { name: "open-fleet-view" })
+    .getByRole("button", { name: "Open Fleet View" })
     .click();
 
   const needs = page.getByRole("region", { name: "Action required" });

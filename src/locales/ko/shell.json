@@ -346,9 +346,7 @@
     "workspaceFiles": "워크스페이스 파일 ({{value1}}개)"
   },
   "topBarFleetAttention": {
-    "closeFleetView": "Fleet 보기 닫기",
-    "fleetView": "Fleet 보기",
-    "fleetViewActionRequired_other": "Fleet 보기 · 동작 {{count}}개 필요"
+    "closeFleetView": "Fleet 보기 닫기"
   },
   "topBarIssues": {
     "closeIssues": "이슈 닫기",
@@ -800,8 +798,8 @@
   },
   "topBarAutomations.closeSchedules": "일정 닫기",
   "topBarAutomations.openSchedules": "일정 열기",
-  "topBarFleetAttention.closeFleet": "Fleet 뷰 닫기",
-  "topBarFleetAttention.openFleet": "Fleet 뷰 열기",
+  "topBarFleetAttention.closeFleet": "Fleet 보기 닫기",
+  "topBarFleetAttention.openFleet": "Fleet 보기 열기",
   "topBarBranchDropdown.switchBranch": "브랜치 전환",
   "workspaceAccountLimitIcon.limit": "{{provider}} 계정 한도에 도달함",
   "keybindings": {
@@ -866,11 +864,11 @@
       },
       "fleetNext": {
         "title": "나를 기다리는 다음 항목",
-        "description": "Fleet에서 나를 기다리는 다음 항목을 엽니다."
+        "description": "Fleet 보기에서 나를 기다리는 다음 항목을 엽니다."
       },
       "fleetClose": {
-        "title": "Fleet 닫기",
-        "description": "필터를 지우거나, 필터가 비어 있으면 Fleet을 닫습니다."
+        "title": "Fleet 보기 닫기",
+        "description": "필터를 지우거나, 필터가 비어 있으면 Fleet 보기를 닫습니다."
       },
       "issuesNext": {
         "title": "다음 이슈",

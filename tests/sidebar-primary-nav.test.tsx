@@ -71,6 +71,9 @@ describe("localized sidebar shortcuts", () => {
         for (const key of ["agents", "aIUsage"]) {
           expect(visible).toContain(i18n.t(`shell:sidebarPrimaryNav.${key}`));
         }
+        // Fleet View is the grid at every entry point; the robot means Agents.
+        expect(visible).toContain("lucide-layout-grid");
+        expect(visible.match(/lucide-bot/g)?.length ?? 0).toBe(1);
 
       }
     });

@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { Bot } from "lucide-react";
+import { LayoutGrid } from "lucide-react";
 import type { CSSProperties } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { useShallow } from "zustand/react/shallow";
@@ -8,6 +8,7 @@ import { Tooltip } from "@/components/ads/components/Tooltip";
 import { Button } from "@/components/ui";
 import { CountBadge } from "@/components/system/CountBadge";
 import { useShortcutHint } from "@/components/system/ShortcutKeys";
+import { describeFleetAttentionCounts } from "@/lib/fleet/fleet-vocabulary";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
@@ -25,7 +26,10 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
           ] as const,
       ),
     );
-  const attentionCount = useFleetAttention((snapshot) => snapshot.count);
+  // The count is what holds an agent up; results to review are only named in
+  // the tooltip, so the badge never asks for action that nothing waits on.
+  const blockingCount = useFleetAttention((snapshot) => snapshot.blockingItems.length);
+  const reviewCount = useFleetAttention((snapshot) => snapshot.reviewItems.length);
   const shortcut = useShortcutHint("navigation.fleet-view");
 
   if (!repositoryPath && recentRepositories.length === 0) {
@@ -37,9 +41,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
       content={
         isFleetViewActive
           ? i18n.t("shell:topBarFleetAttention.closeFleetView")
-          : attentionCount > 0
-            ? i18n.t("shell:topBarFleetAttention.fleetViewActionRequired", { count: attentionCount })
-            : i18n.t("shell:topBarFleetAttention.fleetView")
+          : describeFleetAttentionCounts({ blockingCount, reviewCount })
       }
       shortcut={shortcut}
       side="bottom"
@@ -50,7 +52,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
         size="sm"
         xstyle={[
           layoutShellStyles.topBarButton,
-          attentionCount > 0 && layoutShellStyles.topBarButtonWarning,
+          blockingCount > 0 && layoutShellStyles.topBarButtonWarning,
           isFleetViewActive && layoutShellStyles.topBarButtonActive,
         ]}
         style={props.noDragStyle}
@@ -60,12 +62,12 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
         aria-pressed={isFleetViewActive}
         onClick={toggleFleetView}
         indicator={
-          attentionCount > 0 ? (
-            <CountBadge count={attentionCount} tone="warning" />
+          blockingCount > 0 ? (
+            <CountBadge count={blockingCount} tone="warning" />
           ) : null
         }
       >
-        <Bot {...stylex.props(layoutShellStyles.icon16)} />
+        <LayoutGrid {...stylex.props(layoutShellStyles.icon16)} />
       </Button>
     </Tooltip>
   );

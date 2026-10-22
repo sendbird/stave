@@ -46,7 +46,8 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 ### Entry Points
 
 - Sidebar header bar: the `Repositories` / `Work queue` toggle.
-- Top navigation: **Fleet View**, **Agents** and the agents at work (a count
+- Top navigation: **Fleet View** (the grid icon, the same at every Fleet entry
+  point), **Agents** and the agents at work (a count
   on each), and **AI usage**. Clicking an agent opens it in the Agents tab.
   Agents also has a **Performance** tab, which compares ended runs across
   workspaces; see [Agent performance and task outputs](results.md).

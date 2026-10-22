@@ -30,7 +30,8 @@ optional shortcuts on top of that.
 
 ## Quick Start
 
-1. Open Fleet from the top-bar fleet button or the workspace sidebar.
+1. Open Fleet View from the top bar, the sidebar, or the command palette
+   (`Cmd/Ctrl+K` then `F`).
 2. Review the fixed `Action required` rail, which keeps questions and approvals
    ahead of the folded `In review` group.
 3. Select an item to open its exact task or workspace.
@@ -41,7 +42,13 @@ optional shortcuts on top of that.
 
 ### Entry Points
 
-- Top bar: the Fleet button shows the total number of known actionable items.
+- Every entry point shows Fleet with the same grid icon and the name
+  `Fleet View`: the sidebar's top navigation, the top bar, the Stave menu, the
+  command palette, and Fleet's own header. The robot icon is reserved for
+  Agents.
+- Top bar: the Fleet View button counts the items in `Action required`, the
+  ones an agent waits on. Its tooltip names the `In review` items separately,
+  and they never raise the count.
 - Workspace sidebar: switch to `Work queue` to group every workspace into
   `Action required`, `In progress`, `In review`, or `Idle`. Blocking attention
   puts a workspace in `Action required`; an unreviewed result without a blocker

@@ -9,7 +9,7 @@ import {
   ChevronRight,
   CircleDashed,
   FolderTree,
-  Radar,
+  LayoutGrid,
   Search,
   ShieldAlert,
   ShieldCheck,
@@ -654,7 +654,7 @@ export function FleetView() {
     <div className={sx(styles.root)}>
       <header className={sx(styles.header)}>
         <div className={sx(styles.headerIdentity)}>
-          <Radar className={sx(styles.headerIcon)} aria-hidden="true" />
+          <LayoutGrid className={sx(styles.headerIcon)} aria-hidden="true" />
           <h1 className={sx(styles.headerTitle)}>{tI18n("fleet:fleetView.fleetView")}</h1>
           {/* Fleet View is the sidebar Work queue's full view: same rows, same order. */}
           <span className={sx(styles.headerSummary)}>{tI18n("fleet:fleetView.fullWorkQueue")}</span>
