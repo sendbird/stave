@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { useEffect } from "react";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -138,7 +138,7 @@ export function SkillsSection() {
             </p>
             {skillCatalog.status !== "error" ? <p className={sx(styles.mutedBody)}>{skillCatalog.detail}</p> : null}
             {skillCatalog.loadedAt ? (
-              <p className={sx(styles.captionMuted)}>{t("settings:messages.skillsUpdated", { updatedAt: formatTaskUpdatedAt({ value: skillCatalog.loadedAt }) })}</p>
+              <p className={sx(styles.captionMuted)}>{t("settings:messages.skillsUpdated", { updatedAt: formatRelativeTimeShort(skillCatalog.loadedAt) })}</p>
             ) : null}
           </div>
           <Button

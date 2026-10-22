@@ -140,7 +140,7 @@ describe("agent detail hierarchy", () => {
     expect(html).toContain("2 assignments");
     expect(html).toContain("1 couldn&#x27;t start");
     expect(html).toContain("Last used");
-    expect(html).toContain("3 days ago");
+    expect(html).toContain("3d ago");
     expect(html).not.toContain(">0<");
     expect(html).not.toContain("running");
     expect(html).not.toContain("need you");

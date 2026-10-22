@@ -50,7 +50,6 @@
   },
   "sourceControlReviewsPanel": {
     "unknownActivity": "Unknown activity",
-    "justNow": "Just now",
     "approved": "Approved",
     "changesRequested": "Changes requested",
     "reviewRequired": "Review required",

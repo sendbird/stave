@@ -1,4 +1,3 @@
-import { formatDate, formatRelativeTime } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderDisplayId } from "@/lib/providers/model-catalog";
@@ -480,29 +479,3 @@ export function getRespondingProviderId(args: {
   );
 }
 
-export function formatTaskUpdatedAt(args: {
-  value: string;
-  now?: number | Date;
-}) {
-  const parsed = Date.parse(args.value);
-  if (Number.isNaN(parsed)) {
-    return args.value;
-  }
-
-  const now =
-    args.now instanceof Date ? args.now.getTime() : (args.now ?? Date.now());
-  const diffMs = parsed - now;
-  const diffSeconds = Math.round(diffMs / 1000);
-  const absSeconds = Math.abs(diffSeconds);
-
-  if (absSeconds < 45) return i18n.t("app:tasks.justNow");
-  if (absSeconds < 60 * 60 * 24 * 7) return formatRelativeTime(parsed, now);
-
-  const date = new Date(parsed);
-  const currentYear = new Date(now).getFullYear();
-  return formatDate(date, {
-    month: "short",
-    day: "numeric",
-    ...(date.getFullYear() === currentYear ? {} : { year: "numeric" }),
-  });
-}

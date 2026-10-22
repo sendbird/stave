@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -16,7 +17,6 @@ import {
   isMartinConnectorPaired,
   isMartinInformationCardAvailable,
 } from "@/lib/martin-sync/visibility";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import { workspaceInformationMartinCardStyles as styles } from "./workspace-information-martin-card.styles";
 
@@ -228,7 +228,7 @@ export function WorkspaceInformationMartinCard() {
           </AdsButton>
           <p className={sx(styles.meta)}>
             {project.lastPulledAt
-              ? tI18n("workspace:workspaceInformationMartinCard.lastPulledValue", { value1: formatTaskUpdatedAt({ value: project.lastPulledAt }) })
+              ? tI18n("workspace:workspaceInformationMartinCard.lastPulledValue", { value1: formatRelativeTimeShort(project.lastPulledAt) })
               : tI18n("workspace:workspaceInformationMartinCard.contextHasNotBeenPulledYet")}
           </p>
           {project.stale ? (

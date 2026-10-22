@@ -1,4 +1,4 @@
-import { formatDateTime as formatLocaleDateTime, formatDuration as formatLocaleDuration, formatRelativeTime as formatLocaleRelativeTime } from "@/i18n/format";
+import { formatDateTime as formatLocaleDateTime, formatDuration as formatLocaleDuration, formatRelativeTimeShort } from "@/i18n/format";
 import { i18n } from "@/i18n";
 import {
   createDefaultAutomationRuntime,
@@ -199,7 +199,7 @@ export function formatDateTime(value: string | null) {
 }
 
 export function formatRelativeTime(value: string | null, now = Date.now()) {
-  return value ? formatLocaleRelativeTime(value, now) || "—" : "—";
+  return value ? formatRelativeTimeShort(value, now) || "—" : "—";
 }
 
 export function formatRunDuration(run: AutomationRun, now = Date.now()) {

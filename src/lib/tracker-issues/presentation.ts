@@ -1,4 +1,4 @@
-import { formatDate, formatRelativeTime } from "@/i18n/format";
+import { formatDate, formatRelativeTimeShort } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 import {
   parseLocalTrackerDueDate,
@@ -181,15 +181,8 @@ export function formatTrackerSyncedAt(iso: string | null, now: Date): string {
   if (Number.isNaN(stamp)) {
     return i18n.t("issues:presentation.never");
   }
-  const elapsedMs = now.getTime() - stamp;
-  // A clock that jumped backwards must not print "-3m ago".
-  if (elapsedMs < 60_000) {
-    return i18n.t("issues:presentation.justNow");
-  }
-  if (elapsedMs < 7 * MS_PER_DAY) {
-    return formatRelativeTime(iso, now, { numeric: "always", style: "narrow" });
-  }
-  return formatShortDate(new Date(stamp), now);
+  // A clock that jumped backwards must not print "in 3m" for a past sync.
+  return formatRelativeTimeShort(Math.min(stamp, now.getTime()), now);
 }
 
 /**

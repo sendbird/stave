@@ -176,22 +176,3 @@ export function formatScriptDuration(durationMs: number): string {
   return formatDuration(durationMs, { milliseconds: true, tenths: true });
 }
 
-export function formatScriptRelativeTime(
-  timestampMs: number,
-  now: number = Date.now(),
-): string {
-  const elapsed = Math.max(0, now - timestampMs);
-  if (elapsed < 5_000) {
-    return i18n.t("scripts:runtimeState.justNow");
-  }
-  if (elapsed < 60_000) {
-    return `${Math.round(elapsed / 1_000)}s ago`;
-  }
-  if (elapsed < 3_600_000) {
-    return `${Math.round(elapsed / 60_000)}m ago`;
-  }
-  if (elapsed < 86_400_000) {
-    return `${Math.round(elapsed / 3_600_000)}h ago`;
-  }
-  return `${Math.round(elapsed / 86_400_000)}d ago`;
-}

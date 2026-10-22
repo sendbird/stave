@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { FleetAgentRunStrip, useFleetActiveAgentRun } from "@/components/agent-runs/FleetAgentRunStrip";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { agentRunDecisionOfMessages, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
@@ -59,7 +60,6 @@ import {
 } from "@/lib/fleet/workspace-activity";
 import { PR_STATUS_VISUAL, type WorkspacePrStatus } from "@/lib/pr-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
 import {
   resolveWorkspaceTodoStatus,
@@ -310,7 +310,7 @@ export function FleetWorkspaceCard(args: {
             activity: providerTurnActivityByTask[task.id] ?? null,
           })
         : ("unknown" as const),
-      updatedLabel: formatTaskUpdatedAt({ value: task.updatedAt }),
+      updatedLabel: formatRelativeTimeShort(task.updatedAt),
     })) satisfies FleetCardTaskView[];
     return orderByWorkAttention(views, (row) =>
       rankWorkAttention({
@@ -728,7 +728,7 @@ export function FleetWorkspaceCard(args: {
         ) : null}
         <span className={sx(styles.activity)}>
           {activityAt
-            ? formatTaskUpdatedAt({ value: activityAt })
+            ? formatRelativeTimeShort(activityAt)
             : tI18n("fleet:fleetWorkspaceCard.noRecordedActivity")}
         </span>
         <Button

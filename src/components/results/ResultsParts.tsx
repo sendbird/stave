@@ -1,4 +1,4 @@
-import { formatNumber, formatPercent, formatRelativeTime, formatDuration } from "@/i18n/format";
+import { formatNumber, formatPercent, formatRelativeTimeShort, formatDuration } from "@/i18n/format";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
@@ -104,9 +104,9 @@ function RunRow({ run, now, onOpen }: { run: ResultRun; now: number; onOpen: (ru
   const word = run.reason ? RUN_END_REASON_LABELS[run.reason] : OUTCOME_LABEL[run.outcome];
   return (
     <li>
-      <Button layout="host" variant="quiet" xstyle={styles.runButton} aria-label={t("compare:agentPerformance.openReport", { name: run.name, outcome: word, date: formatRelativeTime(run.endedAt, now) })} onClick={() => onOpen(run)}>
+      <Button layout="host" variant="quiet" xstyle={styles.runButton} aria-label={t("compare:agentPerformance.openReport", { name: run.name, outcome: word, date: formatRelativeTimeShort(run.endedAt, now) })} onClick={() => onOpen(run)}>
         <StateMark state={OUTCOME_STATE[run.outcome]} />
-        <span className={sx(styles.runText)}><span className={sx(styles.runTitle)}>{word}</span><span className={sx(styles.runFigure)}>{formatRelativeTime(run.endedAt, now)} · {formatDuration(run.durationMs)} · {cost(run.costUsd)}</span></span>
+        <span className={sx(styles.runText)}><span className={sx(styles.runTitle)}>{word}</span><span className={sx(styles.runFigure)}>{formatRelativeTimeShort(run.endedAt, now)} · {formatDuration(run.durationMs)} · {cost(run.costUsd)}</span></span>
         <ChevronRight className={sx(styles.chevron)} aria-hidden />
       </Button>
     </li>

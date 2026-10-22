@@ -1,4 +1,5 @@
 import { useTranslation } from "@/i18n";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { AlertTriangle, CheckCircle2, GitMerge } from "lucide-react";
 import type { FocusEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
@@ -12,7 +13,6 @@ import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
 import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { inboxRowStyles as styles } from "./inbox-row.styles";
 
 /** Which semantic family an entry belongs to; the Badge owns the colors. */
@@ -178,7 +178,7 @@ export function InboxRow(props: {
             {FLEET_ATTENTION_KIND_LABEL[entry.kind]}
           </Badge>
           <span className={sx(styles.rowTime)}>
-            {formatTaskUpdatedAt({ value: entry.at })}
+            {formatRelativeTimeShort(entry.at)}
           </span>
         </span>
         <span className={sx(styles.rowTitle)}>{entry.title}</span>

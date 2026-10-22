@@ -1,4 +1,4 @@
-import { formatRelativeTime } from "@/i18n/format";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import * as React from "react";
 import { GitBranch, Tag } from "lucide-react";
@@ -26,11 +26,7 @@ export interface GitGraphColumnWidths {
 }
 
 function formatRelativeDate(iso: string): string {
-  const timestamp = new Date(iso).getTime();
-  if (!Number.isFinite(timestamp)) {
-    return iso;
-  }
-  return formatRelativeTime(timestamp);
+  return formatRelativeTimeShort(iso) || iso;
 }
 
 export function graphGridTemplate(args: {

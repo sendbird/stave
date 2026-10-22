@@ -1,4 +1,4 @@
-import { formatNumber, formatRelativeTime as formatLocaleRelativeTime } from "@/i18n/format";
+import { formatNumber, formatRelativeTimeShort } from "@/i18n/format";
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, TriangleAlert } from "lucide-react";
@@ -1577,5 +1577,5 @@ export function LocalMcpRequestLogCard() {
 }
 
 function formatRelativeTime(isoString: string): string {
-  return formatLocaleRelativeTime(isoString);
+  return formatRelativeTimeShort(isoString);
 }

@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { toolStyles } from "./workspace-tools.styles";
 import { sx } from "../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -48,7 +49,6 @@ import {
   clearScriptLog,
   countRunningServiceEntries,
   formatScriptDuration,
-  formatScriptRelativeTime,
   refreshScriptsRuntime,
   runScriptEntry,
   runScriptHook,
@@ -302,7 +302,7 @@ function ScriptEntryRow(props: {
                 {state?.endedAt !== undefined ? (
                   <>
                     <span className={sx(toolStyles.separator)}>·</span>
-                    <span>{formatScriptRelativeTime(state.endedAt)}</span>
+                    <span>{formatRelativeTimeShort(state.endedAt)}</span>
                   </>
                 ) : null}
               </span>

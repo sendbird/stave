@@ -7,7 +7,7 @@ import { Approval } from "@/components/ads/components/Approval";
 import { DurationTimer } from "@/components/ads/components/DurationTimer";
 import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import { agentStateLabel } from "@/components/ads/components/agent-state";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
+import { formatRelativeTimeShort } from "@/i18n/format";
 import { formatElapsed, formatSpokenElapsed } from "@/components/ads/components/Thinking.parts";
 import { describePlanDelta } from "@/components/ads/components/Plan.parts";
 import { getSeededCompletionPhrase, getSeededCompletionPhraseKey } from "@/lib/completion-phrases";
@@ -24,7 +24,7 @@ test("shared helpers and renderer read the same locale after module initializati
   expect(WORK_STATE.failed.label).toBe("실패함");
   expect(agentStateLabel.running).toBe("실행 중");
   expect(renderToStaticMarkup(<StatusDot status="canceled" />)).toContain("중지됨");
-  expect(formatTaskUpdatedAt({ value: "2026-01-01T00:00:00Z", now: Date.parse("2026-01-01T00:03:00Z") })).toBe("3분 전");
+  expect(formatRelativeTimeShort("2026-01-01T00:00:00Z", Date.parse("2026-01-01T00:03:00Z"))).toBe("3분 전");
 });
 
 test("Korean timer announcements use complete elapsed phrases", () => {
