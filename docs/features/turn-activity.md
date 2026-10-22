@@ -366,7 +366,8 @@ A turn's record has three parts:
   - `No updates for 6m`: the turn went quiet for five minutes or more, then
     continued or ended. Time an approval or question waited for your answer
     is not counted, even when other updates arrived while it waited; the
-    silence after you answered is.
+    silence after you answered is, and so is the silence after a request was
+    decided without you (it timed out, or a Stave rule took it).
   - `Model changed`: the runtime ran the turn on another model than the one
     requested, with the reason it gave, or an agent run routed the reply.
   - `Account changed`: the turn ran on another account than the task's previous

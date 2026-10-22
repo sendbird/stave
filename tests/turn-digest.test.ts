@@ -307,6 +307,21 @@ describe("turn digest store", () => {
     db.close();
   });
 
+  test("a shown request decided without you (it timed out) stops the wait there", () => {
+    const { db, store } = harness();
+    begin(store, "timed-out", { createdAt: at(0) });
+    store.saveStreamEvent({ turnId: "timed-out", sequence: 1, createdAt: at(1), event: { type: "approval", toolName: "Bash", requestId: "r9", description: "Deploy" } });
+    store.saveStreamEvent({
+      turnId: "timed-out",
+      sequence: 2,
+      createdAt: at(4),
+      event: { type: "approval_resolved", requestId: "r9", toolName: "Bash", decision: "denied", source: "rule", reason: "timeout", decidedAt: at(4) },
+    });
+    store.saveStreamEvent({ turnId: "timed-out", sequence: 3, createdAt: at(12), event: { type: "text", text: "Continuing" } });
+    expect(digestOf(db, "timed-out")?.entries).toEqual([{ kind: "stall", at: at(4), silentMs: 480_000, endedTurn: false }]);
+    db.close();
+  });
+
   test("a turn on another account than the task's previous turn on the same provider records the switch", () => {
     const { db, store } = harness();
     begin(store, "first", { createdAt: at(0), accountProfileId: "account-a" });

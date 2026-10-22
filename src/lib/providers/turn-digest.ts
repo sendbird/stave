@@ -321,6 +321,7 @@ export function isTurnDigestWaitChange(event: NormalizedProviderEvent) {
   return (
     event.type === "approval" ||
     event.type === "user_input" ||
+    event.type === "approval_resolved" ||
     event.type === "tool_result" ||
     event.type === "done" ||
     event.type === "error"
@@ -344,8 +345,10 @@ function closeTurnDigestWait(digest: TurnDigest, requestId: string, at: string):
 /**
  * Follow the approvals and questions the turn waits on. One opens when it is
  * asked. It closes when Stave delivers the user's answer
- * (`answerTurnDigestDecision`), when the tool it gated returns (a Claude
- * approval's id is its tool call's), or when the turn ends.
+ * (`answerTurnDigestDecision`), when it is decided without the user
+ * (`approval_resolved`: it timed out, or a rule took it), when the tool it
+ * gated returns (a Claude approval's id is its tool call's), or when the turn
+ * ends.
  */
 export function observeTurnDigestWaits(digest: TurnDigest, event: NormalizedProviderEvent, at: string): TurnDigest {
   const requestId = turnDigestWaitRequestId(event);
@@ -363,6 +366,8 @@ export function observeTurnDigestWaits(digest: TurnDigest, event: NormalizedProv
   }
   if (!digest.waits?.length) return digest;
   if (event.type === "tool_result") return closeTurnDigestWait(digest, bound(event.tool_use_id, ID_LIMIT), at);
+  // A shown request decided without a person (it timed out, or a rule took it).
+  if (event.type === "approval_resolved") return closeTurnDigestWait(digest, bound(event.requestId, ID_LIMIT), at);
   if (event.type === "done" || (event.type === "error" && !event.recoverable)) return withWaits(digest, []);
   return digest;
 }
