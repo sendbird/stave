@@ -554,13 +554,13 @@
     "ariaLabel": "Approval queue",
     "chatInputApprovalQueue": "Waiting for the provider to accept the decision…",
     "placeholder": "Instead of {{value1}}, do this…",
-    "chatInputApprovalQueue3": "Reject & Guide",
+    "chatInputApprovalQueue3": "Deny & guide",
     "chatInputApprovalQueue4": "Cancel",
     "chatInputApprovalQueue5": "guide instead",
-    "sentence54": "approve and always allow {{value1}}",
+    "sentence54": "always allow {{value1}}",
     "sentence55": "+{{value1}} more queued",
-    "extraCopy142": "Sending decision to the provider…",
-    "extraCopy143": "Another decision is being delivered."
+    "extraCopy143": "Another decision is being delivered.",
+    "enterToAllowOnce": "<key>↵</key> to allow once"
   },
   "chatInputRuntime": {
     "formatGoalStatusValue": "usage limited",
@@ -620,7 +620,6 @@
     "label": "Copy",
     "tooltip": "Copy message",
     "label2": "Live output",
-    "errorText": "Tool failed.",
     "label3": "Workspace checkpoint"
   },
   "chatPanelUtils": {

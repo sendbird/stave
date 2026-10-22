@@ -487,7 +487,8 @@
       "projectSettings": "Project settings: {{value1}}",
       "openSettings": "Open settings"
     },
-    "signOffNeeded": "sign-off needed"
+    "signOffNeeded": "sign-off needed",
+    "noUpdates": "No updates"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "App footprint at {{value1}}",
@@ -915,7 +916,8 @@
     "awaitingApproval": "Awaiting approval",
     "error": "Error",
     "running": "Running",
-    "idle": "Idle"
+    "idle": "Idle",
+    "stalled": "No updates"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "Shared instructions",
@@ -1085,7 +1087,9 @@
       "projectAttention": "Project needs attention: {{value1}}",
       "editWorkspaceLabel": "Edit workspace label: {{value1}}",
       "workspaceActions": "Workspace actions: {{value1}}"
-    }
+    },
+    "unansweredCount_one": "{{count}} request waiting for an answer",
+    "unansweredCount_other": "{{count}} requests waiting for an answer"
   },
   "workspaceInformationReferenceChip": {
     "section": "Section",

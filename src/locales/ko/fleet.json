@@ -1,37 +1,24 @@
 {
   "fleetAttentionInbox": {
-    "valueForValueInValue": "{{value2}}의 {{title}} 작업: {{value1}}",
     "markReviewed": "읽음 표시",
     "markRead": "읽음 표시",
-    "dismissValueForValueInValue": "{{value2}}의 {{title}} 작업에서 {{value1}} 닫기",
     "dismiss": "닫기",
     "openPr": "PR 열기",
     "snoozeValueForValueInValue": "{{value2}}의 {{title}} 작업에서 {{value1}} 알림 미루기",
     "snooze": "알림 미루기",
     "hideUntil": "숨길 기간",
-    "actionRequired": "조치 필요",
-    "nothingBlocked": "차단된 작업 없음",
-    "noAgentIsWaitingOnYouRight": "현재 응답을 기다리는 에이전트가 없습니다.",
-    "worthALook": "확인할 항목",
-    "clearThe1ItemWorthALook": "확인할 항목 1개 지우기",
-    "clearAllValueItemsWorthALook": "확인할 항목 {{reviewCount}}개 모두 지우기",
     "clearAll": "모두 지우기",
-    "snoozed": "미뤄짐",
     "restoreValueSnoozedItems": "미룬 항목 {{snoozedCount}}개 복원",
     "restore": "복원",
-    "question": "질문",
-    "approval": "승인",
-    "runFailed": "실행 실패",
-    "resultReady": "결과 준비됨",
-    "changesRequested": "변경 요청됨",
-    "checksFailed": "검사 실패",
-    "mergeConflict": "병합 충돌",
-    "behindBase": "기준 브랜치보다 뒤처짐",
-    "readyToMerge": "병합 준비됨",
-    "runBlocked": "실행 차단됨",
-    "runStuck": "실행 멈춤",
     "snoozedCount": "{{count}}개 미뤄짐",
-    "signOff": "단계 승인"
+    "rowLabel": "{{workspace}}의 {{title}} 작업: {{action}}",
+    "dismissApproval": "{{workspace}}의 {{title}} 작업에서 승인 닫기",
+    "dismissQuestion": "{{workspace}}의 {{title}} 작업에서 질문 닫기",
+    "clearOneInReview": "리뷰 대기 항목 1개 지우기",
+    "clearAllInReview": "리뷰 대기 항목 {{reviewCount}}개 모두 지우기",
+    "noActionRequired": "조치가 필요한 항목 없음",
+    "noAgentIsWaitingOnYou": "현재 응답을 기다리는 에이전트가 없습니다.",
+    "rowLabelNoWorkspace": "{{title}} 작업: {{action}}"
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "활성 턴에 응답으로 방향을 조정했습니다.",
@@ -73,9 +60,6 @@
     "reviewWasNotSavedRetry": "읽음 상태를 저장하지 못했습니다. 다시 시도하세요.",
     "snoozeWasNotSavedRetry": "알림 미루기를 저장하지 못했습니다. 다시 시도합니다.",
     "snoozedItemsWereNotRestoredRetry": "미룬 항목을 복원하지 못했습니다. 다시 시도합니다.",
-    "cleared1Item": "항목 1개를 지웠습니다.",
-    "clearedValueItems": "항목 {{cleared}}개를 지웠습니다.",
-    "someItemsWereNotClearedRetry": "일부 항목을 지우지 못했습니다. 다시 시도합니다.",
     "fleetView": "Fleet 보기",
     "fullWorkQueue": "전체 작업 대기열, 사용자 조치가 필요한 항목부터",
     "noAgentTurnsInFlight": "실행 중인 에이전트 턴 없음",
@@ -98,7 +82,6 @@
     "noWorkspacesMatchTheCurrentFilter": "현재 필터에 맞는 워크스페이스가 없습니다.",
     "showDormant": "비활성 항목 표시",
     "resetFilters": "필터 초기화",
-    "valueValueProject": "{{value1}} {{value2}} 프로젝트",
     "current": "현재",
     "rememberedRepositoriesAlwaysCarryADefaultWorkspace": "기억된 저장소에는 항상 기본 워크스페이스 행이 있습니다. 작업, 메시지, 기록된 활동이 없는 항목입니다.",
     "unusedDefault": "미사용 기본 항목",
@@ -108,7 +91,13 @@
     "pendingResultsLimit": "안 읽은 결과 {{count}}개 중 최신 200개를 표시합니다. 전체 결과 기록을 보려면 작업을 여세요.",
     "accessibility": {
       "closeFleetView": "Fleet 보기 닫기"
-    }
+    },
+    "expandRepository": "{{name}} 펼치기",
+    "collapseRepository": "{{name}} 접기",
+    "layoutLabel": "보드 레이아웃",
+    "cards": "카드",
+    "table": "표",
+    "valueTasksShown_other": " · 작업 {{count}}개 표시됨"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "기본 · {{branchLabel}}",
@@ -133,12 +122,13 @@
     "noRecordedActivity": "기록된 활동 없음",
     "openValueWorkspace": "{{displayName}} 워크스페이스 열기",
     "open": "열기",
-    "valueMoreTaskvalue_other": "작업 {{count}}개 더 보기",
-    "providerName": "{{label}} 프로바이더"
+    "valueMoreTaskvalue_other": "작업 {{count}}개 더 보기"
   },
   "attentionProjection": {
     "untitledTask": "제목 없는 작업",
-    "theActiveProviderTurnNeedsReview": "활성 프로바이더 턴을 리뷰해야 합니다."
+    "theActiveProviderTurnNeedsReview": "활성 프로바이더 턴을 리뷰해야 합니다.",
+    "repository": "저장소",
+    "workspace": "워크스페이스"
   },
   "taskExecutionSummary": {
     "derivedFromPersistedAssistantMessageTimestamps": "저장된 어시스턴트 메시지의 타임스탬프에서 계산합니다.",
@@ -157,10 +147,6 @@
     "cumulativeUsageFromValuePersistedMessagevalue_other": "저장된 메시지 {{count}}개의 누적 사용량입니다."
   },
   "sidebarWorkQueue": {
-    "actionRequired": "조치 필요",
-    "inProgress": "진행 중",
-    "inReview": "리뷰 중",
-    "idle": "유휴",
     "openFullView": "Fleet 보기에서 전체 작업 대기열 열기",
     "snoozed": "미뤄 둠",
     "settled": "정리됨"
@@ -170,10 +156,13 @@
     "workedInRecently": "최근 작업함",
     "running": "실행 중",
     "anAgentTurnIsInFlight": "에이전트 턴 실행 중",
-    "blocked": "차단됨",
     "waitingOnYou": "응답 대기 중",
     "all": "전체",
-    "includeDormantWorkspaces": "비활성 워크스페이스 포함"
+    "includeDormantWorkspaces": "비활성 워크스페이스 포함",
+    "needsAnswer": "답변 필요",
+    "aRequestWaitsForYourAnswer": "답변을 기다리는 요청이 있습니다.",
+    "stalled": "업데이트 없음",
+    "aTurnHasGoneQuiet": "실행 중인 턴이 5분 동안 아무것도 보고하지 않았습니다."
   },
   "additionalCopy": {
     "message4": "응답을 전달하고 있습니다.",
@@ -188,5 +177,93 @@
     "agentRunNeedsAttention": "{{stage}} · {{detail}}",
     "stoppedMoving": "진행이 멈춤",
     "needsYou": "확인이 필요함"
+  },
+  "vocabulary": {
+    "actionRequired": "조치 필요",
+    "inReview": "리뷰 대기",
+    "inProgress": "진행 중",
+    "idle": "유휴",
+    "kind": {
+      "userInput": "질문",
+      "approval": "승인",
+      "runFailed": "실행 실패",
+      "resultReady": "결과 준비됨",
+      "prChangesRequested": "변경 요청됨",
+      "prChecksFailed": "검사 실패",
+      "prMergeConflict": "병합 충돌",
+      "prBehindBase": "기준 브랜치보다 뒤처짐",
+      "prReadyToMerge": "병합 준비됨",
+      "agentRunSignOff": "단계 승인",
+      "agentRunBlocked": "실행 차단됨",
+      "agentRunStuck": "실행 멈춤",
+      "turnStalled": "업데이트 없음"
+    },
+    "primaryAction": {
+      "openQuestion": "질문 열기",
+      "openApproval": "승인 열기",
+      "openFailure": "실패 내용 열기",
+      "reviewResult": "결과 리뷰",
+      "openWorkspace": "워크스페이스 열기",
+      "openMergeControls": "병합 제어 열기",
+      "reviewSignOff": "단계 승인 리뷰",
+      "openRun": "실행 열기",
+      "openTurn": "멈춘 턴 열기"
+    },
+    "actionRequiredCount_other": "조치 필요 {{count}}개",
+    "inReviewCount_other": "리뷰 대기 {{count}}개"
+  },
+  "inlineAnswer": {
+    "otherRepository": "이 요청은 다른 저장소에 있습니다. 작업을 열어 응답하세요.",
+    "taskUnavailable": "이 작업을 더 이상 사용할 수 없습니다.",
+    "loading": "요청 불러오는 중…",
+    "loadFailed": "이 요청을 불러오지 못했습니다. 작업을 열어 응답하세요.",
+    "answered": "이 요청에 응답했거나 요청이 만료되었습니다.",
+    "openInTask": "작업에서 응답하세요.",
+    "sending": "응답을 보내는 중…",
+    "open": "열기",
+    "openLabel": "{{workspace}}의 {{title}} 열기",
+    "approvalKeys": "<key>A</key> 한 번 허용 · <key>D</key> 거부",
+    "optionsLabel": "답변: {{question}}"
+  },
+  "taskActivity": {
+    "withDetail": "{{label}} · {{detail}}",
+    "ago": "{{activity}} · {{duration}} 전",
+    "running": "{{duration}}째 실행 중",
+    "waiting": "{{duration}}째 대기 중",
+    "quiet": "{{duration}}째 업데이트 없음"
+  },
+  "inbox": {
+    "unreadLabel": "{{label}}, 읽지 않음"
+  },
+  "bulk": {
+    "menuLabel": "리뷰 대기 정리",
+    "readsCannotBeUndone": "알림 읽음 처리는 되돌릴 수 없습니다.",
+    "undo": "실행 취소",
+    "undoFailed": "정리한 항목 일부를 되돌리지 못했습니다.",
+    "reviewResults_other": "결과 {{count}}개를 리뷰 완료로 표시",
+    "readNotifications_other": "알림 {{count}}개를 읽음으로 표시 (되돌릴 수 없음)",
+    "hideForADay_other": "풀 리퀘스트 {{count}}개를 하루 동안 숨기기",
+    "applyAll_other": "모두 적용 ({{count}}개)",
+    "cleared_other": "{{count}}개를 정리했습니다.",
+    "failed_other": "{{count}}개를 정리하지 못했습니다. 다시 시도하세요.",
+    "someReviewsCannotBeUndone": "같은 순간 다른 곳에서 바뀐 리뷰 일부는 여기서 되돌릴 수 없습니다.",
+    "alreadyCleared": "이미 다른 곳에서 정리되어 바뀐 것이 없습니다."
+  },
+  "taskTable": {
+    "label": "열린 작업",
+    "task": "작업",
+    "workspace": "워크스페이스",
+    "state": "상태",
+    "needs": "필요한 조치",
+    "waiting": "대기 시간",
+    "activity": "활동",
+    "openTask": "{{workspace}}의 {{title}} 열기",
+    "noTasks": "이 필터에 맞는 작업이 없습니다.",
+    "underAMinute": "1분 미만",
+    "incompleteTitle": "목록이 완전하지 않습니다",
+    "failedRead_other": "워크스페이스 {{count}}개의 작업을 읽지 못했습니다: {{names}}.",
+    "incompleteNotice": "해당 작업은 여기에 빠져 있으며, 나머지 행은 최신입니다.",
+    "readingTasks": "작업을 읽는 중…",
+    "readingMore_other": "워크스페이스 {{count}}개의 작업을 더 읽는 중…"
   }
 }

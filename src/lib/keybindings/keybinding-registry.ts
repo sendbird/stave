@@ -90,6 +90,17 @@ const APP_SHELL = APP_SHELL_KEYBINDING_OWNER;
 const MAIN_WINDOW = "electron/main/window.ts";
 const PROMPT_INPUT = "src/components/ai-elements/prompt-input.tsx";
 const USER_INPUT_CARD = "src/components/ai-elements/user-input-card.tsx";
+/** Up and Down between inbox rows, in Fleet's rail and in the bell. */
+const INBOX_ROWS = [
+  "src/components/layout/InboxRow.tsx",
+  "src/components/layout/FleetAttentionInbox.tsx",
+  "src/components/layout/TopBarNotifications.tsx",
+] as const;
+/** The row's keydown handler and the key-to-answer mapping it uses. */
+const FLEET_ROW_ANSWER = [
+  "src/components/layout/FleetAttentionInbox.tsx",
+  "src/components/layout/FleetRowInlineAnswer.tsx",
+] as const;
 
 /** A `Cmd/Ctrl+K` chord whose second key the user can change in Settings. */
 function appChord<TId extends AppShortcutCommandId>(
@@ -581,6 +592,78 @@ export const KEYBINDING_REGISTRY = [
     descriptionKey: "shell:keybindings.entries.fleetClose.description",
     section: "surfaces",
     handledBy: ["src/components/layout/FleetView.tsx"],
+  },
+  {
+    id: "fleet.next-row",
+    keys: ["arrowdown"],
+    scope: "fleet",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.fleetRowNext.title",
+    descriptionKey: "shell:keybindings.entries.fleetRowNext.description",
+    section: "surfaces",
+    handledBy: INBOX_ROWS,
+  },
+  {
+    id: "fleet.previous-row",
+    keys: ["arrowup"],
+    scope: "fleet",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.fleetRowPrevious.title",
+    descriptionKey: "shell:keybindings.entries.fleetRowPrevious.description",
+    section: "surfaces",
+    handledBy: INBOX_ROWS,
+  },
+  {
+    id: "fleet.open-row",
+    keys: ["enter"],
+    scope: "fleet",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.fleetRowOpen.title",
+    descriptionKey: "shell:keybindings.entries.fleetRowOpen.description",
+    section: "surfaces",
+    handledBy: ["src/components/layout/InboxRow.tsx"],
+  },
+  {
+    id: "fleet.row-allow-once",
+    keys: ["a"],
+    scope: "fleet",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.fleetRowAllow.title",
+    descriptionKey: "shell:keybindings.entries.fleetRowAllow.description",
+    section: "surfaces",
+    handledBy: FLEET_ROW_ANSWER,
+  },
+  {
+    id: "fleet.row-deny",
+    keys: ["d"],
+    scope: "fleet",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.fleetRowDeny.title",
+    descriptionKey: "shell:keybindings.entries.fleetRowDeny.description",
+    section: "surfaces",
+    handledBy: FLEET_ROW_ANSWER,
+  },
+  {
+    id: "fleet.row-choose-option",
+    keys: ["1-9"],
+    scope: "fleet",
+    focus: true,
+    editable: "block",
+    yieldsToHandled: true,
+    titleKey: "shell:keybindings.entries.fleetRowChoose.title",
+    descriptionKey: "shell:keybindings.entries.fleetRowChoose.description",
+    section: "surfaces",
+    handledBy: FLEET_ROW_ANSWER,
   },
   {
     id: "issues.next",

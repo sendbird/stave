@@ -103,12 +103,27 @@ describe("classifyTaskStatus", () => {
     ).toBe("waiting-approval");
   });
 
-  test("classifies stalled active turns as error", () => {
+  test("classifies a quiet active turn as stalled, never as an error", () => {
     expect(
       classifyTaskStatus({
         task: buildTask(),
         activeTurnId: "turn-1",
         activity: buildActivity({ stalledAt: 3000 }),
+      }),
+    ).toBe("stalled");
+  });
+
+  test("a turn that failed and then went quiet is still a failure", () => {
+    expect(
+      classifyTaskStatus({
+        task: buildTask(),
+        activeTurnId: "turn-1",
+        activity: buildActivity({ stalledAt: 3000 }),
+        messages: [
+          buildAssistantMessage({
+            parts: [{ type: "system_event", content: "[error] provider failed" }],
+          }),
+        ],
       }),
     ).toBe("error");
   });

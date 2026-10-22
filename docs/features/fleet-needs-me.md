@@ -2,15 +2,16 @@
 
 ## Summary
 
-Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` rail
+Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` band
 combines pending questions and approvals, [agent runs](agent-runs.md) that wait for
 a sign-off or are blocked or stuck, unreviewed failed or completed runs, and
 actionable pull request states in one urgency-ordered list.
 
-Fleet is an auxiliary surface. The task window stays the primary place to answer
-a question, resolve an approval, and review a result, and doing the work there
-clears the matching Fleet item. Fleet only adds a cross-workspace overview and
-optional shortcuts on top of that.
+Fleet is where waiting decisions are answered and running work is told apart.
+Approvals and short questions are answered right in their rows, without opening
+the task; longer forms, results and anything else open the task, which stays the
+place for the full conversation. Answering in either place clears the matching
+Fleet item, and the task records the answer the same way.
 
 ## When To Use It
 
@@ -30,30 +31,63 @@ optional shortcuts on top of that.
 
 ## Quick Start
 
-1. Open Fleet from the top-bar fleet button or the workspace sidebar.
-2. Review the fixed `Action required` rail, which keeps questions and approvals
-   ahead of the folded `Worth a look` review queue.
+1. Open Fleet View from the top bar, the sidebar, or the command palette
+   (`Cmd/Ctrl+K` then `F`).
+2. Review the fixed `Action required` band, which keeps questions and approvals
+   ahead of the folded `In review` group.
 3. Select an item to open its exact task or workspace.
-4. Approve or deny approval requests, mark outputs as checked, or open the
-   linked pull request from the item actions.
+4. Answer approval requests (`Allow once` or `Deny`), mark results as read, or
+   open the linked pull request from the item actions.
 
 ## Interface Walkthrough
 
 ### Entry Points
 
-- Top bar: the Fleet button shows the total number of known actionable items.
+- Every entry point shows Fleet with the same grid icon and the name
+  `Fleet View`: the sidebar's top navigation, the top bar, the Stave menu, the
+  command palette, and Fleet's own header. The robot icon is reserved for
+  Agents.
+- Top bar: the Fleet View button counts the items in `Action required`, the
+  ones an agent waits on. Its tooltip names the `In review` items separately,
+  and they never raise the count.
 - Workspace sidebar: switch to `Work queue` to group every workspace into
   `Action required`, `In progress`, `In review`, or `Idle`. Blocking attention
   puts a workspace in `Action required`; an unreviewed result without a blocker
   belongs in `In review`. The queue's expand button opens Fleet view, its full
   view, and the board orders cards and their tasks by the same lanes.
-- Fleet view: `Action required` is a layout-level rail. It stays visible while
-  board filters change; on narrow screens it becomes a compact top rail. The
-  board itself uses workspace cards and activity filters (`Active`, `Running`,
-  `Blocked`, and `All`) rather than a task timeline.
+- Fleet view: `Action required` is a band across the top of the view, above
+  the board. It stays put while board filters change, is bounded so the board
+  always keeps room, and scrolls inside itself; on wide screens its decisions
+  sit side by side. Opening a row's control panel lets the band grow, still
+  bounded. Below it, the board shows workspace cards or one table of tasks
+  (the `Cards` and `Table` switch, kept between sessions), with activity
+  filters (`Active`, `Running`, `Action required`, and `All`) rather than a
+  task timeline.
+- `Table` lists every open task of every workspace in one place, one row per
+  task: the task, its workspace, its state, what it needs from you, how long it
+  has waited, and what its running turn last did. Rows follow the Work queue
+  lanes, and inside a lane the longest wait comes first, so the oldest approval
+  and the quiet turns are on top without expanding a card. Two more filters
+  apply only here: `Needs answer` (approvals, questions and sign-offs) and
+  `No updates` (quiet turns). A task's name opens it; with the name focused,
+  `Enter` does the same. A workspace you have not opened since starting Stave
+  shows its stored tasks with an unknown state, and its needs from
+  notifications. While those task lists are read, the table says so; when a
+  read fails, it says the list is incomplete, names the workspaces and offers
+  `Retry`, and never shows them as having no tasks.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.
+- A task in a running turn says what it last did and how long ago, from the
+  turn's own reported events (for example `Edit file · search.ts · 12s ago`),
+  and how long the turn has run (`Running for 2m 10s`), how long a request has
+  waited for you (`Waiting for 1m 5s`), or how long it has been quiet. A turn
+  that reported no work shows only its duration. Nothing is estimated: there is
+  no percent and no time left.
+- A turn that reports nothing for five minutes is `No updates`, not a failure:
+  the task reads `No updates for 7m` and its item stays in `Action required`
+  until the turn reports again, ends, or Stave stops it. `Run failed` is kept
+  for turns that actually failed.
 - A workspace running an agent run shows an agent run strip on its card: the stage
   track, where the agent run stands, its stage position and what it has spent.
   Clicking the strip opens the lead task.
@@ -61,22 +95,57 @@ optional shortcuts on top of that.
 ### Key Controls
 
 - `Open next item`: opens the next item in urgency order.
-- `Approve` and `Deny`: resolve a durable approval request without first opening
-  the task.
+- `Allow once`, `Always allow` and `Deny`: an approval is answered in its row,
+  without opening the task. The row draws the same approval card as the
+  conversation and the composer, with the tool and the command it would run;
+  `Always allow` appears only when the provider can keep the grant, and not for
+  a task an external host manages.
+- A short question (one question, one choice, two to six options) is answered
+  in its row by picking an option. Longer forms, free text, numbers and links
+  are answered in the task: the row says so and `Open` takes you there.
+- With a row focused, `A` allows the approval once, `D` denies it, and `1`–`9`
+  picks a short question's option. `Enter` still opens the row's control panel.
+  After an answer, focus moves to the next row.
+- An answer is sent only if the task still shows that exact request (same
+  workspace, task, turn and request); otherwise the row says why. A question
+  that did not pause its turn can still be answered after the turn ends, in
+  the row and in its expanded panel alike. A request in
+  a workspace you have not opened since starting Stave is loaded when you focus
+  or open its row, and one older than the task's loaded messages is looked up
+  in its older messages before the row calls it answered or expired. A request
+  in another repository is answered with `Open`.
+  An answer cannot be undone, and a second answer to the same request is never
+  sent.
+- `Open`: goes to the item's task, the same place the bell opens it (a
+  delegated child's request opens its root task).
+- A dot marks an item whose notification you have not read, the same in the
+  bell. Opening an item with `Open`, here or in the bell, reads it; expanding
+  its row to see its controls does not.
+- With a row focused, `ArrowUp` and `ArrowDown` move between rows and `Enter`
+  opens the row's control panel. `Esc` steps back one level at a time: it
+  closes an open panel, then leaves the focused row, then clears the search,
+  and only then closes Fleet View.
 - An agent run sign-off names what it starts (for example `Start Verify`). It runs
   the same command, with the same check that the card is still current, as the
   sign-off card in the task.
-- `Mark checked`: records that you checked that specific output in durable result
+- `Mark read`: records that you read that specific result in durable result
   history. It does not mark the task or original ticket complete. Use `Outputs`
-  in the task to inspect history or select `Mark unchecked`.
+  in the task to inspect history or select `Mark unread`.
 - `Open PR`: opens the pull request for review blockers or merge-ready work.
 - `Snooze`: hides one item for 1 hour, 4 hours, 1 day, or 1 week. Available on
   every item, including blocking ones. A snooze is time-bounded and never
   answers the request behind the item, so the item returns on its own when the
   deadline passes.
-- `Clear all` on `Worth a look`: acknowledges the whole review group in one
-  action. It is deliberately absent from `Action required`, where an agent is
-  still waiting for a real answer.
+- `Clear all` on `In review`: opens a menu that says what clearing does before
+  it does it, each effect with its count: `Mark 3 results reviewed`,
+  `Mark 2 notifications read (can't be undone)`, `Hide 1 pull request for a
+  day`. Pick one effect alone or `Do all of these`. The toast counts only what
+  changed: a result or notification already cleared elsewhere is skipped, and
+  `Undo` never marks such a result unreviewed. `Undo` covers reviewed results
+  and hidden pull requests; notification reads cannot be undone, and the toast
+  says so when there were any. Anything that failed is reported separately,
+  never as cleared. `Clear all` is deliberately absent from `Action required`,
+  where an agent is still waiting for a real answer.
 - `Restore`: brings every snoozed item back immediately. The rail always reports
   how many items a snooze is hiding, so nothing disappears without a count.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
@@ -93,7 +162,7 @@ optional shortcuts on top of that.
   turns stay listed until you mark them reviewed, because opening the task does
   not show them.
 - Opening a task also reads its notifications. `Outputs` in the task still shows
-  the saved review and offers `Mark unchecked`.
+  the saved review and offers `Mark unread`.
 - Answering a question or resolving an approval in the task window clears the
   item, including when an agent answers through the managed host.
 - Stopping a turn, archiving a task, or restarting Stave settles the requests
@@ -120,15 +189,27 @@ optional shortcuts on top of that.
 ## Files And Data
 
 - Fleet does not create a separate task ledger or execution database.
+- The top bar, the sidebar Work queue and Fleet read one attention projection,
+  computed once for the app, so they always list the same items. Fleet says
+  `All clear` only after notifications, durable results and snoozes have all
+  been read; while one is loading it says `Checking…`, and after a failed read
+  it says `Not fully checked`.
+- Each item records when its wait began from the source that saw it start:
+  the request's turn, its notification, the result, or the agent run event
+  that stopped the stage. Pull request items have no such start, so they show
+  none.
 - Live task state is preferred when available. Historical waiting/error labels
   do not make a workspace look `Running` after its provider turn has ended.
 - Snoozes are stored per item, keyed by the item's identity rather than by its
   source, and expired rows are retired on read. A snooze hides an item; it never
   edits the request, result, or pull request behind it.
 - `Clear all` routes each item to whichever mechanism owns it: a durable result
-  is marked reviewed, a notification-backed item is read and resolved, and a
-  pull-request item — whose state lives on GitHub and would be rebuilt on the
-  next projection — is snoozed for a day instead.
+  is marked reviewed, a notification-backed item (only without the durable
+  result store) is read and resolved, and a pull-request item — whose state
+  lives on GitHub and would be rebuilt on the next projection — is snoozed for a
+  day instead. Every effect is attempted even when another fails. `Undo` marks
+  the results unreviewed and lifts the snoozes; there is no way to mark a
+  notification unread, so the bell's `Mark all read` has no Undo either.
 - Durable notifications keep pending interactions visible; a separate SQLite
   result history preserves review state after notification reads, expiry, and
   cleanup. Old retained outcomes migrate as unreviewed, even if their notifications
@@ -136,6 +217,9 @@ optional shortcuts on top of that.
   migration. Notifications for archived or
   legacy tasks are excluded, and a notification is settled as soon as the task
   window shows that the request is no longer waiting.
+- Fleet reads the stored task list of each workspace you have not opened once
+  per visit, shared by its card and the table, and reads them again the next
+  time Fleet opens.
 - Fleet records the last deliberate workspace activity separately from
   snapshot-write timestamps, so an untouched remembered workspace can become
   dormant without making the whole repository look recently active.
@@ -170,7 +254,7 @@ optional shortcuts on top of that.
 
 - Symptom: a result no longer appears in Fleet.
 - Cause: it is reviewed and has left the pending queue, either from
-  `Mark checked`, from `Clear all`, or because the task window showed that turn
+  `Mark read`, from `Clear all`, or because the task window showed that turn
   while focused for long enough to count as read.
 - Fix: open the task's `Outputs` panel to inspect the saved review or reopen it.
   Clearing notifications alone never acknowledges a review.

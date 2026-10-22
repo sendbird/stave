@@ -56,17 +56,6 @@
     "ariaLabel": "입력창 추가 컨트롤 ({{value1}})",
     "title": "입력창 추가 컨트롤"
   },
-  "confirmation": {
-    "getApprovalDecisionText": "결정: 승인됨.",
-    "getApprovalDecisionText2": "결정: 거부됨.",
-    "getApprovalDecisionText3": "턴이 중단되어 요청이 만료되었습니다.",
-    "confirmationCompact": "승인",
-    "title": "승인하고 프로바이더가 이 결정을 기억하도록 합니다.",
-    "confirmationCompact2": "항상 허용",
-    "confirmationCompact3": "거부",
-    "confirmationCompact4": "승인",
-    "confirmationCompact5": "결정이 기록되었습니다."
-  },
   "conversation": {
     "ariaLabel": "맨 아래로 이동",
     "download": "대화 다운로드"
@@ -427,46 +416,6 @@
   "snippet": {
     "ariaLabel": "복사",
     "title": "복사"
-  },
-  "subagent": {
-    "title": "하위 에이전트 활동",
-    "subagentCard": "하위 에이전트",
-    "errorText": "하위 에이전트가 실패했습니다.",
-    "extraCopy70": "하위 에이전트 진행 상황:"
-  },
-  "todo": {
-    "todoCard": "할 일",
-    "todoCard2": "할 일이 없습니다."
-  },
-  "toolResult": {
-    "running": "실행 중",
-    "success": "완료됨",
-    "error": "실패함",
-    "cancelled": "취소됨",
-    "copyAction": "복사됨",
-    "copyAction2": "복사",
-    "toolResultOutput": "출력이 없습니다.",
-    "footer": "다시 시도",
-    "toolResult": "도구"
-  },
-  "tool": {
-    "ariaLabel": "실행 중",
-    "ariaLabel2": "입력 확인 가능",
-    "ariaLabel3": "완료됨",
-    "ariaLabel4": "오류",
-    "ariaLabel5": "대기 중",
-    "getToolStatusText": "실행 중 ({{value1}})",
-    "getToolStatusText2": "실행 중",
-    "getToolStatusText3": "준비됨",
-    "getToolStatusText4": "완료됨 ({{value1}})",
-    "getToolStatusText5": "완료됨",
-    "getToolStatusText6": "오류",
-    "getToolStatusText7": "대기 중",
-    "toolInput": "입력",
-    "toolOutput": "출력",
-    "toolOutput2": "출력이 없습니다.",
-    "toolGroup": "도구",
-    "extraCopy72": "도구"
   },
   "userInputCard": {
     "title": "응답됨",

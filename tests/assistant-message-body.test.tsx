@@ -451,7 +451,7 @@ describe("AssistantMessageBody", () => {
     );
   });
 
-  test("does not dump a streaming MCP capture body on the legacy display-part path", async () => {
+  test("draws a display-list tool call with the trace's row, collapsed, its streaming output labelled live", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const screenshotOutput = `data:image/png;base64,${"B".repeat(400)}`;
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
@@ -472,9 +472,13 @@ describe("AssistantMessageBody", () => {
       streamingEnabled: true,
     }));
 
+    // The same ADS row as the trace: closed unless the reader opens it.
     expect(html).toContain("Capture screen");
-    expect(html).not.toContain(screenshotOutput);
-    expect(html).not.toContain("Live output");
+    expect(html).toMatch(
+      /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).not.toContain('aria-expanded="true"');
+    expect(html).toContain("Live output");
   });
 
   test("renders interim assistant messages when enabled", async () => {

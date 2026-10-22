@@ -5,6 +5,7 @@ import {
   type WorkQueueLane,
   type WorkQueueSignals,
 } from "./work-attention-order";
+import { FLEET_LANE_LABEL } from "./fleet-vocabulary";
 
 /**
  * Sidebar work queue: the lane model behind the left sidebar's `Work queue`
@@ -37,12 +38,7 @@ export const SIDEBAR_WORK_QUEUE_LANE_ORDER = WORK_QUEUE_LANE_ORDER;
 export const SIDEBAR_WORK_QUEUE_LANE_LABEL: Record<
   SidebarWorkQueueLane,
   string
-> = {
-  get "action-required"() { return i18n.t("fleet:sidebarWorkQueue.actionRequired"); },
-  get "in-progress"() { return i18n.t("fleet:sidebarWorkQueue.inProgress"); },
-  get "in-review"() { return i18n.t("fleet:sidebarWorkQueue.inReview"); },
-  get idle() { return i18n.t("fleet:sidebarWorkQueue.idle"); },
-};
+> = FLEET_LANE_LABEL;
 
 /** Per-workspace inputs; see `WorkQueueSignals`. */
 export type SidebarWorkQueueSignals = WorkQueueSignals;

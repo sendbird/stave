@@ -71,6 +71,14 @@ export type ApprovalProps = Omit<React.ComponentProps<"section">, "title"> & {
   arguments?: readonly ApprovalArgument[];
   /** A decision is being recorded. Blocks the controls without faking one. */
   busy?: boolean;
+  /**
+   * Host extension. `compact` fits a decision into a host surface that draws
+   * its own boundary — a composer slot, an inbox row, a side panel: no
+   * transcript rule, tighter rhythm, and the description and argument values
+   * clamped to a few lines. The decision set and its behavior are unchanged.
+   * @default "default"
+   */
+  density?: "default" | "compact";
   denyLabel?: React.ReactNode;
   description?: React.ReactNode;
   onDecide?: (decision: ApprovalDecision) => void;
@@ -136,6 +144,7 @@ export function Approval({
   arguments: argumentRows,
   busy = false,
   className,
+  density = "default",
   denyLabel = i18n.t("ui:approval.deny"),
   description,
   onDecide,
@@ -198,6 +207,7 @@ export function Approval({
   };
 
   const theme = themeProps("approval");
+  const compact = density === "compact";
 
   return (
     <section
@@ -205,7 +215,12 @@ export function Approval({
       {...theme}
       aria-busy={busy || undefined}
       aria-labelledby={titleId}
-      className={cx(sx(agentSurface.decision, xstyle), theme.className, className)}
+      className={cx(
+        sx(agentSurface.decision, compact && styles.compactRoot, xstyle),
+        theme.className,
+        className,
+      )}
+      data-density={compact ? "compact" : undefined}
       // `group`, not `region`: a transcript can hold a dozen of these, and a
       // dozen landmarks is a landmark list nobody can use.
       role="group"
@@ -246,7 +261,7 @@ export function Approval({
       {description == null ? null : (
         <p
           {...themeSlotProps("approval", "description")}
-          className={sx(styles.description)}
+          className={sx(styles.description, compact && styles.compactClamp)}
         >
           {description}
         </p>
@@ -257,14 +272,24 @@ export function Approval({
         // already has a horizontal transcript boundary.
         <dl
           {...themeSlotProps("approval", "arguments")}
-          className={sx(agentSurface.well, styles.arguments)}
+          className={sx(
+            agentSurface.well,
+            styles.arguments,
+            compact && styles.compactArguments,
+          )}
         >
           {argumentRows.map((row) => (
             <div className={sx(agentSurface.metaRow)} key={row.id}>
               <dt className={sx(agentSurface.metaRowLabel, styles.term)}>
                 {row.label}
               </dt>
-              <dd className={sx(agentSurface.meta, styles.value)}>
+              <dd
+                className={sx(
+                  agentSurface.meta,
+                  styles.value,
+                  compact && styles.compactClamp,
+                )}
+              >
                 {row.value}
               </dd>
             </div>
@@ -283,7 +308,7 @@ export function Approval({
         // coming out of the description.
         <div
           aria-disabled={busy || undefined}
-          className={sx(styles.actions)}
+          className={sx(styles.actions, compact && styles.compactActions)}
           inert={busy || undefined}
           onBlurCapture={(event) => {
             if (event.relatedTarget == null) {
@@ -441,5 +466,26 @@ const styles = stylex.create({
     flexWrap: "wrap",
     gap: vars["--ads-space-8"],
     justifyContent: "flex-start",
+  },
+  // Host extension: `density="compact"`. The host container owns the
+  // boundary, so the transcript rule goes and the rhythm tightens one step.
+  compactRoot: {
+    borderBlockStartWidth: 0,
+    gap: vars["--ads-space-4"],
+    paddingBlock: vars["--ads-space-4"],
+  },
+  compactArguments: {
+    gap: vars["--ads-space-2"],
+    padding: vars["--ads-space-8"],
+  },
+  compactClamp: {
+    display: "-webkit-box",
+    overflow: "hidden",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 3,
+  },
+  compactActions: {
+    gap: vars["--ads-space-4"],
+    paddingBlockStart: vars["--ads-space-4"],
   },
 });

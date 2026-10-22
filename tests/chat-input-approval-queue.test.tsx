@@ -40,8 +40,12 @@ describe("ChatInputApprovalQueue", () => {
     // Guidance toggle present
     expect(html).toContain("guide instead");
     expect(html).toContain("Tab");
-    // Keyboard hint for approve
-    expect(html).toContain("approve");
+    // The shared approval card, compact, in the approval card's words
+    expect(html).toContain('data-density="compact"');
+    expect(html).toContain("Allow once");
+    expect(html).toContain("Deny");
+    // Keyboard hint for Enter
+    expect(html).toContain("to allow once");
     // Queued item visible inside details
     expect(html).toContain("Read");
     expect(html.indexOf("Run npm test")).toBeLessThan(html.indexOf("Open .env"));
@@ -82,12 +86,12 @@ describe("ChatInputApprovalQueue", () => {
       onTrustAndApprove: () => {},
     }));
 
-    expect(withSupport).toContain("Always allow");
-    expect(withoutSupport).not.toContain("Always allow");
+    expect(withSupport).toContain(">Always allow<");
+    expect(withoutSupport).not.toContain(">Always allow<");
     // The provider owns persistence here, so Stave must not also offer its own
     // weaker client-side trusted-tools copy of the same decision.
-    expect(withSupport).not.toContain("approve and always allow");
-    expect(withoutSupport).toContain("approve and always allow");
+    expect(withSupport).not.toContain("always allow `npm test`");
+    expect(withoutSupport).toContain("always allow `npm test`");
   });
 
   test("omits guidance and keyboard hint when disabled", () => {

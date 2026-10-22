@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseSubagentToolInput } from "@/components/ai-elements/subagent";
+import { parseSubagentToolInput } from "@/lib/subagent-tool-input";
 import { isSubagentToolPart } from "@/components/session/chat-panel.utils";
 
 describe("parseSubagentToolInput", () => {

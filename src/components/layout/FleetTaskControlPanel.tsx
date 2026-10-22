@@ -9,7 +9,6 @@ import {
   type KeyboardEvent,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import {
@@ -17,6 +16,10 @@ import {
   DelegatedTaskRows,
 } from "@/components/session/DelegatedTaskRows";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
+import {
+  APPROVAL_DELIVERY_GUARD_MS,
+  ToolApprovalCard,
+} from "@/components/session/ToolApprovalCard";
 import { Button, Loader, Textarea } from "@/components/ui";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import {
@@ -27,6 +30,11 @@ import {
   type FleetInteractionControlIdentity,
   type FleetTaskControlIdentity,
 } from "@/lib/fleet/control-plane";
+import {
+  isOtherRepositoryInteraction,
+  loadFleetInteraction,
+} from "@/lib/fleet/interaction-load";
+import { fleetInteractionOutlivesTurn } from "@/lib/fleet/interaction-respond";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import { isTaskManaged } from "@/lib/tasks";
@@ -116,7 +124,6 @@ export function FleetTaskControlPanel(args: {
   const { t: tI18n } = useTranslation(["fleet"]);
   const panelId = useId();
   const panelRef = useRef<HTMLElement | null>(null);
-  const completionTimerRef = useRef<number | null>(null);
   const [
     activeRepositoryPath,
     activeWorkspaceId,
@@ -201,7 +208,10 @@ export function FleetTaskControlPanel(args: {
     }
     return findLatestPendingToolInteraction({ messages });
   }, [args.expectedInteraction, messages, i18n.resolvedLanguage]);
+  // As in the row: a question that did not pause its turn outlives it.
+  const outlivesTurn = fleetInteractionOutlivesTurn(pendingInteraction?.part);
   const interactionTurnMatches =
+    outlivesTurn ||
     (!args.interactionOnly && managed) ||
     (Boolean(activeTurnId) &&
       (!expectedTurnId || activeTurnId === expectedTurnId));
@@ -209,9 +219,71 @@ export function FleetTaskControlPanel(args: {
   const pendingPart = interactionTurnMatches && interactionMessageMatches
     ? (pendingInteraction?.part ?? null)
     : null;
+  // A request in a workspace nobody has opened yet is not "answered": its task
+  // is read on demand (open repository only) before anything is judged stale.
+  const taskLoaded = Boolean(task) && messagesByTask[args.target.taskId] !== undefined;
+  const otherRepository = isOtherRepositoryInteraction(args.target, {
+    repositoryPath: activeRepositoryPath,
+  });
+  const expectedIdentity = useMemo(
+    () =>
+      args.expectedInteraction
+        ? {
+            repositoryPath: args.target.repositoryPath,
+            workspaceId: args.target.workspaceId,
+            taskId: args.target.taskId,
+            turnId: args.target.turnId ?? null,
+            kind: args.expectedInteraction.kind,
+            requestId: args.expectedInteraction.requestId,
+            messageId: args.expectedInteraction.messageId ?? null,
+          }
+        : null,
+    [
+      args.expectedInteraction,
+      args.target.repositoryPath,
+      args.target.taskId,
+      args.target.turnId,
+      args.target.workspaceId,
+    ],
+  );
+  const [requestLoad, setRequestLoad] = useState<{
+    status: "idle" | "loading" | "failed";
+    error?: string;
+  }>({ status: "idle" });
+  const needsRequestLoad = Boolean(expectedIdentity) && !taskLoaded && !otherRepository;
+  useEffect(() => {
+    if (!needsRequestLoad || !expectedIdentity) {
+      return;
+    }
+    let active = true;
+    setRequestLoad({ status: "loading" });
+    loadFleetInteraction(expectedIdentity).then(
+      () => {
+        if (active) setRequestLoad({ status: "idle" });
+      },
+      (cause: unknown) => {
+        if (!active) return;
+        setRequestLoad({
+          status: "failed",
+          error: cause instanceof Error ? cause.message : String(cause),
+        });
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [expectedIdentity, needsRequestLoad]);
   const hasStaleExpectedInteraction =
     Boolean(args.expectedInteraction) &&
+    taskLoaded &&
     (!pendingInteraction || !interactionTurnMatches || !interactionMessageMatches);
+  const requestNotice = !args.expectedInteraction || taskLoaded
+    ? null
+    : otherRepository
+      ? { tone: "neutral" as const, text: tI18n("fleet:inlineAnswer.otherRepository") }
+      : requestLoad.status === "failed"
+        ? { tone: "error" as const, text: requestLoad.error ?? tI18n("fleet:inlineAnswer.loadFailed") }
+        : { tone: "neutral" as const, text: tI18n("fleet:inlineAnswer.loading") };
   // The panel's agent count and its child rows must describe the same listing.
   // The count comes from the turn's work graph, and ledger-owned children only
   // reach that graph through this merge — previously it ran only when the Turn
@@ -267,15 +339,6 @@ export function FleetTaskControlPanel(args: {
   const canQuickReply =
     !args.interactionOnly && Boolean(activeTurnId) && Boolean(task) && !managed && !pendingPart;
 
-  useEffect(
-    () => () => {
-      if (completionTimerRef.current != null) {
-        window.clearTimeout(completionTimerRef.current);
-      }
-    },
-    [],
-  );
-
   useEffect(() => {
     const frameId = window.requestAnimationFrame(() => {
       panelRef.current?.focus({ preventScroll: true });
@@ -303,35 +366,57 @@ export function FleetTaskControlPanel(args: {
       expected: args.target,
     });
 
-  const scheduleInteractionCompletionCheck = (
-    expected: FleetInteractionControlIdentity,
-  ) => {
-    if (completionTimerRef.current != null) {
-      window.clearTimeout(completionTimerRef.current);
+  // A sent answer keeps the controls busy until the request leaves pending —
+  // its recorded state says how it ended — or the delivery guard passes, so a
+  // delivery that failed silently can be retried.
+  const [sentRequestId, setSentRequestId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!sentRequestId) {
+      return;
     }
-    completionTimerRef.current = window.setTimeout(() => {
-      const current = getFreshCurrentState();
-      const validation = validateFleetInteractionAction({ expected, current });
-      const identityChanged = args.interactionOnly && (current.turnId !== expected.turnId ||
-        !current.messages.some(message => message.id === expected.messageId));
-      setBusyAction(null);
-      setStatus(
-        identityChanged ? { tone: "neutral", text: tI18n("fleet:fleetTaskControlPanel.theRequestChangedDeliveryCannotBeConfirmed") } : validation.ok
-          ? {
-              tone: "neutral",
-              text: tI18n("fleet:fleetTaskControlPanel.theProviderIsStillProcessingThisResponse"),
-            }
-          : {
-              tone: "success",
-              text: tI18n("fleet:fleetTaskControlPanel.responseDeliveredTheTaskCanContinue"),
-            },
+    if (pendingInteraction?.part.requestId === sentRequestId) {
+      const timer = window.setTimeout(() => {
+        setSentRequestId(null);
+        setBusyAction(null);
+        setStatus({
+          tone: "neutral",
+          text: tI18n("fleet:fleetTaskControlPanel.theProviderIsStillProcessingThisResponse"),
+        });
+      }, APPROVAL_DELIVERY_GUARD_MS);
+      return () => window.clearTimeout(timer);
+    }
+    const recorded = messages
+      .flatMap((message) => message.parts)
+      .find(
+        (part) =>
+          (part.type === "approval" || part.type === "user_input") &&
+          part.requestId === sentRequestId,
       );
-    }, 900);
-  };
+    const interrupted =
+      recorded?.type === "approval"
+        ? recorded.state === "approval-interrupted"
+        : recorded?.type === "user_input"
+          ? recorded.state === "input-interrupted"
+          : true;
+    setSentRequestId(null);
+    setBusyAction(null);
+    setStatus(
+      interrupted
+        ? {
+            tone: "neutral",
+            text: tI18n("fleet:fleetTaskControlPanel.theRequestChangedDeliveryCannotBeConfirmed"),
+          }
+        : {
+            tone: "success",
+            text: tI18n("fleet:fleetTaskControlPanel.responseDeliveredTheTaskCanContinue"),
+          },
+    );
+  }, [messages, pendingInteraction, sentRequestId, tI18n]);
 
   const runInteractionAction = (input: {
     kind: "approval" | "user-input";
     approved?: boolean;
+    scope?: "once" | "always";
     answers?: Record<string, string>;
     denied?: boolean;
   }) => {
@@ -340,7 +425,13 @@ export function FleetTaskControlPanel(args: {
     }
     const expected: FleetInteractionControlIdentity = {
       ...args.target,
-      turnId: args.interactionOnly ? expectedTurnId : managed ? activeTurnId : expectedTurnId,
+      turnId: fleetInteractionOutlivesTurn(pendingInteraction.part)
+        ? null
+        : args.interactionOnly
+          ? expectedTurnId
+          : managed
+            ? activeTurnId
+            : expectedTurnId,
       kind: input.kind,
       requestId: pendingInteraction.part.requestId,
       messageId: args.expectedInteraction?.messageId ?? pendingInteraction.messageId,
@@ -368,6 +459,9 @@ export function FleetTaskControlPanel(args: {
         messageId: validation.messageId,
         requestId: expected.requestId,
         approved: Boolean(input.approved),
+        ...(input.approved && input.scope === "always"
+          ? { scope: "always" as const }
+          : {}),
       });
     } else {
       resolveUserInput({
@@ -378,7 +472,7 @@ export function FleetTaskControlPanel(args: {
         denied: input.denied,
       });
     }
-    scheduleInteractionCompletionCheck(expected);
+    setSentRequestId(expected.requestId);
   };
 
   const sendQuickReply = async (intent: "steer" | "queue") => {
@@ -511,6 +605,18 @@ export function FleetTaskControlPanel(args: {
         className={sx(styles.section)}
       /></> : null}
 
+      {requestNotice ? (
+        <div
+          className={sx(
+            styles.staleNotice,
+            requestNotice.tone === "error" && styles.statusError,
+          )}
+          role={requestNotice.tone === "error" ? "alert" : "status"}
+        >
+          {requestNotice.text}
+        </div>
+      ) : null}
+
       {hasStaleExpectedInteraction ? (
         <div
           className={sx(styles.staleNotice)}
@@ -522,23 +628,28 @@ export function FleetTaskControlPanel(args: {
 
       {pendingPart?.type === "approval" ? (
         <div className={sx(styles.section)}>
-          <ConfirmationCompact
-            toolName={pendingPart.toolName}
-            description={pendingPart.description}
-            state={pendingPart.state}
+          {/* A managed task answers through its host, which keeps no
+              standing grant, so it is not offered "Always allow". */}
+          <ToolApprovalCard
+            allowAlways={!managed}
+            busy={busyAction === "approval"}
+            density="compact"
             disabled={busyAction != null}
-            disabledReason={
-              busyAction ? i18n.t("fleet:additionalCopy.message4") : undefined
+            note={
+              busyAction != null && busyAction !== "approval" ? (
+                <span className={sx(styles.replyHint)}>
+                  {i18n.t("fleet:additionalCopy.message4")}
+                </span>
+              ) : undefined
             }
-            comfortableActions
-            showShortcutHint={false}
-            truncateDescription={false}
-            onApprove={() =>
-              runInteractionAction({ kind: "approval", approved: true })
+            onDecide={(decision) =>
+              runInteractionAction({
+                kind: "approval",
+                approved: decision.approved,
+                scope: decision.scope,
+              })
             }
-            onReject={() =>
-              runInteractionAction({ kind: "approval", approved: false })
-            }
+            part={pendingPart}
           />
         </div>
       ) : null}

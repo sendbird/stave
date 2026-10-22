@@ -59,6 +59,29 @@ describe("run attention in Fleet", () => {
     expect(items[1]!.detail).toBe("Build · Which plan?");
   });
 
+  test("an agent run row waits from the event that stopped its stage", () => {
+    const event = (kind: "stage-completed" | "stage-blocked", createdAt: string, sequence: number) => ({
+      id: `event-${sequence}`,
+      agentRunId: "m-wait",
+      sequence,
+      kind,
+      idempotencyKey: null,
+      detail: { stageId: kind === "stage-blocked" ? "build" : "understand", attempt: 1 },
+      createdAt,
+    });
+    const signOff = atBuild("awaiting-sign-off", "m-wait");
+    signOff.events = [event("stage-completed", "2026-07-26T00:10:00.000Z", 1)] as never;
+    const blocked = atBuild("blocked", "m-wait");
+    blocked.events = [
+      event("stage-completed", "2026-07-26T00:10:00.000Z", 1),
+      event("stage-blocked", "2026-07-26T00:20:00.000Z", 2),
+    ] as never;
+    const [waitingSignOff] = collectFleetAgentRunAttentionItems([input(signOff)]);
+    const [waitingBlocked] = collectFleetAgentRunAttentionItems([input(blocked)]);
+    expect(waitingSignOff!.waitingSince).toBe("2026-07-26T00:10:00.000Z");
+    expect(waitingBlocked!.waitingSince).toBe("2026-07-26T00:20:00.000Z");
+  });
+
   test("sign-offs sort with approvals, ahead of failed runs and PR states", () => {
     const projection = buildFleetAttentionProjection({
       notifications: [],

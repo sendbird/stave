@@ -20,7 +20,8 @@
     "sentence10": "Last used {{value1}}",
     "assignments_one": "{{count}} assignment",
     "assignments_other": "{{count}} assignments",
-    "extraCopy23": "{{value1}} couldn't start"
+    "extraCopy23": "{{value1}} couldn't start",
+    "stalled": "No updates"
   },
   "agentCanCallField": {
     "ariaLabel": "Can call",

@@ -13,6 +13,7 @@ import type { AgentRunDetail, AgentRunsBridgeApi } from "@/lib/agent-runs/api";
 import { currentStageRecord, isActiveAgentRunState } from "@/lib/agent-runs/domain";
 import { describeAgentRunNotification, describeSignOffReminder } from "@/lib/agent-runs/notifications";
 import { isOlderAgentRunDetail } from "@/lib/agent-runs/agent-run-view";
+import { resolveAgentRunAttentionSince } from "@/lib/agent-runs/attention-since";
 import { persistRendererNotifications } from "@/store/app-store-notification-runtime";
 import { useAppStore } from "@/store/app.store";
 
@@ -137,16 +138,7 @@ export function listWaitingSignOffs(details: Record<string, AgentRunDetail>) {
     if (detail.agentRun.state !== "running") return [];
     const record = currentStageRecord(detail);
     if (record.status !== "awaiting-sign-off") return [];
-    let since = detail.agentRun.updatedAt;
-    for (let index = detail.events.length - 1; index >= 0; index -= 1) {
-      const event = detail.events[index]!;
-      // The wait began when the stage before it ended, or when the agent run resumed.
-      if (event.kind === "stage-completed" || event.kind === "stage-skipped" || event.kind === "resumed") {
-        since = event.createdAt;
-        break;
-      }
-    }
-    return [{ detail, since }];
+    return [{ detail, since: resolveAgentRunAttentionSince(detail) }];
   });
 }
 

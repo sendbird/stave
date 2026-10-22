@@ -1,24 +1,35 @@
-import { i18n, useTranslation } from "@/i18n";
+import { useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
-  AlertTriangle,
   BellOff,
-  CheckCircle2,
   ChevronDown,
   ChevronRight,
   Clock,
-  GitMerge,
   Inbox,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useCallback, useRef, useState, type KeyboardEvent } from "react";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
-import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
-import { StateMark } from "@/components/ads/components/StateMark";
-import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-marks";
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import {
+  describeFleetRowKeys,
+  FleetRowInlineAnswer,
+  resolveFleetRowKey,
+} from "@/components/layout/FleetRowInlineAnswer";
+import { useFleetRowInteraction } from "@/components/layout/useFleetRowInteraction";
+import { FleetQuietDuration } from "@/components/layout/FleetTaskActivityLine";
+import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
+import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
+import type { FleetInboxEntry } from "@/lib/fleet/inbox-model";
+import {
+  countFleetBulkPlan,
+  pickFleetBulkEffect,
+  planFleetReviewClear,
+  summarizeFleetBulkPlan,
+  type FleetBulkEffect,
+  type FleetBulkPlan,
+} from "@/lib/fleet/attention-bulk";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import {
@@ -27,113 +38,25 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui";
 import { attentionStyles as styles } from "./fleet-attention-inbox.styles";
+import { inboxRowStyles as rowStyles } from "./inbox-row.styles";
 import {
   getFleetAttentionTier,
   type FleetAttentionItem,
-  type FleetAttentionKind,
 } from "@/lib/fleet/attention-projection";
+import {
+  describeFleetAttentionPrimaryAction,
+  FLEET_ATTENTION_KIND_LABEL,
+  FLEET_TIER_LABEL,
+} from "@/lib/fleet/fleet-vocabulary";
 import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
-import { PR_STATUS_VISUAL } from "@/lib/pr-status";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { describeSignOffAction } from "@/lib/agent-runs/agent-run-view";
+import { useFleetAttention } from "@/store/fleet-attention-store";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store/agent-runs-store";
-
-const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
-  get "user-input"() { return i18n.t("fleet:fleetAttentionInbox.question"); },
-  get approval() { return i18n.t("fleet:fleetAttentionInbox.approval"); },
-  get "run-failed"() { return i18n.t("fleet:fleetAttentionInbox.runFailed"); },
-  get "result-ready"() { return i18n.t("fleet:fleetAttentionInbox.resultReady"); },
-  get "pr-changes-requested"() { return i18n.t("fleet:fleetAttentionInbox.changesRequested"); },
-  get "pr-checks-failed"() { return i18n.t("fleet:fleetAttentionInbox.checksFailed"); },
-  get "pr-merge-conflict"() { return i18n.t("fleet:fleetAttentionInbox.mergeConflict"); },
-  get "pr-behind-base"() { return i18n.t("fleet:fleetAttentionInbox.behindBase"); },
-  get "pr-ready-to-merge"() { return i18n.t("fleet:fleetAttentionInbox.readyToMerge"); },
-  get "agent-run-sign-off"() { return i18n.t("fleet:fleetAttentionInbox.signOff"); },
-  get "agent-run-blocked"() { return i18n.t("fleet:fleetAttentionInbox.runBlocked"); },
-  get "agent-run-stuck"() { return i18n.t("fleet:fleetAttentionInbox.runStuck"); },
-};
-
-/** Which semantic family the need belongs to; the Badge owns the colors. */
-const FLEET_NEED_TONE: Record<FleetAttentionKind, BadgeTone> = {
-  "user-input": "warning",
-  approval: "warning",
-  "run-failed": "danger",
-  "result-ready": "info",
-  "pr-changes-requested": "danger",
-  "pr-checks-failed": "danger",
-  "pr-merge-conflict": "danger",
-  "pr-behind-base": "warning",
-  "pr-ready-to-merge": "success",
-  "agent-run-sign-off": "warning",
-  "agent-run-blocked": "danger",
-  "agent-run-stuck": "danger",
-};
-
-function getFleetNeedIcon(item: FleetAttentionItem): ReactNode {
-  switch (item.kind) {
-    // Needs of the agent work are work states, drawn as every surface draws them.
-    case "user-input":
-    case "approval":
-    case "run-failed":
-    case "agent-run-sign-off":
-    case "agent-run-blocked":
-    case "agent-run-stuck":
-      return <StateMark state={FLEET_ATTENTION_WORK_STATE[item.kind]!} />;
-    case "result-ready":
-      return <CheckCircle2 className={sx(styles.needIcon)} aria-hidden="true" />;
-    case "pr-ready-to-merge":
-      return <GitMerge className={sx(styles.needIcon)} aria-hidden="true" />;
-    case "pr-changes-requested":
-    case "pr-checks-failed":
-    case "pr-merge-conflict":
-    case "pr-behind-base":
-      return item.prStatus ? (
-        <PrStatusIcon status={item.prStatus} className={sx(styles.needIcon)} />
-      ) : (
-        <AlertTriangle className={sx(styles.needIcon)} aria-hidden="true" />
-      );
-  }
-}
-
-function getFleetNeedTitle(item: FleetAttentionItem) {
-  return item.taskTitle?.trim() || item.workspaceName;
-}
-
-function getFleetNeedPrimaryAction(item: FleetAttentionItem) {
-  switch (item.kind) {
-    case "user-input":
-      return "Open question";
-    case "approval":
-      return "Open approval";
-    case "run-failed":
-      return "Open failure";
-    case "result-ready":
-      return "Review result";
-    case "pr-changes-requested":
-    case "pr-checks-failed":
-    case "pr-merge-conflict":
-    case "pr-behind-base":
-      return "Open workspace";
-    case "pr-ready-to-merge":
-      return "Open merge controls";
-    case "agent-run-sign-off":
-      return "Review sign-off";
-    case "agent-run-blocked":
-    case "agent-run-stuck":
-      return "Open run";
-  }
-}
-
-function getFleetNeedDetail(item: FleetAttentionItem) {
-  if (item.prStatus) {
-    return PR_STATUS_VISUAL[item.prStatus].label;
-  }
-  return item.detail;
-}
 
 /** The sign-off button on a Fleet row and, when the sign-off failed, why. */
 export function AgentRunSignOffControl(props: {
@@ -144,11 +67,11 @@ export function AgentRunSignOffControl(props: {
 }) {
   return (
     <>
-      <Button type="button" size="sm" xstyle={styles.rowAction} disabled={props.disabled} onClick={props.onSignOff}>
+      <Button type="button" size="sm" xstyle={rowStyles.rowAction} disabled={props.disabled} onClick={props.onSignOff}>
         {props.label}
       </Button>
       {props.failure ? (
-        <span className={sx(styles.rowError)} role="alert">
+        <span className={sx(rowStyles.rowError)} role="alert">
           {props.failure}
         </span>
       ) : null}
@@ -184,19 +107,65 @@ function AgentRunSignOffAction(args: {
 
 function FleetNeedRow(args: {
   item: FleetAttentionItem;
+  /** The item with the notifications that speak for it. */
+  entry: FleetInboxEntry;
   selected: boolean;
   busy: boolean;
   onOpen: (item: FleetAttentionItem) => void;
+  /** Open what the entry names, as the bell would. */
+  onOpenEntry: (item: FleetAttentionItem) => void;
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onMarkRead: (item: FleetAttentionItem) => void;
   onDismiss: (item: FleetAttentionItem) => void;
   onSnooze: (item: FleetAttentionItem, durationMs: number) => void;
   onOpenPr: (item: FleetAttentionItem) => void;
+  /** After an answer leaves this row, so triage can continue on the next. */
+  onAnswered: (item: FleetAttentionItem) => void;
 }) {
   const { t: tI18n } = useTranslation(["fleet"]);
-  const { item, selected, busy } = args;
-  const detail = getFleetNeedDetail(item);
-  const title = getFleetNeedTitle(item);
+  const { item, entry, selected, busy } = args;
+  const interaction = useFleetRowInteraction(item);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const { onAnswered } = args;
+  const answer = useCallback(
+    (response: FleetInteractionResponse) => {
+      if (interaction.respond(response).ok) {
+        onAnswered(item);
+      }
+    },
+    [interaction, item, onAnswered],
+  );
+  // A focused row answers with A / D / 1–9 while its inline answer shows. The
+  // open control panel and any text field keep their own keys, and the key is
+  // consumed so Fleet's window shortcuts skip it.
+  const handleRowKeyDown = (event: KeyboardEvent<HTMLLIElement>) => {
+    if (
+      event.defaultPrevented ||
+      selected ||
+      (event.target instanceof Node && panelRef.current?.contains(event.target))
+    ) {
+      return;
+    }
+    const response = resolveFleetRowKey(
+      {
+        key: event.key,
+        altKey: event.altKey,
+        ctrlKey: event.ctrlKey,
+        metaKey: event.metaKey,
+        shiftKey: event.shiftKey,
+        repeat: event.repeat,
+        isComposing: event.nativeEvent.isComposing,
+        target: event.target,
+      },
+      interaction,
+    );
+    if (!response) {
+      return;
+    }
+    event.preventDefault();
+    answer(response);
+  };
+  const title = entry.title;
   const canMarkRead =
     Boolean(item.notificationId || item.resultReview) &&
     (item.kind === "run-failed" || item.kind === "result-ready");
@@ -221,46 +190,53 @@ function FleetNeedRow(args: {
     : null;
 
   return (
-    <li className={sx(styles.row, selected && styles.rowSelected)}>
-      <AdsButton
-        layout="host"
-        id={triggerId}
-        type="button"
-        xstyle={[styles.rowTrigger, focusRing.ringInset]}
-        aria-label={tI18n("fleet:fleetAttentionInbox.valueForValueInValue", { value1: getFleetNeedPrimaryAction(item), title: title, value2: item.workspaceName })}
-        aria-expanded={controlTarget ? selected : undefined}
-        aria-controls={
+    <InboxRow
+      entry={entry}
+      rowStyle={styles.gridRow}
+      triggerId={triggerId}
+      triggerLabel={tI18n("fleet:fleetAttentionInbox.rowLabel", { action: describeFleetAttentionPrimaryAction(item.kind), title, workspace: item.workspaceName })}
+      selected={selected}
+      busy={busy}
+      onActivate={() => {
+        interaction.ensureLoaded();
+        args.onOpen(item);
+      }}
+      triggerProps={{
+        "aria-expanded": controlTarget ? selected : undefined,
+        "aria-controls":
           controlTarget && selected
             ? `fleet-attention-controls-${item.id}`
-            : undefined
-        }
-        disabled={busy}
-        onClick={() => args.onOpen(item)}
-      >
-        <span className={sx(styles.rowTop)}>
-          <Badge
-            variant="outline"
-            tone={FLEET_NEED_TONE[item.kind]}
-            xstyle={styles.needBadge}
-          >
-            {getFleetNeedIcon(item)}
-            {FLEET_NEED_LABEL[item.kind]}
-          </Badge>
-          <span className={sx(styles.rowTime)}>
-            {formatTaskUpdatedAt({ value: item.createdAt })}
-          </span>
-        </span>
-        <span className={sx(styles.rowTitle)}>{title}</span>
-        <span className={sx(styles.rowMeta)}>
-          <span className={sx(styles.rowMetaPart)}>{item.workspaceName}</span>
-          <span aria-hidden="true">·</span>
-          <span className={sx(styles.rowMetaPart)}>{item.repositoryName}</span>
-        </span>
-        {detail ? (
-          <span className={sx(styles.rowDetail)}>{detail}</span>
-        ) : null}
-      </AdsButton>
-      <div className={sx(styles.rowActions)}>
+            : undefined,
+        "aria-keyshortcuts": selected ? undefined : describeFleetRowKeys(interaction),
+      }}
+      // The inline approval card already names the tool and its request.
+      hideDetail={!selected && interaction.inline.kind === "approval"}
+      supplement={
+        item.kind === "turn-stalled" && item.waitingSince ? (
+          <FleetQuietDuration since={item.waitingSince} />
+        ) : undefined
+      }
+      body={
+        selected ? null : (
+          <FleetRowInlineAnswer interaction={interaction} onAnswer={answer} />
+        )
+      }
+      onFocus={interaction.ensureLoaded}
+      onKeyDown={handleRowKeyDown}
+      actions={
+        <>
+          {controlTarget ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              xstyle={rowStyles.rowAction}
+              disabled={busy}
+              aria-label={tI18n("fleet:inlineAnswer.openLabel", { title, workspace: item.workspaceName })}
+              onClick={() => args.onOpenEntry(item)}
+            >
+              {tI18n("fleet:inlineAnswer.open")}</Button>
+          ) : null}
           {item.kind === "agent-run-sign-off" && item.agentRunStage ? (
             <AgentRunSignOffAction item={item} agentRunStage={item.agentRunStage} disabled={busy} />
           ) : null}
@@ -269,7 +245,7 @@ function FleetNeedRow(args: {
               type="button"
               size="sm"
               variant="ghost"
-              xstyle={styles.rowAction}
+              xstyle={rowStyles.rowAction}
               disabled={busy}
               onClick={() => args.onMarkRead(item)}
             >
@@ -281,9 +257,13 @@ function FleetNeedRow(args: {
               type="button"
               size="sm"
               variant="ghost"
-              xstyle={styles.rowAction}
+              xstyle={rowStyles.rowAction}
               disabled={busy}
-              aria-label={tI18n("fleet:fleetAttentionInbox.dismissValueForValueInValue", { value1: item.kind === "approval" ? "approval" : "question", title: title, value2: item.workspaceName })}
+              aria-label={
+                item.kind === "approval"
+                  ? tI18n("fleet:fleetAttentionInbox.dismissApproval", { title, workspace: item.workspaceName })
+                  : tI18n("fleet:fleetAttentionInbox.dismissQuestion", { title, workspace: item.workspaceName })
+              }
               onClick={() => args.onDismiss(item)}
             >
               {tI18n("fleet:fleetAttentionInbox.dismiss")}</Button>
@@ -293,7 +273,7 @@ function FleetNeedRow(args: {
               type="button"
               size="sm"
               variant="ghost"
-              xstyle={styles.rowAction}
+              xstyle={rowStyles.rowAction}
               disabled={busy}
               onClick={() => args.onOpenPr(item)}
             >
@@ -313,13 +293,13 @@ function FleetNeedRow(args: {
                   type="button"
                   size="sm"
                   variant="ghost"
-                  xstyle={styles.rowAction}
+                  xstyle={rowStyles.rowAction}
                   disabled={busy}
-                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_NEED_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
+                  aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
                 />
               }
             >
-              <Clock className={sx(styles.rowActionIcon)} aria-hidden="true" />
+              <Clock className={sx(rowStyles.rowActionIcon)} aria-hidden="true" />
               {tI18n("fleet:fleetAttentionInbox.snooze")}</DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuLabel>{tI18n("fleet:fleetAttentionInbox.hideUntil")}</DropdownMenuLabel>
@@ -333,18 +313,25 @@ function FleetNeedRow(args: {
               ))}
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
+        </>
+      }
+    >
       {selected && controlTarget ? (
         <div
+          ref={panelRef}
           id={`fleet-attention-controls-${item.id}`}
-          className={sx(styles.rowControls)}
+          className={sx(rowStyles.rowControls)}
         >
           <FleetTaskControlPanel
             target={controlTarget}
             expectedInteraction={
               (item.kind === "approval" || item.kind === "user-input") &&
               item.requestId
-                ? { kind: item.kind, requestId: item.requestId }
+                ? {
+                    kind: item.kind,
+                    requestId: item.requestId,
+                    messageId: item.messageId ?? null,
+                  }
                 : undefined
             }
             returnFocusElementId={triggerId}
@@ -353,8 +340,95 @@ function FleetNeedRow(args: {
           />
         </div>
       ) : null}
-    </li>
+    </InboxRow>
   );
+}
+
+const BULK_EFFECT_LABEL_KEY = {
+  "review-results": "fleet:bulk.reviewResults",
+  "read-notifications": "fleet:bulk.readNotifications",
+  "hide-for-a-day": "fleet:bulk.hideForADay",
+} as const satisfies Record<FleetBulkEffect, string>;
+
+/**
+ * `Clear all` for the `In review` group, as a menu that says what it will do
+ * before it does it: each effect with its count (mark results reviewed, mark
+ * notifications read, hide pull requests for a day), any one of them alone,
+ * or all of them. Bulk clear is scoped to this group on purpose: nothing here
+ * is stalled, so acknowledging it in one gesture is safe; doing the same to
+ * the blocking rail would answer requests an agent is still waiting on.
+ */
+function FleetReviewClearMenu(props: {
+  items: readonly FleetAttentionItem[];
+  busy: boolean;
+  onApply: (plan: FleetBulkPlan) => void;
+}) {
+  const { t: tI18n } = useTranslation(["fleet"]);
+  const plan = planFleetReviewClear(props.items);
+  const total = countFleetBulkPlan(plan);
+  const effects = summarizeFleetBulkPlan(plan);
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            xstyle={rowStyles.rowAction}
+            disabled={props.busy || total === 0}
+            aria-label={
+              props.items.length === 1
+                ? tI18n("fleet:fleetAttentionInbox.clearOneInReview")
+                : tI18n("fleet:fleetAttentionInbox.clearAllInReview", { reviewCount: props.items.length })
+            }
+          />
+        }
+      >
+        {tI18n("fleet:fleetAttentionInbox.clearAll")}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{tI18n("fleet:bulk.menuLabel")}</DropdownMenuLabel>
+        {effects.map((summary) => (
+          <DropdownMenuItem
+            key={summary.effect}
+            onSelect={() => props.onApply(pickFleetBulkEffect(plan, summary.effect))}
+          >
+            {tI18n(BULK_EFFECT_LABEL_KEY[summary.effect], { count: summary.count })}
+          </DropdownMenuItem>
+        ))}
+        {effects.length > 1 ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => props.onApply(plan)}>
+              {tI18n("fleet:bulk.applyAll", { count: total })}
+            </DropdownMenuItem>
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+/** An item the inbox has not linked yet (the snapshot is a beat behind). */
+function fallbackEntry(item: FleetAttentionItem): FleetInboxEntry {
+  return {
+    id: item.id,
+    item,
+    notifications: [],
+    kind: item.kind,
+    tier: getFleetAttentionTier(item.kind),
+    title: item.taskTitle?.trim() || item.workspaceName,
+    detail: item.detail ?? null,
+    repositoryPath: item.repositoryPath,
+    repositoryName: item.repositoryName,
+    workspaceId: item.workspaceId,
+    workspaceName: item.workspaceName,
+    taskId: item.taskId ?? null,
+    at: item.waitingSince ?? item.createdAt,
+    unread: false,
+    error: false,
+  };
 }
 
 /**
@@ -370,12 +444,15 @@ export function FleetAttentionInbox(args: {
   snoozedCount?: number;
   clearingReview?: boolean;
   onOpen: (item: FleetAttentionItem) => void;
+  /** Open what an entry names; defaults to the item's task. */
+  onOpenEntry?: (item: FleetAttentionItem) => void;
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onMarkRead: (item: FleetAttentionItem) => void;
   onDismiss: (item: FleetAttentionItem) => void;
   onSnooze: (item: FleetAttentionItem, durationMs: number) => void;
   onOpenPr: (item: FleetAttentionItem) => void;
-  onClearReview: () => void;
+  /** Applies a bulk clear plan for the `In review` group (or part of it). */
+  onClearReview: (plan: FleetBulkPlan) => void;
   onRestoreSnoozed: () => void;
   onClearSelection: () => void;
 }) {
@@ -387,7 +464,7 @@ export function FleetAttentionInbox(args: {
     (item) => getFleetAttentionTier(item.kind) === "blocking",
   );
   // Nothing is stalled on these, so they stay folded until asked for. That is
-  // the difference between "an agent is waiting on you" and "worth a look".
+  // the difference between "an agent is waiting on you" and "in review".
   const review = args.items.filter(
     (item) => getFleetAttentionTier(item.kind) === "review",
   );
@@ -406,18 +483,58 @@ export function FleetAttentionInbox(args: {
     setShowReview(true);
   };
 
+  // Rows in the order they are drawn, so an answer can hand focus onward.
+  const visibleRowIds = [
+    ...blocking.map((item) => item.id),
+    ...(showReviewGroup ? review.map((item) => item.id) : []),
+  ];
+  const visibleRowKey = visibleRowIds.join("\u0000");
+  const focusNextRow = useCallback(
+    (answered: FleetAttentionItem) => {
+      const ids = visibleRowKey.split("\u0000");
+      const index = ids.indexOf(answered.id);
+      const nextId = index >= 0 ? (ids[index + 1] ?? ids[index - 1]) : undefined;
+      if (!nextId) {
+        return;
+      }
+      window.requestAnimationFrame(() => {
+        document.getElementById(`fleet-attention-trigger-${nextId}`)?.focus();
+      });
+    },
+    [visibleRowKey],
+  );
+
+  const entryByItemId = useFleetAttention((snapshot) => snapshot.inbox.entryByItemId);
+  const { onOpenTask } = args;
+  const openItemTask = useCallback(
+    (item: FleetAttentionItem) => {
+      if (item.taskId) {
+        onOpenTask({
+          repositoryPath: item.repositoryPath,
+          workspaceId: item.workspaceId,
+          taskId: item.taskId,
+          taskTitle: item.taskTitle,
+          turnId: item.turnId,
+        });
+      }
+    },
+    [onOpenTask],
+  );
   const renderRow = (item: FleetAttentionItem) => (
     <FleetNeedRow
       key={item.id}
       item={item}
+      entry={entryByItemId.get(item.id) ?? fallbackEntry(item)}
       selected={args.selectedAttentionId === item.id}
       busy={args.busyAttentionId === item.id}
       onOpen={args.onOpen}
+      onOpenEntry={args.onOpenEntry ?? openItemTask}
       onOpenTask={args.onOpenTask}
       onMarkRead={args.onMarkRead}
       onDismiss={args.onDismiss}
       onSnooze={args.onSnooze}
       onOpenPr={args.onOpenPr}
+      onAnswered={focusNextRow}
     />
   );
 
@@ -428,7 +545,7 @@ export function FleetAttentionInbox(args: {
     >
       <div className={sx(styles.header)}>
         <h2 id="fleet-attention-heading" className={sx(styles.groupHeading)}>
-          {tI18n("fleet:fleetAttentionInbox.actionRequired")}</h2>
+          {FLEET_TIER_LABEL.blocking}</h2>
         <span
           className={sx(
             styles.count,
@@ -441,13 +558,13 @@ export function FleetAttentionInbox(args: {
         </span>
       </div>
 
-      <div className={sx(styles.scroller)}>
+      <div className={sx(styles.scroller)} onKeyDown={moveInboxFocus}>
         {blocking.length === 0 ? (
           <div className={sx(styles.empty)}>
             <Inbox className={sx(styles.emptyIcon)} aria-hidden="true" />
-            <p className={sx(styles.emptyTitle)}>{tI18n("fleet:fleetAttentionInbox.nothingBlocked")}</p>
+            <p className={sx(styles.emptyTitle)}>{tI18n("fleet:fleetAttentionInbox.noActionRequired")}</p>
             <p className={sx(styles.emptyHint)}>
-              {tI18n("fleet:fleetAttentionInbox.noAgentIsWaitingOnYouRight")}</p>
+              {tI18n("fleet:fleetAttentionInbox.noAgentIsWaitingOnYou")}</p>
           </div>
         ) : (
           <ul className={sx(styles.list)}>{blocking.map(renderRow)}</ul>
@@ -474,7 +591,7 @@ export function FleetAttentionInbox(args: {
                     aria-hidden="true"
                   />
                 )}
-                <span className={sx(styles.groupHeading)}>{tI18n("fleet:fleetAttentionInbox.worthALook")}</span>
+                <span className={sx(styles.groupHeading)}>{FLEET_TIER_LABEL.review}</span>
                 <span className={sx(styles.reviewCount)}>{review.length}</span>
               </AdsButton>
               {/*
@@ -483,20 +600,11 @@ export function FleetAttentionInbox(args: {
                 same to the blocking rail would answer requests an agent is
                 still waiting on.
               */}
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                xstyle={styles.rowAction}
-                disabled={args.clearingReview}
-                aria-label={
-                  review.length === 1
-                    ? tI18n("fleet:fleetAttentionInbox.clearThe1ItemWorthALook")
-                    : tI18n("fleet:fleetAttentionInbox.clearAllValueItemsWorthALook", { reviewCount: review.length })
-                }
-                onClick={args.onClearReview}
-              >
-                {tI18n("fleet:fleetAttentionInbox.clearAll")}</Button>
+              <FleetReviewClearMenu
+                busy={Boolean(args.clearingReview)}
+                items={review}
+                onApply={args.onClearReview}
+              />
             </div>
             {showReviewGroup ? (
               <ul className={sx(styles.list)}>{review.map(renderRow)}</ul>
@@ -514,7 +622,7 @@ export function FleetAttentionInbox(args: {
               type="button"
               size="sm"
               variant="ghost"
-              xstyle={styles.rowAction}
+              xstyle={rowStyles.rowAction}
               aria-label={tI18n("fleet:fleetAttentionInbox.restoreValueSnoozedItems", { snoozedCount: snoozedCount })}
               onClick={args.onRestoreSnoozed}
             >

@@ -343,6 +343,11 @@ export function buildApprovalNotificationInputs(args: {
   });
 }
 
+/**
+ * The trusted requests among `events`, each with its message and request id.
+ * Answer each by its request id: the same message can also hold a request
+ * that is not trusted.
+ */
 export function findTrustedApprovalResponses(args: {
   session: WorkspaceSessionState;
   taskId: string;

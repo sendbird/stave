@@ -8,7 +8,7 @@ import type { RunStatus } from "@/lib/runs/run-domain";
 import type { WorkspacePrInfo, WorkspacePrStatus } from "@/lib/pr-status";
 import type { TurnVerificationResult } from "@/lib/workspace-scripts";
 import type { TaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
-import { getTodoProgress } from "@/components/ai-elements/todo";
+import { getTodoProgress } from "@/lib/todo-progress";
 import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
 import type { ChatMessage } from "@/types/chat";

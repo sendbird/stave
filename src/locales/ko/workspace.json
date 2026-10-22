@@ -481,7 +481,8 @@
       "projectSettings": "프로젝트 설정: {{value1}}",
       "openSettings": "설정 열기"
     },
-    "signOffNeeded": "단계 승인 필요"
+    "signOffNeeded": "단계 승인 필요",
+    "noUpdates": "업데이트 없음"
   },
   "resourceDashboard": {
     "appFootprintAtValue": "앱 메모리 사용량 {{value1}}",
@@ -901,7 +902,8 @@
     "awaitingApproval": "승인 대기 중",
     "error": "오류",
     "running": "실행 중",
-    "idle": "유휴"
+    "idle": "유휴",
+    "stalled": "업데이트 없음"
   },
   "workspaceResumeBrief": {
     "sharedInstructions": "공유 지침",
@@ -1070,7 +1072,8 @@
       "projectAttention": "확인이 필요한 프로젝트: {{value1}}",
       "editWorkspaceLabel": "워크스페이스 이름 편집: {{value1}}",
       "workspaceActions": "워크스페이스 작업: {{value1}}"
-    }
+    },
+    "unansweredCount_other": "답변을 기다리는 요청 {{count}}개"
   },
   "workspaceInformationReferenceChip": {
     "section": "섹션",

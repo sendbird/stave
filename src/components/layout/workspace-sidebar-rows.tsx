@@ -38,6 +38,10 @@ import { FLEET_ATTENTION_WORK_STATE } from "@/components/layout/fleet-attention-
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { WorkspaceAccountLimitIcon } from "@/components/layout/WorkspaceAccountLimitIcon";
+import {
+  useWorkspaceUnansweredCount,
+  WorkspaceUnansweredCount,
+} from "@/components/layout/WorkspaceUnansweredCount";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
@@ -543,6 +547,7 @@ export function WorkQueueRow(args: {
             >
               {args.secondaryLabel ?? entry.repositoryName}
             </span>
+            <WorkspaceUnansweredCount workspaceId={entry.workspaceId} />
             <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
           </AdsButton>
         </WorkspaceHoverPreviewTooltip>
@@ -618,27 +623,27 @@ export const WorkspaceRespondingCountBadge = memo(
     const { respondingTaskCount } = useWorkspaceSidebarActivityState(
       args.workspaceId,
     );
+    // Requests waiting for an answer sit beside the responding count.
+    const unansweredCount = useWorkspaceUnansweredCount(args.workspaceId);
 
-    if (respondingTaskCount === 0) {
+    if (respondingTaskCount === 0 && unansweredCount === 0) {
       return null;
     }
 
+    const visibility = getWorkspaceRespondingCountVisibilityStyle({
+      hasHoverActions: args.hasHoverActions,
+      isClosing: args.isClosing,
+    });
     return (
       <div className={sx(repositorySidebarStyles.respondingSlot)}>
-        <Badge
+        <WorkspaceUnansweredCount workspaceId={args.workspaceId} xstyle={[transition.fade, visibility]} />
+        {respondingTaskCount === 0 ? null : <Badge
           variant="outline"
           tone="accent"
-          className={sx(
-            repositorySidebarStyles.respondingBadge,
-            transition.fade,
-            getWorkspaceRespondingCountVisibilityStyle({
-              hasHoverActions: args.hasHoverActions,
-              isClosing: args.isClosing,
-            }),
-          )}
+          className={sx(repositorySidebarStyles.respondingBadge, transition.fade, visibility)}
         >
           {respondingTaskCount}
-        </Badge>
+        </Badge>}
       </div>
     );
   },

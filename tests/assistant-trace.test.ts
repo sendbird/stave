@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { getTodoProgress } from "@/components/ai-elements/todo";
+import { getTodoProgress } from "@/lib/todo-progress";
 import {
   deriveTodoTraceStatus,
   deriveTraceToolSummary,

@@ -121,7 +121,9 @@ function FleetAgentRunLine(props: {
   const elapsed = agentRunDuration(detail, now);
   const staged = rows.length > 1;
   const plan = useAgentRunProgress(detail);
-  const progress = staged ? null : describeRunPlan(plan);
+  // Only a reported plan is described; with none, the line says nothing rather
+  // than a placeholder no event produced.
+  const progress = staged || !plan?.items.length ? null : describeRunPlan(plan);
   // A waiting run says how long, when Stave last looked and what its delegates need,
   // as the composer line does; its delegates are read only while it waits.
   const delegates = useTaskSubagentSources(detail.agentRun.leadTaskId, status.waiting ? detail : null);

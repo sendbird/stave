@@ -42,7 +42,7 @@ import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcut
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
 import { StaveAppMenuButton } from "@/components/layout/StaveAppMenuButton";
-import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
+import { useFleetAttention } from "@/store/fleet-attention-store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { WorkspaceAccountLimitIcon } from "@/components/layout/WorkspaceAccountLimitIcon";
@@ -246,8 +246,8 @@ export function RepositoryWorkspaceSidebar(args: {
       ] as const;
     }),
   );
-  const { highestAttentionByWorkspaceId, attentionItemsByWorkspaceId } =
-    useFleetAttentionProjection();
+  const highestAttentionByWorkspaceId = useFleetAttention((snapshot) => snapshot.highestAttentionByWorkspaceId);
+  const attentionItemsByWorkspaceId = useFleetAttention((snapshot) => snapshot.attentionItemsByWorkspaceId);
   const isWorkQueueView = sidebarNavView === "work-queue";
   const repositories = useMemo(() => {
     const rememberedCurrentRepository = currentRepositoryPath

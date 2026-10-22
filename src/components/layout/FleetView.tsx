@@ -9,14 +9,14 @@ import {
   ChevronRight,
   CircleDashed,
   FolderTree,
-  Radar,
+  LayoutGrid,
   Search,
   ShieldAlert,
   ShieldCheck,
   ShieldEllipsis,
+  Table2,
   X,
 } from "lucide-react";
-import { resolveFleetQueueStatus } from "@/lib/fleet/fleet-queue-status";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
@@ -28,7 +28,21 @@ import {
   type FleetWorkspaceCardView,
   type FleetWorkspaceCardVisibility,
 } from "@/components/layout/FleetWorkspaceCard";
-import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
+import { useFleetAttention } from "@/store/fleet-attention-store";
+import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
+import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
+import {
+  FleetTaskTable,
+  type FleetTaskTableSummary,
+} from "@/components/layout/FleetTaskTable";
+import {
+  FLEET_TABLE_FILTER_OPTIONS,
+  isTableOnlyFilter,
+  type FleetTaskTableFilter,
+} from "@/lib/fleet/task-rows";
+import { resetFleetWorkspaceShells } from "@/store/fleet-workspace-shells-store";
+import type { FleetBoardLayout } from "@/store/app-settings";
+import type { FleetBulkPlan } from "@/lib/fleet/attention-bulk";
 import {
   Badge,
   Button,
@@ -40,14 +54,8 @@ import {
   Input,
   Kbd,
 } from "@/components/ui";
-import {
-  getFleetAttentionTier,
-  type FleetAttentionItem,
-} from "@/lib/fleet/attention-projection";
-import {
-  FLEET_ATTENTION_CLEAR_SNOOZE_MS,
-  resolveSnoozeDeadline,
-} from "@/lib/fleet/attention-snooze";
+import { type FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import { resolveSnoozeDeadline } from "@/lib/fleet/attention-snooze";
 import {
   clearFleetAttentionSnoozes,
   snoozeFleetAttention,
@@ -65,10 +73,7 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
-import {
-  setResultReviewed,
-  setResultsReviewed,
-} from "@/lib/reviews/result-review-client";
+import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import { toast } from "@/lib/notifications/toast";
 
 type FleetRepositoryView = {
@@ -211,29 +216,23 @@ export function FleetView() {
         ] as const,
     ),
   );
-  const {
-    items: attentionTargets,
-    blockingItems,
-    snoozedItems,
-    attentionItemsByWorkspaceId,
-    highestAttentionByWorkspaceId,
-    resultReviewError,
-    resultReviewTracked,
-    resultReviewLoaded,
-    resultReviewTotal,
-    resultReviewHasMore,
-    refreshResultReviews,
-  } = useFleetAttentionProjection();
-
-  const queueStatus = resolveFleetQueueStatus({
-    blockingCount: blockingItems.length,
-    itemCount: attentionTargets.length,
-    resultReviews: {
-      tracked: resultReviewTracked,
-      loaded: resultReviewLoaded,
-      error: resultReviewError,
-    },
-  });
+  const attentionTargets = useFleetAttention((snapshot) => snapshot.items);
+  const blockingItems = useFleetAttention((snapshot) => snapshot.blockingItems);
+  const snoozedItems = useFleetAttention((snapshot) => snapshot.snoozedItems);
+  const attentionItemsByWorkspaceId = useFleetAttention(
+    (snapshot) => snapshot.attentionItemsByWorkspaceId,
+  );
+  const highestAttentionByWorkspaceId = useFleetAttention(
+    (snapshot) => snapshot.highestAttentionByWorkspaceId,
+  );
+  const inboxEntryByItemId = useFleetAttention((snapshot) => snapshot.inbox.entryByItemId);
+  const queueStatus = useFleetAttention((snapshot) => snapshot.queueStatus);
+  const resultReviewError = useFleetAttention((snapshot) => snapshot.resultReviewError);
+  const resultReviewTotal = useFleetAttention((snapshot) => snapshot.resultReviewTotal);
+  const resultReviewHasMore = useFleetAttention((snapshot) => snapshot.resultReviewHasMore);
+  const refreshResultReviews = useFleetAttention(
+    (snapshot) => snapshot.refreshResultReviews,
+  );
   const nowMs = useCoarseClock();
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
@@ -250,15 +249,36 @@ export function FleetView() {
   const [collapsedRepositories, setCollapsedRepositories] = useState<
     Record<string, boolean>
   >({});
-  const [boardFilter, setBoardFilter] = useState<FleetBoardFilter>("active");
+  const [boardFilter, setBoardFilter] = useState<FleetTaskTableFilter>("active");
+  // Cards or one table of every open task, kept as a UI setting.
+  const boardLayout = useAppStore((state) => state.settings.fleetBoardLayout);
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  const [tableSummary, setTableSummary] = useState<FleetTaskTableSummary | null>(null);
+  const setBoardLayout = useCallback(
+    (layout: FleetBoardLayout) => {
+      // The cards have no rows to answer for, so their filters stop at the board's.
+      if (layout === "cards") {
+        setBoardFilter((current) => (isTableOnlyFilter(current) ? "active" : current));
+      }
+      updateSettings({ patch: { fleetBoardLayout: layout } });
+    },
+    [updateSettings],
+  );
+  const cardFilter: FleetBoardFilter = isTableOnlyFilter(boardFilter) ? "active" : boardFilter;
+  // Each visit reads unopened workspaces' task lists afresh.
+  useEffect(() => () => resetFleetWorkspaceShells(), []);
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTaskKey, setExpandedTaskKey] = useState<string | null>(null);
   const [selectedAttentionId, setSelectedAttentionId] = useState<string | null>(
     null,
   );
   const [busyAttentionId, setBusyAttentionId] = useState<string | null>(null);
-  const [clearingReview, setClearingReview] = useState(false);
   const filterInputRef = useRef<HTMLInputElement>(null);
+  // The Esc handler reads the latest selection without re-subscribing.
+  const selectedAttentionIdRef = useRef(selectedAttentionId);
+  selectedAttentionIdRef.current = selectedAttentionId;
+  const expandedTaskKeyRef = useRef(expandedTaskKey);
+  expandedTaskKeyRef.current = expandedTaskKey;
 
   const allCardKeys = useMemo(
     () =>
@@ -355,12 +375,16 @@ export function FleetView() {
   const openAttentionItem = useCallback(
     (target: FleetAttentionItem) => {
       if (target.taskId) {
+        // Expanding a row shows its controls; it does not open (or read) the
+        // entry. A result stays until it is opened, marked read, or read in
+        // its task.
         setExpandedTaskKey(null);
         setSelectedAttentionId((current) =>
           current === target.id ? null : target.id,
         );
         return;
       }
+      markInboxEntryRead(inboxEntryByItemId.get(target.id));
       // PR-only attention items navigate directly and have no inline control panel. Do
       // not select them: selection widens the rail, which would otherwise stay
       // expanded with no control surface to justify the extra space.
@@ -386,7 +410,29 @@ export function FleetView() {
         );
       });
     },
-    [openNotificationContext, openRepository, switchWorkspace],
+    [inboxEntryByItemId, openNotificationContext, openRepository, switchWorkspace],
+  );
+
+  // A row's Open: the entry's own target, through its notification when one
+  // speaks for it, exactly as the bell opens it.
+  const openAttentionEntry = useCallback(
+    (target: FleetAttentionItem) => {
+      const entry = inboxEntryByItemId.get(target.id);
+      if (!entry) {
+        if (target.taskId) {
+          handleOpenTask({
+            repositoryPath: target.repositoryPath,
+            workspaceId: target.workspaceId,
+            taskId: target.taskId,
+          });
+        }
+        return;
+      }
+      setExpandedTaskKey(null);
+      setSelectedAttentionId(null);
+      void openInboxEntry(entry);
+    },
+    [handleOpenTask, inboxEntryByItemId],
   );
 
   const markNeedRead = useCallback(
@@ -482,82 +528,16 @@ export function FleetView() {
     );
   }, [snoozedItems, tI18n]);
 
-  /**
-   * Acknowledges the whole `Worth a look` group in one gesture.
-   *
-   * Each row is cleared through whichever mechanism actually owns it, because
-   * Fleet owns none of them: a durable result is marked reviewed, a
-   * notification-backed row is read and resolved, and a pull-request row — whose
-   * state lives on GitHub and would be rebuilt on the next projection — is
-   * snoozed for a day instead. Anything that cannot be cleared is left in place
-   * rather than reported as cleared.
-   */
-  const clearReviewNeeds = useCallback(() => {
-    const reviewTargets = attentionTargets.filter(
-      (target) => getFleetAttentionTier(target.kind) === "review",
-    );
-    if (reviewTargets.length === 0) {
-      return;
-    }
-    setClearingReview(true);
-    void (async () => {
-      let cleared = 0;
-      const scopes = reviewTargets.flatMap((target) =>
-        target.resultReview
-          ? [
-              {
-                repositoryPath: target.resultReview.repositoryPath,
-                workspaceId: target.resultReview.workspaceId,
-                taskId: target.resultReview.taskId,
-                turnId: target.resultReview.turnId,
-              },
-            ]
-          : [],
-      );
-      // The bulk contract caps a batch at 200; a paged rail can exceed that.
-      for (let index = 0; index < scopes.length; index += 200) {
-        cleared += await setResultsReviewed({
-          scopes: scopes.slice(index, index + 200),
-          reviewed: true,
-        });
-      }
-
-      const resolvedAt = new Date().toISOString();
-      for (const target of reviewTargets) {
-        if (target.resultReview || !target.notificationId) {
-          continue;
-        }
-        await markNotificationRead({ id: target.notificationId, resolvedAt });
-        cleared += 1;
-      }
-
-      const snoozedUntil = resolveSnoozeDeadline({
-        durationMs: FLEET_ATTENTION_CLEAR_SNOOZE_MS,
-      });
-      for (const target of reviewTargets) {
-        if (target.resultReview || target.notificationId) {
-          continue;
-        }
-        await snoozeFleetAttention({
-          attentionId: target.id,
-          workspaceId: target.workspaceId,
-          snoozedUntil,
-        });
-        cleared += 1;
-      }
-      toast.success(
-        cleared === 1 ? tI18n("fleet:fleetView.cleared1Item") : tI18n("fleet:fleetView.clearedValueItems", { cleared: cleared }),
-      );
-    })()
-      .catch((error: unknown) => {
-        toast.error(
-          error instanceof Error
-            ? error.message
-            : tI18n("fleet:fleetView.someItemsWereNotClearedRetry"),
-        );
-      })
-      .finally(() => setClearingReview(false));
-  }, [attentionTargets, markNotificationRead, tI18n]);
+  // Bulk clear of `In review`: the menu already said what each effect does;
+  // this applies the chosen plan and offers Undo where the data allows it.
+  const bulkActions = useFleetBulkActions();
+  const { apply: applyBulkPlan } = bulkActions;
+  const clearReviewNeeds = useCallback(
+    (plan: FleetBulkPlan) => {
+      void applyBulkPlan(plan);
+    },
+    [applyBulkPlan],
+  );
 
   const openAttentionItemPr = useCallback((target: FleetAttentionItem) => {
     if (!target.prUrl) {
@@ -596,12 +576,28 @@ export function FleetView() {
       ) {
         return;
       }
+      // Esc steps back one level at a time: an open panel, then the row
+      // being triaged, then the search, and only then Fleet itself.
       if (event.key === "Escape") {
-        const filterInput = filterInputRef.current;
-        if (
-          document.activeElement === filterInput &&
-          filterInput?.value.trim()
-        ) {
+        if (selectedAttentionIdRef.current || expandedTaskKeyRef.current) {
+          event.preventDefault();
+          const triggerId = selectedAttentionIdRef.current
+            ? `fleet-attention-trigger-${selectedAttentionIdRef.current}`
+            : null;
+          setSelectedAttentionId(null);
+          setExpandedTaskKey(null);
+          if (triggerId) {
+            window.requestAnimationFrame(() => document.getElementById(triggerId)?.focus());
+          }
+          return;
+        }
+        const active = document.activeElement;
+        if (active instanceof HTMLElement && active.closest("[data-inbox-entry]")) {
+          event.preventDefault();
+          active.blur();
+          return;
+        }
+        if (filterInputRef.current?.value.trim()) {
           event.preventDefault();
           setSearchQuery("");
           return;
@@ -624,9 +620,9 @@ export function FleetView() {
   }, [closeFleetView, openNextAttentionItem]);
 
   const isFilterActive = isFleetBoardFilterActive({
-    filter: boardFilter,
+    filter: cardFilter,
     query: searchQuery,
-  });
+  }) || isTableOnlyFilter(boardFilter);
   const settled = allCardKeys.every(
     (cardKey) => cardKey in visibilityByCardKey,
   );
@@ -650,6 +646,9 @@ export function FleetView() {
     (entry) => entry.isPhantom,
   ).length;
   const isBoardEmpty = settled && visibleCount === 0 && repositories.length > 0;
+  const showTable = boardLayout === "table";
+  const headerLiveCount = showTable ? (tableSummary?.liveWorkspaceCount ?? 0) : liveCount;
+  const headerShownCount = showTable ? (tableSummary?.shownRowCount ?? 0) : visibleCount;
 
   const toggleRepository = useCallback((repositoryPath: string) => {
     setCollapsedRepositories((current) => ({
@@ -662,15 +661,19 @@ export function FleetView() {
     <div className={sx(styles.root)}>
       <header className={sx(styles.header)}>
         <div className={sx(styles.headerIdentity)}>
-          <Radar className={sx(styles.headerIcon)} aria-hidden="true" />
+          <LayoutGrid className={sx(styles.headerIcon)} aria-hidden="true" />
           <h1 className={sx(styles.headerTitle)}>{tI18n("fleet:fleetView.fleetView")}</h1>
           {/* Fleet View is the sidebar Work queue's full view: same rows, same order. */}
           <span className={sx(styles.headerSummary)}>{tI18n("fleet:fleetView.fullWorkQueue")}</span>
           <span className={sx(styles.headerSummary)}>
-            {liveCount > 0
-              ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: liveCount })
+            {headerLiveCount > 0
+              ? tI18n("fleet:fleetView.valueWorkspacevalueInFlight", { count: headerLiveCount })
               : tI18n("fleet:fleetView.noAgentTurnsInFlight")}
-            {visibleCount > 0 ? tI18n("fleet:fleetView.valueShown", { visibleCount: visibleCount }) : ""}
+            {headerShownCount > 0
+              ? showTable
+                ? tI18n("fleet:fleetView.valueTasksShown", { count: headerShownCount })
+                : tI18n("fleet:fleetView.valueShown", { visibleCount: headerShownCount })
+              : ""}
           </span>
         </div>
         <div className={sx(styles.headerActions)}>
@@ -759,22 +762,23 @@ export function FleetView() {
         data-fleet-view-root="true"
         className={sx(styles.body)}
       >
-        {/* On narrow screens the inbox becomes a compact top rail; from the
-            small breakpoint up it remains a layout-level column and widens
-            while an inline task control surface is open. */}
+        {/* Waiting decisions on top, bounded and scrolling, then the board.
+            The band grows (still bounded) while a row's control panel is open. */}
         <aside
           className={sx(
             styles.inbox,
-            selectedAttentionId ? styles.inboxExpanded : styles.inboxRested,
+            Boolean(selectedAttentionId) && styles.inboxExpanded,
           )}
+          data-fleet-inbox-band=""
         >
           <FleetAttentionInbox
             items={attentionTargets}
             selectedAttentionId={selectedAttentionId}
             busyAttentionId={busyAttentionId}
             snoozedCount={snoozedItems.length}
-            clearingReview={clearingReview}
+            clearingReview={bulkActions.applying}
             onOpen={openAttentionItem}
+            onOpenEntry={openAttentionEntry}
             onOpenTask={handleOpenTask}
             onMarkRead={markNeedRead}
             onDismiss={dismissNeed}
@@ -789,7 +793,7 @@ export function FleetView() {
         <div className={sx(styles.board)}>
           <div className={sx(styles.toolbar)}>
             <div className={sx(styles.filterGroup)}>
-              {FLEET_BOARD_FILTER_OPTIONS.map((option) => (
+              {(showTable ? FLEET_TABLE_FILTER_OPTIONS : FLEET_BOARD_FILTER_OPTIONS).map((option) => (
                 <Button
                   key={option.value}
                   type="button"
@@ -843,6 +847,37 @@ export function FleetView() {
               >
                 {tI18n("fleet:fleetView.reset")}</Button>
             ) : null}
+            {/* Last, so it stays put while the filters and Reset come and go. */}
+            <div
+              className={sx(styles.filterGroup)}
+              role="group"
+              aria-label={tI18n("fleet:fleetView.layoutLabel")}
+            >
+              {(["cards", "table"] as const).map((layout) => (
+                <Button
+                  key={layout}
+                  type="button"
+                  size="sm"
+                  variant={boardLayout === layout ? "secondary" : "ghost"}
+                  xstyle={[
+                    styles.filterChip,
+                    boardLayout === layout && styles.filterChipActive,
+                  ]}
+                  aria-pressed={boardLayout === layout}
+                  data-fleet-board-layout={layout}
+                  onClick={() => setBoardLayout(layout)}
+                >
+                  {layout === "cards" ? (
+                    <LayoutGrid className={sx(styles.actionIcon)} aria-hidden="true" />
+                  ) : (
+                    <Table2 className={sx(styles.actionIcon)} aria-hidden="true" />
+                  )}
+                  {layout === "cards"
+                    ? tI18n("fleet:fleetView.cards")
+                    : tI18n("fleet:fleetView.table")}
+                </Button>
+              ))}
+            </div>
           </div>
 
           <div
@@ -860,6 +895,15 @@ export function FleetView() {
                     {tI18n("fleet:fleetView.openARepositoryOrWorkspaceToSee")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
+            ) : showTable ? (
+              <FleetTaskTable
+                repositories={repositories}
+                filter={boardFilter}
+                searchQuery={searchQuery}
+                nowMs={nowMs}
+                onOpenTask={handleOpenTask}
+                onSummaryChange={setTableSummary}
+              />
             ) : (
               <>
                 {isBoardEmpty ? (
@@ -911,7 +955,11 @@ export function FleetView() {
                         type="button"
                         xstyle={[styles.repositoryHeader, focusRing.ringInset]}
                         aria-expanded={!isCollapsed}
-                        aria-label={tI18n("fleet:fleetView.valueValueProject", { value1: isCollapsed ? "Expand" : "Collapse", value2: repository.repositoryName })}
+                        aria-label={
+                          isCollapsed
+                            ? tI18n("fleet:fleetView.expandRepository", { name: repository.repositoryName })
+                            : tI18n("fleet:fleetView.collapseRepository", { name: repository.repositoryName })
+                        }
                         onClick={() => toggleRepository(repository.repositoryPath)}
                       >
                         {isCollapsed ? (
@@ -974,7 +1022,7 @@ export function FleetView() {
                               repositoryName={repository.repositoryName}
                               workspace={workspace}
                               isCurrentRepository={repository.isCurrent}
-                              filter={boardFilter}
+                              filter={cardFilter}
                               searchQuery={searchQuery}
                               nowMs={nowMs}
                               attentionItems={
@@ -1009,7 +1057,7 @@ export function FleetView() {
                         {hiddenDormantCount > 0 ? "· " : ""}
                         {tI18n("fleet:fleetView.unusedDefaultsHidden", { count: suppressedDefaultCount })}</span>
                     ) : null}
-                    {hiddenDormantCount > 0 && boardFilter !== "all" ? (
+                    {hiddenDormantCount > 0 && cardFilter !== "all" ? (
                       <Button
                         type="button"
                         variant="ghost"

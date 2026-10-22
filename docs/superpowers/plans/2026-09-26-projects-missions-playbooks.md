@@ -671,7 +671,8 @@ As-built (PR 10a):
   - The right-rail id `collaboration` becomes `mission`, titled "Mission".
     A registered temporary migration `right-rail-mission-panel` maps saved
     layouts.
-  - The collaboration components moved to `src/components/team/`, and
+  - The collaboration components moved to a team folder (since folded
+    away: its last request helpers now live in `src/lib/fleet/`), and
     `CollaborationPanel` became `TeamSection`, which renders below the
     mission.
   - The panel shows goal, status and age, check-ins, and Done when with

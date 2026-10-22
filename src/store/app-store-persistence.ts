@@ -102,6 +102,7 @@ import {
   normalizePersistedLensSettings,
   normalizeReasoningExpansionMode,
   normalizeSidebarNavView,
+  normalizeFleetBoardLayout,
   normalizeTurnActivityPlacement,
   normalizeComposerLayoutMode,
   type AppSettings,
@@ -371,6 +372,9 @@ export function createAppStorePersistenceOptions() {
           : defaultSettings.sidebarShowAiUsage;
       state.settings.sidebarNavView = normalizeSidebarNavView(
         raw.sidebarNavView,
+      );
+      state.settings.fleetBoardLayout = normalizeFleetBoardLayout(
+        raw.fleetBoardLayout,
       );
       state.settings.workQueueSettleOnMerge =
         typeof raw.workQueueSettleOnMerge === "boolean"

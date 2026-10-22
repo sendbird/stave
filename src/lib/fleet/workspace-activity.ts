@@ -3,6 +3,7 @@ import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import type { Task } from "@/types/chat";
 import { fleetSearchMatches, normalizeFleetSearchQuery } from "@/lib/fleet/card-task-rows";
+import { FLEET_TIER_LABEL } from "@/lib/fleet/fleet-vocabulary";
 
 /**
  * How long a workspace can go untouched before Fleet stops treating it as part
@@ -191,7 +192,7 @@ export const FLEET_BOARD_FILTER_OPTIONS: ReadonlyArray<{
 }> = [
   { value: "active", get label() { return i18n.t("fleet:workspaceActivity.active"); }, get hint() { return i18n.t("fleet:workspaceActivity.workedInRecently"); } },
   { value: "running", get label() { return i18n.t("fleet:workspaceActivity.running"); }, get hint() { return i18n.t("fleet:workspaceActivity.anAgentTurnIsInFlight"); } },
-  { value: "blocked", get label() { return i18n.t("fleet:workspaceActivity.blocked"); }, get hint() { return i18n.t("fleet:workspaceActivity.waitingOnYou"); } },
+  { value: "blocked", get label() { return FLEET_TIER_LABEL.blocking; }, get hint() { return i18n.t("fleet:workspaceActivity.waitingOnYou"); } },
   { value: "all", get label() { return i18n.t("fleet:workspaceActivity.all"); }, get hint() { return i18n.t("fleet:workspaceActivity.includeDormantWorkspaces"); } },
 ];
 

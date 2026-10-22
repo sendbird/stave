@@ -271,6 +271,39 @@ describe("Fleet attention projection", () => {
     ]);
   });
 
+  test("a turn that went quiet is its own blocking need, never a failed run", () => {
+    const lastEventAt = Date.parse("2026-07-26T00:50:00.000Z");
+    const projection = buildFleetAttentionProjection({
+      notifications: [],
+      liveWorkspaces: [
+        buildLiveWorkspace({
+          activeTurnIdsByTask: { "task-1": "turn-1" },
+          providerTurnActivityByTask: {
+            "task-1": {
+              turnId: "turn-1",
+              providerId: "codex",
+              startedAt: lastEventAt - 60_000,
+              lastEventAt,
+              stalledAt: lastEventAt + 5 * 60_000,
+              pendingInteraction: null,
+              workItemsById: {},
+              orderedWorkItemIds: [],
+            } as never,
+          },
+        }),
+      ],
+      prWorkspaces: [],
+    });
+    expect(projection.items.map((item) => item.kind)).toEqual(["turn-stalled"]);
+    expect(projection.blockingItems).toHaveLength(1);
+    // Quiet since the last event the turn reported.
+    expect(projection.items[0]).toMatchObject({
+      waitingSince: "2026-07-26T00:50:00.000Z",
+      turnId: "turn-1",
+    });
+    expect(projection.items[0]?.detail).toBeUndefined();
+  });
+
   test("excludes archived live tasks", () => {
     const projection = buildFleetAttentionProjection({
       notifications: [],
@@ -500,5 +533,153 @@ describe("Fleet attention projection", () => {
     expect(
       projection.blockingItems.length + projection.reviewItems.length,
     ).toBe(projection.count);
+  });
+
+  describe("waiting since and message", () => {
+    const approvalPart = {
+      type: "approval" as const,
+      requestId: "approval-1",
+      toolName: "Bash",
+      description: "run tests",
+      state: "approval-requested" as const,
+    };
+    const raisedAtMs = Date.parse("2026-07-26T00:42:00.000Z");
+    function liveApprovalWorkspace(activityTurnId = "turn-1") {
+      return buildLiveWorkspace({
+        messagesByTask: {
+          "task-1": [buildAssistantMessage({ id: "message-7", parts: [approvalPart] })],
+        },
+        activeTurnIdsByTask: { "task-1": "turn-1" },
+        providerTurnActivityByTask: {
+          "task-1": {
+            turnId: activityTurnId,
+            providerId: "codex",
+            startedAt: raisedAtMs - 60_000,
+            lastEventAt: raisedAtMs,
+            stalledAt: null,
+            pendingInteraction: "approval",
+            workItemsById: {},
+            orderedWorkItemIds: [],
+            workGraph: {
+              interactionsById: {
+                "approval:approval-1": {
+                  id: "approval:approval-1",
+                  nodeKey: "turn:turn-1",
+                  kind: "approval",
+                  title: "run tests",
+                  raisedAt: raisedAtMs,
+                },
+              },
+            },
+          } as never,
+        },
+      });
+    }
+
+    test("a live request waits from when its turn raised it, not from the task update", () => {
+      const projection = buildFleetAttentionProjection({
+        notifications: [],
+        liveWorkspaces: [liveApprovalWorkspace()],
+        prWorkspaces: [],
+      });
+      expect(projection.items[0]).toMatchObject({
+        source: "live",
+        messageId: "message-7",
+        waitingSince: "2026-07-26T00:42:00.000Z",
+        createdAt: "2026-07-26T01:00:00.000Z",
+      });
+    });
+
+    test("another turn's work graph says nothing about this request", () => {
+      const projection = buildFleetAttentionProjection({
+        notifications: [],
+        liveWorkspaces: [liveApprovalWorkspace("turn-0")],
+        prWorkspaces: [],
+      });
+      expect(projection.items[0]?.waitingSince).toBeUndefined();
+    });
+
+    test("a merged item keeps the earliest observed start and the named message", () => {
+      const projection = buildFleetAttentionProjection({
+        notifications: [
+          buildNotification({ createdAt: "2026-07-26T00:40:00.000Z" }),
+        ],
+        liveWorkspaces: [liveApprovalWorkspace()],
+        prWorkspaces: [],
+      });
+      expect(projection.items).toHaveLength(1);
+      expect(projection.items[0]).toMatchObject({
+        source: "live",
+        notificationId: "notification-1",
+        messageId: "message-7",
+        waitingSince: "2026-07-26T00:40:00.000Z",
+      });
+    });
+
+    test("cold notifications carry their own start and message", () => {
+      const [approval, question] = collectFleetNotificationAttentionItems([
+        buildNotification(),
+        buildNotification({
+          id: "notification-2",
+          kind: "task.user_input_requested",
+          action: null,
+          payload: { requestId: "input-1", messageId: "message-9" },
+          createdAt: "2026-07-26T00:05:00.000Z",
+        }),
+      ]);
+      expect(approval).toMatchObject({
+        messageId: "message-1",
+        waitingSince: "2026-07-26T00:00:00.000Z",
+      });
+      expect(question).toMatchObject({
+        kind: "user-input",
+        messageId: "message-9",
+        waitingSince: "2026-07-26T00:05:00.000Z",
+      });
+    });
+
+    test("pull request rows claim no waiting time", () => {
+      const projection = buildFleetAttentionProjection({
+        notifications: [],
+        liveWorkspaces: [],
+        prWorkspaces: [
+          {
+            repositoryPath: "/workspace/project",
+            repositoryName: "Project",
+            workspaceId: "workspace-2",
+            workspaceName: "docs",
+            status: "checks_failed",
+            url: "https://example.test/pr/2",
+            updatedAt: "2026-07-26T00:00:00.000Z",
+          },
+        ],
+      });
+      expect(projection.items[0]?.waitingSince).toBeUndefined();
+    });
+
+    test("inside one urgency the longest wait comes first", () => {
+      const projection = buildFleetAttentionProjection({
+        notifications: [
+          buildNotification({
+            id: "late",
+            taskId: "task-late",
+            createdAt: "2026-07-26T03:00:00.000Z",
+            action: { type: "approval", requestId: "approval-late" },
+          }),
+          buildNotification({
+            id: "early",
+            taskId: "task-early",
+            createdAt: "2026-07-26T01:00:00.000Z",
+            action: { type: "approval", requestId: "approval-early" },
+          }),
+        ],
+        liveWorkspaces: [],
+        prWorkspaces: [],
+      });
+      expect(projection.items.map((item) => item.notificationId)).toEqual([
+        "early",
+        "late",
+      ]);
+    });
   });
 });

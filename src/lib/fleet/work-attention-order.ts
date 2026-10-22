@@ -54,10 +54,10 @@ export interface WorkQueueSignals {
  * Lane priority, highest first:
  *
  * 1. `action-required` — something is blocked on the user: a blocking
- *    attention item (a question, an approval, a failed run, a PR that cannot
- *    merge) or a live task sitting in a waiting/error state. The live status
- *    matters on its own because a user who already read the notification still
- *    has a stalled agent in front of them.
+ *    attention item (a question, an approval, a failed run, a turn that went
+ *    quiet, a PR that cannot merge) or a live task sitting in a waiting, failed
+ *    or quiet state. The live status matters on its own because a user who
+ *    already read the notification still has a stuck agent in front of them.
  * 2. `in-progress` — an agent is running. Checked before review because a
  *    running turn is the truthful present tense: a workspace with both a
  *    finished result and a new turn in flight is in progress, not waiting for
@@ -87,7 +87,8 @@ function classifyTaskSignals(signals: WorkQueueSignals): WorkQueueLane {
   if (
     attentionTier === "blocking" ||
     hasFleetTaskAttentionStatus(status) ||
-    status === "error"
+    status === "error" ||
+    status === "stalled"
   ) {
     return "action-required";
   }
@@ -116,11 +117,12 @@ export function workQueueAttentionPriority(attentionKind?: FleetAttentionKind) {
   return leading ? FLEET_ATTENTION_PRIORITY[leading] : undefined;
 }
 
-/** Live task status rank inside a lane: waiting on you, failed, running, idle. */
+/** Live task status rank inside a lane: waiting on you, failed or quiet, running, idle. */
 export const WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
   "waiting-input": 0,
   "waiting-approval": 0,
   error: 1,
+  stalled: 1,
   running: 2,
   idle: 3,
 };

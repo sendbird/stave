@@ -14,7 +14,7 @@
     "trustedApprovals": {
       "title": "Trusted Approvals",
       "description": "Approvals marked as always allowed. Bash entries are stored as command prefixes instead of trusting every shell command.",
-      "empty": "No trusted approvals yet. Use approve and always allow from an approval prompt to add one."
+      "empty": "No trusted approvals yet. Use always allow from an approval prompt to add one."
     },
     "tabsAriaLabel": "Provider settings",
     "modePresetTitle": "Mode Preset",

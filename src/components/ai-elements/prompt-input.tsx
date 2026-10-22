@@ -402,11 +402,15 @@ export function PromptInput(args: PromptInputProps) {
           onSubmit={(answers) =>
             onUserInputSubmit({
               messageId: pendingUserInput.messageId,
+              requestId: pendingUserInput.part.requestId,
               answers,
             })
           }
           onDeny={() =>
-            onUserInputDeny({ messageId: pendingUserInput.messageId })
+            onUserInputDeny({
+              messageId: pendingUserInput.messageId,
+              requestId: pendingUserInput.part.requestId,
+            })
           }
         />
       </div>

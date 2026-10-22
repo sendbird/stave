@@ -2,17 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { AsyncBoundary, type AsyncState } from "@/components/system/AsyncBoundary";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
-import {
-  Bell,
-  Check,
-  CheckCheck,
-  CircleCheck,
-  CircleX,
-  ShieldAlert,
-  Target,
-  Archive,
-  Trash2,
-} from "lucide-react";
+import { Archive, Bell, Check, CheckCheck, Trash2 } from "lucide-react";
 import { useRef, useState, type CSSProperties } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -30,18 +20,22 @@ import { CountBadge } from "@/components/system/CountBadge";
 import {
   getNextNotificationView,
   type NotificationView,
-  describeNotificationRow,
   shouldShowNotificationApprovalActions,
 } from "@/components/layout/top-bar-notifications.utils";
-import { formatTaskUpdatedAt, isTaskArchived } from "@/lib/tasks";
+import { InboxRow, moveInboxFocus } from "@/components/layout/InboxRow";
+import { markInboxEntryRead, openInboxEntry } from "@/components/layout/inbox-actions";
+import { inboxRowStyles as rowStyles } from "@/components/layout/inbox-row.styles";
+import { describeFleetAttentionPrimaryAction } from "@/lib/fleet/fleet-vocabulary";
 import {
-  isNotificationUnread,
-  type AppNotification,
-} from "@/lib/notifications/notification.types";
+  selectBellEntries,
+  selectBellHistory,
+  type FleetInboxEntry,
+} from "@/lib/fleet/inbox-model";
+import { isTaskArchived } from "@/lib/tasks";
+import { isNotificationUnread } from "@/lib/notifications/notification.types";
 import { useAppStore } from "@/store/app.store";
-import { transition } from "@/components/ads/recipes/transition";
+import { useFleetAttention } from "@/store/fleet-attention-store";
 import { sx } from "@/components/ads/utils/stylex";
-import { hostSurface } from "@/components/ui/host-surface.styles";
 import { notificationsStyles } from "./top-bar-notifications.styles";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -51,79 +45,39 @@ interface ArchivedNotificationPrompt {
   taskTitle: string;
 }
 
-function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
-  useTranslation();
-  if (
-    kind === "task.approval_requested" ||
-    kind === "task.user_input_requested"
-  ) {
-    return (
-      <ShieldAlert
-        className={sx(
-          notificationsStyles.kindIcon,
-          notificationsStyles.kindIconWarning,
-        )}
-      />
-    );
-  }
-  if (kind === "agent_run.sign_off_requested") {
-    return (
-      <Target
-        className={sx(
-          notificationsStyles.kindIcon,
-          notificationsStyles.kindIconWarning,
-        )}
-      />
-    );
-  }
-  if (kind === "agent_run.blocked" || kind === "agent_run.stuck") {
-    return (
-      <Target
-        className={sx(
-          notificationsStyles.kindIcon,
-          notificationsStyles.kindIconDanger,
-        )}
-      />
-    );
-  }
-  if (kind === "task.turn_failed") {
-    return (
-      <CircleX
-        className={sx(
-          notificationsStyles.kindIcon,
-          notificationsStyles.kindIconDanger,
-        )}
-      />
-    );
-  }
-  return (
-    <CircleCheck
-      className={sx(
-        notificationsStyles.kindIcon,
-        notificationsStyles.kindIconSuccess,
-      )}
-    />
-  );
+const VIEW_LABEL_KEY = {
+  all: "shell:topBarNotifications.all",
+  unread: "shell:topBarNotifications.unread2",
+  errors: "shell:topBarNotifications.errors",
+  history: "shell:topBarNotifications.history",
+} as const satisfies Record<NotificationView, string>;
+
+/** "Open approval for Review cache in checkout", the name both inboxes give a row. */
+export function describeInboxEntryLabel(entry: FleetInboxEntry) {
+  const action = describeFleetAttentionPrimaryAction(entry.kind);
+  return entry.workspaceName
+    ? i18n.t("fleet:fleetAttentionInbox.rowLabel", {
+        action,
+        title: entry.title,
+        workspace: entry.workspaceName,
+      })
+    : i18n.t("fleet:fleetAttentionInbox.rowLabelNoWorkspace", {
+        action,
+        title: entry.title,
+      });
 }
 
-function buildLocationLabel(args: {
-  repositoryName: string | null;
-  workspaceName: string | null;
-}) {
-  return [args.repositoryName, args.workspaceName]
-    .map((value) => value?.trim())
-    .filter((value): value is string => Boolean(value))
-    .join(" / ");
-}
-
+/**
+ * The notification bell: the same inbox as Fleet's rail, drawn with the same
+ * row, so an entry reads and is read the same in both. All, Unread and Errors
+ * filter the live inbox; History keeps what was read and has no item left.
+ */
 export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   useTranslation();
   const [
-    notifications,
     notificationsLoad,
     hydrateNotifications,
     tasks,
-    markNotificationRead,
     markAllNotificationsRead,
     clearNotificationHistory,
     openNotificationContext,
@@ -133,11 +87,9 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     useShallow(
       (state) =>
         [
-          state.notifications,
           state.notificationsLoad,
           state.hydrateNotifications,
           state.tasks,
-          state.markNotificationRead,
           state.markAllNotificationsRead,
           state.clearNotificationHistory,
           state.openNotificationContext,
@@ -146,6 +98,8 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
         ] as const,
     ),
   );
+  const notificationCount = useAppStore((state) => state.notifications.length);
+  const inbox = useFleetAttention((snapshot) => snapshot.inbox);
   const [open, setOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [view, setView] = useState<NotificationView>("unread");
@@ -164,35 +118,47 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     );
   }
 
-  const unreadNotifications = notifications.filter(isNotificationUnread);
-  const historyNotifications = notifications.filter(
-    (notification) => !isNotificationUnread(notification),
-  );
-  const pagedHistoryNotifications = historyNotifications.slice(0, historyLimit);
-  const hasMoreHistory = historyNotifications.length > historyLimit;
-  const visibleNotifications =
-    view === "unread" ? unreadNotifications : pagedHistoryNotifications;
-  const unreadCount = unreadNotifications.length;
-  const historyCount = historyNotifications.length;
-  const hasNotifications = notifications.length > 0;
+  const allEntries = selectBellEntries(inbox, "all");
+  const unreadEntries = selectBellEntries(inbox, "unread");
+  const errorEntries = selectBellEntries(inbox, "errors");
+  const historyEntries = selectBellHistory(inbox);
+  const pagedHistoryEntries = historyEntries.slice(0, historyLimit);
+  const hasMoreHistory = historyEntries.length > historyLimit;
+  const visibleEntries =
+    view === "all"
+      ? allEntries
+      : view === "unread"
+        ? unreadEntries
+        : view === "errors"
+          ? errorEntries
+          : pagedHistoryEntries;
+  const viewCount: Record<NotificationView, number> = {
+    all: allEntries.length,
+    unread: unreadEntries.length,
+    errors: errorEntries.length,
+    history: historyEntries.length,
+  };
+  const unreadCount = unreadEntries.length;
+  const historyCount = historyEntries.length;
+  const hasEntries = allEntries.length > 0 || historyCount > 0;
   // A failed read keeps the list it had under a notice, and before any list it
   // is an error with Retry, never "no notifications".
-  const inboxState: AsyncState<AppNotification[]> =
+  const inboxState: AsyncState<FleetInboxEntry[]> =
     notificationsLoad.status === "error"
-      ? hasNotifications
-        ? { status: "ready", data: notifications, stale: true, refreshError: notificationsLoad.message }
+      ? notificationCount > 0 || hasEntries
+        ? { status: "ready", data: visibleEntries, stale: true, refreshError: notificationsLoad.message }
         : { status: "error", error: notificationsLoad.message }
-      : notificationsLoad.status === "pending" && !hasNotifications
+      : notificationsLoad.status === "pending" && !hasEntries
         ? { status: "pending" }
-        : { status: "ready", data: notifications };
+        : { status: "ready", data: visibleEntries };
 
-  function isNotificationActionPending(notificationId: string) {
+  function isEntryActionPending(entryId: string) {
     return (
-      pendingActionId === `open:${notificationId}` ||
-      pendingActionId === `mark:${notificationId}` ||
-      pendingActionId === `approve:${notificationId}` ||
-      pendingActionId === `deny:${notificationId}` ||
-      pendingActionId === `restore:${notificationId}`
+      pendingActionId === `open:${entryId}` ||
+      pendingActionId === `mark:${entryId}` ||
+      pendingActionId === `approve:${entryId}` ||
+      pendingActionId === `deny:${entryId}` ||
+      pendingActionId === `restore:${entryId}`
     );
   }
 
@@ -221,16 +187,13 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     }
   }
 
-  async function handleMarkRead(notificationId: string) {
-    setPendingActionId(`mark:${notificationId}`);
-    try {
-      await markNotificationRead({ id: notificationId });
-      setArchivedPrompt((current) =>
-        current?.notificationId === notificationId ? null : current,
-      );
-    } finally {
-      setPendingActionId(null);
-    }
+  function handleMarkRead(entry: FleetInboxEntry) {
+    markInboxEntryRead(entry);
+    setArchivedPrompt((current) =>
+      current && entry.notifications.some((item) => item.id === current.notificationId)
+        ? null
+        : current,
+    );
   }
 
   async function handleClearHistory() {
@@ -255,20 +218,16 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     }
   }
 
-  async function handleOpenNotification(notification: AppNotification) {
-    setPendingActionId(`open:${notification.id}`);
+  async function handleOpenEntry(entry: FleetInboxEntry) {
+    setPendingActionId(`open:${entry.id}`);
     try {
-      const result = await openNotificationContext({
-        notificationId: notification.id,
-      });
-      if (result.status === "archived-task") {
-        setArchivedPrompt({
-          notificationId: notification.id,
-          taskTitle: result.taskTitle,
-        });
+      const result = await openInboxEntry(entry);
+      const notificationId = entry.notifications[0]?.id;
+      if (result.status === "archived-task" && notificationId) {
+        setArchivedPrompt({ notificationId, taskTitle: result.taskTitle });
       } else {
         setArchivedPrompt((current) =>
-          current?.notificationId === notification.id ? null : current,
+          current?.notificationId === notificationId ? null : current,
         );
       }
     } finally {
@@ -297,16 +256,165 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   }
 
   async function handleResolveApproval(
+    entry: FleetInboxEntry,
     notificationId: string,
     approved: boolean,
   ) {
-    setPendingActionId(`${approved ? "approve" : "deny"}:${notificationId}`);
+    setPendingActionId(`${approved ? "approve" : "deny"}:${entry.id}`);
     try {
       await resolveNotificationApproval({ notificationId, approved });
     } finally {
       setPendingActionId(null);
     }
   }
+
+  function renderEntry(entry: FleetInboxEntry) {
+    const primary = entry.notifications[0] ?? null;
+    const unreadNotification = entry.notifications.find(isNotificationUnread) ?? null;
+    const approvalNotification =
+      primary &&
+      !primary.resolvedAt &&
+      shouldShowNotificationApprovalActions({
+        unread: Boolean(unreadNotification),
+        action: primary.action,
+      })
+        ? primary
+        : null;
+    const entryTask = entry.taskId
+      ? (tasks.find((task) => task.id === entry.taskId) ?? null)
+      : null;
+    const taskIsArchived = isTaskArchived(entryTask ?? { archivedAt: null });
+    const busy = pendingActionId === "mark-all" || isEntryActionPending(entry.id);
+    const showArchivedPrompt =
+      Boolean(archivedPrompt) &&
+      entry.notifications.some((item) => item.id === archivedPrompt?.notificationId);
+    const archivedTaskTitle = showArchivedPrompt
+      ? (archivedPrompt?.taskTitle ?? entry.title ?? i18n.t("shell:topBarNotifications.thisTask"))
+      : null;
+
+    return (
+      <InboxRow
+        key={entry.id}
+        entry={entry}
+        triggerId={`notification-entry-${entry.id}`}
+        triggerLabel={describeInboxEntryLabel(entry)}
+        busy={busy}
+        onActivate={() => void handleOpenEntry(entry)}
+        supplement={
+          taskIsArchived ? (
+            <span className={sx(rowStyles.archivedChip)}>
+              <Archive className={sx(rowStyles.chipIcon)} aria-hidden="true" />
+              {i18n.t("shell:topBarNotifications.archived")}
+            </span>
+          ) : undefined
+        }
+        actions={
+          entry.unread || approvalNotification ? (
+            <>
+              {/* The approval card's decision words, allow first. */}
+              {approvalNotification ? (
+                <>
+                  <Button
+                    type="button"
+                    size="sm"
+                    xstyle={rowStyles.rowAction}
+                    disabled={busy}
+                    onClick={() =>
+                      void handleResolveApproval(entry, approvalNotification.id, true)
+                    }
+                  >
+                    {i18n.t("shell:topBarNotifications.allowOnce")}
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    xstyle={rowStyles.rowAction}
+                    disabled={busy}
+                    onClick={() =>
+                      void handleResolveApproval(entry, approvalNotification.id, false)
+                    }
+                  >
+                    {i18n.t("shell:topBarNotifications.deny")}
+                  </Button>
+                </>
+              ) : null}
+              {entry.unread ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  xstyle={[rowStyles.rowAction, notificationsStyles.quietAction]}
+                  disabled={busy}
+                  onClick={() => handleMarkRead(entry)}
+                >
+                  <Check className={sx(rowStyles.rowActionIcon)} aria-hidden="true" />
+                  {i18n.t("shell:topBarNotifications.markRead")}
+                </Button>
+              ) : null}
+            </>
+          ) : undefined
+        }
+      >
+        {showArchivedPrompt ? (
+          <div className={sx(rowStyles.rowPrompt)}>
+            <p className={sx(rowStyles.promptTitle)}>
+              {i18n.t("shell:topBarNotifications.thisTaskIsArchived")}
+            </p>
+            <p className={sx(rowStyles.promptBody)}>
+              {i18n.t("shell:topBarNotifications.restoreTask", { title: archivedTaskTitle })}
+            </p>
+            <div className={sx(rowStyles.promptActions)}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setArchivedPrompt(null)}
+              >
+                {i18n.t("shell:topBarNotifications.cancel")}
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void handleRestoreArchivedTask()}
+              >
+                {i18n.t("shell:topBarNotifications.restoreAndOpen")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+      </InboxRow>
+    );
+  }
+
+  const emptyCopy: Record<NotificationView, { title: string; body: string }> = {
+    get all() {
+      return {
+        title: i18n.t("shell:topBarNotifications.nothingInTheInbox"),
+        body: i18n.t("shell:topBarNotifications.taskCompletionsAndBlockedRequestsWillAppear"),
+      };
+    },
+    get unread() {
+      return {
+        title: i18n.t("shell:topBarNotifications.noUnreadNotifications"),
+        body: i18n.t("shell:topBarNotifications.markedItemsMoveIntoHistorySoThe"),
+      };
+    },
+    get errors() {
+      return {
+        title: i18n.t("shell:topBarNotifications.noErrors"),
+        body: i18n.t("shell:topBarNotifications.failedRunsAndChecksWillAppear"),
+      };
+    },
+    get history() {
+      return {
+        title: i18n.t("shell:topBarNotifications.noReadNotificationsYet"),
+        body: i18n.t("shell:topBarNotifications.readNotificationsWillCollectHereAfterYou"),
+      };
+    },
+  };
 
   return (
     <>
@@ -398,56 +506,37 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   : i18n.t("shell:topBarNotifications.noNotificationsYet")}
             </p>
             <div className={sx(notificationsStyles.viewSwitch)}>
-              <AdsButton
-                layout="host"
-                type="button"
-                xstyle={[
-                  notificationsStyles.viewTab,
-                  view === "unread"
-                    ? notificationsStyles.viewTabActive
-                    : notificationsStyles.viewTabIdle,
-                ]}
-                aria-pressed={view === "unread"}
-                onClick={() => setView("unread")}
-              >
-                <span className={sx(notificationsStyles.viewTabLabel)}>
-                  {i18n.t("shell:topBarNotifications.unread2")}
-                </span>
-                {/* Always `outline`. The selected arm used to be `secondary`,
-                    whose `colorCanvasSubtle` fill sits 1.5% of lightness from
-                    the active tab's own `colorCanvas` — so on the tab you were
-                    looking at, the chip disappeared. A ring does not depend on
-                    the fill behind it, so the count reads the same on both. */}
-                <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
-                  {unreadCount}
-                </Badge>
-              </AdsButton>
-              <AdsButton
-                layout="host"
-                type="button"
-                xstyle={[
-                  notificationsStyles.viewTab,
-                  view === "history"
-                    ? notificationsStyles.viewTabActive
-                    : notificationsStyles.viewTabIdle,
-                ]}
-                aria-pressed={view === "history"}
-                onClick={() => setView("history")}
-              >
-                <span className={sx(notificationsStyles.viewTabLabel)}>
-                  {i18n.t("shell:topBarNotifications.history")}
-                </span>
-                <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
-                  {historyCount}
-                </Badge>
-              </AdsButton>
+              {(["all", "unread", "errors", "history"] as const).map((option) => (
+                <AdsButton
+                  key={option}
+                  layout="host"
+                  type="button"
+                  xstyle={[
+                    notificationsStyles.viewTab,
+                    view === option
+                      ? notificationsStyles.viewTabActive
+                      : notificationsStyles.viewTabIdle,
+                  ]}
+                  aria-pressed={view === option}
+                  onClick={() => setView(option)}
+                >
+                  <span className={sx(notificationsStyles.viewTabLabel)}>
+                    {i18n.t(VIEW_LABEL_KEY[option])}
+                  </span>
+                  {/* Always `outline`: a ring reads the same on the raised
+                      active tab and on the track behind the idle ones. */}
+                  <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
+                    {viewCount[option]}
+                  </Badge>
+                </AdsButton>
+              ))}
             </div>
           </PopoverHeader>
           <div className={sx(notificationsStyles.scroller)}>
             <AsyncBoundary
               state={inboxState}
               onRetry={() => void hydrateNotifications()}
-              isEmpty={(rows) => rows.length === 0}
+              isEmpty={(rows) => rows.length === 0 && !hasEntries}
               empty={
                 <div className={sx(notificationsStyles.emptyState)}>
                   <p className={sx(notificationsStyles.emptyTitle)}>
@@ -459,19 +548,15 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 </div>
               }
             >
-            {() => visibleNotifications.length === 0 ? (
+            {() => visibleEntries.length === 0 ? (
               <div className={sx(notificationsStyles.emptyState)}>
                 <p className={sx(notificationsStyles.emptyTitle)}>
-                  {view === "unread"
-                    ? i18n.t("shell:topBarNotifications.noUnreadNotifications")
-                    : i18n.t("shell:topBarNotifications.noReadNotificationsYet")}
+                  {emptyCopy[view].title}
                 </p>
                 <p className={sx(notificationsStyles.emptyBody)}>
-                  {view === "unread"
-                    ? i18n.t("shell:topBarNotifications.markedItemsMoveIntoHistorySoThe")
-                    : i18n.t("shell:topBarNotifications.readNotificationsWillCollectHereAfterYou")}
+                  {emptyCopy[view].body}
                 </p>
-                {view === "unread" && historyCount > 0 ? (
+                {view !== "history" && historyCount > 0 ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -496,212 +581,9 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
               </div>
             ) : (
               <>
-                {visibleNotifications.map((notification) => {
-                  const unread = isNotificationUnread(notification);
-                  const row = describeNotificationRow(notification);
-                  const locationLabel = buildLocationLabel({
-                    repositoryName: notification.repositoryName,
-                    workspaceName: row.workspaceName,
-                  });
-                  const showApprovalActions =
-                    shouldShowNotificationApprovalActions({
-                      unread,
-                      action: notification.action,
-                    });
-                  const notificationTask = row.taskId
-                    ? (tasks.find((task) => task.id === row.taskId) ?? null)
-                    : null;
-                  const taskIsArchived = isTaskArchived(
-                    notificationTask ?? { archivedAt: null },
-                  );
-                  const createdLabel = formatTaskUpdatedAt({
-                    value: notification.createdAt,
-                  });
-                  const notificationBusy =
-                    pendingActionId === "mark-all" ||
-                    isNotificationActionPending(notification.id);
-                  const showArchivedPrompt =
-                    archivedPrompt?.notificationId === notification.id;
-                  const archivedTaskTitle = showArchivedPrompt
-                    ? (archivedPrompt?.taskTitle ??
-                      notification.taskTitle ??
-                      i18n.t("shell:topBarNotifications.thisTask"))
-                    : null;
-                  const notificationDetail = row.detail;
-
-                  return (
-                    <div
-                      key={notification.id}
-                      className={sx(
-                        notificationsStyles.row,
-                        transition.colors,
-                        unread && notificationsStyles.rowUnread,
-                      )}
-                    >
-                      <div className={sx(notificationsStyles.rowBody)}>
-                        <div className={sx(notificationsStyles.rowLead)}>
-                          <span
-                            className={sx(
-                              notificationsStyles.unreadDot,
-                              unread
-                                ? notificationsStyles.unreadDotOn
-                                : notificationsStyles.unreadDotOff,
-                            )}
-                          />
-                          <div className={sx(notificationsStyles.rowMain)}>
-                            <div className={sx(notificationsStyles.rowMainTop)}>
-                              <AdsButton
-                                layout="host"
-                                type="button"
-                                xstyle={[
-                                  notificationsStyles.openAction,
-                                  hostSurface.inertChrome,
-                                ]}
-                                disabled={notificationBusy}
-                                onClick={() =>
-                                  void handleOpenNotification(notification)
-                                }
-                              >
-                                <div
-                                  className={sx(
-                                    notificationsStyles.openActionHead,
-                                  )}
-                                >
-                                  <NotificationKindIcon
-                                    kind={notification.kind}
-                                  />
-                                  <p
-                                    className={sx(notificationsStyles.rowTitle)}
-                                  >
-                                    {row.title}
-                                  </p>
-                                  <span
-                                    className={sx(notificationsStyles.rowTime)}
-                                  >
-                                    {createdLabel}
-                                  </span>
-                                </div>
-                                {notificationDetail ? (
-                                  <p
-                                    className={sx(
-                                      notificationsStyles.rowDetail,
-                                    )}
-                                  >
-                                    {notificationDetail}
-                                  </p>
-                                ) : null}
-                                <div
-                                  className={sx(notificationsStyles.rowMeta)}
-                                >
-                                  {locationLabel ? (
-                                    <span
-                                      className={sx(
-                                        notificationsStyles.locationChip,
-                                      )}
-                                    >
-                                      {locationLabel}
-                                    </span>
-                                  ) : null}
-                                  {taskIsArchived ? (
-                                    <span
-                                      className={sx(
-                                        notificationsStyles.archivedChip,
-                                      )}
-                                    >
-                                      <Archive
-                                        className={sx(
-                                          notificationsStyles.chipIcon,
-                                        )}
-                                      />
-                                      {i18n.t("shell:topBarNotifications.archived")}
-                                    </span>
-                                  ) : null}
-                                </div>
-                              </AdsButton>
-                              {unread ? (
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="xs"
-                                  xstyle={notificationsStyles.markReadAction}
-                                  disabled={notificationBusy}
-                                  onClick={() =>
-                                    void handleMarkRead(notification.id)
-                                  }
-                                >
-                                  <Check
-                                    className={sx(notificationsStyles.tinyIcon)}
-                                  />
-                                  {i18n.t("shell:topBarNotifications.markRead")}
-                                </Button>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                        {showApprovalActions ? (
-                          <div className={sx(notificationsStyles.actionRow)}>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="outline"
-                              disabled={notificationBusy}
-                              onClick={() =>
-                                void handleResolveApproval(
-                                  notification.id,
-                                  false,
-                                )
-                              }
-                            >
-                              {i18n.t("shell:topBarNotifications.deny")}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              disabled={notificationBusy}
-                              onClick={() =>
-                                void handleResolveApproval(
-                                  notification.id,
-                                  true,
-                                )
-                              }
-                            >
-                              {i18n.t("shell:topBarNotifications.approve")}
-                            </Button>
-                          </div>
-                        ) : null}
-                        {showArchivedPrompt ? (
-                          <div
-                            className={sx(notificationsStyles.archivedPrompt)}
-                          >
-                            <p className={sx(notificationsStyles.promptTitle)}>
-                              {i18n.t("shell:topBarNotifications.thisTaskIsArchived")}
-                            </p>
-                            <p className={sx(notificationsStyles.promptBody)}>{i18n.t("shell:topBarNotifications.restoreTask", { title: archivedTaskTitle })}</p>
-                            <div className={sx(notificationsStyles.actionRow)}>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={notificationBusy}
-                                onClick={() => setArchivedPrompt(null)}
-                              >
-                                {i18n.t("shell:topBarNotifications.cancel")}
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                disabled={notificationBusy}
-                                onClick={() => void handleRestoreArchivedTask()}
-                              >
-                                {i18n.t("shell:topBarNotifications.restoreAndOpen")}
-                              </Button>
-                            </div>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
+                <ul className={sx(notificationsStyles.list)} onKeyDown={moveInboxFocus}>
+                  {visibleEntries.map(renderEntry)}
+                </ul>
                 {view === "history" && hasMoreHistory ? (
                   <div className={sx(notificationsStyles.loadMore)}>
                     <Button
@@ -712,7 +594,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                       onClick={() =>
                         setHistoryLimit((prev) => prev + HISTORY_PAGE_SIZE)
                       }
-                    >{i18n.t("shell:topBarNotifications.loadMoreCount", { count: historyNotifications.length - pagedHistoryNotifications.length })}</Button>
+                    >{i18n.t("shell:topBarNotifications.loadMoreCount", { count: historyEntries.length - pagedHistoryEntries.length })}</Button>
                   </div>
                 ) : null}
               </>

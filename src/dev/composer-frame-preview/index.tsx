@@ -460,7 +460,12 @@ export function ComposerFramePreviewApp() {
                 )}
               >
                 {caseId === "needs-input" ? (
-                  <ChatInputApprovalQueue approvals={PREVIEW_APPROVALS} onResolveApproval={() => {}} />
+                  <ChatInputApprovalQueue
+                    approvals={PREVIEW_APPROVALS}
+                    onDraftGuidance={() => {}}
+                    onResolveApproval={() => {}}
+                    onTrustAndApprove={() => {}}
+                  />
                 ) : null}
                 {framed ? null : shelf}
                 {CHILD_REQUEST ? (

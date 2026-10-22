@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { Rocket } from "lucide-react";
+import { Bot, LayoutGrid, MessageSquarePlus, MessagesSquare, Rocket } from "lucide-react";
 import {
   assignAppShortcutKey,
   normalizeAppShortcutKeys,
@@ -248,6 +248,17 @@ describe("command palette registry", () => {
     expect(actions.find((item) => item.id === "workspace.kickoff")?.icon).toBe(
       Rocket,
     );
+    // One icon, one destination: the grid is Fleet View, the robot is Agents,
+    // and tasks have their own icon.
+    const fleet = actions.find((item) => item.id === "navigation.fleet-view");
+    expect(fleet?.icon).toBe(LayoutGrid);
+    expect(fleet?.keywords).not.toContain("agents");
+    expect(actions.find((item) => item.id === "navigation.agents")?.icon).toBe(Bot);
+    expect(actions.find((item) => item.id === "task.new")?.icon).toBe(MessageSquarePlus);
+    expect(actions.find((item) => item.id === "task.select.task-2")?.icon).toBe(MessagesSquare);
+    expect(
+      actions.filter((item) => item.icon === LayoutGrid).map((item) => item.id),
+    ).toEqual(["navigation.fleet-view"]);
     expect(actions.find((item) => item.id === "view.show-scripts")?.title).toBe(
       "Show Workspace Tools",
     );

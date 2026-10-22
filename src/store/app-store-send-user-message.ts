@@ -1515,7 +1515,7 @@ export function createSendUserMessageAction(args: {
             for (const response of trustedApprovalResponses) {
               void latestState.resolveApproval({
                 taskId: resolvedTaskId,
-                messageId: response.messageId,
+                ...response,
                 approved: true,
               });
             }

@@ -68,6 +68,18 @@ const APPROVAL_PART = {
 
 export const PREVIEW_APPROVALS: readonly PendingApprovalQueueItem[] = [
   { messageId: "assistant-approval", part: APPROVAL_PART },
+  // A second request waits behind the first, inside the queued disclosure.
+  {
+    messageId: "assistant-approval-queued",
+    part: {
+      ...APPROVAL_PART,
+      toolName: "Write",
+      description: "Write `src/components/session/composer-frame.tsx`",
+      input: JSON.stringify({ file_path: "src/components/session/composer-frame.tsx" }),
+      requestId: "approval-preview-queued",
+      supportsAllowAlways: true,
+    },
+  },
 ];
 
 export const PREVIEW_QUEUE: readonly PromptDraftQueuedTurn[] = [

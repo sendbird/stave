@@ -124,3 +124,37 @@ describe("the shared notification sound", () => {
     expect(showToast).not.toHaveBeenCalled();
   });
 });
+
+describe("OS notifications", () => {
+  const originalDocument = globalThis.document;
+  afterAll(() => {
+    globalThis.document = originalDocument;
+  });
+
+  async function nativeCall(focused: boolean, workspaceId: string | null) {
+    const calls: Array<{ notificationId: string; suppress?: boolean }> = [];
+    globalThis.window = { api: { notifications: {
+      showNative: async (args: { notificationId: string; suppress?: boolean }) => { calls.push(args); return { ok: true }; },
+    } } } as unknown as Window & typeof globalThis;
+    globalThis.document = { hasFocus: () => focused } as unknown as Document;
+    await runtime({ nativeNotificationsEnabled: true }).persistNotifications([
+      { ...notification("task.approval_requested"), workspaceId },
+    ]);
+    return calls;
+  }
+
+  test("are sent only while the Stave window is not focused, for any workspace", async () => {
+    // Focused, even on another workspace: the toast and the bell already say it.
+    expect((await nativeCall(true, "ws-elsewhere"))[0]?.suppress).toBe(true);
+    expect((await nativeCall(true, "ws-1"))[0]?.suppress).toBe(true);
+    // Away from the window: the OS says it, even for the open workspace.
+    expect((await nativeCall(false, "ws-1"))[0]?.suppress).toBe(false);
+    expect((await nativeCall(false, null))[0]?.suppress).toBe(false);
+  });
+
+  test("the sound and the toast do not depend on focus", async () => {
+    await nativeCall(true, "ws-elsewhere");
+    expect(playPreset).toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalled();
+  });
+});

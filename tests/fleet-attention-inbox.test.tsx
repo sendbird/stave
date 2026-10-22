@@ -3,6 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FleetAttentionInbox, AgentRunSignOffControl } from "@/components/layout/FleetAttentionInbox";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import { applyAppLocale } from "@/i18n";
 
 function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetAttentionItem {
   return {
@@ -93,11 +94,34 @@ describe("FleetAttentionInbox", () => {
     ).toContain("Snooze");
   });
 
-  test("offers a bulk clear only once something is worth a look", () => {
+  test("offers a bulk clear only once something is in review", () => {
     expect(renderInbox([REVIEW_ITEM])).toContain("Clear all");
-    expect(renderInbox([REVIEW_ITEM])).toContain("Clear the 1 item worth a look");
+    expect(renderInbox([REVIEW_ITEM])).toContain("Clear the 1 item in review");
     // Nothing in the blocking rail may be cleared in bulk: an agent is waiting.
     expect(renderInbox([buildAttentionItem()])).not.toContain("Clear all");
+  });
+
+  test("names the tiers with Fleet's shared vocabulary", () => {
+    const markup = renderInbox([buildAttentionItem(), REVIEW_ITEM]);
+    expect(markup).toContain(">Action required</h2>");
+    expect(markup).toContain(">In review</span>");
+    expect(markup).not.toContain("Worth a look");
+    expect(renderInbox([REVIEW_ITEM])).toContain("No action required");
+  });
+
+  test("translates the row's accessible names", () => {
+    const markup = renderInbox([buildAttentionItem()]);
+    expect(markup).toContain('aria-label="Open question for Review checkout in checkout"');
+    expect(markup).toContain('aria-label="Dismiss question for Review checkout in checkout"');
+    applyAppLocale("ko");
+    try {
+      const korean = renderInbox([buildAttentionItem()]);
+      expect(korean).toContain('aria-label="checkout의 Review checkout 작업: 질문 열기"');
+      expect(korean).toContain(">조치 필요</h2>");
+      expect(korean).not.toContain("Open question");
+    } finally {
+      applyAppLocale("en");
+    }
   });
 
   test("accounts for snoozed rows and offers to restore them", () => {

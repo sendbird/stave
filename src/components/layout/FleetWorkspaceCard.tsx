@@ -4,20 +4,24 @@ import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { agentRunDecisionOfMessages, describeAgentRunStatus, formatAgentRunBadge } from "@/lib/agent-runs/agent-run-status";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { ArrowRight, GitBranch, Moon } from "lucide-react";
-import { WORK_STATE, type WorkState } from "@/components/ads/components/state-vocabulary";
+import { WORK_STATE } from "@/components/ads/components/state-vocabulary";
 import { StateMark } from "@/components/ads/components/StateMark";
 import { memo, useEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
+import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
+import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
+import { FLEET_TASK_WORK_STATE } from "@/components/layout/fleet-attention-marks";
 import {
   FleetTaskControlPanel,
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { prToneBadgeStyles } from "@/components/layout/pr-status.styles";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { ProviderMark } from "@/components/system/ProviderMark";
 import { Badge } from "@/components/ads/components/Badge";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
+import { useFleetWorkspaceShell } from "@/store/fleet-workspace-shells-store";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
@@ -30,10 +34,7 @@ import {
   splitFleetSearchMatch,
 } from "@/lib/fleet/card-task-rows";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
-import {
-  loadWorkspaceShellSummary,
-  type WorkspaceShellSummary,
-} from "@/lib/db/workspaces.db";
+import type { WorkspaceShellSummary } from "@/lib/db/workspaces.db";
 import {
   getFleetAttentionTier,
   type FleetAttentionItem,
@@ -126,23 +127,18 @@ export function formatFleetWorkspaceName(name: string, branch?: string) {
   return name;
 }
 
-/** Each Fleet status as a shared work state, drawn by `StateMark`. */
-const FLEET_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
-  "waiting-input": "needs-you",
-  "waiting-approval": "approval",
-  error: "failed",
-  running: "working",
-  idle: "idle",
-  unknown: "unknown",
-};
-
-function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
+/** The task's provider mark, named on hover and to assistive tech. */
+export function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
   const { t: tI18n } = useTranslation(["fleet"]);
   const label = getProviderLabel({ providerId: provider });
   return (
-    <span className={sx(styles.providerMark)} title={tI18n("fleet:fleetWorkspaceCard.valueProvider", { label: label })}>
-      <ModelIcon providerId={provider} className={sx(styles.providerIcon)} />
-      <VisuallyHidden>{tI18n("fleet:fleetWorkspaceCard.providerName", { label })}</VisuallyHidden>
+    <span className={sx(styles.providerMark)}>
+      <ProviderMark
+        providerId={provider}
+        size="sm"
+        xstyle={styles.providerIcon}
+        label={tI18n("fleet:fleetWorkspaceCard.valueProvider", { label })}
+      />
     </span>
   );
 }
@@ -232,10 +228,6 @@ export function FleetWorkspaceCard(args: {
     }),
   );
 
-  const [loadedShell, setLoadedShell] = useState<
-    WorkspaceShellSummary | null | undefined
-  >(undefined);
-  const [didShellLoadFail, setDidShellLoadFail] = useState(false);
   const [showAllTasks, setShowAllTasks] = useState(false);
 
   const isActiveWorkspace =
@@ -243,26 +235,12 @@ export function FleetWorkspaceCard(args: {
     activeWorkspaceId === args.workspace.id;
   const hasRuntimeState = isActiveWorkspace || Boolean(runtimeState);
 
-  useEffect(() => {
-    if (hasRuntimeState || loadedShell !== undefined || didShellLoadFail) {
-      return;
-    }
-    let cancelled = false;
-    void loadWorkspaceShellSummary({ workspaceId: args.workspace.id })
-      .then((shell) => {
-        if (!cancelled) {
-          setLoadedShell(shell);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setDidShellLoadFail(true);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [args.workspace.id, didShellLoadFail, hasRuntimeState, loadedShell]);
+  // An unopened workspace's task list comes from the shared Fleet read, the
+  // same entry the task table uses.
+  const shellEntry = useFleetWorkspaceShell(args.workspace.id, !hasRuntimeState);
+  const loadedShell: WorkspaceShellSummary | null | undefined =
+    shellEntry?.status === "loaded" ? shellEntry.shell : undefined;
+  const didShellLoadFail = shellEntry?.status === "failed";
 
   const taskState = useMemo(() => {
     if (isActiveWorkspace) {
@@ -449,6 +427,14 @@ export function FleetWorkspaceCard(args: {
   const expandedRow = rows.find(
     (row) => taskKeyFor(row.task.id) === args.expandedTaskKey,
   );
+  // The turn's own snapshot, only while that turn is the task's active one.
+  const liveActivity = (row: FleetCardTaskView) => {
+    const activeTurnId = taskState.activeTurnIdsByTask[row.task.id];
+    const activity = activeTurnId ? providerTurnActivityByTask[row.task.id] : undefined;
+    return activity?.turnId === activeTurnId && row.status !== "idle" && row.status !== "unknown"
+      ? activity
+      : undefined;
+  };
 
   const toggleTaskDisclosure = () => {
     if (
@@ -589,8 +575,13 @@ export function FleetWorkspaceCard(args: {
         ) : (
           <ul className={sx(styles.list)}>
             {visibleRows.map((row) => {
-              const state = FLEET_WORK_STATE[row.status];
-              const statusLabel = WORK_STATE[state].label;
+              const state = FLEET_TASK_WORK_STATE[row.status];
+              // A quiet turn borrows the stopped-short glyph, but its word is
+              // the attention kind's: it has stopped reporting, not halted.
+              const statusLabel =
+                row.status === "stalled"
+                  ? FLEET_ATTENTION_KIND_LABEL["turn-stalled"]
+                  : WORK_STATE[state].label;
               const taskKey = taskKeyFor(row.task.id);
               const isExpanded = args.expandedTaskKey === taskKey;
               const taskTitle = row.task.title || tI18n("fleet:fleetWorkspaceCard.untitledTask");
@@ -631,7 +622,16 @@ export function FleetWorkspaceCard(args: {
                       <span className={sx(styles.taskTitle)}>
                         <FleetSearchHighlight text={taskTitle} normalizedQuery={normalizedQuery} />
                       </span>
-                      <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
+                      {/* A task in a live turn says what it last did and for how
+                          long; any other task keeps its last update. */}
+                      {liveActivity(row) ? (
+                        <FleetTaskActivityLine
+                          activity={liveActivity(row)}
+                          status={row.status}
+                        />
+                      ) : (
+                        <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
+                      )}
                     </span>
                     {taskAgent ? (
                       <Badge xstyle={styles.chip} title={tI18n("fleet:fleetWorkspaceCard.runsAsTheValueAgent", { value1: taskAgent.agentName })}>
@@ -651,6 +651,7 @@ export function FleetWorkspaceCard(args: {
                         xstyle={styles.taskStatus}
                         labelXstyle={styles.statusLabel}
                         title={tI18n("fleet:fleetWorkspaceCard.statusUpdated", { status: statusLabel, time: row.updatedLabel })}
+                        label={statusLabel}
                       />
                     )}
                   </AdsButton>

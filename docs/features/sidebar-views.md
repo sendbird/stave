@@ -46,7 +46,8 @@ Above either view, the sidebar's top navigation holds **Fleet View**,
 ### Entry Points
 
 - Sidebar header bar: the `Repositories` / `Work queue` toggle.
-- Top navigation: **Fleet View**, **Agents** and the agents at work (a count
+- Top navigation: **Fleet View** (the grid icon, the same at every Fleet entry
+  point), **Agents** and the agents at work (a count
   on each), and **AI usage**. Clicking an agent opens it in the Agents tab.
   Agents also has a **Performance** tab, which compares ended runs across
   workspaces; see [Agent performance and task outputs](results.md).
@@ -86,6 +87,9 @@ Every workspace, grouped into four lanes in fixed priority order:
   shelves exist to be out of the way. Collapsing is session-local — it answers
   "what am I ignoring right now", not "how do I like my sidebar" — so it resets
   on restart, the same way collapsed repositories do.
+- A warning count on a workspace row (in the queue and in the repository tree)
+  is how many requests there are waiting for your answer: approvals,
+  questions and agent run sign-offs.
 - The trailing text on a row is the repository name. The queue is the one view that
   interleaves repositories, so it has to state in text what the tree states by
   position. On a shelf it says why the row is there instead (`PR merged`,

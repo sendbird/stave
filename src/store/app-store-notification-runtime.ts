@@ -100,18 +100,18 @@ export function createAppStoreNotificationRuntime(args: {
         }
       }
       if (nativeNotificationsEnabled) {
+        // The OS notification is for when Stave is not in front of you. While
+        // its window has focus, the in-app toast, the bell and the sound say
+        // it already, whichever workspace the notification belongs to.
         const isFocused =
           typeof document !== "undefined" &&
           typeof document.hasFocus === "function" &&
           document.hasFocus();
-        const sameWorkspace =
-          !result.notification.workspaceId ||
-          result.notification.workspaceId === get().activeWorkspaceId;
         void window.api?.notifications?.showNative?.({
           notificationId: result.notification.id,
           title: result.notification.title,
           body: result.notification.body,
-          suppress: isFocused && sameWorkspace,
+          suppress: isFocused,
         });
       }
       showNotificationToast(result.notification, {

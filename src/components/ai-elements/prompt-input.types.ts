@@ -130,11 +130,13 @@ export interface PromptInputProps {
   thinkingMode?: "adaptive" | "enabled" | "disabled";
   onThinkingModeChange?: (value: "adaptive" | "enabled" | "disabled") => void;
   pendingUserInput?: { messageId: string; part: UserInputPart } | null;
+  /** Answers name their request, like approvals do. */
   onUserInputSubmit?: (args: {
     messageId: string;
+    requestId: string;
     answers: Record<string, string>;
   }) => void;
-  onUserInputDeny?: (args: { messageId: string }) => void;
+  onUserInputDeny?: (args: { messageId: string; requestId: string }) => void;
   /**
    * Agents offered inside the model picker, which splits into agent and model
    * segments while an agent runs the task. Absent where the picker lists

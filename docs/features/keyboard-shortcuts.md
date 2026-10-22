@@ -91,7 +91,7 @@ choice.
 | Focus prompt composer | `Cmd/Ctrl+L` or `Cmd/Ctrl+J` | Active task |
 | Stage comment | `Cmd/Ctrl+Enter` | While typing in the composer; change it in Settings |
 | Stop active turn | `Esc` | Task pane or composer |
-| Approve request | `Enter` | Active task with a pending request, not while typing |
+| Allow request once | `Enter` | Active task with a pending request, not while typing |
 | Answer with guidance | `Tab` | Active task with a pending request, not while typing |
 | Choose an answer | `1..9` | An agent question in the composer, not while typing |
 | Next question or send answers | `Enter` | An agent question in the composer; Shift+Enter adds a line to a written answer |
@@ -114,8 +114,14 @@ These keys work only while their surface is open or focused.
 
 | Action | Keys | Where |
 | --- | --- | --- |
-| Next item that needs you | `N` | Fleet, not while typing |
-| Close Fleet | `Esc` | Fleet |
+| Next item that needs you | `N` | Fleet View, not while typing |
+| Close Fleet View | `Esc` | Fleet View; steps back first: an open panel, then the focused row, then the search |
+| Next inbox row | `ArrowDown` | Fleet's inbox or the notification list, with a row focused |
+| Previous inbox row | `ArrowUp` | Fleet's inbox or the notification list, with a row focused |
+| Open inbox row | `Enter` | A focused Fleet or notification row: opens its control panel or its task |
+| Allow a Fleet request once | `A` | A focused Fleet row with an approval |
+| Deny a Fleet request | `D` | A focused Fleet row with an approval |
+| Answer a Fleet question | `1..9` | A focused Fleet row with a short question |
 | Next issue | `J` or `ArrowDown` | Issues, not while typing |
 | Previous issue | `K` or `ArrowUp` | Issues, not while typing |
 | Kick off issue | `Enter` or `Cmd/Ctrl+Enter` | Issues, not while typing |

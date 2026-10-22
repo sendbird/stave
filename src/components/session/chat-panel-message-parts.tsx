@@ -8,13 +8,6 @@ import {
   ContextCompactedCheckpoint,
   MessageAction,
   MessageResponse,
-  SubagentCard,
-  TodoCard,
-  Tool,
-  ToolContent,
-  ToolHeader,
-  ToolInput,
-  ToolOutput,
   TruncationWarningBanner,
 } from "@/components/ai-elements";
 import { LinkifiedText } from "@/components/ui/linkified-text";
@@ -41,6 +34,11 @@ import {
   ReferencedFilesBlock,
   ImageAttachmentBlock,
 } from "./chat-panel-file-blocks";
+import {
+  TraceSubagentRun,
+  TraceTodoRun,
+  TraceToolRun,
+} from "./message/turn-event-tool-runs";
 
 export { toToolDisplayName } from "@/lib/tool-display-name";
 export { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
@@ -96,25 +94,21 @@ export function MessagePartRenderer(args: {
     useState(false);
 
   switch (part.type) {
+    /*
+     * A display list reaches a tool call only through here. It is drawn by the
+     * same `ToolRun` builders as the assistant trace, plus the live Lens
+     * preview a browser call drives and a "Live output" label while the call
+     * is still streaming.
+     */
     case "tool_use":
       if (isSubagentToolPart({ toolName: part.toolName })) {
-        return (
-          <SubagentCard
-            defaultOpen={false}
-            input={part.input}
-            output={part.output}
-            state={part.state}
-            progressMessages={part.progressMessages}
-          />
-        );
+        return <TraceSubagentRun part={part} />;
       }
       if (isTodoToolPart({ toolName: part.toolName })) {
         return (
-          <TodoCard
-            defaultOpen={true}
-            input={part.input}
-            output={part.output}
-            state={part.state}
+          <TraceTodoRun
+            part={part}
+            title={i18n.t("session:assistantTraceBuilder.title2")}
           />
         );
       }
@@ -122,31 +116,19 @@ export function MessagePartRenderer(args: {
         return <FileChangeToolBlock input={part.input} />;
       }
       return (
-        <Tool defaultOpen={false}>
-          <ToolHeader
-            type={part.toolName}
-            state={part.state}
-            elapsedSeconds={part.elapsedSeconds}
-          />
-          <ToolContent>
+        <TraceToolRun
+          outputLabel={
+            part.state === "input-streaming"
+              ? i18n.t("session:chatPanelMessageParts.label2")
+              : undefined
+          }
+          part={part}
+          taskId={taskId}
+        >
+          {part.toolName.includes("stave_lens_") ? (
             <LensToolPreview toolName={part.toolName} input={part.input} />
-            <ToolInput input={part.input} />
-            {(part.state !== "input-streaming" || part.output?.trim()) && (
-              <ToolOutput
-                label={
-                  part.state === "input-streaming" ? i18n.t("session:chatPanelMessageParts.label2") : undefined
-                }
-                outputText={part.output}
-                errorText={
-                  part.state === "output-error"
-                    ? (part.output ?? i18n.t("session:chatPanelMessageParts.errorText"))
-                    : undefined
-                }
-                linkifyOutputText={part.state !== "input-streaming"}
-              />
-            )}
-          </ToolContent>
-        </Tool>
+          ) : null}
+        </TraceToolRun>
       );
     case "code_diff":
       return (

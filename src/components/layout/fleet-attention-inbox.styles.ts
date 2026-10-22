@@ -2,21 +2,13 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
 
-/** The column only grows its trailing rule once it sits beside the board. */
-const BESIDE_BOARD = "@media (min-width: 40rem)";
-
 export const attentionStyles = stylex.create({
+  // Fills the band above the board; the band bounds its height.
   root: {
     backgroundColor: vars["--ads-color-surface"],
-    borderRightColor: vars["--ads-color-border"],
-    borderRightStyle: "solid",
-    borderRightWidth: {
-      default: 0,
-      [BESIDE_BOARD]: vars["--ads-border-width-hairline"],
-    },
     display: "flex",
     flexDirection: "column",
-    height: "100%",
+    flexGrow: 1,
     minHeight: 0,
     width: "100%",
   },
@@ -51,21 +43,34 @@ export const attentionStyles = stylex.create({
   countClear: {
     color: vars["--ads-color-text-muted"],
   },
+  // Sized by its rows up to the band's bound, then it scrolls.
   scroller: {
-    flexBasis: 0,
+    flexBasis: "auto",
     flexGrow: 1,
+    flexShrink: 1,
     minHeight: 0,
     overflowY: "auto",
   },
+  // Decisions sit side by side when the band is wide enough, so several are
+  // answerable without scrolling.
   list: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 24rem), 1fr))",
     minWidth: 0,
   },
+  /** A cell of that grid draws its own trailing rule. */
+  gridRow: {
+    borderInlineEndColor: vars["--ads-color-border"],
+    borderInlineEndStyle: "solid",
+    borderInlineEndWidth: vars["--ads-border-width-hairline"],
+  },
+  // A band with nothing waiting says so in one short block.
   empty: {
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-4"],
-    paddingBlock: vars["--ads-space-32"],
+    paddingBlock: vars["--ads-space-16"],
     paddingInline: vars["--ads-space-16"],
     textAlign: "center",
   },
@@ -77,7 +82,7 @@ export const attentionStyles = stylex.create({
   /*
    * Body, not Lead. This is a panel-level empty state inside a 320px column
    * whose eyebrow runs Caption and whose rows run Body — a Lead title made
-   * "Nothing blocked" the largest type anywhere in the Fleet surface, two steps
+   * "No action required" the largest type anywhere in the Fleet surface, two steps
    * above the copy directly beneath it, and it read as a page heading that had
    * wandered into a sidebar. Body + semibold keeps it the strongest thing in
    * the column without leaving the column's scale.
@@ -92,118 +97,6 @@ export const attentionStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-normal"],
-  },
-  row: {
-    borderBottomColor: vars["--ads-color-border"],
-    borderBottomStyle: "solid",
-    borderBottomWidth: {
-      default: vars["--ads-border-width-hairline"],
-      ":last-child": 0,
-    },
-  },
-  rowSelected: {
-    backgroundColor: vars["--ads-color-selection-fill"],
-  },
-  rowTrigger: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-    },
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    minWidth: 0,
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
-    textAlign: "left",
-    width: "100%",
-    zIndex: {
-      default: null,
-      ":focus-visible": vars["--ads-z-index-panel"],
-    },
-  },
-  rowTop: {
-    alignItems: "center",
-    display: "flex",
-    gap: 6,
-    minWidth: 0,
-  },
-  /** The badge states the need; it must never stretch to the row's width. */
-  needBadge: {
-    flexShrink: 0,
-  },
-  // Glyphs inside interactive rows take the control-icon floor.
-  needIcon: {
-    height: vars["--ads-control-icon-size-sm"],
-    width: vars["--ads-control-icon-size-sm"],
-  },
-  rowTime: {
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    marginInlineStart: "auto",
-  },
-  rowTitle: {
-    color: vars["--ads-color-text"],
-    display: "block",
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  rowMeta: {
-    alignItems: "center",
-    color: vars["--ads-color-text-muted"],
-    display: "flex",
-    fontSize: vars["--ads-font-size-caption"],
-    gap: vars["--ads-space-4"],
-    minWidth: 0,
-  },
-  rowMetaPart: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  rowDetail: {
-    color: vars["--ads-color-text-muted"],
-    display: "-webkit-box",
-    fontSize: vars["--ads-font-size-caption"],
-    overflow: "hidden",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 2,
-  },
-  rowActions: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars["--ads-space-4"],
-    paddingBottom: 6,
-    paddingInline: vars["--ads-space-8"],
-  },
-  rowAction: {
-    fontSize: vars["--ads-font-size-caption"],
-    height: 24,
-    paddingInline: 6,
-  },
-  rowActionIcon: {
-    height: vars["--ads-control-icon-size-sm"],
-    width: vars["--ads-control-icon-size-sm"],
-  },
-  /** A failed row action: its own line, after every button. */
-  rowError: {
-    color: vars["--ads-color-danger-text"],
-    flexBasis: "100%",
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    order: 1,
-    overflowWrap: "anywhere",
-  },
-  rowControls: {
-    backgroundColor: vars["--ads-color-canvas"],
-    borderTopColor: vars["--ads-color-border"],
-    borderTopStyle: "solid",
-    borderTopWidth: vars["--ads-border-width-hairline"],
   },
   reviewGroup: {
     borderTopColor: vars["--ads-color-border"],

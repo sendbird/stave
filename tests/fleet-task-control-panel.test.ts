@@ -17,7 +17,7 @@ const workspaceCardSource = await Bun.file(
 describe("Fleet inline control surface contract", () => {
   test("renders the complete interaction and running-turn controls", () => {
     expect(panelSource).toContain("<UserInputCard");
-    expect(panelSource).toContain("<ConfirmationCompact");
+    expect(panelSource).toContain("<ToolApprovalCard");
     expect(panelSource).toContain("fleet:fleetTaskControlPanel.steerNow");
     expect(i18n.getFixedT("en", "fleet")("fleetTaskControlPanel.steerNow")).toBe("Steer now");
     expect(panelSource).toContain("fleet:fleetTaskControlPanel.queueNext");
@@ -44,6 +44,12 @@ describe("Fleet inline control surface contract", () => {
     expect(panelSource).toContain("restoreTriggerFocus");
     expect(inboxSource).toContain("aria-expanded");
     expect(workspaceCardSource).toContain('data-fleet-task-row="true"');
+  });
+
+  test("matches a question that outlived its turn the way its row does", () => {
+    // Shown and sent without the turn, through the helper the row uses.
+    expect(panelSource).toContain("fleetInteractionOutlivesTurn(pendingInteraction?.part)");
+    expect(panelSource).toContain("fleetInteractionOutlivesTurn(pendingInteraction.part)");
   });
 
   test("mounts the control panel from both the needs rail and the board card", () => {

@@ -26,10 +26,32 @@ which produces one entry per kind. Every entry is one step on the rail.
 | search / web + citations | `ToolRun` + `Citation.List`  | sources come from URLs in the provider's own output                          |
 | subagent                 | `ToolRun`                    | `Bot` glyph, prompt in `input`, report in `output` as prose                   |
 | todo / plan              | `ToolRun` + `Plan`           | TodoWrite is a real tool call; the plan is its payload                        |
-| approval                 | `Approval`                   | ADS is presentation only — the decision still calls `resolveApproval`         |
+| approval                 | `Approval` via `ToolApprovalCard` | ADS is presentation only — the decision still calls `resolveApproval`    |
 | user input               | `Clarification`              | fields are ADS `RadioGroup` / `Checkbox` / `TextField`                        |
 | system                   | `agentSurface` + `inlineDisclosure` | a recipe composition: ADS has no notice surface — see §8               |
 | assistant text (interim) | none                         | prose on the rail, no disclosure — it is language, not an event               |
+
+One renderer per kind, wherever the event is shown:
+
+- A tool call, a subagent and a plan revision are drawn by the `ToolRun`
+  builders in
+  [`turn-event-tool-runs.tsx`](../../src/components/session/message/turn-event-tool-runs.tsx).
+  The trace puts them on its rail; a message's display list renders the same
+  rows bare, adding only the live Lens preview a browser call drives and a
+  "Live output" label while a call streams.
+- An approval is drawn by
+  [`ToolApprovalCard`](../../src/components/session/ToolApprovalCard.tsx) in the
+  transcript, the composer's approval queue, a delegated child's request slot
+  and Fleet. Outside the transcript it uses the host `density="compact"`
+  variant of `Approval`. Every surface uses the same words (`Allow once`,
+  `Always allow` only where the provider keeps the grant, `Deny`) and blocks
+  the decision set from the moment one is sent until the request leaves
+  pending, or for at most 32 seconds so a lost delivery can be retried.
+- A question's answers are filed one way everywhere
+  ([`user-input-answers.ts`](../../src/lib/user-input-answers.ts)): under the
+  question's `key`, or its text without one, with several picks joined by
+  ", ". Answers recorded under a question's header by older transcripts still
+  read back.
 
 Two rules that decide what does **not** become a kind:
 

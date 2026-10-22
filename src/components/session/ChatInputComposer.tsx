@@ -1300,6 +1300,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       resolveApproval({
         taskId: args.activeTaskId,
         messageId: pendingApproval.messageId,
+        requestId: pendingApproval.part.requestId,
         approved: true,
       });
     };
@@ -1359,15 +1360,16 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
             guidanceFocusNonce={guidanceFocusNonce}
-            onResolveApproval={({ messageId, approved, scope }) => {
+            onResolveApproval={({ messageId, requestId, approved, scope }) => {
               resolveApproval({
                 taskId: args.activeTaskId,
                 messageId,
+                requestId,
                 approved,
                 ...(scope ? { scope } : {}),
               });
             }}
-            onTrustAndApprove={({ messageId, toolName, input }) => {
+            onTrustAndApprove={({ messageId, requestId, toolName, input }) => {
               const trustedEntry = buildTrustedToolEntryForApproval({
                 toolName,
                 input,
@@ -1385,23 +1387,16 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               resolveApproval({
                 taskId: args.activeTaskId,
                 messageId,
+                requestId,
                 approved: true,
               });
             }}
-            onDraftGuidance={({
-              messageId,
-              toolName,
-              description,
-              guidance,
-            }) => {
-              stageApprovalGuidance({
-                toolName,
-                description,
-                guidance,
-              });
+            onDraftGuidance={({ messageId, requestId, toolName, description, guidance }) => {
+              stageApprovalGuidance({ toolName, description, guidance });
               resolveApproval({
                 taskId: args.activeTaskId,
                 messageId,
+                requestId,
                 approved: false,
               });
             }}
@@ -1720,10 +1715,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           pendingUserInput={pendingUserInput}
           onUserInputSubmit={
             pendingUserInput
-              ? ({ messageId, answers }) => {
+              ? ({ messageId, requestId, answers }) => {
                   resolveUserInput({
                     taskId: args.activeTaskId,
                     messageId,
+                    requestId,
                     answers,
                   });
                 }
@@ -1731,10 +1727,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
           onUserInputDeny={
             pendingUserInput
-              ? ({ messageId }) => {
+              ? ({ messageId, requestId }) => {
                   resolveUserInput({
                     taskId: args.activeTaskId,
                     messageId,
+                    requestId,
                     denied: true,
                   });
                 }

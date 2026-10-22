@@ -5,30 +5,22 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
   Bot,
-  Brain,
   FileCode2,
   FileText,
   Globe,
-  Info,
-  ListTodo,
   Pencil,
   Search,
-  ShieldCheck,
   Terminal,
-  UserRound,
   Wrench,
 } from "lucide-react";
-import { StaveIcon } from "@/components/brand-icons";
 import type { AgentRunState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { ToolRun } from "@/components/ads/components/ToolRun";
-import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtTrigger,
   MessageResponse,
-  parseSubagentToolInput,
 } from "@/components/ai-elements";
 import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
 import {
@@ -44,14 +36,8 @@ import {
 } from "@/components/session/chat-panel.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
-import { isStaveToolName } from "@/lib/tool-display-name";
-import {
-  isInlineRenderToolName,
-  parseInlineRenderToolOutput,
-} from "@/lib/inline-render/inline-render";
+import { parseInlineRenderToolOutput } from "@/lib/inline-render/inline-render";
 import { InlineHtmlRenderList } from "./inline-html-render";
-import { readMcpAppViewFromToolPart } from "@/lib/mcp-app/mcp-app-view";
-import { McpAppView } from "./mcp-app-view";
 import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,
@@ -62,102 +48,23 @@ import type {
   MessagePart,
   ThinkingPart,
 } from "@/types/chat";
-import {
-  deriveTraceToolSummary,
-  getResidualToolInput,
-  getToolTitle,
-  normalizeTraceToolName,
-} from "./assistant-trace.utils";
+import { normalizeTraceToolName } from "./assistant-trace.utils";
 import {
   buildAssistantTrace,
   joinReasoningText,
   traceHasToolStep,
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
-import { CommandResult } from "./command-result";
-import { ToolOutputImages } from "./tool-output-images";
-import { parseToolOutputImages } from "@/lib/tool-images/tool-images";
-import {
-  planProgressCount,
-  TraceApproval,
-  TraceClarification,
-  TracePlan,
-} from "./turn-event-decisions";
+import { TraceApproval, TraceClarification } from "./turn-event-decisions";
 import { TraceSystemNotice } from "./turn-event-notice";
+import { ReasoningRow } from "./turn-event-rows";
+import { toMeasuredDurationMs } from "./turn-event-state";
 import {
-  ReasoningRow,
-  SubagentProgress,
-  TraceCitations,
-  TraceOutput,
-} from "./turn-event-rows";
-import {
-  toAgentRunState,
-  toMeasuredDurationMs,
-} from "./turn-event-state";
-
-/* ─── Step icon mapping ──────────────────────────────────────────── */
-
-/**
- * The object glyph's box. `controlIconSizes.md` is what ADS `ToolRun` and
- * `Thinking` size their own glyph slot to, and passing it explicitly is what
- * keeps a lucide icon from falling back to its 24px default inside those rows.
- * The host step path clones an em-based `width`/`height` over it, so one
- * mapping still serves both.
- */
-const GLYPH_SIZE = controlIconSizes.md;
-
-function getToolIcon(toolName: string): ReactNode {
-  if (isStaveToolName(toolName)) {
-    return <StaveIcon className={sx(styles.glyphEm)} />;
-  }
-
-  switch (normalizeTraceToolName(toolName)) {
-    case "bash":
-      return <Terminal size={GLYPH_SIZE} />;
-    case "read":
-      return <FileText size={GLYPH_SIZE} />;
-    case "write":
-      return <FileText size={GLYPH_SIZE} />;
-    case "edit":
-      return <Pencil size={GLYPH_SIZE} />;
-    case "glob":
-      return <Search size={GLYPH_SIZE} />;
-    case "grep":
-      return <Search size={GLYPH_SIZE} />;
-    /* ACP `search` kind — the canonical name ACP providers map onto. */
-    case "search":
-      return <Search size={GLYPH_SIZE} />;
-    case "websearch":
-      return <Globe size={GLYPH_SIZE} />;
-    case "webfetch":
-      return <Globe size={GLYPH_SIZE} />;
-    default:
-      return <Wrench size={GLYPH_SIZE} />;
-  }
-}
-
-function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
-  switch (entry.kind) {
-    case "reasoning":
-      return <Brain size={GLYPH_SIZE} />;
-    case "tool":
-      return getToolIcon(entry.part.toolName);
-    case "subagent":
-      return <Bot size={GLYPH_SIZE} />;
-    case "todo":
-      return <ListTodo size={GLYPH_SIZE} />;
-    case "diff":
-      return <FileCode2 size={GLYPH_SIZE} />;
-    case "system":
-      return <Info size={GLYPH_SIZE} />;
-    case "approval":
-      return <ShieldCheck size={GLYPH_SIZE} />;
-    case "user_input":
-      return <UserRound size={GLYPH_SIZE} />;
-    case "assistant_text":
-      return undefined;
-  }
-}
+  TRACE_GLYPH_SIZE,
+  TraceSubagentRun,
+  TraceTodoRun,
+  TraceToolRun,
+} from "./turn-event-tool-runs";
 
 /**
  * The `+N −M` roll-up a changed-file row carries in its machine register.
@@ -355,7 +262,6 @@ function AssistantTraceEntryView(args: {
     terminalStopReason,
     readOnly,
   } = args;
-  const icon = getEntryIcon(entry);
 
   switch (entry.kind) {
     case "reasoning":
@@ -391,59 +297,8 @@ function AssistantTraceEntryView(args: {
         </StepRail.Step>
       );
 
-    case "tool": {
-      const normalized = normalizeTraceToolName(entry.part.toolName);
-      /*
-       * An inline HTML page is shown in full below the trace, so its row names
-       * the page and never unpacks the page's markup (up to half a megabyte)
-       * into the arguments panel or the header chip.
-       */
-      const inlineRender = isInlineRenderToolName(entry.part.toolName)
-        ? { reference: parseInlineRenderToolOutput(entry.part.output) }
-        : null;
-      const toolSummary =
-        normalized === "file_change"
-          ? null
-          : inlineRender
-            ? inlineRender.reference
-              ? { kind: "text" as const, text: inlineRender.reference.title }
-              : null
-            : deriveTraceToolSummary({
-                toolName: entry.part.toolName,
-                input: entry.part.input,
-              });
-      /*
-       * The header already carries the command / file / pattern / URL in the
-       * machine register, so the raw arguments panel appears only for the
-       * arguments the header does not cover. Single-argument tools (Bash,
-       * Read, Grep) therefore show their result and not the same string twice.
-       */
-      const residualInput = inlineRender
-        ? null
-        : getResidualToolInput({
-            input: entry.part.input,
-            summary: toolSummary,
-          });
-      const fileRows =
-        normalized === "file_change"
-          ? parseFileChangeToolInput(entry.part.input)
-          : [];
-      const isCommand = normalized === "bash";
-      const isWeb = normalized === "websearch" || normalized === "webfetch";
-      const isError = entry.part.state === "output-error";
-      const streamingInput = entry.part.state === "input-streaming";
-      // Images come out of the text: a screenshot is a picture, not base64.
-      const toolOutput = parseToolOutputImages(entry.part.output);
-      const rawOutput = toolOutput.text.trim();
-      const output =
-        inlineRender?.reference && !isError
-          ? i18n.t("session:inlineRender.shownBelow")
-          : rawOutput;
-      const command =
-        toolSummary?.kind === "command" ? toolSummary.text : entry.part.input;
-      // A view the runtime captured for this call replaces its text output.
-      const mcpAppView = isError ? null : readMcpAppViewFromToolPart(entry.part);
-
+    /* The one tool-call renderer, shared with the display list. */
+    case "tool":
       return (
         <StepRail.Step
           connector={!isLast}
@@ -452,66 +307,11 @@ function AssistantTraceEntryView(args: {
           tabIndex={entry.part.toolUseId ? -1 : undefined}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
-          <ToolRun
-            /* Remounts when a captured view arrives, so the row opens to show it. */
-            key={mcpAppView?.viewId ?? "text"}
-            count={
-              fileRows.length > 0
-                ? i18n.t("session:counts.files", { count: fileRows.length })
-                : undefined
-            }
-            /*
-             * Measured only. The provider reports `elapsedSeconds` for the
-             * calls it timed and omits it for the rest, and ADS renders no
-             * duration rather than a plausible one — §6.
-             */
-            durationMs={toMeasuredDurationMs(entry.part.elapsedSeconds)}
-            error={
-              isError && !isCommand && output ? (
-                <TraceOutput linkify={false} text={output} />
-              ) : undefined
-            }
-            icon={icon}
-            input={residualInput || undefined}
-            defaultOpen={mcpAppView ? true : undefined}
-            output={
-              mcpAppView ? (
-                <McpAppView reference={mcpAppView} taskId={taskId} toolUseId={entry.part.toolUseId} />
-              ) : !isError && !isCommand && output ? (
-                <TraceOutput linkify={!streamingInput} text={output} />
-              ) : undefined
-            }
-            status={toAgentRunState(entry.part.state)}
-            title={getToolTitle(entry.part.toolName)}
-            tool={toolSummary?.text}
-          >
-            {isCommand ? (
-              <CommandResult
-                command={command}
-                isError={isError}
-                isStreaming={streamingInput}
-                output={entry.part.output}
-              />
-            ) : null}
-            {isWeb && !isError ? (
-              <TraceCitations output={entry.part.output} />
-            ) : null}
-            {toolOutput.images.length > 0 ? (
-              <ToolOutputImages images={toolOutput.images} />
-            ) : null}
-          </ToolRun>
+          <TraceToolRun part={entry.part} taskId={taskId} />
         </StepRail.Step>
       );
-    }
 
-    case "subagent": {
-      const parsed = parseSubagentToolInput({ input: entry.part.input });
-      const baseTitle = parsed.description ?? parsed.subagentType ?? i18n.t("session:assistantTrace.baseTitle");
-      const resolvedTitle = baseTitle;
-      const isError = entry.part.state === "output-error";
-      const output = entry.part.output?.trim() ?? "";
-      const progress = entry.part.progressMessages ?? [];
-
+    case "subagent":
       return (
         <StepRail.Step
           connector={!isLast}
@@ -520,44 +320,10 @@ function AssistantTraceEntryView(args: {
           tabIndex={entry.part.toolUseId ? -1 : undefined}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
-          <ToolRun
-            /*
-             * The subagent's own machine identity goes in the `tool` slot: its
-             * type, a value the runtime reported, not language the agent wrote.
-             */
-            durationMs={toMeasuredDurationMs(entry.part.elapsedSeconds)}
-            error={
-              isError && output ? (
-                <TraceOutput linkify={false} text={output} />
-              ) : undefined
-            }
-            icon={icon}
-            /* The chip carries only the type, so the prompt is still new
-               information and stays visible. */
-            input={parsed.prompt ?? parsed.raw}
-            inputLabel={i18n.t("session:assistantTrace.inputLabel")}
-            output={
-              !isError && output ? (
-                <TraceOutput prose text={output} />
-              ) : undefined
-            }
-            status={toAgentRunState(entry.part.state)}
-            title={resolvedTitle}
-            tool={parsed.subagentType}
-          >
-            <SubagentProgress messages={progress} />
-          </ToolRun>
+          <TraceSubagentRun part={entry.part} />
         </StepRail.Step>
       );
-    }
 
-    /*
-     * The plan revision is a tool call — TodoWrite genuinely is one — so the
-     * row is `ToolRun` and the payload is ADS `Plan`. That is what keeps §4's
-     * matrix true for this kind: the row opens while the call streams, settles
-     * and collapses when it lands, and the collapsed line still carries
-     * `done / total`, so the collapse hides no progress.
-     */
     case "todo":
       return (
         <StepRail.Step
@@ -567,14 +333,7 @@ function AssistantTraceEntryView(args: {
           tabIndex={entry.part.toolUseId ? -1 : undefined}
           xstyle={[styles.railStep, styles.rowMotion]}
         >
-          <ToolRun
-            count={planProgressCount(entry.part.input)}
-            icon={icon}
-            status={toAgentRunState(entry.part.state)}
-            title={entry.title}
-          >
-            <TracePlan input={entry.part.input} state={entry.part.state} />
-          </ToolRun>
+          <TraceTodoRun part={entry.part} title={entry.title} />
         </StepRail.Step>
       );
 
@@ -612,7 +371,7 @@ function AssistantTraceEntryView(args: {
             /* `+N −M`, already in the diff's own semantic ink. It reads in the
                machine register beside a tool call's "12 matches". */
             count={getDiffSummary(entry.parts)}
-            icon={icon}
+            icon={<FileCode2 size={TRACE_GLYPH_SIZE} />}
             status={diffStatus}
             title={
               entry.parts.length === 1

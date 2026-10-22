@@ -1,37 +1,24 @@
 {
   "fleetAttentionInbox": {
-    "valueForValueInValue": "{{value1}} for {{title}} in {{value2}}",
     "markReviewed": "Mark read",
     "markRead": "Mark read",
-    "dismissValueForValueInValue": "Dismiss {{value1}} for {{title}} in {{value2}}",
     "dismiss": "Dismiss",
     "openPr": "Open PR",
     "snoozeValueForValueInValue": "Snooze {{value1}} for {{title}} in {{value2}}",
     "snooze": "Snooze",
     "hideUntil": "Hide until",
-    "actionRequired": "Action required",
-    "nothingBlocked": "Nothing blocked",
-    "noAgentIsWaitingOnYouRight": "No agent is waiting on you right now.",
-    "worthALook": "Worth a look",
-    "clearThe1ItemWorthALook": "Clear the 1 item worth a look",
-    "clearAllValueItemsWorthALook": "Clear all {{reviewCount}} items worth a look",
     "clearAll": "Clear all",
-    "snoozed": "snoozed",
     "restoreValueSnoozedItems": "Restore {{snoozedCount}} snoozed items",
     "restore": "Restore",
-    "question": "Question",
-    "approval": "Approval",
-    "runFailed": "Run failed",
-    "resultReady": "Result ready",
-    "changesRequested": "Changes requested",
-    "checksFailed": "Checks failed",
-    "mergeConflict": "Merge conflict",
-    "behindBase": "Behind base",
-    "readyToMerge": "Ready to merge",
-    "runBlocked": "Run blocked",
-    "runStuck": "Run stuck",
     "snoozedCount": "{{count}} snoozed",
-    "signOff": "Sign-off"
+    "rowLabel": "{{action}} for {{title}} in {{workspace}}",
+    "dismissApproval": "Dismiss approval for {{title}} in {{workspace}}",
+    "dismissQuestion": "Dismiss question for {{title}} in {{workspace}}",
+    "clearOneInReview": "Clear the 1 item in review",
+    "clearAllInReview": "Clear all {{reviewCount}} items in review",
+    "noActionRequired": "No action required",
+    "noAgentIsWaitingOnYou": "No agent is waiting on you right now.",
+    "rowLabelNoWorkspace": "{{action}} for {{title}}"
   },
   "fleetTaskControlPanel": {
     "replySteeredIntoTheActiveTurn": "Reply steered into the active turn.",
@@ -73,9 +60,6 @@
     "reviewWasNotSavedRetry": "Read status was not saved. Retry.",
     "snoozeWasNotSavedRetry": "Snooze was not saved. Retry.",
     "snoozedItemsWereNotRestoredRetry": "Snoozed items were not restored. Retry.",
-    "cleared1Item": "Cleared 1 item.",
-    "clearedValueItems": "Cleared {{cleared}} items.",
-    "someItemsWereNotClearedRetry": "Some items were not cleared. Retry.",
     "fleetView": "Fleet View",
     "fullWorkQueue": "The full Work queue, what needs you first",
     "noAgentTurnsInFlight": "No agent turns in flight",
@@ -98,7 +82,6 @@
     "noWorkspacesMatchTheCurrentFilter": "No workspaces match the current filter.",
     "showDormant": "Show dormant",
     "resetFilters": "Reset filters",
-    "valueValueProject": "{{value1}} {{value2}} project",
     "current": "Current",
     "rememberedRepositoriesAlwaysCarryADefaultWorkspace": "Remembered repositories always carry a default workspace row. These have no tasks, no messages, and no recorded activity.",
     "unusedDefault": "unused default",
@@ -111,7 +94,14 @@
     "pendingResultsLimit": "Showing the latest 200 of {{count}} unread results. Open a task to see its full result history.",
     "accessibility": {
       "closeFleetView": "Close Fleet view"
-    }
+    },
+    "expandRepository": "Expand {{name}}",
+    "collapseRepository": "Collapse {{name}}",
+    "layoutLabel": "Board layout",
+    "cards": "Cards",
+    "table": "Table",
+    "valueTasksShown_one": " · {{count}} task shown",
+    "valueTasksShown_other": " · {{count}} tasks shown"
   },
   "fleetWorkspaceCard": {
     "defaultValue": "Default · {{branchLabel}}",
@@ -137,12 +127,13 @@
     "openValueWorkspace": "Open {{displayName}} workspace",
     "open": "Open",
     "valueMoreTaskvalue_one": "+{{count}} more task",
-    "valueMoreTaskvalue_other": "+{{count}} more tasks",
-    "providerName": "{{label}} provider"
+    "valueMoreTaskvalue_other": "+{{count}} more tasks"
   },
   "attentionProjection": {
     "untitledTask": "Untitled task",
-    "theActiveProviderTurnNeedsReview": "The active provider turn needs review."
+    "theActiveProviderTurnNeedsReview": "The active provider turn needs review.",
+    "repository": "Repository",
+    "workspace": "Workspace"
   },
   "taskExecutionSummary": {
     "derivedFromPersistedAssistantMessageTimestamps": "Derived from persisted assistant message timestamps.",
@@ -162,10 +153,6 @@
     "cumulativeUsageFromValuePersistedMessagevalue_other": "Cumulative usage from {{count}} persisted messages."
   },
   "sidebarWorkQueue": {
-    "actionRequired": "Action required",
-    "inProgress": "In progress",
-    "inReview": "In review",
-    "idle": "Idle",
     "openFullView": "Open the full Work queue in Fleet View",
     "snoozed": "Snoozed",
     "settled": "Settled"
@@ -175,10 +162,13 @@
     "workedInRecently": "Worked in recently",
     "running": "Running",
     "anAgentTurnIsInFlight": "An agent turn is in flight",
-    "blocked": "Blocked",
     "waitingOnYou": "Waiting on you",
     "all": "All",
-    "includeDormantWorkspaces": "Include dormant workspaces"
+    "includeDormantWorkspaces": "Include dormant workspaces",
+    "needsAnswer": "Needs answer",
+    "aRequestWaitsForYourAnswer": "A request waits for your answer.",
+    "stalled": "No updates",
+    "aTurnHasGoneQuiet": "A running turn has reported nothing for five minutes."
   },
   "additionalCopy": {
     "message4": "A response is being delivered.",
@@ -193,5 +183,103 @@
     "agentRunNeedsAttention": "{{stage}} · {{detail}}",
     "stoppedMoving": "stopped moving",
     "needsYou": "needs you"
+  },
+  "vocabulary": {
+    "actionRequired": "Action required",
+    "inReview": "In review",
+    "inProgress": "In progress",
+    "idle": "Idle",
+    "kind": {
+      "userInput": "Question",
+      "approval": "Approval",
+      "runFailed": "Run failed",
+      "resultReady": "Result ready",
+      "prChangesRequested": "Changes requested",
+      "prChecksFailed": "Checks failed",
+      "prMergeConflict": "Merge conflict",
+      "prBehindBase": "Behind base",
+      "prReadyToMerge": "Ready to merge",
+      "agentRunSignOff": "Sign-off",
+      "agentRunBlocked": "Run blocked",
+      "agentRunStuck": "Run stuck",
+      "turnStalled": "No updates"
+    },
+    "primaryAction": {
+      "openQuestion": "Open question",
+      "openApproval": "Open approval",
+      "openFailure": "Open failure",
+      "reviewResult": "Review result",
+      "openWorkspace": "Open workspace",
+      "openMergeControls": "Open merge controls",
+      "reviewSignOff": "Review sign-off",
+      "openRun": "Open run",
+      "openTurn": "Open the quiet turn"
+    },
+    "actionRequiredCount_one": "{{count}} action required",
+    "actionRequiredCount_other": "{{count}} actions required",
+    "inReviewCount_one": "{{count}} in review",
+    "inReviewCount_other": "{{count}} in review"
+  },
+  "inlineAnswer": {
+    "otherRepository": "This request belongs to another repository. Open the task to answer it.",
+    "taskUnavailable": "This task is no longer available.",
+    "loading": "Loading request…",
+    "loadFailed": "This request could not be loaded. Open the task to answer it.",
+    "answered": "This request was answered or expired.",
+    "openInTask": "Answer this in the task.",
+    "sending": "Sending the answer…",
+    "open": "Open",
+    "openLabel": "Open {{title}} in {{workspace}}",
+    "approvalKeys": "<key>A</key> allow once · <key>D</key> deny",
+    "optionsLabel": "Answers to: {{question}}"
+  },
+  "taskActivity": {
+    "withDetail": "{{label}} · {{detail}}",
+    "ago": "{{activity}} · {{duration}} ago",
+    "running": "Running for {{duration}}",
+    "waiting": "Waiting for {{duration}}",
+    "quiet": "No updates for {{duration}}"
+  },
+  "inbox": {
+    "unreadLabel": "{{label}}, unread"
+  },
+  "bulk": {
+    "menuLabel": "Clear In review",
+    "reviewResults_one": "Mark {{count}} result reviewed",
+    "reviewResults_other": "Mark {{count}} results reviewed",
+    "readNotifications_one": "Mark {{count}} notification read (can't be undone)",
+    "readNotifications_other": "Mark {{count}} notifications read (can't be undone)",
+    "hideForADay_one": "Hide {{count}} pull request for a day",
+    "hideForADay_other": "Hide {{count}} pull requests for a day",
+    "applyAll_one": "Do all of these ({{count}} item)",
+    "applyAll_other": "Do all of these ({{count}} items)",
+    "cleared_one": "Cleared {{count}} item.",
+    "cleared_other": "Cleared {{count}} items.",
+    "readsCannotBeUndone": "Notification reads can't be undone.",
+    "failed_one": "{{count}} item was not cleared. Retry.",
+    "failed_other": "{{count}} items were not cleared. Retry.",
+    "undo": "Undo",
+    "undoFailed": "Some cleared items could not be restored.",
+    "someReviewsCannotBeUndone": "Some reviews changed elsewhere at the same time and can't be undone here.",
+    "alreadyCleared": "Already cleared elsewhere. Nothing changed."
+  },
+  "taskTable": {
+    "label": "Open tasks",
+    "task": "Task",
+    "workspace": "Workspace",
+    "state": "State",
+    "needs": "Needs",
+    "waiting": "Waiting",
+    "activity": "Activity",
+    "openTask": "Open {{title}} in {{workspace}}",
+    "noTasks": "No tasks match this filter.",
+    "underAMinute": "Under 1m",
+    "incompleteTitle": "This list is incomplete",
+    "failedRead_one": "The tasks of {{count}} workspace could not be read: {{names}}.",
+    "failedRead_other": "The tasks of {{count}} workspaces could not be read: {{names}}.",
+    "incompleteNotice": "Their tasks are missing here; every other row is current.",
+    "readingTasks": "Reading tasks…",
+    "readingMore_one": "Reading the tasks of {{count}} more workspace…",
+    "readingMore_other": "Reading the tasks of {{count}} more workspaces…"
   }
 }

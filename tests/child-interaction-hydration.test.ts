@@ -31,9 +31,9 @@ async function setup(cached = false) {
 
 test("cold child request hydration retains parent selection and the full durable message count", async () => {
   const store = await setup();
-  const { loadChildInteraction } = await import("@/components/team/load-child-interaction");
+  const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
   let bounded = false;
-  await loadChildInteraction(expected, { loadWorkspaceShell: async () => shell, listActiveWorkspaceTurns: async () => turns,
+  await loadFleetInteraction(expected, { loadWorkspaceShell: async () => shell, listActiveWorkspaceTurns: async () => turns,
     loadTaskMessagesPage: async args => { bounded = args.limit === 120 && args.preserveStreaming === true; return page; } });
   const state = store.getState();
   expect(bounded).toBe(true);
@@ -46,9 +46,9 @@ test("cold child request hydration retains parent selection and the full durable
 for (const change of ["metadata", "messages", "turn"] as const) {
   test(`a ${change} update during the child read wins over the persisted snapshot`, async () => {
     const store = await setup(true);
-    const { loadChildInteraction } = await import("@/components/team/load-child-interaction");
+    const { loadFleetInteraction } = await import("@/lib/fleet/interaction-load");
     let release!: (value: WorkspaceShell) => void;
-    const pending = loadChildInteraction(expected, { loadWorkspaceShell: () => new Promise(resolve => { release = resolve; }),
+    const pending = loadFleetInteraction(expected, { loadWorkspaceShell: () => new Promise(resolve => { release = resolve; }),
       listActiveWorkspaceTurns: async () => turns, loadTaskMessagesPage: async () => page });
     const cached = store.getState().workspaceRuntimeCacheById["child-workspace"]!;
     const updated = { ...cached,

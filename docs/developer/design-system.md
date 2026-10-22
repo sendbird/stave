@@ -126,10 +126,13 @@ same thing the same way.
 
 Patterns combine work components into the moments an agent workflow repeats.
 
-- Resume: picking work back up starts from what is known. Fleet's attention
-  column (`FleetAttentionInbox`) keeps work that needs you in view, and
-  `WorkspaceResumeBrief` keeps a workspace's shared instructions across its
-  tasks.
+- Resume: picking work back up starts from what is known. Fleet puts the
+  decisions waiting on you in a bounded band on top (`FleetAttentionInbox`,
+  rows drawn by `InboxRow`, the same row the notification bell uses), where a
+  short question or an approval is answered in its row, and the board of
+  running work below it, where each running task says what it last did
+  (`FleetTaskActivityLine`). `WorkspaceResumeBrief` keeps a workspace's shared
+  instructions across its tasks.
 - Review: work is checked against what it produced. `DiffViewer` and
   `FileChangeSummary` show what changed, review comments are anchored to the
   lines they are about, and `TaskResultReviews` keeps each run's saved answer,

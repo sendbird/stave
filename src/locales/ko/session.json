@@ -552,10 +552,10 @@
     "chatInputApprovalQueue3": "거부 후 안내",
     "chatInputApprovalQueue4": "취소",
     "chatInputApprovalQueue5": "안내로 대체",
-    "sentence54": "승인하고 항상 허용 {{value1}}",
+    "sentence54": "{{value1}} 항상 허용",
     "sentence55": "추가 대기 항목 {{value1}}개",
-    "extraCopy142": "프로바이더에 결정 전달 중…",
-    "extraCopy143": "다른 결정을 전달하는 중입니다."
+    "extraCopy143": "다른 결정을 전달하는 중입니다.",
+    "enterToAllowOnce": "<key>↵</key> 한 번 허용"
   },
   "chatInputRuntime": {
     "formatGoalStatusValue": "사용 한도 도달",
@@ -614,7 +614,6 @@
     "label": "복사",
     "tooltip": "메시지 복사",
     "label2": "실시간 출력",
-    "errorText": "도구가 실패했습니다.",
     "label3": "워크스페이스 체크포인트"
   },
   "chatPanelUtils": {

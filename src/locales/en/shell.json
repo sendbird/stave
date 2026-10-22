@@ -348,10 +348,7 @@
     "workspaceFiles": "Workspace files ({{value1}})"
   },
   "topBarFleetAttention": {
-    "closeFleetView": "Close Fleet View",
-    "fleetView": "Fleet View",
-    "fleetViewActionRequired_one": "Fleet View · {{count}} action required",
-    "fleetViewActionRequired_other": "Fleet View · {{count}} actions required"
+    "closeFleetView": "Close Fleet View"
   },
   "topBarIssues": {
     "closeIssues": "Close Issues",
@@ -386,7 +383,6 @@
     "archived": "Archived",
     "markRead": "Mark read",
     "deny": "Deny",
-    "approve": "Approve",
     "thisTaskIsArchived": "This task is archived.",
     "restore": "Restore",
     "cancel": "Cancel",
@@ -395,7 +391,13 @@
     "clearNotificationHistory": "Clear notification history?",
     "thisPermanentlyRemovesEveryNotificationCurrentlyIn": "This permanently removes every notification currently in History, including approval and input requests. Unread notifications remain available.",
     "loadMoreCount": "Load more ({{count}} remaining)",
-    "restoreTask": "Restore {{title}} to reopen it from notifications."
+    "restoreTask": "Restore {{title}} to reopen it from notifications.",
+    "allowOnce": "Allow once",
+    "all": "All",
+    "errors": "Errors",
+    "nothingInTheInbox": "Nothing in the inbox.",
+    "noErrors": "No errors.",
+    "failedRunsAndChecksWillAppear": "Failed runs, blocked runs and failing pull request checks will appear here."
   },
   "topBarStandaloneCli": {
     "standaloneCLISetAFolderIn": "Standalone CLI — set a folder in Settings",
@@ -852,8 +854,8 @@
         "description": "Bring back the most recently closed task, file, or Lens tab in this workspace."
       },
       "approve": {
-        "title": "Approve request",
-        "description": "Approve the pending request in the active task when focus is not in a field."
+        "title": "Allow request once",
+        "description": "Allow the pending request once in the active task when focus is not in a field."
       },
       "approvalGuidance": {
         "title": "Answer with guidance",
@@ -873,11 +875,11 @@
       },
       "fleetNext": {
         "title": "Next item that needs you",
-        "description": "Open the next item in Fleet that is waiting on you."
+        "description": "Open the next item in Fleet View that is waiting on you."
       },
       "fleetClose": {
-        "title": "Close Fleet",
-        "description": "Clear the filter, or close Fleet when it is empty."
+        "title": "Close Fleet View",
+        "description": "Step back one level: close the open panel, leave the focused row, clear the search, then close Fleet View."
       },
       "issuesNext": {
         "title": "Next issue",
@@ -962,6 +964,30 @@
       "usageClose": {
         "title": "Close AI usage",
         "description": "Close AI usage and return to the workspace."
+      },
+      "fleetRowAllow": {
+        "title": "Allow a Fleet request once",
+        "description": "In a focused Fleet row with an approval, allow it once."
+      },
+      "fleetRowDeny": {
+        "title": "Deny a Fleet request",
+        "description": "In a focused Fleet row with an approval, deny it."
+      },
+      "fleetRowChoose": {
+        "title": "Answer a Fleet question",
+        "description": "In a focused Fleet row with a short question, pick the option with that number."
+      },
+      "fleetRowNext": {
+        "title": "Next inbox row",
+        "description": "Move to the next row of Fleet's inbox or the notification list."
+      },
+      "fleetRowPrevious": {
+        "title": "Previous inbox row",
+        "description": "Move to the previous row of Fleet's inbox or the notification list."
+      },
+      "fleetRowOpen": {
+        "title": "Open inbox row",
+        "description": "Open the focused row: its control panel in Fleet, its task from the notification list."
       }
     },
     "ui": {
