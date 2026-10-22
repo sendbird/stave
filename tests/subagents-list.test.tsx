@@ -5,9 +5,11 @@ import { SubagentsList, type SubagentListItem } from "@/components/session/Subag
 import { resolveSubagentsTabMark } from "@/components/session/task-panel-marks";
 import { fromDelegatedTask, fromWorkGraphNode, type DelegationExchange } from "@/lib/delegation/exchange";
 import { countSubagentList, orderSubagentList, subagentNeedsUser } from "@/lib/delegation/subagent-list";
+import { selectTaskSubagents } from "@/lib/delegation/subagent-summary";
 import type { DelegatedTaskBlockedKind } from "@/lib/runs/delegated-task-view";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { AgentNode } from "@/lib/work-graph/work-graph.types";
+import type { ChatMessage } from "@/types/chat";
 
 const T0 = Date.parse("2026-10-22T10:00:00.000Z");
 const MINUTE = 60_000;
@@ -106,5 +108,42 @@ describe("SubagentsList", () => {
     expect(html).toContain("1 running · 1 done");
     expect(html).not.toContain("Open explorer");
     expect(html).not.toContain('data-needs-user="true"');
+  });
+});
+
+describe("a child rebuilt from saved messages", () => {
+  /**
+   * An older turn whose work graph was not kept: the graph is rebuilt from the
+   * message, which only knows when the message began, so its start and end
+   * are the same stand-in instant and say nothing about how long it ran.
+   */
+  function rebuilt(elapsedSeconds?: number) {
+    const messages = [{
+      id: "assistant-old", role: "assistant", providerId: "claude-code", model: "claude-sonnet-5", content: "",
+      turnId: "turn-old", startedAt: at(0), completedAt: at(20),
+      parts: [{
+        type: "tool_use", toolUseId: "tool-explore", toolName: "Task", state: "output-available",
+        input: JSON.stringify({ description: "Explore the users router", prompt: "Map the router", subagent_type: "Explore" }),
+        output: "The router lives in server/users.ts.",
+        ...(elapsedSeconds === undefined ? {} : { elapsedSeconds }),
+      }],
+    }] as unknown as ChatMessage[];
+    const rows = selectTaskSubagents({ messages, workGraph: null, includeSubagents: true });
+    expect(rows).toHaveLength(1);
+    const items: SubagentListItem[] = rows.map((exchange) => ({ exchange, who: exchange.title, what: exchange.ask, canStop: false, busy: false }));
+    return renderToStaticMarkup(createElement(SubagentsList, { items, nowMs: T0 + 60 * MINUTE }));
+  }
+
+  test("says nothing about its time when no duration was measured", () => {
+    const html = rebuilt();
+    expect(html).toContain("Returned");
+    expect(html).not.toMatch(/Returned · /);
+    expect(html).not.toContain("<time");
+  });
+
+  test("shows the duration the provider measured, but no made-up end time", () => {
+    const html = rebuilt(252);
+    expect(html).toContain("Returned · 4m 12s");
+    expect(html).not.toContain("<time");
   });
 });

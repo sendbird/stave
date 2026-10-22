@@ -55,10 +55,20 @@ export function selectTaskSubagents(args: SelectDelegationExchangesArgs & { mess
       const progress = exchange.outcome.progress ?? [];
       const receipt = receipts.get(graph.turnId);
       const unsettled = isExchangeStatusLive(exchange.outcome.status) && receipt;
+      // A graph rebuilt here dates every event at its message's start, so its
+      // times are stand-ins: keep only what the provider measured.
+      const rebuilt = graph !== args.workGraph;
       rows.push({
         ...exchange,
         id: `${graph.turnId}:${exchange.id}`,
         ref: { ...exchange.ref, turnId: graph.turnId },
+        ...(rebuilt ? {
+          timing: {
+            ...exchange.timing,
+            observed: false as const,
+            ...(part?.elapsedSeconds != null ? { elapsedMs: part.elapsedSeconds * 1000 } : {}),
+          },
+        } : {}),
         outcome: {
           ...exchange.outcome,
           ...(unsettled ? {

@@ -80,6 +80,16 @@ export interface DelegationTiming {
   endedAt?: number;
   deadlineAt?: number;
   stages: DelegationStage[];
+  /**
+   * `false` when `startedAt` and `endedAt` are stand-ins rather than
+   * observed: a graph rebuilt from saved messages only knows when the message
+   * began, so both read that instant. Elapsed time then comes from
+   * `elapsedMs`, a duration the provider measured, or is unknown; it is never
+   * derived from the stand-ins.
+   */
+  observed?: false;
+  /** A duration the provider measured, read when the timestamps are stand-ins. */
+  elapsedMs?: number;
 }
 
 /**
@@ -337,13 +347,17 @@ export function selectDelegationExchanges(
 
 /**
  * Wall-clock span of an exchange: to `endedAt` once settled, otherwise to
- * `nowMs`. `null` when the source never recorded a start.
+ * `nowMs`. `null` when the source never recorded a start; for stand-in
+ * timestamps, the measured `elapsedMs` or `null`.
  */
 export function resolveExchangeElapsedMs(
   exchange: DelegationExchange,
   nowMs: number,
 ): number | null {
   const { startedAt, endedAt } = exchange.timing;
+  if (exchange.timing.observed === false) {
+    return exchange.timing.elapsedMs ?? null;
+  }
   if (startedAt === null) {
     return null;
   }

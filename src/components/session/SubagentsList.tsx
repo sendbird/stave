@@ -111,10 +111,16 @@ function SubagentRow(props: { item: SubagentListItem; nowMs?: number }) {
   const { exchange } = item;
   const { error, result } = exchange.outcome;
   const live = isDelegationExchangeLive(exchange);
-  const endedAt = live ? undefined : exchange.timing.endedAt;
+  // Stand-in timestamps (a turn rebuilt from saved messages) give no end time
+  // and no ticking clock; the row shows only a duration the provider measured.
+  const observed = exchange.timing.observed !== false;
+  const endedAt = live || !observed ? undefined : exchange.timing.endedAt;
   // Row-local clock: a live row's elapsed time ticks each second, a settled
   // row only refreshes its "ago"; nothing else in the list re-renders.
-  const clock = useNow(props.nowMs === undefined && (live || endedAt !== undefined), live ? 1_000 : 30_000);
+  const clock = useNow(
+    props.nowMs === undefined && observed && (live || endedAt !== undefined),
+    live ? 1_000 : 30_000,
+  );
   const now = props.nowMs ?? clock;
   const elapsedMs = resolveExchangeElapsedMs(exchange, now);
   const needsUser = subagentNeedsUser(exchange);
