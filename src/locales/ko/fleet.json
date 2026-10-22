@@ -122,8 +122,7 @@
     "noRecordedActivity": "기록된 활동 없음",
     "openValueWorkspace": "{{displayName}} 워크스페이스 열기",
     "open": "열기",
-    "valueMoreTaskvalue_other": "작업 {{count}}개 더 보기",
-    "providerName": "{{label}} 프로바이더"
+    "valueMoreTaskvalue_other": "작업 {{count}}개 더 보기"
   },
   "attentionProjection": {
     "untitledTask": "제목 없는 작업",

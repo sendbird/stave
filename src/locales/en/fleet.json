@@ -127,8 +127,7 @@
     "openValueWorkspace": "Open {{displayName}} workspace",
     "open": "Open",
     "valueMoreTaskvalue_one": "+{{count}} more task",
-    "valueMoreTaskvalue_other": "+{{count}} more tasks",
-    "providerName": "{{label}} provider"
+    "valueMoreTaskvalue_other": "+{{count}} more tasks"
   },
   "attentionProjection": {
     "untitledTask": "Untitled task",

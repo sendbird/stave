@@ -17,7 +17,7 @@ import {
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { prToneBadgeStyles } from "@/components/layout/pr-status.styles";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { ProviderMark } from "@/components/system/ProviderMark";
 import { Badge } from "@/components/ads/components/Badge";
 import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
@@ -127,13 +127,18 @@ export function formatFleetWorkspaceName(name: string, branch?: string) {
   return name;
 }
 
+/** The task's provider mark, named on hover and to assistive tech. */
 export function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
   const { t: tI18n } = useTranslation(["fleet"]);
   const label = getProviderLabel({ providerId: provider });
   return (
-    <span className={sx(styles.providerMark)} title={tI18n("fleet:fleetWorkspaceCard.valueProvider", { label: label })}>
-      <ModelIcon providerId={provider} className={sx(styles.providerIcon)} />
-      <VisuallyHidden>{tI18n("fleet:fleetWorkspaceCard.providerName", { label })}</VisuallyHidden>
+    <span className={sx(styles.providerMark)}>
+      <ProviderMark
+        providerId={provider}
+        size="sm"
+        xstyle={styles.providerIcon}
+        label={tI18n("fleet:fleetWorkspaceCard.valueProvider", { label })}
+      />
     </span>
   );
 }
