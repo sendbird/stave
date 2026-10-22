@@ -9,6 +9,9 @@ import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
 import { RunHeaderContract } from "../src/components/agent-runs/RunContract";
 import { buildRunContract, resolveRunApprovalOptions, type RunContractInput } from "../src/lib/agent-runs/run-contract";
 import { useAppStore } from "../src/store/app.store";
+import { withConfirmedApprovals, type AgentTurnProvenance } from "../src/lib/agents/turn-provenance";
+import type { NormalizedProviderEvent } from "../src/lib/providers/provider.types";
+import { replayProviderEventsToTaskState } from "../src/lib/session/provider-event-replay";
 
 /** Server rendering reads the store's initial state, so state is written there for one render. */
 function withState<T>(patch: Record<string, unknown>, render: () => T): T {
@@ -62,6 +65,15 @@ function codexRunHeader() {
       },
     };
   };
+  /** Links these turns to the run, as its supervisor records them once each started. */
+  const link = (...turnIds: string[]) => {
+    detail.events = turnIds.map((turnId, index) => ({
+      id: `event-${turnId}`, agentRunId: detail.agentRun.id, sequence: index + 1, kind: "turn-linked" as const,
+      idempotencyKey: `${detail.agentRun.id}:turn:${index + 1}:linked`, detail: { stageId: "work", attempt: 1, turnId },
+      createdAt: detail.agentRun.createdAt,
+    }));
+  };
+  link("turn-run", "turn-1", "turn-2");
   const checked = useAppStore.getInitialState().providerRuntimeCapabilities;
   const header = (messages: unknown[], codexChecked = true) => withState(
     {
@@ -71,7 +83,7 @@ function codexRunHeader() {
     },
     () => renderToStaticMarkup(createElement(RunHeaderContract, { detail })),
   );
-  return { detail, header, turn };
+  return { detail, header, turn, link };
 }
 
 describe("run contract", () => {
@@ -150,8 +162,6 @@ describe("run contract", () => {
     expect(header([], false)).toContain(unconfirmedAuto);
     expect(header([turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" })])).toContain("automatic review is off for this run");
     expect(header([turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" })])).toContain("the provider&#x27;s auto mode decides each action");
-    // A turn from before the run says nothing about it.
-    expect(header([{ ...turn({ codexApprovalPolicy: "never" }), startedAt: "2020-01-01T00:00:00.000Z" }])).toContain(unconfirmedAuto);
   });
 
   test("a Codex run's header stays unconfirmed until the runtime confirms its current turn's approvals", () => {
@@ -164,6 +174,29 @@ describe("run contract", () => {
       turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }, { turnId: "turn-1" }),
       turn(requested, { turnId: "turn-2", confirmed: false }),
     ])).toContain(unconfirmedAuto);
+  });
+
+  test("a run's header reads only the turns linked to that run", () => {
+    const { header, turn, link } = codexRunHeader();
+    link("turn-a");
+    // Run A's turn ran with the reviewer; a later turn on the same task (another run, or a plain Agent turn) ran without it.
+    const ownTurn = turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }, { turnId: "turn-a" });
+    const laterTurn = turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }, { turnId: "turn-b" });
+    expect(header([ownTurn, laterTurn])).toContain("the provider&#x27;s auto mode decides each action");
+    // A turn the run never linked says nothing about it, however recent.
+    expect(header([laterTurn])).toContain(unconfirmedAuto);
+  });
+
+  test("a run's header says what replay stored once Codex confirmed the turn without its reviewer", () => {
+    const { header, turn, link } = codexRunHeader();
+    link("turn-a");
+    const requested = turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }, { turnId: "turn-a", confirmed: false }).agentProvenance as AgentTurnProvenance;
+    const confirmed = withConfirmedApprovals(requested, { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" });
+    const replay = (events: NormalizedProviderEvent[]) =>
+      replayProviderEventsToTaskState({ taskId: "lead", provider: "codex", model: "gpt", turnId: "turn-a", events, messages: [] }).messages;
+    expect(header(replay([{ type: "agent_provenance", provenance: requested }]))).toContain(unconfirmedAuto);
+    expect(header(replay([{ type: "agent_provenance", provenance: requested }, { type: "agent_provenance", provenance: confirmed }])))
+      .toContain("automatic review is off for this run");
   });
 
   test("the run's header shows the contract it started with, in English and Korean", () => {

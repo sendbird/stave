@@ -163,8 +163,9 @@ as **What this run does**:
   only when a turn starts. During a run, the header follows what Codex
   confirmed for the run's current turn once that turn started, and stays
   unconfirmed until then (and for turns recorded before Codex confirmed its
-  approvals). Other agents edit without asking; a Read only agent changes
-  nothing. Writes outside
+  approvals). It reads only the turns the run linked to itself, so another
+  run's or a plain turn on the same task never speaks for it. Other agents
+  edit without asking; a Read only agent changes nothing. Writes outside
   the repository, credential files and irreversible remote actions still come
   to you. Publishing steps (such as **Open draft PR**) say whether they are
   allowed from the start or wait for your sign-off.

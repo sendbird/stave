@@ -107,7 +107,7 @@ export function RunHeaderContract(props: { detail: AgentRunDetail }) {
   const permission = useAgentAssignmentsStore((state) => state.byTaskId[agentRun.leadTaskId]?.agentPermission ?? null);
   const codexAutoReview = useCodexAutoReview();
   const messages = useAppStore((state) => state.messagesByTask[agentRun.leadTaskId]);
-  const confirmedApprovals = useMemo(() => confirmedApprovalsOfRun(messages, agentRun.createdAt), [messages, agentRun.createdAt]);
+  const confirmedApprovals = useMemo(() => confirmedApprovalsOfRun(messages, props.detail.events), [messages, props.detail.events]);
   const contract = buildRunContract({
     workspace,
     permission: permission ?? (agentRun.consent.permissionMode === "auto" ? "auto" : null),

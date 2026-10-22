@@ -8,7 +8,7 @@ import type { ChatMessage } from "@/types/chat";
 import { STAVE_ACTION_LABELS, type CheckIns, type Workflow, type WorkflowStage } from "@/lib/workflows/schema";
 import { AGENT_RUN_DEFAULT_DONE_WHEN } from "./agent-run";
 import { agentRunPermissionRuntimeOptions } from "./briefing";
-import { stageHasExternalEffect } from "./domain";
+import { stageHasExternalEffect, type AgentRunEvent } from "./domain";
 import { resolveConsentStageSignOff } from "./policy";
 import { getStageDisplayTitle } from "./stage-display";
 import { workspaceCheckMode } from "./workspace-check";
@@ -79,21 +79,24 @@ export function resolveRunApprovalOptions(args: {
 }
 
 /**
- * The approvals a run's current Codex turn runs with, from its agent
+ * The approvals a run's current Codex turn runs with: the latest turn its
+ * supervisor linked to the run (`turn-linked`), from that turn's agent
  * provenance once the runtime confirmed them after the turn started
  * (`approvalsConfirmed`). Null before a Codex turn of the run, while the
  * current one waits for its start, and for a turn recorded before runtimes
  * confirmed them: what a turn only asked for is never stated as applied.
+ * Turns the run did not link (another run's, or a plain turn on the same
+ * task) say nothing about it, however recent.
  */
 export function confirmedApprovalsOfRun(
   messages: readonly ChatMessage[] | undefined,
-  since: string,
+  events: readonly AgentRunEvent[],
 ): Pick<ProviderRuntimeOptions, "codexApprovalPolicy" | "codexApprovalsReviewer"> | null {
-  const start = Date.parse(since);
+  const linked = new Set(events.flatMap((event) =>
+    event.kind === "turn-linked" && typeof event.detail.turnId === "string" ? [event.detail.turnId] : []));
   for (let index = (messages?.length ?? 0) - 1; index >= 0; index -= 1) {
-    const message = messages![index]!;
-    const provenance = message.agentProvenance;
-    if (!provenance || provenance.providerId !== "codex" || !message.startedAt || Date.parse(message.startedAt) < start) continue;
+    const provenance = messages![index]!.agentProvenance;
+    if (!provenance || provenance.providerId !== "codex" || !linked.has(provenance.turnId)) continue;
     // The current turn decides: an earlier turn's confirmation says nothing about it.
     const { codexApprovalPolicy, codexApprovalsReviewer } = provenance.permission.applied;
     if (!provenance.permission.approvalsConfirmed || !codexApprovalPolicy) return null;
