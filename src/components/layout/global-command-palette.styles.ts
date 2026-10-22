@@ -149,7 +149,7 @@ export const commandPaletteStyles = stylex.create({
     display: "flex",
     flexShrink: 0,
     gap: vars["--ads-space-8"],
-    paddingBlock: 6,
+    paddingBlock: vars["--ads-space-4"],
     paddingInline: vars["--ads-space-12"],
   },
   scopeLabel: {
@@ -165,7 +165,7 @@ export const commandPaletteStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     margin: 0,
-    paddingBlock: 6,
+    paddingBlock: vars["--ads-space-4"],
     paddingInline: vars["--ads-space-12"],
   },
   searchNotice: {

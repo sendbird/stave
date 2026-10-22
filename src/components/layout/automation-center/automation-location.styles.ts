@@ -7,7 +7,7 @@ export const locationStyles = stylex.create({
     gap: vars["--ads-space-12"],
     gridTemplateColumns: "repeat(auto-fit, minmax(14rem, 1fr))",
   },
-  field: { display: "grid", gap: 6, minInlineSize: 0 },
+  field: { display: "grid", gap: vars["--ads-space-8"], minInlineSize: 0 },
   picker: { inlineSize: "100%" },
   summary: {
     columnGap: vars["--ads-space-12"],
