@@ -282,6 +282,24 @@ describe("AssistantMessageBody", () => {
     expect(html).not.toContain("<a");
   });
 
+  test("reads a finished turn's thinking time without rounding it up", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const pass = (text: string, startMs: number, spanMs: number) => ({
+      type: "thinking" as const, text, isStreaming: false,
+      startedAt: new Date(startMs).toISOString(), completedAt: new Date(startMs + spanMs).toISOString(),
+    });
+    const render = (parts: ReturnType<typeof pass>[]) => renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({ isStreaming: false, content: "Done.", parts: [...parts, { type: "text", text: "Done." }] }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+      traceExpansionMode: "manual",
+    }));
+    // 59.9s reads 59s, as it does in Fleet, not a minute it did not take.
+    expect(render([pass("Considered.", 0, 59_900)])).toContain("for 59s");
+    expect(render([pass("Quick.", 0, 400)])).toContain("for &lt;1s");
+  });
+
   test("keeps assistant trace collapsed in manual expansion mode", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

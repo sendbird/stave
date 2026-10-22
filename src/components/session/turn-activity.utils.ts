@@ -735,12 +735,12 @@ export function formatTurnActivityCountsLabel(counts: TurnActivityCounts) {
 }
 
 /**
- * Whole-second elapsed label in the shared duration words, so a row's elapsed
- * time reads like the same span anywhere else; seconds are rounded first
- * because the shelf ticks once a second.
+ * Elapsed label in the shared duration words, so a row's elapsed time reads
+ * like the same span anywhere else. The span goes in as measured and the
+ * shared helper floors it, as Fleet does: 59.9s reads 59s, not a minute.
  */
 export function formatTurnActivityElapsedSeconds(value: number) {
-  return formatDuration(Math.max(0, Math.round(value)) * 1_000);
+  return formatDuration(Math.max(0, value) * 1_000);
 }
 
 /** Whether any row still represents outstanding work rather than a result. */
