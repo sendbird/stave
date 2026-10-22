@@ -40,6 +40,21 @@ function newTurnId(prefix: string): string {
     : `${prefix}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
 
+/**
+ * The workspace's folder: its recorded path, else the repository root for the
+ * active or default workspace. A workspace whose folder is unknown has none,
+ * so the turn never runs in another workspace's folder.
+ */
+function resolveWorkspaceFolder(
+  state: Pick<ReturnType<typeof useAppStore.getState>, "workspacePathById" | "workspaceDefaultById" | "activeWorkspaceId" | "repositoryPath">,
+  workspaceId: string,
+): string | null {
+  const recorded = state.workspacePathById[workspaceId];
+  if (recorded) return recorded;
+  const ownsRepositoryRoot = workspaceId === state.activeWorkspaceId || state.workspaceDefaultById[workspaceId] === true;
+  return ownsRepositoryRoot && state.repositoryPath ? state.repositoryPath : null;
+}
+
 const CANCELLED: UtilityTextResult = { ok: false, get message() { return i18n.t("notifications:utilityTextTurn.cancelled"); }, cancelled: true };
 
 /**
@@ -50,6 +65,8 @@ export async function runUtilityTextTurn(args: {
   prompt: string;
   turnIdPrefix: string;
   signal?: AbortSignal;
+  /** The workspace the turn is about; its folder is where the turn runs. Defaults to the active one. */
+  workspaceId?: string;
 }): Promise<UtilityTextResult> {
   const { signal } = args;
   if (signal?.aborted) return CANCELLED;
@@ -63,7 +80,7 @@ export async function runUtilityTextTurn(args: {
     shared: state.settings.auxiliaryInferenceDefault,
   });
   if (!lane.enabled) return { ok: false, message: i18n.t("notifications:utilityTextTurn.theUtilityModelIsTurnedOffInSettings") };
-  const cwd = state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
+  const cwd = resolveWorkspaceFolder(state, args.workspaceId ?? state.activeWorkspaceId);
   if (!cwd) return { ok: false, message: i18n.t("notifications:utilityTextTurn.openAWorkspaceFirst") };
   const turnId = newTurnId(args.turnIdPrefix);
   const abort = () => void provider?.abortTurn?.({ turnId })?.catch(() => undefined);

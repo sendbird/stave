@@ -50,6 +50,21 @@ describe("utility text turn", () => {
     expect(sent[0]?.cwd).toBe("/tmp/stave-repo");
   });
 
+  test("runs in the folder of the workspace it is about, not the one shown", async () => {
+    useAppStore.setState({ activeWorkspaceId: "b", workspacePathById: { a: "/tmp/stave-a", b: "/tmp/stave-b" }, repositoryPath: "/tmp/stave-repo" });
+    const sent = provider([{ type: "text", text: "ok" }]);
+    await runUtilityTextTurn({ prompt: "Suggest an instruction.", turnIdPrefix: "agent-learning", workspaceId: "a" });
+    expect(sent[0]?.cwd).toBe("/tmp/stave-a");
+  });
+
+  test("a workspace whose folder is unknown fails instead of running in another folder", async () => {
+    useAppStore.setState({ activeWorkspaceId: "b", workspacePathById: { b: "/tmp/stave-b" }, repositoryPath: "/tmp/stave-repo" });
+    const sent = provider([{ type: "text", text: "ok" }]);
+    const result = await runUtilityTextTurn({ prompt: "Suggest an instruction.", turnIdPrefix: "agent-learning", workspaceId: "gone" });
+    expect(result).toEqual({ ok: false, message: "Open a workspace first." });
+    expect(sent).toHaveLength(0);
+  });
+
   test("a refused or failed turn is a failure with the provider's reason", async () => {
     useAppStore.setState({ activeWorkspaceId: "ws", workspacePathById: { ws: "/tmp/stave-ws" }, repositoryPath: "/tmp/stave-repo" });
     provider([
