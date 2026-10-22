@@ -71,6 +71,7 @@ import {
   unstageSourceControlFile,
   updateScmPrBranch,
 } from "./host-service/scm-runtime";
+import { getScmReviewDiff, getScmReviewFileDiff } from "./host-service/scm-review-diff";
 import {
   fetchPrCheckLogs,
   fetchPrContextIndex,
@@ -1973,6 +1974,12 @@ async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "scm.commit-diff":
       await respond(request.id, await getScmCommitDiff(request.params));
+      return;
+    case "scm.review-diff":
+      await respond(request.id, await getScmReviewDiff(request.params));
+      return;
+    case "scm.review-file-diff":
+      await respond(request.id, await getScmReviewFileDiff(request.params));
       return;
     case "scm.history":
       await respond(request.id, await getScmHistory(request.params));

@@ -67,7 +67,7 @@ export const AGENT_RUN_LIMITS = Object.freeze({
     missing: 600,
     suggestedAction: 300,
   },
-  facts: { commands: 100, toolCalls: 200, checks: 50, planItems: 50, planItemText: 300 },
+  facts: { commands: 100, toolCalls: 200, checks: 50, planItems: 50, planItemText: 300, changedPaths: 200 },
 });
 
 const IdSchema = z.string().trim().min(1).max(AGENT_RUN_LIMITS.maxIdChars);
@@ -438,6 +438,15 @@ export const StageFactsSchema = z
       commandsTruncated: z.boolean().optional(),
     }).strict()).max(AGENT_RUN_LIMITS.facts.checks).optional(),
     workspaceCheckNotice: z.string().max(500).optional(),
+    /**
+     * Paths the stage changed since its start commit, read when its facts were
+     * last collected (at its report): tracked changes, committed or not, and
+     * untracked files. Review tells the stage's own changes from later ones by
+     * them. Rows from before this field have none; the list stops at its cap,
+     * and `changedPathsTruncated` says so.
+     */
+    changedPaths: z.array(z.string().min(1).max(4096)).max(AGENT_RUN_LIMITS.facts.changedPaths).optional(),
+    changedPathsTruncated: z.boolean().optional(),
     currentTurnId: IdSchema.optional(),
     workspaceRevision: WorkspaceRevisionSchema.optional(),
     /**

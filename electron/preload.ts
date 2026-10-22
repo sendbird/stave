@@ -1,4 +1,5 @@
 import type { McpAppViewDescribeResponse, McpAppViewRequestArgs, McpAppViewRequestResponse } from "../src/lib/mcp-app/mcp-app-bridge";
+import type { ScmReviewDiffArgs, ScmReviewFileDiffArgs } from "../src/lib/review/review-diff-contract";
 import { usageStatisticsPreload } from "./persistence/usage-statistics-preload";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
@@ -2554,6 +2555,8 @@ contextBridge.exposeInMainWorld("api", {
       oldPath?: string;
       cwd?: string;
     }) => ipcRenderer.invoke("scm:commit-diff", args),
+    getReviewDiff: (args: ScmReviewDiffArgs) => ipcRenderer.invoke("scm:review-diff", args),
+    getReviewFileDiff: (args: ScmReviewFileDiffArgs) => ipcRenderer.invoke("scm:review-file-diff", args),
     getHistory: (args: { cwd?: string; limit?: number }) =>
       ipcRenderer.invoke("scm:history", args),
     listBranches: (args: { cwd?: string; refreshRemote?: boolean }) =>

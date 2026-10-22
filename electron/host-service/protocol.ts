@@ -10,6 +10,7 @@ import type {
   TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
 import type { HostServiceResourceMetrics } from "./resource-metrics";
+import type { ScmReviewDiffArgs, ScmReviewDiffResult, ScmReviewFileDiffArgs, ScmReviewFileDiffResult } from "../../src/lib/review/review-diff-contract";
 export type { HostServiceResourceMetrics } from "./resource-metrics";
 import type { PromptEnhancementContext } from "../../src/lib/providers/prompt-enhancement-context";
 import type {
@@ -905,6 +906,8 @@ export interface HostServiceRequestMap {
     oldPath?: string;
     cwd?: string;
   };
+  "scm.review-diff": ScmReviewDiffArgs;
+  "scm.review-file-diff": ScmReviewFileDiffArgs;
   "scm.history": {
     cwd?: string;
     limit?: number;
@@ -1189,6 +1192,8 @@ export interface HostServiceResponseMap {
     newContent: string;
     stderr: string;
   };
+  "scm.review-diff": ScmReviewDiffResult;
+  "scm.review-file-diff": ScmReviewFileDiffResult;
   "scm.history": HostScmHistoryResult;
   "scm.list-branches": HostScmListBranchesResult;
   "scm.fetch-branch": CommandResult;

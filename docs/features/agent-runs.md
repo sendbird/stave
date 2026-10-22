@@ -474,6 +474,12 @@ sample limits and examples of when each screen helps.
   requests on GitHub, messages through your own tools).
 - The agent's workflow is copied into the run when it starts; later edits to
   the agent do not change a running run.
+- Each stage record keeps the paths the stage changed since its start commit
+  (tracked changes, committed or not, and untracked files; up to 200), read
+  when the stage reports. Review uses them to tell the stage's own changes
+  from later ones. An untracked file that existed before the stage, or a
+  later edit to one of the stage's own files, cannot be told apart. Stages
+  recorded before this have no list.
 
 ## Limitations And Advanced Options
 

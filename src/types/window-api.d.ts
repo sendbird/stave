@@ -199,6 +199,12 @@ import type {
   GraphResult,
 } from "@/lib/git-graph/types";
 import type {
+  ScmReviewDiffArgs,
+  ScmReviewDiffResult,
+  ScmReviewFileDiffArgs,
+  ScmReviewFileDiffResult,
+} from "@/lib/review/review-diff-contract";
+import type {
   LensCapturePaintRequest,
   LensCapturePaintResult,
   LensGuestFocusRequestPayload,
@@ -1539,6 +1545,10 @@ interface WindowSourceControlApi {
     newContent: string;
     stderr: string;
   }>;
+  /** Review's file list against a base commit (a stage's start, the default branch's merge-base, or HEAD). */
+  getReviewDiff?: (args: ScmReviewDiffArgs) => Promise<ScmReviewDiffResult>;
+  /** One file's content at the review base and in the working tree, each side bounded. */
+  getReviewFileDiff?: (args: ScmReviewFileDiffArgs) => Promise<ScmReviewFileDiffResult>;
   getHistory?: (args: { cwd?: string; limit?: number }) => Promise<{
     ok: boolean;
     items: Array<{ hash: string; relativeDate: string; subject: string }>;
