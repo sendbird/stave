@@ -124,8 +124,9 @@ export async function getScmReviewFileDiff(
   if (!SHA_PATTERN.test(sha) || invalidPath(args.path) || invalidPath(args.oldPath))
     return { ok: false, oldContent: "", newContent: "", stderr: "A valid base commit and file path are required." };
   const git = gitRunner(args.cwd, dependencies, SCM_REVIEW_CONTENT_LIMIT);
+  const basePath = args.oldPath ?? args.path;
   const [old, current] = await Promise.all([
-    args.untracked ? Promise.resolve(null) : git(["show", `${sha}:${args.oldPath ?? args.path}`]),
+    args.untracked ? Promise.resolve(null) : git(["show", `${sha}:${basePath}`]),
     readWorkingFile(args.cwd, args.path),
   ]);
   if (current === "outside")
@@ -134,6 +135,14 @@ export async function getScmReviewFileDiff(
     return { ok: false, code: "changed", oldContent: "", newContent: "", stderr: "The file changed while it was being read." };
   if (current === "too-large" || old?.stdoutTruncated === true)
     return { ok: false, code: "too-large", oldContent: "", newContent: "", stderr: "This file is too large to open safely in the built-in diff viewer." };
+  // `git show` fails both for a path the base lacks (an added file) and for a
+  // read that failed (a timeout, an unreadable object). Only the base's tree
+  // tells them apart; a failed read is an error, never an added file.
+  if (old && !old.ok) {
+    const listed = await git(["ls-tree", "--full-tree", "--name-only", sha, "--", basePath]);
+    if (!listed.ok || listed.stdout.trim())
+      return { ok: false, oldContent: "", newContent: "", stderr: old.stderr.trim() || listed.stderr.trim() || "Git could not read the file at the base commit." };
+  }
   // A path missing at the base was added; one missing now was deleted.
   const oldContent = old?.ok ? old.stdout : "";
   const newContent = current ?? "";

@@ -150,6 +150,9 @@ them implies another.
   side; larger changes need Git directly.
 - A link in the workspace is opened only when its target is inside the
   workspace; a link that leads outside is listed but not opened.
+- When Git cannot read a file's version at the base commit (a timeout, an
+  unreadable object), the diff says so with Git's message and a retry; only a
+  path the base does not have reads as added.
 
 ## Troubleshooting
 

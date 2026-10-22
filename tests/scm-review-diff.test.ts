@@ -73,6 +73,21 @@ describe("review diff reads", () => {
     expect(await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "notes.md", untracked: true })).toMatchObject({ ok: true, oldContent: "", newContent: "later\n" });
   });
 
+  test("a base read that fails is an error, not an added file; a path the base lacks is added", async () => {
+    // `git show` times out or cannot read the object: the file existed at the base.
+    const failingShow: typeof runCommandArgs = (args) =>
+      args.commandArgs[0] === "show"
+        ? Promise.resolve({ ok: false, code: 128, stdout: "", stderr: "fatal: unable to read 5b1e0c1: timed out", stdoutTruncated: false } as never)
+        : runCommandArgs(args);
+    const failed = await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "a.ts" }, { runCommand: failingShow });
+    expect(failed.ok).toBe(false);
+    expect(failed.code).toBeUndefined();
+    expect(failed.stderr).toContain("unable to read");
+    // A path that is not in the base is an added file, read or not.
+    const added = await getScmReviewFileDiff({ cwd: repo, baseSha: stageStart, path: "new.ts" }, { runCommand: failingShow });
+    expect(added).toMatchObject({ ok: true, oldContent: "", newContent: "export const fresh = true;\n" });
+  });
+
   test("an unknown base or an unsafe request fails with a reason instead of an empty list", async () => {
     const missing = await getScmReviewDiff({ cwd: repo, base: { kind: "commit", sha: "0".repeat(40) } });
     expect(missing).toMatchObject({ ok: false, files: [] });
