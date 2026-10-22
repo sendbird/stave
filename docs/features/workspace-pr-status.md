@@ -79,9 +79,13 @@ The `statusCheckRollup` array is collapsed into a single `"SUCCESS" | "FAILURE" 
 The payload also carries an optional `checks` summary beside that rollup:
 `total`, `passed`, `failed` and `pending` counts plus the names of up to ten
 failing and ten still-running checks. A re-run check counts once, at its latest
-result; neutral and skipped checks count as passed because they do not block
-the pull request. `checks` is absent when the pull request reports no checks,
-and payloads cached before it existed stay valid.
+result. Neutral and skipped checks count as passed because they do not block
+the pull request; failed, errored, cancelled, timed-out, expired (stale),
+action-required and failed-to-start checks count as failing; a check that has
+not finished (queued, waiting, running, or completed without a result) counts as
+still running. The counts and the rollup use the same rules as the agent run's
+checks watch, so they never disagree. `checks` is absent when the pull request
+reports no checks, and payloads cached before it existed stay valid.
 
 ## Visual Mapping
 

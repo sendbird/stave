@@ -13,6 +13,7 @@ import {
   summarizePrChecks,
   updateScmPrBranch,
 } from "../electron/host-service/scm-runtime";
+import { describePrChecks, formatPrChecksCount } from "../src/lib/pr-status";
 
 type Runner = NonNullable<Parameters<typeof mergeScmPr>[0]["runCommand"]>;
 type RunnerResult = Awaited<ReturnType<Runner>>;
@@ -352,6 +353,31 @@ describe("pull request check counts", () => {
     });
   });
 
+  test("an expired or failed-to-start check fails and is never counted as passed", () => {
+    const summary = summarizePrChecks([
+      checkRun("lint", "COMPLETED", "SUCCESS"),
+      checkRun("build", "COMPLETED", "STALE"),
+      checkRun("deploy", "COMPLETED", "STARTUP_FAILURE"),
+      checkRun("docs", "COMPLETED", "NEUTRAL"),
+      checkRun("e2e", "WAITING", null),
+      checkRun("lighthouse", "COMPLETED", null),
+      { __typename: "StatusContext", context: "license", state: "ERROR" },
+      { __typename: "StatusContext", context: "preview", state: "EXPECTED" },
+    ]);
+    expect(summary).toEqual({
+      total: 8,
+      passed: 2,
+      failed: 3,
+      pending: 3,
+      failedNames: ["build", "deploy", "license"],
+      pendingNames: ["e2e", "lighthouse", "preview"],
+    });
+    // The chip and its tooltip say so, rather than "1/1 checks".
+    const stale = summarizePrChecks([checkRun("build", "COMPLETED", "STALE")]);
+    expect(formatPrChecksCount(stale)).toBe("0/1 checks");
+    expect(describePrChecks(stale)).toEqual(["0 of 1 checks passed", "Failing: build"]);
+  });
+
   test("reports nothing when the pull request has no checks", () => {
     expect(summarizePrChecks([])).toBeUndefined();
     expect(summarizePrChecks(undefined)).toBeUndefined();
@@ -399,6 +425,40 @@ describe("pull request check counts", () => {
       failedNames: ["e2e"],
       pendingNames: [],
     });
+  });
+
+  test("a pull request whose only check expired rolls up as failing", async () => {
+    invalidateGhAuthCache();
+    const { run } = scriptedRunner((command, args) => {
+      if (command === "gh" && args[0] === "auth") return ok("authenticated");
+      if (command === "git" && args[0] === "rev-parse") return ok("fix/y\n");
+      if (command === "gh" && args[1] === "list") {
+        return ok(
+          JSON.stringify([
+            {
+              number: 10,
+              title: "fix: stale",
+              state: "OPEN",
+              isDraft: false,
+              url: "https://github.com/acme/repo/pull/10",
+              reviewDecision: "APPROVED",
+              mergeable: "MERGEABLE",
+              mergeStateStatus: "BLOCKED",
+              statusCheckRollup: [checkRun("build", "COMPLETED", "STALE")],
+              mergedAt: null,
+              baseRefName: "main",
+              headRefName: "fix/y",
+              headRefOid: "def",
+            },
+          ]),
+        );
+      }
+      return undefined;
+    });
+
+    const result = await fetchGitHubPrStatus({ cwd: "/tmp/stave-fetch-pr-stale", runCommand: run });
+    expect(result.pr?.checksRollup).toBe("FAILURE");
+    expect(result.pr?.checks).toMatchObject({ total: 1, passed: 0, failed: 1, failedNames: ["build"] });
   });
 });
 

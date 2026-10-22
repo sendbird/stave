@@ -29,9 +29,12 @@ export type PrMergeMethod = "default" | "merge" | "squash" | "rebase";
 export type ConcretePrMergeMethod = Exclude<PrMergeMethod, "default">;
 
 /**
- * Per-check counts behind `checksRollup`. A re-run check counts once, at its
- * latest result; neutral and skipped checks count as passed because they do
- * not block the pull request.
+ * Per-check counts behind `checksRollup`, bucketed by the rules the checks
+ * watch uses (`bucketOfRollupCheck`). A re-run check counts once, at its
+ * latest result. Neutral and skipped checks count as passed because they do
+ * not block the pull request; cancelled, timed-out, expired (stale),
+ * action-required and failed-to-start checks count as failing; a check that
+ * has not finished counts as still running.
  */
 export interface GitHubPrChecks {
   total: number;

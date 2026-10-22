@@ -5,6 +5,7 @@ import { readPullRequestChecks } from "../electron/host-service/scm-runtime";
 import { describePushFailure } from "../electron/host-service/supervision/agent-run-scm";
 import {
   bucketOfCheckState,
+  bucketOfRollupCheck,
   decideWatchChecks,
   NO_CHECKS_GRACE_MS,
   observeChecks,
@@ -126,6 +127,27 @@ describe("observing checks", () => {
       "pending",
       "pending",
     ]);
+  });
+
+  test("judges a pull request's rollup entries by the same rules", () => {
+    const run = (status: string | null, conclusion: string | null) =>
+      bucketOfRollupCheck({ __typename: "CheckRun", name: "build", status, conclusion });
+    // Expired, failed to start, cancelled: failing, never passing.
+    expect(["STALE", "STARTUP_FAILURE", "CANCELLED", "ACTION_REQUIRED", "TIMED_OUT", "FAILURE"].map((c) => run("COMPLETED", c))).toEqual(
+      ["fail", "fail", "fail", "fail", "fail", "fail"],
+    );
+    expect(["SUCCESS", "NEUTRAL", "SKIPPED"].map((c) => run("COMPLETED", c))).toEqual(["pass", "pass", "pass"]);
+    // Not finished, whatever it says so far.
+    expect(["QUEUED", "IN_PROGRESS", "PENDING", "WAITING", "REQUESTED"].map((st) => run(st, null))).toEqual(
+      ["pending", "pending", "pending", "pending", "pending"],
+    );
+    expect(run("COMPLETED", null)).toBe("pending");
+    // A run that reports no status is judged by its conclusion.
+    expect(run(null, "stale")).toBe("fail");
+    const context = (state: string) => bucketOfRollupCheck({ __typename: "StatusContext", context: "ci", state });
+    expect(["SUCCESS", "FAILURE", "ERROR", "PENDING", "EXPECTED"].map(context)).toEqual(
+      ["pass", "fail", "fail", "pending", "pending"],
+    );
   });
 
   test("follows the design's order: pull request, conflict, failure, pending, pass", () => {

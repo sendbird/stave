@@ -17,7 +17,11 @@ import type {
   GraphResult,
 } from "../../src/lib/git-graph/types";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
-import type { PullRequestCheck } from "../../src/lib/agent-runs/checks";
+import {
+  bucketOfRollupCheck,
+  type CheckBucket,
+  type PullRequestCheck,
+} from "../../src/lib/agent-runs/checks";
 import type {
   ConcretePrMergeMethod,
   GitHubPrChecks,
@@ -155,39 +159,15 @@ export async function discardSourceControlPath(args: {
 
 export type ScmCommandRunner = typeof runCommandArgs;
 
-/** Check-run conclusions GitHub reports as not passing. */
-const FAILED_CHECK_RUN_CONCLUSIONS = new Set([
-  "FAILURE",
-  "CANCELLED",
-  "TIMED_OUT",
-  "ACTION_REQUIRED",
-]);
-
 /** How many failing or running check names a payload carries. */
 const PR_CHECK_NAME_LIMIT = 10;
 
-type PrCheckOutcome = "failed" | "pending" | "passed";
-
-/**
- * One rollup entry's outcome. A failure wins over "still running"; anything
- * neither failing nor running (success, neutral, skipped) does not block the
- * pull request and counts as passed.
- */
-function classifyPrCheck(check: Record<string, unknown>): PrCheckOutcome {
-  if (check.__typename === "CheckRun") {
-    if (FAILED_CHECK_RUN_CONCLUSIONS.has(String(check.conclusion))) {
-      return "failed";
-    }
-    return check.status !== "COMPLETED" ? "pending" : "passed";
-  }
-  if (check.__typename === "StatusContext") {
-    if (check.state === "FAILURE" || check.state === "ERROR") return "failed";
-    if (check.state === "PENDING" || check.state === "EXPECTED") {
-      return "pending";
-    }
-  }
-  return "passed";
-}
+/** The summary field each shared check bucket is counted in. */
+const PR_CHECK_COUNT_KEY = {
+  pass: "passed",
+  fail: "failed",
+  pending: "pending",
+} as const satisfies Record<CheckBucket, keyof GitHubPrChecks>;
 
 function prCheckName(check: Record<string, unknown>) {
   const name = check.__typename === "StatusContext" ? check.context : check.name;
@@ -230,7 +210,13 @@ function dedupePrChecks(checks: Array<Record<string, unknown>>) {
   return [...latestCheckRunByName.values(), ...nonCheckRuns];
 }
 
-/** Per-check counts and the names of checks that fail or still run. */
+/**
+ * Per-check counts and the names of checks that fail or still run. Each check
+ * is bucketed by `bucketOfRollupCheck`, the rules the checks watch uses, so
+ * the chip's count and `checksRollup` (derived from these counts) agree with
+ * it: an expired (stale) or failed-to-start check fails, a neutral or skipped
+ * one passes, and one that has not finished is still running.
+ */
 export function summarizePrChecks(
   rawChecks: unknown,
 ): GitHubPrChecks | undefined {
@@ -252,13 +238,13 @@ export function summarizePrChecks(
     pendingNames: [],
   };
   for (const check of dedupePrChecks(checks)) {
-    const outcome = classifyPrCheck(check);
+    const bucket = bucketOfRollupCheck(check);
     summary.total += 1;
-    summary[outcome] += 1;
+    summary[PR_CHECK_COUNT_KEY[bucket]] += 1;
     const names =
-      outcome === "failed"
+      bucket === "fail"
         ? summary.failedNames
-        : outcome === "pending"
+        : bucket === "pending"
           ? summary.pendingNames
           : null;
     const name = prCheckName(check);

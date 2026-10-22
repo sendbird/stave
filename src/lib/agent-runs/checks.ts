@@ -53,6 +53,27 @@ export function bucketOfCheckState(state: string): CheckBucket {
   return "pending";
 }
 
+function upperString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() ? value.trim().toUpperCase() : null;
+}
+
+/**
+ * The bucket of one `statusCheckRollup` entry from `gh pr view`, judged by
+ * the same rules as `bucketOfCheckState`. A check run is judged by its
+ * conclusion once it has completed (or reports no status) and is pending
+ * while it is queued, waiting or running; a status context by its state.
+ */
+export function bucketOfRollupCheck(check: Record<string, unknown>): CheckBucket {
+  if (check.__typename === "StatusContext") {
+    return bucketOfCheckState(upperString(check.state) ?? "");
+  }
+  const status = upperString(check.status);
+  const conclusion = upperString(check.conclusion);
+  return bucketOfCheckState(
+    status === null || status === "COMPLETED" ? (conclusion ?? "") : status,
+  );
+}
+
 export type ChecksObservation =
   | { kind: "no-pull-request" }
   | { kind: "closed"; state: "CLOSED" | "MERGED" }
