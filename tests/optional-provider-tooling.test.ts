@@ -50,8 +50,13 @@ describe.skipIf(process.platform === "win32")(
         cursorBinaryPath: executable,
       };
       const [one, two] = await Promise.all([
-        inspectOptionalProviderTooling(args),
-        inspectOptionalProviderTooling({ ...args, force: true }),
+        inspectOptionalProviderTooling(args, {
+          readAccess: async () => "ready",
+        }),
+        inspectOptionalProviderTooling(
+          { ...args, force: true },
+          { readAccess: async () => "ready" },
+        ),
       ]);
       expect(one).toEqual(two);
       expect(one.state).toBe("ready");
@@ -87,6 +92,24 @@ describe.skipIf(process.platform === "win32")(
         expect(result.ok).toBe(false);
         expect(result.models).toEqual([]);
         expect(await readFile(calls, "utf8")).toBe(before);
+      }
+    });
+
+    test("login alone cannot expose a provider without usable account access", async () => {
+      for (const providerId of ["cursor", "kiro"] as const) {
+        const { executable } = await fixture("Logged in");
+        const args = {
+          providerId,
+          cursorBinaryPath: executable,
+          kiroBinaryPath: executable,
+        };
+        const tool = await inspectOptionalProviderTooling(args, {
+          readAccess: async () => "unavailable",
+        });
+        expect(tool.authState).toBe("authenticated");
+        expect(tool.available).toBe(true);
+        expect(tool.state).toBe("warning");
+        expect(optionalProviderReadKey(providerId, args)).toBeNull();
       }
     });
 

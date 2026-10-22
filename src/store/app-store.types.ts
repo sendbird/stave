@@ -4,6 +4,7 @@ import type {
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import type { UsageLimitPauseByTask } from "@/store/task-work-pause";
+import type { TaskMessagesLoadResult } from "@/store/app-store-workspace-action-types";
 import type { AppNotification, NotificationsLoad } from "@/lib/notifications/notification.types";
 import type { PersistenceBootstrapPhase } from "@/lib/persistence/bootstrap-status";
 import type {
@@ -451,7 +452,7 @@ export interface AppState
   loadTaskMessages: (args: {
     taskId: string;
     mode?: "latest" | "older";
-  }) => Promise<void>;
+  }) => Promise<TaskMessagesLoadResult>;
   clearTaskSelection: () => void;
   updatePromptDraft: (args: {
     taskId: string;
@@ -633,6 +634,8 @@ export interface AppState
   clearReviewComments: (args: { taskId: string }) => void;
   submitReviewFeedback: (args: {
     taskId: string;
+    /** Send only the comments on this file; the rest stay pending. */
+    filePath?: string;
   }) => Promise<SendUserMessageResult>;
   sendUserMessage: (args: {
     questionReply?: ChatMessage["questionReply"];

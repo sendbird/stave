@@ -903,6 +903,10 @@
         "title": "Close Issues",
         "description": "Clear the selection, or close Issues when nothing is selected."
       },
+      "editorSendReview": {
+        "title": "Send review comments",
+        "description": "Send the task's pending diff review comments to the agent from the diff editor."
+      },
       "gitGraphSearch": {
         "title": "Search the commit graph",
         "description": "Focus the commit graph search field."

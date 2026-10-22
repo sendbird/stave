@@ -39,8 +39,11 @@ import {
   TurnModelChip,
 } from "@/components/ai-elements";
 import {
+  decideTranscriptReveal,
   findMessageIndexByToolUseId,
   getReasoningTraceExpansionMode,
+  TRANSCRIPT_REVEAL_MAX_PAGES,
+  TRANSCRIPT_STEP_FOCUS_MAX_FRAMES,
   getMessageScrollFingerprint,
   shouldShowConversationLoadingState,
 } from "@/components/session/chat-panel.utils";
@@ -194,6 +197,8 @@ interface MessageRowProps {
   pendingAgentRun?: boolean;
   /** On a turn's last reply: that turn, for the documents it wrote. */
   documentTurnId?: string;
+  /** The tool step a Turn Activity jump is revealing in this message. */
+  revealToolUseId?: string;
 }
 
 /**
@@ -467,6 +472,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   streamingEnabled={chatStreamingEnabled}
                   traceExpansionMode={traceExpansionMode}
                   showInterimMessages={showInterimMessages}
+                  revealToolUseId={args.revealToolUseId}
                 />
                 {message.role === "assistant" && args.documentTurnId ? (
                   <TurnDocumentRevisions turnId={args.documentTurnId} />
@@ -1060,7 +1066,16 @@ function ChatPanelMessageList(props: {
   // hands this effect a fresh array on every provider flush and a single row
   // click would keep yanking the transcript back to that step, and focus away
   // from the composer, for the rest of the session.
+  //
+  // A step outside the loaded window pages older messages in until it appears,
+  // and every way the search can end (not in the conversation, too far back, a
+  // failed load) says so instead of leaving the click with no answer.
   const handledFocusTranscriptNonceRef = useRef<number | null>(null);
+  const transcriptRevealRef = useRef<{ nonce: number; pages: number; inFlight: boolean } | null>(null);
+  const [transcriptRevealTick, setTranscriptRevealTick] = useState(0);
+  // The step being revealed: its row opens the trace that holds it, and focus
+  // moves once the step is on screen.
+  const [revealedStep, setRevealedStep] = useState<{ messageId: string; toolUseId: string } | null>(null);
   useEffect(() => {
     if (
       !focusTranscriptToolRequest ||
@@ -1070,42 +1085,101 @@ function ChatPanelMessageList(props: {
     ) {
       return;
     }
-    const { toolUseId } = focusTranscriptToolRequest;
+    const { toolUseId, nonce } = focusTranscriptToolRequest;
     const messageIndex = findMessageIndexByToolUseId({
       messages: visibleMessages,
       toolUseId,
     });
-    // Not marked spent: the message may still be paging in, and the next
-    // `visibleMessages` change is this request's second chance.
-    if (messageIndex < 0) {
+    if (transcriptRevealRef.current?.nonce !== nonce) {
+      transcriptRevealRef.current = { nonce, pages: 0, inFlight: false };
+    }
+    const reveal = transcriptRevealRef.current;
+    const step = decideTranscriptReveal({
+      found: messageIndex >= 0,
+      loading: taskMessagesLoading || reveal.inFlight,
+      hasOlderMessages,
+      pagesLoaded: reveal.pages,
+      maxPages: TRANSCRIPT_REVEAL_MAX_PAGES,
+    });
+    if (step === "wait") {
       return;
     }
-    handledFocusTranscriptNonceRef.current = focusTranscriptToolRequest.nonce;
+    if (step === "load-older") {
+      reveal.inFlight = true;
+      reveal.pages += 1;
+      void loadTaskMessages({ taskId, mode: "older" }).then((result) => {
+        if (transcriptRevealRef.current !== reveal) {
+          return;
+        }
+        reveal.inFlight = false;
+        if (result === "failed") {
+          handledFocusTranscriptNonceRef.current = nonce;
+          toast.error(i18n.t("session:chatPanel.transcriptStepLoadFailed"));
+          return;
+        }
+        // Re-evaluate even when the page changed nothing on screen.
+        setTranscriptRevealTick((tick) => tick + 1);
+      });
+      return;
+    }
+    handledFocusTranscriptNonceRef.current = nonce;
+    if (step === "not-found") {
+      toast.info(i18n.t("session:chatPanel.transcriptStepNotFound"));
+      return;
+    }
+    if (step === "page-limit") {
+      toast.info(i18n.t("session:chatPanel.transcriptStepTooFar"));
+      return;
+    }
 
+    // Leave follow-the-bottom first, as the turn rail does: otherwise the next
+    // height change (a row measured on the way, the trace opening) pulls the
+    // transcript back to the latest message.
+    manualScrollIntentRef.current?.markManualScrollIntent();
     virtuosoRef.current?.scrollToIndex({
       index: messageIndex,
       align: "center",
-      behavior: "smooth",
+      behavior: "auto",
     });
+    const messageId = visibleMessages[messageIndex]?.id;
+    if (messageId) {
+      setRevealedStep({ messageId, toolUseId });
+    }
+  }, [
+    focusTranscriptToolRequest,
+    hasOlderMessages,
+    loadTaskMessages,
+    taskId,
+    taskMessagesLoading,
+    transcriptRevealTick,
+    visibleMessages,
+  ]);
 
-    let secondFrame = 0;
-    const firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        const node = document.querySelector<HTMLElement>(
-          `[data-tool-use-id="${escapeAttributeSelectorValue(toolUseId)}"]`,
-        );
-        node?.scrollIntoView({ block: "center", behavior: "smooth" });
-        node?.focus({ preventScroll: true });
-      });
-    });
-
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      if (secondFrame) {
-        window.cancelAnimationFrame(secondFrame);
+  // Kept apart from the effect above so a provider flush, which hands that one
+  // new messages, cannot cancel the wait. A finished turn's trace mounts
+  // collapsed, so the step only exists once its row has opened it.
+  useEffect(() => {
+    if (!revealedStep) {
+      return;
+    }
+    const selector = `[data-tool-use-id="${escapeAttributeSelectorValue(revealedStep.toolUseId)}"]`;
+    let frames = 0;
+    let frame = 0;
+    const focusStep = () => {
+      const node = document.querySelector<HTMLElement>(selector);
+      if (node) {
+        node.scrollIntoView({ block: "center", behavior: "auto" });
+        node.focus({ preventScroll: true });
       }
+      if (node || ++frames >= TRANSCRIPT_STEP_FOCUS_MAX_FRAMES) {
+        setRevealedStep((current) => (current === revealedStep ? null : current));
+        return;
+      }
+      frame = window.requestAnimationFrame(focusStep);
     };
-  }, [focusTranscriptToolRequest, taskId, visibleMessages]);
+    frame = window.requestAnimationFrame(focusStep);
+    return () => window.cancelAnimationFrame(frame);
+  }, [revealedStep]);
 
   return (
     <>
@@ -1244,6 +1318,11 @@ function ChatPanelMessageList(props: {
                 )}
                 startedTurnId={startedTurnIdByUserMessageId.get(message.id)}
                 documentTurnId={documentTurnIdByMessageId.get(message.id)}
+                revealToolUseId={
+                  revealedStep?.messageId === message.id
+                    ? revealedStep.toolUseId
+                    : undefined
+                }
               />
             )}
           />

@@ -2081,6 +2081,73 @@ describe("workspace persistence fallback", () => {
       "## 변경\n\n- final summary",
     );
   });
+
+  test("older task message loads report whether a page arrived", async () => {
+    const message = (id: string) => ({
+      id,
+      role: "assistant",
+      model: "gpt-5.4",
+      providerId: "codex",
+      content: id,
+      isStreaming: false,
+      parts: [{ type: "text", text: id }],
+    });
+    let failNext = false;
+    setWindowContext({
+      localStorage: createMemoryStorage(),
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+          loadTaskMessages: async () =>
+            failNext
+              ? { ok: false }
+              : {
+                  ok: true,
+                  page: { messages: [message("m-1")], totalCount: 3, limit: 120, offset: 2, hasMoreOlder: false },
+                },
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      hasHydratedWorkspaces: true,
+      workspaces: [{ id: "ws-main", name: "Main", updatedAt: "2026-03-20T00:00:00.000Z" }],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-03-20T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [message("m-2"), message("m-3")] as never },
+      messageCountByTask: { "task-main": 3 },
+      repositoryPath: "/tmp/stave-project",
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+    });
+    const loadOlder = () => useAppStore.getState().loadTaskMessages({ taskId: "task-main", mode: "older" });
+
+    failNext = true;
+    expect(await loadOlder()).toBe("failed");
+    expect(useAppStore.getState().taskMessagesLoadingByTask["task-main"]).toBe(false);
+
+    failNext = false;
+    expect(await loadOlder()).toBe("loaded");
+    expect(useAppStore.getState().messagesByTask["task-main"]?.map((entry) => entry.id)).toEqual(["m-1", "m-2", "m-3"]);
+
+    // Everything is loaded now, so there is nothing older to fetch.
+    expect(await loadOlder()).toBe("unchanged");
+  });
 });
 
 describe("workspace snapshot schema compatibility", () => {

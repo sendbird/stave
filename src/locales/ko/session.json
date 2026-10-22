@@ -126,6 +126,9 @@
     "extraCopy87": "프롬프트 개선 연결을 사용할 수 없습니다."
   },
   "chatPanel": {
+    "transcriptStepNotFound": "이 단계는 대화에 더 이상 없습니다.",
+    "transcriptStepTooFar": "이 단계는 너무 이전에 있어 자동으로 찾지 못했습니다. 이전 메시지를 더 불러온 뒤 다시 선택하세요.",
+    "transcriptStepLoadFailed": "이전 메시지를 불러오지 못해 이 단계를 보여 줄 수 없습니다. 다시 시도하세요.",
     "steerDeliveryLabel": "활성 턴에 방향 조정 전달됨",
     "steerDeliveryLabel2": "방향 조정 대기 중",
     "steerDeliveryLabel3": "방향 조정 전달 확인 안 됨",

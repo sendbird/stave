@@ -46,6 +46,13 @@
     "openTabSWillBeClosed": "{{value1}} open tab(s) will be closed."
   },
   "editorReviewPanel": {
+    "sent": "Sent",
+    "sentLinesChanged": "Sent · lines changed since",
+    "sentNotChanged": "Sent · not changed yet",
+    "resolve": "Resolve",
+    "resolveSentCommentOnLine": "Resolve the sent comment on line {{value1}}",
+    "sentCount_one": "{{count}} sent",
+    "sentCount_other": "{{count}} sent",
     "reviewComment": "Review comment",
     "comment": "comment",
     "newComment": "New comment",
@@ -65,6 +72,7 @@
     "addReviewCommentOnModifiedLine": "Add review comment on modified line {{value1}}"
   },
   "editorDiffReview": {
+    "sendReviewComments": "Send Review Comments",
     "addReviewComment": "Add Review Comment"
   },
   "editorSelectionQuote": {

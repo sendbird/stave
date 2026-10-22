@@ -754,27 +754,27 @@ export const useAppStore = create<AppState>()(
         !ownerWorkspaceId ||
         ownerWorkspaceId !== args.workspaceId
       ) {
-        return;
+        return "unchanged";
       }
       if (stateBefore.taskMessagesLoadingByTask[args.taskId]) {
-        return;
+        return "unchanged";
       }
       const currentSession =
         args.workspaceId === stateBefore.activeWorkspaceId
           ? stateBefore
           : stateBefore.workspaceRuntimeCacheById[args.workspaceId];
       if (!currentSession) {
-        return;
+        return "unchanged";
       }
       const currentMessages = currentSession.messagesByTask[args.taskId] ?? [];
       const totalCount =
         currentSession.messageCountByTask[args.taskId] ??
         currentMessages.length;
       if (args.mode === "latest" && currentMessages.length > 0) {
-        return;
+        return "unchanged";
       }
       if (args.mode === "older" && currentMessages.length >= totalCount) {
-        return;
+        return "unchanged";
       }
 
       set((state) => ({
@@ -860,6 +860,7 @@ export const useAppStore = create<AppState>()(
               workspaceId: args.workspaceId,
             })?.messagesByTask[args.taskId] ?? [],
         });
+        return "loaded";
       } catch (error) {
         console.error("[workspace] failed to load task messages", error); markTaskMessagesLoadFailed(args.taskId);
         set((state) => ({
@@ -868,6 +869,7 @@ export const useAppStore = create<AppState>()(
             [args.taskId]: false,
           },
         }));
+        return "failed";
       }
     };
 

@@ -522,6 +522,17 @@ export const KEYBINDING_REGISTRY = [
     handledBy: [APP_SHELL, "src/components/panes/surfaces/EditorSurfacePanel.tsx"],
   },
   {
+    id: "editor.send-review",
+    keys: ["mod+alt+enter"],
+    scope: "editor",
+    focus: true,
+    editable: "allow",
+    titleKey: "shell:keybindings.entries.editorSendReview.title",
+    descriptionKey: "shell:keybindings.entries.editorSendReview.description",
+    section: "editing",
+    handledBy: ["src/components/layout/editor-diff-review.ts"],
+  },
+  {
     id: "work-queue.undo",
     keys: ["mod+z"],
     scope: "global",

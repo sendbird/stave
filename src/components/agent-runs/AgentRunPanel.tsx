@@ -30,7 +30,8 @@ import {
   formatAge,
   projectAgentRunStages,
 } from "@/lib/agent-runs/agent-run-view";
-import { describeAgentRunStatus, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
+import { describeAgentRunStatus, describeCriterionChecks, type AgentRunDecision } from "@/lib/agent-runs/agent-run-status";
+import { CriterionChecksNote } from "./AgentRunDoneWhen";
 import type { AcceptanceCriterion } from "@/lib/workflows/stage-prompt";
 import { useAppStore } from "@/store/app.store";
 import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store/agent-runs-store";
@@ -250,12 +251,16 @@ function LegacyWorkflowRunDetailView(props: AgentRunDetailViewProps) {
             {criteria.map((criterion) => {
               const presentation = CRITERION_PRESENTATION[criterion.status];
               const Icon = presentation.icon;
+              const checks = describeCriterionChecks(detail, criterion.text);
               return (
                 <li key={criterion.text} className={sx(styles.check)}>
                   <span className={sx(styles.checkMark)}>
                     <Icon aria-hidden className={sx(styles.icon, presentation.tone)} />
                   </span>
-                  <span className={sx(styles.checkText)}>{criterion.text}</span>
+                  <span className={sx(styles.checkText)}>
+                    {criterion.text}
+                    {checks ? <CriterionChecksNote checks={checks} /> : null}
+                  </span>
                   <span className={sx(styles.checkState, presentation.tone)}>{presentation.label}</span>
                 </li>
               );

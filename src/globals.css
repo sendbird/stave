@@ -202,6 +202,9 @@
   box-sizing: border-box;
   overflow: hidden;
   width: 100%;
+  /* Monaco paints its text layer over view zones, which would take every click
+     meant for the review controls. Monaco positions the zone itself. */
+  z-index: 1;
 }
 
 .stave-diff-comment-hover-menu-host {

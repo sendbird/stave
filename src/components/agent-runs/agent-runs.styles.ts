@@ -146,6 +146,7 @@ export const agentRunStyles = stylex.create({
   },
   checkMark: { alignSelf: "center", display: "flex", width: 16, justifyContent: "center" },
   checkText: { minWidth: 0, overflowWrap: "anywhere" },
+  checkDetail: { display: "block", marginBlockStart: 2, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
   checkState: {
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],

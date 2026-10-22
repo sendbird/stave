@@ -8,6 +8,10 @@
  * line per turn, so a spec can read what ran. The arguments are never
  * recorded: their MCP config can carry the developer's own credentials.
  *
+ * `FAKE_CLAUDE_TOOL_PROGRESS` (comma-separated tool call ids) makes a turn
+ * whose prompt contains `[tool-progress]` report progress for those calls
+ * before it answers, so Turn Activity lists steps the turn never wrote.
+ *
  * Launch it through a wrapper on `STAVE_CLAUDE_CLI_PATH` (see
  * `agent-run-usage-limit.electron.e2e.ts`).
  */
@@ -38,6 +42,7 @@ const usage = { input_tokens: 10, output_tokens: 5, cache_creation_input_tokens:
 // An Agent run turn carries its run key on Stave's MCP server; other turns (a
 // warm-up, a title) leave it empty. Only the key's presence is read.
 const runTurn = /"x-stave-agent-run-key":"[^"]+"/.test(args.join(" "));
+const progressToolIds = (process.env.FAKE_CLAUDE_TOOL_PROGRESS ?? "").split(",").filter(Boolean);
 const resumed = args.some((arg) => arg.startsWith("--resume"));
 
 /** The number of this Agent run turn among the run turns so far; 0 for any other turn. */
@@ -47,7 +52,7 @@ function recordTurn() {
   return runTurn ? previous.filter((entry) => entry.runTurn).length + 1 : 0;
 }
 
-function answerTurn() {
+function answerTurn(line) {
   const turn = recordTurn();
   write({ type: "system", subtype: "init", session_id: sessionId, uuid: randomUUID(), cwd: process.cwd(), tools: [], mcp_servers: [],
     model: "claude-sonnet-fake", permissionMode: "default", slash_commands: [], apiKeySource: "none", claude_code_version: "99.0.0",
@@ -60,6 +65,12 @@ function answerTurn() {
       stop_reason: null, session_id: sessionId, total_cost_usd: 0, usage, modelUsage: {}, permission_denials: [],
       errors: ["Claude AI usage limit reached"], uuid: randomUUID() });
     return;
+  }
+  if (line.includes("[tool-progress]")) {
+    for (const toolUseId of progressToolIds) {
+      write({ type: "tool_progress", tool_use_id: toolUseId, tool_name: "Read", parent_tool_use_id: null,
+        elapsed_time_seconds: 1, session_id: sessionId, uuid: randomUUID() });
+    }
   }
   const text = turn ? `Run turn ${turn} ran after the usage reset.` : "Done.";
   write({ type: "assistant", session_id: sessionId, uuid: randomUUID(), parent_tool_use_id: null,
@@ -81,6 +92,6 @@ input.on("line", (line) => {
     write({ type: "control_response", response: { subtype: "success", request_id: message.request_id, response } });
     return;
   }
-  if (message.type === "user") answerTurn();
+  if (message.type === "user") answerTurn(line);
 });
 input.on("close", () => process.exit(0));

@@ -23,7 +23,7 @@ import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
 import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } from "./evidence";
-import { inheritedWorkspaceChecks, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckRevision, workspaceCheckRevisionMatches } from "./workspace-check";
+import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
 import { formatAge, type AgentRunBadgeTone, type StageTone } from "./agent-run-view";
 import { describeUsageShort } from "./usage";
 
@@ -265,6 +265,8 @@ export interface AgentRunDoneWhenLine {
   text: string;
   status: DoneWhenStatus;
   label: string;
+  /** A workspace check criterion: which of its actions passed. */
+  checks?: WorkspaceCheckProgress;
 }
 
 /**
@@ -293,24 +295,30 @@ function reportOf(detail: AgentRunDetail) {
  * stage's latest attempt; not verified when it is one that did not; null when
  * it is a report, so the reported status stands.
  */
-function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus | null {
+function hostCheckResult(detail: AgentRunDetail, text: string): { status: DoneWhenStatus; checks?: WorkspaceCheckProgress } | null {
   const key = text.trim();
-  let status: DoneWhenStatus | null = null;
+  let result: { status: DoneWhenStatus; checks?: WorkspaceCheckProgress } | null = null;
   const { agentRun } = detail;
   const currentStage = agentRun.workflow.stages[agentRun.currentStageIndex];
   const current = currentStage ? latestStageRecord(detail.stages, currentStage.id) : undefined;
   const ownCheck = currentStage?.acceptanceCriteria?.find((criterion) => criterion.text.trim() === key);
   if (current && ownCheck) {
     if (currentStage?.kind === "ai" && ownCheck.verification === "stave-check")
-      return workspaceCheckMet(current, ownCheck.scriptIds, ownCheck.scriptDefinitions) ? "met-verified" : "unverified";
+      return {
+        status: workspaceCheckMet(current, ownCheck.scriptIds, ownCheck.scriptDefinitions) ? "met-verified" : "unverified",
+        checks: workspaceCheckProgress(current, ownCheck.scriptIds, ownCheck.scriptDefinitions),
+      };
     if (currentStage?.kind === "action" && currentStage.action.type === "run-script")
-      return current.facts?.action?.type === "run-script" && isVerifiedEvidence(describeActionEvidence(current.facts.action, current.facts)) ? "met-verified" : "unverified";
+      return { status: current.facts?.action?.type === "run-script" && isVerifiedEvidence(describeActionEvidence(current.facts.action, current.facts)) ? "met-verified" : "unverified" };
   }
   const inherited = inheritedWorkspaceChecks(detail).get(key);
   if (current && inherited && !(currentStage?.kind === "ai" && currentStage.role === "plan")) {
     const reported = current.report?.outcome === "complete" ? current.report.acceptanceCriteria?.find((criterion) => criterion.text.trim() === key) : undefined;
     if (reported && reported.status !== "met") return null;
-    return inheritedWorkspaceCheckRevision(detail, current, inherited) ? "met-verified" : "unverified";
+    return {
+      status: inheritedWorkspaceCheckRevision(detail, current, inherited) ? "met-verified" : "unverified",
+      ...(inherited.actionScriptId ? {} : { checks: inheritedWorkspaceCheckProgress(detail, current, inherited) }),
+    };
   }
   for (let index = 0; index <= agentRun.currentStageIndex && index < agentRun.workflow.stages.length; index += 1) {
     const stage = agentRun.workflow.stages[index]!;
@@ -320,13 +328,22 @@ function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus |
     const scriptAction = stage.kind === "action" && record.facts?.action?.type === "run-script" && stage.acceptanceCriteria?.some((criterion) => criterion.text.trim() === key)
       ? record.facts.action : null;
     const hostCheck = stage.kind === "ai" ? stage.acceptanceCriteria?.find((criterion) => criterion.verification === "stave-check" && criterion.text.trim() === key) : undefined;
-    if (scriptAction) status = isVerifiedEvidence(describeActionEvidence(scriptAction, record.facts, undefined, { inherited: index < agentRun.currentStageIndex })) ? "met-verified" : "unverified";
-    else if (hostCheck) status = (index < agentRun.currentStageIndex
-      ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, hostCheck.scriptIds, hostCheck.scriptDefinitions), record.facts?.workspaceRevision)
-      : workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions)) ? "met-verified" : "unverified";
-    else if (reported) status = null;
+    const earlier = index < agentRun.currentStageIndex;
+    if (scriptAction) result = { status: isVerifiedEvidence(describeActionEvidence(scriptAction, record.facts, undefined, { inherited: earlier })) ? "met-verified" : "unverified" };
+    else if (hostCheck) result = {
+      status: (earlier
+        ? workspaceCheckRevisionMatches(workspaceCheckRevision(record, hostCheck.scriptIds, hostCheck.scriptDefinitions), record.facts?.workspaceRevision)
+        : workspaceCheckMet(record, hostCheck.scriptIds, hostCheck.scriptDefinitions)) ? "met-verified" : "unverified",
+      checks: workspaceCheckProgress(record, hostCheck.scriptIds, hostCheck.scriptDefinitions, { inherited: earlier }),
+    };
+    else if (reported) result = null;
   }
-  return status;
+  return result;
+}
+
+/** Which actions of a workspace check criterion passed, when Stave's own check decides it. */
+export function describeCriterionChecks(detail: AgentRunDetail, text: string): WorkspaceCheckProgress | undefined {
+  return hostCheckResult(detail, text)?.checks;
 }
 
 /**
@@ -337,16 +354,20 @@ function hostCheckStatus(detail: AgentRunDetail, text: string): DoneWhenStatus |
  */
 export function describeDoneWhen(detail: AgentRunDetail): AgentRunDoneWhenLine[] {
   const { stage, record } = reportOf(detail);
-  const line = (text: string, status: DoneWhenStatus): AgentRunDoneWhenLine => ({
+  const line = (text: string, status: DoneWhenStatus, checks?: WorkspaceCheckProgress): AgentRunDoneWhenLine => ({
     text,
     status,
     label: DONE_WHEN_LABELS[status],
+    ...(checks ? { checks } : {}),
   });
   const criteria = collectAcceptanceCriteria(detail, true);
   if (criteria.length > 0) {
-    return criteria.map((criterion) =>
-      line(criterion.text, hostCheckStatus(detail, criterion.text) ?? (criterion.status === "met" ? "met-reported" : criterion.status)),
-    );
+    return criteria.map((criterion) => {
+      const host = hostCheckResult(detail, criterion.text);
+      return host
+        ? line(criterion.text, host.status, host.checks)
+        : line(criterion.text, criterion.status === "met" ? "met-reported" : criterion.status);
+    });
   }
   const stages = detail.agentRun.workflow.stages;
   if (stages.length > 1) {
