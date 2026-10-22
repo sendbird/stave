@@ -8,6 +8,7 @@ import {
   type AutomationSpec,
   type AutomationUpsertInput,
 } from "@/lib/automations";
+import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import {
   resolveCurrentRepositoryDefaultWorkspaceId,
   type RecentRepositoryState,
@@ -65,15 +66,18 @@ export function buildEnvironmentOptions(args: {
     const branchOf = (id: string) =>
       repository.workspaceBranchById?.[id] ??
       (id === workspaceId ? repository.defaultBranch ?? null : null);
+    const rootPath = normalizeComparablePath(repository.repositoryPath);
+    // Another workspace runs only in a folder of its own. One without a folder,
+    // or with the root as its folder, would run in the Default workspace's
+    // checkout, so it is not offered; a schedule naming it reads as missing.
     const workspaces: AutomationWorkspaceOption[] = repository.workspaces
       .filter((workspace) => workspace.id !== workspaceId)
-      .map((workspace) => ({
-        workspaceId: workspace.id,
-        name: workspace.name,
-        path: repository.workspacePathById[workspace.id] ?? repository.repositoryPath,
-        branch: branchOf(workspace.id),
-        isDefault: false,
-      }))
+      .flatMap((workspace) => {
+        const ownPath = repository.workspacePathById[workspace.id]?.trim() ?? "";
+        return ownPath && normalizeComparablePath(ownPath) !== rootPath
+          ? [{ workspaceId: workspace.id, name: workspace.name, path: ownPath, branch: branchOf(workspace.id), isDefault: false }]
+          : [];
+      })
       .sort((left, right) => left.name.localeCompare(right.name));
     const defaultWorkspace = repository.workspaces.find((workspace) => workspace.id === workspaceId);
     options.set(repository.repositoryPath, {

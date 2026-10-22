@@ -395,7 +395,7 @@
     "unnamedWorkspace": "이름 없는 워크스페이스",
     "searchWorkspaces": "워크스페이스 검색…",
     "noWorkspaceMatches": "일치하는 워크스페이스가 없습니다.",
-    "workspaceMissingTitle": "이 워크스페이스는 더 이상 없습니다",
+    "workspaceMissingTitle": "이 워크스페이스 또는 그 폴더가 더 이상 없습니다",
     "workspaceMissingInEditor": "일정이 존재하는 워크스페이스를 가리킬 때까지 실행이 실패합니다. 위에서 워크스페이스를 고르세요.",
     "workspaceMissingDetail": "일정이 존재하는 워크스페이스에서 실행되도록 바꿀 때까지 실행이 실패합니다.",
     "useDefaultWorkspace": "기본 워크스페이스 사용",
@@ -405,6 +405,6 @@
     "branch": "브랜치",
     "branchUnknown": "알 수 없음",
     "permission": "권한",
-    "runWorkspaceMissing": "이 일정이 실행되는 워크스페이스가 더 이상 없습니다. 일정을 편집해 워크스페이스를 고르세요."
+    "runWorkspaceMissing": "이 일정이 실행되는 워크스페이스 또는 그 폴더가 더 이상 없습니다. 일정을 편집해 워크스페이스를 고르세요."
   }
 }

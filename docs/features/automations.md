@@ -122,10 +122,13 @@ and leaves the root checkout, and any uncommitted work in it, alone.
 Changing the workspace clears the attached Information resources, because they
 belong to a workspace's Information panel.
 
-If the chosen workspace is removed, the schedule's runs fail before they start
-a task, with `The workspace this schedule runs in no longer exists`. The
-schedule's detail pane shows the same warning with `Use the Default workspace`
-and `Edit`. Schedules saved before workspaces could be chosen, and schedules an
+If the chosen workspace is removed, or its folder is gone, the schedule's runs
+fail before they start a task, with `The workspace this schedule runs in, or
+its folder, no longer exists`. A workspace other than the Default one runs only
+in a folder of its own: one registered without a folder, or with the
+repository root as its folder, is not offered in the picker and is treated the
+same way, so a run never falls back to the root checkout. The schedule's detail
+pane shows the same warning with `Use the Default workspace` and `Edit`. Schedules saved before workspaces could be chosen, and schedules an
 agent creates through the Local MCP tools without naming a workspace, run in
 the Default workspace.
 

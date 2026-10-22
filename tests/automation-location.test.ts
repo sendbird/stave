@@ -1,4 +1,7 @@
 import { describe, expect, test } from "bun:test";
+import { mkdir, mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AutomationLocationFields } from "@/components/layout/automation-center/AutomationLocationFields";
@@ -9,7 +12,10 @@ import {
   createAutomationRuntime,
   type AutomationWorkspaceLocation,
 } from "../electron/host-service/automation-runtime";
-import { resolveAutomationWorkspaceLocation } from "../electron/host-service/automation-workspace-location";
+import {
+  findAutomationWorkspace,
+  resolveAutomationWorkspaceLocation,
+} from "../electron/host-service/automation-workspace-location";
 import { mcpAutomationCreateInput } from "../electron/main/stave-mcp-autonomy-guards";
 import { buildEnvironmentOptions } from "@/components/layout/automation-center/automation-center.utils";
 import {
@@ -177,6 +183,81 @@ describe("schedule location runtime", () => {
   });
 });
 
+describe("a workspace without its own folder", () => {
+  // A registry entry for a non-default workspace that names no folder, or the
+  // repository root, would otherwise resolve to the root: the schedule would
+  // run in, and change, the Default workspace's checkout.
+  const registry = (root: string, feature: string) => ({
+    repositoryPath: root,
+    repositoryName: "project",
+    defaultBranch: "main",
+    workspaces: [
+      { id: "ws-root", name: "Default Workspace", updatedAt: "" },
+      { id: "ws-feature", name: "feature", updatedAt: "" },
+      { id: "ws-nopath", name: "no-path", updatedAt: "" },
+      { id: "ws-rootpath", name: "root-path", updatedAt: "" },
+      { id: "ws-removed", name: "removed", updatedAt: "" },
+    ],
+    workspaceBranchById: { "ws-feature": "feat/x", "ws-nopath": "feat/y", "ws-rootpath": "feat/z", "ws-removed": "feat/r" },
+    workspacePathById: {
+      "ws-root": root,
+      "ws-feature": feature,
+      "ws-rootpath": `${root}/`,
+      "ws-removed": path.join(root, "..", "removed-folder"),
+    },
+    workspaceDefaultById: { "ws-root": true },
+  }) as unknown as RecentRepositoryState;
+
+  test("is refused by the registry lookup, and a folder removed from disk is too", async () => {
+    const directory = await mkdtemp(path.join(tmpdir(), "stave-schedule-location-"));
+    try {
+      const root = path.join(directory, "project");
+      const feature = path.join(directory, "feature");
+      await mkdir(root);
+      await mkdir(feature);
+      const repositories = [registry(root, feature)];
+      expect(resolveAutomationWorkspaceLocation(repositories, "ws-nopath")).toBeNull();
+      expect(resolveAutomationWorkspaceLocation(repositories, "ws-rootpath")).toBeNull();
+      const load = async () => repositories;
+      expect(await findAutomationWorkspace("ws-feature", load)).toMatchObject({ path: feature, isDefault: false });
+      expect(await findAutomationWorkspace("ws-root", load)).toMatchObject({ path: root, isDefault: true });
+      expect(await findAutomationWorkspace("ws-removed", load)).toBeNull();
+      expect(await findAutomationWorkspace("ws-nopath", load)).toBeNull();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  test("fails the run before any task starts, so nothing runs in the root", async () => {
+    const repositories = [registry("/tmp/project", "/tmp/feature")];
+    const { runtime, runTaskCalls, known } = harness();
+    known.clear();
+    const lookup = (workspaceId: string) => resolveAutomationWorkspaceLocation(repositories, workspaceId);
+    for (const workspaceId of ["ws-nopath", "ws-rootpath"]) {
+      const automation = await runtime.create(input({ workspaceId, path: "/tmp/project" }));
+      const location = lookup(workspaceId);
+      if (location) known.set(workspaceId, location);
+      const run = await runtime.runNow({ id: automation.id });
+      expect(run).toMatchObject({ status: "failed", errorCode: "workspace-missing", taskId: null });
+    }
+    expect(runTaskCalls).toEqual([]);
+  });
+
+  test("is not offered by the window's picker, and a schedule naming it reads as missing", () => {
+    const options = buildEnvironmentOptions({
+      recentRepositories: [registry("/tmp/project", "/tmp/feature")],
+      activeRepository: null,
+    });
+    expect(options[0]?.workspaces.map((workspace) => [workspace.workspaceId, workspace.path])).toEqual([
+      ["ws-root", "/tmp/project"],
+      ["ws-feature", "/tmp/feature"],
+      ["ws-removed", path.join("/tmp/project", "..", "removed-folder")],
+    ]);
+    expect(resolveAutomationLocation(input({ workspaceId: "ws-nopath", workspace: { name: "no-path" } }).environment, options))
+      .toMatchObject({ state: "missing", workspaceName: "no-path" });
+  });
+});
+
 describe("schedule location through the Local MCP tools", () => {
   test("an agent's create call keeps old specs on the Default workspace and stores a named workspace paused", async () => {
     const { runtime, runTaskCalls } = harness();
@@ -273,9 +354,9 @@ describe("schedule location fields", () => {
     expect(chosen).toContain("/tmp/alpha");
     expect(chosen).toContain("feat/alpha");
     expect(chosen).toContain("Guided");
-    expect(chosen).not.toContain("This workspace no longer exists");
+    expect(chosen).not.toContain("This workspace or its folder no longer exists");
     const gone = render({ workspaceId: "ws-gone", workspace: { name: "gone" } });
-    expect(gone).toContain("This workspace no longer exists");
+    expect(gone).toContain("This workspace or its folder no longer exists");
     expect(gone).toContain("gone");
   });
 });

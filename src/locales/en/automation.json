@@ -407,7 +407,7 @@
     "unnamedWorkspace": "Unnamed workspace",
     "searchWorkspaces": "Search workspaces…",
     "noWorkspaceMatches": "No workspace matches.",
-    "workspaceMissingTitle": "This workspace no longer exists",
+    "workspaceMissingTitle": "This workspace or its folder no longer exists",
     "workspaceMissingInEditor": "Runs fail until the schedule names a workspace that exists. Choose one above.",
     "workspaceMissingDetail": "Runs fail until the schedule runs in a workspace that exists.",
     "useDefaultWorkspace": "Use the Default workspace",
@@ -417,6 +417,6 @@
     "branch": "Branch",
     "branchUnknown": "Unknown",
     "permission": "Permission",
-    "runWorkspaceMissing": "The workspace this schedule runs in no longer exists. Edit the schedule to choose a workspace."
+    "runWorkspaceMissing": "The workspace this schedule runs in, or its folder, no longer exists. Edit the schedule to choose a workspace."
   }
 }

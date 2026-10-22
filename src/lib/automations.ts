@@ -361,7 +361,7 @@ export type AutomationRunErrorCode = (typeof AUTOMATION_RUN_ERROR_CODES)[number]
 
 // i18n-ignore: stored run error and MCP text; the window translates it by code
 export const AUTOMATION_WORKSPACE_MISSING_MESSAGE =
-  "The workspace this schedule runs in no longer exists. Edit the schedule to choose a workspace.";
+  "The workspace this schedule runs in, or its folder, no longer exists. Edit the schedule to choose a workspace.";
 
 export const AutomationRunSchema = z
   .object({
