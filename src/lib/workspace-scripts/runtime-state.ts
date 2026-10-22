@@ -1,4 +1,4 @@
-import { formatNumber } from "@/i18n/format";
+import { formatDuration } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Renderer Runtime State (pure reducers/helpers)
@@ -164,38 +164,14 @@ export function buildScriptRunFailureState(args: {
   };
 }
 
+/**
+ * A script run's duration in the shared words, with milliseconds under a
+ * second because a hook often finishes in a few hundred; empty for an
+ * unreadable span.
+ */
 export function formatScriptDuration(durationMs: number): string {
   if (!Number.isFinite(durationMs) || durationMs < 0) {
     return "";
   }
-  if (durationMs < 1_000) {
-    return i18n.t("workspace:format.duration.milliseconds", { value: formatNumber(Math.round(durationMs)) });
-  }
-  if (durationMs < 60_000) {
-    const seconds = durationMs / 1_000;
-    return i18n.t("workspace:format.duration.secondsValue", { value: formatNumber(seconds, { minimumFractionDigits: seconds >= 10 ? 0 : 1, maximumFractionDigits: seconds >= 10 ? 0 : 1 }) });
-  }
-  const minutes = Math.floor(durationMs / 60_000);
-  const seconds = Math.round((durationMs % 60_000) / 1_000);
-  return seconds > 0 ? i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds }) : i18n.t("workspace:format.duration.minutes", { count: minutes });
-}
-
-export function formatScriptRelativeTime(
-  timestampMs: number,
-  now: number = Date.now(),
-): string {
-  const elapsed = Math.max(0, now - timestampMs);
-  if (elapsed < 5_000) {
-    return i18n.t("scripts:runtimeState.justNow");
-  }
-  if (elapsed < 60_000) {
-    return `${Math.round(elapsed / 1_000)}s ago`;
-  }
-  if (elapsed < 3_600_000) {
-    return `${Math.round(elapsed / 60_000)}m ago`;
-  }
-  if (elapsed < 86_400_000) {
-    return `${Math.round(elapsed / 3_600_000)}h ago`;
-  }
-  return `${Math.round(elapsed / 86_400_000)}d ago`;
+  return formatDuration(durationMs, { milliseconds: true, tenths: true });
 }

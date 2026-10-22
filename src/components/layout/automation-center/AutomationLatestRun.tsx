@@ -7,7 +7,7 @@ import type { AutomationRun } from "@/lib/automations";
 import { automationStyles } from "./automation-center.styles";
 import {
   formatDateTime,
-  formatRelativeTime,
+  formatTimeAgo,
   formatRunDuration,
   getRunStatusPresentation,
 } from "./automation-center.utils";
@@ -54,7 +54,7 @@ export function AutomationLatestRun(props: {
         <span>{run.trigger === "scheduled" ? tI18n("automation:automationLatestRun.scheduled") : tI18n("automation:automationLatestRun.manual")}</span>
         <span aria-hidden="true">·</span>
         <time dateTime={run.startedAt} title={formatDateTime(run.startedAt)}>
-          {formatRelativeTime(run.startedAt)}
+          {formatTimeAgo(run.startedAt)}
         </time>
         <span aria-hidden="true">·</span>
         <span>{formatRunDuration(run)}</span>

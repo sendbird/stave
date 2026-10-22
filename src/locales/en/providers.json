@@ -471,12 +471,6 @@
     "resultDelete": "Deleted the MCP server on {{providers}}.",
     "failed": "{{provider}} failed: {{detail}}"
   },
-  "compactDuration": {
-    "minutes": "{{minutes}}m",
-    "hoursMinutes": "{{hours}}h {{minutes}}m",
-    "seconds": "{{seconds}}s",
-    "minutesSeconds": "{{minutes}}m {{seconds}}s"
-  },
   "errors": {
     "codexUnavailable": "{{message}}\n{{guidance}} Model access can also depend on your account.",
     "codexOverloaded": "{{message}}\nRetry later, or choose another model before resuming.",

@@ -1,4 +1,5 @@
 import { SidebarSettingsCard } from "./settings-dialog-sidebar-card";
+import { DensitySettingsCard } from "./settings-dialog-density-card";
 import { I18N_NAMESPACES, Trans, useTranslation, i18n, type I18nKey } from "@/i18n";
 import { memo, useMemo, useRef, useState } from "react";
 import {
@@ -128,6 +129,8 @@ export function ThemeSection() {
             {t("settings:themeSection.appearance.system")}</Button>
         </div>
       </SettingsCard>
+
+      <DensitySettingsCard />
 
       <SidebarSettingsCard />
 

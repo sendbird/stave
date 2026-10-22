@@ -18,6 +18,7 @@ import { describeAgentRunStatusLine, projectAgentRunStages, type AgentRunStageRo
 import { describeUsageShort } from "@/lib/agent-runs/usage";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { StageStatusIcon } from "./StageStatusIcon";
+import { ELAPSED_CLOCK_MS } from "./ElapsedClock";
 import { StageTrack } from "./StageTrack";
 import { useNow } from "./useAgentRun";
 import { useAgentRunProgress } from "./useAgentRunProgress";
@@ -117,7 +118,7 @@ function FleetAgentRunLine(props: {
   const { detail, rows, status } = props;
   const label = formatAgentRunBadge(status);
   const spent = describeUsageShort(detail.usage);
-  const now = useNow(isActiveAgentRunState(detail.agentRun.state));
+  const now = useNow(isActiveAgentRunState(detail.agentRun.state), ELAPSED_CLOCK_MS);
   const elapsed = agentRunDuration(detail, now);
   const staged = rows.length > 1;
   const plan = useAgentRunProgress(detail);

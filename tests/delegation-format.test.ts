@@ -7,28 +7,20 @@ import {
   exchangeStatusFromToolState,
   exchangeStatusFromWorkGraphStatus,
   formatEffortLabel,
-  formatExchangeDuration,
 } from "@/lib/delegation/format";
+import { formatDuration } from "@/i18n/format";
 import { formatTurnActivityElapsedSeconds } from "@/components/session/turn-activity.utils";
 
-describe("formatExchangeDuration", () => {
-  test("uses one scale from sub-second to hours", () => {
-    expect(formatExchangeDuration(0)).toBe("0s");
-    expect(formatExchangeDuration(150)).toBe("0.2s");
-    expect(formatExchangeDuration(400)).toBe("0.4s");
-    expect(formatExchangeDuration(2_400)).toBe("2.4s");
-    expect(formatExchangeDuration(4_000)).toBe("4s");
-    expect(formatExchangeDuration(12_000)).toBe("12s");
-    expect(formatExchangeDuration(64_000)).toBe("1m 4s");
-    expect(formatExchangeDuration(120_000)).toBe("2m");
-    expect(formatExchangeDuration(3_720_000)).toBe("1h 2m");
+describe("delegation durations", () => {
+  test("read in the shared words, with tenths under ten seconds", () => {
+    // Floors like every live clock: 150ms is 0.1s, 59.9s is 59s.
+    expect(formatDuration(150, { tenths: true })).toBe("0.1s");
+    expect(formatDuration(2_400, { tenths: true })).toBe("2.4s");
+    expect(formatDuration(64_000, { tenths: true })).toBe("1m 4s");
+    expect(formatDuration(3_720_000, { tenths: true })).toBe("1h 2m");
   });
 
-  test("negative or non-finite input reads as zero", () => {
-    expect(formatExchangeDuration(-500)).toBe("0s");
-  });
-
-  test("the turn-activity formatter shares the implementation", () => {
+  test("the turn-activity formatter reads the same span the same way", () => {
     expect(formatTurnActivityElapsedSeconds(64)).toBe("1m 4s");
     expect(formatTurnActivityElapsedSeconds(4)).toBe("4s");
     expect(formatTurnActivityElapsedSeconds(3_720)).toBe("1h 2m");

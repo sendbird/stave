@@ -16,7 +16,7 @@ import {
 } from "./automation-center.styles";
 import {
   formatDateTime,
-  formatRelativeTime,
+  formatTimeAgo,
   formatRunDuration,
   getRunStatusPresentation,
 } from "./automation-center.utils";
@@ -59,7 +59,7 @@ export function AutomationRunRow(props: {
         </Badge>
       </div>
       <div className={sx(runDetailStyles.rowMeta)}>
-        <span>{formatRelativeTime(props.run.startedAt)}</span>
+        <span>{formatTimeAgo(props.run.startedAt)}</span>
         <span className={sx(automationStyles.truncate)}>
           {props.run.trigger === "scheduled" ? tI18n("automation:automationRunDetail.schedule") : tI18n("automation:automationRunDetail.manual")} ·{" "}
           {formatRunDuration(props.run)}
@@ -120,7 +120,7 @@ export function AutomationRunDetail(props: {
               </h2>
             </div>
             <p className={sx(runDetailStyles.headerSub)}>
-          {tI18n("automation:automationRunDetail.startedAt", { relative: formatRelativeTime(props.run.startedAt), date: formatDateTime(props.run.startedAt) })}
+          {tI18n("automation:automationRunDetail.startedAt", { relative: formatTimeAgo(props.run.startedAt), date: formatDateTime(props.run.startedAt) })}
         </p>
           </div>
           <div className={sx(runDetailStyles.headerActions)}>

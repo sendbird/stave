@@ -1,4 +1,4 @@
-import { formatTime } from "@/i18n/format";
+import { formatTime, formatDuration, formatCost } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Fragment, type ReactNode } from "react";
 import { sx } from "@/components/ads/utils/stylex";
@@ -12,7 +12,6 @@ import {
 import {
   describeAgentIdentity,
   describeDeadline,
-  formatExchangeDuration,
 } from "@/lib/delegation/format";
 import { AgentIdentity } from "./AgentIdentity";
 import { DelegateRoute } from "./DelegateRoute";
@@ -47,7 +46,7 @@ function formatSpend(spend: NonNullable<DelegationExchange["outcome"]["spend"]>)
     spend.cacheReadTokens ? i18n.t("agentRuns:exchangeDetail.extraCopy75", { value1: spend.cacheReadTokens }) : null,
     spend.cacheCreationTokens ? i18n.t("agentRuns:exchangeDetail.extraCopy76", { value1: spend.cacheCreationTokens }) : null,
   ].filter(Boolean).join(" · ");
-  const cost = spend.totalCostUsd === undefined ? "" : ` · $${spend.totalCostUsd.toFixed(4)}`;
+  const cost = spend.totalCostUsd === undefined ? "" : ` · ${formatCost(spend.totalCostUsd, "USD", { fractionDigits: 4 })}`;
   return i18n.t("agentRuns:exchangeDetail.formatSpend", { value1: spend.inputTokens ?? 0, value2: spend.outputTokens ?? 0, value3: cache ? ` · ${cache}` : "", value4: cost });
 }
 
@@ -126,7 +125,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
       value:
         exchange.setup.deadlineMs === undefined
           ? i18n.t("agentRuns:exchangeDetail.extraCopy81")
-          : formatExchangeDuration(exchange.setup.deadlineMs),
+          : formatDuration(exchange.setup.deadlineMs, { tenths: true }),
     });
   }
   if (exchange.identity.source) {
@@ -253,7 +252,7 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
           <ExchangeStatusBadge
             status={exchange.outcome.status}
             data-testid="exchange-detail-status"
-            suffix={elapsedMs !== null ? formatExchangeDuration(elapsedMs) : undefined}
+            suffix={elapsedMs !== null ? formatDuration(elapsedMs, { tenths: true }) : undefined}
           />
           {deadline ? (
             <span

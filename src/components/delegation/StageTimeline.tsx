@@ -1,7 +1,7 @@
 import { useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import { sx } from "@/components/ads/utils/stylex";
 import type { DelegationStage } from "@/lib/delegation/exchange";
-import { formatExchangeDuration } from "@/lib/delegation/format";
 import { delegationStyles as styles } from "./delegation.styles";
 
 /** `+12s  Label — detail`, one line per stage, offsets from `startedAt`. */
@@ -21,7 +21,7 @@ export function StageTimeline(props: {
           className={sx(styles.timelineItem)}
         >
           <span className={sx(styles.timelineAt)}>
-            +{formatExchangeDuration(stage.at - props.startedAt)}
+            +{formatDuration(stage.at - props.startedAt, { tenths: true })}
           </span>
           <span className={sx(styles.timelineLabel)}>
             {stage.label}

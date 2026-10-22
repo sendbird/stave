@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n";
-import { formatRelativeTime } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { useEffect, useRef, useState } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
@@ -157,7 +157,7 @@ export function renderTaskSearchGroup(props: {
             </p>
           </div>
           <span className={sx(commandPaletteStyles.searchTime)} title={result.updatedAt}>
-            {formatRelativeTime(result.updatedAt)}
+            {formatTimeAgo(result.updatedAt)}
           </span>
         </CommandItem>
       ))}

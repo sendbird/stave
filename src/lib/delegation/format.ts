@@ -13,7 +13,6 @@ import type { Tone } from "@/components/ads/utils/tone";
 
 export {
   describeDeadline,
-  formatExchangeDuration,
   type DeadlineDescription,
 } from "./duration";
 

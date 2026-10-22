@@ -1,11 +1,11 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration } from "@/i18n/format";
 import type { TodoItem } from "@/lib/todo-progress";
 import {
   describeHookEventLabel,
   formatHookSourcePreview,
   normalizeHookEventToken,
 } from "@/lib/providers/hook-activity";
-import { formatExchangeDuration } from "@/lib/delegation/format";
 import { truncateWorkText } from "@/lib/providers/subagent-identity";
 import { resolveToolProviderDetail } from "@/lib/providers/tool-activity";
 import type {
@@ -735,12 +735,12 @@ export function formatTurnActivityCountsLabel(counts: TurnActivityCounts) {
 }
 
 /**
- * Whole-second elapsed label. Shares `formatExchangeDuration` so a row's
- * elapsed time and an exchange's duration are the same number in the same
- * words; seconds are rounded first because the shelf ticks once a second.
+ * Elapsed label in the shared duration words, so a row's elapsed time reads
+ * like the same span anywhere else. The span goes in as measured and the
+ * shared helper floors it, as Fleet does: 59.9s reads 59s, not a minute.
  */
 export function formatTurnActivityElapsedSeconds(value: number) {
-  return formatExchangeDuration(Math.max(0, Math.round(value)) * 1_000);
+  return formatDuration(Math.max(0, value) * 1_000);
 }
 
 /** Whether any row still represents outstanding work rather than a result. */

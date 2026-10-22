@@ -5,13 +5,13 @@ import { agentRunLanesByWorkspace, agentRunWorkQueueLane } from "../src/lib/agen
 import { describe, expect, test } from "bun:test";
 import { buildAgentRunFixtures, AGENT_RUN_ASSIGNMENT } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import {
+  agentRunDuration,
   agentRunStoredPlan,
   describeAgentRunProgress,
   describeAgentRunResult,
   describeAgentRunStatus,
   describeDoneWhen,
   extractRunAssignment,
-  formatRunDuration,
   resolveAgentRunFirstPrompt,
   resolveAgentRunPrompt,
 } from "../src/lib/agent-runs/agent-run-status";
@@ -51,9 +51,11 @@ describe("agent run state", () => {
     });
   });
 
-  test("durations read in seconds, then minutes", () => {
-    expect(formatRunDuration(12_000)).toBe("12s");
-    expect(formatRunDuration(23 * 60_000)).toBe("23m");
+  test("a run's duration reads like any elapsed span, as Fleet reads a task", () => {
+    const detail = runs.working;
+    const created = Date.parse(detail.agentRun.createdAt);
+    expect(agentRunDuration({ ...detail, agentRun: { ...detail.agentRun, state: "running" } }, created + 12_000)).toBe("12s");
+    expect(agentRunDuration({ ...detail, agentRun: { ...detail.agentRun, state: "running" } }, created + 23 * 60_000 + 5_000)).toBe("23m 5s");
   });
 });
 

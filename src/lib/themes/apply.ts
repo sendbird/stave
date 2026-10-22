@@ -159,6 +159,7 @@ export function applyCustomTheme(args: {
   }
 
   withInstantThemePaint(() => {
+    applyThemeContrast({ contrast: args.theme?.contrast ?? null });
     const styleId = "stave-custom-theme";
     let element = document.getElementById(styleId) as HTMLStyleElement | null;
 
@@ -188,6 +189,40 @@ export function applyCustomTheme(args: {
 
     element.textContent = css;
   });
+}
+
+/**
+ * Marks the document with the active theme's contrast (`data-contrast="high"`).
+ * `StaveDesignProvider` reads it to give the design system its high-contrast
+ * treatment; a theme without the flag clears it.
+ */
+export function applyThemeContrast(args: { contrast: CustomThemeDefinition["contrast"] | null }) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const root = document.documentElement;
+  if (args.contrast === "high") {
+    root.dataset.contrast = "high";
+  } else {
+    delete root.dataset.contrast;
+  }
+}
+
+/**
+ * Marks the document with the app's density (`data-ui-density="compact"`),
+ * which `StaveDesignProvider` passes to the design system. Regular clears it.
+ * Not `data-density`: the ADS `ThemeProvider` writes that one itself.
+ */
+export function applyUiDensity(args: { density: "regular" | "compact" }) {
+  if (typeof document === "undefined") {
+    return;
+  }
+  const root = document.documentElement;
+  if (args.density === "compact") {
+    root.dataset.uiDensity = "compact";
+  } else {
+    delete root.dataset.uiDensity;
+  }
 }
 
 // ---------------------------------------------------------------------------

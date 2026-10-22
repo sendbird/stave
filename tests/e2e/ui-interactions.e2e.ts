@@ -440,7 +440,7 @@ async function cliViewportMatchesTerminalToken(page: Page) {
 
     const probe = document.createElement("div");
     probe.style.display = "none";
-    probe.style.backgroundColor = "var(--color-terminal)";
+    probe.style.backgroundColor = "var(--terminal)";
     document.documentElement.appendChild(probe);
     const expected = getComputedStyle(probe).backgroundColor;
     probe.remove();

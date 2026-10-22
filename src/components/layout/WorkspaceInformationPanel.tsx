@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatTimeAgo } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -89,7 +90,6 @@ import {
   WORKSPACE_INFO_FIELD_TYPES,
   WORKSPACE_INFO_FIELD_TYPE_LABELS,
 } from "@/lib/workspace-information";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import {
   formatWorkspaceInfoTaskSeedPrompt,
   resolveWorkspaceInfoTaskSeedTitle,
@@ -835,9 +835,7 @@ export function WorkspaceInformationPanel() {
                   action={
                     latestTurnSummary ? (
                       <span className={sx(styles.sectionStamp)}>
-                        {formatTaskUpdatedAt({
-                          value: latestTurnSummary.generatedAt,
-                        })}
+                        {formatTimeAgo(latestTurnSummary.generatedAt)}
                       </span>
                     ) : null
                   }

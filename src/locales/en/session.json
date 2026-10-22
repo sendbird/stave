@@ -370,7 +370,13 @@
     "subagentRow2": "Answer",
     "subagentRow3": "View activity",
     "subagentRow4": "Open transcript",
-    "subagentRow5": "Stop"
+    "subagentRow5": "Stop",
+    "countNeedsYou_one": "{{count}} needs you",
+    "countNeedsYou_other": "{{count}} need you",
+    "countRunning": "{{value}} running",
+    "summaryLabel": "Subagent summary",
+    "openFirstNeedsYou": "Open {{name}}",
+    "openFirstNeedsYouTitle": "{{name}}: {{reason}}"
   },
   "taskPanel": {
     "ariaLabel": "Task sections",
@@ -785,7 +791,15 @@
     "label": "Approval needed",
     "label2": "Input needed",
     "label3": "Running",
-    "label4": "{{value1}} unread"
+    "label4": "{{value1}} unread",
+    "subagentsRunningNeedsYou_one": "{{running}} · {{shown}} needs you",
+    "subagentsRunningNeedsYou_other": "{{running}} · {{shown}} need you",
+    "subagentsNeedsYou_one": "{{shown}} needs you",
+    "subagentsNeedsYou_other": "{{shown}} need you",
+    "subagentsRunningNeedsYouLabel_one": "{{running}} running, {{count}} needs you",
+    "subagentsRunningNeedsYouLabel_other": "{{running}} running, {{count}} need you",
+    "subagentsNeedsYouLabel_one": "{{count}} subagent needs you",
+    "subagentsNeedsYouLabel_other": "{{count}} subagents need you"
   },
   "turnActivityStatusIcon": {
     "getTurnActivityStatusLabel": "Done",
@@ -935,14 +949,6 @@
     "presentationCopy395": "{{v1}} running",
     "presentationCopy396": "{{v1}} queued",
     "presentationCopy397": "{{v1}} done"
-  },
-  "duration": {
-    "seconds_other": "{{count}}s",
-    "seconds_one": "{{count}}s",
-    "minutes_other": "{{count}}m",
-    "minutes_one": "{{count}}m",
-    "minutesSeconds": "{{minutes}}m {{seconds}}s",
-    "hoursMinutes": "{{hours}}h {{minutes}}m"
   },
   "presentation": {
     "on": "on",

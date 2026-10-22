@@ -1,4 +1,5 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
+import { formatTimeAgo } from "@/i18n/format";
 import { useEffect, useState } from "react";
 import {
   Bird,
@@ -20,7 +21,6 @@ import {
   type MartinSyncPublicStatus,
   type MartinSyncSettings,
 } from "@/lib/martin-sync/types";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import {
   SettingsCard,
@@ -315,7 +315,7 @@ export function MartinSyncSettingsSection() {
             </div>
             <p className={sx(styles.headerDescription)}>
               {paired
-                ? t(connector.connector?.lastSeenAt ? "settingsConnections:messages.connectorPairedLastSeen" : "settingsConnections:messages.connectorPaired", { name: connector.connector?.name ?? t("settingsConnections:messages.thisInstallation"), time: connector.connector?.lastSeenAt ? formatTaskUpdatedAt({ value: connector.connector.lastSeenAt }) : "" })
+                ? t(connector.connector?.lastSeenAt ? "settingsConnections:messages.connectorPairedLastSeen" : "settingsConnections:messages.connectorPaired", { name: connector.connector?.name ?? t("settingsConnections:messages.thisInstallation"), time: connector.connector?.lastSeenAt ? formatTimeAgo(connector.connector.lastSeenAt) : "" })
                 : t("settingsConnections:settingsDialogMartinSync.pairThisInstallationWithAShort")}
             </p>
           </div>
@@ -476,7 +476,7 @@ export function MartinSyncSettingsSection() {
               ? t("settingsConnections:settingsDialogMartinSync.outboxUnavailable")
               : ` · ${t("common:status.loading")}`}
           {status?.lastDeliveredAt
-            ? t("settingsConnections:settingsDialogMartinSync.lastDelivered", { value1: formatTaskUpdatedAt({ value: status.lastDeliveredAt }) })
+            ? t("settingsConnections:settingsDialogMartinSync.lastDelivered", { value1: formatTimeAgo(status.lastDeliveredAt) })
             : ""}
         </div>
         {(status?.failedCount ?? 0) > 0 ? (

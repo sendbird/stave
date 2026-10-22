@@ -49,6 +49,7 @@ function installDocumentMock() {
       },
       contains: (name: string) => classSet.has(name),
     },
+    dataset: {} as Record<string, string>,
     offsetWidth: 1,
   };
 
@@ -94,6 +95,7 @@ function installDocumentMock() {
 
   return {
     classSet,
+    dataset: root.dataset,
     styles,
     flushRaf: () => {
       const batch = frames.splice(0, frames.length);
@@ -195,6 +197,19 @@ describe("theme apply snap", () => {
     mock.flushRaf();
     mock.flushRaf();
     expect(mock.classSet.has(THEME_CHANGING_CLASS)).toBe(false);
+  });
+
+  it("marks the document high contrast only while a high-contrast theme is applied", () => {
+    const mock = installDocumentMock();
+    restore = mock.restore;
+
+    applyCustomTheme({ theme: { ...sampleTheme, contrast: "high" } });
+    expect(mock.dataset.contrast).toBe("high");
+    applyCustomTheme({ theme: sampleTheme });
+    expect("contrast" in mock.dataset).toBe(false);
+    applyCustomTheme({ theme: { ...sampleTheme, contrast: "high" } });
+    applyCustomTheme({ theme: null });
+    expect("contrast" in mock.dataset).toBe(false);
   });
 
   it("snaps manual token overrides", () => {

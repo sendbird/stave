@@ -41,6 +41,8 @@ export {
   applyThemeClass,
   applyThemeOverrides,
   applyCustomTheme,
+  applyThemeContrast,
+  applyUiDensity,
   applyFontOverrides,
   buildFontStacks,
   buildThemeOverrideCss,

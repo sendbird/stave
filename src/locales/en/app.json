@@ -78,9 +78,7 @@
     "staveNocturne": "Deep ink-blue layers with luminous cobalt actions and ember accents for focused late-night work.",
     "staveScore": "Warm paper surfaces, cool ink, and a restrained cobalt signal for focused daylight work."
   },
-  "tasks": {
-    "justNow": "just now"
-  },
+  "tasks": {},
   "thinkingPhrases.loadingNextLevel": "Loading Next Level",
   "thinkingPhrases.farmingXP": "Farming XP",
   "thinkingPhrases.rollingForInitiative": "Rolling for Initiative",

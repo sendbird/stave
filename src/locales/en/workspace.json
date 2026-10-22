@@ -1295,17 +1295,6 @@
   "taskSeed": {
     "fallbackTitle": "Review linked workspace item"
   },
-  "format": {
-    "duration": {
-      "seconds": "{{count}}s",
-      "minutes": "{{count}}m",
-      "minutesSeconds": "{{minutes}}m {{seconds}}s",
-      "hoursMinutes": "{{hours}}h {{minutes}}m",
-      "lessThanSecond": "<1s",
-      "milliseconds": "{{value}}ms",
-      "secondsValue": "{{value}}s"
-    }
-  },
   "additionalCopy": {
     "message0": "Complete the required fields before attaching.",
     "message1": "Information resource creation is unavailable.",

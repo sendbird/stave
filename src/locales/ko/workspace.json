@@ -1277,17 +1277,6 @@
   "taskSeed": {
     "fallbackTitle": "연결된 워크스페이스 항목 검토"
   },
-  "format": {
-    "duration": {
-      "seconds": "{{count}}초",
-      "minutes": "{{count}}분",
-      "minutesSeconds": "{{minutes}}분 {{seconds}}초",
-      "hoursMinutes": "{{hours}}시간 {{minutes}}분",
-      "lessThanSecond": "1초 미만",
-      "milliseconds": "{{value}}밀리초",
-      "secondsValue": "{{value}}초"
-    }
-  },
   "additionalCopy": {
     "message0": "첨부하기 전에 필수 항목을 입력하세요.",
     "message1": "정보 리소스를 만들 수 없습니다.",

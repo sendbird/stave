@@ -166,6 +166,20 @@ new StyleX variable module.
 
 Agent work state colors are a foundation of their own; see Semantic layers.
 
+High contrast and density reach ADS through `StaveDesignProvider`, which reads
+them from the document so previews behave like the app. A theme flagged
+`contrast: "high"` (the two built-in high-contrast themes; a user theme may set
+it too) marks the document `data-contrast="high"`. In light mode Stave then
+renders ADS's `high-contrast` theme, whose stronger elevations and drawn media
+edges apply while the theme's colors still come from the role mapping. ADS has
+no dark high-contrast theme, so dark high contrast stays on ADS `dark` and adds
+the host emphasis in `adsDarkHighContrastVariables`: subtle borders at full
+strength, media edges drawn and a 3px focus ring. Settings → Design → Density
+writes `data-ui-density`, which becomes the ADS `ThemeProvider` density:
+Compact moves the control-height ramp down a tier and the spacing ramp down a
+step from `space12`; text sizes do not change, and fixed geometry such as the
+46px panel bars does not move.
+
 The CSS layer order is explicit: theme and resets, canonical component layers,
 then host integration styles and the remaining legacy utilities. Host width, padding, and positioning
 must remain effective when a primitive is replaced. Popover, Dialog, and Drawer
@@ -205,6 +219,11 @@ the requested change preserves captured evidence and never sends a task.
 
 Run `bun run check:design-system` after changing shared components. Its per-file
 ratchet rejects new utility syntax, reintroduced legacy recipes, and missing canonical dependencies.
+It also counts off-grid spacing: a 6 or 10 on a padding, margin or gap
+(`scripts/stylex-spacing-literals.mjs`). Each file's count is recorded in
+`config/spacing-ratchet.json` and may fall, never rise; space new work with the
+`--ads-space-*` tokens (4, 8, 12, …) or a `densityPad` step, and lower the entry
+when you move a file onto the grid.
 It is an architecture check, not a visual approval. Pair it with typecheck, theme
 tests, and the affected rendered workflow.
 

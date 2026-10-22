@@ -1,4 +1,4 @@
-import { formatNumber } from "@/i18n/format";
+import { formatNumber, formatDuration } from "@/i18n/format";
 import { formatPercent } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import {
@@ -21,7 +21,6 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   formatKB,
   formatSignedKB,
-  formatUptime,
 } from "@/lib/performance/resource-format";
 import type { ResourceMetricSummary } from "@/lib/performance/resource-metric-history";
 import {
@@ -391,7 +390,7 @@ export function ResourceDashboard({
         <Tile
           icon={TimerReset}
           label={tI18n("workspace:resourceDashboard.uptime")}
-          value={formatUptime(metrics.uptimeSeconds)}
+          value={formatDuration(metrics.uptimeSeconds * 1_000)}
         >
           <span className={sx(styles.tileCaptionRow)}>
             {stabilityLevel === "healthy" ? null : (

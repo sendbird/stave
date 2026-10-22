@@ -1,7 +1,6 @@
 import { i18n, getIntlLocale } from "@/i18n";
 import { thresholdTone, type Tone, type ToneThreshold } from "@/components/ads/utils/tone";
-import { formatNumber } from "@/i18n/format";
-import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
+import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { providerReportsQuota } from "@/lib/providers/account-usage-block";
 import type { ApiConnectionCreditsView } from "@/lib/providers/use-api-connection-credits";
 import type { ProviderTurnSpend } from "@/lib/providers/turn-spend";
@@ -251,7 +250,7 @@ export function describeTurnSpend(args: {
   providerName: string;
 }): UsageHint {
   const { cost, providerName } = args;
-  const totals = i18n.t("shell:statusBarUsageStripUtils.todayThisMonthFrom", { value1: formatCostUsd(cost.todayUsd), value2: formatCostUsd(cost.monthUsd), value3: formatTurnCount(cost.monthTurns) });
+  const totals = i18n.t("shell:statusBarUsageStripUtils.todayThisMonthFrom", { value1: formatCost(cost.todayUsd), value2: formatCost(cost.monthUsd), value3: formatTurnCount(cost.monthTurns) });
   const meaning =
     cost.meaning === "spend"
       ? i18n.t("shell:statusBarUsageStripUtils.sEstimateOfWhatTheseTurnsCost", { value1: providerName })

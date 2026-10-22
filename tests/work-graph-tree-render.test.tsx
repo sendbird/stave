@@ -291,7 +291,8 @@ describe("WorkGraphTree", () => {
     });
 
     expect(liveHtml).toContain("4s elapsed");
-    expect(completedHtml).toContain("4s elapsed");
+    // 3.5s, frozen at completion; the shared duration words floor it, as Fleet does.
+    expect(completedHtml).toContain("3s elapsed");
     expect(completedHtml).not.toContain("8s elapsed");
   });
 

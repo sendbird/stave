@@ -78,9 +78,7 @@
     "staveNocturne": "깊은 잉크빛 파란색 층과 밝은 코발트 동작, 따뜻한 강조색으로 늦은 밤에도 집중할 수 있습니다.",
     "staveScore": "따뜻한 종이 표면, 차분한 잉크색, 절제된 코발트 강조색으로 밝은 환경에서 집중할 수 있습니다."
   },
-  "tasks": {
-    "justNow": "방금 전"
-  },
+  "tasks": {},
   "thinkingPhrases.loadingNextLevel": "다음 레벨 불러오는 중",
   "thinkingPhrases.farmingXP": "경험치 모으는 중",
   "thinkingPhrases.rollingForInitiative": "선제권 주사위 굴리는 중",

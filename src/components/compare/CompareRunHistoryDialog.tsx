@@ -1,4 +1,5 @@
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
+import { formatTimeAgo } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   CheckCircle2,
@@ -25,7 +26,6 @@ import {
   type CompareRunHistoryStatusFilter,
 } from "@/lib/compare-run-history";
 import type { CompareRun, CompareRunStatus } from "@/lib/compare-runs";
-import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { compareRunHistoryDialogStyles as styles } from "./compare-run-history-dialog.styles";
 
 interface CompareRunHistoryDialogProps {
@@ -196,7 +196,7 @@ export function CompareRunHistoryDialog(props: CompareRunHistoryDialogProps) {
                         {entry.judgeLabel ? (
                           <span>{entry.judgeLabel}</span>
                         ) : null}
-                        <span>{t("compare:messages.updated", { updatedAt: formatTaskUpdatedAt({ value: entry.updatedAt }) })}</span>
+                        <span>{t("compare:messages.updated", { updatedAt: formatTimeAgo(entry.updatedAt) })}</span>
                       </span>
                     </span>
                   </AdsButton>

@@ -1,15 +1,18 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration, formatCost, formatTokenCount } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
+import type { ReactNode } from "react";
 import { Info, ShieldCheck, SlidersHorizontal, Zap, type LucideIcon } from "lucide-react";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { thresholdTone, type Tone } from "@/components/ads/utils/tone";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import type { AgentRun } from "@/lib/agent-runs/domain";
-import { describeAgentRunPermissions, explainAgentRunPermissions, formatAge } from "@/lib/agent-runs/agent-run-view";
-import { formatCostUsd, formatTokenCount, type AgentRunUsage } from "@/lib/agent-runs/usage";
+import { describeAgentRunPermissions, explainAgentRunPermissions } from "@/lib/agent-runs/agent-run-view";
+import type { AgentRunUsage } from "@/lib/agent-runs/usage";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { ElapsedClock } from "./ElapsedClock";
 
 /** The share of its turn budget from which a run reads as near its limit. */
 const TURN_BUDGET_WARNING_SHARE = 0.8;
@@ -31,7 +34,7 @@ export interface AgentRunSummaryProps {
 
 interface Metric {
   label: string;
-  value: string;
+  value: ReactNode;
   unit?: string;
   detail: string | null;
   tone?: Extract<Tone, "warning">;
@@ -44,7 +47,7 @@ function spendMetric(usage: AgentRunUsage | null): Metric {
   if (!usage || usage.measuredTurns === 0) return { label: i18n.t("agentRuns:agentRunSummary.label"), value: "—", detail: i18n.t("agentRuns:agentRunSummary.detail") };
   const tokens = i18n.t("agentRuns:remaining.presentationCopy0", { v1: formatTokenCount(usage.inputTokens + usage.outputTokens) });
   return usage.costUsd !== null
-    ? { label: i18n.t("agentRuns:agentRunSummary.label2"), value: formatCostUsd(usage.costUsd), detail: tokens }
+    ? { label: i18n.t("agentRuns:agentRunSummary.label2"), value: formatCost(usage.costUsd), detail: tokens }
     : { label: i18n.t("agentRuns:agentRunSummary.label3"), value: formatTokenCount(usage.inputTokens + usage.outputTokens), detail: i18n.t("agentRuns:agentRunSummary.detail2") };
 }
 
@@ -80,7 +83,7 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
     "neutral",
   );
   const nearLimit = turnTone === "warning";
-  const endedAt = props.active ? props.now : Date.parse(agentRun.updatedAt);
+  const startedAt = Date.parse(agentRun.createdAt);
   const unmeasured = usage ? usage.turns - usage.measuredTurns : 0;
   const model = describeRunModel(providerId, agentRun.fingerprint.model);
 
@@ -96,7 +99,10 @@ export function AgentRunSummary(props: AgentRunSummaryProps) {
     spendMetric(usage),
     {
       label: props.active ? i18n.t("agentRuns:agentRunSummary.label5") : i18n.t("agentRuns:agentRunSummary.label6"),
-      value: formatAge(endedAt - Date.parse(agentRun.createdAt)),
+      // A running run's time counts on its own clock, so only the figure re-renders.
+      value: props.active ? (
+        <ElapsedClock live now={props.now}>{(clock) => formatDuration(clock - startedAt)}</ElapsedClock>
+      ) : formatDuration(Date.parse(agentRun.updatedAt) - startedAt),
       detail: i18n.t(props.active ? "agentRuns:agentRunSummary.startedAt" : "agentRuns:agentRunSummary.fromStartedAt", { time: props.formatClock(agentRun.createdAt) }),
     },
   ];

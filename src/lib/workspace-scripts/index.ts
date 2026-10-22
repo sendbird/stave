@@ -57,7 +57,6 @@ export {
   buildScriptRunFailureState,
   countRunningServiceEntries,
   formatScriptDuration,
-  formatScriptRelativeTime,
   getScriptRunSourceLabel,
   getScriptSourceLabel,
   reduceScriptUiState,

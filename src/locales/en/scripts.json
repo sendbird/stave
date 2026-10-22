@@ -255,8 +255,7 @@
   },
   "runtimeState": {
     "hookValue": "Hook · {{value1}}",
-    "manual": "Manual",
-    "justNow": "just now"
+    "manual": "Manual"
   },
   "runtimeStore": {
     "scriptsBridgeUnavailable": "Scripts bridge unavailable",

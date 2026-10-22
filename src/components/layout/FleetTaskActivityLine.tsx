@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
@@ -7,7 +8,6 @@ import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import {
   buildTaskActivityLine,
   describeLastActivity,
-  formatActivityDuration,
 } from "@/lib/fleet/task-activity-line";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 
@@ -23,19 +23,19 @@ function describeStatusDuration(
     return line.quietMs === null
       ? null
       : i18n.t("fleet:taskActivity.quiet", {
-          duration: formatActivityDuration(line.quietMs),
+          duration: formatDuration(line.quietMs),
         });
   }
   if (status === "waiting-input" || status === "waiting-approval") {
     return line.waitingMs === null
       ? null
       : i18n.t("fleet:taskActivity.waiting", {
-          duration: formatActivityDuration(line.waitingMs),
+          duration: formatDuration(line.waitingMs),
         });
   }
   if (status === "running") {
     return i18n.t("fleet:taskActivity.running", {
-      duration: formatActivityDuration(line.elapsedMs),
+      duration: formatDuration(line.elapsedMs),
     });
   }
   return null;
@@ -88,7 +88,7 @@ export function FleetQuietDuration(props: { since: string; xstyle?: StyleXValue 
   return (
     <span className={sx(styles.duration, props.xstyle)}>
       {i18n.t("fleet:taskActivity.quiet", {
-        duration: formatActivityDuration(now - sinceMs),
+        duration: formatDuration(now - sinceMs),
       })}
     </span>
   );

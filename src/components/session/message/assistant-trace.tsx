@@ -198,6 +198,12 @@ function toEpochMilliseconds(value?: string): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+/**
+ * How long a reasoning pass took, as measured: first start to last completion,
+ * unrounded, so the shared duration words floor it as everywhere else. A pass
+ * that arrived whole carries one timestamp for both ends; it was not timed,
+ * and reads as such rather than as an invented second.
+ */
 function getReasoningDurationSeconds(parts: ThinkingPart[]): number | null {
   const startedAt = parts.reduce<number | null>((firstTimestamp, part) => {
     if (firstTimestamp !== null) {
@@ -213,10 +219,10 @@ function getReasoningDurationSeconds(parts: ThinkingPart[]): number | null {
       }
       return toEpochMilliseconds(part.completedAt);
     }, null);
-  if (startedAt === null || completedAt === null || completedAt < startedAt) {
+  if (startedAt === null || completedAt === null || completedAt <= startedAt) {
     return null;
   }
-  return Math.max(1, Math.round((completedAt - startedAt) / 1000));
+  return (completedAt - startedAt) / 1000;
 }
 
 /**

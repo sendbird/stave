@@ -129,10 +129,27 @@ describe("chat-input runtime helpers", () => {
       statusLabel: "budget limited",
       objective: "Finish the migration and keep the provider tests green",
       tokenLabel: "2.5k / 10k tokens (25%)",
-      elapsedLabel: "2m elapsed",
+      elapsedLabel: "2m 5s elapsed",
       progressPercent: 25,
       tone: "warning",
     });
+  });
+
+  test("a goal's budget reads exactly, so 12,500 never reads like 13,000", () => {
+    const status = buildChatInputGoalStatus({
+      providerGoal: {
+        providerId: "codex",
+        nativeSessionId: "thread-1",
+        objective: "Keep the budget exact",
+        status: "active",
+        tokenBudget: 12_500,
+        tokensUsed: 2_500,
+        timeUsedSeconds: 30,
+        createdAt: 0,
+        updatedAt: 0,
+      },
+    });
+    expect(status?.tokenLabel).toBe("2.5k / 12.5k tokens (20%)");
   });
 
   test("keeps an active Codex goal label distinct from turn running state", () => {

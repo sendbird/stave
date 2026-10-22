@@ -1,10 +1,11 @@
 import { beforeEach, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { TaskPanel, TaskPanelView } from "@/components/session/TaskPanel";
+import { selectTaskPanelWorkspaceLabel, TaskPanel, TaskPanelView } from "@/components/session/TaskPanel";
 import { TaskPanelEmpty } from "@/components/session/TaskPanelEmpty";
 import { openTaskInspection } from "@/components/session/task-inspection-navigation";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import { untitledTaskTitle } from "@/lib/task-context/attached-task-context";
 import { DEFAULT_WORKFLOW_PERMISSION_MODE } from "@/lib/workflows/schema";
 import {
   RIGHT_RAIL_PANEL_IDS,
@@ -28,6 +29,8 @@ function render(
       taskId: TASK_ID,
       repositoryPath: null,
       managed: false,
+      taskTitle: "Add CSV export",
+      workspaceLabel: "feat/csv-export",
       agentRun: undefined,
       onTabChange: () => {},
       ...overrides,
@@ -177,9 +180,40 @@ test("the connected panel with no task names its sections and starts one", () =>
 
 test("the tabs share the rail's one panel bar instead of a second bar", () => {
   const html = render({ tab: "activity" });
-  // One header, holding the heading and the tab strip.
+  // One header, holding the heading and the tab strip; the caption follows it.
   expect(html.match(/<header/g)).toHaveLength(1);
-  expect(html).toMatch(/<header[^>]*>.*<h2[^>]*>Task<\/h2>.*role="tablist"/s);
+  expect(html).toMatch(/<header[^>]*>.*<h2[^>]*>Task<\/h2>.*role="tablist".*<\/header><div[^>]*><p/s);
+});
+
+test("a caption under the bar names the task the tabs describe and its workspace", () => {
+  for (const tab of ["activity", "progress", "team", "results"] as const) {
+    const html = render({ tab });
+    const caption = /<\/header><div[^>]*><p[^>]*title="([^"]*)"[^>]*>(.*?)<\/p>/s.exec(html);
+    expect(caption?.[1]).toBe("Add CSV export · feat/csv-export");
+    // The dot is drawn, not read; the words stay apart for a screen reader.
+    expect(caption?.[2]).toMatch(/^<span[^>]*>Add CSV export<\/span> <span aria-hidden="true"[^>]*>·<\/span> <span[^>]*>feat\/csv-export<\/span>$/);
+  }
+  // Another task reads as that task.
+  const other = render({ tab: "activity", taskTitle: "Fix the login redirect", workspaceLabel: "main" });
+  expect(other).toContain('title="Fix the login redirect · main"');
+  expect(other).not.toContain("Add CSV export");
+});
+
+test("the caption names the workspace by its own name, else its branch", () => {
+  const state = {
+    activeWorkspaceId: WORKSPACE_ID,
+    workspaces: [{ id: WORKSPACE_ID, name: "Default Workspace", updatedAt: "2026-09-26T10:00:00.000Z" }],
+    workspaceBranchById: { [WORKSPACE_ID]: "main" },
+    workspaceDefaultById: { [WORKSPACE_ID]: true },
+  };
+  expect(selectTaskPanelWorkspaceLabel(state)).toBe("main");
+  expect(selectTaskPanelWorkspaceLabel({
+    ...state,
+    workspaces: [{ id: WORKSPACE_ID, name: "billing-export", updatedAt: "2026-09-26T10:00:00.000Z" }],
+    workspaceBranchById: { [WORKSPACE_ID]: "feat/billing-export" },
+    workspaceDefaultById: { [WORKSPACE_ID]: false },
+  })).toBe("billing-export");
+  expect(untitledTaskTitle("  ")).toBe("Untitled task");
 });
 
 test("openTaskInspection opens the Task panel on the named tab for the active task", () => {

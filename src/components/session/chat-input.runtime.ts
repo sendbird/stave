@@ -1,4 +1,5 @@
 import { i18n } from "@/i18n/runtime";
+import { formatDuration, formatTokenCount } from "@/i18n/format";
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
@@ -133,20 +134,6 @@ function formatGoalStatusValue(status: ProviderGoalSnapshot["status"]) {
   }
 }
 
-function formatGoalTokenCount(value: number) {
-  if (!Number.isFinite(value) || value <= 0) {
-    return "0";
-  }
-  if (value >= 1000) {
-    const compact =
-      value % 1000 === 0
-        ? String(value / 1000)
-        : (value / 1000).toFixed(1).replace(/\.0$/, "");
-    return `${compact}k`;
-  }
-  return String(Math.floor(value));
-}
-
 function getGoalProgressPercent(goal: ProviderGoalSnapshot) {
   if (typeof goal.tokenBudget !== "number" || goal.tokenBudget <= 0) {
     return null;
@@ -159,31 +146,16 @@ function getGoalProgressPercent(goal: ProviderGoalSnapshot) {
 }
 
 function formatGoalTokenProgressValue(goal: ProviderGoalSnapshot) {
-  const used = formatGoalTokenCount(goal.tokensUsed);
+  const used = formatTokenCount(goal.tokensUsed);
   const progressPercent = getGoalProgressPercent(goal);
   if (typeof goal.tokenBudget === "number" && goal.tokenBudget > 0) {
-    const budget = formatGoalTokenCount(goal.tokenBudget);
+    // A budget is a number someone set: read it exactly, not rounded.
+    const budget = formatTokenCount(goal.tokenBudget, { exact: true });
     return progressPercent == null
       ? i18n.t("session:remaining.presentationCopy301", { v1: used, v2: budget })
       : i18n.t("session:remaining.presentationCopy302", { v1: used, v2: budget, v3: progressPercent });
   }
   return i18n.t("session:remaining.presentationCopy303", { v1: used });
-}
-
-function formatGoalElapsedValue(totalSeconds: number) {
-  if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return i18n.t("session:duration.seconds", { count: 0 });
-  }
-  const seconds = Math.floor(totalSeconds);
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours > 0) {
-    return i18n.t("session:duration.hoursMinutes", { hours, minutes });
-  }
-  if (minutes > 0) {
-    return i18n.t("session:duration.minutes", { count: minutes });
-  }
-  return i18n.t("session:duration.seconds", { count: seconds });
 }
 
 function normalizeGoalObjectiveValue(objective: string) {
@@ -215,7 +187,7 @@ export function buildChatInputGoalStatus(
     statusLabel: formatGoalStatusValue(goal.status),
     objective: normalizeGoalObjectiveValue(goal.objective),
     tokenLabel: formatGoalTokenProgressValue(goal),
-    elapsedLabel: i18n.t("session:remaining.presentationCopy304", { v1: formatGoalElapsedValue(goal.timeUsedSeconds) }),
+    elapsedLabel: i18n.t("session:remaining.presentationCopy304", { v1: formatDuration(goal.timeUsedSeconds * 1_000) }),
     progressPercent: getGoalProgressPercent(goal),
     tone,
   };

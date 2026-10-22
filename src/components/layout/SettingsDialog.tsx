@@ -30,25 +30,21 @@ import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 import { captureCurrentRepositoryState } from "@/store/repository.utils";
 import {
-  isSettingsSectionVisible,
   listVisibleSettingsSections,
-  matchesSettingsSection,
   resolveVisibleSettingsSection,
-  settingsSectionGroups,
-  settingsSections,
   type SectionId,
 } from "./settings-dialog.schema";
 import { resolveSettingsRepositorySelection } from "./settings-dialog.utils";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
-import { searchSettingsFields } from "./settings-dialog.registry";
 import { SettingsScopeProvider, SettingsScopeSectionFrame } from "./settings-scope";
+import { SETTINGS_SCOPE_PICKER_ID, SettingsScopeBar } from "./settings-scope-bar";
 import {
-  matchesSettingsScopeSearch,
-  SETTINGS_SCOPE_PICKER_ID,
-  SETTINGS_SCOPE_SEARCH_ENTRY,
-  SettingsScopeBar,
-} from "./settings-scope-bar";
+  resolveSettingsSearch,
+  settingsSectionsById as sectionsById,
+  type SettingsSearchField,
+} from "./settings-search";
+import { SettingsSearchResults } from "./settings-search-results";
 import { settingsDialogStyles as styles } from "./SettingsDialog.styles";
 
 interface SettingsDialogProps {
@@ -58,9 +54,8 @@ interface SettingsDialogProps {
   initialRepositoryPath?: string | null;
 }
 
-const sectionsById = Object.fromEntries(
-  settingsSections.map((section) => [section.id, section]),
-) as Record<SectionId, (typeof settingsSections)[number]>;
+/** Ties the narrow header's search input to the results listed under it. */
+const NARROW_SEARCH_RESULTS_ID = "settings-search-results-narrow";
 
 const IS_MAC =
   typeof window !== "undefined" && window.api?.platform === "darwin";
@@ -245,26 +240,17 @@ export function SettingsDialog(args: SettingsDialogProps) {
   }
 
   const activeSectionData = sectionsById[activeSection];
-  const normalizedSearchQuery = searchQuery.trim();
   const availableSections = listVisibleSettingsSections(sectionVisibility);
-  const matchingFields = searchSettingsFields(normalizedSearchQuery).filter(
-    (field) => isSettingsSectionVisible(field.sectionId, sectionVisibility),
-  );
-  const scopeMatches = matchesSettingsScopeSearch(normalizedSearchQuery);
-  const visibleSectionIds = new Set(
-    availableSections
-      .filter((section) =>
-        matchesSettingsSection(section, normalizedSearchQuery),
-      )
-      .map((section) => section.id),
-  );
-  matchingFields.forEach((field) => visibleSectionIds.add(field.sectionId));
-  const visibleGroups = settingsSectionGroups
-    .map((group) => ({
-      ...group,
-      ids: group.ids.filter((sectionId) => visibleSectionIds.has(sectionId)),
-    }))
-    .filter((group) => group.ids.length > 0);
+  const search = resolveSettingsSearch(searchQuery, sectionVisibility);
+  const visibleGroups = search.groups;
+  // Both layouts open a result the same way; the results stay listed until
+  // the search is cleared, so the chosen row keeps focus or hands it to the
+  // setting it opened.
+  const selectScopeResult = () => setPendingFieldId(SETTINGS_SCOPE_PICKER_ID);
+  const selectFieldResult = (field: SettingsSearchField) => {
+    setActiveSection(field.sectionId);
+    setPendingFieldId(field.fieldId);
+  };
 
   return (
     <DialogPrimitive.Root
@@ -343,143 +329,97 @@ export function SettingsDialog(args: SettingsDialogProps) {
                     ) : null}
                   </div>
                 </div>
-                {matchingFields.length > 0 || scopeMatches ? (
-                  <SidebarGroup>
+                <SettingsSearchResults
+                  search={search}
+                  onSelectScope={selectScopeResult}
+                  onSelectField={selectFieldResult}
+                />
+                {visibleGroups.map((group) => (
+                  <SidebarGroup key={group.labelKey}>
                     <SidebarGroupLabel className={sx(styles.groupLabel)}>
-                      {t("settings:dialog.search.results")}
+                      {t(group.labelKey)}
                     </SidebarGroupLabel>
                     <SidebarGroupContent>
                       <SidebarMenu>
-                        {scopeMatches ? (
-                          <SidebarMenuItem key={SETTINGS_SCOPE_PICKER_ID}>
-                            <SidebarMenuButton
-                              size="sm"
-                              onClick={() => setPendingFieldId(SETTINGS_SCOPE_PICKER_ID)}
-                              className={sx(styles.menuButton)}
-                              icon={<Search />}
-                            >
-                              {t(SETTINGS_SCOPE_SEARCH_ENTRY.titleKey)}
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        ) : null}
-                        {matchingFields.map((field) => (
-                          <SidebarMenuItem key={field.fieldId}>
-                            <SidebarMenuButton
-                              size="sm"
-                              onClick={() => {
-                                setActiveSection(field.sectionId);
-                                setPendingFieldId(field.fieldId);
-                              }}
-                              className={sx(styles.menuButton)}
-                              icon={<Search />}
-                              badge={
-                                <span className={sx(styles.menuSectionLabel)}>
-                                  {t(sectionsById[field.sectionId].labelKey)}
-                                </span>
-                              }
-                            >
-                              {t(field.titleKey)}
-                            </SidebarMenuButton>
-                          </SidebarMenuItem>
-                        ))}
+                        {group.ids.map((sectionId) => {
+                          if (sectionId === "projects") {
+                            return repositories.length === 0 ? (
+                              <SidebarMenuItem key="projects-empty">
+                                <SidebarMenuButton
+                                  size="sm"
+                                  current={activeSection === "projects"}
+                                  onClick={() => setActiveSection("projects")}
+                                  icon={<Folder />}
+                                >
+                                  {t("settings:dialog.noRepositories")}
+                                </SidebarMenuButton>
+                              </SidebarMenuItem>
+                            ) : (
+                              repositories.map((repository) => {
+                                const current =
+                                  repository.repositoryPath === repositoryPath;
+                                const active =
+                                  activeSection === "projects" &&
+                                  selectedRepositoryPath === repository.repositoryPath;
+
+                                return (
+                                  <SidebarMenuItem key={repository.repositoryPath}>
+                                    <SidebarMenuButton
+                                      size="sm"
+                                      current={active}
+                                      title={repository.repositoryPath}
+                                      onClick={() => {
+                                        allowHighlightedOverrideRef.current = false;
+                                        setSelectedRepositoryPath(
+                                          repository.repositoryPath,
+                                        );
+                                        setActiveSection("projects");
+                                      }}
+                                      className={sx(styles.menuButtonGap)}
+                                      icon={<Folder />}
+                                      badge={
+                                        current ? (
+                                          <span
+                                            className={sx(
+                                              styles.currentPill,
+                                              active &&
+                                                styles.currentPillActive,
+                                            )}
+                                          >
+                                            {t("settings:dialog.currentRepository")}
+                                          </span>
+                                        ) : undefined
+                                      }
+                                    >
+                                      {repository.repositoryName}
+                                    </SidebarMenuButton>
+                                  </SidebarMenuItem>
+                                );
+                              })
+                            );
+                          }
+
+                          const section = sectionsById[sectionId];
+                          const Icon = section.icon;
+                          const active = activeSection === section.id;
+
+                          return (
+                            <SidebarMenuItem key={section.id}>
+                              <SidebarMenuButton
+                                current={active}
+                                onClick={() => setActiveSection(section.id)}
+                                className={sx(styles.menuButton)}
+                                icon={<Icon />}
+                              >
+                                {t(section.labelKey)}
+                              </SidebarMenuButton>
+                            </SidebarMenuItem>
+                          );
+                        })}
                       </SidebarMenu>
                     </SidebarGroupContent>
                   </SidebarGroup>
-                ) : null}
-                {visibleGroups.length > 0 ? (
-                  visibleGroups.map((group) => (
-                    <SidebarGroup key={group.labelKey}>
-                      <SidebarGroupLabel className={sx(styles.groupLabel)}>
-                        {t(group.labelKey)}
-                      </SidebarGroupLabel>
-                      <SidebarGroupContent>
-                        <SidebarMenu>
-                          {group.ids.map((sectionId) => {
-                            if (sectionId === "projects") {
-                              return repositories.length === 0 ? (
-                                <SidebarMenuItem key="projects-empty">
-                                  <SidebarMenuButton
-                                    size="sm"
-                                    current={activeSection === "projects"}
-                                    onClick={() => setActiveSection("projects")}
-                                    icon={<Folder />}
-                                  >
-                                    {t("settings:dialog.noRepositories")}
-                                  </SidebarMenuButton>
-                                </SidebarMenuItem>
-                              ) : (
-                                repositories.map((repository) => {
-                                  const current =
-                                    repository.repositoryPath === repositoryPath;
-                                  const active =
-                                    activeSection === "projects" &&
-                                    selectedRepositoryPath === repository.repositoryPath;
-
-                                  return (
-                                    <SidebarMenuItem key={repository.repositoryPath}>
-                                      <SidebarMenuButton
-                                        size="sm"
-                                        current={active}
-                                        title={repository.repositoryPath}
-                                        onClick={() => {
-                                          allowHighlightedOverrideRef.current = false;
-                                          setSelectedRepositoryPath(
-                                            repository.repositoryPath,
-                                          );
-                                          setActiveSection("projects");
-                                        }}
-                                        className={sx(styles.menuButtonGap)}
-                                        icon={<Folder />}
-                                        badge={
-                                          current ? (
-                                            <span
-                                              className={sx(
-                                                styles.currentPill,
-                                                active &&
-                                                  styles.currentPillActive,
-                                              )}
-                                            >
-                                              {t("settings:dialog.currentRepository")}
-                                            </span>
-                                          ) : undefined
-                                        }
-                                      >
-                                        {repository.repositoryName}
-                                      </SidebarMenuButton>
-                                    </SidebarMenuItem>
-                                  );
-                                })
-                              );
-                            }
-
-                            const section = sectionsById[sectionId];
-                            const Icon = section.icon;
-                            const active = activeSection === section.id;
-
-                            return (
-                              <SidebarMenuItem key={section.id}>
-                                <SidebarMenuButton
-                                  current={active}
-                                  onClick={() => setActiveSection(section.id)}
-                                  className={sx(styles.menuButton)}
-                                  icon={<Icon />}
-                                >
-                                  {t(section.labelKey)}
-                                </SidebarMenuButton>
-                              </SidebarMenuItem>
-                            );
-                          })}
-                        </SidebarMenu>
-                      </SidebarGroupContent>
-                    </SidebarGroup>
-                  ))
-                ) : matchingFields.length === 0 && !scopeMatches ? (
-                  <div className={sx(styles.emptyResults)}>
-                    {t("settings:dialog.search.noMatches", {
-                      query: normalizedSearchQuery,
-                    })}
-                  </div>
-                ) : null}
+                ))}
               </SidebarContent>
             </Sidebar>
 
@@ -555,6 +495,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       onChange={(event) => setSearchQuery(event.target.value)}
                       placeholder={t("settings:dialog.search.label")}
                       aria-label={t("settings:dialog.search.label")}
+                      aria-controls={
+                        search.query ? NARROW_SEARCH_RESULTS_ID : undefined
+                      }
                       xstyle={styles.mobileSearchInput}
                     />
                     {searchQuery ? (
@@ -573,6 +516,25 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       </Tooltip>
                     ) : null}
                   </div>
+                  {/*
+                    The sidebar, and the results it lists, is hidden on a
+                    narrow window, so the matches appear under this input.
+                    The narrow layout has no section list for a matching
+                    section to show in, so those sections are results here.
+                  */}
+                  {search.query ? (
+                    <div className={sx(styles.mobileResults)}>
+                      <SettingsSearchResults
+                        id={NARROW_SEARCH_RESULTS_ID}
+                        search={search}
+                        includeSections
+                        activeSection={activeSection}
+                        onSelectScope={selectScopeResult}
+                        onSelectField={selectFieldResult}
+                        onSelectSection={setActiveSection}
+                      />
+                    </div>
+                  ) : null}
                 </div>
               </header>
 

@@ -107,7 +107,23 @@
     "justNow": "Just now",
     "today": "Today",
     "yesterday": "Yesterday",
-    "never": "Never"
+    "never": "Never",
+    "utc": "UTC"
+  },
+  "duration": {
+    "milliseconds": "{{value}}ms",
+    "underSecond": "<1s",
+    "seconds": "{{value}}s",
+    "minutes": "{{value}}m",
+    "hours": "{{value}}h",
+    "days": "{{value}}d",
+    "minutesSeconds": "{{minutes}}m {{seconds}}s",
+    "hoursMinutes": "{{hours}}h {{minutes}}m",
+    "daysHours": "{{days}}d {{hours}}h"
+  },
+  "relativeTime": {
+    "justNow": "just now",
+    "inMoments": "in a moment"
   },
   "errors": {
     "generic": "Something went wrong.",

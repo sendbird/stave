@@ -74,15 +74,16 @@ const bar = (detail: AgentRunDetail, subagents: readonly DelegationExchange[] | 
   );
 
 describe("the waited count", () => {
-  test("reads in minutes, from when the run last settled, and names that moment", () => {
-    expect(formatWaitDuration(45_000)).toBe("<1m");
-    expect(formatWaitDuration(6 * MINUTE)).toBe("6m");
+  test("reads like any elapsed span, from when the run last settled, and names that moment", () => {
+    // The same words Fleet uses for a wait, so one wait never reads two ways.
+    expect(formatWaitDuration(45_000)).toBe("45s");
+    expect(formatWaitDuration(6 * MINUTE + 5_000)).toBe("6m 5s");
     const since = Date.parse(baseWait.waitingSince!);
     const described = describeEventWaitSince(baseWait, since + 30_000);
-    expect(described.text).toBe("<1m");
+    expect(described.text).toBe("30s");
     expect(described.title).toStartWith("Waiting since ");
     applyRuntimeLocale("ko");
-    expect(formatWaitDuration(45_000)).toBe("1분 미만");
+    expect(formatWaitDuration(45_000)).toBe("45초");
   });
 
   test("the status carries the active wait; a usage wait carries none", () => {

@@ -76,6 +76,7 @@ import {
   applyFontOverrides,
   applyThemeClass,
   applyThemeOverrides,
+  applyUiDensity,
   findCustomThemeById,
   resolveDarkModeForTheme,
 } from "@/lib/themes";
@@ -105,6 +106,7 @@ import {
   normalizeFleetBoardLayout,
   normalizeTurnActivityPlacement,
   normalizeComposerLayoutMode,
+  normalizeUiDensity,
   type AppSettings,
 } from "@/store/app-settings";
 import { AGENTS_APP_SURFACE, normalizeAppActiveSurface } from "@/store/app-surface";
@@ -376,6 +378,7 @@ export function createAppStorePersistenceOptions() {
       state.settings.fleetBoardLayout = normalizeFleetBoardLayout(
         raw.fleetBoardLayout,
       );
+      state.settings.uiDensity = normalizeUiDensity(raw.uiDensity);
       state.settings.workQueueSettleOnMerge =
         typeof raw.workQueueSettleOnMerge === "boolean"
           ? raw.workQueueSettleOnMerge
@@ -909,6 +912,7 @@ export function createAppStorePersistenceOptions() {
         applyCustomTheme({ theme });
       }
       applyThemeOverrides({ themeOverrides: state.settings.themeOverrides });
+      applyUiDensity({ density: state.settings.uiDensity });
       applyFontOverrides({
         messageFontFamily: state.settings.messageFontFamily,
         messageMonoFontFamily: state.settings.messageMonoFontFamily,

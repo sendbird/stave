@@ -1,4 +1,4 @@
-import { formatRelativeTime as formatRelativeAge, formatDateTime } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -42,15 +42,7 @@ import { reviewsStyles } from "./source-control-reviews-panel.styles";
 type ReviewDetailTab = "files" | "conversation" | "checks";
 
 function formatRelativeTime(value: string) {
-  const timestamp = Date.parse(value);
-  if (!Number.isFinite(timestamp)) return i18n.t("sourceControl:sourceControlReviewsPanel.unknownActivity");
-  const age = Math.abs(timestamp - Date.now());
-  if (age < 60_000) return i18n.t("sourceControl:sourceControlReviewsPanel.justNow");
-  if (age < 30 * 24 * 3_600_000) return formatRelativeAge(timestamp);
-  return formatDateTime(timestamp, {
-    month: "short", day: "numeric",
-    year: new Date(timestamp).getFullYear() === new Date().getFullYear() ? undefined : "numeric",
-  });
+  return formatTimeAgo(value) || i18n.t("sourceControl:sourceControlReviewsPanel.unknownActivity");
 }
 
 function reviewDecisionLabel(value: string) {

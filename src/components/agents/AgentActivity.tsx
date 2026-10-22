@@ -19,7 +19,7 @@ import {
   type AgentActivityFilter,
   type AgentActivitySummary,
 } from "@/lib/agents/agent-activity";
-import { formatRelativeTime } from "@/i18n/format";
+import { formatTimeAgo } from "@/i18n/format";
 import { classifyTaskStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
@@ -122,7 +122,7 @@ function ActivitySummary(props: { summary: AgentActivitySummary }) {
         {lastUsed && !Number.isNaN(lastUsed.getTime()) ? (
           <>
             {" · "}
-            <span title={formatDateTime(lastUsed)}>{i18n.t("agents:agentActivity.sentence10", { value1: formatRelativeTime(lastUsed) })}</span>
+            <span title={formatDateTime(lastUsed)}>{i18n.t("agents:agentActivity.sentence10", { value1: formatTimeAgo(lastUsed) })}</span>
           </>
         ) : null}
       </span>
@@ -247,7 +247,7 @@ function WorkRowBody(props: { row: AgentAssignment; run: AgentRunDetail | undefi
         <span className={sx(agentStyles.workLine)}>
           {progress ? <span className={sx(agentStyles.workMeta)}>{progress}</span> : null}
           {startedValid ? (
-            <span className={sx(progress ? agentStyles.workWhen : agentStyles.workMeta)} title={formatDateTime(started)}>{formatRelativeTime(started)}</span>
+            <span className={sx(progress ? agentStyles.workWhen : agentStyles.workMeta)} title={formatDateTime(started)}>{formatTimeAgo(started)}</span>
           ) : null}
         </span>
       ) : null}

@@ -1,4 +1,4 @@
-import { formatNumber } from "@/i18n/format";
+import { formatNumber, formatCost, formatTokenCount } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { Loader } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
@@ -18,7 +18,6 @@ import {
   type UsageStripCost,
   type UsageStripTokens,
 } from "@/components/layout/status-bar-usage-strip.utils";
-import { formatCostUsd, formatTokenCount } from "@/lib/agent-runs/usage";
 import type {
   AccountUsageWindow,
   ClaudeUsageSnapshot,
@@ -424,7 +423,7 @@ export function TurnUsageDetail({
             <TurnTotalRow label={i18n.t("shell:statusBarUsageDetails.today")} value={i18n.t("shell:usageUnits.tokens", { amount: formatTokenCount(tokens.todayTokens) })} />
             <TurnTotalRow
               label={monthLabel(tokens.monthTurns)}
-              value={`${formatTokenCount(tokens.monthTokens)} tokens`}
+              value={i18n.t("shell:usageUnits.tokens", { amount: formatTokenCount(tokens.monthTokens) })}
             />
           </div>
           <p className={sx(statusBarUsageStyles.note)}>
@@ -436,8 +435,8 @@ export function TurnUsageDetail({
         <div className={sx(statusBarUsageStyles.stackSnug)}>
           <p className={sx(statusBarUsageStyles.bucketTitle)}>{spend.title}</p>
           <div className={sx(statusBarUsageStyles.stackTight)}>
-            <TurnTotalRow label={i18n.t("shell:statusBarUsageDetails.today")} value={formatCostUsd(cost.todayUsd)} />
-            <TurnTotalRow label={monthLabel(cost.monthTurns)} value={formatCostUsd(cost.monthUsd)} />
+            <TurnTotalRow label={i18n.t("shell:statusBarUsageDetails.today")} value={formatCost(cost.todayUsd)} />
+            <TurnTotalRow label={monthLabel(cost.monthTurns)} value={formatCost(cost.monthUsd)} />
           </div>
           {/* The rows above already give the totals, the hint's first line. */}
           {spend.lines.slice(1).map((line) => (

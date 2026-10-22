@@ -62,6 +62,8 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  * - The direct task has saved turns: Activity opens the newest as a record
  *   (failed, with a full digest) and the Turn picker lists an older turn
  *   from before records existed.
+ * - `stuck=1` (with `task=agent-run`) adds a delegated child that asks a
+ *   question and one that failed, which the Subagents tab lists first.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -478,6 +480,38 @@ const DELEGATED_REVIEW: DelegatedTaskSummary = {
   ].join("\n"),
 };
 
+/** `stuck=1`: a child that asks the user a question and one that failed. */
+const STUCK = params.get("stuck") === "1";
+const DELEGATED_ASKING: DelegatedTaskSummary = {
+  ...DELEGATED_REVIEW,
+  runId: "child-task:agent-run:changelog",
+  stepId: "child-task:agent-run:changelog:turn",
+  delegationKey: "write-changelog-entry",
+  delegatedTaskId: "task-panel-preview-changelog",
+  delegatedTurnId: "turn-changelog-1",
+  providerId: "claude-code",
+  requestedModel: "claude-sonnet-5",
+  phase: "running",
+  createdAt: "2026-09-29T10:03:00.000Z",
+  updatedAt: "2026-09-29T10:04:00.000Z",
+  completedAt: null,
+  result: undefined,
+};
+const DELEGATED_FAILED: DelegatedTaskSummary = {
+  ...DELEGATED_REVIEW,
+  runId: "child-task:agent-run:migrate",
+  stepId: "child-task:agent-run:migrate:turn",
+  delegationKey: "migrate-users-table",
+  delegatedTaskId: "task-panel-preview-migrate",
+  delegatedTurnId: "turn-migrate-1",
+  phase: "failed",
+  reason: "The migration test failed: users.offset is NOT NULL.",
+  createdAt: "2026-09-29T10:01:00.000Z",
+  updatedAt: "2026-09-29T10:02:30.000Z",
+  completedAt: "2026-09-29T10:02:30.000Z",
+  result: undefined,
+};
+
 /**
  * The browser dev bridge has no delegation ledger; list the delegated review
  * the way the desktop bridge would. Left alone when a real ledger exists.
@@ -492,7 +526,9 @@ function stubDelegatedTasks() {
     runs: {
       ...host.api?.runs,
       listDelegatedTasks: async (args: { parentTaskId: string }) =>
-        args.parentTaskId === AGENT_RUN_TASK_ID ? [DELEGATED_REVIEW] : [],
+        args.parentTaskId === AGENT_RUN_TASK_ID
+          ? STUCK ? [DELEGATED_REVIEW, DELEGATED_ASKING, DELEGATED_FAILED] : [DELEGATED_REVIEW]
+          : [],
     },
   };
 }
@@ -525,6 +561,10 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
     defaultBranch: "main",
     activeWorkspaceId: WORKSPACE_ID,
     activeTaskId,
+    // Named like a real worktree, so the panel's caption reads as it does in the app.
+    workspaces: [{ id: WORKSPACE_ID, name: "sidebar-spacing", updatedAt: "2026-09-29T09:04:00.000Z" }],
+    workspaceBranchById: { [WORKSPACE_ID]: "feat/sidebar-spacing" },
+    workspaceDefaultById: { [WORKSPACE_ID]: false },
     workspacePathById: { [WORKSPACE_ID]: REPOSITORY_PATH },
     // Known files, so inline code in answers stays code unless it names one.
     repositoryFiles: [
@@ -581,6 +621,15 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
       },
     },
     workspacePrInfoById: { [WORKSPACE_ID]: PLAIN_PR_INFO },
+    // The asking child's open question, which is how a parent learns it waits.
+    notifications: STUCK
+      ? [{
+          id: "preview-changelog-question", kind: "task.user_input_requested", title: "", body: "",
+          repositoryPath: REPOSITORY_PATH, repositoryName: "preview-repo", workspaceId: WORKSPACE_ID, workspaceName: "sidebar-spacing",
+          taskId: DELEGATED_ASKING.delegatedTaskId, taskTitle: null, turnId: null, providerId: "claude-code", action: null,
+          payload: {}, createdAt: "2026-09-29T10:04:00.000Z", readAt: null, resolvedAt: null,
+        }]
+      : store.notifications,
     layout: {
       ...store.layout,
       sidebarOverlayVisible: true,

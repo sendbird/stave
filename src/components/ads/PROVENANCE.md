@@ -27,17 +27,23 @@ Host modifications are intentional and retained when refreshing the bundle:
   avatar mark without initials is decorative (`alt=""`), because the actor's name is the
   text beside it. Avatar's presence and status labels come from the host's translations
   (`ui:avatar.*`). The `activity-feed` theme target gained upstream's `density` axis.
+- RelativeTime carries no English copy: the relative phrase (`formatRelative`) and
+  the card's `utcLabel` are required props the host fills
+  (`src/components/system/RelativeTime.tsx`, with `formatRelativeTimeShort` from
+  `src/i18n/format.ts`, or `formatTimeAgo` for a moment that already happened,
+  and the display language's locale).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
 
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.
 
-Additional control/sidebar, lightbox, async-state and toolbar closures are recorded in
+Additional control/sidebar, lightbox, async-state, toolbar, version-compare, review,
+activity-feed and relative-time closures are recorded in
 `.ads-source-controls.json`, `.ads-source-lightbox.json`,
 `.ads-source-async.json` (AsyncBoundary with Banner, LoadingSurface,
 feedback-dismiss and the `async` and `tone` utilities; the bundle's `prose.css`
-was not installed because the host's `styles.css` does not import it) and
+was not installed because the host's `styles.css` does not import it),
 `.ads-source-toolbar.json` (Toolbar with its `headless/toolbar` primitives, for the
 right rail's single tab stop; the bundle's unrelated theme-target and CSS files the
 host does not load were not installed) and `.ads-source-version-compare.json`
@@ -51,7 +57,10 @@ were not installed) and `.ads-source-activity-feed.json` (ActivityFeed with Avat
 its presence dot, the `headless/avatar` primitives and the `overlay-mark` recipe, for
 the approval record in Review and Activity; IconTile, the tokens and the theme
 targets already existed, and the bundle's windowed-list utilities, newer Tooltip
-base, CSS and theme-target files were not installed). Only missing files
+base, CSS and theme-target files were not installed) and
+`.ads-source-relative-time.json` (RelativeTime with its `headless/preview-card`
+primitives; the bundle's theme-target and CSS files the host already has or does
+not load were not installed). Only missing files
 were installed; existing host modifications were preserved. Their catalog's
 suggested dependency versions are recorded as provenance; the host's compatible
 installed versions are governed by package.json and its validation gates.

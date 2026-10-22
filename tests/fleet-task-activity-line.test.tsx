@@ -1,11 +1,11 @@
 import { describe, expect, test } from "bun:test";
+import { formatDuration } from "@/i18n/format";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { FleetTaskActivityLine } from "@/components/layout/FleetTaskActivityLine";
 import {
   buildTaskActivityLine,
   describeLastActivity,
-  formatActivityDuration,
 } from "@/lib/fleet/task-activity-line";
 import type {
   ProviderTurnActivitySnapshot,
@@ -64,12 +64,12 @@ describe("a running task's activity line", () => {
     expect(ended.quietMs).toBeNull();
   });
 
-  test("durations read as measured spans", () => {
-    expect(formatActivityDuration(12_400)).toBe("12s");
-    expect(formatActivityDuration(130_000)).toBe("2m 10s");
-    expect(formatActivityDuration(120_000)).toBe("2m");
-    expect(formatActivityDuration(3_900_000)).toBe("1h 5m");
-    expect(formatActivityDuration(-5)).toBe("0s");
+  test("durations read as measured spans, in the shared words", () => {
+    expect(formatDuration(12_400)).toBe("12s");
+    expect(formatDuration(130_000)).toBe("2m 10s");
+    expect(formatDuration(120_000)).toBe("2m");
+    expect(formatDuration(3_900_000)).toBe("1h 5m");
+    expect(formatDuration(-5)).toBe("0s");
   });
 
   test("the row says running, waiting or quiet — never failed, never a percent or an estimate", () => {

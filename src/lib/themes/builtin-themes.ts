@@ -168,6 +168,7 @@ function createBuiltinTheme(args: {
   name: string;
   descriptionKey: Extract<import("@/i18n").I18nKey, `app:${string}`>;
   baseMode: ThemeModeName;
+  contrast?: "high";
   overrides: Partial<BuiltinThemeTokenValues>;
 }): CustomThemeDefinition {
   return {
@@ -175,6 +176,7 @@ function createBuiltinTheme(args: {
     name: args.name,
     get description() { return i18n.t(args.descriptionKey); },
     baseMode: args.baseMode,
+    ...(args.contrast ? { contrast: args.contrast } : {}),
     version: "1.0.0",
     author: "Stave",
     tokens: withStateColors({
@@ -371,6 +373,7 @@ const DARK_HIGH_CONTRAST = createBuiltinTheme({
   name: "Dark High Contrast",
   descriptionKey: "app:builtinThemes.darkHighContrast",
   baseMode: "dark",
+  contrast: "high",
   overrides: {
     background: "#000000",
     foreground: "#FFFFFF",
@@ -2105,6 +2108,7 @@ const LIGHT_HIGH_CONTRAST = createBuiltinTheme({
   name: "Light High Contrast",
   descriptionKey: "app:builtinThemes.lightHighContrast",
   baseMode: "light",
+  contrast: "high",
   overrides: {
     background: "#FFFFFF",
     foreground: "#000000",

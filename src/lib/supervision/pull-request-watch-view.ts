@@ -1,4 +1,4 @@
-import { formatList, formatRelativeTime } from "@/i18n/format";
+import { formatList, formatTimeAgo } from "@/i18n/format";
 import { i18n, type I18nKey } from "@/i18n/runtime";
 /**
  * How a pull request watch reads on the Schedules list, its detail pane and
@@ -86,5 +86,5 @@ export function describePullRequestWatchLastSeen(
 /** "2 minutes ago · 1 failing check" for the detail pane. */
 export function describePullRequestWatchLastCheck(state: PullRequestWatchState | null, now = Date.now()) {
   const line = describePullRequestWatchLastSeen(state);
-  return line.at ? `${formatRelativeTime(line.at, now)} · ${line.text}` : line.text;
+  return line.at ? `${formatTimeAgo(line.at, now)} · ${line.text}` : line.text;
 }

@@ -1,4 +1,5 @@
 import { questionReplyDisplayText } from "@/lib/question-reply";
+import { formatDuration } from "@/i18n/format";
 import { i18n } from "@/i18n/runtime";
 /**
  * The composer shelf: one surface over the prompt input that holds what is in
@@ -25,7 +26,6 @@ import type {
   TaskUsageLimitPause,
 } from "@/store/task-work-pause";
 import type { ShelfDetailOverride } from "@/store/composer-shelf-store";
-import { formatExchangeDuration } from "@/lib/delegation/duration";
 import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import {
@@ -738,7 +738,7 @@ export function describeReviewShelfLine(args: {
     return {
       label: i18n.t("composer:composerShelfUtils.label3"),
       detail: Number.isFinite(elapsedMs)
-        ? `${model} · ${formatExchangeDuration(elapsedMs)}`
+        ? `${model} · ${formatDuration(elapsedMs, { tenths: true })}`
         : model,
       tone: "accent",
     };

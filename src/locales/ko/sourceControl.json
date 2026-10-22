@@ -50,7 +50,6 @@
   },
   "sourceControlReviewsPanel": {
     "unknownActivity": "알 수 없는 활동",
-    "justNow": "방금",
     "approved": "승인됨",
     "changesRequested": "변경 요청됨",
     "reviewRequired": "리뷰 필요",

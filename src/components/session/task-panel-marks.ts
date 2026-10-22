@@ -11,7 +11,14 @@ import { formatAgentRunBadge, type AgentRunStatus } from "@/lib/agent-runs/agent
  */
 export type TaskTabMark =
   | { kind: "state"; state: WorkState; label: string }
-  | { kind: "count"; count: number; text: string; label: string };
+  | {
+      kind: "count";
+      count: number;
+      text: string;
+      label: string;
+      /** Something under the tab waits on the user; the figure reads in the needs-answer color. */
+      attention?: true;
+    };
 
 /** Counts read literally to 99; past that the slot says `99+`. */
 export function formatTaskTabCount(count: number): string {
@@ -47,14 +54,34 @@ export function resolveProgressTabMark(
   return { kind: "state", state: status.mark.state, label: formatAgentRunBadge(status) };
 }
 
-/** Subagents: how many agents are running now. */
-export function resolveSubagentsTabMark(runningCount: number): TaskTabMark | null {
-  if (runningCount <= 0) return null;
+/**
+ * Subagents: how many agents are running now and how many wait on the user
+ * (an open ask, or a delegated task that failed): `3`, `3 · 1 needs you`,
+ * `1 needs you`. A child waiting on the user turns the figure into an ask.
+ */
+export function resolveSubagentsTabMark(counts: { running: number; needsYou: number }): TaskTabMark | null {
+  const running = Math.max(0, counts.running);
+  const needsYou = Math.max(0, counts.needsYou);
+  if (needsYou > 0) {
+    const shown = formatTaskTabCount(needsYou);
+    return {
+      kind: "count",
+      count: needsYou,
+      text: running > 0
+        ? i18n.t("session:taskPanelMarks.subagentsRunningNeedsYou", { count: needsYou, shown, running: formatTaskTabCount(running) })
+        : i18n.t("session:taskPanelMarks.subagentsNeedsYou", { count: needsYou, shown }),
+      label: running > 0
+        ? i18n.t("session:taskPanelMarks.subagentsRunningNeedsYouLabel", { count: needsYou, running })
+        : i18n.t("session:taskPanelMarks.subagentsNeedsYouLabel", { count: needsYou }),
+      attention: true,
+    };
+  }
+  if (running <= 0) return null;
   return {
     kind: "count",
-    count: runningCount,
-    text: formatTaskTabCount(runningCount),
-    label: i18n.t("session:remaining.presentationCopy374", { v1: runningCount }),
+    count: running,
+    text: formatTaskTabCount(running),
+    label: i18n.t("session:remaining.presentationCopy374", { v1: running }),
   };
 }
 

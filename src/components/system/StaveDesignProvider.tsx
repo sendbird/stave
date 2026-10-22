@@ -1,23 +1,37 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { ThemeProvider } from "../ads/components/ThemeProvider";
 import { AtelierMotionProvider } from "../ads/motion";
-import { adsThemeVariables } from "./ads-theme";
+import { adsDarkHighContrastVariables, adsThemeVariables } from "./ads-theme";
 
+/*
+ * The document carries the appearance the store applied: `.dark`, the active
+ * theme's `data-contrast` and the app's `data-ui-density`
+ * (`src/lib/themes/apply.ts`). Reading them here keeps this provider free of
+ * the store, so previews that set the same attributes render the same way.
+ */
 function subscribeTheme(notify: () => void) {
   const observer = new MutationObserver(notify);
   observer.observe(document.documentElement, {
     attributes: true,
-    attributeFilter: ["class"],
+    attributeFilter: ["class", "data-contrast", "data-ui-density"],
   });
   return () => observer.disconnect();
 }
 
 const isDark = () => document.documentElement.classList.contains("dark");
+const isHighContrast = () => document.documentElement.dataset.contrast === "high";
+const isCompact = () => document.documentElement.dataset.uiDensity === "compact";
 
 export function StaveDesignProvider({ children }: { children: ReactNode }) {
   const dark = useSyncExternalStore(subscribeTheme, isDark, () => false);
-  // Re-applied on every resolved-mode change, and deliberately depending on
-  // `dark`. The ADS `ThemeProvider` below writes its theme's variables as
+  const highContrast = useSyncExternalStore(subscribeTheme, isHighContrast, () => false);
+  const compact = useSyncExternalStore(subscribeTheme, isCompact, () => false);
+  // Light high contrast is ADS's own high-contrast theme; dark high contrast
+  // stays on ADS dark with Stave's emphasis layer (see `ads-theme.ts`).
+  const adsTheme = dark ? "dark" : highContrast ? "high-contrast" : "light";
+  const variables = dark && highContrast ? adsDarkHighContrastVariables : adsThemeVariables;
+  // Re-applied on every resolved-mode, contrast or density change, and
+  // deliberately depending on them. The ADS `ThemeProvider` below writes its theme's variables as
   // INLINE custom properties on `<html>` (so portaled menus/dialogs resolve
   // the same tokens) and, on cleanup, removes every name it wrote. Those are
   // the same hashed names this mapping owns, so a light<->dark toggle used to
@@ -27,10 +41,10 @@ export function StaveDesignProvider({ children }: { children: ReactNode }) {
   // restores Stave as the last writer.
   useEffect(() => {
     const root = document.documentElement;
-    const previous = Object.keys(adsThemeVariables).map(
+    const previous = Object.keys(variables).map(
       (name) => [name, root.style.getPropertyValue(name)] as const,
     );
-    for (const [name, value] of Object.entries(adsThemeVariables))
+    for (const [name, value] of Object.entries(variables))
       root.style.setProperty(name, value);
     return () => {
       for (const [name, value] of previous) {
@@ -38,7 +52,7 @@ export function StaveDesignProvider({ children }: { children: ReactNode }) {
         else root.style.removeProperty(name);
       }
     };
-  }, [dark]);
+  }, [adsTheme, compact, variables]);
   /*
    * The JS motion layer's root, per `decisions/motion-architecture.md` §3.
    *
@@ -56,9 +70,10 @@ export function StaveDesignProvider({ children }: { children: ReactNode }) {
   return (
     <AtelierMotionProvider>
       <ThemeProvider
-        theme={dark ? "dark" : "light"}
+        theme={adsTheme}
+        density={compact ? "compact" : "regular"}
         syncDocument
-        style={{ ...adsThemeVariables, display: "contents" }}
+        style={{ ...variables, display: "contents" }}
       >
         {children}
       </ThemeProvider>

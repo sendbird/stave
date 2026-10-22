@@ -468,10 +468,6 @@
     "extraCopy227": "reported done",
     "extraCopy228": "was skipped",
     "now": "now",
-    "seconds": "{{value}}s",
-    "minutes": "{{value}}m",
-    "hours": "{{value}}h",
-    "days": "{{value}}d",
     "stageOutcome": "{{stage}} {{status}}",
     "autoPermissionClaude": "Claude auto mode decides each action. An action it cannot decide asks you, and an approval nobody answers in time is declined.",
     "autoPermissionCodex": "Codex auto-review decides each action when available; otherwise Codex does not ask. An approval nobody answers in time is declined.",
@@ -659,12 +655,7 @@
   "duration": {
     "label": "No deadline",
     "label2": "Deadline passed",
-    "label3": "Deadline in {{value1}}",
-    "seconds": "{{value}}s",
-    "minutes": "{{value}}m",
-    "hours": "{{value}}h",
-    "minutesSeconds": "{{minutes}}m {{seconds}}s",
-    "hoursMinutes": "{{hours}}h {{minutes}}m"
+    "label3": "Deadline in {{value1}}"
   },
   "exchange": {
     "label": "Open",
@@ -997,7 +988,6 @@
       "failingSoon_other": "Couldn't read the PR {{count}} times · trying again",
       "stale": "Not checked for {{age}}"
     },
-    "underMinute": "<1m",
     "waitingSince": "Waiting since {{time}}",
     "delegateNeedsYou_one": "{{names}} needs you",
     "delegateNeedsYou_other": "{{names}} need you",

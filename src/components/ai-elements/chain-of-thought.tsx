@@ -1,4 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
@@ -277,16 +278,6 @@ export function ChainOfThought({
 
 /* ─── Trigger ─────────────────────────────────────────────────────── */
 
-function formatTriggerDuration(seconds: number): string {
-  const total = Math.max(1, Math.round(seconds));
-  if (total < 60) {
-    return i18n.t("session:duration.seconds", { count: total });
-  }
-  const minutes = Math.floor(total / 60);
-  const remainder = total % 60;
-  return remainder === 0 ? i18n.t("session:duration.minutes", { count: minutes }) : i18n.t("session:duration.minutesSeconds", { minutes, seconds: remainder });
-}
-
 export function ChainOfThoughtTrigger(
   {
     completionLabel,
@@ -366,7 +357,7 @@ export function ChainOfThoughtTrigger(
           </span>
           {showDuration ? (
             <span className={sx(agentSurface.meta, s.durationLabel)}>
-              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger", { duration: formatTriggerDuration(durationSeconds) })}
+              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger", { duration: formatDuration(durationSeconds * 1_000) })}
             </span>
           ) : null}
         </>

@@ -129,8 +129,10 @@ describe("buildAutoRouteLineView", () => {
 
 test("formatRouteElapsed switches from milliseconds to seconds at one second", () => {
   expect(formatRouteElapsed(840)).toBe("840ms");
-  expect(formatRouteElapsed(999.6)).toBe("1.0s");
-  expect(formatRouteElapsed(12_345)).toBe("12.3s");
+  // Floors like every other clock: 999.6ms is still under a second.
+  expect(formatRouteElapsed(999.6)).toBe("999ms");
+  expect(formatRouteElapsed(2_450)).toBe("2.4s");
+  expect(formatRouteElapsed(12_345)).toBe("12s");
   expect(formatRouteElapsed(-5)).toBe("0ms");
 });
 

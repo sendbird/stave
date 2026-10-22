@@ -36,6 +36,14 @@ describe("validateCustomThemeJson", () => {
     expect(result.theme!.id).toBe("my-cool-theme");
   });
 
+  it("accepts a high-contrast flag and nothing else for contrast", () => {
+    const high = validateCustomThemeJson({ data: { ...validTheme, contrast: "high" } });
+    expect(high.ok).toBe(true);
+    expect(high.theme!.contrast).toBe("high");
+    expect(validateCustomThemeJson({ data: validTheme }).theme!.contrast).toBeUndefined();
+    expect(validateCustomThemeJson({ data: { ...validTheme, contrast: "low" } }).ok).toBe(false);
+  });
+
   it("rejects missing id", () => {
     const data = { ...validTheme, id: "" };
     const result = validateCustomThemeJson({ data });
@@ -129,6 +137,12 @@ describe("exportCustomThemeJson", () => {
     expect(parsed.id).toBe(theme.id);
     expect(parsed.name).toBe(theme.name);
     expect(parsed.tokens).toEqual(theme.tokens);
+  });
+
+  it("keeps a theme's high-contrast flag, and adds none to other themes", () => {
+    const high = BUILTIN_CUSTOM_THEMES.find((t) => t.id === "light-high-contrast")!;
+    expect(JSON.parse(exportCustomThemeJson({ theme: high })).contrast).toBe("high");
+    expect("contrast" in JSON.parse(exportCustomThemeJson({ theme: BUILTIN_CUSTOM_THEMES[0]! }))).toBe(false);
   });
 });
 
@@ -284,6 +298,14 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
       expect(theme.tokens["drop-zone"]?.trim()).toBeTruthy();
       expect(theme.tokens["drop-zone-border"]?.trim()).toBeTruthy();
     }
+  });
+
+  it("flags exactly the two high-contrast themes, one per mode", () => {
+    const high = BUILTIN_CUSTOM_THEMES.filter((t) => t.contrast === "high");
+    expect(high.map((t) => [t.id, t.baseMode])).toEqual([
+      ["dark-high-contrast", "dark"],
+      ["light-high-contrast", "light"],
+    ]);
   });
 
   it("includes Dark High Contrast", () => {

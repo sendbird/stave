@@ -29,7 +29,7 @@ import {
   ModelResolutionSummary,
 } from "./ModelResolutionSummary";
 import { appendWorkflowDraft } from "@/lib/collaboration/workflows";
-import { formatRelativeTime } from "@/components/layout/automation-center/automation-center.utils";
+import { formatTimeAgo } from "@/components/layout/automation-center/automation-center.utils";
 
 const PAGE_SIZE = 20;
 type Filter = "all" | "pending";
@@ -193,7 +193,7 @@ export function RunHistoryRow(props: {
                   dateTime={result.createdAt}
                   title={formatDateTime(new Date(result.createdAt))}
                 >
-                  {formatRelativeTime(result.createdAt)}
+                  {formatTimeAgo(result.createdAt)}
                 </time>
                 <span className={sx(styles.caption)}>
                   {result.markedReviewedAt
@@ -235,7 +235,7 @@ export function RunHistoryRow(props: {
         workspaceId={result.workspaceId}
         taskId={result.taskId}
         turnId={result.turnId}
-        description={i18n.t("session:remaining.presentationCopy285", { v1: result.taskTitle, v2: formatRelativeTime(result.createdAt) })}
+        description={i18n.t("session:remaining.presentationCopy285", { v1: result.taskTitle, v2: formatTimeAgo(result.createdAt) })}
       />
     </AccordionItem>
   );

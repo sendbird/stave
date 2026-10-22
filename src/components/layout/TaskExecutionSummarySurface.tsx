@@ -1,5 +1,4 @@
-import { formatPercent } from "@/i18n/format";
-import { formatNumber } from "@/i18n/format";
+import { formatDuration, formatNumber, formatPercent, formatCost } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Activity,
@@ -69,16 +68,6 @@ interface SummaryMetricDescriptor {
   figure?: string;
   parts: StatPart[];
   meter?: StatMeter;
-}
-
-function formatDuration(milliseconds: number) {
-  const seconds = Math.max(0, Math.round(milliseconds / 1000));
-  if (seconds < 60) {
-    return i18n.t("workspace:format.duration.seconds", { count: seconds });
-  }
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return remainingSeconds ? i18n.t("workspace:format.duration.minutesSeconds", { minutes, seconds: remainingSeconds }) : i18n.t("workspace:format.duration.minutes", { count: minutes });
 }
 
 function formatCount(value: number) {
@@ -235,15 +224,6 @@ function joinDetails(parts: Array<string | undefined>) {
  */
 function formatContextPercent(usedPercent: number): string {
   return formatPercent(usedPercent / 100, { minimumFractionDigits: usedPercent < 10 ? 1 : 0, maximumFractionDigits: usedPercent < 10 ? 1 : 0 });
-}
-
-function formatReportedCost(amount: number, currency: string): string {
-  const trimmed = currency.trim();
-  if (trimmed.toUpperCase() === "USD") {
-    return formatNumber(amount, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 });
-  }
-  const digits = amount >= 1 ? 2 : 4;
-  return `${formatNumber(amount, { minimumFractionDigits: digits, maximumFractionDigits: digits })} ${trimmed}`;
 }
 
 interface HeadroomFact {
@@ -425,11 +405,12 @@ function buildUsageReadout(
     usage.cacheRatePromptTokens > 0 && usage.cacheRateCachedTokens > 0
       ? `${Math.round((usage.cacheRateCachedTokens / usage.cacheRatePromptTokens) * 100)}% cached`
       : null;
+  // A detail tile: spend to the hundredth of a cent.
   const costLabel =
     usage.totalCostUsd != null
-      ? formatNumber(usage.totalCostUsd, { style: "currency", currency: "USD", minimumFractionDigits: 4, maximumFractionDigits: 4 })
+      ? formatCost(usage.totalCostUsd, "USD", { fractionDigits: 4 })
       : usage.costAmount !== undefined && usage.costCurrency
-        ? formatReportedCost(usage.costAmount, usage.costCurrency)
+        ? formatCost(usage.costAmount, usage.costCurrency, { fractionDigits: 4 })
         : null;
   const parts: StatPart[] = [];
   if (cacheLabel) {

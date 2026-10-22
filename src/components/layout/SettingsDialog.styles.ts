@@ -247,6 +247,13 @@ export const settingsDialogStyles = stylex.create({
     top: "50%",
     transform: "translateY(-50%)",
   },
+  // Results under the narrow search input scroll on their own, so a broad
+  // query cannot push the setting it opens out of the window.
+  mobileResults: {
+    maxBlockSize: "min(40dvh, 20rem)",
+    minInlineSize: 0,
+    overflowY: "auto",
+  },
   body: {
     flexGrow: 1,
     minBlockSize: 0,

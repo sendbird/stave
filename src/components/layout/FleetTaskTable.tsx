@@ -1,4 +1,5 @@
 import { useTranslation } from "@/i18n";
+import { formatDuration } from "@/i18n/format";
 import * as stylex from "@stylexjs/stylex";
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
@@ -26,7 +27,6 @@ import {
 import { ActivityTimestamp } from "@/components/system/ActivityTimestamp";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
-import { formatActivityDuration } from "@/lib/fleet/task-activity-line";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
   buildFleetTaskRows,
@@ -428,7 +428,7 @@ const FleetTaskTableRow = memo(function FleetTaskTableRow(props: {
       ? ""
       : waitingMs < 60_000
         ? t("fleet:taskTable.underAMinute")
-        : formatActivityDuration(Math.floor(waitingMs / 60_000) * 60_000);
+        : formatDuration(Math.floor(waitingMs / 60_000) * 60_000);
   return (
     <TableRow data-fleet-task-table-row={row.key}>
       <TableCell xstyle={styles.taskCell}>

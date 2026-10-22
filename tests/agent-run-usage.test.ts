@@ -4,9 +4,9 @@ import {
   describeUsageLong,
   describeUsageShort,
   EMPTY_AGENT_RUN_USAGE,
-  formatTokenCount,
   sumTurnUsage,
 } from "../src/lib/agent-runs/usage";
+import { formatTokenCount } from "../src/i18n/format";
 
 describe("run usage", () => {
   test("sums reported turns, keeps cost null until one reports it, and counts unreported turns", () => {

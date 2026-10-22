@@ -689,7 +689,7 @@ what fails, and waits again.
 - The waiting clock does not move, so the line says what does instead. The
   composer line, the Fleet card and the Task panel's Progress tab show the
   same things:
-  - How long the Run has waited, in minutes (**<1m**, **6m**). The count
+  - How long the Run has waited, read as Fleet reads any wait (**45s**, **6m 5s**). The count
     starts when the Run last settled into its wait, so a turn in between (your
     reply, say) starts it again; its tooltip names that moment (**Waiting
     since 3:12 PM**).

@@ -1,12 +1,14 @@
 import { getStageDisplayTitle } from "@/lib/agent-runs/stage-display";
+import { formatDuration } from "@/i18n/format";
 import { i18n, useTranslation } from "@/i18n";
 import { useId, useState } from "react";
 import { ArrowUpRight, ChevronRight, RotateCcw, SkipForward } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { sx } from "@/components/ads/utils/stylex";
-import { formatAge, STAGE_STATUS_PRESENTATION, type AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
+import { STAGE_STATUS_PRESENTATION, type AgentRunStageRow } from "@/lib/agent-runs/agent-run-view";
 import { STAVE_ACTION_LABELS } from "@/lib/workflows/schema";
+import { ElapsedClock } from "./ElapsedClock";
 import { EvidenceList } from "./EvidenceList";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { agentRunStyles as styles } from "./agent-runs.styles";
@@ -15,7 +17,7 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 export function describeStageMeta(row: AgentRunStageRow): string {
   const parts: string[] = [];
   if (row.status === "running") parts.push("now");
-  else if (row.durationMs !== null && row.status === "completed") parts.push(formatAge(row.durationMs));
+  else if (row.durationMs !== null && row.status === "completed") parts.push(formatDuration(row.durationMs));
   if (row.attempts > 1) parts.push(i18n.t("agentRuns:remaining.presentationCopy4", { v1: row.attempts }));
   if (row.asksFirst && (row.status === "pending" || row.status === "awaiting-sign-off")) {
     parts.push(i18n.t("agentRuns:stageCard.extraCopy11"));
@@ -25,6 +27,24 @@ export function describeStageMeta(row: AgentRunStageRow): string {
     parts.push(repairs ? i18n.t("agentRuns:stageCard.extraCopy12", { value1: repairs, count: repairs }) : i18n.t("agentRuns:stageCard.extraCopy13"));
   }
   return parts.join(" · ");
+}
+
+/**
+ * "In progress for 2m 10s." A running stage keeps counting on its own clock,
+ * from the reading the panel projected it at, so the card around it does not
+ * re-render with every tick.
+ */
+function RunningStageNotice(props: { row: AgentRunStageRow }) {
+  const { row } = props;
+  const startedAt = row.record?.startedAt ? Date.parse(row.record.startedAt) : Number.NaN;
+  const measured = Number.isFinite(startedAt) && row.durationMs !== null;
+  return (
+    <ElapsedClock live={measured} now={measured ? startedAt + (row.durationMs ?? 0) : 0}>
+      {(clock) => (
+        <p className={sx(styles.notice)}>{i18n.t("agentRuns:stageCard.sentence8", { value1: measured ? i18n.t("agentRuns:remaining.presentationCopy6", { v1: formatDuration(clock - startedAt) }) : "" })}</p>
+      )}
+    </ElapsedClock>
+  );
 }
 
 /** A stage card opens when its stage becomes current, or becomes current and blocked or stuck. */
@@ -207,9 +227,7 @@ export function StageCard(props: {
               ))}
             </div>
           ) : null}
-          {row.status === "running" && !report && !row.record?.detail ? (
-            <p className={sx(styles.notice)}>{i18n.t("agentRuns:stageCard.sentence8", { value1: row.durationMs !== null ? i18n.t("agentRuns:remaining.presentationCopy6", { v1: formatAge(row.durationMs) }) : "" })}</p>
-          ) : null}
+          {row.status === "running" && !report && !row.record?.detail ? <RunningStageNotice row={row} /> : null}
           <InstructionDisclosure
             label={row.stage.kind === "ai" ? i18n.t("agentRuns:stageCard.label") : i18n.t("agentRuns:stageCard.label2")}
             text={

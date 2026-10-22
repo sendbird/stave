@@ -8,7 +8,7 @@ import {
   SCHEDULE_STATE_LABEL,
   type ScheduleRow,
 } from "@/lib/schedule-rows";
-import { formatRelativeTime } from "./automation-center.utils";
+import { formatRelativeTime, formatTimeAgo } from "./automation-center.utils";
 import { runToneDotStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
 import { scheduleRowStyles as styles } from "./schedule-rows.styles";
@@ -72,7 +72,7 @@ export function ScheduleRows(props: {
                     aria-hidden="true"
                   />
                   {row.lastResult.label}
-                  {row.lastResult.at ? ` ${formatRelativeTime(row.lastResult.at)}` : ""}
+                  {row.lastResult.at ? ` ${formatTimeAgo(row.lastResult.at)}` : ""}
                 </span>
                 {nextText(row) ? <span className={sx(styles.metaText)}>{nextText(row)}</span> : null}
               </span>

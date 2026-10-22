@@ -1,7 +1,6 @@
 import { i18n } from "@/i18n";
-import { formatRelativeTime } from "@/i18n/format";
+import { formatDuration, formatTimeAgo } from "@/i18n/format";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
-import { formatActivityDuration } from "@/lib/fleet/task-activity-line";
 import { formatToolDisplayName } from "@/lib/providers/subagent-identity";
 import { describeToolOperationLabel } from "@/lib/providers/tool-activity";
 import type { TaskPanelTab } from "@/lib/right-rail-panels";
@@ -88,7 +87,7 @@ function describeStop(stop: ReturnStop, now: number): string {
       // Told in whole minutes, as Fleet tells the same wait.
       const text = Number.isFinite(waitedMs) && waitedMs >= 60_000
         ? i18n.t(keys.since as "session:returnSummary.stopWaitingSince", {
-            duration: formatActivityDuration(Math.floor(waitedMs / 60_000) * 60_000),
+            duration: formatDuration(Math.floor(waitedMs / 60_000) * 60_000),
           })
         : i18n.t(keys.plain as "session:returnSummary.stopWaiting");
       return stop.detail ? `${text}: ${stop.detail}` : text;
@@ -98,7 +97,7 @@ function describeStop(stop: ReturnStop, now: number): string {
     case "finished":
     case "failed":
     case "stopped": {
-      const time = stop.at ? formatRelativeTime(stop.at, now) : "";
+      const time = stop.at ? formatTimeAgo(stop.at, now) : "";
       const key = stop.kind === "finished"
         ? "session:returnSummary.stopFinished"
         : stop.kind === "failed"

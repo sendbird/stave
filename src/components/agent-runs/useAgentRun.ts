@@ -25,7 +25,9 @@ export function useAgentRunDecision(leadTaskId: string | null | undefined): Agen
 
 /**
  * A clock for ages ("6m", "2h"). Ticks only while `active`; a static surface,
- * such as a finished agent run, never re-renders on a timer.
+ * such as a finished agent run, never re-renders on a timer. A live elapsed
+ * span reads to the second on a faster clock: a one-line surface passes
+ * `ELAPSED_CLOCK_MS`, and a panel keeps it in the span's own `ElapsedClock`.
  */
 export function useNow(active: boolean, intervalMs = 30_000) {
   const [now, setNow] = useState(() => Date.now());

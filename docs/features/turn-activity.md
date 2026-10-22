@@ -190,7 +190,11 @@ The shelf reads the composer's own width, not the window's:
 
 ### The Task Panel
 
-The right rail's **Task** panel is the one place for the active task. Its tabs:
+The right rail's **Task** panel is the one place for the active task. A line
+under its tabs names that task and its workspace (the workspace's name, or its
+branch), so after you switch tasks, or move to an editor tab, the panel still
+says which task it describes. A long title or name is cut short; hover the line
+to read all of it. Its tabs:
 
 - **Activity**: the turn's rows — the current turn, or the last one once it
   ends — under every placement, with a **Turn** picker for the task's earlier
@@ -213,7 +217,8 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
-agent run needs you or is blocked, the number of running agents on **Subagents**, and
+agent run needs you or is blocked, the number of running agents on **Subagents**
+(with how many wait on you, such as `2 · 1 needs you`), and
 the number of unchecked outputs on **Outputs**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
 menu opens it straight to **Outputs**, **Progress** or **Subagents**.

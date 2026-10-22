@@ -254,8 +254,7 @@
   },
   "runtimeState": {
     "hookValue": "훅 · {{value1}}",
-    "manual": "수동",
-    "justNow": "방금 전"
+    "manual": "수동"
   },
   "runtimeStore": {
     "scriptsBridgeUnavailable": "스크립트 브리지를 사용할 수 없습니다",

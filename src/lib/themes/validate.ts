@@ -38,6 +38,7 @@ export const CustomThemeJsonSchema = z.object({
     .max(500, "description must be at most 500 characters")
     .default(""),
   baseMode: z.enum(["light", "dark"]),
+  contrast: z.literal("high").optional(),
   version: z.string().max(20).optional(),
   author: z.string().max(100).optional(),
   tokens: z.record(
@@ -136,13 +137,14 @@ export function parseCustomThemeFile(args: {
 export function exportCustomThemeJson(args: {
   theme: CustomThemeDefinition;
 }): string {
-  const { id, name, description, baseMode, version, author, tokens } =
+  const { id, name, description, baseMode, contrast, version, author, tokens } =
     args.theme;
   const obj: Record<string, unknown> = {
     id,
     name,
     description,
     baseMode,
+    ...(contrast ? { contrast } : {}),
     ...(version ? { version } : {}),
     ...(author ? { author } : {}),
     tokens,

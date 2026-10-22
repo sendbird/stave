@@ -29,6 +29,7 @@ import {
   applyFontOverrides,
   applyThemeClass,
   applyThemeOverrides,
+  applyUiDensity,
   BUILTIN_CUSTOM_THEMES,
   findCustomThemeById,
   MAX_USER_THEMES,
@@ -40,6 +41,7 @@ import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
   defaultSettings,
+  normalizeUiDensity,
   normalizeLensAgentPresentationMode,
   normalizeLensSessionScope,
   normalizeReasoningExpansionMode,
@@ -370,6 +372,9 @@ export function createSettingsActions(args: {
           : {
               appShortcutKeys: normalizeAppShortcutKeys(patch.appShortcutKeys),
             }),
+        ...(patch.uiDensity === undefined
+          ? {}
+          : { uiDensity: normalizeUiDensity(patch.uiDensity) }),
         ...(patch.modelShortcutKeys === undefined
           ? {}
           : {
@@ -705,6 +710,9 @@ export function createSettingsActions(args: {
       }
       if (normalizedPatch.language !== undefined) {
         applyAppLocale(get().settings.language);
+      }
+      if (normalizedPatch.uiDensity !== undefined) {
+        applyUiDensity({ density: get().settings.uiDensity });
       }
       if (
         normalizedPatch.messageFontFamily !== undefined ||

@@ -189,6 +189,14 @@
       "dark": "다크",
       "system": "시스템"
     },
+    "density": {
+      "title": "밀도",
+      "description": "앱 전체에서 행, 컨트롤, 간격이 차지하는 공간입니다. 글자 크기는 그대로입니다.",
+      "regular": "기본",
+      "regularDescription": "행과 컨트롤의 기본 높이입니다.",
+      "compact": "촘촘하게",
+      "compactDescription": "행과 컨트롤을 낮추고 간격을 좁혀 화면에 더 많이 담습니다."
+    },
     "sidebar": {
       "title": "사이드바",
       "description": "왼쪽 사이드바에 표시할 워크스페이스 탐색 영역을 선택합니다.",
@@ -1154,6 +1162,10 @@
       "routingDecision": {
         "title": "라우팅 판단 모델",
         "description": "Auto와 Agent의 작업을 분류하는 모델을 선택합니다. 실제 작업을 수행하는 모델은 바뀌지 않습니다."
+      },
+      "density": {
+        "title": "밀도",
+        "description": "앱 전체의 행, 컨트롤, 간격을 기본 또는 촘촘하게 표시합니다."
       }
     },
     "accounts": {

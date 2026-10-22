@@ -87,7 +87,7 @@ export const delegationStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "break-word",
-    paddingBlock: 6,
+    paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-8"],
     whiteSpace: "pre-wrap",
   },
@@ -111,7 +111,7 @@ export const delegationStyles = stylex.create({
     display: "grid",
     gridTemplateColumns: "repeat(auto-fill, minmax(9rem, 1fr))",
     margin: 0,
-    rowGap: 6,
+    rowGap: vars["--ads-space-8"],
   },
   gridCell: {
     minWidth: 0,
@@ -177,9 +177,9 @@ export const delegationStyles = stylex.create({
     borderRadius: vars["--ads-radius-panel"],
     color: vars["--ads-color-text"],
     display: "flex",
-    gap: "0.625rem",
+    gap: vars["--ads-space-8"],
     minWidth: 0,
-    paddingBlock: 6,
+    paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-8"],
     textAlign: "left",
     width: "100%",
@@ -201,7 +201,7 @@ export const delegationStyles = stylex.create({
   // identity wraps under the title rather than either one being cut short.
   rowTitleLine: {
     alignItems: "center",
-    columnGap: 6,
+    columnGap: vars["--ads-space-8"],
     display: "flex",
     flexWrap: "wrap",
     lineHeight: "1.25rem",
