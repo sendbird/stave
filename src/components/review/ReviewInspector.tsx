@@ -10,10 +10,12 @@ import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { describeAgentRunResult } from "@/lib/agent-runs/agent-run-status";
-import { collectApprovalRecord, messagesInWindow } from "@/lib/approvals/approval-record";
 import type { LensReviewRecord } from "@/lib/lens/lens-review-record";
 import type { ReviewScope } from "@/lib/review/review-scope";
 import { findStageRecord } from "@/lib/review/review-stage";
+import type { AgentRunStageRecord } from "@/lib/agent-runs/domain";
+import type { AsyncState } from "@/components/ads/utils/async";
+import { useTaskApprovals, useTurnApprovals, useWindowApprovals, type ReviewApprovals as ReviewApprovalsData } from "./useReviewApprovals";
 import { useAppStore } from "@/store/app.store";
 import { EMPTY_SENT_REVIEW_COMMENTS, useSentReviewCommentsStore } from "@/store/sent-review-comments-store";
 import type { ChatMessage } from "@/types/chat";
@@ -28,42 +30,62 @@ const NO_COMMENTS: readonly ReviewComment[] = [];
  * kept for the task, and the diff comments, pending and sent. Each says what
  * it is, so passing checks never read as a review.
  */
-export function ReviewInspector(props: { taskId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
+export function ReviewInspector(props: { taskId: string; workspaceId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
   useTranslation();
   return (
     <div className={sx(styles.section)}>
       <ReviewChecks detail={props.detail} />
-      <ReviewApprovals taskId={props.taskId} scope={props.scope} detail={props.detail} />
+      <ReviewApprovals taskId={props.taskId} workspaceId={props.workspaceId} scope={props.scope} detail={props.detail} />
       <ReviewLensRecords taskId={props.taskId} />
       <ReviewComments taskId={props.taskId} />
     </div>
   );
 }
 
-const NO_MESSAGES: readonly ChatMessage[] = [];
-
-/** The task's messages the scope covers: its turn, the turns its stage ran, or the whole task. */
-function messagesInScope(messages: readonly ChatMessage[], scope: ReviewScope, detail: AgentRunDetail | undefined): readonly ChatMessage[] {
-  if (scope.kind === "turn") return messages.filter((message) => message.turnId === scope.turnId);
-  if (scope.kind !== "stage") return messages;
-  const record = findStageRecord(detail, scope);
-  return record?.startedAt ? messagesInWindow(messages, { startedAt: record.startedAt, endedAt: record.endedAt }) : NO_MESSAGES;
-}
-
-function ReviewApprovals(props: { taskId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
+/**
+ * The approval requests of the scope and who decided them: the turn's (read
+ * from saved history when the conversation no longer holds it), those of the
+ * turns the stage ran, or the whole task's loaded conversation.
+ */
+function ReviewApprovals(props: { taskId: string; workspaceId: string; scope: ReviewScope; detail: AgentRunDetail | undefined }) {
   useTranslation();
-  const messages = useAppStore((state) => state.messagesByTask[props.taskId] ?? NO_MESSAGES);
-  const { scope, detail } = props;
-  const entries = useMemo(() => collectApprovalRecord(messagesInScope(messages, scope, detail)), [messages, scope, detail]);
-  const emptyText = scope.kind === "turn" ? i18n.t("session:approvalRecord.none.turn")
-    : scope.kind === "stage" ? i18n.t("session:approvalRecord.none.stage")
-    : i18n.t("session:approvalRecord.none.task");
+  const { scope } = props;
   return (
     <section className={sx(styles.section)} aria-label={i18n.t("session:approvalRecord.title")}>
       <h3 className={sx(styles.sectionTitle)}>{i18n.t("session:approvalRecord.title")}</h3>
-      <ApprovalRecordView entries={entries} emptyText={emptyText} testId="review-approvals" />
+      {scope.kind === "turn" ? <TurnApprovals workspaceId={props.workspaceId} taskId={props.taskId} turnId={scope.turnId} />
+        : scope.kind === "stage" ? <StageApprovals workspaceId={props.workspaceId} taskId={props.taskId} record={findStageRecord(props.detail, scope)} />
+        : <TaskApprovals taskId={props.taskId} />}
     </section>
   );
+}
+
+function ApprovalsBoundary(props: { state: AsyncState<ReviewApprovalsData>; onRetry?: () => void; emptyText: string }) {
+  useTranslation();
+  return (
+    <AsyncBoundary state={props.state} onRetry={props.onRetry} describeError={() => i18n.t("review:approvals.readFailed")}>
+      {(entries) => entries === null
+        ? <p className={sx(styles.note)}>{i18n.t("review:files.turnMissing")}</p>
+        : <ApprovalRecordView entries={entries} emptyText={props.emptyText} testId="review-approvals" />}
+    </AsyncBoundary>
+  );
+}
+
+function TurnApprovals(props: { workspaceId: string; taskId: string; turnId: string }) {
+  const { state, refresh } = useTurnApprovals(props);
+  return <ApprovalsBoundary state={state} onRetry={refresh} emptyText={i18n.t("session:approvalRecord.none.turn")} />;
+}
+
+function StageApprovals(props: { workspaceId: string; taskId: string; record: AgentRunStageRecord | undefined }) {
+  const { startedAt, endedAt } = props.record ?? {};
+  const window = useMemo(() => (startedAt ? { startedAt, endedAt: endedAt ?? null } : null), [startedAt, endedAt]);
+  const { state, refresh } = useWindowApprovals({ workspaceId: props.workspaceId, taskId: props.taskId, window });
+  return <ApprovalsBoundary state={state} onRetry={refresh} emptyText={i18n.t("session:approvalRecord.none.stage")} />;
+}
+
+function TaskApprovals(props: { taskId: string }) {
+  const state = useTaskApprovals(props.taskId);
+  return <ApprovalsBoundary state={state} emptyText={i18n.t("session:approvalRecord.none.task")} />;
 }
 
 function ReviewChecks(props: { detail: AgentRunDetail | undefined }) {

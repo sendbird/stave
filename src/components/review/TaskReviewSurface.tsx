@@ -128,7 +128,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
         }
         inspector={
           <div className={sx(styles.region)} role="region" aria-label={i18n.t("review:inspector.title")}>
-            <ReviewInspector taskId={taskId} scope={scope} detail={props.detail} />
+            <ReviewInspector taskId={taskId} workspaceId={props.workspaceId} scope={scope} detail={props.detail} />
           </div>
         }
       />

@@ -6,6 +6,9 @@ import { APPROVAL_RECORD_LIST_LIMIT, ApprovalRecordView } from "../src/component
 import { ReviewInspector } from "../src/components/review/ReviewInspector";
 import { ToolApprovalCard } from "../src/components/session/ToolApprovalCard";
 import { TurnApprovalRecord } from "../src/components/session/TurnApprovalRecord";
+import { approvalsFromRunTurn } from "../src/components/review/useReviewApprovals";
+import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
+import type { AgentRunDetail } from "../src/lib/agent-runs/api";
 import { collectApprovalRecord } from "../src/lib/approvals/approval-record";
 import { useAppStore } from "../src/store/app.store";
 import type { ApprovalPart, ChatMessage } from "../src/types/chat";
@@ -79,11 +82,45 @@ describe("approval record view", () => {
 
   test("Review lists the approvals of its scope: the turn, or the whole task", () => {
     const messages = [message(runParts), message([part("later", { state: "output-denied", resolution: { decision: "denied", source: "user", decidedAt: AT } })], { id: "m-2", turnId: "turn-2" })];
+    const state = { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": messages }, messageCountByTask: { "task-1": messages.length } };
     const render = (scope: Parameters<typeof ReviewInspector>[0]["scope"]) =>
-      text(renderWithState({ messagesByTask: { "task-1": messages } }, createElement(ReviewInspector, { taskId: "task-1", scope, detail: undefined })));
+      text(renderWithState(state, createElement(ReviewInspector, { taskId: "task-1", workspaceId: "ws-1", scope, detail: undefined })));
     expect(render({ kind: "turn", taskId: "task-1", turnId: "turn-2" })).toContain("0 allowed by you · 0 allowed automatically · 1 denied");
     expect(render({ kind: "branch" })).toContain("1 allowed by you · 2 allowed automatically · 2 denied");
-    expect(render({ kind: "turn", taskId: "task-1", turnId: "turn-9" })).toContain("No approval requests in this turn.");
+  });
+
+  test("an older turn's approvals are read from saved history, not reported as none", () => {
+    // The conversation holds only the newest turn; the reviewed one is in an older page.
+    const state = { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": [message(runParts, { id: "m-9", turnId: "turn-9" })] }, messageCountByTask: { "task-1": 40 } };
+    const raw = renderWithState(state, createElement(ReviewInspector, { taskId: "task-1", workspaceId: "ws-1", scope: { kind: "turn", taskId: "task-1", turnId: "turn-1" }, detail: undefined }));
+    const approvals = raw.slice(raw.indexOf('aria-label="Approvals"'), raw.indexOf('aria-label="Lens checks"'));
+    expect(text(approvals)).not.toContain("No approval requests in this turn.");
+    expect(text(approvals)).not.toContain("allowed by you");
+    expect(approvals).toContain('aria-busy="true"');
+  });
+
+  test("a stage lists the approvals of the turns that started while it ran", () => {
+    const detail = structuredClone(buildAgentRunFixtures(new Date(AT)).signOff) as AgentRunDetail;
+    const stage = detail.stages.find((record) => record.stageId === "reproduce")!;
+    stage.startedAt = "2026-10-22T09:00:00.000Z";
+    stage.endedAt = "2026-10-22T09:30:00.000Z";
+    const messages = [
+      message([part("before", { resolution: { decision: "allowed", source: "user", decidedAt: AT } })], { id: "m-0", turnId: "turn-0", startedAt: "2026-10-22T08:00:00.000Z" }),
+      message([part("during", { prompted: false, resolution: { decision: "allowed", source: "rule", reason: "autonomy", decidedAt: AT } })], { id: "m-1", turnId: "turn-1", startedAt: "2026-10-22T09:10:00.000Z" }),
+    ];
+    const markup = text(renderWithState(
+      { activeWorkspaceId: "ws-1", messagesByTask: { "task-1": messages }, messageCountByTask: { "task-1": messages.length } },
+      createElement(ReviewInspector, { taskId: "task-1", workspaceId: "ws-1", scope: { kind: "stage", agentRunId: detail.agentRun.id, stageId: "reproduce", attempt: stage.attempt }, detail }),
+    ));
+    expect(markup).toContain("0 allowed by you · 1 allowed automatically");
+  });
+
+  test("a turn read from saved history gives its approvals; a failed read is an error, a turn gone from history says so", () => {
+    expect(approvalsFromRunTurn({ status: "loading" })).toEqual({ status: "pending" });
+    expect(approvalsFromRunTurn({ status: "missing" })).toEqual({ status: "ready", data: null });
+    expect(approvalsFromRunTurn({ status: "failed", message: "disk" }).status).toBe("error");
+    const loaded = approvalsFromRunTurn({ status: "ready", messages: [message(runParts, { turnId: "turn-1" })] });
+    expect(loaded.status === "ready" ? loaded.data?.map((entry) => entry.standing) : null).toEqual(["allowed-by-you", "allowed-automatically", "allowed-automatically", "denied-automatically"]);
   });
 
   test("Activity folds the listed turn's approvals to their counts", () => {

@@ -130,8 +130,10 @@ them implies another.
   which is saved with the turn's output. Its scope and read marks last for
   the session; the conversation, result reviews, Lens records and comments
   keep their own storage. **Approvals** reads the approval record kept with
-  the conversation's messages, from the messages Stave has loaded for the
-  task.
+  the conversation's messages: a turn, or a stage's turns, from saved history
+  when the open conversation no longer holds them (it shows a loading state
+  and a retry if the read fails); **Branch** and **Uncommitted** from the
+  messages Stave has loaded for the task.
 
 ## Limitations And Advanced Options
 

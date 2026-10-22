@@ -127,5 +127,8 @@
       "markFailed": "The review mark was not saved. Try again.",
       "sendFailed": "The comments were not sent. Wait for the current turn to finish and try again."
     }
+  },
+  "approvals": {
+    "readFailed": "The approval requests could not be read."
   }
 }
