@@ -207,6 +207,7 @@ function shouldFinalizeThinkingBeforeEvent(event: NormalizedProviderEvent) {
     case "agent_provenance":
     case "model_resolved":
     case "approval_resolved":
+    case "approvals_applied":
     case "done":
       return false;
     default:
@@ -351,6 +352,8 @@ function normalizeEventToPart(args: {
     case "delegated_usage":
     case "history_boundary":
     case "hook_activity":
+    // Turn metadata: recorded on the turn's agent provenance in main, no transcript row.
+    case "approvals_applied":
       return null;
     case "permission_denial": {
       const reason = event.reason?.trim() || event.message.trim();

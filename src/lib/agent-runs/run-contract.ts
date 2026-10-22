@@ -4,6 +4,7 @@ import type { AgentPermission } from "@/lib/agents/schema";
 import { withoutCodexAutoReview } from "@/lib/providers/codex-runtime-options";
 import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { isCodexAutoReview } from "@/lib/policy/turn-policy";
+import type { ChatMessage } from "@/types/chat";
 import { STAVE_ACTION_LABELS, type CheckIns, type Workflow, type WorkflowStage } from "@/lib/workflows/schema";
 import { AGENT_RUN_DEFAULT_DONE_WHEN } from "./agent-run";
 import { agentRunPermissionRuntimeOptions } from "./briefing";
@@ -27,6 +28,12 @@ export interface RunContractInput {
   providerId?: ProviderId | null;
   /** Whether the selected Codex has its reviewer for Auto; null when unknown. */
   codexAutoReview?: boolean | null;
+  /**
+   * During a run: the approvals its latest turn ran with, as the runtime
+   * applied them (`appliedApprovalsOfRun`). Absent before a turn ran, when a
+   * managed policy that can turn Codex's reviewer off is not known yet.
+   */
+  appliedApprovals?: Pick<ProviderRuntimeOptions, "codexApprovalPolicy" | "codexApprovalsReviewer"> | null;
   workflow: Pick<Workflow, "stages" | "checkIns">;
   authorizedEffectStageIds: readonly string[];
   maxTurns: number;
@@ -71,13 +78,46 @@ export function resolveRunApprovalOptions(args: {
   return args.providerId === "codex" && args.codexAutoReview === false ? withoutCodexAutoReview(requested, true) : requested;
 }
 
-/** The first "may change" line, from the options the run applies. */
+/**
+ * The approvals a run's latest Codex turn ran with: its agent provenance,
+ * which records what the runtime applied after its checks. Null before a
+ * Codex turn of the run recorded them.
+ */
+export function appliedApprovalsOfRun(
+  messages: readonly ChatMessage[] | undefined,
+  since: string,
+): Pick<ProviderRuntimeOptions, "codexApprovalPolicy" | "codexApprovalsReviewer"> | null {
+  const start = Date.parse(since);
+  for (let index = (messages?.length ?? 0) - 1; index >= 0; index -= 1) {
+    const message = messages![index]!;
+    const provenance = message.agentProvenance;
+    if (!provenance || provenance.providerId !== "codex" || !message.startedAt || Date.parse(message.startedAt) < start) continue;
+    const { codexApprovalPolicy, codexApprovalsReviewer } = provenance.permission.applied;
+    if (!codexApprovalPolicy) continue;
+    return {
+      codexApprovalPolicy: codexApprovalPolicy as NonNullable<ProviderRuntimeOptions["codexApprovalPolicy"]>,
+      ...(codexApprovalsReviewer ? { codexApprovalsReviewer } : {}),
+    };
+  }
+  return null;
+}
+
+/**
+ * The first "may change" line, from the options the run applies. Codex's
+ * reviewer can still be turned off by an organization's managed policy when a
+ * turn starts, so before a turn ran Codex Auto is stated as unconfirmed;
+ * during a run the line follows what its turns actually applied.
+ */
 function describeApprovals(input: RunContractInput): string {
   if (input.permission === "read-only") return i18n.t("agentRuns:runContract.change.readOnly");
   if (input.permission !== "auto") return i18n.t("agentRuns:runContract.change.edits");
   if (input.providerId !== "codex") return i18n.t("agentRuns:runContract.change.auto");
+  if (input.appliedApprovals) {
+    if (isCodexAutoReview(input.appliedApprovals)) return i18n.t("agentRuns:runContract.change.auto");
+    if (input.appliedApprovals.codexApprovalPolicy === "never") return i18n.t("agentRuns:runContract.change.autoReviewOff");
+  }
   const applied = resolveRunApprovalOptions({ providerId: "codex", permission: "auto", codexAutoReview: input.codexAutoReview ?? null });
-  return isCodexAutoReview(applied) ? i18n.t("agentRuns:runContract.change.auto") : i18n.t("agentRuns:runContract.change.autoWithoutReviewer");
+  return isCodexAutoReview(applied) ? i18n.t("agentRuns:runContract.change.autoUnconfirmed") : i18n.t("agentRuns:runContract.change.autoWithoutReviewer");
 }
 
 function describeChange(input: RunContractInput): string[] {

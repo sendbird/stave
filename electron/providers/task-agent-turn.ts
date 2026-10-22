@@ -17,6 +17,28 @@ export interface TaskAgentTurn {
   acknowledgeSessionPrompt: () => BridgeEvent | null;
 }
 
+/**
+ * The turn's provenance with the approvals the runtime applied
+ * (`approvals_applied`), replacing what the turn asked for.
+ */
+export function withAppliedApprovals(
+  provenance: AgentTurnProvenance,
+  event: Extract<BridgeEvent, { type: "approvals_applied" }>,
+): AgentTurnProvenance {
+  const { codexApprovalsReviewer: _requested, ...applied } = provenance.permission.applied;
+  return {
+    ...provenance,
+    permission: {
+      ...provenance.permission,
+      applied: {
+        ...applied,
+        codexApprovalPolicy: event.codexApprovalPolicy,
+        ...(event.codexApprovalsReviewer ? { codexApprovalsReviewer: event.codexApprovalsReviewer } : {}),
+      },
+    },
+  };
+}
+
 export function prepareTaskAgentTurn(args: {
   turn: StreamTurnArgs;
   assignment: AgentAssignment;
@@ -113,6 +135,11 @@ export function prepareTaskAgentTurn(args: {
     provenance,
     observe(event) {
       if (event.type === "provider_session") sessionId = event.nativeSessionId;
+      // The runtime's own checks can turn Codex's reviewer off: record what this turn runs with.
+      if (event.type === "approvals_applied") {
+        provenance = withAppliedApprovals(provenance, event);
+        return { type: "agent_provenance", provenance };
+      }
       if (!promptPreamble && provenance.instructions.status === "configured" &&
           ((event.type === "text" && event.text.trim()) || event.type === "tool" ||
             event.type === "tool_result" || event.type === "approval" || event.type === "user_input")) {

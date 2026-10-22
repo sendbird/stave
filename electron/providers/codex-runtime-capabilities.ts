@@ -31,7 +31,7 @@ export function getCodexVersionCapabilities(
 }
 
 // Pure, so the run contract can state the same fallback before a run starts.
-export { withoutCodexAutoReview } from "../../src/lib/providers/codex-runtime-options";
+export { buildCodexApprovalsAppliedEvent, withoutCodexAutoReview } from "../../src/lib/providers/codex-runtime-options";
 
 export function applyCodexRuntimeCapabilityDowngrades(args: {
   capabilities: ProviderRuntimeCapabilities;

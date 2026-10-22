@@ -157,9 +157,12 @@ as **What this run does**:
   provider's auto mode deciding each action and asking when it cannot. The
   line follows the options the run applies: on a Codex without its reviewer
   for Auto, the run falls back to approvals off, and the line says it edits
-  without asking. (Codex's managed settings or account can still turn the
-  reviewer off when a turn starts; the turn then runs the same way.) Other
-  agents edit without asking; a Read only agent changes nothing. Writes outside
+  without asking. Before a run, Codex Auto is stated as unconfirmed ("asks you
+  when unsure, unless your organization turns automatic review off; then it
+  edits without asking"), because an organization's managed policy is read
+  only when a turn starts. During a run, the header follows what its turns
+  actually applied. Other agents edit without asking; a Read only agent
+  changes nothing. Writes outside
   the repository, credential files and irreversible remote actions still come
   to you. Publishing steps (such as **Open draft PR**) say whether they are
   allowed from the start or wait for your sign-off.

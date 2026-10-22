@@ -1,5 +1,6 @@
 import type { McpAppViewReference } from "../../src/lib/mcp-app/mcp-app-view";
 import type { ApprovalResolvedEvent } from "../../src/lib/approvals/approval-resolution";
+import type { CodexApprovalsAppliedEvent } from "../../src/lib/providers/codex-runtime-options";
 import type { AgentTurnProvenance } from "../../src/lib/agents/turn-provenance";
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveTurnGrants } from "./stave-turn-grants";
@@ -271,6 +272,8 @@ export type BridgeEvent =
     }
   /** A request decided without a person; see `ApprovalResolvedEvent`. */
   | ApprovalResolvedEvent
+  /** The approvals a Codex turn runs with after the runtime's checks; see `CodexApprovalsAppliedEvent`. */
+  | CodexApprovalsAppliedEvent
   | {
       type: "user_input";
       /** Async messages remain answerable after their emitting turn ends. */

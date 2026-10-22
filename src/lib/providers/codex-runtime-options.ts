@@ -87,3 +87,32 @@ export function withoutCodexAutoReview(
       : {}),
   };
 }
+
+export const CODEX_APPROVAL_POLICIES = ["never", "on-request", "on-failure", "untrusted"] as const;
+export const CODEX_APPROVALS_REVIEWERS = ["user", "auto_review"] as const;
+
+/**
+ * The normalized provider event for the approvals a Codex turn runs with,
+ * after the runtime's own checks (the executable, a managed policy, the
+ * reviewer the thread reports). Sent for a turn that asked for Codex's
+ * reviewer, where those checks can turn it off; Stave records it on the
+ * turn's agent provenance, so a run can say what actually applied.
+ */
+export interface CodexApprovalsAppliedEvent {
+  type: "approvals_applied";
+  codexApprovalPolicy: (typeof CODEX_APPROVAL_POLICIES)[number];
+  codexApprovalsReviewer?: (typeof CODEX_APPROVALS_REVIEWERS)[number];
+}
+
+/** The event for a turn that asked for the reviewer, from what it asked for and what it runs with; null otherwise. */
+export function buildCodexApprovalsAppliedEvent(args: {
+  requested?: ProviderRuntimeOptions;
+  effective?: ProviderRuntimeOptions;
+}): CodexApprovalsAppliedEvent | null {
+  if (args.requested?.codexApprovalsReviewer !== "auto_review") return null;
+  return {
+    type: "approvals_applied",
+    codexApprovalPolicy: args.effective?.codexApprovalPolicy ?? "never",
+    ...(args.effective?.codexApprovalsReviewer ? { codexApprovalsReviewer: args.effective.codexApprovalsReviewer } : {}),
+  };
+}

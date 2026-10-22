@@ -138,8 +138,10 @@ them implies another.
   keep their own storage. **Approvals** reads the approval record kept with
   the conversation's messages: a turn, or a stage's turns, from saved history
   when the open conversation no longer holds them (it shows a loading state
-  and a retry if the read fails); **Branch** and **Uncommitted** from the
-  messages Stave has loaded for the task.
+  and a retry if the read fails). A stage read that way is joined with the open
+  conversation, so requests that arrive or are answered later count too.
+  **Branch** and **Uncommitted** read the messages Stave has loaded for the
+  task.
 
 ## Limitations And Advanced Options
 
