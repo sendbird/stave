@@ -100,5 +100,32 @@
     "outside": "This path is a link that leads outside the workspace, so Review does not open it.",
     "changed": "The file changed while it was being read. Refresh to read it again.",
     "tooLarge": "This file is too large to show here. Open it in the editor or inspect it with Git."
+  },
+  "decisions": {
+    "label": "Decision",
+    "summary_one": "{{read}} of {{count}} file read",
+    "summary_other": "{{read}} of {{count}} files read",
+    "stage": {
+      "signOff": "Sign off",
+      "askForChanges": "Ask for changes",
+      "waiting": "Waiting for your sign-off",
+      "signedOff": "Signed off {{time}}",
+      "changesAsked": "Changes asked {{time}}",
+      "none": "No sign-off for this stage",
+      "feedbackLabel": "What should change? The last AI stage runs again with your note.",
+      "send": "Send and run again",
+      "cancel": "Cancel"
+    },
+    "task": {
+      "markReviewed": "Mark reviewed",
+      "sendComments": "Send comments",
+      "reviewed": "Reviewed {{time}}",
+      "notReviewed": "Not reviewed yet",
+      "noResult": "No saved result to review yet",
+      "unsent_one": "{{count}} comment not sent",
+      "unsent_other": "{{count}} comments not sent",
+      "markFailed": "The review mark was not saved. Try again.",
+      "sendFailed": "The comments were not sent. Wait for the current turn to finish and try again."
+    }
   }
 }

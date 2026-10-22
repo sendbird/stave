@@ -80,10 +80,13 @@ execution outcome, date and check state. Expand it to read:
   a file shows its current contents. Partial diffs or incomplete lists say so.
 - **View execution**, for the prompt, tool calls and full answer still retained.
 - **Model and routing details**, when the execution's provenance is needed.
-- **Mark checked** or **Mark unchecked**, for personal tracking. These do not
-  change task status, approve a pull request or validate the answer. The check
+- **Mark read** or **Mark unread**, for personal tracking. These do not
+  change task status, approve a pull request or validate the answer. The read
   mark persists separately from notifications. Fleet acknowledgements and
-  viewing the finished turn long enough can also mark it checked.
+  viewing the finished turn long enough can also mark it read.
+- **Review** opens [Review](review-mode.md) on this output's turn. An output
+  marked there with **Mark reviewed** shows **Reviewed**; the read mark alone
+  never makes an output reviewed.
 - **Draft follow-up**, which appends a reference to this output to the current
   task's existing draft. Describe the changes and send the message yourself;
   selecting this action does not immediately send a request.

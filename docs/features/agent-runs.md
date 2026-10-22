@@ -252,7 +252,9 @@ the turns used of the limit and what the agent run has spent, such as
 
 - The primary button names what happens, such as **Start Verify** or
   **Mark ready for review**.
-- **Review changes** opens Source Control.
+- **Review changes** opens [Review](review-mode.md) on the stage the sign-off
+  is about: its changes since its start commit, apart from anything changed
+  after it, its checks, and **Sign off** or **Ask for changes** in one place.
 - **Ask for changes** sends a note and runs the last AI stage again.
 
 ### Agent run in the Task panel

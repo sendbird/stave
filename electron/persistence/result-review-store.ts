@@ -2,6 +2,7 @@ import type {
   ListResultReviewsArgs,
   ResultReview,
   ResultReviewPage,
+  SetResultMarkedReviewedArgs,
   SetResultReviewedArgs,
   SetResultsReviewedArgs,
 } from "../../src/lib/reviews/result-review";
@@ -19,7 +20,8 @@ interface ReviewDatabase {
 const COLUMNS = `id, project_path AS repositoryPath, project_name AS repositoryName,
   workspace_id AS workspaceId, workspace_name AS workspaceName,
   task_id AS taskId, task_title AS taskTitle, turn_id AS turnId,
-  outcome, summary, created_at AS createdAt, reviewed_at AS reviewedAt`;
+  outcome, summary, created_at AS createdAt, reviewed_at AS reviewedAt,
+  marked_reviewed_at AS markedReviewedAt`;
 const EVIDENCE_COLUMN = `(SELECT evidence_json FROM result_review_evidence WHERE scope_key = json_array(result_reviews.project_path, result_reviews.workspace_id, result_reviews.task_id, result_reviews.turn_id)) AS evidenceJson`;
 const INSERT_COLUMNS = `id, project_path, project_name, workspace_id,
   workspace_name, task_id, task_title, turn_id, outcome, summary, created_at`;
@@ -83,6 +85,11 @@ export class ResultReviewStore {
         WHERE ${sourcePredicate("")} AND json_valid(payload_json)
           AND json_type(payload_json, '$.resultEvidence') = 'object';
     `);
+    // Expand-only: the explicit reviewed mark, added once to tables from before it.
+    const columns = db.prepare("PRAGMA table_info(result_reviews)").all() as Array<{ name: string }>;
+    if (!columns.some((column) => column.name === "marked_reviewed_at")) {
+      db.exec("ALTER TABLE result_reviews ADD COLUMN marked_reviewed_at TEXT");
+    }
   }
 
   list(args: ListResultReviewsArgs = {}): ResultReviewPage {
@@ -143,6 +150,25 @@ export class ResultReviewStore {
     const row = this.db
         .prepare(`SELECT ${COLUMNS}, ${EVIDENCE_COLUMN} FROM result_reviews WHERE ${where}`)
         .get(...identity);
+    return row ? decodeReview(row) : null;
+  }
+
+  /**
+   * The explicit "Mark reviewed" decision. A reviewed result is also read;
+   * taking the mark back keeps it read.
+   */
+  setMarkedReviewed(args: SetResultMarkedReviewedArgs): ResultReview | null {
+    const identity = [args.repositoryPath, args.workspaceId, args.taskId, args.turnId];
+    const where = "project_path = ? AND workspace_id = ? AND task_id = ? AND turn_id = ?";
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        args.markedReviewed
+          ? `UPDATE result_reviews SET marked_reviewed_at = COALESCE(marked_reviewed_at, ?), reviewed_at = COALESCE(reviewed_at, ?) WHERE ${where}`
+          : `UPDATE result_reviews SET marked_reviewed_at = NULL WHERE ${where}`,
+      )
+      .run(...(args.markedReviewed ? [now, now] : []), ...identity);
+    const row = this.db.prepare(`SELECT ${COLUMNS}, ${EVIDENCE_COLUMN} FROM result_reviews WHERE ${where}`).get(...identity);
     return row ? decodeReview(row) : null;
   }
 

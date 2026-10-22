@@ -60,6 +60,10 @@ function installBridgeStubs() {
       total: 1,
       hasMore: false,
     }),
+    setResultMarkedReviewed: async (args: Record<string, unknown>) => ({
+      ok: true,
+      result: { ...args, id: "result-1", repositoryName: "preview-repo", workspaceName: "Preview", taskTitle: "Fix the billing table overflow", outcome: "completed", summary: "Done.", createdAt: "2026-10-22T09:20:00.000Z", reviewedAt: "2026-10-22T09:21:00.000Z", markedReviewedAt: new Date().toISOString() },
+    }),
   };
   api.lens = {
     ...(api.lens as object | undefined),

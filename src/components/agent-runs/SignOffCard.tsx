@@ -19,8 +19,9 @@ import {
 
 export { describeSignOffAction, summarizePreviousStage };
 import type { WorkflowStage } from "@/lib/workflows/schema";
-import { useAppStore } from "@/store/app.store";
 import { agentRunStageKey, useAgentRunFailure, useAgentRunsStore } from "@/store/agent-runs-store";
+import { stageToReview } from "@/lib/review/review-stage";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { useScopedTaskAgentRun } from "./useAgentRun";
 import { agentRunStyles } from "./agent-runs.styles";
 
@@ -144,13 +145,12 @@ export function SignOffCard(props: {
  */
 export function AgentRunSignOffSlot() {
   useTranslation();
-  const { detail } = useScopedTaskAgentRun();
+  const { taskId, detail } = useScopedTaskAgentRun();
   const runCommand = useAgentRunsStore((state) => state.runCommand);
   const agentRunId = detail?.agentRun.id ?? "";
   const busy = useAgentRunsStore((state) => Boolean(state.pendingByAgentRun[agentRunId]));
   const record = detail && detail.agentRun.state === "running" ? currentStageRecord(detail) : null;
   const failure = useAgentRunFailure(agentRunId, record ? agentRunStageKey(record) : null);
-  const setLayout = useAppStore((state) => state.setLayout);
   if (!detail || !record || record.status !== "awaiting-sign-off") return null;
   const identity = { agentRunId, stageId: record.stageId, attempt: record.attempt };
   return (
@@ -160,9 +160,11 @@ export function AgentRunSignOffSlot() {
       failure={failure}
       onSignOff={() => void runCommand("signOff", identity)}
       onAskForChanges={(feedback) => void runCommand("requestChanges", { ...identity, feedback })}
-      onReviewChanges={() =>
-        setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "changes" } })
-      }
+      onReviewChanges={() => {
+        // Review on the stage this sign-off is about (D13): the latest stage that ran.
+        const stage = stageToReview(detail);
+        useTaskReviewModeStore.getState().openReview(taskId, stage ? { kind: "stage", ...stage } : undefined);
+      }}
     />
   );
 }

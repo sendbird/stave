@@ -97,5 +97,30 @@
     "outside": "이 경로는 워크스페이스 밖을 가리키는 링크라서 검토에서 열지 않습니다.",
     "changed": "읽는 중에 파일이 바뀌었습니다. 새로고침해서 다시 읽으세요.",
     "tooLarge": "이 파일은 여기에 표시하기에 너무 큽니다. 편집기에서 열거나 Git으로 확인하세요."
+  },
+  "decisions": {
+    "label": "결정",
+    "summary_other": "파일 {{count}}개 중 {{read}}개 읽음",
+    "stage": {
+      "signOff": "승인",
+      "askForChanges": "변경 요청",
+      "waiting": "승인 대기 중",
+      "signedOff": "{{time}}에 승인함",
+      "changesAsked": "{{time}}에 변경 요청함",
+      "none": "이 단계에는 승인 절차가 없음",
+      "feedbackLabel": "어떤 내용을 변경하시겠습니까? 메모를 전달하여 마지막 AI 단계를 다시 실행합니다.",
+      "send": "보내고 다시 실행",
+      "cancel": "취소"
+    },
+    "task": {
+      "markReviewed": "검토 완료로 표시",
+      "sendComments": "코멘트 보내기",
+      "reviewed": "{{time}}에 검토함",
+      "notReviewed": "아직 검토하지 않음",
+      "noResult": "검토할 저장된 결과가 아직 없음",
+      "unsent_other": "보내지 않은 코멘트 {{count}}개",
+      "markFailed": "검토 표시를 저장하지 못했습니다. 다시 시도하세요.",
+      "sendFailed": "코멘트를 보내지 못했습니다. 현재 턴이 끝난 뒤 다시 시도하세요."
+    }
   }
 }

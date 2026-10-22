@@ -423,7 +423,9 @@
     "extraCopy119": "Added to your draft. Describe the changes before sending.",
     "runCount_one": "{{count}} output",
     "runCount_other": "{{count}} outputs",
-    "agentRunReport": "Agent run report and actions"
+    "agentRunReport": "Agent run report and actions",
+    "markedReviewed": "Reviewed",
+    "review": "Review"
   },
   "taskRunOverview": {
     "label": "Waiting",

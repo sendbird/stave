@@ -21,6 +21,9 @@
   diff editor's context menu has the same action.
 - Comments written while a send is still going out stay pending. A second send
   of the same task is ignored until the first one finishes.
+- In [Review mode](review-mode.md), **Comment** on a file opens its diff here,
+  and **Send comments** in Review's decision bar sends the task's pending
+  comments the same way.
 
 ## After Sending
 
@@ -42,4 +45,5 @@ resolve it.
   current text, within three lines of where it was. A line that moved further
   reads as changed.
 - Screen readers do not reach the comment boxes inside the diff: the editor
-  hides the layer they are drawn in from assistive technology.
+  hides the layer they are drawn in from assistive technology. Review lists
+  the task's comments, not sent and sent, as text for that reason.

@@ -5,8 +5,8 @@ import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
 import { sx } from "@/components/ads/utils/stylex";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import { latestStageRecord, type AgentRunStageRecord } from "@/lib/agent-runs/domain";
 import { findLatestFinishedTurnId } from "@/lib/fleet/result-auto-review";
+import { findStageRecord, stageToReview } from "@/lib/review/review-stage";
 import {
   availableReviewScopes,
   defaultReviewScope,
@@ -17,6 +17,7 @@ import { useTaskAgentRun } from "@/store/agent-runs-store";
 import { useAppStore } from "@/store/app.store";
 import { reviewScopeKey, useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { describeReviewReadError } from "./review-errors";
+import { ReviewDecisions } from "./ReviewDecisions";
 import { ReviewDiffPane } from "./ReviewDiffPane";
 import { ReviewFileList } from "./ReviewFileList";
 import { ReviewInspector } from "./ReviewInspector";
@@ -27,33 +28,12 @@ import { useDiffReviewData, useTurnReviewData, type ReviewData } from "./useRevi
 
 const NOTHING_READ: readonly string[] = [];
 
-type StageIdentity = { agentRunId: string; stageId: string; attempt: number };
-
-/**
- * The stage Review shows when asked for the stage scope without one named:
- * the latest stage that started, walking back from the current one (a stage
- * waiting for sign-off has not started, so this is the stage before it).
- */
-export function stageToReview(detail: AgentRunDetail | undefined): StageIdentity | undefined {
-  if (!detail) return undefined;
-  const { stages } = detail.agentRun.workflow;
-  for (let index = Math.min(detail.agentRun.currentStageIndex, stages.length - 1); index >= 0; index -= 1) {
-    const record = latestStageRecord(detail.stages, stages[index]!.id);
-    if (record?.startHeadSha) return { agentRunId: detail.agentRun.id, stageId: record.stageId, attempt: record.attempt };
-  }
-  return undefined;
-}
-
-export function findStageRecord(detail: AgentRunDetail | undefined, scope: StageIdentity): AgentRunStageRecord | undefined {
-  return detail?.stages.find((record) => record.agentRunId === scope.agentRunId && record.stageId === scope.stageId && record.attempt === scope.attempt);
-}
-
 /**
  * Review: the work of a task checked in one place, against one scope at a
  * time (D7, D13): changed files and outputs, the selected file's diff, and
  * the checks, Lens records and comments that weigh on the decision.
  */
-export function TaskReviewSurface(props: { taskId: string; decisions?: (args: { scope: ReviewScope; detail: AgentRunDetail | undefined; read: readonly string[]; data: ReviewData | null }) => ReactNode }) {
+export function TaskReviewSurface(props: { taskId: string }) {
   useTranslation();
   const { taskId } = props;
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
@@ -76,7 +56,7 @@ export function TaskReviewSurface(props: { taskId: string; decisions?: (args: { 
       if (stage) setScope(taskId, { kind: "stage", agentRunId: stage.agentRunId, stageId: stage.stageId, attempt: stage.attempt });
     } else if (kind === "branch" || kind === "uncommitted") setScope(taskId, { kind });
   };
-  const shared = { taskId, workspaceId, cwd, detail, available: scope.kind === "stage" && !available.includes("stage") ? [...available, "stage" as const] : available, onScope, decisions: props.decisions };
+  const shared = { taskId, workspaceId, cwd, detail, latestTurnId, available: scope.kind === "stage" && !available.includes("stage") ? [...available, "stage" as const] : available, onScope };
   return (
     <section ref={surfaceRef} tabIndex={-1} className={sx(styles.surface)} aria-label={i18n.t("review:surface.label")} data-testid="task-review-surface">
       {scope.kind === "turn"
@@ -91,9 +71,9 @@ interface SharedProps {
   workspaceId: string;
   cwd: string | null;
   detail: AgentRunDetail | undefined;
+  latestTurnId: string | null;
   available: readonly ReviewScopeKind[];
   onScope: (kind: ReviewScopeKind) => void;
-  decisions?: Parameters<typeof TaskReviewSurface>[0]["decisions"];
 }
 
 function TurnScopeReview(props: SharedProps & { scope: Extract<ReviewScope, { kind: "turn" }> }) {
@@ -152,7 +132,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
           </div>
         }
       />
-      {props.decisions?.({ scope, detail: props.detail, read, data })}
+      <ReviewDecisions taskId={taskId} workspaceId={props.workspaceId} scope={scope} detail={props.detail} read={read} data={data} latestTurnId={props.latestTurnId} />
     </>
   );
 }

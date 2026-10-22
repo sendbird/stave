@@ -2121,6 +2121,13 @@ interface WindowPersistenceApi {
   setResultsReviewed?: (
     args: import("@/lib/reviews/result-review").SetResultsReviewedArgs,
   ) => Promise<{ ok: boolean; updated: number }>;
+  /** Review's explicit "Mark reviewed", apart from the read mark. */
+  setResultMarkedReviewed?: (
+    args: import("@/lib/reviews/result-review").SetResultMarkedReviewedArgs,
+  ) => Promise<{
+    ok: boolean;
+    result: import("@/lib/reviews/result-review").ResultReview | null;
+  }>;
   listFleetAttentionSnoozes?: (
     args?: import("@/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
   ) => Promise<{

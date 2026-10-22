@@ -41,6 +41,13 @@
 - The **Conversation | Review** switch at the top of every task.
 - `Cmd/Ctrl+Alt+R` switches the active task, bringing it to the front when
   another tab has focus ([Keyboard shortcuts](keyboard-shortcuts.md)).
+- **Review changes** on an agent run's sign-off card opens Review on the stage
+  the sign-off is about ([Agent runs](agent-runs.md)).
+- **Review** on a row in the task's **Outputs** opens Review on that output's
+  turn ([Agent performance and task outputs](results.md)).
+
+Opened from a sign-off, Review starts on that stage; otherwise it starts on
+the task's latest finished turn.
 
 Review is not saved across restarts: every task opens on its conversation.
 
@@ -77,6 +84,16 @@ Review is not saved across restarts: every task opens on its conversation.
   **Show comparison** opens the before and after images.
 - **Diff comments** repeats the task's comments, not sent and sent, because
   the editor's comment areas are not reachable by screen readers.
+- The decision bar at the bottom says where the decision stands and offers it:
+  - In **This stage**, while the run waits for your sign-off: **Sign off**, or
+    **Ask for changes** with a note that runs the last AI stage again. After
+    the decision it shows **Signed off** or **Changes asked** with the time.
+  - In the other scopes: **Mark reviewed** marks the turn's output reviewed,
+    and **Send comments** sends the pending diff comments to the agent.
+
+Four things stay apart: a file **read** in Review, completion checks that
+**passed**, an output marked **Reviewed**, and a stage **Signed off**. None of
+them implies another.
 
 ## Common Workflows
 
@@ -91,11 +108,20 @@ Review is not saved across restarts: every task opens on its conversation.
 2. Read the files under **This stage**; anything under **After the stage**
    changed after the stage reported.
 
+### Review And Sign Off A Stage
+
+1. When a stage waits for your sign-off, choose **Review changes** on its
+   card.
+2. Read the stage's files, check **Completion checks** and **Lens checks**.
+3. Choose **Sign off** to continue the run, or **Ask for changes**, write
+   what should change and choose **Send and run again**.
+
 ## Files And Data
 
-- Review keeps no data of its own. Its scope and read marks last for the
-  session; the conversation, result reviews, Lens records and comments keep
-  their own storage.
+- Review keeps no data of its own apart from the **Mark reviewed** decision,
+  which is saved with the turn's output. Its scope and read marks last for
+  the session; the conversation, result reviews, Lens records and comments
+  keep their own storage.
 
 ## Limitations And Advanced Options
 

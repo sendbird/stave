@@ -1709,6 +1709,9 @@ contextBridge.exposeInMainWorld("api", {
     setResultsReviewed: (
       args: import("../src/lib/reviews/result-review").SetResultsReviewedArgs,
     ) => ipcRenderer.invoke("persistence:set-results-reviewed", args),
+    setResultMarkedReviewed: (
+      args: import("../src/lib/reviews/result-review").SetResultMarkedReviewedArgs,
+    ) => ipcRenderer.invoke("persistence:set-result-marked-reviewed", args),
     listFleetAttentionSnoozes: (
       args?: import("../src/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
     ) =>
