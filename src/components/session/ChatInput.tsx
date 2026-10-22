@@ -95,6 +95,7 @@ import { useReviewTaskControls } from "@/components/session/use-review-task-cont
 import { holdsComposerTurn, usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { useAppStore } from "@/store/app.store";
 import { selectEffectiveSettings } from "@/store/project-settings-overrides";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
 import {
   resolvePromptDraftModelForProvider,
@@ -151,10 +152,12 @@ function BaseChatInput() {
     }),
   );
   const activeTaskId = useScopedTaskId();
+  const reviewShown = useTaskReviewModeStore((state) => state.byTask[activeTaskId]?.mode === "review");
   const windowShortcutsEnabled = useAppStore((state) =>
     shouldEnablePromptInputWindowShortcuts({
       scopedTaskId: activeTaskId,
       activeTaskId: state.activeTaskId,
+      reviewShown,
     }),
   );
   const [

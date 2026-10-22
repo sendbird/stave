@@ -1247,7 +1247,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   }, []);
 
   useEffect(() => {
-    if (!pendingApproval) {
+    // Off with the composer's other window keys: another task is active, or Review hides this one.
+    if (!pendingApproval || !args.windowShortcutsEnabled) {
       return;
     }
 
@@ -1309,6 +1310,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     return () => window.removeEventListener("keydown", handleApprovalShortcut);
   }, [
     args.activeTaskId,
+    args.windowShortcutsEnabled,
     pendingApproval,
     resolveApproval,
   ]);

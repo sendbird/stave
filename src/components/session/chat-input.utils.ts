@@ -63,11 +63,9 @@ export function getLatestUserPromptMessage(messages: ChatMessage[]) {
   return null;
 }
 
-export function shouldEnablePromptInputWindowShortcuts(args: {
-  scopedTaskId: string;
-  activeTaskId: string;
-}) {
-  return Boolean(args.scopedTaskId) && args.scopedTaskId === args.activeTaskId;
+export function shouldEnablePromptInputWindowShortcuts(args: { scopedTaskId: string; activeTaskId: string; reviewShown?: boolean }) {
+  // Review keeps the conversation mounted but hidden: its composer's window keys, approval keys included, stay off.
+  return Boolean(args.scopedTaskId) && args.scopedTaskId === args.activeTaskId && !args.reviewShown;
 }
 
 export function canApplyPromptEnhancementResult(args: {

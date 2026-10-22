@@ -55,10 +55,30 @@ test("one turn's approvals are counted by who decided them, in Activity and Revi
     await composer.fill("[permissions] Run the checks and clean the build");
     await composer.press("Enter");
 
-    // Only the shell command asks; the user allows it.
+    // Only the shell command asks.
     const queue = page.getByRole("region", { name: "Approval queue" });
     await expect(queue).toContainText("rm -rf build", { timeout: 30_000 });
     await expect(queue).not.toContainText("README.md");
+
+    // Review hides the conversation: Enter there answers nothing, and Tab
+    // moves through Review instead of opening the hidden queue's guidance.
+    const shortcut = process.platform === "darwin" ? "Meta+Alt+R" : "Control+Alt+R";
+    await page.keyboard.press(shortcut);
+    const reviewSurface = page.getByTestId("task-review-surface");
+    await expect(reviewSurface).toBeVisible();
+    await page.keyboard.press("Enter");
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => {
+      const active = document.activeElement;
+      return Boolean(active?.closest('[data-testid="task-review-surface"]')) && active?.tagName === "BUTTON";
+    })).toBe(true);
+    await page.waitForTimeout(1_000);
+    await page.keyboard.press(shortcut);
+    await expect(reviewSurface).toHaveCount(0);
+    await expect(queue).toContainText("rm -rf build");
+    await expect(page.getByText("Permissions: Edit allowed, Bash allowed.")).toHaveCount(0);
+
+    // The user allows it from the queue.
     await queue.getByRole("button", { name: "Allow once" }).click();
     await expect(page.getByText("Permissions: Edit allowed, Bash allowed.")).toBeVisible({ timeout: 30_000 });
 
@@ -74,7 +94,6 @@ test("one turn's approvals are counted by who decided them, in Activity and Revi
     await activity.screenshot({ path: testInfo.outputPath("activity-approvals.png") });
 
     // Review on the turn says the same, and so it does after a reload.
-    const shortcut = process.platform === "darwin" ? "Meta+Alt+R" : "Control+Alt+R";
     for (const pass of ["live", "reloaded"]) {
       if (pass === "reloaded") {
         await page.reload({ waitUntil: "domcontentloaded" });
