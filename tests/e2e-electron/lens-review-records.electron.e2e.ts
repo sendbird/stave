@@ -111,10 +111,10 @@ test("a Lens review record keeps its comparison and verdict across navigation an
     annotation.review.page.viewport = await viewport();
     const result = await stave.page.evaluate(async (args) => window.api.lens!.compareAnnotation(args as never), { ...lens, annotation });
     expect(result.ok, result.message).toBe(true);
-    return { dataUrl: result.dataUrl!, documentId: result.documentId! };
+    return { dataUrl: result.dataUrl!, documentId: result.documentId!, pageKey: result.pageKey! };
   };
-  const save = (shot: { dataUrl: string; documentId: string }) => stave.page.evaluate(async (args) => window.api.lens!.saveReviewRecord(args as never), {
-    taskId: TASK_ID, ...lens, annotation, verdict: "confirmed", documentId: shot.documentId, afterDataUrl: shot.dataUrl,
+  const save = (shot: { dataUrl: string; documentId: string; pageKey: string }) => stave.page.evaluate(async (args) => window.api.lens!.saveReviewRecord(args as never), {
+    taskId: TASK_ID, ...lens, annotation, verdict: "confirmed", documentId: shot.documentId, pageKey: shot.pageKey, afterDataUrl: shot.dataUrl,
     beforeImageId: `lens-comment-image:${E2E_WORKSPACE_ID}:${E2E_LENS_SESSION_ID}:${annotationId}`,
   });
   await expect.poll(async () => await findGuestPage()?.locator("#target").count(), { timeout: 30_000 }).toBe(1);

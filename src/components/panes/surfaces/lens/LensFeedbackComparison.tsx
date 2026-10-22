@@ -29,7 +29,7 @@ export function LensFeedbackComparison({ taskId, workspaceId, lensSessionId, ann
 }) {
   useTranslation();
   const saved = useLensReviewRecord({ taskId, annotationId: annotation.id });
-  const [capture, setCapture] = useState<{ dataUrl: string; documentId: string }>();
+  const [capture, setCapture] = useState<{ dataUrl: string; documentId: string; pageKey: string }>();
   const [message, setMessage] = useState<string>();
   const [busy, setBusy] = useState<"compare" | "save" | null>(null);
   const generation = useRef(0);
@@ -55,8 +55,8 @@ export function LensFeedbackComparison({ taskId, workspaceId, lensSessionId, ann
     try {
       const result = await window.api?.lens?.compareAnnotation({ workspaceId, lensSessionId, annotation });
       if (token !== generation.current) return;
-      if (!result?.ok || !result.dataUrl || !result.documentId) throw new Error(result?.message ?? i18n.t("lens:lensFeedbackComparison.couldNotCaptureTheCurrentTarget"));
-      setCapture({ dataUrl: result.dataUrl, documentId: result.documentId });
+      if (!result?.ok || !result.dataUrl || !result.documentId || !result.pageKey) throw new Error(result?.message ?? i18n.t("lens:lensFeedbackComparison.couldNotCaptureTheCurrentTarget"));
+      setCapture({ dataUrl: result.dataUrl, documentId: result.documentId, pageKey: result.pageKey });
     } catch (error) { if (token === generation.current) setMessage(error instanceof Error ? error.message : i18n.t("lens:lensFeedbackComparison.captureFailed")); }
     finally { if (token === generation.current) setBusy(null); }
   }
@@ -68,7 +68,7 @@ export function LensFeedbackComparison({ taskId, workspaceId, lensSessionId, ann
     setBusy("save"); setMessage(undefined);
     try {
       const result = await api.saveReviewRecord({
-        taskId, workspaceId, lensSessionId, annotation, documentId: capture.documentId, afterDataUrl: capture.dataUrl, verdict,
+        taskId, workspaceId, lensSessionId, annotation, documentId: capture.documentId, pageKey: capture.pageKey, afterDataUrl: capture.dataUrl, verdict,
         beforeImageId: getLensCommentImageId({ workspaceId, lensSessionId, annotationId: annotation.id }),
       });
       if (token !== generation.current) return;

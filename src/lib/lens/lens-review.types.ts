@@ -15,7 +15,7 @@ export interface LensAutomationState extends LensReviewTarget {
 export interface LensReviewApi {
   getAutomation: (args: LensReviewTarget & { includePreview?: boolean }) => Promise<{ ok: boolean; state?: LensAutomationState; message?: string }>;
   setAutomationPaused: (args: LensReviewTarget & { paused: boolean }) => Promise<{ ok: boolean; state?: LensAutomationState; message?: string }>;
-  compareAnnotation: (args: LensReviewTarget & { annotation: LensAnnotation }) => Promise<{ ok: boolean; dataUrl?: string; documentId?: string; message?: string }>;
+  compareAnnotation: (args: LensReviewTarget & { annotation: LensAnnotation }) => Promise<{ ok: boolean; dataUrl?: string; documentId?: string; pageKey?: string; message?: string }>;
   /** A task's Lens review records, newest first; a confirmation of a page no longer shown comes back as needing a re-check. */
   listReviewRecords: (args: ListLensReviewRecordsArgs) => Promise<{ ok: boolean; records?: LensReviewRecord[]; message?: string }>;
   saveReviewRecord: (args: SaveLensReviewRecordArgs) => Promise<LensReviewRecordResponse>;

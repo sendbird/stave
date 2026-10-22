@@ -3,7 +3,7 @@ import { Database } from "bun:sqlite";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { LensReviewRecordStore } from "../electron/persistence/lens-review-record-store";
+import { lensPageKey, LensReviewRecordStore } from "../electron/persistence/lens-review-record-store";
 import { normalizeLensAnnotationPayload } from "../src/lib/lens/lens-annotation-schema";
 import type { LensReviewRecord } from "../src/lib/lens/lens-review-record";
 
@@ -33,9 +33,10 @@ const annotation = normalizeLensAnnotationPayload(
 );
 const PNG = `data:image/png;base64,${Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]).toString("base64")}`;
 const call = (channel: string, input: unknown) => handlers.get(channel)!({}, input) as Promise<{ ok: boolean; code?: string; record?: LensReviewRecord; records?: LensReviewRecord[] }>;
+/** A capture of the page the session shows now, saved as confirmed. */
 const save = () => call("lens:review-records:save", {
   taskId: "task-1", workspaceId: "workspace-1", lensSessionId: "lens-1", annotation, beforeImageId: "lens-comment-image:workspace-1:lens-1:annotation-1",
-  documentId: "document-1", afterDataUrl: PNG, verdict: "confirmed",
+  documentId: "document-1", pageKey: lensPageKey(session.url), afterDataUrl: PNG, verdict: "confirmed",
 });
 const list = async () => (await call("lens:review-records:list", { taskId: "task-1" })).records ?? [];
 
@@ -59,12 +60,35 @@ describe("Lens review record IPC", () => {
     expect((await list()).map((record) => [record.verdict, record.recheckReason])).toEqual([["needs-recheck", "page-changed"]]);
   });
 
+  for (const [label, from, to] of [
+    ["another query", "http://localhost:5173/settings?ticket=1", "http://localhost:5173/settings?ticket=2"],
+    ["another hash route", "http://localhost:5173/settings#/a", "http://localhost:5173/settings#/b"],
+  ] as const) {
+    test(`an in-page move to ${label} reads as needing a re-check`, async () => {
+      session.url = from;
+      const saved = await save();
+      expect(saved.ok).toBe(true);
+      expect((await list()).map((record) => record.verdict)).toEqual(["confirmed"]);
+      // The record shows the address without query or fragment and keeps only a hash of the page.
+      expect(saved.record?.pageUrl).toBe("http://localhost:5173/settings");
+      expect(saved.record?.pageKey).toMatch(/^sha256:[0-9a-f]{40}$/);
+      expect(JSON.stringify(saved.record)).not.toMatch(/ticket|#\//);
+      session.url = to;
+      expect((await list()).map((record) => [record.verdict, record.recheckReason])).toEqual([["needs-recheck", "page-changed"]]);
+      session.url = from;
+      expect(await call("lens:review-records:set-verdict", { id: saved.record!.id, verdict: "confirmed" })).toMatchObject({ ok: true });
+      session.url = to;
+      expect(await call("lens:review-records:set-verdict", { id: saved.record!.id, verdict: "confirmed" })).toMatchObject({ ok: false, code: "page-changed" });
+    });
+  }
+
   test("a capture cannot confirm after the address changed, and a record cannot be confirmed there", async () => {
     session.url = "http://localhost:5173/billing";
     expect(await save()).toMatchObject({ ok: false, code: "page-changed" });
     session.url = "http://localhost:5173/settings";
     const saved = await call("lens:review-records:save", {
-      taskId: "task-1", workspaceId: "workspace-1", lensSessionId: "lens-1", annotation, beforeImageId: "x", documentId: "document-1", afterDataUrl: PNG, verdict: "needs-recheck",
+      taskId: "task-1", workspaceId: "workspace-1", lensSessionId: "lens-1", annotation, beforeImageId: "x", documentId: "document-1",
+      pageKey: lensPageKey(session.url), afterDataUrl: PNG, verdict: "needs-recheck",
     });
     session.url = "http://localhost:5173/billing";
     expect(await call("lens:review-records:set-verdict", { id: saved.record!.id, verdict: "confirmed" })).toMatchObject({ ok: false, code: "page-changed" });

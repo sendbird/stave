@@ -1,12 +1,15 @@
 import { comparisonScript } from "../../../src/lib/lens/lens-feedback-comparison";
 import type { LensAnnotation } from "../../../src/lib/lens/lens.types";
 import { sanitizeLensPageUrl } from "../../../src/lib/lens/lens-annotation-schema";
+import { lensPageKey } from "../../persistence/lens-review-record-store";
 import { captureScreenshot, evaluateExpression } from "./browser-cdp";
 import type { BrowserSessionState } from "./browser-manager";
 
 export async function compareLensAnnotation(session: BrowserSessionState, annotation: LensAnnotation) {
   const documentId = session.documentId;
-  if (sanitizeLensPageUrl(session.webContents.getURL()) !== annotation.review.page.url)
+  // The page the capture shows, query and fragment included (`lensPageKey`).
+  const pageKey = lensPageKey(session.webContents.getURL());
+  if (sanitizeLensPageUrl(session.webContents.getURL()) !== annotation.review.page.url || !pageKey)
     throw new Error("Open the captured page before comparing.");
   const result = await evaluateExpression(session.webContents.id, comparisonScript(annotation)) as {
     error?: string;
@@ -18,6 +21,7 @@ export async function compareLensAnnotation(session: BrowserSessionState, annota
   const after = await evaluateExpression(session.webContents.id, comparisonScript(annotation)) as typeof result;
   if (after.error || JSON.stringify(after.rect) !== JSON.stringify(result.rect))
     throw new Error("The target moved during capture. Compare again.");
-  if (session.documentId !== documentId) throw new Error("The page changed. Compare again.");
-  return { ok: true, dataUrl, documentId };
+  if (session.documentId !== documentId || lensPageKey(session.webContents.getURL()) !== pageKey)
+    throw new Error("The page changed. Compare again.");
+  return { ok: true, dataUrl, documentId, pageKey };
 }

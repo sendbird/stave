@@ -8,7 +8,7 @@ import { compareLensAnnotation } from "../browser/browser-review";
 import { getMainWindow } from "../window";
 import { isTrustedLensRenderer } from "./lens-ipc-authorization";
 import { ensurePersistenceReady } from "../state";
-import { decodeLensReviewPng, showsCapturedPage, type LensReviewRecordStore, type LensSessionPage } from "../../persistence/lens-review-record-store";
+import { decodeLensReviewPng, lensPageKey, showsCapturedPage, type LensReviewRecordStore, type LensSessionPage } from "../../persistence/lens-review-record-store";
 import { sanitizeLensPageUrl } from "../../../src/lib/lens/lens-annotation-schema";
 import {
   ListLensReviewRecordsArgsSchema,
@@ -62,13 +62,13 @@ export function registerLensReviewHandlers() {
     const page = args.annotation.review.page;
     // A confirmation is about the document that was captured, at its address;
     // once either changed, only "needs re-check" can be recorded for it.
-    if (args.verdict === "confirmed" && !showsCapturedPage(currentLensPage(args.workspaceId, args.lensSessionId), { documentId: args.documentId, pageUrl: page.url }))
+    if (args.verdict === "confirmed" && !showsCapturedPage(currentLensPage(args.workspaceId, args.lensSessionId), { documentId: args.documentId, pageUrl: page.url, pageKey: args.pageKey }))
       return { ok: false, code: "page-changed" };
     const afterPng = decodeLensReviewPng(args.afterDataUrl);
     if (!afterPng) return { ok: false, code: "invalid-image" };
     const record = await (await ensurePersistenceReady()).lensReviewRecords.save({
       taskId: args.taskId, workspaceId: args.workspaceId, lensSessionId: args.lensSessionId, annotationId: args.annotation.id,
-      pageUrl: page.url, viewport: page.viewport, before: { imageId: args.beforeImageId }, documentId: args.documentId, verdict: args.verdict, afterPng,
+      pageUrl: page.url, viewport: page.viewport, before: { imageId: args.beforeImageId }, documentId: args.documentId, pageKey: args.pageKey, verdict: args.verdict, afterPng,
     });
     return { ok: true, record };
   });
@@ -88,17 +88,20 @@ export function registerLensReviewHandlers() {
   });
 }
 
-/** The Lens session's current document and normalized address, or undefined when it is gone. */
+/** The Lens session's current document, normalized address and page key, or undefined when it is gone. */
 function currentLensPage(workspaceId: string, lensSessionId: string): LensSessionPage | undefined {
   const session = getBrowserSession(workspaceId, lensSessionId);
   if (!session) return undefined;
   let url: string | null = null;
+  let key: string | null = null;
   try {
-    url = session.webContents.isDestroyed() ? null : sanitizeLensPageUrl(session.webContents.getURL());
+    const address = session.webContents.isDestroyed() ? null : session.webContents.getURL();
+    url = address === null ? null : sanitizeLensPageUrl(address);
+    key = lensPageKey(address);
   } catch {
     url = null;
   }
-  return { documentId: session.documentId, url };
+  return { documentId: session.documentId, url, key };
 }
 
 /** A confirmation of a page the session no longer shows is kept as needing a re-check. */

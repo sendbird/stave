@@ -52,6 +52,11 @@ export const LensReviewRecordSchema = z.object({
   afterImagePath: z.string().min(1).max(400),
   /** The page document the "after" image was captured from. Document IDs do not survive a restart. */
   documentId: id,
+  /**
+   * Which page the capture showed, query and fragment included, as a hash so
+   * no query value is stored. Records from before it compare `pageUrl` only.
+   */
+  pageKey: z.string().min(1).max(80).optional(),
   verdict: z.enum(LENS_REVIEW_VERDICTS),
   recheckReason: z.enum(LENS_RECHECK_REASONS).optional(),
   /** When the user last confirmed it; kept when the record later needs a re-check. */
@@ -69,6 +74,8 @@ export const SaveLensReviewRecordArgsSchema = z.object({
   beforeImageId: z.string().min(1).max(600),
   /** The document the comparison captured, as `compareAnnotation` returned it. */
   documentId: id,
+  /** The page it captured, as `compareAnnotation` returned it (see `LensReviewRecord.pageKey`). */
+  pageKey: z.string().min(1).max(80),
   afterDataUrl: z.string().startsWith(PNG_DATA_URL_PREFIX).max(MAX_PNG_DATA_URL_LENGTH),
   verdict: z.enum(LENS_REVIEW_VERDICTS),
 }).strict();

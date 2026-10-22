@@ -37,8 +37,26 @@ export function decodeLensReviewPng(dataUrl: string): Uint8Array | null {
 
 export type NewLensReviewRecord = Pick<
   LensReviewRecord,
-  "taskId" | "workspaceId" | "lensSessionId" | "annotationId" | "pageUrl" | "viewport" | "before" | "documentId" | "verdict"
+  "taskId" | "workspaceId" | "lensSessionId" | "annotationId" | "pageUrl" | "viewport" | "before" | "documentId" | "pageKey" | "verdict"
 >;
+
+/**
+ * A page's identity for a confirmation: its full address (query and fragment
+ * included, sign-in details removed) as a hash, so an in-page move to another
+ * query or hash route is another page while no query value is ever stored.
+ * Null when the address cannot be read.
+ */
+export function lensPageKey(url: string | null | undefined): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    parsed.username = "";
+    parsed.password = "";
+    return `sha256:${createHash("sha256").update(parsed.toString()).digest("hex").slice(0, 40)}`;
+  } catch {
+    return null;
+  }
+}
 
 /** File operations a save uses; tests replace them to make a write or rename fail. */
 export interface LensReviewRecordIo {
@@ -46,15 +64,27 @@ export interface LensReviewRecordIo {
   rename: (from: string, to: string) => Promise<void>;
 }
 
-/** What a Lens session shows now: its document and its normalized address (null when unreadable). */
+/**
+ * What a Lens session shows now: its document, its normalized address and
+ * its page key (`lensPageKey`); the address and key are null when unreadable.
+ */
 export interface LensSessionPage {
   documentId: string;
   url: string | null;
+  key: string | null;
 }
 
-/** Whether the session still shows the document a capture came from, at its address. */
-export function showsCapturedPage(page: LensSessionPage | undefined, captured: { documentId: string; pageUrl: string }): boolean {
-  return page !== undefined && page.documentId === captured.documentId && page.url === captured.pageUrl;
+/**
+ * Whether the session still shows the page a capture came from: the same
+ * document at the same address, query and fragment included when the capture
+ * recorded its page key.
+ */
+export function showsCapturedPage(
+  page: LensSessionPage | undefined,
+  captured: { documentId: string; pageUrl: string; pageKey?: string },
+): boolean {
+  if (page === undefined || page.documentId !== captured.documentId || page.url !== captured.pageUrl) return false;
+  return captured.pageKey === undefined || page.key === captured.pageKey;
 }
 
 /** Task IDs become folder names only through this hash. */

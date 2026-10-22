@@ -141,7 +141,7 @@ After visual comments are sent, the feedback tray keeps the task's latest sent f
 1. Open the captured page in the same Lens session.
 2. Click `Compare current target`. Lens captures the same target at the recorded viewport and shows it with the original image: side by side, slider, onion skin or difference.
 3. Click `Confirm fixed` or `Needs re-check`. Either saves a Lens review record for the task.
-4. The record stays after you navigate, reload or restart Stave. A confirmation holds only for the page document it was captured from; once the page changes, the record shows `Needs re-check` with the time it was confirmed. Click `Compare again` to check the current page.
+4. The record stays after you navigate, reload or restart Stave. A confirmation holds only for the page document it was captured from, at the same address, query and hash route; once the page changes, the record shows `Needs re-check` with the time it was confirmed. Click `Compare again` to check the current page.
 
 ### Save Screenshots And Downloads
 
