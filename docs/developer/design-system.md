@@ -219,6 +219,11 @@ the requested change preserves captured evidence and never sends a task.
 
 Run `bun run check:design-system` after changing shared components. Its per-file
 ratchet rejects new utility syntax, reintroduced legacy recipes, and missing canonical dependencies.
+It also counts off-grid spacing: a 6 or 10 on a padding, margin or gap
+(`scripts/stylex-spacing-literals.mjs`). Each file's count is recorded in
+`config/spacing-ratchet.json` and may fall, never rise; space new work with the
+`--ads-space-*` tokens (4, 8, 12, …) or a `densityPad` step, and lower the entry
+when you move a file onto the grid.
 It is an architecture check, not a visual approval. Pair it with typecheck, theme
 tests, and the affected rendered workflow.
 
