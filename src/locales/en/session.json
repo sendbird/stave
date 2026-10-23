@@ -606,7 +606,7 @@
     "changedFilesBlock2": "files",
     "changedFilesBlock3": "edited",
     "changedFilesBlock4": "pending",
-    "changedFilesBlock5": "Open All",
+    "changedFilesBlock5": "Open in editor",
     "copy": "Open in Editor",
     "copy2": "Accept",
     "copy3": "Reject",
@@ -622,7 +622,9 @@
     "openImage": "Open {{label}} full size",
     "alt": "Image preview",
     "fileChangeSummaryBlock_one": "{{value1}} file changed",
-    "fileChangeSummaryBlock_other": "{{value1}} files changed"
+    "fileChangeSummaryBlock_other": "{{value1}} files changed",
+    "reviewTurn": "Review",
+    "reviewTurnLabel": "Review this turn's changes"
   },
   "chatPanelMessageParts": {
     "label": "Copy",

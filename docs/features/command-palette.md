@@ -37,6 +37,10 @@ The palette is global. You do not need to focus the chat composer first.
 
 - create a new task
 - stop the active turn
+- **Open Review** for the active task, or **Back to conversation** while it
+  shows [Review](review-mode.md)
+- **Ask a side question** about the active task (Claude and Codex tasks;
+  see [Side questions](side-questions.md))
 - continue work in a new workspace
 - open create-PR flow
 - assign the task to an agent (**Assign to an agent…**: the composer's

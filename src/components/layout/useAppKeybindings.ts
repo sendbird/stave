@@ -16,6 +16,7 @@ import {
   paneHost,
 } from "@/components/panes/pane-host-controller";
 import { closePaneSurface } from "@/components/panes/pane-surface-actions";
+import { openTaskSideQuestion, toggleTaskReview } from "@/components/panes/task-surface-entry";
 import {
   canNavigateSurfaceHistory,
   navigateSurfaceHistory,
@@ -26,8 +27,6 @@ import { runPendingUndo } from "@/lib/notifications/pending-undo";
 import { buildPanePanelId } from "@/lib/panes/types";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { useAppStore } from "@/store/app.store";
-import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
-import { useSideChatStore } from "@/store/side-chat-store";
 
 /** Settings (and anything else outside the shell) asks for the shortcut list. */
 export const OPEN_KEYBOARD_SHORTCUTS_EVENT = "stave:open-keyboard-shortcuts";
@@ -114,9 +113,8 @@ function runAppChordAction(
       paneHost.toggleTerminalGroup();
       return;
     case "view.side-question":
-      if (store.activeTaskId) {
-        useSideChatStore.getState().open(store.activeTaskId);
-      }
+      // Brings the task to the front first: the panel sits on the task's surface.
+      openTaskSideQuestion(store.activeTaskId);
       return;
   }
 }
@@ -176,14 +174,11 @@ function createAppKeybindingHandlers(
     // Switches the active task between its conversation and Review, bringing
     // the task to the front when another tab has focus.
     "task.toggle-review": () => {
-      const { activeTaskId, activeSurface } = store();
+      const { activeTaskId } = store();
       if (!activeTaskId) {
         return false;
       }
-      if (activeSurface.kind !== "task" || activeSurface.taskId !== activeTaskId) {
-        paneHost.openSurface({ kind: "task", taskId: activeTaskId });
-      }
-      useTaskReviewModeStore.getState().toggle(activeTaskId);
+      toggleTaskReview(activeTaskId);
       return true;
     },
     "pane.split-right": () => {

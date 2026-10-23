@@ -72,7 +72,7 @@ collect it.
 
 ### Entry Points
 
-The composer's **Review** button starts a read-only, one-turn delegation in the
+The composer's **AI review** button starts a read-only, one-turn delegation in the
 same workspace; see [Review Tasks](review-tasks.md). The task and Fleet
 collaboration panels use the same coordinator as these Local MCP tools:
 

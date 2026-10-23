@@ -600,7 +600,7 @@
     "changedFilesBlock2": "파일",
     "changedFilesBlock3": "편집됨",
     "changedFilesBlock4": "대기 중",
-    "changedFilesBlock5": "모두 열기",
+    "changedFilesBlock5": "편집기에서 열기",
     "copy": "편집기에서 열기",
     "copy2": "수락",
     "copy3": "거부",
@@ -615,7 +615,9 @@
     "title": "클릭하여 원본 크기로 보기",
     "openImage": "{{label}} 크게 보기",
     "alt": "이미지 미리보기",
-    "fileChangeSummaryBlock_other": "{{value1}} 파일 변경됨"
+    "fileChangeSummaryBlock_other": "{{value1}} 파일 변경됨",
+    "reviewTurn": "검토",
+    "reviewTurnLabel": "이 턴의 변경 검토"
   },
   "chatPanelMessageParts": {
     "label": "복사",

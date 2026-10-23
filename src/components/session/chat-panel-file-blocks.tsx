@@ -3,7 +3,7 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
 import { FileChangeSummary } from "@/components/ads/components/FileChangeSummary";
 import { useMemo, useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, GitCompareArrows } from "lucide-react";
 import { Badge, Button, Card, ImageLightbox } from "@/components/ui";
 import {
   CodeBlock,
@@ -18,6 +18,7 @@ import {
   parseFileChangeToolInput,
   summarizeDiffLineChanges,
 } from "@/components/session/chat-panel.utils";
+import { openTaskReview } from "@/components/panes/task-surface-entry";
 import { chatDiffTabId } from "@/lib/editor/snapshot-diff-tabs";
 import {
   formatWorkspaceFilePathForDisplay,
@@ -108,6 +109,12 @@ function ChangeCount(args: { value: number; hue: DiffHue }) {
   );
 }
 
+/** The turn a message belongs to, read once: a message never changes turn. */
+function readMessageTurnId(taskId: string, messageId: string): string | null {
+  const messages = useAppStore.getState().messagesByTask[taskId] ?? [];
+  return messages.find((message) => message.id === messageId)?.turnId ?? null;
+}
+
 export function ChangedFilesBlock(args: {
   parts: CodeDiffPart[];
   taskId: string;
@@ -119,9 +126,28 @@ export function ChangedFilesBlock(args: {
    * the message's own and their indexes would resolve the wrong change.
    */
   readOnly?: boolean;
+  /**
+   * The turn's changed-files card in the conversation: it also offers Review
+   * on that turn once the turn has finished.
+   */
+  offerTurnReview?: boolean;
 }) {
   useTranslation();
-  const { parts, taskId, messageId, startIndex = 0, readOnly = false } = args;
+  const {
+    parts,
+    taskId,
+    messageId,
+    startIndex = 0,
+    readOnly = false,
+    offerTurnReview = false,
+  } = args;
+  const turnId = useMemo(
+    () => (offerTurnReview && !readOnly ? readMessageTurnId(taskId, messageId) : null),
+    [offerTurnReview, readOnly, taskId, messageId],
+  );
+  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId] ?? null);
+  // Review's turn scope reads a finished turn; while this one runs, its edits are still arriving.
+  const reviewTurnId = turnId && turnId !== liveTurnId ? turnId : null;
   const resolveDiff = useAppStore((state) => state.resolveDiff);
   const openDiffInEditor = useAppStore((state) => state.openDiffInEditor);
   const workspaceCwd = useAppStore(
@@ -205,18 +231,33 @@ export function ChangedFilesBlock(args: {
             <Badge variant="secondary">{pendingCount} {i18n.t("session:chatPanelFileBlocks.changedFilesBlock4")}</Badge>
           ) : null}
         </div>
-        <Button
-          type="button"
-          size="xs"
-          variant="ghost"
-          className={sx(styles.shrink0)}
-          onClick={() => {
-            rows.forEach((row, index) => {
-              openDiff({ part: row.part, index });
-            });
-          }}
-        >
-          {i18n.t("session:chatPanelFileBlocks.changedFilesBlock5")}</Button>
+        <div className={sx(styles.headerActions)}>
+          <Button
+            type="button"
+            size="xs"
+            variant="ghost"
+            onClick={() => {
+              rows.forEach((row, index) => {
+                openDiff({ part: row.part, index });
+              });
+            }}
+          >
+            {i18n.t("session:chatPanelFileBlocks.changedFilesBlock5")}</Button>
+          {reviewTurnId ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="outline"
+              aria-label={i18n.t("session:chatPanelFileBlocks.reviewTurnLabel")}
+              title={i18n.t("session:chatPanelFileBlocks.reviewTurnLabel")}
+              data-testid="changed-files-review-turn"
+              onClick={() => openTaskReview(taskId, { kind: "turn", taskId, turnId: reviewTurnId })}
+            >
+              <GitCompareArrows aria-hidden />
+              {i18n.t("session:chatPanelFileBlocks.reviewTurn")}
+            </Button>
+          ) : null}
+        </div>
       </div>
       <div className={sx(styles.divideList)}>
         {rows.map((row, index) => {

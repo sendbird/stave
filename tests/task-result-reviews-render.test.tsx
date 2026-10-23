@@ -110,7 +110,7 @@ test("a run's reported files read like the conversation's changed files, without
   expect(html).toContain("1 file edited");
   expect(html).toContain("1 more · contents not saved");
   expect(html).toContain("src/b.ts");
-  expect(html).toContain("Open All");
+  expect(html).toContain("Open in editor");
   expect(html).not.toContain("Accept");
   expect(html).not.toContain("Reject");
   expect(html).not.toContain("pending");

@@ -146,5 +146,9 @@
     "copyBreadcrumbsPath": "Copy Breadcrumbs Path"
   },
   "paneTabChip.closeNamed": "Close {{title}} pane",
-  "terminalSurfacePanel.clear": "Clear terminal"
+  "terminalSurfacePanel.clear": "Clear terminal",
+  "taskHeaderActions": {
+    "sideQuestion": "Side question",
+    "sideQuestionHint": "Ask about this task without interrupting it"
+  }
 }

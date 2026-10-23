@@ -117,6 +117,8 @@ function createContext(
       splitActivePanel: () => {},
       showOverlayTab: () => {},
       stopActiveTurn: () => {},
+      toggleTaskReview: () => {},
+      askSideQuestion: () => {},
       switchWorkspace: async () => {},
       toggleChangesPanel: () => {},
       toggleEditor: () => {},
@@ -360,6 +362,48 @@ describe("command palette registry", () => {
     expect(
       task?.items.some((item) => item.id === "task.compare-providers"),
     ).toBe(false);
+  });
+
+  test("offers Review for the active task, named for the way back while Review shows", () => {
+    const calls: string[] = [];
+    const context = createContext();
+    context.commands.toggleTaskReview = () => { calls.push("toggle"); };
+    const find = (groups: ReturnType<typeof buildCommandPaletteGroups>) =>
+      groups.flatMap((group) => group.items).find((item) => item.id === "task.toggle-review");
+
+    const open = find(buildCommandPaletteGroups(context));
+    expect(open?.title).toBe("Open Review");
+    expect(open?.shortcut).toBe("Cmd+Alt+R");
+    open?.run();
+    expect(calls).toEqual(["toggle"]);
+
+    expect(find(buildCommandPaletteGroups(createContext({ activeTaskSurfaceMode: "review" })))?.title).toBe("Back to conversation");
+    expect(find(buildCommandPaletteGroups(createContext({ activeTaskId: "" })))).toBeUndefined();
+  });
+
+  test("offers a side question for Claude and Codex tasks, with the chord's own key", () => {
+    const calls: string[] = [];
+    const context = createContext({
+      appShortcutKeys: assignAppShortcutKey({
+        actionId: "view.side-question",
+        shortcutKeys: normalizeAppShortcutKeys(),
+        nextKey: "y",
+      }),
+    });
+    context.commands.askSideQuestion = () => { calls.push("ask"); };
+    const items = buildCommandPaletteGroups(context).flatMap((group) => group.items);
+    const ask = items.find((item) => item.id === "view.side-question");
+    expect(ask?.title).toBe("Ask a side question");
+    expect(ask?.shortcut).toBe("Cmd+K Y");
+    ask?.run();
+    expect(calls).toEqual(["ask"]);
+
+    // A task on another provider has no read-only path to answer it.
+    const cursorTask = createContext({
+      tasks: [{ id: "task-1", isActive: true, isResponding: false, provider: "cursor", title: "Cursor task" }],
+    });
+    expect(buildCommandPaletteGroups(cursorTask).flatMap((group) => group.items).some((item) => item.id === "view.side-question")).toBe(false);
+    expect(buildCommandPaletteGroups(createContext({ activeTaskId: "" })).flatMap((group) => group.items).some((item) => item.id === "view.side-question")).toBe(false);
   });
 
   test("uses customized shell chord labels for panel actions", () => {
