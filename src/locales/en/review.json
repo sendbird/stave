@@ -6,7 +6,15 @@
     "conversation": "Conversation",
     "review": "Review",
     "backToConversation": "Back to conversation",
-    "openReview": "Review this task's work"
+    "openReview": "Review this task's work",
+    "backToReview": "Back to Review"
+  },
+  "taskStatus": {
+    "working": "This task is still running.",
+    "approval": "This task is waiting for your approval.",
+    "userInput": "This task is waiting for your answer.",
+    "respond": "Respond in conversation",
+    "watch": "Show conversation"
   },
   "scope": {
     "label": "Review scope",

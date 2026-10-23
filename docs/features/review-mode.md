@@ -66,8 +66,15 @@ Review is not saved across restarts: every task opens on its conversation.
 
 ### Key Controls
 
+- While the task runs, one line above the scope bar says so, with **Show
+  conversation** and **Stop**. When the task waits for your approval or your
+  answer, the line says that instead, with **Respond in conversation**, which
+  shows the conversation where the request is. Review never switches away by
+  itself, and the line takes no room while the task is idle.
 - **Conversation** at the start of the scope bar returns to the
   conversation. Review keeps its scope and read files for the next time.
+- **Side question** in the pane header opens the
+  [side question](side-questions.md) panel over Review.
 - **Scope**: **This turn**, **This stage** (with an agent run), **Branch** or
   **Uncommitted**. Next to it, Review names the scope's base and the revision
   it reads now, for example
@@ -93,7 +100,8 @@ Review is not saved across restarts: every task opens on its conversation.
   marked reviewed and, apart from that, whether it was read (`Not reviewed
   yet · Read Oct 22, 9:30 AM`), or the stage's report.
 - The diff shows the selected file. **Comment in editor** opens it in the
-  editor's diff, where you add line comments.
+  editor's diff, where you add line comments. **Back to Review** in that
+  editor tab's toolbar returns to this task's Review on the same scope.
 - **Completion checks** shows the run's **Done when** criteria with the checks
   Stave ran, such as `Stave checks: 1 of 2 passed (lint); still needed: test`.
   Passing checks are not a review or a sign-off.

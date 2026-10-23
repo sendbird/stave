@@ -4,6 +4,7 @@ import type { AsyncState } from "@/components/ads/utils/async";
 import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
 import { sx } from "@/components/ads/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
+import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { findLatestFinishedTurnId } from "@/lib/fleet/result-auto-review";
@@ -24,6 +25,7 @@ import { ReviewFileList } from "./ReviewFileList";
 import { ReviewInspector } from "./ReviewInspector";
 import { StageOutput, TurnOutput } from "./ReviewOutputs";
 import { ReviewScopeBar, ReviewScopeLimits } from "./ReviewScopeBar";
+import { ReviewTaskStatusLine } from "./ReviewTaskStatusLine";
 import { reviewStyles as styles } from "./review.styles";
 import { useDiffReviewData, useTurnReviewData, type ReviewData } from "./useReviewData";
 
@@ -99,8 +101,10 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   const markRead = useTaskReviewModeStore((store) => store.markRead);
   return (
     <>
+      <ReviewTaskStatusLine taskId={taskId} />
       <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} />
       <ReviewScopeLimits limits={data?.limits ?? (scope.kind === "turn" ? ["reported-edits-only"] : [])} />
+      <div className={sx(styles.layoutHost)}>
       <WorkspaceLayout
         fill
         xstyle={styles.layout}
@@ -118,7 +122,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
           <div className={sx(styles.region)} role="region" aria-label={i18n.t("review:diff.title")}>
             {data && selected
               // A file is read once its diff has shown, not when it is selected: a refused or failed read is not.
-              ? <ReviewDiffPane key={`${selected.path}:${selected.oldPath ?? ""}`} scope={scope} cwd={props.cwd} data={data} file={selected} onShown={() => markRead(taskId, scope, selected.path)} />
+              ? <ReviewDiffPane key={`${selected.path}:${selected.oldPath ?? ""}`} taskId={taskId} workspaceId={props.workspaceId} scope={scope} cwd={props.cwd} data={data} file={selected} onShown={() => markRead(taskId, scope, selected.path)} />
               : <p className={sx(styles.note)}>{data ? i18n.t("review:diff.noChanges") : ""}</p>}
           </div>
         }
@@ -128,6 +132,10 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
           </div>
         }
       />
+        <div className={sx(styles.overlay)}>
+          <SideChatPanel taskId={taskId} host="review" />
+        </div>
+      </div>
       <ReviewDecisions taskId={taskId} workspaceId={props.workspaceId} scope={scope} detail={props.detail} read={read} data={data} latestTurnId={props.latestTurnId} />
     </>
   );

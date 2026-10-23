@@ -113,10 +113,6 @@ export const useSideChatStore = create<SideChatState>((set, get) => ({
   draftByTask: {},
   exchangeByTask: {},
   open: (taskId, question) => {
-    // The panel sits over the task's conversation, which Review hides: an
-    // entry point outside the conversation (the chord, Activity's button)
-    // brings it back.
-    useTaskReviewModeStore.getState().showConversation(taskId);
     set((state) => ({
       openTaskId: taskId,
       focusNonce: state.focusNonce + 1,
@@ -195,6 +191,8 @@ export function copySideAnswerToComposer(taskId: string, answer: string) {
   const app = useAppStore.getState();
   const draft = app.promptDraftByTask[taskId]?.text ?? "";
   app.updatePromptDraft({ taskId, patch: { text: appendQuotedAnswer(draft, answer) } });
+  // The composer is hidden under Review: show the conversation the draft is in.
+  useTaskReviewModeStore.getState().showConversation(taskId);
   useAppStore.setState((state) => ({ promptFocusNonce: state.promptFocusNonce + 1 }));
 }
 

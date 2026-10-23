@@ -6,7 +6,15 @@
     "conversation": "대화",
     "review": "검토",
     "backToConversation": "대화로 돌아가기",
-    "openReview": "이 작업이 한 일 검토"
+    "openReview": "이 작업이 한 일 검토",
+    "backToReview": "검토로 돌아가기"
+  },
+  "taskStatus": {
+    "working": "이 작업은 아직 실행 중입니다.",
+    "approval": "이 작업이 승인을 기다리고 있습니다.",
+    "userInput": "이 작업이 답변을 기다리고 있습니다.",
+    "respond": "대화에서 응답하기",
+    "watch": "대화 보기"
   },
   "scope": {
     "label": "검토 범위",

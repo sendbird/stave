@@ -4,8 +4,9 @@
 
 - Ask the task's provider a quick question about the task while its agent
   works: what it is doing, why it chose something, what it decided.
-- The answer appears in a panel beside the conversation. Nothing is added to
-  the task's conversation, its next turn or the message you are writing.
+- The answer appears in a panel over the conversation, or over
+  [Review](review-mode.md) when the task shows it. Nothing is added to the
+  task's conversation, its next turn or the message you are writing.
 
 ## When To Use It
 
@@ -25,8 +26,8 @@
 1. Choose **Side question** at the right of the task's tab strip, type your
    question and press `Enter`. Or type `/aside` followed by your question in
    the composer and press `Enter`.
-2. The side question panel opens beside the conversation and shows the
-   answer.
+2. The side question panel opens over the conversation, or over Review, and
+   shows the answer.
 3. Close the panel with its close button or `Esc`.
 
 ## Interface Walkthrough
@@ -44,14 +45,16 @@
 - **Ask a side question** in the command palette.
 - The question button next to the **Turn** picker in the Task panel's
   **Activity** tab.
-- The panel sits over the task's conversation. Opening it while the task
-  shows [Review](review-mode.md) switches the task back to its conversation.
+- The panel opens over whatever the task shows: its conversation, or
+  [Review](review-mode.md), which stays open. Switching between the two keeps
+  the panel open.
 
 ### Key Controls
 
 - The question field: `Enter` asks, `Shift+Enter` adds a line.
 - **Copy to composer** adds the answer to your draft as a quote, below what
-  the draft already says. Nothing is sent until you send it.
+  the draft already says, and shows the task's conversation if Review was
+  open. Nothing is sent until you send it.
 - **New question** clears the answer for another question.
 - `Esc` closes the panel. It never stops the task's turn, unlike `Esc`
   elsewhere in the task pane.

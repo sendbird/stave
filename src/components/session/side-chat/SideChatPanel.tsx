@@ -13,16 +13,22 @@ import {
   useSideChatStore,
   type SideChatExchange,
 } from "@/store/side-chat-store";
+import { useTaskReviewModeStore, type TaskSurfaceMode } from "@/store/task-review-mode-store";
 import { sideChatStyles as styles } from "./side-chat-panel.styles";
 
 /**
- * The side question panel, beside the task's conversation: ask the task's
- * provider about the task without interrupting its turn. The answer stays
- * here, in memory; only "Copy to composer" puts it, quoted, in the draft.
+ * The side question panel, over the task's conversation or its Review: ask
+ * the task's provider about the task without interrupting its turn or leaving
+ * what you are reading. The answer stays here, in memory; only "Copy to
+ * composer" puts it, quoted, in the draft.
+ *
+ * Both hosts stay mounted (the conversation sits hidden under Review), so each
+ * renders the panel only while its mode shows.
  */
-export function SideChatPanel(props: { taskId: string }) {
+export function SideChatPanel(props: { taskId: string; host: TaskSurfaceMode }) {
   const open = useSideChatStore((state) => Boolean(props.taskId) && state.openTaskId === props.taskId);
-  return open ? <SideChatCard taskId={props.taskId} /> : null;
+  const mode = useTaskReviewModeStore((state) => state.byTask[props.taskId]?.mode ?? "conversation");
+  return open && mode === props.host ? <SideChatCard taskId={props.taskId} /> : null;
 }
 
 function SideChatCard(props: { taskId: string }) {
