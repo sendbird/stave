@@ -29,6 +29,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { CountBadge } from "@/components/system/CountBadge";
+import { ReviewEditorOriginButton } from "@/components/review/ReviewEditorOriginButton";
 import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { editorSurfaceToolbarStyles as s } from "./editor-surface-toolbar.styles";
@@ -86,6 +87,7 @@ export function EditorSurfaceToolbar(args: {
           </TooltipContent>
         </Tooltip>
         <div className={sx(s.actions)}>
+          <ReviewEditorOriginButton editorTabId={args.tab.id} />
           <Tooltip>
             <TooltipTrigger render={<span className={sx(s.inlineFlex)} />}>
               <Button

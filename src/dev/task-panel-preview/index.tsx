@@ -766,7 +766,7 @@ export function TaskPanelPreview() {
           {side || returning ? (
             <div className={sx(styles.conversation)} data-testid="side-chat-frame">
               {returning ? <ReturnSummaryCard taskId={PLAIN_TASK_ID} /> : null}
-              {side ? <SideChatPanel taskId={PLAIN_TASK_ID} /> : null}
+              {side ? <SideChatPanel taskId={PLAIN_TASK_ID} host="conversation" /> : null}
             </div>
           ) : null}
           <div className={sx(styles.frame)} style={{ width: panelWidth }} data-testid="task-panel-frame">

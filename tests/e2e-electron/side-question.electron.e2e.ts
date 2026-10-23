@@ -101,6 +101,17 @@ test("a side question during a running turn leaves the transcript and the next i
     await expect(conversation).not.toContainText("Done.");
     await expect(composer).toHaveText(DRAFT);
 
+    // While the turn holds, Review says the task still runs, and the side question stays open over it.
+    await page.getByTestId("pane-header-review").click();
+    const review = page.getByTestId("task-review-surface");
+    await expect(review.getByTestId("review-task-status")).toContainText("This task is still running.");
+    await expect(review.getByTestId("side-chat")).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath("side-question-over-review.png") });
+    await review.getByTestId("review-back-to-conversation").click();
+    await expect(review).toHaveCount(0);
+    await expect(panel).toBeVisible();
+    await expect(composer).toHaveText(DRAFT);
+
     // The task's turn ends on its own, still with only its own reply.
     await writeFile(path.join(fakeDir, "release"), "");
     await expect(conversation).toContainText("Done.", { timeout: 60_000 });

@@ -23,7 +23,9 @@
   of the same task is ignored until the first one finishes.
 - In [Review mode](review-mode.md), **Comment in editor** on a file opens its
   diff here, and **Send comments** in Review's decision bar sends the task's
-  pending comments the same way, then shows the task's conversation.
+  pending comments the same way, then shows the task's conversation. A diff
+  opened from Review has **Back to Review** in the editor toolbar, which
+  returns to that task's Review on the scope you left.
 
 ## After Sending
 

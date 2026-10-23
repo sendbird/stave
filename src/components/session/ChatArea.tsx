@@ -383,7 +383,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
             </RenderProfiler>
             {/* What changed while you were away, then a side question about the task. */}
             <ReturnSummaryCard taskId={activeTaskId} />
-            <SideChatPanel taskId={activeTaskId} />
+            <SideChatPanel taskId={activeTaskId} host="conversation" />
           </div>
           {/* Outside the pointer-events-none overlay, and outside both of its
               triggers: the exchange card clears on a linger timer and the

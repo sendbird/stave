@@ -19,6 +19,7 @@ import {
 import { hasSourceControlStagedChanges, type SourceControlStatusItem } from "@/lib/source-control-status";
 import { resolveWorkspaceTodoStatus } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { TaskPanel } from "@/components/session/TaskPanel";
 import { RightRailPanelShell } from "./RightRailPanelShell";
@@ -623,6 +624,11 @@ export function EditorPanel(props: EditorPanelProps) {
           newContent: result.newContent,
         }
       : parseUnifiedDiffToBuffers({ patch: result.content });
+    // The Changes panel's diff, not Review's: the tab no longer leads back to Review.
+    useTaskReviewModeStore.getState().forgetEditorOrigin({
+      workspaceId: useAppStore.getState().activeWorkspaceId,
+      editorTabId: `scm-diff:${args.path}`,
+    });
     await openDiffInEditor({
       editorTabId: `scm-diff:${args.path}`,
       filePath: args.path,

@@ -37,11 +37,31 @@ interface TaskReviewModeState {
   toggle: (taskId: string) => void;
   setScope: (taskId: string, scope: ReviewScope) => void;
   markRead: (taskId: string, scope: ReviewScope, path: string) => void;
+  /**
+   * The Review each editor diff was opened from with "Comment in editor", by
+   * `editorOriginKey` (workspace and editor tab: every workspace reuses
+   * `scm-diff:<path>`), so the editor offers the way back to that task and scope.
+   */
+  originByEditorTab: Readonly<Record<string, ReviewEditorOrigin | undefined>>;
+  rememberEditorOrigin: (args: { workspaceId: string; editorTabId: string } & ReviewEditorOrigin) => void;
+  /** The tab now shows a diff opened from elsewhere (the Changes panel shares `scm-diff:` ids). */
+  forgetEditorOrigin: (args: { workspaceId: string; editorTabId: string }) => void;
+}
+
+/** The key of an editor tab's Review origin: tab ids repeat across workspaces. */
+export function editorOriginKey(workspaceId: string, editorTabId: string): string {
+  return `${workspaceId}\u0000${editorTabId}`;
+}
+
+export interface ReviewEditorOrigin {
+  taskId: string;
+  scope: ReviewScope;
 }
 
 export const useTaskReviewModeStore = create<TaskReviewModeState>()((set) => ({
   byTask: {},
   readByTask: {},
+  originByEditorTab: {},
   openReview: (taskId, scope) =>
     set((state) => {
       const current = state.byTask[taskId];
@@ -71,5 +91,19 @@ export const useTaskReviewModeStore = create<TaskReviewModeState>()((set) => ({
       const read = state.readByTask[taskId]?.[key] ?? [];
       if (read.includes(path)) return state;
       return { readByTask: { ...state.readByTask, [taskId]: { ...state.readByTask[taskId], [key]: [...read, path] } } };
+    }),
+  rememberEditorOrigin: ({ workspaceId, editorTabId, taskId, scope }) =>
+    set((state) => {
+      const key = editorOriginKey(workspaceId, editorTabId);
+      const current = state.originByEditorTab[key];
+      if (current?.taskId === taskId && sameReviewScope(current.scope, scope)) return state;
+      return { originByEditorTab: { ...state.originByEditorTab, [key]: { taskId, scope } } };
+    }),
+  forgetEditorOrigin: ({ workspaceId, editorTabId }) =>
+    set((state) => {
+      const key = editorOriginKey(workspaceId, editorTabId);
+      if (!state.originByEditorTab[key]) return state;
+      const { [key]: _forgotten, ...rest } = state.originByEditorTab;
+      return { originByEditorTab: rest };
     }),
 }));

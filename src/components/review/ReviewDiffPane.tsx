@@ -4,9 +4,11 @@ import { MessageSquarePlus } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
 import { sx } from "@/components/ads/utils/stylex";
+import { paneHost } from "@/components/panes/pane-host-controller";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import type { ReviewFile, ReviewScope } from "@/lib/review/review-scope";
 import { useAppStore } from "@/store/app.store";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { describeReviewReadError } from "./review-errors";
 import { reviewStyles as styles } from "./review.styles";
 import { useReviewFileContent, type ReviewData } from "./useReviewData";
@@ -21,7 +23,7 @@ export function isReviewDiffShown(state: { status: string }): boolean {
   return state.status === "ready";
 }
 
-export function ReviewDiffPane(props: { scope: ReviewScope; cwd: string | null; data: ReviewData; file: ReviewFile; onShown?: () => void }) {
+export function ReviewDiffPane(props: { taskId: string; workspaceId: string; scope: ReviewScope; cwd: string | null; data: ReviewData; file: ReviewFile; onShown?: () => void }) {
   useTranslation();
   const { file } = props;
   const content = useReviewFileContent({ cwd: props.cwd, data: props.data, file });
@@ -36,7 +38,15 @@ export function ReviewDiffPane(props: { scope: ReviewScope; cwd: string | null; 
     const { oldContent, newContent } = content.state.data;
     // A turn's edit is a snapshot of that turn; the other scopes end at the working tree.
     const editorTabId = props.scope.kind === "turn" ? `chat-diff:review:${props.scope.turnId}:${file.path}` : `scm-diff:${file.path}`;
-    await useAppStore.getState().openDiffInEditor({ editorTabId, filePath: file.path, oldContent, newContent });
+    // Switching workspaces while the file is read must not open this diff in the other one.
+    const isStale = () => useAppStore.getState().activeWorkspaceId !== props.workspaceId;
+    await useAppStore.getState().openDiffInEditor({ editorTabId, filePath: file.path, oldContent, newContent, isStale });
+    if (isStale()) return;
+    // The editor offers "Back to Review" on this task and scope.
+    useTaskReviewModeStore.getState().rememberEditorOrigin({ workspaceId: props.workspaceId, editorTabId, taskId: props.taskId, scope: props.scope });
+    // Bring the editor forward even when its tab was already the active one,
+    // as after Back to Review: opening the same diff again selects nothing new.
+    paneHost.openSurface({ kind: "editor", editorTabId });
   };
   return (
     <div className={sx(styles.section)}>

@@ -229,7 +229,8 @@ describe("the host's side question", () => {
 });
 
 describe("the side question panel", () => {
-  const render = () => renderToStaticMarkup(createElement(SideChatPanel, { taskId: TASK_ID }));
+  const render = (host: "conversation" | "review" = "conversation") =>
+    renderToStaticMarkup(createElement(SideChatPanel, { taskId: TASK_ID, host }));
   // Server rendering reads the store's initial state, so the panel's state is seeded there.
   const initial = useSideChatStore.getInitialState();
   const original = { openTaskId: initial.openTaskId, exchangeByTask: initial.exchangeByTask };
@@ -252,18 +253,38 @@ describe("the side question panel", () => {
     expect(render()).toContain("컴포저에 복사");
   });
 
-  test("opening it while the task shows Review brings the task's conversation back, where the panel sits", async () => {
+  test("opening it while the task shows Review keeps Review, and the panel shows over Review", async () => {
     const { useTaskReviewModeStore } = await import("@/store/task-review-mode-store");
     const before = useSideChatStore.getState().openTaskId;
     try {
       useTaskReviewModeStore.getState().openReview("task-review");
-      expect(useTaskReviewModeStore.getState().byTask["task-review"]?.mode).toBe("review");
       useSideChatStore.getState().open("task-review");
-      expect(useTaskReviewModeStore.getState().byTask["task-review"]?.mode).toBe("conversation");
+      expect(useTaskReviewModeStore.getState().byTask["task-review"]?.mode).toBe("review");
       expect(useSideChatStore.getState().openTaskId).toBe("task-review");
     } finally {
       useSideChatStore.setState({ openTaskId: before });
+      useTaskReviewModeStore.getState().showConversation("task-review");
     }
+    // The conversation stays mounted, hidden, under Review: only the host its mode shows renders the panel.
+    const modes = useTaskReviewModeStore.getInitialState();
+    const savedModes = modes.byTask;
+    Object.assign(initial, { openTaskId: TASK_ID });
+    try {
+      expect(render("conversation")).toContain('data-testid="side-chat"');
+      expect(render("review")).toBe("");
+      modes.byTask = { [TASK_ID]: { mode: "review" } };
+      expect(render("review")).toContain('data-testid="side-chat"');
+      expect(render("conversation")).toBe("");
+    } finally {
+      modes.byTask = savedModes;
+    }
+  });
+
+  test("Copy to composer from over Review shows the conversation the draft is in", async () => {
+    const { useTaskReviewModeStore } = await import("@/store/task-review-mode-store");
+    useTaskReviewModeStore.getState().openReview(TASK_ID);
+    copySideAnswerToComposer(TASK_ID, "Yes.");
+    expect(useTaskReviewModeStore.getState().byTask[TASK_ID]?.mode).toBe("conversation");
   });
 
   test("Escape inside the panel never stops the task's turn", () => {
