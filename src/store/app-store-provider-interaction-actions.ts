@@ -303,6 +303,7 @@ export function createProviderInteractionActions(args: {
       });
       if (activeTurnId && workspaceId) {
         void reconcileStopOfFinishedTurn({
+          get,
           set,
           workspaceId,
           taskId,

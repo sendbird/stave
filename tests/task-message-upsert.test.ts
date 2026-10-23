@@ -334,6 +334,31 @@ describe("upsertTaskMessages", () => {
     expect(stored("m-8")?.parts[0]).toMatchObject({ state: "approval-responded" });
   });
 
+  test("a stop that marks a question interrupted keeps the stored answer", () => {
+    const question = {
+      type: "user_input",
+      requestId: "question-3",
+      toolName: "AskUserQuestion",
+      questions: [],
+    };
+    upsert([
+      {
+        ...assistantMessage({ id: "m-9", turnId: "turn-a", content: "Asked.", partCount: 0, completedAt: "2026-01-01T00:05:00.000Z" }),
+        parts: [{ ...question, state: "input-responded", answers: { q: "yes" } }],
+      },
+    ]);
+    // Same length, so the content rule accepts it; the answer must survive.
+    expect(
+      upsert([
+        {
+          ...assistantMessage({ id: "m-9", turnId: "turn-a", content: "Asked.", partCount: 0, completedAt: "2026-01-01T03:00:00.000Z" }),
+          parts: [{ ...question, state: "input-interrupted" }],
+        },
+      ]),
+    ).toEqual([]);
+    expect(stored("m-9")?.parts[0]).toMatchObject({ state: "input-responded", answers: { q: "yes" } });
+  });
+
   test("applies ordinary progress, completion and same-size edits", () => {
     upsert([
       assistantMessage({

@@ -201,6 +201,23 @@ describe("mergeTaskMessagePage latest order", () => {
     expect(chosen.parts.at(-1)).toMatchObject({ state: "approval-responded" });
   });
 
+  test("an answer outranks the interrupted state a stop leaves", () => {
+    const question = {
+      type: "user_input" as const,
+      requestId: "question-3",
+      toolName: "AskUserQuestion",
+      questions: [],
+    };
+    const chosen = pickFresherTaskMessage({
+      resident: { ...finishedReply, parts: [...finishedReply.parts, { ...question, state: "input-interrupted" as const }] },
+      persisted: {
+        ...finishedReply,
+        parts: [...finishedReply.parts, { ...question, state: "input-responded" as const, answers: { q: "yes" } }],
+      },
+    });
+    expect(chosen.parts.at(-1)).toMatchObject({ state: "input-responded", answers: { q: "yes" } });
+  });
+
   test("an unknown interaction state is not treated as an answer", () => {
     const requested = {
       type: "user_input" as const,
@@ -344,7 +361,10 @@ describe("reconcileStopOfFinishedTurn", () => {
     (globalThis as { window?: unknown }).window = originalWindow;
   });
 
-  function installPersistence(args: { completedAt: string | null }) {
+  function installPersistence(args: {
+    completedAt: string | null;
+    beforePage?: () => Promise<void>;
+  }) {
     (globalThis as { window: unknown }).window = {
       api: {
         persistence: {
@@ -364,7 +384,9 @@ describe("reconcileStopOfFinishedTurn", () => {
               },
             ],
           }),
-          loadTaskMessages: async () => ({
+          loadTaskMessages: async () => {
+            await args.beforePage?.();
+            return {
             ok: true,
             page: {
               messages: [
@@ -377,7 +399,8 @@ describe("reconcileStopOfFinishedTurn", () => {
               offset: 0,
               hasMoreOlder: false,
             },
-          }),
+            };
+          },
         },
       },
     };
@@ -393,13 +416,29 @@ describe("reconcileStopOfFinishedTurn", () => {
     const set = ((update: (current: typeof state) => Partial<typeof state>) => {
       state = { ...state, ...update(state) };
     }) as unknown as Parameters<typeof reconcileStopOfFinishedTurn>[0]["set"];
-    return { set, read: () => state };
+    const get = (() => state) as unknown as Parameters<typeof reconcileStopOfFinishedTurn>[0]["get"];
+    const append = (message: ChatMessage) => {
+      const session = state.workspaceRuntimeCacheById[WORKSPACE_ID]!;
+      state = {
+        ...state,
+        workspaceRuntimeCacheById: {
+          [WORKSPACE_ID]: {
+            ...session,
+            messagesByTask: {
+              [TASK_ID]: [...(session.messagesByTask[TASK_ID] ?? []), message],
+            },
+          },
+        },
+      };
+    };
+    return { get, set, read: () => state, append };
   }
 
   test("reloads persisted messages when the stopped turn had already finished", async () => {
     installPersistence({ completedAt: "2026-01-01T07:39:42.000Z" });
-    const { set, read } = createState();
+    const { get, set, read } = createState();
     const reconciled = await reconcileStopOfFinishedTurn({
+      get,
       set,
       workspaceId: WORKSPACE_ID,
       taskId: TASK_ID,
@@ -412,10 +451,35 @@ describe("reconcileStopOfFinishedTurn", () => {
     expect(messages[1]?.content).toBe(finishedReply.content);
   });
 
+  test("keeps messages a new turn added while the reload was in flight", async () => {
+    let appendDuringLoad: (() => void) | null = null;
+    installPersistence({
+      completedAt: "2026-01-01T07:39:42.000Z",
+      beforePage: async () => {
+        appendDuringLoad?.();
+      },
+    });
+    const { get, set, read, append } = createState();
+    const newPrompt = user("m-10-turn-next", "Next request");
+    appendDuringLoad = () => append(newPrompt);
+    await reconcileStopOfFinishedTurn({
+      get,
+      set,
+      workspaceId: WORKSPACE_ID,
+      taskId: TASK_ID,
+      turnId: "turn-a",
+      stopRequestedAt: "2026-01-01T10:07:00.000Z",
+    });
+    const messages = read().workspaceRuntimeCacheById[WORKSPACE_ID]?.messagesByTask[TASK_ID] ?? [];
+    expect(messages.map((message) => message.id)).toEqual(["m-7", "m-8", "m-9", "m-10-turn-next"]);
+    expect(messages.at(-1)).toBe(newPrompt);
+  });
+
   test("leaves a genuinely running turn to the stop", async () => {
     installPersistence({ completedAt: null });
-    const { set, read } = createState();
+    const { get, set, read } = createState();
     const reconciled = await reconcileStopOfFinishedTurn({
+      get,
       set,
       workspaceId: WORKSPACE_ID,
       taskId: TASK_ID,

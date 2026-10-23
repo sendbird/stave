@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import {
   carryForwardInteractionAnswers,
-  hasRequestedInteraction,
+  hasUnansweredInteraction,
 } from "../../src/lib/session/interaction-state-merge";
 import type { PersistenceChatMessageRow } from "./types";
 
@@ -20,9 +20,9 @@ import type { PersistenceChatMessageRow } from "./types";
  *   stop adds a notice part to an older copy). The approval and question
  *   answers such a copy carries are still merged into the stored row.
  *
- * Answers also never move backwards on an accepted write: before a copy that
- * still shows a request is written, the stored row's answer to that request is
- * carried into it.
+ * Answers also never move backwards on an accepted write: before a copy with
+ * an unanswered (requested or interrupted) interaction is written, the stored
+ * row's further-along state for that request is carried into it.
  *
  * Every comparison uses `IS` / `IS NOT` so a missing JSON field never turns the
  * guard into NULL, which SQLite would read as "skip the update".
@@ -130,7 +130,7 @@ function mergeInteractionStates(args: {
     : null;
 }
 
-/** Puts the stored row's answers into a copy that still shows the request. */
+/** Puts the stored row's further-along answers into an incoming copy. */
 function carryStoredAnswers(args: {
   message: PersistenceChatMessageRow;
   storedJson: string | null;
@@ -175,7 +175,7 @@ export function upsertTaskMessages(args: {
     const rowId = `${args.workspaceId}:${args.taskId}:${incoming.id}`;
     const message = carryStoredAnswers({
       message: incoming,
-      storedJson: hasRequestedInteraction(incoming.parts)
+      storedJson: hasUnansweredInteraction(incoming.parts)
         ? ((readStoredJson.get(rowId) as { message_json: string | null } | undefined)
             ?.message_json ?? null)
         : null,

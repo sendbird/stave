@@ -1,18 +1,26 @@
 /**
- * Approval and question parts move one way: from a requested state to a
- * terminal one (responded, interrupted, denied). When two copies of the same
- * message disagree, a terminal state is never replaced and a requested one
- * takes the other copy's terminal state, so an answer given in either copy
- * survives. Shared by the persistence guard and the renderer page merge.
+ * Approval and question parts only move forward: requested, then interrupted
+ * (the turn ended without an answer), then answered (responded or denied).
+ * When two copies of the same message disagree, each request keeps the most
+ * advanced state either copy holds, so an answer given in either copy
+ * survives a stale copy, including one a stop marked as interrupted. Shared by
+ * the persistence guard and the renderer page merge.
  */
-const REQUESTED_STATE = {
-  approval: "approval-requested",
-  user_input: "input-requested",
-} as const;
-const TERMINAL_STATES = {
-  approval: new Set(["approval-responded", "approval-interrupted", "output-denied"]),
-  user_input: new Set(["input-responded", "input-interrupted", "input-denied"]),
-} as const;
+const STATE_RANK: Record<"approval" | "user_input", Record<string, number>> = {
+  approval: {
+    "approval-requested": 0,
+    "approval-interrupted": 1,
+    "approval-responded": 2,
+    "output-denied": 2,
+  },
+  user_input: {
+    "input-requested": 0,
+    "input-interrupted": 1,
+    "input-responded": 2,
+    "input-denied": 2,
+  },
+};
+const ANSWERED_RANK = 2;
 
 interface InteractionPartLike {
   type: "approval" | "user_input";
@@ -32,48 +40,58 @@ function isInteractionPart(part: unknown): part is InteractionPartLike {
   );
 }
 
-function isRequested(part: InteractionPartLike) {
-  return part.state === REQUESTED_STATE[part.type];
+/** Rank of a known state; unknown or missing states rank below every known one. */
+function stateRank(part: InteractionPartLike) {
+  return typeof part.state === "string"
+    ? (STATE_RANK[part.type][part.state] ?? -1)
+    : -1;
 }
 
-function isTerminal(part: InteractionPartLike) {
-  return typeof part.state === "string" && TERMINAL_STATES[part.type].has(part.state);
-}
-
-/** Whether any approval or question in `parts` still waits for an answer. */
-export function hasRequestedInteraction(parts: readonly unknown[]) {
-  return parts.some((part) => isInteractionPart(part) && isRequested(part));
+/** Whether any approval or question in `parts` has no answer yet. */
+export function hasUnansweredInteraction(parts: readonly unknown[]) {
+  return parts.some(
+    (part) => isInteractionPart(part) && stateRank(part) < ANSWERED_RANK,
+  );
 }
 
 /**
- * Returns `target` with every still-requested interaction replaced by the
- * terminal version `source` holds for the same request. `carried` is 0 and
- * `parts` is `target` itself when nothing moved.
+ * Returns `target` with every interaction replaced by the version `source`
+ * holds for the same request when that version is further along. `carried` is
+ * 0 and `parts` is `target` itself when nothing moved.
  */
 export function carryForwardInteractionAnswers<Part>(args: {
   target: readonly Part[];
   source: readonly unknown[];
 }): { parts: Part[]; carried: number } {
-  const answeredByRequest = new Map<string, Part>();
+  const furthestByRequest = new Map<string, { part: Part; rank: number }>();
   for (const part of args.source) {
-    if (isInteractionPart(part) && isTerminal(part)) {
-      answeredByRequest.set(`${part.type}:${part.requestId}`, part as Part);
+    if (!isInteractionPart(part)) {
+      continue;
+    }
+    const rank = stateRank(part);
+    if (rank < 0) {
+      continue;
+    }
+    const key = `${part.type}:${part.requestId}`;
+    const current = furthestByRequest.get(key);
+    if (!current || rank > current.rank) {
+      furthestByRequest.set(key, { part: part as Part, rank });
     }
   }
-  if (answeredByRequest.size === 0) {
+  if (furthestByRequest.size === 0) {
     return { parts: args.target as Part[], carried: 0 };
   }
   let carried = 0;
   const parts = args.target.map((part) => {
-    if (!isInteractionPart(part) || !isRequested(part)) {
+    if (!isInteractionPart(part)) {
       return part;
     }
-    const answered = answeredByRequest.get(`${part.type}:${part.requestId}`);
-    if (!answered) {
+    const furthest = furthestByRequest.get(`${part.type}:${part.requestId}`);
+    if (!furthest || furthest.rank <= stateRank(part)) {
       return part;
     }
     carried += 1;
-    return answered;
+    return furthest.part;
   });
   return carried > 0
     ? { parts, carried }

@@ -7,6 +7,7 @@ import { mergeTaskMessagePage } from "@/store/task-message-merge";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
 
 type StoreSet = StoreApi<AppState>["setState"];
+type StoreGet = StoreApi<AppState>["getState"];
 
 const RECENT_TURN_LOOKUP_LIMIT = 20;
 
@@ -16,15 +17,25 @@ const RECENT_TURN_LOOKUP_LIMIT = 20;
  * renderer missed its completion), the stop only stamps an old copy of the
  * reply. The persisted turn tells the two cases apart: a turn that completed
  * before the stop was requested ended on its own, so the task reloads its
- * latest persisted messages instead of keeping the stale copy.
+ * latest persisted messages instead of keeping the stale copy. Only the
+ * messages the task held when the stop ran are replaced; anything added while
+ * the reload was in flight (a new turn) is kept as it is.
  */
 export async function reconcileStopOfFinishedTurn(args: {
+  get: StoreGet;
   set: StoreSet;
   workspaceId: string;
   taskId: string;
   turnId: string;
   stopRequestedAt: string;
 }) {
+  const sessionAtStop = getWorkspaceSessionForState({
+    state: args.get(),
+    workspaceId: args.workspaceId,
+  });
+  const staleMessageIds = new Set(
+    (sessionAtStop?.messagesByTask[args.taskId] ?? []).map((message) => message.id),
+  );
   try {
     const turns = await listTaskTurns({
       workspaceId: args.workspaceId,
@@ -53,15 +64,29 @@ export async function reconcileStopOfFinishedTurn(args: {
       if (!session) {
         return {};
       }
-      const messages = mergeTaskMessagePage({
-        currentMessages: session.messagesByTask[args.taskId] ?? [],
-        pageMessages: page.messages,
+      const current = session.messagesByTask[args.taskId] ?? [];
+      const staleWindow = current.filter((message) => staleMessageIds.has(message.id));
+      const laterMessages = current.filter((message) => !staleMessageIds.has(message.id));
+      const laterIds = new Set(laterMessages.map((message) => message.id));
+      const reconciled = mergeTaskMessagePage({
+        currentMessages: staleWindow,
+        // A message added after the stop is live; its persisted copy must not
+        // replace it.
+        pageMessages: page.messages.filter((message) => !laterIds.has(message.id)),
         mode: "latest",
-        // The stop targeted a turn that had already ended, so the window is a
-        // stale copy and must not be appended after the persisted page.
+        // The stop targeted a turn that had already ended, so the window it
+        // held is a stale copy that the persisted page may replace.
         supersedeDisjointWindow: true,
       });
-      const messageCount = Math.max(page.totalCount, messages.length);
+      const messages = [...reconciled, ...laterMessages];
+      const persistedIds = new Set(page.messages.map((message) => message.id));
+      const unpersistedLater = laterMessages.filter(
+        (message) => !persistedIds.has(message.id),
+      ).length;
+      const messageCount = Math.max(
+        page.totalCount + unpersistedLater,
+        messages.length,
+      );
       if (args.workspaceId === state.activeWorkspaceId) {
         return {
           messagesByTask: { ...state.messagesByTask, [args.taskId]: messages },
