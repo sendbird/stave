@@ -32,17 +32,20 @@
 ## Quick Start
 
 1. Open a task.
-2. Choose **Review** in the **Conversation | Review** switch at the top of the
-   task, or press `Cmd/Ctrl+Alt+R`.
+2. Choose **Review** at the right of the task's tab strip, or press
+   `Cmd/Ctrl+Alt+R`.
 3. Pick a file in **Changed files** to read its diff.
-4. Choose **Conversation** (or press the shortcut again) to go back. The
+4. Choose **Conversation** at the start of Review's scope bar (or press the
+   shortcut again) to go back; the cursor returns to the composer. The
    conversation keeps its place while Review is open.
 
 ## Interface Walkthrough
 
 ### Entry Points
 
-- The **Conversation | Review** switch at the top of every task.
+- **Review** at the right of the pane's tab strip, beside **Side question**,
+  for the task that pane group shows. It shows pressed while Review is open;
+  choosing it again goes back to the conversation.
 - **Review** on a turn's changed-files card in the conversation opens Review
   on that turn, once the turn has finished. **Open in editor** on the same card
   opens each file's diff in the editor instead.
@@ -63,6 +66,8 @@ Review is not saved across restarts: every task opens on its conversation.
 
 ### Key Controls
 
+- **Conversation** at the start of the scope bar returns to the
+  conversation. Review keeps its scope and read files for the next time.
 - **Scope**: **This turn**, **This stage** (with an agent run), **Branch** or
   **Uncommitted**. Next to it, Review names the scope's base and the revision
   it reads now, for example
@@ -110,7 +115,8 @@ Review is not saved across restarts: every task opens on its conversation.
     (the latest stage that ran before the waiting one, at this attempt):
     **Sign off**, or **Ask for changes** with a note that runs the last AI
     stage again. Once the note is sent, the task shows its conversation, where
-    the stage runs again. An earlier stage offers neither. After the decision it shows
+    the stage runs again. After **Sign off**, the task also shows its
+    conversation, where the run continues, and Stave confirms **Signed off**. An earlier stage offers neither. After the decision it shows
     **Signed off** or **Changes asked** with the time, from the decision made
     about this stage only; a later stage's decision never shows on it.
   - In the other scopes: **Mark reviewed** marks the turn's output reviewed,
@@ -141,8 +147,8 @@ them implies another.
    card.
 2. Read the stage's files, check **Completion checks** and **Lens checks**.
 3. Choose **Sign off** to continue the run, or **Ask for changes**, write
-   what should change and choose **Send and run again**. The task returns to
-   its conversation, where the stage runs again.
+   what should change and choose **Send and run again**. Either way the task
+   returns to its conversation, where the run goes on.
 
 ## Files And Data
 

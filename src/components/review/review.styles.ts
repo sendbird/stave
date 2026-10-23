@@ -4,18 +4,6 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 export const reviewStyles = stylex.create({
   /* Task surface ----------------------------------------------------------- */
   taskSurface: { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, minWidth: 0 },
-  modeBar: {
-    display: "flex",
-    alignItems: "center",
-    gap: vars["--ads-space-8"],
-    flexShrink: 0,
-    paddingBlock: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-12"],
-    borderBottomWidth: vars["--ads-border-width-hairline"],
-    borderBottomStyle: "solid",
-    borderBottomColor: vars["--ads-color-border-subtle"],
-  },
-  modeHint: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
   modeBody: { flex: "1 1 auto", minHeight: 0, minWidth: 0, display: "flex", flexDirection: "column" },
   hidden: { display: "none" },
 

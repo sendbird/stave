@@ -3,9 +3,10 @@
     "label": "Review"
   },
   "mode": {
-    "label": "Task view",
     "conversation": "Conversation",
-    "review": "Review"
+    "review": "Review",
+    "backToConversation": "Back to conversation",
+    "openReview": "Review this task's work"
   },
   "scope": {
     "label": "Review scope",
@@ -116,7 +117,8 @@
       "none": "No sign-off for this stage",
       "feedbackLabel": "What should change? The last AI stage runs again with your note.",
       "send": "Send and run again",
-      "cancel": "Cancel"
+      "cancel": "Cancel",
+      "signedOffToast": "Signed off. The run continues."
     },
     "task": {
       "markReviewed": "Mark reviewed",

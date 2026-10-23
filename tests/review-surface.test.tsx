@@ -7,7 +7,6 @@ import { isReviewDiffShown } from "../src/components/review/ReviewDiffPane";
 import { ReviewFileList } from "../src/components/review/ReviewFileList";
 import { ReviewScopeBar, ReviewScopeLimits } from "../src/components/review/ReviewScopeBar";
 import { TaskReviewSurface } from "../src/components/review/TaskReviewSurface";
-import { TaskSurfaceModeBar } from "../src/components/review/TaskSurfaceModeBar";
 import { ReviewReadError, type ReviewData } from "../src/components/review/useReviewData";
 import { AsyncBoundary } from "../src/components/system/AsyncBoundary";
 import { useTaskReviewModeStore } from "../src/store/task-review-mode-store";
@@ -36,7 +35,7 @@ describe("Review surface", () => {
 
   test("the scope bar offers only the scopes the task has and says what each compares", () => {
     const render = (scope: Parameters<typeof ReviewScopeBar>[0]["scope"], available: Parameters<typeof ReviewScopeBar>[0]["available"]) =>
-      renderToStaticMarkup(createElement(ReviewScopeBar, { scope, available, data, onScope: () => {}, onRefresh: () => {} }));
+      renderToStaticMarkup(createElement(ReviewScopeBar, { scope, available, data, onScope: () => {}, onRefresh: () => {}, onConversation: () => {} }));
     const plain = render({ kind: "branch" }, ["turn", "branch", "uncommitted"]);
     expect(toggles(plain)).toEqual([{ label: "This turn", pressed: false }, { label: "Branch", pressed: true }, { label: "Uncommitted", pressed: false }]);
     expect(plain).toContain("Since abc1234, where the branch left origin/main, to the working tree at 9876543");
@@ -93,11 +92,14 @@ describe("Review surface", () => {
     expect(markup).toContain("This task has no agent run, so it has no completion checks.");
   });
 
-  test("the task view switch shows which view is on, in English and Korean", () => {
-    const render = () => renderToStaticMarkup(createElement(TaskSurfaceModeBar, { taskId: "task-1", mode: "review" }));
-    expect(toggles(render())).toEqual([{ label: "Conversation", pressed: false }, { label: "Review", pressed: true }]);
+  test("Review starts with the way back to the conversation, in English and Korean", () => {
+    useTaskReviewModeStore.getState().openReview("task-1", { kind: "uncommitted" });
+    const back = (markup: string) =>
+      markup.match(/<button[^>]*data-testid="review-back-to-conversation"[^>]*>(.*?)<\/button>/)?.[1]?.replace(/<[^>]+>/g, "").trim();
+    const render = () => renderToStaticMarkup(createElement(TaskReviewSurface, { taskId: "task-1" }));
+    expect(back(render())).toBe("Conversation");
     applyAppLocale("ko");
-    expect(toggles(render())).toEqual([{ label: "대화", pressed: false }, { label: "검토", pressed: true }]);
+    expect(back(render())).toBe("대화");
   });
 
   test("the mode is session state: opening Review on a scope, switching back, and reading files", () => {

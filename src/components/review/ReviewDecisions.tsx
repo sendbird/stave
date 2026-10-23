@@ -4,6 +4,7 @@ import { ApprovalBar } from "@/components/ads/components/ReviewStatus";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { showTaskConversation } from "@/components/panes/task-surface-entry";
+import { toast } from "@/components/ui";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -36,8 +37,9 @@ interface DecisionProps {
  * The decision at the end of Review (D13). A stage is signed off or sent back
  * with a note; a plain task is marked reviewed or gets its comments sent.
  * Each decision says its own state, apart from files read and checks passed.
- * Sending work back to the agent returns the task to its conversation, where
- * the agent's next turn and any request it makes are shown.
+ * Signing off or sending work back to the agent returns the task to its
+ * conversation, where the run's next stage or the agent's next turn and any
+ * request it makes are shown.
  */
 export function ReviewDecisions(props: DecisionProps) {
   return props.scope.kind === "stage" ? <StageDecisions {...props} scope={props.scope} /> : <TaskDecisions {...props} />;
@@ -74,7 +76,12 @@ function StageDecisions(props: DecisionProps & { scope: Extract<ReviewScope, { k
         busy={busy}
         approveLabel={i18n.t("review:decisions.stage.signOff")}
         requestChangesLabel={i18n.t("review:decisions.stage.askForChanges")}
-        onApprove={decision.status === "waiting" ? () => runCommand("signOff", decision.signOff).then(() => undefined) : undefined}
+        onApprove={decision.status === "waiting" ? () => runCommand("signOff", decision.signOff).then((result) => {
+          if (!result.ok) return;
+          // Like Ask for changes: the run goes on in the conversation, where its next stage shows.
+          showTaskConversation(props.taskId);
+          toast.success(i18n.t("review:decisions.stage.signedOffToast"));
+        }) : undefined}
         onRequestChanges={decision.status === "waiting" && decision.canAskForChanges && !asking ? () => setAsking(true) : undefined}
       />
       {asking && decision.status === "waiting" ? (

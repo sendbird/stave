@@ -4,7 +4,6 @@ import { applyAppLocale } from "@/i18n";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
-import { TaskSurfaceModeBar } from "@/components/review/TaskSurfaceModeBar";
 import { buildAgentRunFixtures } from "@/dev/agent-run-preview/agent-run-fixtures";
 import type { ReviewScope } from "@/lib/review/review-scope";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
@@ -138,7 +137,6 @@ export function ReviewPreview() {
   if (!seeded) return null;
   return (
     <main className={sx(styles.page)}>
-      <TaskSurfaceModeBar taskId={TASK_ID} mode="review" />
       <TaskReviewSurface taskId={TASK_ID} />
     </main>
   );

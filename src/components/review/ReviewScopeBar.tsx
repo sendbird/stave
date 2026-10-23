@@ -1,8 +1,10 @@
 import { i18n, useTranslation } from "@/i18n";
-import { RefreshCw } from "lucide-react";
+import { ArrowLeft, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
+import { useShortcutHint } from "@/components/system/ShortcutKeys";
 import type { I18nKey } from "@/i18n";
 import type { ReviewScope, ReviewScopeKind, ReviewScopeLimit } from "@/lib/review/review-scope";
 import type { ReviewData } from "./useReviewData";
@@ -40,10 +42,19 @@ export function ReviewScopeBar(props: {
   data: ReviewData | null;
   onScope: (kind: ReviewScopeKind) => void;
   onRefresh: () => void;
+  /** Shows the task's conversation again; Review keeps its scope and read files. */
+  onConversation: () => void;
 }) {
   useTranslation();
+  const shortcut = useShortcutHint("task.toggle-review");
   return (
     <div className={sx(styles.scopeBar)}>
+      <Tooltip content={i18n.t("review:mode.backToConversation")} shortcut={shortcut}>
+        <Button variant="quiet" size="xs" data-testid="review-back-to-conversation" onClick={props.onConversation}>
+          <ArrowLeft aria-hidden />
+          {i18n.t("review:mode.conversation")}
+        </Button>
+      </Tooltip>
       <ToggleGroup
         aria-label={i18n.t("review:scope.label")}
         density="compact"
