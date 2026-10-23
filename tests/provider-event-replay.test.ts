@@ -656,7 +656,7 @@ describe("provider session cursor replay", () => {
 
     expect(replayed.providerSession?.codex).toEqual({
       nativeSessionId: "thread-1",
-      syncedThroughMessageId: "task-1-m-2",
+      syncedThroughMessageId: "task-1-m-2-turn-1",
     });
   });
 

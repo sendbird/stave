@@ -61,6 +61,10 @@ import {
   shouldPreferLoadedWorkspaceState,
   shouldReloadWorkspaceShellFromPersistence,
 } from "@/store/workspace-shell-summary";
+import {
+  clearEndedTurnActivity,
+  refreshStaleCachedWorkspace,
+} from "@/store/workspace-cache-freshness";
 
 let workspaceSwitchMetricTokenCounter = 0;
 let workspaceIdentityRequestTokenCounter = 0;
@@ -548,10 +552,18 @@ export function createWorkspaceManagementActions(args: {
               return result;
             },
           );
-      const [, resolvedWorkspaceShellState] = await Promise.all([
+      // A non-empty cache is reused without reading the shell; reset the tasks
+      // in it that fell behind rows written while it was cached.
+      const cacheRefreshPromise = !shouldLoadWorkspaceShellState
+        ? refreshStaleCachedWorkspace({ workspaceId, cachedWorkspaceState })
+        : Promise.resolve(null);
+      const [, resolvedWorkspaceShellState, cacheRefresh] = await Promise.all([
         flushWorkspacePromise,
         workspaceShellPromise,
+        cacheRefreshPromise,
       ]);
+      const reusableCachedWorkspaceState =
+        cacheRefresh?.session ?? cachedWorkspaceState;
       if (
         !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
         !isWorkspaceTargetCurrent({
@@ -584,13 +596,13 @@ export function createWorkspaceManagementActions(args: {
         return;
       }
       const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
-        cachedWorkspaceState,
+        cachedWorkspaceState: reusableCachedWorkspaceState,
         loadedWorkspaceShellState: resolvedWorkspaceShellState,
       });
       const workspaceState =
         (preferLoadedWorkspaceState
           ? resolvedWorkspaceShellState?.workspaceState
-          : (cachedWorkspaceState ??
+          : (reusableCachedWorkspaceState ??
             resolvedWorkspaceShellState?.workspaceState)) ??
         buildWorkspaceSessionState({ snapshot: null });
       set((state) => {
@@ -613,7 +625,16 @@ export function createWorkspaceManagementActions(args: {
         if (preferLoadedWorkspaceState) {
           delete nextRuntimeCacheById[workspaceId];
         }
+        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
         return {
+          ...(endedTurns.length > 0
+            ? {
+                providerTurnActivityByTask: clearEndedTurnActivity({
+                  activityByTask: state.providerTurnActivityByTask,
+                  endedTurns,
+                }),
+              }
+            : {}),
           workspaces: state.workspaces,
           activeWorkspaceId: workspaceId,
           workspaceLastActiveAtById: stampWorkspaceActive({
@@ -672,6 +693,11 @@ export function createWorkspaceManagementActions(args: {
         workspacePath,
         switchMetricToken,
       });
+      if (!preferLoadedWorkspaceState) {
+        for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+          void loadTaskMessagesIntoSession({ workspaceId, taskId, mode: "latest" });
+        }
+      }
       if (resolvedWorkspaceShellState) {
         if (
           preferLoadedWorkspaceState &&

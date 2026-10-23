@@ -6,6 +6,7 @@ import { providerSupportsMidTurnSteering } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { getRespondingProviderId } from "@/lib/tasks";
+import { buildMessageId } from "@/lib/session/message-id";
 import type {
   AgentRunPromptProvenance,
   ChatMessage,
@@ -17,9 +18,7 @@ import type {
   TurnModelInfo,
 } from "@/types/chat";
 
-export function buildMessageId(args: { taskId: string; count: number }) {
-  return `${args.taskId}-m-${args.count + 1}`;
-}
+export { buildMessageId };
 
 export function buildRecentTimestamp() {
   return new Date().toISOString();
@@ -251,10 +250,12 @@ export function buildPendingProviderTurnState(args: {
   const userMessageId = buildMessageId({
     taskId: args.taskId,
     count: baseMessageCount,
+    turnId: args.turnId,
   });
   const assistantMessageId = buildMessageId({
     taskId: args.taskId,
     count: baseMessageCount + 1,
+    turnId: args.turnId,
   });
   const userMessage = buildOutgoingUserMessage({
     id: userMessageId,

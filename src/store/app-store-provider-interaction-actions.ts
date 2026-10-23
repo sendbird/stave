@@ -37,6 +37,7 @@ import {
   interruptPendingToolInteractionsInMessages,
 } from "@/store/provider-message.utils";
 import { getWorkspaceSessionForState } from "@/store/workspace-runtime-state";
+import { reconcileStopOfFinishedTurn } from "@/store/stopped-turn-reconcile";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type {
   ApprovalPart,
@@ -195,6 +196,7 @@ export function createProviderInteractionActions(args: {
         return;
       }
       clearProviderTurnStallTimer(taskId);
+      const stopRequestedAt = buildRecentTimestamp();
       if (activeTurnId) {
         const abortTurn = window.api?.provider?.abortTurn;
         if (abortTurn) {
@@ -299,6 +301,16 @@ export function createProviderInteractionActions(args: {
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
       });
+      if (activeTurnId && workspaceId) {
+        void reconcileStopOfFinishedTurn({
+          get,
+          set,
+          workspaceId,
+          taskId,
+          turnId: activeTurnId,
+          stopRequestedAt,
+        });
+      }
       // Stopping the turn interrupts its pending requests, so their durable
       // notifications must stop asking for an answer too.
       attentionSync.syncTaskInteractions({

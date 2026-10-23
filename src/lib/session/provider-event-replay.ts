@@ -40,10 +40,7 @@ import type {
   TurnModelInfo,
   UserInputPart,
 } from "@/types/chat";
-
-function buildMessageId(args: { taskId: string; count: number }) {
-  return `${args.taskId}-m-${args.count + 1}`;
-}
+import { buildMessageId } from "@/lib/session/message-id";
 
 function buildRecentTimestamp() {
   return new Date().toISOString();
@@ -469,7 +466,11 @@ function createStreamingAssistantMessage(args: {
 }): ChatMessage {
   const startedAt = buildRecentTimestamp();
   return {
-    id: buildMessageId({ taskId: args.taskId, count: args.count }),
+    id: buildMessageId({
+      taskId: args.taskId,
+      count: args.count,
+      turnId: args.turnId,
+    }),
     role: "assistant",
     model: args.model,
     providerId: args.provider,

@@ -172,13 +172,13 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     // Pre-fix scheme used window length (2) -> m-3/m-4, colliding with the real
     // on-disk m-3/m-4 (silently overwritten by the additive upsert).
     expect(appended.map((m) => m.id)).toEqual([
-      `${taskId}-m-11`,
-      `${taskId}-m-12`,
+      `${taskId}-m-11-turn-1`,
+      `${taskId}-m-12-turn-1`,
     ]);
     expect(next.messageCountByTask[taskId]).toBe(12);
   });
 
-  test("matches positional IDs for a fully-resident history (backward compatible)", () => {
+  test("keeps the positional prefix and scopes it to the turn", () => {
     const taskId = "task-2";
     const resident: ChatMessage[] = [
       {
@@ -208,9 +208,11 @@ describe("buildPendingProviderTurnState — message IDs", () => {
     });
 
     const appended = (next.messagesByTask[taskId] ?? []).slice(-2);
+    // A renderer that fell behind computes a taken position; the turn id keeps
+    // its messages from overwriting the rows already stored there.
     expect(appended.map((m) => m.id)).toEqual([
-      `${taskId}-m-3`,
-      `${taskId}-m-4`,
+      `${taskId}-m-3-turn-1`,
+      `${taskId}-m-4-turn-1`,
     ]);
   });
 });

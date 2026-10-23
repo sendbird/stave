@@ -56,6 +56,8 @@ Replace the legacy workspace/task shell with a three-part layout:
 - Tasks are mapped back to their owning workspace through `taskWorkspaceIdById`.
 - Provider stream events are replayed into either the active workspace state or the cached inactive workspace session, depending on task ownership.
 - When an inactive workspace stream completes, its session snapshot is persisted.
+- A reused cached session is checked against the persisted shell summary: a task the cache knows that has more persisted messages is reset to the persisted count and reloaded from SQLite, unless its cached turn is still running. Other tasks, including running turns, keep their cached state.
+- Message rows are upserted additively, so the persistence layer also refuses a write that reuses another message's id or replaces a finished assistant reply with a shorter or re-opened copy (approval and question answers in that copy are still merged in), and approval or question answers never move back to a requested state. New turn messages carry the turn id in their id for the same reason.
 - Persistence now keeps three workspace read shapes on purpose: full shell for editor/session restore, lite shell for hot merge and existence checks, and summary for sidebar hover/list reads.
 - The full shell now externalizes large clean `file:` editor tab bodies into workspace artifacts while keeping dirty and synthetic diff tabs inline, so restore semantics stay intact without forcing every persistence write through one giant JSON blob.
 - Workspace restore now prefers an active-tab-first path: the selected editor tab is hydrated immediately, while other clean file tabs can stay metadata-only until the user activates them, avoiding whole-workspace blocking during repository or workspace switches.

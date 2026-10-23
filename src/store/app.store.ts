@@ -84,6 +84,7 @@ import {
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
 import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
+import { mergeTaskMessagePage } from "@/store/task-message-merge";
 import {
   TASK_MESSAGES_PAGE_SIZE,
   resolveInitialLatestTaskMessagesPageSize,
@@ -293,37 +294,6 @@ function shouldLoadLatestTaskMessages(args: {
     (args.messagesByTask[args.taskId]?.length ?? 0) === 0 &&
     (args.messageCountByTask[args.taskId] ?? 0) > 0
   );
-}
-
-function mergeTaskMessagePage(args: {
-  currentMessages: ChatMessage[];
-  pageMessages: ChatMessage[];
-  mode: "latest" | "older";
-}) {
-  if (args.mode === "latest") {
-    const currentById = new Map(
-      args.currentMessages.map((message) => [message.id, message] as const),
-    );
-    const merged = args.pageMessages.map(
-      (message) => currentById.get(message.id) ?? message,
-    );
-    const seen = new Set(merged.map((message) => message.id));
-    for (const message of args.currentMessages) {
-      if (!seen.has(message.id)) {
-        merged.push(message);
-      }
-    }
-    return merged;
-  }
-
-  const seen = new Set(args.currentMessages.map((message) => message.id));
-  const olderMessages = args.pageMessages.filter(
-    (message) => !seen.has(message.id),
-  );
-  if (olderMessages.length === 0) {
-    return args.currentMessages;
-  }
-  return [...olderMessages, ...args.currentMessages];
 }
 
 function findTaskById(state: Pick<AppState, "tasks">, taskId: string) {

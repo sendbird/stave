@@ -69,6 +69,10 @@ import {
   shouldReloadWorkspaceShellFromPersistence,
   summarizeWorkspaceShell,
 } from "@/store/workspace-shell-summary";
+import {
+  clearEndedTurnActivity,
+  refreshStaleCachedWorkspace,
+} from "@/store/workspace-cache-freshness";
 import type { ChatMessage } from "@/types/chat";
 
 function getRetainedLoadedMessageTaskIds(args: {
@@ -765,8 +769,19 @@ export function createWorkspaceHydrationActions(args: {
               workspaceId: preferredWorkspaceId,
             })
           : null;
+      // A reused cache must not hide rows written while it was cached: reset
+      // the tasks in it that fell behind and let the latest-page load fill them.
+      const cacheRefresh =
+        preferredWorkspaceId && !loadedWorkspaceShellState
+          ? await refreshStaleCachedWorkspace({
+              workspaceId: preferredWorkspaceId,
+              cachedWorkspaceState,
+            })
+          : null;
+      const reusableCachedWorkspaceState =
+        cacheRefresh?.session ?? cachedWorkspaceState;
       const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
-        cachedWorkspaceState,
+        cachedWorkspaceState: reusableCachedWorkspaceState,
         loadedWorkspaceShellState,
       });
 
@@ -801,7 +816,7 @@ export function createWorkspaceHydrationActions(args: {
         const workspaceState =
           (preferLoadedWorkspaceState
             ? loadedWorkspaceShellState?.workspaceState
-            : (cachedWorkspaceState ??
+            : (reusableCachedWorkspaceState ??
               loadedWorkspaceShellState?.workspaceState)) ??
           buildWorkspaceSessionState({ snapshot: null });
         const workspaceIds = rows.map((workspace) => workspace.id);
@@ -824,7 +839,16 @@ export function createWorkspaceHydrationActions(args: {
                 : null),
           );
 
+        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
         return {
+          ...(endedTurns.length > 0
+            ? {
+                providerTurnActivityByTask: clearEndedTurnActivity({
+                  activityByTask: state.providerTurnActivityByTask,
+                  endedTurns,
+                }),
+              }
+            : {}),
           hasHydratedWorkspaces: true,
           workspaceSnapshotVersion: 0,
           promptDraftPersistenceVersion: 0,
@@ -897,6 +921,13 @@ export function createWorkspaceHydrationActions(args: {
         get().activeWorkspaceId !== preferredWorkspaceId
       ) {
         return;
+      }
+      for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+        void loadTaskMessagesIntoSession({
+          workspaceId: preferredWorkspaceId,
+          taskId,
+          mode: "latest",
+        });
       }
       if (
         loadedWorkspaceShellState &&

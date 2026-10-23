@@ -166,7 +166,7 @@ describe("applyProviderEventsToWorkspaceSession — resident window eviction", (
     // Window trimmed back to the cap...
     expect(resident).toHaveLength(MAX_LOADED_TASK_MESSAGES);
     // ...but the in-flight streaming message is never evicted...
-    expect(resident.at(-1)?.id).toBe(`${taskId}-m-${residentCount + 1}`);
+    expect(resident.at(-1)?.id).toBe(`${taskId}-m-${residentCount + 1}-turn-1`);
     expect(resident.at(-1)?.isStreaming).toBe(true);
     // ...and the durable count stays untrimmed so "load older" remains enabled.
     expect(result.session.messageCountByTask[taskId]).toBe(residentCount + 1);

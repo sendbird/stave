@@ -6,6 +6,7 @@ import {
   readTurnStreamEvents,
 } from "./turn-receipt-store";
 import { parseTurnReceipt } from "./turn-terminal-receipt";
+import { upsertTaskMessages } from "./task-message-upsert";
 import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { mkdirSync, rmSync, statfsSync } from "node:fs";
@@ -1214,38 +1215,7 @@ export class SqliteStore {
     taskId: string;
     messages: PersistenceWorkspaceSnapshot["messagesByTask"][string];
   }) {
-    for (const message of args.messages) {
-      const persistedMessageRowId = `${args.workspaceId}:${args.taskId}:${message.id}`;
-      this.db
-        .prepare(
-          `
-        INSERT INTO messages (
-          id, workspace_id, task_id, role, model, provider_id, content, is_streaming, parts_json, message_json
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(id) DO UPDATE SET
-          role = excluded.role,
-          model = excluded.model,
-          provider_id = excluded.provider_id,
-          content = excluded.content,
-          is_streaming = excluded.is_streaming,
-          parts_json = excluded.parts_json,
-          message_json = excluded.message_json
-      `,
-        )
-        .run(
-          persistedMessageRowId,
-          args.workspaceId,
-          args.taskId,
-          message.role,
-          message.model,
-          message.providerId,
-          message.content,
-          message.isStreaming ? 1 : 0,
-          "[]",
-          JSON.stringify(message),
-        );
-    }
+    upsertTaskMessages({ db: this.db, ...args });
   }
 
   loadAllTaskMessages(args: { workspaceId: string; taskId: string }) {
