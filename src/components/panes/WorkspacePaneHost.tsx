@@ -43,6 +43,7 @@ import {
   registerPaneHostController,
   shouldDeferSurfaceOpenToStore,
 } from "@/components/panes/pane-host-controller";
+import { resolveFallbackActivePanelId } from "@/components/panes/pane-active-fallback";
 import {
   resolveTerminalGroupHeight,
   resolveTerminalPanelPosition,
@@ -731,24 +732,31 @@ export function WorkspacePaneHost() {
       }
       return;
     }
-    // Defensive fallback: the active surface may reference a panel that no
-    // longer exists (e.g. legacy state restored without that tab). Without an
-    // active panel the pane area can render blank, so activate any non-terminal
-    // panel (or the first panel) instead of silently doing nothing.
-    if (api.activePanel) {
+    // The active surface references a panel that no longer exists (e.g. legacy
+    // state restored without that tab). Without an active panel the pane area
+    // renders blank, and a stale store.activeSurface keeps store-driven
+    // surfaces (the CLI session pane reads its visibility from activeSurface)
+    // hidden even when Dockview shows another tab.
+    const fallbackId = resolveFallbackActivePanelId({
+      activePanelId: api.activePanel?.id ?? null,
+      panelIds: api.panels.map((candidate) => candidate.id),
+    });
+    const fallback = fallbackId ? api.getPanel(fallbackId) : undefined;
+    if (!fallback) {
       return;
     }
-    const fallback =
-      api.panels.find((candidate) => {
-        const surface = parsePanePanelId(candidate.id);
-        return surface !== null && surface.kind !== "terminal";
-      }) ?? api.panels[0];
-    if (fallback) {
+    if (api.activePanel?.id !== fallback.id) {
+      fallback.api.setActive();
+    }
+    // Converge the store too. The activation mirror is suppressed while
+    // restoring or reconciling, so this write-back has to be explicit.
+    const fallbackSurface = parsePanePanelId(fallback.id);
+    if (fallbackSurface) {
       console.warn(
-        "[pane-host] active surface panel missing, falling back to",
+        "[pane-host] active surface panel missing, converging to",
         fallback.id,
       );
-      fallback.api.setActive();
+      useAppStore.getState().setActiveSurfaceFromPane(fallbackSurface);
     }
   }, []);
 
