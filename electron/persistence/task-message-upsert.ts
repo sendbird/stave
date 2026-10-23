@@ -11,8 +11,11 @@ import type { PersistenceChatMessageRow } from "./types";
  * - identity: a different message that reused a stored id (a different role,
  *   a different turn, or, for rows without a turn, a different start time)
  *   must never replace the row it collided with;
- * - regression: a finished assistant row is not replaced by a copy that has
- *   both fewer parts and shorter content than the stored one.
+ * - regression: a finished assistant row is not replaced by a copy with
+ *   shorter content and no more parts than the stored one (an older partial
+ *   copy, whether its text grew in new parts or inside the same part). The
+ *   approval and question answers such a copy carries are still merged into
+ *   the stored row, so answering from a stale view is not lost.
  *
  * Every comparison uses `IS` / `IS NOT` so a missing JSON field never turns the
  * guard into NULL, which SQLite would read as "skip the update".
@@ -36,7 +39,7 @@ const FINISHED_ASSISTANT_REGRESSION_SQL = `(
   AND messages.is_streaming = 0
   AND json_extract(messages.message_json, '$.completedAt') IS NOT NULL
   AND COALESCE(json_array_length(excluded.message_json, '$.parts'), 0)
-    < COALESCE(json_array_length(messages.message_json, '$.parts'), 0)
+    <= COALESCE(json_array_length(messages.message_json, '$.parts'), 0)
   AND length(excluded.content) < length(messages.content)
 )`;
 
@@ -62,12 +65,71 @@ export type SkippedTaskMessageWriteReason = "identity" | "regression";
 export interface SkippedTaskMessageWrite {
   messageId: string;
   reason: SkippedTaskMessageWriteReason;
+  /** Interaction answers merged into the stored row despite the refusal. */
+  mergedInteractions?: number;
 }
 
 interface StoredMessageIdentityRow {
   role: string;
   turn_id: string | null;
   started_at: string | null;
+  message_json: string | null;
+}
+
+type InteractionPart = { type: "approval" | "user_input"; requestId: string };
+
+function isInteractionPart(part: unknown): part is InteractionPart {
+  if (!part || typeof part !== "object") {
+    return false;
+  }
+  const candidate = part as { type?: unknown; requestId?: unknown };
+  return (
+    (candidate.type === "approval" || candidate.type === "user_input") &&
+    typeof candidate.requestId === "string" &&
+    candidate.requestId.length > 0
+  );
+}
+
+/**
+ * Carries approval and question states from a refused stale copy into the
+ * stored row: the copy is older, but a person may have answered from it.
+ * Returns the merged JSON, or null when nothing changed.
+ */
+function mergeInteractionStates(args: {
+  storedJson: string;
+  incoming: PersistenceChatMessageRow;
+}): { json: string; merged: number } | null {
+  let stored: { parts?: unknown[] };
+  try {
+    stored = JSON.parse(args.storedJson) as { parts?: unknown[] };
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(stored.parts)) {
+    return null;
+  }
+  const incomingByRequest = new Map<string, unknown>();
+  for (const part of args.incoming.parts) {
+    if (isInteractionPart(part)) {
+      incomingByRequest.set(`${part.type}:${part.requestId}`, part);
+    }
+  }
+  if (incomingByRequest.size === 0) {
+    return null;
+  }
+  let merged = 0;
+  const parts = stored.parts.map((part) => {
+    if (!isInteractionPart(part)) {
+      return part;
+    }
+    const incoming = incomingByRequest.get(`${part.type}:${part.requestId}`);
+    if (!incoming || JSON.stringify(incoming) === JSON.stringify(part)) {
+      return part;
+    }
+    merged += 1;
+    return incoming;
+  });
+  return merged > 0 ? { json: JSON.stringify({ ...stored, parts }), merged } : null;
 }
 
 function classifySkippedWrite(args: {
@@ -128,13 +190,25 @@ export function upsertTaskMessages(args: {
       .prepare(
         `SELECT role,
           json_extract(message_json, '$.turnId') AS turn_id,
-          json_extract(message_json, '$.startedAt') AS started_at
+          json_extract(message_json, '$.startedAt') AS started_at,
+          message_json
         FROM messages WHERE id = ?`,
       )
       .get(rowId) as StoredMessageIdentityRow | undefined;
+    const reason = classifySkippedWrite({ stored, message });
+    const interactions =
+      reason === "regression" && stored?.message_json
+        ? mergeInteractionStates({ storedJson: stored.message_json, incoming: message })
+        : null;
+    if (interactions) {
+      args.db
+        .prepare("UPDATE messages SET message_json = ? WHERE id = ?")
+        .run(interactions.json, rowId);
+    }
     skipped.push({
       messageId: message.id,
-      reason: classifySkippedWrite({ stored, message }),
+      reason,
+      ...(interactions ? { mergedInteractions: interactions.merged } : {}),
     });
   }
   if (skipped.length > 0) {

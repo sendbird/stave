@@ -153,6 +153,74 @@ describe("upsertTaskMessages", () => {
     );
   });
 
+  test("refuses an older copy whose text grew inside the same part", () => {
+    upsert([
+      assistantMessage({
+        id: "m-3",
+        turnId: "turn-a",
+        content: "Partial and final response",
+        partCount: 1,
+        completedAt: "2026-01-01T00:02:00.000Z",
+      }),
+    ]);
+    const skipped = upsert([
+      assistantMessage({
+        id: "m-3",
+        turnId: "turn-a",
+        content: "Partial",
+        partCount: 1,
+        completedAt: "2026-01-01T03:00:00.000Z",
+      }),
+    ]);
+    expect(skipped).toEqual([{ messageId: "m-3", reason: "regression" }]);
+    expect(stored("m-3")?.content).toBe("Partial and final response");
+    expect(stored("m-3")?.completedAt).toBe("2026-01-01T00:02:00.000Z");
+  });
+
+  test("keeps a question answered from an older copy", () => {
+    const question = {
+      type: "user_input",
+      requestId: "question-1",
+      toolName: "AskUserQuestion",
+      questions: [],
+      state: "input-requested",
+    };
+    upsert([
+      {
+        ...assistantMessage({
+          id: "m-4",
+          turnId: "turn-a",
+          content: "Asked a question, then finished the rest of the work.",
+          partCount: 0,
+          completedAt: "2026-01-01T00:03:00.000Z",
+        }),
+        parts: [{ type: "text", text: "Asked a question" }, question, { type: "text", text: "rest" }],
+      },
+    ]);
+    const skipped = upsert([
+      {
+        ...assistantMessage({
+          id: "m-4",
+          turnId: "turn-a",
+          content: "Asked a question",
+          partCount: 0,
+          completedAt: "2026-01-01T03:00:00.000Z",
+        }),
+        parts: [
+          { type: "text", text: "Asked a question" },
+          { ...question, state: "input-responded", answers: { q: "yes" } },
+        ],
+      },
+    ]);
+    expect(skipped).toEqual([
+      { messageId: "m-4", reason: "regression", mergedInteractions: 1 },
+    ]);
+    const row = stored("m-4");
+    expect(row?.content).toBe("Asked a question, then finished the rest of the work.");
+    expect(row?.parts).toHaveLength(3);
+    expect(row?.parts[1]).toMatchObject({ requestId: "question-1", state: "input-responded" });
+  });
+
   test("applies ordinary progress, completion and same-size edits", () => {
     upsert([
       assistantMessage({

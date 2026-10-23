@@ -69,7 +69,7 @@ import {
   shouldReloadWorkspaceShellFromPersistence,
   summarizeWorkspaceShell,
 } from "@/store/workspace-shell-summary";
-import { isCachedWorkspaceBehindPersistence } from "@/store/workspace-cache-freshness";
+import { refreshStaleCachedWorkspace } from "@/store/workspace-cache-freshness";
 import type { ChatMessage } from "@/types/chat";
 
 function getRetainedLoadedMessageTaskIds(args: {
@@ -756,19 +756,9 @@ export function createWorkspaceHydrationActions(args: {
       const cachedWorkspaceState = preferredWorkspaceId
         ? stateBeforeHydrate.workspaceRuntimeCacheById[preferredWorkspaceId]
         : undefined;
-      // A reused cache must not have fallen behind rows written meanwhile.
-      const cachedWorkspaceIsStale =
-        Boolean(preferredWorkspaceId) &&
-        Boolean(cachedWorkspaceState) &&
-        !shouldReloadWorkspaceShellFromPersistence({ cachedWorkspaceState }) &&
-        (await isCachedWorkspaceBehindPersistence({
-          workspaceId: preferredWorkspaceId,
-          cachedWorkspaceState,
-        }));
       const loadedWorkspaceShellState =
         preferredWorkspaceId &&
         (!cachedWorkspaceState ||
-          cachedWorkspaceIsStale ||
           shouldReloadWorkspaceShellFromPersistence({
             cachedWorkspaceState,
           }))
@@ -776,12 +766,21 @@ export function createWorkspaceHydrationActions(args: {
               workspaceId: preferredWorkspaceId,
             })
           : null;
-      const preferLoadedWorkspaceState =
-        (cachedWorkspaceIsStale && Boolean(loadedWorkspaceShellState)) ||
-        shouldPreferLoadedWorkspaceState({
-          cachedWorkspaceState,
-          loadedWorkspaceShellState,
-        });
+      // A reused cache must not hide rows written while it was cached: reset
+      // the tasks in it that fell behind and let the latest-page load fill them.
+      const cacheRefresh =
+        preferredWorkspaceId && !loadedWorkspaceShellState
+          ? await refreshStaleCachedWorkspace({
+              workspaceId: preferredWorkspaceId,
+              cachedWorkspaceState,
+            })
+          : null;
+      const reusableCachedWorkspaceState =
+        cacheRefresh?.session ?? cachedWorkspaceState;
+      const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
+        cachedWorkspaceState: reusableCachedWorkspaceState,
+        loadedWorkspaceShellState,
+      });
 
       const preferredWorkspacePath = pathById[preferredWorkspaceId] ?? null;
       const repositoryFiles = resolveInitialWorkspaceFiles({
@@ -814,7 +813,7 @@ export function createWorkspaceHydrationActions(args: {
         const workspaceState =
           (preferLoadedWorkspaceState
             ? loadedWorkspaceShellState?.workspaceState
-            : (cachedWorkspaceState ??
+            : (reusableCachedWorkspaceState ??
               loadedWorkspaceShellState?.workspaceState)) ??
           buildWorkspaceSessionState({ snapshot: null });
         const workspaceIds = rows.map((workspace) => workspace.id);
@@ -910,6 +909,13 @@ export function createWorkspaceHydrationActions(args: {
         get().activeWorkspaceId !== preferredWorkspaceId
       ) {
         return;
+      }
+      for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+        void loadTaskMessagesIntoSession({
+          workspaceId: preferredWorkspaceId,
+          taskId,
+          mode: "latest",
+        });
       }
       if (
         loadedWorkspaceShellState &&

@@ -2,7 +2,10 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { buildMessageId } from "../src/lib/session/message-id";
 import { mergeTaskMessagePage, pickFresherTaskMessage } from "../src/store/task-message-merge";
 import { reconcileStopOfFinishedTurn } from "../src/store/stopped-turn-reconcile";
-import { isWorkspaceRuntimeCacheBehindPersistence } from "../src/store/workspace-cache-freshness";
+import {
+  findStaleCachedTaskIds,
+  resetStaleCachedTasks,
+} from "../src/store/workspace-cache-freshness";
 import {
   buildWorkspaceSessionState,
   type WorkspaceSessionState,
@@ -141,21 +144,95 @@ describe("pickFresherTaskMessage", () => {
   });
 });
 
-describe("isWorkspaceRuntimeCacheBehindPersistence", () => {
-  test("flags a cache that counted fewer rows than persistence holds", () => {
+describe("mergeTaskMessagePage latest order", () => {
+  test("keeps older resident messages ahead of the page", () => {
+    const resident = Array.from({ length: 5 }, (_, index) => user(`m-${index + 1}`, `message ${index + 1}`));
+    const page = resident.slice(2).concat(user("m-6", "message 6"));
+    const merged = mergeTaskMessagePage({ currentMessages: resident, pageMessages: page, mode: "latest" });
+    expect(merged.map((message) => message.id)).toEqual(["m-1", "m-2", "m-3", "m-4", "m-5", "m-6"]);
+  });
+
+  test("places persisted messages before resident ones newer than the page", () => {
+    const unsaved = user("m-x", "Typed after the page was written.");
+    const merged = mergeTaskMessagePage({
+      currentMessages: [user("m-6", "Older"), user("m-7", "Rebuild the docs."), staleReply, unsaved],
+      pageMessages: [user("m-7", "Rebuild the docs."), finishedReply, user("m-9", "Build the spec app.")],
+      mode: "latest",
+    });
+    expect(merged.map((message) => message.id)).toEqual(["m-6", "m-7", "m-8", "m-9", "m-x"]);
+    expect(merged[2]).toBe(finishedReply);
+  });
+
+  test("refuses an older copy whose text grew inside the same part", () => {
+    const finalSinglePart = assistant({
+      id: "m-3",
+      content: "Partial and final response",
+      partCount: 1,
+      completedAt: "2026-01-01T00:02:00.000Z",
+    });
+    const stoppedPartial = assistant({
+      id: "m-3",
+      content: "Partial",
+      partCount: 1,
+      completedAt: "2026-01-01T03:00:00.000Z",
+    });
+    expect(pickFresherTaskMessage({ resident: stoppedPartial, persisted: finalSinglePart })).toBe(
+      finalSinglePart,
+    );
+  });
+});
+
+describe("stale cached tasks", () => {
+  test("flags only known tasks that counted fewer rows than persistence holds", () => {
     const cached = sessionWith([user("m-7", "Rebuild the docs."), staleReply]);
     expect(
-      isWorkspaceRuntimeCacheBehindPersistence({
+      findStaleCachedTaskIds({
         cachedWorkspaceState: cached,
         persistedMessageCountByTask: { [TASK_ID]: 4 },
       }),
-    ).toBe(true);
+    ).toEqual([TASK_ID]);
     expect(
-      isWorkspaceRuntimeCacheBehindPersistence({
+      findStaleCachedTaskIds({
         cachedWorkspaceState: cached,
         persistedMessageCountByTask: { [TASK_ID]: 2, "task-unknown": 9 },
       }),
-    ).toBe(false);
+    ).toEqual([]);
+  });
+
+  test("resets a stale task but keeps live turns and other tasks", () => {
+    const base = sessionWith([user("m-7", "Rebuild the docs."), staleReply]);
+    const cached: WorkspaceSessionState = {
+      ...base,
+      tasks: [
+        ...base.tasks,
+        { ...base.tasks[0]!, id: "task-live" },
+        { ...base.tasks[0]!, id: "task-other" },
+      ],
+      messagesByTask: {
+        ...base.messagesByTask,
+        "task-live": [user("l-1", "Still running")],
+        "task-other": [user("o-1", "Running in this cache")],
+      },
+      messageCountByTask: { ...base.messageCountByTask, "task-live": 1, "task-other": 1 },
+      activeTurnIdsByTask: {
+        [TASK_ID]: "turn-finished",
+        "task-live": "turn-live",
+        "task-other": "turn-other",
+      },
+    };
+    const { session, refreshedTaskIds } = resetStaleCachedTasks({
+      cachedWorkspaceState: cached,
+      staleTaskIds: [TASK_ID, "task-live"],
+      persistedMessageCountByTask: { [TASK_ID]: 4, "task-live": 3, "task-other": 1 },
+      liveTurnIds: new Set(["turn-live", "turn-other"]),
+    });
+    expect(refreshedTaskIds).toEqual([TASK_ID]);
+    expect(session.messagesByTask[TASK_ID]).toEqual([]);
+    expect(session.messageCountByTask[TASK_ID]).toBe(4);
+    expect(session.activeTurnIdsByTask[TASK_ID]).toBeUndefined();
+    expect(session.activeTurnIdsByTask["task-live"]).toBe("turn-live");
+    expect(session.activeTurnIdsByTask["task-other"]).toBe("turn-other");
+    expect(session.messagesByTask["task-other"]).toBe(cached.messagesByTask["task-other"]);
   });
 });
 

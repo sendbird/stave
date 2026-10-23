@@ -6452,6 +6452,137 @@ describe("workspace store hydration ordering", () => {
     expect(nextState.workspaceRuntimeCacheById["ws-beta"]).toBeUndefined();
   });
 
+  test("switchWorkspace reloads only the cached tasks that fell behind persistence", async () => {
+    const localStorage = createMemoryStorage();
+    const workspaceInformation = {
+      jiraIssues: [],
+      confluencePages: [],
+      figmaResources: [],
+      storybookResources: [],
+      linkedPullRequests: [],
+      slackThreads: [],
+      notes: "",
+      todos: [],
+      customFields: [],
+    };
+    const task = (id: string) => ({
+      id,
+      title: id,
+      provider: "claude-code" as const,
+      updatedAt: "2026-03-10T00:01:00.000Z",
+      unread: false,
+      archivedAt: null,
+    });
+    const message = (id: string, role: "user" | "assistant", content: string): ChatMessage => ({
+      id,
+      role,
+      model: role === "user" ? "user" : "model-1",
+      providerId: role === "user" ? "user" : "claude-code",
+      content,
+      ...(role === "assistant" ? { isStreaming: true } : {}),
+      parts: [{ type: "text", text: content }],
+    });
+    setWindowContext({
+      localStorage,
+      api: {
+        fs: { listFiles: async () => ({ ok: true, files: [] }) },
+        persistence: {
+          listWorkspaces: async () => ({
+            ok: true,
+            rows: [
+              { id: "ws-alpha", name: "Default Workspace", updatedAt: "2026-03-10T00:00:00.000Z" },
+              { id: "ws-beta", name: "beta", updatedAt: "2026-03-10T00:01:00.000Z" },
+            ],
+          }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          // Another writer added two rows to task-stale while ws-beta was cached.
+          loadWorkspaceShellSummary: async ({ workspaceId }: { workspaceId: string }) => ({
+            ok: true,
+            summary:
+              workspaceId === "ws-beta"
+                ? {
+                    activeTaskId: "task-live",
+                    tasks: [task("task-live"), task("task-stale")],
+                    messageCountByTask: { "task-live": 2, "task-stale": 3 },
+                    terminalTabCount: 0,
+                    cliSessionTabCount: 0,
+                  }
+                : null,
+          }),
+          listActiveWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          upsertWorkspace: async () => ({ ok: true }),
+        },
+      },
+    });
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    const liveMessages = [
+      message("live-1", "user", "Keep working."),
+      message("live-2", "assistant", "Still streaming"),
+    ];
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
+      workspaces: [
+        { id: "ws-alpha", name: "Default Workspace", updatedAt: "2026-03-10T00:00:00.000Z" },
+        { id: "ws-beta", name: "beta", updatedAt: "2026-03-10T00:01:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-alpha",
+      workspacePathById: {
+        "ws-alpha": "/tmp/stave-project",
+        "ws-beta": "/tmp/stave-project/.stave/workspaces/beta",
+      },
+      workspaceBranchById: { "ws-alpha": "main", "ws-beta": "beta" },
+      workspaceDefaultById: { "ws-alpha": true, "ws-beta": false },
+      tasks: [task("task-alpha")],
+      activeTaskId: "task-alpha",
+      messagesByTask: { "task-alpha": [] },
+      messageCountByTask: { "task-alpha": 0 },
+      promptDraftByTask: {},
+      workspaceInformation,
+      editorTabs: [],
+      activeEditorTabId: null,
+      activeTurnIdsByTask: {},
+      providerSessionByTask: {},
+      nativeSessionReadyByTask: {},
+      workspaceRuntimeCacheById: {
+        "ws-beta": {
+          activeTaskId: "task-live",
+          tasks: [task("task-live"), task("task-stale")],
+          messagesByTask: {
+            "task-live": liveMessages,
+            "task-stale": [message("stale-1", "user", "Old view")],
+          },
+          messageCountByTask: { "task-live": 2, "task-stale": 1 },
+          promptDraftByTask: {},
+          workspaceInformation,
+          editorTabs: [],
+          activeEditorTabId: null,
+          activeTurnIdsByTask: { "task-live": "turn-live" },
+          providerSessionByTask: {},
+          nativeSessionReadyByTask: {},
+        } as never,
+      },
+    });
+
+    await useAppStore.getState().switchWorkspace({ workspaceId: "ws-beta" });
+
+    const nextState = useAppStore.getState();
+    expect(nextState.activeWorkspaceId).toBe("ws-beta");
+    // The running renderer turn in the other task survives the reload.
+    expect(nextState.activeTurnIdsByTask["task-live"]).toBe("turn-live");
+    expect(nextState.messagesByTask["task-live"]).toBe(liveMessages);
+    // The stale task is reset to the persisted count for the latest-page load.
+    expect(nextState.messageCountByTask["task-stale"]).toBe(3);
+    expect(nextState.messagesByTask["task-stale"]?.map((item) => item.id)).not.toContain(
+      "stale-1",
+    );
+  });
+
   test("late events after an inactive workspace turn completes do not emit redundant store updates", async () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<unknown> = [];

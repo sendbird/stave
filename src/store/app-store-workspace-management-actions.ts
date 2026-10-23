@@ -61,7 +61,7 @@ import {
   shouldPreferLoadedWorkspaceState,
   shouldReloadWorkspaceShellFromPersistence,
 } from "@/store/workspace-shell-summary";
-import { isCachedWorkspaceBehindPersistence } from "@/store/workspace-cache-freshness";
+import { refreshStaleCachedWorkspace } from "@/store/workspace-cache-freshness";
 
 let workspaceSwitchMetricTokenCounter = 0;
 let workspaceIdentityRequestTokenCounter = 0;
@@ -541,34 +541,26 @@ export function createWorkspaceManagementActions(args: {
         ? switchStartedAt
         : undefined;
       let setRootResolvedAt = switchStartedAt;
-      // A non-empty cache is reused without reading the shell, so first make
-      // sure it has not fallen behind rows written while it was cached.
-      let cachedWorkspaceIsStale = false;
       const workspaceShellPromise = !shouldLoadWorkspaceShellState
-        ? isCachedWorkspaceBehindPersistence({
-            workspaceId,
-            cachedWorkspaceState,
-          }).then(async (stale) => {
-            cachedWorkspaceIsStale = stale;
-            if (!stale) {
-              return null;
-            }
-            const result = await loadWorkspaceShellStateFromPersistence({
-              workspaceId,
-            });
-            shellResolvedAt = getWorkspaceSwitchMetricNow();
-            return result;
-          })
+        ? Promise.resolve(null)
         : loadWorkspaceShellStateFromPersistence({ workspaceId }).then(
             (result) => {
               shellResolvedAt = getWorkspaceSwitchMetricNow();
               return result;
             },
           );
-      const [, resolvedWorkspaceShellState] = await Promise.all([
+      // A non-empty cache is reused without reading the shell; reset the tasks
+      // in it that fell behind rows written while it was cached.
+      const cacheRefreshPromise = !shouldLoadWorkspaceShellState
+        ? refreshStaleCachedWorkspace({ workspaceId, cachedWorkspaceState })
+        : Promise.resolve(null);
+      const [, resolvedWorkspaceShellState, cacheRefresh] = await Promise.all([
         flushWorkspacePromise,
         workspaceShellPromise,
+        cacheRefreshPromise,
       ]);
+      const reusableCachedWorkspaceState =
+        cacheRefresh?.session ?? cachedWorkspaceState;
       if (
         !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
         !isWorkspaceTargetCurrent({
@@ -600,16 +592,14 @@ export function createWorkspaceManagementActions(args: {
       ) {
         return;
       }
-      const preferLoadedWorkspaceState =
-        (cachedWorkspaceIsStale && Boolean(resolvedWorkspaceShellState)) ||
-        shouldPreferLoadedWorkspaceState({
-          cachedWorkspaceState,
-          loadedWorkspaceShellState: resolvedWorkspaceShellState,
-        });
+      const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
+        cachedWorkspaceState: reusableCachedWorkspaceState,
+        loadedWorkspaceShellState: resolvedWorkspaceShellState,
+      });
       const workspaceState =
         (preferLoadedWorkspaceState
           ? resolvedWorkspaceShellState?.workspaceState
-          : (cachedWorkspaceState ??
+          : (reusableCachedWorkspaceState ??
             resolvedWorkspaceShellState?.workspaceState)) ??
         buildWorkspaceSessionState({ snapshot: null });
       set((state) => {
@@ -691,6 +681,11 @@ export function createWorkspaceManagementActions(args: {
         workspacePath,
         switchMetricToken,
       });
+      if (!preferLoadedWorkspaceState) {
+        for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+          void loadTaskMessagesIntoSession({ workspaceId, taskId, mode: "latest" });
+        }
+      }
       if (resolvedWorkspaceShellState) {
         if (
           preferLoadedWorkspaceState &&
