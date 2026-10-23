@@ -101,3 +101,9 @@ test("validates the Codex reviewer at the IPC boundary", () => {
   expect(RuntimeOptionsObjectSchema.safeParse({ codexApprovalsReviewer: "user" }).success).toBe(true);
   expect(RuntimeOptionsObjectSchema.safeParse({ codexApprovalsReviewer: "approve_all" }).success).toBe(false);
 });
+
+test("a tool-less turn crosses the IPC boundary only as a boolean", () => {
+  expect(RuntimeOptionsObjectSchema.safeParse({ toolsDisabled: true }).success).toBe(true);
+  expect(RuntimeOptionsObjectSchema.safeParse({ toolsDisabled: false }).success).toBe(true);
+  expect(RuntimeOptionsObjectSchema.safeParse({ toolsDisabled: "yes" }).success).toBe(false);
+});

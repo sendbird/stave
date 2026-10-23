@@ -82,6 +82,7 @@ export const RuntimeOptionsObjectSchema = z
     mcpAppViews: z.boolean().optional(),
     providerBrowserAutoFallbackDomains: z.string().optional(),
     claudeFastMode: z.boolean().optional(),
+    toolsDisabled: z.boolean().optional(),
     claudeAllowedTools: z.array(z.string().max(200)).max(200).optional(),
     claudeDisallowedTools: z.array(z.string().max(200)).max(200).optional(),
     trustedTools: z.array(z.string().max(500)).max(200).optional(),

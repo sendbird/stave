@@ -187,6 +187,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "mcpAppViews",
   "providerBrowserAutoFallbackDomains",
   "claudeFastMode",
+  "toolsDisabled",
   "claudeAllowedTools",
   "claudeDisallowedTools",
   "trustedTools",

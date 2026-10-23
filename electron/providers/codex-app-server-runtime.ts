@@ -114,10 +114,12 @@ import {
   forgetCodexInstructionProfilesForTask,
 } from "./codex-ensure-thread";
 import {
+  CODEX_TOOLLESS_CONFIG_OVERRIDES,
   runCodexReadOnlyPromptWithClient,
   type CodexReadOnlyPromptArgs,
   type CodexReadOnlyPromptResult,
 } from "./codex-read-only-prompt";
+import { isToolsDisabledTurn } from "./toolless-turn";
 import { resolveGitHeadRef } from "./git-head-ref";
 import {
   buildCodexGoalStatusEvent,
@@ -1733,7 +1735,9 @@ export async function streamCodexWithAppServer(
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   },
 ): Promise<BridgeEvent[] | null> {
-  const secondaryReadOnly = args.executionPolicy === "secondary-read-only";
+  // A tool-less turn (`isToolsDisabledTurn`) is a secondary read-only turn too: MCP isolation, no Stave MCP.
+  const toolsDisabled = isToolsDisabledTurn(args.runtimeOptions);
+  const secondaryReadOnly = args.executionPolicy === "secondary-read-only" || toolsDisabled;
   const requestedRuntimeOptions = resolveCodexSecondaryRuntimeOptions({
     enabled: secondaryReadOnly,
     runtimeOptions: args.runtimeOptions,
@@ -1902,6 +1906,7 @@ export async function streamCodexWithAppServer(
           requested: providerBrowserRequested,
           userEnabled: nativeBrowserPluginEnabled,
         }),
+        ...(toolsDisabled ? CODEX_TOOLLESS_CONFIG_OVERRIDES : {}),
       },
       secretShellOverrides,
       staveLocalMcpManifest,

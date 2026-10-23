@@ -47,6 +47,8 @@ export async function learnFromAgentTask(args: { workspaceId: string; taskId: st
   const result = await runUtilityTextTurn({
     prompt: buildLearningPrompt({ agent, transcript: buildLearningTranscript(messages) }),
     turnIdPrefix: "agent-learning",
+    // The task's own workspace, which may no longer be the one shown when its turn ends.
+    workspaceId: args.workspaceId,
   });
   if (!result.ok) return;
   const parsed = parseLearningAnswer(result.text, agent.instructions);

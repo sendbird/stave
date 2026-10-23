@@ -21,6 +21,7 @@ async function generate(
 ) {
   const prompts: string[] = [];
   const models: (string | undefined)[] = [];
+  const toolless: (boolean | undefined)[] = [];
   const writes: unknown[] = [];
   const summaries: unknown[] = [];
   Object.defineProperty(globalThis, "window", {
@@ -32,9 +33,10 @@ async function generate(
             policy ? { ok: true, settings: policy } : { ok: false },
         },
         provider: {
-          streamTurn: (args: { prompt: string; runtimeOptions?: { model?: string } }) => {
+          streamTurn: (args: { prompt: string; runtimeOptions?: { model?: string; toolsDisabled?: boolean } }) => {
             prompts.push(args.prompt);
             models.push(args.runtimeOptions?.model);
+            toolless.push(args.runtimeOptions?.toolsDisabled);
             return [];
           },
         },
@@ -90,7 +92,7 @@ async function generate(
   });
   run({ workspaceId: "workspace", taskId: "task", turnId: "turn" });
   await done.promise;
-  return { prompts, models, writes, summaries };
+  return { prompts, models, writes, summaries, toolless };
 }
 
 test("summary tries an available fallback when the preferred model quota is exhausted", async () => {
@@ -160,5 +162,21 @@ test("disabled or unavailable collection still summarizes but never persists mod
     expect(result.prompts[0]).toContain("durableFacts: []");
     expect(result.summaries).toHaveLength(1);
     expect(result.writes).toEqual([]);
+  }
+});
+
+test("the summary runs as a tool-less turn on either provider", async () => {
+  for (const providerId of ["claude-code", "codex"] as const) {
+    const result = await generate(null, {
+      settings: {
+        ...defaultSettings,
+        auxiliaryInferencePolicy: {
+          ...defaultSettings.auxiliaryInferencePolicy,
+          turnSummary: { ...defaultSettings.auxiliaryInferencePolicy.turnSummary, enabled: true, providerId },
+        },
+      },
+    });
+    expect(result.toolless.length).toBeGreaterThan(0);
+    expect(result.toolless.every((value) => value === true)).toBe(true);
   }
 });

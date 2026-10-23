@@ -78,12 +78,30 @@ export type CodexReadOnlyPromptArgs = {
   onProgress?: (progress: { lastItemType: string }) => void;
 };
 
-/** Every tool a read-only Codex thread could still run, switched off. */
+/**
+ * Every tool a read-only Codex thread could still run, switched off. Checked
+ * against Codex 0.162.1's tool plan: an active plugin's MCP servers join the
+ * thread apart from `mcp_servers`, so plugins are switched off as a whole;
+ * image viewing became the `view_image` feature (the `tools.view_image` key
+ * stays for older builds); image generation, which reads referenced local
+ * images, and the plan tool are off too. Subagents need both the
+ * `multi_agent` features and `agents.enabled` off: a model's catalog entry
+ * can choose v2 delegation over the features alone. A key a build does not
+ * know is ignored with a warning, never a config error. What remains,
+ * `apply_patch`, cannot write in the read-only sandbox.
+ */
 export const CODEX_TOOLLESS_CONFIG_OVERRIDES: CodexConfigOverrides = {
   "features.shell_tool": false,
   "features.unified_exec": false,
   "features.apps": false,
+  "features.plugins": false,
+  "features.multi_agent": false,
+  "features.multi_agent_v2": false,
+  "features.view_image": false,
+  "features.image_generation": false,
+  "agents.enabled": false,
   "tools.view_image": false,
+  "tools.update_plan.enabled": false,
   network_access: false,
   web_search: "disabled",
 };

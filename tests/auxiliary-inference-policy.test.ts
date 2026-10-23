@@ -369,6 +369,7 @@ describe("buildReadOnlyAuxRuntimeOptions", () => {
       claudeAllowedTools: [],
       claudeMaxTurns: 1,
       claudePermissionMode: "dontAsk",
+      toolsDisabled: true,
     });
 
     const codex = buildReadOnlyAuxRuntimeOptions({
@@ -383,6 +384,7 @@ describe("buildReadOnlyAuxRuntimeOptions", () => {
       codexNetworkAccess: false,
       codexWebSearch: "disabled",
       codexReasoningSummary: "none",
+      toolsDisabled: true,
     });
   });
 

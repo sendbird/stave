@@ -283,8 +283,13 @@ async function requestViaClaudeSdk(
       // Haiku 5.5 rejects disabled thinking above high effort. Low is the
       // fastest level, which suits a keystroke-driven completion.
       effort: "low",
+      // A completion only writes text from the file excerpt Stave sends: no
+      // tool, skill or MCP server, and no MCP configuration from any layer.
       tools: [],
       allowedTools: [],
+      skills: [],
+      mcpServers: {},
+      strictMcpConfig: true,
       extraArgs: {
         "disable-slash-commands": null,
       },

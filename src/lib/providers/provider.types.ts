@@ -1183,6 +1183,12 @@ export interface ProviderRuntimeOptions {
   /** Extra auto-arm hosts, unparsed; see `parseProviderBrowserDomains`. */
   providerBrowserAutoFallbackDomains?: string;
   claudeFastMode?: boolean;
+  /**
+   * A turn that only writes text from what Stave put in its prompt: no tool
+   * of any kind, no MCP server (Stave's own included), no settings layer.
+   * Claude and Codex honor it; any other provider refuses the turn.
+   */
+  toolsDisabled?: boolean;
   claudeAllowedTools?: string[];
   claudeDisallowedTools?: string[];
   trustedTools?: string[];
