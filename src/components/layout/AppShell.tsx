@@ -29,6 +29,7 @@ import {
   paneHost,
 } from "@/components/panes/pane-host-controller";
 import { closePaneSurface } from "@/components/panes/pane-surface-actions";
+import { openTaskSideQuestion, toggleTaskReview } from "@/components/panes/task-surface-entry";
 import { useEditorPaneFocus } from "@/components/panes/use-editor-pane-focus";
 import { useFleetResultAutoReview } from "@/components/layout/useFleetResultAutoReview";
 import { FleetAttentionProducer } from "@/components/layout/FleetAttentionProducer";
@@ -55,6 +56,7 @@ import {
   type LayoutState,
 } from "@/store/app.store";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
+import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 import { createDefaultLayoutState } from "@/store/layout.utils";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
@@ -774,10 +776,14 @@ export function AppShell() {
   );
   const activeWorkspacePrStatus: WorkspacePrStatus =
     workspacePrInfoById[activeWorkspaceId]?.derived ?? "no_pr";
+  const activeTaskSurfaceMode = useTaskReviewModeStore(
+    (state) => state.byTask[activeTaskId]?.mode ?? "conversation",
+  );
   const commandPaletteContext = useMemo(
     () => ({
       activeEditorTabId,
       activeTaskId,
+      activeTaskSurfaceMode,
       activeWorkspaceBranch: workspaceBranchById[activeWorkspaceId],
       activeWorkspaceIsDefault,
       activeWorkspacePrStatus,
@@ -895,6 +901,8 @@ export function AppShell() {
             patch: { sidebarOverlayVisible: true, sidebarOverlayTab: tab },
           }),
         stopActiveTurn: () => abortTaskTurn({ taskId: activeTaskId }),
+        toggleTaskReview: () => toggleTaskReview(activeTaskId),
+        askSideQuestion: () => openTaskSideQuestion(activeTaskId),
         switchWorkspace: (workspaceId: string) =>
           switchWorkspace({ workspaceId }),
         toggleChangesPanel: () => {
@@ -945,6 +953,7 @@ export function AppShell() {
       abortTaskTurn,
       activeEditorTabId,
       activeTaskId,
+      activeTaskSurfaceMode,
       activeWorkspaceId,
       activeWorkspaceIsDefault,
       activeWorkspacePrStatus,

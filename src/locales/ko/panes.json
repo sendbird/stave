@@ -145,5 +145,9 @@
     "copyBreadcrumbsPath": "탐색 경로 복사"
   },
   "paneTabChip.closeNamed": "{{title}} 패널 닫기",
-  "terminalSurfacePanel.clear": "터미널 지우기"
+  "terminalSurfacePanel.clear": "터미널 지우기",
+  "taskHeaderActions": {
+    "sideQuestion": "곁질문",
+    "sideQuestionHint": "작업을 멈추지 않고 이 작업에 대해 묻습니다"
+  }
 }

@@ -10,12 +10,16 @@
 
 ## When To Use It
 
-- After an agent turn, to read what changed before you continue.
+- After an agent turn, to read what changed before you continue: **Review**
+  on the turn's changed-files card opens that turn.
 - When an agent run stage finishes, to read that stage's changes apart from
   anything changed after it.
 - Before you open or update a pull request, to read everything on the branch.
-- For line-level feedback, Review's **Comment** opens the editor's diff, where
-  comments anchor to lines ([Diff review comments](diff-review-comments.md)).
+- For line-level feedback, Review's **Comment in editor** opens the editor's
+  diff, where comments anchor to lines
+  ([Diff review comments](diff-review-comments.md)).
+- Review is where you decide on a task's work. The composer's **AI review**
+  asks another model for its opinion instead ([Review tasks](review-tasks.md)).
 
 ## Before You Start
 
@@ -39,8 +43,14 @@
 ### Entry Points
 
 - The **Conversation | Review** switch at the top of every task.
+- **Review** on a turn's changed-files card in the conversation opens Review
+  on that turn, once the turn has finished. **Open in editor** on the same card
+  opens each file's diff in the editor instead.
 - `Cmd/Ctrl+Alt+R` switches the active task, bringing it to the front when
   another tab has focus ([Keyboard shortcuts](keyboard-shortcuts.md)).
+- **Open Review** in the command palette does the same; while Review shows,
+  the command reads **Back to conversation**
+  ([Command palette](command-palette.md)).
 - **Review changes** on an agent run's sign-off card opens Review on the stage
   the sign-off is about ([Agent runs](agent-runs.md)).
 - **Review** on a row in the task's **Outputs** opens Review on that output's
@@ -77,8 +87,8 @@ Review is not saved across restarts: every task opens on its conversation.
 - **Output** under the files shows the turn's saved answer, whether it was
   marked reviewed and, apart from that, whether it was read (`Not reviewed
   yet · Read Oct 22, 9:30 AM`), or the stage's report.
-- The diff shows the selected file. **Comment** opens it in the editor's diff,
-  where you add line comments.
+- The diff shows the selected file. **Comment in editor** opens it in the
+  editor's diff, where you add line comments.
 - **Completion checks** shows the run's **Done when** criteria with the checks
   Stave ran, such as `Stave checks: 1 of 2 passed (lint); still needed: test`.
   Passing checks are not a review or a sign-off.
@@ -99,11 +109,14 @@ Review is not saved across restarts: every task opens on its conversation.
   - In **This stage**, while the run waits for your sign-off about this stage
     (the latest stage that ran before the waiting one, at this attempt):
     **Sign off**, or **Ask for changes** with a note that runs the last AI
-    stage again. An earlier stage offers neither. After the decision it shows
+    stage again. Once the note is sent, the task shows its conversation, where
+    the stage runs again. An earlier stage offers neither. After the decision it shows
     **Signed off** or **Changes asked** with the time, from the decision made
     about this stage only; a later stage's decision never shows on it.
   - In the other scopes: **Mark reviewed** marks the turn's output reviewed,
-    and **Send comments** sends the pending diff comments to the agent.
+    and **Send comments** sends the pending diff comments to the agent and
+    shows the task's conversation, where the agent answers. A send Stave
+    refuses keeps Review open and says why.
 
 Four things stay apart: a file **read** in Review, completion checks that
 **passed**, an output marked **Reviewed**, and a stage **Signed off**. None of
@@ -128,7 +141,8 @@ them implies another.
    card.
 2. Read the stage's files, check **Completion checks** and **Lens checks**.
 3. Choose **Sign off** to continue the run, or **Ask for changes**, write
-   what should change and choose **Send and run again**.
+   what should change and choose **Send and run again**. The task returns to
+   its conversation, where the stage runs again.
 
 ## Files And Data
 

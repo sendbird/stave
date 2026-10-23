@@ -56,7 +56,7 @@ function setWindowContext() {
 
 function getLocalReviewButtonMarkup(html: string) {
   return html.match(
-    /<button[^>]*aria-label="Review local changes"[^>]*>[\s\S]*?<\/button>/,
+    /<button[^>]*aria-label="AI review of local changes"[^>]*>[\s\S]*?<\/button>/,
   )?.[0];
 }
 
@@ -172,8 +172,8 @@ describe("PromptInput queue mode", () => {
     );
     const buttonMarkup = getLocalReviewButtonMarkup(html);
 
-    expect(html).toContain('aria-label="Review local changes"');
-    expect(buttonMarkup).toContain(">Review</span>");
+    expect(html).toContain('aria-label="AI review of local changes"');
+    expect(buttonMarkup).toContain(">AI review</span>");
     expect(buttonMarkup).toBeTruthy();
     // ADS `Button` owns `data-variant` and publishes its own spelling of the
     // understated weight, so the product's `ghost` reads as `quiet` here.
@@ -183,7 +183,7 @@ describe("PromptInput queue mode", () => {
     // through a single rule.
     expect(buttonMarkup).toContain(COMPOSER_CONTROL_BUTTON);
     expect(buttonMarkup).not.toContain("<img");
-    expect(html.indexOf('aria-label="Review local changes"')).toBeLessThan(
+    expect(html.indexOf('aria-label="AI review of local changes"')).toBeLessThan(
       html.indexOf('aria-label="Attach files"'),
     );
   });
@@ -226,7 +226,7 @@ describe("PromptInput queue mode", () => {
       ),
     );
 
-    expect(html.indexOf('aria-label="Review local changes"')).toBeLessThan(
+    expect(html.indexOf('aria-label="AI review of local changes"')).toBeLessThan(
       html.indexOf('aria-label="Open Tools"'),
     );
     expect(html.indexOf('aria-label="Open Tools"')).toBeLessThan(

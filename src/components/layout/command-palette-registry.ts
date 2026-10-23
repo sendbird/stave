@@ -5,6 +5,7 @@ import {
   Command as CommandIcon,
   FolderOpen,
   GitBranch,
+  GitCompareArrows,
   GitGraph,
   GitPullRequest,
   Globe,
@@ -16,6 +17,7 @@ import {
   ChartNoAxesColumn,
   LayoutGrid,
   ListTodo,
+  MessageCircleQuestion,
   MessageSquarePlus,
   MessagesSquare,
   PanelLeft,
@@ -44,6 +46,8 @@ import {
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
+import { isSideChatProvider } from "@/lib/side-chat/side-chat";
+import type { TaskSurfaceMode } from "@/store/task-review-mode-store";
 import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
 
 const { icon: WorkspaceToolsIcon } =
@@ -164,6 +168,10 @@ export interface CommandPaletteCommandHandlers {
   splitActivePanel: (direction: "right" | "below") => void;
   showOverlayTab: (tab: CommandPaletteLayoutState["sidebarOverlayTab"]) => void;
   stopActiveTurn: () => void;
+  /** Switches the active task between its conversation and Review. */
+  toggleTaskReview: () => void;
+  /** Opens the active task's side question panel. */
+  askSideQuestion: () => void;
   switchWorkspace: (workspaceId: string) => Promise<void> | void;
   toggleChangesPanel: () => void;
   toggleEditor: () => void;
@@ -175,6 +183,8 @@ export interface CommandPaletteCommandHandlers {
 export interface CommandPaletteRuntimeContext {
   activeEditorTabId: string | null;
   activeTaskId: string;
+  /** Whether the active task shows its conversation or Review; conversation when absent. */
+  activeTaskSurfaceMode?: TaskSurfaceMode;
   activeWorkspaceBranch?: string;
   activeWorkspaceIsDefault: boolean;
   activeWorkspacePrStatus: WorkspacePrStatus;
@@ -670,6 +680,55 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
             icon: CommandIcon,
             keywords: ["stop", "abort", "cancel generation"],
             run: args.commands.stopActiveTurn,
+            source: "core",
+          }
+        : null,
+  },
+  {
+    id: "task.toggle-review",
+    get title() { return i18n.t("shell:keybindings.entries.toggleTaskReview.title"); },
+    get description() { return i18n.t("shell:keybindings.entries.toggleTaskReview.description"); },
+    group: "task",
+    icon: GitCompareArrows,
+    keywords: ["review", "diff", "changes", "sign off", "conversation"],
+    shortcut: (modifierLabel) => `${modifierLabel}+Alt+R`,
+    build: (args) =>
+      args.activeTaskId
+        ? {
+            id: "task.toggle-review",
+            title:
+              args.activeTaskSurfaceMode === "review"
+                ? i18n.t("shell:commandPaletteRegistry.backToTaskConversation")
+                : i18n.t("shell:commandPaletteRegistry.openTaskReview"),
+            subtitle: i18n.t("shell:keybindings.entries.toggleTaskReview.description"),
+            group: "task",
+            icon: GitCompareArrows,
+            keywords: ["review", "diff", "changes", "sign off", "conversation"],
+            shortcut: `${args.modifierLabel}+Alt+R`,
+            run: args.commands.toggleTaskReview,
+            source: "core",
+          }
+        : null,
+  },
+  {
+    // Shares its id with the app chord, so its shortcut follows the chord's setting.
+    id: "view.side-question",
+    get title() { return i18n.t("shell:appShortcuts.askSideQuestion"); },
+    get description() { return i18n.t("shell:commandPaletteRegistry.askSideQuestionDescription"); },
+    group: "task",
+    icon: MessageCircleQuestion,
+    keywords: ["side question", "aside", "ask", "question"],
+    build: (args) =>
+      args.activeTaskId &&
+      isSideChatProvider(args.tasks.find((task) => task.id === args.activeTaskId)?.provider)
+        ? {
+            id: "view.side-question",
+            title: i18n.t("shell:appShortcuts.askSideQuestion"),
+            subtitle: i18n.t("shell:commandPaletteRegistry.askSideQuestionDescription"),
+            group: "task",
+            icon: MessageCircleQuestion,
+            keywords: ["side question", "aside", "ask", "question"],
+            run: args.commands.askSideQuestion,
             source: "core",
           }
         : null,

@@ -649,7 +649,10 @@
     "addAnAccount": "계정 추가",
     "addAnAccountDescription": "설정 > 계정에서 Claude 또는 Codex 로그인 추가",
     "addAnApiConnection": "API 연결 추가",
-    "addAnApiConnectionDescription": "Vercel AI Gateway처럼 토큰 단위로 과금되는 게이트웨이 키 연결"
+    "addAnApiConnectionDescription": "Vercel AI Gateway처럼 토큰 단위로 과금되는 게이트웨이 키 연결",
+    "openTaskReview": "검토 열기",
+    "backToTaskConversation": "대화로 돌아가기",
+    "askSideQuestionDescription": "활성 작업을 멈추지 않고 그 작업에 대해 묻습니다"
   },
   "commandPaletteScripts": {
     "local": "{{value1}} · 로컬",

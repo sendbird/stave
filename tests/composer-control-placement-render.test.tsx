@@ -166,7 +166,7 @@ describe("composer control placement in the toolbar", () => {
 
   test("renders every control and no tray button by default", async () => {
     const html = await renderToolbar();
-    expect(html).toContain('aria-label="Review local changes"');
+    expect(html).toContain('aria-label="AI review of local changes"');
     // Thinking says the mode in use, not just its name.
     expect(html).toContain(">Thinking · Adaptive<");
     // An empty tray must not cost a toolbar slot.
@@ -177,7 +177,7 @@ describe("composer control placement in the toolbar", () => {
     const html = await renderToolbar({
       composerControlPlacements: { review: "hidden" },
     });
-    expect(html).not.toContain('aria-label="Review local changes"');
+    expect(html).not.toContain('aria-label="AI review of local changes"');
     expect(html).not.toContain('data-composer-tray-trigger="true"');
   });
 
@@ -189,7 +189,7 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('aria-label="More composer controls (2)"');
     // Closed popovers do not render their content, so the demoted control is
     // out of the row without being deleted.
-    expect(html).not.toContain('aria-label="Review local changes"');
+    expect(html).not.toContain('aria-label="AI review of local changes"');
   });
 
   test("keeps a hidden control hidden while it is at rest", async () => {
@@ -281,7 +281,7 @@ describe("composer control placement in the toolbar", () => {
       html.indexOf('data-composer-frame-status-bar="true"'),
     );
     expect(statusBar).toContain('data-composer-status-tray="row"');
-    expect(statusBar).toContain(">Review<");
+    expect(statusBar).toContain(">AI review<");
     expect(statusBar).toContain('aria-label="Runtime ·');
     expect(statusBar).not.toContain(">Runtime<");
     // The raised card keeps the model picker and context meter; wings own
@@ -354,7 +354,7 @@ describe("composer control placement in the toolbar", () => {
     // The lane can only reach them if each one carries the marker.
     for (const label of [
       'aria-label="Thinking · Adaptive"',
-      'aria-label="Review local changes"',
+      'aria-label="AI review of local changes"',
       'aria-label="Runtime · ',
     ]) {
       const at = html.indexOf(label);
@@ -403,7 +403,7 @@ describe("composer control placement in the toolbar", () => {
       2,
     );
     expect(html).toContain(">Runtime</span>");
-    expect(html).not.toContain(">Review</span>");
+    expect(html).not.toContain(">AI review</span>");
   });
   test("keeps the overflow tray out of the model row, ahead of Runtime", async () => {
     const classic = await renderToolbar({

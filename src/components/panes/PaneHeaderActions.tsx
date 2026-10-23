@@ -23,7 +23,8 @@ import {
 } from "@/components/ui";
 import { openPaneTabInGroup } from "@/components/panes/pane-host-controller";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
-import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
+import { TaskPaneHeaderActions } from "@/components/panes/TaskPaneHeaderActions";
+import { parsePanePanelId, type PaneSurfaceDescriptor } from "@/lib/panes/types";
 import { isTaskArchived } from "@/lib/tasks";
 import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
 import {
@@ -42,9 +43,15 @@ const CLI_SESSION_CHOICES = [
   contextMode: CliSessionContextMode;
 }[];
 
-/** Group header "+" menu: create any surface kind as a new pane tab. */
+/**
+ * Group header actions: the task's own actions when the group shows a task,
+ * then the "+" menu that creates any surface kind as a new pane tab.
+ */
 export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
   useTranslation();
+  // The task this group shows, not the app's active task: with split panes
+  // each group's actions act on its own tab.
+  const shownSurface = props.activePanel ? parsePanePanelId(props.activePanel.id) : null;
   const [
     providerAvailability,
     hasActiveTask,
@@ -96,6 +103,9 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
 
   return (
     <div className={sx(styles.root)}>
+      {shownSurface?.kind === "task" && shownSurface.taskId ? (
+        <TaskPaneHeaderActions taskId={shownSurface.taskId} />
+      ) : null}
       <DropdownMenu>
         <Tooltip content={i18n.t("panes:paneHeaderActions.createNewPaneTab")}>
           <span className={sx(layoutShellStyles.inlineFlex)}>

@@ -51,7 +51,7 @@
   },
   "diff": {
     "title": "차이",
-    "comment": "코멘트",
+    "comment": "편집기에서 코멘트",
     "renamed": "{{from}} → {{to}}",
     "noTextChange": "텍스트 변경이 없습니다(모드, 권한 또는 바이너리 내용).",
     "noChanges": "표시할 변경 사항이 없습니다.",

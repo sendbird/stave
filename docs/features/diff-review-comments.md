@@ -21,9 +21,9 @@
   diff editor's context menu has the same action.
 - Comments written while a send is still going out stay pending. A second send
   of the same task is ignored until the first one finishes.
-- In [Review mode](review-mode.md), **Comment** on a file opens its diff here,
-  and **Send comments** in Review's decision bar sends the task's pending
-  comments the same way.
+- In [Review mode](review-mode.md), **Comment in editor** on a file opens its
+  diff here, and **Send comments** in Review's decision bar sends the task's
+  pending comments the same way, then shows the task's conversation.
 
 ## After Sending
 

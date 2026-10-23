@@ -52,7 +52,7 @@
   },
   "diff": {
     "title": "Diff",
-    "comment": "Comment",
+    "comment": "Comment in editor",
     "renamed": "{{from}} → {{to}}",
     "noTextChange": "No text changes (mode, permissions or binary content).",
     "noChanges": "No changes to show.",

@@ -671,7 +671,7 @@ describe("AssistantMessageBody", () => {
     expect(render(false)).toContain("1 pending");
     const html = render(true);
     expect(html).toContain("example.ts");
-    expect(html).toContain("Open All");
+    expect(html).toContain("Open in editor");
     expect(html).not.toContain("pending");
   });
 });

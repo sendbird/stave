@@ -113,6 +113,14 @@ test("a side question during a running turn leaves the transcript and the next i
     await expect(composer).toContainText(DRAFT);
     await expect(composer).toContainText("> Done.");
 
+    // The labelled Side question beside the pane's tabs opens the same panel, focused on its question.
+    await panel.getByRole("button", { name: "Close side question" }).click();
+    await expect(panel).toHaveCount(0);
+    await page.getByTestId("pane-header-side-question").click();
+    await expect(panel).toBeVisible();
+    await expect(panel.getByRole("textbox", { name: "Side question" })).toBeFocused();
+    await page.screenshot({ path: testInfo.outputPath("side-question-from-pane-header.png") });
+
     // The composer's `/aside` asks in the panel and sends nothing to the task.
     await composer.click();
     await composer.fill("/aside Why the export?");

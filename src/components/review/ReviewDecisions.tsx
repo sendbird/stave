@@ -3,6 +3,7 @@ import { useId, useState } from "react";
 import { ApprovalBar } from "@/components/ads/components/ReviewStatus";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
+import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime } from "@/i18n/format";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -35,6 +36,8 @@ interface DecisionProps {
  * The decision at the end of Review (D13). A stage is signed off or sent back
  * with a note; a plain task is marked reviewed or gets its comments sent.
  * Each decision says its own state, apart from files read and checks passed.
+ * Sending work back to the agent returns the task to its conversation, where
+ * the agent's next turn and any request it makes are shown.
  */
 export function ReviewDecisions(props: DecisionProps) {
   return props.scope.kind === "stage" ? <StageDecisions {...props} scope={props.scope} /> : <TaskDecisions {...props} />;
@@ -85,6 +88,7 @@ function StageDecisions(props: DecisionProps & { scope: Extract<ReviewScope, { k
               if (result.ok) {
                 setAsking(false);
                 setFeedback("");
+                showTaskConversation(props.taskId);
               }
             });
           }}
@@ -127,6 +131,7 @@ function TaskDecisions(props: DecisionProps) {
     setError(null);
     const sent = await submitReviewFeedback({ taskId: props.taskId });
     if (sent.status === "blocked") setError(i18n.t("review:decisions.task.sendFailed"));
+    else showTaskConversation(props.taskId);
   } : undefined;
   return (
     <div className={sx(styles.decisions)} role="region" aria-label={i18n.t("review:decisions.label")}>

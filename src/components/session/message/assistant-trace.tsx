@@ -788,6 +788,7 @@ export function AssistantMessageBody(args: {
             taskId={taskId}
             messageId={messageId}
             readOnly={readOnly}
+            offerTurnReview
           />
         </div>
       ) : null}
