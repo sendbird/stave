@@ -948,20 +948,11 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     ? (candidate.stance as Stance)
     : starter.stance;
   const rawId = typeof candidate.id === "string" ? candidate.id.trim() : "";
-  const storedRules = Array.isArray(candidate.rules)
+  const rules = Array.isArray(candidate.rules)
     ? candidate.rules
         .map((entry, index) => normalizeRule(entry, index))
         .filter((entry): entry is RouteRule => entry !== null)
     : starter.rules;
-  // temporary-migration: auto-routing-profile-v6
-  // Version 6 made levels editable. A level rule a custom table copied from
-  // the version 5 starter named its level's rung and effort outright, which
-  // would hide a level edit; it now follows the level. Remove in 0.28.0
-  // (registered in config/temporary-migrations.json).
-  const rules = typeof candidate.version !== "number" || candidate.version < AUTO_ROUTING_PROFILE_VERSION
-    ? storedRules.map(followLevelIfV5StarterRule)
-    : storedRules;
-  // end temporary-migration: auto-routing-profile-v6
   const seenRuleIds = new Set<string>();
   const dedupedRules = rules.map((entry) => {
     let id = entry.id;
@@ -1075,36 +1066,6 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
     levels,
   };
 }
-
-// temporary-migration: auto-routing-profile-v6
-/** Rung and effort each level rule of the version 5 starter named. */
-const V5_LEVEL_RULE_TARGETS: Readonly<Record<RouteComplexity, { tier: RouteTier; effort: string }>> = {
-  low: { tier: "light", effort: "medium" },
-  medium: { tier: "flagship", effort: "medium" },
-  high: { tier: "flagship", effort: "high" },
-  expert: { tier: "frontier", effort: "medium" },
-  extreme: { tier: "frontier", effort: "high" },
-};
-
-/** A version 5 starter level rule, unchanged by the user, now follows its level. */
-function followLevelIfV5StarterRule(entry: RouteRule): RouteRule {
-  const complexity = entry.when.complexity;
-  if (!complexity || Object.keys(entry.when).length !== 1 || entry.id !== LEVEL_RULE_IDS[complexity]) {
-    return entry;
-  }
-  const target = V5_LEVEL_RULE_TARGETS[complexity];
-  const { then } = entry;
-  if (
-    then.providerId !== "any-eligible"
-    || then.model
-    || then.tier !== target.tier
-    || then.effort !== target.effort
-  ) {
-    return entry;
-  }
-  return { ...entry, then: { providerId: "any-eligible", tier: FOLLOW_LEVEL_TIER } };
-}
-// end temporary-migration: auto-routing-profile-v6
 
 export interface LegacyAutoRoutingSettings {
   autoRoutingUseClassifier?: unknown;

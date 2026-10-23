@@ -40,10 +40,8 @@ function isAppDocument(url: string): boolean {
 }
 
 /**
- * The window showing the app, not the first window to appear. The first launch
- * of a profile written by an earlier release opens hidden pages to move its
- * renderer storage (`electron/main/renderer-origin-migration-electron.ts`), and
- * `firstWindow()` can return one of those just before it closes.
+ * The window showing the app, not the first window to appear: `firstWindow()`
+ * can return a window that closes before the app document loads.
  */
 async function waitForAppWindow(app: ElectronApplication): Promise<Page> {
   await app.firstWindow({ timeout: 60_000 });

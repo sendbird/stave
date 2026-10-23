@@ -1,20 +1,12 @@
-import { existsSync } from "node:fs";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
 import { launchStave, type StaveApp } from "./harness/stave-app";
 
-const MARKER_FILE = "renderer-origin-migration.json";
-
-/**
- * The app document, not a page the one-time origin migration opens: an
- * upgraded profile briefly has hidden windows of its own before the app loads.
- */
-async function appPage(
-  stave: StaveApp,
-  protocol: "stave-app:" | "file:",
-): Promise<Page> {
+/** The window showing the app document from the renderer scheme. */
+async function appPage(stave: StaveApp): Promise<Page> {
+  const protocol = "stave-app:";
   const deadline = Date.now() + 30_000;
   for (;;) {
     const page = stave.app.windows().find((candidate) => {
@@ -52,15 +44,6 @@ async function removeProfile(directory: string) {
   }
 }
 
-async function flushAndClose(stave: StaveApp) {
-  // The harness kills the process; persist localStorage the way a normal quit would.
-  await stave.app.evaluate(({ session }) =>
-    session.defaultSession.flushStorageData(),
-  );
-  await new Promise((resolve) => setTimeout(resolve, 500));
-  await stave.close();
-}
-
 // Timings are evidence, not a hardware-independent promise. The origin is the
 // enforced part: only the renderer scheme lets Chromium reuse compiled code.
 test("the built renderer starts from the code-cached origin on every launch", async ({}, testInfo) => {
@@ -77,7 +60,7 @@ test("the built renderer starts from the code-cached origin on every launch", as
       const startedAt = Date.now();
       const stave = await launchStave({ userDataDir });
       try {
-        const page = await appPage(stave, "stave-app:");
+        const page = await appPage(stave);
         const timing = await page.evaluate(() => {
           const navigation = performance.getEntriesByType(
             "navigation",
@@ -111,53 +94,12 @@ test("the built renderer starts from the code-cached origin on every launch", as
     expect(launches.map((launch) => launch.protocol)).toEqual(
       Array(4).fill("stave-app:"),
     );
-    expect(existsSync(path.join(userDataDir, MARKER_FILE))).toBe(true);
     const reportPath = testInfo.outputPath("renderer-origin-launches.json");
     await writeFile(reportPath, JSON.stringify({ launches }, null, 2));
     await testInfo.attach("renderer-origin-launches", {
       path: reportPath,
       contentType: "application/json",
     });
-  } finally {
-    await removeProfile(userDataDir);
-  }
-});
-
-test("a profile written at file:// keeps its localStorage when the renderer moves origin", async () => {
-  test.setTimeout(120_000);
-  const userDataDir = await mkdtemp(path.join(tmpdir(), "stave-renderer-origin-upgrade-"));
-  // A directory where the marker's temp file goes makes the marker write fail,
-  // which is how a launch that cannot finish the copy behaves.
-  const markerBlocker = path.join(userDataDir, `${MARKER_FILE}.tmp`);
-  const value = "kept across origins — ✓ 한글";
-  try {
-    await mkdir(markerBlocker);
-    let stave = await launchStave({ userDataDir });
-    try {
-      const page = await appPage(stave, "file:");
-      await page.evaluate((stored) => {
-        localStorage.setItem("stave-e2e:origin-probe", stored);
-      }, value);
-    } finally {
-      await flushAndClose(stave);
-    }
-    expect(existsSync(path.join(userDataDir, MARKER_FILE))).toBe(false);
-
-    await rm(markerBlocker, { recursive: true, force: true });
-    stave = await launchStave({ userDataDir });
-    try {
-      const page = await appPage(stave, "stave-app:");
-      await expect
-        .poll(() =>
-          page.evaluate(() =>
-            localStorage.getItem("stave-e2e:origin-probe"),
-          ),
-        )
-        .toBe(value);
-      expect(existsSync(path.join(userDataDir, MARKER_FILE))).toBe(true);
-    } finally {
-      await stave.close();
-    }
   } finally {
     await removeProfile(userDataDir);
   }

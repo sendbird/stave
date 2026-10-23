@@ -15,9 +15,6 @@ import { createMainWindow, getMainWindow } from "./main/window";
 import { registerRendererScheme } from "./main/renderer-protocol";
 import { installInlineRenderProtocol } from "./main/inline-render/inline-render-service";
 import { exposeInlineRenderPreviewForE2e } from "./main/inline-render/inline-render-preview-service";
-// temporary-migration: renderer-origin-storage
-import { recordRendererOriginMigrationBaseline } from "./main/renderer-origin-migration-electron";
-// end temporary-migration: renderer-origin-storage
 import { buildApplicationMenu } from "./main/application-menu";
 import {
   loadPersistedMainLocale,
@@ -50,9 +47,6 @@ registerRendererScheme();
 
 const persistenceRuntime = configurePersistenceUserDataPath(app);
 process.env.STAVE_USER_DATA_PATH = persistenceRuntime.userDataPath;
-// temporary-migration: renderer-origin-storage
-recordRendererOriginMigrationBaseline(persistenceRuntime.userDataPath);
-// end temporary-migration: renderer-origin-storage
 // Always overwrite: a Stave launched from another Stave's terminal inherits
 // that instance's pid, and would otherwise route its sessions to it.
 process.env[STAVE_LOCAL_MCP_OWNER_PID_ENV] = String(process.pid);

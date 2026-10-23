@@ -32,15 +32,7 @@ import {
 
 /** The routing history of a task's saved messages; shared with the composer's Auto path. */
 export { toRoutingHistory } from "./auto-routing";
-// temporary-migration: auto-routing-v1-settings-keys
-import { AUTO_ROUTING_V1_SETTINGS_KEYS, withoutAutoRoutingV1Keys } from "./auto-routing-v1-settings-migration";
-// end temporary-migration: auto-routing-v1-settings-keys
 
-// temporary-migration: auto-routing-v1-settings-keys
-const LEGACY_V1_ROUTING_FIELDS = Object.fromEntries(
-  AUTO_ROUTING_V1_SETTINGS_KEYS.map((key) => [key, z.unknown().optional()]),
-) as Record<(typeof AUTO_ROUTING_V1_SETTINGS_KEYS)[number], z.ZodOptional<z.ZodUnknown>>;
-// end temporary-migration: auto-routing-v1-settings-keys
 const BinaryPathSchema = z.string().max(4_096).optional();
 
 const ClassifierContextSchema = z
@@ -72,22 +64,13 @@ export const AgentRouteSettingsSchema = z
       .object({
         autoRoutingEnabled: z.boolean(),
         autoRoutingProfile: z.unknown().optional(),
-        // temporary-migration: auto-routing-v1-settings-keys
-        // A host copy saved before the v1 keys were retired still parses.
-        ...LEGACY_V1_ROUTING_FIELDS,
-        // end temporary-migration: auto-routing-v1-settings-keys
       })
       .strict()
-      .transform((routing) => {
-        // temporary-migration: auto-routing-v1-settings-keys
-        const current = withoutAutoRoutingV1Keys(routing) as { autoRoutingProfile?: unknown };
-        // end temporary-migration: auto-routing-v1-settings-keys
-        return {
-          autoRoutingEnabled: routing.autoRoutingEnabled,
-          autoRoutingProfile:
-            current.autoRoutingProfile === undefined ? undefined : validateProfile(current.autoRoutingProfile),
-        };
-      }),
+      .transform((routing) => ({
+        autoRoutingEnabled: routing.autoRoutingEnabled,
+        autoRoutingProfile:
+          routing.autoRoutingProfile === undefined ? undefined : validateProfile(routing.autoRoutingProfile),
+      })),
     /** The utility classifier's context, by the provider a turn runs on; null when classification is off. */
     classifier: z
       .object({ "claude-code": ClassifierContextSchema.optional(), codex: ClassifierContextSchema.optional() })

@@ -399,20 +399,6 @@ test("undefined option properties cannot erase guarded snapshot defaults", () =>
   });
 });
 
-test("a policy saved with the retired plan mode is read back as default", () => {
-  expect(
-    normalizedPermissionOptions("claude-code", {
-      claudePermissionMode: "plan",
-      claudePlanModeApprovalScope: "bashTaskAndMcp",
-    }),
-  ).toMatchObject({ claudePermissionMode: "default" });
-  expect(
-    normalizedPermissionOptions("claude-code", {
-      claudePermissionMode: "plan",
-    }),
-  ).not.toHaveProperty("claudePlanModeApprovalScope");
-});
-
 test("removing previously saved approval-skip tools tightens a subsequent attempt", () => {
   const recorded = resolveDelegationPermissionPolicy({
     providerId: "claude-code",
