@@ -1,4 +1,5 @@
 import type Database from "better-sqlite3";
+import { carryForwardInteractionAnswers } from "../../src/lib/session/interaction-state-merge";
 import type { PersistenceChatMessageRow } from "./types";
 
 /**
@@ -76,62 +77,6 @@ interface StoredMessageIdentityRow {
   message_json: string | null;
 }
 
-type InteractionPart = { type: "approval" | "user_input"; requestId: string };
-
-function isInteractionPart(part: unknown): part is InteractionPart {
-  if (!part || typeof part !== "object") {
-    return false;
-  }
-  const candidate = part as { type?: unknown; requestId?: unknown };
-  return (
-    (candidate.type === "approval" || candidate.type === "user_input") &&
-    typeof candidate.requestId === "string" &&
-    candidate.requestId.length > 0
-  );
-}
-
-/**
- * Carries approval and question states from a refused stale copy into the
- * stored row: the copy is older, but a person may have answered from it.
- * Returns the merged JSON, or null when nothing changed.
- */
-function mergeInteractionStates(args: {
-  storedJson: string;
-  incoming: PersistenceChatMessageRow;
-}): { json: string; merged: number } | null {
-  let stored: { parts?: unknown[] };
-  try {
-    stored = JSON.parse(args.storedJson) as { parts?: unknown[] };
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(stored.parts)) {
-    return null;
-  }
-  const incomingByRequest = new Map<string, unknown>();
-  for (const part of args.incoming.parts) {
-    if (isInteractionPart(part)) {
-      incomingByRequest.set(`${part.type}:${part.requestId}`, part);
-    }
-  }
-  if (incomingByRequest.size === 0) {
-    return null;
-  }
-  let merged = 0;
-  const parts = stored.parts.map((part) => {
-    if (!isInteractionPart(part)) {
-      return part;
-    }
-    const incoming = incomingByRequest.get(`${part.type}:${part.requestId}`);
-    if (!incoming || JSON.stringify(incoming) === JSON.stringify(part)) {
-      return part;
-    }
-    merged += 1;
-    return incoming;
-  });
-  return merged > 0 ? { json: JSON.stringify({ ...stored, parts }), merged } : null;
-}
-
 function classifySkippedWrite(args: {
   stored: StoredMessageIdentityRow | undefined;
   message: PersistenceChatMessageRow;
@@ -151,6 +96,34 @@ function classifySkippedWrite(args: {
     return stored.started_at === incoming.startedAt ? "regression" : "identity";
   }
   return "regression";
+}
+
+/**
+ * Carries the approval and question answers of a refused stale copy into the
+ * stored row: the copy is older, but a person may have answered from it.
+ * Answers only move forward, so a stored answer is never reverted. Returns the
+ * merged JSON, or null when nothing changed.
+ */
+function mergeInteractionStates(args: {
+  storedJson: string;
+  incoming: PersistenceChatMessageRow;
+}): { json: string; merged: number } | null {
+  let stored: { parts?: unknown[] };
+  try {
+    stored = JSON.parse(args.storedJson) as { parts?: unknown[] };
+  } catch {
+    return null;
+  }
+  if (!Array.isArray(stored.parts)) {
+    return null;
+  }
+  const { parts, carried } = carryForwardInteractionAnswers({
+    target: stored.parts,
+    source: args.incoming.parts,
+  });
+  return carried > 0
+    ? { json: JSON.stringify({ ...stored, parts }), merged: carried }
+    : null;
 }
 
 /**

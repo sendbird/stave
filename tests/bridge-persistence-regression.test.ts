@@ -6509,8 +6509,37 @@ describe("workspace store hydration ordering", () => {
                   }
                 : null,
           }),
-          listActiveWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          listActiveWorkspaceTurns: async () => ({
+            ok: true,
+            turns: [
+              {
+                id: "turn-live",
+                workspaceId: "ws-beta",
+                taskId: "task-live",
+                providerId: "claude-code",
+                createdAt: "2026-03-10T00:01:00.000Z",
+                completedAt: null,
+              },
+            ],
+          }),
           listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
+          loadTaskMessages: async ({ taskId }: { taskId: string }) => ({
+            ok: true,
+            page: {
+              messages:
+                taskId === "task-stale"
+                  ? [
+                      message("stale-1", "user", "Old view"),
+                      { ...message("stale-2", "assistant", "Finished elsewhere."), isStreaming: false, completedAt: "2026-03-10T00:05:00.000Z" },
+                      message("stale-3", "user", "Asked later"),
+                    ]
+                  : [],
+              totalCount: taskId === "task-stale" ? 3 : 0,
+              limit: 120,
+              offset: 0,
+              hasMoreOlder: false,
+            },
+          }),
           upsertWorkspace: async () => ({ ok: true }),
         },
       },
@@ -6562,25 +6591,35 @@ describe("workspace store hydration ordering", () => {
           workspaceInformation,
           editorTabs: [],
           activeEditorTabId: null,
-          activeTurnIdsByTask: { "task-live": "turn-live" },
+          activeTurnIdsByTask: { "task-live": "turn-live", "task-stale": "turn-ended" },
           providerSessionByTask: {},
           nativeSessionReadyByTask: {},
         } as never,
       },
+      providerTurnActivityByTask: {
+        "task-live": { turnId: "turn-live" },
+        "task-stale": { turnId: "turn-ended", pendingInteraction: "user_input" },
+      } as never,
     });
 
     await useAppStore.getState().switchWorkspace({ workspaceId: "ws-beta" });
+    await Bun.sleep(10);
 
     const nextState = useAppStore.getState();
     expect(nextState.activeWorkspaceId).toBe("ws-beta");
     // The running renderer turn in the other task survives the reload.
     expect(nextState.activeTurnIdsByTask["task-live"]).toBe("turn-live");
     expect(nextState.messagesByTask["task-live"]).toBe(liveMessages);
-    // The stale task is reset to the persisted count for the latest-page load.
+    expect(nextState.providerTurnActivityByTask["task-live"]?.turnId).toBe("turn-live");
+    // The stale task's ended turn is cleared and its messages reload from SQLite.
+    expect(nextState.activeTurnIdsByTask["task-stale"]).toBeUndefined();
+    expect(nextState.providerTurnActivityByTask["task-stale"]).toBeUndefined();
     expect(nextState.messageCountByTask["task-stale"]).toBe(3);
-    expect(nextState.messagesByTask["task-stale"]?.map((item) => item.id)).not.toContain(
+    expect(nextState.messagesByTask["task-stale"]?.map((item) => item.id)).toEqual([
       "stale-1",
-    );
+      "stale-2",
+      "stale-3",
+    ]);
   });
 
   test("late events after an inactive workspace turn completes do not emit redundant store updates", async () => {

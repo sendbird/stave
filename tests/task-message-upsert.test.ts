@@ -221,6 +221,46 @@ describe("upsertTaskMessages", () => {
     expect(row?.parts[1]).toMatchObject({ requestId: "question-1", state: "input-responded" });
   });
 
+  test("never reverts a stored answer to an older requested state", () => {
+    const answered = {
+      type: "user_input",
+      requestId: "question-2",
+      toolName: "AskUserQuestion",
+      questions: [],
+      answers: { q: "yes" },
+      state: "input-responded",
+    };
+    upsert([
+      {
+        ...assistantMessage({
+          id: "m-5",
+          turnId: "turn-a",
+          content: "Asked, got an answer, finished.",
+          partCount: 0,
+          completedAt: "2026-01-01T00:04:00.000Z",
+        }),
+        parts: [answered, { type: "text", text: "Asked, got an answer, finished." }],
+      },
+    ]);
+    const skipped = upsert([
+      {
+        ...assistantMessage({
+          id: "m-5",
+          turnId: "turn-a",
+          content: "Asked",
+          partCount: 0,
+          completedAt: "2026-01-01T03:00:00.000Z",
+        }),
+        parts: [{ ...answered, answers: undefined, state: "input-requested" }],
+      },
+    ]);
+    expect(skipped).toEqual([{ messageId: "m-5", reason: "regression" }]);
+    expect(stored("m-5")?.parts[0]).toMatchObject({
+      state: "input-responded",
+      answers: { q: "yes" },
+    });
+  });
+
   test("applies ordinary progress, completion and same-size edits", () => {
     upsert([
       assistantMessage({

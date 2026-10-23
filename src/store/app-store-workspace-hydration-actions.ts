@@ -69,7 +69,10 @@ import {
   shouldReloadWorkspaceShellFromPersistence,
   summarizeWorkspaceShell,
 } from "@/store/workspace-shell-summary";
-import { refreshStaleCachedWorkspace } from "@/store/workspace-cache-freshness";
+import {
+  clearEndedTurnActivity,
+  refreshStaleCachedWorkspace,
+} from "@/store/workspace-cache-freshness";
 import type { ChatMessage } from "@/types/chat";
 
 function getRetainedLoadedMessageTaskIds(args: {
@@ -836,7 +839,16 @@ export function createWorkspaceHydrationActions(args: {
                 : null),
           );
 
+        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
         return {
+          ...(endedTurns.length > 0
+            ? {
+                providerTurnActivityByTask: clearEndedTurnActivity({
+                  activityByTask: state.providerTurnActivityByTask,
+                  endedTurns,
+                }),
+              }
+            : {}),
           hasHydratedWorkspaces: true,
           workspaceSnapshotVersion: 0,
           promptDraftPersistenceVersion: 0,

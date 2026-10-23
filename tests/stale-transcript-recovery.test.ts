@@ -3,9 +3,11 @@ import { buildMessageId } from "../src/lib/session/message-id";
 import { mergeTaskMessagePage, pickFresherTaskMessage } from "../src/store/task-message-merge";
 import { reconcileStopOfFinishedTurn } from "../src/store/stopped-turn-reconcile";
 import {
+  clearEndedTurnActivity,
   findStaleCachedTaskIds,
   resetStaleCachedTasks,
 } from "../src/store/workspace-cache-freshness";
+import type { ProviderTurnActivitySnapshot } from "../src/lib/providers/turn-status";
 import {
   buildWorkspaceSessionState,
   type WorkspaceSessionState,
@@ -163,6 +165,47 @@ describe("mergeTaskMessagePage latest order", () => {
     expect(merged[2]).toBe(finishedReply);
   });
 
+  test("replaces an older window that does not overlap the page", () => {
+    const older = [
+      { ...user("m-1", "first"), startedAt: "2026-01-01T00:00:01.000Z" },
+      { ...user("m-2", "second"), startedAt: "2026-01-01T00:00:02.000Z" },
+    ];
+    const unsaved = { ...user("m-x", "typed now"), startedAt: "2026-01-01T09:00:00.000Z" };
+    const page = [
+      { ...user("m-123", "recent"), startedAt: "2026-01-01T08:00:00.000Z" },
+      { ...user("m-124", "latest"), startedAt: "2026-01-01T08:00:01.000Z" },
+    ];
+    const merged = mergeTaskMessagePage({
+      currentMessages: [...older, unsaved],
+      pageMessages: page,
+      mode: "latest",
+    });
+    expect(merged.map((message) => message.id)).toEqual(["m-123", "m-124", "m-x"]);
+  });
+
+  test("carries an answer from the resident copy into the persisted one", () => {
+    const requested = {
+      type: "user_input" as const,
+      requestId: "question-1",
+      toolName: "AskUserQuestion",
+      questions: [],
+      state: "input-requested" as const,
+    };
+    const persisted: ChatMessage = {
+      ...finishedReply,
+      parts: [...finishedReply.parts, requested],
+    };
+    const resident: ChatMessage = {
+      ...staleReply,
+      isStreaming: false,
+      completedAt: "2026-01-01T10:07:00.000Z",
+      parts: [{ ...requested, state: "input-responded", answers: { q: "yes" } }],
+    };
+    const chosen = pickFresherTaskMessage({ resident, persisted });
+    expect(chosen.content).toBe(finishedReply.content);
+    expect(chosen.parts.at(-1)).toMatchObject({ state: "input-responded", answers: { q: "yes" } });
+  });
+
   test("refuses an older copy whose text grew inside the same part", () => {
     const finalSinglePart = assistant({
       id: "m-3",
@@ -220,19 +263,41 @@ describe("stale cached tasks", () => {
         "task-other": "turn-other",
       },
     };
-    const { session, refreshedTaskIds } = resetStaleCachedTasks({
+    const { session, refreshedTaskIds, endedTurns } = resetStaleCachedTasks({
       cachedWorkspaceState: cached,
       staleTaskIds: [TASK_ID, "task-live"],
       persistedMessageCountByTask: { [TASK_ID]: 4, "task-live": 3, "task-other": 1 },
       liveTurnIds: new Set(["turn-live", "turn-other"]),
     });
     expect(refreshedTaskIds).toEqual([TASK_ID]);
+    expect(endedTurns).toEqual([{ taskId: TASK_ID, turnId: "turn-finished" }]);
     expect(session.messagesByTask[TASK_ID]).toEqual([]);
     expect(session.messageCountByTask[TASK_ID]).toBe(4);
     expect(session.activeTurnIdsByTask[TASK_ID]).toBeUndefined();
     expect(session.activeTurnIdsByTask["task-live"]).toBe("turn-live");
     expect(session.activeTurnIdsByTask["task-other"]).toBe("turn-other");
     expect(session.messagesByTask["task-other"]).toBe(cached.messagesByTask["task-other"]);
+  });
+});
+
+describe("clearEndedTurnActivity", () => {
+  test("drops only the activity of the ended turn", () => {
+    const activity = (turnId: string) =>
+      ({ turnId, pendingInteraction: "user_input" }) as unknown as ProviderTurnActivitySnapshot;
+    const next = clearEndedTurnActivity({
+      activityByTask: {
+        [TASK_ID]: activity("turn-finished"),
+        "task-live": activity("turn-live"),
+        "task-newer": activity("turn-newer"),
+      },
+      endedTurns: [
+        { taskId: TASK_ID, turnId: "turn-finished" },
+        { taskId: "task-newer", turnId: "turn-older" },
+      ],
+    });
+    expect(next[TASK_ID]).toBeUndefined();
+    expect(next["task-live"]?.turnId).toBe("turn-live");
+    expect(next["task-newer"]?.turnId).toBe("turn-newer");
   });
 });
 

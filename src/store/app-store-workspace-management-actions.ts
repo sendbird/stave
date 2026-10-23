@@ -61,7 +61,10 @@ import {
   shouldPreferLoadedWorkspaceState,
   shouldReloadWorkspaceShellFromPersistence,
 } from "@/store/workspace-shell-summary";
-import { refreshStaleCachedWorkspace } from "@/store/workspace-cache-freshness";
+import {
+  clearEndedTurnActivity,
+  refreshStaleCachedWorkspace,
+} from "@/store/workspace-cache-freshness";
 
 let workspaceSwitchMetricTokenCounter = 0;
 let workspaceIdentityRequestTokenCounter = 0;
@@ -622,7 +625,16 @@ export function createWorkspaceManagementActions(args: {
         if (preferLoadedWorkspaceState) {
           delete nextRuntimeCacheById[workspaceId];
         }
+        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
         return {
+          ...(endedTurns.length > 0
+            ? {
+                providerTurnActivityByTask: clearEndedTurnActivity({
+                  activityByTask: state.providerTurnActivityByTask,
+                  endedTurns,
+                }),
+              }
+            : {}),
           workspaces: state.workspaces,
           activeWorkspaceId: workspaceId,
           workspaceLastActiveAtById: stampWorkspaceActive({

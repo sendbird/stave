@@ -1,5 +1,9 @@
 import { listActiveWorkspaceTurns } from "@/lib/db/turns.db";
 import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
+import {
+  clearProviderTurnActivity,
+  type ProviderTurnActivitySnapshot,
+} from "@/lib/providers/turn-status";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 
 /**
@@ -27,6 +31,13 @@ export function findStaleCachedTaskIds(args: {
     .map((task) => task.id);
 }
 
+export interface StaleCachedWorkspaceRefresh {
+  session: WorkspaceSessionState;
+  refreshedTaskIds: string[];
+  /** Cached turns of refreshed tasks that had already ended in persistence. */
+  endedTurns: Array<{ taskId: string; turnId: string }>;
+}
+
 /**
  * Resets the stale tasks of a cached session to their persisted count and an
  * empty window, so the regular latest-page load fills them from SQLite. Every
@@ -39,19 +50,24 @@ export function resetStaleCachedTasks(args: {
   staleTaskIds: string[];
   persistedMessageCountByTask: Record<string, number>;
   liveTurnIds: ReadonlySet<string>;
-}): { session: WorkspaceSessionState; refreshedTaskIds: string[] } {
+}): StaleCachedWorkspaceRefresh {
   const cached = args.cachedWorkspaceState;
   const refreshedTaskIds = args.staleTaskIds.filter((taskId) => {
     const turnId = cached.activeTurnIdsByTask[taskId];
     return !turnId || !args.liveTurnIds.has(turnId);
   });
   if (refreshedTaskIds.length === 0) {
-    return { session: cached, refreshedTaskIds };
+    return { session: cached, refreshedTaskIds, endedTurns: [] };
   }
   const messagesByTask = { ...cached.messagesByTask };
   const messageCountByTask = { ...cached.messageCountByTask };
   const activeTurnIdsByTask = { ...cached.activeTurnIdsByTask };
+  const endedTurns: StaleCachedWorkspaceRefresh["endedTurns"] = [];
   for (const taskId of refreshedTaskIds) {
+    const turnId = activeTurnIdsByTask[taskId];
+    if (turnId) {
+      endedTurns.push({ taskId, turnId });
+    }
     messagesByTask[taskId] = [];
     messageCountByTask[taskId] = args.persistedMessageCountByTask[taskId] ?? 0;
     activeTurnIdsByTask[taskId] = undefined;
@@ -59,7 +75,26 @@ export function resetStaleCachedTasks(args: {
   return {
     session: { ...cached, messagesByTask, messageCountByTask, activeTurnIdsByTask },
     refreshedTaskIds,
+    endedTurns,
   };
+}
+
+/**
+ * Drops the activity of turns a cache refresh found already ended, so their
+ * task no longer shows a running turn or a pending "input needed" state.
+ * Activity of any other turn is kept.
+ */
+export function clearEndedTurnActivity(args: {
+  activityByTask: Record<string, ProviderTurnActivitySnapshot | undefined>;
+  endedTurns: StaleCachedWorkspaceRefresh["endedTurns"];
+}) {
+  let activityByTask = args.activityByTask;
+  for (const { taskId, turnId } of args.endedTurns) {
+    if (activityByTask[taskId]?.turnId === turnId) {
+      activityByTask = clearProviderTurnActivity({ activityByTask, taskId });
+    }
+  }
+  return activityByTask;
 }
 
 /**
@@ -71,7 +106,7 @@ export function resetStaleCachedTasks(args: {
 export async function refreshStaleCachedWorkspace(args: {
   workspaceId: string;
   cachedWorkspaceState?: WorkspaceSessionState;
-}): Promise<{ session: WorkspaceSessionState; refreshedTaskIds: string[] } | null> {
+}): Promise<StaleCachedWorkspaceRefresh | null> {
   const cached = args.cachedWorkspaceState;
   if (!cached) {
     return null;
