@@ -61,6 +61,7 @@ import {
   shouldPreferLoadedWorkspaceState,
   shouldReloadWorkspaceShellFromPersistence,
 } from "@/store/workspace-shell-summary";
+import { isCachedWorkspaceBehindPersistence } from "@/store/workspace-cache-freshness";
 
 let workspaceSwitchMetricTokenCounter = 0;
 let workspaceIdentityRequestTokenCounter = 0;
@@ -540,8 +541,24 @@ export function createWorkspaceManagementActions(args: {
         ? switchStartedAt
         : undefined;
       let setRootResolvedAt = switchStartedAt;
+      // A non-empty cache is reused without reading the shell, so first make
+      // sure it has not fallen behind rows written while it was cached.
+      let cachedWorkspaceIsStale = false;
       const workspaceShellPromise = !shouldLoadWorkspaceShellState
-        ? Promise.resolve(null)
+        ? isCachedWorkspaceBehindPersistence({
+            workspaceId,
+            cachedWorkspaceState,
+          }).then(async (stale) => {
+            cachedWorkspaceIsStale = stale;
+            if (!stale) {
+              return null;
+            }
+            const result = await loadWorkspaceShellStateFromPersistence({
+              workspaceId,
+            });
+            shellResolvedAt = getWorkspaceSwitchMetricNow();
+            return result;
+          })
         : loadWorkspaceShellStateFromPersistence({ workspaceId }).then(
             (result) => {
               shellResolvedAt = getWorkspaceSwitchMetricNow();
@@ -583,10 +600,12 @@ export function createWorkspaceManagementActions(args: {
       ) {
         return;
       }
-      const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
-        cachedWorkspaceState,
-        loadedWorkspaceShellState: resolvedWorkspaceShellState,
-      });
+      const preferLoadedWorkspaceState =
+        (cachedWorkspaceIsStale && Boolean(resolvedWorkspaceShellState)) ||
+        shouldPreferLoadedWorkspaceState({
+          cachedWorkspaceState,
+          loadedWorkspaceShellState: resolvedWorkspaceShellState,
+        });
       const workspaceState =
         (preferLoadedWorkspaceState
           ? resolvedWorkspaceShellState?.workspaceState
