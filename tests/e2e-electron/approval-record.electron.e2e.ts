@@ -97,7 +97,7 @@ test("one turn's approvals are counted by who decided them, in Activity and Revi
     for (const pass of ["live", "reloaded"]) {
       if (pass === "reloaded") {
         await page.reload({ waitUntil: "domcontentloaded" });
-        await expect(page.getByRole("group", { name: "Task view" })).toBeVisible({ timeout: 30_000 });
+        await expect(page.getByTestId("pane-header-review")).toBeVisible({ timeout: 30_000 });
       }
       await page.keyboard.press(shortcut);
       const approvals = page.getByTestId("task-review-surface").getByTestId("review-approvals");

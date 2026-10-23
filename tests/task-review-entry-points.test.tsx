@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { applyAppLocale } from "@/i18n";
 import { registerPaneHostController } from "@/components/panes/pane-host-controller";
+import { TaskPaneHeaderActions } from "@/components/panes/TaskPaneHeaderActions";
 import {
   openTaskReview,
   openTaskSideQuestion,
@@ -138,5 +140,47 @@ describe("task surface entry points", () => {
     expect(useAppStore.getState().promptFocusNonce).toBe(before);
     expect(useTaskReviewModeStore.getState().byTask).toEqual({});
     expect(useSideChatStore.getState().openTaskId).toBeNull();
+  });
+});
+
+/** Server rendering reads each store's initial state, so the case is written there for one render. */
+function renderHeader(args: { taskId: string; provider: string; reviewShown: boolean }) {
+  const app = useAppStore.getInitialState() as unknown as { tasks: unknown[] };
+  const review = useTaskReviewModeStore.getInitialState() as unknown as { byTask: Record<string, unknown> };
+  const saved = { tasks: app.tasks, byTask: review.byTask };
+  app.tasks = [{ id: args.taskId, title: args.taskId, provider: args.provider, updatedAt: "2026-10-23T00:00:00.000Z", unread: false }];
+  review.byTask = { [args.taskId]: { mode: args.reviewShown ? "review" : "conversation" } };
+  try {
+    return renderToStaticMarkup(createElement(TaskPaneHeaderActions, { taskId: args.taskId }));
+  } finally {
+    app.tasks = saved.tasks;
+    review.byTask = saved.byTask;
+  }
+}
+
+/** The header's Review switch: its label and whether it shows pressed. */
+function reviewSwitch(markup: string) {
+  const match = markup.match(/<button[^>]*aria-pressed="(true|false)"[^>]*data-testid="pane-header-review"[^>]*>(.*?)<\/button>/)
+    ?? markup.match(/<button[^>]*data-testid="pane-header-review"[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/);
+  return match ? { pressed: match[1] === "true", label: match[2]!.replace(/<[^>]+>/g, "").trim() } : null;
+}
+
+describe("the pane header's task actions", () => {
+  afterEach(() => applyAppLocale("en"));
+
+  test("the Review switch shows pressed while Review is open, in English and Korean", () => {
+    expect(reviewSwitch(renderHeader({ taskId: "header-task", provider: "claude-code", reviewShown: false }))).toEqual({ pressed: false, label: "Review" });
+    expect(reviewSwitch(renderHeader({ taskId: "header-task", provider: "claude-code", reviewShown: true }))).toEqual({ pressed: true, label: "Review" });
+    applyAppLocale("ko");
+    expect(reviewSwitch(renderHeader({ taskId: "header-task", provider: "claude-code", reviewShown: true }))).toEqual({ pressed: true, label: "검토" });
+  });
+
+  test("every task gets the Review switch; only Claude and Codex tasks get the side question", () => {
+    const codex = renderHeader({ taskId: "header-codex", provider: "codex", reviewShown: false });
+    expect(codex).toContain('data-testid="pane-header-side-question"');
+    expect(reviewSwitch(codex)).not.toBeNull();
+    const kiro = renderHeader({ taskId: "header-kiro", provider: "kiro", reviewShown: false });
+    expect(kiro).not.toContain('data-testid="pane-header-side-question"');
+    expect(reviewSwitch(kiro)).not.toBeNull();
   });
 });

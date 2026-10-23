@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AsyncState } from "@/components/ads/utils/async";
 import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
 import { sx } from "@/components/ads/utils/stylex";
+import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { findLatestFinishedTurnId } from "@/lib/fleet/result-auto-review";
@@ -98,7 +99,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   const markRead = useTaskReviewModeStore((store) => store.markRead);
   return (
     <>
-      <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} />
+      <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} />
       <ReviewScopeLimits limits={data?.limits ?? (scope.kind === "turn" ? ["reported-edits-only"] : [])} />
       <WorkspaceLayout
         fill

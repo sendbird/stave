@@ -3,9 +3,10 @@
     "label": "검토"
   },
   "mode": {
-    "label": "작업 보기",
     "conversation": "대화",
-    "review": "검토"
+    "review": "검토",
+    "backToConversation": "대화로 돌아가기",
+    "openReview": "이 작업이 한 일 검토"
   },
   "scope": {
     "label": "검토 범위",
@@ -112,7 +113,8 @@
       "none": "이 단계에는 승인 절차가 없음",
       "feedbackLabel": "어떤 내용을 변경하시겠습니까? 메모를 전달하여 마지막 AI 단계를 다시 실행합니다.",
       "send": "보내고 다시 실행",
-      "cancel": "취소"
+      "cancel": "취소",
+      "signedOffToast": "승인했습니다. 실행이 이어집니다."
     },
     "task": {
       "markReviewed": "검토 완료로 표시",

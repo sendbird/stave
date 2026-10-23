@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { reviewStyles } from "@/components/review/review.styles";
 import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
-import { TaskSurfaceModeBar } from "@/components/review/TaskSurfaceModeBar";
 import { ChatArea } from "@/components/session/ChatArea";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
@@ -11,7 +10,9 @@ import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 /**
  * Dockview panel wrapper rendering a task surface: its conversation, or Review
  * of its work. The conversation stays mounted under Review, so switching back
- * keeps its scroll position, stream and composer.
+ * keeps its scroll position, stream and composer. The switch itself lives in
+ * the pane group's header (`TaskPaneHeaderActions`) and in Review's scope bar,
+ * so the surface spends no row on it.
  */
 export function TaskSurfacePanel(props: IDockviewPanelProps) {
   const surface = parsePanePanelId(props.api.id);
@@ -59,7 +60,6 @@ export function TaskSurfacePanel(props: IDockviewPanelProps) {
   }
   return (
     <div className={sx(reviewStyles.taskSurface)}>
-      <TaskSurfaceModeBar taskId={surface.taskId} mode={mode} />
       <div className={sx(reviewStyles.modeBody, mode === "review" && reviewStyles.hidden)}>
         <ChatArea
           taskId={surface.taskId}
