@@ -165,22 +165,58 @@ describe("mergeTaskMessagePage latest order", () => {
     expect(merged[2]).toBe(finishedReply);
   });
 
-  test("replaces an older window that does not overlap the page", () => {
-    const older = [
-      { ...user("m-1", "first"), startedAt: "2026-01-01T00:00:01.000Z" },
-      { ...user("m-2", "second"), startedAt: "2026-01-01T00:00:02.000Z" },
-    ];
-    const unsaved = { ...user("m-x", "typed now"), startedAt: "2026-01-01T09:00:00.000Z" };
-    const page = [
-      { ...user("m-123", "recent"), startedAt: "2026-01-01T08:00:00.000Z" },
-      { ...user("m-124", "latest"), startedAt: "2026-01-01T08:00:01.000Z" },
-    ];
-    const merged = mergeTaskMessagePage({
-      currentMessages: [...older, unsaved],
-      pageMessages: page,
-      mode: "latest",
+  test("keeps a disjoint window unless the caller knows it is stale", () => {
+    const older = [user("m-1", "first"), user("m-2", "second")];
+    const page = [user("m-123", "recent"), user("m-124", "latest")];
+    expect(
+      mergeTaskMessagePage({ currentMessages: older, pageMessages: page, mode: "latest" }).map(
+        (message) => message.id,
+      ),
+    ).toEqual(["m-123", "m-124", "m-1", "m-2"]);
+    expect(
+      mergeTaskMessagePage({
+        currentMessages: older,
+        pageMessages: page,
+        mode: "latest",
+        supersedeDisjointWindow: true,
+      }).map((message) => message.id),
+    ).toEqual(["m-123", "m-124"]);
+  });
+
+  test("the winning resident copy takes an answer only the persisted copy has", () => {
+    const requested = {
+      type: "approval" as const,
+      requestId: "approval-1",
+      toolName: "Bash",
+      description: "Run tests",
+      state: "approval-requested" as const,
+    };
+    const resident = assistant({ id: "m-2", content: "Working", partCount: 1, isStreaming: true });
+    const persisted = assistant({ id: "m-2", content: "Work", partCount: 1, isStreaming: true });
+    const chosen = pickFresherTaskMessage({
+      resident: { ...resident, parts: [...resident.parts, requested] },
+      persisted: { ...persisted, parts: [...persisted.parts, { ...requested, state: "approval-responded" }] },
     });
-    expect(merged.map((message) => message.id)).toEqual(["m-123", "m-124", "m-x"]);
+    expect(chosen.content).toBe("Working");
+    expect(chosen.parts.at(-1)).toMatchObject({ state: "approval-responded" });
+  });
+
+  test("an unknown interaction state is not treated as an answer", () => {
+    const requested = {
+      type: "user_input" as const,
+      requestId: "question-9",
+      toolName: "AskUserQuestion",
+      questions: [],
+      state: "input-requested" as const,
+    };
+    const resident = { ...finishedReply, parts: [...finishedReply.parts, requested] };
+    const persisted = {
+      ...finishedReply,
+      parts: [...finishedReply.parts, { ...requested, state: "something-else" }],
+    } as unknown as ChatMessage;
+    expect(pickFresherTaskMessage({ resident, persisted }).parts.at(-1)).toMatchObject({
+      state: "input-requested",
+    });
   });
 
   test("carries an answer from the resident copy into the persisted one", () => {

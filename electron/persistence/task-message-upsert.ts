@@ -1,5 +1,8 @@
 import type Database from "better-sqlite3";
-import { carryForwardInteractionAnswers } from "../../src/lib/session/interaction-state-merge";
+import {
+  carryForwardInteractionAnswers,
+  hasRequestedInteraction,
+} from "../../src/lib/session/interaction-state-merge";
 import type { PersistenceChatMessageRow } from "./types";
 
 /**
@@ -12,11 +15,14 @@ import type { PersistenceChatMessageRow } from "./types";
  * - identity: a different message that reused a stored id (a different role,
  *   a different turn, or, for rows without a turn, a different start time)
  *   must never replace the row it collided with;
- * - regression: a finished assistant row is not replaced by a copy with
- *   shorter content and no more parts than the stored one (an older partial
- *   copy, whether its text grew in new parts or inside the same part). The
- *   approval and question answers such a copy carries are still merged into
- *   the stored row, so answering from a stale view is not lost.
+ * - regression: a finished assistant row is not replaced by a copy that is
+ *   streaming again or has shorter content, however many parts it has (a
+ *   stop adds a notice part to an older copy). The approval and question
+ *   answers such a copy carries are still merged into the stored row.
+ *
+ * Answers also never move backwards on an accepted write: before a copy that
+ * still shows a request is written, the stored row's answer to that request is
+ * carried into it.
  *
  * Every comparison uses `IS` / `IS NOT` so a missing JSON field never turns the
  * guard into NULL, which SQLite would read as "skip the update".
@@ -39,9 +45,7 @@ const FINISHED_ASSISTANT_REGRESSION_SQL = `(
   messages.role = 'assistant'
   AND messages.is_streaming = 0
   AND json_extract(messages.message_json, '$.completedAt') IS NOT NULL
-  AND COALESCE(json_array_length(excluded.message_json, '$.parts'), 0)
-    <= COALESCE(json_array_length(messages.message_json, '$.parts'), 0)
-  AND length(excluded.content) < length(messages.content)
+  AND (excluded.is_streaming = 1 OR length(excluded.content) < length(messages.content))
 )`;
 
 const UPSERT_TASK_MESSAGE_SQL = `
@@ -126,6 +130,30 @@ function mergeInteractionStates(args: {
     : null;
 }
 
+/** Puts the stored row's answers into a copy that still shows the request. */
+function carryStoredAnswers(args: {
+  message: PersistenceChatMessageRow;
+  storedJson: string | null;
+}): PersistenceChatMessageRow {
+  if (!args.storedJson) {
+    return args.message;
+  }
+  let stored: { parts?: unknown[] };
+  try {
+    stored = JSON.parse(args.storedJson) as { parts?: unknown[] };
+  } catch {
+    return args.message;
+  }
+  if (!Array.isArray(stored.parts)) {
+    return args.message;
+  }
+  const { parts, carried } = carryForwardInteractionAnswers({
+    target: args.message.parts,
+    source: stored.parts,
+  });
+  return carried > 0 ? { ...args.message, parts } : args.message;
+}
+
 /**
  * Upserts a task's messages and returns the writes the conflict guard refused.
  * Refused writes keep the stored row; they are logged with ids only, never
@@ -141,9 +169,17 @@ export function upsertTaskMessages(args: {
     return [];
   }
   const upsert = args.db.prepare(UPSERT_TASK_MESSAGE_SQL);
+  const readStoredJson = args.db.prepare("SELECT message_json FROM messages WHERE id = ?");
   const skipped: SkippedTaskMessageWrite[] = [];
-  for (const message of args.messages) {
-    const rowId = `${args.workspaceId}:${args.taskId}:${message.id}`;
+  for (const incoming of args.messages) {
+    const rowId = `${args.workspaceId}:${args.taskId}:${incoming.id}`;
+    const message = carryStoredAnswers({
+      message: incoming,
+      storedJson: hasRequestedInteraction(incoming.parts)
+        ? ((readStoredJson.get(rowId) as { message_json: string | null } | undefined)
+            ?.message_json ?? null)
+        : null,
+    });
     const result = upsert.run(
       rowId,
       args.workspaceId,

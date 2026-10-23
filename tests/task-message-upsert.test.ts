@@ -261,6 +261,79 @@ describe("upsertTaskMessages", () => {
     });
   });
 
+  test("a stop notice part does not let an older copy through", () => {
+    upsert([
+      assistantMessage({
+        id: "m-6",
+        turnId: "turn-a",
+        content: "Partial and final response",
+        partCount: 1,
+        completedAt: "2026-01-01T00:02:00.000Z",
+      }),
+    ]);
+    const stoppedStale = assistantMessage({
+      id: "m-6",
+      turnId: "turn-a",
+      content: "Partial",
+      partCount: 1,
+      completedAt: "2026-01-01T03:00:00.000Z",
+    });
+    const skipped = upsert([
+      {
+        ...stoppedStale,
+        parts: [
+          ...stoppedStale.parts,
+          { type: "system_event", content: "Generation was stopped locally before completion." },
+        ],
+      },
+    ]);
+    expect(skipped).toEqual([{ messageId: "m-6", reason: "regression" }]);
+    expect(stored("m-6")?.content).toBe("Partial and final response");
+  });
+
+  test("does not reopen a finished reply as streaming", () => {
+    upsert([
+      assistantMessage({
+        id: "m-7",
+        turnId: "turn-a",
+        content: "Done.",
+        partCount: 1,
+        completedAt: "2026-01-01T00:02:00.000Z",
+      }),
+    ]);
+    const skipped = upsert([
+      assistantMessage({ id: "m-7", turnId: "turn-a", content: "Done.", partCount: 1, isStreaming: true }),
+    ]);
+    expect(skipped).toEqual([{ messageId: "m-7", reason: "regression" }]);
+    expect(stored("m-7")?.isStreaming).toBe(false);
+  });
+
+  test("keeps a stored answer when an accepted copy still shows the request", () => {
+    const answered = {
+      type: "approval",
+      requestId: "approval-1",
+      toolName: "Bash",
+      description: "Run tests",
+      state: "approval-responded",
+    };
+    upsert([
+      {
+        ...assistantMessage({ id: "m-8", turnId: "turn-a", content: "Working", partCount: 0, isStreaming: true }),
+        parts: [answered],
+      },
+    ]);
+    // Same length, still streaming: an ordinary progress write that is accepted.
+    expect(
+      upsert([
+        {
+          ...assistantMessage({ id: "m-8", turnId: "turn-a", content: "Working", partCount: 0, isStreaming: true }),
+          parts: [{ ...answered, state: "approval-requested" }],
+        },
+      ]),
+    ).toEqual([]);
+    expect(stored("m-8")?.parts[0]).toMatchObject({ state: "approval-responded" });
+  });
+
   test("applies ordinary progress, completion and same-size edits", () => {
     upsert([
       assistantMessage({

@@ -5,7 +5,14 @@
  * takes the other copy's terminal state, so an answer given in either copy
  * survives. Shared by the persistence guard and the renderer page merge.
  */
-const REQUESTED_STATES = new Set(["approval-requested", "input-requested"]);
+const REQUESTED_STATE = {
+  approval: "approval-requested",
+  user_input: "input-requested",
+} as const;
+const TERMINAL_STATES = {
+  approval: new Set(["approval-responded", "approval-interrupted", "output-denied"]),
+  user_input: new Set(["input-responded", "input-interrupted", "input-denied"]),
+} as const;
 
 interface InteractionPartLike {
   type: "approval" | "user_input";
@@ -26,7 +33,16 @@ function isInteractionPart(part: unknown): part is InteractionPartLike {
 }
 
 function isRequested(part: InteractionPartLike) {
-  return typeof part.state === "string" && REQUESTED_STATES.has(part.state);
+  return part.state === REQUESTED_STATE[part.type];
+}
+
+function isTerminal(part: InteractionPartLike) {
+  return typeof part.state === "string" && TERMINAL_STATES[part.type].has(part.state);
+}
+
+/** Whether any approval or question in `parts` still waits for an answer. */
+export function hasRequestedInteraction(parts: readonly unknown[]) {
+  return parts.some((part) => isInteractionPart(part) && isRequested(part));
 }
 
 /**
@@ -40,7 +56,7 @@ export function carryForwardInteractionAnswers<Part>(args: {
 }): { parts: Part[]; carried: number } {
   const answeredByRequest = new Map<string, Part>();
   for (const part of args.source) {
-    if (isInteractionPart(part) && !isRequested(part)) {
+    if (isInteractionPart(part) && isTerminal(part)) {
       answeredByRequest.set(`${part.type}:${part.requestId}`, part as Part);
     }
   }

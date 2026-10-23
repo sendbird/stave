@@ -57,6 +57,9 @@ export async function reconcileStopOfFinishedTurn(args: {
         currentMessages: session.messagesByTask[args.taskId] ?? [],
         pageMessages: page.messages,
         mode: "latest",
+        // The stop targeted a turn that had already ended, so the window is a
+        // stale copy and must not be appended after the persisted page.
+        supersedeDisjointWindow: true,
       });
       const messageCount = Math.max(page.totalCount, messages.length);
       if (args.workspaceId === state.activeWorkspaceId) {

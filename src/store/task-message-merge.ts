@@ -7,9 +7,9 @@ import type { ChatMessage } from "@/types/chat";
  * It loses only when it is visibly behind, mirroring the persistence guard in
  * `electron/persistence/task-message-upsert.ts`:
  * - it is still streaming while the persisted row already finished, or
- * - the persisted row finished with longer content and at least as many parts.
- * When the persisted copy wins, answers given in the resident copy are carried
- * into it, so answering from a stale view is not lost.
+ * - the persisted row finished with longer content.
+ * Whichever copy wins also takes the answers the other copy holds, so an
+ * approval or question answered in either is not lost.
  */
 export function pickFresherTaskMessage(args: {
   resident: ChatMessage;
@@ -20,26 +20,18 @@ export function pickFresherTaskMessage(args: {
     return resident;
   }
   const persistedFinished = !persisted.isStreaming && Boolean(persisted.completedAt);
-  if (!persistedFinished) {
-    return resident;
-  }
   const residentIsOlderCopy =
-    resident.isStreaming ||
-    (resident.content.length < persisted.content.length &&
-      resident.parts.length <= persisted.parts.length);
-  if (!residentIsOlderCopy) {
-    return resident;
-  }
+    persistedFinished &&
+    (Boolean(resident.isStreaming) ||
+      resident.content.length < persisted.content.length);
+  const [winner, other] = residentIsOlderCopy
+    ? [persisted, resident]
+    : [resident, persisted];
   const { parts, carried } = carryForwardInteractionAnswers({
-    target: persisted.parts,
-    source: resident.parts,
+    target: winner.parts,
+    source: other.parts,
   });
-  return carried > 0 ? { ...persisted, parts } : persisted;
-}
-
-/** Without both start times the order is unknown, so the message is kept. */
-function mayBeNewerThan(message: ChatMessage, timestamp: string | undefined) {
-  return !timestamp || !message.startedAt || message.startedAt > timestamp;
+  return carried > 0 ? { ...winner, parts } : winner;
 }
 
 /**
@@ -52,6 +44,7 @@ function mayBeNewerThan(message: ChatMessage, timestamp: string | undefined) {
 function mergeLatestTaskMessagePage(args: {
   currentMessages: ChatMessage[];
   pageMessages: ChatMessage[];
+  supersedeDisjointWindow?: boolean;
 }) {
   if (args.currentMessages.length === 0) {
     return args.pageMessages;
@@ -84,16 +77,12 @@ function mergeLatestTaskMessagePage(args: {
     if (args.pageMessages.length === 0) {
       return args.currentMessages;
     }
-    // No overlap: the page is the persisted tail. Resident messages that
-    // started after it are not persisted yet and stay after it; the rest are
-    // an older window that the page supersedes.
-    const pageTailStartedAt = args.pageMessages.at(-1)?.startedAt;
-    return [
-      ...args.pageMessages,
-      ...args.currentMessages.filter((message) =>
-        mayBeNewerThan(message, pageTailStartedAt),
-      ),
-    ];
+    // No overlap. Normally the window holds newer, not yet persisted messages,
+    // so they stay after the page. A caller that knows the window is a stale
+    // copy lets the persisted page replace it instead.
+    return args.supersedeDisjointWindow
+      ? args.pageMessages
+      : [...args.pageMessages, ...args.currentMessages];
   }
 
   const merged: ChatMessage[] = [];
@@ -114,6 +103,8 @@ export function mergeTaskMessagePage(args: {
   currentMessages: ChatMessage[];
   pageMessages: ChatMessage[];
   mode: "latest" | "older";
+  /** The resident window is known to be stale; see `mergeLatestTaskMessagePage`. */
+  supersedeDisjointWindow?: boolean;
 }) {
   if (args.mode === "latest") {
     return mergeLatestTaskMessagePage(args);
