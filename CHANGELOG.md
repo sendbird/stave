@@ -1,3 +1,43 @@
+## [0.28.0](https://github.com/sendbird/stave/compare/v0.27.4...v0.28.0) (2026-10-24)
+
+This minor release makes Review the one place to check an agent's work, lets Fleet answer approvals and short questions in place, carries a task across restarts, provider switches and time away, and draws agent states, tones and provider marks one way. It also keeps stale renderer state from overwriting transcripts, ends Claude turns held open only by background shells, runs background text turns without tools, and removes six temporary migrations that expired in 0.28.0.
+
+### Features
+
+- Review is a task-level switch in each pane header (`Option+Cmd+R` / `Alt+Ctrl+R`) with Turn, Stage, Branch and Uncommitted scopes. Stage checks pick their action scripts with "All must pass / Any one passes", Lens "Confirmed fixed" and "Needs re-check" records are kept with the page and image, and Ask for changes, Send comments and Sign off return the task to its conversation. While the task runs or waits, a line over Review offers Show conversation, Stop or Respond in conversation.
+- Side questions open from the pane header, the command palette or `Cmd/Ctrl+K` `Q`, run as one-off read-only queries to the task's provider, and stay open over Review. A finished turn's changed-files card offers Review on that turn.
+- Fleet answers approvals and short questions in the row (A allows once, D denies, 1–9 picks an option), shares one attention snapshot and inbox with notifications, uses one approval card everywhere, and never shows "All clear" after a failed read.
+- A task carries across restarts, provider switches and time away: Activity's Turn picker rebuilds earlier turns from saved messages plus a capped per-turn digest, a Handoff tab keeps an editable per-task handoff record that a provider switch passes on, the command palette searches tasks across all repositories, and a schedule can target an existing workspace.
+- Agent Runs show whether a waiting run is still alive (minutes waited, the host's last check, PR read failures with the next retry, delegated work that finished without a resume), state only the approvals Codex confirmed for the run's current turn, and say how many of a stage's Stave checks passed.
+- Agent states use six theme-derived state colors and one `StateMark` across Fleet, the inbox, run badges, stages and the sidebar; one tone vocabulary and one provider registry (`ProviderMark`) replace per-surface definitions. Compact density and high contrast reach the design system, the top bar and right rail are grouped and keyboard navigable, the Task panel names the task it shows, and stuck subagents are listed first.
+- The Information panel's Documents list reaches every document, with search beyond the ten most recent. Diff review comments can be sent per file or with `Cmd/Ctrl+Alt+Enter` and stay marked as sent, and Show in conversation pages older messages in to reach an activity step.
+
+### Fixes
+
+- Stale renderer state no longer overwrites transcripts: the message upsert refuses a write that reuses another message's id or shortens a finished reply, approval and question states only move forward, and switching workspaces reloads a task whose cached session is behind the persisted one.
+- Claude turns end 5 seconds after the last `result` when the CLI holds the stream open only for background shells or monitors, instead of waiting for the shell to exit.
+- Background text turns (turn summary, agent drafts, instruction suggestions) and Claude inline completion run with no tools on both providers through the new `toolsDisabled` runtime option.
+- Optional provider runtimes stay hidden until account capacity is confirmed, and authentication state is kept when access cannot be verified.
+- Review comments written during a send are kept and not sent twice, viewing a task acknowledges only its latest result, a queued message being edited is held from dispatch, and unsaved Information notes survive panel and workspace switches. Failed reads of plans, notifications, schedule runs, branches and documents show the failure with Retry instead of an empty state.
+- Icon buttons and shell landmarks are named, toggles report `aria-pressed`, Schedules wording is consistent in English and Korean, link parsers tolerate malformed percent escapes, and the active pane surface is synced when its tab is missing.
+
+### Refactors and Chores
+
+- About 1,500 lines of expired migration code and tests are removed; the built renderer always loads from `stave-app://renderer`, with no `file://` fallback.
+- ADS `AsyncBoundary`, `Banner`, `LoadingSurface` and `Toolbar` are installed from the ADS source bundle, shared time, token and cost formatters live in `src/i18n/format.ts`, and transcript page merging moves out of `app.store.ts` into `src/store/task-message-merge.ts`.
+
+### Upgrade Notes
+
+- Temporary migrations `auto-routing-profile-v6`, `renderer-origin-storage`, `plan-mode-removal`, `auxiliary-inference-shared-default`, `auto-routing-v1-settings-keys` and `results-surface-to-agents-tab` reached `removeInVersion` 0.28.0 and are removed. A profile that upgrades straight to 0.28.0 without opening a release that carried them (last opened with 0.26.4 or earlier for `auto-routing-profile-v6`, 0.25.2 or earlier for the others) no longer has that data converted: its renderer localStorage is not copied from `file://` (settings, drafts and UI preferences start empty), automations still saved in plan mode fail to parse and the automation list starts empty, a draft still in plan mode falls back to defaults, Claude settings or a recorded delegation policy still in plan mode are no longer rewritten (such a delegation policy fails to load), a non-default Utility AI or pre-PR review provider runs on the shared default, a host routing copy with v1 Stave Auto keys fails to parse until the renderer syncs settings, a custom routing table copied from the version 5 starter keeps explicit tiers and efforts on its level rules, and Agent performance left open reopens on the workspace.
+- SQLite gains the expand-only `turns.digest_json` column and `task_handoff_records` table. `agent-run-adaptive-draft-key` (remove in 0.29.0), `aux-lane-single-switch` and `jira-single-switch` (remove in 0.30.0) remain registered.
+
+### Known Limits
+
+- A packaged desktop upgrade from 0.27.4 and the Electron e2e suite (including the trimmed `renderer-origin.electron.e2e.ts`) were not run for this release. Live provider turns, Fleet in-row answers and cross-restart turn history were not exercised in a rebuilt app.
+
+### References
+
+- [PR #796](https://github.com/sendbird/stave/pull/796), [PR #797](https://github.com/sendbird/stave/pull/797), [PR #798](https://github.com/sendbird/stave/pull/798), [PR #799](https://github.com/sendbird/stave/pull/799), [PR #800](https://github.com/sendbird/stave/pull/800), [PR #801](https://github.com/sendbird/stave/pull/801), [PR #802](https://github.com/sendbird/stave/pull/802), [PR #803](https://github.com/sendbird/stave/pull/803), [PR #804](https://github.com/sendbird/stave/pull/804), [PR #805](https://github.com/sendbird/stave/pull/805), [PR #806](https://github.com/sendbird/stave/pull/806), [PR #807](https://github.com/sendbird/stave/pull/807), [PR #808](https://github.com/sendbird/stave/pull/808), [PR #809](https://github.com/sendbird/stave/pull/809), [PR #810](https://github.com/sendbird/stave/pull/810), [PR #811](https://github.com/sendbird/stave/pull/811), [PR #812](https://github.com/sendbird/stave/pull/812), [PR #813](https://github.com/sendbird/stave/pull/813), [PR #814](https://github.com/sendbird/stave/pull/814), [PR #815](https://github.com/sendbird/stave/pull/815), [PR #816](https://github.com/sendbird/stave/pull/816), [PR #817](https://github.com/sendbird/stave/pull/817)
 ## [0.27.4](https://github.com/sendbird/stave/compare/v0.27.3...v0.27.4) (2026-10-18)
 
 This patch release stops long-running sessions from accumulating memory, hardens Agent Run review and verification, keeps usage-limit auto-resume armed through failed reads, shows question replies as the user's own answer, fixes design-system and accessibility defects, and patches runtime dependency advisories. It contains no `feat:` commits, so it stays a patch; note the agent-facing Local MCP tool consolidation under Upgrade Notes.
