@@ -1,6 +1,6 @@
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type * as React from "react";
 
 import { focusRing } from "../recipes/focus-ring";
@@ -159,10 +159,15 @@ export function DiffViewer({
   ...props
 }: DiffViewerProps) {
   useTranslation();
-  const ops = useMemo(() => {
-    const lineOps = diffLines(splitLines(before), splitLines(after));
+  const { ops, lineDigits } = useMemo(() => {
+    const beforeLines = splitLines(before);
+    const afterLines = splitLines(after);
+    const lineOps = diffLines(beforeLines, afterLines);
     if (granularity === "word") annotateWordDiff(lineOps);
-    return lineOps;
+    return {
+      ops: lineOps,
+      lineDigits: String(Math.max(beforeLines.length, afterLines.length, 1)).length,
+    };
   }, [after, before, granularity]);
   const splitRows = useMemo(
     () => (mode === "split" ? toSplitRows(ops) : []),
@@ -172,12 +177,25 @@ export function DiffViewer({
     () => new Set(),
   );
 
-  const expand = (start: number) =>
+  // Expand removes the button it was activated from. Focus moves to the first
+  // line it revealed, so a keyboard or screen-reader user keeps their place
+  // instead of landing back on the document body.
+  const [revealTarget, setRevealTarget] = useState<unknown>(null);
+  const revealRow = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (revealTarget !== null) revealRow.current?.focus({ preventScroll: true });
+  }, [revealTarget]);
+  const revealProps = (row: unknown) =>
+    row === revealTarget ? { ref: revealRow, tabIndex: -1 } : {};
+
+  const expand = (start: number, firstHidden: unknown) => {
+    setRevealTarget(firstHidden);
     setExpanded((prev) => new Set(prev).add(start));
+  };
 
   const theme = themeProps("diff-viewer");
 
-  const expandRow = (start: number, count: number) => (
+  const expandRow = (start: number, count: number, firstHidden: unknown) => (
     <div className={sx(styles.expandRow)} key={`x-${start}`}>
       <button
         {...themeSlotProps("diff-viewer", "expand")}
@@ -192,7 +210,7 @@ export function DiffViewer({
           focusRing.ring,
           focusRing.ringInset,
         )}
-        onClick={() => expand(start)}
+        onClick={() => expand(start, firstHidden)}
         type="button"
       >
         {i18n.t("ui:diffViewer.expandUnchanged", { count })}
@@ -207,12 +225,14 @@ export function DiffViewer({
       aria-label={props["aria-label"] ?? i18n.t("ui:diffviewer.textDiff")}
       className={cx(sx(styles.root, xstyle), theme.className, className)}
       role="group"
+      // The line-number gutter fits the longest line number (see `gutter`).
+      style={{ ...props.style, [GUTTER_DIGITS]: lineDigits } as React.CSSProperties}
     >
       {mode === "unified"
         ? planCollapse(ops, (op) => op.type === "equal", context, expanded).map(
             (segment, segmentIndex) =>
               segment.kind === "collapsed" ? (
-                expandRow(segment.start, segment.count)
+                expandRow(segment.start, segment.count, segment.rows[0])
               ) : (
                 <div key={`s-${segmentIndex}`}>
                   {segment.rows.map((op) => {
@@ -226,8 +246,11 @@ export function DiffViewer({
                       granularity === "word" && op.wordOps !== undefined;
                     return (
                       <div
+                        {...revealProps(op)}
                         className={sx(
                           styles.row,
+                          op === revealTarget && focusRing.ring,
+                          op === revealTarget && focusRing.ringInset,
                           op.type === "add" && styles.rowEdgeAdd,
                           op.type === "remove" && styles.rowEdgeRemove,
                           op.type === "add" && !wordPaired && styles.rowWashAdd,
@@ -271,11 +294,19 @@ export function DiffViewer({
         : planCollapse(splitRows, (row) => row.equal, context, expanded).map(
             (segment, segmentIndex) =>
               segment.kind === "collapsed" ? (
-                expandRow(segment.start, segment.count)
+                expandRow(segment.start, segment.count, segment.rows[0])
               ) : (
                 <div key={`s-${segmentIndex}`}>
                   {segment.rows.map((row) => (
-                    <div className={sx(styles.splitRow)} key={row.key}>
+                    <div
+                      {...revealProps(row)}
+                      className={sx(
+                        styles.splitRow,
+                        row === revealTarget && focusRing.ring,
+                        row === revealTarget && focusRing.ringInset,
+                      )}
+                      key={row.key}
+                    >
                       {(["left", "right"] as const).map((side) => {
                         const cell = row[side];
                         // See the unified-mode comment above: a word-paired
@@ -338,6 +369,16 @@ export function DiffViewer({
   );
 }
 
+/**
+ * Inline custom property holding the digit count of the longest line number.
+ * The gutter is that many `ch` of the mono face plus the number's inline-end
+ * padding and a 2px lead from the edge stripe, and never narrower than the
+ * original 2rem column: three digits keep their old width, four and five no
+ * longer run into the next column.
+ */
+const GUTTER_DIGITS = "--diff-viewer-line-digits";
+const gutter = `max(${vars["--ads-space-32"]}, calc(var(${GUTTER_DIGITS}, 3) * 1ch + ${vars["--ads-space-8"]} + ${vars["--ads-space-2"]}))`;
+
 const styles = stylex.create({
   root: {
     backgroundColor: vars["--ads-color-surface"],
@@ -359,7 +400,7 @@ const styles = stylex.create({
     borderInlineStartStyle: "solid",
     borderInlineStartWidth: 2,
     display: "grid",
-    gridTemplateColumns: `${vars["--ads-space-32"]} ${vars["--ads-space-32"]} ${vars["--ads-space-16"]} minmax(0, 1fr)`,
+    gridTemplateColumns: `${gutter} ${gutter} ${vars["--ads-space-16"]} minmax(0, 1fr)`,
   },
   splitRow: {
     display: "grid",
@@ -371,7 +412,7 @@ const styles = stylex.create({
     borderInlineStartStyle: "solid",
     borderInlineStartWidth: 2,
     display: "grid",
-    gridTemplateColumns: `${vars["--ads-space-32"]} ${vars["--ads-space-16"]} minmax(0, 1fr)`,
+    gridTemplateColumns: `${gutter} ${vars["--ads-space-16"]} minmax(0, 1fr)`,
     minInlineSize: 0,
   },
   cellEmpty: {
