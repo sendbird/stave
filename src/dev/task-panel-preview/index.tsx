@@ -55,7 +55,7 @@ import { PREVIEW_ANSWERED_APPROVAL, PREVIEW_HANDOFF_PROPOSAL, stubTaskHandoff, s
  * - `theme=dark` or `theme=<built-in theme id>` renders under that theme.
  * - `tab=handoff` shows the direct task's handoff record; `proposal=1` adds
  *   an agent reply that proposes an update.
- * - `side=empty|asking|answered|failed` adds a conversation stand-in with the
+ * - `side=empty|asking|answered|failed|thread` adds a conversation stand-in with the
  *   side question panel in that state.
  * - `return=idle|need` adds the stand-in with the direct task's return
  *   summary: back after its last turn, or with an approval waiting.
@@ -683,6 +683,21 @@ function seedStores(args: { task: string; tab: TaskPanelTab; pending: string | n
 
 const SIDE_QUESTION = "What is it doing right now, and why the 8px gap?";
 
+function sideThread(state: string | null): SideChatExchange[] | undefined {
+  if (state === "thread") {
+    const earlier = sideExchange("answered");
+    const followUp: SideChatExchange = {
+      id: "preview-side-2",
+      question: "Will that change the keyboard order?",
+      providerId: "claude-code",
+      status: "asking",
+    };
+    return earlier ? [earlier, followUp] : [followUp];
+  }
+  const exchange = sideExchange(state);
+  return exchange ? [exchange] : undefined;
+}
+
 function sideExchange(state: string | null): SideChatExchange | undefined {
   const base = { id: "preview-side", question: SIDE_QUESTION, providerId: "claude-code" as const };
   if (state === "asking") return { ...base, status: "asking" };
@@ -751,7 +766,7 @@ export function TaskPanelPreview() {
       useSideChatStore.setState({
         openTaskId: PLAIN_TASK_ID,
         draftByTask: { [PLAIN_TASK_ID]: side === "empty" ? "Why did it pick the 8px gap?" : "" },
-        exchangeByTask: { [PLAIN_TASK_ID]: sideExchange(side) },
+        threadByTask: { [PLAIN_TASK_ID]: sideThread(side) },
       });
     }
     setSeeded(true);
