@@ -21,7 +21,7 @@ import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { buildCommandPaletteItems } from "@/lib/commands";
 import { useComposerRunAccountPool } from "@/components/session/use-run-account-pool";
-import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
+import { useRunStartDraft } from "@/components/agent-runs/RunContract";
 import {
   addTaskContextAttachment,
   buildTaskMentionOptions,
@@ -151,6 +151,7 @@ const PREVIEW_TASK_MENTIONS = buildTaskMentionOptions({
 });
 
 const previewParams = new URLSearchParams(window.location.search);
+const NO_FILE_PATHS: string[] = [];
 const PREVIEW_PINNED_MODEL = "claude-opus-5-5";
 const PREVIEW_EFFORT = previewParams.get("effort");
 const PREVIEW_EFFORT_LABEL = PREVIEW_EFFORT ? findOptionLabel(CLAUDE_EFFORT_OPTIONS, PREVIEW_EFFORT) : undefined;
@@ -342,8 +343,15 @@ export function ComposerFramePreviewApp() {
     pause: queuePauseFor(caseId),
     onResume: () => undefined,
   });
+  const runStartDraft = useRunStartDraft(draft, { attachedFilePaths: NO_FILE_PATHS, attachments });
   const shelf = (
-    <ComposerShelf framed={framed} steering={caseId === "steering"} queue={shelfQueue} providerId={nextProviderFor(caseId)} />
+    <ComposerShelf
+      framed={framed}
+      steering={caseId === "steering"}
+      queue={shelfQueue}
+      providerId={nextProviderFor(caseId) ?? selectedModel.providerId}
+      {...runStartDraft}
+    />
   );
 
   const providerModeStatus = useMemo(() => {
@@ -500,8 +508,6 @@ export function ComposerFramePreviewApp() {
                     onDecline={() => {}}
                   />
                 ) : null}
-                <AgentAttachmentNotice taskId={PREVIEW_TASK_ID} providerId={selectedModel.providerId}
-                  draft={{ text: draft, attachedFilePaths: [], attachments }} />
                 <PromptInput
                   runAccountPool={runAccountPool}
                   framed={framed}

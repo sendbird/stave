@@ -6,8 +6,15 @@ import { AgentRunOverview } from "../src/components/agent-runs/AgentRunOverview"
 import { describeQueuedTurnDelivery } from "../src/components/session/composer-shelf/composer-shelf.utils";
 import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 import { buildAgentRunStartInput } from "../src/lib/agent-runs/agent-run";
-import { RunHeaderContract } from "../src/components/agent-runs/RunContract";
-import { buildRunContract, resolveRunApprovalOptions, type RunContractInput } from "../src/lib/agent-runs/run-contract";
+import { describeRunStartDraft, RunHeaderContract, RunStartNotice } from "../src/components/agent-runs/RunContract";
+import { buildRunContract, buildRunContractSummary, resolveRunApprovalOptions, type RunContractInput } from "../src/lib/agent-runs/run-contract";
+import { planAgentPromptSend, planAgentPromptSendForFit } from "../src/lib/agent-runs/agent-run";
+import { AGENT_RUN_LIMITS } from "../src/lib/agent-runs/domain";
+import { getBuiltinAgent } from "../src/lib/agents/starters";
+import type { AgentAssignment } from "../src/lib/agents/assign";
+import { indexAssignmentsByTask, useAgentAssignmentsStore } from "../src/store/agent-assignments-store";
+import { createRunStartNoticeStore, useRunStartNoticeStore } from "../src/store/run-start-notice-store";
+import type { StateStorage } from "zustand/middleware";
 import { useAppStore } from "../src/store/app.store";
 import { withConfirmedApprovals, type AgentTurnProvenance } from "../src/lib/agents/turn-provenance";
 import type { NormalizedProviderEvent } from "../src/lib/providers/provider.types";
@@ -92,16 +99,15 @@ describe("run contract", () => {
       permission: "auto",
       defaultCheck: { applies: true, scriptIds: ["lint", "test"] },
     });
-    expect(contract.where).toBe("billing-fix, branch stave/billing-fix, in its own worktree");
+    expect(contract.where).toBe("billing-fix · stave/billing-fix · its own worktree");
     expect(contract.change).toEqual([
-      "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.",
-      "Writes outside the repository, credential files and irreversible remote actions still come to you.",
+      "Edits files and runs commands. Auto mode decides each action and asks you when it can't.",
+      "Always asks first: writes outside the repository, credential files and irreversible remote actions.",
     ]);
     expect(contract.done[0]).toBe("When each of its 3 stages reports done: Work → Review → Fix review findings");
     expect(contract.done).toContain("Stave also runs lint or test before it finishes; one passing script is enough.");
     expect(contract.comesBack).toEqual([
       "Only when it is stuck or needs an answer.",
-      "Questions it cannot settle come to you.",
       "Pauses after 30 turns until you extend it, and at a usage limit.",
     ]);
   });
@@ -111,34 +117,34 @@ describe("run contract", () => {
     expect(readOnly.change).toEqual(["Reads files and runs read-only commands; it changes nothing."]);
     expect(readOnly.done.join(" ")).not.toContain("Stave also runs");
     const unknown = contractFor(startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "manual", reviewBeforeDone: "off" }), { defaultCheck: { applies: true, scriptIds: null } });
-    expect(unknown.done).toEqual(["When the assignment is complete and verified.", "If the workspace has action scripts, one of them must pass before it finishes."]);
-    expect(unknown.change[0]).toBe("Edits files and runs commands here without asking.");
-    expect(contractFor(startFor({ name: "x", workflow: undefined, checkIns: undefined }), { workspace: { ...workspace, worktree: false, branch: null } }).where).toBe("billing-fix, in the repository folder");
+    expect(unknown.done).toEqual(["The assignment is complete and verified.", "If the workspace has action scripts, one of them must pass before it finishes."]);
+    expect(unknown.change[0]).toBe("Edits files and runs commands without asking.");
+    expect(contractFor(startFor({ name: "x", workflow: undefined, checkIns: undefined }), { workspace: { ...workspace, worktree: false, branch: null } }).where).toBe("billing-fix · repository folder");
   });
 
   test("before a run, Codex Auto does not promise its reviewer: an organization's policy can still turn it off", () => {
     const start = startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "auto" });
-    const unconfirmed = "Edits files and runs commands here. Codex's automatic review decides each action and asks you when unsure, unless your organization turns automatic review off; then it edits without asking.";
+    const unconfirmed = "Edits files and runs commands. Codex's automatic review decides each action and asks you when unsure, unless your organization turns automatic review off; then it edits without asking.";
     expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true }).change[0]).toBe(unconfirmed);
     expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: null }).change[0]).toBe(unconfirmed);
   });
 
   test("during a run, the line follows the approvals the runtime confirmed for its current turn", () => {
     const start = startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "auto" });
-    const auto = "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.";
+    const auto = "Edits files and runs commands. Auto mode decides each action and asks you when it can't.";
     // A managed policy turned the reviewer off: the runtime ran the turn with approvals `never`.
     expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true, confirmedApprovals: { codexApprovalPolicy: "never", codexApprovalsReviewer: "user" } }).change[0])
-      .toBe("Edits files and runs commands here without asking: Codex's automatic review is off for this run, so its approvals are off.");
+      .toBe("Edits files and runs commands without asking: Codex's automatic review is off for this run, so its approvals are off.");
     expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: true, confirmedApprovals: { codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" } }).change[0]).toBe(auto);
   });
 
   test("Auto says what the run applies: a Codex without its reviewer runs with approvals off", () => {
     const start = startFor({ name: "Implementer", workflow: undefined, checkIns: undefined, permission: "auto" });
-    const auto = "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.";
+    const auto = "Edits files and runs commands. Auto mode decides each action and asks you when it can't.";
     // The runtime falls back from on-request + auto_review to `never` when Codex has no reviewer.
     expect(resolveRunApprovalOptions({ providerId: "codex", permission: "auto", codexAutoReview: false })).toMatchObject({ codexApprovalPolicy: "never" });
     expect(contractFor(start, { permission: "auto", providerId: "codex", codexAutoReview: false }).change[0])
-      .toBe("Edits files and runs commands here without asking: this Codex has no reviewer for Auto, so its approvals are off.");
+      .toBe("Edits files and runs commands without asking: this Codex has no reviewer for Auto, so its approvals are off.");
     // Claude's Auto does not depend on Codex's reviewer.
     expect(contractFor(start, { permission: "auto", providerId: "claude-code", codexAutoReview: false }).change[0]).toBe(auto);
   });
@@ -161,7 +167,7 @@ describe("run contract", () => {
     // Before Codex was checked its capabilities are only defaults: still unconfirmed, never "has no reviewer".
     expect(header([], false)).toContain(unconfirmedAuto);
     expect(header([turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" })])).toContain("automatic review is off for this run");
-    expect(header([turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" })])).toContain("the provider&#x27;s auto mode decides each action");
+    expect(header([turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" })])).toContain("Auto mode decides each action");
   });
 
   test("a Codex run's header stays unconfirmed until the runtime confirms its current turn's approvals", () => {
@@ -183,7 +189,7 @@ describe("run contract", () => {
     // Run A's turn ran with the reviewer; a later turn on the same task (another run, or a plain Agent turn) ran without it.
     const ownTurn = turn({ codexApprovalPolicy: "on-request", codexApprovalsReviewer: "auto_review" }, { turnId: "turn-a" });
     const laterTurn = turn({ codexApprovalPolicy: "never", codexApprovalsReviewer: "user" }, { turnId: "turn-b" });
-    expect(header([ownTurn, laterTurn])).toContain("the provider&#x27;s auto mode decides each action");
+    expect(header([ownTurn, laterTurn])).toContain("Auto mode decides each action");
     // A turn the run never linked says nothing about it, however recent.
     expect(header([laterTurn])).toContain(unconfirmedAuto);
   });
@@ -217,11 +223,11 @@ describe("run contract", () => {
     const detail = buildAgentRunFixtures(NOW).working;
     const html = renderToStaticMarkup(createElement(AgentRunOverview, { detail, now: NOW.getTime() }));
     expect(html).toContain('data-testid="run-contract-header"');
-    for (const label of ["Where", "May change", "Done when", "Comes back to you"]) expect(html).toContain(label);
+    for (const label of ["Works in", "Can do", "Done when", "Checks with you"]) expect(html).toContain(label);
     applyAppLocale("ko");
     const korean = renderToStaticMarkup(createElement(AgentRunOverview, { detail, now: NOW.getTime() }));
     expect(korean).toContain("이 실행이 하는 일");
-    expect(korean).toContain("돌아오는 때");
+    expect(korean).toContain("확인 요청");
   });
 
   test("a queued item says how it will be delivered", () => {
@@ -231,5 +237,117 @@ describe("run contract", () => {
     expect(describeQueuedTurnDelivery({ editing: false, turnActive: true, paused: false, canSteer: true, item: { ...item, attachedFilePaths: ["a.png"] } })).toBe("next-turn");
     expect(describeQueuedTurnDelivery({ editing: false, turnActive: true, paused: true, canSteer: false, item })).toBeNull();
     expect(describeQueuedTurnDelivery({ editing: false, turnActive: false, paused: false, canSteer: false, item })).toBeNull();
+  });
+});
+
+describe("run-start line before a send", () => {
+  const auto = startFor({ name: "Lead", workflow: undefined, checkIns: undefined, permission: "auto" });
+
+  test("the summary says how far the run acts alone, when it checks in and its turn cap", () => {
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "claude-code", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }))
+      .toEqual({ permission: { text: "Edits in auto mode", warning: false }, checkIns: "Asks only when stuck", turns: "Up to 30 turns" });
+    const manual = buildRunContractSummary({ workspace, permission: "manual", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 1 });
+    expect(manual.permission).toEqual({ text: "Edits without asking", warning: true });
+    expect(manual.turns).toBe("Up to 1 turn");
+    expect(buildRunContractSummary({ workspace, permission: "read-only", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).permission)
+      .toEqual({ text: "Read-only", warning: false });
+    // Codex without its reviewer runs with approvals off: said as a warning, like any edit without asking.
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "codex", codexAutoReview: false, workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).permission)
+      .toEqual({ text: "Edits without asking", warning: true });
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "codex", codexAutoReview: true, workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).permission)
+      .toEqual({ text: "Edits with Codex review", warning: false });
+    const shipper = startFor({ name: "Shipper", workflow: shipWorkflow, checkIns: "plan-and-publishing", permission: "auto" });
+    expect(buildRunContractSummary({ workspace, permission: "auto", workflow: shipper.workflow, authorizedEffectStageIds: [], maxTurns: 30 }).checkIns)
+      .toBe("Sign-off after planning and before publishing");
+    applyAppLocale("ko");
+    expect(buildRunContractSummary({ workspace, permission: "auto", providerId: "claude-code", workflow: auto.workflow, authorizedEffectStageIds: [], maxTurns: 30 }))
+      .toEqual({ permission: { text: "자동 모드로 편집", warning: false }, checkIns: "막힐 때만 질문", turns: "최대 30턴" });
+  });
+
+  test("the draft is read as the send reads it: assignment length with paths, attachments across staged items", () => {
+    expect(describeRunStartDraft({ text: "  ", attachedFilePaths: [], attachments: [] }).promptFit).toBe("empty");
+    expect(describeRunStartDraft({ text: "Fix it", attachedFilePaths: [], attachments: [] })).toEqual({ promptFit: "fits", filePaths: 0, context: 0 });
+    expect(describeRunStartDraft({ text: "x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars + 1), attachedFilePaths: [], attachments: [] }).promptFit).toBe("too-long");
+    const draft = describeRunStartDraft({
+      text: "Fix it",
+      attachedFilePaths: ["a.ts", "b.ts"],
+      attachments: [
+        { kind: "image", id: "i", name: "shot.png", dataUrl: "data:" },
+        { kind: "lens-annotations", id: "l", content: "note" },
+      ] as never,
+      promptBatch: [{ id: "p", content: "and this", attachedFilePaths: ["a.ts"], attachments: [{ kind: "image", id: "j", name: "x.png", dataUrl: "data:" }] }] as never,
+    });
+    expect(draft).toEqual({ promptFit: "fits", filePaths: 2, context: 2 });
+    // The shelf decides from the measured prompt exactly as the send decides from the prompt.
+    for (const prompt of ["", "Fix it", "x".repeat(AGENT_RUN_LIMITS.maxAssignmentChars + 1)]) {
+      const base = { taskRunsAsAgent: true, runActive: false, turnActive: false, queued: false, turnOrigin: "conversation" as const, providerId: "codex" };
+      expect(planAgentPromptSendForFit({ ...base, promptFit: describeRunStartDraft({ text: prompt, attachedFilePaths: [], attachments: [] }).promptFit }))
+        .toEqual(planAgentPromptSend({ ...base, prompt }));
+    }
+  });
+
+  test("the line names the agent and summarizes; Details opens the contract for every task until closed", () => {
+    const lead = getBuiltinAgent("lead")!;
+    const row = { id: "a1", taskId: "task", agentConfigId: lead.id, agentName: lead.name, agent: lead, agentContentHash: "h", received: [], support: [], state: "started",
+      providerId: "claude-code", model: null, workspaceMode: "same-workspace", branch: null, detail: null, createdAt: "", updatedAt: "" } as unknown as AgentAssignment;
+    const assignments = useAgentAssignmentsStore.getInitialState() as unknown as Record<string, unknown>;
+    const notice = useRunStartNoticeStore.getInitialState() as unknown as Record<string, unknown>;
+    const saved = { byTaskId: assignments.byTaskId, detailsOpen: notice.detailsOpen };
+    assignments.byTaskId = indexAssignmentsByTask([row]);
+    const render = (open: boolean, attachments = { filePaths: 0, context: 0 }) => {
+      notice.detailsOpen = open;
+      return withState({ taskWorkspaceIdById: { task: "ws" }, workspaces: [{ id: "ws", name: "billing-fix" }], workspaceBranchById: { ws: "main" } },
+        () => renderToStaticMarkup(createElement(RunStartNotice, { taskId: "task", attachments })));
+    };
+    try {
+      const closed = render(false);
+      expect(closed).toContain("Send starts Lead");
+      expect(closed).toContain("Edits in auto mode");
+      expect(closed).toContain('data-details="closed"');
+      expect(closed).toContain('aria-expanded="false"');
+      expect(closed).not.toContain("Works in");
+      const open = render(true, { filePaths: 0, context: 2 });
+      expect(open).toContain('aria-expanded="true"');
+      expect(open).toContain("Keeps 2 attachments");
+      for (const label of ["Can do", "Attachments"]) expect(open).toContain(label);
+      // Lead's condition is the default, so there is no Done when row; a stated condition or checks would show one.
+      expect(open).not.toContain("Done when");
+      expect(open).not.toContain("The assignment is complete and verified.");
+      // Only what the line does not say: the workspace is the bar under the composer, the check-in and turn cap are the line.
+      for (const repeated of ["Works in", "billing-fix · main", "Checks with you", "Only when it is stuck", "Pauses after 30 turns"]) expect(open).not.toContain(repeated);
+      // A check-in that is not "only when stuck" leaves something the line does not say: where questions go.
+      assignments.byTaskId = indexAssignmentsByTask([{ ...row, agent: { ...lead, checkIns: "every-stage", workflow: shipWorkflow } } as AgentAssignment]);
+      const everyStage = render(true);
+      // Stages and checks are more than the default, so Done when shows them.
+      expect(everyStage).toContain("Done when");
+      expect(everyStage).toContain("Stave runs lint and test itself; every one must pass.");
+      expect(everyStage).toContain("Sign-off before each stage");
+      expect(everyStage).toContain("Checks with you");
+      expect(everyStage).toContain("Questions it cannot settle come to you.");
+      assignments.byTaskId = indexAssignmentsByTask([row]);
+      // Files attached by path are read from disk: the line says so instead of the turn cap.
+      expect(render(false, { filePaths: 1, context: 1 })).toContain("Reads saved copies of attached files");
+      applyAppLocale("ko");
+      // Named as the composer's agent selector names it, in every language.
+      expect(render(false)).toContain("보내면 Lead 실행 시작");
+    } finally {
+      assignments.byTaskId = saved.byTaskId;
+      notice.detailsOpen = saved.detailsOpen;
+    }
+  });
+
+  test("whether Details is open is remembered across stores and survives a bad saved value", () => {
+    const memory = new Map<string, string>();
+    const storage: StateStorage = { getItem: (name) => memory.get(name) ?? null, setItem: (name, value) => void memory.set(name, value), removeItem: (name) => void memory.delete(name) };
+    const first = createRunStartNoticeStore({ storage });
+    expect(first.getState().detailsOpen).toBe(false);
+    first.getState().setDetailsOpen(true);
+    expect(createRunStartNoticeStore({ storage }).getState().detailsOpen).toBe(true);
+    first.getState().setDetailsOpen(false);
+    expect(createRunStartNoticeStore({ storage }).getState().detailsOpen).toBe(false);
+    memory.set("stave:run-start-notice", "{not json");
+    expect(createRunStartNoticeStore({ storage }).getState().detailsOpen).toBe(false);
+    memory.set("stave:run-start-notice", JSON.stringify({ state: { detailsOpen: "yes" }, version: 0 }));
+    expect(createRunStartNoticeStore({ storage }).getState().detailsOpen).toBe(false);
   });
 });

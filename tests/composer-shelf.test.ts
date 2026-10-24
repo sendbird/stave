@@ -88,6 +88,12 @@ describe("usage-limit line", () => {
     expect(selectComposerShelfRows({ run: "turn", queueCount: 0, limited: true })).toEqual(["run", "limit"]);
   });
 
+  test("the run-start line shows before a send only, after a provider switch and before the run", () => {
+    expect(selectComposerShelfRows({ run: null, queueCount: 0, runStart: true })).toEqual(["start"]);
+    expect(selectComposerShelfRows({ run: null, queueCount: 0, runStart: true, providerSwitch: true, accountBlocked: true })).toEqual(["account", "switch", "start"]);
+    expect(selectComposerShelfRows({ run: "agentRun", queueCount: 0, runStart: true })).toEqual(["run"]);
+  });
+
   test("reviews running in their own task sit between the limit and the queue", () => {
     expect(selectComposerShelfRows({ run: null, queueCount: 0, reviewCount: 1 })).toEqual(["review"]);
     expect(

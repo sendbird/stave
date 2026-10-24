@@ -1093,38 +1093,42 @@
   },
   "runContract": {
     "notice": {
-      "title": "Sending this starts an agent run"
+      "title": "Send starts {{agent}}",
+      "ariaLabel": "Agent run this send starts",
+      "showDetails": "Details",
+      "hideDetails": "Hide"
     },
     "header": {
       "title": "What this run does"
     },
     "label": {
-      "where": "Where",
-      "change": "May change",
+      "where": "Works in",
+      "change": "Can do",
       "done": "Done when",
-      "comesBack": "Comes back to you"
+      "comesBack": "Checks with you",
+      "attachments": "Attachments"
     },
     "where": {
-      "unknown": "In the task's workspace",
-      "worktree": "in its own worktree",
-      "repository": "in the repository folder",
-      "withBranch": "{{workspace}}, branch {{branch}}, {{place}}",
-      "withoutBranch": "{{workspace}}, {{place}}"
+      "unknown": "The task's workspace",
+      "worktree": "its own worktree",
+      "repository": "repository folder",
+      "withBranch": "{{workspace}} · {{branch}} · {{place}}",
+      "withoutBranch": "{{workspace}} · {{place}}"
     },
     "change": {
       "readOnly": "Reads files and runs read-only commands; it changes nothing.",
-      "auto": "Edits files and runs commands here; the provider's auto mode decides each action and asks you when it cannot.",
-      "autoUnconfirmed": "Edits files and runs commands here. Codex's automatic review decides each action and asks you when unsure, unless your organization turns automatic review off; then it edits without asking.",
-      "autoWithoutReviewer": "Edits files and runs commands here without asking: this Codex has no reviewer for Auto, so its approvals are off.",
-      "autoReviewOff": "Edits files and runs commands here without asking: Codex's automatic review is off for this run, so its approvals are off.",
-      "edits": "Edits files and runs commands here without asking.",
-      "guardrails": "Writes outside the repository, credential files and irreversible remote actions still come to you.",
+      "auto": "Edits files and runs commands. Auto mode decides each action and asks you when it can't.",
+      "autoUnconfirmed": "Edits files and runs commands. Codex's automatic review decides each action and asks you when unsure, unless your organization turns automatic review off; then it edits without asking.",
+      "autoWithoutReviewer": "Edits files and runs commands without asking: this Codex has no reviewer for Auto, so its approvals are off.",
+      "autoReviewOff": "Edits files and runs commands without asking: Codex's automatic review is off for this run, so its approvals are off.",
+      "edits": "Edits files and runs commands without asking.",
+      "guardrails": "Always asks first: writes outside the repository, credential files and irreversible remote actions.",
       "effectsAllowed": "Outside the workspace it may also: {{effects}}, without asking.",
       "effectsAsk": "Outside the workspace it may also: {{effects}}, after you sign off."
     },
     "done": {
-      "default": "When the assignment is complete and verified.",
-      "when": "When: {{doneWhen}}",
+      "default": "The assignment is complete and verified.",
+      "when": "{{doneWhen}}",
       "stages_one": "When its stage reports done: {{stages}}",
       "stages_other": "When each of its {{count}} stages reports done: {{stages}}",
       "checkAll": "Stave runs {{scripts}} itself; every one must pass.",
@@ -1140,6 +1144,24 @@
       "questions": "Questions it cannot settle come to you.",
       "stops_one": "Pauses after {{count}} turn until you extend it, and at a usage limit.",
       "stops_other": "Pauses after {{count}} turns until you extend it, and at a usage limit."
+    },
+    "summary": {
+      "permission": {
+        "readOnly": "Read-only",
+        "auto": "Edits in auto mode",
+        "autoUnconfirmed": "Edits with Codex review",
+        "unasked": "Edits without asking"
+      },
+      "checkIns": {
+        "everyStage": "Sign-off before each stage",
+        "planAndPublishing": "Sign-off after planning and before publishing",
+        "whenStuck": "Asks only when stuck"
+      },
+      "turns_one": "Up to {{count}} turn",
+      "turns_other": "Up to {{count}} turns",
+      "attachments_one": "Keeps {{count}} attachment",
+      "attachments_other": "Keeps {{count}} attachments",
+      "filePaths": "Reads saved copies of attached files"
     }
   }
 }

@@ -175,17 +175,43 @@ export function planAgentPromptSend(args: {
   providerId: string;
   prompt: string;
 }): AgentPromptSendPlan {
+  const { prompt, ...rest } = args;
+  return planAgentPromptSendForFit({ ...rest, promptFit: agentRunPromptFit(prompt) });
+}
+
+export type AgentRunPromptFit = "empty" | "fits" | "too-long";
+
+/** Whether a prompt can be a run's assignment: empty, within the limit, or over it. */
+export function agentRunPromptFit(prompt: string): AgentRunPromptFit {
+  const length = prompt.trim().length;
+  if (!length) return "empty";
+  return length > AGENT_RUN_LIMITS.maxAssignmentChars ? "too-long" : "fits";
+}
+
+/**
+ * `planAgentPromptSend` for a prompt already measured, so a surface that
+ * re-renders less often than the draft changes can decide from a primitive.
+ */
+export function planAgentPromptSendForFit(args: {
+  taskRunsAsAgent: boolean;
+  runActive: boolean;
+  turnActive: boolean;
+  queued: boolean;
+  turnOrigin: "conversation" | "utility";
+  providerId: string;
+  promptFit: AgentRunPromptFit;
+}): AgentPromptSendPlan {
   if (!args.taskRunsAsAgent) return { kind: "plain-turn", reason: "chat" };
   if (args.runActive) return { kind: "plain-turn", reason: "run-active" };
   if (args.turnActive) return { kind: "plain-turn", reason: "turn-active" };
-  if (args.turnOrigin !== "conversation" || !args.prompt.trim()) {
+  if (args.turnOrigin !== "conversation" || args.promptFit === "empty") {
     return { kind: "plain-turn", reason: "not-a-prompt" };
   }
   // Agent runs run on Claude and Codex tasks only.
   if (args.providerId !== "claude-code" && args.providerId !== "codex") {
     return { kind: "plain-turn", reason: "provider" };
   }
-  if (args.prompt.trim().length > AGENT_RUN_LIMITS.maxAssignmentChars) return { kind: "plain-turn", reason: "too-long" };
+  if (args.promptFit === "too-long") return { kind: "plain-turn", reason: "too-long" };
   return { kind: "start-run" };
 }
 
