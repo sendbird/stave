@@ -28,12 +28,14 @@ const EXTENSION_TO_LANG: Record<string, BundledLanguage> = {
   js: "javascript",
   json: "json",
   jsx: "jsx",
+  markdown: "markdown",
   md: "markdown",
   mdx: "markdown",
   mjs: "javascript",
   mts: "typescript",
   patch: "diff",
   py: "python",
+  pyi: "python",
   rs: "rust",
   sh: "bash",
   sql: "sql",
@@ -58,6 +60,11 @@ export function getSyntaxHighlighter() {
     });
   }
   return highlighterPromise;
+}
+
+/** Whether the shared highlighter has loaded, so a newly mounted diff can paint color on its first render. */
+export function isSyntaxHighlighterReady(): boolean {
+  return highlighter !== null;
 }
 
 export function languageFromFilePath(filePath: string): string | undefined {

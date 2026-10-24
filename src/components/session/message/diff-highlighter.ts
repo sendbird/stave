@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import {
   getSyntaxHighlighter,
   highlightLineSpans,
+  isSyntaxHighlighterReady,
   type SyntaxSpan,
 } from "@/lib/syntax-highlight";
 import { useAppStore } from "@/store/app.store";
@@ -13,9 +14,12 @@ import { useAppStore } from "@/store/app.store";
  */
 export function useDiffLineHighlighter(language?: string) {
   const isDark = useAppStore((state) => state.isDarkMode);
-  const [ready, setReady] = useState(false);
+  // Ready from the first render once any diff has loaded the highlighter, so
+  // switching files does not repaint every row from plain text.
+  const [ready, setReady] = useState(isSyntaxHighlighterReady);
 
   useEffect(() => {
+    if (ready) return;
     let cancelled = false;
     void getSyntaxHighlighter().then(() => {
       if (!cancelled) setReady(true);
@@ -23,7 +27,7 @@ export function useDiffLineHighlighter(language?: string) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [ready]);
 
   const theme = isDark ? "github-dark" : "github-light";
   return useCallback(
