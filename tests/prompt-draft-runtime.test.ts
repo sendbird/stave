@@ -206,7 +206,7 @@ describe("prompt-draft runtime state", () => {
     ).toBe(true);
   });
 
-  test("parses persisted prompt draft runtime overrides, dropping retired plan-mode values", () => {
+  test("parses persisted prompt draft runtime overrides", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {
         activeTaskId: "task-1",
@@ -230,12 +230,9 @@ describe("prompt-draft runtime state", () => {
             runtimeOverrides: {
               model: "claude-opus-4-6",
               modelProviderId: "claude-code",
-              claudePermissionMode: "plan",
-              claudePermissionModeBeforePlan: "acceptEdits",
+              claudePermissionMode: "acceptEdits",
               claudeEffort: "xhigh",
-              codexPlanMode: true,
               codexReasoningEffort: "ultra",
-              cursorMode: "plan",
               autoRouting: true,
               advisorEnabled: true,
               advisorTarget: {
@@ -252,8 +249,6 @@ describe("prompt-draft runtime state", () => {
       },
     });
 
-    // A draft left in plan mode returns to the mode saved before it, and the
-    // retired Cursor plan mode falls back to the user's settings.
     expect(parsed?.promptDraftByTask["task-1"]?.runtimeOverrides).toEqual({
       model: "claude-opus-4-6",
       modelProviderId: "claude-code",

@@ -88,18 +88,6 @@ describe("parseNormalizedEvent", () => {
     expect(parsed?.type).toBe("tool");
   });
 
-  test("skips a stored plan_ready event from before plan mode was removed", () => {
-    const parsed = parseNormalizedEvent({
-      payload: {
-        type: "plan_ready",
-        planText: "Ship it.",
-        sourceSegmentId: "plan-segment-1",
-      },
-    });
-
-    expect(parsed).toBeNull();
-  });
-
   test("accepts valid usage event", () => {
     const parsed = parseNormalizedEvent({
       payload: {

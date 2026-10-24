@@ -45,15 +45,9 @@ import {
   normalizeAuxInferenceDefault,
   normalizeAuxiliaryInferencePolicy,
 } from "@/lib/providers/auxiliary-inference-policy";
-// temporary-migration: auxiliary-inference-shared-default
-import { migrateAuxInferenceSharedDefault } from "@/lib/providers/auxiliary-inference-shared-default-migration";
-// end temporary-migration: auxiliary-inference-shared-default
 // temporary-migration: jira-single-switch
 import { migrateJiraSingleSwitch } from "@/lib/tracker-issues/jira-single-switch-migration";
 // end temporary-migration: jira-single-switch
-// temporary-migration: auto-routing-v1-settings-keys
-import { dropAutoRoutingV1SettingsKeys } from "@/lib/routing/auto-routing-v1-settings-migration";
-// end temporary-migration: auto-routing-v1-settings-keys
 import {
   isAutoModelId,
   upgradeSettingsScopedClaudeModel,
@@ -88,9 +82,6 @@ import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeWorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import { validateProfile } from "@/lib/providers/auto-routing-profile";
-// temporary-migration: plan-mode-removal
-import { withoutRetiredPlanModeFields } from "@/lib/plan-mode-removal-migration";
-// end temporary-migration: plan-mode-removal
 import {
   defaultSettings,
   normalizeCursorApprovalMode,
@@ -109,12 +100,11 @@ import {
   normalizeUiDensity,
   type AppSettings,
 } from "@/store/app-settings";
-import { AGENTS_APP_SURFACE, normalizeAppActiveSurface } from "@/store/app-surface";
+import { normalizeAppActiveSurface } from "@/store/app-surface";
 import {
   createCoalescedPersistStorage,
   type CoalescedPersistStorage,
 } from "@/store/app-store-persist-storage";
-import { useAgentsViewStore } from "@/store/agents-view-store";
 import type { AppState } from "@/store/app-store.types";
 import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
@@ -283,25 +273,15 @@ export function createAppStorePersistenceOptions() {
         migrateJiraSingleSwitch(persistedSettings as unknown as Record<string, unknown>);
       }
       // end temporary-migration: jira-single-switch
-      // temporary-migration: results-surface-to-agents-tab
-      // Agent performance was its own surface (`{ kind: "results" }`) through
-      // 0.25.2; a profile that last had it open reopens Agents on Performance.
-      if ((state.activeAppSurface as { kind: string }).kind === "results") {
-        useAgentsViewStore.getState().setActiveTab("performance");
-        state.activeAppSurface = AGENTS_APP_SURFACE;
-      }
-      // end temporary-migration: results-surface-to-agents-tab
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
       );
       // Merge with defaultSettings so newly added fields are never undefined
       // for users whose persisted state pre-dates those fields.
-      // temporary-migration: plan-mode-removal
-      state.settings = withoutRetiredPlanModeFields({
+      state.settings = {
         ...defaultSettings,
         ...persistedSettings,
-      });
-      // end temporary-migration: plan-mode-removal
+      };
       delete (
         state.settings as AppSettings & {
           appShellMode?: unknown;
@@ -485,12 +465,6 @@ export function createAppStorePersistenceOptions() {
       // Background AI lanes. Normalized (not merged) so every lane object
       // exists and is a stable reference after rehydrate — store selectors index
       // `auxiliaryInferencePolicy[lane]` directly and must not allocate.
-      // temporary-migration: auxiliary-inference-shared-default
-      migrateAuxInferenceSharedDefault({
-        settings: raw,
-        persisted: persistedSettings as unknown as Record<string, unknown>,
-      });
-      // end temporary-migration: auxiliary-inference-shared-default
       state.settings.auxiliaryInferencePolicy =
         normalizeAuxiliaryInferencePolicy(raw.auxiliaryInferencePolicy);
       state.settings.auxiliaryInferenceDefault = normalizeAuxInferenceDefault(
@@ -517,9 +491,6 @@ export function createAppStorePersistenceOptions() {
       delete raw.workspaceTurnSummaryPrimaryModel;
       delete raw.workspaceTurnSummaryFallbackModel;
       state.settings.autoRoutingProfile = validateProfile(raw.autoRoutingProfile);
-      // temporary-migration: auto-routing-v1-settings-keys
-      dropAutoRoutingV1SettingsKeys(raw);
-      // end temporary-migration: auto-routing-v1-settings-keys
       state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
         raw.promptCommentShortcut,
       );
@@ -784,42 +755,17 @@ export function createAppStorePersistenceOptions() {
       state.promptDraftByTask = Object.fromEntries(
         Object.entries(state.promptDraftByTask).map(([taskId, draft]) => {
           const runtimeOverrides = draft.runtimeOverrides;
-          if (!runtimeOverrides) {
-            return [taskId, draft];
-          }
-          let withoutExperimentalPlanMode = runtimeOverrides;
-          if (Object.hasOwn(runtimeOverrides, "codexExperimentalPlanMode")) {
-            const { codexExperimentalPlanMode: _unused, ...rest } =
-              runtimeOverrides as typeof runtimeOverrides & {
-                codexExperimentalPlanMode?: boolean;
-              };
-            withoutExperimentalPlanMode = rest;
-          }
-          // temporary-migration: plan-mode-removal
-          const nextRuntimeOverrides = withoutRetiredPlanModeFields(
-            withoutExperimentalPlanMode,
-            { dropRetiredModes: true },
-          );
-          const nextQueuedTurns = draft.queuedTurns?.map((turn) =>
-            withoutRetiredPlanModeFields(turn),
-          );
-          // end temporary-migration: plan-mode-removal
           if (
-            nextRuntimeOverrides === runtimeOverrides &&
-            (draft.queuedTurns ?? []).every(
-              (turn, index) => turn === nextQueuedTurns?.[index],
-            )
+            !runtimeOverrides ||
+            !Object.hasOwn(runtimeOverrides, "codexExperimentalPlanMode")
           ) {
             return [taskId, draft];
           }
-          return [
-            taskId,
-            {
-              ...draft,
-              runtimeOverrides: nextRuntimeOverrides,
-              ...(nextQueuedTurns ? { queuedTurns: nextQueuedTurns } : {}),
-            },
-          ];
+          const { codexExperimentalPlanMode: _unused, ...rest } =
+            runtimeOverrides as typeof runtimeOverrides & {
+              codexExperimentalPlanMode?: boolean;
+            };
+          return [taskId, { ...draft, runtimeOverrides: rest }];
         }),
       );
       state.recentRepositories = normalizeRecentRepositoryStates({

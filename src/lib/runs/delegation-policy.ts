@@ -6,26 +6,8 @@ import {
   codexReadOnlyDelegationOptions,
 } from "./read-only-delegation";
 
-// temporary-migration: plan-mode-removal
-/**
- * A policy saved while plan mode existed may carry `claudePermissionMode:
- * "plan"`. It becomes `default`, which grants nothing automatically, so a
- * restored policy can only ask more often than before, never less.
- */
-function withoutRetiredPlanMode(value: unknown) {
-  if (
-    typeof value === "object" &&
-    value !== null &&
-    (value as { claudePermissionMode?: unknown }).claudePermissionMode === "plan"
-  ) {
-    return { ...value, claudePermissionMode: "default" };
-  }
-  return value;
-}
-// end temporary-migration: plan-mode-removal
-
 /** Only execution permissions cross this boundary; secrets, sessions and browser grants never do. */
-const DelegationPermissionOptionsObjectSchema = z.object({
+export const DelegationPermissionOptionsSchema = z.object({
   claudePermissionMode: z
     .enum([
       "default",
@@ -56,12 +38,8 @@ const DelegationPermissionOptionsObjectSchema = z.object({
   codexAutoApproveStaveLocalMcpTools: z.boolean().optional(),
   codexAgentTurn: z.boolean().optional(),
 });
-export const DelegationPermissionOptionsSchema = z.preprocess(
-  withoutRetiredPlanMode,
-  DelegationPermissionOptionsObjectSchema,
-);
 export type DelegationPermissionOptions = z.infer<
-  typeof DelegationPermissionOptionsObjectSchema
+  typeof DelegationPermissionOptionsSchema
 >;
 /**
  * What a delegation asks for. `inherit` takes the parent's policy for the same

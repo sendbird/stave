@@ -102,7 +102,7 @@ describe("agent run routing: precedence", () => {
     profile.rules.unshift({ id: "cross-provider-review", enabled: true, when: { taskClass: "review" },
       then: { providerId: "codex", model: getDefaultModelForProvider({ providerId: "codex" }), effort: "high" },
       reason: "Use the configured review route." });
-    const configured = settings({ autoRoutingProfile: profile, autoRoutingAllowProviderSwitch: true });
+    const configured = settings({ autoRoutingProfile: profile });
     const args = { ...BASE, agent: AUTO_AGENT, draft: { autoRouting: true }, settings: configured };
     const route = await routeAgentRunTurn(args);
     const baseline = await resolveAutoRoutingDecision({ settings: configured.routing, runtimeOverrides: args.draft,

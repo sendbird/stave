@@ -96,8 +96,8 @@ describe("read-only delegation access", () => {
     expect(isReadOnlyDelegationPolicy("codex", policy)).toBe(true);
   });
 
-  test("plan and deny-by-default parents delegate read-only without throwing", () => {
-    for (const mode of ["plan", "dontAsk", "default", "bypassPermissions"] as const) {
+  test("deny-by-default and permissive parents delegate read-only without throwing", () => {
+    for (const mode of ["dontAsk", "default", "bypassPermissions"] as const) {
       const policy = resolveDelegationPermissionPolicy({
         providerId: "claude-code",
         access: "read-only",
@@ -113,7 +113,7 @@ describe("read-only delegation access", () => {
       for (const permissionProfile of ["inherit", "auto", "guided", "manual"] as const) {
         const claude = resolveDelegationPermissionPolicy({
           providerId: "claude-code", access: "read-only", permissionProfile, permissionCeiling,
-          parent: { providerId: "claude-code", options: { claudePermissionMode: "plan" } },
+          parent: { providerId: "claude-code", options: { claudePermissionMode: "bypassPermissions" } },
         });
         expect(claude.options).toMatchObject({ claudePermissionMode: "dontAsk", claudeSandboxReadOnly: true, claudeAllowDangerouslySkipPermissions: false });
         const codex = resolveDelegationPermissionPolicy({
@@ -163,10 +163,9 @@ describe("read-only delegation access", () => {
   });
 
   test("only a resolved read-only posture proves a reader", () => {
-    const plan = resolveDelegationPermissionPolicy({ providerId: "claude-code", settings: { claudePermissionMode: "plan" } });
     const guided = resolveDelegationPermissionPolicy({ providerId: "claude-code", permissionProfile: "guided", settings: claudeAuto });
     const agentReadOnly = resolveDelegationPermissionPolicy({ providerId: "claude-code", permissionCeiling: "read-only", settings: claudeAuto });
-    for (const policy of [plan, guided, agentReadOnly]) expect(isReadOnlyDelegationPolicy("claude-code", policy)).toBe(false);
+    for (const policy of [guided, agentReadOnly]) expect(isReadOnlyDelegationPolicy("claude-code", policy)).toBe(false);
     const codexReader = resolveDelegationPermissionPolicy({ providerId: "codex", access: "read-only" });
     // A policy resolved for another provider proves nothing about this child.
     expect(isReadOnlyDelegationPolicy("claude-code", codexReader)).toBe(false);

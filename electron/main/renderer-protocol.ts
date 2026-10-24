@@ -9,8 +9,6 @@ import {
   INLINE_RENDER_SCHEME,
   INLINE_RENDER_SCHEME_PRIVILEGES,
 } from "../../src/lib/inline-render/inline-render";
-// temporary-migration: renderer-origin-storage
-import { serveRendererMigrationPage } from "./renderer-origin-migration-electron";
 
 /**
  * Must run before the app is ready; Chromium reads scheme privileges at
@@ -31,10 +29,6 @@ export function installRendererProtocol(rendererRoot: string) {
   if (installedRendererRoot !== null) return;
   installedRendererRoot = rendererRoot;
   protocol.handle(RENDERER_SCHEME, (request) => {
-    // temporary-migration: renderer-origin-storage
-    const migrationPage = serveRendererMigrationPage(request.url);
-    if (migrationPage) return migrationPage;
-    // end temporary-migration: renderer-origin-storage
     const filePath = resolveRendererAssetPath(rendererRoot, request.url);
     if (!filePath) {
       return new Response(null, { status: 404 });

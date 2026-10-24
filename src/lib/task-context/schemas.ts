@@ -10,9 +10,6 @@ import {
   LENS_CAPTURE_LIMITS,
 } from "../lens/lens-annotation-schema";
 import { z } from "zod";
-// temporary-migration: plan-mode-removal
-import { withoutRetiredPlanModeFields } from "@/lib/plan-mode-removal-migration";
-// end temporary-migration: plan-mode-removal
 import { AutoRoutingModelResolutionSchema } from "@/lib/providers/model-resolution";
 import { WorkspaceResumeBriefSchema } from "@/lib/workspace-resume-brief";
 import type {
@@ -422,19 +419,6 @@ const PromptDraftQueuedTurnSchema = z
   })
   .strict();
 
-// temporary-migration: plan-mode-removal
-// Drafts and queued turns saved while plan mode existed carry its fields; the
-// queued-turn schema is strict, so they are rewritten before parsing.
-const LegacyPromptDraftRuntimeOverridesSchema = z.preprocess(
-  (value) => withoutRetiredPlanModeFields(value, { dropRetiredModes: true }),
-  PromptDraftRuntimeOverridesSchema,
-);
-const LegacyPromptDraftQueuedTurnSchema = z.preprocess(
-  (value) => withoutRetiredPlanModeFields(value),
-  PromptDraftQueuedTurnSchema,
-);
-// end temporary-migration: plan-mode-removal
-
 // temporary-migration: agent-run-adaptive-draft-key
 // A turn queued while the composer's Auto adjust toggle existed carries
 // `agentRunAdaptive`; the queued-turn schema is strict, so the key is dropped
@@ -444,7 +428,7 @@ function withoutAgentRunAdaptive(value: unknown) {
   const { agentRunAdaptive: _retired, ...rest } = value as Record<string, unknown>;
   return rest;
 }
-const SavedPromptDraftQueuedTurnSchema = z.preprocess(withoutAgentRunAdaptive, LegacyPromptDraftQueuedTurnSchema);
+const SavedPromptDraftQueuedTurnSchema = z.preprocess(withoutAgentRunAdaptive, PromptDraftQueuedTurnSchema);
 // end temporary-migration: agent-run-adaptive-draft-key
 
 const PromptDraftBatchItemSchema = z
@@ -965,7 +949,7 @@ export const WorkspaceSnapshotSchema = z.object({
         questionReply: QuestionReplySchema.optional(),
         attachedFilePaths: z.array(z.string()).optional().default([]),
         attachments: z.array(AttachmentSchema).optional().default([]),
-        runtimeOverrides: LegacyPromptDraftRuntimeOverridesSchema.optional(),
+        runtimeOverrides: PromptDraftRuntimeOverridesSchema.optional(),
         promptBatch: z.array(PromptDraftBatchItemSchema).optional(),
         queuedTurns: z.array(SavedPromptDraftQueuedTurnSchema).optional(),
         queuedNextTurn: PromptDraftQueuedNextTurnSchema.optional(),
