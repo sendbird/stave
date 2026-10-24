@@ -33,6 +33,10 @@ export const SIDE_CHAT_QUESTION_MAX_CHARS = 4_000;
 const ACTIVITY_STEP_LIMIT = 12;
 const ACTIVITY_STEP_CHARS = 240;
 const ACTIVITY_REPLY_CHARS = 1_200;
+/** Earlier side questions the prompt carries, so a follow-up such as "why?" has its subject. */
+const EARLIER_EXCHANGE_LIMIT = 3;
+const EARLIER_QUESTION_CHARS = 400;
+const EARLIER_ANSWER_CHARS = 1_200;
 
 /**
  * `/aside <question>` as typed in the composer: the question, possibly empty.
@@ -148,6 +152,8 @@ export function buildSideChatPrompt(args: {
   messages: readonly ChatMessage[];
   activity: string;
   question: string;
+  /** Earlier answered side questions on the task, oldest first. */
+  earlier?: readonly { question: string; answer: string }[];
 }): string {
   const settled = args.messages.filter((message) => !message.isStreaming);
   const history = planBoundedHistory({
@@ -167,9 +173,24 @@ export function buildSideChatPrompt(args: {
     "[Current Activity]",
     args.activity,
     "",
+    ...describeEarlierSideQuestions(args.earlier ?? []),
     "[Side Question]",
     args.question.trim().slice(0, SIDE_CHAT_QUESTION_MAX_CHARS),
   ].join("\n");
+}
+
+/** The newest earlier side questions and their answers, as a prompt section; nothing when there are none. */
+function describeEarlierSideQuestions(earlier: readonly { question: string; answer: string }[]) {
+  const recent = earlier.slice(-EARLIER_EXCHANGE_LIMIT);
+  if (recent.length === 0) return [];
+  return [
+    "[Earlier Side Questions]",
+    ...recent.flatMap((exchange) => [
+      `Q: ${clip(exchange.question, EARLIER_QUESTION_CHARS)}`,
+      `A: ${clip(exchange.answer, EARLIER_ANSWER_CHARS)}`,
+    ]),
+    "",
+  ];
 }
 
 /** The answer as quoted Markdown, for the composer: the user decides whether to send it. */

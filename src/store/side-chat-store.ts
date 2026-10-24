@@ -18,7 +18,7 @@ import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 
 /**
  * Side questions, kept in memory only: the open panel, the question being
- * typed and the latest exchange per task. Nothing here is persisted, and
+ * typed and the recent exchanges per task, oldest first. Nothing here is persisted, and
  * nothing here writes to the task's conversation; "Copy to composer" is the
  * one path into the task, and only into the draft the user still sends.
  */
@@ -41,14 +41,25 @@ interface SideChatState {
   /** Bumped to move focus to the question field. */
   focusNonce: number;
   draftByTask: Record<string, string>;
-  exchangeByTask: Record<string, SideChatExchange | undefined>;
+  /** The task's side questions, oldest first, at most `SIDE_CHAT_THREAD_LIMIT`. */
+  threadByTask: Record<string, readonly SideChatExchange[] | undefined>;
   open: (taskId: string, question?: string) => void;
   close: () => void;
   setDraft: (taskId: string, text: string) => void;
-  /** Ask the draft question for the task. */
-  ask: (taskId: string) => Promise<void>;
-  /** Forget the exchange so another question can be asked. */
-  clearExchange: (taskId: string) => void;
+  /** Ask the draft question for the task, or `question` while leaving the draft alone. */
+  ask: (taskId: string, question?: string) => Promise<void>;
+  /** Ask a failed question again, in place of its failure. */
+  retry: (taskId: string, exchangeId: string) => Promise<void>;
+  /** Forget the task's side questions; a late answer to one is dropped. */
+  clearThread: (taskId: string) => void;
+}
+
+/** How many side questions a task keeps; older ones fall off the top. */
+export const SIDE_CHAT_THREAD_LIMIT = 20;
+
+/** The task's newest side question, if any. */
+export function latestSideExchange(thread: readonly SideChatExchange[] | undefined) {
+  return thread?.[thread.length - 1];
 }
 
 function newExchangeId() {
@@ -90,7 +101,11 @@ function resolveSideChatTarget(taskId: string) {
 }
 
 /** The prompt for a question about the task: its conversation excerpt and live activity. */
-export function buildSideChatPromptForTask(taskId: string, question: string) {
+export function buildSideChatPromptForTask(
+  taskId: string,
+  question: string,
+  earlier: readonly SideChatExchange[] = [],
+) {
   const app = useAppStore.getState();
   const messages = app.messagesByTask[taskId] ?? [];
   const activity = app.providerTurnActivityByTask[taskId];
@@ -98,6 +113,9 @@ export function buildSideChatPromptForTask(taskId: string, question: string) {
   return buildSideChatPrompt({
     messages,
     question,
+    earlier: earlier.flatMap((exchange) =>
+      exchange.status === "answered" ? [{ question: exchange.question, answer: exchange.answer }] : [],
+    ),
     activity: describeSideChatActivity({
       messages,
       running,
@@ -111,7 +129,7 @@ export const useSideChatStore = create<SideChatState>((set, get) => ({
   openTaskId: null,
   focusNonce: 0,
   draftByTask: {},
-  exchangeByTask: {},
+  threadByTask: {},
   open: (taskId, question) => {
     set((state) => ({
       openTaskId: taskId,
@@ -127,20 +145,37 @@ export const useSideChatStore = create<SideChatState>((set, get) => ({
   close: () => set({ openTaskId: null }),
   setDraft: (taskId, text) =>
     set((state) => ({ draftByTask: { ...state.draftByTask, [taskId]: text.slice(0, SIDE_CHAT_QUESTION_MAX_CHARS) } })),
-  clearExchange: (taskId) =>
+  retry: async (taskId, exchangeId) => {
+    const thread = get().threadByTask[taskId];
+    const failed = thread?.find((entry) => entry.id === exchangeId);
+    if (failed?.status !== "failed" || latestSideExchange(thread)?.status === "asking") return;
     set((state) => ({
-      exchangeByTask: { ...state.exchangeByTask, [taskId]: undefined },
+      threadByTask: {
+        ...state.threadByTask,
+        [taskId]: (state.threadByTask[taskId] ?? []).filter((entry) => entry.id !== exchangeId),
+      },
+    }));
+    await get().ask(taskId, failed.question);
+  },
+  clearThread: (taskId) =>
+    set((state) => ({
+      threadByTask: { ...state.threadByTask, [taskId]: undefined },
       focusNonce: state.focusNonce + 1,
     })),
-  ask: async (taskId) => {
-    const question = (get().draftByTask[taskId] ?? "").trim();
-    if (!question || get().exchangeByTask[taskId]?.status === "asking") return;
+  ask: async (taskId, asked) => {
+    const fromDraft = asked === undefined;
+    const question = (fromDraft ? get().draftByTask[taskId] ?? "" : asked).trim().slice(0, SIDE_CHAT_QUESTION_MAX_CHARS);
+    const earlier = get().threadByTask[taskId] ?? [];
+    if (!question || latestSideExchange(earlier)?.status === "asking") return;
     const id = newExchangeId();
     const target = resolveSideChatTarget(taskId);
     const put = (exchange: SideChatExchange) =>
       set((state) => ({
-        exchangeByTask: { ...state.exchangeByTask, [taskId]: exchange },
-        draftByTask: { ...state.draftByTask, [taskId]: "" },
+        threadByTask: {
+          ...state.threadByTask,
+          [taskId]: [...(state.threadByTask[taskId] ?? []), exchange].slice(-SIDE_CHAT_THREAD_LIMIT),
+        },
+        ...(fromDraft ? { draftByTask: { ...state.draftByTask, [taskId]: "" } } : {}),
       }));
     if (!target.ok) {
       put({ id, question, providerId: target.providerId, status: "failed", reason: "unsupported" });
@@ -153,16 +188,22 @@ export const useSideChatStore = create<SideChatState>((set, get) => ({
     }
     put({ id, question, providerId: target.providerId, status: "asking" });
     const settle = (exchange: SideChatExchange) => {
-      // A newer question, or a cleared panel, wins over a late answer.
-      if (get().exchangeByTask[taskId]?.id !== id) return;
-      set((state) => ({ exchangeByTask: { ...state.exchangeByTask, [taskId]: exchange } }));
+      // A cleared thread wins over a late answer.
+      const thread = get().threadByTask[taskId];
+      if (!thread?.some((entry) => entry.id === id)) return;
+      set((state) => ({
+        threadByTask: {
+          ...state.threadByTask,
+          [taskId]: (state.threadByTask[taskId] ?? []).map((entry) => (entry.id === id ? exchange : entry)),
+        },
+      }));
     };
     try {
       const response = await askSideQuestion({
         providerId: target.providerId,
         model: target.model,
         ...(target.cwd ? { cwd: target.cwd } : {}),
-        prompt: buildSideChatPromptForTask(taskId, question),
+        prompt: buildSideChatPromptForTask(taskId, question, earlier),
         runtimeOptions: target.runtimeOptions,
       });
       settle(

@@ -27,7 +27,8 @@
    question and press `Enter`. Or type `/aside` followed by your question in
    the composer and press `Enter`.
 2. The side question panel opens over the conversation, or over Review, and
-   shows the answer.
+   shows the answer. Ask a follow-up in the same field; earlier questions stay
+   above it.
 3. Close the panel with its close button or `Esc`.
 
 ## Interface Walkthrough
@@ -51,11 +52,15 @@
 
 ### Key Controls
 
-- The question field: `Enter` asks, `Shift+Enter` adds a line.
+- With no questions yet, the panel offers a few starter questions; choose one
+  to ask it as written.
+- The question field: `Enter` asks, `Shift+Enter` adds a line. It grows with
+  the question up to six lines.
 - **Copy to composer** adds the answer to your draft as a quote, below what
   the draft already says, and shows the task's conversation if Review was
   open. Nothing is sent until you send it.
-- **New question** clears the answer for another question.
+- The copy button under an answer copies it, as Markdown, to the clipboard.
+- The eraser at the top of the panel clears the task's side questions.
 - `Esc` closes the panel. It never stops the task's turn, unlike `Esc`
   elsewhere in the task pane.
 
@@ -79,12 +84,13 @@
 - The provider receives a read-only, one-off request: a bounded excerpt of the
   conversation (built the same way as for a provider switch, see
   [Conversation Context](conversation-context.md)), what the running turn is
-  doing (its latest steps and reply so far), and your question.
+  doing (its latest steps and reply so far), up to three earlier answered
+  side questions on the task, and your question.
 - The request runs on the task's provider, model and account with no tools:
   Claude gets none, and Codex runs with its shell, command, app and image
   tools switched off. No MCP servers, plugins, network or secrets bound to the
   task reach it.
-- The answer is kept only while Stave is open and only the latest one per
+- Side questions are kept only while Stave is open, up to the 20 newest per
   task. It is not saved to the task, and it does not appear in the task's
   history, Activity or turn records.
 
@@ -92,8 +98,8 @@
 
 - A side question cannot look at files, run commands or change anything; it
   answers from the conversation excerpt and the current activity only.
-- Each question stands alone: earlier side answers are not sent with the next
-  one.
+- A follow-up sees only the three newest answered side questions, clipped;
+  older ones stay on screen but are not sent.
 - `/aside` is handled by Stave, so it is never sent to the provider.
 
 ## Troubleshooting

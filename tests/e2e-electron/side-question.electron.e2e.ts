@@ -137,7 +137,9 @@ test("a side question during a running turn leaves the transcript and the next i
     await composer.fill("/aside Why the export?");
     await composer.press("Enter");
     await expect(panel).toContainText("Why the export?");
-    await expect(panel.getByTestId("side-chat-answer")).toContainText("Done.", { timeout: 60_000 });
+    // The first side question stays above the follow-up, in the same panel.
+    await expect(panel.getByTestId("side-chat-question")).toHaveText(["What is it doing right now?", /^Why the export\?/]);
+    await expect(panel.getByTestId("side-chat-answer").last()).toContainText("Done.", { timeout: 60_000 });
     await expect.poll(async () => (await sideQuestions()).length).toBe(2);
     await expect(conversation).not.toContainText("Why the export?");
     await expect(conversation.getByText("Done.", { exact: true })).toHaveCount(1);

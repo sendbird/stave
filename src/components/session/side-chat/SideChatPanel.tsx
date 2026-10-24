@@ -1,26 +1,35 @@
 import { i18n, useTranslation } from "@/i18n";
-import { MessageCircleQuestion, X } from "lucide-react";
-import { useEffect, useId, useRef, type KeyboardEvent } from "react";
+import { ArrowUp, Check, Copy, Eraser, MessageCircleQuestion, X } from "lucide-react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { Banner } from "@/components/ads/components/Banner";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { MessageResponse } from "@/components/ai-elements/message";
-import { Button, Loader, Textarea } from "@/components/ui";
+import { MESSAGE_BODY_LINE_HEIGHT } from "@/components/ai-elements/message-styles";
+import { MessageTextScaleContext, scaleMessageFontSize } from "@/components/ai-elements/message-text-scale";
+import { Loader, Textarea } from "@/components/ui";
+import { copyTextToClipboard } from "@/lib/clipboard";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { SIDE_CHAT_QUESTION_MAX_CHARS } from "@/lib/side-chat/side-chat";
 import {
   copySideAnswerToComposer,
+  latestSideExchange,
   useSideChatStore,
   type SideChatExchange,
 } from "@/store/side-chat-store";
+import { useAppStore } from "@/store/app.store";
 import { useTaskReviewModeStore, type TaskSurfaceMode } from "@/store/task-review-mode-store";
 import { sideChatStyles as styles } from "./side-chat-panel.styles";
+
+/** Starter questions the empty panel offers, asked as-is on click. */
+const SUGGESTION_KEYS = ["suggestNow", "suggestWhy", "suggestLeft"] as const;
 
 /**
  * The side question panel, over the task's conversation or its Review: ask
  * the task's provider about the task without interrupting its turn or leaving
- * what you are reading. The answer stays here, in memory; only "Copy to
- * composer" puts it, quoted, in the draft.
+ * what you are reading. The task's recent side questions stay here, in
+ * memory, as a short thread; only "Copy to composer" puts an answer, quoted,
+ * in the draft.
  *
  * Both hosts stay mounted (the conversation sits hidden under Review), so each
  * renders the panel only while its mode shows.
@@ -34,15 +43,23 @@ export function SideChatPanel(props: { taskId: string; host: TaskSurfaceMode }) 
 function SideChatCard(props: { taskId: string }) {
   useTranslation();
   const { taskId } = props;
-  const exchange = useSideChatStore((state) => state.exchangeByTask[taskId]);
+  const thread = useSideChatStore((state) => state.threadByTask[taskId]);
   const draft = useSideChatStore((state) => state.draftByTask[taskId] ?? "");
   const focusNonce = useSideChatStore((state) => state.focusNonce);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
-  const asking = exchange?.status === "asking";
+  const hintId = useId();
+  const latest = latestSideExchange(thread);
+  const asking = latest?.status === "asking";
   useEffect(() => {
     fieldRef.current?.focus();
   }, [focusNonce]);
+  // Keep the newest question and its answer in view as they arrive.
+  useEffect(() => {
+    const body = bodyRef.current;
+    if (body) body.scrollTop = body.scrollHeight;
+  }, [thread?.length, latest?.status]);
 
   const ask = () => void useSideChatStore.getState().ask(taskId);
   const close = () => useSideChatStore.getState().close();
@@ -77,9 +94,22 @@ function SideChatCard(props: { taskId: string }) {
           </h2>
           <p className={sx(styles.note)}>{i18n.t("session:sideChat.note")}</p>
         </div>
+        {thread?.length ? (
+          <AdsButton
+            variant="quiet"
+            size="sm"
+            iconOnly
+            aria-label={i18n.t("session:sideChat.clear")}
+            title={i18n.t("session:sideChat.clear")}
+            data-testid="side-chat-clear"
+            onClick={() => useSideChatStore.getState().clearThread(taskId)}
+          >
+            <Eraser aria-hidden />
+          </AdsButton>
+        ) : null}
         <AdsButton
           variant="quiet"
-          size="xs"
+          size="sm"
           iconOnly
           aria-label={i18n.t("session:sideChat.close")}
           title={i18n.t("session:sideChat.close")}
@@ -88,30 +118,78 @@ function SideChatCard(props: { taskId: string }) {
           <X aria-hidden />
         </AdsButton>
       </header>
-      <div className={sx(styles.body)} aria-live="polite">
-        {exchange ? (
-          <SideChatExchangeView taskId={taskId} exchange={exchange} />
+      <div ref={bodyRef} className={sx(styles.body)} aria-live="polite">
+        {thread?.length ? (
+          <ol className={sx(styles.thread)}>
+            {thread.map((exchange) => (
+              <li key={exchange.id} className={sx(styles.exchange)}>
+                <SideChatExchangeView taskId={taskId} exchange={exchange} />
+              </li>
+            ))}
+          </ol>
         ) : (
-          <p className={sx(styles.empty)}>{i18n.t("session:sideChat.empty")}</p>
+          <SideChatEmpty taskId={taskId} />
         )}
       </div>
       <div className={sx(styles.footer)}>
-        <Textarea
-          ref={fieldRef}
-          value={draft}
-          rows={1}
-          maxLength={SIDE_CHAT_QUESTION_MAX_CHARS}
-          aria-label={i18n.t("session:sideChat.fieldLabel")}
-          placeholder={i18n.t("session:sideChat.placeholder")}
-          onChange={(event) => useSideChatStore.getState().setDraft(taskId, event.target.value)}
-          onKeyDown={onFieldKeyDown}
-          xstyle={styles.field}
-        />
-        <Button size="sm" disabled={asking || !draft.trim()} onClick={ask}>
-          {i18n.t("session:sideChat.ask")}
-        </Button>
+        <div className={sx(styles.composer)}>
+          <Textarea
+            ref={fieldRef}
+            value={draft}
+            rows={1}
+            maxLength={SIDE_CHAT_QUESTION_MAX_CHARS}
+            aria-label={i18n.t("session:sideChat.fieldLabel")}
+            aria-describedby={hintId}
+            placeholder={
+              thread?.length ? i18n.t("session:sideChat.placeholderFollowUp") : i18n.t("session:sideChat.placeholder")
+            }
+            onChange={(event) => useSideChatStore.getState().setDraft(taskId, event.target.value)}
+            onKeyDown={onFieldKeyDown}
+            xstyle={styles.field}
+          />
+          <AdsButton
+            variant="primary"
+            size="md"
+            iconOnly
+            aria-label={i18n.t("session:sideChat.ask")}
+            title={i18n.t("session:sideChat.ask")}
+            disabled={asking || !draft.trim()}
+            onClick={ask}
+          >
+            <ArrowUp aria-hidden />
+          </AdsButton>
+        </div>
+        <p id={hintId} className={sx(styles.hint)}>
+          {i18n.t("session:sideChat.keyHint")}
+        </p>
       </div>
     </section>
+  );
+}
+
+function SideChatEmpty(props: { taskId: string }) {
+  useTranslation();
+  return (
+    <div className={sx(styles.empty)}>
+      <p className={sx(styles.emptyText)}>{i18n.t("session:sideChat.empty")}</p>
+      <div className={sx(styles.suggestions)}>
+        {SUGGESTION_KEYS.map((key) => {
+          const question = i18n.t(`session:sideChat.${key}`);
+          return (
+            <AdsButton
+              key={key}
+              variant="outline"
+              size="sm"
+              xstyle={styles.suggestion}
+              data-testid="side-chat-suggestion"
+              onClick={() => void useSideChatStore.getState().ask(props.taskId, question)}
+            >
+              {question}
+            </AdsButton>
+          );
+        })}
+      </div>
+    </div>
   );
 }
 
@@ -129,9 +207,13 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
   useTranslation();
   const { exchange, taskId } = props;
   const provider = getProviderLabel({ providerId: exchange.providerId });
+  // The panel's body size, like other answers quoted in a panel; a smaller user setting wins.
+  const answerFontSize = scaleMessageFontSize("panel", useAppStore((state) => state.settings.messageFontSize));
   return (
     <>
-      <p className={sx(styles.question)}>{exchange.question}</p>
+      <p className={sx(styles.question)} data-testid="side-chat-question">
+        {exchange.question}
+      </p>
       {exchange.status === "asking" ? (
         <p className={sx(styles.status)} role="status">
           <Loader size="sm" />
@@ -139,19 +221,24 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
         </p>
       ) : null}
       {exchange.status === "answered" ? (
-        <>
-          <div className={sx(styles.answer)} data-testid="side-chat-answer">
-            <MessageResponse>{exchange.answer}</MessageResponse>
+        <div className={sx(styles.reply)}>
+          <div
+            className={sx(styles.answer)}
+            style={{ fontSize: `${answerFontSize}px`, lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
+            data-testid="side-chat-answer"
+          >
+            <MessageTextScaleContext.Provider value="panel">
+              <MessageResponse>{exchange.answer}</MessageResponse>
+            </MessageTextScaleContext.Provider>
           </div>
           <div className={sx(styles.actions)}>
-            <Button size="sm" variant="outline" onClick={() => copySideAnswerToComposer(taskId, exchange.answer)}>
+            <CopyAnswerButton answer={exchange.answer} />
+            <AdsButton variant="quiet" size="sm" onClick={() => copySideAnswerToComposer(taskId, exchange.answer)}>
               {i18n.t("session:sideChat.copyToComposer")}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => useSideChatStore.getState().clearExchange(taskId)}>
-              {i18n.t("session:sideChat.newQuestion")}
-            </Button>
+            </AdsButton>
+            <span className={sx(styles.byline)}>{provider}</span>
           </div>
-        </>
+        </div>
       ) : null}
       {exchange.status === "failed" ? (
         <Banner
@@ -159,17 +246,13 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
           title={describeFailure(exchange)}
           action={
             exchange.reason === "error" ? (
-              <Button
+              <AdsButton
                 size="sm"
                 variant="outline"
-                onClick={() => {
-                  const store = useSideChatStore.getState();
-                  store.setDraft(taskId, exchange.question);
-                  void store.ask(taskId);
-                }}
+                onClick={() => void useSideChatStore.getState().retry(taskId, exchange.id)}
               >
                 {i18n.t("common:actions.retry")}
-              </Button>
+              </AdsButton>
             ) : undefined
           }
         >
@@ -177,5 +260,34 @@ function SideChatExchangeView(props: { taskId: string; exchange: SideChatExchang
         </Banner>
       ) : null}
     </>
+  );
+}
+
+/** Copies the answer as Markdown, and says so for a moment. */
+function CopyAnswerButton(props: { answer: string }) {
+  useTranslation();
+  const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!copied) return;
+    const timer = window.setTimeout(() => setCopied(false), 1_500);
+    return () => window.clearTimeout(timer);
+  }, [copied]);
+  const label = copied ? i18n.t("session:sideChat.copied") : i18n.t("session:sideChat.copyAnswer");
+  return (
+    <AdsButton
+      variant="quiet"
+      size="sm"
+      iconOnly
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        void copyTextToClipboard(props.answer).then(
+          () => setCopied(true),
+          () => setCopied(false),
+        );
+      }}
+    >
+      {copied ? <Check aria-hidden /> : <Copy aria-hidden />}
+    </AdsButton>
   );
 }

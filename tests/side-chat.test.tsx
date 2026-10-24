@@ -17,6 +17,8 @@ import { useAppStore } from "@/store/app.store";
 import {
   askAsideFromComposer,
   copySideAnswerToComposer,
+  latestSideExchange,
+  SIDE_CHAT_THREAD_LIMIT,
   useSideChatStore,
 } from "@/store/side-chat-store";
 import type { ChatMessage } from "@/types/chat";
@@ -82,7 +84,7 @@ beforeEach(() => {
     providerTurnActivityByTask: {},
     promptDraftByTask: { [TASK_ID]: { text: "Next: add a filename prompt", attachedFilePaths: [], attachments: [] } },
   } as never);
-  useSideChatStore.setState({ openTaskId: null, draftByTask: {}, exchangeByTask: {} });
+  useSideChatStore.setState({ openTaskId: null, draftByTask: {}, threadByTask: {} });
 });
 
 afterEach(() => {
@@ -147,7 +149,7 @@ describe("asking a side question", () => {
     store.open(TASK_ID);
     store.setDraft(TASK_ID, "What is it doing right now?");
     await store.ask(TASK_ID);
-    expect(useSideChatStore.getState().exchangeByTask[TASK_ID]).toMatchObject({
+    expect(latestSideExchange(useSideChatStore.getState().threadByTask[TASK_ID])).toMatchObject({
       status: "answered",
       question: "What is it doing right now?",
       answer: "It is editing src/export.ts.",
@@ -166,7 +168,7 @@ describe("asking a side question", () => {
     const store = useSideChatStore.getState();
     store.setDraft("task-cursor", "Why?");
     await store.ask("task-cursor");
-    expect(useSideChatStore.getState().exchangeByTask["task-cursor"]).toMatchObject({ status: "failed", reason: "unsupported" });
+    expect(latestSideExchange(useSideChatStore.getState().threadByTask["task-cursor"])).toMatchObject({ status: "failed", reason: "unsupported" });
     expect(calls).toEqual([]);
   });
 
@@ -176,10 +178,56 @@ describe("asking a side question", () => {
     const store = useSideChatStore.getState();
     store.setDraft(TASK_ID, "Slow question");
     const pending = store.ask(TASK_ID);
-    store.clearExchange(TASK_ID);
+    store.clearThread(TASK_ID);
     release({ ok: true, text: "Late answer" });
     await pending;
-    expect(useSideChatStore.getState().exchangeByTask[TASK_ID]).toBeUndefined();
+    expect(useSideChatStore.getState().threadByTask[TASK_ID]).toBeUndefined();
+  });
+
+  test("keeps earlier questions as a thread, and a follow-up carries them to the provider", async () => {
+    const store = useSideChatStore.getState();
+    store.setDraft(TASK_ID, "What is it doing?");
+    await store.ask(TASK_ID);
+    respond = async () => ({ ok: true, text: "Because the table sets it." });
+    store.setDraft(TASK_ID, "Why?");
+    await store.ask(TASK_ID);
+    const thread = useSideChatStore.getState().threadByTask[TASK_ID] ?? [];
+    expect(thread.map((entry) => entry.question)).toEqual(["What is it doing?", "Why?"]);
+    expect(thread.map((entry) => entry.status)).toEqual(["answered", "answered"]);
+    const followUp = calls[1]?.prompt ?? "";
+    expect(followUp).toContain("[Earlier Side Questions]\nQ: What is it doing?\nA: It is editing src/export.ts.");
+    expect(followUp.indexOf("[Earlier Side Questions]")).toBeLessThan(followUp.indexOf("[Side Question]"));
+    expect(calls[0]?.prompt).not.toContain("[Earlier Side Questions]");
+  });
+
+  test("keeps at most the thread limit, dropping the oldest", async () => {
+    const store = useSideChatStore.getState();
+    for (let index = 0; index <= SIDE_CHAT_THREAD_LIMIT; index += 1) {
+      await store.ask(TASK_ID, `Question ${index}`);
+    }
+    const thread = useSideChatStore.getState().threadByTask[TASK_ID] ?? [];
+    expect(thread).toHaveLength(SIDE_CHAT_THREAD_LIMIT);
+    expect(thread[0]?.question).toBe("Question 1");
+  });
+
+  test("a suggested question is asked without touching the typed draft", async () => {
+    const store = useSideChatStore.getState();
+    store.setDraft(TASK_ID, "Half-typed");
+    await store.ask(TASK_ID, "What is left before it finishes?");
+    expect(useSideChatStore.getState().draftByTask[TASK_ID]).toBe("Half-typed");
+    expect(latestSideExchange(useSideChatStore.getState().threadByTask[TASK_ID])?.question).toBe("What is left before it finishes?");
+  });
+
+  test("Retry asks a failed question again in its place", async () => {
+    respond = async () => ({ ok: false, message: "offline" });
+    const store = useSideChatStore.getState();
+    await store.ask(TASK_ID, "Why?");
+    const failed = latestSideExchange(useSideChatStore.getState().threadByTask[TASK_ID]);
+    respond = async () => ({ ok: true, text: "Back online." });
+    await store.retry(TASK_ID, failed?.id ?? "");
+    const thread = useSideChatStore.getState().threadByTask[TASK_ID] ?? [];
+    expect(thread).toHaveLength(1);
+    expect(thread[0]).toMatchObject({ question: "Why?", status: "answered", answer: "Back online." });
   });
 
   test("a failed answer keeps the provider's detail", async () => {
@@ -187,7 +235,7 @@ describe("asking a side question", () => {
     const store = useSideChatStore.getState();
     store.setDraft(TASK_ID, "Why?");
     await store.ask(TASK_ID);
-    expect(useSideChatStore.getState().exchangeByTask[TASK_ID]).toMatchObject({
+    expect(latestSideExchange(useSideChatStore.getState().threadByTask[TASK_ID])).toMatchObject({
       status: "failed",
       reason: "error",
       detail: "Claude Side question failed: offline",
@@ -233,7 +281,7 @@ describe("the side question panel", () => {
     renderToStaticMarkup(createElement(SideChatPanel, { taskId: TASK_ID, host }));
   // Server rendering reads the store's initial state, so the panel's state is seeded there.
   const initial = useSideChatStore.getInitialState();
-  const original = { openTaskId: initial.openTaskId, exchangeByTask: initial.exchangeByTask };
+  const original = { openTaskId: initial.openTaskId, threadByTask: initial.threadByTask };
   afterEach(() => Object.assign(initial, original));
 
   test("shows only for its task, says it stays out of the conversation, and offers Copy to composer", () => {
@@ -241,14 +289,25 @@ describe("the side question panel", () => {
     Object.assign(initial, { openTaskId: TASK_ID });
     const empty = render();
     expect(empty).toContain("Side question");
-    expect(empty).toContain("Nothing here is added to the conversation.");
+    expect(empty).toContain("add to its conversation.");
     expect(empty).toContain("data-task-abort-exempt");
+    expect(empty).toContain("What is it doing right now?");
+    expect(empty).toContain("Enter to ask");
     Object.assign(initial, {
-      exchangeByTask: { [TASK_ID]: { id: "x", question: "Why?", providerId: "claude-code", status: "answered", answer: "Because of the export." } },
+      threadByTask: {
+        [TASK_ID]: [
+          { id: "x", question: "Why?", providerId: "claude-code", status: "answered", answer: "Because of the export." },
+          { id: "y", question: "And then?", providerId: "claude-code", status: "asking" },
+        ],
+      },
     });
     const answered = render();
     expect(answered).toContain("Because of the export.");
     expect(answered).toContain("Copy to composer");
+    expect(answered).toContain("Copy answer");
+    expect(answered).toContain("And then?");
+    expect(answered).toContain("Clear side questions");
+    expect(answered).not.toContain("What is it doing right now?");
     applyAppLocale("ko");
     expect(render()).toContain("컴포저에 복사");
   });

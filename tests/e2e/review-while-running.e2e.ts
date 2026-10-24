@@ -116,10 +116,10 @@ test("a side question opens over Review, and Copy to composer goes to the conver
 
   await page.evaluate(async (modules) => {
     const { useSideChatStore } = await import(modules.sideChat);
-    useSideChatStore.setState((state: { exchangeByTask: Record<string, unknown> }) => ({
-      exchangeByTask: {
-        ...state.exchangeByTask,
-        "aside-review": { id: "x", question: "Why the width?", providerId: "claude-code", status: "answered", answer: "The table overflowed." },
+    useSideChatStore.setState((state: { threadByTask: Record<string, unknown> }) => ({
+      threadByTask: {
+        ...state.threadByTask,
+        "aside-review": [{ id: "x", question: "Why the width?", providerId: "claude-code", status: "answered", answer: "The table overflowed." }],
       },
     }));
   }, MODULES);
