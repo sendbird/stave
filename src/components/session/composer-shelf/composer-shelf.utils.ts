@@ -47,7 +47,7 @@ import type { Tone } from "@/components/ads/utils/tone";
 /** What heads the run line: an active agent run (or legacy run), else the turn. */
 export type ShelfRunSource = "agentRun" | "turn";
 
-export type ComposerShelfRow = "account" | "switch" | "run" | "limit" | "review" | "queue";
+export type ComposerShelfRow = "account" | "switch" | "start" | "run" | "limit" | "review" | "queue";
 
 /**
  * The run line names one thing. An active run owns it for its whole life, the
@@ -79,6 +79,8 @@ export function selectComposerShelfRows(args: {
   accountBlocked?: boolean;
   /** The next message goes to another provider than the one that answered last. */
   providerSwitch?: boolean;
+  /** Sending the draft starts an agent run. */
+  runStart?: boolean;
 }): ComposerShelfRow[] {
   const rows: ComposerShelfRow[] = [];
   if (args.accountBlocked && !args.limited) {
@@ -87,6 +89,10 @@ export function selectComposerShelfRows(args: {
   // Said before a send only: once a turn runs, the switch has happened.
   if (args.providerSwitch && !args.run) {
     rows.push("switch");
+  }
+  // Also before a send only: a running turn or run means this send would not start one.
+  if (args.runStart && !args.run) {
+    rows.push("start");
   }
   if (args.run) {
     rows.push("run");

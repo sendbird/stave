@@ -1,12 +1,14 @@
 import { expect, test } from "@playwright/test";
 
 for (const theme of ["light", "dark", "dracula"]) {
-test(`an attached streaming reply stays partial until completion, with a pre-send execution notice (${theme})`, async ({ page }, testInfo) => {
+test(`an attached streaming reply stays partial until completion, with the run-start line (${theme})`, async ({ page }, testInfo) => {
   test.setTimeout(90_000);
   await page.goto(`/?stavePreview=composer-frame&case=idle&agent=implementer&partial=1&theme=${theme}&w=420`, { waitUntil: "domcontentloaded" });
   const prompt = page.getByRole("textbox", { name: "Prompt" });
-  const notice = page.getByTestId("agent-attachment-notice");
-  await expect(notice).toContainText("The Run keeps attached images and context");
+  const notice = page.getByTestId("run-contract-notice");
+  // The shelf line names the agent and says the run keeps the attached task.
+  await expect(notice).toContainText("Send starts Implementer");
+  await expect(notice).toContainText("Keeps 1 attachment");
   await expect(page.getByText("Partial reply", { exact: false })).toBeVisible();
   const chipSize = await page.locator("[data-task-context-chip]").evaluate((chip) => ({ width: chip.clientWidth, content: chip.scrollWidth }));
   expect(chipSize.content).toBeLessThanOrEqual(chipSize.width);
@@ -25,7 +27,9 @@ test(`an attached streaming reply stays partial until completion, with a pre-sen
   await expect(prompt).toHaveText("Use the investigation to fix the login flow");
   await expect(notice).toBeVisible();
   await page.getByRole("button", { name: "Remove attached task Research the login redirect bug" }).click();
-  await expect(notice).toHaveCount(0);
+  // The send still starts a run; only the attachment item leaves, and the turn cap takes its place.
+  await expect(notice).not.toContainText("Keeps 1 attachment");
+  await expect(notice).toContainText("Up to 30 turns");
 });
 }
 
@@ -33,16 +37,16 @@ test("Chat and an active run do not show an attachment-triggered new-run notice"
   test.setTimeout(90_000);
   await page.goto("/?stavePreview=composer-frame&case=idle&partial=1&theme=dark", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Partial reply", { exact: false })).toBeVisible();
-  await expect(page.getByTestId("agent-attachment-notice")).toHaveCount(0);
+  await expect(page.getByTestId("run-contract-notice")).toHaveCount(0);
   await page.goto("/?stavePreview=composer-frame&case=agent-needs&agent=implementer&partial=1&theme=dark", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("Partial reply", { exact: false })).toBeVisible();
-  await expect(page.getByTestId("agent-attachment-notice")).toHaveCount(0);
+  await expect(page.getByTestId("run-contract-notice")).toHaveCount(0);
 });
 
 test("a pending run suppresses the notice and changing back to Chat removes it", async ({ page }) => {
   test.setTimeout(90_000);
   await page.goto("/?stavePreview=composer-frame&case=idle&agent=implementer&partial=1&theme=dracula", { waitUntil: "domcontentloaded" });
-  const notice = page.getByTestId("agent-attachment-notice");
+  const notice = page.getByTestId("run-contract-notice");
   await expect(notice).toBeVisible();
   await page.evaluate(async () => {
     const path = "/src/store/pending-auto-routing-store.ts";

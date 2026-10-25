@@ -11,6 +11,8 @@ import {
 } from "react";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { AgentRunBar } from "@/components/agent-runs/AgentRunBar";
+import { RunStartNotice, useRunStartPlanned } from "@/components/agent-runs/RunContract";
+import type { AgentRunPromptFit } from "@/lib/agent-runs/agent-run";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   TurnActivitySurface,
@@ -75,6 +77,13 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   model?: string;
   /** Stave Auto picks the route on send, so no usage-limit line is shown for it. */
   autoRouting?: boolean;
+  /**
+   * The draft, as primitives, for the line that says the send starts an agent
+   * run: whether it can be an assignment and what it attaches.
+   */
+  draftPromptFit?: AgentRunPromptFit;
+  draftFilePaths?: number;
+  draftContextAttachments?: number;
 }) {
   useTranslation();
   const taskId = useScopedTaskId();
@@ -110,6 +119,11 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     providerId: props.providerId,
     enabled: runSource == null && !props.autoRouting,
   });
+  const runStart = useRunStartPlanned({ taskId, providerId: props.providerId, promptFit: props.draftPromptFit ?? "empty" });
+  const runStartAttachments = useMemo(
+    () => ({ filePaths: props.draftFilePaths ?? 0, context: props.draftContextAttachments ?? 0 }),
+    [props.draftFilePaths, props.draftContextAttachments],
+  );
   const rows = selectComposerShelfRows({
     run: runSource,
     queueCount,
@@ -117,6 +131,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     reviewCount,
     accountBlocked: blocker != null,
     providerSwitch: providerSwitch != null,
+    runStart,
   });
   const onResumeNow = useCallback(
     () => void resumePausedTaskWork({ taskId }),
@@ -218,6 +233,11 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
       {providerSwitch && rows.includes("switch") ? (
         <ShelfRow joining={shownBefore.current}>
           <ShelfProviderSwitch preview={providerSwitch} workspaceId={activeWorkspaceId} taskId={taskId} />
+        </ShelfRow>
+      ) : null}
+      {rows.includes("start") ? (
+        <ShelfRow joining={shownBefore.current}>
+          <RunStartNotice taskId={taskId} attachments={runStartAttachments} />
         </ShelfRow>
       ) : null}
       {runSource ? (

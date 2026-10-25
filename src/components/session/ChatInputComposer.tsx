@@ -2,7 +2,7 @@ import { i18n, useTranslation } from "@/i18n";
 import { PromptInput } from "@/components/ai-elements";
 import { ComposerContextDock } from "@/components/session/ComposerContextDock";
 import { useComposerRunAccountPool } from "./use-run-account-pool";
-import { AgentAttachmentNotice } from "@/components/session/AgentAttachmentNotice";
+import { useRunStartDraft } from "@/components/agent-runs/RunContract";
 import { ComposerWorkspaceBar } from "@/components/session/composer-workspace-bar";
 import { MacroControl } from "@/components/session/MacroControl";
 import { MacroQuickPicks } from "@/components/session/MacroQuickPicks";
@@ -1059,9 +1059,10 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       });
     },
   });
+  const runStartDraft = useRunStartDraft(draftText, promptDraft);
   const composerShelf = (
     <RenderProfiler id="ComposerShelf">
-      <ComposerShelf framed={useFramedComposer} steering={isSteerSubmitting} queue={shelfQueue} providerId={args.activeProvider} model={args.selectedModelOption.model} autoRouting={Boolean(args.selectedModelOption.isAuto)} />
+      <ComposerShelf framed={useFramedComposer} steering={isSteerSubmitting} queue={shelfQueue} providerId={args.activeProvider} model={args.selectedModelOption.model} autoRouting={Boolean(args.selectedModelOption.isAuto)} {...runStartDraft} />
     </RenderProfiler>
   );
 
@@ -1411,7 +1412,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}
-        <AgentAttachmentNotice taskId={args.activeTaskId} providerId={args.activeProvider} draft={{ ...promptDraft, text: draftText }} />
         <PromptInput
           runAccountPool={runAccountPool}
           attachmentScopeId={args.providerSelectionTarget}

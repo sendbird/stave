@@ -114,22 +114,37 @@ export function confirmedApprovalsOfRun(
   return null;
 }
 
+type ApprovalKind = "readOnly" | "auto" | "autoUnconfirmed" | "autoWithoutReviewer" | "autoReviewOff" | "edits";
+
 /**
- * The first "may change" line, from the options the run applies. Codex's
+ * How the run's turns are approved, from the options the run applies. Codex's
  * reviewer can still be turned off by an organization's managed policy when a
  * turn starts, so Codex Auto is stated as unconfirmed until the runtime
- * confirmed what the run's current turn runs with; then the line follows it.
+ * confirmed what the run's current turn runs with; then it follows that.
  */
-function describeApprovals(input: RunContractInput): string {
-  if (input.permission === "read-only") return i18n.t("agentRuns:runContract.change.readOnly");
-  if (input.permission !== "auto") return i18n.t("agentRuns:runContract.change.edits");
-  if (input.providerId !== "codex") return i18n.t("agentRuns:runContract.change.auto");
+function approvalKind(input: RunContractInput): ApprovalKind {
+  if (input.permission === "read-only") return "readOnly";
+  if (input.permission !== "auto") return "edits";
+  if (input.providerId !== "codex") return "auto";
   if (input.confirmedApprovals) {
-    if (isCodexAutoReview(input.confirmedApprovals)) return i18n.t("agentRuns:runContract.change.auto");
-    if (input.confirmedApprovals.codexApprovalPolicy === "never") return i18n.t("agentRuns:runContract.change.autoReviewOff");
+    if (isCodexAutoReview(input.confirmedApprovals)) return "auto";
+    if (input.confirmedApprovals.codexApprovalPolicy === "never") return "autoReviewOff";
   }
   const applied = resolveRunApprovalOptions({ providerId: "codex", permission: "auto", codexAutoReview: input.codexAutoReview ?? null });
-  return isCodexAutoReview(applied) ? i18n.t("agentRuns:runContract.change.autoUnconfirmed") : i18n.t("agentRuns:runContract.change.autoWithoutReviewer");
+  return isCodexAutoReview(applied) ? "autoUnconfirmed" : "autoWithoutReviewer";
+}
+
+const APPROVAL_KEYS = {
+  readOnly: "agentRuns:runContract.change.readOnly",
+  auto: "agentRuns:runContract.change.auto",
+  autoUnconfirmed: "agentRuns:runContract.change.autoUnconfirmed",
+  autoWithoutReviewer: "agentRuns:runContract.change.autoWithoutReviewer",
+  autoReviewOff: "agentRuns:runContract.change.autoReviewOff",
+  edits: "agentRuns:runContract.change.edits",
+} as const satisfies Record<ApprovalKind, string>;
+
+function describeApprovals(input: RunContractInput): string {
+  return i18n.t(APPROVAL_KEYS[approvalKind(input)]);
 }
 
 function describeChange(input: RunContractInput): string[] {
@@ -183,11 +198,47 @@ function describeComesBack(input: RunContractInput): string[] {
   const run = { workflow: { stages: input.workflow.stages }, consent: { checkIns: input.workflow.checkIns, authorizedEffectStageIds: [...input.authorizedEffectStageIds] } } as Parameters<typeof resolveConsentStageSignOff>[0];
   const asking = input.workflow.stages.flatMap((stage, index) => index > 0 && resolveConsentStageSignOff(run, index) === "ask" ? [getStageDisplayTitle(stage)] : []);
   if (asking.length) lines.push(i18n.t("agentRuns:runContract.comesBack.asksBefore", { stages: formatList(asking) }));
-  lines.push(i18n.t("agentRuns:runContract.comesBack.questions"));
+  // "Only when it is stuck or needs an answer" already says where questions go.
+  if (input.workflow.checkIns !== "when-stuck") lines.push(i18n.t("agentRuns:runContract.comesBack.questions"));
   lines.push(i18n.t("agentRuns:runContract.comesBack.stops", { count: input.maxTurns }));
   return lines;
 }
 
 export function buildRunContract(input: RunContractInput): RunContract {
   return { where: describeWhere(input.workspace), change: describeChange(input), done: describeDone(input), comesBack: describeComesBack(input) };
+}
+
+/**
+ * The contract in one line, for the shelf before a send: how far the run acts
+ * on its own, when it checks in and its turn cap. `warning` marks a run whose
+ * edits and commands are not approved one by one.
+ */
+export interface RunContractSummary {
+  permission: { text: string; warning: boolean };
+  checkIns: string;
+  turns: string;
+}
+
+const APPROVAL_SUMMARY_KEYS = {
+  readOnly: "agentRuns:runContract.summary.permission.readOnly",
+  auto: "agentRuns:runContract.summary.permission.auto",
+  autoUnconfirmed: "agentRuns:runContract.summary.permission.autoUnconfirmed",
+  autoWithoutReviewer: "agentRuns:runContract.summary.permission.unasked",
+  autoReviewOff: "agentRuns:runContract.summary.permission.unasked",
+  edits: "agentRuns:runContract.summary.permission.unasked",
+} as const satisfies Record<ApprovalKind, string>;
+
+const CHECK_IN_SUMMARY_KEYS = {
+  "every-stage": "agentRuns:runContract.summary.checkIns.everyStage",
+  "plan-and-publishing": "agentRuns:runContract.summary.checkIns.planAndPublishing",
+  "when-stuck": "agentRuns:runContract.summary.checkIns.whenStuck",
+} as const satisfies Record<CheckIns, string>;
+
+export function buildRunContractSummary(input: RunContractInput): RunContractSummary {
+  const kind = approvalKind(input);
+  return {
+    permission: { text: i18n.t(APPROVAL_SUMMARY_KEYS[kind]), warning: kind === "edits" || kind === "autoWithoutReviewer" || kind === "autoReviewOff" },
+    checkIns: i18n.t(CHECK_IN_SUMMARY_KEYS[input.workflow.checkIns]),
+    turns: i18n.t("agentRuns:runContract.summary.turns", { count: input.maxTurns }),
+  };
 }

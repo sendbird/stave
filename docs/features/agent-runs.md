@@ -147,13 +147,26 @@ agents and checks each result before it reports.
 
 ### What a run will do
 
-When the next send will start an agent run, the composer says **Sending this
-starts an agent run** with four lines, and the Run panel's header repeats them
-as **What this run does**:
+When the next send will start an agent run, a line on the composer shelf says
+so before you send. It names the agent (for example **Send starts Lead**), then
+how far the run acts on its own (for example **Edits in auto mode**, **Read-only**
+or **Edits without asking**, the last in a warning colour), when it checks in
+with you, and its turn cap. When the draft carries attachments, the line says
+the run keeps them, or that it reads saved copies of files attached by path.
+On a narrow composer the turn cap goes first, then the check-in and the
+attachment note; **Details** keeps them.
 
-- **Where**: the task's workspace, its branch, and whether it is the
+**Details** adds only what the line does not say: what the permission covers
+and what still needs your sign-off, when the run counts as done (when that is
+more than the default "complete and verified"), the stages that ask first, and
+how attachments travel. The workspace is already in the
+bar under the composer. Details stays open or closed for every task until you
+change it, also after a restart. The Run panel's header shows the full contract
+as **What this run does**, with these four parts:
+
+- **Works in**: the task's workspace, its branch, and whether it is the
   repository folder or the run's own worktree.
-- **May change**: an Auto agent edits files and runs commands with the
+- **Can do**: an Auto agent edits files and runs commands with the
   provider's auto mode deciding each action and asking when it cannot. The
   line follows the options the run applies: on a Codex without its reviewer
   for Auto, the run falls back to approvals off, and the line says it edits
@@ -173,9 +186,10 @@ as **What this run does**:
   workspace checks Stave runs itself, with whether every script must pass or
   one is enough. For a write agent whose workspace has action scripts, the
   default check (one passing script) is named too.
-- **Comes back to you**: the check-in level, the stages that ask first,
-  questions it cannot settle, and the turn limit (it pauses there until you
-  extend it) and usage limits.
+- **Checks with you**: the check-in level, the stages that ask first,
+  questions it cannot settle (said separately unless it already checks in only
+  when stuck), and the turn limit (it pauses there until you extend it) and
+  usage limits.
 
 ### Check in with me
 

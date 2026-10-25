@@ -1063,38 +1063,42 @@
   },
   "runContract": {
     "notice": {
-      "title": "보내면 에이전트 실행이 시작됩니다"
+      "title": "보내면 {{agent}} 실행 시작",
+      "ariaLabel": "보내면 시작되는 에이전트 실행",
+      "showDetails": "자세히",
+      "hideDetails": "접기"
     },
     "header": {
       "title": "이 실행이 하는 일"
     },
     "label": {
-      "where": "위치",
-      "change": "바꿀 수 있는 것",
-      "done": "완료 조건",
-      "comesBack": "돌아오는 때"
+      "where": "작업 위치",
+      "change": "권한",
+      "done": "완료 기준",
+      "comesBack": "확인 요청",
+      "attachments": "첨부"
     },
     "where": {
-      "unknown": "작업의 워크스페이스에서",
-      "worktree": "자체 worktree에서",
-      "repository": "저장소 폴더에서",
-      "withBranch": "{{workspace}}, {{branch}} 브랜치, {{place}}",
-      "withoutBranch": "{{workspace}}, {{place}}"
+      "unknown": "작업의 워크스페이스",
+      "worktree": "자체 worktree",
+      "repository": "저장소 폴더",
+      "withBranch": "{{workspace}} · {{branch}} · {{place}}",
+      "withoutBranch": "{{workspace}} · {{place}}"
     },
     "change": {
       "readOnly": "파일을 읽고 읽기 전용 명령만 실행하며, 아무것도 바꾸지 않습니다.",
-      "auto": "여기서 파일을 편집하고 명령을 실행합니다. 각 행동은 제공자의 자동 모드가 판단하고, 판단하지 못하면 물어봅니다.",
-      "autoUnconfirmed": "여기서 파일을 편집하고 명령을 실행합니다. 각 행동은 Codex 자동 검토가 판단하고 확신이 없으면 물어봅니다. 다만 조직에서 자동 검토를 끄면 묻지 않고 편집합니다.",
-      "autoWithoutReviewer": "여기서 묻지 않고 파일을 편집하고 명령을 실행합니다. 이 Codex에는 Auto용 검토자가 없어 승인이 꺼집니다.",
-      "autoReviewOff": "여기서 묻지 않고 파일을 편집하고 명령을 실행합니다. 이 실행에서는 Codex 자동 검토가 꺼져 있어 승인이 꺼집니다.",
-      "edits": "여기서 묻지 않고 파일을 편집하고 명령을 실행합니다.",
-      "guardrails": "저장소 밖 쓰기, 자격 증명 파일, 되돌릴 수 없는 원격 작업은 여전히 확인을 받습니다.",
+      "auto": "파일을 편집하고 명령을 실행합니다. 행동마다 자동 모드가 판단하고, 판단이 어려우면 묻습니다.",
+      "autoUnconfirmed": "파일을 편집하고 명령을 실행합니다. 행동마다 Codex 자동 검토가 판단하고 확신이 없으면 묻습니다. 다만 조직에서 자동 검토를 끄면 묻지 않고 편집합니다.",
+      "autoWithoutReviewer": "묻지 않고 파일을 편집하고 명령을 실행합니다. 이 Codex에는 Auto용 검토자가 없어 승인이 꺼집니다.",
+      "autoReviewOff": "묻지 않고 파일을 편집하고 명령을 실행합니다. 이 실행에서는 Codex 자동 검토가 꺼져 있어 승인이 꺼집니다.",
+      "edits": "묻지 않고 파일을 편집하고 명령을 실행합니다.",
+      "guardrails": "항상 먼저 묻는 일: 저장소 밖 쓰기, 자격 증명 파일, 되돌릴 수 없는 원격 작업",
       "effectsAllowed": "워크스페이스 밖에서도 할 수 있는 일: {{effects}} (묻지 않음).",
       "effectsAsk": "워크스페이스 밖에서도 할 수 있는 일: {{effects}} (승인 후)."
     },
     "done": {
-      "default": "과제가 완료되고 확인되었을 때.",
-      "when": "조건: {{doneWhen}}",
+      "default": "과제를 끝내고 검증하면 완료합니다.",
+      "when": "{{doneWhen}}",
       "stages_other": "{{count}}개 단계가 각각 완료를 보고했을 때: {{stages}}",
       "checkAll": "Stave가 {{scripts}}을(를) 직접 실행하며, 모두 통과해야 합니다.",
       "checkAny": "Stave가 {{scripts}}을(를) 직접 실행하며, 하나만 통과해도 됩니다.",
@@ -1104,10 +1108,26 @@
     "comesBack": {
       "everyStage": "첫 단계 이후 각 단계 전에 승인을 받습니다.",
       "planAndPublishing": "계획 후와 게시 전에 승인을 받습니다.",
-      "whenStuck": "막히거나 답이 필요할 때만 돌아옵니다.",
+      "whenStuck": "막히거나 답이 필요할 때만 묻습니다.",
       "asksBefore": "다음 단계 전에 묻습니다: {{stages}}.",
       "questions": "스스로 정하지 못한 질문은 사용자에게 옵니다.",
       "stops_other": "{{count}}턴 뒤에는 연장할 때까지 멈추고, 사용량 한도에서도 멈춥니다."
+    },
+    "summary": {
+      "permission": {
+        "readOnly": "읽기 전용",
+        "auto": "자동 모드로 편집",
+        "autoUnconfirmed": "Codex 검토로 편집",
+        "unasked": "묻지 않고 편집"
+      },
+      "checkIns": {
+        "everyStage": "단계마다 승인",
+        "planAndPublishing": "계획 후·게시 전 승인",
+        "whenStuck": "막힐 때만 질문"
+      },
+      "turns_other": "최대 {{count}}턴",
+      "attachments_other": "첨부 {{count}}개 유지",
+      "filePaths": "첨부 파일은 저장본을 읽음"
     }
   }
 }

@@ -422,9 +422,10 @@ Task attachments have two separate representations:
 - Streaming source replies are labelled partial in the retrieved context.
   `src/components/task-context-draft-chip.tsx` uses the same selection rules for
   its live partial label; sent chips keep their original display metadata.
-  `AgentAttachmentNotice` uses `planAgentPromptSend` and
-  `hasAgentPromptAttachments` to explain attachment-triggered single turns
-  before sending, including staged prompt items.
+  The composer shelf's run-start line (`RunStartNotice`) decides with
+  `planAgentPromptSendForFit`, the primitive form of `planAgentPromptSend`, and
+  `describeRunStartDraft` counts attachments across staged prompt items before
+  sending.
 
 Check `tests/attached-task-context.test.ts` and
 `tests/attached-task-context-send.test.ts` for clipping, missing content,
