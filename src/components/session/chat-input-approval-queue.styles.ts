@@ -22,7 +22,7 @@ export const chatInputApprovalQueueStyles = stylex.create({
     alignItems: "center",
     color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: "0.375rem",
     marginTop: "0.375rem",
     paddingInline: vars["--ads-space-4"],
@@ -42,7 +42,7 @@ export const chatInputApprovalQueueStyles = stylex.create({
   },
   blockedNote: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   linkAction: {
     borderRadius: vars["--ads-radius-mark"],

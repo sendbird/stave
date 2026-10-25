@@ -79,7 +79,7 @@ const styles = stylex.create({
     flexShrink: 0,
     paddingInline: 8,
     paddingBlockStart: 4,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: 550,
     letterSpacing: "0.04em",
     textTransform: "uppercase",

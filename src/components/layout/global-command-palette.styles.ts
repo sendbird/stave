@@ -103,9 +103,10 @@ export const commandPaletteStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     display: "flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-12"],
     justifyContent: "space-between",
+    lineHeight: "16px",
     paddingInline: vars["--ads-space-12"],
   },
   footerGroup: {
@@ -129,7 +130,7 @@ export const commandPaletteStyles = stylex.create({
   pinButton: {
     blockSize: 28,
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: 6,
     maxInlineSize: 224,
     paddingInline: vars["--ads-space-8"],

@@ -47,7 +47,7 @@ export const statusBarUsageStyles = stylex.create({
   toneUnknown: { backgroundColor: vars["--ads-color-text-subtle"] },
 
   note: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
-  noteFaint: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-micro"] },
+  noteFaint: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-caption"] },
   bucketTitle: {
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-caption"],
@@ -55,7 +55,7 @@ export const statusBarUsageStyles = stylex.create({
   },
   bucketPlan: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-regular"],
     marginInlineStart: vars["--ads-space-4"],
   },

@@ -37,13 +37,13 @@ export const dispatchFieldStyles = stylex.create({
   mono: {
     color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     margin: 0,
   },
   monoPath: {
     color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     margin: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

@@ -248,7 +248,7 @@ const styles = stylex.create({
     borderInlineStartColor: vars["--ads-color-border-subtle"],
   },
   metricLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.04em",
     textTransform: "uppercase",

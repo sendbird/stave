@@ -22,7 +22,7 @@ export const tokenChipStyles = stylex.create({
     height: "1.45em",
     gap: "0.3em",
     paddingInline: "0.35em",
-    fontSize: "0.78em",
+    fontSize: `max(0.78em, ${vars["--ads-font-size-micro"]})`,
   },
   roomy: {
     gap: "0.375rem",

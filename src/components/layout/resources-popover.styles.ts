@@ -247,7 +247,7 @@ export const resourceStyles = stylex.create({
   },
   groupMeta: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-subtle"],
   },
   groupTitleBlock: {
@@ -264,7 +264,7 @@ export const resourceStyles = stylex.create({
   storageMessage: {
     marginBlockStart: vars["--ads-space-8"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-subtle"],
   },
   processHead: {

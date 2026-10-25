@@ -62,7 +62,7 @@ export const chatPanelStyles = stylex.create({
   steerLabel: {
     alignSelf: "flex-end",
     paddingInline: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   actionsUser: {

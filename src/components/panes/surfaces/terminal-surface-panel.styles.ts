@@ -35,7 +35,7 @@ export const terminalSurfacePanelStyles = stylex.create({
   },
   status: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -45,7 +45,7 @@ export const terminalSurfacePanelStyles = stylex.create({
   statusShell: { color: vars["--ads-color-info-text"] },
   statusLive: { color: vars["--ads-color-success-text"] },
   clearButton: { color: vars["--ads-color-text-muted"], flexShrink: 0 },
-  restartButton: { color: vars["--ads-color-warning-text"], fontSize: vars["--ads-font-size-micro"] },
+  restartButton: { color: vars["--ads-color-warning-text"], fontSize: vars["--ads-font-size-caption"] },
   notice: {
     borderBottomStyle: "solid",
     borderBottomWidth: vars["--ads-border-width-hairline"],

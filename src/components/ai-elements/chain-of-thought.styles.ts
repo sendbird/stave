@@ -116,7 +116,7 @@ export const chainOfThoughtStyles = stylex.create({
     alignItems: "center",
     columnGap: "0.6em",
     whiteSpace: "nowrap",
-    fontSize: "0.75em",
+    fontSize: `max(0.75em, ${vars["--ads-font-size-caption"]})`,
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
     animationName: { default: cotStepIn, [reduced]: "none" },
     animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },

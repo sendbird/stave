@@ -56,7 +56,7 @@ export const secretRequestCardStyles = stylex.create({
   queued: {
     color: vars["--ads-color-text-subtle"],
     flex: "0 0 auto",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
     whiteSpace: "nowrap",
   },
@@ -133,12 +133,12 @@ export const secretRequestCardStyles = stylex.create({
   },
   note: {
     color: vars["--ads-color-text-subtle"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     margin: 0,
   },
   status: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     margin: 0,
   },
   error: {

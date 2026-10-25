@@ -67,8 +67,8 @@ export const reviewsStyles = stylex.create({
     columnGap: vars["--ads-space-8"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "16px",
     marginBlockStart: vars["--ads-space-4"],
     rowGap: vars["--ads-space-4"],
   },
@@ -215,7 +215,7 @@ export const reviewsStyles = stylex.create({
   fileDiffStat: {
     flexShrink: 0,
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   additions: { color: vars["--ads-color-diff-added-text"] },
@@ -271,7 +271,7 @@ export const reviewsStyles = stylex.create({
     columnGap: vars["--ads-space-8"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     rowGap: vars["--ads-space-4"],
   },
   timelineAuthor: { color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
@@ -328,7 +328,7 @@ export const reviewsStyles = stylex.create({
   checkStatus: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     letterSpacing: "0.025em",
     textTransform: "uppercase",
   },
@@ -354,7 +354,7 @@ export const reviewsStyles = stylex.create({
   detailHeaderText: { flex: 1, minInlineSize: 0 },
   breadcrumb: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -390,8 +390,8 @@ export const reviewsStyles = stylex.create({
   monoBadge: { fontFamily: vars["--ads-font-mono"] },
   summaryLine: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "16px",
   },
   // The ADS tabs root is a grid, so the shell is expressed as grid ROWS
   // (strip, then a scrolling body) instead of being flipped to flex with
@@ -453,7 +453,7 @@ export const reviewsStyles = stylex.create({
   },
   footerNote: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginBlockStart: vars["--ads-space-4"],
     textAlign: "center",
   },
@@ -469,7 +469,7 @@ export const reviewsStyles = stylex.create({
     alignItems: "center",
     color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-4"],
   },
   truncate: {

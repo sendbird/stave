@@ -210,7 +210,7 @@ export const userInputCardStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   eyebrowHeader: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.02em",
     textTransform: "uppercase",

@@ -84,7 +84,7 @@ export const prContextStyles = stylex.create({
   rowStatus: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   rowExcerpt: {
     color: vars["--ads-color-text-muted"],
@@ -97,14 +97,14 @@ export const prContextStyles = stylex.create({
   rowSubtitle: {
     color: vars["--ads-color-text-muted"],
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   footnote: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginTop: vars["--ads-space-4"],
   },
 });

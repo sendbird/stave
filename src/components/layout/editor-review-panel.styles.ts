@@ -41,10 +41,10 @@ export const editorReviewPanelStyles = stylex.create({
   },
   headerTitle: {
     color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
   },
-  headerMeta: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"] },
+  headerMeta: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
   headerActions: {
     alignItems: "center",
     display: "flex",
@@ -75,7 +75,7 @@ export const editorReviewPanelStyles = stylex.create({
   commentList: { display: "flex", flexDirection: "column" },
   sentRow: { alignItems: "center" },
   sentBody: { display: "flex", flexDirection: "column", flexGrow: 1, flexShrink: 1, gap: 2, minWidth: 0 },
-  sentState: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"], fontWeight: vars["--ads-font-weight-medium"] },
+  sentState: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"] },
   sentStateChanged: { color: vars["--ads-color-info-text"] },
   resolveButton: { flexShrink: 0 },
   commentRow: {

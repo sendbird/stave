@@ -100,7 +100,7 @@ export const gitGraphRowStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   workingTreeConflicts: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-danger-text"],
@@ -126,7 +126,7 @@ export const gitGraphRowStyles = stylex.create({
   },
   cellHash: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   emptyCell: {
     borderLeftWidth: vars["--ads-border-width-hairline"],

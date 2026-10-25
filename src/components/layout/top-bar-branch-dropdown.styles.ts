@@ -131,13 +131,13 @@ export const branchDropdownStyles = stylex.create({
   },
   driftText: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     marginTop: vars["--ads-space-2"],
   },
   driftAction: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     height: 28,
     paddingInline: vars["--ads-space-8"],
   },
@@ -171,7 +171,7 @@ export const branchDropdownStyles = stylex.create({
   statusBadge: { flexShrink: 0 },
   statusHint: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     marginTop: vars["--ads-space-4"],
   },
@@ -220,7 +220,7 @@ export const branchDropdownStyles = stylex.create({
   },
   createError: {
     color: vars["--ads-color-danger-text"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginTop: 6,
     paddingInline: vars["--ads-space-2"],
   },
@@ -246,7 +246,7 @@ export const branchDropdownStyles = stylex.create({
     alignItems: "center",
     color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     justifyContent: "space-between",
     letterSpacing: "normal",

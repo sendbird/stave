@@ -27,8 +27,8 @@ export const automationStyles = stylex.create({
   /** Small uppercase section eyebrow. */
   eyebrow: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    letterSpacing: "0.12em",
+    fontSize: vars["--ads-font-size-caption"],
+    letterSpacing: "0.08em",
     margin: 0,
     textTransform: "uppercase",
   },

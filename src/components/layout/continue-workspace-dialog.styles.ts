@@ -38,10 +38,10 @@ export const continueWorkspaceStyles = stylex.create({
   },
   eyebrow: {
     margin: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: "0.08em",
     color: vars["--ads-color-text-muted"],
   },
   stack: {
@@ -76,7 +76,7 @@ export const continueWorkspaceStyles = stylex.create({
   changeButton: {
     height: 24,
     paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     color: {
       default: vars["--ads-color-text-muted"],

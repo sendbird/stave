@@ -86,7 +86,7 @@ export const messageStyles = stylex.create({
   },
   branchArrowIcon: { width: 12, height: 12 },
   branchPage: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
 

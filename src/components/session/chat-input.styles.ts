@@ -27,9 +27,9 @@ export const chatInputStyles = stylex.create({
     alignItems: "center",
     color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-8"],
-    letterSpacing: "0.08em",
+    letterSpacing: "0.05em",
     textTransform: "uppercase",
   },
   menuItemStart: {

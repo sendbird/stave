@@ -42,7 +42,7 @@ export const workflowStyles = stylex.create({
     margin: 0,
     marginTop: vars["--ads-space-12"],
     paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.02em",
     textTransform: "uppercase",

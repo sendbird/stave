@@ -173,7 +173,7 @@ export const conversationTurnRailStyles = stylex.create({
   },
   previewHint: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 75%, transparent)`,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
   },
 });

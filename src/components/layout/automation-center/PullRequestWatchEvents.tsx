@@ -80,7 +80,7 @@ const styles = stylex.create({
   },
   description: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "16px",
   },
   list: { display: "grid", gap: vars["--ads-space-2"] },
@@ -105,6 +105,6 @@ const styles = stylex.create({
   },
   warning: {
     color: vars["--ads-color-warning-text"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
 });

@@ -145,7 +145,7 @@ export const hooksTabStyles = stylex.create({
     gap: vars["--ads-space-4"],
   },
   blockingLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   removeButton: {
@@ -184,7 +184,7 @@ export const hooksTabStyles = stylex.create({
     paddingInline: vars["--ads-space-8"],
     paddingTop: vars["--ads-space-4"],
     paddingBottom: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: vars["--ads-color-text-muted"],
@@ -208,7 +208,7 @@ export const hooksTabStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   candidateAddIcon: {

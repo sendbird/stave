@@ -17,7 +17,7 @@ export const assistantTraceStyles = stylex.create({
   diffSummary: {
     alignItems: "center",
     display: "inline-flex",
-    fontSize: "0.8em",
+    fontSize: `max(0.8em, ${vars["--ads-font-size-caption"]})`,
     gap: 6,
     lineHeight: 1,
     marginLeft: vars["--ads-space-4"],

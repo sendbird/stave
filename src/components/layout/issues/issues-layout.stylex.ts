@@ -521,9 +521,9 @@ export const taskLayoutStyles = stylex.create({
   metaField: { minWidth: 0 },
   metaLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    letterSpacing: "0.12em",
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--ads-font-size-caption"],
+    letterSpacing: "0.08em",
+    lineHeight: "15px",
     textTransform: "uppercase",
   },
   metaValue: {
@@ -654,9 +654,9 @@ export const taskLayoutStyles = stylex.create({
   detailSection: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
   detailSectionTitle: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    letterSpacing: "0.12em",
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--ads-font-size-caption"],
+    letterSpacing: "0.08em",
+    lineHeight: "15px",
     textTransform: "uppercase",
   },
   detailMuted: {
@@ -756,12 +756,12 @@ export const taskLayoutStyles = stylex.create({
   },
   kickoffTicketMeta: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "15px",
     marginTop: 2,
   },
   kickoffSourceButton: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-8"],
     height: 28,
   },
@@ -772,8 +772,8 @@ export const taskLayoutStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: 1,
     color: vars["--ads-color-warning-text"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: vars["--ads-line-height-tight"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "15px",
     paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-8"],
   },
@@ -807,7 +807,7 @@ export const taskLayoutStyles = stylex.create({
     gap: 2,
     padding: 2,
   },
-  kickoffMode: { flex: 1, fontSize: vars["--ads-font-size-micro"], height: 28 },
+  kickoffMode: { flex: 1, fontSize: vars["--ads-font-size-caption"], height: 28 },
   kickoffModeActive: {
     backgroundColor: vars["--ads-color-surface"],
     borderColor: vars["--ads-color-border"],

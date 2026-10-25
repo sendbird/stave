@@ -54,7 +54,7 @@ export const handoffStyles = stylex.create({
   },
   sectionMeta: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     margin: 0,
   },

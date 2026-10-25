@@ -194,7 +194,7 @@ export const craneConnectorStyles = stylex.create({
   pairedId: {
     color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginBlockStart: vars["--ads-space-4"],
   },
   infoNote: {
@@ -261,7 +261,7 @@ export const craneConnectorStyles = stylex.create({
   mappingPath: {
     color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

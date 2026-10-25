@@ -74,7 +74,7 @@ export const gitGraphToolbarStyles = stylex.create({
     width: "18rem",
   },
   limitLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-regular"],
     color: vars["--ads-color-warning-text"],
   },
@@ -93,7 +93,7 @@ export const gitGraphToolbarStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-warning-text"],
   },
   statusIcon: {
@@ -126,7 +126,7 @@ export const gitGraphToolbarStyles = stylex.create({
   // entry that needs a hand (conflicts).
   statusEntry: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   statusEntryConflicts: {

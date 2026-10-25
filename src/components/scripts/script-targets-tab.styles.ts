@@ -47,7 +47,7 @@ export const targetsTabStyles = stylex.create({
     gap: vars["--ads-space-4"],
   },
   overrideLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   overrideButton: {
@@ -137,7 +137,7 @@ export const targetsTabStyles = stylex.create({
   },
   hint: {
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   triggerFull: {
@@ -153,13 +153,13 @@ export const targetsTabStyles = stylex.create({
     paddingBlock: 10,
   },
   injectedTitle: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-text"],
   },
   injectedDescription: {
     marginTop: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   injectedList: {
@@ -176,7 +176,7 @@ export const targetsTabStyles = stylex.create({
     fontSize: vars["--ads-font-size-micro"],
   },
   footnote: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   emphasis: {

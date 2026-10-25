@@ -88,8 +88,8 @@ export const reviewStyles = stylex.create({
   },
   fileName: { display: "flex", flexDirection: "column", minWidth: 0, flex: "1 1 auto", alignItems: "flex-start" },
   fileBase: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text"] },
-  fileDir: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-subtle"] },
-  fileCounts: { flexShrink: 0, fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-subtle"] },
+  fileDir: { maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  fileCounts: { flexShrink: 0, fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
   fileRead: { flexShrink: 0, width: 14, height: 14, color: vars["--ads-color-text-muted"] },
   fileUnread: { flexShrink: 0, width: 14, height: 14 },
   output: {
@@ -116,10 +116,10 @@ export const reviewStyles = stylex.create({
   sectionTitle: { margin: 0, fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text-muted"], textTransform: "none" },
   list: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], margin: 0, padding: 0, listStyle: "none" },
   comment: { display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], minWidth: 0, fontSize: vars["--ads-font-size-caption"] },
-  commentWhere: { fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-subtle"], overflowWrap: "anywhere" },
+  commentWhere: { fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-subtle"], overflowWrap: "anywhere" },
   commentBody: { margin: 0, whiteSpace: "pre-wrap", overflowWrap: "anywhere", color: vars["--ads-color-text"] },
   lensRecord: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0 },
-  lensPage: { fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-subtle"], overflowWrap: "anywhere" },
+  lensPage: { fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-subtle"], overflowWrap: "anywhere" },
   decisions: {
     flexShrink: 0,
     paddingBlock: vars["--ads-space-8"],

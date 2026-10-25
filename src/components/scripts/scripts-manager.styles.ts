@@ -150,7 +150,7 @@ export const managerStyles = stylex.create({
   scopeInfoPath: {
     marginTop: vars["--ads-space-4"],
     overflowWrap: "anywhere",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1.25rem",
     color: vars["--ads-color-text-muted"],
   },
@@ -232,7 +232,7 @@ export const managerStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   footerActions: {

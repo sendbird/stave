@@ -109,7 +109,7 @@ export const markdownStyles = stylex.create({
     backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 70%, transparent)`,
     paddingInline: "0.4em",
     paddingBlock: 0,
-    fontSize: "0.625em",
+    fontSize: `max(0.625em, ${vars["--ads-font-size-micro"]})`,
     lineHeight: 1.4,
     color: vars["--ads-color-text-muted"],
   },

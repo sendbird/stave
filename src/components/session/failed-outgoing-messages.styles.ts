@@ -37,7 +37,7 @@ export const failedOutgoingMessagesStyles = stylex.create({
     alignItems: "center",
     color: vars["--ads-color-danger-text"],
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: 6,
     justifyContent: "flex-end",
     paddingInline: vars["--ads-space-4"],

@@ -128,7 +128,7 @@ export const cliSessionPanelStyles = stylex.create({
   degradedAction: {
     blockSize: 28,
     color: { default: vars["--ads-color-warning-text"], ":hover": vars["--ads-color-warning"] },
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     paddingInline: vars["--ads-space-8"],
   },
 

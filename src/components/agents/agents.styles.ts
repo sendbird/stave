@@ -23,7 +23,7 @@ export const agentStyles = stylex.create({
 
   source: {
     flex: "0 0 auto",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-subtle"],
   },
   archived: { color: vars["--ads-color-text-subtle"], textDecorationLine: "line-through" },
@@ -147,7 +147,7 @@ export const agentStyles = stylex.create({
   /* Delete dialog reference list ----------------------------------------- */
   refList: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], margin: 0, padding: 0, listStyle: "none" },
   refItem: { display: "flex", flexDirection: "column", gap: 2, fontSize: vars["--ads-font-size-caption"] },
-  refKind: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-micro"], textTransform: "uppercase", letterSpacing: "0.02em" },
+  refKind: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-caption"], textTransform: "uppercase", letterSpacing: "0.02em" },
 
   /* New agent dialog / editor ------------------------------------------- */
   blankRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
