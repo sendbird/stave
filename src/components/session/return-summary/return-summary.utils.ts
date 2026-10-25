@@ -4,6 +4,7 @@ import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatToolDisplayName } from "@/lib/providers/subagent-identity";
 import { describeToolOperationLabel } from "@/lib/providers/tool-activity";
 import type { TaskPanelTab } from "@/lib/right-rail-panels";
+import type { WorkState } from "@/components/ads/components/state-vocabulary";
 import type {
   ReturnDecision,
   ReturnStop,
@@ -22,19 +23,39 @@ export type ReturnLinkTarget =
   | { kind: "side-question" }
   | { kind: "composer" };
 
+/** A fact under the status: what changed while you were away, or the last decision. */
 export interface ReturnLine {
-  id: "decision" | "changes" | "stop" | "next";
+  id: "decision" | "changes";
   label: string;
   text: string;
   link: { label: string; target: ReturnLinkTarget } | null;
+}
+
+/** Where the task stands, in one line, with the one thing to do about it. */
+export interface ReturnStatus {
+  /** The work state its mark is drawn in, from the shared state vocabulary. */
+  state: WorkState;
+  text: string;
+  /** What the task waits on (the request's description), when it says. */
+  detail: string | null;
+  /** The handoff record's next remaining step, when there is one. */
+  next: string | null;
+  action: { label: string; target: ReturnLinkTarget };
+  /** The task waits on you: the action is the card's primary one. */
+  urgent: boolean;
+}
+
+export interface ReturnView {
+  status: ReturnStatus;
+  /** Only the facts that have something to say. */
+  facts: ReturnLine[];
 }
 
 function toolLabel(toolName: string) {
   return describeToolOperationLabel(toolName) ?? formatToolDisplayName(toolName) ?? toolName;
 }
 
-function describeDecision(decision: ReturnDecision | null): string {
-  if (!decision) return i18n.t("session:returnSummary.decisionNone");
+function describeDecision(decision: ReturnDecision): string {
   if (decision.kind === "record") return decision.text;
   if (decision.kind === "answer") {
     return i18n.t("session:returnSummary.decisionAnswer", { question: decision.question, answer: decision.answer });
@@ -44,8 +65,7 @@ function describeDecision(decision: ReturnDecision | null): string {
     : i18n.t("session:returnSummary.decisionDenied", { tool: toolLabel(decision.toolName), description: decision.description });
 }
 
-function decisionLink(decision: ReturnDecision | null): ReturnLine["link"] {
-  if (!decision) return null;
+function decisionLink(decision: ReturnDecision): NonNullable<ReturnLine["link"]> {
   if (decision.kind === "record") {
     return { label: i18n.t("session:returnSummary.linkHandoff"), target: { kind: "tab", tab: "handoff" } };
   }
@@ -55,34 +75,38 @@ function decisionLink(decision: ReturnDecision | null): ReturnLine["link"] {
   };
 }
 
-function describeChanges(summary: ReturnSummary): string {
+/** The changes since the visit, or null when nothing changed. */
+function describeChanges(summary: ReturnSummary): string | null {
   const { turns, files, steps } = summary.changes;
   const parts = [
     ...(turns > 0 ? [i18n.t("session:returnSummary.changesTurns", { count: turns })] : []),
     ...(files > 0 ? [i18n.t("session:returnSummary.changesFiles", { count: files })] : []),
     ...(steps > 0 ? [i18n.t("session:returnSummary.changesSteps", { count: steps })] : []),
   ];
-  return parts.length > 0 ? parts.join(", ") : i18n.t("session:returnSummary.changesNone");
+  return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-const NEED_KEYS: Partial<Record<FleetAttentionKind, { since: string; plain: string }>> = {
-  approval: { since: "session:returnSummary.stopApprovalSince", plain: "session:returnSummary.stopApproval" },
-  "user-input": { since: "session:returnSummary.stopQuestionSince", plain: "session:returnSummary.stopQuestion" },
-  "run-failed": { since: "session:returnSummary.stopFailedSince", plain: "session:returnSummary.stopFailedNeed" },
-  "turn-stalled": { since: "session:returnSummary.stopStalledSince", plain: "session:returnSummary.stopStalled" },
-  "result-ready": { since: "session:returnSummary.stopResultSince", plain: "session:returnSummary.stopResult" },
-  "agent-run-sign-off": { since: "session:returnSummary.stopSignOffSince", plain: "session:returnSummary.stopSignOff" },
-  "agent-run-blocked": { since: "session:returnSummary.stopRunBlockedSince", plain: "session:returnSummary.stopRunBlocked" },
-  "agent-run-stuck": { since: "session:returnSummary.stopRunStuckSince", plain: "session:returnSummary.stopRunStuck" },
+const NEED_KEYS: Partial<Record<FleetAttentionKind, { since: string; plain: string; state: WorkState }>> = {
+  approval: { since: "session:returnSummary.stopApprovalSince", plain: "session:returnSummary.stopApproval", state: "approval" },
+  "user-input": { since: "session:returnSummary.stopQuestionSince", plain: "session:returnSummary.stopQuestion", state: "needs-you" },
+  "run-failed": { since: "session:returnSummary.stopFailedSince", plain: "session:returnSummary.stopFailedNeed", state: "failed" },
+  "turn-stalled": { since: "session:returnSummary.stopStalledSince", plain: "session:returnSummary.stopStalled", state: "halted" },
+  "result-ready": { since: "session:returnSummary.stopResultSince", plain: "session:returnSummary.stopResult", state: "ready" },
+  "agent-run-sign-off": { since: "session:returnSummary.stopSignOffSince", plain: "session:returnSummary.stopSignOff", state: "needs-you" },
+  "agent-run-blocked": { since: "session:returnSummary.stopRunBlockedSince", plain: "session:returnSummary.stopRunBlocked", state: "halted" },
+  "agent-run-stuck": { since: "session:returnSummary.stopRunStuckSince", plain: "session:returnSummary.stopRunStuck", state: "halted" },
 };
 
-function describeStop(stop: ReturnStop, now: number): string {
+const WAITING_KEYS = {
+  since: "session:returnSummary.stopWaitingSince",
+  plain: "session:returnSummary.stopWaiting",
+  state: "needs-you",
+} as const;
+
+function describeStop(stop: ReturnStop, now: number): Pick<ReturnStatus, "state" | "text" | "detail"> {
   switch (stop.kind) {
     case "need": {
-      const keys = NEED_KEYS[stop.need] ?? {
-        since: "session:returnSummary.stopWaitingSince",
-        plain: "session:returnSummary.stopWaiting",
-      };
+      const keys = NEED_KEYS[stop.need] ?? WAITING_KEYS;
       const waitedMs = stop.since ? now - Date.parse(stop.since) : Number.NaN;
       // Told in whole minutes, as Fleet tells the same wait.
       const text = Number.isFinite(waitedMs) && waitedMs >= 60_000
@@ -90,10 +114,10 @@ function describeStop(stop: ReturnStop, now: number): string {
             duration: formatDuration(Math.floor(waitedMs / 60_000) * 60_000),
           })
         : i18n.t(keys.plain as "session:returnSummary.stopWaiting");
-      return stop.detail ? `${text}: ${stop.detail}` : text;
+      return { state: keys.state, text, detail: stop.detail };
     }
     case "running":
-      return i18n.t("session:returnSummary.stopRunning");
+      return { state: "working", text: i18n.t("session:returnSummary.stopRunning"), detail: null };
     case "finished":
     case "failed":
     case "stopped": {
@@ -103,63 +127,75 @@ function describeStop(stop: ReturnStop, now: number): string {
         : stop.kind === "failed"
           ? "session:returnSummary.stopFailed"
           : "session:returnSummary.stopStopped";
-      return time ? i18n.t(key, { time }) : i18n.t(`${key}Plain` as "session:returnSummary.stopFinishedPlain");
+      return {
+        state: stop.kind === "finished" ? "ready" : stop.kind,
+        text: time ? i18n.t(key, { time }) : i18n.t(`${key}Plain` as "session:returnSummary.stopFinishedPlain"),
+        detail: null,
+      };
     }
     default:
-      return i18n.t("session:returnSummary.stopNone");
+      return { state: "idle", text: i18n.t("session:returnSummary.stopNone"), detail: null };
   }
 }
 
-function stopLink(stop: ReturnStop): ReturnLine["link"] {
-  if (stop.kind === "need") {
-    if (stop.need === "approval" || stop.need === "user-input") {
-      return { label: i18n.t("session:returnSummary.linkShow"), target: { kind: "request" } };
-    }
-    if (stop.need === "result-ready") return { label: i18n.t("session:returnSummary.linkOutputs"), target: { kind: "tab", tab: "results" } };
-    if (stop.need.startsWith("agent-run")) return { label: i18n.t("session:returnSummary.linkProgress"), target: { kind: "tab", tab: "progress" } };
-  }
-  return { label: i18n.t("session:returnSummary.linkActivity"), target: { kind: "tab", tab: "activity" } };
-}
-
-function describeNext(summary: ReturnSummary): Pick<ReturnLine, "text" | "link"> {
+/** The one thing to do now, named for what it does, and where it goes. */
+function describeAction(summary: ReturnSummary): Pick<ReturnStatus, "action" | "next"> {
   const next = summary.next;
+  const action = (key: string, target: ReturnLinkTarget) => ({
+    label: i18n.t(key as "session:returnSummary.actionRequest"),
+    target,
+  });
   switch (next.kind) {
     case "answer":
-      return { text: i18n.t("session:returnSummary.nextAnswer"), link: { label: i18n.t("session:returnSummary.linkShow"), target: { kind: "request" } } };
+      return { next: null, action: action("session:returnSummary.actionRequest", { kind: "request" }) };
     case "review":
-      return { text: i18n.t("session:returnSummary.nextReview"), link: { label: i18n.t("session:returnSummary.linkOutputs"), target: { kind: "tab", tab: "results" } } };
+      return { next: null, action: action("session:returnSummary.actionReview", { kind: "tab", tab: "results" }) };
     case "inspect-failure":
-      return { text: i18n.t("session:returnSummary.nextInspectFailure"), link: { label: i18n.t("session:returnSummary.linkActivity"), target: { kind: "tab", tab: "activity" } } };
+      return { next: null, action: action("session:returnSummary.actionFailure", { kind: "tab", tab: "activity" }) };
     case "check-stall":
-      return { text: i18n.t("session:returnSummary.nextCheckStall"), link: { label: i18n.t("session:returnSummary.linkActivity"), target: { kind: "tab", tab: "activity" } } };
+      return { next: null, action: action("session:returnSummary.actionStall", { kind: "tab", tab: "activity" }) };
     case "open-run":
-      return { text: i18n.t("session:returnSummary.nextOpenRun"), link: { label: i18n.t("session:returnSummary.linkProgress"), target: { kind: "tab", tab: "progress" } } };
+      return { next: null, action: action("session:returnSummary.actionRun", { kind: "tab", tab: "progress" }) };
     case "remaining":
-      return { text: next.text, link: { label: i18n.t("session:returnSummary.linkHandoff"), target: { kind: "tab", tab: "handoff" } } };
+      return { next: next.text, action: action("session:returnSummary.actionHandoff", { kind: "tab", tab: "handoff" }) };
     case "wait":
-      return { text: i18n.t("session:returnSummary.nextWait"), link: { label: i18n.t("session:returnSummary.linkSideQuestion"), target: { kind: "side-question" } } };
+      return { next: null, action: action("session:returnSummary.actionSideQuestion", { kind: "side-question" }) };
     default:
-      return { text: i18n.t("session:returnSummary.nextContinue"), link: { label: i18n.t("session:returnSummary.linkComposer"), target: { kind: "composer" } } };
+      // A wait with no action of its own (a pull request's state) is read in
+      // Activity, not answered in the composer.
+      return summary.stop.kind === "need"
+        ? { next: null, action: action("session:returnSummary.actionStall", { kind: "tab", tab: "activity" }) }
+        : { next: null, action: action("session:returnSummary.actionComposer", { kind: "composer" }) };
   }
 }
 
-/** The summary's four lines in the user's language, each with its link. */
-export function describeReturnSummary(summary: ReturnSummary, now: number): ReturnLine[] {
-  const next = describeNext(summary);
-  return [
-    {
+/**
+ * The summary in the user's language: where the task stands with the one
+ * action that moves it on, then what changed while you were away and the last
+ * decision, each with where it comes from. A fact with nothing to say is left
+ * out.
+ */
+export function describeReturnSummary(summary: ReturnSummary, now: number): ReturnView {
+  const facts: ReturnLine[] = [];
+  const changes = describeChanges(summary);
+  if (changes) {
+    facts.push({
+      id: "changes",
+      label: i18n.t("session:returnSummary.labelChanges"),
+      text: changes,
+      link: { label: i18n.t("session:returnSummary.linkActivity"), target: { kind: "tab", tab: "activity" } },
+    });
+  }
+  if (summary.decision) {
+    facts.push({
       id: "decision",
       label: i18n.t("session:returnSummary.labelDecision"),
       text: describeDecision(summary.decision),
       link: decisionLink(summary.decision),
-    },
-    {
-      id: "changes",
-      label: i18n.t("session:returnSummary.labelChanges"),
-      text: describeChanges(summary),
-      link: { label: i18n.t("session:returnSummary.linkActivity"), target: { kind: "tab", tab: "activity" } },
-    },
-    { id: "stop", label: i18n.t("session:returnSummary.labelStop"), text: describeStop(summary.stop, now), link: stopLink(summary.stop) },
-    { id: "next", label: i18n.t("session:returnSummary.labelNext"), ...next },
-  ];
+    });
+  }
+  return {
+    status: { ...describeStop(summary.stop, now), ...describeAction(summary), urgent: summary.stop.kind === "need" },
+    facts,
+  };
 }

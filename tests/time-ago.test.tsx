@@ -76,8 +76,8 @@ describe("a past event stamped ahead of the clock reads just now", () => {
       changes: { turns: 0, files: 0, steps: 0 },
       stop: { kind: "finished", at },
       next: { kind: "continue" },
-    }, now).find((line) => line.id === "stop")?.text;
-    expect(stopLine(new Date(now + AHEAD_MS).toISOString())).toBe("Finished its last turn just now.");
-    expect(stopLine(new Date(now - 2 * 60 * 60_000).toISOString())).toBe("Finished its last turn 2h ago.");
+    }, now).status.text;
+    expect(stopLine(new Date(now + AHEAD_MS).toISOString())).toBe("Finished its last turn just now");
+    expect(stopLine(new Date(now - 2 * 60 * 60_000).toISOString())).toBe("Finished its last turn 2h ago");
   });
 });
