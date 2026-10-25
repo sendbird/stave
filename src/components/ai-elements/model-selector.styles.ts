@@ -157,7 +157,7 @@ export const modelSelectorStyles = stylex.create({
   },
   /** The sub-group name beside the runtime, such as "Company gateway · API billing". */
   groupHeadingMeta: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontWeight: vars["--ads-font-weight-regular"],
     overflow: "hidden",
     textOverflow: "ellipsis",

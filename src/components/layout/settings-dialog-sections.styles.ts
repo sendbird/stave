@@ -661,7 +661,8 @@ export const settingsSectionsStyles = stylex.create({
   },
   themeAuthor: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "14px",
   },
   themeRightCol: {
     alignItems: "flex-end",
@@ -725,8 +726,8 @@ export const settingsSectionsStyles = stylex.create({
   },
   importHelp: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: vars["--ads-line-height-relaxed"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "18px",
   },
   code: {
     backgroundColor: vars["--ads-color-canvas-subtle"],
@@ -879,9 +880,9 @@ export const settingsSectionsStyles = stylex.create({
   // --- skills roots/catalog ---
   metaLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.16em",
+    letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   listCard: {
@@ -1012,7 +1013,7 @@ export const settingsSectionsStyles = stylex.create({
   },
   seqThen: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   selectTriggerPlain: {
     backgroundColor: vars["--ads-color-canvas"],
@@ -1049,12 +1050,12 @@ export const settingsSectionsStyles = stylex.create({
   },
   microMuted: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   monoMicroMuted: {
     color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
 
   // --- command visibility rows ---
@@ -1203,7 +1204,7 @@ export const settingsSectionsStyles = stylex.create({
   },
   cdpHostText: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     maxInlineSize: 192,
     overflow: "hidden",
     textOverflow: "ellipsis",

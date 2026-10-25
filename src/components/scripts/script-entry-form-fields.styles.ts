@@ -19,12 +19,12 @@ export const entryFormStyles = stylex.create({
   },
   hint: {
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   fieldError: {
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-danger-text"],
   },
   commands: {

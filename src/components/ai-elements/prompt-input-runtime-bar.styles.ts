@@ -27,10 +27,10 @@ export const runtimeBarStyles = stylex.create({
   },
   sectionHeading: {
     marginBottom: 6,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
-    letterSpacing: "0.14em",
+    letterSpacing: "0.1em",
     color: vars["--ads-color-text-muted"],
   },
   list: {

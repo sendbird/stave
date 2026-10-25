@@ -239,7 +239,7 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   directory: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

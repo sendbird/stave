@@ -42,7 +42,7 @@ export const modelEffortGridStyles = stylex.create({
   },
   columnHeaderEffort: {
     textAlign: "center",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-text-muted"],
   },

@@ -155,7 +155,7 @@ export const gitGraphViewStyles = stylex.create({
     backgroundColor: vars["--ads-color-surface-raised"],
     paddingInline: 10,
     paddingBlock: 6,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text"],
     boxShadow: vars["--ads-elevation-lift"],
   },

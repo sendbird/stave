@@ -55,7 +55,7 @@ export const commitDetailPanelStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-4"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: {
       default: vars["--ads-color-text-muted"],
       ":hover": vars["--ads-color-text"],
@@ -91,7 +91,7 @@ export const commitDetailPanelStyles = stylex.create({
     gridTemplateColumns: "5.5rem minmax(0,1fr)",
     alignItems: "flex-start",
     gap: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   metaLabel: {
     display: "flex",
@@ -110,7 +110,7 @@ export const commitDetailPanelStyles = stylex.create({
   },
   metaMono: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   signatureIdentity: {
     marginLeft: vars["--ads-space-4"],
@@ -174,10 +174,10 @@ export const commitDetailPanelStyles = stylex.create({
     paddingBlock: vars["--ads-space-8"],
   },
   filesHeaderLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: "0.08em",
     color: vars["--ads-color-text-muted"],
   },
   filesCount: {
@@ -190,7 +190,7 @@ export const commitDetailPanelStyles = stylex.create({
     display: "flex",
     gap: vars["--ads-space-4"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   additions: {
@@ -237,7 +237,7 @@ export const commitDetailPanelStyles = stylex.create({
     paddingInline: 6,
     paddingBlock: 6,
     textAlign: "left",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   fileStatus: {
     display: "flex",
@@ -272,7 +272,7 @@ export const commitDetailPanelStyles = stylex.create({
     flexShrink: 0,
     gap: vars["--ads-space-4"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   menuIcon: {

@@ -86,7 +86,9 @@ export const commandPaletteStyles = stylex.create({
     paddingInline: 6,
   },
   itemSubtitle: {
-    color: vars["--ads-color-text-muted"],
+    // The highlighted row's wash takes muted to 4.39:1 in light mode; a 20%
+    // ink step keeps 12px subtitles above 4.5:1 on every row state.
+    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 20%, ${vars["--ads-color-text-muted"]})`,
     fontSize: vars["--ads-font-size-caption"],
     marginBlockEnd: 0,
     marginBlockStart: 2,
@@ -103,9 +105,10 @@ export const commandPaletteStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     display: "flex",
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-12"],
     justifyContent: "space-between",
+    lineHeight: "16px",
     paddingInline: vars["--ads-space-12"],
   },
   footerGroup: {
@@ -129,7 +132,7 @@ export const commandPaletteStyles = stylex.create({
   pinButton: {
     blockSize: 28,
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: 6,
     maxInlineSize: 224,
     paddingInline: vars["--ads-space-8"],

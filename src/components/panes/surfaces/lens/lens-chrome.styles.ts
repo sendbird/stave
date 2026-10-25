@@ -60,7 +60,7 @@ export const chromeStyles = stylex.create({
   downloadSize: {
     marginLeft: vars["--ads-space-8"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   toolActive: {

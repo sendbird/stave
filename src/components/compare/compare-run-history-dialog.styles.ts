@@ -185,7 +185,7 @@ export const compareRunHistoryDialogStyles = stylex.create({
     columnGap: vars["--ads-space-12"],
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginTop: vars["--ads-space-8"],
     rowGap: vars["--ads-space-4"],
   },

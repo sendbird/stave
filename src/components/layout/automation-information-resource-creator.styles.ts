@@ -12,7 +12,7 @@ export const resourceCreatorStyles = stylex.create({
   fieldLabel: { fontWeight: vars["--ads-font-weight-medium"] },
   fieldDescription: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-control"],
   },
   fieldPair: {
@@ -153,7 +153,7 @@ export const resourceCreatorStyles = stylex.create({
   typeDescription: {
     color: vars["--ads-color-text-muted"],
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-control"],
     marginBlockStart: vars["--ads-space-4"],
   },

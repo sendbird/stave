@@ -145,10 +145,10 @@ export const branchPickerStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
     paddingBlockStart: vars["--ads-space-8"],
     paddingBlockEnd: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
-    letterSpacing: "0.12em",
+    letterSpacing: "0.08em",
     color: vars["--ads-color-text-muted"],
   },
   optionRow: {

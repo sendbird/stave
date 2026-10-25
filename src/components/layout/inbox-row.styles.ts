@@ -191,7 +191,7 @@ export const inboxRowStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
   },
   inlineKeyHint: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-micro"],
     marginInlineStart: "auto",
     whiteSpace: "nowrap",

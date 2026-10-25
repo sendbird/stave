@@ -13,7 +13,7 @@ export const envEditorStyles = stylex.create({
     color: vars["--ads-color-text"],
   },
   empty: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   rows: {

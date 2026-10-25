@@ -89,7 +89,7 @@ export const entryCardStyles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     color: vars["--ads-color-danger-text"],
   },
@@ -109,7 +109,7 @@ export const entryCardStyles = stylex.create({
     paddingTop: 2,
   },
   triggerLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     textTransform: "uppercase",
     letterSpacing: "0.05em",
     color: vars["--ads-color-text-muted"],

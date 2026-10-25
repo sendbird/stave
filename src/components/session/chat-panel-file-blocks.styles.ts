@@ -172,7 +172,7 @@ export const chatPanelFileBlocksStyles = stylex.create({
     backgroundColor: vars["--ads-color-surface-tint"],
     paddingInline: vars["--ads-space-8"],
     paddingBlock: vars["--ads-space-4"],
-    fontSize: "0.75em",
+    fontSize: `max(0.75em, ${vars["--ads-font-size-caption"]})`,
     color: vars["--ads-color-text-muted"],
   },
 });

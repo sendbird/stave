@@ -55,10 +55,10 @@ export const quitDialogStyles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     gap: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
-    letterSpacing: "0.14em",
+    letterSpacing: "0.1em",
     color: vars["--ads-color-text-muted"],
   },
   shortcutChip: {

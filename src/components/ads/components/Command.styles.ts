@@ -87,7 +87,7 @@ export const styles = stylex.create({
     borderBlockStartColor: vars["--ads-color-border-subtle"],
     borderBlockStartStyle: "solid",
     borderBlockStartWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     display: "flex",
     fontFamily: vars["--ads-font-sans"],
     fontSize: vars["--ads-font-size-caption"],
@@ -114,7 +114,7 @@ export const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   label: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     paddingBlockStart: vars["--ads-space-12"],
@@ -215,7 +215,7 @@ export const styles = stylex.create({
     gap: vars["--ads-space-4"],
   },
   groupLabel: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: vars["--ads-line-height-tight"],
@@ -297,7 +297,7 @@ export const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   sectionLabel: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: vars["--ads-line-height-tight"],

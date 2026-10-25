@@ -60,7 +60,7 @@ export const refContextMenuStyles = stylex.create({
     alignItems: "flex-start",
     gap: 6,
     whiteSpace: "normal",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-regular"],
     lineHeight: "16px",
     color: vars["--ads-color-warning-text"],

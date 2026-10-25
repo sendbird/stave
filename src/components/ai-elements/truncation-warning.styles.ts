@@ -16,7 +16,7 @@ export const truncationWarningStyles = stylex.create({
   bannerCompact: {
     paddingInline: vars["--ads-space-8"],
     paddingBlock: 6,
-    fontSize: "0.75em",
+    fontSize: `max(0.75em, ${vars["--ads-font-size-caption"]})`,
   },
   bannerRegular: {
     paddingInline: vars["--ads-space-12"],

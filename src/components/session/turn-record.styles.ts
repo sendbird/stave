@@ -103,7 +103,7 @@ export const turnRecordStyles = stylex.create({
     margin: 0,
   },
   sectionNote: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontWeight: vars["--ads-font-weight-regular"],
     letterSpacing: "normal",
   },
@@ -145,6 +145,6 @@ export const turnRecordStyles = stylex.create({
     fontFamily: vars["--ads-font-mono"],
   },
   failureKind: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
 });

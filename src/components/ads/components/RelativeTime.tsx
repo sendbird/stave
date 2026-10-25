@@ -204,7 +204,7 @@ const styles = stylex.create({
     justifyContent: "space-between",
   },
   zone: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     whiteSpace: "nowrap",
   },

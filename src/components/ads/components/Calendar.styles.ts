@@ -104,7 +104,7 @@ export const styles = stylex.create({
     minInlineSize: 0,
   },
   weekday: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: vars["--ads-line-height-tight"],

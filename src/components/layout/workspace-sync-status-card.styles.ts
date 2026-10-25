@@ -109,9 +109,9 @@ export const workspaceSyncStatusCardStyles = stylex.create({
   },
   commandLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.16em",
+    letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   commandText: {

@@ -96,7 +96,7 @@ export const cursorModelConfigStyles = stylex.create({
   },
   defaultLabel: {
     display: { default: "none", [mq560]: "inline" },
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   controlStrip: {

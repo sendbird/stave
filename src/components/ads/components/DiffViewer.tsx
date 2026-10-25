@@ -445,7 +445,7 @@ const styles = stylex.create({
     borderRadius: vars["--ads-radius-mark"],
   },
   lineNo: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     paddingInlineEnd: vars["--ads-space-8"],
     textAlign: "end",
     userSelect: "none",

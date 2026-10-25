@@ -488,7 +488,7 @@ export const workspaceInformationPanelStyles = stylex.create({
 
   // ---- empty state / notes ----------------------------------------------
   emptyHint: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-body"],
     paddingBlock: 6,
     paddingInline: vars["--ads-space-8"],
@@ -631,7 +631,7 @@ export const workspaceInformationPanelStyles = stylex.create({
     width: 24,
   },
   todoStatusPending: {
-    color: { default: vars["--ads-color-text-subtle"], ":hover": vars["--ads-color-text-muted"] },
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text-muted"] },
   },
   todoStatusActive: { color: vars["--ads-color-accent"] },
 });

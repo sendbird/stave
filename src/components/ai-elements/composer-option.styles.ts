@@ -42,7 +42,7 @@ export const optionStyles = stylex.create({
   // placement and centring.
   check: { width: 14, height: 14, flexShrink: 0 },
   selectedCheck: { color: vars["--ads-color-accent"] },
-  hint: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-micro"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
+  hint: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
   callout: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-8"], paddingInline: 10, paddingBlock: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], lineHeight: "20px", color: vars["--ads-color-text-muted"] },
   warning: { color: vars["--ads-color-warning-text"], backgroundColor: vars["--ads-color-warning-soft"], borderRadius: vars["--ads-radius-control"] },
   calloutIcon: { marginTop: vars["--ads-space-2"], width: 14, height: 14, flexShrink: 0 },

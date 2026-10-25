@@ -28,7 +28,7 @@ export const contextMeterStyles = stylex.create({
   fillDanger: { backgroundColor: vars["--ads-color-danger"] },
   percent: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   popover: {

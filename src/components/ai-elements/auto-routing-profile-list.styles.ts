@@ -63,7 +63,7 @@ export const autoRoutingProfileListStyles = stylex.create({
     flexShrink: 0,
     paddingInline: vars["--ads-space-12"],
     paddingBlockStart: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     textTransform: "uppercase",
     letterSpacing: "0.04em",

@@ -144,9 +144,9 @@ export const skillStyles = stylex.create({
   },
   sectionTitle: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.14em",
+    letterSpacing: "0.1em",
     textTransform: "uppercase",
   },
   sectionCount: {
@@ -383,9 +383,9 @@ export const skillStyles = stylex.create({
   field: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"] },
   fieldLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.16em",
+    letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   fieldText: {
@@ -468,7 +468,7 @@ export const skillStyles = stylex.create({
   panelHint: {
     color: vars["--ads-color-text-muted"],
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

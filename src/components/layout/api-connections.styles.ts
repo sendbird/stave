@@ -28,7 +28,7 @@ export const apiConnectionStyles = stylex.create({
   },
   modelText: { display: "flex", flexDirection: "column", flexGrow: 1, minWidth: 0 },
   modelName: { color: vars["--ads-color-text"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], overflowWrap: "anywhere" },
-  modelDetail: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"], overflowWrap: "anywhere" },
+  modelDetail: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], overflowWrap: "anywhere" },
   experimental: {
     flexShrink: 0,
     borderRadius: vars["--ads-radius-mark"],

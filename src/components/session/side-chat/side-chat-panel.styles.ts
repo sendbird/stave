@@ -145,7 +145,7 @@ export const sideChatStyles = stylex.create({
     marginInlineStart: `calc(-1 * ${vars["--ads-space-8"]})`,
   },
   byline: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
   },
@@ -175,7 +175,7 @@ export const sideChatStyles = stylex.create({
     resize: "none",
   },
   hint: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     margin: 0,

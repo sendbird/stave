@@ -181,7 +181,7 @@ export const resourceStyles = stylex.create({
   emptyCopy: {
     marginBlock: 0,
     fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   stack: {
     display: "grid",
@@ -195,13 +195,13 @@ export const resourceStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
   },
   detailKey: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   detailValue: {
     textAlign: "right",
     fontFamily: vars["--ads-font-mono"],
     fontVariantNumeric: "tabular-nums",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   detailValueStrong: {
     textAlign: "right",
@@ -221,7 +221,7 @@ export const resourceStyles = stylex.create({
     color: vars["--ads-color-warning-text"],
   },
   detailValueMuted: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   truncated: {
     overflow: "hidden",
@@ -247,8 +247,8 @@ export const resourceStyles = stylex.create({
   },
   groupMeta: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
-    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
   },
   groupTitleBlock: {
     marginBlockEnd: vars["--ads-space-8"],
@@ -264,8 +264,8 @@ export const resourceStyles = stylex.create({
   storageMessage: {
     marginBlockStart: vars["--ads-space-8"],
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
-    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
   },
   processHead: {
     marginBlockEnd: vars["--ads-space-8"],
@@ -318,7 +318,7 @@ export const resourceStyles = stylex.create({
   },
   processCpu: {
     fontFamily: vars["--ads-font-mono"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   externalRow: {
     display: "flex",
@@ -334,11 +334,11 @@ export const resourceStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
   },
   externalKey: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   externalValue: {
     fontFamily: vars["--ads-font-mono"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
 });
 

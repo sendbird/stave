@@ -194,7 +194,7 @@ export const changesStyles = stylex.create({
     fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
   },
-  tabAlert: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-micro"] },
+  tabAlert: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-caption"] },
   // Grid rows, not flex children: the panel row is already `minmax(0, 1fr)`,
   // so the pane only has to stop being a scroll container of its own and let
   // the single `paneScroll` owner do it.
@@ -456,7 +456,7 @@ export const changesStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
   },
   checksSummary: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     marginInlineStart: "auto",
     overflow: "hidden",

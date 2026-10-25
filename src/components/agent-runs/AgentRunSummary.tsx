@@ -248,11 +248,11 @@ const styles = stylex.create({
     borderInlineStartColor: vars["--ads-color-border-subtle"],
   },
   metricLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.04em",
     textTransform: "uppercase",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   metricBody: { display: "flex", flexDirection: "column", gap: 4, margin: 0, minWidth: 0 },
   metricValue: {
@@ -268,7 +268,7 @@ const styles = stylex.create({
   metricUnit: {
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-regular"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   metricDetail: {
     overflow: "hidden",

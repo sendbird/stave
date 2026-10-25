@@ -152,7 +152,7 @@ export const menu = stylex.create({
     gap: 0,
   },
   groupLabel: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     // Tight label row (a group label conventionally runs sm; ours is xs + tight so
@@ -315,7 +315,7 @@ export const menu = stylex.create({
     whiteSpace: "nowrap",
   },
   shortcut: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",

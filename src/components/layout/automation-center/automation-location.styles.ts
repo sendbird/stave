@@ -18,12 +18,12 @@ export const locationStyles = stylex.create({
   },
   term: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "16px",
   },
   value: {
     color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "16px",
     margin: 0,
     minInlineSize: 0,

@@ -321,7 +321,7 @@ export const shelfStyles = stylex.create({
     margin: 0,
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   itemCaution: {
     margin: 0,

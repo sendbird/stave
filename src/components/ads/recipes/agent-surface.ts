@@ -237,7 +237,7 @@ export const agentSurface = stylex.create({
    * code block and undoes the split it exists to create.
    */
   meta: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",

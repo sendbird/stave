@@ -83,9 +83,10 @@ export const settingsDialogStyles = stylex.create({
     transform: "translateY(-50%)",
   },
   groupLabel: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.18em",
+    letterSpacing: "0.14em",
+    lineHeight: "15px",
     textTransform: "uppercase",
   },
   menuButton: {
@@ -99,7 +100,7 @@ export const settingsDialogStyles = stylex.create({
   },
   menuSectionLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   currentPill: {
     backgroundColor: vars["--ads-color-surface-tint"],
@@ -174,9 +175,10 @@ export const settingsDialogStyles = stylex.create({
   },
   eyebrow: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.14em",
+    letterSpacing: "0.1em",
+    lineHeight: "16px",
     textTransform: "uppercase",
   },
   breadcrumbSep: {

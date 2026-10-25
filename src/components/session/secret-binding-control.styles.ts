@@ -64,7 +64,7 @@ export const secretBindingControlStyles = stylex.create({
   },
   footnote: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-8"],

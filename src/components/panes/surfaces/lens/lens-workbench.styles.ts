@@ -49,7 +49,7 @@ export const workbenchStyles = stylex.create({
   toolbarButton: {
     height: 28,
     paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   icon: { width: 14, height: 14 },
   workbench: {
@@ -89,7 +89,7 @@ export const workbenchStyles = stylex.create({
     backgroundColor: vars["--ads-color-accent-soft"],
     color: vars["--ads-color-text"],
   },
-  time: { fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-muted"] },
+  time: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   entryContent: { minWidth: 0 },
   entryText: {
     display: "block",
@@ -103,7 +103,7 @@ export const workbenchStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   empty: {
@@ -132,7 +132,7 @@ export const workbenchStyles = stylex.create({
     paddingInline: vars["--ads-space-8"],
     paddingBlock: 6,
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   stackFrameHeader: {
     display: "flex",
@@ -150,13 +150,13 @@ export const workbenchStyles = stylex.create({
   },
   stackFrameDescription: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   stackFrameLocation: {
     marginTop: 2,
     overflowWrap: "break-word",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   detailsGrid: { display: "grid", gap: vars["--ads-space-12"] },
@@ -170,7 +170,7 @@ export const workbenchStyles = stylex.create({
     borderBottomColor: vars["--ads-color-border"],
     paddingInline: vars["--ads-space-12"],
     paddingBlock: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     textTransform: "uppercase",
     color: vars["--ads-color-text-muted"],
@@ -193,10 +193,10 @@ export const workbenchStyles = stylex.create({
     color: vars["--ads-color-text"],
     textAlign: "left",
   },
-  mono: { fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-micro"] },
+  mono: { fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-caption"] },
   monoMuted: {
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
   medium: { fontWeight: vars["--ads-font-weight-medium"] },

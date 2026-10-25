@@ -59,7 +59,7 @@ export const openPrStyles = stylex.create({
   },
   statusMenuSubtitle: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-regular"],
   },
   menuItemStrong: { fontWeight: vars["--ads-font-weight-medium"] },
@@ -343,9 +343,9 @@ export const openPrStyles = stylex.create({
   fieldLabel: {
     color: vars["--ads-color-text-muted"],
     display: "block",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.12em",
+    letterSpacing: "0.08em",
     textTransform: "uppercase",
   },
 

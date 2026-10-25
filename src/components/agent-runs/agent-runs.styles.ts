@@ -27,8 +27,8 @@ export const agentRunStyles = stylex.create({
   toneActive: { color: vars["--ads-color-accent"] },
   toneWaiting: { color: vars["--ads-color-warning-text"] },
   toneAttention: { color: vars["--ads-color-danger-text"] },
-  toneIdle: { color: vars["--ads-color-text-subtle"] },
-  toneSkipped: { color: vars["--ads-color-text-subtle"] },
+  toneIdle: { color: vars["--ads-color-text-muted"] },
+  toneSkipped: { color: vars["--ads-color-text-muted"] },
   icon: { flex: "0 0 auto", width: 14, height: 14 },
   /** The step a running run is on turns, as the ADS spinner does; still under reduced motion. */
   spinning: {
@@ -129,7 +129,7 @@ export const agentRunStyles = stylex.create({
   sectionAside: {
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
 
@@ -146,14 +146,14 @@ export const agentRunStyles = stylex.create({
   },
   checkMark: { alignSelf: "center", display: "flex", width: 16, justifyContent: "center" },
   checkText: { minWidth: 0, overflowWrap: "anywhere" },
-  checkDetail: { display: "block", marginBlockStart: 2, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  checkDetail: { display: "block", marginBlockStart: 2, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   checkState: {
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     whiteSpace: "nowrap",
   },
-  checkNote: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  checkNote: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   decisionDetail: { display: "block", overflowWrap: "anywhere" },
 
   /* Facts (key/value) ------------------------------------------------------ */
@@ -205,7 +205,7 @@ export const agentRunStyles = stylex.create({
   },
   stageMeta: {
     flex: "0 0 auto",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
@@ -233,12 +233,12 @@ export const agentRunStyles = stylex.create({
   stageGroup: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
   groupLabel: {
     margin: 0,
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: vars["--ads-line-height-normal"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "16px",
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.02em",
     textTransform: "uppercase",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   callout: {
     display: "flex",
@@ -426,11 +426,11 @@ export const agentRunStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.04em",
     textTransform: "uppercase",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   statValue: {
     margin: 0,

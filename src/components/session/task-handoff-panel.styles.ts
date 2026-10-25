@@ -48,13 +48,13 @@ export const handoffStyles = stylex.create({
     whiteSpace: "pre-wrap",
   },
   sectionEmpty: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     margin: 0,
   },
   sectionMeta: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     margin: 0,
   },
