@@ -65,7 +65,7 @@ export const commandResultStyles = stylex.create({
     color: vars["--ads-color-danger-text"],
   },
   empty: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-tight"],
   },

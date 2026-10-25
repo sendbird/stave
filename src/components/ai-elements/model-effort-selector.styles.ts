@@ -460,7 +460,7 @@ export const modelEffortSelectorStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     fontSize: vars["--ads-font-size-caption"],
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 80%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
 
   /* ---- show all models footer ---- */
@@ -489,7 +489,7 @@ export const modelEffortSelectorStyles = stylex.create({
   },
   showAllCount: {
     fontVariantNumeric: "tabular-nums",
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 75%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   railIcon: { width: vars["--ads-control-icon-size-sm"], height: vars["--ads-control-icon-size-sm"] },
   railAutoIcon: {

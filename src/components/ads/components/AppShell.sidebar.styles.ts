@@ -197,7 +197,7 @@ export const sidebarStyles = stylex.create({
     minInlineSize: 0,
   },
   sidebarDescription: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     display: "block",
     fontSize: vars["--ads-font-size-caption"],
     // Stated explicitly: `sidebarItemCurrent` raises the ROW to medium, and the

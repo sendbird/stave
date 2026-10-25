@@ -451,7 +451,7 @@ export const turnActivityStyles = stylex.create({
     width: 1,
   },
   rowProviderDetail: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
+    color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
@@ -468,7 +468,7 @@ export const turnActivityStyles = stylex.create({
     whiteSpace: "normal",
   },
   rowStartOffset: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",

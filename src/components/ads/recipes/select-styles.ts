@@ -250,7 +250,7 @@ export const styles = stylex.create({
     whiteSpace: "normal",
   },
   groupLabel: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     // Tight label row (a group label conventionally runs sm; ours is xs + tight so

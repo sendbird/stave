@@ -28,7 +28,7 @@ export const statusBarUsageStyles = stylex.create({
   // Interface font with tabular figures, as in the strip: mono set the
   // `14% used · resets in 1h 7m` line wide enough to clip the window's name.
   windowValue: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontVariantNumeric: "tabular-nums",
   },
@@ -47,7 +47,7 @@ export const statusBarUsageStyles = stylex.create({
   toneUnknown: { backgroundColor: vars["--ads-color-text-subtle"] },
 
   note: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
-  noteFaint: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-caption"] },
+  noteFaint: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
   bucketTitle: {
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-caption"],
@@ -66,7 +66,7 @@ export const statusBarUsageStyles = stylex.create({
     justifyContent: "space-between",
   },
   amountLabel: { color: vars["--ads-color-text-muted"] },
-  amountValue: { color: vars["--ads-color-text-subtle"], fontVariantNumeric: "tabular-nums" },
+  amountValue: { color: vars["--ads-color-text-muted"], fontVariantNumeric: "tabular-nums" },
 
   trigger: {
     // Radius from the token, not `0`: this is a hoverable control, and a square

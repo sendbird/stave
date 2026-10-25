@@ -369,7 +369,10 @@ export const repositorySidebarStyles = stylex.create({
   /* ------------------------------------------------------ expanded row meta */
   metaGrid: {
     alignItems: "center",
-    color: vars["--ads-color-text-muted"],
+    // Muted measures 4.51:1 on the light sidebar ground and 4.15:1 under the
+    // selected-row wash, below the 4.5:1 small-text floor; a 30% ink step
+    // reads 6.01:1 there and only lightens further in dark mode.
+    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 30%, ${vars["--ads-color-text-muted"]})`,
     columnGap: vars["--ads-space-8"],
     display: "grid",
     fontSize: vars["--ads-font-size-caption"],
@@ -875,7 +878,7 @@ export const repositorySidebarStyles = stylex.create({
   // count is secondary text, and one width keeps every name's edge still.
   repositoryCount: {
     alignItems: "center",
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
     fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",

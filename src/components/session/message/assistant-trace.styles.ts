@@ -23,7 +23,7 @@ export const assistantTraceStyles = stylex.create({
     marginLeft: vars["--ads-space-4"],
   },
   diffFiles: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
+    color: vars["--ads-color-text-muted"],
   },
   diffAdded: {
     color: vars["--ads-color-diff-added-text"],

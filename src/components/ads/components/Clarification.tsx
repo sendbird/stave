@@ -322,7 +322,7 @@ const styles = stylex.create({
   audit: { display: "grid", gap: vars["--ads-space-8"], minInlineSize: 0 },
   answer: { gap: vars["--ads-space-4"] },
   answerLabel: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-tight"],
   },

@@ -269,7 +269,7 @@ const styles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
   },
   time: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-tight"],
   },

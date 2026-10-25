@@ -34,6 +34,8 @@ Host modifications are intentional and retained when refreshing the bundle:
   and the display language's locale).
 - AsyncBoundary, LoadingSurface and the feedback dismiss control carry no English copy: their titles, labels, pending surface and the stale-data note (`errorTitle`, `retryLabel`, `refreshErrorTitle`, `staleNotice`, `pending`, `label`) are required props the host fills from its translations (`src/components/system/AsyncBoundary.tsx`), and a Banner shows its dismiss control only with a `dismissLabel`. AsyncBoundary's retry button uses the installed Button's `outline` variant name (the bundle's newer Button calls it `outlined`).
 
+- Small informational text reads `colorTextMuted`, not `colorTextSubtle`. Subtle is a 3:1 tier, under the 4.5:1 floor that 12px text needs, so the group labels, section labels, footers and shortcut hints in `Command`, `menu`, `listbox` and `select-styles`, the sidebar description and search shortcut, the calendar weekday row, activity and relative-time stamps, the clarification answer label, the diff viewer's line numbers, the file-change directory and `agentSurface.meta` use muted. Subtle stays on icons, disabled items and text at 14px and above.
+
 Host-authored files that live here but are not from the bundle: `components/state-vocabulary.ts` (the work-state vocabulary) and `components/StateMark.tsx` (how every surface draws a work state, in the theme's `--state-*` colors). `StatusDot.tsx` and `agent-state.ts` are bundle files modified to read their state tones from that vocabulary.
 
 The original integrity values remain source provenance, not hashes of modified host files. Do not overwrite a locally modified file merely because its current hash differs from the source bundle.

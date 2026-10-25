@@ -111,7 +111,7 @@ export const informationRow = stylex.create({
      `fix/ads-regressions → main` across two lines splits one identifier into
      two half-words, which is harder to read than an ellipsis. */
   metaMono: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-tight"],

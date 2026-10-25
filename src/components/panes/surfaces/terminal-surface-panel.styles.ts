@@ -40,7 +40,7 @@ export const terminalSurfacePanelStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  statusExited: { color: vars["--ads-color-text-subtle"], fontWeight: vars["--ads-font-weight-medium"] },
+  statusExited: { color: vars["--ads-color-text-muted"], fontWeight: vars["--ads-font-weight-medium"] },
   statusExitedFailed: { color: vars["--ads-color-danger"], fontWeight: vars["--ads-font-weight-medium"] },
   statusShell: { color: vars["--ads-color-info-text"] },
   statusLive: { color: vars["--ads-color-success-text"] },

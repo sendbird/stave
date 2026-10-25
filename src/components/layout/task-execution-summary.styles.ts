@@ -234,7 +234,7 @@ export const summaryStyles = stylex.create({
     borderWidth: vars["--ads-border-width-hairline"],
   },
   provenanceUnavailable: {
-    backgroundColor: vars["--ads-color-text-subtle"],
+    backgroundColor: vars["--ads-color-text-muted"],
   },
   activityRow: {
     alignItems: "flex-start",

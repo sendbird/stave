@@ -29,7 +29,7 @@ export const chatInputApprovalQueueStyles = stylex.create({
   },
   // The Enter shortcut sits at the trailing end of the decision row.
   shortcutHint: {
-    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 60%, transparent)`,
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-micro"],
     marginInlineStart: "auto",
     whiteSpace: "nowrap",

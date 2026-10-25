@@ -24,7 +24,7 @@ export const agentStyles = stylex.create({
   source: {
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   archived: { color: vars["--ads-color-text-subtle"], textDecorationLine: "line-through" },
   instructions: {
@@ -54,7 +54,7 @@ export const agentStyles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: vars["--ads-color-border-subtle"],
   },
-  supportHead: { color: vars["--ads-color-text-subtle"], fontWeight: vars["--ads-font-weight-medium"] },
+  supportHead: { color: vars["--ads-color-text-muted"], fontWeight: vars["--ads-font-weight-medium"] },
   muted: { color: vars["--ads-color-text-muted"] },
   assign: {
     display: "flex",
@@ -147,7 +147,7 @@ export const agentStyles = stylex.create({
   /* Delete dialog reference list ----------------------------------------- */
   refList: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], margin: 0, padding: 0, listStyle: "none" },
   refItem: { display: "flex", flexDirection: "column", gap: 2, fontSize: vars["--ads-font-size-caption"] },
-  refKind: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-caption"], textTransform: "uppercase", letterSpacing: "0.02em" },
+  refKind: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"], textTransform: "uppercase", letterSpacing: "0.02em" },
 
   /* New agent dialog / editor ------------------------------------------- */
   blankRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
@@ -178,7 +178,7 @@ export const agentStyles = stylex.create({
   attention: { fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-medium"], fontVariantNumeric: "tabular-nums" },
   /* Work: one bordered list, a row per assignment, the filter at the header's end. */
   workHeader: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], marginBottom: vars["--ads-space-8"] },
-  workCount: { color: vars["--ads-color-text-subtle"], fontWeight: vars["--ads-font-weight-regular"], fontVariantNumeric: "tabular-nums" },
+  workCount: { color: vars["--ads-color-text-muted"], fontWeight: vars["--ads-font-weight-regular"], fontVariantNumeric: "tabular-nums" },
   workFilter: { flex: "0 0 auto", width: 140 },
   workList: {
     display: "flex",
@@ -228,7 +228,7 @@ export const agentStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
-  workWhen: { flex: "0 0 auto", fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  workWhen: { flex: "0 0 auto", fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
 
   /* Learned suggestions: one line when there is nothing to review ---------- */
   suggestionsLine: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0 },

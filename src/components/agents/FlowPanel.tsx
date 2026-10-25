@@ -254,7 +254,7 @@ const styles = stylex.create({
     color: vars["--ads-color-text-muted"],
   },
   event: { display: "flex", gap: vars["--ads-space-8"] },
-  eventTime: { flex: "0 0 auto", color: vars["--ads-color-text-subtle"], fontVariantNumeric: "tabular-nums" },
+  eventTime: { flex: "0 0 auto", color: vars["--ads-color-text-muted"], fontVariantNumeric: "tabular-nums" },
 });
 
 const dotStyles = stylex.create({

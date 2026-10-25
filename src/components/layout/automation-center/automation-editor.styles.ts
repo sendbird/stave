@@ -329,7 +329,7 @@ export const editorStyles = stylex.create({
     overflowWrap: "break-word",
   },
   referenceToken: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
     marginBlockStart: vars["--ads-space-4"],

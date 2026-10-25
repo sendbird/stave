@@ -275,7 +275,7 @@ const styles = stylex.create({
     paddingInlineStart: 34,
   },
   sidebarSearchShortcut: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     insetInlineEnd: vars["--ads-space-12"],
     lineHeight: vars["--ads-line-height-tight"],

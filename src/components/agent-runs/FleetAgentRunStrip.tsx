@@ -208,7 +208,7 @@ const styles = stylex.create({
   position: {
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontVariantNumeric: "tabular-nums",
   },
 });

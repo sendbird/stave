@@ -18,7 +18,7 @@ export const resultsStyles = stylex.create({
   header: { flexWrap: "wrap" },
   headerText: { flex: "1 1 28rem" },
   headerSubtitle: { whiteSpace: "normal", overflow: "visible", textOverflow: "clip", maxInlineSize: "65ch", lineHeight: vars["--ads-line-height-normal"] },
-  note: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  note: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   card: {
     display: "flex",
     flexDirection: "column",
@@ -77,7 +77,7 @@ export const resultsStyles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text"],
   },
-  figureNote: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  figureNote: { margin: 0, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
 
   /* Reasons */
   reasonLabel: { display: "flex", justifyContent: "space-between", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-body"] },
@@ -113,7 +113,7 @@ export const resultsStyles = stylex.create({
     color: vars["--ads-color-text"],
   },
   rowName: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minInlineSize: 0 },
-  rowKind: { fontSize: vars["--ads-font-size-caption"], lineHeight: "14px", fontWeight: vars["--ads-font-weight-regular"], color: vars["--ads-color-text-subtle"] },
+  rowKind: { fontSize: vars["--ads-font-size-caption"], lineHeight: "14px", fontWeight: vars["--ads-font-weight-regular"], color: vars["--ads-color-text-muted"] },
   rowValue: { marginInlineStart: "auto", fontFamily: vars["--ads-font-mono"], fontVariantNumeric: "tabular-nums", fontWeight: vars["--ads-font-weight-regular"] },
   chevron: { inlineSize: 14, blockSize: 14, flexShrink: 0, color: vars["--ads-color-text-subtle"] },
   facts: { paddingInlineStart: 26, display: "flex", flexWrap: "wrap", alignItems: "center", columnGap: vars["--ads-space-16"], rowGap: vars["--ads-space-4"], margin: 0, fontSize: vars["--ads-font-size-caption"] },

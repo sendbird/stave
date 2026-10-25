@@ -250,7 +250,7 @@ export const taskLayoutStyles = stylex.create({
     borderRadius: vars["--ads-radius-control"],
     borderStyle: "dashed",
     borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     paddingBlock: vars["--ads-space-16"],
     paddingInline: vars["--ads-space-8"],

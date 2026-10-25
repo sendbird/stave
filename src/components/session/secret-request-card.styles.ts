@@ -54,7 +54,7 @@ export const secretRequestCardStyles = stylex.create({
     margin: 0,
   },
   queued: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
@@ -132,7 +132,7 @@ export const secretRequestCardStyles = stylex.create({
     paddingInline: "0.625rem",
   },
   note: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     margin: 0,
   },

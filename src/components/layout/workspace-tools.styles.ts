@@ -46,7 +46,7 @@ export const toolStyles = stylex.create({
   finished: { display: "inline-flex", alignItems: "center", gap: vars["--ads-space-4"], color: vars["--ads-color-text-muted"] },
   failed: { fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-danger-text"] },
   success: { fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-success-text"] },
-  detail: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
+  detail: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   actions: { display: "flex", alignItems: "center", gap: 6 },
   iconButton: { width: 28, height: 28, borderRadius: vars["--ads-radius-control"] },
   icon: { width: vars["--ads-control-icon-size-sm"], height: vars["--ads-control-icon-size-sm"] },

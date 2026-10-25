@@ -44,7 +44,7 @@ export const childRequestSlotStyles = stylex.create({
     minWidth: 0,
   },
   eyebrow: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     flex: "0 0 auto",
     whiteSpace: "nowrap",
   },
@@ -57,7 +57,7 @@ export const childRequestSlotStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   queued: {
-    color: vars["--ads-color-text-subtle"],
+    color: vars["--ads-color-text-muted"],
     flex: "0 0 auto",
     fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
