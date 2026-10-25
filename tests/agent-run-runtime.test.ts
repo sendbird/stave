@@ -249,10 +249,12 @@ function createHarness(options: {
       advance();
       turns.unshift({ id, createdAt: clock.toISOString(), completedAt: null });
     },
-    endTurn: (id: string) => {
+    /** Ends a turn; `receipt` is how the provider runtime saw it end. */
+    endTurn: (id: string, receipt?: AgentRunTurnRow["terminalReceipt"]) => {
       advance();
       const row = turns.find((candidate) => candidate.id === id)!;
       row.completedAt = clock.toISOString();
+      if (receipt !== undefined) row.terminalReceipt = receipt;
       grants.delete(`key-${id}`);
     },
     tick: () => runtime.requestTick(),
@@ -1849,6 +1851,44 @@ describe("Agent run team limits", () => {
     // A person's reply spends no shared turn, so the spent budget does not refuse it.
     expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })).not.toBeNull();
     expect(h.store.readResources(id)?.spent).toBe(1);
+  });
+  test("a reply the run refused never continues the stage, counts as a reply or replays the stage prompt", async () => {
+    const turns: AgentRunTurnRow[] = [];
+    const store = new AgentRunStore(new Database(":memory:"));
+    const extra = { freezeResources: () => policy("claude-code") };
+    const h = createHarness({ store, turns, extra });
+    h.setSnapshot({ model: "claude-sonnet-5-5" });
+    const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Confirm the panel button renders", kind: "input" } });
+    h.endTurn("turn-1");
+    await h.tick();
+    expect(h.current(id).status).toBe("blocked");
+    expect(h.runCalls).toHaveLength(1);
+
+    // A macro pinned to Codex is sent into the Claude run: the run refuses the
+    // reply, and the provider runtime ends that turn failed before any output.
+    h.userTurn("macro-reply");
+    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", turnId: "macro-reply", providerId: "codex" }))
+      .toThrow("keeps the provider it started on");
+    h.endTurn("macro-reply", { outcome: "failed", outputObserved: false });
+    await h.tick();
+    expect(h.runCalls).toHaveLength(1);
+    expect(store.listEventsByKind(id, ["user-turn"])).toHaveLength(0);
+    expect(h.current(id).status).toBe("blocked");
+    // The refused turn is read from the turns table, so a restart skips it too.
+    const restarted = createHarness({ store, turns, turnPrefix: "after", extra });
+    await restarted.tick();
+    expect(restarted.runCalls).toHaveLength(0);
+    expect(store.listEventsByKind(id, ["user-turn"])).toHaveLength(0);
+
+    // A user turn that ran outside the run, even one that failed after its
+    // output, is still the guidance the run continues after.
+    restarted.userTurn("chat-reply");
+    restarted.endTurn("chat-reply", { outcome: "failed", outputObserved: true });
+    await restarted.tick();
+    expect(restarted.runCalls).toHaveLength(1);
+    expect(store.listEventsByKind(id, ["turn-started"]).at(-1)?.detail.reason).toBe("continue-after-user");
+    expect(store.listEventsByKind(id, ["user-turn"]).map((event) => event.detail.turnId)).toEqual(["chat-reply"]);
   });
   test("a person's reply in a primary run spends no shared turn", async () => {
     const h = createHarness({ extra: { freezeResources: () => policy("claude-code") } });
