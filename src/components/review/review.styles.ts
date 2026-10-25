@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { localStack } from "@/lib/ui-layers.stylex";
 
 export const reviewStyles = stylex.create({
   /* Task surface ----------------------------------------------------------- */
@@ -48,6 +49,8 @@ export const reviewStyles = stylex.create({
   layout: { flex: "1 1 auto", minHeight: 0 },
   /* The files, diff and inspector, with the side question docked over them. */
   layoutHost: { position: "relative", display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, minWidth: 0, overflow: "hidden" },
+  /* Bounded side by side, the regions scroll themselves; once the layout stacks it grows to its content, and this scrolls it. */
+  layoutScroll: { display: "flex", flexDirection: "column", flex: "1 1 auto", minHeight: 0, minWidth: 0, overflowY: "auto" },
   overlay: { pointerEvents: "none", position: "absolute", inset: 0 },
   /* The task's run, while Review shows ---------------------------------------- */
   taskStatus: {
@@ -69,7 +72,9 @@ export const reviewStyles = stylex.create({
     backgroundColor: vars["--ads-color-warning-soft"],
   },
   taskStatusText: { flex: "1 1 12rem", minWidth: 0 },
-  region: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minHeight: 0, minWidth: 0, padding: vars["--ads-space-12"], overflowY: "auto" },
+  // Side by side, each region scrolls itself. Stacked (WorkspaceLayout's three-region breakpoint) the
+  // layout scrolls instead, and a region that stays a scroll container would hold the diff header's sticky.
+  region: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minHeight: 0, minWidth: 0, padding: vars["--ads-space-12"], overflowY: { default: "auto", "@container ads-workspace-layout (max-width: 980px)": "visible" } },
   regionTitle: { margin: 0, display: "flex", alignItems: "baseline", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text"] },
   regionAside: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-regular"], color: vars["--ads-color-text-subtle"], fontVariantNumeric: "tabular-nums" },
   note: { margin: 0, fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"], color: vars["--ads-color-text-muted"] },
@@ -107,8 +112,13 @@ export const reviewStyles = stylex.create({
   },
 
   /* Diff ------------------------------------------------------------------- */
-  diffHeader: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0, flexWrap: "wrap" },
-  diffPath: { flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere", fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text"] },
+  /* Sticks over the region's top padding so the diff never shows above it while scrolling; stacked, the
+     layout scroller has no padding, so it sticks at its edge. */
+  diffHeader: { position: "sticky", top: { default: `calc(-1 * ${vars["--ads-space-12"]})`, "@container ads-workspace-layout (max-width: 980px)": 0 }, zIndex: localStack["--stave-stack-raised"], display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0, marginBlockStart: `calc(-1 * ${vars["--ads-space-12"]})`, paddingBlock: vars["--ads-space-8"], backgroundColor: vars["--ads-color-canvas"], borderBottomWidth: vars["--ads-border-width-hairline"], borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border-subtle"] },
+  // The header's one action keeps its full label; the path gives up its directory first.
+  diffAction: { flexShrink: 0 },
+  diffTitle: { display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], flex: "1 1 auto", minWidth: 0 },
+  diffRenamed: { fontFamily: vars["--ads-font-mono"], fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-subtle"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   diffBody: { minHeight: 0, minWidth: 0 },
 
   /* Inspector -------------------------------------------------------------- */

@@ -39,13 +39,50 @@ export function splitLines(text: string): string[] {
 }
 
 /**
- * Classic LCS (longest common subsequence) line diff via dynamic programming.
- * O(n·m) time/space — fine for the code/document sizes a viewer shows.
+ * Above this many LCS table cells (the changed middle's before × after lines,
+ * after the common head and tail are set aside) the middle renders as removed
+ * then added instead. The table costs one number per cell; at 4M cells it is
+ * already tens of MB and a visible main-thread stall, and a rewrite of two
+ * multi-thousand-line files would not finish at all.
+ */
+export const MAX_LCS_CELLS = 4_000_000;
+
+/**
+ * Line diff: the common head and tail are equal runs, and the changed middle
+ * is a classic LCS (longest common subsequence) diff via dynamic programming,
+ * O(n·m) over the middle only. An edit to one line of a large file therefore
+ * costs O(n), not O(n²). A middle above `MAX_LCS_CELLS` falls back to
+ * remove-all then add-all: still a correct diff, just not a minimal one.
  */
 export function diffLines(before: string[], after: string[]): DiffOp[] {
-  const n = before.length;
-  const m = after.length;
-  // lcs[i][j] = LCS length of before[i:] vs after[j:]
+  let head = 0;
+  while (head < before.length && head < after.length && before[head] === after[head]) head += 1;
+  let beforeEnd = before.length;
+  let afterEnd = after.length;
+  while (beforeEnd > head && afterEnd > head && before[beforeEnd - 1] === after[afterEnd - 1]) {
+    beforeEnd -= 1;
+    afterEnd -= 1;
+  }
+  const ops: DiffOp[] = [];
+  const pushEqual = (i: number, j: number) => ops.push({ afterLine: j + 1, beforeLine: i + 1, text: before[i] as string, type: "equal" });
+  for (let k = 0; k < head; k += 1) pushEqual(k, k);
+  diffMiddle(before, after, head, beforeEnd, head, afterEnd, ops);
+  for (let i = beforeEnd, j = afterEnd; i < before.length; i += 1, j += 1) pushEqual(i, j);
+  return ops;
+}
+
+/** LCS diff of `before[i0:i1]` against `after[j0:j1]`, appended to `ops` with absolute line numbers. */
+function diffMiddle(before: string[], after: string[], i0: number, i1: number, j0: number, j1: number, ops: DiffOp[]): void {
+  const n = i1 - i0;
+  const m = j1 - j0;
+  const pushRemove = (i: number) => ops.push({ beforeLine: i + 1, text: before[i] as string, type: "remove" });
+  const pushAdd = (j: number) => ops.push({ afterLine: j + 1, text: after[j] as string, type: "add" });
+  if (n === 0 || m === 0 || n * m > MAX_LCS_CELLS) {
+    for (let i = i0; i < i1; i += 1) pushRemove(i);
+    for (let j = j0; j < j1; j += 1) pushAdd(j);
+    return;
+  }
+  // lcs[i][j] = LCS length of the middle's before[i:] vs after[j:] (relative indexes)
   const lcs: number[][] = Array.from({ length: n + 1 }, () =>
     new Array<number>(m + 1).fill(0),
   );
@@ -54,43 +91,28 @@ export function diffLines(before: string[], after: string[]): DiffOp[] {
     const nextRow = lcs[i + 1]!;
     for (let j = m - 1; j >= 0; j -= 1) {
       row[j] =
-        before[i] === after[j]
+        before[i0 + i] === after[j0 + j]
           ? (nextRow[j + 1] ?? 0) + 1
           : Math.max(nextRow[j] ?? 0, row[j + 1] ?? 0);
     }
   }
-  const ops: DiffOp[] = [];
   let i = 0;
   let j = 0;
   while (i < n && j < m) {
-    const beforeLine = before[i] as string;
-    const afterLine = after[j] as string;
-    if (beforeLine === afterLine) {
-      ops.push({
-        afterLine: j + 1,
-        beforeLine: i + 1,
-        text: beforeLine,
-        type: "equal",
-      });
+    if (before[i0 + i] === after[j0 + j]) {
+      ops.push({ afterLine: j0 + j + 1, beforeLine: i0 + i + 1, text: before[i0 + i] as string, type: "equal" });
       i += 1;
       j += 1;
     } else if ((lcs[i + 1]![j] ?? 0) >= (lcs[i]![j + 1] ?? 0)) {
-      ops.push({ beforeLine: i + 1, text: beforeLine, type: "remove" });
+      pushRemove(i0 + i);
       i += 1;
     } else {
-      ops.push({ afterLine: j + 1, text: afterLine, type: "add" });
+      pushAdd(j0 + j);
       j += 1;
     }
   }
-  while (i < n) {
-    ops.push({ beforeLine: i + 1, text: before[i] as string, type: "remove" });
-    i += 1;
-  }
-  while (j < m) {
-    ops.push({ afterLine: j + 1, text: after[j] as string, type: "add" });
-    j += 1;
-  }
-  return ops;
+  for (; i < n; i += 1) pushRemove(i0 + i);
+  for (; j < m; j += 1) pushAdd(j0 + j);
 }
 
 /**

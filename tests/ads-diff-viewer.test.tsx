@@ -6,6 +6,7 @@ import { DiffViewer } from "@/components/ads/components/DiffViewer";
 import {
   annotateWordDiff,
   diffLines,
+  MAX_LCS_CELLS,
   paintHighlightedLine,
   planCollapse,
   splitLines,
@@ -144,6 +145,61 @@ describe("DiffViewer diff engine", () => {
     // "a" and "c" survive unchanged; only "b" -> "B" is the churn.
     const equalTexts = ops.filter((op) => op.type === "equal").map((op) => op.text);
     expect(equalTexts).toEqual(["a", "c"]);
+  });
+
+  test("the line-number gutter is sized by the longest line number", () => {
+    const render = (lines: number) =>
+      renderToStaticMarkup(
+        createElement(DiffViewer, {
+          before: Array.from({ length: lines }, (_, index) => `a${index}`).join("\n"),
+          after: Array.from({ length: lines }, (_, index) => `b${index}`).join("\n"),
+        }),
+      );
+    expect(render(9)).toContain("--diff-viewer-line-digits:1");
+    expect(render(1_200)).toContain("--diff-viewer-line-digits:4");
+    expect(render(10_000)).toContain("--diff-viewer-line-digits:5");
+  });
+
+  test("a one-line edit in a large file diffs without the full LCS table", () => {
+    const before = Array.from({ length: 20_000 }, (_, index) => `line ${index}`);
+    const after = [...before];
+    after[12_345] = "line 12345 edited";
+    const started = performance.now();
+    const ops = diffLines(before, after);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(ops.filter((op) => op.type !== "equal")).toEqual([
+      { beforeLine: 12_346, text: "line 12345", type: "remove" },
+      { afterLine: 12_346, text: "line 12345 edited", type: "add" },
+    ]);
+    expect(ops.at(-1)).toEqual({ afterLine: 20_000, beforeLine: 20_000, text: "line 19999", type: "equal" });
+  });
+
+  test("a changed middle above the cell cap renders as removed then added", () => {
+    const side = Math.ceil(Math.sqrt(MAX_LCS_CELLS)) + 1;
+    const before = ["head", ...Array.from({ length: side }, (_, index) => `old ${index}`), "tail"];
+    const after = ["head", ...Array.from({ length: side }, (_, index) => `new ${index}`), "tail"];
+    const ops = diffLines(before, after);
+    expect(ops[0]).toEqual({ afterLine: 1, beforeLine: 1, text: "head", type: "equal" });
+    expect(ops.slice(1, side + 1).every((op) => op.type === "remove")).toBe(true);
+    expect(ops.slice(side + 1, 2 * side + 1).every((op) => op.type === "add")).toBe(true);
+    expect(ops.at(-1)).toEqual({ afterLine: side + 2, beforeLine: side + 2, text: "tail", type: "equal" });
+  });
+
+  test("the ops rebuild both sides with their line numbers", () => {
+    let seed = 7;
+    const random = () => ((seed = (seed * 1_103_515_245 + 12_345) % 2 ** 31) / 2 ** 31);
+    const pick = () => ["a", "b", "c", "d"][Math.floor(random() * 4)]!;
+    for (let round = 0; round < 300; round += 1) {
+      const before = Array.from({ length: Math.floor(random() * 12) }, pick);
+      const after = Array.from({ length: Math.floor(random() * 12) }, pick);
+      const ops = diffLines(before, after);
+      const oldSide = ops.filter((op) => op.type !== "add");
+      const newSide = ops.filter((op) => op.type !== "remove");
+      expect(oldSide.map((op) => op.text)).toEqual(before);
+      expect(newSide.map((op) => op.text)).toEqual(after);
+      expect(oldSide.map((op) => op.beforeLine)).toEqual(before.map((_, index) => index + 1));
+      expect(newSide.map((op) => op.afterLine)).toEqual(after.map((_, index) => index + 1));
+    }
   });
 
   test("annotateWordDiff attaches word ops only to paired changed lines", () => {

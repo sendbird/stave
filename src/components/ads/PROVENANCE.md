@@ -12,6 +12,13 @@ Host modifications are intentional and retained when refreshing the bundle:
 - Popover, Dialog, and Drawer expose surface styling separately from geometry, so existing hosts retain popup width, placement, scroll ownership, and nested drawer behavior.
 - Badge, Breadcrumb, EmptyState, Table, Slider, Toggle, and Tooltip export their canonical styles for existing compound APIs.
 - EmptyState's medallion defaults to the `neutral` tone instead of `accent`. The host's empty states are the absence of data, not brand moments; callers that want the accent medallion (onboarding invitations) pass `tone="accent"` explicitly.
+- DiffViewer's `diffLines` sets the common head and tail aside before its LCS table and
+  renders a changed middle above `MAX_LCS_CELLS` as removed then added, so a one-line
+  edit to a file of thousands of lines costs O(n) instead of an O(n²) table.
+- DiffViewer sizes its line-number gutter by the longest line number (an inline
+  `--diff-viewer-line-digits` custom property, never narrower than the original 2rem), so
+  four- and five-digit numbers keep their gap. After Expand, focus moves to the first
+  revealed line instead of falling to the document body with the removed button.
 - Calendar satisfies strict indexed access checks; malformed date keys resolve to an invalid date instead of assuming missing numbers exist.
 - VersionCompare carries no English copy: its mode names, the mode switch's accessible name,
   the range labels (`copy`) and both version labels (`baselineLabel`, `currentLabel`) are

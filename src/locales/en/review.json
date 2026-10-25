@@ -62,7 +62,8 @@
   "diff": {
     "title": "Diff",
     "comment": "Comment in editor",
-    "renamed": "{{from}} → {{to}}",
+    "ariaLabel": "Changes in {{path}}",
+    "renamedFrom": "Renamed from {{from}}",
     "noTextChange": "No text changes (mode, permissions or binary content).",
     "noChanges": "No changes to show.",
     "binary": "This is a binary file, so Review does not show its content."

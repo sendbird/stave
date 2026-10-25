@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { AsyncState } from "@/components/ads/utils/async";
 import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
 import { sx } from "@/components/ads/utils/stylex";
@@ -9,6 +9,7 @@ import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
 import { findLatestFinishedTurnId } from "@/lib/fleet/result-auto-review";
 import { findStageRecord, stageToReview } from "@/lib/review/review-stage";
+import { getSyntaxHighlighter } from "@/lib/syntax-highlight";
 import {
   availableReviewScopes,
   defaultReviewScope,
@@ -99,12 +100,23 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   const selected = files.find((file) => file.path === selectedPath) ?? files[0] ?? null;
   const read = useTaskReviewModeStore((store) => store.readByTask[taskId]?.[reviewScopeKey(scope)]) ?? NOTHING_READ;
   const markRead = useTaskReviewModeStore((store) => store.markRead);
+  // Load the diff highlighter while the scope's files are still being read, so the first diff paints in color.
+  useEffect(() => {
+    void getSyntaxHighlighter();
+  }, []);
+  // A newly selected file starts at its top, not at the previous file's scroll position.
+  const diffRegion = useRef<HTMLDivElement>(null);
+  const selectedKey = selected ? `${selected.path}:${selected.oldPath ?? ""}` : null;
+  useLayoutEffect(() => {
+    diffRegion.current?.scrollTo({ top: 0 });
+  }, [selectedKey]);
   return (
     <>
       <ReviewTaskStatusLine taskId={taskId} />
       <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} />
       <ReviewScopeLimits limits={data?.limits ?? (scope.kind === "turn" ? ["reported-edits-only"] : [])} />
       <div className={sx(styles.layoutHost)}>
+      <div className={sx(styles.layoutScroll)}>
       <WorkspaceLayout
         fill
         xstyle={styles.layout}
@@ -119,10 +131,10 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
           </div>
         }
         primary={
-          <div className={sx(styles.region)} role="region" aria-label={i18n.t("review:diff.title")}>
+          <div ref={diffRegion} className={sx(styles.region)} role="region" aria-label={i18n.t("review:diff.title")}>
             {data && selected
               // A file is read once its diff has shown, not when it is selected: a refused or failed read is not.
-              ? <ReviewDiffPane key={`${selected.path}:${selected.oldPath ?? ""}`} taskId={taskId} workspaceId={props.workspaceId} scope={scope} cwd={props.cwd} data={data} file={selected} onShown={() => markRead(taskId, scope, selected.path)} />
+              ? <ReviewDiffPane key={selectedKey} taskId={taskId} workspaceId={props.workspaceId} scope={scope} cwd={props.cwd} data={data} file={selected} onShown={() => markRead(taskId, scope, selected.path)} />
               : <p className={sx(styles.note)}>{data ? i18n.t("review:diff.noChanges") : ""}</p>}
           </div>
         }
@@ -132,6 +144,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
           </div>
         }
       />
+      </div>
         <div className={sx(styles.overlay)}>
           <SideChatPanel taskId={taskId} host="review" />
         </div>
