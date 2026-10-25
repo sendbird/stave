@@ -142,22 +142,61 @@ describe("the return summary's facts", () => {
     expect(hasReturnNews(buildReturnSummary({ messages: MESSAGES, record: null, need: null, running: false, baseline: captureReturnBaseline(MESSAGES) }))).toBe(false);
   });
 
-  test("reads as four lines in English and Korean, each with where it comes from", () => {
+  test("leads with where it stands and the one action, then the facts, in English and Korean", () => {
     const summary = buildReturnSummary({ messages: MESSAGES, record: null, need: APPROVAL_NEED, running: true, baseline: SEEN_AT_U2 });
     const now = Date.parse(at(220));
-    const lines = describeReturnSummary(summary, now);
-    expect(lines.map((line) => [line.id, line.text, line.link?.target.kind ?? null])).toEqual([
+    const view = describeReturnSummary(summary, now);
+    expect(view.status).toEqual({
+      state: "approval",
+      text: "Waiting for your approval for 2h 5m",
+      detail: "Run tests",
+      next: null,
+      action: { label: "Show request", target: { kind: "request" } },
+      urgent: true,
+    });
+    expect(view.facts.map((line) => [line.id, line.text, line.link?.target.kind ?? null])).toEqual([
+      ["changes", "2 turns finished · 2 files changed · 2 steps", "tab"],
       ["decision", "You allowed Run command: Run the migration", "decision"],
-      ["changes", "2 turns finished, 2 files changed, 2 steps", "tab"],
-      ["stop", "Waiting for your approval for 2h 5m: Run tests", "request"],
-      ["next", "Answer the request.", "request"],
     ]);
     // An approval or answer links to where it was given in the conversation.
-    expect(lines[0]?.link).toEqual({ label: "Show", target: { kind: "decision", messageId: "a1", requestId: "r1" } });
+    expect(view.facts[1]?.link).toEqual({ label: "Show", target: { kind: "decision", messageId: "a1", requestId: "r1" } });
     applyAppLocale("ko");
     const ko = describeReturnSummary(summary, now);
-    expect(ko[1]?.text).toBe("턴 2개 완료, 파일 2개 변경, 단계 2개");
-    expect(ko[2]?.text).toContain("승인을 기다리는 중: Run tests");
+    expect(ko.facts[0]?.text).toBe("턴 2개 완료 · 파일 2개 변경 · 단계 2개");
+    expect(ko.status.text).toContain("승인 대기 중");
+    expect(ko.status.action.label).toBe("요청 보기");
+  });
+
+  test("a fact with nothing to say is left out, and an idle task offers its next step quietly", () => {
+    const record = applyHandoffDraft({ record: emptyHandoffRecord(), draft: { ...EMPTY_DRAFT, remaining: "- Add a filename prompt" }, at: at(20) });
+    const caughtUp = captureReturnBaseline(MESSAGES);
+    const idle = describeReturnSummary(
+      buildReturnSummary({ messages: MESSAGES, record, need: null, running: false, baseline: caughtUp }),
+      Date.parse(at(220)),
+    );
+    // Nothing changed since the visit, so only the decision stays.
+    expect(idle.facts.map((line) => line.id)).toEqual(["decision"]);
+    expect(idle.status).toMatchObject({
+      state: "ready",
+      next: "Add a filename prompt",
+      action: { target: { kind: "tab", tab: "handoff" } },
+      urgent: false,
+    });
+    const fresh = describeReturnSummary(
+      buildReturnSummary({ messages: [user("u", 0, "hi")], record: null, need: null, running: true, baseline: caughtUp }),
+      Date.parse(at(220)),
+    );
+    expect(fresh.facts).toEqual([]);
+    // A pull request's wait is read in Activity, not answered in the composer.
+    const prWait = describeReturnSummary(
+      buildReturnSummary({
+        messages: MESSAGES, record: null, running: false, baseline: caughtUp,
+        need: { ...APPROVAL_NEED, kind: "pr-checks-failed", detail: null } as FleetAttentionItem,
+      }),
+      Date.parse(at(220)),
+    );
+    expect(prWait.status).toMatchObject({ action: { target: { kind: "tab", tab: "activity" } }, urgent: true });
+    expect(fresh.status).toMatchObject({ state: "working", text: "Still working", action: { target: { kind: "side-question" } } });
   });
 });
 
@@ -246,7 +285,7 @@ describe("returning to a task", () => {
     expect(useTaskReturnStore.getState().dismissedByTask["task-x"]).toBe(at(30));
   });
 
-  test("the card shows the four lines at the top of the conversation, and not after you write", () => {
+  test("the card leads with the status and its action, then the facts, and goes after you write", () => {
     // Server rendering reads each store's initial state, so the return is seeded there.
     const app = useAppStore.getInitialState();
     const returns = useTaskReturnStore.getInitialState();
@@ -265,8 +304,10 @@ describe("returning to a task", () => {
       Object.assign(handoff, { records: { [taskHandoffKey("ws-1", "task-1")]: emptyHandoffRecord() } });
       const html = renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }));
       expect(html).toContain("Welcome back");
-      expect(html.match(/data-return-line=/g)).toHaveLength(4);
+      expect(html.match(/data-return-line=/g)).toHaveLength(3);
       expect(html).toContain("Waiting for your approval");
+      expect(html.indexOf('data-return-line="status"')).toBeLessThan(html.indexOf('data-return-line="changes"'));
+      expect(html).toContain('data-return-action="request"');
       Object.assign(app, { messagesByTask: { "task-1": [...MESSAGES, user("u3", 230, "Back now")] } });
       expect(renderToStaticMarkup(createElement(ReturnSummaryCard, { taskId: "task-1" }))).toBe("");
     } finally {

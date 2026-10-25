@@ -1,8 +1,9 @@
 import { i18n, useTranslation } from "@/i18n";
 import { formatTimeAgo } from "@/i18n/format";
 import { History, X } from "lucide-react";
-import { useEffect, useMemo } from "react";
+import { useEffect, useId, useMemo } from "react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { StateMark } from "@/components/ads/components/StateMark";
 import { sx } from "@/components/ads/utils/stylex";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
@@ -53,8 +54,8 @@ export function followReturnLink(target: ReturnLinkTarget, workspaceId: string, 
 
 /**
  * What changed while you were away from the task, at the top of its
- * conversation: the last decision, the news, why it stopped and what to do
- * next, each with a link to where it comes from. It shows when you come back
+ * conversation: where it stands with the one action that moves it on, then
+ * what changed and the last decision, each with a link to where it comes from. It shows when you come back
  * after a while and goes when you dismiss it or write to the task.
  */
 export function ReturnSummaryCard(props: { taskId: string }) {
@@ -69,6 +70,7 @@ export function ReturnSummaryCard(props: { taskId: string }) {
   const recordKey = taskHandoffKey(workspaceId, taskId);
   const record = useTaskHandoffStore((state) => state.records[recordKey]);
   const loadRecord = useTaskHandoffStore((state) => state.load);
+  const titleId = useId();
   const showing = Boolean(arrival && dismissedAt !== arrival.at);
   useEffect(() => {
     if (showing && !record && workspaceId && taskId) {
@@ -92,27 +94,29 @@ export function ReturnSummaryCard(props: { taskId: string }) {
     if (!visit || !isReturn({ lastVisitAt: visit.at, now: arrivedMs })) return null;
     const summary = buildReturnSummary({ messages, record: record ?? null, need, running, baseline: visit.baseline });
     if (!hasReturnNews(summary)) return null;
-    return { visit, lines: describeReturnSummary(summary, Date.now()) };
+    return { visit, content: describeReturnSummary(summary, Date.now()) };
     // Lines are translated.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [arrival, showing, messages, record, need, running, i18n.language]);
 
   if (!view) return null;
   const since = formatTimeAgo(view.visit.at);
+  const { status, facts } = view.content;
+  const sinceText = view.visit.kind === "visit"
+    ? i18n.t("session:returnSummary.sinceVisit", { time: since })
+    : i18n.t("session:returnSummary.sinceMessage", { time: since });
   return (
     <section
-      aria-label={i18n.t("session:returnSummary.title")}
+      aria-labelledby={titleId}
       className={sx(styles.card)}
       data-testid="return-summary"
     >
       <div className={sx(styles.header)}>
         <History aria-hidden className={sx(styles.headerIcon)} />
-        <h2 className={sx(styles.title)}>{i18n.t("session:returnSummary.title")}</h2>
-        <p className={sx(styles.since)}>
-          {view.visit.kind === "visit"
-            ? i18n.t("session:returnSummary.sinceVisit", { time: since })
-            : i18n.t("session:returnSummary.sinceMessage", { time: since })}
-        </p>
+        <div className={sx(styles.headerText)}>
+          <h2 id={titleId} className={sx(styles.title)}>{i18n.t("session:returnSummary.title")}</h2>
+          <p className={sx(styles.since)} title={sinceText}>{sinceText}</p>
+        </div>
         <AdsButton
           variant="quiet"
           size="xs"
@@ -124,27 +128,52 @@ export function ReturnSummaryCard(props: { taskId: string }) {
           <X aria-hidden />
         </AdsButton>
       </div>
-      <dl className={sx(styles.rows)}>
-        {view.lines.map((line) => (
-          <div key={line.id} className={sx(styles.row)} data-return-line={line.id}>
-            <dt className={sx(styles.label)}>{line.label}</dt>
-            <dd className={sx(styles.value)} title={line.text}>
-              {line.text}
-            </dd>
-            <dd className={sx(styles.action)}>
-              {line.link ? (
-                <AdsButton
-                  variant="quiet"
-                  size="xs"
-                  onClick={() => line.link && followReturnLink(line.link.target, workspaceId, taskId)}
-                >
-                  {line.link.label}
-                </AdsButton>
-              ) : null}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <div className={sx(styles.status)} data-return-line="status" data-state={status.state}>
+        <StateMark state={status.state} size="md" xstyle={styles.statusMark} />
+        <div className={sx(styles.statusText)}>
+          <p className={sx(styles.statusTitle)}>{status.text}</p>
+          {status.detail ? (
+            <p className={sx(styles.statusDetail)} title={status.detail}>{status.detail}</p>
+          ) : null}
+          {status.next ? (
+            <p className={sx(styles.statusDetail)} title={status.next}>
+              {i18n.t("session:returnSummary.nextRemaining", { text: status.next })}
+            </p>
+          ) : null}
+        </div>
+        <AdsButton
+          variant={status.urgent ? "primary" : "secondary"}
+          size="sm"
+          xstyle={styles.statusAction}
+          data-return-action={status.action.target.kind}
+          onClick={() => followReturnLink(status.action.target, workspaceId, taskId)}
+        >
+          {status.action.label}
+        </AdsButton>
+      </div>
+      {facts.length > 0 ? (
+        <dl className={sx(styles.facts)}>
+          {facts.map((line) => (
+            <div key={line.id} className={sx(styles.fact)} data-return-line={line.id}>
+              <dt className={sx(styles.label)}>{line.label}</dt>
+              <dd className={sx(styles.value)} title={line.text}>
+                {line.text}
+              </dd>
+              <dd className={sx(styles.action)}>
+                {line.link ? (
+                  <AdsButton
+                    variant="quiet"
+                    size="xs"
+                    onClick={() => line.link && followReturnLink(line.link.target, workspaceId, taskId)}
+                  >
+                    {line.link.label}
+                  </AdsButton>
+                ) : null}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
     </section>
   );
 }

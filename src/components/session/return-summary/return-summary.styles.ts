@@ -1,6 +1,14 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
+const clampTwoLines = {
+  display: "-webkit-box",
+  overflow: "hidden",
+  overflowWrap: "anywhere",
+  WebkitBoxOrient: "vertical",
+  WebkitLineClamp: 2,
+} as const;
+
 export const returnSummaryStyles = stylex.create({
   // Pinned to the top of the conversation, so it reads without scrolling the
   // transcript; the overlay around it passes clicks through.
@@ -13,10 +21,8 @@ export const returnSummaryStyles = stylex.create({
     boxShadow: vars["--ads-elevation-overlay"],
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-8"],
     insetInlineStart: "50%",
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    overflow: "hidden",
     pointerEvents: "auto",
     position: "absolute",
     top: vars["--ads-space-12"],
@@ -27,6 +33,9 @@ export const returnSummaryStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     gap: vars["--ads-space-8"],
+    paddingBlockStart: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-8"],
+    paddingInlineStart: vars["--ads-space-12"],
   },
   headerIcon: {
     color: vars["--ads-color-text-muted"],
@@ -34,8 +43,16 @@ export const returnSummaryStyles = stylex.create({
     height: 16,
     width: 16,
   },
+  headerText: {
+    alignItems: "baseline",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    flex: 1,
+    minWidth: 0,
+  },
   title: {
     color: vars["--ads-color-text"],
+    flexShrink: 0,
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-semibold"],
     lineHeight: "1.25rem",
@@ -43,43 +60,96 @@ export const returnSummaryStyles = stylex.create({
   },
   since: {
     color: vars["--ads-color-text-muted"],
-    flex: 1,
     fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "1rem",
     margin: 0,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  rows: {
+  // Where the task stands and the one thing to do about it: the line the
+  // card is for, so it comes first and reads largest.
+  status: {
+    alignItems: "center",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    flexWrap: "wrap",
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
+    rowGap: vars["--ads-space-8"],
+  },
+  statusMark: {
+    alignSelf: "flex-start",
+    // Centers the 16px mark on the 20px first line.
+    paddingBlockStart: 2,
+  },
+  statusText: {
+    display: "flex",
+    flex: "1 1 14rem",
+    flexDirection: "column",
+    gap: vars["--ads-space-2"],
+    minWidth: 0,
+  },
+  statusTitle: {
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: "1.25rem",
+    margin: 0,
+  },
+  statusDetail: {
+    ...clampTwoLines,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: "1rem",
+    margin: 0,
+  },
+  statusAction: {
+    flexShrink: 0,
+    marginInlineStart: "auto",
+  },
+  facts: {
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderTopColor: vars["--ads-color-border-subtle"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
     columnGap: vars["--ads-space-12"],
     display: "grid",
     gridTemplateColumns: "max-content minmax(0, 1fr) max-content",
     margin: 0,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-8"],
+    paddingInlineStart: vars["--ads-space-12"],
     rowGap: vars["--ads-space-4"],
   },
-  row: {
+  fact: {
     display: "contents",
   },
   label: {
+    alignSelf: "start",
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: "1.5rem",
+    // With the 4px padding, the first line centers on the 28px link beside it.
+    lineHeight: "1.25rem",
     margin: 0,
+    paddingBlock: vars["--ads-space-4"],
     whiteSpace: "nowrap",
   },
   value: {
+    ...clampTwoLines,
+    alignSelf: "start",
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-caption"],
-    lineHeight: "1.5rem",
+    lineHeight: "1.25rem",
     margin: 0,
     minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    paddingBlock: vars["--ads-space-4"],
   },
   action: {
+    alignSelf: "start",
     justifySelf: "end",
+    margin: 0,
   },
 });
