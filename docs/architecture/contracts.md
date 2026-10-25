@@ -199,8 +199,8 @@ renderer bridge input type, preload and `delegations:create` share this rule.
 Workflow stage delegation asks for supervision. A supervised prompt has the
 existing Run assignment limit of 8,000 characters; oversized work is refused,
 never truncated or downgraded. `maxTurns` accepts 1..30 and defaults to 30 per
-assignment outside an opted-in adaptive team. In an adaptive team this cap
-is further narrowed by its exact root reservation; neither cap is a money limit.
+assignment. In a team the helper keeps this cap and draws turns past its held
+start turns from the root budget; neither cap is a money limit.
 
 Before dispatch, the coordinator's accepted receipt records a deterministic
 supervisor id for the execution, its cap, frozen Agent hash and resolved
@@ -310,14 +310,18 @@ Absent, expired or empty effort lists use built-in support. A newly unsupported
 current or pinned effort blocks dispatch before consuming a turn; it is never
 silently lowered or counted as an accepted resource change.
 
-Atomic root admission counts at most 30 parent-plus-child dispatch attempts,
-including stage replies. Starts that fail or have uncertain delivery are not
-refunded. At most two saved-Agent supervised helper reservations remain active,
-with four cumulative reservations (including failed preparation/retries).
-Reservation and release require exact root/child/execution identity. Child
-capacity is narrowed by remaining root capacity; one parent integration turn is
-protected while children are active. Their unused capacity returns on exact
-settlement; spent attempts stay spent. A root report predating final helper
+Atomic root admission counts parent-plus-child dispatch attempts up to the
+root's team turns. A person's stage reply in the root run is not counted; a
+delegated run's reply is. Starts that fail or have uncertain delivery are not
+refunded. Active and cumulative helper reservations follow the frozen helper
+limits (including failed preparation/retries). Reservation and release require
+exact root/child/execution identity. A reservation holds at most
+`TEAM_LIMITS.helperStartTurns` (2) start turns; each later child attempt draws
+one unit from the root budget at dispatch while more than the parent's one
+integration turn remains. A child's attempts, its replies included, never
+exceed its own `maxTurns`. A child that cannot take another attempt, on a
+dispatch or on a reply, stops with `turn-cap-reached`. Unused held turns return on exact settlement; spent attempts
+stay spent. A root report predating final helper
 settlement requires a fresh AI integration turn/report. Budget exhaustion leaves
 unfinished work stuck or stopped, never accepted. Root cancellation cancels
 child supervision and stops its native task; pause prevents child admission.

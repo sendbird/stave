@@ -564,10 +564,11 @@ sample limits and examples of when each screen helps.
   that finishes on its last allowed turn still completes. At 100, Extend is
   refused with an explanation. A [delegated](./delegated-tasks.md) Run still
   ends at its cap: its parent reads a finished child, not a halted one.
-- An Agent run shares its turn limit with the helper Agents it calls and your
-  replies in a stage ([team limits](./agents.md#team-limits)). When helpers
-  use the rest, the run halts with **Limit reached** the same way, and Extend
-  raises the shared limit too.
+- An Agent run shares its turn limit with the helper Agents it calls
+  ([team limits](./agents.md#team-limits)). Your replies in the main run's
+  stages do not count; replies to a helper Agent do. When helpers use the
+  rest, the run halts with **Limit reached** the same way, and Extend raises
+  the shared limit too.
 - **Spent** counts the turns the agent run started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex agent run shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache

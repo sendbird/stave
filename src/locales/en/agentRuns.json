@@ -601,6 +601,7 @@
     "extraCopy309": "The lead task now runs on {{value1}}, not {{value2}}.",
     "providerRetriesSpent": "The provider kept failing: {{count}} retries ended with “{{message}}”. Retry when the provider is back.",
     "teamDetail": "This run and its helper Agents used all {{value1}} shared turns.",
+    "helperTeamDetail": "This helper used its start turns, and the team's shared turns ran out.",
     "reviewPassed": "Skipped: the independent review passed, the workspace is unchanged, and no required verification remains.",
     "publicationNeedsCurrentCheck": "Required workspace checks no longer verify the current files. Stave stopped before the next remote update. Restore the checked work before retrying, or start a new run to verify the changed work.",
     "actionNeedsCurrentCheck": "Required workspace checks do not match the current work, so this action has not run. Restore the checked work and retry, or start a new run to verify the changed work."
@@ -892,7 +893,7 @@
     "route": "Provider: {{provider}} · model: {{model}} · effort: {{effort}}. At most 2 changes, with 2 turns between changes.",
     "pinned": "pinned",
     "eligible": "can change",
-    "boundary": "The budget counts this run's turns, its helper Agents' turns and your replies in a stage; a turn that fails to start still counts. When it runs out, the run halts at its limit and Extend adds turns. Billing is reported separately; missing cost stays unknown."
+    "boundary": "The budget counts this run's turns and its helper Agents' turns; a turn that fails to start still counts. Your replies in the main run's stages do not count; replies to a helper Agent do. A helper holds its first turns and draws the rest as it works, up to its own max turns, leaving one turn for the main run to integrate its results. When the budget runs out, the run halts at its limit and Extend adds turns. Billing is reported separately; missing cost stays unknown."
   },
   "pullRequestWatch": {
     "stopUnreadable_one": "GitHub could not be read {{count}} time in a row, so this watch stopped. Last error: {{error}}",

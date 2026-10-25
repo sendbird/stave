@@ -13,17 +13,40 @@ function create(store: AgentRunStore, id: string, resources = true) {
   return change;
 }
 function setup() { const store = new AgentRunStore(new Database(":memory:"));create(store,"parent");return store; }
-test("parent and two children cannot reserve the same final capacity", () => {
+/** A helper run admitted under `link`. */
+function child(store: AgentRunStore, id: string, link: object, maxTurns = 30) {
+  const change=createAgentRun({id,input:buildAgentRunStartInput({workspaceId:"ws",taskId:id,agent:{name:"Helper",tools:{maxTurns}},assignment:"Review",now}),repositoryPath:"/tmp/repo",fingerprint:{providerId:"codex",model:"gpt-6.1-sol"},now});
+  Object.assign(change.events[0]!,{idempotencyKey:`${id}:start`,detail:{...change.events[0]!.detail,resources:policy,resourceLink:link}});store.create(change,now);
+}
+/** Turns a run starts until the budget refuses one. */
+function drain(store: AgentRunStore, id: string) {
+  let turns=0;while(store.consumeResourceTurn(id,`${id}-${turns}`,now))turns++;return turns;
+}
+test("helpers asking for the default 30 turns work at once, draw from one budget and leave the parent its turn", () => {
   const s=setup();s.consumeResourceTurn("parent","p1",now);
-  const a=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"a",executionId:"ea",requestedTurns:20,now})!;
-  const b=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"b",executionId:"eb",requestedTurns:20,now})!;
-  expect(a.capacity).toBe(20);expect(b.capacity).toBe(8);
-  expect(s.readResources("parent")).toMatchObject({spent:1,reserved:28,remaining:1,activeHelpers:2});
+  const a=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"a",executionId:"ea",requestedTurns:30,now})!;
+  const b=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"b",executionId:"eb",requestedTurns:30,now})!;
+  expect(a.capacity).toBe(2);expect(b.capacity).toBe(2);
+  expect(s.readResources("parent")).toMatchObject({spent:1,reserved:4,remaining:25,activeHelpers:2});
   expect(()=>s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"c",executionId:"ec",requestedTurns:1,now})).toThrow("helper limit");
+  child(s,"a",a.link);child(s,"b",b.link);
+  // A draws past its start turns until one turn is left; B's held start turns stay B's.
+  expect(drain(s,"a")).toBe(26);
+  expect(s.readResources("parent")).toMatchObject({spent:27,reserved:2,remaining:1});
+  expect(drain(s,"b")).toBe(2);
+  expect(s.readResources("parent")).toMatchObject({spent:29,reserved:0,remaining:1});
+  // The last turn is the parent's, to integrate once the helpers finish.
   expect(s.consumeResourceTurn("parent","p2",now)).toBe(false);
   s.releaseResourceReservation(a.link,now);s.releaseResourceReservation(b.link,now);
   expect(s.consumeResourceTurn("parent","p2",now)).toBe(true);
-  expect(s.readResources("parent")?.spent).toBe(2);
+  expect(s.readResources("parent")).toMatchObject({spent:30,remaining:0,activeHelpers:0});
+});
+test("a helper drawing from the shared budget never passes its own max turns, replies included", () => {
+  const s=setup();
+  const a=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"a",executionId:"ea",requestedTurns:3,now})!;
+  child(s,"a",a.link,3);
+  expect(drain(s,"a")).toBe(3);
+  expect(s.readResources("parent")).toMatchObject({spent:3,reserved:0,remaining:27,activeHelpers:1});
 });
 test("exact child consumption and release survive store reconstruction without double charging", () => {
   const db=new Database(":memory:"),s=new AgentRunStore(db);create(s,"parent");
@@ -32,7 +55,7 @@ test("exact child consumption and release survive store reconstruction without d
   Object.assign(change.events[0]!,{idempotencyKey:"a:start",detail:{...change.events[0]!.detail,resources:policy,resourceLink:admission.link}});s.create(change,now);
   expect(s.consumeResourceTurn("a","a1",now)).toBe(true);
   const restarted=new AgentRunStore(db);expect(restarted.consumeResourceTurn("a","a1",now)).toBe(true);
-  expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:3,remaining:26});
+  expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:1,remaining:28});
   expect(()=>restarted.releaseResourceReservation({...admission.link,executionId:"stale"},now)).toThrow("stale");
   restarted.releaseResourceReservation(admission.link,now);restarted.releaseResourceReservation(admission.link,now);
   expect(restarted.readResources("a")).toMatchObject({spent:1,reserved:0,remaining:29,helpersLaunched:1,activeHelpers:0});
@@ -59,7 +82,7 @@ test("a default team policy takes a helper on another provider unless the parent
   const open = start("parent", team({ modelLocked: false }));
   const claude = open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "review", executionId: "er",
     requestedTurns: 5, providerId: "claude-code", model: "claude-opus-5-5", now })!;
-  expect(claude.capacity).toBe(5);
+  expect(claude.capacity).toBe(2);
   expect(() => open.reserveChildResources({ parentTaskId: "parent", expectedRootRunId: "parent", childRunId: "second", executionId: "e2",
     requestedTurns: 1, now })).toThrow("1 at once / 2 in total");
   const pinned = start("parent", team({ modelLocked: true }));

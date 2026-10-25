@@ -23,7 +23,8 @@ test("both locales show the shared budget, the frozen helper limits and member p
       expect(html).toContain('hidden=""');
       expect(html).toContain('role="meter"');
       expect(html).toContain('aria-valuemax="40"');
-      expect(html).toContain('aria-valuenow="23"');
+      // The meter's value is the spent turns; held start turns are in its text.
+      expect(html).toContain('aria-valuenow="3"');
       // Reservations occupy half the extended budget; they are not spent turns.
       expect(html).toContain('width:50%');
       expect(html).toContain(locale === "en" ? "pinned" : "고정");
@@ -44,4 +45,20 @@ test("an allocated budget distinguishes working helpers from an exhausted budget
   const exhausted = renderToStaticMarkup(createElement(RunTeamLimits, { resources: { ...resources, spent: 30, reserved: 0, activeHelpers: 0 } }));
   expect(exhausted).toContain(i18n.t("agentRuns:teamLimits.exhausted"));
   expect(exhausted).not.toContain(i18n.t("agentRuns:teamLimits.allAllocated"));
+});
+
+test("the near-limit warning follows spent turns, not a helper's held start turns", () => {
+  const policy = AdaptiveRunPolicySchema.parse({ version: 2, profile: "balanced", providerId: "codex", allowedModels: ["gpt-6.1-sol"],
+    modelLocked: false, effortLocked: false, initialEffort: null, teamTurns: 10,
+    concurrentHelpers: 3, totalHelpers: 8, parentReserve: 1, maxChanges: 2, cooldownTurns: 2 });
+  const headroomClass = (spent: number, reserved: number) => {
+    const html = renderToStaticMarkup(createElement(RunTeamLimits, { resources: { rootRunId: "root", policy, teamTurns: 10,
+      spent, reserved, remaining: 10 - spent - reserved, helpersLaunched: 3, activeHelpers: reserved ? 3 : 0, reservations: [] } }));
+    return /<span class="([^"]*)">[^<]*left<\/span>/.exec(html)?.[1];
+  };
+  const calm = headroomClass(1, 0);
+  expect(calm).toBeDefined();
+  // Three helpers hold six start turns: two turns are left, but only one is spent.
+  expect(headroomClass(1, 6)).toBe(calm);
+  expect(headroomClass(8, 0)).not.toBe(calm);
 });
