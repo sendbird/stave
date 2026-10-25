@@ -20,7 +20,8 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
     reserved: formatNumber(resources.reserved), remaining: formatNumber(resources.remaining),
     active: formatNumber(resources.activeHelpers), launched: formatNumber(resources.helpersLaunched),
     concurrent: formatNumber(resources.policy.concurrentHelpers), totalHelpers: formatNumber(resources.policy.totalHelpers) };
-  const nearLimit = resources.remaining <= resources.teamTurns * 0.2;
+  // Near the limit means spent turns: a helper's held start turns are not used up.
+  const nearLimit = resources.teamTurns - resources.spent <= resources.teamTurns * 0.2;
   const segments = [
     { key: "used" as const, value: resources.spent, style: metrics.used },
     { key: "reserved" as const, value: resources.reserved, style: metrics.reserved },
@@ -35,7 +36,7 @@ export function RunTeamLimits({ resources }: { resources: AgentResourceSnapshot 
       </span>
     </div>
     <div className={sx(metrics.track)} role="meter" aria-label={i18n.t("agentRuns:teamLimits.sharedTurns")}
-      aria-valuemin={0} aria-valuemax={resources.teamTurns} aria-valuenow={resources.spent + resources.reserved}
+      aria-valuemin={0} aria-valuemax={resources.teamTurns} aria-valuenow={resources.spent}
       aria-valuetext={i18n.t("agentRuns:teamLimits.budget", values)}>
       {segments.map(({ key, value, style }) => <span key={key} aria-hidden
         className={sx(metrics.segment, style, nearLimit && key === "used" && metrics.warning)}
