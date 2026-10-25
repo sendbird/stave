@@ -318,8 +318,9 @@ limits (including failed preparation/retries). Reservation and release require
 exact root/child/execution identity. A reservation holds at most
 `TEAM_LIMITS.helperStartTurns` (2) start turns; each later child attempt draws
 one unit from the root budget at dispatch while more than the parent's one
-integration turn remains. A child that cannot draw stops with
-`turn-cap-reached`. Unused held turns return on exact settlement; spent attempts
+integration turn remains. A child's attempts, its replies included, never
+exceed its own `maxTurns`. A child that cannot take another attempt, on a
+dispatch or on a reply, stops with `turn-cap-reached`. Unused held turns return on exact settlement; spent attempts
 stay spent. A root report predating final helper
 settlement requires a fresh AI integration turn/report. Budget exhaustion leaves
 unfinished work stuck or stopped, never accepted. Root cancellation cancels

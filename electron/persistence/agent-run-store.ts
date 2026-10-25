@@ -178,6 +178,9 @@ function parseEach<Row, Value>(rows: Row[], parse: (row: Row) => Value, label: s
   return values;
 }
 
+/** Why a helper of a team cannot start one more turn; see `AgentRunStore.helperTurnRefusal`. */
+export type HelperTurnRefusal = "own-cap" | "shared-budget" | "unavailable";
+
 export class AgentRunStore {
   private readonly db: AgentRunDatabase;
 
@@ -635,14 +638,30 @@ export class AgentRunStore {
       const snapshot = this.readResources(agentRunId)!;
       const root = this.getAgentRun(snapshot.rootRunId);
       if (!root || root.state !== "running") return false;
-      const reservation = config.link && snapshot.reservations.find((row) => row.reservationId === config.link!.reservationId);
-      if (config.link ? !reservation || reservation.released ||
-          (reservation.consumed >= reservation.capacity && snapshot.remaining <= snapshot.policy.parentReserve) :
+      if (config.link ? this.helperTurnRefusal(agentRunId) !== null :
         snapshot.remaining < 1 || (snapshot.activeHelpers > 0 && snapshot.remaining <= snapshot.policy.parentReserve)) return false;
       this.writeEvent(snapshot.rootRunId, { kind: "resource-budget", idempotencyKey: key,
         detail: { operation: "consume", ownerRunId: agentRunId, reservationId: config.link?.reservationId ?? null } }, now);
       return true;
     });
+  }
+
+  /**
+   * Why a helper cannot start one more turn, or null when it can. `own-cap`:
+   * its turns, replies included (its turn count leaves them out), reached its
+   * own max turns. `shared-budget`: past its held start turns, only the
+   * parent's integration turn is left. `unavailable`: its parent is not
+   * running or its reservation is gone, which ends nothing by itself.
+   */
+  helperTurnRefusal(agentRunId: string): HelperTurnRefusal | null {
+    const link = this.resourceConfig(agentRunId)?.link;
+    if (!link) return "unavailable";
+    const snapshot = this.readResources(agentRunId)!;
+    const reservation = snapshot.reservations.find((row) => row.reservationId === link.reservationId);
+    const own = this.getAgentRun(agentRunId), root = this.getAgentRun(snapshot.rootRunId);
+    if (!reservation || reservation.released || !own || !root || root.state !== "running") return "unavailable";
+    if (reservation.consumed >= own.maxTurns) return "own-cap";
+    return reservation.consumed < reservation.capacity || snapshot.remaining > snapshot.policy.parentReserve ? null : "shared-budget";
   }
 
   /** Terminal settlement releases only unused capacity; consumed attempts are never refunded. */

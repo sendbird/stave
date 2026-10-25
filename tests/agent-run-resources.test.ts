@@ -14,8 +14,8 @@ function create(store: AgentRunStore, id: string, resources = true) {
 }
 function setup() { const store = new AgentRunStore(new Database(":memory:"));create(store,"parent");return store; }
 /** A helper run admitted under `link`. */
-function child(store: AgentRunStore, id: string, link: object) {
-  const change=createAgentRun({id,input:buildAgentRunStartInput({workspaceId:"ws",taskId:id,agent:{name:"Helper"},assignment:"Review",now}),repositoryPath:"/tmp/repo",fingerprint:{providerId:"codex",model:"gpt-6.1-sol"},now});
+function child(store: AgentRunStore, id: string, link: object, maxTurns = 30) {
+  const change=createAgentRun({id,input:buildAgentRunStartInput({workspaceId:"ws",taskId:id,agent:{name:"Helper",tools:{maxTurns}},assignment:"Review",now}),repositoryPath:"/tmp/repo",fingerprint:{providerId:"codex",model:"gpt-6.1-sol"},now});
   Object.assign(change.events[0]!,{idempotencyKey:`${id}:start`,detail:{...change.events[0]!.detail,resources:policy,resourceLink:link}});store.create(change,now);
 }
 /** Turns a run starts until the budget refuses one. */
@@ -40,6 +40,13 @@ test("helpers asking for the default 30 turns work at once, draw from one budget
   s.releaseResourceReservation(a.link,now);s.releaseResourceReservation(b.link,now);
   expect(s.consumeResourceTurn("parent","p2",now)).toBe(true);
   expect(s.readResources("parent")).toMatchObject({spent:30,remaining:0,activeHelpers:0});
+});
+test("a helper drawing from the shared budget never passes its own max turns, replies included", () => {
+  const s=setup();
+  const a=s.reserveChildResources({parentTaskId:"parent",expectedRootRunId:"parent",childRunId:"a",executionId:"ea",requestedTurns:3,now})!;
+  child(s,"a",a.link,3);
+  expect(drain(s,"a")).toBe(3);
+  expect(s.readResources("parent")).toMatchObject({spent:3,reserved:0,remaining:27,activeHelpers:1});
 });
 test("exact child consumption and release survive store reconstruction without double charging", () => {
   const db=new Database(":memory:"),s=new AgentRunStore(db);create(s,"parent");

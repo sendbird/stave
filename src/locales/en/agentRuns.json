@@ -893,7 +893,7 @@
     "route": "Provider: {{provider}} · model: {{model}} · effort: {{effort}}. At most 2 changes, with 2 turns between changes.",
     "pinned": "pinned",
     "eligible": "can change",
-    "boundary": "The budget counts this run's turns and its helper Agents' turns; a turn that fails to start still counts, and your replies in a stage do not. A helper holds its first turns and draws the rest as it works, leaving one turn for this run to integrate its results. When the budget runs out, the run halts at its limit and Extend adds turns. Billing is reported separately; missing cost stays unknown."
+    "boundary": "The budget counts this run's turns and its helper Agents' turns; a turn that fails to start still counts. Your replies in the main run's stages do not count; replies to a helper Agent do. A helper holds its first turns and draws the rest as it works, up to its own max turns, leaving one turn for the main run to integrate its results. When the budget runs out, the run halts at its limit and Extend adds turns. Billing is reported separately; missing cost stays unknown."
   },
   "pullRequestWatch": {
     "stopUnreadable_one": "GitHub could not be read {{count}} time in a row, so this watch stopped. Last error: {{error}}",

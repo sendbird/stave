@@ -199,7 +199,7 @@ type AgentRunStorePort = Pick<
   | "listRecentAgentRuns"
   | "listRecentEvents"
   | "listEventsByKind"
-> & Partial<Pick<AgentRunStore, "resourceConfig" | "readResources" | "reserveChildResources" | "consumeResourceTurn" | "releaseResourceReservation">>;
+> & Partial<Pick<AgentRunStore, "resourceConfig" | "readResources" | "reserveChildResources" | "consumeResourceTurn" | "releaseResourceReservation" | "helperTurnRefusal">>;
 
 export interface AgentRunTurnRow {
   id: string;
@@ -1122,6 +1122,23 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
     return saved;
   }
 
+  /**
+   * A helper that cannot take another turn because it reached its own max
+   * turns (replies included) or only the parent's integration turn is left
+   * ends at its cap, as at its own max turns: its parent reads a finished
+   * child. A paused parent or a released reservation ends nothing here.
+   */
+  function stopHelperOutOfTurns(aggregate: AgentRunAggregate): boolean {
+    const refusal = store.helperTurnRefusal?.(aggregate.agentRun.id);
+    if (refusal !== "own-cap" && refusal !== "shared-budget") return false;
+    stopAtTurnCap(aggregate, refusal === "own-cap" ? i18n.t("agentRuns:policy.detail", { value1: aggregate.agentRun.maxTurns }) : i18n.t("agentRuns:policy.helperTeamDetail"));
+    return true;
+  }
+
+  function stopAtTurnCap(aggregate: AgentRunAggregate, detail: string) {
+    applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "stop", reason: "turn-cap-reached", detail } }));
+  }
+
   async function markStartFailure(agentRunId: string, detail: string) {
     const aggregate = store.getAggregate(agentRunId);
     if (!aggregate || !isActiveAgentRunState(aggregate.agentRun.state)) return;
@@ -1325,14 +1342,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       await markStartFailure(agentRun.id, "Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers."); return;
     }
     if (resources && !store.consumeResourceTurn?.(agentRun.id, turnKey, now())) {
-      // A helper that used its start turns when the team has no turn left past the parent's ends at its cap,
-      // as at its own max turns: its parent reads a finished child.
-      const held = resources.link ? store.readResources?.(agentRun.id)?.reservations.find((row) => row.reservationId === resources.link!.reservationId) : undefined;
-      if (held && !held.released && held.consumed >= held.capacity) {
-        applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "stop", reason: "turn-cap-reached",
-          detail: i18n.t("agentRuns:policy.helperTeamDetail") } }));
-        return;
-      }
+      if (resources.link && stopHelperOutOfTurns(aggregate)) return;
       await markStartFailure(agentRun.id, "The shared turn budget is unavailable. Wait for helpers to finish or stop one, or start a new Run.");
       return;
     }
@@ -2007,8 +2017,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       // A person's reply in a primary run is not an automatic turn: like the run's own turn count, the
       // shared budget leaves it out, so it is never refused for helpers' turns. The automatic turns
       // after it still count. A delegated run's reply comes through its parent and draws on the budget.
-      if (resources?.link && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now()))
-        refuse("This helper used its start turns and the team's shared turns ran out. Let the parent continue, or stop the helper.");
+      if (resources?.link && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) {
+        if (stopHelperOutOfTurns(aggregate)) refuse("This helper has no turns left, so it ended at its limit; its parent continues with what it finished.");
+        refuse("This helper cannot take the reply right now. Resume its parent run, or stop the helper.");
+      }
       const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
       // Recorded only once the reply is admitted, before it links, as a supervised dispatch does.
       if (adaptive?.composerDecision)
@@ -2262,7 +2274,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           workflowStageAt(agentRun, agentRun.currentStageIndex).kind !== "ai" || !["blocked", "stuck"].includes(record.status) ||
           !feedback || feedback.length > AGENT_RUN_LIMITS.maxFeedbackChars)
         refuse("Reply to an active blocked delegated AI stage with bounded guidance.");
-      if (agentRun.turnCount >= agentRun.maxTurns) refuse("The delegated Agent has reached its turn limit. Retry with a new assignment.");
+      // A blocked delegated run at its cap cannot continue: it ends there, so its parent reads a finished child.
+      if (agentRun.turnCount >= agentRun.maxTurns) {
+        stopAtTurnCap(aggregate, i18n.t("agentRuns:policy.detail", { value1: agentRun.maxTurns }));
+        refuse("The delegated Agent reached its turn limit and ended; its parent continues with what it finished. Retry with a new assignment to continue the work.");
+      }
       const snapshot = await readSnapshot(agentRun);
       if (!snapshot.exists || snapshot.archived || snapshot.providerId !== agentRun.fingerprint.providerId)
         refuse("The delegated task is unavailable or its provider changed. Stop or retry the delegation.");
