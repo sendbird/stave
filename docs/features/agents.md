@@ -462,11 +462,16 @@ Every Agent run on a Claude or Codex task starts with team limits; there is
 nothing to turn on. The Run panel's **Team limits** section shows them.
 
 - **Shared turns.** The Agent's max turns (30 by default, up to 100) are the
-  whole team's: the run's own turns, the turns of the helper Agents it calls
-  and your replies in a stage all count, and a turn that fails to start still
-  counts. When they run out the run halts with **Limit reached**; **Extend**
-  adds turns, and the shared budget grows with them. While helpers work, one
-  turn stays reserved so the run can integrate their results.
+  whole team's: the run's own turns and the turns of the helper Agents it
+  calls count, and a turn that fails to start still counts. Your replies in a
+  stage do not. When they run out the run halts with **Limit reached**;
+  **Extend** adds turns, and the shared budget grows with them.
+- **Helpers draw as they work.** A helper holds its first two turns when it
+  starts and takes each later turn from the shared budget as it starts, up to
+  its own max turns. Helpers therefore work side by side instead of the first
+  one holding the rest. One turn always stays free so the run can integrate
+  their results; a helper that would need it ends at its limit, and the run
+  reads what it finished.
 - **Helper Agents.** A run can have 3 helper Agents working at once and call 8
   in total. Change both in **Settings → Providers → Delegated tasks**; a run keeps the
   numbers it started with. These count saved Agents that work to completion

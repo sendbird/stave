@@ -8,7 +8,7 @@ export function teamLimitsContextPart(policy: AdaptiveRunPolicy, budget: AgentRe
     content: JSON.stringify({ limits, helperLimits: { atOnce: policy.concurrentHelpers, total: policy.totalHelpers },
       provider: policy.providerId, modelPinned: policy.modelLocked, effortPinned: policy.effortLocked, allowedModels: policy.allowedModels,
       currentTurnKey: turnKey,
-      instruction: "Complete and verify this stage within the shared turn budget. A supervised saved-Agent helper reserves turns from it; one-turn and detached helpers do not. "
+      instruction: "Complete and verify this stage within the shared turn budget. A supervised saved-Agent helper holds its first turns and draws later turns from it as it works, always leaving one turn for you to integrate; one-turn and detached helpers and the user's replies do not draw on it. "
         + (helperKeepsParentProvider(policy) ? "Helpers stay on this run's provider. " : "A helper Agent may run on its own provider. ")
         + "Read stave_get_agent_run for linked stage turn ids. If another same-provider model or effort is justified by these turns, propose it with stave_request_agent_resources for the next turn. When the user explicitly asks for a model or effort, propose it at once with reason user-request, citing the turn where they asked. Permissions and pinned settings do not change. Environment/permission failures are blockers, not capability escalation evidence." }) };
 }

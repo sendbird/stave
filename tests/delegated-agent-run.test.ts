@@ -485,7 +485,9 @@ test("adaptive saved helpers share the parent budget while resource changes reta
   const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol" });
   const id = child.agentRunId!;
   expect(h.runs.resourceConfig(id)?.link?.rootRunId).toBe("root");
-  expect(h.runs.readResources("root")).toMatchObject({ spent: 1, helpersLaunched: 1, activeHelpers: 1, remaining: 1 });
+  // The helper holds its start turns and keeps its own max turns; the rest of the budget stays shared.
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 1, reserved: 1, helpersLaunched: 1, activeHelpers: 1, remaining: 28 });
+  expect(h.runs.getAggregate(id)?.agentRun.maxTurns).toBe(30);
   expect(h.runs.resourceConfig(id)?.policy).toMatchObject({ providerId: "codex", modelLocked: true, effortLocked: false });
   await h.runtime.requestResources({ agentRunKey: "turn-1", request: { effort: "high", reason: "capability-mismatch",
     rationale: "The linked review turn needs deeper reasoning.", evidenceRefs: ["turn-1"] } });
@@ -495,6 +497,32 @@ test("adaptive saved helpers share the parent budget while resource changes reta
   await h.report("turn-2"); h.end("turn-2"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
   expect((await h.coordinator.get(child))?.phase).toBe("completed");
   expect(h.runs.readResources("root")).toMatchObject({ spent: 2, reserved: 0, activeHelpers: 0, helpersLaunched: 1 });
+});
+
+test("a helper past its start turns draws each further turn from the shared budget", async () => {
+  const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol" });
+  const id = child.agentRunId!, at = new Date("2026-10-09T00:00:00Z");
+  expect(h.runs.consumeResourceTurn(id, "second-held-turn", at)).toBe(true);
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 2, reserved: 0, remaining: 28 });
+  h.end("turn-1"); await h.runtime.requestTick();
+  expect(h.calls).toHaveLength(2);
+  expect(h.runs.readResources("root")).toMatchObject({ spent: 3, reserved: 0, remaining: 27, activeHelpers: 1 });
+  await h.coordinator.stop({ parentTaskId: "parent", delegationKey: "assignment" }); await h.coordinator.waitForInFlight();
+});
+
+test("a helper ends at its cap when only the parent's integration turn is left", async () => {
+  const h = harness("codex", { adaptive: true }), child = await h.start({ model: "gpt-6-sol" });
+  const id = child.agentRunId!, at = new Date("2026-10-09T00:00:00Z");
+  expect(h.runs.consumeResourceTurn(id, "second-held-turn", at)).toBe(true);
+  for (let turn = 0; h.runs.consumeResourceTurn("root", `root-${turn}`, at); turn++) if (turn > 40) throw new Error("The parent was never refused.");
+  expect(h.runs.readResources("root")).toMatchObject({ remaining: 1, activeHelpers: 1 });
+  h.end("turn-1"); await h.runtime.requestTick(); await h.coordinator.waitForInFlight();
+  expect(h.calls).toHaveLength(1);
+  expect(h.runs.getAggregate(id)?.agentRun).toMatchObject({ state: "stopped", stopReason: "turn-cap-reached" });
+  expect((await h.coordinator.get(child))?.phase).toBe("failed");
+  // The parent keeps its turn to integrate what the helper did.
+  expect(h.runs.readResources("root")).toMatchObject({ remaining: 1, reserved: 0, activeHelpers: 0 });
+  expect(h.runs.consumeResourceTurn("root", "integrate", at)).toBe(true);
 });
 
 test("a parent ending while idle child creation is pending cannot activate a zombie helper", async () => {

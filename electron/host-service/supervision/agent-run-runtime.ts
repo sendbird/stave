@@ -1325,7 +1325,15 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       await markStartFailure(agentRun.id, "Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers."); return;
     }
     if (resources && !store.consumeResourceTurn?.(agentRun.id, turnKey, now())) {
-      await markStartFailure(agentRun.id, "The shared turn budget is unavailable. Finish or stop helpers to release unused reservations, or start a new Run.");
+      // A helper that used its start turns when the team has no turn left past the parent's ends at its cap,
+      // as at its own max turns: its parent reads a finished child.
+      const held = resources.link ? store.readResources?.(agentRun.id)?.reservations.find((row) => row.reservationId === resources.link!.reservationId) : undefined;
+      if (held && !held.released && held.consumed >= held.capacity) {
+        applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "stop", reason: "turn-cap-reached",
+          detail: i18n.t("agentRuns:policy.helperTeamDetail") } }));
+        return;
+      }
+      await markStartFailure(agentRun.id, "The shared turn budget is unavailable. Wait for helpers to finish or stop one, or start a new Run.");
       return;
     }
     if (adaptive?.decision) recordEvent(agentRun, { kind: "resource-decision", idempotencyKey: `${agentRun.id}:resource-decision:${adaptive.requestSequence ?? `auto:${agentRun.turnCount}`}`, detail: adaptive.decision });
@@ -1996,16 +2004,11 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           snapshot: observed.quota.snapshot, now: now().getTime() }) !== null || observed?.catalog?.catalog.ok === false ||
           (adaptive && observed?.catalog?.catalog.ok && observed.catalog.catalog.models.length > 0 && !observed.catalog.catalog.models.some((entry) => entry.model === adaptive.model))))
         refuse("Cached account observations report this provider unavailable. Refresh it and retry; this Run cannot switch providers.");
-      if (resources && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now())) {
-        // A run that used its last shared turn while blocked on a question halts at its limit, so Extend is offered.
-        const budget = store.readResources?.(run.id);
-        if (budget && !resources.link && budget.policy.version === 2 && budget.activeHelpers === 0 && budget.remaining < 1) {
-          applyChange(applyAgentRunDecision({ aggregate, now: now(), decision: { action: "pause", reason: "limit-reached",
-            detail: i18n.t("agentRuns:policy.teamDetail", { value1: budget.teamTurns }) } }));
-          refuse("This run used all its shared turns. Extend it, then send your reply again.");
-        }
-        refuse("The run's shared turn budget cannot take this reply. Extend the run or stop a helper first.");
-      }
+      // A person's reply in a primary run is not an automatic turn: like the run's own turn count, the
+      // shared budget leaves it out, so it is never refused for helpers' turns. The automatic turns
+      // after it still count. A delegated run's reply comes through its parent and draws on the budget.
+      if (resources?.link && !store.consumeResourceTurn?.(run.id, `${run.id}:user-reply:${turnId}`, now()))
+        refuse("This helper used its start turns and the team's shared turns ran out. Let the parent continue, or stop the helper.");
       const agentRunStage = { agentRunId: run.id, stageId: record.stageId, attempt: record.attempt };
       // Recorded only once the reply is admitted, before it links, as a supervised dispatch does.
       if (adaptive?.composerDecision)

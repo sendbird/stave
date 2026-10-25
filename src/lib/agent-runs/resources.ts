@@ -36,6 +36,12 @@ export const TEAM_LIMITS = {
   totalHelpers: { default: 8, min: 1, max: 20 },
   /** `AGENT_RUN_LIMITS.maxTurnsCeiling`; `domain.ts` imports this module, so the value is not imported back. */
   maxTeamTurns: 100,
+  /**
+   * Turns a helper holds when it starts: its first turn and one reminder.
+   * Later turns draw from the shared budget as they start, so one helper never
+   * holds turns another helper or the parent could use.
+   */
+  helperStartTurns: 2,
 } as const;
 export type TeamLimitKey = "concurrentHelpers" | "totalHelpers";
 
@@ -108,6 +114,11 @@ export const AgentResourceRequestObjectSchema = z.object({
 export const AgentResourceRequestSchema = AgentResourceRequestObjectSchema.refine((request) => Boolean(request.model || request.effort), "Request a model or effort change.");
 export type AgentResourceRequest = z.infer<typeof AgentResourceRequestSchema>;
 
+/**
+ * A helper's admission. `capacity` is the turns it holds from the start; a
+ * helper that used them draws each further turn from the shared budget.
+ * Reservations saved before that change hold up to 30 turns and still parse.
+ */
 const ReservationSchema = z.object({
   reservationId: Id, executionId: Id, childRunId: Id,
   capacity: z.number().int().min(1).max(30),
@@ -160,7 +171,8 @@ export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPoli
         if (value.ownerRunId !== rootRunId) throw new Error("The root admission belongs to another Run.");
       } else {
         const reservation = reservations.get(value.reservationId);
-        if (!reservation || reservation.released || reservation.childRunId !== value.ownerRunId || reservation.consumed >= reservation.capacity)
+        // Turns past the held capacity were drawn from the shared budget when they started.
+        if (!reservation || reservation.released || reservation.childRunId !== value.ownerRunId)
           throw new Error("The child admission does not match its live reservation.");
         reservation.consumed += 1;
       }
@@ -172,7 +184,7 @@ export function projectResourceBudget(rootRunId: string, policy: AdaptiveRunPoli
     }
   }
   const rows = [...reservations.values()];
-  const reserved = rows.filter((row) => !row.released).reduce((sum, row) => sum + row.capacity - row.consumed, 0);
+  const reserved = rows.filter((row) => !row.released).reduce((sum, row) => sum + Math.max(0, row.capacity - row.consumed), 0);
   if (spent + reserved > teamTurns) throw new Error("The saved resource budget exceeds its limit.");
   return { rootRunId, policy, teamTurns, spent, reserved, remaining: teamTurns - spent - reserved,
     helpersLaunched: rows.length, activeHelpers: rows.filter((row) => !row.released).length, reservations: rows };

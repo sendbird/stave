@@ -1839,26 +1839,29 @@ describe("Agent run team limits", () => {
     await h.runtime.retryStage({ agentRunId: id, stageId: "draft", attempt: 1 }); await h.tick();
     expect(h.store.listEventsByKind(id, ["resource-decision"])).toHaveLength(1);
   });
-  test("budget refusal prevents native dispatch and never reports completion", async () => {
+  test("budget refusal prevents native dispatch and never reports completion, and a person's reply still continues", async () => {
     const h = createHarness({ extra: { freezeResources: () => policy("claude-code", { teamTurns: 1 }) } });
     const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     h.endTurn("turn-1"); await h.tick();
     expect(h.runCalls).toHaveLength(1);
     expect(h.current(id).status).toBe("stuck");
     expect(h.aggregate(id).agentRun.state).toBe("running");
-    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })).toThrow("budget");
+    // A person's reply spends no shared turn, so the spent budget does not refuse it.
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })).not.toBeNull();
+    expect(h.store.readResources(id)?.spent).toBe(1);
   });
-  test("replies deduplicate against the same team budget", async () => {
+  test("a person's reply in a primary run spends no shared turn", async () => {
     const h = createHarness({ extra: { freezeResources: () => policy("claude-code") } });
     const id = await startedAgentRun(h, startInput({ origin: "agent" }));
     h.endTurn("turn-1");
     const reply = { taskId: "task-1", turnId: "user-reply" };
-    h.runtime.prepareUserTurn(reply); h.runtime.prepareUserTurn(reply);
-    expect(h.store.readResources(id)?.spent).toBe(2);
+    expect(h.runtime.prepareUserTurn(reply)).not.toBeNull(); h.runtime.prepareUserTurn(reply);
+    expect(h.store.readResources(id)?.spent).toBe(1);
+    expect(h.store.listEventsByKind(id, ["turn-linked"]).filter((event) => event.detail.turnId === "user-reply")).toHaveLength(1);
     await h.runtime.pause({ agentRunId: id });
-    // A paused run takes no reply: the user's message is a plain turn outside the run and its budget.
+    // A paused run takes no reply: the user's message is a plain turn outside the run.
     expect(h.runtime.prepareUserTurn({ ...reply, turnId: "new-reply" })).toBeNull();
-    expect(h.store.readResources(id)?.spent).toBe(2);
+    expect(h.store.readResources(id)?.spent).toBe(1);
   });
   const rememberCodexEfforts = (account: string, efforts: string[]) => rememberAdaptiveCatalog(account, {
     providerId: "codex", ok: true, detail: "Observed model support",
@@ -1914,7 +1917,8 @@ describe("Agent run team limits", () => {
     rememberCodexEfforts(account, ["medium", "ultra"]);
     expect(h.runtime.prepareUserTurn({ taskId: "task-1", providerId: "codex", turnId: "restored-reply" })?.runtimeOptions)
       .toMatchObject({ codexReasoningEffort: "ultra", codexAccountProfileId: account });
-    expect(h.store.readResources(id)?.spent).toBe(2);
+    // The admitted reply is a person's turn: it spends no shared turn.
+    expect(h.store.readResources(id)?.spent).toBe(1);
   });
 });
 
@@ -2031,34 +2035,47 @@ describe("team limits by default", () => {
     expect(h.store.readResources(start.agentRun.id)).toBeNull();
   });
 
-  test("a spent budget halts the run at its limit, and Extend raises it with the max turns", async () => {
-    const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 2 }) } });
-    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 2 }));
-    h.endTurn("turn-1");
-    // The user's reply in the stage spends the second shared turn.
-    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "user-reply" })).not.toBeNull();
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 2, spent: 2, remaining: 0 });
-    await h.tick();
-    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 1 });
-    expect(h.runCalls).toHaveLength(1);
-    await h.runtime.extend({ agentRunId: id });
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 12, remaining: 10 });
-    await h.tick();
+  /** A helper of the run that spent `turns` shared turns and finished. */
+  function spendHelperTurns(h: ReturnType<typeof createHarness>, rootId: string, turns: number) {
+    const reservation = h.store.reserveChildResources({ parentTaskId: "task-1", expectedRootRunId: rootId, childRunId: "helper", executionId: "exec",
+      requestedTurns: 30, now: new Date(START) })!;
+    const change = createAgentRun({ id: "helper", input: startInput({ leadTaskId: "helper-task", origin: "agent" }), repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" }, now: new Date(START) });
+    change.events[0]!.detail = { ...change.events[0]!.detail, resources: teamPolicy(), resourceLink: reservation.link };
+    change.events[0]!.idempotencyKey = "helper:started";
+    h.store.create(change, new Date(START));
+    for (let turn = 1; turn <= turns; turn++) expect(h.store.consumeResourceTurn("helper", `helper-${turn}`, new Date(START))).toBe(true);
+    h.store.releaseResourceReservation(reservation.link, new Date(START));
+  }
+
+  test("helpers' turns halt the run at its limit, and Extend raises it with the max turns", async () => {
+    const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 3 }) } });
+    const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 3 }));
+    spendHelperTurns(h, id, 1);
+    await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+    h.endTurn("turn-1"); await h.tick(); await h.tick();
     expect(h.runCalls).toHaveLength(2);
-    expect(h.store.readResources(id)?.spent).toBe(3);
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 3, spent: 3, remaining: 0 });
+    h.endTurn("turn-2"); await h.tick();
+    // The run's own turns are under its max turns; the helper's turn spent the shared rest.
+    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached", turnCount: 2 });
+    expect(h.runCalls).toHaveLength(2);
+    await h.runtime.extend({ agentRunId: id });
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 13, remaining: 10 });
+    await h.tick();
+    expect(h.runCalls).toHaveLength(3);
+    expect(h.store.readResources(id)?.spent).toBe(4);
   });
 
-  test("a run blocked on a question on its last shared turn halts at the limit on a reply, then Extend takes it", async () => {
+  test("a run blocked on a question on its last shared turn takes the person's answer", async () => {
     const h = createHarness({ extra: { freezeResources: () => teamPolicy({ teamTurns: 1 }) } });
     const id = await startedAgentRun(h, startInput({ origin: "agent", maxTurns: 1 }));
     await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { missing: "Choose a storage policy", kind: "input" } });
     h.endTurn("turn-1"); await h.tick();
     expect(h.aggregate(id).agentRun.state).toBe("running");
-    expect(() => h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer" })).toThrow("Extend it");
-    expect(h.aggregate(id).agentRun).toMatchObject({ state: "paused", pauseReason: "limit-reached" });
-    await h.runtime.extend({ agentRunId: id });
-    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer-2" })).not.toBeNull();
-    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 11, spent: 2 });
+    expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "answer" })).not.toBeNull();
+    expect(h.aggregate(id).agentRun.state).toBe("running");
+    expect(h.store.readResources(id)).toMatchObject({ teamTurns: 1, spent: 1, remaining: 0 });
   });
 
   test("a version 1 run keeps its frozen budget after Extend", async () => {
@@ -2317,7 +2334,8 @@ describe("run runtime: opt-in account pool", () => {
     expect(h.runCalls[1]!.runtimeOptions.claudeAccountProfileId).toBe(PERSONAL);
     h.endTurn("turn-2");
     expect(h.runtime.prepareUserTurn({ taskId: "task-1", turnId: "reply" })?.runtimeOptions).toMatchObject({ claudeAccountProfileId: PERSONAL });
-    expect(h.store.readResources(id)?.spent).toBe(3);
+    // The person's reply spends no shared turn.
+    expect(h.store.readResources(id)?.spent).toBe(2);
   });
 
   test("every pool account exhausted: wait for the earliest reset, then check the pool in order", async () => {
