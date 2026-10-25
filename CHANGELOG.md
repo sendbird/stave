@@ -1,3 +1,33 @@
+## [0.28.1](https://github.com/sendbird/stave/compare/v0.28.0...v0.28.1) (2026-10-25)
+
+This patch release refines surfaces that shipped in 0.28.0: side questions keep a thread, Review's code view is highlighted and usable at any pane width, the agent run notice becomes one composer line, the Welcome back card leads with one action, and helpers draw shared team turns as they work. It also raises small text to 12px and 4.5:1 contrast and fixes two agent run defects. Its five `feat:` changes refine existing surfaces with no new data format or setting that needs migration, so it ships as a patch.
+
+### Features
+
+- Side questions keep a thread of up to 20 per task in memory; a follow-up sends the three newest answered questions as context. Answers read at the panel's 14px body size and can be copied, retried in place or cleared, and the empty state offers starter questions.
+- Review's code view is syntax highlighted, collapses unchanged runs to three lines of context, pins the file header, and scrolls instead of clipping at or below the 980px stacked breakpoint. The shared diff viewer trims the common head and tail before comparing, so a one-line edit to a 10,000-line file takes about 2 ms instead of 804 ms.
+- The notice before a send that starts an agent run is one composer shelf line (agent, permission, check-in, turn cap) with Details on demand; "Edits without asking" is shown in the warning color.
+- The Welcome back card leads with one status line, using the shared state mark, and one action named for what it does (Show request, Review outputs, See what failed and others). Empty fact rows are left out and long text wraps to two lines.
+- A supervised helper holds only its first two team turns and draws later turns from the shared budget as it starts them, so several helpers can work at once within the default 30 turns. A person's reply in the main run no longer spends a shared turn, and the Team turns warning follows spent turns.
+
+### Fixes
+
+- Small informational text moves from 11px to the 12px caption step and to at least 4.5:1 contrast without changing row, card or chip heights.
+- Starting an agent run no longer switches the right rail to the Task panel; the composer shelf's panel button opens it.
+- A user turn on the lead task that ended failed with no output (for example a reply refused at admission) no longer makes the run continue its stage, resume an expired wait or count as a user reply.
+- A helper's turns, replies included, never exceed its own max turns; a helper at its cap ends with `turn-cap-reached` so its parent reads a finished child.
+
+### Upgrade Notes
+
+- No data migration, setting reset or dependency change. No registered temporary migration expires in this release; `agent-run-adaptive-draft-key` must be removed before 0.29.0.
+
+### Known Limits
+
+- The Electron e2e suite and a packaged desktop upgrade from 0.28.0 were not run for this release. Live multi-helper agent runs were not exercised in a rebuilt app.
+
+### References
+
+- [PR #819](https://github.com/sendbird/stave/pull/819), [PR #820](https://github.com/sendbird/stave/pull/820), [PR #821](https://github.com/sendbird/stave/pull/821), [PR #822](https://github.com/sendbird/stave/pull/822), [PR #823](https://github.com/sendbird/stave/pull/823), [PR #824](https://github.com/sendbird/stave/pull/824), [PR #825](https://github.com/sendbird/stave/pull/825), [PR #826](https://github.com/sendbird/stave/pull/826)
 ## [0.28.0](https://github.com/sendbird/stave/compare/v0.27.4...v0.28.0) (2026-10-24)
 
 This minor release makes Review the one place to check an agent's work, lets Fleet answer approvals and short questions in place, carries a task across restarts, provider switches and time away, and draws agent states, tones and provider marks one way. It also keeps stale renderer state from overwriting transcripts, ends Claude turns held open only by background shells, runs background text turns without tools, and removes six temporary migrations that expired in 0.28.0.
