@@ -148,6 +148,7 @@ import { AgentRunRouteSelectionSchema, projectAgentRunRoutes, type AgentRunRoute
 import { aggregateAgentRunInsights, countRunEvents, type AgentRunInsights } from "../../../src/lib/agent-runs/insights";
 import { agentRunEndCause, extractRunAssignment, hasAgentOrigin } from "../../../src/lib/agent-runs/agent-run";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions, RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
+import type { TurnTerminalReceipt } from "../../../src/lib/providers/turn-terminal-receipt";
 import type { AgentRunPromptProvenance } from "../../../src/types/chat";
 import type { AgentRunStore } from "../../persistence/agent-run-store";
 import type { AgentRunStageGrant } from "../../providers/agent-run-grants";
@@ -205,6 +206,17 @@ export interface AgentRunTurnRow {
   id: string;
   createdAt: string;
   completedAt: string | null;
+  /** How the turn ended; written in the same transaction as `completedAt`. */
+  terminalReceipt?: Pick<TurnTerminalReceipt, "outcome" | "outputObserved"> | null;
+}
+
+/**
+ * A turn that ended failed before any output: the run refused it at admission
+ * (a provider the run cannot switch to, a spent budget) or its provider failed
+ * at once. It never reached the agent.
+ */
+function endedWithoutOutput(row: AgentRunTurnRow): boolean {
+  return Boolean(row.completedAt) && row.terminalReceipt?.outcome === "failed" && row.terminalReceipt.outputObserved === false;
 }
 
 export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies {
@@ -892,16 +904,19 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         messages: [],
       },
     });
+    const ours = turnIdsFor(agentRun.id);
     // The turns table is read directly: a turn the user runs from the
     // composer shows up there before the host's session cache knows it.
+    // A user turn that ended without output (a reply the run refused, a
+    // provider that failed at once) is not a reply: the agent never saw it,
+    // so it must not continue the stage, resume a wait or count as a reply.
     const turns = snapshot.exists
       ? deps.listRecentTurns({
           workspaceId: agentRun.workspaceId,
           taskId: agentRun.leadTaskId,
           limit: RECENT_TURN_LIMIT,
-        })
+        }).filter((row) => ours.has(row.id) || !endedWithoutOutput(row))
       : [];
-    const ours = turnIdsFor(agentRun.id);
     recordEndedUserTurns(agentRun, turns, ours);
     const interrupted = turnIdsFromEvents(interruptedTurnIds, agentRun.id, "turn-interrupted");
     const toObserved = (row: Pick<AgentRunTurnRow, "id" | "createdAt">): ObservedTurn => ({
