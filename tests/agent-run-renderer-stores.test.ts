@@ -7,7 +7,6 @@ import {
   useFleetAgentRunsStore,
 } from "../src/store/fleet-agent-runs-store";
 import {
-  isNewlyStartedAgentRun,
   agentRunTaskKey,
   selectAgentRunFailure,
   selectAgentRunTurnDivider,
@@ -143,25 +142,6 @@ describe("run details in the renderer", () => {
     expect(selectAgentRunTurnDivider(state, "ws-1", "task-1", "turn-1")).toBe("Stage 1 · Understand — run started");
     expect(selectAgentRunTurnDivider(state, "ws-1", "task-1", "turn-9")).toBe("Stage 1 · Understand — run started");
     expect(selectAgentRunTurnDivider(state, "ws-1", "task-1", "turn-unknown")).toBeNull();
-  });
-
-  test("a change event while the workspace is still loading does not count as a run that just started", () => {
-    const event: AgentRunChangedEvent = {
-      agentRunId: "agent-run-1",
-      workspaceId: "ws-1",
-      leadTaskId: "task-1",
-      state: "running",
-      currentStageIndex: 0,
-      updatedAt: at(1),
-    };
-    const loaded = { workspaceId: "ws-1", loadedWorkspaceId: "ws-1", agentRunIdByTask: {} };
-    expect(isNewlyStartedAgentRun(loaded, event)).toBe(true);
-    expect(isNewlyStartedAgentRun({ ...loaded, loadedWorkspaceId: null }, event)).toBe(false);
-    expect(isNewlyStartedAgentRun({ ...loaded, workspaceId: "ws-2", loadedWorkspaceId: "ws-2" }, event)).toBe(false);
-    expect(
-      isNewlyStartedAgentRun({ ...loaded, agentRunIdByTask: { [agentRunTaskKey("ws-1", "task-1")]: "agent-run-1" } }, event),
-    ).toBe(false);
-    expect(isNewlyStartedAgentRun(loaded, { ...event, state: "completed" })).toBe(false);
   });
 
   test("Fleet keeps an ended run for half an hour after it ends, and active ones always", () => {

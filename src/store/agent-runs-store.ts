@@ -24,7 +24,6 @@ import type {
 } from "@/lib/agent-runs/api";
 import { isActiveAgentRunState, latestStageRecord, type AgentRun } from "@/lib/agent-runs/domain";
 import { buildAgentRunTurnDividers, isOlderAgentRunDetail } from "@/lib/agent-runs/agent-run-view";
-import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { hasAgentOrigin } from "@/lib/agent-runs/agent-run";
 import { describeAgentRunStatus, resolveAgentRunFirstPrompt } from "@/lib/agent-runs/agent-run-status";
 import { registerAgentRunBridge } from "@/store/agent-run-send";
@@ -398,23 +397,6 @@ export function useAgentRunForTurn(workspaceId: string, taskId: string, turnId: 
 }
 
 /**
- * Whether a change event announces an agent run that just started, as opposed
- * to one this store has not loaded yet. Until the workspace has loaded,
- * nothing counts as new.
- */
-export function isNewlyStartedAgentRun(
-  state: Pick<AgentRunsState, "workspaceId" | "loadedWorkspaceId" | "agentRunIdByTask">,
-  event: AgentRunChangedEvent,
-): boolean {
-  return (
-    event.state === "running" &&
-    state.workspaceId === event.workspaceId &&
-    state.loadedWorkspaceId === event.workspaceId &&
-    state.agentRunIdByTask[agentRunTaskKey(event.workspaceId, event.leadTaskId)] !== event.agentRunId
-  );
-}
-
-/**
  * Keeps the store on the active workspace and applies host changes. Mount
  * once, near the app root.
  */
@@ -429,20 +411,9 @@ export function useAgentRunSync() {
     return subscribe((event: AgentRunChangedEvent) => {
       const agentRuns = useAgentRunsStore.getState();
       if (event.workspaceId !== agentRuns.workspaceId) return;
-      const started = isNewlyStartedAgentRun(agentRuns, event);
-      void agentRuns.refreshAgentRun(event.agentRunId).then(() => {
-        // An agent run that just started opens its panel on the task in view,
-        // unless the user has moved to another workspace meanwhile.
-        const app = useAppStore.getState();
-        if (
-          started &&
-          useAgentRunsStore.getState().workspaceId === event.workspaceId &&
-          app.activeWorkspaceId === event.workspaceId &&
-          app.activeTaskId === event.leadTaskId
-        ) {
-          app.setLayout({ patch: taskPanelLayoutPatch("progress") });
-        }
-      });
+      // Starting a run does not open the Task panel; the composer shelf's
+      // panel button opens it on demand.
+      void agentRuns.refreshAgentRun(event.agentRunId);
     });
   }, []);
 }
