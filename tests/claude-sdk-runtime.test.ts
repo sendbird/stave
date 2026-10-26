@@ -9,6 +9,7 @@ import {
   claudeAskUserQuestionPreToolUseHook,
   claudeForegroundSubagentPreToolUseHook,
   claudeWebFetchAuthWallPostToolUseHook,
+  claudeWebFetchAuthWallBrowserAttachedPostToolUseHook,
   ClaudeToolDecisionTimeoutError,
   resolveClaudeForegroundSubagentInput,
   resolveClaudeAgentProgressSummaries,
@@ -1361,11 +1362,12 @@ describe("buildClaudeSystemPrompt", () => {
     const joined = buildClaudeSystemPrompt({ cwd: workspaceRoot }).join(
       "\n\n",
     );
-    expect(joined).toContain("interactive primary `@web` turn");
+    expect(joined).toContain("only on interactive primary turns");
     expect(joined).not.toContain("plan mode");
     expect(joined).toContain("unattended automation");
     expect(joined).toContain("secondary read-only analysis");
-    expect(joined).toContain("prompts without `@web`");
+    // Always mode: the model is told it may use Chrome without `@web`.
+    expect(joined).toContain("Chrome tools are available on a turn without `@web`");
   });
 
   test("forbids substituting Lens, in-app, or desktop control for Chrome", () => {
@@ -1667,15 +1669,42 @@ describe("buildClaudeQueryOptions", () => {
       }).hooks?.PostToolUse,
     ).toBeUndefined();
 
-    // Browser already attached: the model can just use it.
-    expect(
-      buildClaudeQueryOptions({
+    // Browser already attached (`@web` or Always mode): point at Chrome
+    // instead of queueing a fallback, whatever the fallback setting says.
+    for (const providerBrowserAutoFallback of [true, false]) {
+      const attached = buildClaudeQueryOptions({
         cwd: workspaceRoot,
         claudeExecutablePath: "",
         providerBrowserRequested: true,
-        providerBrowserAutoFallback: true,
-      }).hooks?.PostToolUse,
-    ).toBeUndefined();
+        providerBrowserAutoFallback,
+      }).hooks?.PostToolUse;
+      expect(attached?.[0]?.matcher).toBe("^WebFetch$");
+      expect(attached?.[0]?.hooks).toEqual([
+        claudeWebFetchAuthWallBrowserAttachedPostToolUseHook,
+      ]);
+    }
+  });
+
+  test("points a browser-attached turn at the Chrome tools after an auth wall", async () => {
+    const blocked = await claudeWebFetchAuthWallBrowserAttachedPostToolUseHook(
+      {
+        hook_event_name: "PostToolUse",
+        session_id: "s1",
+        transcript_path: "/tmp/t",
+        cwd: workspaceRoot,
+        tool_name: "WebFetch",
+        tool_input: { url: "https://wiki.corp.example/page" },
+        tool_response: "Request failed with status code 401",
+        tool_use_id: "t1",
+      },
+      "t1",
+      { signal: new AbortController().signal },
+    );
+    const context = (
+      blocked.hookSpecificOutput as { additionalContext?: string } | undefined
+    )?.additionalContext;
+    expect(context).toContain("mcp__claude-in-chrome__");
+    expect(context).not.toContain("retry with the browser attached afterwards");
   });
 
   test("tells the model to stop re-fetching a blocked host", async () => {

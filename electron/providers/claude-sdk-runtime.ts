@@ -666,36 +666,56 @@ export const claudeAskUserQuestionPreToolUseHook: HookCallback = async (
  * queueing one `@web` follow-up turn once this one ends, so the only useful
  * thing left in *this* turn is to stop fetching and report.
  *
- * Registered only when the provider browser is off for the turn — with `@web`
- * already on, the model has the browser in hand and should just use it.
+ * Registered when the provider browser is off for the turn but automatic
+ * fallback can still act. When the browser is already attached (`@web` or the
+ * Always browser mode), `claudeWebFetchAuthWallBrowserAttachedPostToolUseHook`
+ * points the model at the Chrome tools instead.
  */
-export const claudeWebFetchAuthWallPostToolUseHook: HookCallback = async (
-  input,
-) => {
-  if (
-    input.hook_event_name !== "PostToolUse" ||
-    !isPlainWebFetchToolName(input.tool_name)
-  ) {
-    return {};
-  }
-  const response = input.tool_response;
-  const output =
-    typeof response === "string" ? response : JSON.stringify(response ?? "");
-  if (!isProviderBrowserAuthWallOutput(output)) {
-    return {};
-  }
-  return {
-    hookSpecificOutput: {
-      hookEventName: "PostToolUse",
-      additionalContext:
-        "Stave: that fetch was refused by a login wall or bot check, not by a " +
-        "bad URL. A plain fetch has no signed-in session, so retrying it — or " +
-        "trying a mirror, an API path, or curl — will fail the same way. Stop " +
-        "fetching this host, finish what you can without it, and report what " +
-        "is missing. Stave will retry with the browser attached afterwards.",
-    },
+function createClaudeWebFetchAuthWallPostToolUseHook(
+  additionalContext: string,
+): HookCallback {
+  return async (input) => {
+    if (
+      input.hook_event_name !== "PostToolUse" ||
+      !isPlainWebFetchToolName(input.tool_name)
+    ) {
+      return {};
+    }
+    const response = input.tool_response;
+    const output =
+      typeof response === "string" ? response : JSON.stringify(response ?? "");
+    if (!isProviderBrowserAuthWallOutput(output)) {
+      return {};
+    }
+    return {
+      hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext },
+    };
   };
-};
+}
+
+export const claudeWebFetchAuthWallPostToolUseHook =
+  createClaudeWebFetchAuthWallPostToolUseHook(
+    "Stave: that fetch was refused by a login wall or bot check, not by a " +
+      "bad URL. A plain fetch has no signed-in session, so retrying it — or " +
+      "trying a mirror, an API path, or curl — will fail the same way. Stop " +
+      "fetching this host, finish what you can without it, and report what " +
+      "is missing. Stave will retry with the browser attached afterwards.",
+  );
+
+/**
+ * Same detection for a turn that already has the user's Chrome attached. The
+ * model would otherwise keep varying WebFetch calls, so it is told the
+ * signed-in session it needs is one tool away.
+ */
+export const claudeWebFetchAuthWallBrowserAttachedPostToolUseHook =
+  createClaudeWebFetchAuthWallPostToolUseHook(
+    "Stave: that fetch was refused by a login wall or bot check, not by a " +
+      "bad URL. Do not retry it with WebFetch, a mirror, an API path, or curl. " +
+      "The user's Chrome is attached to this turn: read the page through the " +
+      "`mcp__claude-in-chrome__*` tools using the signed-in session (look them " +
+      "up first if they are deferred). Do not replay writes or inspect " +
+      "credentials; if Chrome cannot reach it either, report that.",
+  );
 
 function summarizeClaudePermissionRequest(args: {
   toolName: string;
@@ -1313,16 +1333,25 @@ export function buildClaudeQueryOptions(args: {
           hooks: [claudeForegroundSubagentPreToolUseHook],
         },
       ],
-      ...(args.providerBrowserRequested || !args.providerBrowserAutoFallback
-        ? {}
-        : {
+      ...(args.providerBrowserRequested
+        ? {
             PostToolUse: [
               {
                 matcher: "^WebFetch$",
-                hooks: [claudeWebFetchAuthWallPostToolUseHook],
+                hooks: [claudeWebFetchAuthWallBrowserAttachedPostToolUseHook],
               },
             ],
-          }),
+          }
+        : args.providerBrowserAutoFallback
+          ? {
+              PostToolUse: [
+                {
+                  matcher: "^WebFetch$",
+                  hooks: [claudeWebFetchAuthWallPostToolUseHook],
+                },
+              ],
+            }
+          : {}),
     },
     ...(args.canUseTool ? { canUseTool: args.canUseTool } : {}),
     ...(!args.secondaryReadOnly && args.onElicitation
@@ -3237,6 +3266,7 @@ export async function streamClaudeWithSdk(
       prompt: args.prompt,
       secondaryReadOnly,
       unattendedAutomation: Boolean(args.unattendedAutomation),
+      alwaysEnabled: args.runtimeOptions?.providerBrowserAlwaysOn === true,
       autoFallbackEnabled:
         args.runtimeOptions?.providerBrowserAutoFallback === true,
       autoFallbackDomains: parseProviderBrowserDomains(

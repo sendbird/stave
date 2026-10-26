@@ -428,6 +428,13 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    */
   providerBrowserAutoFallback: boolean;
   /**
+   * Attach the provider-native browser to every interactive primary turn, so
+   * the agent can open the user's Chrome on its own judgment without `@web`.
+   * Off by default. Unattended automation and secondary read-only runs stay
+   * fail-closed regardless.
+   */
+  providerBrowserAlwaysOn: boolean;
+  /**
    * Extra hosts, beyond Stave's built-in list, that arm the provider browser up
    * front when `providerBrowserAutoFallback` is on. Whitespace- or
    * comma-separated; subdomains of each entry match.
@@ -818,6 +825,7 @@ export const defaultSettings: AppSettings = {
   claudeStrictMcpConfig: false,
   claudeFastMode: false,
   providerBrowserAutoFallback: true,
+  providerBrowserAlwaysOn: false,
   providerBrowserAutoFallbackDomains: "",
   claudeSkills: "",
   claudePluginPaths: "",
