@@ -3,8 +3,8 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ProviderBrowserAccessSettingsCard } from "../src/components/layout/ProviderBrowserAccessSettingsCard";
 
 const fallbackOff = {
-  autoFallback: false,
-  onAutoFallbackChange: () => {},
+  mode: "explicit",
+  onModeChange: () => {},
   autoFallbackDomains: "",
   onAutoFallbackDomainsChange: () => {},
 } as const;
@@ -29,30 +29,33 @@ describe("ProviderBrowserAccessSettingsCard", () => {
   });
 });
 
-describe("ProviderBrowserAccessSettingsCard automatic fallback", () => {
-  test("keeps the extra host list hidden until fallback is enabled", () => {
-    const html = renderToStaticMarkup(
-      <ProviderBrowserAccessSettingsCard {...fallbackOff} />,
-    );
-
-    expect(html).toContain("Automatic browser fallback");
-    expect(html).not.toContain("Additional auto-arm hosts");
+describe("ProviderBrowserAccessSettingsCard browser mode", () => {
+  test("offers all three modes and hides the host list outside Automatic", () => {
+    for (const mode of ["explicit", "always"] as const) {
+      const html = renderToStaticMarkup(
+        <ProviderBrowserAccessSettingsCard {...fallbackOff} mode={mode} />,
+      );
+      expect(html).toContain("When the agent may use Chrome");
+      expect(html).toContain("Only with @web");
+      expect(html).toContain("Automatic");
+      expect(html).toContain("Attaches Chrome to every interactive turn");
+      expect(html).not.toContain("Additional auto-arm hosts");
+    }
   });
 
-  test("shows the built-in hosts alongside the user's own when enabled", () => {
+  test("shows the built-in hosts alongside the user's own in Automatic", () => {
     const html = renderToStaticMarkup(
       <ProviderBrowserAccessSettingsCard
-        autoFallback
-        onAutoFallbackChange={() => {}}
+        {...fallbackOff}
+        mode="auto"
         autoFallbackDomains="wiki.corp.example"
-        onAutoFallbackDomainsChange={() => {}}
       />,
     );
 
     expect(html).toContain("Additional auto-arm hosts");
     expect(html).toContain("claude.ai");
     expect(html).toContain("wiki.corp.example");
-    // The hard blocks must stay stated even with fallback on.
-    expect(html).toContain("never overrides them");
+    // The hard blocks must stay stated in every mode.
+    expect(html).toContain("keep provider-native browser access off in every mode");
   });
 });

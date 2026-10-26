@@ -1064,6 +1064,10 @@
       "label": "Skills",
       "description": "Skill discovery and prompt input suggestions."
     },
+    "mentions": {
+      "label": "Mentions",
+      "description": "What each @ mention does in a prompt, and how far Stave acts without one."
+    },
     "commandPalette": {
       "label": "Command Palette",
       "description": "Global command launcher, shell shortcut chords, and model hotkeys."
@@ -1437,14 +1441,51 @@
     "additionalAutoArmHosts": "Additional auto-arm hosts",
     "commaOrSpaceSeparatedSubdomainsMatch": "Comma- or space-separated; subdomains match. Always included:",
     "browserAccess": "Browser access",
-    "useTheActiveProviderSNative": "Use the active provider's native external Chrome connection to reference existing tabs and signed-in page state. Access is requested by @web or Automatic browser fallback.",
+    "useTheActiveProviderSNative": "Use the active provider's native external Chrome connection to reference existing tabs and signed-in page state.",
     "perPrompt": "Per prompt",
-    "automaticBrowserFallback": "Automatic browser fallback",
-    "withoutAnExplicitWebArmThe": "Enabled by default. Without @web, activate the browser for configured hosts and retry a page read once when a fetch or Lens is blocked by login, missing saved credentials, a bot check, or a browser connection failure.",
     "sendAnInteractivePromptContaining": "Send an interactive prompt containing",
     "chromeAccessIsAttemptedForThat": ". Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
     "alsoKeepsItOff": "also keeps it off.",
-    "connectClaudeCodeSNativeChrome": "Connect Claude Code's native Chrome extension to the profile you want to share, allow access to the target site, then try @web again."
+    "connectClaudeCodeSNativeChrome": "Connect Claude Code's native Chrome extension to the profile you want to share, allow access to the target site, then try @web again.",
+    "mode": {
+      "title": "When the agent may use Chrome",
+      "description": "Unattended automation and secondary analysis never get browser access, whichever mode you pick.",
+      "explicit": {
+        "label": "Only with @web",
+        "description": "Chrome is attached only to a prompt that contains @web."
+      },
+      "auto": {
+        "label": "Automatic",
+        "description": "Also attaches Chrome for listed hosts, and retries once with it when a fetch or Lens read is blocked by a login or bot check."
+      },
+      "always": {
+        "label": "Always",
+        "description": "Attaches Chrome to every interactive turn. The agent opens it on its own when a page needs your signed-in session."
+      }
+    }
+  },
+  "mentionsSection": {
+    "title": "Prompt mentions",
+    "description": "Type @ in the prompt input to add one. Each mention adds context or a capability to that turn only.",
+    "alwaysAvailable": "Always available",
+    "webStatus": {
+      "explicit": "Only with @web",
+      "auto": "Automatic",
+      "always": "Always on"
+    },
+    "web": {
+      "name": "Your Chrome",
+      "description": "Attaches the active provider's native Chrome connection so the agent can read existing tabs and signed-in pages. Choose below whether the agent may use it without @web."
+    },
+    "lens": {
+      "name": "Lens page",
+      "description": "Adds the current Lens page URL and title. The agent can use Lens tools to check this project's UI without @lens.",
+      "action": "Lens settings"
+    },
+    "info": {
+      "name": "Information panel",
+      "description": "Adds a section or item from the workspace Information panel. Use @info:<section> for a whole section or @info:<section>/<item> for one item."
+    }
   },
   "duration": {
     "seconds_one": "{{count}} second",
@@ -1478,7 +1519,7 @@
     "disableConfig": "Disable {{label}}",
     "codexBrowserSetup": "Enable chrome@openai-bundled and unified-computer-use@openai-bundled in the Codex CLI environment used by Stave, connect its Chrome extension, then try @web again.",
     "interactiveBrowser": "Send an interactive prompt containing <code>@web</code>. Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
-    "browserRestrictions": "Unattended automation and secondary analysis keep provider-native browser access off, and automatic fallback never overrides them. With fallback off, a prompt without <code>@web</code> also keeps it off.",
+    "browserRestrictions": "Unattended automation and secondary analysis keep provider-native browser access off in every mode. With Only with @web, a prompt without <code>@web</code> also keeps it off.",
     "tokenName": "Token",
     "invalidRoutingProfile": "Expected an Auto routing profile"
   },

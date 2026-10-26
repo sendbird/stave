@@ -184,6 +184,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeForkSession",
   "claudeStrictMcpConfig",
   "providerBrowserAutoFallback",
+  "providerBrowserAlwaysOn",
   "mcpAppViews",
   "providerBrowserAutoFallbackDomains",
   "claudeFastMode",

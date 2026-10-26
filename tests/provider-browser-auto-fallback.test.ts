@@ -222,6 +222,20 @@ describe("maybeStartProviderBrowserFallbackTurn", () => {
     expect(store.sent).toHaveLength(0);
   });
 
+  test("does not retry a turn that Always mode already attached the browser to", () => {
+    const store = stubStore(true);
+    maybeStartProviderBrowserFallbackTurn(store.getState, {
+      taskId: "task-1",
+      events: [{ type: "done", stop_reason: "end_turn" }],
+      tracker: blockedTracker({
+        prompt: "Read https://unrelated.example/x",
+        runtimeOptions: { providerBrowserAlwaysOn: true },
+      }),
+      session: null,
+    });
+    expect(store.sent).toHaveLength(0);
+  });
+
   test("does not retry providers without a native browser integration", () => {
     for (const providerId of ["cursor", "kiro"] as const) {
       const store = stubStore(true);

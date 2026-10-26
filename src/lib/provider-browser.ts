@@ -95,9 +95,43 @@ export function promptRequestsProviderBrowser(prompt: string) {
 }
 
 /**
+ * How far Stave may go in attaching the provider-native browser on its own.
+ *
+ * - `explicit`: only a prompt containing `@web`.
+ * - `auto`: `@web`, plus hosts known to need a signed-in session up front and
+ *   one retry after a fetch or Lens read is blocked.
+ * - `always`: every interactive primary turn, so the agent decides when to use
+ *   the user's Chrome without being asked.
+ *
+ * Stored as two booleans (`providerBrowserAutoFallback`,
+ * `providerBrowserAlwaysOn`) so the released fallback setting keeps its saved
+ * value; this is the single mapping between the two shapes.
+ */
+export type ProviderBrowserMode = "explicit" | "auto" | "always";
+
+export function resolveProviderBrowserMode(args: {
+  autoFallback: boolean | undefined;
+  alwaysOn: boolean | undefined;
+}): ProviderBrowserMode {
+  if (args.alwaysOn) {
+    return "always";
+  }
+  return args.autoFallback ? "auto" : "explicit";
+}
+
+export function providerBrowserModeSettingsPatch(mode: ProviderBrowserMode) {
+  return {
+    // `always` keeps fallback on so stepping back to `auto` restores it.
+    providerBrowserAutoFallback: mode !== "explicit",
+    providerBrowserAlwaysOn: mode === "always",
+  };
+}
+
+/**
  * Decides whether this turn starts with the provider's native browser attached.
  *
- * Explicit `@web` is still the primary path. `autoFallbackEnabled` is the
+ * `alwaysEnabled` attaches it to every interactive primary turn. Otherwise
+ * explicit `@web` is the primary path, and `autoFallbackEnabled` is the
  * setting that additionally arms the browser when the prompt points at a
  * host known to be unreadable without a signed-in session, so the turn does not
  * have to fail once before the user can get an answer. The two hard blocks
@@ -108,13 +142,14 @@ export function shouldActivateProviderBrowser(args: {
   prompt: string;
   secondaryReadOnly: boolean;
   unattendedAutomation: boolean;
+  alwaysEnabled?: boolean;
   autoFallbackEnabled?: boolean;
   autoFallbackDomains?: readonly string[];
 }) {
   if (args.secondaryReadOnly || args.unattendedAutomation) {
     return false;
   }
-  if (promptRequestsProviderBrowser(args.prompt)) {
+  if (args.alwaysEnabled || promptRequestsProviderBrowser(args.prompt)) {
     return true;
   }
   if (!args.autoFallbackEnabled) {

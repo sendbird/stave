@@ -7,6 +7,8 @@ import {
   parseProviderBrowserDomains,
   promptRequestsProviderBrowser,
   promptTargetsProviderBrowserDomain,
+  providerBrowserModeSettingsPatch,
+  resolveProviderBrowserMode,
   resolveWebFetchToolUrl,
   shouldActivateProviderBrowser,
 } from "@/lib/provider-browser";
@@ -153,6 +155,54 @@ describe("provider browser automatic fallback", () => {
         autoFallbackDomains: ["corp.example"],
       }),
     ).toBe(false);
+  });
+
+  test("Always mode attaches the browser to any interactive prompt", () => {
+    const base = {
+      prompt: "Check the deploy dashboard and tell me what failed",
+      secondaryReadOnly: false,
+      unattendedAutomation: false,
+    };
+    expect(shouldActivateProviderBrowser(base)).toBe(false);
+    expect(
+      shouldActivateProviderBrowser({ ...base, autoFallbackEnabled: true }),
+    ).toBe(false);
+    expect(shouldActivateProviderBrowser({ ...base, alwaysEnabled: true })).toBe(
+      true,
+    );
+    // The hard blocks stay above Always mode too.
+    for (const blocked of [
+      { secondaryReadOnly: true },
+      { unattendedAutomation: true },
+    ]) {
+      expect(
+        shouldActivateProviderBrowser({
+          ...base,
+          alwaysEnabled: true,
+          ...blocked,
+        }),
+      ).toBe(false);
+    }
+  });
+
+  test("maps the browser mode to and from the two stored booleans", () => {
+    for (const mode of ["explicit", "auto", "always"] as const) {
+      const patch = providerBrowserModeSettingsPatch(mode);
+      expect(
+        resolveProviderBrowserMode({
+          autoFallback: patch.providerBrowserAutoFallback,
+          alwaysOn: patch.providerBrowserAlwaysOn,
+        }),
+      ).toBe(mode);
+    }
+    // A saved fallback opt-out from before Always mode existed reads as explicit.
+    expect(
+      resolveProviderBrowserMode({ autoFallback: false, alwaysOn: undefined }),
+    ).toBe("explicit");
+    expect(providerBrowserModeSettingsPatch("always")).toEqual({
+      providerBrowserAutoFallback: true,
+      providerBrowserAlwaysOn: true,
+    });
   });
 
   test("recognizes the plain fetch tools and nothing else", () => {

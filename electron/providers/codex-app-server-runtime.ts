@@ -1763,6 +1763,7 @@ export async function streamCodexWithAppServer(
     prompt: args.prompt,
     secondaryReadOnly,
     unattendedAutomation: Boolean(args.unattendedAutomation),
+    alwaysEnabled: runtimeOptions?.providerBrowserAlwaysOn === true,
     autoFallbackEnabled: runtimeOptions?.providerBrowserAutoFallback === true,
     autoFallbackDomains: parseProviderBrowserDomains(
       runtimeOptions?.providerBrowserAutoFallbackDomains,

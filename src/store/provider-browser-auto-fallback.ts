@@ -196,6 +196,7 @@ export function maybeStartProviderBrowserFallbackTurn<
       prompt: context.prompt,
       secondaryReadOnly: false,
       unattendedAutomation: false,
+      alwaysEnabled: context.runtimeOptions.providerBrowserAlwaysOn,
       autoFallbackEnabled: context.runtimeOptions.providerBrowserAutoFallback,
       autoFallbackDomains: parseProviderBrowserDomains(context.runtimeOptions.providerBrowserAutoFallbackDomains),
     }),

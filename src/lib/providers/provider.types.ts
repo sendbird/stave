@@ -1175,6 +1175,11 @@ export interface ProviderRuntimeOptions {
    */
   providerBrowserAutoFallback?: boolean;
   /**
+   * Provider-agnostic: mirrors the `providerBrowserAlwaysOn` setting so both
+   * runtimes attach the native browser to every interactive primary turn.
+   */
+  providerBrowserAlwaysOn?: boolean;
+  /**
    * Mirrors the `mcpAppViewsEnabled` setting. Codex advertises the MCP Apps UI
    * extension at App Server `initialize` only when this is on, and both Codex
    * and Claude capture a tool's `ui://` view only when it is on.

@@ -1,13 +1,9 @@
 import { RepositoryMemorySettingsSection } from "./RepositoryMemoryControls";
-import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
-import { JiraConnectorSettingsSection } from "@/components/layout/settings-dialog-jira-connector";
-import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
+import { IntegrationsSection } from "./settings-dialog-integrations-section";
 import { IssueTrackerSettingsSection } from "@/components/layout/settings-dialog-issues-section";
 import { SettingsAuxiliaryInferenceSection } from "@/components/layout/settings-dialog-auxiliary-inference-section";
 import { SettingsAutoRoutingSection } from "@/components/layout/settings-dialog-auto-routing-section";
 import { type SectionId } from "@/components/layout/settings-dialog.schema";
-import { sx } from "@/components/ads/utils/stylex";
-import { settingsSectionsStyles as styles } from "./settings-dialog-sections.styles";
 import { type RecentRepositoryState } from "@/store/repository.utils";
 import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
@@ -30,6 +26,7 @@ import { SkillsSection } from "./settings-sections/settings-dialog-skills-sectio
 import { EditorSection } from "./settings-sections/settings-dialog-editor-section";
 import { PromptsSection } from "./settings-sections/settings-dialog-prompts-section";
 import { LensSection } from "./settings-sections/settings-dialog-lens-section";
+import { MentionsSection } from "./settings-sections/settings-dialog-mentions-section";
 import { SecretsSection } from "./settings-dialog-secrets";
 
 export function SettingsDialogSectionContent(args: {
@@ -86,13 +83,7 @@ export function SettingsDialogSectionContent(args: {
     case "mcp":
       return <McpSection />;
     case "integrations":
-      return (
-        <div className={sx(styles.spaceY8)}>
-          <CraneConnectorSettingsSection />
-          <JiraConnectorSettingsSection />
-          <MartinSyncSettingsSection />
-        </div>
-      );
+      return <IntegrationsSection />;
     case "issues":
       return <IssueTrackerSettingsSection onNavigateSection={args.onNavigateSection} />;
     case "kickoff":
@@ -116,6 +107,8 @@ export function SettingsDialogSectionContent(args: {
       return <DeveloperSection />;
     case "lens":
       return <LensSection />;
+    case "mentions":
+      return <MentionsSection onNavigateSection={args.onNavigateSection} />;
     case "secrets":
       return <SecretsSection />;
     case "changelog":

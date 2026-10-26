@@ -79,6 +79,7 @@ export const RuntimeOptionsObjectSchema = z
     claudeForkSession: z.boolean().optional(),
     claudeStrictMcpConfig: z.boolean().optional(),
     providerBrowserAutoFallback: z.boolean().optional(),
+    providerBrowserAlwaysOn: z.boolean().optional(),
     mcpAppViews: z.boolean().optional(),
     providerBrowserAutoFallbackDomains: z.string().optional(),
     claudeFastMode: z.boolean().optional(),
