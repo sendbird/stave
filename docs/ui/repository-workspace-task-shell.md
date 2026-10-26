@@ -127,6 +127,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 - `switchWorkspace()` no longer interrupts live turns.
 - The current active workspace is cached before switching away.
 - Re-opening a workspace restores the cached runtime session first, then falls back to persisted snapshot data.
+- Workspace switch, hydration, creation, import and project open read and save runtime sessions inside their final store update, not before their awaits, so a turn that finishes during the transition stays finished. Hydrating the active workspace reuses its live session, not the cache entry left from when the user last switched away.
 - Hot persistence and repository-open guards now read the persisted lite shell instead of replaying full editor tab bodies when they only need task/provider merge state.
 - Workspace restore uses a dedicated restore shell read instead of the full shell path, so switching repositories or workspaces does not eagerly hydrate every clean editor body before the UI becomes interactive.
 - Workspace hydration automatically imports branch-backed git worktrees that exist on disk but are missing from Stave's workspace DB.

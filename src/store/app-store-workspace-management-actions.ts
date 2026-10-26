@@ -563,8 +563,6 @@ export function createWorkspaceManagementActions(args: {
         workspaceShellPromise,
         cacheRefreshPromise,
       ]);
-      const reusableCachedWorkspaceState =
-        cacheRefresh?.session ?? cachedWorkspaceState;
       if (
         !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
         !isWorkspaceTargetCurrent({
@@ -596,12 +594,9 @@ export function createWorkspaceManagementActions(args: {
       ) {
         return;
       }
-      const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
-        cachedWorkspaceState: reusableCachedWorkspaceState,
-        loadedWorkspaceShellState: resolvedWorkspaceShellState,
-      });
       let workspaceState = buildWorkspaceSessionState({ snapshot: null });
       let appliedCacheRefresh = cacheRefresh;
+      let preferLoadedWorkspaceState = false;
       set((state) => {
         if (
           !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
@@ -622,6 +617,10 @@ export function createWorkspaceManagementActions(args: {
           refresh: cacheRefresh,
         });
         appliedCacheRefresh = latestCached.refresh;
+        preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
+          cachedWorkspaceState: latestCached.session,
+          loadedWorkspaceShellState: resolvedWorkspaceShellState,
+        });
         workspaceState =
           (preferLoadedWorkspaceState
             ? resolvedWorkspaceShellState?.workspaceState

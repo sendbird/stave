@@ -20,6 +20,7 @@ import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 import type { ReviewComment } from "@/types/review";
 import { applyProviderEventsToWorkspaceSession } from "@/store/workspace-turn-replay";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
+import { summarizeWorkspaceSession } from "@/store/workspace-shell-summary";
 
 type PromptDraftByTask = Record<string, PromptDraft>;
 
@@ -160,6 +161,26 @@ export function getWorkspaceSessionForState(args: {
     return createWorkspaceSessionStateFromAppState(args.state);
   }
   return args.state.workspaceRuntimeCacheById[args.workspaceId] ?? null;
+}
+
+/**
+ * The cached session a hydration reuses for `workspaceId`. The active
+ * workspace lives in the top-level store; its cache entry is only the copy
+ * saved when the user last left it, so reusing that entry would put an old
+ * copy over the live session (a finished turn would come back as running).
+ * An empty live session, as at app start before anything loaded, falls back
+ * to the cache entry.
+ */
+export function readWorkspaceSessionForHydration(args: {
+  state: Omit<WorkspaceRuntimeCacheState, "workspaceSnapshotVersion">;
+  workspaceId: string;
+}): WorkspaceSessionState | undefined {
+  const cached = args.state.workspaceRuntimeCacheById[args.workspaceId];
+  if (!args.workspaceId || args.workspaceId !== args.state.activeWorkspaceId) {
+    return cached;
+  }
+  const live = createWorkspaceSessionStateFromAppState(args.state);
+  return summarizeWorkspaceSession(live) > 0 ? live : cached;
 }
 
 function compactWorkspaceSessionMessages(

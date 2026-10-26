@@ -55,6 +55,7 @@ import {
   removeCachedWorkspaceFiles,
   resolveInitialWorkspaceFiles,
 } from "@/store/workspace-file-cache";
+import { readWorkspaceSessionForHydration } from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
   buildWorkspaceSessionStateFromShell,
@@ -758,7 +759,10 @@ export function createWorkspaceHydrationActions(args: {
           rows[0]?.id ??
           "");
       const cachedWorkspaceState = preferredWorkspaceId
-        ? stateBeforeHydrate.workspaceRuntimeCacheById[preferredWorkspaceId]
+        ? readWorkspaceSessionForHydration({
+            state: stateBeforeHydrate,
+            workspaceId: preferredWorkspaceId,
+          })
         : undefined;
       const loadedWorkspaceShellState =
         preferredWorkspaceId &&
@@ -779,13 +783,6 @@ export function createWorkspaceHydrationActions(args: {
               cachedWorkspaceState,
             })
           : null;
-      const reusableCachedWorkspaceState =
-        cacheRefresh?.session ?? cachedWorkspaceState;
-      const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
-        cachedWorkspaceState: reusableCachedWorkspaceState,
-        loadedWorkspaceShellState,
-      });
-
       const preferredWorkspacePath = pathById[preferredWorkspaceId] ?? null;
       const repositoryFiles = resolveInitialWorkspaceFiles({
         workspacePath: preferredWorkspacePath,
@@ -807,6 +804,7 @@ export function createWorkspaceHydrationActions(args: {
       }
 
       let appliedCacheRefresh = cacheRefresh;
+      let preferLoadedWorkspaceState = false;
       set((state) => {
         if (
           !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
@@ -815,16 +813,23 @@ export function createWorkspaceHydrationActions(args: {
         ) {
           return state;
         }
-        // Background turns kept writing to the cache while hydration awaited;
-        // install that cache, not the copy read before.
+        // Turns kept writing to this workspace's session while hydration
+        // awaited; install that session, not the copy read before.
         const latestCached = resolveLatestCachedWorkspace({
           readCache: cachedWorkspaceState,
           latestCache: preferredWorkspaceId
-            ? state.workspaceRuntimeCacheById[preferredWorkspaceId]
+            ? readWorkspaceSessionForHydration({
+                state,
+                workspaceId: preferredWorkspaceId,
+              })
             : undefined,
           refresh: cacheRefresh,
         });
         appliedCacheRefresh = latestCached.refresh;
+        preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
+          cachedWorkspaceState: latestCached.session,
+          loadedWorkspaceShellState,
+        });
         const workspaceState =
           (preferLoadedWorkspaceState
             ? loadedWorkspaceShellState?.workspaceState
