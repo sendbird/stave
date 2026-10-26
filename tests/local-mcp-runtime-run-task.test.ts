@@ -107,6 +107,15 @@ const delegationAggregatesByOwnedTaskId = new Map<
 const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
 const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string }> = [];
 let persistedProviderTimeoutMs: number | null = null;
+type UpsertedMessages = Record<string, Array<{ id: string; role?: string; content?: string }>>;
+// Set by a test: the next write `when` matches throws, as a write the other
+// process's commit invalidates does.
+let failNextWrite: { message: string; when: (messagesByTask: UpsertedMessages) => boolean } | null = null;
+// Opt-in, as the real store reads the `turns` table: a refreshed session keeps
+// a workspace's running turns.
+let reportActiveTurns = false;
+const writesUserRowOf = (taskId: string) => (messagesByTask: UpsertedMessages) =>
+  (messagesByTask[taskId] ?? []).some((message) => message.role === "user");
 let persistedPermissionSettings: import("@/lib/runs/delegation-policy").DelegationPermissionSettings | null = null;
 let persistedHandoffRecord: TaskHandoffRecord | null = null;
 const lastUpsertSnapshotByWorkspaceId = new Map<
@@ -295,7 +304,9 @@ const fakeStore = {
   // before writing so a stale host session cannot revive an archived task.
   listWorkspaceTasks: ({ workspaceId }: { workspaceId: string }) =>
     persistedTasksByWorkspaceId.get(workspaceId) ?? [],
-  listActiveTurnsForWorkspace: () => [],
+  listActiveTurnsForWorkspace: ({ workspaceId }: { workspaceId: string }) => reportActiveTurns
+    ? [...persistedTurnsById.values()].filter((turn) => turn.workspaceId === workspaceId && !turn.completedAt)
+    : [],
   listTurns: ({
     workspaceId,
     taskId,
@@ -395,6 +406,11 @@ const fakeStore = {
       >;
     };
   }) => {
+    if (failNextWrite?.when((snapshot.messagesByTask ?? {}) as UpsertedMessages)) {
+      const { message } = failNextWrite;
+      failNextWrite = null;
+      throw new Error(message);
+    }
     if (snapshot.workspaceInformation) {
       persistedWorkspaceInformationById.set(id, snapshot.workspaceInformation);
     }
@@ -461,6 +477,8 @@ afterAll(() => {
 });
 
 afterEach(() => {
+  failNextWrite = null;
+  reportActiveTurns = false;
   persistedProviderTimeoutMs = null;
   persistedPermissionSettings = null;
   persistedHandoffRecord = null;
@@ -482,6 +500,58 @@ describe("local MCP runtime runTask", () => {
     expect(result.taskId).toBeTruthy();
     expect(result.turnId).toBeTruthy();
     expect(startTurnStreamCalls).toHaveLength(1);
+  });
+
+  test("does not start a turn whose prompt row could not be saved", async () => {
+    // Starting anyway left the prompt to a later full write, which stored it
+    // below the reply the turn had already streamed.
+    const { taskId } = await runtime.createIdleTask({ workspaceId: WORKSPACE_ID, title: "Prompt save", provider: "claude-code" });
+    const startsBefore = startTurnStreamCalls.length;
+    failNextWrite = { message: "database is locked", when: writesUserRowOf(taskId) };
+
+    await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "Lead this" }))
+      .rejects.toThrow("The prompt could not be saved, so the turn did not start: database is locked");
+    expect(startTurnStreamCalls).toHaveLength(startsBefore);
+
+    // Nothing of the failed turn stays behind: no active turn, no unsaved rows.
+    const retried = await runtime.runTask({ workspaceId: WORKSPACE_ID, taskId, prompt: "Lead this" });
+    expect(startTurnStreamCalls).toHaveLength(startsBefore + 1);
+    const saved = lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[taskId] ?? [];
+    expect(saved.map((message) => message.role)).toEqual(["user", "assistant"]);
+    expect(saved.every((message) => message.id.endsWith(retried.turnId))).toBe(true);
+  });
+
+  test("a prompt that could not be saved leaves another running turn's unsaved output in place", async () => {
+    reportActiveTurns = true;
+    const savedReply = (taskId: string) =>
+      (lastUpsertSnapshotByWorkspaceId.get(WORKSPACE_ID)?.messagesByTask?.[taskId] as Array<{ role?: string; content?: string }> | undefined)
+        ?.find((message) => message.role === "assistant")?.content;
+    const until = async (done: () => boolean) => {
+      for (let attempt = 0; attempt < 200 && !done(); attempt += 1) await Bun.sleep(1);
+      expect(done()).toBe(true);
+    };
+    const running = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Turn A" });
+    const handler = startTurnStreamHandlers.at(-1);
+    const originalConsoleError = console.error;
+    console.error = () => {};
+    try {
+      // Turn A's output is in the host cache only: its write failed.
+      failNextWrite = { message: "database is locked", when: (messages) =>
+        (messages[running.taskId] ?? []).some((message) => message.role === "assistant" && message.content === "PREFIX") };
+      handler?.onEvent?.({ type: "text", text: "PREFIX" });
+      await until(() => failNextWrite === null);
+
+      failNextWrite = { message: "database is locked", when: (messages) =>
+        Object.values(messages).some((rows) => rows.some((message) => message.role === "user" && message.content === "Turn B")) };
+      await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Turn B" }))
+        .rejects.toThrow("The prompt could not be saved");
+
+      handler?.onEvent?.({ type: "text", text: "SUFFIX" });
+      await until(() => savedReply(running.taskId)?.endsWith("SUFFIX") === true);
+      expect(savedReply(running.taskId)).toBe("PREFIXSUFFIX");
+    } finally {
+      console.error = originalConsoleError;
+    }
   });
 
   test("an accepted host steer persists the split before events emitted during acknowledgement", async () => {
