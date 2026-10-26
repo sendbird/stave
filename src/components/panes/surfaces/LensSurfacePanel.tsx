@@ -31,6 +31,8 @@ import {
 } from "@/components/panes/surfaces/lens/useLensSession";
 import { useLensDomSurfaceHost } from "@/components/panes/surfaces/lens/useLensDomSurfaceHost";
 import { useLensPanelOwnerWorkspaceId } from "@/components/panes/surfaces/lens/useLensPanelOwnerWorkspaceId";
+import { useLensFullView } from "@/components/panes/surfaces/lens/useLensFullView";
+import { useLensPageLinks } from "@/components/panes/surfaces/lens/useLensPageLinks";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
 
@@ -51,6 +53,7 @@ export function LensSurfacePanel(props: IDockviewPanelProps) {
       key={surface.lensSessionId}
       lensSessionId={surface.lensSessionId}
       panelApi={props.api}
+      containerApi={props.containerApi}
     />
   );
 }
@@ -58,9 +61,11 @@ export function LensSurfacePanel(props: IDockviewPanelProps) {
 function LensSessionSurface(args: {
   lensSessionId: string;
   panelApi: IDockviewPanelProps["api"];
+  containerApi: IDockviewPanelProps["containerApi"];
 }) {
   useTranslation();
-  const { lensSessionId, panelApi } = args;
+  const { lensSessionId, panelApi, containerApi } = args;
+  const fullView = useLensFullView({ panelApi, containerApi });
   // Keep the store subscription primitive-only. Returning a nested object here
   // causes a fresh selector snapshot on every render, which can trigger React
   // 19 ref/update loops on tooltip-heavy surfaces like Lens.
@@ -291,6 +296,8 @@ function LensSessionSurface(args: {
     void window.api?.shell?.showInFinder?.({ path: savePath });
   }, []);
 
+  const pageLinks = useLensPageLinks(url);
+
   const lensPageActionDisabled = !hasLensApi || url === "about:blank";
   const pickerDisabled = lensPageActionDisabled || !activeTaskId;
   const pickerTooltip = useMemo(() => {
@@ -324,6 +331,8 @@ function LensSessionSurface(args: {
             saveScreenshot,
           }}
           consoleEntryCount={consoleEntries.length + consoleBufferedCount}
+          fullView={fullView}
+          pageLinks={pageLinks}
           hasLensApi={hasLensApi}
           lensPageActionDisabled={lensPageActionDisabled}
           navigation={session}

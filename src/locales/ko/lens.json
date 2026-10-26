@@ -28,7 +28,10 @@
     "selectATaskFirstSoLensCan": "Lens가 요소 컨텍스트를 초안에 추가할 수 있도록 먼저 작업을 선택하세요.",
     "openAPageFirst": "먼저 페이지를 여세요.",
     "pickAnElementAndAppendACompact": "요소를 선택하면 선택자, 스타일 및 소스 요약을 활성 작업에 추가합니다.",
-    "assetSaved_other": "자산 {{count}}개 저장됨."
+    "assetSaved_other": "자산 {{count}}개 저장됨.",
+    "pageAddressCopied": "페이지 주소를 복사했습니다",
+    "couldNotCopyPageAddress": "페이지 주소를 복사하지 못했습니다",
+    "couldNotOpenInBrowser": "브라우저에서 페이지를 열지 못했습니다"
   },
   "lensAutomationStatus": {
     "lensBrowserControl": "Lens 브라우저 제어",
@@ -71,7 +74,21 @@
     "saveFullPageScreenshot": "전체 페이지 스크린샷 저장",
     "downloadPageAssets": "페이지 자산 다운로드",
     "recentDownloads": "최근 다운로드",
-    "noDownloadsYet": "다운로드가 아직 없습니다"
+    "noDownloadsYet": "다운로드가 아직 없습니다",
+    "addressPlaceholder": "URL 입력",
+    "addressUnavailable": "브라우저 전용 모드에서는 Lens를 사용할 수 없습니다",
+    "panelView": "Lens 보기",
+    "copyPageAddress": "페이지 주소 복사",
+    "openInDefaultBrowser": "기본 브라우저에서 열기",
+    "enterFullView": "전체 보기",
+    "exitFullView": "전체 보기 종료",
+    "fullViewUnavailable": "다른 패널과 분할했을 때 사용할 수 있습니다.",
+    "showWithCount": "{{value1}} 표시, {{value2}}",
+    "viewWithCount": "{{value1}} · {{value2}}",
+    "consoleCount_other": "로그 {{count}}개",
+    "networkCount_other": "요청 {{count}}개",
+    "availableInPreview": "미리보기에서 사용할 수 있습니다.",
+    "stopVisualComments": "시각적 댓글 중지"
   },
   "lensConsoleWorkbench": {
     "searchConsole": "콘솔 검색",
