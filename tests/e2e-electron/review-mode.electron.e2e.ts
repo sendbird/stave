@@ -69,7 +69,7 @@ test.beforeAll(async () => {
   }, { workspaceId: WORKSPACE_ID, taskId: TASK_ID });
   expect(seeded?.ok).toBe(true);
   await stave.page.reload({ waitUntil: "domcontentloaded" });
-  await expect(stave.page.getByTestId("pane-header-review")).toBeVisible({ timeout: 30_000 });
+  await expect(stave.page.getByTestId("pane-header-mode-switch")).toBeVisible({ timeout: 30_000 });
 });
 
 test.afterAll(async () => {
@@ -119,13 +119,13 @@ test("Review reads the task's changes by scope and tells a later edit from the b
   await review.screenshot({ path: testInfo.outputPath("review-branch.png") });
 
   // The shortcut switches back; the conversation was kept underneath.
-  const header = page.getByTestId("pane-header-review");
+  const header = page.getByTestId("pane-header-mode-switch").getByRole("button", { name: /^Review/ });
   await expect(header).toHaveAttribute("aria-pressed", "true");
   await page.keyboard.press(shortcut);
   await expect(review).toHaveCount(0);
   await expect(header).toHaveAttribute("aria-pressed", "false");
 
-  // The pane header opens Review again on the scope it was left on, and Review's own
+  // The pane header's switch opens Review again on the scope it was left on, and Review's own
   // Conversation button comes back, handing focus to the composer.
   await header.click();
   await expect(review).toBeVisible();

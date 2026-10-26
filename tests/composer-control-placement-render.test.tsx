@@ -166,18 +166,50 @@ describe("composer control placement in the toolbar", () => {
 
   test("renders every control and no tray button by default", async () => {
     const html = await renderToolbar();
-    expect(html).toContain('aria-label="AI review of local changes"');
+    expect(html).toContain('aria-label="Request an AI review of local changes"');
     // Thinking says the mode in use, not just its name.
     expect(html).toContain(">Thinking · Adaptive<");
     // An empty tray must not cost a toolbar slot.
     expect(html).not.toContain('data-composer-tray-trigger="true"');
   });
 
+  test("offers the side question as a composer control the user can place, for Claude and Codex conversations", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    // Server rendering reads the store's initial state, so the task is written there for these renders.
+    const initial = useAppStore.getInitialState() as unknown as { tasks: unknown[]; activeTaskId: string; messageCountByTask: Record<string, number> };
+    const saved = { tasks: initial.tasks, activeTaskId: initial.activeTaskId, messageCountByTask: initial.messageCountByTask };
+    const withTask = async (provider: string, placements?: ComposerControlPlacements, messages = 2) => {
+      initial.tasks = [{ id: "task-side", title: "task-side", provider, updatedAt: "2026-10-26T00:00:00.000Z", unread: false }];
+      initial.activeTaskId = "task-side";
+      initial.messageCountByTask = { "task-side": messages };
+      try {
+        return await renderToolbar(placements ? { composerControlPlacements: placements } : {});
+      } finally {
+        initial.tasks = saved.tasks;
+        initial.activeTaskId = saved.activeTaskId;
+        initial.messageCountByTask = saved.messageCountByTask;
+      }
+    };
+    const shown = await withTask("codex");
+    expect(shown).toContain('data-testid="composer-side-question"');
+    expect(shown).toContain(">Side question<");
+    const demoted = await withTask("claude-code", { sideQuestion: "overflow" });
+    expect(demoted).not.toContain('data-testid="composer-side-question"');
+    expect(demoted).toContain('aria-label="More composer controls (1)"');
+    expect(await withTask("claude-code", { sideQuestion: "hidden" })).not.toContain('data-testid="composer-side-question"');
+    // A task still on its start screen has nothing to ask about, and no panel to open.
+    expect(await withTask("claude-code", undefined, 0)).not.toContain('data-testid="composer-side-question"');
+    // A provider without side questions gets no control, and no tray slot is spent on it.
+    const none = await withTask("cursor");
+    expect(none).not.toContain('data-testid="composer-side-question"');
+    expect(none).not.toContain('data-composer-tray-trigger="true"');
+  });
+
   test("drops a hidden control out of the markup entirely", async () => {
     const html = await renderToolbar({
       composerControlPlacements: { review: "hidden" },
     });
-    expect(html).not.toContain('aria-label="AI review of local changes"');
+    expect(html).not.toContain('aria-label="Request an AI review of local changes"');
     expect(html).not.toContain('data-composer-tray-trigger="true"');
   });
 
@@ -189,7 +221,7 @@ describe("composer control placement in the toolbar", () => {
     expect(html).toContain('aria-label="More composer controls (2)"');
     // Closed popovers do not render their content, so the demoted control is
     // out of the row without being deleted.
-    expect(html).not.toContain('aria-label="AI review of local changes"');
+    expect(html).not.toContain('aria-label="Request an AI review of local changes"');
   });
 
   test("keeps a hidden control hidden while it is at rest", async () => {
@@ -281,7 +313,7 @@ describe("composer control placement in the toolbar", () => {
       html.indexOf('data-composer-frame-status-bar="true"'),
     );
     expect(statusBar).toContain('data-composer-status-tray="row"');
-    expect(statusBar).toContain(">AI review<");
+    expect(statusBar).toContain(">Request AI review<");
     expect(statusBar).toContain('aria-label="Runtime ·');
     expect(statusBar).not.toContain(">Runtime<");
     // The raised card keeps the model picker and context meter; wings own
@@ -354,7 +386,7 @@ describe("composer control placement in the toolbar", () => {
     // The lane can only reach them if each one carries the marker.
     for (const label of [
       'aria-label="Thinking · Adaptive"',
-      'aria-label="AI review of local changes"',
+      'aria-label="Request an AI review of local changes"',
       'aria-label="Runtime · ',
     ]) {
       const at = html.indexOf(label);
@@ -403,7 +435,7 @@ describe("composer control placement in the toolbar", () => {
       2,
     );
     expect(html).toContain(">Runtime</span>");
-    expect(html).not.toContain(">AI review</span>");
+    expect(html).not.toContain(">Request AI review</span>");
   });
   test("keeps the overflow tray out of the model row, ahead of Runtime", async () => {
     const classic = await renderToolbar({

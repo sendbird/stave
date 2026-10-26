@@ -11,6 +11,7 @@ import {
   toggleTaskReview,
 } from "@/components/panes/task-surface-entry";
 import { ChangedFilesBlock } from "@/components/session/chat-panel-file-blocks";
+import { ReviewScopeBar } from "@/components/review/ReviewScopeBar";
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
 import { useSideChatStore } from "@/store/side-chat-store";
@@ -144,43 +145,92 @@ describe("task surface entry points", () => {
 });
 
 /** Server rendering reads each store's initial state, so the case is written there for one render. */
-function renderHeader(args: { taskId: string; provider: string; reviewShown: boolean }) {
-  const app = useAppStore.getInitialState() as unknown as { tasks: unknown[] };
+function renderHeader(args: { taskId: string; reviewShown: boolean; messages?: unknown[]; activeTurnId?: string }) {
+  const app = useAppStore.getInitialState() as unknown as { messagesByTask: Record<string, unknown>; activeTurnIdsByTask: Record<string, string> };
   const review = useTaskReviewModeStore.getInitialState() as unknown as { byTask: Record<string, unknown> };
-  const saved = { tasks: app.tasks, byTask: review.byTask };
-  app.tasks = [{ id: args.taskId, title: args.taskId, provider: args.provider, updatedAt: "2026-10-23T00:00:00.000Z", unread: false }];
+  const saved = { messagesByTask: app.messagesByTask, activeTurnIdsByTask: app.activeTurnIdsByTask, byTask: review.byTask };
+  app.messagesByTask = args.messages ? { [args.taskId]: args.messages } : {};
+  app.activeTurnIdsByTask = args.activeTurnId ? { [args.taskId]: args.activeTurnId } : {};
   review.byTask = { [args.taskId]: { mode: args.reviewShown ? "review" : "conversation" } };
   try {
     return renderToStaticMarkup(createElement(TaskPaneHeaderActions, { taskId: args.taskId }));
   } finally {
-    app.tasks = saved.tasks;
+    app.messagesByTask = saved.messagesByTask;
+    app.activeTurnIdsByTask = saved.activeTurnIdsByTask;
     review.byTask = saved.byTask;
   }
 }
 
-/** The header's Review switch: its label and whether it shows pressed. */
-function reviewSwitch(markup: string) {
-  const match = markup.match(/<button[^>]*aria-pressed="(true|false)"[^>]*data-testid="pane-header-review"[^>]*>(.*?)<\/button>/)
-    ?? markup.match(/<button[^>]*data-testid="pane-header-review"[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/);
-  return match ? { pressed: match[1] === "true", label: match[2]!.replace(/<[^>]+>/g, "").trim() } : null;
+/** The header's mode switch: each item's text and whether it shows pressed. */
+function modeSwitch(markup: string) {
+  return [...markup.matchAll(/<button[^>]*aria-pressed="(true|false)"[^>]*>(.*?)<\/button>/g)]
+    .map((match) => ({ pressed: match[1] === "true", label: match[2]!.replace(/<[^>]+>/g, "").trim() }));
 }
 
-describe("the pane header's task actions", () => {
+const editMessage = (turnId: string, parts: CodeDiffPart[]) => ({ id: `m-${turnId}`, role: "assistant", content: "", parts, turnId });
+
+describe("the pane header's mode switch", () => {
   afterEach(() => applyAppLocale("en"));
 
-  test("the Review switch shows pressed while Review is open, in English and Korean", () => {
-    expect(reviewSwitch(renderHeader({ taskId: "header-task", provider: "claude-code", reviewShown: false }))).toEqual({ pressed: false, label: "Review" });
-    expect(reviewSwitch(renderHeader({ taskId: "header-task", provider: "claude-code", reviewShown: true }))).toEqual({ pressed: true, label: "Review" });
+  test("shows which of the conversation and Review is open, in English and Korean", () => {
+    expect(modeSwitch(renderHeader({ taskId: "header-task", reviewShown: false }))).toEqual([
+      { pressed: true, label: "Conversation" },
+      { pressed: false, label: "Review" },
+    ]);
+    expect(modeSwitch(renderHeader({ taskId: "header-task", reviewShown: true }))).toEqual([
+      { pressed: false, label: "Conversation" },
+      { pressed: true, label: "Review" },
+    ]);
     applyAppLocale("ko");
-    expect(reviewSwitch(renderHeader({ taskId: "header-task", provider: "claude-code", reviewShown: true }))).toEqual({ pressed: true, label: "검토" });
+    expect(modeSwitch(renderHeader({ taskId: "header-task", reviewShown: true }))).toEqual([
+      { pressed: false, label: "대화" },
+      { pressed: true, label: "검토" },
+    ]);
   });
 
-  test("every task gets the Review switch; only Claude and Codex tasks get the side question", () => {
-    const codex = renderHeader({ taskId: "header-codex", provider: "codex", reviewShown: false });
-    expect(codex).toContain('data-testid="pane-header-side-question"');
-    expect(reviewSwitch(codex)).not.toBeNull();
-    const kiro = renderHeader({ taskId: "header-kiro", provider: "kiro", reviewShown: false });
-    expect(kiro).not.toContain('data-testid="pane-header-side-question"');
-    expect(reviewSwitch(kiro)).not.toBeNull();
+  test("Review carries the latest finished turn's line counts, and none while nothing changed", () => {
+    const second: CodeDiffPart = { ...PART, filePath: "src/billing/Total.ts", oldContent: "", newContent: "a\nb" };
+    const markup = renderHeader({ taskId: "header-edits", reviewShown: false, messages: [editMessage("t1", [PART, second])] });
+    expect(modeSwitch(markup)[1]).toEqual({ pressed: false, label: "Review+3−1" });
+    expect(markup).toContain('data-testid="pane-header-review-changes"');
+    const quiet = renderHeader({ taskId: "header-quiet", reviewShown: false, messages: [editMessage("t1", [])] });
+    expect(quiet).not.toContain('data-testid="pane-header-review-changes"');
+  });
+
+  test("a running turn's edits wait until it ends; the turn before it is counted", () => {
+    const markup = renderHeader({
+      taskId: "header-running",
+      reviewShown: false,
+      messages: [editMessage("done", [PART]), editMessage("running", [{ ...PART, filePath: "x.ts", oldContent: "", newContent: "1\n2\n3\n" }])],
+      activeTurnId: "running",
+    });
+    expect(modeSwitch(markup)[1]!.label).toBe("Review+1−1");
+  });
+
+  test("the side question no longer sits in the header", () => {
+    expect(renderHeader({ taskId: "header-codex", reviewShown: false })).not.toContain("side-question");
+  });
+});
+
+describe("Review's scope bar", () => {
+  const render = (onSideQuestion?: () => void) =>
+    renderToStaticMarkup(createElement(ReviewScopeBar, {
+      scope: { kind: "uncommitted" },
+      available: ["uncommitted"],
+      data: null,
+      onScope: () => {},
+      onRefresh: () => {},
+      onConversation: () => {},
+      onSideQuestion,
+    }));
+
+  test("offers the side question over Review, where the composer is hidden", () => {
+    const markup = render(() => {});
+    expect(markup).toContain('data-testid="review-side-question"');
+    expect(markup).toContain(">Side question<");
+  });
+
+  test("leaves it out for a provider without side questions", () => {
+    expect(render()).not.toContain('data-testid="review-side-question"');
   });
 });

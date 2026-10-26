@@ -3,7 +3,7 @@
     "providerMode": "프로바이더 모드",
     "thinking": "추론",
     "fastMode": "빠른 모드",
-    "review": "리뷰",
+    "review": "AI 리뷰 요청",
     "secrets": "시크릿",
     "macros": "매크로",
     "compare": "비교",
@@ -15,7 +15,9 @@
     "bindSecretsIntoThisRunSEnvironment": "이 실행의 환경에 시크릿을 연결합니다.",
     "insertASavedPromptOptionallyPinModelEffortAndOptionallySendItImmediately": "저장한 프롬프트를 삽입합니다. 모델과 추론 수준을 고정하거나 바로 보낼 수 있습니다.",
     "runThePromptInTwoCandidateWorkspaces": "두 후보 워크스페이스에서 프롬프트를 실행합니다.",
-    "effectiveSandboxApprovalAndTimeoutValues": "실제로 적용되는 샌드박스, 승인, 제한 시간 값입니다."
+    "effectiveSandboxApprovalAndTimeoutValues": "실제로 적용되는 샌드박스, 승인, 제한 시간 값입니다.",
+    "sideQuestion": "곁질문",
+    "sideQuestionDescription": "진행 중인 턴을 멈추지 않고 이 작업에 대해 묻습니다."
   },
   "localMcpReadiness": {
     "theLocalMcpServerIsTurnedOffInSettingsDeveloper": "설정 → MCP에서 Local MCP 서버가 꺼져 있습니다.",

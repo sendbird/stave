@@ -102,7 +102,7 @@ test("a side question during a running turn leaves the transcript and the next i
     await expect(composer).toHaveText(DRAFT);
 
     // While the turn holds, Review says the task still runs, and the side question stays open over it.
-    await page.getByTestId("pane-header-review").click();
+    await page.getByTestId("pane-header-mode-switch").getByRole("button", { name: /^Review/ }).click();
     const review = page.getByTestId("task-review-surface");
     await expect(review.getByTestId("review-task-status")).toContainText("This task is still running.");
     await expect(review.getByTestId("side-chat")).toBeVisible();
@@ -124,13 +124,14 @@ test("a side question during a running turn leaves the transcript and the next i
     await expect(composer).toContainText(DRAFT);
     await expect(composer).toContainText("> Done.");
 
-    // The labelled Side question beside the pane's tabs opens the same panel, focused on its question.
+    // The composer's Side question control opens the same panel, focused on its question.
     await panel.getByRole("button", { name: "Close side question" }).click();
     await expect(panel).toHaveCount(0);
-    await page.getByTestId("pane-header-side-question").click();
+    await page.getByTestId("composer-side-question").click();
     await expect(panel).toBeVisible();
     await expect(panel.getByRole("textbox", { name: "Side question" })).toBeFocused();
-    await page.screenshot({ path: testInfo.outputPath("side-question-from-pane-header.png") });
+    await expect(composer).toContainText(DRAFT);
+    await page.screenshot({ path: testInfo.outputPath("side-question-from-composer.png") });
 
     // The composer's `/aside` asks in the panel and sends nothing to the task.
     await composer.click();

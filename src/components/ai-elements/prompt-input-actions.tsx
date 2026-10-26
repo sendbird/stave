@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { useSideQuestionComposerControl } from "@/components/session/side-chat/use-side-question-composer-control";
 import { i18n, useTranslation } from "@/i18n";
 import { Paperclip, Send, Square } from "lucide-react";
 import {
@@ -66,6 +67,8 @@ export function PromptInputActions(args: {
     steerQueueEnterAction,
     assignOnSend,
   } = args;
+  // Minimal mode has no control lanes, so its side question sits here, beside compare.
+  const sideQuestionControl = useSideQuestionComposerControl();
   return (
     <div className={sx(promptInputStyles.actionsRow)}>
       {contextMeter}
@@ -82,6 +85,7 @@ export function PromptInputActions(args: {
         <>
           {secretsControl}
           {compareControl}
+          {sideQuestionControl}
         </>
       ) : null}
       <Tooltip>

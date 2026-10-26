@@ -12,7 +12,8 @@ import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
  * of its work. The conversation stays mounted under Review, so switching back
  * keeps its scroll position, stream and composer. The switch itself lives in
  * the pane group's header (`TaskPaneHeaderActions`) and in Review's scope bar,
- * so the surface spends no row on it.
+ * so the surface spends no row on it; the side question sits in the composer
+ * and in that scope bar.
  */
 export function TaskSurfacePanel(props: IDockviewPanelProps) {
   const surface = parsePanePanelId(props.api.id);

@@ -1199,7 +1199,8 @@
     "copied": "Copied",
     "suggestNow": "What is it doing right now?",
     "suggestWhy": "Why did it choose this approach?",
-    "suggestLeft": "What is left before it finishes?"
+    "suggestLeft": "What is left before it finishes?",
+    "hint": "Ask about this task without interrupting it"
   },
   "returnSummary": {
     "title": "Welcome back",
