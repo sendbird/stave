@@ -69,7 +69,7 @@ describe("a past event stamped ahead of the clock reads just now", () => {
     expect(html).not.toContain("in 3h");
   });
 
-  test("a return summary's last turn, in the short form the other surfaces use", () => {
+  test("a return summary's last turn names the state only; the card header carries the time", () => {
     const now = Date.now();
     const stopLine = (at: string) => describeReturnSummary({
       decision: null,
@@ -77,7 +77,7 @@ describe("a past event stamped ahead of the clock reads just now", () => {
       stop: { kind: "finished", at },
       next: { kind: "continue" },
     }, now).status.text;
-    expect(stopLine(new Date(now + AHEAD_MS).toISOString())).toBe("Finished its last turn just now");
-    expect(stopLine(new Date(now - 2 * 60 * 60_000).toISOString())).toBe("Finished its last turn 2h ago");
+    expect(stopLine(new Date(now + AHEAD_MS).toISOString())).toBe("Finished its last turn");
+    expect(stopLine(new Date(now - 2 * 60 * 60_000).toISOString())).toBe("Finished its last turn");
   });
 });

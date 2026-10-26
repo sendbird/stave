@@ -1,5 +1,5 @@
 import { i18n } from "@/i18n";
-import { formatDuration, formatTimeAgo } from "@/i18n/format";
+import { formatDuration } from "@/i18n/format";
 import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatToolDisplayName } from "@/lib/providers/subagent-identity";
 import { describeToolOperationLabel } from "@/lib/providers/tool-activity";
@@ -57,9 +57,8 @@ function toolLabel(toolName: string) {
 
 function describeDecision(decision: ReturnDecision): string {
   if (decision.kind === "record") return decision.text;
-  if (decision.kind === "answer") {
-    return i18n.t("session:returnSummary.decisionAnswer", { question: decision.question, answer: decision.answer });
-  }
+  // The answer is the decision; the question sits in the conversation behind "Show".
+  if (decision.kind === "answer") return decision.answer;
   return decision.approved
     ? i18n.t("session:returnSummary.decisionAllowed", { tool: toolLabel(decision.toolName), description: decision.description })
     : i18n.t("session:returnSummary.decisionDenied", { tool: toolLabel(decision.toolName), description: decision.description });
@@ -75,13 +74,15 @@ function decisionLink(decision: ReturnDecision): NonNullable<ReturnLine["link"]>
   };
 }
 
-/** The changes since the visit, or null when nothing changed. */
+/**
+ * The changes since the visit, or null when nothing changed. Steps are left
+ * out: they are internal bookkeeping, not something you act on.
+ */
 function describeChanges(summary: ReturnSummary): string | null {
-  const { turns, files, steps } = summary.changes;
+  const { turns, files } = summary.changes;
   const parts = [
     ...(turns > 0 ? [i18n.t("session:returnSummary.changesTurns", { count: turns })] : []),
     ...(files > 0 ? [i18n.t("session:returnSummary.changesFiles", { count: files })] : []),
-    ...(steps > 0 ? [i18n.t("session:returnSummary.changesSteps", { count: steps })] : []),
   ];
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -121,15 +122,15 @@ function describeStop(stop: ReturnStop, now: number): Pick<ReturnStatus, "state"
     case "finished":
     case "failed":
     case "stopped": {
-      const time = stop.at ? formatTimeAgo(stop.at, now) : "";
-      const key = stop.kind === "finished"
-        ? "session:returnSummary.stopFinished"
+      // The card header already says when you last wrote, so the time is not repeated here.
+      const text = stop.kind === "finished"
+        ? i18n.t("session:returnSummary.stopFinishedPlain")
         : stop.kind === "failed"
-          ? "session:returnSummary.stopFailed"
-          : "session:returnSummary.stopStopped";
+          ? i18n.t("session:returnSummary.stopFailedPlain")
+          : i18n.t("session:returnSummary.stopStoppedPlain");
       return {
         state: stop.kind === "finished" ? "ready" : stop.kind,
-        text: time ? i18n.t(key, { time }) : i18n.t(`${key}Plain` as "session:returnSummary.stopFinishedPlain"),
+        text,
         detail: null,
       };
     }

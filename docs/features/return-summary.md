@@ -50,15 +50,17 @@
   side question** opens a [side question](side-questions.md) while the task
   works, and **Write a reply** focuses the composer. It is the primary button
   when the task waits on you.
-- **While you were away**: how many turns finished, files changed and steps
-  ran since your last visit. They are counted against what you had seen when
-  you left: a turn that was already running counts only the steps it made
-  afterwards, and counts as finished once it ends. **Activity** opens the Task
-  panel's Activity tab. The line is left out when nothing changed.
+- **While you were away**: how many turns finished and files changed since
+  your last visit. They are counted against what you had seen when you left:
+  a turn that was already running counts only what it did afterwards, and
+  counts as finished once it ends. Steps are counted but not shown.
+  **Activity** opens the Task panel's Activity tab. The line is left out when
+  nothing changed.
 - **Last decision**: the newest line of the handoff record under Approved
   decisions, or else the newest approval or answer you gave in the
   conversation (not one a Stave rule or the provider's permission mode
-  decided). **Handoff** opens the record; for an approval or answer, **Show**
+  decided). An answer shows your answer only; its question is one click away
+  under **Show**. **Handoff** opens the record; for an approval or answer, **Show**
   closes the card and scrolls the conversation to it, opening its turn's
   steps, and focuses it. The line is left out when there is no decision yet.
 - Long text wraps to two lines; hover a line to read all of it.

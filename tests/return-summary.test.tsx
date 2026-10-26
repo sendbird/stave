@@ -155,14 +155,14 @@ describe("the return summary's facts", () => {
       urgent: true,
     });
     expect(view.facts.map((line) => [line.id, line.text, line.link?.target.kind ?? null])).toEqual([
-      ["changes", "2 turns finished · 2 files changed · 2 steps", "tab"],
+      ["changes", "2 turns finished · 2 files changed", "tab"],
       ["decision", "You allowed Run command: Run the migration", "decision"],
     ]);
     // An approval or answer links to where it was given in the conversation.
     expect(view.facts[1]?.link).toEqual({ label: "Show", target: { kind: "decision", messageId: "a1", requestId: "r1" } });
     applyAppLocale("ko");
     const ko = describeReturnSummary(summary, now);
-    expect(ko.facts[0]?.text).toBe("턴 2개 완료 · 파일 2개 변경 · 단계 2개");
+    expect(ko.facts[0]?.text).toBe("턴 2개 완료 · 파일 2개 변경");
     expect(ko.status.text).toContain("승인 대기 중");
     expect(ko.status.action.label).toBe("요청 보기");
   });
