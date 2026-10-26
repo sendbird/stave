@@ -55,6 +55,7 @@ import {
   removeCachedWorkspaceFiles,
   resolveInitialWorkspaceFiles,
 } from "@/store/workspace-file-cache";
+import { readWorkspaceSessionForHydration } from "@/store/workspace-runtime-state";
 import {
   buildWorkspaceSessionState,
   buildWorkspaceSessionStateFromShell,
@@ -72,6 +73,7 @@ import {
 import {
   clearEndedTurnActivity,
   refreshStaleCachedWorkspace,
+  resolveLatestCachedWorkspace,
 } from "@/store/workspace-cache-freshness";
 import type { ChatMessage } from "@/types/chat";
 
@@ -757,7 +759,10 @@ export function createWorkspaceHydrationActions(args: {
           rows[0]?.id ??
           "");
       const cachedWorkspaceState = preferredWorkspaceId
-        ? stateBeforeHydrate.workspaceRuntimeCacheById[preferredWorkspaceId]
+        ? readWorkspaceSessionForHydration({
+            state: stateBeforeHydrate,
+            workspaceId: preferredWorkspaceId,
+          })
         : undefined;
       const loadedWorkspaceShellState =
         preferredWorkspaceId &&
@@ -778,13 +783,6 @@ export function createWorkspaceHydrationActions(args: {
               cachedWorkspaceState,
             })
           : null;
-      const reusableCachedWorkspaceState =
-        cacheRefresh?.session ?? cachedWorkspaceState;
-      const preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
-        cachedWorkspaceState: reusableCachedWorkspaceState,
-        loadedWorkspaceShellState,
-      });
-
       const preferredWorkspacePath = pathById[preferredWorkspaceId] ?? null;
       const repositoryFiles = resolveInitialWorkspaceFiles({
         workspacePath: preferredWorkspacePath,
@@ -805,6 +803,8 @@ export function createWorkspaceHydrationActions(args: {
         });
       }
 
+      let appliedCacheRefresh = cacheRefresh;
+      let preferLoadedWorkspaceState = false;
       set((state) => {
         if (
           !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
@@ -813,10 +813,27 @@ export function createWorkspaceHydrationActions(args: {
         ) {
           return state;
         }
+        // Turns kept writing to this workspace's session while hydration
+        // awaited; install that session, not the copy read before.
+        const latestCached = resolveLatestCachedWorkspace({
+          readCache: cachedWorkspaceState,
+          latestCache: preferredWorkspaceId
+            ? readWorkspaceSessionForHydration({
+                state,
+                workspaceId: preferredWorkspaceId,
+              })
+            : undefined,
+          refresh: cacheRefresh,
+        });
+        appliedCacheRefresh = latestCached.refresh;
+        preferLoadedWorkspaceState = shouldPreferLoadedWorkspaceState({
+          cachedWorkspaceState: latestCached.session,
+          loadedWorkspaceShellState,
+        });
         const workspaceState =
           (preferLoadedWorkspaceState
             ? loadedWorkspaceShellState?.workspaceState
-            : (reusableCachedWorkspaceState ??
+            : (latestCached.session ??
               loadedWorkspaceShellState?.workspaceState)) ??
           buildWorkspaceSessionState({ snapshot: null });
         const workspaceIds = rows.map((workspace) => workspace.id);
@@ -839,7 +856,7 @@ export function createWorkspaceHydrationActions(args: {
                 : null),
           );
 
-        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
+        const endedTurns = preferLoadedWorkspaceState ? [] : (appliedCacheRefresh?.endedTurns ?? []);
         return {
           ...(endedTurns.length > 0
             ? {
@@ -922,7 +939,7 @@ export function createWorkspaceHydrationActions(args: {
       ) {
         return;
       }
-      for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+      for (const taskId of appliedCacheRefresh?.refreshedTaskIds ?? []) {
         void loadTaskMessagesIntoSession({
           workspaceId: preferredWorkspaceId,
           taskId,

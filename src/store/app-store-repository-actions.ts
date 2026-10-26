@@ -86,10 +86,6 @@ export function createRepositoryActions(args: {
   }) => {
     await get().flushActiveWorkspaceSnapshot();
     const stateBeforeSwitch = get();
-    const savedWorkspaceRuntimeCacheById =
-      saveActiveWorkspaceRuntimeCacheWithLensCleanup({
-        state: stateBeforeSwitch,
-      });
     const rememberedRepositories = captureCurrentRepositoryState({
       recentRepositories: stateBeforeSwitch.recentRepositories,
       repositoryPath: stateBeforeSwitch.repositoryPath,
@@ -166,7 +162,8 @@ export function createRepositoryActions(args: {
           repositoryName: args.repositoryName,
           repositoryFiles: args.files.length > 0 ? args.files : state.repositoryFiles,
           workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
-          workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
+          workspaceRuntimeCacheById:
+            saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
         };
       });
       return;
@@ -188,13 +185,15 @@ export function createRepositoryActions(args: {
       const nextRepositoryWorkspaceIds = nextRepository.workspaces.map(
         (workspace) => workspace.id,
       );
-      const cachedActiveWorkspaceState = nextRepository.activeWorkspaceId
-        ? savedWorkspaceRuntimeCacheById[nextRepository.activeWorkspaceId]
-        : undefined;
-      const initialWorkspaceState =
-        cachedActiveWorkspaceState ??
-        buildWorkspaceSessionState({ snapshot: null });
       set((state) => {
+        // Saved here, not before `setRoot`: turns in the outgoing workspace
+        // and cached ones kept running while the root was switched.
+        const savedWorkspaceRuntimeCacheById =
+          saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state });
+        const initialWorkspaceState =
+          (nextRepository.activeWorkspaceId
+            ? savedWorkspaceRuntimeCacheById[nextRepository.activeWorkspaceId]
+            : undefined) ?? buildWorkspaceSessionState({ snapshot: null });
         const workspaceLastActiveAtById = stampWorkspaceActive({
           current: state.workspaceLastActiveAtById,
           workspaceId: nextRepository.activeWorkspaceId,
@@ -402,7 +401,10 @@ export function createRepositoryActions(args: {
         repositoryName: args.repositoryName,
         repositoryFiles: args.files,
         workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
-        workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
+        // Saved here, not before the persistence reads above: outgoing and
+        // cached turns kept running meanwhile.
+        workspaceRuntimeCacheById:
+          saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
         taskWorkspaceIdById: registerTaskWorkspaceOwnership({
           taskWorkspaceIdById: retainTaskWorkspaceOwnership({
             taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,

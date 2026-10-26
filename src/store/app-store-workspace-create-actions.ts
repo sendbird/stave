@@ -114,10 +114,6 @@ export function createWorkspaceCreateActions(args: {
           message: i18n.t("workspace:appStoreWorkspaceCreateActions.openARepositoryBeforeCreatingAWorkspace"),
         };
       }
-      const nextRuntimeCacheById =
-        saveActiveWorkspaceRuntimeCacheWithLensCleanup({
-          state: current,
-        });
 
       const branchName = sanitizeBranchName({ value: trimmed });
       if (!branchName) {
@@ -431,7 +427,10 @@ export function createWorkspaceCreateActions(args: {
             files,
             retainPaths: [state.repositoryPath],
           }),
-          workspaceRuntimeCacheById: nextRuntimeCacheById,
+          // Saved here, not before the awaits above: turns in the outgoing
+          // workspace and cached ones kept running while it was created.
+          workspaceRuntimeCacheById:
+            saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
           activeAppSurface: WORKSPACE_APP_SURFACE,
           taskWorkspaceIdById: registerTaskWorkspaceOwnership({
             taskWorkspaceIdById: state.taskWorkspaceIdById,
@@ -537,10 +536,6 @@ export function createWorkspaceCreateActions(args: {
         };
       }
 
-      const nextRuntimeCacheById =
-        saveActiveWorkspaceRuntimeCacheWithLensCleanup({
-          state: current,
-        });
       const workspaceDisplayName =
         label?.trim() ||
         resolveImportedWorktreeName({
@@ -740,7 +735,10 @@ export function createWorkspaceCreateActions(args: {
             files,
             retainPaths: [state.repositoryPath],
           }),
-          workspaceRuntimeCacheById: nextRuntimeCacheById,
+          // Saved here, not before the awaits above: turns in the outgoing
+          // workspace and cached ones kept running while it was created.
+          workspaceRuntimeCacheById:
+            saveActiveWorkspaceRuntimeCacheWithLensCleanup({ state }),
           activeAppSurface: WORKSPACE_APP_SURFACE,
           taskWorkspaceIdById: registerTaskWorkspaceOwnership({
             taskWorkspaceIdById: state.taskWorkspaceIdById,
