@@ -18,8 +18,8 @@
 - For line-level feedback, Review's **Comment in editor** opens the editor's
   diff, where comments anchor to lines
   ([Diff review comments](diff-review-comments.md)).
-- Review is where you decide on a task's work. The composer's **AI review**
-  asks another model for its opinion instead ([Review tasks](review-tasks.md)).
+- Review is where you decide on a task's work. The composer's **Request AI
+  review** asks another model for its opinion instead ([Review tasks](review-tasks.md)).
 
 ## Before You Start
 
@@ -32,8 +32,8 @@
 ## Quick Start
 
 1. Open a task.
-2. Choose **Review** at the right of the task's tab strip, or press
-   `Cmd/Ctrl+Alt+R`.
+2. Choose **Review** in the **Conversation | Review** switch at the right of
+   the task's tab strip, or press `Cmd/Ctrl+Alt+R`.
 3. Pick a file in **Changed files** to read its diff.
 4. Choose **Conversation** at the start of Review's scope bar (or press the
    shortcut again) to go back; the cursor returns to the composer. The
@@ -43,9 +43,11 @@
 
 ### Entry Points
 
-- **Review** at the right of the pane's tab strip, beside **Side question**,
-  for the task that pane group shows. It shows pressed while Review is open;
-  choosing it again goes back to the conversation.
+- The **Conversation | Review** switch at the right of the pane's tab strip,
+  for the task that pane group shows. The shown mode is pressed. **Review**
+  carries what the latest finished turn changed, such as `+12 −3`, counted as
+  the turn's changed-files card counts it, and shows no count when that turn
+  changed nothing.
 - **Review** on a turn's changed-files card in the conversation opens Review
   on that turn, once the turn has finished. **Open in editor** on the same card
   opens each file's diff in the editor instead.
@@ -73,8 +75,9 @@ Review is not saved across restarts: every task opens on its conversation.
   itself, and the line takes no room while the task is idle.
 - **Conversation** at the start of the scope bar returns to the
   conversation. Review keeps its scope and read files for the next time.
-- **Side question** in the pane header opens the
-  [side question](side-questions.md) panel over Review.
+- **Side question** at the end of the scope bar opens the
+  [side question](side-questions.md) panel over Review (Claude and Codex
+  tasks).
 - **Scope**: **This turn**, **This stage** (with an agent run), **Branch** or
   **Uncommitted**. Next to it, Review names the scope's base and the revision
   it reads now, for example

@@ -12,7 +12,6 @@ const MODULES = {
   client: "/node_modules/.vite/deps/react-dom_client.js",
   appStore: "/src/store/app.store.ts",
   reviewMode: "/src/store/task-review-mode-store.ts",
-  sideChat: "/src/store/side-chat-store.ts",
   agentRuns: "/src/store/agent-runs-store.ts",
   fixtures: "/src/dev/agent-run-preview/agent-run-fixtures.ts",
   fileBlocks: "/src/components/session/chat-panel-file-blocks.tsx",
@@ -148,7 +147,7 @@ test("asking for changes on a stage returns the task to its conversation", async
   expect(await page.evaluate(() => (window as unknown as { __runCalls: string[] }).__runCalls)).toEqual(["requestChanges"]);
 });
 
-test("the pane header asks a side question about the task its group shows", async ({ page }) => {
+test("the pane header shows the task's mode switch, and the side question lives elsewhere", async ({ page }) => {
   await page.evaluate(async (modules) => {
     const { default: React } = await import(modules.react);
     const { default: { createRoot } } = await import(modules.client);
@@ -174,15 +173,14 @@ test("the pane header asks a side question about the task its group shows", asyn
     header("entry-header-terminal", "terminal:entry-terminal");
   }, MODULES);
 
-  await expect(page.locator("#entry-header-cursor").getByTestId("pane-header-side-question")).toHaveCount(0);
-  await expect(page.locator("#entry-header-terminal").getByTestId("pane-header-side-question")).toHaveCount(0);
-  const button = page.locator("#entry-header-claude").getByRole("button", { name: "Side question" });
-  await expect(button).toBeVisible();
-  await button.click();
-  expect(await page.evaluate(async (modules) => {
-    const { useSideChatStore } = await import(modules.sideChat);
-    return useSideChatStore.getState().openTaskId;
-  }, MODULES)).toBe("entry-claude");
+  // Every task gets the switch, whatever its provider; a terminal tab gets none.
+  const claude = page.locator("#entry-header-claude").getByTestId("pane-header-mode-switch");
+  await expect(claude.getByRole("button", { name: /^Review/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(claude.getByRole("button", { name: "Conversation" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#entry-header-cursor").getByTestId("pane-header-mode-switch")).toBeVisible();
+  await expect(page.locator("#entry-header-terminal").getByTestId("pane-header-mode-switch")).toHaveCount(0);
+  // The side question moved to the composer and Review's scope bar.
+  await expect(page.getByRole("button", { name: "Side question" })).toHaveCount(0);
 });
 
 test("the pane header switches Review, and Review's Conversation goes back to the composer", async ({ page }) => {
@@ -214,8 +212,8 @@ test("the pane header switches Review, and Review's Conversation goes back to th
 
   // Review needs no side question support: a task on any provider gets the switch.
   const header = page.locator("#entry-toggle-header");
-  await expect(header.getByTestId("pane-header-side-question")).toHaveCount(0);
-  const toggle = header.getByTestId("pane-header-review");
+  await expect(header.getByRole("button", { name: "Side question" })).toHaveCount(0);
+  const toggle = header.getByTestId("pane-header-mode-switch").getByRole("button", { name: /^Review/ });
   await expect(toggle).toHaveAttribute("aria-pressed", "false");
   await toggle.click();
   await expect(toggle).toHaveAttribute("aria-pressed", "true");

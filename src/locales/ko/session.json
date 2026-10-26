@@ -1165,7 +1165,8 @@
     "copied": "복사됨",
     "suggestNow": "지금 무엇을 하고 있나요?",
     "suggestWhy": "왜 이 방식을 골랐나요?",
-    "suggestLeft": "끝나기까지 무엇이 남았나요?"
+    "suggestLeft": "끝나기까지 무엇이 남았나요?",
+    "hint": "작업을 멈추지 않고 이 작업에 대해 묻습니다"
   },
   "returnSummary": {
     "title": "다시 오셨네요",

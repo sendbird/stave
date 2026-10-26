@@ -3,7 +3,7 @@
     "providerMode": "Provider mode",
     "thinking": "Thinking",
     "fastMode": "Fast mode",
-    "review": "Review",
+    "review": "Request AI review",
     "secrets": "Secrets",
     "macros": "Macros",
     "compare": "Compare",
@@ -15,7 +15,9 @@
     "bindSecretsIntoThisRunSEnvironment": "Bind secrets into this run's environment.",
     "insertASavedPromptOptionallyPinModelEffortAndOptionallySendItImmediately": "Insert a saved prompt, optionally pin model + effort, and optionally send it immediately.",
     "runThePromptInTwoCandidateWorkspaces": "Run the prompt in two candidate workspaces.",
-    "effectiveSandboxApprovalAndTimeoutValues": "Effective sandbox, approval, and timeout values."
+    "effectiveSandboxApprovalAndTimeoutValues": "Effective sandbox, approval, and timeout values.",
+    "sideQuestion": "Side question",
+    "sideQuestionDescription": "Ask about this task without interrupting its turn."
   },
   "localMcpReadiness": {
     "theLocalMcpServerIsTurnedOffInSettingsDeveloper": "The Local MCP server is turned off in Settings → MCP.",

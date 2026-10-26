@@ -23,8 +23,8 @@
 
 ## Quick Start
 
-1. Choose **Side question** at the right of the task's tab strip, type your
-   question and press `Enter`. Or type `/aside` followed by your question in
+1. Choose **Side question** in the composer toolbar, type your question and
+   press `Enter`. Or type `/aside` followed by your question in
    the composer and press `Enter`.
 2. The side question panel opens over the conversation, or over Review, and
    shows the answer. Ask a follow-up in the same field; earlier questions stay
@@ -35,9 +35,11 @@
 
 ### Entry Points
 
-- **Side question** at the right of the tab strip, beside **+**, for the task
-  that pane group shows. With panes split, each group's button asks about its
-  own task.
+- **Side question** in the composer toolbar. It opens the panel and leaves
+  your draft alone, and it stays available while a turn runs. Like other
+  composer controls, it can move to the overflow tray or be hidden.
+- **Side question** at the right of Review's scope bar, where the composer is
+  hidden.
 - The composer's slash command `/aside` (listed under **Stave commands** when
   you type `/`). `/aside` alone opens the panel with an empty question.
 - `Cmd/Ctrl+K` then `Q` opens the panel for the active task, bringing the task
@@ -69,7 +71,7 @@
 ### Ask About A Running Turn
 
 1. While the turn runs, write your next message in the composer if you like.
-2. Choose **Side question** beside the tabs, or press `Cmd/Ctrl+K` then `Q`,
+2. Choose **Side question** in the composer, or press `Cmd/Ctrl+K` then `Q`,
    and ask.
 3. The turn keeps running; your draft and the conversation stay as they were.
 

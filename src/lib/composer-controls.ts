@@ -20,6 +20,7 @@ export const COMPOSER_CONTROL_IDS = [
   "macro",
   "compare",
   "runtime",
+  "sideQuestion",
 ] as const;
 
 export type ComposerControlId = (typeof COMPOSER_CONTROL_IDS)[number];
@@ -55,6 +56,7 @@ export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
   get macro() { return i18n.t("app:composerControls.macros"); },
   get compare() { return i18n.t("app:composerControls.compare"); },
   get runtime() { return i18n.t("app:composerControls.runtime"); },
+  get sideQuestion() { return i18n.t("app:composerControls.sideQuestion"); },
 };
 
 export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
@@ -68,6 +70,7 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     get macro() { return i18n.t("app:composerControls.insertASavedPromptOptionallyPinModelEffortAndOptionallySendItImmediately"); },
     get compare() { return i18n.t("app:composerControls.runThePromptInTwoCandidateWorkspaces"); },
     get runtime() { return i18n.t("app:composerControls.effectiveSandboxApprovalAndTimeoutValues"); },
+    get sideQuestion() { return i18n.t("app:composerControls.sideQuestionDescription"); },
   };
 
 /**

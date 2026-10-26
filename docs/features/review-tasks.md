@@ -2,7 +2,7 @@
 
 ## Summary
 
-The composer's **AI review** button runs a review in its own read-only task,
+The composer's **Request AI review** button runs a review in its own read-only task,
 on the provider and model you pick, while the task you are working in keeps
 going. When the review finishes, you attach its findings to your next message
 in the original task. The conversation you are working in only receives the
@@ -27,14 +27,14 @@ writer when another model should change files.
 ## Before You Start
 
 - Review tasks need the desktop app. The browser development build has no
-  delegation bridge, so its AI review button runs a change review in the current
+  delegation bridge, so its Request AI review button runs a change review in the current
   conversation instead, as before.
 - The task's workspace must belong to an open repository.
 - At most three subagents of one task run at a time, review tasks included.
 
 ## Quick Start
 
-1. In a task's composer, select **AI review**.
+1. In a task's composer, select **Request AI review**.
 2. Under **Review**, pick **Uncommitted changes**, **Entire local branch**, or
    **Latest reply**.
 3. Under **Review by**, pick the provider, model, and reasoning effort.
@@ -53,7 +53,7 @@ writer when another model should change files.
 
 ### Entry Points
 
-- **AI review** in the composer toolbar, or in its overflow tray when the
+- **Request AI review** in the composer toolbar, or in its overflow tray when the
   toolbar is narrow.
 - **Settings → Prompts → Review Tasks** for the defaults.
 - **View** on the composer line opens the review over the task you are in.

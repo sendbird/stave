@@ -1,5 +1,5 @@
 import { i18n, useTranslation } from "@/i18n";
-import { ArrowLeft, RefreshCw } from "lucide-react";
+import { ArrowLeft, MessageCircleQuestion, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { ToggleGroup } from "@/components/ads/components/ToggleGroup";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -44,9 +44,12 @@ export function ReviewScopeBar(props: {
   onRefresh: () => void;
   /** Shows the task's conversation again; Review keeps its scope and read files. */
   onConversation: () => void;
+  /** Opens the side question over Review; absent when the task's provider has none. */
+  onSideQuestion?: () => void;
 }) {
   useTranslation();
   const shortcut = useShortcutHint("task.toggle-review");
+  const sideQuestionShortcut = useShortcutHint("view.side-question");
   return (
     <div className={sx(styles.scopeBar)}>
       <Tooltip content={i18n.t("review:mode.backToConversation")} shortcut={shortcut}>
@@ -69,6 +72,14 @@ export function ReviewScopeBar(props: {
       <Button variant="quiet" size="xs" iconOnly aria-label={i18n.t("review:scope.refresh")} onClick={props.onRefresh}>
         <RefreshCw aria-hidden />
       </Button>
+      {props.onSideQuestion ? (
+        <Tooltip content={i18n.t("session:sideChat.hint")} shortcut={sideQuestionShortcut}>
+          <Button variant="quiet" size="xs" data-testid="review-side-question" onClick={props.onSideQuestion}>
+            <MessageCircleQuestion aria-hidden />
+            {i18n.t("session:sideChat.title")}
+          </Button>
+        </Tooltip>
+      ) : null}
     </div>
   );
 }

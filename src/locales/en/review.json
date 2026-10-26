@@ -7,7 +7,11 @@
     "review": "Review",
     "backToConversation": "Back to conversation",
     "openReview": "Review this task's work",
-    "backToReview": "Back to Review"
+    "backToReview": "Back to Review",
+    "switchLabel": "Conversation or Review",
+    "switchHint": "Switch between the conversation and Review",
+    "latestTurnChanges_one": "Latest turn: +{{added}} −{{removed}} in {{count}} file",
+    "latestTurnChanges_other": "Latest turn: +{{added}} −{{removed}} in {{count}} files"
   },
   "taskStatus": {
     "working": "This task is still running.",

@@ -7,7 +7,10 @@
     "review": "검토",
     "backToConversation": "대화로 돌아가기",
     "openReview": "이 작업이 한 일 검토",
-    "backToReview": "검토로 돌아가기"
+    "backToReview": "검토로 돌아가기",
+    "switchLabel": "대화 또는 검토",
+    "switchHint": "대화와 검토 화면을 전환합니다",
+    "latestTurnChanges_other": "최근 턴: 파일 {{count}}개, +{{added}} −{{removed}}"
   },
   "taskStatus": {
     "working": "이 작업은 아직 실행 중입니다.",

@@ -59,6 +59,7 @@ export function renderComposerControlNodes(args: {
   secretsControl: ReactNode;
   macroControl: ReactNode;
   compareControl: ReactNode;
+  sideQuestionControl: ReactNode;
   hasRuntimeContent: boolean;
   isMobile: boolean;
   composerIconButtonSize: "icon-sm" | "icon";
@@ -82,6 +83,7 @@ export function renderComposerControlNodes(args: {
     secretsControl,
     macroControl,
     compareControl,
+    sideQuestionControl,
     hasRuntimeContent,
     isMobile,
     composerIconButtonSize,
@@ -118,6 +120,7 @@ export function renderComposerControlNodes(args: {
     secrets: secretsControl,
     macro: macroControl,
     compare: compareControl,
+    sideQuestion: sideQuestionControl,
     runtime: hasRuntimeContent ? (
       isMobile ? (
         <Drawer swipeDirection="down" showSwipeHandle>
