@@ -2,32 +2,32 @@ import { i18n, useTranslation } from "@/i18n";
 import { chromeStyles } from "./lens-chrome.styles";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "../../../ads/utils/stylex";
-import { CountBadge } from "@/components/system/CountBadge";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import {
   ArrowLeft,
   ArrowRight,
   Crosshair,
   Globe,
-  Highlighter,
+  Loader2,
+  Maximize2,
+  MessageSquarePlus,
+  Minimize2,
   Monitor,
-  MoreHorizontal,
-  Square,
-  CodeXml,
   Network,
   RotateCw,
+  Square,
   Terminal,
   X,
 } from "lucide-react";
-import type { FormEvent, KeyboardEvent, RefObject } from "react";
+import {
+  useLayoutEffect,
+  useState,
+  type FormEvent,
+  type KeyboardEvent,
+  type RefObject,
+} from "react";
 import {
   Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
@@ -37,7 +37,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { LENS_TOOL_ICON_CLASS } from "@/components/panes/surfaces/lens/LensLogDetail";
+import { LensChromeMenu } from "@/components/panes/surfaces/lens/LensChromeMenu";
+import { useLensChromeCompact } from "@/components/panes/surfaces/lens/useLensChromeCompact";
 import type { LensOverlayModesHandle } from "@/components/panes/surfaces/lens/useLensOverlayModes";
+import { formatLensAddressForDisplay } from "@/lib/lens/lens-address";
 import { LENS_LOG_LIMIT, type LensPanelTab } from "@/lib/lens/lens-log-format";
 import type { LensDownloadEntry } from "@/lib/lens/lens.types";
 
@@ -68,6 +71,19 @@ export type LensChromeNavigation = {
   isUrlInputFocused: RefObject<boolean>;
 };
 
+/** Full view of this pane; see `useLensFullView`. */
+export type LensChromeFullView = {
+  available: boolean;
+  active: boolean;
+  toggle: () => void;
+};
+
+/** Hand the current page to the rest of the desktop. */
+export type LensChromePageLinks = {
+  copyAddress: () => void;
+  openInBrowser: () => void;
+};
+
 /** Page-capture affordances: screenshots and the downloads menu. */
 export type LensChromeCapture = {
   downloads: LensDownloadEntry[];
@@ -77,9 +93,16 @@ export type LensChromeCapture = {
 };
 
 /**
- * Toolbar for one Lens session: navigation controls, address bar, the
- * preview/console/network tab strip, the overlay-mode toggles, and the capture
- * menus.
+ * Toolbar for one Lens session, in one row: navigation, the address bar, then
+ * the page tools — element picker, visual comments, the preview/console/network
+ * switch, the overflow menu, and full view. A pane too narrow for one row wraps
+ * the tools onto a second row rather than squeezing the address bar; a pane
+ * narrower still moves the picker and comments into the overflow menu so the
+ * tools keep one row.
+ *
+ * The picker and comments act on the page the user is looking at, so they
+ * wait for the preview tab. An active comment mode can still be turned off
+ * from any tab.
  *
  * Pure presentation over handles owned elsewhere. It holds no session state and
  * performs no IPC, so the guest can change from a composited native view to a
@@ -108,6 +131,8 @@ export function LensChrome(props: {
    */
   picker: { disabled: boolean; tooltip: string };
   capture: LensChromeCapture;
+  pageLinks: LensChromePageLinks;
+  fullView: LensChromeFullView;
   onFloatingSurfaceOpenChange: (open: boolean) => void;
 }) {
   useTranslation();
@@ -121,6 +146,8 @@ export function LensChrome(props: {
     overlayModes,
     picker,
     capture,
+    pageLinks,
+    fullView,
     onFloatingSurfaceOpenChange: setFloatingSurfaceOpen,
   } = props;
   const { disabled: pickerDisabled, tooltip: pickerTooltip } = picker;
@@ -143,22 +170,65 @@ export function LensChrome(props: {
   } = props.navigation;
   const {
     isAnnotationModeActive,
-    isBoxInspectActive,
     isPickerActive,
     startElementPicker,
     toggleAnnotationMode,
-    toggleBoxInspect,
   } = overlayModes;
-  const {
-    downloads,
-    saveScreenshot,
-    downloadPageAssets,
-    openDownloadInFinder,
-  } = capture;
+
+  const [isAddressFocused, setIsAddressFocused] = useState(false);
+  const { ref: toolbarRef, compact } = useLensChromeCompact();
+  // Focus swaps the shortened address for the full one, and React replacing
+  // the value drops the selection. Select after that commit so a click or
+  // Cmd+L still selects the whole address, ready to overwrite, and scroll
+  // back to the start: selecting scrolls a long address toward its end.
+  useLayoutEffect(() => {
+    const input = urlInputRef.current;
+    if (isAddressFocused && input) {
+      input.select();
+      input.scrollLeft = 0;
+    }
+  }, [isAddressFocused, urlInputRef]);
+  const hasPage = !lensPageActionDisabled;
+  const onPreview = lensPanelTab === "preview";
+  const previewOnlyTooltip = i18n.t("lens:lensChrome.availableInPreview");
+  const pickerUnavailable = pickerDisabled || !onPreview;
+  const commentsUnavailable =
+    lensPageActionDisabled || (!onPreview && !isAnnotationModeActive);
+  const modeTabs = [
+    {
+      id: "preview" as const,
+      label: i18n.t("lens:lensChrome.preview"),
+      icon: Monitor,
+      count: 0,
+      countKey: null,
+    },
+    {
+      id: "console" as const,
+      label: i18n.t("lens:lensChrome.console"),
+      icon: Terminal,
+      count: Math.min(LENS_LOG_LIMIT, consoleEntryCount),
+      countKey: "lens:lensChrome.consoleCount" as const,
+    },
+    {
+      id: "network" as const,
+      label: i18n.t("lens:lensChrome.network"),
+      icon: Network,
+      count: Math.min(LENS_LOG_LIMIT, networkEntryCount),
+      countKey: "lens:lensChrome.networkCount" as const,
+    },
+  ];
+  const fullViewLabel = fullView.active
+    ? i18n.t("lens:lensChrome.exitFullView")
+    : i18n.t("lens:lensChrome.enterFullView");
 
   return (
-    <div className={sx(chromeStyles.toolbar)}>
-      <div className={sx(chromeStyles.row)}>
+    <div
+      ref={toolbarRef}
+      className={sx(chromeStyles.toolbar)}
+      data-testid="lens-chrome"
+      data-compact={compact || undefined}
+    >
+      <div className={sx(chromeStyles.group)}>
         <Tooltip>
           <TooltipTrigger
             render={
@@ -211,6 +281,9 @@ export function LensChrome(props: {
               />
             }
           >
+            {/* Square, not X: X is the address field's clear control and the
+                app's close/clear glyph, so an X here reads as a second clear
+                button while the user edits during a load. */}
             {isLoading ? (
               <Square className={LENS_TOOL_ICON_CLASS} />
             ) : (
@@ -221,281 +294,259 @@ export function LensChrome(props: {
             {isLoading ? i18n.t("lens:lensChrome.stopLoading") : i18n.t("lens:lensChrome.reload")}
           </TooltipContent>
         </Tooltip>
-
-        <form onSubmit={handleSubmit} className={sx(chromeStyles.addressForm)}>
-          <InputGroup
-            xstyle={[
-              chromeStyles.address,
-              transition.ring,
-              transition.motionDurationNormal,
-            ]}
-          >
-            <InputGroupAddon
-              align="inline-start"
-              xstyle={chromeStyles.addressStart}
-            >
-              <Globe className={LENS_TOOL_ICON_CLASS} />
-            </InputGroupAddon>
-            <InputGroupInput
-              ref={urlInputRef}
-              type="text"
-              aria-label={i18n.t("lens:lensChrome.pageAddress")}
-              value={inputUrl}
-              onChange={(event) => setInputUrl(event.target.value)}
-              onKeyDown={handleUrlKeyDown}
-              onFocus={(event) => {
-                isUrlInputFocused.current = true;
-                event.target.select();
-              }}
-              onBlur={() => {
-                isUrlInputFocused.current = false;
-                // Discard any uncommitted edit and restore the current page URL.
-                setInputUrl(url === "about:blank" ? "" : url);
-              }}
-              placeholder={
-                hasLensApi
-                  ? "http://localhost:3000 or https://example.com"
-                  : "Lens is unavailable in browser-only mode"
-              }
-              xstyle={chromeStyles.addressInput}
-              disabled={!hasLensApi}
-            />
-            {inputUrl ? (
-              <InputGroupAddon
-                align="inline-end"
-                xstyle={chromeStyles.addressEnd}
-              >
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <InputGroupButton
-                        size="icon-sm"
-                        aria-label={i18n.t("lens:lensChrome.clearAddress")}
-                        onClick={() => setInputUrl("")}
-                      />
-                    }
-                  >
-                    <X className={sx(chromeStyles.compactIcon)} />
-                  </TooltipTrigger>
-                  <TooltipContent>{i18n.t("lens:lensChrome.clearAddress")}</TooltipContent>
-                </Tooltip>
-              </InputGroupAddon>
-            ) : null}
-          </InputGroup>
-        </form>
       </div>
-      <div className={sx(chromeStyles.row)}>
-        <div className={sx(chromeStyles.modes)}>
-          {[
-            {
-              id: "preview" as const,
-              label: i18n.t("lens:lensChrome.preview"),
-              icon: Monitor,
-              count: null,
-            },
-            {
-              id: "console" as const,
-              label: i18n.t("lens:lensChrome.console"),
-              icon: Terminal,
-              count: Math.min(LENS_LOG_LIMIT, consoleEntryCount),
-            },
-            {
-              id: "network" as const,
-              label: i18n.t("lens:lensChrome.network"),
-              icon: Network,
-              count: Math.min(LENS_LOG_LIMIT, networkEntryCount),
-            },
-          ].map((tab) => {
+
+      <form onSubmit={handleSubmit} className={sx(chromeStyles.addressForm)}>
+        <InputGroup
+          xstyle={[
+            chromeStyles.address,
+            transition.ring,
+            transition.motionDurationNormal,
+          ]}
+        >
+          <InputGroupAddon
+            align="inline-start"
+            xstyle={chromeStyles.addressStart}
+          >
+            {isLoading ? (
+              <Loader2
+                aria-hidden
+                className={sx(chromeStyles.compactIcon, chromeStyles.addressSpinner)}
+              />
+            ) : (
+              <Globe aria-hidden className={sx(chromeStyles.compactIcon)} />
+            )}
+          </InputGroupAddon>
+          <InputGroupInput
+            ref={urlInputRef}
+            type="text"
+            inputMode="url"
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            aria-label={i18n.t("lens:lensChrome.pageAddress")}
+            value={isAddressFocused ? inputUrl : formatLensAddressForDisplay(inputUrl)}
+            onChange={(event) => setInputUrl(event.target.value)}
+            onKeyDown={handleUrlKeyDown}
+            onFocus={(event) => {
+              isUrlInputFocused.current = true;
+              setIsAddressFocused(true);
+              event.target.select();
+            }}
+            onBlur={() => {
+              isUrlInputFocused.current = false;
+              setIsAddressFocused(false);
+              // Discard any uncommitted edit and restore the current page URL.
+              setInputUrl(url === "about:blank" ? "" : url);
+            }}
+            placeholder={
+              hasLensApi
+                ? i18n.t("lens:lensChrome.addressPlaceholder")
+                : i18n.t("lens:lensChrome.addressUnavailable")
+            }
+            xstyle={chromeStyles.addressInput}
+            disabled={!hasLensApi}
+          />
+          {isAddressFocused && inputUrl ? (
+            <InputGroupAddon
+              align="inline-end"
+              xstyle={chromeStyles.addressEnd}
+            >
+              <InputGroupButton
+                size="icon-xs"
+                aria-label={i18n.t("lens:lensChrome.clearAddress")}
+                // Pointer-only. Leaving the field restores the page URL, so a
+                // Tab stop here would discard the edit and then unmount the
+                // very control that took focus. Keyboard users already get the
+                // whole address selected on focus and Escape to restore it.
+                tabIndex={-1}
+                // Keep focus in the field: a blur would restore the page URL
+                // before the click could clear it.
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  setInputUrl("");
+                  urlInputRef.current?.focus();
+                }}
+              >
+                <X className={sx(chromeStyles.compactIcon)} />
+              </InputGroupButton>
+            </InputGroupAddon>
+          ) : null}
+        </InputGroup>
+      </form>
+
+      <div className={sx(chromeStyles.group, chromeStyles.trailing)}>
+        {compact ? null : (
+          <>
+            <Tooltip>
+              <TooltipTrigger
+                render={<span className={sx(layoutShellStyles.inlineFlex)} />}
+              >
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  xstyle={
+                    isPickerActive
+                      ? chromeStyles.toolActive
+                      : chromeStyles.toolInactive
+                  }
+                  disabled={pickerUnavailable}
+                  onClick={() => {
+                    void startElementPicker();
+                  }}
+                  aria-label={i18n.t("lens:lensChrome.pickElement")}
+                  aria-pressed={isPickerActive}
+                >
+                  <Crosshair className={LENS_TOOL_ICON_CLASS} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className={sx(chromeStyles.help)}>
+                {onPreview ? pickerTooltip : previewOnlyTooltip}
+              </TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger
+                render={<span className={sx(layoutShellStyles.inlineFlex)} />}
+              >
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant="ghost"
+                  xstyle={
+                    isAnnotationModeActive
+                      ? chromeStyles.toolActive
+                      : chromeStyles.toolInactive
+                  }
+                  disabled={commentsUnavailable}
+                  onClick={() => {
+                    void toggleAnnotationMode();
+                  }}
+                  aria-label={i18n.t("lens:lensChrome.toggleVisualComments")}
+                  aria-pressed={isAnnotationModeActive}
+                >
+                  <MessageSquarePlus className={LENS_TOOL_ICON_CLASS} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {isAnnotationModeActive
+                  ? i18n.t("lens:lensChrome.visualCommentsActive")
+                  : onPreview
+                    ? i18n.t("lens:lensChrome.visualComments")
+                    : previewOnlyTooltip}
+              </TooltipContent>
+            </Tooltip>
+          </>
+        )}
+
+        <div
+          className={sx(chromeStyles.modes)}
+          role="group"
+          aria-label={i18n.t("lens:lensChrome.panelView")}
+        >
+          {modeTabs.map((tab) => {
             const Icon = tab.icon;
             const active = lensPanelTab === tab.id;
+            const count = tab.count > 0 ? tab.count : null;
+            // The bare number reads like an error badge, so the tooltip and
+            // the accessible name say what is being counted.
+            const countText =
+              count && tab.countKey ? i18n.t(tab.countKey, { count }) : null;
             return (
               <Tooltip key={tab.id}>
                 <TooltipTrigger
                   render={
                     <Button
                       type="button"
-                      size="icon-sm"
-                      variant={active ? "secondary" : "ghost"}
+                      size={count ? "xs" : "icon-xs"}
+                      variant="ghost"
                       xstyle={[
-                        chromeStyles.tab,
-                        active
-                          ? chromeStyles.toolActive
-                          : chromeStyles.toolInactive,
+                        chromeStyles.modeTab,
+                        active ? chromeStyles.modeTabActive : chromeStyles.toolInactive,
                       ]}
                       onClick={() => setLensPanelTab(tab.id)}
-                      aria-label={i18n.t("lens:lensChrome.show", { value1: tab.label.toLowerCase() })}
-                      aria-pressed={active}
-                      indicator={
-                        tab.count ? (
-                          <CountBadge count={tab.count} tone="neutral" />
-                        ) : null
+                      aria-label={
+                        countText
+                          ? i18n.t("lens:lensChrome.showWithCount", {
+                              value1: tab.label.toLowerCase(),
+                              value2: countText,
+                            })
+                          : i18n.t("lens:lensChrome.show", { value1: tab.label.toLowerCase() })
                       }
+                      aria-pressed={active}
                     />
                   }
                 >
                   <Icon className={LENS_TOOL_ICON_CLASS} />
+                  {count ? (
+                    <span aria-hidden className={sx(chromeStyles.modeCount)}>
+                      {count}
+                    </span>
+                  ) : null}
                 </TooltipTrigger>
-                <TooltipContent>{tab.label}</TooltipContent>
+                <TooltipContent>
+                  {countText
+                    ? i18n.t("lens:lensChrome.viewWithCount", {
+                        value1: tab.label,
+                        value2: countText,
+                      })
+                    : tab.label}
+                </TooltipContent>
               </Tooltip>
             );
           })}
         </div>
 
+        <LensChromeMenu
+          capture={capture}
+          hasLensApi={hasLensApi}
+          hasPage={hasPage}
+          onOpenChange={setFloatingSurfaceOpen}
+          onPreview={onPreview}
+          openDevTools={openDevTools}
+          overlayModes={overlayModes}
+          pageLinks={pageLinks}
+          pageTools={
+            compact
+              ? { pickerDisabled: pickerUnavailable, commentsDisabled: commentsUnavailable }
+              : null
+          }
+        />
+
         <Tooltip>
           <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                size="icon-sm"
-                variant={isPickerActive ? "secondary" : "outline"}
-                xstyle={[
-                  isPickerActive
-                    ? chromeStyles.toolActive
-                    : chromeStyles.toolInactive,
-                ]}
-                disabled={pickerDisabled}
-                onClick={() => {
-                  void startElementPicker();
-                }}
-                aria-label={i18n.t("lens:lensChrome.pickElement")}
-                aria-pressed={isPickerActive}
-              />
-            }
+            render={<span className={sx(layoutShellStyles.inlineFlex)} />}
           >
-            <Crosshair className={LENS_TOOL_ICON_CLASS} />
+            <Button
+              type="button"
+              size="icon-sm"
+              variant="ghost"
+              xstyle={
+                fullView.active
+                  ? chromeStyles.toolActive
+                  : chromeStyles.toolInactive
+              }
+              disabled={!fullView.available}
+              onClick={fullView.toggle}
+              // The label names the action (enter or exit), so the state is
+              // not repeated through aria-pressed.
+              aria-label={fullViewLabel}
+              data-testid="lens-full-view-toggle"
+            >
+              {fullView.active ? (
+                <Minimize2 className={LENS_TOOL_ICON_CLASS} />
+              ) : (
+                <Maximize2 className={LENS_TOOL_ICON_CLASS} />
+              )}
+            </Button>
           </TooltipTrigger>
           <TooltipContent className={sx(chromeStyles.help)}>
-            {pickerTooltip}
+            {fullView.available
+              ? fullViewLabel
+              : i18n.t("lens:lensChrome.fullViewUnavailable")}
           </TooltipContent>
         </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                size="icon-sm"
-                variant={isAnnotationModeActive ? "secondary" : "outline"}
-                xstyle={[
-                  isAnnotationModeActive
-                    ? chromeStyles.toolActive
-                    : chromeStyles.toolInactive,
-                ]}
-                disabled={lensPageActionDisabled}
-                onClick={() => {
-                  void toggleAnnotationMode();
-                }}
-                aria-label={i18n.t("lens:lensChrome.toggleVisualComments")}
-                aria-pressed={isAnnotationModeActive}
-              />
-            }
-          >
-            <Highlighter className={LENS_TOOL_ICON_CLASS} />
-          </TooltipTrigger>
-          <TooltipContent>
-            {isAnnotationModeActive
-              ? i18n.t("lens:lensChrome.visualCommentsActive")
-              : i18n.t("lens:lensChrome.visualComments")}
-          </TooltipContent>
-        </Tooltip>
-
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                type="button"
-                size="icon-sm"
-                variant="ghost"
-                disabled={lensPageActionDisabled}
-                onClick={openDevTools}
-                aria-label={i18n.t("lens:lensChrome.openDeveloperTools")}
-              />
-            }
-          >
-            <CodeXml className={LENS_TOOL_ICON_CLASS} />
-          </TooltipTrigger>
-          <TooltipContent>{i18n.t("lens:lensChrome.developerTools")}</TooltipContent>
-        </Tooltip>
-        <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
-          <Tooltip>
-            <TooltipTrigger
-              render={<span className={sx(layoutShellStyles.inlineFlex)} />}
-            >
-              <DropdownMenuTrigger
-                render={
-                  <Button
-                    type="button"
-                    size="icon-sm"
-                    variant="ghost"
-                    disabled={!hasLensApi}
-                    aria-label={i18n.t("lens:lensChrome.moreBrowserTools")}
-                  />
-                }
-              >
-                <MoreHorizontal className={LENS_TOOL_ICON_CLASS} />
-              </DropdownMenuTrigger>
-            </TooltipTrigger>
-            <TooltipContent>{i18n.t("lens:lensChrome.moreBrowserTools")}</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" xstyle={chromeStyles.downloadsMenu}>
-            <DropdownMenuItem
-              disabled={lensPageActionDisabled}
-              onSelect={() => {
-                void toggleBoxInspect();
-              }}
-            >
-              {isBoxInspectActive ? i18n.t("lens:lensChrome.stopMeasuring") : i18n.t("lens:lensChrome.measureSpacing")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={lensPageActionDisabled}
-              onSelect={() => {
-                void saveScreenshot(false);
-              }}
-            >
-              {i18n.t("lens:lensChrome.saveViewportScreenshot")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={lensPageActionDisabled}
-              onSelect={() => {
-                void saveScreenshot(true);
-              }}
-            >
-              {i18n.t("lens:lensChrome.saveFullPageScreenshot")}
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={lensPageActionDisabled}
-              onSelect={() => {
-                void downloadPageAssets();
-              }}
-            >
-              {i18n.t("lens:lensChrome.downloadPageAssets")}
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>{i18n.t("lens:lensChrome.recentDownloads")}</DropdownMenuLabel>
-            {downloads.length > 0 ? (
-              downloads
-                .slice(-5)
-                .reverse()
-                .map((entry) => (
-                  <DropdownMenuItem
-                    key={entry.id}
-                    className={sx(chromeStyles.downloadRow)}
-                    onSelect={() => openDownloadInFinder(entry.savePath)}
-                  >
-                    <span className={sx(chromeStyles.downloadName)}>
-                      {entry.filename}
-                    </span>
-                    <span className={sx(chromeStyles.downloadSize)}>
-                      {entry.state}
-                    </span>
-                  </DropdownMenuItem>
-                ))
-            ) : (
-              <DropdownMenuItem disabled>{i18n.t("lens:lensChrome.noDownloadsYet")}</DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
     </div>
   );

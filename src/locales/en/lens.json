@@ -29,7 +29,10 @@
     "openAPageFirst": "Open a page first.",
     "pickAnElementAndAppendACompact": "Pick an element and append a compact selector, style, and source summary to the active task.",
     "assetSaved_one": "{{count}} asset saved.",
-    "assetSaved_other": "{{count}} assets saved."
+    "assetSaved_other": "{{count}} assets saved.",
+    "pageAddressCopied": "Page address copied",
+    "couldNotCopyPageAddress": "Could not copy the page address",
+    "couldNotOpenInBrowser": "Could not open the page in your browser"
   },
   "lensAutomationStatus": {
     "lensBrowserControl": "Lens browser control",
@@ -72,7 +75,23 @@
     "saveFullPageScreenshot": "Save full page screenshot",
     "downloadPageAssets": "Download page assets",
     "recentDownloads": "Recent downloads",
-    "noDownloadsYet": "No downloads yet"
+    "noDownloadsYet": "No downloads yet",
+    "addressPlaceholder": "Enter URL",
+    "addressUnavailable": "Lens is unavailable in browser-only mode",
+    "panelView": "Lens view",
+    "copyPageAddress": "Copy page address",
+    "openInDefaultBrowser": "Open in default browser",
+    "enterFullView": "Enter full view",
+    "exitFullView": "Exit full view",
+    "fullViewUnavailable": "Available when Lens is split with another pane.",
+    "showWithCount": "Show {{value1}}, {{value2}}",
+    "viewWithCount": "{{value1}} · {{value2}}",
+    "consoleCount_one": "{{count}} log entry",
+    "consoleCount_other": "{{count}} log entries",
+    "networkCount_one": "{{count}} request",
+    "networkCount_other": "{{count}} requests",
+    "availableInPreview": "Available in Preview.",
+    "stopVisualComments": "Stop visual comments"
   },
   "lensConsoleWorkbench": {
     "searchConsole": "Search console",

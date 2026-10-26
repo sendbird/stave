@@ -152,6 +152,10 @@ if (preview === "question-reply") {
   void import("@/dev/lens-review-preview").then(({ LensReviewPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><LensReviewPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "lens-chrome") {
+  void import("@/dev/lens-chrome-preview").then(({ LensChromePreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><LensChromePreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "api-connections") {
   void import("@/dev/api-connections-preview").then(({ ApiConnectionsPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><ApiConnectionsPreview /></StaveDesignProvider></StrictMode>);

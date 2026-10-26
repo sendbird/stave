@@ -61,6 +61,7 @@ import {
   type PaneSurfaceDescriptor,
   type PaneSurfaceKind,
 } from "@/lib/panes/types";
+import { toPersistedDockLayout } from "@/lib/panes/dock-layout-persistence";
 import { canTakeOverTask, isTaskArchived, isTaskManaged } from "@/lib/tasks";
 import { closeTerminalSessionForTab } from "@/lib/terminal/terminal-session-cleanup";
 import { useScheduleRequestStore } from "@/store/schedule-request-store";
@@ -839,7 +840,7 @@ export function WorkspacePaneHost() {
       ) {
         return;
       }
-      const layout = api.toJSON() as unknown as PaneDockLayout;
+      const layout = toPersistedDockLayout(api.toJSON() as unknown as PaneDockLayout);
       lastWrittenLayoutRef.current = layout;
       lastAppliedLayoutRef.current = layout;
       state.setDockLayout({ layout });
