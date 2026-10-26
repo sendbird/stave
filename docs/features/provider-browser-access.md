@@ -30,9 +30,11 @@ the live connection. Stave only asks the provider to use that connection for
 the current turn.
 
 Both providers also receive an injected browser-policy block stating what
-`@web` means, that Chrome access exists only for an interactive primary `@web`
-turn or automatic activation, and that neither an in-app browser nor desktop
-UI control substitutes for the requested Chrome connection. The tool names in each block differ
+`@web` means, that Chrome access exists only on interactive primary turns
+(`@web`, automatic activation, or the Always mode), that Chrome tools present
+on a turn without `@web` mean the user allowed Stave to attach them, and that
+neither an in-app browser nor desktop UI control substitutes for the requested
+Chrome connection. The tool names in each block differ
 because the provider contracts differ; the policy does not.
 
 ## Using `@web`
@@ -46,11 +48,33 @@ read-only analysis. Use ordinary web search for public research,
 or Lens when the current repository's rendered UI needs workspace-scoped visual
 inspection.
 
+## Browser modes
+
+`Settings > Mentions > Browser access > When the agent may use Chrome` picks
+how far Stave attaches the provider browser without `@web`:
+
+| Mode | Chrome is attached to |
+|---|---|
+| Only with @web | Interactive prompts that contain `@web`. |
+| Automatic (default) | `@web` prompts, prompts naming a listed host, and one retry after a blocked fetch or Lens read. See below. |
+| Always | Every interactive primary turn. The agent decides when to open the user's Chrome. |
+
+The mode is stored as two settings, `providerBrowserAutoFallback` and
+`providerBrowserAlwaysOn`, so a saved Automatic opt-out from before Always mode
+existed still reads as Only with @web. Always mode never overrides the hard
+blocks: unattended automation and secondary read-only analysis stay without a
+browser in every mode.
+
+In Always mode the browser is already attached, so the automatic retry never
+fires. On Claude Code, a `WebFetch` that hits a login wall or bot check on a
+browser-attached turn (Always or `@web`) gets a note pointing the model at the
+`mcp__claude-in-chrome__*` tools instead of further fetch attempts. Codex has
+no equivalent tool-result hook; its injected policy carries the same guidance.
+
 ## Automatic fallback
 
-`Settings > Providers > Browser access > Automatic browser fallback` is on by
-default. An explicitly saved off selection is preserved. While it is on, Stave
-can arm the provider browser for an interactive turn that did not say `@web`, in two places:
+In Automatic mode, Stave can arm the provider browser for an interactive turn
+that did not say `@web`, in two places:
 
 - **Up front**, when the prompt contains a URL on a host that a token-less
   fetch cannot read. Stave ships with `claude.ai` and `claudeusercontent.com`;
@@ -84,8 +108,9 @@ succeed.
 
 ## Settings
 
-Settings > Providers > Browser access shows the setup path for Claude Code and
-Codex. Stave does not persist or display a browser connection status: each
+Settings > Mentions lists every prompt mention (`@web`, `@lens`, and the
+`@info:<section>` references) with its current status, and its Browser access
+card shows the browser mode and the setup path for Claude Code and Codex. Stave does not persist or display a browser connection status: each
 `@web` turn attempts Chrome access directly, and any failure is reported in
 that conversation. Because the extension is provider-owned, Stave cannot
 install it, enable it, or grant site access from Settings.
@@ -100,9 +125,11 @@ install it, enable it, or grant site access from Settings.
   password, or session token in workspace Information. Page content returned by
   a provider browser tool can still become part of the task transcript like any
   other tool result.
-- The integration is opt-in per interactive prompt through `@web`. Automatic
-  fallback additionally allows per-host activation and a post-failure retry.
-  It is on by default, can be disabled in Settings, and preserves a saved opt-out.
+- The integration is opt-in per interactive prompt through `@web`. The default
+  Automatic mode additionally allows per-host activation and a post-failure
+  retry, and preserves a saved opt-out. Always mode is opt-in and attaches the
+  browser to every interactive primary turn; the provider extension's site
+  access and confirmations still apply.
 - Stave does not expose a separate browser-control IPC or Local MCP tool.
 
 ## Initialization troubleshooting

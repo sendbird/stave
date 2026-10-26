@@ -4,9 +4,16 @@ import { useEffect, useState } from "react";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { Badge, Textarea } from "@/components/ui";
 import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
-import { PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS } from "@/lib/provider-browser";
+import {
+  PROVIDER_BROWSER_AUTO_ARM_DEFAULT_DOMAINS,
+  type ProviderBrowserMode,
+} from "@/lib/provider-browser";
 import { sx } from "@/components/ads/utils/stylex";
-import { SettingsCard, SwitchField } from "./settings-dialog.shared";
+import {
+  ChoiceButtons,
+  LabeledField,
+  SettingsCard,
+} from "./settings-dialog.shared";
 import { providerBrowserAccessSettingsCardStyles as styles } from "./ProviderBrowserAccessSettingsCard.styles";
 
 const PROVIDER_BROWSER_SETUP = {
@@ -84,8 +91,8 @@ function AutoFallbackDomainsField(args: {
 }
 
 export function ProviderBrowserAccessSettingsCard(args: {
-  autoFallback: boolean;
-  onAutoFallbackChange: (enabled: boolean) => void;
+  mode: ProviderBrowserMode;
+  onModeChange: (mode: ProviderBrowserMode) => void;
   autoFallbackDomains: string;
   onAutoFallbackDomainsChange: (value: string) => void;
 }) {
@@ -102,13 +109,35 @@ export function ProviderBrowserAccessSettingsCard(args: {
         <ProviderBrowserSetupCard providerId="claude-code" />
         <ProviderBrowserSetupCard providerId="codex" />
       </div>
-      <SwitchField
-        title={t("settings:providerBrowserAccessSettingsCard.automaticBrowserFallback")}
-        description={t("settings:providerBrowserAccessSettingsCard.withoutAnExplicitWebArmThe")}
-        checked={args.autoFallback}
-        onCheckedChange={args.onAutoFallbackChange}
-      />
-      {args.autoFallback ? (
+      <LabeledField
+        title={t("settings:providerBrowserAccessSettingsCard.mode.title")}
+        description={t("settings:providerBrowserAccessSettingsCard.mode.description")}
+        layout="stacked"
+      >
+        <ChoiceButtons<ProviderBrowserMode>
+          value={args.mode}
+          onChange={args.onModeChange}
+          columns={3}
+          options={[
+            {
+              value: "explicit",
+              label: t("settings:providerBrowserAccessSettingsCard.mode.explicit.label"),
+              description: t("settings:providerBrowserAccessSettingsCard.mode.explicit.description"),
+            },
+            {
+              value: "auto",
+              label: t("settings:providerBrowserAccessSettingsCard.mode.auto.label"),
+              description: t("settings:providerBrowserAccessSettingsCard.mode.auto.description"),
+            },
+            {
+              value: "always",
+              label: t("settings:providerBrowserAccessSettingsCard.mode.always.label"),
+              description: t("settings:providerBrowserAccessSettingsCard.mode.always.description"),
+            },
+          ]}
+        />
+      </LabeledField>
+      {args.mode === "auto" ? (
         <AutoFallbackDomainsField
           value={args.autoFallbackDomains}
           onCommit={args.onAutoFallbackDomainsChange}

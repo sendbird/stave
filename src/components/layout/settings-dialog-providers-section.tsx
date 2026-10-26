@@ -37,7 +37,6 @@ import {
 import { ClaudeInstalledPluginsField } from "./settings-dialog-claude-plugins";
 import { CodexPluginsCard } from "./settings-dialog-codex-plugins-card";
 import { ClaudeGuardrailFields } from "./settings-dialog-claude-guardrails";
-import { ProviderBrowserAccessSettingsCard } from "./ProviderBrowserAccessSettingsCard";
 import { SettingsDelegationSection } from "./settings-dialog-delegation-section";
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
 import { SettingsKiroSection } from "./settings-dialog-kiro-section";
@@ -200,8 +199,6 @@ export function ProvidersSection(props: {
     codexReasoningSummarySupport,
     codexFastMode,
     trustedTools,
-    providerBrowserAutoFallback,
-    providerBrowserAutoFallbackDomains,
     claudeRuntimeCapabilities,
     codexRuntimeCapabilities,
   ] = useAppStore(
@@ -230,8 +227,6 @@ export function ProvidersSection(props: {
           state.settings.codexReasoningSummarySupport,
           state.settings.codexFastMode,
           state.settings.trustedTools,
-          state.settings.providerBrowserAutoFallback,
-          state.settings.providerBrowserAutoFallbackDomains,
           state.providerRuntimeCapabilities["claude-code"],
           state.providerRuntimeCapabilities.codex,
         ] as const,
@@ -287,18 +282,6 @@ export function ProvidersSection(props: {
           }
         />
       </SettingsCard>
-      <ProviderBrowserAccessSettingsCard
-        autoFallback={providerBrowserAutoFallback}
-        onAutoFallbackChange={(checked) =>
-          updateSettings({ patch: { providerBrowserAutoFallback: checked } })
-        }
-        autoFallbackDomains={providerBrowserAutoFallbackDomains}
-        onAutoFallbackDomainsChange={(value) =>
-          updateSettings({
-            patch: { providerBrowserAutoFallbackDomains: value },
-          })
-        }
-      />
       <SettingsDelegationSection />
       <SettingsCard
         title={t("settingsProviders:providersSection.trustedApprovals.title")}

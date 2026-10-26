@@ -1,4 +1,5 @@
 import {
+  AtSign,
   Bot,
   Brain,
   Cable,
@@ -199,11 +200,6 @@ export const settingsSections = [
       "main agent",
       "fable",
       "astra",
-      "browser",
-      "browser access",
-      "chrome",
-      "extension",
-      "@web",
       // Delegation has no settings key of its own (its parameters are per
       // call), so the section keywords are the only way search can reach the
       // card that explains it.
@@ -382,6 +378,28 @@ export const settingsSections = [
     keywords: ["catalog", "suggestions", "agents"],
   },
   {
+    id: "mentions",
+    labelKey: "settings:sections.mentions.label",
+    icon: AtSign,
+    descriptionKey: "settings:sections.mentions.description",
+    keywords: [
+      "@",
+      "mention",
+      "mentions",
+      "@web",
+      "@lens",
+      "@info",
+      "browser",
+      "browser access",
+      "chrome",
+      "extension",
+      "fallback",
+      "always",
+      "멘션",
+      "브라우저",
+    ],
+  },
+  {
     id: "commandPalette",
     labelKey: "settings:sections.commandPalette.label",
     icon: KeyRound,
@@ -533,6 +551,7 @@ export const settingsSectionGroups: Array<{
       "prompts",
       "memory",
       "skills",
+      "mentions",
     ],
   },
   {

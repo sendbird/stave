@@ -113,14 +113,20 @@ describe("matchesSettingsSection", () => {
     const providers = settingsSections.find(
       (section) => section.id === "providers",
     );
+    const mentions = settingsSections.find(
+      (section) => section.id === "mentions",
+    );
 
+    expect(mentions).toBeDefined();
     expect(scripts).toBeDefined();
     expect(chat).toBeDefined();
     expect(providers).toBeDefined();
     expect(matchesSettingsSection(scripts!, "quick commands")).toBe(true);
     expect(matchesSettingsSection(chat!, "mid-turn")).toBe(true);
-    expect(matchesSettingsSection(providers!, "browser access")).toBe(true);
-    expect(matchesSettingsSection(providers!, "chrome extension")).toBe(true);
+    expect(matchesSettingsSection(mentions!, "browser access")).toBe(true);
+    expect(matchesSettingsSection(mentions!, "chrome extension")).toBe(true);
+    expect(matchesSettingsSection(mentions!, "@web")).toBe(true);
+    expect(matchesSettingsSection(mentions!, "멘션")).toBe(true);
     expect(matchesSettingsSection(providers!, "codex plugins")).toBe(true);
     expect(matchesSettingsSection(providers!, "플러그인")).toBe(true);
   });
