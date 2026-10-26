@@ -103,6 +103,7 @@ import { trimPersistedMessageWindow } from "../../src/store/resident-message-bud
 import { captureResultEvidence } from "../../src/lib/reviews/result-evidence";
 import { applyProviderEventsToWorkspaceSession } from "../../src/store/workspace-turn-replay";
 import { collectChangedMessages, createHostTaskSteerCoordinator } from "./host-task-steer";
+import { savePromptOrRevert } from "./unsaved-turn-rollback";
 import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
@@ -1830,6 +1831,9 @@ async function runTaskImpl(args: {
   // describes this one turn (an agent run stage, a wake-up) still reaches this
   // turn below, but must not be re-sent with the user's later turns.
   const requestedSourceContexts = withoutTurnScopedContexts(args.retrievedContextParts ?? []);
+  // The task as stored, for taking the turn back out if its prompt is not saved.
+  const storedTask = task;
+  const activeTaskIdBeforeTurn = session.activeTaskId;
 
   if (!task) {
     const taskId = delegationTaskId ?? randomUUID();
@@ -1901,6 +1905,7 @@ async function runTaskImpl(args: {
     session,
   });
   const residentMessagesBeforeTurn = session.messagesByTask[task.id] ?? [];
+  const messageCountBeforeTurn = session.messageCountByTask[task.id];
 
   const turnId = randomUUID();
   const existingHistory = session.messagesByTask[task.id] ?? [];
@@ -2020,18 +2025,13 @@ async function runTaskImpl(args: {
     taskId: task.id,
     session,
   });
-  await queueWorkspaceSessionPersist({
-    workspaceId: args.workspaceId,
-    workspaceName,
-    session,
-    taskId: task.id,
+  const turnSession = session;
+  await savePromptOrRevert({
+    turn: { taskId: task.id, turnId, storedTask, activeTaskId: activeTaskIdBeforeTurn, messages: residentMessagesBeforeTurn, messageCount: messageCountBeforeTurn },
+    cache: { read: () => workspaceSessionCacheById.get(args.workspaceId), write: (next) => cacheWorkspaceSession(args.workspaceId, next) },
     // Only the prompt's new user message and the pending assistant row.
-    changedMessagesByTask: {
-      [task.id]: collectChangedMessages({
-        before: residentMessagesBeforeTurn,
-        after: session.messagesByTask[task.id] ?? [],
-      }),
-    },
+    save: (turn) => queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName, session: turnSession, taskId: turn.taskId, rejectOnError: true,
+      changedMessagesByTask: { [turn.taskId]: collectChangedMessages({ before: turn.messages, after: turnSession.messagesByTask[turn.taskId] ?? [] }) } }),
   });
 
   session = trimResidentTaskMessages({
