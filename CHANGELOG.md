@@ -1,3 +1,31 @@
+## [0.28.2](https://github.com/sendbird/stave/compare/v0.28.1...v0.28.2) (2026-10-27)
+
+This patch release fixes a task that kept showing Working after its turn finished, keeps an agent run's first prompt above its reply, and trims the Welcome back card. It also adds a Lens full view with a reworked toolbar, moves the side question to the composer next to a Conversation | Review switch, adds an opt-in Always browser mode with a Settings > Mentions section, and updates Vite to 8.3.3 for a command injection advisory. Its three `feat:` changes add no data format that needs migration, so it ships as a patch.
+
+### Features
+
+- Lens has a Full view button that maximizes the Lens pane inside the dock and restores the split on exit; the maximized state is not saved with the layout. The toolbar fits navigation, address and tools on one row from about 622px, hides the `http(s)://` scheme until the address bar is focused, labels console and network counts with their units, and uses a square stop icon and a speech-bubble comment icon.
+- The pane header shows a Conversation | Review switch whose Review item carries the latest finished turn's line counts (`+12 −3`). The side question moves to a composer control (Claude and Codex tasks with a conversation) and to Review's scope bar, and the composer's AI review button reads **Request AI review**.
+- A new Always browser mode (off by default) lets Claude Code and Codex use the user's Chrome on every interactive turn without typing `@web`; unattended automation and secondary read-only runs stay blocked. A new Settings > Mentions section lists `@web`, `@lens` and `@info:<section>` with their status, and browser access moves there from Providers as a three-way choice: Only with @web, Automatic (default) or Always.
+
+### Fixes
+
+- A task no longer keeps showing Working after its turn finished. Switching, hydrating, creating or importing a workspace and opening a project now read and save the workspace session inside their final store update, so a turn's `done` that lands during the wait is kept.
+- An agent run's first prompt no longer appears below its reply. Writes shared by the main process and the host service take the write lock first (`BEGIN IMMEDIATE`), and a turn no longer starts when its prompt row could not be saved.
+- The Welcome back card no longer repeats the header's time in its status line, drops step counts from the changes line, and shows only the answer as the last decision for an answered question.
+- Vite is updated from 8.3.1 to 8.3.3 for [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm) (SECURE-5315), an editor command injection that affects Windows development servers.
+
+### Upgrade Notes
+
+- No data migration or setting reset. The browser mode is stored as two booleans (`providerBrowserAutoFallback`, `providerBrowserAlwaysOn`); a saved fallback opt-out reads as Only with @web. No registered temporary migration expires in this release; `agent-run-adaptive-draft-key` must be removed before 0.29.0.
+
+### Known Limits
+
+- The Electron e2e suite and a packaged desktop upgrade from 0.28.1 were not run for this release. Lens Full view, Always browser mode with the Chrome extension connected, and the workspace-transition and prompt-ordering races were not exercised end to end in a packaged app. Transcripts already saved out of order are not repaired.
+
+### References
+
+- [PR #828](https://github.com/sendbird/stave/pull/828), [PR #829](https://github.com/sendbird/stave/pull/829), [PR #830](https://github.com/sendbird/stave/pull/830), [PR #831](https://github.com/sendbird/stave/pull/831), [PR #832](https://github.com/sendbird/stave/pull/832), [PR #833](https://github.com/sendbird/stave/pull/833), [PR #834](https://github.com/sendbird/stave/pull/834)
 ## [0.28.1](https://github.com/sendbird/stave/compare/v0.28.0...v0.28.1) (2026-10-25)
 
 This patch release refines surfaces that shipped in 0.28.0: side questions keep a thread, Review's code view is highlighted and usable at any pane width, the agent run notice becomes one composer line, the Welcome back card leads with one action, and helpers draw shared team turns as they work. It also raises small text to 12px and 4.5:1 contrast and fixes two agent run defects. Its five `feat:` changes refine existing surfaces with no new data format or setting that needs migration, so it ships as a patch.
