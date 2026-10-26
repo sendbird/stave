@@ -64,6 +64,7 @@ import {
 import {
   clearEndedTurnActivity,
   refreshStaleCachedWorkspace,
+  resolveLatestCachedWorkspace,
 } from "@/store/workspace-cache-freshness";
 
 let workspaceSwitchMetricTokenCounter = 0;
@@ -599,12 +600,8 @@ export function createWorkspaceManagementActions(args: {
         cachedWorkspaceState: reusableCachedWorkspaceState,
         loadedWorkspaceShellState: resolvedWorkspaceShellState,
       });
-      const workspaceState =
-        (preferLoadedWorkspaceState
-          ? resolvedWorkspaceShellState?.workspaceState
-          : (reusableCachedWorkspaceState ??
-            resolvedWorkspaceShellState?.workspaceState)) ??
-        buildWorkspaceSessionState({ snapshot: null });
+      let workspaceState = buildWorkspaceSessionState({ snapshot: null });
+      let appliedCacheRefresh = cacheRefresh;
       set((state) => {
         if (
           !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
@@ -617,6 +614,20 @@ export function createWorkspaceManagementActions(args: {
         ) {
           return state;
         }
+        // Background turns of this workspace kept writing to its cache while
+        // the switch awaited; install that cache, not the copy read before.
+        const latestCached = resolveLatestCachedWorkspace({
+          readCache: cachedWorkspaceState,
+          latestCache: state.workspaceRuntimeCacheById[workspaceId],
+          refresh: cacheRefresh,
+        });
+        appliedCacheRefresh = latestCached.refresh;
+        workspaceState =
+          (preferLoadedWorkspaceState
+            ? resolvedWorkspaceShellState?.workspaceState
+            : (latestCached.session ??
+              resolvedWorkspaceShellState?.workspaceState)) ??
+          workspaceState;
         const workspaceIds = state.workspaces.map((workspace) => workspace.id);
         const nextRuntimeCacheById =
           saveActiveWorkspaceRuntimeCacheWithLensCleanup({
@@ -625,7 +636,7 @@ export function createWorkspaceManagementActions(args: {
         if (preferLoadedWorkspaceState) {
           delete nextRuntimeCacheById[workspaceId];
         }
-        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
+        const endedTurns = preferLoadedWorkspaceState ? [] : (appliedCacheRefresh?.endedTurns ?? []);
         return {
           ...(endedTurns.length > 0
             ? {
@@ -694,7 +705,7 @@ export function createWorkspaceManagementActions(args: {
         switchMetricToken,
       });
       if (!preferLoadedWorkspaceState) {
-        for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+        for (const taskId of appliedCacheRefresh?.refreshedTaskIds ?? []) {
           void loadTaskMessagesIntoSession({ workspaceId, taskId, mode: "latest" });
         }
       }

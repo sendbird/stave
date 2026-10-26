@@ -80,6 +80,60 @@ export function resetStaleCachedTasks(args: {
 }
 
 /**
+ * The cached session a workspace switch should install. The switch reads the
+ * cache, then awaits persistence before it installs the session; provider
+ * events for the workspace's background turns keep landing in the cache during
+ * that wait. Installing the copy read before the wait would discard them, and
+ * when one of them was the turn's `done`, the finished turn would come back as
+ * running with no stream left to end it. This returns the cache as it is now,
+ * with the stale-task refresh computed from the earlier read applied to it. A
+ * task whose cache now holds a different running turn keeps its live state.
+ */
+export function resolveLatestCachedWorkspace(args: {
+  readCache: WorkspaceSessionState | undefined;
+  latestCache: WorkspaceSessionState | undefined;
+  refresh: StaleCachedWorkspaceRefresh | null;
+}): {
+  session: WorkspaceSessionState | undefined;
+  refresh: StaleCachedWorkspaceRefresh | null;
+} {
+  const { readCache, latestCache, refresh } = args;
+  if (!latestCache || latestCache === readCache) {
+    return { session: refresh?.session ?? readCache, refresh };
+  }
+  if (!refresh || refresh.refreshedTaskIds.length === 0) {
+    return { session: latestCache, refresh };
+  }
+  const refreshedTaskIds = refresh.refreshedTaskIds.filter((taskId) => {
+    const latestTurnId = latestCache.activeTurnIdsByTask[taskId];
+    return !latestTurnId || latestTurnId === readCache?.activeTurnIdsByTask[taskId];
+  });
+  if (refreshedTaskIds.length === 0) {
+    return {
+      session: latestCache,
+      refresh: { session: latestCache, refreshedTaskIds, endedTurns: [] },
+    };
+  }
+  const messagesByTask = { ...latestCache.messagesByTask };
+  const messageCountByTask = { ...latestCache.messageCountByTask };
+  const activeTurnIdsByTask = { ...latestCache.activeTurnIdsByTask };
+  for (const taskId of refreshedTaskIds) {
+    messagesByTask[taskId] = [];
+    messageCountByTask[taskId] = refresh.session.messageCountByTask[taskId] ?? 0;
+    activeTurnIdsByTask[taskId] = undefined;
+  }
+  const session = { ...latestCache, messagesByTask, messageCountByTask, activeTurnIdsByTask };
+  return {
+    session,
+    refresh: {
+      session,
+      refreshedTaskIds,
+      endedTurns: refresh.endedTurns.filter(({ taskId }) => refreshedTaskIds.includes(taskId)),
+    },
+  };
+}
+
+/**
  * Drops the activity of turns a cache refresh found already ended, so their
  * task no longer shows a running turn or a pending "input needed" state.
  * Activity of any other turn is kept.

@@ -4230,6 +4230,186 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("switching back to a workspace keeps the turn completion that landed during the switch", async () => {
+    let streamListener:
+      | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
+      | null = null;
+    let holdMainShellRead: Promise<void> | null = null;
+    let releaseMainShellRead: () => void = () => undefined;
+    let mainShellReadStarted: () => void = () => undefined;
+    const shellFor = (workspaceId: string) =>
+      workspaceId === "ws-main"
+        ? {
+            activeTaskId: "task-main",
+            tasks: [
+              {
+                id: "task-main",
+                title: "Main Task",
+                provider: "codex",
+                updatedAt: "2026-03-10T00:00:00.000Z",
+                unread: false,
+              },
+            ],
+            promptDraftByTask: {},
+            providerSessionByTask: {},
+            messageCountByTask: { "task-main": 0 },
+          }
+        : workspaceId === "ws-alt"
+          ? {
+              activeTaskId: "task-alt",
+              tasks: [
+                {
+                  id: "task-alt",
+                  title: "Alt Task",
+                  provider: "claude-code",
+                  updatedAt: "2026-03-10T00:00:01.000Z",
+                  unread: false,
+                },
+              ],
+              promptDraftByTask: {},
+              providerSessionByTask: {},
+              messageCountByTask: { "task-alt": 0 },
+            }
+          : null;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage: createMemoryStorage(),
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async () => ({
+            ok: true,
+            streamId: "stream-1",
+            turnId: "turn-main-1",
+          }),
+          subscribeStreamEvents: (listener: typeof streamListener) => {
+            streamListener = listener;
+            return () => {
+              if (streamListener === listener) {
+                streamListener = null;
+              }
+            };
+          },
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+        },
+        persistence: {
+          listWorkspaces: async () => ({
+            ok: true,
+            rows: [
+              { id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" },
+              { id: "ws-alt", name: "Alt", updatedAt: "2026-03-10T00:00:01.000Z" },
+            ],
+          }),
+          // The switch back reads ws-main's shell summary to check its cache;
+          // holding that read is the window in which the turn finishes.
+          loadWorkspaceShell: async ({ workspaceId }: { workspaceId: string }) => {
+            if (workspaceId === "ws-main" && holdMainShellRead) {
+              mainShellReadStarted();
+              await holdMainShellRead;
+            }
+            return { ok: true, shell: shellFor(workspaceId) };
+          },
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+        },
+        fs: {
+          listFiles: async () => ({ ok: true, files: [] }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" },
+        { id: "ws-alt", name: "Alt", updatedAt: "2026-03-10T00:00:01.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      repositoryPath: "/tmp/stave-project",
+      workspacePathById: {
+        "ws-main": "/tmp/stave-project",
+        "ws-alt": "/tmp/stave-project-alt",
+      },
+      workspaceBranchById: { "ws-main": "main", "ws-alt": "alt" },
+      workspaceDefaultById: { "ws-main": true, "ws-alt": false },
+      draftProvider: "codex",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-03-10T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {},
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+    });
+
+    useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: "Finish while I come back to this workspace.",
+    });
+    await Bun.sleep(0);
+    const turnId = useAppStore.getState().activeTurnIdsByTask["task-main"];
+    expect(turnId).toBeString();
+
+    await useAppStore.getState().switchWorkspace({ workspaceId: "ws-alt" });
+    streamListener?.({
+      streamId: "stream-1",
+      event: { type: "text", text: "Final answer." },
+      done: false,
+    });
+    await Bun.sleep(80);
+    expect(
+      useAppStore.getState().workspaceRuntimeCacheById["ws-main"]
+        ?.messagesByTask["task-main"]?.at(-1)?.content,
+    ).toBe("Final answer.");
+
+    holdMainShellRead = new Promise<void>((resolve) => {
+      releaseMainShellRead = resolve;
+    });
+    const shellReadStarted = new Promise<void>((resolve) => {
+      mainShellReadStarted = resolve;
+    });
+    const switchBack = useAppStore
+      .getState()
+      .switchWorkspace({ workspaceId: "ws-main" });
+    await shellReadStarted;
+
+    streamListener?.({
+      streamId: "stream-1",
+      event: { type: "done", stop_reason: "end_turn" },
+      done: true,
+    });
+    await Bun.sleep(25);
+    expect(
+      useAppStore.getState().workspaceRuntimeCacheById["ws-main"]
+        ?.activeTurnIdsByTask["task-main"],
+    ).toBeUndefined();
+
+    releaseMainShellRead();
+    await switchBack;
+
+    const restored = useAppStore.getState();
+    const reply = restored.messagesByTask["task-main"]?.at(-1);
+    expect(restored.activeWorkspaceId).toBe("ws-main");
+    expect(restored.activeTurnIdsByTask["task-main"]).toBeUndefined();
+    expect(reply?.content).toBe("Final answer.");
+    expect(reply?.isStreaming).toBe(false);
+    expect(reply?.terminalReceipt?.doneObserved).toBe(true);
+    await flushPendingSnapshotPersists();
+  });
+
   test("runs an isolated provider override without changing the task or composer draft", async () => {
     const localStorage = createMemoryStorage();
     let startedRequest:

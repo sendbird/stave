@@ -72,6 +72,7 @@ import {
 import {
   clearEndedTurnActivity,
   refreshStaleCachedWorkspace,
+  resolveLatestCachedWorkspace,
 } from "@/store/workspace-cache-freshness";
 import type { ChatMessage } from "@/types/chat";
 
@@ -805,6 +806,7 @@ export function createWorkspaceHydrationActions(args: {
         });
       }
 
+      let appliedCacheRefresh = cacheRefresh;
       set((state) => {
         if (
           !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
@@ -813,10 +815,20 @@ export function createWorkspaceHydrationActions(args: {
         ) {
           return state;
         }
+        // Background turns kept writing to the cache while hydration awaited;
+        // install that cache, not the copy read before.
+        const latestCached = resolveLatestCachedWorkspace({
+          readCache: cachedWorkspaceState,
+          latestCache: preferredWorkspaceId
+            ? state.workspaceRuntimeCacheById[preferredWorkspaceId]
+            : undefined,
+          refresh: cacheRefresh,
+        });
+        appliedCacheRefresh = latestCached.refresh;
         const workspaceState =
           (preferLoadedWorkspaceState
             ? loadedWorkspaceShellState?.workspaceState
-            : (reusableCachedWorkspaceState ??
+            : (latestCached.session ??
               loadedWorkspaceShellState?.workspaceState)) ??
           buildWorkspaceSessionState({ snapshot: null });
         const workspaceIds = rows.map((workspace) => workspace.id);
@@ -839,7 +851,7 @@ export function createWorkspaceHydrationActions(args: {
                 : null),
           );
 
-        const endedTurns = preferLoadedWorkspaceState ? [] : (cacheRefresh?.endedTurns ?? []);
+        const endedTurns = preferLoadedWorkspaceState ? [] : (appliedCacheRefresh?.endedTurns ?? []);
         return {
           ...(endedTurns.length > 0
             ? {
@@ -922,7 +934,7 @@ export function createWorkspaceHydrationActions(args: {
       ) {
         return;
       }
-      for (const taskId of cacheRefresh?.refreshedTaskIds ?? []) {
+      for (const taskId of appliedCacheRefresh?.refreshedTaskIds ?? []) {
         void loadTaskMessagesIntoSession({
           workspaceId: preferredWorkspaceId,
           taskId,

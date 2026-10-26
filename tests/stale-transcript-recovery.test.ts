@@ -6,6 +6,7 @@ import {
   clearEndedTurnActivity,
   findStaleCachedTaskIds,
   resetStaleCachedTasks,
+  resolveLatestCachedWorkspace,
 } from "../src/store/workspace-cache-freshness";
 import type { ProviderTurnActivitySnapshot } from "../src/lib/providers/turn-status";
 import {
@@ -330,6 +331,72 @@ describe("stale cached tasks", () => {
     expect(session.activeTurnIdsByTask["task-live"]).toBe("turn-live");
     expect(session.activeTurnIdsByTask["task-other"]).toBe("turn-other");
     expect(session.messagesByTask["task-other"]).toBe(cached.messagesByTask["task-other"]);
+  });
+});
+
+describe("resolveLatestCachedWorkspace", () => {
+  const running = (turnId: string) => ({
+    ...sessionWith([user("m-7", "Rebuild the docs."), staleReply]),
+    activeTurnIdsByTask: { [TASK_ID]: turnId },
+  });
+
+  test("keeps the read and its refresh when nothing landed during the wait", () => {
+    const readCache = running("turn-1");
+    const refresh = resetStaleCachedTasks({
+      cachedWorkspaceState: readCache,
+      staleTaskIds: [TASK_ID],
+      persistedMessageCountByTask: { [TASK_ID]: 4 },
+      liveTurnIds: new Set(),
+    });
+    const resolved = resolveLatestCachedWorkspace({ readCache, latestCache: readCache, refresh });
+    expect(resolved.session).toBe(refresh.session);
+    expect(resolved.refresh).toBe(refresh);
+    expect(resolveLatestCachedWorkspace({ readCache, latestCache: undefined, refresh: null }).session).toBe(readCache);
+  });
+
+  test("installs the completion that landed while the switch awaited", () => {
+    const readCache = running("turn-1");
+    const latestCache: WorkspaceSessionState = {
+      ...sessionWith([user("m-7", "Rebuild the docs."), finishedReply]),
+      activeTurnIdsByTask: { [TASK_ID]: undefined },
+    };
+    const resolved = resolveLatestCachedWorkspace({ readCache, latestCache, refresh: null });
+    expect(resolved.session).toBe(latestCache);
+    expect(resolved.session?.activeTurnIdsByTask[TASK_ID]).toBeUndefined();
+    expect(resolved.session?.messagesByTask[TASK_ID]?.at(-1)?.isStreaming).toBe(false);
+  });
+
+  test("applies the refresh to the latest cache but spares a turn that started meanwhile", () => {
+    const base = running("turn-1");
+    const readCache: WorkspaceSessionState = {
+      ...base,
+      tasks: [...base.tasks, { ...base.tasks[0]!, id: "task-new" }],
+      messagesByTask: { ...base.messagesByTask, "task-new": [user("n-1", "Old")] },
+      messageCountByTask: { ...base.messageCountByTask, "task-new": 1 },
+      activeTurnIdsByTask: { [TASK_ID]: "turn-1", "task-new": undefined },
+    };
+    const refresh = resetStaleCachedTasks({
+      cachedWorkspaceState: readCache,
+      staleTaskIds: [TASK_ID, "task-new"],
+      persistedMessageCountByTask: { [TASK_ID]: 4, "task-new": 3 },
+      liveTurnIds: new Set(),
+    });
+    expect(refresh.refreshedTaskIds).toEqual([TASK_ID, "task-new"]);
+    const latestCache: WorkspaceSessionState = {
+      ...readCache,
+      messagesByTask: {
+        ...readCache.messagesByTask,
+        "task-new": [user("n-1", "Old"), user("n-2", "Started meanwhile")],
+      },
+      activeTurnIdsByTask: { [TASK_ID]: undefined, "task-new": "turn-new" },
+    };
+    const resolved = resolveLatestCachedWorkspace({ readCache, latestCache, refresh });
+    expect(resolved.refresh?.refreshedTaskIds).toEqual([TASK_ID]);
+    expect(resolved.refresh?.endedTurns).toEqual([{ taskId: TASK_ID, turnId: "turn-1" }]);
+    expect(resolved.session?.messagesByTask[TASK_ID]).toEqual([]);
+    expect(resolved.session?.messageCountByTask[TASK_ID]).toBe(4);
+    expect(resolved.session?.activeTurnIdsByTask["task-new"]).toBe("turn-new");
+    expect(resolved.session?.messagesByTask["task-new"]).toBe(latestCache.messagesByTask["task-new"]);
   });
 });
 
