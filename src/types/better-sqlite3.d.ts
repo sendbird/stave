@@ -10,6 +10,13 @@ declare module "better-sqlite3" {
     all(...params: unknown[]): Result[];
   }
 
+  /** Calling it begins DEFERRED; the variants pick the BEGIN mode. */
+  type Transaction<Args extends unknown[], Result> = ((...args: Args) => Result) & {
+    deferred(...args: Args): Result;
+    immediate(...args: Args): Result;
+    exclusive(...args: Args): Result;
+  };
+
   class Database {
     constructor(
       filename: string,
@@ -21,10 +28,11 @@ declare module "better-sqlite3" {
         nativeBinding?: string;
       },
     );
+    readonly inTransaction: boolean;
     pragma(source: string, options?: { simple?: boolean }): unknown;
     exec(source: string): this;
     prepare<Result = unknown>(source: string): Statement<Result>;
-    transaction<Args extends unknown[], Result>(fn: (...args: Args) => Result): (...args: Args) => Result;
+    transaction<Args extends unknown[], Result>(fn: (...args: Args) => Result): Transaction<Args, Result>;
     close(): void;
   }
 

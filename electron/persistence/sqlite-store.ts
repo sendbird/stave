@@ -1971,7 +1971,9 @@ export class SqliteStore {
       }
     });
 
-    tx();
+    // IMMEDIATE: main and the host-service each hold a connection to this
+    // file. See `persistTaskTurnDelta` for why a deferred write can be lost.
+    tx.immediate();
     if (previousWorkspaceShellArtifact) {
       this.removeArtifactFiles({
         relativePaths: [previousWorkspaceShellArtifact.relativePath],
@@ -2013,22 +2015,22 @@ export class SqliteStore {
       PersistenceWorkspaceSnapshot["providerSessionByTask"]
     >[string];
   }): { ok: boolean; messageCount: number } {
-    const payloadEntry = this.readWorkspacePayload({
-      workspaceId: args.workspaceId,
-    });
-    if (!payloadEntry) {
-      return { ok: false, messageCount: 0 };
-    }
-    // A legacy snapshot payload still carries inline messages; converting it is
-    // `upsertWorkspace`'s job, so let the caller fall back rather than doing a
-    // partial migration here.
-    if ("messagesByTask" in payloadEntry.payload) {
-      return { ok: false, messageCount: 0 };
-    }
-    const payload = payloadEntry.payload as PersistedWorkspaceShellPayload;
     const now = new Date().toISOString();
 
-    const tx = this.db.transaction(() => {
+    const tx = this.db.transaction((): number | null => {
+      // Read under the write lock: a payload read before it could be an older
+      // shell than one main has saved since, and writing it back below would
+      // revert that save (a draft, a tab).
+      const payloadEntry = this.readWorkspacePayload({
+        workspaceId: args.workspaceId,
+      });
+      // A legacy snapshot payload still carries inline messages; converting it
+      // is `upsertWorkspace`'s job, so let the caller fall back rather than
+      // doing a partial migration here.
+      if (!payloadEntry || "messagesByTask" in payloadEntry.payload) {
+        return null;
+      }
+      const payload = payloadEntry.payload as PersistedWorkspaceShellPayload;
       if (args.task) {
         const persistedTaskRowId = `${args.workspaceId}:${args.task.id}`;
         // Archival is renderer-owned: never let a host write revive a task the
@@ -2144,8 +2146,14 @@ export class SqliteStore {
       return messageCount;
     });
 
-    const messageCount = tx();
-    return { ok: true, messageCount };
+    // IMMEDIATE, not the default deferred BEGIN: main and the host-service
+    // each hold a connection to this file. A deferred transaction reads first
+    // (the payload and `archived_at` above), so a commit from the other process before its
+    // first write fails it with SQLITE_BUSY at once, without `busy_timeout`.
+    // A host turn's prompt row was lost that way and only landed later, under
+    // its own reply. Taking the write lock up front waits instead.
+    const messageCount = tx.immediate();
+    return messageCount === null ? { ok: false, messageCount: 0 } : { ok: true, messageCount };
   }
 
   removeTaskFromWorkspace(args: { workspaceId: string; taskId: string }) {

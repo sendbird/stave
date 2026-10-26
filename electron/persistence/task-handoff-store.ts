@@ -94,7 +94,7 @@ export class TaskHandoffStore {
           .run(args.workspaceId, args.taskId, JSON.stringify(next), at);
       }
       response = { ok: true, record: next };
-    })();
+    }).immediate(); // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
     return response;
   }
 }

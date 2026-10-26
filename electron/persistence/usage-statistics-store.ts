@@ -15,7 +15,7 @@ interface UsageDatabase {
     all(...args: any[]): unknown[];
     get(...args: any[]): unknown;
   };
-  transaction<T>(run: () => T): () => T;
+  transaction<T>(run: () => T): (() => T) & { immediate(): T };
 }
 
 /** Metadata only: no prompts, paths, account credentials or message bodies. */
@@ -52,7 +52,7 @@ export class UsageStatisticsStore {
         created_at, completed_at, usage_json FROM turns
       WHERE provider_id IN ('claude-code', 'codex', 'cursor', 'kiro')`).run(UNATTRIBUTED_ACCOUNT_ID);
       db.prepare("INSERT INTO usage_statistics_meta (key) VALUES ('turn-history-imported')").run();
-    })();
+    }).immediate(); // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
   }
 
   beginTurn(args: { id: string; providerId: ProviderId; accountProfileId?: string; modelId?: string; createdAt: string }) {

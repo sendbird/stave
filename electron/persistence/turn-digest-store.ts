@@ -198,7 +198,7 @@ export function recordTurnDigestDecisionAnswered(
     }
     const next = answerTurnDigestDecision(digest, args.requestId, args.at ?? new Date().toISOString());
     if (next !== digest) writeTurnDigest(db, args.turnId, next);
-  })();
+  }).immediate(); // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
 }
 
 /**
@@ -231,7 +231,7 @@ export function recordTurnDigestChecks(
     const digest = parseTurnDigest(row.digest_json) ?? createTurnDigest(null);
     writeTurnDigest(db, args.turnId, appendTurnDigestEntry(digest, entry));
     recorded = true;
-  })();
+  }).immediate(); // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
   return recorded;
 }
 

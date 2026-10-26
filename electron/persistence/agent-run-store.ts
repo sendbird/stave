@@ -11,6 +11,7 @@
  * Every write from a pure transition (`AgentRunChange`) lands in one savepoint,
  * so an agent run row, its stage records and its events never disagree.
  */
+import { inWriteSavepoint, type WriteSavepointDatabase } from "./write-savepoint";
 import { randomUUID } from "node:crypto";
 import { TEAM_LIMITS, helperKeepsParentProvider, projectResourceBudget, readRunResourceConfig, type ResourceLink, type AgentResourceSnapshot } from "../../src/lib/agent-runs/resources";
 import {
@@ -34,7 +35,7 @@ interface AgentRunStatement {
   run: (...params: unknown[]) => { changes?: number | bigint };
 }
 
-interface AgentRunDatabase {
+interface AgentRunDatabase extends WriteSavepointDatabase {
   exec: (sql: string) => unknown;
   prepare: (sql: string) => AgentRunStatement;
 }
@@ -270,17 +271,9 @@ export class AgentRunStore {
     }
   }
 
+  /** Each unit reads before it writes; see `inWriteSavepoint`. */
   private inSavepoint<T>(name: string, work: () => T): T {
-    this.db.exec(`SAVEPOINT ${name}`);
-    try {
-      const result = work();
-      this.db.exec(`RELEASE ${name}`);
-      return result;
-    } catch (error) {
-      this.db.exec(`ROLLBACK TO ${name}`);
-      this.db.exec(`RELEASE ${name}`);
-      throw error;
-    }
+    return inWriteSavepoint(this.db, name, work);
   }
 
   private writeAgentRun(agentRun: AgentRun, insert: boolean) {

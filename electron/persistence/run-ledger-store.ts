@@ -28,7 +28,7 @@ interface RunLedgerStatement {
 interface RunLedgerDatabase {
   exec: (sql: string) => unknown;
   prepare: (sql: string) => RunLedgerStatement;
-  transaction: <TResult>(callback: () => TResult) => () => TResult;
+  transaction: <TResult>(callback: () => TResult) => (() => TResult) & { immediate: () => TResult };
 }
 
 interface RunRow {
@@ -603,7 +603,8 @@ export class RunLedgerStore {
       this.persistTransition(transition);
       return transition;
     });
-    return tx();
+    // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
+    return tx.immediate();
   }
 
   private transitionExisting(
@@ -631,7 +632,8 @@ export class RunLedgerStore {
       this.persistTransition(transition);
       return transition;
     });
-    return tx();
+    // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
+    return tx.immediate();
   }
 
   markStepWaiting(args: {
@@ -853,7 +855,8 @@ export class RunLedgerStore {
         .run(JSON.stringify(refined.step.target), refined.step.id);
       return true;
     });
-    return tx();
+    // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
+    return tx.immediate();
   }
 
   interruptStep(args: {
@@ -916,6 +919,7 @@ export class RunLedgerStore {
       }
       return reconciled;
     });
-    return tx();
+    // IMMEDIATE: it reads before it writes; see SqliteStore.persistTaskTurnDelta.
+    return tx.immediate();
   }
 }

@@ -1,3 +1,4 @@
+import { inWriteSavepoint, type WriteSavepointDatabase } from "./write-savepoint";
 import { createHash } from "node:crypto";
 import {
   MAX_ARCHIVED_WORKSPACE_DOCUMENTS,
@@ -12,7 +13,7 @@ import {
   type WorkspaceDocumentRevisionMeta,
 } from "../../src/lib/documents/workspace-document-schemas";
 
-interface DocumentDatabase {
+interface DocumentDatabase extends WriteSavepointDatabase {
   exec(sql: string): unknown;
   prepare(sql: string): {
     get(...params: unknown[]): unknown;
@@ -157,8 +158,8 @@ export class WorkspaceDocumentStore {
     );
     const createdAt = new Date().toISOString();
     const changes: WorkspaceDocumentChange[] = [];
-    this.db.exec("SAVEPOINT record_workspace_documents");
-    try {
+    // It reads the latest revision before it writes; see `inWriteSavepoint`.
+    inWriteSavepoint(this.db, "record_workspace_documents", () => {
       for (const document of args.documents) {
         const contentHash = hashContent(document.content);
         const previous = latest.get(args.workspaceId, document.filePath) as
@@ -198,12 +199,7 @@ export class WorkspaceDocumentStore {
           touchedByTask,
         });
       }
-      this.db.exec("RELEASE record_workspace_documents");
-    } catch (error) {
-      this.db.exec("ROLLBACK TO record_workspace_documents");
-      this.db.exec("RELEASE record_workspace_documents");
-      throw error;
-    }
+    });
     return changes;
   }
 
