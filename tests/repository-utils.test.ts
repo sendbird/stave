@@ -26,6 +26,7 @@ import {
   toWorkspaceFolderName,
   updateCurrentRepositoryTextPreference,
   updateCurrentRepositoryAppearance,
+  upsertRecentRepositoryState,
 } from "@/store/repository.utils";
 import {
   filterRepositorySidebarRepositories,
@@ -225,6 +226,44 @@ describe("project name normalization", () => {
     });
 
     expect(repositories[0]?.repositoryName).toBe("stave");
+  });
+
+  test("keeps every registered repository instead of evicting the oldest", () => {
+    const buildRepository = (index: number) => {
+      const repositoryPath = `/tmp/workspace/repository-${index}`;
+      const defaultWorkspaceId = buildRepositoryDefaultWorkspaceId({ repositoryPath });
+      return {
+        repositoryPath,
+        repositoryName: `repository-${index}`,
+        lastOpenedAt: "2026-10-27T00:00:00.000Z",
+        defaultBranch: "main",
+        workspaces: [
+          {
+            id: defaultWorkspaceId,
+            name: "Default Workspace",
+            updatedAt: "2026-10-27T00:00:00.000Z",
+          },
+        ],
+        activeWorkspaceId: defaultWorkspaceId,
+        workspaceBranchById: { [defaultWorkspaceId]: "main" },
+        workspacePathById: { [defaultWorkspaceId]: repositoryPath },
+        workspaceDefaultById: { [defaultWorkspaceId]: true },
+      };
+    };
+    const registered = Array.from({ length: 13 }, (_, index) => buildRepository(index));
+
+    const repositories = normalizeRecentRepositoryStates({ repositories: registered });
+    const withOneMore = upsertRecentRepositoryState({
+      repositories,
+      repository: buildRepository(13),
+    });
+
+    expect(repositories.map((repository) => repository.repositoryPath)).toEqual(
+      registered.map((repository) => repository.repositoryPath),
+    );
+    expect(withOneMore).toHaveLength(14);
+    expect(withOneMore[0]?.repositoryPath).toBe("/tmp/workspace/repository-0");
+    expect(withOneMore[13]?.repositoryPath).toBe("/tmp/workspace/repository-13");
   });
 
   test("trims and preserves the project base prompt", () => {
