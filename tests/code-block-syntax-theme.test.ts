@@ -104,21 +104,27 @@ describe("code syntax palettes", () => {
     }
   });
 
+  // Compared as color sets, not rule by rule: Shiki normalizes a registered
+  // theme in place (it prepends a global rule), so rule indexes shift once any
+  // highlighter in the process has loaded the bundled theme.
   test("only the listed colors differ from the bundled themes", () => {
-    const changed = (source: ThemeRegistrationRaw, adjusted: ThemeRegistrationRaw) =>
+    const foregrounds = (theme: ThemeRegistrationRaw) =>
       new Set(
-        (source.tokenColors ?? []).flatMap((rule, index) => {
-          const before = rule.settings?.foreground;
-          const after = adjusted.tokenColors?.[index]?.settings?.foreground;
-          return before === after ? [] : [`${before?.toLowerCase()}>${after}`];
-        }),
+        (theme.tokenColors ?? []).flatMap((rule) =>
+          rule.settings?.foreground ? [rule.settings.foreground.toLowerCase()] : [],
+        ),
       );
-    expect(changed(githubLight, CODE_THEME_LIGHT_REGISTRATION)).toEqual(
-      new Set(Object.entries(SYNTAX_COLOR_ADJUSTMENTS.light).map(([from, to]) => `${from}>${to}`)),
-    );
-    expect(changed(githubDark, CODE_THEME_DARK_REGISTRATION)).toEqual(
-      new Set(Object.entries(SYNTAX_COLOR_ADJUSTMENTS.dark).map(([from, to]) => `${from}>${to}`)),
-    );
+    const difference = (a: Set<string>, b: Set<string>) =>
+      [...a].filter((color) => !b.has(color)).sort();
+    for (const [source, adjusted, replacements] of [
+      [githubLight, CODE_THEME_LIGHT_REGISTRATION, SYNTAX_COLOR_ADJUSTMENTS.light],
+      [githubDark, CODE_THEME_DARK_REGISTRATION, SYNTAX_COLOR_ADJUSTMENTS.dark],
+    ] as const) {
+      const before = foregrounds(source);
+      const after = foregrounds(adjusted);
+      expect(difference(before, after)).toEqual(Object.keys(replacements).sort());
+      expect(difference(after, before)).toEqual(Object.values(replacements).sort());
+    }
   });
 });
 
