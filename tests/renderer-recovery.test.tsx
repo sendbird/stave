@@ -7,10 +7,12 @@ import {
   describeErrorChain,
   redactSensitiveText,
 } from "@/lib/renderer-recovery/error-report";
+import { APP_LOCALES } from "@/i18n/locale";
 import {
   AUTO_RELOAD_STORAGE_KEY,
   PERSISTED_APP_STORE_KEY,
   RECOVERY_COPY_KEYS,
+  RECOVERY_LOCALES,
   createAutoReloadGuard,
   getRendererRecoveryState,
   handleRendererFailure,
@@ -28,6 +30,7 @@ import {
   RendererErrorBoundary,
   RendererRecoveryRoot,
 } from "@/components/system/renderer-recovery/RendererRecovery";
+import { staticImportGraph } from "./fixtures/static-import-graph";
 
 const readRepoFile = (relative: string) =>
   readFileSync(new URL(`../${relative}`, import.meta.url), "utf8");
@@ -388,4 +391,59 @@ describe("RendererRecoveryRoot", () => {
     expect(entry).toContain("<RendererRecoveryRoot>");
     expect(entry).toContain("markRendererStarted();");
   });
+});
+
+describe("recovery without i18n", () => {
+  test("nothing the recovery module loads statically reaches an i18n module", async () => {
+    const graph = await staticImportGraph(
+      new URL("../src/components/system/renderer-recovery/install-renderer-recovery.tsx", import.meta.url)
+        .pathname,
+    );
+    const reached = [...graph.entries()]
+      .filter(([file]) => /[\\/]src[\\/]i18n[\\/]/.test(file))
+      .map(([, chain]) => chain.map((file) => file.split("/src/")[1]).join(" -> "));
+    expect(reached).toEqual([]);
+    // The walk itself reached the recovery screen and its logic.
+    expect([...graph.keys()].some((file) => file.endsWith("RendererRecovery.tsx"))).toBe(true);
+    expect([...graph.keys()].some((file) => file.endsWith("renderer-recovery.ts"))).toBe(true);
+  });
+
+  test("the locale list repeated for recovery matches the app's", () => {
+    expect([...RECOVERY_LOCALES]).toEqual([...APP_LOCALES]);
+  });
+
+  test("when i18n fails to initialize, the listeners still install and the screen renders", () => {
+    const run = Bun.spawnSync({
+      cmd: [
+        process.execPath,
+        "--preload",
+        "./tests/fixtures/i18n-init-failure.preload.ts",
+        "--preload",
+        "./tests/stylex-preload.ts",
+        "./tests/fixtures/renderer-recovery-i18n-failure.ts",
+      ],
+      cwd: new URL("..", import.meta.url).pathname,
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    expect(run.exitCode, run.stderr.toString()).toBe(0);
+    const output = run.stdout.toString().trim().split("\n").at(-1) ?? "";
+    const result = JSON.parse(output) as {
+      i18nError: string | null;
+      translatorError: string | null;
+      listenerTypes: string[];
+      state: string;
+      startupMounts: string[];
+      html: string;
+    };
+    // The simulation took effect: i18n and the translator registration threw.
+    expect(result.i18nError).toContain("i18n init failed");
+    expect(result.translatorError).not.toBeNull();
+    expect(result.listenerTypes).toEqual(["error", "vite:preloadError"]);
+    expect(result.state).toBe("failed");
+    expect(result.startupMounts).toEqual(["root"]);
+    expect(result.html).toContain("Stave ran into a problem");
+    expect(result.html).toContain("Reload window");
+    expect(result.html).toContain("Copy error details");
+  }, 60_000);
 });

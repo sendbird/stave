@@ -1,12 +1,20 @@
-import { isAppLocale, type AppLocale } from "@/i18n/locale";
+import type { AppLocale } from "@/i18n/locale";
 import type { I18nKey } from "@/i18n/runtime";
 import type { RendererFailureKind } from "./error-report";
 
 /*
- * Renderer start-up recovery, kept free of React, i18next and the app store so
- * it still works when one of those is what failed. `install-renderer-recovery`
- * wires it to the window before any other renderer module evaluates.
+ * Renderer start-up recovery, kept free of React, i18n and the app store so it
+ * still works when one of those is what failed: the imports above are
+ * type-only. `install-renderer-recovery` wires it to the window before any
+ * other renderer module evaluates.
  */
+
+/** The display locales (`APP_LOCALES`), repeated so no i18n module loads here; a test keeps them equal. */
+export const RECOVERY_LOCALES: readonly AppLocale[] = ["en", "ko"];
+
+function isRecoveryLocale(value: unknown): value is AppLocale {
+  return typeof value === "string" && (RECOVERY_LOCALES as readonly string[]).includes(value);
+}
 
 // ---------------------------------------------------------------------------
 // Chunk load failures and the automatic reload guard
@@ -288,7 +296,7 @@ export function readPersistedAppearance(
       ?.state?.settings;
     const themeMode = settings?.themeMode;
     return {
-      locale: isAppLocale(settings?.language) ? settings.language : null,
+      locale: isRecoveryLocale(settings?.language) ? settings.language : null,
       themeMode:
         themeMode === "light" || themeMode === "dark" || themeMode === "system"
           ? themeMode

@@ -6,7 +6,9 @@ import {
   type ErrorInfo,
   type ReactNode,
 } from "react";
-import { Button } from "@/components/ads/components/Button";
+import { ButtonRoot } from "@/components/ads/headless/button";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { adsThemeVariables } from "@/components/system/ads-theme";
 import { copyTextToClipboard } from "@/lib/clipboard";
@@ -24,10 +26,15 @@ import {
 import { recoveryStyles as styles } from "./RendererRecovery.styles";
 
 /*
- * The window-level recovery screen. It sits above every provider, so it does
- * not rely on `StaveDesignProvider` or `useTranslation`, either of which may be
- * what failed: it publishes the same ADS-to-Stave role mapping on its own root
- * (so ADS controls resolve to the theme's colors) and looks its copy up itself.
+ * The window-level recovery screen. It sits above every provider and must
+ * render when any of them, or i18n itself, failed to load, so its static
+ * imports stay clear of `@/i18n` (a test walks the graph):
+ * - copy comes from `recoveryCopy`, which falls back to English;
+ * - it publishes the ADS-to-Stave role mapping on its own root instead of
+ *   relying on `StaveDesignProvider`;
+ * - actions use the ADS headless `ButtonRoot` with the ADS focus-ring and
+ *   transition recipes. The canonical `Button` is not usable here: it imports
+ *   `Loader`, which imports `@/i18n` for its label.
  */
 
 function safeStorage(name: "localStorage" | "sessionStorage"): Storage | null {
@@ -118,17 +125,21 @@ export function RendererRecoveryScreen({ failure }: { failure: RendererFailure }
           </h1>
           <p className={sx(styles.body)}>{copy(chunk ? "chunkBody" : "errorBody")}</p>
           <div className={sx(styles.actions)}>
-            <Button
+            <ButtonRoot
               type="button"
-              variant="primary"
               autoFocus
+              className={sx(styles.action, styles.primary, focusRing.ring, transition.colors)}
               onClick={() => window.location.reload()}
             >
               {copy("reload")}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => void copyDetails()}>
+            </ButtonRoot>
+            <ButtonRoot
+              type="button"
+              className={sx(styles.action, styles.outline, focusRing.ring, transition.colors)}
+              onClick={() => void copyDetails()}
+            >
               {copy("copyDetails")}
-            </Button>
+            </ButtonRoot>
           </div>
           <p className={sx(styles.status)} role="status" aria-live="polite">
             {copyStatus === "copied" ? copy("copied") : copyStatus === "failed" ? copy("copyFailed") : null}

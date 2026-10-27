@@ -4,7 +4,7 @@ import { vars } from "../../ads/tokens/tokens.stylex";
 /*
  * Surface colors come from Stave's role tokens in `globals.css`, which follow
  * the `.dark` class on <html> directly; the screen's root also publishes the
- * ADS role mapping for its buttons. A production build links that stylesheet
+ * ADS role mapping for the focus ring. A production build links that stylesheet
  * from `index.html`, so it is present even when no script ran. The
  * system-color fallbacks keep the text legible if it is missing anyway.
  */
@@ -60,6 +60,39 @@ export const recoveryStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-8"],
     marginTop: vars["--ads-space-16"],
+  },
+  // Geometry of the ADS medium control; colors from the role tokens.
+  action: {
+    boxSizing: "border-box",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: vars["--ads-control-height-md"],
+    paddingInline: vars["--ads-space-12"],
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    fontFamily: "inherit",
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-control"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    cursor: "pointer",
+  },
+  primary: {
+    borderColor: "transparent",
+    backgroundColor: {
+      default: "var(--primary, CanvasText)",
+      ":hover": "color-mix(in oklab, var(--primary, CanvasText) 88%, var(--background, Canvas))",
+    },
+    color: "var(--primary-foreground, Canvas)",
+  },
+  outline: {
+    borderColor: "var(--border, ButtonBorder)",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": "var(--muted, ButtonFace)",
+    },
+    color: "inherit",
   },
   status: {
     margin: 0,
