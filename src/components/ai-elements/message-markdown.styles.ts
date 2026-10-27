@@ -218,7 +218,9 @@ export const markdownStyles = stylex.create({
     tableLayout: "fixed",
     borderCollapse: "separate",
     borderSpacing: 0,
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
+    // Clips the header and row washes to the rounded corners.
+    overflow: "hidden",
     borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "solid",
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,

@@ -321,7 +321,7 @@
   --state-halted: var(--state-needs-answer);
   --state-completed: var(--success);
   --state-stopped: var(--state-paused);
-  --radius: 0.45rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.955 0.003 75);
   --sidebar-foreground: oklch(0.225 0.003 75);
   --sidebar-primary: oklch(0.54 0.18 260);
