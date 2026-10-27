@@ -181,7 +181,7 @@ export const emptySplashStyles = stylex.create({
   heading: {
     color: vars["--ads-color-text"],
     fontFamily: "var(--font-heading)",
-    fontSize: "1.875rem",
+    fontSize: vars["--ads-font-size-title"],
     fontWeight: vars["--ads-font-weight-semibold"],
     lineHeight: vars["--ads-line-height-tight"],
     margin: 0,

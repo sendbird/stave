@@ -12,7 +12,7 @@ export const userInputCardStyles = stylex.create({
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
     backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 70%, transparent)`,
     padding: vars["--ads-space-12"],
-    fontSize: "0.8125rem",
+    fontSize: vars["--ads-font-size-body"],
   },
   summaryRow: {
     display: "flex",
@@ -281,7 +281,7 @@ export const userInputCardStyles = stylex.create({
   optionDisabled: {
     pointerEvents: "none",
     cursor: "not-allowed",
-    opacity: 0.45,
+    opacity: vars["--ads-opacity-disabled"],
   },
   optionReadOnly: { pointerEvents: "none", cursor: "default" },
   optionIndex: {

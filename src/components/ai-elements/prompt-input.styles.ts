@@ -189,7 +189,7 @@ export const promptInputStyles = stylex.create({
     height: "0.875rem",
     color: `color-mix(in oklch, ${vars["--ads-color-text"]} 80%, transparent)`,
   },
-  cursorDisabled: { cursor: "not-allowed", opacity: 0.6 },
+  cursorDisabled: { cursor: "not-allowed", opacity: vars["--ads-opacity-disabled"] },
   toneMutedHalf: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
   },

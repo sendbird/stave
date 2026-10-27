@@ -42,7 +42,8 @@ export const editorMarkdownPreviewStyles = stylex.create({
   body: { minWidth: 0 },
 
   h1: {
-    fontSize: "1.875rem",
+    fontSize: vars["--ads-font-size-display"],
+    lineHeight: vars["--ads-line-height-display"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "-0.025em",
     marginBottom: vars["--ads-space-20"],
