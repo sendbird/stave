@@ -1,4 +1,4 @@
-import { formatDateTime, formatNumber } from "@/i18n/format";
+import { formatCost, formatDateTime, formatNumber, formatTokenCount } from "@/i18n/format";
 import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { useState } from "react";
 import { ChevronRight } from "lucide-react";
@@ -10,23 +10,38 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui";
 import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import { USAGE_PROVIDER_NAMES, type UsageMetrics, type UsageStatisticsReport } from "@/lib/providers/usage-statistics";
-import { USAGE_TURN_PAGE_SIZE, groupUsageTurnsByDay, usageScopeLabel, usageTimestamp } from "./usage-view.utils";
+import { USAGE_TURN_PAGE_SIZE, groupUsageTurnsByDay, usageAccountLabel, usageScopeLabel, usageTimestamp } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
+import { NotReported, UsageInfo } from "./UsageInfo";
 
 export const exactNumber = (value: number) => formatNumber(value);
-export const reportedCost = (value: number | null) => value === null ? i18n.t("usage:usageParts.notReported") : formatNumber(value, { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+export const reportedCost = (value: number | null) => value === null ? i18n.t("usage:usageParts.notReported") : formatNumber(value, { style: "currency", currency: "USD", currencyDisplay: "narrowSymbol", minimumFractionDigits: 2, maximumFractionDigits: 4 });
+/** `$125.90`, `<$0.01`: totals read in cents; the exact amount stays in the tooltip and the bucket table. */
+const summaryCost = (value: number | null) => value === null ? i18n.t("usage:usageParts.notReported") : formatCost(value);
+
+/** Token counts read as `6.8M`, `69k`; hovering shows every digit. */
+function Tokens({ value }: { value: number }) {
+  return <span title={exactNumber(value)}>{formatTokenCount(value)}</span>;
+}
+/** `cell` marks a table or row slot, where a missing amount reads as a dash. */
+function Cost({ value, cell = false }: { value: number | null; cell?: boolean }) {
+  if (value === null) return cell ? <NotReported /> : <>{summaryCost(value)}</>;
+  return <span title={reportedCost(value)}>{summaryCost(value)}</span>;
+}
 
 export function UsageFigures({ totals }: { totals: UsageMetrics }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const figures = [
-    { label: t("usage:usageParts.tokensExcludingCacheReads"), value: totals.turns > 0 && totals.measuredTurns === 0 ? t("usage:usageParts.notReported") : exactNumber(totals.tokens), note: t("usage:usageParts.ofTurnsReportedTokens", { value1: totals.measuredTurns, value2: totals.turns }) },
-    { label: t("usage:usageParts.inputOutputAsReported"), value: `${exactNumber(totals.inputTokens)} / ${exactNumber(totals.outputTokens)}`, note: t("usage:usageParts.providerInputCountersUseDifferentCache") },
-    { label: t("usage:usageParts.cacheReadWrite"), value: `${exactNumber(totals.cacheReadTokens)} / ${exactNumber(totals.cacheCreationTokens)}`, note: t("usage:usageParts.reasoningTokensReportedNotAddedTo", { value1: exactNumber(totals.thoughtTokens) }) },
-    { label: t("usage:usageParts.providerReportedCost"), value: reportedCost(totals.costUsd), note: t("usage:usageParts.ofTurnsReportedUSDNotAn", { value1: totals.costReportedTurns, value2: totals.turns }) },
+    { label: t("usage:usageParts.tokensExcludingCacheReads"), info: t("usage:usageView.tokenTotalsExcludeCacheReadsClaude"), value: totals.turns > 0 && totals.measuredTurns === 0 ? t("usage:usageParts.notReported") : <Tokens value={totals.tokens} />, note: t("usage:usageParts.ofTurnsReportedTokens", { value1: totals.measuredTurns, value2: totals.turns }) },
+    { label: t("usage:usageParts.inputOutputAsReported"), value: <><Tokens value={totals.inputTokens} /> / <Tokens value={totals.outputTokens} /></>, note: t("usage:usageParts.providerInputCountersUseDifferentCache") },
+    { label: t("usage:usageParts.cacheReadWrite"), value: <><Tokens value={totals.cacheReadTokens} /> / <Tokens value={totals.cacheCreationTokens} /></>, note: t("usage:usageParts.reasoningTokensReportedNotAddedTo", { value1: formatTokenCount(totals.thoughtTokens) }) },
+    { label: t("usage:usageParts.providerReportedCost"), value: <Cost value={totals.costUsd} />, note: t("usage:usageParts.ofTurnsReportedUSDNotAn", { value1: totals.costReportedTurns, value2: totals.turns }) },
   ];
   return <div className={sx(styles.figures)} aria-label={t("usage:usageParts.usageTotals")}>
     {figures.map((figure) => <div key={figure.label} className={sx(styles.figure)}>
-      <p className={sx(styles.note)}>{figure.label}</p><p className={sx(styles.value)}>{figure.value}</p>
+      <div className={sx(styles.titleRow)}><p className={sx(styles.note)}>{figure.label}</p>
+        {"info" in figure && figure.info ? <UsageInfo title={t("usage:usageParts.tokenCountingTitle")}><p className={sx(styles.infoBody)}>{figure.info}</p></UsageInfo> : null}</div>
+      <p className={sx(styles.value)}>{figure.value}</p>
       <p className={sx(styles.note)}>{figure.note}</p>
     </div>)}
   </div>;
@@ -65,14 +80,14 @@ export function UsageTimeline(props: { report: UsageStatisticsReport; granularit
             onClick={() => { if (props.granularity === "day") props.onDay(point.at); else setShowTable(true); }} />)}
         </div>
       </div>
-      <div className={sx(styles.chartEnds)}><span>{points[0]?.at}</span><span>{t("usage:messages.chartPeak", { metric: metricName, value: metric === "costUsd" ? reportedCost(max) : exactNumber(max) })}</span><span>{points.at(-1)?.at}</span></div>
+      <div className={sx(styles.chartEnds)}><span>{points[0]?.at}</span><span>{t("usage:messages.chartPeak", { metric: metricName, value: metric === "costUsd" ? summaryCost(max) : metric === "tokens" ? formatTokenCount(max) : exactNumber(max) })}</span><span>{points.at(-1)?.at}</span></div>
     </>}
     {all.length > points.length ? <p className={sx(styles.note)}>{t("usage:usageParts.chartShowsTheMostRecentHours")}</p> : null}
     <Button variant="quiet" size="sm" aria-expanded={showTable} onClick={() => setShowTable((value) => !value)}>{showTable ? t("usage:usageParts.hideTimeBuckets") : t("usage:usageParts.showExactTimeBuckets")}</Button>
     {showTable ? <div className={sx(styles.stack)}>
       <Table aria-label={t("usage:usageParts.exactTimeBuckets")}><TableHeader><TableRow><TableHead>{t("usage:messages.timeZoneHeading", { zone: props.timeZone })}</TableHead><TableHead>{t("settingsProviders:codexThreadsTab.metrics.turns")}</TableHead><TableHead>{t("usage:usageParts.tokens")}</TableHead><TableHead>{t("usage:usageParts.reportedUSD")}</TableHead></TableRow></TableHeader>
         <TableBody>{all.slice(detailPage * 24, (detailPage + 1) * 24).map((point) => <TableRow key={point.at}>
-          <TableCell>{point.at}</TableCell><TableCell>{point.turns}</TableCell><TableCell>{point.measuredTurns > 0 || point.turns === 0 ? exactNumber(point.tokens) : i18n.t("usage:usageParts.notReported")}</TableCell><TableCell>{reportedCost(point.costUsd)}</TableCell>
+          <TableCell>{point.at}</TableCell><TableCell>{point.turns}</TableCell><TableCell>{point.measuredTurns > 0 || point.turns === 0 ? exactNumber(point.tokens) : <NotReported />}</TableCell><TableCell>{point.costUsd === null ? <NotReported /> : reportedCost(point.costUsd)}</TableCell>
         </TableRow>)}</TableBody></Table>
       <div className={sx(styles.row)}><Button variant="quiet" size="sm" disabled={detailPage === 0} onClick={() => setPage(detailPage - 1)}>{t("usage:usageParts.previousBuckets")}</Button>
         <span className={sx(styles.note)}>{detailPage + 1} / {Math.max(1, Math.ceil(all.length / 24))}</span>
@@ -89,8 +104,8 @@ export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles
     <section className={sx(styles.section)} aria-label={t("usage:usageParts.usageByAccount")}><h2 className={sx(styles.heading)}>{t("usage:usageParts.byAccount")}</h2>
       <Table><TableHeader><TableRow><TableHead>{t("settingsProviders:codexOverviewTab.runtime.account")}</TableHead><TableHead>{t("settingsProviders:codexThreadsTab.metrics.turns")}</TableHead><TableHead>{t("usage:usageParts.tokens")}</TableHead><TableHead>{t("usage:usageParts.reportedUSD")}</TableHead></TableRow></TableHeader>
         <TableBody>{props.report.accounts.map((row) => <TableRow key={`${row.providerId}:${row.accountProfileId}`}>
-          <TableCell><Button variant="link" size="sm" onClick={() => props.onAccount(row.providerId, row.accountProfileId)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}</Button></TableCell>
-          <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : i18n.t("usage:usageParts.notReported")}</TableCell><TableCell className={sx(styles.number)}>{reportedCost(row.costUsd)}</TableCell>
+          <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" flushInline onClick={() => props.onAccount(row.providerId, row.accountProfileId)}>{usageAccountLabel(row.providerId, row.accountProfileId, props.profiles)}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
+          <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? <Tokens value={row.tokens} /> : <NotReported />}</TableCell><TableCell className={sx(styles.number)}><Cost value={row.costUsd} cell /></TableCell>
         </TableRow>)}</TableBody></Table>
     </section>
     <section className={sx(styles.section)} aria-label={t("usage:usageParts.usageByModel")}><h2 className={sx(styles.heading)}>{t("usage:usageParts.byModel")}</h2>
@@ -98,7 +113,7 @@ export function UsageBreakdowns(props: { report: UsageStatisticsReport; profiles
       <Table><TableHeader><TableRow><TableHead>{t("settingsProviders:auxiliaryInference.model.title")}</TableHead><TableHead>{t("settingsProviders:codexThreadsTab.metrics.turns")}</TableHead><TableHead>{t("usage:usageParts.tokens")}</TableHead><TableHead>{t("usage:usageParts.reportedUSD")}</TableHead></TableRow></TableHeader>
         <TableBody>{props.report.models.map((row) => <TableRow key={`${row.providerId}:${row.modelId}`}>
           <TableCell className={sx(styles.wrap)}><Button variant="link" size="sm" flushInline onClick={() => props.onModel(row.providerId, row.modelId)}>{row.modelId ?? i18n.t("usage:usageParts.modelNotRecorded")}</Button><p className={sx(styles.note)}>{USAGE_PROVIDER_NAMES[row.providerId]}</p></TableCell>
-          <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : i18n.t("usage:usageParts.notReported")}</TableCell><TableCell className={sx(styles.number)}>{reportedCost(row.costUsd)}</TableCell>
+          <TableCell>{row.turns}</TableCell><TableCell className={sx(styles.number)}>{row.measuredTurns ? <Tokens value={row.tokens} /> : <NotReported />}</TableCell><TableCell className={sx(styles.number)}><Cost value={row.costUsd} cell /></TableCell>
         </TableRow>)}</TableBody></Table>
     </section>
   </div>;
@@ -124,8 +139,8 @@ export function UsageTurnHistory(props: { report: UsageStatisticsReport; profile
                 <span className={sx(styles.note, styles.historyAccount)} title={usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}>{usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)}</span>
               </span>
               <span className={sx(styles.historyMetrics)}>
-                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)} title={t("usage:usageParts.tokensExcludingCacheReadsAdditional")}>{t("usage:usageParts.tokens")}</span><span className={sx(styles.number)}>{row.measuredTurns ? exactNumber(row.tokens) : t("usage:usageParts.notReported")}</span></span>
-                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)}>{t("usage:usageParts.reportedUSD")}</span><span className={sx(styles.number)}>{reportedCost(row.costUsd)}</span></span>
+                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)} title={t("usage:usageParts.tokensExcludingCacheReadsAdditional")}>{t("usage:usageParts.tokens")}</span><span className={sx(styles.number)}>{row.measuredTurns ? <Tokens value={row.tokens} /> : <NotReported />}</span></span>
+                <span className={sx(styles.historyMetric)}><span className={sx(styles.note)}>{t("usage:usageParts.reportedUSD")}</span><span className={sx(styles.number)}><Cost value={row.costUsd} cell /></span></span>
               </span>
               <ChevronRight aria-hidden="true" className={sx(styles.historyChevron)} />
             </summary>

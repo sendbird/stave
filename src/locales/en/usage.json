@@ -47,11 +47,12 @@
     "ofTurnsReportedUSDNotAn": "{{value1}} of {{value2}} turns reported USD · not an invoice",
     "historyDescription": "Newest first · {{zone}} · {{pageSize}} per page. Expand a turn for its account and token details. Running turns appear when they finish.",
     "noCompletedTurns": "No completed turns in this selection.",
-    "historyMeasurements": "Tokens exclude cache reads. USD is provider-reported; missing measurements are not zero."
+    "historyMeasurements": "Tokens exclude cache reads. USD is provider-reported; missing measurements are not zero.",
+    "tokenCountingTitle": "How tokens are counted"
   },
   "usageQuota": {
     "accountQuota": "Account quota",
-    "latestObservedAccountLimitsIncludesUsage": "Latest observed account limits · includes usage outside Stave · independent of the token period above",
+    "latestObservedAccountLimitsIncludesUsage": "Latest observed account limits · includes usage outside Stave · independent of the selected period",
     "readingQuota": "Reading quota…",
     "refreshQuota": "Refresh quota",
     "savedObservationsBelowMayBeOlder": "Saved observations below may be older.",
@@ -63,8 +64,6 @@
     "used": "used",
     "olderObservation": " · older observation",
     "usedVariant517a335e": "{{value1}} used{{value2}}",
-    "olderObservationVariant27f01b69": "Older observation · ",
-    "observed": "Observed · ",
     "chooseAProviderAndOneRegistered": "Choose a provider and one registered account to refresh its quota. Browsing these filters keeps the account for new turns unchanged.",
     "hideQuotaHistory": "Hide quota history",
     "showQuotaHistory": "Show quota history",
@@ -78,7 +77,16 @@
     "usedVariant285fdd": "Used",
     "resets": "Resets",
     "previousObservations": "Previous observations",
-    "nextObservations": "Next observations"
+    "nextObservations": "Next observations",
+    "windowElapsed": "{{percent}} of the window passed",
+    "paceExhausted": "Used up. This limit opens again at the reset.",
+    "paceRunsOut": "At this pace it runs out around {{time}}, {{lead}} before the reset.",
+    "paceLasts": "At this pace about {{percent}} is used by the reset.",
+    "paceAssumption": "Estimate: assumes the average pace since this window started continues.",
+    "observedAgo": "Read {{ago}}",
+    "observedOlder": "Older reading · {{ago}}",
+    "tightestLimit": "Limit you reach first",
+    "aboutTitle": "About account quota"
   },
   "usageView": {
     "usageCouldNotBeRead": "Usage could not be read.",
@@ -116,7 +124,10 @@
     "clearModelFilter": "Clear model filter",
     "accountLabelsCouldNotBeLoaded": "Account labels could not be loaded.",
     "retryAccounts": "Retry accounts",
-    "quotaCouldNotBeReadTry": "Quota could not be read. Try again."
+    "quotaCouldNotBeReadTry": "Quota could not be read. Try again.",
+    "readAt": "Read {{readAt}}",
+    "scopeTitle": "What this report covers",
+    "scopeBody": "Tokens cover completed Stave turns only, including agent and MCP task turns. Terminal CLI and other applications are not included. History without execution-account evidence stays unattributed."
   },
   "usageViewUtils": {
     "lastDays": "Last 7 days",
@@ -149,10 +160,8 @@
     "timeZoneHeading": "Time ({{zone}})",
     "quotaRemaining": "{{percent}} remaining",
     "observedZoneHeading": "Observed ({{zone}})",
-    "reportScope": "Read {{readAt}} · tokens cover completed Stave turns only, including agent and MCP task turns. Terminal CLI and other applications are not included. History without execution-account evidence stays unattributed.",
     "reportPeriod": "{{from}} – {{to}} · {{zone}} · filters only change this report",
     "quotaUsed": "{{percent}} used",
-    "quotaUsedOlder": "{{percent}} used · older observation",
     "selectedModel": "Model: {{model}} · quota remains account-wide",
     "chartPeak": "{{metric}} peak {{value}}",
     "barTitle_one": "{{date}} · {{value}} {{metric}} · {{count}} turn",
@@ -162,7 +171,8 @@
     "barDayLabel_one": "{{date}}: {{value}} {{metric}}, {{count}} turn. Show hours",
     "barDayLabel_other": "{{date}}: {{value}} {{metric}}, {{count}} turns. Show hours",
     "quotaUsedExpired": "{{percent}} used, reset time has passed",
-    "quotaUsedStale": "{{percent}} used, older observation"
+    "quotaUsedStale": "{{percent}} used, older observation",
+    "quotaPeriod": "{{from}} – {{to}} · {{zone}} · the period applies to quota history only; current limits always show the latest reading"
   },
   "countdown": {
     "days": "Resets in {{days}}d",
