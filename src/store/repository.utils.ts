@@ -15,8 +15,6 @@ import {
 
 export { resolvePathBaseName } from "@/lib/path-utils";
 
-const MAX_RECENT_REPOSITORIES = 12;
-
 export const REPOSITORY_APPEARANCE_ICON_IDS = [
   "folder",
   "code",
@@ -1214,10 +1212,12 @@ export function upsertRecentRepositoryState(args: {
       index === existingIndex ? nextRepository : cloneRecentRepositoryState(item),
     );
   }
+  // The registry holds every repository the user added, not a recency window.
+  // Removal is always explicit, so adding one never evicts another.
   return [
     ...args.repositories.map((repository) => cloneRecentRepositoryState(repository)),
     nextRepository,
-  ].slice(-MAX_RECENT_REPOSITORIES);
+  ];
 }
 
 export function captureCurrentRepositoryState(args: {
