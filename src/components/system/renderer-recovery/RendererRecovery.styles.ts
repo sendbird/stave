@@ -2,11 +2,11 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../../ads/tokens/tokens.stylex";
 
 /*
- * Colors come from Stave's role tokens in `globals.css`, which follow the
- * `.dark` class on <html> directly. ADS color variables are not used: they are
- * mapped onto the role tokens by `StaveDesignProvider`, which may be the part
- * that failed. The system-color fallbacks keep the screen legible if even the
- * role tokens are missing.
+ * Surface colors come from Stave's role tokens in `globals.css`, which follow
+ * the `.dark` class on <html> directly; the screen's root also publishes the
+ * ADS role mapping for its buttons. A production build links that stylesheet
+ * from `index.html`, so it is present even when no script ran. The
+ * system-color fallbacks keep the text legible if it is missing anyway.
  */
 export const recoveryStyles = stylex.create({
   // Fixed to the viewport with its own scroll so a short window can still
@@ -60,42 +60,6 @@ export const recoveryStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-8"],
     marginTop: vars["--ads-space-16"],
-  },
-  button: {
-    boxSizing: "border-box",
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: vars["--ads-control-height-sm"],
-    paddingInline: vars["--ads-space-12"],
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    fontFamily: "inherit",
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-control"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    cursor: "pointer",
-    outlineStyle: { default: "none", ":focus-visible": "solid" },
-    outlineWidth: 2,
-    outlineOffset: 2,
-    outlineColor: "var(--ring, Highlight)",
-  },
-  primary: {
-    borderColor: "transparent",
-    backgroundColor: {
-      default: "var(--primary, CanvasText)",
-      ":hover": "color-mix(in oklab, var(--primary, CanvasText) 88%, var(--background, Canvas))",
-    },
-    color: "var(--primary-foreground, Canvas)",
-  },
-  secondary: {
-    borderColor: "var(--border, ButtonBorder)",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": "var(--muted, ButtonFace)",
-    },
-    color: "inherit",
   },
   status: {
     margin: 0,
