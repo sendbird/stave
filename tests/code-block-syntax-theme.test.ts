@@ -22,11 +22,20 @@ import {
   CODE_THEME_LIGHT_REGISTRATION,
   SYNTAX_COLOR_ADJUSTMENTS,
 } from "../src/lib/syntax-themes";
+import { buildCustomThemeCss } from "../src/lib/themes/apply";
+import { BUILTIN_CUSTOM_THEMES } from "../src/lib/themes/builtin-themes";
 import {
   contrastRatio,
   oklabToOklch,
   parseCssColor,
 } from "../src/lib/themes/contrast";
+import {
+  CODE_SYNTAX_COLORS,
+  deriveSyntaxColorTokens,
+  fitSyntaxColor,
+  SYNTAX_TEXT_FLOOR,
+  syntaxColorVariable,
+} from "../src/lib/themes/syntax-contrast";
 
 const globalsCss = readFileSync(
   join(import.meta.dir, "../src/globals.css"),
@@ -34,49 +43,52 @@ const globalsCss = readFileSync(
 );
 
 /** `--editor` as declared in the `:root` or `.dark` block of globals.css. */
-function editorSurface(block: ":root" | ".dark") {
+function editorSurfaceValue(block: ":root" | ".dark") {
   const start = globalsCss.indexOf(`\n${block} {`);
   expect(start).toBeGreaterThan(-1);
   const body = globalsCss.slice(start, globalsCss.indexOf("\n}", start));
   const match = body.match(/\n\s*--editor:\s*([^;]+);/);
   expect(match).not.toBeNull();
-  const color = parseCssColor(match![1]);
+  return match![1]!.trim();
+}
+
+function editorSurface(block: ":root" | ".dark") {
+  const color = parseCssColor(editorSurfaceValue(block));
   expect(color).not.toBeNull();
   return color!;
 }
 
 /**
- * Token colors drawn on the code surface. Rules that paint their own
- * background (carriage returns, ignored markup) are measured against that
- * background by the source theme, not against the code surface.
+ * Every foreground a palette can emit. The highlighter does not paint token
+ * backgrounds, so rules that declare one are drawn on the code surface too.
  */
-function surfaceTokenColors(theme: ThemeRegistrationRaw) {
+function paletteColors(theme: ThemeRegistrationRaw) {
   const colors = new Set<string>();
   for (const rule of theme.tokenColors ?? []) {
-    if (!rule.settings?.foreground || rule.settings.background) continue;
-    colors.add(rule.settings.foreground.toLowerCase());
+    if (rule.settings?.foreground) colors.add(rule.settings.foreground.toLowerCase());
   }
   const fg = theme.colors?.["editor.foreground"];
   if (fg) colors.add(fg.toLowerCase());
-  return [...colors];
+  return [...colors].sort();
 }
 
-const MIN_TEXT_CONTRAST = 4.5;
+const PALETTES = {
+  light: CODE_THEME_LIGHT_REGISTRATION,
+  dark: CODE_THEME_DARK_REGISTRATION,
+} as const;
 
 describe("code syntax palettes", () => {
-  const cases = [
-    { mode: "light", theme: CODE_THEME_LIGHT_REGISTRATION, surface: editorSurface(":root") },
-    { mode: "dark", theme: CODE_THEME_DARK_REGISTRATION, surface: editorSurface(".dark") },
-  ] as const;
+  test("the runtime color list is every color the palettes emit", () => {
+    expect([...CODE_SYNTAX_COLORS.light].sort()).toEqual(paletteColors(PALETTES.light));
+    expect([...CODE_SYNTAX_COLORS.dark].sort()).toEqual(paletteColors(PALETTES.dark));
+  });
 
-  for (const { mode, theme, surface } of cases) {
-    test(`every ${mode} token color reaches ${MIN_TEXT_CONTRAST}:1 on the ${mode} code surface`, () => {
-      const failures = surfaceTokenColors(theme)
-        .map((color) => ({
-          color,
-          ratio: contrastRatio(parseCssColor(color)!, surface),
-        }))
-        .filter(({ ratio }) => ratio < MIN_TEXT_CONTRAST);
+  for (const [mode, block] of [["light", ":root"], ["dark", ".dark"]] as const) {
+    test(`every ${mode} color reaches ${SYNTAX_TEXT_FLOOR}:1 on Stave's default ${mode} code surface`, () => {
+      const surface = editorSurface(block);
+      const failures = paletteColors(PALETTES[mode])
+        .map((color) => ({ color, ratio: contrastRatio(parseCssColor(color)!, surface) }))
+        .filter(({ ratio }) => ratio < SYNTAX_TEXT_FLOOR);
       expect(failures).toEqual([]);
     });
   }
@@ -88,7 +100,8 @@ describe("code syntax palettes", () => {
     ]) {
       const before = oklabToOklch(parseCssColor(source)!);
       const after = oklabToOklch(parseCssColor(replacement)!);
-      expect(Math.abs(after.h - before.h)).toBeLessThan(1);
+      // Hue is not meaningful for near-grays; there only lightness matters.
+      if (before.c > 0.02) expect(Math.abs(after.h - before.h)).toBeLessThan(1);
       expect(Math.abs(after.l - before.l)).toBeGreaterThan(0.005);
     }
   });
@@ -97,10 +110,10 @@ describe("code syntax palettes", () => {
     const light = editorSurface(":root");
     const dark = editorSurface(".dark");
     for (const source of Object.keys(SYNTAX_COLOR_ADJUSTMENTS.light)) {
-      expect(contrastRatio(parseCssColor(source)!, light)).toBeLessThan(MIN_TEXT_CONTRAST);
+      expect(contrastRatio(parseCssColor(source)!, light)).toBeLessThan(SYNTAX_TEXT_FLOOR);
     }
     for (const source of Object.keys(SYNTAX_COLOR_ADJUSTMENTS.dark)) {
-      expect(contrastRatio(parseCssColor(source)!, dark)).toBeLessThan(MIN_TEXT_CONTRAST);
+      expect(contrastRatio(parseCssColor(source)!, dark)).toBeLessThan(SYNTAX_TEXT_FLOOR);
     }
   });
 
@@ -128,22 +141,88 @@ describe("code syntax palettes", () => {
   });
 });
 
+describe("syntax colors on each theme's code surface", () => {
+  test("covers every built-in theme in both modes", () => {
+    const modes = new Set(BUILTIN_CUSTOM_THEMES.map((theme) => theme.baseMode));
+    expect(modes).toEqual(new Set(["light", "dark"]));
+    for (const theme of BUILTIN_CUSTOM_THEMES) {
+      expect(parseCssColor(theme.tokens.editor ?? "")).not.toBeNull();
+    }
+  });
+
+  for (const theme of BUILTIN_CUSTOM_THEMES) {
+    test(`${theme.id}: every ${theme.baseMode} palette color reaches ${SYNTAX_TEXT_FLOOR}:1`, () => {
+      const mode = theme.baseMode;
+      const surface = parseCssColor(theme.tokens.editor!)!;
+      const css = buildCustomThemeCss({ theme });
+      const failures: string[] = [];
+      for (const color of CODE_SYNTAX_COLORS[mode]) {
+        // What the theme's stylesheet actually publishes for this color.
+        const declared = css.match(
+          new RegExp(`${syntaxColorVariable(mode, color)}: ([^;]+);`),
+        )?.[1];
+        const painted = declared ?? color;
+        const ratio = contrastRatio(parseCssColor(painted)!, surface);
+        if (ratio < SYNTAX_TEXT_FLOOR) failures.push(`${color} -> ${painted}: ${ratio.toFixed(2)}`);
+      }
+      expect(failures).toEqual([]);
+    });
+  }
+
+  test("a fitted color keeps its hue and moves away from the surface", () => {
+    const lotus = parseCssColor("#f2ecbc")!;
+    const fitted = fitSyntaxColor("#22863a", lotus);
+    expect(contrastRatio(parseCssColor("#22863a")!, lotus)).toBeLessThan(SYNTAX_TEXT_FLOOR);
+    expect(contrastRatio(parseCssColor(fitted)!, lotus)).toBeGreaterThanOrEqual(SYNTAX_TEXT_FLOOR);
+    const before = oklabToOklch(parseCssColor("#22863a")!);
+    const after = oklabToOklch(parseCssColor(fitted)!);
+    expect(Math.abs(after.h - before.h)).toBeLessThan(2);
+    expect(after.l).toBeLessThan(before.l);
+    // A color that already passes is left alone.
+    expect(fitSyntaxColor("#24292e", lotus)).toBe("#24292e");
+  });
+
+  test("a user theme gets replacements for its own code surface", () => {
+    const css = buildCustomThemeCss({
+      theme: {
+        id: "user-parchment",
+        name: "Parchment",
+        description: "",
+        baseMode: "light",
+        tokens: { editor: "#e8e2b0" },
+      },
+    });
+    const surface = parseCssColor("#e8e2b0")!;
+    for (const color of CODE_SYNTAX_COLORS.light) {
+      const declared = css.match(new RegExp(`${syntaxColorVariable("light", color)}: ([^;]+);`))?.[1];
+      const ratio = contrastRatio(parseCssColor(declared ?? color)!, surface);
+      expect(ratio).toBeGreaterThanOrEqual(SYNTAX_TEXT_FLOOR);
+    }
+    expect(css).not.toContain("--stave-syntax-dark-");
+  });
+
+  test("unparseable surfaces publish nothing", () => {
+    expect(deriveSyntaxColorTokens({ mode: "light", editor: "var(--x)" })).toEqual({});
+    expect(deriveSyntaxColorTokens({ mode: "light", editor: undefined })).toEqual({});
+  });
+});
+
 describe("code block theme selection", () => {
   test("diffs pick the palette for the app mode", () => {
     expect(syntaxThemeFor(false)).toBe(CODE_THEME_LIGHT);
     expect(syntaxThemeFor(true)).toBe(CODE_THEME_DARK);
   });
 
-  test("per-line diff spans are cached per palette", async () => {
+  test("per-line diff spans are cached per palette and use the theme's replacements", async () => {
     await getSyntaxHighlighter();
     const keyword = (theme: ReturnType<typeof syntaxThemeFor>) =>
-      highlightLineSpans("const value = 1", "typescript", theme).find(
-        (span) => span.text.trim() === "const",
-      )?.color;
-    expect(keyword(CODE_THEME_LIGHT)?.toLowerCase()).toBe("#d13847");
-    expect(keyword(CODE_THEME_DARK)?.toLowerCase()).toBe("#f97583");
+      highlightLineSpans("const value = 1", "typescript", theme)
+        .find((span) => span.text.trim() === "const")
+        ?.color?.toLowerCase();
+    expect(keyword(CODE_THEME_LIGHT)).toBe("var(--stave-syntax-light-d13847,#d13847)");
+    expect(keyword(CODE_THEME_DARK)).toBe("var(--stave-syntax-dark-f97583,#f97583)");
     // Asking again after the other mode still returns the right palette.
-    expect(keyword(CODE_THEME_LIGHT)?.toLowerCase()).toBe("#d13847");
+    expect(keyword(CODE_THEME_LIGHT)).toBe("var(--stave-syntax-light-d13847,#d13847)");
   });
 
   test("one code block HTML carries both palettes and paints the theme's code surface", async () => {
@@ -156,8 +235,12 @@ describe("code block theme selection", () => {
     });
     expect(html).toContain(CODE_BLOCK_PRE_CLASS);
     expect(html).toContain("background-color:var(--editor)");
-    expect(html).toContain("--shiki-light:#D13847;--shiki-dark:#F97583");
-    expect(html).toContain("--shiki-dark:#8B949E");
+    expect(html).toContain(
+      "--shiki-light:var(--stave-syntax-light-d13847,#D13847);--shiki-dark:var(--stave-syntax-dark-f97583,#F97583)",
+    );
+    expect(html).toContain("--shiki-dark:var(--stave-syntax-dark-8b949e,#8B949E)");
+    // Every token color goes through a theme replacement variable.
+    expect(html).not.toMatch(/--shiki-(?:light|dark):#/);
     // No mode is baked in, so a cache keyed by language and source is safe
     // across light/dark switches.
     expect(html).not.toMatch(/[";]color:#/);
@@ -183,7 +266,9 @@ describe("code block theme selection", () => {
       expect("html" in response).toBe(true);
       const html = "html" in response ? response.html : "";
       expect(html).toContain(CODE_BLOCK_PRE_CLASS);
-      expect(html).toContain("--shiki-light:#D13847;--shiki-dark:#F97583");
+      expect(html).toContain(
+        "--shiki-light:var(--stave-syntax-light-d13847,#D13847);--shiki-dark:var(--stave-syntax-dark-f97583,#F97583)",
+      );
       expect(html).not.toMatch(/[";]color:#/);
     } finally {
       worker.terminate();

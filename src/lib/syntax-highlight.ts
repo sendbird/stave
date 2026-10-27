@@ -4,6 +4,7 @@ import {
   CODE_THEME_DARK,
   CODE_THEME_LIGHT,
   SYNTAX_COMMON_LANGS,
+  syntaxColorReference,
 } from "./syntax-highlight-shared";
 import {
   CODE_THEME_DARK_REGISTRATION,
@@ -111,7 +112,10 @@ export function highlightLineSpans(
       row.length === 0
         ? [{ text: line }]
         : row.map((token) => ({
-            color: token.color,
+            // Through the theme's replacement for this color, if it sets one.
+            color: token.color
+              ? syntaxColorReference(theme === CODE_THEME_DARK ? "dark" : "light", token.color)
+              : undefined,
             text: token.content,
           }));
     const joined = spans.reduce((acc, span) => acc + span.text, "");
