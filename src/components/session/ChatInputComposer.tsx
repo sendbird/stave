@@ -15,19 +15,9 @@ import {
 } from "react";
 import { type ModelSelectorOption } from "@/components/ai-elements/model-selector";
 import {
-  readCursorComposerSettings,
-  resolveCursorComposerControls,
-} from "@/components/ai-elements/cursor-model-runtime";
-import {
-  persistModelPickerPreferences,
-  stepModelEffort,
-  type ModelEffortStepDirection,
-} from "@/components/ai-elements/model-effort-step";
-import {
-  COMPOSER_EFFORT_STEP_EVENT,
-  isComposerOwnedByPendingInteraction,
-  type ComposerEffortStepDetail,
-} from "@/components/session/composer-effort-step";
+  useComposerApprovalShortcuts,
+  useComposerEffortShortcut,
+} from "./use-composer-window-shortcuts";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import {
@@ -155,8 +145,6 @@ import {
   getLatestUserPromptMessage,
   getPromptHistoryEntries,
   isStaleActiveTurnDraft,
-  shouldHandleApprovalEnterShortcut,
-  shouldHandleApprovalTabShortcut,
 } from "./chat-input.utils";
 import {
   buildPromptEnhancementHistory,
@@ -1038,74 +1026,11 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const composerDisabled =
     isInputBlocked || isSteerSubmitting || managedTaskComposerAccess.disabled;
 
-  // "Increase effort" / "Decrease effort": one level through the same levels,
-  // the same starting effort and the same choice path as the model picker.
-  const stepEffortRef = useRef<(direction: ModelEffortStepDirection) => void>(
-    () => {},
-  );
-  useLayoutEffect(() => {
-    stepEffortRef.current = (direction) => {
-      const store = useAppStore.getState();
-      const messages = store.messagesByTask[args.activeTaskId] ?? EMPTY_MESSAGES;
-      // The picker is closed to the user while these hold; so are its keys.
-      // A task run by an agent keeps the agent's own model and effort.
-      if (
-        composerDisabled ||
-        isComposerOwnedByPendingInteraction(messages) ||
-        agentChoice.current
-      ) {
-        return;
-      }
-      const value = args.selectedModelOption;
-      const cursorSettings =
-        value.providerId === "cursor" && !value.isAuto
-          ? readCursorComposerSettings({ settings: store.settings, model: value.model })
-          : { effort: "medium", fastMode: false };
-      const { effortValue } = resolveCursorComposerControls({
-        selectedModel: value,
-        effortValue: args.effortValue,
-        effortLabel: args.effortLabel,
-        fastMode: args.fastMode,
-        storeEffort: cursorSettings.effort,
-        storeFastMode: cursorSettings.fastMode,
-      });
-      const step = stepModelEffort({
-        value,
-        options: args.modelOptions,
-        effortValue,
-        direction,
-      });
-      if (!step) {
-        return;
-      }
-      persistModelPickerPreferences({
-        option: step.selection,
-        effort: step.effort,
-        updateModelRuntimePreference: store.updateModelRuntimePreference,
-      });
-      agentChoice.selectModel(step);
-    };
+  useComposerEffortShortcut({
+    ...args,
+    disabled: composerDisabled,
+    agentChoice,
   });
-  useEffect(() => {
-    if (!args.windowShortcutsEnabled) {
-      return;
-    }
-    const handleEffortStep = (event: Event) => {
-      const detail = (event as CustomEvent<ComposerEffortStepDetail>).detail;
-      if (
-        !detail ||
-        detail.handled ||
-        useAppStore.getState().activeTaskId !== args.activeTaskId
-      ) {
-        return;
-      }
-      detail.handled = true;
-      stepEffortRef.current(detail.direction);
-    };
-    window.addEventListener(COMPOSER_EFFORT_STEP_EVENT, handleEffortStep);
-    return () =>
-      window.removeEventListener(COMPOSER_EFFORT_STEP_EVENT, handleEffortStep);
-  }, [args.activeTaskId, args.windowShortcutsEnabled]);
   const queuePause = resolveQueuePause({
     queuedTurns,
     usageLimitPause,
@@ -1331,74 +1256,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     return () => window.removeEventListener("beforeunload", flushDraftText);
   }, []);
 
-  useEffect(() => {
-    // Off with the composer's other window keys: another task is active, or Review hides this one.
-    if (!pendingApproval || !args.windowShortcutsEnabled) {
-      return;
-    }
-
-    const handleApprovalShortcut = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-      // Window-level Enter/Tab approval shortcuts act on the GLOBAL active
-      // task; other visible split panels with their own pending approvals
-      // must not also resolve them.
-      if (useAppStore.getState().activeTaskId !== args.activeTaskId) {
-        return;
-      }
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      if (
-        shouldHandleApprovalTabShortcut({
-          key: event.key,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          shiftKey: event.shiftKey,
-          isComposing: event.isComposing,
-          targetTagName: target?.tagName,
-          targetRole: target?.getAttribute("role"),
-          targetIsContentEditable: target?.isContentEditable,
-        })
-      ) {
-        event.preventDefault();
-        setGuidanceFocusNonce((current) => current + 1);
-        return;
-      }
-
-      if (
-        !shouldHandleApprovalEnterShortcut({
-          key: event.key,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          shiftKey: event.shiftKey,
-          isComposing: event.isComposing,
-          targetTagName: target?.tagName,
-          targetRole: target?.getAttribute("role"),
-          targetIsContentEditable: target?.isContentEditable,
-        })
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      resolveApproval({
-        taskId: args.activeTaskId,
-        messageId: pendingApproval.messageId,
-        requestId: pendingApproval.part.requestId,
-        approved: true,
-      });
-    };
-
-    window.addEventListener("keydown", handleApprovalShortcut);
-    return () => window.removeEventListener("keydown", handleApprovalShortcut);
-  }, [
-    args.activeTaskId,
-    args.windowShortcutsEnabled,
+  useComposerApprovalShortcuts({
+    ...args,
     pendingApproval,
     resolveApproval,
-  ]);
+    onFocusGuidance: () => setGuidanceFocusNonce((current) => current + 1),
+  });
 
   return (
     <div
