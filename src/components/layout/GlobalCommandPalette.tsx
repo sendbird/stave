@@ -43,7 +43,6 @@ import {
   filterSectionsForTaskScope,
   openTaskSearchResult,
   renderTaskSearchGroup,
-  taskSearchItemValue,
   usePaletteTaskSearch,
   type PaletteTaskScope,
 } from "./command-palette-task-search";
@@ -108,11 +107,6 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
     [leaves, query],
   );
   const searchResultCount = taskSearch.status === "idle" ? 0 : taskSearch.results.length;
-  // A fresh search across repositories starts on its best match.
-  const firstSearchResult = taskSearch.status === "ready" ? taskSearch.results[0] : undefined;
-  useEffect(() => {
-    if (firstSearchResult) setSelectedActionId(taskSearchItemValue(firstSearchResult));
-  }, [firstSearchResult]);
   const actionById = useMemo(
     () =>
       new Map(
@@ -122,12 +116,6 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       ),
     [sections],
   );
-  // Suggested options lead the list, so a query that brings one starts on it
-  // (Enter runs it), the same way a fresh search across repositories does.
-  const firstLeafId = leafSuggestions[0]?.id;
-  useEffect(() => {
-    if (firstLeafId) setSelectedActionId(firstLeafId);
-  }, [firstLeafId]);
   const visibleActionIds = useMemo(
     () =>
       new Set(
@@ -305,7 +293,10 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
         className={sx(commandPaletteStyles.frame)}
         shouldFilter={false}
         loop
-        value={selectedActionId}
+        // The list's own highlight is the one selection: it is the row drawn
+        // as selected, the row Enter runs and the row Alt+P pins. A new query
+        // or a new result list starts on the first row (suggested options
+        // lead, so they come ahead of older task results still on screen).
         onValueChange={setSelectedActionId}
         onKeyDown={handleCommandKeyDown}
       >
@@ -365,16 +356,6 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               </p>
             </CommandEmpty>
           ) : null}
-          {taskScope === "all"
-            ? renderTaskSearchGroup({
-                search: taskSearch,
-                query,
-                onOpen: (result) => {
-                  args.onOpenChange(false);
-                  openTaskSearchResult(result);
-                },
-              })
-            : null}
           {leafSuggestions.length > 0 ? (
             <CommandGroup
               heading={i18n.t("shell:commandPaletteLeaves.section")}
@@ -385,6 +366,16 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               )}
             </CommandGroup>
           ) : null}
+          {taskScope === "all"
+            ? renderTaskSearchGroup({
+                search: taskSearch,
+                query,
+                onOpen: (result) => {
+                  args.onOpenChange(false);
+                  openTaskSearchResult(result);
+                },
+              })
+            : null}
           {visibleSections.map((section) => (
             <CommandGroup
               key={section.key}

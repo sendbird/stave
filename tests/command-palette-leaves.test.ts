@@ -23,6 +23,7 @@ function sources(calls: string[] = []): CommandPaletteLeafSources {
       { id: "nord-snow", name: "Nord Snow", baseMode: "light" },
       { id: "nord-polar", name: "Nord Polar", baseMode: "dark" },
       { id: "nordic", name: "Nordic", baseMode: "dark" },
+      { id: "github-light", name: "GitHub Light Default", baseMode: "light" },
     ],
     activeThemeId: null,
     appearanceMode: "dark",
@@ -75,6 +76,8 @@ describe("command palette leaves", () => {
     expect(rankCommandPaletteLeaves({ leaves, query: "nord" }).length).toBeLessThanOrEqual(3);
     expect(rankCommandPaletteLeaves({ leaves, query: "docs" })[0]?.id).toBe("leaf.new-task./repos/docs");
     expect(rankCommandPaletteLeaves({ leaves, query: "zzzz" })).toEqual([]);
+    // Scattered letters ("g-u-i-d-e" across "GitHub Light Default") are not a match.
+    expect(rankCommandPaletteLeaves({ leaves, query: "guide" })).toEqual([]);
   });
 
   test("names follow the app language", () => {

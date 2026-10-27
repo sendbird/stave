@@ -15,6 +15,9 @@ import {
  */
 export const MAX_COMMAND_PALETTE_LEAF_SUGGESTIONS = 3;
 
+/** The palette search score of a substring match; anything lower is fuzzy. */
+const MIN_LEAF_MATCH_SCORE = 0.82;
+
 export type CommandPaletteAppearanceMode = "light" | "dark" | "system";
 
 export interface CommandPaletteLeaf extends CommandPaletteAction {
@@ -122,7 +125,9 @@ export function rankCommandPaletteLeaves(args: {
       exact: normalizeCommandPaletteSearchValue(leaf.leafName) === query,
       score: scoreCommandPaletteSearch({ action: leaf, groupTitle: "", query }),
     }))
-    .filter((entry) => entry.exact || entry.score > 0)
+    // Options are offered on a real match only (a word, a prefix or a
+    // substring); a scattered-letter match would crowd out the commands.
+    .filter((entry) => entry.exact || entry.score >= MIN_LEAF_MATCH_SCORE)
     .sort(
       (left, right) =>
         Number(right.exact) - Number(left.exact) ||
