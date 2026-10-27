@@ -17,7 +17,7 @@ import type { TaskPreset } from "@/lib/task-presets";
  * default") without re-firing later if the user deliberately picks that value
  * again.
  */
-export const SETTINGS_MODEL_MIGRATION_VERSION = 6;
+export const SETTINGS_MODEL_MIGRATION_VERSION = 7;
 
 /**
  * v1 (GPT-6 Astra release) — the per-provider defaults moved from Sonnet 5 to
@@ -312,7 +312,10 @@ export function migrateSettingsModelDefaults(
     applySolHighEffortMigration(result);
     applyLunaTerraEffortMigration(result);
   }
-  applySol61Migration(result);
+  if (fromVersion < 6) {
+    applySol61Migration(result);
+  }
+  applyTerra61Migration(result);
   return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
 }
 
@@ -410,6 +413,49 @@ function applySol61Migration(result: SettingsModelMigrationResult) {
       return { ...preset, model: "gpt-6.1-sol", label: "GPT-6.1 Sol" };
     }
     return preset;
+  });
+}
+
+// Frozen literals: v7 must keep recognizing these ids after later releases.
+const TERRA_5_6_MODEL = "gpt-5.6-terra";
+const TERRA_6_1_MODEL = "gpt-6.1-terra";
+const TERRA_5_6_SHORTCUT_KEY = `codex:${TERRA_5_6_MODEL}`;
+const TERRA_6_1_SHORTCUT_KEY = `codex:${TERRA_6_1_MODEL}`;
+
+/**
+ * v7 — GPT-6.1 Terra replaces GPT-5.6 Terra on the balanced rung. A selected
+ * GPT-5.6 Terra moves to GPT-6.1 Terra in the composer default, shortcut
+ * slots, and task presets. Effort stays: both default to `xhigh`. A preset
+ * label that still names GPT-5.6 Terra follows the model. Runs once, so a
+ * later deliberate GPT-5.6 Terra pin is left alone.
+ */
+function applyTerra61Migration(result: SettingsModelMigrationResult) {
+  if (result.modelCodex.trim() === TERRA_5_6_MODEL) {
+    result.modelCodex = TERRA_6_1_MODEL;
+    result.changed = true;
+  }
+  result.modelShortcutKeys = result.modelShortcutKeys.map((key) => {
+    if (key.trim() !== TERRA_5_6_SHORTCUT_KEY) {
+      return key;
+    }
+    result.changed = true;
+    return TERRA_6_1_SHORTCUT_KEY;
+  });
+  result.taskPresets = result.taskPresets.map((preset) => {
+    if (
+      preset.provider !== "codex" ||
+      typeof preset.model !== "string" ||
+      preset.model.trim() !== TERRA_5_6_MODEL
+    ) {
+      return preset;
+    }
+    result.changed = true;
+    return {
+      ...preset,
+      model: TERRA_6_1_MODEL,
+      // i18n-ignore: provider model display name
+      ...(preset.label === "GPT-5.6 Terra" ? { label: "GPT-6.1 Terra" } : {}),
+    };
   });
 }
 

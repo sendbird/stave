@@ -225,6 +225,7 @@
     "theMContextWindowBillsAt": "The 1M context window bills at the standard rate.",
     "perTokenPriceMatchesSonnetThe": "Per-token price matches Sonnet 5. The base id already includes the native 1M window.",
     "standardPriceBelowTheKInput": "Standard price below the 272K input-token threshold. Cached input is $0.10 per million tokens.",
+    "terraStandardPriceBelowTheKInput": "Standard price below the 272K input-token threshold. Cached input is $0.05 per million tokens.",
     "standardPriceBelowTheKInputVariantca1656d7": "Standard price below the 272K input-token threshold.",
     "promotionalPricePublishedThroughAtLeast": "Promotional price published through at least 2026-11-21.",
     "standardPriceBelowTheKContext": "Standard price below the 272K context threshold.",

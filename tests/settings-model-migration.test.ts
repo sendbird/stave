@@ -142,8 +142,11 @@ describe("settings model default migration", () => {
       }),
     );
 
-    expect(result.modelShortcutKeys).toEqual(customShortcuts);
-    expect(result.taskPresets[0]).toEqual(customPreset);
+    // v1 leaves them alone; v7 later moves every GPT-5.6 Terra pin onto 6.1.
+    expect(result.modelShortcutKeys).toEqual(
+      customShortcuts.map((key) => key === "codex:gpt-5.6-terra" ? "codex:gpt-6.1-terra" : key),
+    );
+    expect(result.taskPresets[0]).toEqual({ ...customPreset, model: "gpt-6.1-terra" });
   });
 
   test("does not re-fire once the snapshot records the current version", () => {
@@ -312,6 +315,10 @@ describe("Sonnet 5.5 migration", () => {
       ...preMigrationSnapshot({
         modelClaude: "claude-opus-5-5",
         claudeEffort: "high",
+        modelCodex: "gpt-6.1-sol",
+        codexReasoningEffort: "high",
+        modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+        taskPresets: [],
       }),
       fromVersion: 2,
     });
@@ -401,6 +408,8 @@ describe("Luna and Terra effort migration", () => {
     });
     expect(terra.changed).toBe(true);
     expect(terra.codexReasoningEffort).toBe("xhigh");
+    // v7 then moves the Terra selection onto GPT-6.1 Terra.
+    expect(terra.modelCodex).toBe("gpt-6.1-terra");
 
     const tunedLuna = settled({
       modelCodex: "gpt-6-luna",
@@ -414,7 +423,7 @@ describe("Luna and Terra effort migration", () => {
       codexReasoningEffort: "max",
     });
     expect(tunedTerra.codexReasoningEffort).toBe("max");
-    expect(tunedTerra.changed).toBe(false);
+    expect(tunedTerra.modelCodex).toBe("gpt-6.1-terra");
   });
 });
 
@@ -479,5 +488,65 @@ describe("GPT-6.1 Sol migration", () => {
     expect(again.changed).toBe(false);
     expect(again.modelCodex).toBe("gpt-6-sol");
     expect(again.codexReasoningEffort).toBe("high");
+  });
+});
+
+describe("GPT-6.1 Terra migration", () => {
+  const customPreset = {
+    id: "custom-terra",
+    label: "GPT-5.6 Terra",
+    kind: "task" as const,
+    provider: "codex" as const,
+    model: "gpt-5.6-terra",
+    effort: "max" as const,
+  };
+  const renamedPreset = { ...customPreset, id: "renamed", label: "Fast fixes" };
+  const solPreset = { ...customPreset, id: "sol", label: "Sol", model: "gpt-6.1-sol" };
+
+  test("moves GPT-5.6 Terra selections onto GPT-6.1 Terra once and keeps effort", () => {
+    const moved = migrateSettingsModelDefaults({
+      fromVersion: 6,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-5.6-terra",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS.slice(0, 4), "codex:gpt-5.6-terra", "", "", "", "", ""],
+      taskPresets: [customPreset, renamedPreset, solPreset],
+    });
+    expect(moved.changed).toBe(true);
+    expect(moved.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
+    expect(moved.modelCodex).toBe("gpt-6.1-terra");
+    expect(moved.codexReasoningEffort).toBe("high");
+    expect(moved.modelShortcutKeys[4]).toBe("codex:gpt-6.1-terra");
+    expect(moved.modelShortcutKeys.slice(0, 4)).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS.slice(0, 4)]);
+    expect(moved.taskPresets[0]).toEqual({ ...customPreset, model: "gpt-6.1-terra", label: "GPT-6.1 Terra" });
+    expect(moved.taskPresets[1]).toEqual({ ...renamedPreset, model: "gpt-6.1-terra" });
+    expect(moved.taskPresets[2]).toEqual(solPreset);
+
+    const again = migrateSettingsModelDefaults({
+      ...moved,
+      fromVersion: moved.version,
+      modelCodex: "gpt-5.6-terra",
+      modelShortcutKeys: ["codex:gpt-5.6-terra"],
+      taskPresets: [customPreset],
+    });
+    expect(again.changed).toBe(false);
+    expect(again.modelCodex).toBe("gpt-5.6-terra");
+    expect(again.modelShortcutKeys).toEqual(["codex:gpt-5.6-terra"]);
+    expect(again.taskPresets[0]).toEqual(customPreset);
+  });
+
+  test("does not re-run the GPT-6.1 Sol step for a v6 snapshot", () => {
+    const result = migrateSettingsModelDefaults({
+      fromVersion: 6,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+      taskPresets: [],
+    });
+    expect(result.changed).toBe(false);
+    expect(result.modelCodex).toBe("gpt-6-sol");
   });
 });

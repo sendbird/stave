@@ -38,7 +38,7 @@ test("automatic Decision proposals share pins, same-provider catalog, cooldown a
   // A step-up the work needs is not held; a step-down waits for the cooldown.
   expect(selectAdaptiveRoute(policy, aggregate(1), [automatic], null, { ...proposal, model: "gpt-6.1-sol" }).decision).toMatchObject({ accepted: true, model: "gpt-6.1-sol" });
   const strong = event(2, "resource-decision", { accepted: true, automatic: true, requestSequence: null, turnCount: 0, model: "gpt-6-astra", effort: "high" });
-  const down = selectAdaptiveRoute(policy, aggregate(1), [strong], null, { ...proposal, model: "gpt-5.6-terra" });
+  const down = selectAdaptiveRoute(policy, aggregate(1), [strong], null, { ...proposal, model: "gpt-6.1-terra" });
   expect(down.decision).toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
   expect(down.cause).toBe("cooldown");
   const pending = request(3, "gpt-6.1-sol");
@@ -49,13 +49,13 @@ test("the cooldown counts every turn linked since the change, the user's replies
   const reply = event(4, "turn-linked", { stageId: "work", attempt: 1, turnId: "reply-1", reason: "user-reply" });
   // A change that is not a step-up stays under the cooldown.
   const lateral = event(5, "resource-request", { stageId: "work", attempt: 1,
-    request: { model: "gpt-5.6-terra", reason: "capability-mismatch", rationale: "A heavier model is not needed", evidenceRefs: ["t1"] } });
+    request: { model: "gpt-6.1-terra", reason: "capability-mismatch", rationale: "A heavier model is not needed", evidenceRefs: ["t1"] } });
   // One supervised turn ran on the placement: too soon.
   expect(selectAdaptiveRoute(policy, aggregate(1), [linked, placement, lateral]).decision)
     .toMatchObject({ accepted: false, reason: "The two-turn cooldown is active." });
   // A supervised turn and a reply ran on it: the change is due, though only one supervised turn started.
   expect(selectAdaptiveRoute(policy, aggregate(1), [linked, placement, reply, lateral]).decision)
-    .toMatchObject({ accepted: true, model: "gpt-5.6-terra", linkedTurnCount: 2 });
+    .toMatchObject({ accepted: true, model: "gpt-6.1-terra", linkedTurnCount: 2 });
   // A decision saved before linked turns were counted keeps the supervised-turn rule.
   const { linkedTurnCount: _unsaved, ...legacy } = placement.detail;
   expect(selectAdaptiveRoute(policy, aggregate(1), [linked, { ...placement, detail: legacy }, reply, lateral]).decision)
@@ -77,7 +77,7 @@ test("the user's explicit request and a needed step-up are not held by the coold
     .toMatchObject({ accepted: true, model: "gpt-6-luna" });
   expect(selectAdaptiveRoute(policy, aggregate(1), [...changed, ask(4, { effort: "xhigh", reason: "capability-mismatch" })]).decision)
     .toMatchObject({ accepted: true, effort: "xhigh" });
-  expect(selectAdaptiveRoute(policy, aggregate(5), [...changed, ask(4, { model: "gpt-5.6-terra", reason: "mechanical-step" })]).decision)
+  expect(selectAdaptiveRoute(policy, aggregate(5), [...changed, ask(4, { model: "gpt-6.1-terra", reason: "mechanical-step" })]).decision)
     .toMatchObject({ accepted: false, reason: "The change limit is reached." });
   // Pins and the eligible catalog still bound a user request relayed by the Agent.
   expect(selectAdaptiveRoute({ ...policy, modelLocked: true }, aggregate(1), [linked, ask(3, { model: "gpt-6-luna", reason: "user-request" })]).decision)

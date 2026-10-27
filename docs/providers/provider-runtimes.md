@@ -1279,7 +1279,7 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 - Codex App Server transport: local `codex app-server` from Codex CLI `0.145.0`
 - Current schema verification baseline: `0.145.0` (verified July 31, 2026)
-- Current Stave-supported Codex model IDs: `gpt-6-astra`, `gpt-6.1-sol`, `gpt-5.6-terra`, `gpt-6-luna` (default: `gpt-6.1-sol`; `gpt-6-sol` is the fallback when 6.1 is unavailable; `gpt-6-astra` is the frontier tier)
+- Current Stave-supported Codex model IDs: `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna` (default: `gpt-6.1-sol`; `gpt-6-sol` is the fallback when Sol 6.1 is unavailable; `gpt-6.1-terra` is the balanced tier and `gpt-5.6-terra` its fallback; `gpt-6-astra` is the frontier tier)
 
 ### Default-effort ladder
 
@@ -1290,7 +1290,7 @@ model; smaller models are not handed a deeper budget to compensate:
 | -------- | -------------- | ------------- | -------------- |
 | frontier | Fable 5.1      | GPT-6 Astra   | `medium`       |
 | flagship | Opus 5.5 (+1M) | GPT-6.1 Sol   | Opus `medium`; Sol 6.1 `high` |
-| balanced | Sonnet 5.5 (+1M) | GPT-5.6 Terra | Sonnet `high`; Terra `xhigh` |
+| balanced | Sonnet 5.5 (+1M) | GPT-6.1 Terra | Sonnet `high`; Terra 6.1 `xhigh` |
 | light    | Haiku 5.5      | GPT-6 Luna    | Haiku `medium`; Luna `xhigh` |
 
 A frontier model pinned to `xhigh` mostly buys latency — codex-cli 0.153.2
@@ -1305,10 +1305,12 @@ Sonnet 5.5's composer default is `high`. Its list price is half of Opus 5.5,
 so ordinary Auto routes use the balanced rung at `high`. GPT-6.1 Sol lists at
 the same price and keeps the same composer default as GPT-6 Sol, `high`.
 GPT-6 Sol remains available as the fallback and keeps `high`. Terra sits one step
-higher, at `xhigh`. Luna's composer default is `xhigh`, and Auto's bounded
+higher, at `xhigh`: GPT-6.1 Terra keeps GPT-5.6 Terra's default although Codex
+CLI 0.164.0 recommends `low`, so moving a Terra selection to 6.1 does not
+change its effort. Luna's composer default is `xhigh`, and Auto's bounded
 route uses that same effort. A turn sends the effort stored in Stave. GPT-6.1
-Sol, GPT-6 Sol, Terra, and Luna keep those Stave defaults after the App Server
-catalog is fetched.
+Sol, GPT-6 Sol, both Terra generations, and Luna keep those Stave defaults
+after the App Server catalog is fetched.
 Other Codex models still follow that catalog's
 `defaultReasoningEffort` when the stored effort is still the previous
 default. `xhigh` and `max` stay off Sonnet and Sol. High complexity and
@@ -1341,8 +1343,10 @@ One knock-on effect worth knowing:
   unchanged, because `high` is the default for both. Another step moves GPT-6
   Sol from `medium` to `high` when the stored effort is still that old default.
   A further step moves Luna from `medium` to `xhigh` and Terra from `high` to
-  `xhigh` on the same rule. The latest step moves a selected GPT-6 Sol to
-  GPT-6.1 Sol and leaves the stored effort unchanged.
+  `xhigh` on the same rule. A later step moves a selected GPT-6 Sol to
+  GPT-6.1 Sol and leaves the stored effort unchanged. The latest step moves a
+  selected GPT-5.6 Terra, including one stored on a shortcut or task preset,
+  to GPT-6.1 Terra and leaves the stored effort unchanged.
 
 Stave requires a user-installed Codex CLI. Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery. Stave does not currently enforce a semantic-version floor, so controls for newly adopted features must be capability-gated for older executables.
 
@@ -1647,9 +1651,17 @@ clears and re-reads only the provider whose account changed
 
 ## September 2026 model catalog
 
-The primary Codex catalog includes GPT-6 Astra, GPT-6.1 Sol, GPT-5.6 Terra
+The primary Codex catalog includes GPT-6 Astra, GPT-6.1 Sol, GPT-6.1 Terra
 (the balanced tier), and GPT-6 Luna. New tasks default to GPT-6.1 Sol.
 When that model is unavailable, Stave starts the turn on GPT-6 Sol instead.
+GPT-6.1 Terra (October 2026) succeeds GPT-5.6 Terra on the balanced rung at
+half its list price ($1 / $5 per million tokens below 272K input tokens).
+OpenAI positions it for everyday agentic coding, terminal and computer-use
+work and keeps Sol and Astra for the most complex coding, so Auto uses it
+where it used GPT-5.6 Terra: Standard work stepped down under usage pressure.
+When GPT-6.1 Terra is unavailable on the installed runtime or plan, Stave
+starts the turn on GPT-5.6 Terra instead. GPT-5.6 Terra stays resolvable for
+history and explicit selections.
 Utility inference and light-tier routing use GPT-6 Luna. Codex Sol supports
 Low through Ultra, while Luna caps at Max. GPT-6.1 Sol and GPT-6 Sol both
 start at High. Luna and Terra start at Extra High. GPT-6.1 Sol
@@ -1677,7 +1689,9 @@ shortcut or task preset, moves to Sonnet 5.5. That step does not rewrite
 effort. A selected GPT-6 Sol whose effort is still `medium` moves to `high`.
 A selected Luna whose effort is still `medium` moves to `xhigh`, and a selected
 Terra whose effort is still `high` moves to `xhigh`. A selected GPT-6 Sol then
-moves to GPT-6.1 Sol, and that step leaves the stored effort unchanged.
+moves to GPT-6.1 Sol, and that step leaves the stored effort unchanged. A
+selected GPT-5.6 Terra, including one stored on a shortcut, task preset, or
+Auto allow list, moves to GPT-6.1 Terra with its effort unchanged.
 Other selected models, tuned efforts, and historical turns keep their saved
 values. Cursor and
 Kiro continue to use their own runtime-advertised catalogs. Provider account
@@ -1694,15 +1708,16 @@ changes are also surfaced when the CLI omits a fallback event; in that case,
 the cause is explicitly unknown. The response model label follows the actual
 model. This fallback observation is specific to Claude.
 
-When Codex reports that GPT-6.1 Sol is unavailable, Stave retries the thread
-once on GPT-6 Sol and records that substitution. Codex also surfaces model
+When Codex reports that GPT-6.1 Sol or GPT-6.1 Terra is unavailable, Stave
+retries the thread once on the previous model of the same rung (GPT-6 Sol or
+GPT-5.6 Terra) and records that substitution. Codex also surfaces model
 changes from `thread/start` and `thread/resume`
 responses and `model/rerouted` notifications, updating the response model label.
 Notifications are scoped to the active thread and turn. Recognized reroute reasons
 are shown without treating policy routing as a version failure. Unsupported-model
 and outdated-client errors retain the provider's message (including any minimum
 version) and add installation-specific update guidance. No unverified minimum
-version is assigned to GPT-6.1 Sol, GPT-6 Sol, or Luna. See the [CLI installation guide](https://learn.chatgpt.com/docs/codex/cli).
+version is assigned to GPT-6.1 Sol, GPT-6 Sol, GPT-6.1 Terra, or Luna. See the [CLI installation guide](https://learn.chatgpt.com/docs/codex/cli).
 
 Model selection remains non-blocking when runtime support is unknown. Codex
 picker descriptions distinguish entries advertised by the current runtime from

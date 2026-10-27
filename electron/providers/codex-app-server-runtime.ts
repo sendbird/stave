@@ -2036,7 +2036,7 @@ export async function streamCodexWithAppServer(
         modelResolution.resolve(
           resolvedModel ?? runtimeOptions?.model,
           undefined,
-          fallbackModel ? "staveSolFallback" : undefined,
+          fallbackModel ? "staveModelFallback" : undefined,
         ),
       );
       emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
