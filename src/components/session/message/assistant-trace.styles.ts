@@ -101,12 +101,13 @@ export const assistantTraceStyles = stylex.create({
     flexDirection: "column",
     gap: 6,
   },
+  // Muted color alone marks interim text as provisional; an extra opacity
+  // took it under the readable contrast floor.
   interim: {
     color: vars["--ads-color-text-muted"],
     display: "flex",
     flexDirection: "column",
     gap: vars["--ads-space-8"],
-    opacity: 0.5,
   },
   spacedTop: {
     marginTop: vars["--ads-space-12"],
