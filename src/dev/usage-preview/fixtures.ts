@@ -30,14 +30,27 @@ function turns(): UsageTurn[] {
   });
 }
 
+/** Claude names its windows (`session`, `weekly`), so the preview shows pace and elapsed time; Codex stays unknown-length. */
 function quota(): QuotaObservation[] {
-  return USAGE_PREVIEW_PROFILES.flatMap((profile, accountIndex) => Array.from({ length: 12 }, (_, index) => ({
-    providerId: profile.providerId, accountProfileId: profile.id, windowId: "primary", label: "5-hour limit",
-    observedAt: new Date(USAGE_PREVIEW_NOW - (11 - index) * 3_600_000).toISOString(),
-    usedPercent: (index * 8 + accountIndex * 12) % 100,
-    resetsAt: Math.floor(USAGE_PREVIEW_NOW / 1000) + 3_600 * 2,
-    source: profile.providerId === "codex" ? "rpc" : "oauth",
-  })));
+  const nowSeconds = Math.floor(USAGE_PREVIEW_NOW / 1000);
+  return USAGE_PREVIEW_PROFILES.flatMap((profile, accountIndex) => {
+    const claude = profile.providerId === "claude-code";
+    const session = Array.from({ length: 12 }, (_, index) => ({
+      providerId: profile.providerId, accountProfileId: profile.id, windowId: claude ? "session" : "primary", label: "5-hour limit",
+      observedAt: new Date(USAGE_PREVIEW_NOW - (11 - index) * 3_600_000).toISOString(),
+      usedPercent: (index * 8 + accountIndex * 12) % 100,
+      resetsAt: nowSeconds + 3_600 * 2,
+      source: claude ? "oauth" : "rpc",
+    }));
+    const weekly = claude ? Array.from({ length: 12 }, (_, index) => ({
+      providerId: profile.providerId, accountProfileId: profile.id, windowId: "weekly", label: "Weekly limit",
+      observedAt: new Date(USAGE_PREVIEW_NOW - (11 - index) * 3_600_000).toISOString(),
+      usedPercent: 40 + accountIndex * 25 + index,
+      resetsAt: nowSeconds + 86_400 * 3,
+      source: "oauth",
+    })) : [];
+    return [...session, ...weekly];
+  });
 }
 
 /** Deterministic fixture for the actual UsageView, never installed as product data. */

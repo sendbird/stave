@@ -23,7 +23,8 @@ for (const theme of ["light", "dark"]) {
     await page.keyboard.press("Space");
     await expect(first).not.toHaveAttribute("open");
     await rows.nth(6).locator("summary").click();
-    await expect(rows.nth(6).locator("summary")).toContainText("69,418");
+    await expect(rows.nth(6).locator("summary")).toContainText("69k");
+    await expect(rows.nth(6).locator("summary").getByTitle("69,418", { exact: true })).toHaveText("69k");
     await expect(rows.nth(6).locator("dl")).toContainText("30,500 / 0");
   });
 }
