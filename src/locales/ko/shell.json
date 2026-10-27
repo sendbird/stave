@@ -480,6 +480,14 @@
     "syncBranch": "{{branch}} 동기화",
     "remote": "리모트"
   },
+  "taskStatusAnnouncer": {
+    "working": "작업 중",
+    "needsInput": "입력 필요",
+    "needsApproval": "승인 필요",
+    "done": "완료됨",
+    "failed": "실패함",
+    "stopped": "중지됨"
+  },
   "commandPaletteLeaves": {
     "section": "옵션",
     "current": "현재",

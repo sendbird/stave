@@ -13,6 +13,7 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
+import { TaskStatusAnnouncer } from "@/components/layout/TaskStatusAnnouncer";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
@@ -1076,6 +1077,7 @@ export function AppShell() {
         onOpenChange={setCommandPaletteOpen}
         runtimeContext={commandPaletteContext}
       />
+      <TaskStatusAnnouncer />
       {shortcutsOpen ? (
         <Suspense
           fallback={<OverlayLoadingFallback title={i18n.t("shell:appShell.keyboardShortcuts")} />}

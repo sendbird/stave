@@ -483,6 +483,14 @@
     "syncBranch": "Sync {{branch}}",
     "remote": "Remote"
   },
+  "taskStatusAnnouncer": {
+    "working": "Working",
+    "needsInput": "Needs your input",
+    "needsApproval": "Needs approval",
+    "done": "Done",
+    "failed": "Failed",
+    "stopped": "Stopped"
+  },
   "commandPaletteLeaves": {
     "section": "Options",
     "current": "Current",
