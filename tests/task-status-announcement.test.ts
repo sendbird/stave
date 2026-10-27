@@ -9,6 +9,9 @@ import {
   type TaskAnnouncementState,
 } from "@/lib/task-status-announcement";
 import type { ChatMessage } from "@/types/chat";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { TaskStatusAnnouncerRegion } from "@/components/layout/TaskStatusAnnouncer";
 
 afterEach(() => applyAppLocale("en"));
 
@@ -162,5 +165,21 @@ describe("announcement transitions", () => {
     expect(i18n.t(TASK_ANNOUNCEMENT_KEYS.needsApproval)).toBe("Needs approval");
     applyAppLocale("ko");
     expect(i18n.t(TASK_ANNOUNCEMENT_KEYS.needsApproval)).toBe("승인 필요");
+  });
+});
+
+describe("announcement region", () => {
+  test("keeps the announced state and words it in the current language", () => {
+    const region = () =>
+      renderToStaticMarkup(createElement(TaskStatusAnnouncerRegion, { announcement: "needsApproval" }));
+    expect(region()).toContain('aria-live="polite"');
+    expect(region()).toContain("Needs approval");
+    // The same announcement after a language switch reads in the new language.
+    applyAppLocale("ko");
+    expect(region()).toContain("승인 필요");
+    expect(region()).not.toContain("Needs approval");
+    expect(
+      renderToStaticMarkup(createElement(TaskStatusAnnouncerRegion, { announcement: null })),
+    ).toMatch(/<span[^>]*role="status"[^>]*><\/span>/);
   });
 });
