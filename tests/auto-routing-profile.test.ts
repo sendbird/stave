@@ -20,6 +20,7 @@ import {
   type AutoRoutingProfile,
   type RouteRule,
   type RouterSignals,
+  resolveRouteTierForModel,
 } from "@/lib/providers/auto-routing-profile";
 import {
   CLAUDE_FABLE_MODEL,
@@ -129,6 +130,22 @@ describe("resolveRoute", () => {
       .eligibleModelsByProvider["claude-code"]).toEqual([DEFAULT_CLAUDE_HAIKU_MODEL]);
   });
 
+  test("GPT-6.1 Terra is the balanced Codex rung, ahead of a runtime-listed GPT-5.6 Terra", () => {
+    expect(resolveRouteTierForModel("gpt-6.1-terra")).toBe("balanced");
+    expect(resolveRoute({ profile: balanced, role: "primary",
+      signals: signals({ budgetUsedPercent: 99, currentProviderId: "codex" }),
+      runtimeModelsByProvider: { codex: ["gpt-6-sol", "gpt-5.6-terra", "gpt-6.1-terra", "gpt-6-luna"] } }))
+      .toMatchObject({ model: "gpt-6.1-terra" });
+  });
+
+  test("a stored allow list that names GPT-5.6 Terra moves onto GPT-6.1 Terra", () => {
+    const stored = validateProfile({
+      ...balanced,
+      eligibleModelsByProvider: { codex: ["gpt-6.1-sol", "gpt-5.6-terra", "gpt-6.1-terra"] },
+    });
+    expect(stored.eligibleModelsByProvider.codex).toEqual(["gpt-6.1-sol", "gpt-6.1-terra"]);
+  });
+
   test("Auto never picks Haiku 4.5 unless it is allowed explicitly", () => {
     expect(listEligibleRouteModels({ profile: balanced, providerId: "claude-code" })).not.toContain("claude-haiku-4-5");
     const allowed = { ...balanced, eligibleModelsByProvider: { "claude-code": ["claude-haiku-4-5", DEFAULT_CLAUDE_SONNET_MODEL] } };
@@ -175,7 +192,7 @@ describe("resolveRoute", () => {
   test("standard work may step down to the balanced rung under budget pressure", () => {
     expect(resolveRoute({ profile: balanced, role: "primary",
       signals: signals({ budgetUsedPercent: 99, currentProviderId: "codex" }) }))
-      .toMatchObject({ model: "gpt-5.6-terra", budgetShift: -2 });
+      .toMatchObject({ model: "gpt-6.1-terra", budgetShift: -2 });
   });
 
   test("preference keeps the model and moves effort within the level's range", () => {
@@ -476,7 +493,7 @@ describe("cache hold: step-downs and same-rung switches wait for a boundary", ()
     {
       providerId: "codex",
       light: "gpt-6-luna",
-      balancedModel: "gpt-5.6-terra",
+      balancedModel: "gpt-6.1-terra",
       flagship: "gpt-6.1-sol",
       sameRung: "gpt-6-sol",
       warmMs: CODEX_PROMPT_CACHE_WARM_MS,

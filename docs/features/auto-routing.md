@@ -41,6 +41,10 @@ Codex. Auto does not pick the previous Claude Haiku 4.5 unless it is allowed
 explicitly, because it rejects an effort value; a stored allow-list that names
 Haiku 4.5 moves onto Haiku 5.5.
 
+GPT-6.1 Terra is the balanced Codex rung, the counterpart of Sonnet 5.5. It
+replaces GPT-5.6 Terra, and a stored allow-list that names GPT-5.6 Terra moves
+onto GPT-6.1 Terra.
+
 A task that runs as an [agent](agents.md) whose model is Auto-routing with a
 task class uses that class as a fallback: a confident classification still
 decides, and the agent's class applies when the intent is unclear or when
@@ -123,7 +127,7 @@ low end, the recommended point, or the high end of its effort range. A rule
 that names its own effort keeps it, moved one step by the preference. Usage
 thresholds can lower effort or the model, but never below the level's
 minimum rung: Simple may use a light model, Standard a balanced one (Sonnet
-5.5 or GPT-5.6 Terra), Complex and Expert the flagship, Extreme only the
+5.5 or GPT-6.1 Terra), Complex and Expert the flagship, Extreme only the
 frontier.
 
 When the provider running the task has no allowed model for the level, such
