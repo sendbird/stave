@@ -79,7 +79,9 @@ export function resolveTaskAnnouncementState(args: {
     case "waiting-approval":
       return "needsApproval";
     case "error":
-      return "failed";
+      // An error while the turn still runs is one the provider may recover
+      // from (it retries); only a turn that ended on it has failed.
+      return args.activeTurnId ? "working" : "failed";
     case "running":
     case "stalled":
       return "working";

@@ -66,6 +66,34 @@ describe("task announcement state", () => {
     expect(resolveTaskAnnouncementState({ messages: [user(), assistant()] })).toBe("idle");
   });
 
+  test("an error the running turn may recover from is not a failure until the turn ends on it", () => {
+    // A recoverable provider error lands as an error line while the turn keeps running.
+    const erroring = [user(), assistant({}, [{ type: "system_event", content: "[error] Reconnecting… 1/5" }])];
+    expect(resolveTaskAnnouncementState({ messages: erroring, activeTurnId: "t1" })).toBe("working");
+    // The same turn ending on the error has failed.
+    expect(resolveTaskAnnouncementState({ messages: erroring })).toBe("failed");
+
+    // Spoken: Working, then (the retry says nothing), then Failed only at the end.
+    let baseline: TaskAnnouncementBaseline | null = { taskId: "t", state: "working" };
+    const spoken: TaskAnnouncementState[] = [];
+    for (const activeTurnId of ["t1", "t1", null]) {
+      const result = advanceTaskAnnouncement(baseline, {
+        taskId: "t",
+        state: resolveTaskAnnouncementState({ messages: erroring, activeTurnId }),
+      });
+      baseline = result.baseline;
+      if (result.announce) spoken.push(result.announce);
+    }
+    expect(spoken).toEqual(["failed"]);
+
+    // A turn that recovers and completes is Done, never Failed.
+    const recovered = [user(), assistant({ terminalReceipt: receipt("completed") }, [
+      { type: "system_event", content: "[error] Reconnecting… 1/5" },
+      { type: "text", text: "All set." },
+    ])];
+    expect(resolveTaskAnnouncementState({ messages: recovered })).toBe("done");
+  });
+
   test("a loading transcript has no state yet, and reads are cached per message list", () => {
     const messages = [user()];
     expect(selectTaskAnnouncementState({ messages, activeTurnId: "t1", archived: false, loading: true })).toBeNull();
