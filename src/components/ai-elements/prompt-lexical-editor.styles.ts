@@ -36,8 +36,8 @@ export const lexicalEditorStyles = stylex.create({
   /*
    * Lexical builds its root out of real `<p>` elements. Nothing in this app's
    * reset zeroes `<p>` (the ADS reset only touches `body`), so the UA's
-   * `margin-block: 1em` applied to the editor's first paragraph: on the 18px
-   * default editor that is an 18px void above the caret, which is why an empty
+   * `margin-block: 1em` applied to the editor's first paragraph: on the default
+   * editor that is a font-size of void above the caret, which is why an empty
    * focused composer drew its caret one line BELOW the placeholder — the
    * placeholder is absolutely positioned against the wrapper at `inset-block-
    * start: 0` and never saw that margin.

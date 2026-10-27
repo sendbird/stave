@@ -25,6 +25,7 @@ import { promptInputStyles } from "./prompt-input.styles";
 import {
   isShortcutEchoInsertion,
   NO_PROMPT_HISTORY_SELECTION,
+  resolvePromptPlaceholder,
 } from "./prompt-input.utils";
 import { DEFAULT_PROMPT_COMMENT_SHORTCUT } from "@/lib/prompt-comment-shortcuts";
 import {
@@ -273,6 +274,12 @@ export function PromptInput(args: PromptInputProps) {
     focusToken,
     interactionsDisabled,
     isTurnActive,
+  });
+  const placeholder = resolvePromptPlaceholder({
+    minimal,
+    focused: isPromptInputFocused,
+    steerOrQueue: isSteerOrQueueMode,
+    queueNext: isQueueNextMode,
   });
 
   const {
@@ -695,23 +702,13 @@ export function PromptInput(args: PromptInputProps) {
                         })
                       }
                       placeholder={
-                        minimal && isPromptInputFocused
+                        placeholder.kind === "none"
                           ? ""
-                          : minimal
-                            ? isSteerOrQueueMode
-                              ? formatSteerQueueEnterActionLabel(
-                                  steerQueueEnterAction,
-                                )
-                              : isQueueNextMode
-                                ? i18n.t("composer:promptInput.placeholder")
-                                : i18n.t("composer:promptInput.placeholder2")
-                            : isSteerOrQueueMode
-                              ? formatSteerQueueEnterActionLabel(
-                                  steerQueueEnterAction,
-                                )
-                              : isQueueNextMode
-                                ? i18n.t("composer:promptInput.placeholder3")
-                                : i18n.t("composer:promptInput.placeholder4")
+                          : placeholder.kind === "steer-queue"
+                            ? formatSteerQueueEnterActionLabel(
+                                steerQueueEnterAction,
+                              )
+                            : i18n.t(placeholder.key)
                       }
                       className={sx(
                         // Height and overflow belong to these classes alone.
