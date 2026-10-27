@@ -480,6 +480,13 @@
     "syncBranch": "{{branch}} 동기화",
     "remote": "리모트"
   },
+  "commandPaletteLeaves": {
+    "section": "옵션",
+    "current": "현재",
+    "appearance": "모양: {{name}}",
+    "theme": "테마: {{name}}",
+    "newTaskIn": "{{name}}에서 새 작업"
+  },
   "commandPaletteRegistry": {
     "pinned": "고정됨",
     "suggested": "추천",

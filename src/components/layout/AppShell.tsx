@@ -46,7 +46,7 @@ import { LENS_SURFACE_ROOT_ID } from "@/lib/lens/lens-guest-host";
 import { layers } from "@/lib/ui-layers.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
-import { isTaskArchived } from "@/lib/tasks";
+import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
@@ -826,6 +826,7 @@ export function AppShell() {
       })(),
       tasks: tasks.map((task) => ({
         id: task.id,
+        isDelegated: isDelegatedTask(task),
         isActive: task.id === activeTaskId,
         isResponding: Boolean(activeTurnIdsByTask[task.id]),
         provider: task.provider,

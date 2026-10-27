@@ -483,6 +483,13 @@
     "syncBranch": "Sync {{branch}}",
     "remote": "Remote"
   },
+  "commandPaletteLeaves": {
+    "section": "Options",
+    "current": "Current",
+    "appearance": "Appearance: {{name}}",
+    "theme": "Theme: {{name}}",
+    "newTaskIn": "New task in {{name}}"
+  },
   "commandPaletteRegistry": {
     "pinned": "Pinned",
     "suggested": "Suggested",

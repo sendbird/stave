@@ -85,6 +85,15 @@ This is the fastest way to learn Stave's navigation model without memorizing eve
 
 This is usually faster than opening Settings and browsing manually.
 
+### Reach An Option By Name
+
+While you type, the palette also offers up to three **Options** from inside
+commands: `Theme: <name>` for each theme, `Appearance: Light`, `Dark` or
+`System`, and `New task in <repository>` for each repository you have opened
+(another repository opens first, then the task starts there). Typing an
+option's exact name puts it first. Options do not appear with nothing typed,
+and they are not pinned or kept in Recent.
+
 ### Jump Straight To A Model
 
 1. Press `Alt+1`, `Alt+2`, or any mapped `Alt+1..0` slot.
@@ -121,8 +130,8 @@ The row under the search field sets where the palette looks for tasks:
 Each result shows its repository, workspace, branch and folder, so tasks with
 the same title are told apart, plus its state (Running, Done, Failed, Stopped,
 New) and its last activity. Opening one goes to its repository, then its
-workspace, then the task. Archived tasks and repositories you removed are not
-searched. The other commands, Fleet View included, stay in the list in both
+workspace, then the task. Archived tasks, tasks another task delegated (open
+them from their parent), and repositories you removed are not searched. The other commands, Fleet View included, stay in the list in both
 scopes.
 
 ### Stave Slash Commands
