@@ -8,10 +8,9 @@ import { vars } from "../ads/tokens/tokens.stylex";
  * new colour is introduced.
  */
 const accent10 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 10%, transparent)`;
-const accent12 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 12%, transparent)`;
 const accent16 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 16%, transparent)`;
+const accent20 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 20%, transparent)`;
 const accent40 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 40%, transparent)`;
-const accent45 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 45%, transparent)`;
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
@@ -205,7 +204,7 @@ export const repositorySidebarStyles = stylex.create({
     paddingInline: vars["--ads-space-8"],
     width: "100%",
   },
-  queueButtonActive: { backgroundColor: accent12, color: vars["--ads-color-text"] },
+  queueButtonActive: { backgroundColor: accent16, color: vars["--ads-color-text"] },
   queueButtonIdle: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
@@ -553,6 +552,13 @@ export const repositorySidebarStyles = stylex.create({
     height: 32,
     padding: 0,
     width: 32,
+  },
+  // The collapse toggle sits pressed while the project list is open: a soft
+  // accent wash and an accent glyph, the same look as a pressed right-rail
+  // toggle.
+  chromeButtonPressed: {
+    backgroundColor: { default: accent16, ":hover": accent20 },
+    color: vars["--ads-color-accent"],
   },
   chromeButtonSidebar: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
@@ -952,30 +958,15 @@ export const repositorySidebarStyles = stylex.create({
   },
   workspaceRowExpanded: { alignItems: "stretch", gap: vars["--ads-space-4"] },
   workspaceRowCompact: { alignItems: "center", gap: vars["--ads-space-4"] },
+  // The fill alone marks the selected row: no outline, raised shadow or
+  // corner mark, so selection reads calmly next to the idle rows.
   workspaceRowActive: {
-    backgroundColor: { default: accent12, ":hover": accent16 },
-    borderColor: accent45,
-    boxShadow: vars["--ads-elevation-raised"],
+    backgroundColor: { default: accent16, ":hover": accent20 },
+    borderColor: "transparent",
     color: vars["--ads-color-text"],
-    "::before": {
-      borderLeftColor: vars["--ads-color-accent"],
-      borderLeftStyle: "solid",
-      borderLeftWidth: 2,
-      borderTopColor: vars["--ads-color-accent"],
-      borderTopLeftRadius: vars["--ads-radius-mark"],
-      borderTopStyle: "solid",
-      borderTopWidth: 2,
-      content: "''",
-      height: 12,
-      insetBlockStart: -1,
-      insetInlineStart: -1,
-      pointerEvents: "none",
-      position: "absolute",
-      width: 12,
-    },
   },
-  // Hover is the neutral wash, never a fill or a box: only the active row is
-  // filled and outlined, so it stays the one row that reads as selected.
+  // Hover is the neutral wash, never an accent fill: only the active row is
+  // filled, so it stays the one row that reads as selected.
   workspaceRowIdle: {
     backgroundColor: {
       default: "transparent",

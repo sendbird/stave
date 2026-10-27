@@ -3,6 +3,9 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 const LG = "@media (min-width: 64rem)";
+const accent16 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 16%, transparent)`;
+const accent20 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 20%, transparent)`;
+const accent24 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 24%, transparent)`;
 
 export const rightRailStyles = stylex.create({
   rail: {
@@ -59,6 +62,17 @@ export const rightRailStyles = stylex.create({
       ":active": vars["--ads-color-overlay-pressed"],
     },
     borderColor: { default: "transparent", ":hover": vars["--ads-color-border"] },
+  },
+  // Pressed is a soft accent wash with an accent glyph, the same look as the
+  // sidebar toggle while the project list is open, not a solid accent slab.
+  railButtonPressed: {
+    backgroundColor: {
+      default: accent16,
+      ":hover": accent20,
+      ":active": accent24,
+    },
+    borderColor: "transparent",
+    color: vars["--ads-color-accent"],
   },
   railIcon: {
     height: { default: vars["--ads-control-icon-size-sm"], [LG]: vars["--ads-control-icon-size-md"] },
