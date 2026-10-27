@@ -9,12 +9,8 @@ import {
   type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
-import { Check, CircleHelp, ExternalLink, PencilLine } from "lucide-react";
-import { Badge, Button, Input, Kbd, Textarea } from "@/components/ui";
-import {
-  displayUserInputOptionLabel,
-  shouldShowUserInputRecommendedBadge,
-} from "@/lib/user-input-options";
+import { Check, CircleHelp, ExternalLink } from "lucide-react";
+import { Button, Input, Kbd, Textarea } from "@/components/ui";
 import {
   encodeUserInputSelection,
   getUserInputAnswerKey,
@@ -25,6 +21,16 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { userInputCardStyles as styles } from "./user-input-card.styles";
+import {
+  QuestionOptionRow,
+  QuestionOptionTextRow,
+  questionOptionRowStyles,
+} from "./question-option-row";
+import {
+  buildQuestionOptionRows,
+  getCustomAnswerShortcut,
+  getQuestionOptionValue,
+} from "./question-option-rows";
 import type { UserInputQuestion } from "@/types/chat";
 
 /**
@@ -67,15 +73,10 @@ const EMPTY_SELECTION: QuestionSelection = { selected: [], custom: "" };
  */
 const AUTO_ADVANCE_DELAY_MS = 200;
 
-/** Number keys 1-9 pick the matching option of the visible question. */
-const SHORTCUT_OPTION_LIMIT = 9;
-
 /** Answers are filed the way every answering surface files them. */
 const getQuestionKey = getUserInputAnswerKey;
 
-function getOptionValue(option: UserInputQuestion["options"][number]) {
-  return option.value ?? option.label;
-}
+const getOptionValue = getQuestionOptionValue;
 
 function isTextEntryTarget(target: EventTarget | null): boolean {
   if (target instanceof HTMLTextAreaElement) {
@@ -476,10 +477,6 @@ export function UserInputCard(args: UserInputCardProps) {
   const compactTitles = readOnly || presentation === "inline";
   const Container = readOnly ? "section" : "form";
   const copy = getRequestStateCopy(state);
-  const shortcutOptionCount = Math.min(
-    currentQuestion?.options.length ?? 0,
-    SHORTCUT_OPTION_LIMIT,
-  );
 
   return (
     <Container
@@ -607,6 +604,9 @@ export function UserInputCard(args: UserInputCardProps) {
               inputType !== "url_notice";
             const hasOptions = question.options.length > 0;
             const hasCustom = selection.custom.trim().length > 0;
+            // Number keys pick only on the visible, answerable question.
+            const showShortcuts =
+              !readOnly && questionIndex === currentIndex;
             const customLabel = i18n.t("composer:userInputCard.ariaLabel", {
               value1: question.question,
             });
@@ -675,105 +675,47 @@ export function UserInputCard(args: UserInputCardProps) {
                   </legend>
 
                   {hasOptions ? (
-                    <div className={sx(styles.optionList)}>
-                      {question.options.map((option, optionIndex) => {
-                        const optionValue = getOptionValue(option);
-                        const isSelected =
-                          selection.selected.includes(optionValue);
-                        const isRecommended =
-                          shouldShowUserInputRecommendedBadge({
-                            option,
-                            options: question.options,
-                          });
-                        return (
-                          <label
-                            key={optionValue}
-                            className={sx(
-                              styles.optionRow,
-                              optionIndex > 0 && styles.optionRowDivided,
-                              focusRing.ringWithin,
-                              styles.optionRowFocusInset,
-                              isSelected && styles.optionRowSelected,
-                              readOnly && styles.optionReadOnly,
-                              !readOnly && disabled && styles.optionDisabled,
-                            )}
-                          >
-                            <input
-                              className={sx(styles.srOnly)}
-                              type={question.multiSelect ? "checkbox" : "radio"}
-                              name={`${formId}-question-${questionIndex}`}
-                              value={optionValue}
-                              checked={isSelected}
-                              disabled={readOnly || disabled}
-                              onChange={() => {
-                                const autoAdvance = !arrowNavigationRef.current;
-                                arrowNavigationRef.current = false;
-                                selectOption(
-                                  question,
-                                  questionIndex,
-                                  optionValue,
-                                  autoAdvance,
-                                );
-                              }}
-                            />
-                            <span
-                              className={sx(
-                                styles.optionIndex,
-                                isSelected && styles.optionIndexSelected,
-                              )}
-                              aria-hidden
-                            >
-                              {isSelected ? (
-                                <Check className={sx(styles.iconXs)} />
-                              ) : (
-                                optionIndex + 1
-                              )}
-                            </span>
-                            <span className={sx(styles.optionBody)}>
-                              <span className={sx(styles.optionLabelRow)}>
-                                <span className={sx(styles.optionLabel)}>
-                                  {displayUserInputOptionLabel(option.label)}
-                                </span>
-                                {isRecommended ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className={sx(styles.recommendedBadge)}
-                                  >
-                                    {i18n.t("composer:userInputCard.copy")}
-                                  </Badge>
-                                ) : null}
-                              </span>
-                              {option.description ? (
-                                <span className={sx(styles.optionDescription)}>
-                                  {option.description}
-                                </span>
-                              ) : null}
-                            </span>
-                          </label>
-                        );
-                      })}
+                    <div
+                      className={sx(
+                        questionOptionRowStyles.list,
+                        styles.optionList,
+                      )}
+                    >
+                      {buildQuestionOptionRows({
+                        question,
+                        selectedValues: selection.selected,
+                        showShortcuts,
+                      }).map((row, optionIndex) => (
+                        <QuestionOptionRow
+                          key={row.value}
+                          row={row}
+                          kind={question.multiSelect ? "checkbox" : "radio"}
+                          name={`${formId}-question-${questionIndex}`}
+                          divided={optionIndex > 0}
+                          disabled={disabled}
+                          readOnly={readOnly}
+                          onChange={() => {
+                            const autoAdvance = !arrowNavigationRef.current;
+                            arrowNavigationRef.current = false;
+                            selectOption(
+                              question,
+                              questionIndex,
+                              row.value,
+                              autoAdvance,
+                            );
+                          }}
+                        />
+                      ))}
 
                       {!readOnly && supportsCustom ? (
-                        <label
-                          className={sx(
-                            styles.optionRow,
-                            styles.optionRowDivided,
-                            styles.customRow,
-                            focusRing.ringWithin,
-                            styles.optionRowFocusInset,
-                            hasCustom && styles.optionRowSelected,
-                            disabled && styles.optionDisabled,
-                          )}
+                        <QuestionOptionTextRow
+                          filled={hasCustom}
+                          disabled={disabled}
+                          shortcut={getCustomAnswerShortcut({
+                            optionCount: question.options.length,
+                            showShortcuts,
+                          })}
                         >
-                          <span
-                            className={sx(
-                              styles.optionIndex,
-                              hasCustom && styles.optionIndexSelected,
-                            )}
-                            aria-hidden
-                          >
-                            <PencilLine className={sx(styles.iconXs)} />
-                          </span>
                           {numeric ? (
                             <input
                               ref={registerCustomField}
@@ -814,7 +756,7 @@ export function UserInputCard(args: UserInputCardProps) {
                               }
                             />
                           )}
-                        </label>
+                        </QuestionOptionTextRow>
                       ) : null}
                     </div>
                   ) : null}
@@ -906,21 +848,20 @@ export function UserInputCard(args: UserInputCardProps) {
             {i18n.t("composer:userInputCard.userInputCard3")}
           </Button>
           <div className={sx(styles.footerActions)}>
-            {shortcutOptionCount >= 2 ? (
-              <span className={sx(styles.keyboardHint)} aria-hidden>
-                <Trans
-                  i18n={i18n}
-                  ns="composer"
-                  i18nKey={
-                    onLastStep
-                      ? "userInputCard.keyboardHint"
-                      : "userInputCard.keyboardHintNext"
-                  }
-                  values={{ last: shortcutOptionCount }}
-                  components={{ key: <Kbd /> }}
-                />
-              </span>
-            ) : null}
+            {/* The number keys are shown on their rows; this names the key
+                that moves on. */}
+            <span className={sx(styles.keyboardHint)} aria-hidden>
+              <Trans
+                i18n={i18n}
+                ns="composer"
+                i18nKey={
+                  onLastStep
+                    ? "userInputCard.keyboardHint"
+                    : "userInputCard.keyboardHintNext"
+                }
+                components={{ key: <Kbd /> }}
+              />
+            </span>
             {onLastStep ? (
               // Distinct keys keep React from turning the Next button into a
               // submit button during its own click.

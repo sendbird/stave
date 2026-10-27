@@ -451,8 +451,8 @@
     "stepAria": "Question {{index}} of {{total}}: {{label}}",
     "stepAriaAnswered": "Question {{index}} of {{total}}: {{label}} (answered)",
     "next": "Next",
-    "keyboardHint": "<key>1</key>–<key>{{last}}</key> to choose · <key>Enter</key> to continue",
-    "keyboardHintNext": "<key>1</key>–<key>{{last}}</key> to choose · <key>Enter</key> for the next question",
+    "keyboardHint": "<key>Enter</key> to continue",
+    "keyboardHintNext": "<key>Enter</key> for the next question",
     "numberPlaceholder": "Enter a number"
   },
   "composerShelf": {

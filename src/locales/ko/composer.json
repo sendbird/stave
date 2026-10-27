@@ -447,8 +447,8 @@
     "stepAria": "질문 {{index}}/{{total}}: {{label}}",
     "stepAriaAnswered": "질문 {{index}}/{{total}}: {{label}} (응답함)",
     "next": "다음",
-    "keyboardHint": "<key>1</key>–<key>{{last}}</key> 선택 · <key>Enter</key> 계속",
-    "keyboardHintNext": "<key>1</key>–<key>{{last}}</key> 선택 · <key>Enter</key> 다음 질문",
+    "keyboardHint": "<key>Enter</key> 계속",
+    "keyboardHintNext": "<key>Enter</key> 다음 질문",
     "numberPlaceholder": "숫자 입력"
   },
   "composerShelf": {
