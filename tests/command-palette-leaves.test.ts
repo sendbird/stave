@@ -4,6 +4,8 @@ import {
   buildCommandPaletteLeaves,
   MAX_COMMAND_PALETTE_LEAF_SUGGESTIONS,
   rankCommandPaletteLeaves,
+  startTaskInRepository,
+  type CommandPaletteLocation,
   type CommandPaletteLeafSources,
 } from "@/components/layout/command-palette-leaves";
 import {
@@ -86,6 +88,81 @@ describe("command palette leaves", () => {
     expect(titles).toContain("테마: Dracula");
     expect(titles).toContain("모양: 다크");
     expect(titles).toContain("docs에서 새 작업");
+  });
+});
+
+describe("new task in a repository", () => {
+  const A = { isCurrent: true, repositoryName: "a", repositoryPath: "/repos/a" };
+  const B = { isCurrent: false, repositoryName: "b", repositoryPath: "/repos/b" };
+
+  /** A fake app: opening a repository resolves when the test says so. */
+  function fakeApp() {
+    const location: CommandPaletteLocation = { repositoryPath: "/repos/a", activeWorkspaceId: "a-main", workspaceIds: ["a-main", "a-c"] };
+    const created: string[] = [];
+    const pendingOpens: Array<() => void> = [];
+    return {
+      location,
+      created,
+      finishOpen: () => pendingOpens.shift()?.(),
+      deps: {
+        openRepository: (repositoryPath: string) =>
+          new Promise<void>((resolve) => {
+            pendingOpens.push(() => {
+              Object.assign(location, { repositoryPath, activeWorkspaceId: `${repositoryPath}#main`, workspaceIds: [`${repositoryPath}#main`] });
+              resolve();
+            });
+          }),
+        createTask: () => void created.push(`${location.repositoryPath}:${location.activeWorkspaceId}`),
+        readLocation: () => ({ ...location }),
+      },
+    };
+  }
+
+  test("the open repository starts the task at once", async () => {
+    const app = fakeApp();
+    expect(await startTaskInRepository({ repository: A, ...app.deps })).toBe("created");
+    expect(app.created).toEqual(["/repos/a:a-main"]);
+  });
+
+  test("another repository opens first, then the task starts there", async () => {
+    const app = fakeApp();
+    const result = startTaskInRepository({ repository: B, ...app.deps });
+    app.finishOpen();
+    expect(await result).toBe("created");
+    expect(app.created).toEqual(["/repos/b:/repos/b#main"]);
+  });
+
+  test("going to another workspace while the repository opens creates nothing", async () => {
+    const app = fakeApp();
+    const result = startTaskInRepository({ repository: B, ...app.deps });
+    app.finishOpen();
+    // The person switched to workspace C in repository A before the open settled.
+    Object.assign(app.location, { repositoryPath: "/repos/a", activeWorkspaceId: "a-c", workspaceIds: ["a-main", "a-c"] });
+    expect(await result).toBe("moved");
+    expect(app.created).toEqual([]);
+  });
+
+  test("an active workspace outside the opened repository creates nothing", async () => {
+    const app = fakeApp();
+    const result = startTaskInRepository({ repository: B, ...app.deps });
+    app.finishOpen();
+    Object.assign(app.location, { activeWorkspaceId: "a-c" });
+    expect(await result).toBe("moved");
+    expect(app.created).toEqual([]);
+  });
+
+  test("a newer request supersedes one still waiting for its repository", async () => {
+    const app = fakeApp();
+    const first = startTaskInRepository({ repository: B, ...app.deps });
+    const second = startTaskInRepository({
+      repository: { isCurrent: false, repositoryName: "d", repositoryPath: "/repos/d" },
+      ...app.deps,
+    });
+    app.finishOpen();
+    app.finishOpen();
+    expect(await first).toBe("superseded");
+    expect(await second).toBe("created");
+    expect(app.created).toEqual(["/repos/d:/repos/d#main"]);
   });
 });
 

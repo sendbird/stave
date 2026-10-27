@@ -137,3 +137,48 @@ export function rankCommandPaletteLeaves(args: {
     .slice(0, limit)
     .map((entry) => entry.leaf);
 }
+
+/** Where the app is: the open repository and the active workspace in it. */
+export interface CommandPaletteLocation {
+  repositoryPath: string | null;
+  activeWorkspaceId: string;
+  /** The open repository's workspaces. */
+  workspaceIds: readonly string[];
+}
+
+export type StartTaskInRepositoryResult = "created" | "superseded" | "moved";
+
+let latestStartTaskRequest = 0;
+
+/**
+ * "New task in <repository>": opens the repository when it is not the open
+ * one, then starts the task there. Opening waits for the repository to load,
+ * and the person may go elsewhere meanwhile, so the task is pinned to the
+ * chosen repository: it is created only if the app is still in it (its
+ * active workspace belongs to it) and no newer "New task in" request was
+ * made since. Otherwise nothing is created.
+ */
+export async function startTaskInRepository(args: {
+  repository: CommandPaletteRepositorySummary;
+  openRepository: (repositoryPath: string) => Promise<void> | void;
+  createTask: () => void;
+  readLocation: () => CommandPaletteLocation;
+}): Promise<StartTaskInRepositoryResult> {
+  const request = ++latestStartTaskRequest;
+  const target = args.repository.repositoryPath;
+  if (args.readLocation().repositoryPath !== target) {
+    await args.openRepository(target);
+    if (request !== latestStartTaskRequest) {
+      return "superseded";
+    }
+  }
+  const location = args.readLocation();
+  if (
+    location.repositoryPath !== target ||
+    !location.workspaceIds.includes(location.activeWorkspaceId)
+  ) {
+    return "moved";
+  }
+  args.createTask();
+  return "created";
+}

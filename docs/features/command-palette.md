@@ -90,7 +90,8 @@ This is usually faster than opening Settings and browsing manually.
 While you type, the palette also offers up to three **Options** from inside
 commands: `Theme: <name>` for each theme, `Appearance: Light`, `Dark` or
 `System`, and `New task in <repository>` for each repository you have opened
-(another repository opens first, then the task starts there). Typing an
+(another repository opens first, then the task starts there; if you go to a
+different repository or workspace while it opens, no task is created). Typing an
 option's exact name puts it first. Options do not appear with nothing typed,
 and they are not pinned or kept in Recent.
 

@@ -37,7 +37,9 @@ import { useAppStore } from "@/store/app.store";
 import {
   buildCommandPaletteLeaves,
   rankCommandPaletteLeaves,
+  startTaskInRepository,
   type CommandPaletteLeaf,
+  type CommandPaletteLocation,
 } from "./command-palette-leaves";
 import {
   filterSectionsForTaskScope,
@@ -49,6 +51,15 @@ import {
 import { commandPaletteStyles } from "./global-command-palette.styles";
 
 const NO_LEAVES: readonly CommandPaletteLeaf[] = [];
+
+function readPaletteLocation(): CommandPaletteLocation {
+  const state = useAppStore.getState();
+  return {
+    repositoryPath: state.repositoryPath,
+    activeWorkspaceId: state.activeWorkspaceId,
+    workspaceIds: state.workspaces.map((workspace) => workspace.id),
+  };
+}
 
 interface GlobalCommandPaletteProps {
   open: boolean;
@@ -92,10 +103,12 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               setAppearanceMode: (mode) =>
                 updateSettings({ patch: { themeMode: mode, customThemeId: null } }),
               newTaskInRepository: async (repository) => {
-                if (!repository.isCurrent) {
-                  await commands.openRepository(repository.repositoryPath);
-                }
-                commands.createTask();
+                await startTaskInRepository({
+                  repository,
+                  openRepository: commands.openRepository,
+                  createTask: commands.createTask,
+                  readLocation: readPaletteLocation,
+                });
               },
             },
           })
