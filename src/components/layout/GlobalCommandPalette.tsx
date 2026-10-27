@@ -122,7 +122,26 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       ),
     [sections],
   );
-  const selectedAction = actionById.get(selectedActionId);
+  // Suggested options lead the list, so a query that brings one starts on it
+  // (Enter runs it), the same way a fresh search across repositories does.
+  const firstLeafId = leafSuggestions[0]?.id;
+  useEffect(() => {
+    if (firstLeafId) setSelectedActionId(firstLeafId);
+  }, [firstLeafId]);
+  const visibleActionIds = useMemo(
+    () =>
+      new Set(
+        visibleSections.flatMap((section) =>
+          section.items.map((action) => action.id),
+        ),
+      ),
+    [visibleSections],
+  );
+  // Only a command on screen can be pinned; an option or a command the query
+  // filtered away cannot.
+  const selectedAction = visibleActionIds.has(selectedActionId)
+    ? actionById.get(selectedActionId)
+    : undefined;
   const selectedActionIsPinned = Boolean(
     selectedAction &&
     args.runtimeContext.preferences.pinnedIds.includes(selectedAction.id),
