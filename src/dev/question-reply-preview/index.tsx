@@ -38,6 +38,27 @@ export function QuestionReplyPreview() {
     const denied = mode === "denied";
     const content = formatAsyncQuestionAnswer({ questions: selected, answers, denied });
     const reply = buildQuestionReply({ requestId: "preview-request", sourceMessageId: "source-card", questions: selected, answers, denied });
+    // `case=waiting`: a long transcript ending in a pending approval with two
+    // queued messages, so scrolling up shows what the scroll button names.
+    if (mode === "waiting") {
+      const transcript: ChatMessage[] = Array.from({ length: 24 }, (_, index) =>
+        index % 2 === 0
+          ? buildOutgoingUserMessage({ id: `u${index}`, content: `Step ${index / 2 + 1}: check the next surface.` })
+          : { id: `a${index}`, role: "assistant" as const, providerId: "codex" as const, model: "model", content: "Checked it. ".repeat(40), parts: [] },
+      );
+      transcript.push({ id: "a-approval", role: "assistant", providerId: "codex", model: "model", content: "", parts: [{ type: "approval", toolName: "Bash", description: "Run the workspace validation command.", input: "bun run typecheck", requestId: "preview-approval", state: "approval-requested" }] });
+      const queued = (id: string, content: string) => ({ id, queuedAt: new Date().toISOString(), content, attachedFilePaths: [], attachments: [] });
+      useAppStore.setState({ activeWorkspaceId: "question-preview", activeTaskId: "question-task",
+        tasks: [{ id: "question-task", title: "Question reply", provider: "codex", updatedAt: new Date().toISOString(), unread: false, controlMode: "interactive", controlOwner: "stave" }],
+        messagesByTask: { "question-task": transcript }, messageCountByTask: { "question-task": transcript.length },
+        promptDraftByTask: { "question-task": { text: "", attachedFilePaths: [], attachments: [], queuedTurns: [queued("q1", "Then update the docs."), queued("q2", "And run the tests.")] } },
+        activeTurnIdsByTask: { "question-task": "turn-preview" },
+        taskWorkspaceIdById: { "question-task": "question-preview" },
+        settings: { ...useAppStore.getState().settings, messageFontSize: 14 },
+      });
+      setReady(true);
+      return;
+    }
     const messages: ChatMessage[] = mode === "failed" ? [] : [
       ...(mode === "card" ? [{ id: "source-card", role: "assistant" as const, providerId: "codex" as const, model: "model", content: "", parts: [{ type: "user_input" as const, requestId: reply.requestId, delivery: "async" as const, toolName: "request_user_input_async", state: "input-responded" as const, questions: selected, answers }] }] : []),
       buildOutgoingUserMessage({ id: "reply", content, ...(mode === "legacy" ? {} : { questionReply: reply }) }),

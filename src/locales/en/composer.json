@@ -58,7 +58,14 @@
   },
   "conversation": {
     "ariaLabel": "Scroll to bottom",
-    "download": "Download conversation"
+    "download": "Download conversation",
+    "waitingApproval": "Needs approval",
+    "waitingQuestion": "Needs your answer",
+    "waitingNewResponse": "New response",
+    "waitingQueued_one": "{{count}} queued",
+    "waitingQueued_other": "{{count}} queued",
+    "waitingWithQueued": "{{reason}} · {{queued}}",
+    "waitingAriaLabel": "{{label}}, scroll to bottom"
   },
   "cursorModelConfigList": {
     "fIXEDPARAMETERTITLE": "Cursor advertises a single value for this parameter, so it cannot be changed from here.",

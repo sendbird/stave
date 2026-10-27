@@ -29,7 +29,6 @@ import {
   Conversation,
   ConversationColumn,
   ConversationContent,
-  ConversationScrollButton,
   ConversationVirtualList,
   type ConversationManualScrollIntentHandle,
   Message,
@@ -59,6 +58,7 @@ import {
 import { autoRouteLineStyles } from "@/components/session/auto-route-line.styles";
 import { usePendingAutoRoutingStore } from "@/store/pending-auto-routing-store";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
+import { ChatScrollToBottomButton } from "@/components/session/chat-scroll-button";
 import {
   getTurnModelInfoLabel,
   getTurnModelInfoParts,
@@ -1421,6 +1421,7 @@ const MemoizedChatPanelMessageList = memo(ChatPanelMessageList);
 
 export function ChatPanel(props: { scrollActivationKey?: string | number }) {
   useTranslation();
+  const taskId = useScopedTaskId();
   return (
     <Conversation>
       <div className={sx(styles.panelColumn)}>
@@ -1428,7 +1429,7 @@ export function ChatPanel(props: { scrollActivationKey?: string | number }) {
           scrollActivationKey={props.scrollActivationKey}
         />
       </div>
-      <ConversationScrollButton tooltip={i18n.t("session:chatPanel.tooltip")} />
+      <ChatScrollToBottomButton taskId={taskId} />
     </Conversation>
   );
 }

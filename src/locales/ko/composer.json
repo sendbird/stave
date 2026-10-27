@@ -58,7 +58,13 @@
   },
   "conversation": {
     "ariaLabel": "맨 아래로 이동",
-    "download": "대화 다운로드"
+    "download": "대화 다운로드",
+    "waitingApproval": "승인 필요",
+    "waitingQuestion": "답변 필요",
+    "waitingNewResponse": "새 응답",
+    "waitingQueued_other": "대기열 {{count}}개",
+    "waitingWithQueued": "{{reason}} · {{queued}}",
+    "waitingAriaLabel": "{{label}}, 맨 아래로 이동"
   },
   "cursorModelConfigList": {
     "fIXEDPARAMETERTITLE": "Cursor가 이 매개변수에 하나의 값만 제공하므로 여기서 변경할 수 없습니다.",
