@@ -619,10 +619,19 @@ export const promptInputStyles = stylex.create({
     gap: vars["--ads-space-2"],
     color: vars["--ads-color-text-muted"],
   },
+  // The painted box stays 16px so the chip keeps its height; the pseudo
+  // element bleeds past it to a 24px pointer target.
   chipRemove: {
+    position: "relative",
     borderRadius: vars["--ads-radius-mark"],
     padding: vars["--ads-space-2"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    "::after": {
+      content: '""',
+      insetBlock: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      insetInline: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      position: "absolute",
+    },
   },
   lensChip: {
     display: "flex",

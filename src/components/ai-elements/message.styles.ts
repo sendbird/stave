@@ -144,6 +144,14 @@ export const messageStyles = stylex.create({
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 80%, transparent)`,
     backgroundColor: vars["--ads-color-canvas"],
     padding: vars["--ads-space-2"],
+    // The painted disc stays small over the thumbnail corner; the pseudo
+    // element bleeds past it to a 24px pointer target.
+    "::after": {
+      content: '""',
+      insetBlock: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      insetInline: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      position: "absolute",
+    },
   },
   attachmentRemoveIcon: { width: 12, height: 12 },
 
