@@ -27,10 +27,8 @@ import {
   NO_PROMPT_HISTORY_SELECTION,
 } from "./prompt-input.utils";
 import { DEFAULT_PROMPT_COMMENT_SHORTCUT } from "@/lib/prompt-comment-shortcuts";
-import {
-  DEFAULT_STEER_QUEUE_ENTER_ACTION,
-  formatSteerQueueEnterActionLabel,
-} from "@/lib/steer-queue-shortcuts";
+import { DEFAULT_STEER_QUEUE_ENTER_ACTION } from "@/lib/steer-queue-shortcuts";
+import { resolvePromptInputPlaceholder } from "./prompt-input-submit-labels";
 import { PromptInputGoalStatusStrip } from "./prompt-input-goal-status";
 import { getPromptInputRuntimeProfile } from "./prompt-input-runtime-bar";
 import { Suggestion, Suggestions } from "./suggestion";
@@ -159,6 +157,7 @@ export function PromptInput(args: PromptInputProps) {
     onStagePromptBatch,
     onRemovePromptBatchItem,
     onAbort,
+    onEmptyEditorKey,
   } = args;
   const isMobile = useIsMobile();
   const useComposerFrame = Boolean(framed && !minimal);
@@ -240,7 +239,6 @@ export function PromptInput(args: PromptInputProps) {
     referenceAttachments.length > 0 ||
     promptBatch.length > 0;
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
-  const isQueueNextMode = submitMode === "queue-next";
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
   const runtimeProfile = useMemo(
@@ -692,27 +690,15 @@ export function PromptInput(args: PromptInputProps) {
                           promptCommentShortcut,
                           onAbort,
                           onStagePromptBatch,
+                          onEmptyEditorKey: hasDraftPayload ? undefined : onEmptyEditorKey,
                         })
                       }
-                      placeholder={
-                        minimal && isPromptInputFocused
-                          ? ""
-                          : minimal
-                            ? isSteerOrQueueMode
-                              ? formatSteerQueueEnterActionLabel(
-                                  steerQueueEnterAction,
-                                )
-                              : isQueueNextMode
-                                ? i18n.t("composer:promptInput.placeholder")
-                                : i18n.t("composer:promptInput.placeholder2")
-                            : isSteerOrQueueMode
-                              ? formatSteerQueueEnterActionLabel(
-                                  steerQueueEnterAction,
-                                )
-                              : isQueueNextMode
-                                ? i18n.t("composer:promptInput.placeholder3")
-                                : i18n.t("composer:promptInput.placeholder4")
-                      }
+                      placeholder={resolvePromptInputPlaceholder({
+                        submitMode,
+                        minimal,
+                        focused: isPromptInputFocused,
+                        steerQueueEnterAction,
+                      })}
                       className={sx(
                         // Height and overflow belong to these classes alone.
                         // The editor is a `contenteditable` div, not a
@@ -865,8 +851,7 @@ export function PromptInput(args: PromptInputProps) {
               hasDraftPayload={hasDraftPayload}
               onAbort={onAbort}
               primaryActionDisabled={primaryActionDisabled}
-              isSteerOrQueueMode={isSteerOrQueueMode}
-              isQueueNextMode={isQueueNextMode}
+              submitMode={submitMode}
               steerQueueEnterAction={steerQueueEnterAction}
               assignOnSend={assignOnSend}
             />

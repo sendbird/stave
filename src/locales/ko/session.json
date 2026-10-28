@@ -122,6 +122,12 @@
     "compareControl7": "모든 비교 실행 보기…",
     "copy2": "이 턴의 방향을 조정하지 못했습니다",
     "copy3": "방향 조정 전달 확인 안 됨",
+    "approvalRedirectDeclineFailed": "대기 중인 승인 요청을 거절하지 못했습니다",
+    "approvalRedirectDeclineFailedDescription": "아무것도 보내지 않았습니다. 메시지는 입력창에 그대로 있습니다. {{reason}}",
+    "approvalRedirectDraftChanged": "승인 요청을 거절했지만 수정한 메시지는 보내지 않았습니다",
+    "approvalRedirectDraftChangedDescription": "승인 요청을 거절하는 동안 메시지가 바뀌었습니다. 준비되면 다시 보내세요.",
+    "approvalRedirectQueued": "승인 요청을 거절하고 메시지를 대기열에 추가했습니다",
+    "approvalRedirectQueuedDescription": "이 턴은 새 메시지를 받을 수 없어 턴이 끝나면 보냅니다.",
     "sentence38": "저장된 실행 {{value1}}{{value2}}개 검색 및 필터",
     "extraCopy87": "프롬프트 개선 연결을 사용할 수 없습니다."
   },

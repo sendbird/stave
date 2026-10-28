@@ -164,6 +164,46 @@ Codex reports only what reaches Stave (Stave's own tools and requests that
 timed out); what the App Server decides itself is not in the record. Cursor,
 Kiro and OpenCode do not report automatic answers yet.
 
+## Redirect Instead Of Answering
+
+While a running turn waits on approvals, the composer stays usable. Its
+placeholder reads **Send to decline pending approvals and redirect the agent…**
+and the send button reads **Decline and steer**. Typing a message and sending
+it:
+
+1. declines every approval still waiting in the task, one at a time, then
+2. steers the message into the same turn, so the agent reads it right after
+   the declined tool calls.
+
+This steers even when **Mid-Turn Steering** is off in Settings: the turn is
+waiting for you, so the message answers it instead of queueing behind it.
+
+- If an approval cannot be declined, nothing is sent and the message stays in
+  the composer.
+- If the message changes while the approvals are being declined, it is not
+  sent; send it again when it is ready.
+- A request the provider can no longer answer (its turn ended, or the runtime
+  no longer knows it) is closed as interrupted and skipped.
+- `/aside` side questions, queued messages and messages Stave would refuse to
+  send (for example with Stave Auto turned off) leave the approvals waiting.
+- **Allow once**, **Deny**, **Deny & guide**, and the Enter and Tab shortcuts
+  on the card work as before. With the composer empty, Enter and Tab in it act
+  on the card too. A pending question keeps the composer, as before.
+
+| Provider | The decline | Then the message |
+|---|---|---|
+| Claude | The permission request is denied; the turn continues | Steers into the turn |
+| Codex | `decline` (not `cancel`, which would end the turn) | Steers into the turn (`turn/steer`) |
+| Kiro | `reject_once` | Steers into the turn (`_session/steer`) |
+| Cursor | `reject_once` | Queued for the next turn: the ACP session has no steering |
+| OpenCode | `reject_once` | Queued for the next turn: the ACP session has no steering |
+
+When a message is queued instead, the placeholder and the send button say so
+(**Decline and queue next turn**). A message with attachments cannot be steered
+and is queued too. If the provider refuses the steer after the approvals were
+declined, for example because the turn finished meanwhile, the message is
+queued or starts the next turn; it is never dropped.
+
 ## Provider Differences
 
 ### Claude

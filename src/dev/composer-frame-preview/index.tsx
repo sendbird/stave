@@ -130,6 +130,9 @@ import {
  * whose reply is still streaming.
  * `&childRequest=question|approval` shows a delegated task's request above the
  * composer, the slot `ChatInputComposer` mounts.
+ * `&draft=empty` starts with an empty draft, so the placeholder shows. With
+ * `&case=needs-input` the composer stays usable and sending redirects the agent;
+ * `&redirect=queue` shows the variant for a turn that cannot be steered.
  * `&secretRequest=new|existing|enter|full` shows an agent's secret request card
  * there: a new variable, one the vault already has, that one with the value
  * field open, or a task whose bound-secret set is full.
@@ -241,7 +244,9 @@ export function ComposerFramePreviewApp() {
     useComposerFrameFits();
   const framed = layoutPreference === "framed" && composerFrameFits;
   const [draft, setDraft] = useState(
-    "Tighten the four-bar composer so the side shelves match the input card height.",
+    previewParams.get("draft") === "empty"
+      ? ""
+      : "Tighten the four-bar composer so the side shelves match the input card height.",
   );
   const [thinkingMode, setThinkingMode] = useState<
     "adaptive" | "enabled" | "disabled"
@@ -512,8 +517,15 @@ export function ComposerFramePreviewApp() {
                   runAccountPool={runAccountPool}
                   framed={framed}
                   isTurnActive={turnActive}
-                  submitMode={turnActive ? "steer-or-queue" : "send"}
-                  disabled={caseId === "needs-input"}
+                  submitMode={
+                    caseId === "needs-input"
+                      ? previewParams.get("redirect") === "queue"
+                        ? "redirect-queue"
+                        : "redirect-steer"
+                      : turnActive
+                        ? "steer-or-queue"
+                        : "send"
+                  }
                   macroControl={
                     <MacroControl macros={PREVIEW_MACROS} onSelect={() => {}} />
                   }
