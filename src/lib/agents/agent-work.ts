@@ -49,6 +49,7 @@ export function collectAgentsWithWork(args: {
     ProviderTurnActivitySnapshot | undefined
   >;
   attentionKindByTaskId?: Readonly<Record<string, FleetAttentionKind | undefined>>;
+  currentFailureTaskIds?: ReadonlySet<string>;
   limit: number;
 }): { agents: AgentWork[]; total: number } {
   const byAgent = new Map<string, { work: AgentWork; rank: WorkAttentionRank }>();
@@ -61,8 +62,7 @@ export function collectAgentsWithWork(args: {
     const attentionKind = args.attentionKindByTaskId?.[task.id];
     const status: FleetTaskStatus = resolveFleetTaskSurfaceStatus({
       activeTurnId: args.activeTurnIdsByTask[task.id],
-      hasCurrentFailure: attentionKind === "run-failed",
-      hasCurrentInteraction: attentionKind === "user-input" || attentionKind === "approval",
+      hasCurrentFailure: args.currentFailureTaskIds?.has(task.id) ?? attentionKind === "run-failed",
       status: classifyTaskStatus({
       task,
       messages: args.messagesByTask[task.id] ?? EMPTY_MESSAGES,

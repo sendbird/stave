@@ -46,6 +46,25 @@ afterEach(() => {
 });
 
 describe("run store", () => {
+  test("pending expired runs survive bounded history and exclude superseded outcomes", () => {
+    const expired = startChange("expired", "pending-task");
+    expired.agentRun.state = "stopped";
+    expired.agentRun.stopReason = "expired";
+    expect(store.create(expired, AGENT_RUN_NOW)).toEqual({ ok: true });
+    const old = startChange("superseded", "replaced-task");
+    old.agentRun.state = "stopped";
+    old.agentRun.stopReason = "expired";
+    store.create(old, AGENT_RUN_NOW);
+    const replacement = startChange("replacement", "replaced-task");
+    replacement.agentRun.state = "completed";
+    replacement.agentRun.createdAt = new Date(AGENT_RUN_NOW.getTime() + 1_000).toISOString();
+    store.create(replacement, AGENT_RUN_NOW);
+    const restored = new AgentRunStore(database);
+    expect(restored.listRecentAgentRuns(1).map((run) => run.id)).toEqual(["replacement"]);
+    expect(restored.listAttentionAgentRuns().map((run) => run.id)).toEqual(["expired"]);
+    expect(restored.listActiveAgentRuns()).toEqual([]);
+  });
+
   test("round-trips a run, its stage records and its start event", () => {
     const change = startChange();
     expect(store.create(change, AGENT_RUN_NOW)).toEqual({ ok: true });

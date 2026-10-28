@@ -219,6 +219,7 @@ export function FleetView() {
   const attentionTargets = useFleetAttention((snapshot) => snapshot.items);
   const blockingItems = useFleetAttention((snapshot) => snapshot.blockingItems);
   const snoozedAttentionIds = useFleetAttention((snapshot) => snapshot.snoozedAttentionIds);
+  const snoozedCount = useFleetAttention((snapshot) => snapshot.snoozedCount);
   const attentionItemsByWorkspaceId = useFleetAttention(
     (snapshot) => snapshot.attentionItemsByWorkspaceId,
   );
@@ -776,7 +777,7 @@ export function FleetView() {
             items={attentionTargets}
             selectedAttentionId={selectedAttentionId}
             busyAttentionId={busyAttentionId}
-            snoozedCount={snoozedAttentionIds.length}
+            snoozedCount={snoozedCount}
             clearingReview={bulkActions.applying}
             onOpen={openAttentionItem}
             onOpenEntry={openAttentionEntry}

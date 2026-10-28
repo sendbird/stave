@@ -105,6 +105,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   const inbox = useFleetAttention((snapshot) => snapshot.inbox);
   const attentionItems = useFleetAttention((snapshot) => snapshot.items);
   const snoozedAttentionIds = useFleetAttention((snapshot) => snapshot.snoozedAttentionIds);
+  const snoozedCount = useFleetAttention((snapshot) => snapshot.snoozedCount);
   const bulk = useFleetBulkActions();
   const [open, setOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
@@ -528,13 +529,13 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
               busy={bulk.applying || pendingActionId !== null}
               onApply={(plan) => { void bulk.apply(plan); }}
             />
-            {snoozedAttentionIds.length > 0 ? (
+            {snoozedCount > 0 ? (
               <div className={sx(notificationsStyles.headerActions)}>
                 <span className={sx(notificationsStyles.headerSubtitle)}>
-                  {i18n.t("fleet:fleetAttentionInbox.snoozedCount", { count: snoozedAttentionIds.length })}
+                  {i18n.t("fleet:fleetAttentionInbox.snoozedCount", { count: snoozedCount })}
                 </span>
                 <Button size="sm" variant="ghost" disabled={bulk.applying || pendingActionId !== null}
-                  aria-label={i18n.t("fleet:fleetAttentionInbox.restoreValueSnoozedItems", { snoozedCount: snoozedAttentionIds.length })}
+                  aria-label={i18n.t("fleet:fleetAttentionInbox.restoreValueSnoozedItems", { snoozedCount })}
                   onClick={() => { void restoreSnoozed(); }}>
                   {i18n.t("fleet:fleetAttentionInbox.restore")}
                 </Button>

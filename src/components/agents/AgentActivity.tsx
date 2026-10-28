@@ -42,7 +42,7 @@ import { agentStyles } from "./agents.styles";
  */
 function useStatusByTaskId(
   tasks: ReadonlyArray<{ taskId: string; workspaceId: string | null }>,
-  attentionKindByTaskId: Readonly<Record<string, FleetAttentionKind | undefined>>,
+  currentFailureTaskIds: ReadonlySet<string>,
 ): Record<string, FleetTaskStatus> {
   const key = JSON.stringify(tasks.map((entry) => [entry.taskId, entry.workspaceId]));
   const entries = useMemo(() => JSON.parse(key) as Array<[string, string | null]>, [key]);
@@ -58,8 +58,7 @@ function useStatusByTaskId(
           const task = session.tasks.find((candidate) => candidate.id === id);
           if (!task) continue;
           byId[id] = resolveFleetTaskSurfaceStatus({
-            hasCurrentFailure: attentionKindByTaskId[id] === "run-failed",
-            hasCurrentInteraction: attentionKindByTaskId[id] === "user-input" || attentionKindByTaskId[id] === "approval",
+            hasCurrentFailure: currentFailureTaskIds.has(id),
             activeTurnId: session.activeTurnIdsByTask[id],
             status: classifyTaskStatus({
             task,
@@ -71,7 +70,7 @@ function useStatusByTaskId(
         }
         return JSON.stringify(byId);
       },
-      [entries, attentionKindByTaskId],
+      [entries, currentFailureTaskIds],
     ),
   );
   return useMemo(() => JSON.parse(serialized) as Record<string, FleetTaskStatus>, [serialized]);
@@ -155,7 +154,8 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
   const attentionKindByTaskId = useMemo(() => Object.fromEntries(
     [...attentionItems].reverse().filter((item) => item.taskId).map((item) => [item.taskId!, item.kind]),
   ), [attentionItems]);
-  const statusByTaskId = useStatusByTaskId(tasks, attentionKindByTaskId);
+  const currentFailureTaskIds = useMemo(() => new Set(attentionItems.filter((item) => item.kind === "run-failed").map((item) => item.taskId!)), [attentionItems]);
+  const statusByTaskId = useStatusByTaskId(tasks, currentFailureTaskIds);
   const runByTaskId = useRunByTaskId();
   const summary = useMemo(
     () => summarizeAgentActivity({ assignments: props.assignments, statusByTaskId, attentionKindByTaskId }),

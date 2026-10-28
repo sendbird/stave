@@ -386,7 +386,6 @@ export function RepositoryWorkspaceSidebar(args: {
           }
           const status = resolveFleetTaskSurfaceStatus({
             hasCurrentFailure: attentionItemsByWorkspaceId[workspace.id]?.some((item) => item.taskId === task.id && item.kind === "run-failed") ?? false,
-            hasCurrentInteraction: attentionItemsByWorkspaceId[workspace.id]?.some((item) => item.taskId === task.id && (item.kind === "user-input" || item.kind === "approval")) ?? false,
             activeTurnId: runtimeState.activeTurnIdsByTask[task.id],
             status: classifyTaskStatus({
             task,

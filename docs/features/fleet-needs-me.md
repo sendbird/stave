@@ -163,7 +163,10 @@ Fleet item, and the task records the answer the same way.
   never as cleared. `Clear all` is deliberately absent from `Action required`,
   where an agent is still waiting for a real answer.
 - `Restore`: brings every snoozed item back immediately. Fleet and the bell report
-  the persisted snooze count and offer Restore, including after a run leaves the cache.
+  the current hidden count and offer Restore, including notification-backed cold
+  run episodes. Resolved items do not inflate that count. Expired runs that still
+  need an instruction are loaded from storage and retained until superseded, so
+  restoring them returns the request to Fleet even after restarting the app.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
 
 ### Items That Clear Themselves

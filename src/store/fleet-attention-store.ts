@@ -20,6 +20,7 @@ import { EMPTY_FLEET_INBOX, type FleetInbox } from "@/lib/fleet/inbox-model";
 export interface FleetAttentionSnapshot extends FleetAttentionProjection {
   /** Active persisted ids, including episodes whose run is no longer cached. */
   snoozedAttentionIds: readonly string[];
+  snoozedCount: number;
   /** The items with the notifications that speak for them, for Fleet and the bell. */
   inbox: FleetInbox;
   /** What the Fleet header may claim; never "clear" before every source answered. */
@@ -40,6 +41,7 @@ const noop = () => {};
 /** Before the producer publishes, nothing has been read: "checking", not "clear". */
 export const EMPTY_FLEET_ATTENTION: FleetAttentionSnapshot = {
   snoozedAttentionIds: [],
+  snoozedCount: 0,
   items: EMPTY_ITEMS,
   count: 0,
   blockingItems: EMPTY_ITEMS,

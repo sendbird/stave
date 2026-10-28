@@ -154,7 +154,9 @@ export function buildFleetTaskRows(args: {
           })
         : "unknown";
       const need = needs.get(JSON.stringify([workspace.workspaceId, task.id]));
-      const status = resolveFleetTaskSurfaceStatus({ status: rawStatus, hasCurrentFailure: need?.kind === "run-failed", hasCurrentInteraction: need?.kind === "user-input" || need?.kind === "approval", activeTurnId });
+      const status = resolveFleetTaskSurfaceStatus({ status: rawStatus,
+        hasCurrentFailure: args.attentionItems.some((item) => item.workspaceId === workspace.workspaceId && item.taskId === task.id && item.kind === "run-failed"),
+        activeTurnId });
       return { task, activeTurnId, status };
     });
     const workspaceActivity = classifyFleetWorkspaceActivity({
@@ -272,10 +274,10 @@ const ANSWER_KINDS: ReadonlySet<FleetAttentionKind> = new Set([
 
 /**
  * The task's own turn is in flight: the per-task form of the cards' rule
- * (`hasFleetLiveTask`), so a turn waiting on your answer still counts.
+ * (`hasFleetLiveTask`). Waiting for an answer is not active execution.
  */
 export function isFleetTaskRowInFlight(row: Pick<FleetTaskRow, "activeTurnId" | "status">) {
-  return Boolean(row.activeTurnId) && row.status !== "idle" && row.status !== "unknown";
+  return Boolean(row.activeTurnId) && (row.status === "running" || row.status === "stalled");
 }
 
 export function matchesFleetTaskTableFilter(row: FleetTaskRow, filter: FleetTaskTableFilter) {

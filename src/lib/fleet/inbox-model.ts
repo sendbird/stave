@@ -309,6 +309,22 @@ export const EMPTY_FLEET_INBOX: FleetInbox = {
   entryByItemId: new Map(),
 };
 
+/** Count actual hidden rows, retaining notification-backed cold run episodes. */
+export function countHiddenFleetAttention(args: {
+  snoozedItems: readonly FleetAttentionItem[];
+  notifications: readonly AppNotification[];
+  activeIds: ReadonlySet<string>;
+  knownAgentRunIds: ReadonlySet<string>;
+}) {
+  const hidden = new Set(args.snoozedItems.map((item) => item.id));
+  for (const notification of args.notifications) {
+    const id = agentRunNotificationAttentionId(notification);
+    if (id && args.activeIds.has(id) && isNotificationUnread(notification) && !notification.resolvedAt &&
+        !args.knownAgentRunIds.has(String(notification.payload.agentRunId))) hidden.add(id);
+  }
+  return hidden.size;
+}
+
 /**
  * Requests an agent is blocked on until someone answers — approvals,
  * questions and sign-offs — the count a workspace row shows.

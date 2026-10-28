@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { AgentRunChangedEvent, AgentRunCommandResponse, AgentRunDetail } from "../src/lib/agent-runs/api";
 import { isOlderAgentRunDetail } from "../src/lib/agent-runs/agent-run-view";
+import { useAppStore } from "../src/store/app.store";
+import { buildFleetAttentionProjection } from "../src/lib/fleet/attention-projection";
 import {
   dropEndedAgentRuns,
   ENDED_AGENT_RUN_RETENTION_MS,
@@ -64,6 +66,43 @@ afterEach(() => {
 });
 
 describe("run details in the renderer", () => {
+  test("cold Fleet restores an old expired request regardless of notification reads or cache age", async () => {
+    const pending = readAt(0, [], { id: "expired", state: "stopped" });
+    pending.agentRun.stopReason = "expired";
+    let requested: unknown;
+    installAgentRunsApi({
+      list: async (args: unknown) => { requested = args; return { ok: true, agentRuns: [pending.agentRun] }; },
+      get: async () => ({ ok: true, agentRun: pending }),
+    });
+    await useFleetAgentRunsStore.getState().load();
+    expect(requested).toMatchObject({ includeAttention: true });
+    useFleetAgentRunsStore.getState().pruneEnded(AGENT_RUN_NOW.getTime() + 60 * 60_000);
+    const detail = useFleetAgentRunsStore.getState().details.expired!;
+    expect(detail).toBeDefined();
+    const input = { notifications: [], liveWorkspaces: [], prWorkspaces: [], agentRuns: [{ detail,
+      repositoryPath: "/tmp/repo", repositoryName: "Repo", workspaceId: "ws-1", workspaceName: "Workspace" }] };
+    const current = buildFleetAttentionProjection(input);
+    expect(current.blockingItems).toHaveLength(1);
+    expect(buildFleetAttentionProjection({ ...input, snoozedAttentionIds: new Set([current.items[0]!.id]) }).items).toEqual([]);
+    expect(buildFleetAttentionProjection(input).blockingItems).toHaveLength(1);
+    expect(buildFleetAttentionProjection({ ...input, suppressedOutcomeTaskKeys: new Set([JSON.stringify(["ws-1", "task-1"])]) }).items).toEqual([]);
+  });
+
+  test("state advancement marks stale blocker episodes read before cache eviction", async () => {
+    const before = useAppStore.getState();
+    const completion = readAt(2, [], { state: "completed" });
+    const read: string[] = [];
+    useAppStore.setState({ notifications: [{ id: "old-blocker", kind: "agent_run.blocked", title: "Blocked", body: "Need input",
+      repositoryPath: "/tmp/repo", repositoryName: "Repo", workspaceId: "ws-1", workspaceName: "Workspace", taskId: "task-1", taskTitle: "Task",
+      turnId: null, providerId: "codex", action: null, payload: { agentRunId: completion.agentRun.id }, createdAt: at(0), readAt: null }],
+      markNotificationRead: async ({ id }) => { read.push(id); } });
+    try {
+      installAgentRunsApi({ get: async () => ({ ok: true, agentRun: completion }) });
+      await useFleetAgentRunsStore.getState().refresh(completion.agentRun.id);
+      expect(read).toEqual(["old-blocker"]);
+    } finally { useAppStore.setState(before, true); }
+  });
+
   test("an older read of a run is recognized, with equal times settled by the last event", () => {
     const newer = readAt(5, [agentRunEvent("agent-run-started", {}), agentRunEvent("stage-completed", {})]);
     const older = readAt(3, newer.events.slice(0, 1));
@@ -155,5 +194,12 @@ describe("run details in the renderer", () => {
     useFleetAgentRunsStore.setState({ details });
     useFleetAgentRunsStore.getState().pruneEnded(end + 2 * ENDED_AGENT_RUN_RETENTION_MS);
     expect(Object.keys(useFleetAgentRunsStore.getState().details)).toEqual(["running"]);
+  });
+
+  test("a superseded expiry is discarded before the newer run leaves the cache", () => {
+    const expired = readAt(0, [], { id: "old", state: "stopped" });
+    expired.agentRun.stopReason = "expired";
+    const completed = readAt(2, [], { id: "new", state: "completed", createdAt: at(1) });
+    expect(dropEndedAgentRuns({ old: expired, new: completed }, AGENT_RUN_NOW.getTime() + 60 * 60_000)).toEqual({});
   });
 });

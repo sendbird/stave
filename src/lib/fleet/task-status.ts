@@ -208,7 +208,6 @@ export function classifyTaskStatus(args: {
 export function resolveFleetTaskSurfaceStatus<T extends FleetDisplayStatus>(args: {
   status: T;
   hasCurrentFailure: boolean;
-  hasCurrentInteraction?: boolean;
   activeTurnId?: string | null;
 }): T | "running" | "idle" {
   const hiddenFailure = args.status === "error" && !args.hasCurrentFailure;
@@ -324,7 +323,7 @@ export function summarizeFleetRespondingTasks(args: {
       activeTurnId,
       activity: args.providerTurnActivityByTask[task.id] ?? null,
     });
-    if (status === "idle") {
+    if (status !== "running" && status !== "stalled") {
       continue;
     }
 

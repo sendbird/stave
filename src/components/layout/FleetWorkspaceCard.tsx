@@ -314,8 +314,7 @@ export function FleetWorkspaceCard(args: {
       return {
         task,
         status: resolveFleetTaskSurfaceStatus({ status: rawStatus,
-          hasCurrentFailure: attentionKindByTaskId.get(task.id) === "run-failed",
-          hasCurrentInteraction: attentionKindByTaskId.get(task.id) === "user-input" || attentionKindByTaskId.get(task.id) === "approval", activeTurnId }),
+          hasCurrentFailure: args.attentionItems.some((item) => item.taskId === task.id && item.kind === "run-failed"), activeTurnId }),
         updatedLabel: formatTimeAgo(task.updatedAt),
       };
     }) satisfies FleetCardTaskView[];

@@ -875,6 +875,12 @@ export function buildFleetAttentionProjection(args: {
   }
   const delegatedTaskKeys = new Set(args.liveWorkspaces.flatMap((workspace) => workspace.tasks
     .filter(isDelegatedTask).map((task) => getFleetAttentionTaskKey(workspace.workspaceId, task.id))));
+  const managedOutcomeTaskKeys = new Set(args.suppressedOutcomeTaskKeys ?? []);
+  for (const workspace of args.liveWorkspaces) for (const task of workspace.tasks) {
+    const key = getFleetAttentionTaskKey(workspace.workspaceId, task.id);
+    if (isExternallyManagedTask(task)) managedOutcomeTaskKeys.add(key);
+    else if (!isDelegatedTask(task)) managedOutcomeTaskKeys.delete(key);
+  }
   const knownWorkspaceIds = args.knownWorkspaceIds;
   const candidates = [
     ...[
@@ -937,7 +943,8 @@ export function buildFleetAttentionProjection(args: {
       (args.agentRuns ?? []).filter(
         (input) => (!knownWorkspaceIds || knownWorkspaceIds.has(input.workspaceId)) &&
           !closedTaskKeys.has(getFleetAttentionTaskKey(input.workspaceId, input.detail.agentRun.leadTaskId)) &&
-          !(input.detail.agentRun.state === "stopped" && delegatedTaskKeys.has(getFleetAttentionTaskKey(input.workspaceId, input.detail.agentRun.leadTaskId))),
+          !(input.detail.agentRun.state === "stopped" && (delegatedTaskKeys.has(getFleetAttentionTaskKey(input.workspaceId, input.detail.agentRun.leadTaskId)) ||
+            managedOutcomeTaskKeys.has(getFleetAttentionTaskKey(input.workspaceId, input.detail.agentRun.leadTaskId)))),
       ),
     ),
   ];

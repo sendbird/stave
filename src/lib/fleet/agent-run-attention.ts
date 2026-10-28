@@ -6,6 +6,8 @@ export function isSupervisedTaskTurn(detail: AgentRunDetail, taskId: string, tur
   const run = detail.agentRun;
   if (run.leadTaskId !== taskId || (run.state !== "running" && run.state !== "paused") ||
       run.pauseReason === "taken-over" || run.pauseReason === "paused-by-user") return false;
+  // Stage facts also collect user turns; that observation is not run ownership.
+  if (detail.events.some((event) => event.kind === "user-turn" && event.detail.turnId === turnId)) return false;
   return detail.stages.some((stage) => stage.facts?.currentTurnId === turnId || stage.report?.turnId === turnId) ||
     detail.events.some((event) => (event.kind === "turn-started" || event.kind === "turn-linked") && event.detail.turnId === turnId);
 }

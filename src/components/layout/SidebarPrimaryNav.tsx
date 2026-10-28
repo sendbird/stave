@@ -31,6 +31,7 @@ function useAgentsWithWork() {
   useAgentAssignmentsSync();
   const byTaskId = useAgentAssignmentsStore((state) => state.byTaskId);
   const attentionItems = useFleetAttentionStore((state) => state.snapshot.items);
+  const currentFailureTaskIds = useMemo(() => new Set(attentionItems.filter((item) => item.kind === "run-failed").map((item) => item.taskId!)), [attentionItems]);
   const attentionKindByTaskId = useMemo(() => Object.fromEntries(
     [...attentionItems].reverse().filter((item) => item.taskId).map((item) => [item.taskId!, item.kind]),
   ), [attentionItems]);
@@ -43,6 +44,7 @@ function useAgentsWithWork() {
           collectAgentsWithWork({
             byTaskId,
             attentionKindByTaskId,
+            currentFailureTaskIds,
             tasks: state.tasks,
             messagesByTask: state.messagesByTask,
             activeTurnIdsByTask: state.activeTurnIdsByTask,
@@ -50,7 +52,7 @@ function useAgentsWithWork() {
             limit: MAX_LISTED_AGENTS,
           }),
         ),
-      [byTaskId, attentionKindByTaskId],
+      [byTaskId, attentionKindByTaskId, currentFailureTaskIds],
     ),
   );
   return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key]);

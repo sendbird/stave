@@ -5,7 +5,7 @@
  *
  * The per-workspace `agent-runs-store.ts` serves the task surfaces of the
  * workspace in view; this one keeps only what Fleet needs: the active
- * agent runs and the ones that ended while Stave was open, for half an hour.
+ * agent runs, unresolved expiries, and other recently ended runs for half an hour.
  */
 import { useEffect } from "react";
 import { create } from "zustand";
@@ -24,31 +24,41 @@ const REMINDER_CHECK_MS = 60_000;
 export const ENDED_AGENT_RUN_RETENTION_MS = 30 * 60_000;
 
 interface FleetAgentRunsState {
-  /** Agent run id → detail, for active agent runs and those that ended in the last half hour. */
+  /** Active runs, unresolved expiries, and other runs ended in the last half hour. */
   details: Record<string, AgentRunDetail>;
   loaded: boolean;
   load: () => Promise<void>;
   refresh: (agentRunId: string) => Promise<void>;
-  /** Drops agent runs that ended longer than the retention ago. */
+  /** Drops ended history and superseded expiries, retaining current requests. */
   pruneEnded: (now: number) => void;
 }
 
 function endedLongAgo(detail: AgentRunDetail, now: number, retentionMs: number) {
-  return !isActiveAgentRunState(detail.agentRun.state) && now - Date.parse(detail.agentRun.updatedAt) > retentionMs;
+  const needsInstruction = detail.agentRun.state === "stopped" && detail.agentRun.stopReason === "expired";
+  return !needsInstruction && !isActiveAgentRunState(detail.agentRun.state) && now - Date.parse(detail.agentRun.updatedAt) > retentionMs;
 }
 
 /**
  * The details without agent runs that ended more than `retentionMs` before
- * `now`. Returns the same object when nothing is dropped.
+ * `now`, except current expired requests. Returns the same object when nothing is dropped.
  */
 export function dropEndedAgentRuns(
   details: Record<string, AgentRunDetail>,
   now: number,
   retentionMs = ENDED_AGENT_RUN_RETENTION_MS,
 ): Record<string, AgentRunDetail> {
+  const taskKey = (detail: AgentRunDetail) => JSON.stringify([detail.agentRun.repositoryPath, detail.agentRun.workspaceId, detail.agentRun.leadTaskId]);
+  const newest = new Map<string, AgentRunDetail>();
+  for (const detail of Object.values(details)) {
+    const previous = newest.get(taskKey(detail))?.agentRun;
+    const run = detail.agentRun;
+    if (!previous || run.createdAt > previous.createdAt || (run.createdAt === previous.createdAt && run.id > previous.id)) newest.set(taskKey(detail), detail);
+  }
   let kept: Record<string, AgentRunDetail> | null = null;
   for (const [id, detail] of Object.entries(details)) {
-    if (endedLongAgo(detail, now, retentionMs)) {
+    const supersededExpiry = detail.agentRun.state === "stopped" && detail.agentRun.stopReason === "expired" &&
+      newest.get(taskKey(detail)) !== detail;
+    if (supersededExpiry || endedLongAgo(detail, now, retentionMs)) {
       if (!kept) kept = { ...details };
       delete kept[id];
     }
@@ -83,10 +93,18 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
     if (isOlderAgentRunDetail(detail, get().details[detail.agentRun.id])) return;
     // A change to an agent run that ended long ago (a shared report) does not bring it back.
     if (!endedLongAgo(detail, Date.now(), ENDED_AGENT_RUN_RETENTION_MS)) {
-      set((state) => ({ details: { ...state.details, [detail.agentRun.id]: detail } }));
+      set((state) => ({ details: dropEndedAgentRuns({ ...state.details, [detail.agentRun.id]: detail }, Date.now()) }));
     }
     if (!announce) return;
     const notification = describeAgentRunNotification(detail, notificationContext(detail));
+    // State advancement resolves old episodes durably, so cache eviction cannot
+    // revive a blocker that this run already recovered from.
+    for (const previous of useAppStore.getState().notifications) {
+      if (previous.payload.agentRunId === detail.agentRun.id && previous.id !== notification?.id &&
+          previous.kind.startsWith("agent_run.") && previous.kind !== "agent_run.completed" && !previous.readAt) {
+        void useAppStore.getState().markNotificationRead({ id: previous.id, resolvedAt: detail.agentRun.updatedAt }).catch(() => {});
+      }
+    }
     if (notification) void persistRendererNotifications([notification]);
   }
 
@@ -97,11 +115,10 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
     load: async () => {
       const api = agentRunsApi();
       if (!api) return;
-      const listed = await api.list({ limit: LIST_LIMIT, includeActive: true }).catch(() => null);
+      const listed = await api.list({ limit: LIST_LIMIT, includeActive: true, includeAttention: true }).catch(() => null);
       if (!listed?.ok) return;
-      const active = listed.agentRuns.filter((agentRun) => isActiveAgentRunState(agentRun.state));
       await Promise.all(
-        active.map(async (agentRun) => {
+        listed.agentRuns.map(async (agentRun) => {
           const response = await api.get({ agentRunId: agentRun.id }).catch(() => null);
           // A sign-off that was waiting before Stave opened still deserves a
           // notification; the dedupe key keeps it to one.

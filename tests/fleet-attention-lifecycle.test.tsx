@@ -6,7 +6,10 @@ import { ResultReviewStore } from "../electron/persistence/result-review-store";
 import { TaskAttentionSummary } from "@/components/session/TaskAttentionSummary";
 import { buildFleetAttentionProjection, collectFleetLiveAttentionItems, type FleetLiveWorkspaceInput } from "@/lib/fleet/attention-projection";
 import { applyFleetBulkPlan, planFleetOutcomeRead, revertFleetBulkOutcome, type FleetBulkOperations } from "@/lib/fleet/attention-bulk";
-import { buildFleetInbox, selectBellEntries } from "@/lib/fleet/inbox-model";
+import { buildFleetInbox, countHiddenFleetAttention, selectBellEntries } from "@/lib/fleet/inbox-model";
+import { isFleetTaskRowInFlight } from "@/lib/fleet/task-rows";
+import { summarizeFleetRespondingTasks } from "@/lib/fleet/task-status";
+import { hasFleetLiveTask } from "@/lib/fleet/workspace-activity";
 import { isSupervisedTaskTurn } from "@/lib/fleet/agent-run-attention";
 import { pauseAgentRun } from "@/lib/agent-runs/commands";
 import { decideAgentRunAction } from "@/lib/agent-runs/policy";
@@ -59,6 +62,10 @@ test("running supervisors suppress their own linked turn, not another turn on th
   expect(isSupervisedTaskTurn(detail, task.id, "run-turn")).toBe(true);
   expect(isSupervisedTaskTurn(detail, task.id, "manual-turn")).toBe(false);
   expect(isSupervisedTaskTurn(detail, "other-task", "run-turn")).toBe(false);
+  // Stage evidence includes user turns after Resume; that is not run ownership.
+  detail.events.push({ id: "user-event", agentRunId: detail.agentRun.id, sequence: 1,
+    kind: "user-turn", idempotencyKey: null, detail: { turnId: "run-turn" }, createdAt: at });
+  expect(isSupervisedTaskTurn(detail, task.id, "run-turn")).toBe(false);
 });
 
 test("expired run snoozes survive cache pruning and a cold start, then restore on expiry or clear", () => {
@@ -74,7 +81,7 @@ test("expired run snoozes survive cache pruning and a cold start, then restore o
     return selectBellEntries(buildFleetInbox({ items: current.items, snoozedItems: current.snoozedItems, notifications: [notification], snoozedAttentionIds: ids, knownAgentRunIds: new Set(cached ? [detail.agentRun.id] : []) }), "all");
   };
   expect(visible(true, snoozedAttentionIds)).toEqual([]);
-  expect(dropEndedAgentRuns({ [detail.agentRun.id]: detail }, Date.parse(at) + 31 * 60_000)).toEqual({});
+  expect(dropEndedAgentRuns({ [detail.agentRun.id]: detail }, Date.parse(at) + 31 * 60_000)).toEqual({ [detail.agentRun.id]: detail });
   expect(visible(false, snoozedAttentionIds)).toEqual([]);
   expect(visible(false, new Set())).toHaveLength(1);
   const nextEpisode = { ...notification, id: "next-episode" };
@@ -109,6 +116,37 @@ test("a simultaneous run blocker cannot turn an approval into a running task", (
   expect(projected.items.map((item) => item.kind)).toEqual(["agent-run-blocked", "approval"]);
   const rows = buildFleetTaskRows({ workspaces: [{ ...identity, isActive: true, lastActiveAt: at, hasAttentionItems: true, session: { ...pending, openTaskTabIds: [task.id] }, storedTasks: null }], attentionItems: projected.items, providerTurnActivityByTask: {}, nowMs: Date.parse(at) });
   expect(rows[0]).toMatchObject({ status: "waiting-approval", rank: { lane: "action-required" } });
+  const snoozed = buildFleetTaskRows({ workspaces: [{ ...identity, isActive: true, lastActiveAt: at, hasAttentionItems: false,
+    session: { ...pending, openTaskTabIds: [task.id] }, storedTasks: null }], attentionItems: [], providerTurnActivityByTask: {}, nowMs: Date.parse(at) });
+  expect(isFleetTaskRowInFlight(snoozed[0]!)).toBe(false);
+  expect(hasFleetLiveTask({ rows: [{ taskId: task.id, status: "waiting-approval" }], activeTurnIdsByTask: pending.activeTurnIdsByTask })).toBe(false);
+  expect(summarizeFleetRespondingTasks({ tasks: [task], messagesByTask: pending.messagesByTask,
+    activeTurnIdsByTask: pending.activeTurnIdsByTask, providerTurnActivityByTask: {} }).respondingTaskCount).toBe(0);
+});
+
+test("a higher-priority blocker cannot hide the current failure glyph", () => {
+  const detail = agentRunDetail(patchCurrent(agentRunFixture(), { status: "blocked", detail: "Needs a decision" }));
+  const projected = buildFleetAttentionProjection({ ...base, agentRuns: [{ ...identity, detail }] });
+  expect(projected.items.map((item) => item.kind)).toEqual(["agent-run-blocked", "run-failed"]);
+  const rows = buildFleetTaskRows({ workspaces: [{ ...identity, isActive: true, lastActiveAt: at, hasAttentionItems: true,
+    session: { ...workspace, openTaskTabIds: [task.id] }, storedTasks: null }], attentionItems: projected.items,
+    providerTurnActivityByTask: {}, nowMs: Date.parse(at) });
+  expect(rows[0]).toMatchObject({ status: "error", rank: { lane: "action-required" } });
+});
+
+test("resolved snoozes do not inflate the hidden count; cold expired episodes still count", () => {
+  const current = collectFleetLiveAttentionItems([workspace])[0]!;
+  const activeIds = new Set([current.id]);
+  expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [], activeIds, knownAgentRunIds: new Set() })).toBe(0);
+  expect(countHiddenFleetAttention({ snoozedItems: [current], notifications: [], activeIds, knownAgentRunIds: new Set() })).toBe(1);
+  const detail = agentRunDetail(patchCurrent(agentRunFixture(), { status: "running" }));
+  Object.assign(detail.agentRun, { state: "stopped", stopReason: "expired", updatedAt: at });
+  const notification = { ...describeAgentRunNotification(detail, { ...identity, taskTitle: task.title })!, createdAt: at, readAt: null };
+  const projected = buildFleetAttentionProjection({ notifications: [notification], liveWorkspaces: [], prWorkspaces: [], agentRuns: [{ ...identity, detail }] });
+  const episodeIds = new Set([projected.items[0]!.id]);
+  expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [notification], activeIds: episodeIds, knownAgentRunIds: new Set() })).toBe(1);
+  expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [notification], activeIds: episodeIds, knownAgentRunIds: new Set([detail.agentRun.id]) })).toBe(0);
+  expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [{ ...notification, readAt: at }], activeIds: episodeIds, knownAgentRunIds: new Set() })).toBe(0);
 });
 
 test("bulk read never undoes a concurrent explicit review in real SQLite", async () => {

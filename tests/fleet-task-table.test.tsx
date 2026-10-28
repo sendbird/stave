@@ -197,8 +197,8 @@ describe("table filters", () => {
   test("each chip keeps exactly its rows", () => {
     expect(shown("all")).toEqual(ids(rows));
     expect(shown("active")).toEqual(["approve-old", "approve-new", "quiet", "running", "idle"]);
-    // A turn waiting on you, or gone quiet, is still in flight.
-    expect(shown("running")).toEqual(["approve-new", "quiet", "running"]);
+    // Waiting for the user is not active execution; quiet work is still running.
+    expect(shown("running")).toEqual(["quiet", "running"]);
     expect(shown("blocked")).toEqual(["approve-old", "approve-new"]);
     expect(shown("needs-answer")).toEqual(["approve-old", "approve-new"]);
     expect(shown("stalled")).toEqual(["quiet"]);

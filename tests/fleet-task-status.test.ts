@@ -322,8 +322,8 @@ describe("fleet task status helpers", () => {
     });
 
     expect(summary).toEqual({
-      respondingTaskCount: 2,
-      respondingProviderIds: ["claude-code", "codex"],
+      respondingTaskCount: 1,
+      respondingProviderIds: ["claude-code"],
       hasWarningTask: false,
     });
   });

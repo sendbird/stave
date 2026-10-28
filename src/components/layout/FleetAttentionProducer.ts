@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { buildFleetInbox } from "@/lib/fleet/inbox-model";
+import { buildFleetInbox, countHiddenFleetAttention } from "@/lib/fleet/inbox-model";
 import {
   buildFleetAttentionProjection,
   getFleetAttentionTaskKey,
@@ -276,6 +276,8 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
     return {
       ...projection,
       snoozedAttentionIds,
+      snoozedCount: countHiddenFleetAttention({ snoozedItems: projection.snoozedItems, notifications,
+        activeIds: snoozes.activeIds, knownAgentRunIds: new Set(Object.keys(agentRunDetails)) }),
       inbox: buildFleetInbox({
         items: projection.items,
         snoozedItems: projection.snoozedItems,

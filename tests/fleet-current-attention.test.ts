@@ -30,7 +30,7 @@ function notification(overrides: Partial<AppNotification> = {}): AppNotification
 const base = { notifications: [], liveWorkspaces: [], prWorkspaces: [] };
 
 describe("current actionable turn boundaries", () => {
-  for (const provider of ["claude-code", "codex", "cursor", "kiro"] as const) {
+  for (const provider of ["claude-code", "codex", "cursor", "kiro", "opencode"] as const) {
     test(`${provider}: a diagnostic during streaming is not a failed task`, () => {
       expect(classifyTaskStatus({ task: { ...task, provider }, activeTurnId: "old-turn", messages: [message({ providerId: provider, completedAt: undefined, terminalReceipt: undefined, isStreaming: true, parts: [{ type: "system_event", content: "[error] connection interrupted" }] })] })).toBe("running");
     });

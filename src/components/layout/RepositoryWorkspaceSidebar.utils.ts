@@ -633,7 +633,6 @@ export function buildWorkspaceProgressTaskItems(args: {
       const messages = messagesByTask[task.id] ?? [];
       const status = resolveFleetTaskSurfaceStatus({
         hasCurrentFailure: args.attentionItems?.some((item) => item.taskId === task.id && item.kind === "run-failed") ?? false,
-        hasCurrentInteraction: args.attentionItems?.some((item) => item.taskId === task.id && (item.kind === "user-input" || item.kind === "approval")) ?? false,
         activeTurnId: activeTurnIdsByTask[task.id],
         status: classifyTaskStatus({
         task,

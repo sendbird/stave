@@ -78,8 +78,7 @@ export function hasFleetLiveTask(args: {
   return args.rows.some(
     ({ taskId, status }) =>
       Boolean(args.activeTurnIdsByTask[taskId]) &&
-      status !== "unknown" &&
-      status !== "idle",
+      (status === "running" || status === "stalled"),
   );
 }
 
