@@ -16,8 +16,7 @@ import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { useNow } from "@/components/agent-runs/useAgentRun";
 import { ActivityDetailDialog } from "@/components/session/ActivityDetailDialog";
-import { toast } from "@/components/ui";
-import { AgentRunMark } from "@/components/system/AgentRunMark";
+import { Loader, toast } from "@/components/ui";
 import type { DelegationActionId } from "@/lib/delegation/exchange";
 import type { ReviewShelfItem } from "@/lib/reviews/review-task";
 import { useAppStore } from "@/store/app.store";
@@ -227,7 +226,7 @@ export function ReviewActivityDialog(props: {
 function ReviewMark(props: { item: ReviewShelfItem }) {
   useTranslation();
   if (props.item.status === "running") {
-    return <AgentRunMark kind="working" cadence="reduced" size="sm" />;
+    return <Loader aria-hidden cadence="reduced" size="sm" variant="verify" />;
   }
   const Icon =
     props.item.status === "ready"

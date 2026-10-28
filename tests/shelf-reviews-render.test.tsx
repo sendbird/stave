@@ -63,6 +63,10 @@ describe("review lines on the composer shelf", () => {
     expect(html).toContain(">View<");
     expect(html).toContain('aria-label="Stop the review"');
     expect(html).not.toContain(">Attach<");
+    // A review checks work, so it wears the verify loader at the run line's size.
+    expect(html).toContain('data-loader-variant="verify"');
+    expect(html).toContain('data-loader-size="sm"');
+    expect(html).toContain('data-loader-cadence="reduced"');
   });
 
   test("a finished review offers Attach until it is attached", () => {
