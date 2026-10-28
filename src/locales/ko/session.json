@@ -122,6 +122,8 @@
     "compareControl7": "모든 비교 실행 보기…",
     "copy2": "이 턴의 방향을 조정하지 못했습니다",
     "copy3": "방향 조정 전달 확인 안 됨",
+    "approvalRedirectApprovalPending": "새 승인 요청이 들어와 아무것도 보내지 않았습니다",
+    "approvalRedirectApprovalPendingDescription": "메시지는 입력창에 그대로 있습니다. 다시 보내면 새 승인 요청을 거절합니다.",
     "approvalRedirectDeclineFailed": "대기 중인 승인 요청을 거절하지 못했습니다",
     "approvalRedirectDeclineFailedDescription": "아무것도 보내지 않았습니다. 메시지는 입력창에 그대로 있습니다. {{reason}}",
     "approvalRedirectDraftChanged": "승인 요청을 거절했지만 수정한 메시지는 보내지 않았습니다",

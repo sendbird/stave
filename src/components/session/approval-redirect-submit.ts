@@ -99,6 +99,13 @@ export async function submitApprovalRedirect(args: {
           ),
         });
       }
+      // An approval arrived after the declines and the send path refused the
+      // message; say why it stayed in the composer.
+      if (outcome.result.status === "blocked" && outcome.result.reason === "approval-pending") {
+        toast.warning(i18n.t("session:chatInputComposer.approvalRedirectApprovalPending"), {
+          description: i18n.t("session:chatInputComposer.approvalRedirectApprovalPendingDescription"),
+        });
+      }
       return;
   }
 }

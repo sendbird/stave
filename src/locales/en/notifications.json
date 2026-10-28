@@ -53,7 +53,8 @@
     "theActiveTurnRejectedTheSteerRequestPressTabToQueueInstead": "The active turn rejected the steer request — press Tab to queue instead."
   },
   "approvalAnswer": {
-    "alreadyAnswering": "This approval is already being answered."
+    "alreadyAnswering": "This approval is already being answered.",
+    "stillPendingAfterDecline": "An approval request was still waiting after the decline."
   },
   "asyncQuestionAnswer": {
     "managedTask": "Could not answer: this task is managed. Take over the task to answer its question.",

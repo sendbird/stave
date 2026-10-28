@@ -53,7 +53,8 @@
     "theActiveTurnRejectedTheSteerRequestPressTabToQueueInstead": "실행 중인 턴이 방향 전달 요청을 거부했습니다. Tab 키를 눌러 대기열에 넣습니다."
   },
   "approvalAnswer": {
-    "alreadyAnswering": "이 승인 요청에 이미 응답하는 중입니다."
+    "alreadyAnswering": "이 승인 요청에 이미 응답하는 중입니다.",
+    "stillPendingAfterDecline": "거절한 뒤에도 승인 요청이 아직 대기 중입니다."
   },
   "asyncQuestionAnswer": {
     "managedTask": "답변하지 못했습니다. 관리 중인 작업이므로 직접 진행한 뒤 질문에 답해야 합니다.",

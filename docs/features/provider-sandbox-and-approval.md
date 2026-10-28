@@ -171,15 +171,17 @@ placeholder reads **Send to decline pending approvals and redirect the agent…*
 and the send button reads **Decline and steer**. Typing a message and sending
 it:
 
-1. declines every approval still waiting in the task, one at a time, then
+1. declines every approval still waiting in the task, one at a time,
+   including approvals that arrive while it declines (for example from a
+   parallel tool call), then
 2. steers the message into the same turn, so the agent reads it right after
    the declined tool calls.
 
 This steers even when **Mid-Turn Steering** is off in Settings: the turn is
 waiting for you, so the message answers it instead of queueing behind it.
 
-- If an approval cannot be declined, nothing is sent and the message stays in
-  the composer.
+- If an approval cannot be declined, or one is still waiting after the
+  declines, nothing is sent and the message stays in the composer.
 - If the message changes while the approvals are being declined, it is not
   sent; send it again when it is ready.
 - A request the provider can no longer answer (its turn ended, or the runtime

@@ -1,3 +1,4 @@
+import { i18n } from "@/i18n/runtime";
 import type {
   ApprovalAnswerOutcome,
   SendUserMessageResult,
@@ -60,19 +61,44 @@ export type ApprovalRedirectOutcome =
   | { kind: "not-sent"; result: SendUserMessageResult };
 
 /**
- * Decline the approvals pending right now, one at a time, and stop at the first
- * one that fails. A request the provider can no longer answer is skipped (the
- * caller's `decline` closes it), so it never blocks the redirect.
+ * The most approvals one redirect declines. Approvals that keep arriving past
+ * this many are left pending, and the redirect reports them instead of
+ * declining forever.
+ */
+const MAX_REDIRECT_DECLINES = 32;
+
+/**
+ * Decline every pending approval, one at a time, and stop at the first one that
+ * fails. The list is read again after each decline, so an approval that
+ * arrives meanwhile (a parallel tool call, a helper) is declined too. A request
+ * the provider can no longer answer is skipped (the caller's `decline` closes
+ * it), so it never blocks the redirect. Each request is declined at most once;
+ * one that is still pending afterwards fails the redirect, so nothing is sent
+ * while an approval waits.
  */
 export async function declinePendingApprovals(args: {
   readPendingApprovals: () => readonly PendingApprovalTarget[];
   decline: (approval: PendingApprovalTarget) => Promise<ApprovalAnswerOutcome>;
 }): Promise<{ ok: true } | { ok: false; message: string }> {
-  for (const approval of args.readPendingApprovals()) {
+  const attempted = new Set<string>();
+  while (attempted.size < MAX_REDIRECT_DECLINES) {
+    const approval = args
+      .readPendingApprovals()
+      .find(({ requestId }) => !attempted.has(requestId));
+    if (!approval) {
+      break;
+    }
+    attempted.add(approval.requestId);
     const outcome = await args.decline(approval);
     if (outcome.status === "failed") {
       return { ok: false, message: outcome.message };
     }
+  }
+  if (args.readPendingApprovals().length > 0) {
+    return {
+      ok: false,
+      message: i18n.t("notifications:approvalAnswer.stillPendingAfterDecline"),
+    };
   }
   return { ok: true };
 }

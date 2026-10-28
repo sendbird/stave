@@ -446,7 +446,7 @@ export function createSendUserMessageAction(args: {
     // A steer that declines the pending approvals may pass: the steer branch
     // declines them once nothing else can refuse the message.
     if (findLatestPendingApproval({ messages: existingHistory }) && !(declinePendingApprovals && hasActiveTurn && submitIntent === "steer")) {
-      return { status: "blocked" } satisfies SendUserMessageResult;
+      return { status: "blocked", reason: "approval-pending" } satisfies SendUserMessageResult;
     }
     if (findLatestPendingUserInput({ messages: existingHistory, blockingOnly: true })) {
       return { status: "blocked" } satisfies SendUserMessageResult;
@@ -881,12 +881,10 @@ export function createSendUserMessageAction(args: {
         submittedPromptDraft.restore();
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
-      if (
-        findLatestPendingApproval({ messages: latestHistory }) ||
-        findLatestPendingUserInput({ messages: latestHistory, blockingOnly: true })
-      ) {
+      const approvalPending = Boolean(findLatestPendingApproval({ messages: latestHistory }));
+      if (approvalPending || findLatestPendingUserInput({ messages: latestHistory, blockingOnly: true })) {
         submittedPromptDraft.restore();
-        return { status: "blocked" } satisfies SendUserMessageResult;
+        return { status: "blocked", ...(approvalPending ? { reason: "approval-pending" as const } : {}) } satisfies SendUserMessageResult;
       }
 
       const autoRoutingDecision = await resolveAutoRoutingForSend({

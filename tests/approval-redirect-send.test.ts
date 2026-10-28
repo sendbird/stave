@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { i18n } from "@/i18n/runtime";
 import {
   listProviderIds,
   providerSupportsMidTurnSteering,
@@ -25,14 +26,22 @@ function createHarness(options: {
   /** What the send path does with a steer, after (or instead of) declining. */
   steer?: "accept" | "unavailable-before-decline" | "reject-after-decline" | "blocked-before-decline" | "unknown";
   queueRefusal?: Extract<SendUserMessageResult, { status: "blocked" }>;
+  /** Runs while a decline is in flight, e.g. to add an approval that arrives meanwhile. */
+  whileDeclining?: (requestId: string, pending: Set<string>) => void;
+  /** Requests whose decline reports success but stay pending. */
+  stuck?: string[];
+  /** Runs inside the queue send before the store checks for pending approvals. */
+  beforeQueueCheck?: (pending: Set<string>) => void;
 }) {
   const pending = new Set(options.approvals);
   const log: string[] = [];
   let draftCurrent = true;
   const decline = async ({ requestId }: PendingApprovalTarget) => {
     log.push(`decline ${requestId}`);
+    options.whileDeclining?.(requestId, pending);
+    await Promise.resolve();
     const outcome = options.declineOutcome?.(requestId) ?? { status: "delivered" };
-    if (outcome.status !== "failed") {
+    if (outcome.status !== "failed" && !options.stuck?.includes(requestId)) {
       pending.delete(requestId);
     }
     return outcome;
@@ -66,10 +75,11 @@ function createHarness(options: {
       log.push(`steer (pending ${pending.size})`);
       return { status: "steered", ...IDS, turnId: "turn-1" };
     }
+    options.beforeQueueCheck?.(pending);
     if (pending.size > 0) {
       // The store refuses to queue while an approval waits.
       log.push("queue blocked by pending approval");
-      return { status: "blocked" };
+      return { status: "blocked", reason: "approval-pending" };
     }
     log.push("queue");
     return { status: "queued", ...IDS };
@@ -188,6 +198,84 @@ describe("sendWithApprovalRedirect", () => {
     const harness = createHarness({ approvals: [] });
     await expect(harness.run(true)).resolves.toEqual({ kind: "delivered", via: "steered" });
     expect(harness.log).toEqual(["steer (pending 0)"]);
+  });
+});
+
+describe("approvals that arrive while the redirect declines", () => {
+  const stillPending = i18n.t("notifications:approvalAnswer.stillPendingAfterDecline");
+  const arriveWhileDeclining = (trigger: string, arrival: string) =>
+    (requestId: string, pending: Set<string>) => {
+      if (requestId === trigger) pending.add(arrival);
+    };
+
+  test("an approval that arrives while another is declined is declined before the steer", async () => {
+    const harness = createHarness({ approvals: ["b"], whileDeclining: arriveWhileDeclining("b", "c") });
+    await expect(harness.run(true)).resolves.toEqual({ kind: "delivered", via: "steered" });
+    expect(harness.log).toEqual(["decline b", "decline c", "steer (pending 0)"]);
+  });
+
+  test("an approval that arrives while another is declined is declined before the queue", async () => {
+    const harness = createHarness({ approvals: ["b"], whileDeclining: arriveWhileDeclining("b", "c") });
+    await expect(harness.run(false)).resolves.toEqual({ kind: "delivered", via: "queued" });
+    expect(harness.log).toEqual(["decline b", "decline c", "queue"]);
+  });
+
+  test("a late approval that cannot be declined sends nothing", async () => {
+    for (const preferSteer of [true, false]) {
+      const harness = createHarness({
+        approvals: ["b"],
+        whileDeclining: arriveWhileDeclining("b", "c"),
+        declineOutcome: (requestId) =>
+          requestId === "c" ? { status: "failed", message: "provider refused" } : { status: "delivered" },
+      });
+      await expect(harness.run(preferSteer)).resolves.toEqual({
+        kind: "decline-failed",
+        message: "provider refused",
+      });
+      expect(harness.log.filter((line) => line.startsWith("steer (") || line === "queue")).toEqual([]);
+      expect([...harness.pending]).toEqual(["c"]);
+    }
+  });
+
+  test("an approval still pending after its decline is declined once, then fails the redirect", async () => {
+    for (const preferSteer of [true, false]) {
+      const harness = createHarness({ approvals: ["b"], stuck: ["b"] });
+      await expect(harness.run(preferSteer)).resolves.toEqual({
+        kind: "decline-failed",
+        message: stillPending,
+      });
+      expect(harness.log.filter((line) => line.startsWith("decline"))).toEqual(["decline b"]);
+      expect(harness.log.filter((line) => line.startsWith("steer (") || line === "queue")).toEqual([]);
+    }
+  });
+
+  test("approvals that never stop arriving end the declines and send nothing", async () => {
+    let next = 0;
+    const harness = createHarness({
+      approvals: ["a0"],
+      whileDeclining: (_requestId, pending) => {
+        next += 1;
+        pending.add(`a${next}`);
+      },
+    });
+    await expect(harness.run(true)).resolves.toEqual({
+      kind: "decline-failed",
+      message: stillPending,
+    });
+    expect(harness.log.filter((line) => line.startsWith("decline")).length).toBe(32);
+    expect(harness.log).not.toContain("steer (pending 0)");
+  });
+
+  test("an approval that lands while the queue send runs is reported, not silently dropped", async () => {
+    const harness = createHarness({
+      approvals: ["a"],
+      beforeQueueCheck: (pending) => pending.add("late"),
+    });
+    await expect(harness.run(false)).resolves.toEqual({
+      kind: "not-sent",
+      result: { status: "blocked", reason: "approval-pending" },
+    });
+    expect(harness.log).toEqual(["decline a", "queue blocked by pending approval"]);
   });
 });
 

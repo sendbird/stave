@@ -149,9 +149,30 @@ async function setup(options: {
       },
     });
 
+  /** A new approval request lands in the running turn, e.g. from a parallel tool call. */
+  const addApproval = (requestId: string) =>
+    useAppStore.setState((state) => ({
+      messagesByTask: {
+        ...state.messagesByTask,
+        "task-a": [
+          ...(state.messagesByTask["task-a"] ?? []),
+          {
+            id: `m-${requestId}`,
+            role: "assistant",
+            model: "claude-opus",
+            providerId: "claude-code",
+            content: "",
+            turnId,
+            parts: [approval(requestId)],
+          } as ChatMessage,
+        ],
+      },
+    }));
+
   return {
     useAppStore,
     log,
+    addApproval,
     steerRequests,
     turnId: turnId!,
     approvalStates,
@@ -250,6 +271,65 @@ describe("redirecting a turn that waits on approvals", () => {
     expect(harness.approvalStates()).toEqual(["approval-a:output-denied", "approval-b:output-denied"]);
     expect(harness.queuedContents()).toEqual(["use the focused tests instead"]);
     expect(harness.clearedCount()).toBe(1);
+  });
+
+  test("an approval that arrives during the declines is declined before the steer", async () => {
+    const harness = await setup({
+      respond: (args) => {
+        if (args.requestId === "approval-b") harness.addApproval("approval-c");
+        return { ok: true };
+      },
+    });
+    await harness.submit("steer");
+
+    expect(harness.log).toEqual([
+      "decline approval-b approved=false",
+      "decline approval-c approved=false",
+      "decline approval-a approved=false",
+      "steer use the focused tests instead",
+    ]);
+    expect(harness.approvalStates()).toEqual([
+      "approval-a:output-denied",
+      "approval-b:output-denied",
+      "approval-c:output-denied",
+    ]);
+    expect(harness.clearedCount()).toBe(1);
+  });
+
+  test("an approval that arrives during the declines is declined before the queue", async () => {
+    const harness = await setup({
+      respond: (args) => {
+        if (args.requestId === "approval-b") harness.addApproval("approval-c");
+        return { ok: true };
+      },
+    });
+    await harness.submit("queue");
+
+    expect(harness.log).toEqual([
+      "decline approval-b approved=false",
+      "decline approval-c approved=false",
+      "decline approval-a approved=false",
+    ]);
+    expect(harness.queuedContents()).toEqual(["use the focused tests instead"]);
+    expect(harness.clearedCount()).toBe(1);
+  });
+
+  test("an approval that arrives during the declines and cannot be declined sends nothing", async () => {
+    for (const mode of ["steer", "queue"] as const) {
+      const harness = await setup({
+        respond: (args) => {
+          if (args.requestId === "approval-b") harness.addApproval("approval-c");
+          return args.requestId === "approval-c" ? { ok: false, message: "runtime refused" } : { ok: true };
+        },
+      });
+      await harness.submit(mode);
+
+      expect(harness.log.filter((line) => line.startsWith("steer"))).toEqual([]);
+      expect(harness.approvalStates()).toContain("approval-c:approval-requested");
+      expect(harness.queuedContents()).toEqual([]);
+      expect(harness.clearedCount()).toBe(0);
+      harness.useAppStore.setState(harness.useAppStore.getInitialState(), true);
+    }
   });
 
   test("the approval card's Decline still reports a provider that can no longer answer", async () => {

@@ -121,6 +121,7 @@ export type SendUserMessageResult =
       status: "blocked";
       reason?:
         | "account-limit"
+        | "approval-pending"
         | "auto-routing-disabled"
         | "workspace-path-missing";
       message?: string;
