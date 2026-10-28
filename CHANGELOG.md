@@ -1,3 +1,28 @@
+## [0.28.3](https://github.com/sendbird/stave/compare/v0.28.2...v0.28.3) (2026-10-28)
+
+This patch release includes all four merged changes since 0.28.2 (PRs #850–#853). It refines browser access, side questions, selection colors and progress indicators. The requested patch version is retained; the browser default change is described below.
+
+### Changes
+
+- Automatic browser access tries workspace pages in Lens first and can retry a blocked read once in Chrome. Settings adds a separate opt-in for connecting Chrome at turn start for listed hosts, with English and Korean copy.
+- Side question stays beside Attach and Send in every composer layout, including while a turn runs, and cannot be hidden or moved to overflow. Its conversation panel opens above the composer's right edge. Review keeps the keyboard shortcut and command palette entry instead of a duplicate scope-bar button.
+- Selected settings descriptions inherit their surface foreground, and neutral icon plates retain their own text color across themes.
+- The run line and activity header distinguish thinking, tools, parallel work and subagents. Pending approvals and questions show still glyphs; lists and cards use a turning ring that settles under reduced motion. Subagent progress retains tool names so blocking helper waits keep their waiting label and mark.
+- The main app surface meets the topbar with a square top-left corner on large screens.
+
+### Upgrade Notes
+
+- In Automatic mode, connecting Chrome in advance for listed hosts is now off by default, including for existing profiles without the new setting. Enable it in Settings > Mentions to restore early host activation. Saved host lists, Always mode and explicit @web access are preserved; unattended and secondary analysis remain blocked.
+- No registered temporary migration expires in 0.28.3; `agent-run-adaptive-draft-key` must be removed before 0.29.0. No data migration or settings reset is required.
+
+### Known Limits
+
+- Release validation does not include Electron e2e, a packaged upgrade from 0.28.2, or live provider/browser-extension sessions.
+
+### References
+
+- [PR #850](https://github.com/sendbird/stave/pull/850), [PR #851](https://github.com/sendbird/stave/pull/851), [PR #852](https://github.com/sendbird/stave/pull/852), [PR #853](https://github.com/sendbird/stave/pull/853)
+
 ## [0.28.2](https://github.com/sendbird/stave/compare/v0.28.1...v0.28.2) (2026-10-28)
 
 This patch release includes all 21 merged changes since 0.28.1 (PRs #828–#834 and #836–#849). It improves task recovery, approvals, attention and progress, adds GPT-6.1 Terra, and refines the composer, usage and Lens surfaces. The existing patch version is retained on request; the automatic model-selection update is described below.
