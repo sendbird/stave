@@ -3,19 +3,20 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { spacingLiterals } from "../scripts/stylex-spacing-literals.mjs";
+import { spacingLiterals, spacingInventory, spacingFailures } from "../scripts/stylex-spacing-literals.mjs";
+import { spacingBaselineGrowth } from "../scripts/check-spacing-baseline.mjs";
 import ratchet from "../config/spacing-ratchet.json";
 
-let root: string | null = null;
+const roots: string[] = [];
 
 afterEach(() => {
-  if (root) rmSync(root, { recursive: true, force: true });
-  root = null;
+  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
 /** A throwaway `src/` with the given files, as the gate scans it. */
 function scan(files: Record<string, string>) {
-  root = mkdtempSync(path.join(tmpdir(), "stave-spacing-"));
+  const root = mkdtempSync(path.join(tmpdir(), "stave-spacing-"));
+  roots.push(root);
   for (const [relative, source] of Object.entries(files)) {
     const file = path.join(root, "src", relative);
     mkdirSync(path.dirname(file), { recursive: true });
@@ -25,31 +26,65 @@ function scan(files: Record<string, string>) {
 }
 
 describe("spacingLiterals", () => {
-  test("counts 6 and 10 on paddings, margins and gaps, directly, conditionally and in strings", () => {
-    const counts = scan({
-      "components/row.styles.ts": `
-        export const styles = stylex.create({
-          row: { gap: 6, paddingBlock: 10, marginInlineStart: -6 },
-          hover: { paddingInline: { default: 6, ":hover": 8, "@media (min-width: 640px)": 10 } },
-          shorthand: { padding: "6px 10px", margin: "16px 10px" },
-        });`,
-    });
-    expect(counts.get("src/components/row.styles.ts")).toBe(8);
+  test("finds on-grid, off-grid, negative, fractional and conditional spacing", () => {
+    const findings = scan({ "components/row.styles.ts": `
+      export const styles = stylex.create({
+        row: { gap: 8, paddingBlock: 3, marginInlineStart: -0.5 },
+        hover: { paddingInline: { default: 0, ":hover": "0.5rem" } },
+        shorthand: { padding: "0 8px", margin: "calc(100% - 3px)" },
+        dynamic: (compact) => ({ gap: compact ? 4 : 8 }),
+      });` });
+    expect(findings).toHaveLength(7);
+    expect(findings[0].declaration).toBe("styles.row.gap = 8");
+    expect(findings.every((finding) => finding.line > 1)).toBe(true);
   });
 
-  test("leaves grid steps, other properties and the installed ADS copy alone", () => {
-    const counts = scan({
-      "components/ok.styles.ts": `
-        export const styles = stylex.create({
-          row: { gap: 8, paddingBlock: 12, margin: "16px 4px", padding: "0.625rem" },
-          other: { top: 6, width: 10, borderRadius: 6, fontSize: "10px", lineHeight: "16px" },
-        });`,
+  test("leaves tokens, density steps, zero, percentages and geometry properties alone", () => {
+    const findings = scan({ "components/ok.styles.ts": `
+      export const styles = stylex.create({
+        row: { gap: vars["--ads-space-8"], padding: densityPad.sm, margin: "auto" },
+        conditional: { gap: width > 300 ? vars["--ads-space-8"] : densityPad.sm },
+        zero: { gap: 0, padding: "0 0px", margin: "5%" },
+        calc: { padding: \`calc(100% - \${vars["--ads-space-8"]})\` },
+        other: { top: 6, width: 10, borderRadius: 6, fontSize: "10px" },
+      });`,
       "components/ads/components/Thing.tsx": "const s = stylex.create({ a: { gap: 6 } });",
     });
-    expect(counts.size).toBe(0);
+    expect(findings).toEqual([]);
+  });
+
+  test("a removed declaration cannot fund a new one in the same file", () => {
+    const findings = scan({ "row.ts": "const styles = { newRow: { gap: 8 } };" });
+    const failures = spacingFailures(findings, { "src/row.ts": { "styles.oldRow.gap = 8": 1 } });
+    expect(failures).toHaveLength(2);
+    expect(failures[0]).toContain("src/row.ts:1");
+    expect(failures[1]).toContain("stale spacing debt");
+  });
+
+  test("line moves and formatting changes preserve semantic debt identity", () => {
+    const before = scan({ "row.ts": "const s={row:{gap: {default: 8}}};" });
+    const after = scan({ "row.ts": "\n\nconst s = { row: { gap: { default: 8 } } };" });
+    expect(spacingFailures(after, spacingInventory(before))).toEqual([]);
+  });
+
+  test("changing or duplicating an exempted declaration fails", () => {
+    const findings = scan({ "row.ts": "const s={row:{gap: 12}};" });
+    expect(spacingFailures(findings, { "src/row.ts": { "s.row.gap = 8": 1 } })).toHaveLength(2);
+    expect(spacingFailures([...findings, ...findings], spacingInventory(findings))).not.toEqual([]);
   });
 });
 
-test("the recorded total matches its per-file entries", () => {
-  expect(Object.values(ratchet.files).reduce((sum, count) => sum + count, 0)).toBe(ratchet.total);
+test("the recorded total matches its declaration entries", () => {
+  expect(ratchet.version).toBe(2);
+  expect(Object.values(ratchet.files).flatMap((entries) => Object.values(entries))
+    .reduce((sum, count) => sum + count, 0)).toBe(ratchet.total);
+});
+
+test("PR baseline comparison rejects additions, value swaps, increases and downgrades", () => {
+  const previous = { version: 2, files: { "src/row.ts": { "s.row.gap = 8": 1 } } };
+  expect(spacingBaselineGrowth(previous, previous)).toEqual([]);
+  expect(spacingBaselineGrowth({ version: 2, files: {} }, previous)).toEqual([]);
+  expect(spacingBaselineGrowth({ version: 2, files: { "src/row.ts": { "s.row.gap = 12": 1 } } }, previous)).toHaveLength(1);
+  expect(spacingBaselineGrowth({ version: 2, files: { "src/row.ts": { "s.row.gap = 8": 2 } } }, previous)).toHaveLength(1);
+  expect(spacingBaselineGrowth({ version: 1, files: {} }, previous)).toHaveLength(1);
 });

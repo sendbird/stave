@@ -133,6 +133,31 @@ components follow the same ADS state, focus, motion, and token contracts.
   the same choice. Preserve keyboard selection, empty-result feedback, and any
   clear or "No selection" option.
 
+### Layout regression prevention
+
+Before editing geometry, identify its owner and contract: center an icon with
+single-line text, or align it to the first line of wrapping text. Reuse an ADS
+component/recipe first. Keep the icon from shrinking; preserve the text's
+`minWidth: 0`, wrapping and ellipsis where applicable. Fix the owning layout
+instead of adding glyph-specific margins, relative offsets or transforms.
+
+- Use ADS space tokens or `densityPad` for padding, margin and gap. Zero,
+  percentages and `auto` are valid; new absolute literals fail
+  `bun run check:ui-layout`, even on the spacing grid. Existing debt in
+  `config/spacing-ratchet.json` may only shrink. Do not expand or regenerate it
+  to pass a check.
+- After geometry changes, run `bun run check:ui-layout` and
+  `bun run test:ui-layout`. Renderer and desktop builds run the static check;
+  PR CI also runs the focused Chromium geometry suite.
+- For a new or changed relationship, add a rendered regression using the actual
+  component: assert center/first-line alignment, token-derived padding/gap,
+  wrapping, ellipsis or containment as relevant. Exercise narrow and wide
+  containers, English/Korean, light/dark and regular/compact density when they
+  affect geometry. Wait for fonts; use a tolerance justified by that contract.
+- Inspect the affected workflow in Lens. Static checks and the existing browser
+  suite cover known contracts, not every screen or optical alignment. Record
+  unverified states explicitly. See `docs/developer/design-system.md`.
+
 Any UI, layout, or visual change must verify the theme system. Required check files:
 
 - `src/globals.css`
