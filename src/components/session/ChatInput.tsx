@@ -233,8 +233,10 @@ function BaseChatInput() {
   );
   const activeMessageCount = useAppStore(
     (state) =>
-      state.messageCountByTask[activeTaskId] ??
-      (state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES).length,
+      Math.max(
+        state.messageCountByTask[activeTaskId] ?? 0,
+        (state.messagesByTask[activeTaskId] ?? EMPTY_MESSAGES).length,
+      ),
   );
   const activeTurnId = useAppStore(
     (state) => state.activeTurnIdsByTask[activeTaskId] ?? null,
