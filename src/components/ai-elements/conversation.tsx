@@ -1169,6 +1169,16 @@ export function ConversationEmptyState(args: {
 interface ConversationScrollButtonProps
   extends HTMLAttributes<HTMLButtonElement> {
   tooltip?: string;
+  /**
+   * What waits below, such as "Needs approval · 2 queued". With a label the
+   * button widens into a labeled pill; pass a matching `aria-label` with it.
+   */
+  label?: string | null;
+}
+
+/** Whether the reader is scrolled away from the latest message. */
+export function useConversationScrolledAway(): boolean {
+  return !useConversationContext().atBottom;
 }
 
 export function ConversationScrollButton(props: ConversationScrollButtonProps) {
@@ -1178,11 +1188,12 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
     return null;
   }
 
-  const { tooltip, className, ...buttonProps } = props;
+  const { tooltip, className, label, ...buttonProps } = props;
+  const labeled = Boolean(label);
   const button = (
     <Button
       size="sm"
-      iconOnly
+      iconOnly={!labeled}
       variant="floating"
       // `xstyle`, not `className`: placement composes into ADS's own
       // `stylex.props` call, so the square/radius/elevation the `floating`
@@ -1197,8 +1208,14 @@ export function ConversationScrollButton(props: ConversationScrollButtonProps) {
       {...buttonProps}
     >
       <ArrowDown />
+      {labeled ? label : null}
     </Button>
   );
+
+  // The labeled pill already says what it does; a tooltip would repeat it.
+  if (labeled) {
+    return button;
+  }
 
   return (
     <TooltipProvider>

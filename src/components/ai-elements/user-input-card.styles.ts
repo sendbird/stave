@@ -231,78 +231,9 @@ export const userInputCardStyles = stylex.create({
   },
 
   // ── Options ──────────────────────────────────────────────────
-  optionList: {
-    marginTop: vars["--ads-space-12"],
-    overflow: "hidden",
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 90%, transparent)`,
-  },
-  optionRow: {
-    position: "relative",
-    display: "flex",
-    minWidth: 0,
-    cursor: "pointer",
-    alignItems: "flex-start",
-    gap: vars["--ads-space-12"],
-    backgroundColor: {
-      default: "transparent",
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-canvas"]} 70%, transparent)`,
-    },
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: "0.625rem",
-    transitionProperty: "background-color",
-    transitionDuration: {
-      default: "150ms",
-      "@media (prefers-reduced-motion: reduce)": "0ms",
-    },
-    transitionTimingFunction: "cubic-bezier(0.16, 1, 0.3, 1)",
-  },
-  optionRowDivided: {
-    borderTopWidth: vars["--ads-border-width-hairline"],
-    borderTopStyle: "solid",
-    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-  },
-  // The list clips its rows to the rounded corners, so the keyboard ring is
-  // drawn inside each row instead of outside it.
-  optionRowFocusInset: {
-    outlineOffset: {
-      default: 0,
-      ":has(:focus-visible)": `calc(-1 * (${vars["--ads-focus-ring-offset"]} + ${vars["--ads-focus-ring-width"]}))`,
-    },
-  },
-  optionRowSelected: {
-    backgroundColor: {
-      default: `color-mix(in oklch, ${vars["--ads-color-accent"]} 7%, transparent)`,
-      ":hover": `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`,
-    },
-  },
-  optionDisabled: {
-    pointerEvents: "none",
-    cursor: "not-allowed",
-    opacity: vars["--ads-opacity-disabled"],
-  },
-  optionReadOnly: { pointerEvents: "none", cursor: "default" },
-  optionIndex: {
-    marginTop: 1,
-    display: "flex",
-    width: 18,
-    height: 18,
-    flexShrink: 0,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: vars["--ads-radius-mark"],
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text"]} 6%, transparent)`,
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-medium"],
-  },
-  optionIndexSelected: {
-    backgroundColor: vars["--ads-color-accent"],
-    color: vars["--ads-color-accent-text"],
-  },
+  // Rows, marks and keys come from `question-option-row.styles.ts`, shared
+  // with every surface that draws a question's options.
+  optionList: { marginTop: vars["--ads-space-12"] },
   recordedAnswer: {
     marginTop: vars["--ads-space-12"],
     color: vars["--ads-color-text"],
@@ -321,35 +252,6 @@ export const userInputCardStyles = stylex.create({
     borderWidth: 0,
   },
   iconXs: { width: 12, height: 12 },
-  optionBody: { minWidth: 0, flex: 1 },
-  optionLabelRow: {
-    display: "flex",
-    minWidth: 0,
-    flexWrap: "wrap",
-    alignItems: "center",
-    gap: "0.375rem",
-  },
-  optionLabel: {
-    fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: "20px",
-    color: vars["--ads-color-text"],
-  },
-  recommendedBadge: {
-    height: 16,
-    paddingInline: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
-  },
-  optionDescription: {
-    marginTop: vars["--ads-space-2"],
-    display: "block",
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: "18px",
-    color: vars["--ads-color-text-muted"],
-  },
-  customRow: {
-    alignItems: "center",
-    cursor: "text",
-  },
   customInlineField: {
     minWidth: 0,
     flex: 1,

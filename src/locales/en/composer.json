@@ -58,7 +58,14 @@
   },
   "conversation": {
     "ariaLabel": "Scroll to bottom",
-    "download": "Download conversation"
+    "download": "Download conversation",
+    "waitingApproval": "Needs approval",
+    "waitingQuestion": "Needs your answer",
+    "waitingNewResponse": "New response",
+    "waitingQueued_one": "{{count}} queued",
+    "waitingQueued_other": "{{count}} queued",
+    "waitingWithQueued": "{{reason}} · {{queued}}",
+    "waitingAriaLabel": "{{label}}, scroll to bottom"
   },
   "cursorModelConfigList": {
     "fIXEDPARAMETERTITLE": "Cursor advertises a single value for this parameter, so it cannot be changed from here.",
@@ -450,8 +457,8 @@
     "stepAria": "Question {{index}} of {{total}}: {{label}}",
     "stepAriaAnswered": "Question {{index}} of {{total}}: {{label}} (answered)",
     "next": "Next",
-    "keyboardHint": "<key>1</key>–<key>{{last}}</key> to choose · <key>Enter</key> to continue",
-    "keyboardHintNext": "<key>1</key>–<key>{{last}}</key> to choose · <key>Enter</key> for the next question",
+    "keyboardHint": "<key>Enter</key> to continue",
+    "keyboardHintNext": "<key>Enter</key> for the next question",
     "numberPlaceholder": "Enter a number"
   },
   "composerShelf": {

@@ -72,8 +72,11 @@ describe("UserInputCard", () => {
     expect(html).not.toContain("Required");
     // The form stays named for assistive technology.
     expect(html).toContain("Agent needs your input");
-    expect(html).toMatch(/aria-hidden="true">1<\/span>/);
-    expect(html).toMatch(/aria-hidden="true">3<\/span>/);
+    // Each row ends with the number key that picks it, plus one for the text row.
+    expect(html).toMatch(/<kbd[^>]*>1<\/kbd>/);
+    expect(html).toMatch(/<kbd[^>]*>3<\/kbd>/);
+    expect(html).toMatch(/<kbd[^>]*>4<\/kbd>/);
+    expect(html).toContain('aria-keyshortcuts="1"');
     // A Korean recommendation suffix becomes the badge instead of label text.
     expect(html).toContain("Day dividers and message details<");
     // The submitted value keeps the agent's original label.
@@ -83,7 +86,9 @@ describe("UserInputCard", () => {
     // The different answer is typed in the last row, not behind a toggle.
     expect(html).toMatch(/<textarea[^>]*placeholder="Write a different answer"/);
     expect(html).not.toContain("aria-expanded");
-    expect(html).toContain("to choose");
+    // The footer names only the key that moves on.
+    expect(html).toContain("to continue");
+    expect(html).not.toContain("to choose");
     expect(html.indexOf("Decline to answer")).toBeLessThan(
       html.indexOf("Continue"),
     );
