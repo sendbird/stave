@@ -1,13 +1,40 @@
 import { toast } from "@/components/ui";
 import { i18n } from "@/i18n";
+import type { RetainedTurnActivity } from "@/lib/providers/turn-status";
 import { useAppStore } from "@/store/app.store";
 import {
   sendWithApprovalRedirect,
   type ApprovalRedirectMode,
+  type ApprovalRedirectOutcome,
 } from "@/store/approval-redirect-send";
 import { isAutoRoutingUnavailableForSend } from "@/store/auto-routing-dispatch";
 import { EMPTY_PROMPT_DRAFT } from "./chat-input.utils";
 import { findPendingApprovals } from "@/store/provider-message.utils";
+
+/**
+ * Watch for a Stop on the redirected turn while the redirect runs. Stop records
+ * the turn as the task's retained turn with outcome `stopped`, but that cache
+ * keeps only the latest few tasks, so the stop is latched the moment it lands.
+ * The listener compares one entry reference per store update. Call `dispose`
+ * when the redirect ends.
+ */
+function watchTargetTurnStop(taskId: string, turnId: string | undefined) {
+  const isStopOfTarget = (entry: RetainedTurnActivity | undefined) =>
+    Boolean(turnId) && entry?.outcome === "stopped" && entry.snapshot.turnId === turnId;
+  let lastEntry = useAppStore.getState().retainedTurnActivityByTask[taskId];
+  let stopped = isStopOfTarget(lastEntry);
+  const dispose = useAppStore.subscribe((state) => {
+    const entry = state.retainedTurnActivityByTask[taskId];
+    if (entry === lastEntry) return;
+    lastEntry = entry;
+    if (isStopOfTarget(entry)) stopped = true;
+  });
+  return {
+    isStopped: () =>
+      stopped || isStopOfTarget(useAppStore.getState().retainedTurnActivityByTask[taskId]),
+    dispose,
+  };
+}
 
 /**
  * Send the composer text after declining the task's pending approvals. The
@@ -23,48 +50,52 @@ export async function submitApprovalRedirect(args: {
   clearDraft: () => void;
 }): Promise<void> {
   const store = useAppStore.getState;
-  // The turn being redirected; a Stop on it records it as a stopped turn.
-  const targetTurnId = store().activeTurnIdsByTask[args.taskId];
-  const outcome = await sendWithApprovalRedirect({
-    preferSteer: args.mode === "steer",
-    readPendingApprovals: () =>
-      findPendingApprovals({
-        messages: store().messagesByTask[args.taskId] ?? [],
-      }).map(({ messageId, part }) => ({
-        messageId,
-        requestId: part.requestId,
-      })),
-    decline: ({ messageId, requestId }) =>
-      store().resolveApproval({
-        taskId: args.taskId,
-        messageId,
-        requestId,
-        approved: false,
-        onUnanswerable: "close",
-      }),
-    isDraftCurrent: args.isDraftCurrent,
-    isTargetTurnStopped: () => {
-      const retired = store().retainedTurnActivityByTask[args.taskId];
-      return Boolean(targetTurnId) && retired?.outcome === "stopped" && retired.snapshot.turnId === targetTurnId;
-    },
-    queueRefusal: () =>
-      isAutoRoutingUnavailableForSend({
-        promptDraft: store().promptDraftByTask[args.taskId] ?? EMPTY_PROMPT_DRAFT,
-        autoRoutingEnabled: store().settings.autoRoutingEnabled,
-        steeringActiveTurn: false,
-      })
-        ? { status: "blocked", reason: "auto-routing-disabled" }
-        : null,
-    send: ({ intent, declinePendingApprovals }) =>
-      store().sendUserMessage({
-        taskId: args.taskId,
-        content: args.text,
-        imageContexts: args.imageContexts,
-        submitIntent: intent,
-        turnOrigin: "conversation",
-        ...(declinePendingApprovals ? { declinePendingApprovals } : {}),
-      }),
-  });
+  const targetTurnStop = watchTargetTurnStop(
+    args.taskId,
+    store().activeTurnIdsByTask[args.taskId],
+  );
+  let outcome: ApprovalRedirectOutcome;
+  try {
+    outcome = await sendWithApprovalRedirect({
+      preferSteer: args.mode === "steer",
+      readPendingApprovals: () =>
+        findPendingApprovals({
+          messages: store().messagesByTask[args.taskId] ?? [],
+        }).map(({ messageId, part }) => ({
+          messageId,
+          requestId: part.requestId,
+        })),
+      decline: ({ messageId, requestId }) =>
+        store().resolveApproval({
+          taskId: args.taskId,
+          messageId,
+          requestId,
+          approved: false,
+          onUnanswerable: "close",
+        }),
+      isDraftCurrent: args.isDraftCurrent,
+      isTargetTurnStopped: targetTurnStop.isStopped,
+      queueRefusal: () =>
+        isAutoRoutingUnavailableForSend({
+          promptDraft: store().promptDraftByTask[args.taskId] ?? EMPTY_PROMPT_DRAFT,
+          autoRoutingEnabled: store().settings.autoRoutingEnabled,
+          steeringActiveTurn: false,
+        })
+          ? { status: "blocked", reason: "auto-routing-disabled" }
+          : null,
+      send: ({ intent, declinePendingApprovals }) =>
+        store().sendUserMessage({
+          taskId: args.taskId,
+          content: args.text,
+          imageContexts: args.imageContexts,
+          submitIntent: intent,
+          turnOrigin: "conversation",
+          ...(declinePendingApprovals ? { declinePendingApprovals } : {}),
+        }),
+    });
+  } finally {
+    targetTurnStop.dispose();
+  }
   switch (outcome.kind) {
     case "delivered":
       args.clearDraft();

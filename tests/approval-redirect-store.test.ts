@@ -1,5 +1,11 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import type { ProviderSteerTurnResponse } from "@/lib/providers/provider.types";
+import {
+  clearProviderTurnActivity,
+  RETAINED_TURN_ACTIVITY_LIMIT,
+  retainRetiredTurnActivity,
+  startProviderTurnActivity,
+} from "@/lib/providers/turn-status";
 import type { ApprovalPart, ChatMessage } from "@/types/chat";
 
 /**
@@ -7,6 +13,7 @@ import type { ApprovalPart, ChatMessage } from "@/types/chat";
  * them through the provider bridge, then steers the text into the same turn.
  */
 const originalWindow = (globalThis as { window?: unknown }).window;
+let restoreSubscribe: () => void = () => {};
 
 function memoryStorage() {
   const values = new Map<string, string>();
@@ -146,8 +153,30 @@ async function setup(options: {
   const { submitApprovalRedirect } = await import("../src/components/session/approval-redirect-submit");
   let cleared = 0;
   let draftCurrent = true;
-  const submit = (mode: "steer" | "queue", text = "use the focused tests instead") =>
-    submitApprovalRedirect({
+  let peakSubscriptions = 0;
+  // Count store subscriptions so every redirect can prove it leaves none behind.
+  let activeSubscriptions = 0;
+  const subscribe = useAppStore.subscribe;
+  useAppStore.subscribe = (listener) => {
+    const unsubscribe = subscribe(listener);
+    activeSubscriptions += 1;
+    peakSubscriptions = Math.max(peakSubscriptions, activeSubscriptions);
+    let active = true;
+    return () => {
+      if (active) {
+        active = false;
+        activeSubscriptions -= 1;
+      }
+      unsubscribe();
+    };
+  };
+  restoreSubscribe = () => {
+    useAppStore.subscribe = subscribe;
+  };
+  const submit = async (mode: "steer" | "queue", text = "use the focused tests instead") => {
+    const before = activeSubscriptions;
+    peakSubscriptions = before;
+    await submitApprovalRedirect({
       mode,
       taskId: "task-a",
       text,
@@ -156,6 +185,8 @@ async function setup(options: {
         cleared += 1;
       },
     });
+    expect(activeSubscriptions).toBe(before);
+  };
 
   /** A new approval request lands in the running turn, e.g. from a parallel tool call. */
   const addApproval = (requestId: string) =>
@@ -193,10 +224,37 @@ async function setup(options: {
     }
   };
 
+  /** Other tasks finish turns, enough to push this task's out of the retained-activity cache. */
+  const retireOtherTasksTurns = (count: number) => {
+    for (let index = 0; index < count; index += 1) {
+      const taskId = `other-${index}`;
+      useAppStore.setState((state) => {
+        const started = startProviderTurnActivity({
+          activityByTask: state.providerTurnActivityByTask,
+          taskId,
+          turnId: `other-turn-${index}`,
+          providerId: "claude-code",
+        });
+        const ended = clearProviderTurnActivity({ activityByTask: started, taskId });
+        return {
+          retainedTurnActivityByTask: retainRetiredTurnActivity({
+            retainedByTask: state.retainedTurnActivityByTask,
+            previous: started,
+            next: ended,
+            taskId,
+            now: Date.now() + 1_000 + index,
+          }),
+        };
+      });
+    }
+  };
+
   return {
     useAppStore,
     log,
     addApproval,
+    retireOtherTasksTurns,
+    peakSubscriptions: () => peakSubscriptions,
     endTurnNaturally,
     startedTurnCount: () => streamCounter,
     steerRequests,
@@ -212,6 +270,8 @@ async function setup(options: {
 }
 
 afterEach(async () => {
+  restoreSubscribe();
+  restoreSubscribe = () => {};
   const { useAppStore } = await import("../src/store/app.store");
   useAppStore.setState(useAppStore.getInitialState(), true);
   (globalThis as { window?: unknown }).window = originalWindow;
@@ -387,6 +447,36 @@ describe("redirecting a turn that waits on approvals", () => {
       expect(harness.queuedContents()).toEqual([]);
       expect(harness.clearedCount()).toBe(0);
       harness.useAppStore.setState(harness.useAppStore.getInitialState(), true);
+    }
+  });
+
+  test("Stop still cancels the redirect after other tasks push its record out of the cache", async () => {
+    for (const mode of ["steer", "queue"] as const) {
+      let finishDecline: () => void = () => {};
+      const harness = await setup({
+        respond: () =>
+          new Promise((resolve) => {
+            finishDecline = () => resolve({ ok: true });
+          }),
+        steer: () => ({ ok: false, delivery: "rejected", message: "turn stopped" }),
+      });
+      const submitted = harness.submit(mode);
+      await Bun.sleep(5);
+      harness.useAppStore.getState().abortTaskTurn({ taskId: "task-a" });
+      expect(harness.useAppStore.getState().retainedTurnActivityByTask["task-a"]?.outcome).toBe("stopped");
+      harness.retireOtherTasksTurns(RETAINED_TURN_ACTIVITY_LIMIT);
+      expect(harness.useAppStore.getState().retainedTurnActivityByTask["task-a"]).toBeUndefined();
+      finishDecline();
+      await submitted;
+
+      expect(harness.startedTurnCount()).toBe(1);
+      expect(harness.log.filter((line) => line.startsWith("steer"))).toEqual([]);
+      expect(harness.queuedContents()).toEqual([]);
+      expect(harness.clearedCount()).toBe(0);
+      // The redirect watched the store while it ran, and stopped watching after.
+      expect(harness.peakSubscriptions()).toBeGreaterThan(0);
+      harness.useAppStore.setState(harness.useAppStore.getInitialState(), true);
+      restoreSubscribe();
     }
   });
 
