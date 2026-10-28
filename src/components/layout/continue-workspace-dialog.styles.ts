@@ -105,7 +105,7 @@ export const continueWorkspaceStyles = stylex.create({
   },
   nameInput: {
     height: 40,
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     borderColor: vars["--ads-color-border"],
     backgroundColor: vars["--ads-color-canvas"],
   },

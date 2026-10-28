@@ -221,7 +221,7 @@ export const workspaceInformationPanelStyles = stylex.create({
   // ---- icon buttons ------------------------------------------------------
   iconButton: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     display: "flex",
     height: 28,
@@ -230,7 +230,7 @@ export const workspaceInformationPanelStyles = stylex.create({
   },
   iconButtonQuiet: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     color: { default: vars["--ads-color-text-subtle"], ":hover": vars["--ads-color-text"] },
     display: "flex",
     height: 28,
@@ -260,7 +260,7 @@ export const workspaceInformationPanelStyles = stylex.create({
       default: "transparent",
       ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     height: 28,
     justifyContent: "center",

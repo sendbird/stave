@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createElement, type ReactElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { applyAppLocale } from "@/i18n";
+import { sx } from "@/components/ads/utils/stylex";
 import { RightRail } from "@/components/layout/RightRail";
+import { rightRailStyles } from "@/components/layout/right-rail.styles";
 import { TopBar } from "@/components/layout/TopBar";
 import { resolveKeybindingDisplay } from "@/lib/keybindings/keybinding-settings";
 import { useAppStore } from "@/store/app.store";
@@ -127,7 +129,7 @@ describe("right rail toolbar", () => {
     expect(html.match(/<button[^>]*aria-pressed="false"/g)).toHaveLength(8);
   });
 
-  test("a pressed panel keeps the filled rail look", () => {
+  test("a pressed panel shows the soft accent look, not a solid fill", () => {
     const html = renderWithState(
       {
         ...REPOSITORY_STATE,
@@ -139,8 +141,19 @@ describe("right rail toolbar", () => {
       },
       createElement(RightRail),
     );
-    expect(html).toMatch(/aria-label="Explorer" aria-pressed="true"[^>]*data-variant="primary"/);
+    expect(html).toMatch(/aria-label="Explorer" aria-pressed="true"[^>]*data-variant="quiet"/);
     expect(html).toMatch(/aria-label="Source Control" aria-pressed="false"[^>]*data-variant="quiet"/);
+    const classesOf = (label: string) =>
+      new Set(
+        html.match(new RegExp(`aria-label="${label}"[^>]*class="([^"]*)"`))?.[1]?.split(" ") ?? [],
+      );
+    const pressed = classesOf("Explorer");
+    const idle = classesOf("Source Control");
+    const pressedLook = sx(rightRailStyles.railButtonPressed).split(" ");
+    expect(pressedLook.length).toBeGreaterThan(0);
+    for (const className of pressedLook) expect(pressed.has(className)).toBe(true);
+    // The wash and the accent glyph are what an idle toggle does not carry.
+    expect(pressedLook.some((className) => !idle.has(className))).toBe(true);
   });
 });
 

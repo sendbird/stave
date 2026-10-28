@@ -12,7 +12,7 @@ export const modelSelectorStyles = stylex.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: "0.375rem",
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "solid",
     borderColor: "transparent",

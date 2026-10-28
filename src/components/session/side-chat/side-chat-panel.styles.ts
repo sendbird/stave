@@ -108,8 +108,8 @@ export const sideChatStyles = stylex.create({
   // The conversation's user bubble, so the asked question reads as yours.
   question: {
     alignSelf: "flex-end",
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-accent"]} 12%, transparent)`,
-    borderRadius: vars["--ads-radius-mark"],
+    backgroundColor: vars["--ads-color-surface-tint"],
+    borderRadius: vars["--ads-radius-panel"],
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],

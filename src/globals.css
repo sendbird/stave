@@ -342,7 +342,7 @@
   --state-halted: var(--state-needs-answer);
   --state-completed: var(--success);
   --state-stopped: var(--state-paused);
-  --radius: 0.45rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.955 0.003 75);
   --sidebar-foreground: oklch(0.225 0.003 75);
   --sidebar-primary: oklch(0.54 0.18 260);
@@ -794,6 +794,16 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-synthesis-weight: none;
+  }
+
+  /*
+   * Icon stroke default. Lucide writes `stroke-width="2"` on every icon that
+   * does not pass its own width; 1.75 sits closer to the interface type
+   * weight. Any explicit width other than 2 is a different attribute value and
+   * keeps it, and a StyleX `strokeWidth` still wins from its higher layer.
+   */
+  svg.lucide[stroke-width="2"] {
+    stroke-width: 1.75;
   }
 
   /* Keep monospace text at its native weight (variable base bump above must not

@@ -157,10 +157,10 @@ const iconSizeStyles = stylex.create({
 
 /**
  * Stroke in lucide's 24px units, chosen per size so the drawn line lands near
- * 1.1-1.9px: the default 2 would print a 1px hairline at 12px and a heavy 2.5px
- * line at 30px.
+ * 1.1-1.9px: one fixed width would print a hairline at 12px and a heavy line
+ * at 30px. `sm` matches the app's 1.75 icon default at the same 16px.
  */
-const ICON_STROKE_WIDTH: Readonly<Record<AgentAvatarSize, number>> = { xs: 2.25, sm: 2, md: 1.75, lg: 1.5 };
+const ICON_STROKE_WIDTH: Readonly<Record<AgentAvatarSize, number>> = { xs: 2.25, sm: 1.75, md: 1.75, lg: 1.5 };
 
 const statusSizeStyles = stylex.create({
   xs: { width: 7, height: 7 },
