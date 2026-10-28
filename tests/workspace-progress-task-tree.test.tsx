@@ -35,7 +35,7 @@ describe("WorkspaceProgressTaskTreeView", () => {
     expect(html).toContain("Later cleanup");
     // A running task wears the shared working mark; the provider has its own icon.
     expect(html).toContain('data-state="working"');
-    expect(html).toContain('data-motion="pulse"');
+    expect(html).toContain('data-motion="moving"');
     expect(html).toContain("claude-color.svg");
     expect(html).toContain("codex-color.svg");
     // One-depth list: no indent-guide border, only the parent-row inset.

@@ -3,7 +3,6 @@ import { memo, useMemo } from "react";
 import { Button } from "@/components/ads/components/Button";
 import { TextShimmer } from "@/components/ads/components/TextShimmer";
 import { sx } from "@/components/ads/utils/stylex";
-import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { usePrefersReducedMotion } from "@/components/agent-runs/useAgentRun";
 import {
   TurnRestMark,
@@ -16,10 +15,10 @@ import {
   formatTurnActivityCountsLabel,
   mergeTurnActivityCounts,
   resolveTurnActivityFeaturedItem,
-  resolveTurnActivityLoaderVariant,
+  resolveTurnActivityRunKind,
   resolveTurnActivityRestMark,
 } from "@/components/session/turn-activity.utils";
-import { Loader } from "@/components/ui";
+import { AgentRunMark } from "@/components/system/AgentRunMark";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import { useAppStore } from "@/store/app.store";
 import { selectLatestTurnThought } from "./turn-thought";
@@ -28,6 +27,7 @@ import {
   formatProviderTurnIdleDuration,
 } from "@/lib/providers/turn-status";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
+import { describeRunWaitLabel, resolveTurnWaitTarget } from "@/lib/fleet/run-progress";
 import {
   describeTurnRunLabel,
   resolveTurnRunHeadline,
@@ -139,7 +139,12 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     completed: completedAt != null,
     replayOutcome: surface.replayOutcome,
   });
-  const label = describeTurnRunLabel(tone, pendingInteraction);
+  const runKind = resolveTurnActivityRunKind({ activity, isStalled });
+  // A main loop blocked on its helpers says so instead of "Working".
+  const label =
+    runKind === "waiting" && tone === "active" && activity
+      ? describeRunWaitLabel(resolveTurnWaitTarget(activity))
+      : describeTurnRunLabel(tone, pendingInteraction);
   const headline = resolveTurnRunHeadline({
     tone,
     pendingInteraction,
@@ -161,11 +166,6 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
   const restMark = resolveTurnActivityRestMark({
     replayOutcome: surface.replayOutcome,
     activity,
-  });
-  const loaderVariant = resolveTurnActivityLoaderVariant({
-    activity,
-    isStalled,
-    workItems: surface.workItems,
   });
   const words = [label, headline.text, headline.detail]
     .filter(Boolean)
@@ -190,17 +190,12 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
             {restMark ? (
               <TurnRestMark outcome={restMark} />
             ) : (
-              <Loader
-                aria-hidden
+              <AgentRunMark
+                kind={runKind}
+                providerId={activity?.providerId}
                 cadence="reduced"
-                className={
-                  activity
-                    ? toProviderWaveHueClass({ providerId: activity.providerId })
-                    : undefined
-                }
                 paused={tone !== "active" && tone !== "steering"}
                 size="sm"
-                variant={loaderVariant}
               />
             )}
           </span>

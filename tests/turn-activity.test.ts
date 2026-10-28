@@ -10,14 +10,18 @@ import {
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
-  resolveTurnActivityLoaderVariant,
+  resolveTurnActivityRunKind,
   resolveTurnActivityReplay,
   resolveTurnActivityRestMark,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityRowStatus,
 } from "@/components/session/turn-activity.utils";
-import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
+import {
+  applyProviderTurnActivityEvents,
+  type ProviderTurnWorkItem,
+} from "@/lib/providers/turn-status";
+import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
 
 function buildWorkItem(
   overrides: Partial<ProviderTurnWorkItem> & Pick<ProviderTurnWorkItem, "id">,
@@ -63,57 +67,40 @@ describe("turn activity presentation", () => {
     expect(resolveTurnActivityRestMark({ activity: null })).toBeNull();
   });
 
-  test("uses the signal loader until the provider activity snapshot arrives", () => {
+  test("one working mark whatever the turn runs; a stall stands still", () => {
+    const graph = createWorkGraph({ turnId: "turn-1", providerId: "claude-code", startedAt: 1_000 });
+    const idle = { pendingInteraction: null, workGraph: graph, workItemsById: {} };
+    expect(resolveTurnActivityRunKind({ activity: null, isStalled: false })).toBe("working");
+    expect(resolveTurnActivityRunKind({ activity: idle, isStalled: false })).toBe("working");
     expect(
-      resolveTurnActivityLoaderVariant({
-        activity: null,
+      resolveTurnActivityRunKind({
+        activity: { ...idle, pendingInteraction: "approval" },
         isStalled: false,
-        workItems: [],
       }),
-    ).toBe("signal");
+    ).toBe("working");
+    expect(resolveTurnActivityRunKind({ activity: idle, isStalled: true })).toBe("stalled");
   });
 
-  test("uses meaning-led loaders for waiting, parallel, and agent work", () => {
-    const activity = { pendingInteraction: null };
-
-    expect(
-      resolveTurnActivityLoaderVariant({
-        activity: { pendingInteraction: "approval" },
-        isStalled: false,
-        workItems: [],
-      }),
-    ).toBe("handoff");
-    expect(
-      resolveTurnActivityLoaderVariant({
-        activity,
-        isStalled: true,
-        workItems: [],
-      }),
-    ).toBe("signal");
-    expect(
-      resolveTurnActivityLoaderVariant({
-        activity,
-        isStalled: false,
-        workItems: [
-          { kind: "subagent", status: "running" },
-          { kind: "tool", status: "running" },
-        ],
-      }),
-    ).toBe("parallel");
-    expect(
-      resolveTurnActivityLoaderVariant({
-        activity,
-        isStalled: false,
-        workItems: [{ kind: "subagent", status: "running" }],
-      }),
-    ).toBe("handoff");
-    expect(
-      resolveTurnActivityLoaderVariant({
-        activity,
-        isStalled: false,
-        workItems: [{ kind: "tool", status: "running" }],
-      }),
-    ).toBe("steps");
+  test("a main loop blocked on its subagent wears the waiting mark", () => {
+    const activity = applyProviderTurnActivityEvents({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      events: [
+        {
+          type: "tool",
+          toolUseId: "agent-1",
+          toolName: "Agent",
+          input: JSON.stringify({ description: "Review", prompt: "Look" }),
+          state: "input-available",
+        },
+      ],
+      now: 1_000,
+    })["task-1"]!;
+    expect(resolveTurnActivityRunKind({ activity, isStalled: false })).toBe("waiting");
+    // A stall still wins: nothing reported means nothing is shown moving.
+    expect(resolveTurnActivityRunKind({ activity, isStalled: true })).toBe("stalled");
   });
 
   test("shows the activity shelf only while a turn is active", () => {
