@@ -113,7 +113,7 @@ describe("classifyTaskStatus", () => {
     ).toBe("stalled");
   });
 
-  test("a turn that failed and then went quiet is still a failure", () => {
+  test("a diagnostic followed by silence remains stalled until a terminal signal", () => {
     expect(
       classifyTaskStatus({
         task: buildTask(),
@@ -125,15 +125,16 @@ describe("classifyTaskStatus", () => {
           }),
         ],
       }),
-    ).toBe("error");
+    ).toBe("stalled");
   });
 
-  test("classifies latest assistant error messages as error", () => {
+  test("classifies a completed assistant error as a failure", () => {
     expect(
       classifyTaskStatus({
         task: buildTask(),
         messages: [
           buildAssistantMessage({
+            completedAt: "2026-06-17T00:01:00.000Z",
             parts: [
               { type: "system_event", content: "[error] provider failed" },
             ],
@@ -143,7 +144,7 @@ describe("classifyTaskStatus", () => {
     ).toBe("error");
   });
 
-  test("keeps a still-current error on an active turn", () => {
+  test("keeps an active diagnostic in running state while recovery is possible", () => {
     expect(
       classifyTaskStatus({
         task: buildTask(),
@@ -158,7 +159,7 @@ describe("classifyTaskStatus", () => {
           }),
         ],
       }),
-    ).toBe("error");
+    ).toBe("running");
   });
 
   test("clears the alert once the turn continues past an error", () => {
@@ -321,13 +322,13 @@ describe("fleet task status helpers", () => {
     });
 
     expect(summary).toEqual({
-      respondingTaskCount: 2,
-      respondingProviderIds: ["claude-code", "codex"],
+      respondingTaskCount: 1,
+      respondingProviderIds: ["claude-code"],
       hasWarningTask: false,
     });
   });
 
-  test("marks active stalled tasks as warning tasks", () => {
+  test("keeps a quiet active responding count neutral", () => {
     const summary = summarizeFleetRespondingTasks({
       tasks: [buildTask()],
       messagesByTask: {},
@@ -339,7 +340,7 @@ describe("fleet task status helpers", () => {
       },
     });
 
-    expect(summary.hasWarningTask).toBe(true);
+    expect(summary.hasWarningTask).toBe(false);
   });
 
   test("counts tasks waiting for input or approval", () => {

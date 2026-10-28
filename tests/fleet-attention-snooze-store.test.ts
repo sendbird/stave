@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { FleetAttentionSnoozeStore } from "../electron/persistence/fleet-attention-snooze-store";
+import { applyFleetBulkPlan, revertFleetBulkOutcome, type FleetBulkOperations } from "../src/lib/fleet/attention-bulk";
+import { ClearFleetAttentionSnoozesArgsSchema } from "../src/lib/fleet/attention-snooze";
 
 let db: Database;
 let store: FleetAttentionSnoozeStore;
@@ -17,6 +19,40 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe("fleet attention snooze store", () => {
+  test("bulk Undo preserves a replacement snooze and atomically removes only its own deadline", async () => {
+    const unavailable = async () => { throw new Error("Unexpected non-snooze operation"); };
+    const operations: FleetBulkOperations = {
+      listPendingResults: unavailable,
+      setResultsReviewed: unavailable,
+      markNotificationRead: unavailable,
+      snoozeFleetAttention: async (args) => store.snooze(args),
+      clearFleetAttentionSnoozes: async (args) => store.clear(args),
+    };
+    const outcome = await applyFleetBulkPlan({
+      plan: { results: [], notificationIds: [], snoozes: [
+        { attentionId: "unchanged", workspaceId: "workspace-1" },
+        { attentionId: "replaced", workspaceId: "workspace-1" },
+      ] }, operations, resolvedAt: NOW, snoozedUntil: SOON,
+    });
+    expect(outcome.snoozedUntil).toBe(SOON);
+    // Another surface replaces one deadline after the bulk action finishes.
+    store.snooze({ attentionId: "replaced", workspaceId: "workspace-1", snoozedUntil: LATER });
+    expect(await revertFleetBulkOutcome(outcome, operations)).toBe(true);
+    expect(store.list({ now: NOW })).toMatchObject([{ attentionId: "replaced", snoozedUntil: LATER }]);
+    expect(store.clear({ attentionIds: ["replaced"], expectedSnoozedUntil: SOON })).toBe(0);
+    expect(store.clear({ attentionIds: ["replaced"], expectedSnoozedUntil: LATER })).toBe(1);
+  });
+
+  test("guarded clear also respects workspace scope and validates its deadline", () => {
+    store.snooze({ attentionId: "a", workspaceId: "workspace-1", snoozedUntil: SOON });
+    expect(store.clear({ attentionIds: ["a"], workspaceIds: ["workspace-2"], expectedSnoozedUntil: SOON })).toBe(0);
+    expect(store.list({ now: NOW })).toHaveLength(1);
+    expect(ClearFleetAttentionSnoozesArgsSchema.safeParse({ attentionIds: ["a"], expectedSnoozedUntil: "invalid" }).success).toBe(false);
+    expect(ClearFleetAttentionSnoozesArgsSchema.parse({ expectedSnoozedUntil: SOON }).expectedSnoozedUntil).toBe(SOON);
+    // Existing explicit restore callers keep their unconditional behavior.
+    expect(store.clear({ attentionIds: ["a"] })).toBe(1);
+  });
+
   test("keeps an unexpired snooze and retires an expired one on read", () => {
     store.snooze({
       attentionId: "turn:result-ready:workspace-1:task-1:turn-1",

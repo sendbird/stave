@@ -4,6 +4,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { reviewStyles } from "@/components/review/review.styles";
 import { TaskReviewSurface } from "@/components/review/TaskReviewSurface";
 import { ChatArea } from "@/components/session/ChatArea";
+import { TaskAttentionSummary } from "@/components/session/TaskAttentionSummary";
 import { parsePanePanelId } from "@/lib/panes/types";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
 
@@ -61,6 +62,7 @@ export function TaskSurfacePanel(props: IDockviewPanelProps) {
   }
   return (
     <div className={sx(reviewStyles.taskSurface)}>
+      <TaskAttentionSummary taskId={surface.taskId} />
       <div className={sx(reviewStyles.modeBody, mode === "review" && reviewStyles.hidden)}>
         <ChatArea
           taskId={surface.taskId}

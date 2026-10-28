@@ -196,6 +196,7 @@ type AgentRunStorePort = Pick<
   | "getAggregate"
   | "getActiveAgentRunForTask"
   | "listActiveAgentRuns"
+  | "listAttentionAgentRuns"
   | "listAgentRunsForWorkspace"
   | "listRecentAgentRuns"
   | "listRecentEvents"
@@ -2198,7 +2199,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         ? store.listAgentRunsForWorkspace(args.workspaceId, args.limit)
         : store.listRecentAgentRuns(args.limit);
       const active = args.includeActive ? store.listActiveAgentRuns().filter((run) => !args.workspaceId || run.workspaceId === args.workspaceId) : [];
-      return { agentRuns: [...new Map([...recent, ...active].map((run) => [run.id, run])).values()]
+      const attention = args.includeAttention ? store.listAttentionAgentRuns().filter((run) => !args.workspaceId || run.workspaceId === args.workspaceId) : [];
+      return { agentRuns: [...new Map([...recent, ...active, ...attention].map((run) => [run.id, run])).values()]
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt)) };
     },
     get: getDetail,

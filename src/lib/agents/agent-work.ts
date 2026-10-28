@@ -1,5 +1,7 @@
+import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
+  resolveFleetTaskSurfaceStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
 import {
@@ -46,6 +48,8 @@ export function collectAgentsWithWork(args: {
     string,
     ProviderTurnActivitySnapshot | undefined
   >;
+  attentionKindByTaskId?: Readonly<Record<string, FleetAttentionKind | undefined>>;
+  currentFailureTaskIds?: ReadonlySet<string>;
   limit: number;
 }): { agents: AgentWork[]; total: number } {
   const byAgent = new Map<string, { work: AgentWork; rank: WorkAttentionRank }>();
@@ -55,13 +59,18 @@ export function collectAgentsWithWork(args: {
     if (!agent) {
       continue;
     }
-    const status: FleetTaskStatus = classifyTaskStatus({
+    const attentionKind = args.attentionKindByTaskId?.[task.id];
+    const status: FleetTaskStatus = resolveFleetTaskSurfaceStatus({
+      activeTurnId: args.activeTurnIdsByTask[task.id],
+      hasCurrentFailure: args.currentFailureTaskIds?.has(task.id) ?? attentionKind === "run-failed",
+      status: classifyTaskStatus({
       task,
       messages: args.messagesByTask[task.id] ?? EMPTY_MESSAGES,
       activeTurnId: args.activeTurnIdsByTask[task.id] ?? null,
       activity: args.providerTurnActivityByTask[task.id] ?? null,
+      }),
     });
-    const rank = rankWorkAttention({ status, activityAt: task.updatedAt });
+    const rank = rankWorkAttention({ status, attentionKind, activityAt: task.updatedAt });
     // Idle and in-review work is nothing to do right now.
     if (rank.lane !== "action-required" && rank.lane !== "in-progress") {
       continue;

@@ -119,11 +119,11 @@ function fixture() {
 const ids = (rows: readonly FleetTaskRow[]) => rows.map((row) => row.task.id);
 
 describe("one row per open task across every workspace", () => {
-  test("lanes first, then the longest wait: the oldest approval leads, the quiet turn follows", () => {
+  test("unanswered approvals lead, then quiet work stays in progress", () => {
     const rows = fixture();
-    expect(ids(rows)).toEqual(["approve-old", "quiet", "approve-new", "running", "idle", "forgotten"]);
+    expect(ids(rows)).toEqual(["approve-old", "approve-new", "quiet", "running", "idle", "forgotten"]);
     expect(rows.map((row) => row.rank.lane)).toEqual([
-      "action-required", "action-required", "action-required", "in-progress", "idle", "idle",
+      "action-required", "action-required", "in-progress", "in-progress", "idle", "idle",
     ]);
   });
 
@@ -196,10 +196,10 @@ describe("table filters", () => {
 
   test("each chip keeps exactly its rows", () => {
     expect(shown("all")).toEqual(ids(rows));
-    expect(shown("active")).toEqual(["approve-old", "quiet", "approve-new", "running", "idle"]);
-    // A turn waiting on you, or gone quiet, is still in flight.
-    expect(shown("running")).toEqual(["quiet", "approve-new", "running"]);
-    expect(shown("blocked")).toEqual(["approve-old", "quiet", "approve-new"]);
+    expect(shown("active")).toEqual(["approve-old", "approve-new", "quiet", "running", "idle"]);
+    // Waiting for the user is not active execution; quiet work is still running.
+    expect(shown("running")).toEqual(["quiet", "running"]);
+    expect(shown("blocked")).toEqual(["approve-old", "approve-new"]);
     expect(shown("needs-answer")).toEqual(["approve-old", "approve-new"]);
     expect(shown("stalled")).toEqual(["quiet"]);
   });

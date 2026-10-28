@@ -180,6 +180,7 @@
     "message35": "Could not load snoozed Fleet items."
   },
   "attention": {
+    "agentRunPausedNeedsAttention": "This run is paused and needs your decision. Open the task to review the reason and continue.",
     "agentRunNeedsAttention": "{{stage}} · {{detail}}",
     "stoppedMoving": "stopped moving",
     "needsYou": "needs you"
@@ -267,7 +268,7 @@
     "applyAll_other": "Do all of these ({{count}} items)",
     "cleared_one": "Cleared {{count}} item.",
     "cleared_other": "Cleared {{count}} items.",
-    "readsCannotBeUndone": "Notification reads can't be undone.",
+    "readsCannotBeUndone": "Result and notification reads can't be undone.",
     "failed_one": "{{count}} item was not cleared. Retry.",
     "failed_other": "{{count}} items were not cleared. Retry.",
     "undo": "Undo",
@@ -293,5 +294,59 @@
     "readingTasks": "Reading tasks…",
     "readingMore_one": "Reading the tasks of {{count}} more workspace…",
     "readingMore_other": "Reading the tasks of {{count}} more workspaces…"
+  },
+  "bulkAttention": {
+    "reviewResults_one": "Mark {{count}} result reviewed",
+    "reviewResults_other": "Mark {{count}} results reviewed",
+    "markedReviewed_one": "Review mark saved for {{count}} result.",
+    "markedReviewed_other": "Review marks saved for {{count}} results.",
+    "reviewMarksUndoInTask": "To remove a review mark, open the task in Review.",
+    "alreadyReviewed": "Already reviewed or no longer current. Nothing changed.",
+    "reviewFailed_one": "{{count}} review mark was not saved. Retry.",
+    "reviewFailed_other": "{{count}} review marks were not saved. Retry.",
+    "readResults_one": "Mark {{count}} result read",
+    "readResults_other": "Mark {{count}} results read",
+    "manage_one": "Manage {{count}} item",
+    "manage_other": "Manage {{count}} items",
+    "readOutcomes_one": "Mark {{count}} outcome read",
+    "readOutcomes_other": "Mark {{count}} outcomes read",
+    "snoozeLabel_one": "Snooze {{count}} item",
+    "snoozeLabel_other": "Snooze all {{count}} items",
+    "snoozeFor_one": "Snooze {{count}} item for {{duration}}",
+    "snoozeFor_other": "Snooze {{count}} items for {{duration}}",
+    "requestsUnanswered": "Pending requests stay unanswered.",
+    "oneHour": "1 hour",
+    "fourHours": "4 hours",
+    "oneDay": "1 day",
+    "oneWeek": "1 week",
+    "snoozed_one": "Snoozed {{count}} item",
+    "snoozed_other": "Snoozed {{count}} items",
+    "scope_one": "All workspaces and filters · includes {{count}} request needing attention",
+    "scope_other": "All workspaces and filters · includes {{count}} requests needing attention"
+  },
+  "taskAttention": {
+    "actionRequired_one": "Needs your attention ({{count}})",
+    "actionRequired_other": "Needs your attention ({{count}})",
+    "forReview_one": "For review ({{count}})",
+    "forReview_other": "For review ({{count}})",
+    "hint": {
+      "pr": "Review the pull request before deciding what to do next.",
+      "request": "Work is waiting for this answer or permission.",
+      "progress": "Review the blocking reason and the available recovery actions in Progress.",
+      "reviewStage": "Review this stage’s evidence before signing off.",
+      "reviewTurn": "The turn stopped. Review its result, then give the task instructions to retry or change direction.",
+      "pendingRequest": "Work is waiting for your answer or permission."
+    },
+    "action": {
+      "pr": "Open PR",
+      "request": "Show request",
+      "progress": "Show blocker",
+      "reviewStage": "Review stage",
+      "reviewTurn": "View stopped turn",
+      "pendingRequest": "Show request"
+    },
+    "openFailed": "Could not open this request. Try again.",
+    "recentFailure_one": "Last stopped turn ({{count}})",
+    "recentFailure_other": "Last stopped turns ({{count}})"
   }
 }

@@ -56,6 +56,8 @@ export const ClearFleetAttentionSnoozesArgsSchema = z
     /** Omit to clear every snooze; the caller decides the scope. */
     attentionIds: z.array(Identity).max(1000).optional(),
     workspaceIds: z.array(Identity).max(1000).optional(),
+    /** Undo only the snooze this caller wrote; preserve a later replacement. */
+    expectedSnoozedUntil: Timestamp.optional(),
   })
   .strict();
 export type ClearFleetAttentionSnoozesArgs = z.infer<

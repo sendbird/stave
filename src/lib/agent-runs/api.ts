@@ -68,6 +68,8 @@ export interface AgentRunListArgs {
   limit?: number;
   /** Include all active runs independently of the history limit. */
   includeActive?: boolean;
+  /** Include the latest expired runs still awaiting an instruction, outside the history limit. */
+  includeAttention?: boolean;
 }
 
 export interface AgentRunRequestChangesArgs extends AgentRunStageRef {

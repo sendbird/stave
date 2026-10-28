@@ -19,6 +19,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ChatMessage, Task } from "@/types/chat";
+import { useFleetAttentionStore } from "@/store/fleet-attention-store";
 import { useAppStore } from "@/store/app.store";
 import { workspaceProgressTaskTreeStyles as styles } from "./workspace-progress-task-tree.styles";
 
@@ -41,7 +42,7 @@ const STATUS_WORK_STATE: Record<FleetTaskStatus, WorkState> = {
   "waiting-input": "needs-you",
   "waiting-approval": "approval",
   error: "failed",
-  stalled: "halted",
+  stalled: "working",
   running: "working",
   idle: "idle",
 };
@@ -181,6 +182,7 @@ export const WorkspaceProgressTaskTree = memo(
       }),
     );
 
+    const attentionItems = useFleetAttentionStore((state) => state.snapshot.attentionItemsByWorkspaceId[args.workspaceId]);
     const items = useMemo(
       () =>
         buildWorkspaceProgressTaskItems({
@@ -189,8 +191,10 @@ export const WorkspaceProgressTaskTree = memo(
           activeTurnIdsByTask,
           providerTurnActivityByTask,
           openTaskTabIds,
+          attentionItems,
         }),
       [
+        attentionItems,
         activeTurnIdsByTask,
         messagesByTask,
         openTaskTabIds,

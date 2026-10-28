@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { ResultReviewStore } from "../electron/persistence/result-review-store";
 import { ResultReviewSchema, SetResultMarkedReviewedArgsSchema } from "../src/lib/reviews/result-review";
+import { applyFleetBulkPlan, revertFleetBulkOutcome, type FleetBulkOperations } from "../src/lib/fleet/attention-bulk";
 
 let db: Database;
 const scope = { repositoryPath: "/tmp/project", workspaceId: "workspace", taskId: "task", turnId: "turn" };
@@ -22,6 +23,33 @@ beforeEach(() => {
 afterEach(() => db.close());
 
 describe("an explicit reviewed mark apart from read", () => {
+  test("Fleet bulk review saves explicit marks in SQLite and individual unmarking keeps the read mark", async () => {
+    const store = new ResultReviewStore(db);
+    insertNotification();
+    const unexpected = async () => { throw new Error("The explicit review must not use a read or snooze operation."); };
+    const operations: FleetBulkOperations = {
+      listPendingResults: async () => [scope],
+      setResultMarkedReviewed: async (args) => store.setMarkedReviewed(args)!,
+      setResultsReviewed: unexpected,
+      markNotificationRead: unexpected,
+      snoozeFleetAttention: unexpected,
+      clearFleetAttentionSnoozes: unexpected,
+    };
+    const outcome = await applyFleetBulkPlan({
+      plan: { results: [scope], notificationIds: [], snoozes: [], markedReviewed: true },
+      operations, resolvedAt: "2026-09-06T00:00:00Z", snoozedUntil: "2026-09-07T00:00:00Z",
+    });
+    expect(outcome.markedReviewed).toBe(1);
+    const [saved] = store.list().results;
+    expect(saved?.markedReviewedAt).toEqual(expect.any(String));
+    expect(saved?.reviewedAt).toEqual(expect.any(String));
+    // Bulk cannot prove which concurrent writer owned an idempotent mark.
+    expect(await revertFleetBulkOutcome(outcome, operations)).toBe(true);
+    expect(store.list().results[0]?.markedReviewedAt).toBe(saved?.markedReviewedAt);
+    const unmarked = store.setMarkedReviewed({ ...scope, markedReviewed: false });
+    expect(unmarked).toMatchObject({ markedReviewedAt: null, reviewedAt: saved?.reviewedAt });
+  });
+
   test("a result table from before the mark gains it once, and old rows load unmarked", () => {
     // The table as an earlier version created it, with a row in it.
     db.exec(`CREATE TABLE result_reviews (

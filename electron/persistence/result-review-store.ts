@@ -60,6 +60,8 @@ export class ResultReviewStore {
         ON result_reviews(reviewed_at, created_at, id);
       CREATE INDEX IF NOT EXISTS idx_result_reviews_task
         ON result_reviews(workspace_id, task_id, created_at, id);
+      CREATE INDEX IF NOT EXISTS idx_result_reviews_latest_task
+        ON result_reviews(project_path, workspace_id, task_id, created_at DESC, id DESC);
       CREATE TABLE IF NOT EXISTS result_review_evidence (
         scope_key TEXT NOT NULL PRIMARY KEY,
         evidence_json TEXT NOT NULL
@@ -95,6 +97,17 @@ export class ResultReviewStore {
   list(args: ListResultReviewsArgs = {}): ResultReviewPage {
     const predicates: string[] = [];
     const values: unknown[] = [];
+    if (args.latestPerTask) {
+      // A newer read result still supersedes an older unread failure. Compare
+      // against all history, not just rows surviving the caller's filters.
+      predicates.push(`NOT EXISTS (
+        SELECT 1 FROM result_reviews AS newer
+        WHERE newer.project_path = result_reviews.project_path
+          AND newer.workspace_id = result_reviews.workspace_id
+          AND newer.task_id = result_reviews.task_id
+          AND (newer.created_at, newer.id) > (result_reviews.created_at, result_reviews.id)
+      )`);
+    }
     if (args.workspaceIds) {
       predicates.push(args.workspaceIds.length ? `workspace_id IN (${args.workspaceIds.map(() => "?").join(",")})` : "0 = 1");
       values.push(...args.workspaceIds);

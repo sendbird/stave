@@ -15,7 +15,7 @@ import type { ChatMessage, Task } from "@/types/chat";
  * `stalled` is a running turn that has reported nothing for the stall
  * threshold (five minutes). It is not a failure: nothing failed, the turn has
  * only gone quiet, so it reads "No updates for …" and is never counted as an
- * error. It still needs a look, so it sits in the action-required lane.
+ * error or a blocking request for the user.
  */
 export type FleetTaskStatus =
   | "waiting-input"
@@ -101,14 +101,28 @@ function turnContinuedAfterError(parts: ChatMessage["parts"], errorIndex: number
  * without a failure stop. A turn that ends on the error, or that stops for a
  * failure, still needs the alert.
  */
-function latestAssistantFailureNeedsAttention(messages: ChatMessage[]) {
+function latestAssistantFailureNeedsAttention(
+  messages: ChatMessage[],
+  activeTurnId?: string | null,
+) {
   const latestMessage = messages.at(-1);
-  if (latestMessage?.role !== "assistant") {
+  if (latestMessage?.role !== "assistant" ||
+      (activeTurnId && latestMessage.turnId !== activeTurnId)) {
     return false;
   }
 
   if (latestMessage.terminalReceipt?.completedAt) {
     return latestMessage.terminalReceipt.outcome === "failed";
+  }
+
+  // Diagnostics are retained while a provider recovers. Only a completed turn
+  // can establish failure; a running turn still owns its recovery.
+  if (!latestMessage.completedAt && !latestMessage.terminalStopReason) {
+    return false;
+  }
+
+  if (classifyProviderTurnStopReason(latestMessage.terminalStopReason) === "failed") {
+    return true;
   }
 
   let lastErrorIndex = -1;
@@ -177,7 +191,7 @@ export function classifyTaskStatus(args: {
     activeTurnId: args.activeTurnId ?? null,
     activity: args.activity ?? null,
   });
-  if (latestAssistantFailureNeedsAttention(messages)) {
+  if (latestAssistantFailureNeedsAttention(messages, args.activeTurnId)) {
     return "error";
   }
   if (turnState === "stalled") {
@@ -188,6 +202,17 @@ export function classifyTaskStatus(args: {
   }
 
   return "idle";
+}
+
+/** Global surfaces follow the unresolved attention projection, not failure history. */
+export function resolveFleetTaskSurfaceStatus<T extends FleetDisplayStatus>(args: {
+  status: T;
+  hasCurrentFailure: boolean;
+  activeTurnId?: string | null;
+}): T | "running" | "idle" {
+  const hiddenFailure = args.status === "error" && !args.hasCurrentFailure;
+  // Snoozing an interaction changes urgency, never whether work is waiting.
+  return hiddenFailure ? args.activeTurnId ? "running" : "idle" : args.status;
 }
 
 export function hasFleetTaskAttentionStatus(status: FleetTaskStatus) {
@@ -283,7 +308,7 @@ export function summarizeFleetRespondingTasks(args: {
 }) {
   const providerIds = new Set<ProviderId>();
   let respondingTaskCount = 0;
-  let hasWarningTask = false;
+  const hasWarningTask = false;
 
   for (const task of args.tasks) {
     const activeTurnId = args.activeTurnIdsByTask[task.id] ?? null;
@@ -298,14 +323,13 @@ export function summarizeFleetRespondingTasks(args: {
       activeTurnId,
       activity: args.providerTurnActivityByTask[task.id] ?? null,
     });
-    if (status === "idle") {
+    if (status !== "running" && status !== "stalled") {
       continue;
     }
 
     respondingTaskCount += 1;
-    if (status === "error" || status === "stalled") {
-      hasWarningTask = true;
-    }
+    // Current unresolved failures have their own projected attention mark.
+    // A responding count conveys activity, never a second failure alert.
     providerIds.add(
       getRespondingProviderId({
         fallbackProviderId: task.provider,

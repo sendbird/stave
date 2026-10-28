@@ -89,7 +89,7 @@ describe("hasFleetLiveTask", () => {
   test("requires an active turn as well as a non-idle display status", () => {
     expect(
       hasFleetLiveTask({
-        rows: [{ taskId: "task-1", status: "waiting-input" }],
+        rows: [{ taskId: "task-1", status: "running" }],
         activeTurnIdsByTask: {},
       }),
     ).toBe(false);
@@ -101,7 +101,7 @@ describe("hasFleetLiveTask", () => {
     ).toBe(false);
     expect(
       hasFleetLiveTask({
-        rows: [{ taskId: "task-1", status: "waiting-input" }],
+        rows: [{ taskId: "task-1", status: "running" }],
         activeTurnIdsByTask: { "task-1": "turn-1" },
       }),
     ).toBe(true);
