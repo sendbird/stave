@@ -33,7 +33,7 @@ export function TurnEventPreview() {
     const original = useAppStore.getState();
     // This isolated dev entrypoint keeps decision clicks inside its fixtures.
     useAppStore.setState({
-      resolveApproval: ({ requestId, approved, scope }) =>
+      resolveApproval: async ({ requestId, approved, scope }) => {
         setSamples((rows) =>
           rows.map((row) => ({
             ...row,
@@ -47,7 +47,9 @@ export function TurnEventPreview() {
                 : part,
             ),
           })),
-        ),
+        );
+        return { status: "delivered" as const };
+      },
       resolveUserInput: ({ requestId, answers, denied }) =>
         setSamples((rows) =>
           rows.map((row) => ({

@@ -107,6 +107,15 @@ export interface SendBlockedUsageLimit {
   resetsAt: number | null;
 }
 
+/**
+ * How an approval answer ended. `skipped`: the request was no longer pending,
+ * or the provider could no longer answer it and the caller asked to close it.
+ */
+export type ApprovalAnswerOutcome =
+  | { status: "delivered" }
+  | { status: "skipped" }
+  | { status: "failed"; message: string };
+
 export type SendUserMessageResult =
   | {
       status: "blocked";
@@ -699,6 +708,15 @@ export interface AppState
      */
     attachedFilePaths?: string[];
     attachments?: Attachment[];
+    /**
+     * With `submitIntent: "steer"` into a running turn, lets the send proceed
+     * while approvals are pending. Called once every other steer check has
+     * passed and before the message is delivered; it declines the approvals
+     * and returns `false` to stop the send (`blocked`, nothing delivered).
+     * Such a redirect steers even with Mid-Turn Steering off: the turn is
+     * waiting on the user, so the message answers it rather than queueing.
+     */
+    declinePendingApprovals?: () => Promise<boolean>;
   }) => Promise<SendUserMessageResult>;
   /**
    * Send a parked failed outgoing message again, with the same text and
@@ -784,7 +802,13 @@ export interface AppState
     scope?: "once" | "always";
     /** Recorded as who decided: a person unless a Stave rule (trusted tools) answers. */
     decidedBy?: ApprovalRuleDecider;
-  }) => void;
+    /**
+     * What to do when the provider can no longer answer the request (its turn
+     * is gone or it no longer knows the id). `report` (default) records a
+     * delivery failure; `close` marks the request interrupted and skips it.
+     */
+    onUnanswerable?: "report" | "close";
+  }) => Promise<ApprovalAnswerOutcome>;
   resolveUserInput: (args: {
     taskId: string;
     messageId: string;
