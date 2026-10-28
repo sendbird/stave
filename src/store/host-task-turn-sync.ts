@@ -22,6 +22,7 @@ import {
   buildWorkspaceSessionStateFromShell,
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
+import { resolvePersistedTurnStartedAt } from "@/store/provider-turn-stall-rearm";
 import { TASK_MESSAGES_PAGE_SIZE } from "@/store/task-message-loading";
 import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
 import type { ChatMessage } from "@/types/chat";
@@ -86,6 +87,8 @@ type HostTaskTurnStoreState = Parameters<
 interface LoadedHostTaskTurn {
   persistedSession: WorkspaceSessionState;
   persistedActiveTurnId: string | undefined;
+  /** When the persisted active turn began, for a turn the renderer adopts mid-run. */
+  persistedActiveTurnStartedAt?: number;
   messages: WorkspaceSessionState["messagesByTask"][string];
   messageCount: number;
 }
@@ -123,9 +126,13 @@ export async function loadHostTaskTurn(
     },
     latestTurns: activeTurns,
   });
+  const persistedActiveTurnId = persistedSession.activeTurnIdsByTask[update.taskId];
   return {
     persistedSession,
-    persistedActiveTurnId: persistedSession.activeTurnIdsByTask[update.taskId],
+    persistedActiveTurnId,
+    persistedActiveTurnStartedAt: persistedActiveTurnId
+      ? resolvePersistedTurnStartedAt(activeTurns, persistedActiveTurnId)
+      : undefined,
     messages,
     messageCount: Math.max(page.totalCount, page.messages.length),
   };
@@ -244,6 +251,7 @@ export function applyHostTaskTurnSync(args: {
         taskId: args.update.taskId,
         turnId: args.update.turnId,
         providerId: args.update.providerId,
+        startedAt: args.loaded.persistedActiveTurnStartedAt,
         pendingInteraction:
           args.update.eventType === "approval"
             ? "approval"

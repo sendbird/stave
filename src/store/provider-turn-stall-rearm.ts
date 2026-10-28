@@ -1,3 +1,4 @@
+import type { PersistedTurnSummary } from "@/lib/db/turns.db";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   startProviderTurnActivity,
@@ -43,6 +44,22 @@ export function createProviderTurnLivenessReporter(deps: {
       lastEventAt: deps.now?.() ?? Date.now(),
     });
   };
+}
+
+type PersistedTurnStart = Pick<PersistedTurnSummary, "id" | "createdAt">;
+
+/**
+ * When a persisted turn began, in epoch milliseconds, or undefined when the
+ * row is missing or its timestamp does not parse. A turn adopted mid-run
+ * reads its run time from this, not from the moment the renderer took it over.
+ */
+export function resolvePersistedTurnStartedAt(
+  turns: readonly PersistedTurnStart[] | undefined,
+  turnId: string,
+) {
+  const createdAt = turns?.find((turn) => turn.id === turnId)?.createdAt;
+  const startedAt = createdAt ? Date.parse(createdAt) : Number.NaN;
+  return Number.isFinite(startedAt) ? startedAt : undefined;
 }
 
 export interface AdoptedProviderTurn {
@@ -98,7 +115,9 @@ export function collectAdoptedTurnsWithoutStallNet(args: {
  * Liveness is dated from adoption rather than from the persisted turn row. The
  * renderer only knows the turn was alive from the moment it took it over, and
  * back-dating would instantly reclaim a healthy host turn that has been
- * streaming happily for longer than the grace window.
+ * streaming happily for longer than the grace window. The run time, though, is
+ * the turn's: it is dated from the persisted row, so a reload does not reset
+ * "Working · 10m" to zero.
  */
 export function adoptRestoredTurnsIntoStallNet(args: {
   tasks: Array<Pick<Task, "id" | "provider">>;
@@ -110,6 +129,8 @@ export function adoptRestoredTurnsIntoStallNet(args: {
     },
   ) => void;
   scheduleStallTimer: StallTimerScheduler;
+  /** The persisted turn rows the session was rebuilt from. */
+  latestTurns?: readonly PersistedTurnStart[];
   now?: number;
 }) {
   const adopted = collectAdoptedTurnsWithoutStallNet({
@@ -131,6 +152,7 @@ export function adoptRestoredTurnsIntoStallNet(args: {
           turnId: turn.turnId,
           providerId: turn.providerId,
           now,
+          startedAt: resolvePersistedTurnStartedAt(args.latestTurns, turn.turnId),
         }),
       activityByTask,
     ),

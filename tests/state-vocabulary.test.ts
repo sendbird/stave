@@ -59,7 +59,11 @@ describe("work state vocabulary", () => {
 
   test("the state mark draws the vocabulary glyph, or a domain glyph in the state color", () => {
     expect(renderToStaticMarkup(createElement(StateMark, { state: "halted" }))).toContain("lucide-circle-alert");
-    expect(renderToStaticMarkup(createElement(StateMark, { state: "working" }))).toContain("lucide-circle-dot");
+    // Working moves with the one agent-working motion; held still it keeps its glyph.
+    const working = renderToStaticMarkup(createElement(StateMark, { state: "working" }));
+    expect(working).toContain('data-ads-loader-variant="matrix"');
+    expect(working).toContain('data-motion="moving"');
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "working", motion: "still" }))).toContain("lucide-circle-dot");
     expect(renderToStaticMarkup(createElement(StateMark, { state: "halted", icon: Square }))).toContain("lucide-square");
   });
 });

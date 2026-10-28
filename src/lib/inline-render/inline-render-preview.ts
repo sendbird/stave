@@ -143,7 +143,7 @@ const EXTENDED_FALLBACK_VARIABLES: Record<InlineRenderPreviewAppearance, Record<
     "--chart-3": "oklch(0.66 0.13 78)",
     "--chart-4": "oklch(0.56 0.16 305)",
     "--chart-5": "oklch(0.53 0.09 185)",
-    "--radius": "0.45rem",
+    "--radius": "0.5rem",
   },
   dark: {
     "--success": "oklch(0.74 0.12 155)",
@@ -157,7 +157,7 @@ const EXTENDED_FALLBACK_VARIABLES: Record<InlineRenderPreviewAppearance, Record<
     "--chart-3": "oklch(0.8 0.13 78)",
     "--chart-4": "oklch(0.74 0.14 305)",
     "--chart-5": "oklch(0.73 0.11 185)",
-    "--radius": "0.45rem",
+    "--radius": "0.5rem",
   },
 };
 

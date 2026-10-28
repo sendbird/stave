@@ -470,7 +470,8 @@ describe("TurnActivity", () => {
     expect(html).toContain('data-testid="turn-activity-stack"');
     expect(html).toContain('data-testid="turn-activity"');
     expect(html).toContain('data-testid="turn-activity-loader"');
-    expect(html).toContain('data-loader-variant="handoff"');
+    // Agent work wears the one working motion, whatever the turn runs.
+    expect(html).toContain('data-loader-variant="matrix"');
     expect(html).toContain('data-loader-cadence="reduced"');
     expect(html).toContain('data-loader-paused="false"');
     expect(html).toContain("Turn activity");
@@ -480,7 +481,7 @@ describe("TurnActivity", () => {
     expect(html).not.toContain("animate-spin");
   });
 
-  test("pauses the status loader while the turn is stalled", () => {
+  test("a stalled turn stops moving and shows the still warning mark", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
         activeTurnId: "turn-stalled",
@@ -500,8 +501,9 @@ describe("TurnActivity", () => {
       }),
     );
 
-    expect(html).toContain('data-loader-variant="signal"');
-    expect(html).toContain('data-loader-paused="true"');
+    expect(html).toContain('data-run-mark="stalled"');
+    expect(html).toContain('data-state="halted"');
+    expect(html).not.toContain("data-loader-variant");
   });
 
   test("expands the remaining activities by default and collapses them when the setting is off", () => {

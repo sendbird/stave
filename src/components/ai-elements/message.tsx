@@ -101,8 +101,10 @@ export function Message({ from, className, style, ...props }: MessageProps) {
   const bubbleVars =
     from === "user"
       ? ({
-          "--message-bubble-radius": vars["--ads-radius-mark"],
-          "--message-bubble-bg": `color-mix(in oklch, ${vars["--ads-color-accent"]} 12%, transparent)`,
+          "--message-bubble-radius": vars["--ads-radius-panel"],
+          // A neutral step off the conversation ground, so the bubble reads as
+          // yours without tinting every prompt in the theme's accent.
+          "--message-bubble-bg": vars["--ads-color-surface-tint"],
           "--message-bubble-pad-inline": vars["--ads-space-16"],
           "--message-bubble-pad-block": vars["--ads-space-12"],
         } as CSSProperties)

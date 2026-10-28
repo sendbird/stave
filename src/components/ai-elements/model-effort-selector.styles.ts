@@ -50,10 +50,20 @@ export const modelEffortSelectorStyles = stylex.create({
     paddingBlock: 0,
     paddingInline: "0.625rem",
     fontSize: vars["--ads-font-size-body"],
-    color: vars["--ads-color-text"],
+    // In the composer lane the trigger rests muted like the controls beside
+    // it and takes full text on hover, focus and while open, so the prompt
+    // reads first. Elsewhere (dispatch runtime fields) it shows its value in
+    // full text, as a field does.
+    color: {
+      default: vars["--ads-color-text"],
+      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
+      ":focus-visible": vars["--ads-color-text"],
+    },
   },
   triggerOpen: {
     backgroundColor: `color-mix(in oklch, ${overlayHover} 100%, transparent)`,
+    color: vars["--ads-color-text"],
   },
   triggerAccentIcon: {
     width: "0.875rem",

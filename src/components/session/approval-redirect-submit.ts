@@ -1,8 +1,10 @@
 import { toast } from "@/components/ui";
 import { i18n } from "@/i18n";
 import type { RetainedTurnActivity } from "@/lib/providers/turn-status";
+import type { UserInputPart } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
 import {
+  resolveApprovalRedirectMode,
   sendWithApprovalRedirect,
   type ApprovalRedirectMode,
   type ApprovalRedirectOutcome,
@@ -10,6 +12,31 @@ import {
 import { isAutoRoutingUnavailableForSend } from "@/store/auto-routing-dispatch";
 import { EMPTY_PROMPT_DRAFT } from "./chat-input.utils";
 import { findPendingApprovals } from "@/store/provider-message.utils";
+
+/**
+ * Which redirect the composer offers. While approvals wait on a running turn,
+ * sending declines them and redirects the agent: steered into the turn when
+ * its provider takes a steer and the draft has no attachments, otherwise
+ * queued for the next turn.
+ */
+export function resolveComposerApprovalRedirectMode(args: {
+  pendingApprovals: readonly unknown[];
+  pendingUserInput: { part: UserInputPart } | null;
+  isTurnActive: boolean;
+  canSteerRunningTurnProvider: boolean;
+  promptDraft: { attachments?: readonly unknown[]; attachedFilePaths?: readonly unknown[] };
+}): ApprovalRedirectMode | null {
+  return resolveApprovalRedirectMode({
+    pendingApprovalCount: args.pendingApprovals.length,
+    blockingUserInputPending:
+      args.pendingUserInput != null && args.pendingUserInput.part.delivery !== "async",
+    isTurnActive: args.isTurnActive,
+    canSteerRunningTurn:
+      args.canSteerRunningTurnProvider &&
+      (args.promptDraft.attachments?.length ?? 0) === 0 &&
+      (args.promptDraft.attachedFilePaths?.length ?? 0) === 0,
+  });
+}
 
 /**
  * Watch for a Stop on the redirected turn while the redirect runs. Stop records

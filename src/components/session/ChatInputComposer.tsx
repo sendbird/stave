@@ -14,6 +14,10 @@ import {
   useState,
 } from "react";
 import { type ModelSelectorOption } from "@/components/ai-elements/model-selector";
+import {
+  useComposerApprovalShortcuts,
+  useComposerEffortShortcut,
+} from "./use-composer-window-shortcuts";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import {
@@ -142,9 +146,7 @@ import {
   getPromptHistoryEntries,
   isStaleActiveTurnDraft,
 } from "./chat-input.utils";
-import { useApprovalWindowShortcuts } from "./use-approval-window-shortcuts";
-import { submitApprovalRedirect } from "./approval-redirect-submit";
-import { resolveApprovalRedirectMode } from "@/store/approval-redirect-send";
+import { resolveComposerApprovalRedirectMode, submitApprovalRedirect } from "./approval-redirect-submit";
 import {
   buildPromptEnhancementHistory,
   buildPromptEnhancementWorkspaceSummary,
@@ -485,17 +487,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         messages: activeTaskMessages,
       }),
     });
-  const canSteerQueuedTurns = midTurnSteeringEnabled && canSteerRunningTurnProvider;
-  // While approvals wait on a running turn, sending declines them and redirects the agent.
-  const approvalRedirectMode = resolveApprovalRedirectMode({
-    pendingApprovalCount: pendingApprovals.length,
-    blockingUserInputPending: pendingUserInput != null && pendingUserInput.part.delivery !== "async",
-    isTurnActive: args.isTurnActive,
-    canSteerRunningTurn:
-      canSteerRunningTurnProvider &&
-      (promptDraft.attachments?.length ?? 0) === 0 &&
-      (promptDraft.attachedFilePaths?.length ?? 0) === 0,
-  });
+  const approvalRedirectMode = resolveComposerApprovalRedirectMode({ pendingApprovals, pendingUserInput, isTurnActive: args.isTurnActive, canSteerRunningTurnProvider, promptDraft });
   const managedTaskComposerAccess = resolveManagedTaskComposerAccess({
     managedTaskOwner: args.managedTaskOwner,
     isTurnActive: args.isTurnActive && providerTurnDisplayState !== "stalled",
@@ -1034,6 +1026,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
 
   const composerDisabled =
     isInputBlocked || isSteerSubmitting || managedTaskComposerAccess.disabled;
+
+  useComposerEffortShortcut({
+    ...args,
+    disabled: composerDisabled,
+    agentChoice,
+  });
   const queuePause = resolveQueuePause({
     queuedTurns,
     usageLimitPause,
@@ -1046,7 +1044,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     submitMode: managedTaskComposerAccess.submitMode,
     disabled: composerDisabled,
     isTurnActive: args.isTurnActive,
-    canSteerQueuedTurn: canSteerQueuedTurns,
+    canSteerQueuedTurn: midTurnSteeringEnabled && canSteerRunningTurnProvider,
     selectedModel: args.selectedModelOption,
     modelOptions: args.accountModelOptions ?? args.modelOptions,
     onSteer: (itemId) => void steerQueuedTurnNow(itemId),
@@ -1259,13 +1257,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     return () => window.removeEventListener("beforeunload", flushDraftText);
   }, []);
 
-  const handleApprovalKey = useApprovalWindowShortcuts({
-    taskId: args.activeTaskId,
-    enabled: args.windowShortcutsEnabled,
-    pendingApproval,
-    resolveApproval,
-    setGuidanceFocusNonce,
-  });
+  const handleApprovalKey = useComposerApprovalShortcuts({ ...args, pendingApproval, resolveApproval, onFocusGuidance: () => setGuidanceFocusNonce((current) => current + 1) });
 
   return (
     <div
@@ -1379,11 +1371,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             handlePromptEnhancementRevealComplete
           }
           onBlur={commitCurrentDraftText}
-          disabled={
-            approvalRedirectMode
-              ? isSteerSubmitting || managedTaskComposerAccess.disabled
-              : composerDisabled
-          }
+          disabled={approvalRedirectMode ? isSteerSubmitting || managedTaskComposerAccess.disabled : composerDisabled}
           windowShortcutsEnabled={args.windowShortcutsEnabled}
           isTurnActive={args.isTurnActive}
           composerControlPlacements={composerControlPlacements}
@@ -1583,11 +1571,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               </div>
             )
           }
-          submitMode={
-            approvalRedirectMode
-              ? (`redirect-${approvalRedirectMode}` as const)
-              : managedTaskComposerAccess.submitMode
-          }
+          submitMode={approvalRedirectMode ? (`redirect-${approvalRedirectMode}` as const) : managedTaskComposerAccess.submitMode}
           promptBatch={promptBatch}
           promptCommentShortcut={promptCommentShortcut}
           steerQueueEnterAction={steerQueueEnterAction}
@@ -1743,8 +1727,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             return args.onLocalChangeReview(request);
           }}
           onSubmit={async ({ text, intent }) => {
-            // A redirect keeps the draft until delivered, like a steer.
-            const steerSubmission = intent === "steer" || approvalRedirectMode !== null;
+            const steerSubmission = intent === "steer" || approvalRedirectMode !== null; // A redirect keeps the draft until delivered, like a steer.
             const submissionTaskId = args.providerSelectionTarget;
             // `/aside`: a side question goes to its panel; nothing is sent, queued or steered.
             if (askAsideFromComposer({ taskId: args.activeTaskId, text })) {
@@ -1814,22 +1797,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                   label: a.label,
                   mimeType: getImageAttachmentMimeType(a),
                 }));
-              if (approvalRedirectMode) {
-                return await submitApprovalRedirect({
-                  mode: approvalRedirectMode,
-                  taskId: args.activeTaskId,
-                  text,
-                  imageContexts:
-                    imageContexts.length > 0 ? imageContexts : undefined,
-                  isDraftCurrent: () =>
-                    syncedDraftRef.current.taskId === submittedDraft.taskId &&
-                    draftTextRef.current === submittedDraft.text,
-                  clearDraft: () => {
-                    clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
-                    clearSubmittedDraft();
-                  },
-                });
-              }
+              const isDraftCurrent = () => syncedDraftRef.current.taskId === submittedDraft.taskId && draftTextRef.current === submittedDraft.text;
+              if (approvalRedirectMode) return await submitApprovalRedirect({ mode: approvalRedirectMode, taskId: args.activeTaskId, text, imageContexts: imageContexts.length > 0 ? imageContexts : undefined, isDraftCurrent, clearDraft: () => { clearLensAnnotationsOnMessageSubmit(args.activeTaskId); clearSubmittedDraft(); } });
               clearLensAnnotationsOnMessageSubmit(args.activeTaskId);
               const result = await sendUserMessage({
                 taskId: args.activeTaskId,
@@ -1866,8 +1835,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             }
           }}
           onAbort={() => abortTaskTurn({ taskId: args.activeTaskId })}
-          // The approval card's Enter/Tab keep working from an empty composer.
-          onEmptyEditorKey={approvalRedirectMode ? handleApprovalKey ?? undefined : undefined}
+          onEmptyEditorKey={approvalRedirectMode ? handleApprovalKey ?? undefined : undefined} // The approval card's Enter/Tab keep working from an empty composer.
         />
       </div>
     </div>

@@ -14,7 +14,7 @@ import type {
   RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
 import type { WorkGraphSummary } from "@/lib/work-graph/work-graph-tree";
-import type { LoaderVariant } from "@/components/ui/loader.types";
+import { resolveTurnWaitTarget } from "@/lib/fleet/run-progress";
 
 export type TurnActivityRowStatus =
   "pending" | "running" | "waiting" | "completed" | "failed";
@@ -214,38 +214,25 @@ export function resolveTurnActivityRestMark(args: {
 }
 
 /**
- * Map the turn-level lifecycle to the shared loader vocabulary. Keep this
- * separate from the surface so the state mapping stays deterministic and
- * testable as provider activity grows.
+ * Which run mark a live turn wears (`AgentRunMark`). Working is one motion
+ * whatever the turn runs; a stall stands still; a main loop blocked on its
+ * helpers gets its own mark. A turn waiting on a person keeps the working mark,
+ * which its surface pauses, because the question or approval says the rest.
  */
-export function resolveTurnActivityLoaderVariant(args: {
-  activity: Pick<ProviderTurnActivitySnapshot, "pendingInteraction"> | null;
+export function resolveTurnActivityRunKind(args: {
+  activity: Pick<
+    ProviderTurnActivitySnapshot,
+    "pendingInteraction" | "workGraph" | "workItemsById"
+  > | null;
   isStalled: boolean;
-  workItems: Pick<ProviderTurnWorkItem, "kind" | "status">[];
-}): LoaderVariant {
-  if (!args.activity) {
-    return "signal";
-  }
-  if (args.activity.pendingInteraction) {
-    return "handoff";
-  }
+}): "stalled" | "waiting" | "working" {
   if (args.isStalled) {
-    return "signal";
+    return "stalled";
   }
-
-  const runningWorkItems = args.workItems.filter(
-    (item) => item.status === "running",
-  );
-  if (runningWorkItems.length > 1) {
-    return "parallel";
+  if (!args.activity || args.activity.pendingInteraction) {
+    return "working";
   }
-  if (runningWorkItems.some((item) => item.kind === "subagent")) {
-    return "handoff";
-  }
-  if (runningWorkItems.length > 0) {
-    return "steps";
-  }
-  return "pulse";
+  return resolveTurnWaitTarget(args.activity) ? "waiting" : "working";
 }
 
 export function promoteFirstPendingTodoForActiveTurn(

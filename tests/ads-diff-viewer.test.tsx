@@ -271,7 +271,7 @@ describe("highlightLineSpans", () => {
       "@/lib/syntax-highlight"
     );
     await getSyntaxHighlighter();
-    const spans = highlightLineSpans("const x = 1", "typescript", "github-dark");
+    const spans = highlightLineSpans("const x = 1", "typescript", "stave-code-dark");
     expect(spans.some((span) => span.text.includes("const") && span.color)).toBe(
       true,
     );

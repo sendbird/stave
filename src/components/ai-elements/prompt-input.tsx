@@ -25,10 +25,13 @@ import { promptInputStyles } from "./prompt-input.styles";
 import {
   isShortcutEchoInsertion,
   NO_PROMPT_HISTORY_SELECTION,
+  resolvePromptPlaceholder,
 } from "./prompt-input.utils";
 import { DEFAULT_PROMPT_COMMENT_SHORTCUT } from "@/lib/prompt-comment-shortcuts";
-import { DEFAULT_STEER_QUEUE_ENTER_ACTION } from "@/lib/steer-queue-shortcuts";
-import { resolvePromptInputPlaceholder } from "./prompt-input-submit-labels";
+import {
+  DEFAULT_STEER_QUEUE_ENTER_ACTION,
+  formatSteerQueueEnterActionLabel,
+} from "@/lib/steer-queue-shortcuts";
 import { PromptInputGoalStatusStrip } from "./prompt-input-goal-status";
 import { getPromptInputRuntimeProfile } from "./prompt-input-runtime-bar";
 import { Suggestion, Suggestions } from "./suggestion";
@@ -271,6 +274,13 @@ export function PromptInput(args: PromptInputProps) {
     focusToken,
     interactionsDisabled,
     isTurnActive,
+  });
+  const placeholder = resolvePromptPlaceholder({
+    minimal,
+    focused: isPromptInputFocused,
+    steerOrQueue: isSteerOrQueueMode,
+    queueNext: submitMode === "queue-next",
+    approvalRedirect: submitMode === "redirect-steer" ? "steer" : submitMode === "redirect-queue" ? "queue" : null,
   });
 
   const {
@@ -693,12 +703,15 @@ export function PromptInput(args: PromptInputProps) {
                           onEmptyEditorKey: hasDraftPayload ? undefined : onEmptyEditorKey,
                         })
                       }
-                      placeholder={resolvePromptInputPlaceholder({
-                        submitMode,
-                        minimal,
-                        focused: isPromptInputFocused,
-                        steerQueueEnterAction,
-                      })}
+                      placeholder={
+                        placeholder.kind === "none"
+                          ? ""
+                          : placeholder.kind === "steer-queue"
+                            ? formatSteerQueueEnterActionLabel(
+                                steerQueueEnterAction,
+                              )
+                            : i18n.t(placeholder.key)
+                      }
                       className={sx(
                         // Height and overflow belong to these classes alone.
                         // The editor is a `contenteditable` div, not a

@@ -274,7 +274,7 @@ export const branchDropdownStyles = stylex.create({
   optionSelectable: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
   },
-  optionDisabled: { cursor: "not-allowed", opacity: 0.7 },
+  optionDisabled: { cursor: "not-allowed", opacity: vars["--ads-opacity-disabled"] },
   optionIcon: { color: vars["--ads-color-text-muted"] },
   optionText: { flex: 1, minWidth: 0 },
   optionName: {

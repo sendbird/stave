@@ -17,13 +17,15 @@ export const STAGE_STATE_WORK_STATE: Record<StageState, WorkState> = {
 
 /**
  * The mark of a stage tone, drawn by `StateMark` in its state's color. Always
- * paired with text by the caller. It holds still: the run line and the stage
- * rows show activity in their text, so one thing moves.
+ * paired with text by the caller. It holds still in stage rows and cards, which
+ * show activity in their text; the composer's run line passes `moving` so a
+ * working run wears the same working motion a plain turn's run line does.
  */
 export function StageStatusIcon({
   tone,
   icon,
   state,
+  moving = false,
   xstyle,
 }: {
   tone: StageState;
@@ -31,7 +33,9 @@ export function StageStatusIcon({
   icon?: LucideIcon;
   /** The work state to draw, when the tone alone is not specific enough (stopped). */
   state?: WorkState;
+  /** Draws a working stage with the working motion. */
+  moving?: boolean;
 } & XstyleProp) {
   useTranslation();
-  return <StateMark state={state ?? STAGE_STATE_WORK_STATE[tone]} icon={icon} motion="still" xstyle={xstyle} />;
+  return <StateMark state={state ?? STAGE_STATE_WORK_STATE[tone]} icon={icon} motion={moving ? "moving" : "still"} xstyle={xstyle} />;
 }

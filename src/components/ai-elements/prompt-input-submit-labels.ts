@@ -1,46 +1,8 @@
 import { i18n } from "@/i18n";
-import {
-  formatSteerQueueEnterActionLabel,
-  type SteerQueueEnterAction,
-} from "@/lib/steer-queue-shortcuts";
+import type { SteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import type { PromptInputProps } from "./prompt-input.types";
 
 type PromptInputSubmitMode = NonNullable<PromptInputProps["submitMode"]>;
-
-/**
- * The editor placeholder for a submit mode. Call while rendering: the copy
- * follows the active language.
- */
-export function resolvePromptInputPlaceholder(args: {
-  submitMode: PromptInputSubmitMode;
-  minimal: boolean;
-  focused: boolean;
-  steerQueueEnterAction: SteerQueueEnterAction;
-}): string {
-  if (args.minimal && args.focused) {
-    return "";
-  }
-  switch (args.submitMode) {
-    case "redirect-steer":
-      return args.minimal
-        ? i18n.t("composer:promptInput.approvalRedirectPlaceholderSteerShort")
-        : i18n.t("composer:promptInput.approvalRedirectPlaceholderSteer");
-    case "redirect-queue":
-      return args.minimal
-        ? i18n.t("composer:promptInput.approvalRedirectPlaceholderQueueShort")
-        : i18n.t("composer:promptInput.approvalRedirectPlaceholderQueue");
-    case "steer-or-queue":
-      return formatSteerQueueEnterActionLabel(args.steerQueueEnterAction);
-    case "queue-next":
-      return args.minimal
-        ? i18n.t("composer:promptInput.placeholder")
-        : i18n.t("composer:promptInput.placeholder3");
-    case "send":
-      return args.minimal
-        ? i18n.t("composer:promptInput.placeholder2")
-        : i18n.t("composer:promptInput.placeholder4");
-  }
-}
 
 /** The send button's accessible name and the tooltip line beside its ↵ key. */
 export function resolvePromptInputSendLabels(args: {

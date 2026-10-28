@@ -185,7 +185,7 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
     activity.getByTestId("turn-activity-loader").locator(".stave-loader"),
   ).toHaveAttribute(
     "data-loader-variant",
-    "handoff",
+    "matrix",
   );
   const executionSummary = activity.getByRole("region", {
     name: "Task execution summary",

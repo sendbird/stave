@@ -151,11 +151,21 @@ export function startProviderTurnActivity(args: {
   providerId: ProviderId;
   pendingInteraction?: ProviderTurnPendingInteraction;
   now?: number;
+  /**
+   * When the turn really began, for a turn the renderer adopts mid-run (a
+   * reload, a host-owned turn it first hears about). Only the run time reads
+   * it; liveness still starts at `now`, so a stall is measured from adoption.
+   */
+  startedAt?: number;
 }) {
   const now = args.now ?? Date.now();
   const current = args.activityByTask[args.taskId];
   const isSameTurn = current?.turnId === args.turnId;
-  const startedAt = isSameTurn ? current.startedAt : now;
+  const startedAt = isSameTurn
+    ? current.startedAt
+    : args.startedAt !== undefined && Number.isFinite(args.startedAt)
+      ? Math.min(args.startedAt, now)
+      : now;
   return {
     ...args.activityByTask,
     [args.taskId]: {

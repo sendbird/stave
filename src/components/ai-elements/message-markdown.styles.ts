@@ -194,10 +194,9 @@ export const markdownStyles = stylex.create({
   inlineCode: {
     marginInline: vars["--ads-space-2"],
     borderRadius: vars["--ads-radius-mark"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 80%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas-subtle"]} 40%, transparent)`,
+    // A soft ink wash and no outline: translucent, so the span reads the same
+    // on the transcript and inside the user bubble.
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text"]} 6%, transparent)`,
     paddingInline: 6,
     paddingBlock: vars["--ads-space-2"],
     fontFamily: vars["--ads-font-mono"],
@@ -219,7 +218,9 @@ export const markdownStyles = stylex.create({
     tableLayout: "fixed",
     borderCollapse: "separate",
     borderSpacing: 0,
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
+    // Clips the header and row washes to the rounded corners.
+    overflow: "hidden",
     borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "solid",
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,

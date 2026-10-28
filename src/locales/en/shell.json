@@ -483,6 +483,21 @@
     "syncBranch": "Sync {{branch}}",
     "remote": "Remote"
   },
+  "taskStatusAnnouncer": {
+    "working": "Working",
+    "needsInput": "Needs your input",
+    "needsApproval": "Needs approval",
+    "done": "Done",
+    "failed": "Failed",
+    "stopped": "Stopped"
+  },
+  "commandPaletteLeaves": {
+    "section": "Options",
+    "current": "Current",
+    "appearance": "Appearance: {{name}}",
+    "theme": "Theme: {{name}}",
+    "newTaskIn": "New task in {{name}}"
+  },
   "commandPaletteRegistry": {
     "pinned": "Pinned",
     "suggested": "Suggested",
@@ -733,7 +748,11 @@
     "focusTheTerminalPaneCreatingOneIf": "Focus the terminal pane (creating one if needed), or return to the previous tab.",
     "disabled": "Disabled",
     "askSideQuestion": "Ask a side question",
-    "askSideQuestionDescription": "Open the side question panel for the active task; asking does not interrupt its turn."
+    "askSideQuestionDescription": "Open the side question panel for the active task; asking does not interrupt its turn.",
+    "increaseEffort": "Increase effort",
+    "increaseEffortDescription": "Raise the composer's reasoning effort one level for the selected model. Does nothing while a request or question is waiting for you.",
+    "decreaseEffort": "Decrease effort",
+    "decreaseEffortDescription": "Lower the composer's reasoning effort one level for the selected model. Does nothing while a request or question is waiting for you."
   },
   "commands": {
     "slashCommands": "{{value1}} slash commands",
