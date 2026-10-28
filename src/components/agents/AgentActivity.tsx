@@ -20,7 +20,9 @@ import {
   type AgentActivitySummary,
 } from "@/lib/agents/agent-activity";
 import { formatTimeAgo } from "@/i18n/format";
-import { classifyTaskStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
+import { classifyTaskStatus, resolveFleetTaskSurfaceStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
+import { useFleetAttentionStore } from "@/store/fleet-attention-store";
+import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
@@ -40,6 +42,7 @@ import { agentStyles } from "./agents.styles";
  */
 function useStatusByTaskId(
   tasks: ReadonlyArray<{ taskId: string; workspaceId: string | null }>,
+  currentFailureTaskIds: ReadonlySet<string>,
 ): Record<string, FleetTaskStatus> {
   const key = JSON.stringify(tasks.map((entry) => [entry.taskId, entry.workspaceId]));
   const entries = useMemo(() => JSON.parse(key) as Array<[string, string | null]>, [key]);
@@ -54,16 +57,20 @@ function useStatusByTaskId(
           if (!session) continue;
           const task = session.tasks.find((candidate) => candidate.id === id);
           if (!task) continue;
-          byId[id] = classifyTaskStatus({
+          byId[id] = resolveFleetTaskSurfaceStatus({
+            hasCurrentFailure: currentFailureTaskIds.has(id),
+            activeTurnId: session.activeTurnIdsByTask[id],
+            status: classifyTaskStatus({
             task,
             messages: session.messagesByTask[id] ?? [],
             activeTurnId: session.activeTurnIdsByTask[id] ?? null,
             activity: state.providerTurnActivityByTask[id] ?? null,
+            }),
           });
         }
         return JSON.stringify(byId);
       },
-      [entries],
+      [entries, currentFailureTaskIds],
     ),
   );
   return useMemo(() => JSON.parse(serialized) as Record<string, FleetTaskStatus>, [serialized]);
@@ -143,19 +150,25 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
     () => props.assignments.flatMap((row) => (row.taskId ? [{ taskId: row.taskId, workspaceId: row.workspaceId }] : [])),
     [props.assignments],
   );
-  const statusByTaskId = useStatusByTaskId(tasks);
+  const attentionItems = useFleetAttentionStore((state) => state.snapshot.items);
+  const attentionKindByTaskId = useMemo(() => Object.fromEntries(
+    [...attentionItems].reverse().filter((item) => item.taskId).map((item) => [item.taskId!, item.kind]),
+  ), [attentionItems]);
+  const currentFailureTaskIds = useMemo(() => new Set(attentionItems.filter((item) => item.kind === "run-failed").map((item) => item.taskId!)), [attentionItems]);
+  const statusByTaskId = useStatusByTaskId(tasks, currentFailureTaskIds);
   const runByTaskId = useRunByTaskId();
   const summary = useMemo(
-    () => summarizeAgentActivity({ assignments: props.assignments, statusByTaskId }),
-    [props.assignments, statusByTaskId],
+    () => summarizeAgentActivity({ assignments: props.assignments, statusByTaskId, attentionKindByTaskId }),
+    [props.assignments, statusByTaskId, attentionKindByTaskId],
   );
   const filtered = useMemo(
     () =>
       orderAgentActivityRows(
         props.assignments.filter((row) => matchesAgentActivityFilter(row.state, filter)),
         statusByTaskId,
+        attentionKindByTaskId,
       ),
-    [props.assignments, filter, statusByTaskId],
+    [props.assignments, filter, statusByTaskId, attentionKindByTaskId],
   );
 
   // An agent that was never assigned has no activity to show; the page starts at its settings.

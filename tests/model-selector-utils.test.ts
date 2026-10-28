@@ -37,8 +37,9 @@ describe("model selector utils", () => {
           label: "Claude Haiku 5.5",
         }),
         expect.objectContaining({
-          key: "codex:gpt-5.6-terra",
-          model: "gpt-5.6-terra",
+          key: "codex:gpt-6.1-terra",
+          model: "gpt-6.1-terra",
+          label: "GPT-6.1 Terra",
           providerId: "codex",
         }),
         expect.objectContaining({

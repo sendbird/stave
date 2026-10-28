@@ -130,7 +130,8 @@ export async function clearFleetAttentionSnoozes(
     (row) =>
       !(
         (!attentionIds || attentionIds.has(row.attentionId)) &&
-        (!workspaceIds || workspaceIds.has(row.workspaceId))
+        (!workspaceIds || workspaceIds.has(row.workspaceId)) &&
+        (args.expectedSnoozedUntil === undefined || row.snoozedUntil === args.expectedSnoozedUntil)
       ),
   );
   writeFallbackRows(kept);

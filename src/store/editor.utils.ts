@@ -174,6 +174,8 @@ export function applyApprovalState(args: {
   requestId: string;
   approved: boolean;
   resolution?: ApprovalResolution;
+  /** Close the request unanswered: the provider can no longer take an answer. */
+  interrupted?: true;
 }): {
   messagesByTask: Record<string, ChatMessage[]>;
   workspaceSnapshotVersion: number;
@@ -192,6 +194,7 @@ export function applyApprovalState(args: {
             requestId: args.requestId,
             approved: args.approved,
             resolution: args.resolution,
+            ...(args.interrupted ? { interrupted: true as const } : {}),
           }),
         }),
       }),

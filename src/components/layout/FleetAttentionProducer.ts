@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { buildFleetInbox } from "@/lib/fleet/inbox-model";
+import { buildFleetInbox, countHiddenFleetAttention } from "@/lib/fleet/inbox-model";
 import {
   buildFleetAttentionProjection,
   getFleetAttentionTaskKey,
@@ -9,7 +9,7 @@ import {
   type FleetPrWorkspaceInput,
 } from "@/lib/fleet/attention-projection";
 import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
-import { isTaskArchived } from "@/lib/tasks";
+import { isTaskArchived, isExternallyManagedTask } from "@/lib/tasks";
 import { useAppStore } from "@/store/app.store";
 import type { Task } from "@/types/chat";
 import { hasDurableResultReviewStore } from "@/lib/reviews/result-review-client";
@@ -93,11 +93,12 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
   );
 
   const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
+  const agentRunsLoaded = useFleetAgentRunsStore((state) => state.loaded);
   const reviewWorkspaceIds = useMemo(() => Array.from(new Set([
     ...workspaces.map((workspace) => workspace.id),
     ...recentRepositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)),
   ])).sort(), [workspaces, recentRepositories]);
-  const reviews = useResultReviews({ pendingOnly: true, limit: 200, workspaceIds: reviewWorkspaceIds, includeEvidence: false });
+  const reviews = useResultReviews({ pendingOnly: true, latestPerTask: true, limit: 200, workspaceIds: reviewWorkspaceIds, includeEvidence: false });
   /**
    * Handing `resultReviews` to the projection makes durable results own
    * `result-ready` / `run-failed` attention outright, so a reviewed result stays
@@ -109,6 +110,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
    */
   const durableResultStore = hasDurableResultReviewStore();
   const snoozes = useFleetAttentionSnoozes();
+  const snoozedAttentionIds = useMemo(() => [...snoozes.activeIds], [snoozes.activeIds]);
 
   const coldNotificationWorkspaceIds = useMemo(() => {
     const knownWorkspaceIds = new Set(
@@ -144,10 +146,12 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
   const [closedTaskKeysFromShell, setClosedTaskKeysFromShell] = useState<
     ReadonlySet<string>
   >(EMPTY_CLOSED_TASK_KEYS);
+  const [suppressedOutcomeTaskKeysFromShell, setSuppressedOutcomeTaskKeysFromShell] = useState<ReadonlySet<string>>(EMPTY_CLOSED_TASK_KEYS);
 
   useEffect(() => {
     if (coldNotificationWorkspaceIds.length === 0) {
       setClosedTaskKeysFromShell(EMPTY_CLOSED_TASK_KEYS);
+      setSuppressedOutcomeTaskKeysFromShell(EMPTY_CLOSED_TASK_KEYS);
       return;
     }
     let cancelled = false;
@@ -161,8 +165,10 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
         return;
       }
       const closedTaskKeys = new Set<string>();
+      const suppressedOutcomeTaskKeys = new Set<string>();
       for (const { workspaceId, tasks } of workspacesWithTasks) {
         for (const task of tasks ?? []) {
+          if (isExternallyManagedTask(task)) suppressedOutcomeTaskKeys.add(getFleetAttentionTaskKey(workspaceId, task.id));
           if (isTaskArchived(task)) {
             closedTaskKeys.add(getFleetAttentionTaskKey(workspaceId, task.id));
           }
@@ -171,6 +177,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
       setClosedTaskKeysFromShell(
         closedTaskKeys.size > 0 ? closedTaskKeys : EMPTY_CLOSED_TASK_KEYS,
       );
+      setSuppressedOutcomeTaskKeysFromShell(suppressedOutcomeTaskKeys.size ? suppressedOutcomeTaskKeys : EMPTY_CLOSED_TASK_KEYS);
     });
     return () => {
       cancelled = true;
@@ -263,12 +270,25 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
       prWorkspaces,
       knownWorkspaceIds: new Set(identityByWorkspaceId.keys()),
       closedTaskKeys: closedTaskKeysFromShell,
+      suppressedOutcomeTaskKeys: suppressedOutcomeTaskKeysFromShell,
       snoozedAttentionIds: snoozes.activeIds,
     });
 
     return {
       ...projection,
-      inbox: buildFleetInbox({ items: projection.items, notifications }),
+      snoozedAttentionIds,
+      snoozedCount: countHiddenFleetAttention({ snoozedItems: projection.snoozedItems, notifications,
+        agentRunsAuthoritative: agentRunsLoaded,
+        activeIds: snoozes.activeIds, knownAgentRunIds: new Set(Object.keys(agentRunDetails)) }),
+      inbox: buildFleetInbox({
+        items: projection.items,
+        snoozedItems: projection.snoozedItems,
+        notifications,
+        attentionAuthoritative: durableResultStore ? reviews.loaded && !reviews.error : notificationsLoadStatus === "ready",
+        knownAgentRunIds: new Set(Object.keys(agentRunDetails)),
+        agentRunsAuthoritative: agentRunsLoaded,
+        snoozedAttentionIds: snoozes.activeIds,
+      }),
       queueStatus: resolveFleetQueueStatus({
         blockingCount: projection.blockingItems.length,
         itemCount: projection.items.length,
@@ -295,6 +315,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
     activeTurnIdsByTask,
     activeWorkspaceId,
     closedTaskKeysFromShell,
+    suppressedOutcomeTaskKeysFromShell,
     currentRepositoryName,
     currentRepositoryPath,
     durableResultStore,
@@ -310,9 +331,11 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
     reviews.loaded,
     reviews.refresh,
     snoozes.activeIds,
+    snoozedAttentionIds,
     snoozes.error,
     snoozes.refresh,
     agentRunDetails,
+    agentRunsLoaded,
   ]);
 }
 

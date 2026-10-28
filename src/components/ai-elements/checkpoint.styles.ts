@@ -54,7 +54,7 @@ export const checkpointStyles = stylex.create({
   },
 
   action: {
-    height: 20,
+    height: vars["--ads-space-24"],
     paddingInline: "0.375rem",
     fontSize: `max(0.6875em, ${vars["--ads-font-size-caption"]})`,
   },

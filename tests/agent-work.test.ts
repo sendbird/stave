@@ -50,6 +50,7 @@ describe("collectAgentsWithWork", () => {
         // t3 has no agent assignment and must be ignored.
       },
       tasks: [task("t1"), task("t2"), task("t3")],
+      attentionKindByTaskId: { t1: "approval", t2: "approval" },
       messagesByTask: { t1: [waitingMessage()], t2: [waitingMessage()] },
       activeTurnIdsByTask: {},
       providerTurnActivityByTask: {},
@@ -69,6 +70,7 @@ describe("collectAgentsWithWork", () => {
     const result = collectAgentsWithWork({
       byTaskId: { t1: { ...agent("planner", "Planner"), agentAppearance: { color: "violet" } } as TaskAgent },
       tasks: [task("t1")],
+      attentionKindByTaskId: { t1: "approval" },
       messagesByTask: { t1: [waitingMessage()] },
       activeTurnIdsByTask: {},
       providerTurnActivityByTask: {},
@@ -102,6 +104,7 @@ describe("collectAgentsWithWork", () => {
     }
     const result = collectAgentsWithWork({
       byTaskId,
+      attentionKindByTaskId: Object.fromEntries(Object.keys(byTaskId).map((id) => [id, "approval" as const])),
       tasks,
       messagesByTask,
       activeTurnIdsByTask: {},

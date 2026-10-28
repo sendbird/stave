@@ -59,7 +59,8 @@ describe("keybinding registry", () => {
 
   test("keeps every Cmd/Ctrl+K chord on its existing default key", () => {
     for (const [id, key] of Object.entries(DEFAULT_APP_SHORTCUT_KEYS)) {
-      expect(getKeybinding(id)?.keys).toEqual([`mod+k mod?+${key}`]);
+      // An empty default ships the chord unbound until Settings assigns it.
+      expect(getKeybinding(id)?.keys).toEqual(key ? [`mod+k mod?+${key}`] : []);
     }
   });
 

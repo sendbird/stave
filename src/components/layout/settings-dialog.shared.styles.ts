@@ -260,8 +260,8 @@ export const settingsSharedStyles = stylex.create({
     fontWeight: vars["--ads-font-weight-medium"],
   },
   radioDescription: {
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-body"],
-    opacity: 0.75,
   },
   radioInline: {
     alignItems: "center",

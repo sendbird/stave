@@ -22,6 +22,7 @@ import {
   navigateSurfaceHistory,
   startSurfaceHistoryTracking,
 } from "@/components/panes/surface-history-runtime";
+import { requestComposerEffortStep } from "@/components/session/composer-effort-step";
 import type { AppShortcutCommandId } from "@/lib/app-shortcuts";
 import { runPendingUndo } from "@/lib/notifications/pending-undo";
 import { buildPanePanelId } from "@/lib/panes/types";
@@ -115,6 +116,12 @@ function runAppChordAction(
     case "view.side-question":
       // Brings the task to the front first: the panel sits on the task's surface.
       openTaskSideQuestion(store.activeTaskId);
+      return;
+    case "composer.increase-effort":
+      requestComposerEffortStep(1);
+      return;
+    case "composer.decrease-effort":
+      requestComposerEffortStep(-1);
       return;
   }
 }

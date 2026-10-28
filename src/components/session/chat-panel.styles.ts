@@ -179,7 +179,7 @@ export const chatPanelStyles = stylex.create({
       "@media (min-width: 40rem)": vars["--ads-space-16"],
     },
   },
-  loadOlderButton: { height: 32, borderRadius: vars["--ads-radius-mark"] },
+  loadOlderButton: { height: 32, borderRadius: vars["--ads-radius-control"] },
   loadOlderFailed: {
     alignSelf: "center",
     color: vars["--ads-color-danger-text"],

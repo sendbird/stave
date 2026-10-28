@@ -40,6 +40,18 @@ function input(detail: AgentRunDetail): FleetAgentRunInput {
 }
 
 describe("run attention in Fleet", () => {
+  test("a new blocker episode is not hidden by the previous episode's snooze", () => {
+    const old = atBuild("blocked", "episodes");
+    const previous = collectFleetAgentRunAttentionItems([input(old)])[0]!;
+    const next = structuredClone(old);
+    next.stages.find((record) => record.stageId === "build")!.reportRevision += 1;
+    const projection = buildFleetAttentionProjection({
+      notifications: [], liveWorkspaces: [], prWorkspaces: [], agentRuns: [input(next)],
+      snoozedAttentionIds: new Set([previous.id]),
+    });
+    expect(projection.blockingItems).toHaveLength(1);
+    expect(projection.blockingItems[0]!.id).not.toBe(previous.id);
+  });
   test("a sign-off, a blocker and a stuck stage each become a blocking row", () => {
     const items = collectFleetAgentRunAttentionItems([
       input(atBuild("awaiting-sign-off", "m-sign")),

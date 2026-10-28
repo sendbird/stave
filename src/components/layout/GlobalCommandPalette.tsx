@@ -24,23 +24,42 @@ import {
   Kbd,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { listAllCustomThemes } from "@/lib/themes/apply";
 import {
   buildCommandPaletteGroups,
   recordRecentCommandPaletteAction,
   searchCommandPaletteGroups,
   toggleCommandPalettePinnedAction,
+  type CommandPaletteAction,
   type CommandPaletteRuntimeContext,
 } from "@/components/layout/command-palette-registry";
 import { useAppStore } from "@/store/app.store";
 import {
+  buildCommandPaletteLeaves,
+  rankCommandPaletteLeaves,
+  startTaskInRepository,
+  type CommandPaletteLeaf,
+  type CommandPaletteLocation,
+} from "./command-palette-leaves";
+import {
   filterSectionsForTaskScope,
   openTaskSearchResult,
   renderTaskSearchGroup,
-  taskSearchItemValue,
   usePaletteTaskSearch,
   type PaletteTaskScope,
 } from "./command-palette-task-search";
 import { commandPaletteStyles } from "./global-command-palette.styles";
+
+const NO_LEAVES: readonly CommandPaletteLeaf[] = [];
+
+function readPaletteLocation(): CommandPaletteLocation {
+  const state = useAppStore.getState();
+  return {
+    repositoryPath: state.repositoryPath,
+    activeWorkspaceId: state.activeWorkspaceId,
+    workspaceIds: state.workspaces.map((workspace) => workspace.id),
+  };
+}
 
 interface GlobalCommandPaletteProps {
   open: boolean;
@@ -65,12 +84,42 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
     () => filterSectionsForTaskScope(searchCommandPaletteGroups({ groups: sections, query }), taskScope),
     [query, sections, taskScope],
   );
+  // Options inside commands (a theme, an appearance mode, a repository to
+  // start a task in). Built once per palette context, ranked per keystroke.
+  const userCustomThemes = useAppStore((state) => state.settings.userCustomThemes);
+  const themeMode = useAppStore((state) => state.settings.themeMode);
+  const customThemeId = useAppStore((state) => state.settings.customThemeId);
+  const { commands, repositories } = args.runtimeContext;
+  const leaves = useMemo(
+    () =>
+      args.open
+        ? buildCommandPaletteLeaves({
+            themes: listAllCustomThemes({ userThemes: userCustomThemes }),
+            activeThemeId: customThemeId,
+            appearanceMode: themeMode,
+            repositories,
+            actions: {
+              applyTheme: (themeId) => updateSettings({ patch: { customThemeId: themeId } }),
+              setAppearanceMode: (mode) =>
+                updateSettings({ patch: { themeMode: mode, customThemeId: null } }),
+              newTaskInRepository: async (repository) => {
+                await startTaskInRepository({
+                  repository,
+                  openRepository: commands.openRepository,
+                  createTask: commands.createTask,
+                  readLocation: readPaletteLocation,
+                });
+              },
+            },
+          })
+        : NO_LEAVES,
+    [args.open, commands, customThemeId, i18n.language, repositories, themeMode, updateSettings, userCustomThemes],
+  );
+  const leafSuggestions = useMemo(
+    () => rankCommandPaletteLeaves({ leaves, query }),
+    [leaves, query],
+  );
   const searchResultCount = taskSearch.status === "idle" ? 0 : taskSearch.results.length;
-  // A fresh search across repositories starts on its best match.
-  const firstSearchResult = taskSearch.status === "ready" ? taskSearch.results[0] : undefined;
-  useEffect(() => {
-    if (firstSearchResult) setSelectedActionId(taskSearchItemValue(firstSearchResult));
-  }, [firstSearchResult]);
   const actionById = useMemo(
     () =>
       new Map(
@@ -80,7 +129,20 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       ),
     [sections],
   );
-  const selectedAction = actionById.get(selectedActionId);
+  const visibleActionIds = useMemo(
+    () =>
+      new Set(
+        visibleSections.flatMap((section) =>
+          section.items.map((action) => action.id),
+        ),
+      ),
+    [visibleSections],
+  );
+  // Only a command on screen can be pinned; an option or a command the query
+  // filtered away cannot.
+  const selectedAction = visibleActionIds.has(selectedActionId)
+    ? actionById.get(selectedActionId)
+    : undefined;
   const selectedActionIsPinned = Boolean(
     selectedAction &&
     args.runtimeContext.preferences.pinnedIds.includes(selectedAction.id),
@@ -97,8 +159,8 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       visibleSections.reduce(
         (count, section) => count + section.items.length,
         0,
-      ) + searchResultCount,
-    [searchResultCount, visibleSections],
+      ) + searchResultCount + leafSuggestions.length,
+    [leafSuggestions.length, searchResultCount, visibleSections],
   );
 
   useEffect(() => {
@@ -151,6 +213,86 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
     [toggleSelectedActionPin],
   );
 
+  const renderAction = (
+    action: CommandPaletteAction,
+    options: { recordRecent: boolean },
+  ) => {
+    const Icon = action.icon;
+    return (
+      <CommandItem
+        key={action.id}
+        value={action.id}
+        onSelect={() => {
+          args.onOpenChange(false);
+          // Leaves are rebuilt per context, so only commands are remembered.
+          if (options.recordRecent) {
+            updateSettings({
+              patch: {
+                commandPaletteRecentCommandIds:
+                  recordRecentCommandPaletteAction({
+                    commandId: action.id,
+                    recentIds:
+                      args.runtimeContext.preferences.recentIds,
+                  }),
+              },
+            });
+          }
+          void action.run();
+        }}
+        className={sx(commandPaletteStyles.item)}
+      >
+        {action.providerIcon ? (
+          <div className={sx(commandPaletteStyles.itemIconBox)}>
+            <ModelIcon
+              providerId={action.providerIcon}
+              className={sx(commandPaletteStyles.itemIcon)}
+            />
+          </div>
+        ) : Icon ? (
+          <div
+            className={sx(
+              commandPaletteStyles.itemIconBox,
+              commandPaletteStyles.itemIconBoxMuted,
+            )}
+          >
+            <Icon className={sx(commandPaletteStyles.itemIcon)} />
+          </div>
+        ) : null}
+        <div className={sx(commandPaletteStyles.itemBody)}>
+          <div className={sx(commandPaletteStyles.itemTitleRow)}>
+            <span className={sx(commandPaletteStyles.itemTitle)}>
+              {action.title}
+            </span>
+            {action.source === "contributed" ? (
+              <Badge
+                variant="outline"
+                className={sx(commandPaletteStyles.extBadge)}
+              >
+                {i18n.t("shell:globalCommandPalette.ext")}
+              </Badge>
+            ) : null}
+            {action.contextLabel ? (
+              <Badge
+                variant="secondary"
+                className={sx(commandPaletteStyles.contextBadge)}
+              >
+                {action.contextLabel}
+              </Badge>
+            ) : null}
+          </div>
+          {action.subtitle ? (
+            <p className={sx(commandPaletteStyles.itemSubtitle)}>
+              {action.subtitle}
+            </p>
+          ) : null}
+        </div>
+        {action.shortcut ? (
+          <CommandShortcut>{action.shortcut}</CommandShortcut>
+        ) : null}
+      </CommandItem>
+    );
+  };
+
   return (
     <CommandDialog
       open={args.open}
@@ -164,7 +306,10 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
         className={sx(commandPaletteStyles.frame)}
         shouldFilter={false}
         loop
-        value={selectedActionId}
+        // The list's own highlight is the one selection: it is the row drawn
+        // as selected, the row Enter runs and the row Alt+P pins. A new query
+        // or a new result list starts on the first row (suggested options
+        // lead, so they come ahead of older task results still on screen).
         onValueChange={setSelectedActionId}
         onKeyDown={handleCommandKeyDown}
       >
@@ -208,7 +353,9 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
             every result list, which is the blank band that appeared between the
             query row and the first group.
           */}
-          {visibleSections.length === 0 && taskScope === "workspace" ? (
+          {visibleSections.length === 0 &&
+          leafSuggestions.length === 0 &&
+          taskScope === "workspace" ? (
             <CommandEmpty className={sx(commandPaletteStyles.empty)}>
               <p className={sx(commandPaletteStyles.emptyTitle)}>
                 {query.trim()
@@ -221,6 +368,16 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                   : i18n.t("shell:globalCommandPalette.openARepositoryOrTaskToMake")}
               </p>
             </CommandEmpty>
+          ) : null}
+          {leafSuggestions.length > 0 ? (
+            <CommandGroup
+              heading={i18n.t("shell:commandPaletteLeaves.section")}
+              className={sx(commandPaletteStyles.group)}
+            >
+              {leafSuggestions.map((leaf) =>
+                renderAction(leaf, { recordRecent: false }),
+              )}
+            </CommandGroup>
           ) : null}
           {taskScope === "all"
             ? renderTaskSearchGroup({
@@ -238,79 +395,9 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               heading={section.title}
               className={sx(commandPaletteStyles.group)}
             >
-              {section.items.map((action) => {
-                const Icon = action.icon;
-                return (
-                  <CommandItem
-                    key={action.id}
-                    value={action.id}
-                    onSelect={() => {
-                      args.onOpenChange(false);
-                      updateSettings({
-                        patch: {
-                          commandPaletteRecentCommandIds:
-                            recordRecentCommandPaletteAction({
-                              commandId: action.id,
-                              recentIds:
-                                args.runtimeContext.preferences.recentIds,
-                            }),
-                        },
-                      });
-                      void action.run();
-                    }}
-                    className={sx(commandPaletteStyles.item)}
-                  >
-                    {action.providerIcon ? (
-                      <div className={sx(commandPaletteStyles.itemIconBox)}>
-                        <ModelIcon
-                          providerId={action.providerIcon}
-                          className={sx(commandPaletteStyles.itemIcon)}
-                        />
-                      </div>
-                    ) : Icon ? (
-                      <div
-                        className={sx(
-                          commandPaletteStyles.itemIconBox,
-                          commandPaletteStyles.itemIconBoxMuted,
-                        )}
-                      >
-                        <Icon className={sx(commandPaletteStyles.itemIcon)} />
-                      </div>
-                    ) : null}
-                    <div className={sx(commandPaletteStyles.itemBody)}>
-                      <div className={sx(commandPaletteStyles.itemTitleRow)}>
-                        <span className={sx(commandPaletteStyles.itemTitle)}>
-                          {action.title}
-                        </span>
-                        {action.source === "contributed" ? (
-                          <Badge
-                            variant="outline"
-                            className={sx(commandPaletteStyles.extBadge)}
-                          >
-                            {i18n.t("shell:globalCommandPalette.ext")}
-                          </Badge>
-                        ) : null}
-                        {action.contextLabel ? (
-                          <Badge
-                            variant="secondary"
-                            className={sx(commandPaletteStyles.contextBadge)}
-                          >
-                            {action.contextLabel}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      {action.subtitle ? (
-                        <p className={sx(commandPaletteStyles.itemSubtitle)}>
-                          {action.subtitle}
-                        </p>
-                      ) : null}
-                    </div>
-                    {action.shortcut ? (
-                      <CommandShortcut>{action.shortcut}</CommandShortcut>
-                    ) : null}
-                  </CommandItem>
-                );
-              })}
+              {section.items.map((action) =>
+                renderAction(action, { recordRecent: true }),
+              )}
             </CommandGroup>
           ))}
         </CommandList>

@@ -123,6 +123,22 @@ function appChord<TId extends AppShortcutCommandId>(
   };
 }
 
+/** A `Cmd/Ctrl+K` chord that ships without a key; Settings assigns one. */
+function unboundAppChord<TId extends AppShortcutCommandId>(
+  id: TId,
+  entry: Pick<KeybindingEntry, "titleKey" | "descriptionKey" | "section">,
+): KeybindingEntry & { id: TId } {
+  return {
+    id,
+    keys: [],
+    scope: "global",
+    editable: "allow",
+    handledBy: [APP_SHELL],
+    customization: "app-chord",
+    ...entry,
+  };
+}
+
 export const KEYBINDING_SECTION_ORDER: readonly KeybindingSectionId[] = [
   "navigation",
   "tabs",
@@ -524,6 +540,17 @@ export const KEYBINDING_REGISTRY = [
     handledBy: [PROMPT_INPUT],
     customization: "model-slots",
   },
+  // Unbound until the user picks a letter for them under Shell chords.
+  unboundAppChord("composer.increase-effort", {
+    titleKey: "shell:appShortcuts.increaseEffort",
+    descriptionKey: "shell:appShortcuts.increaseEffortDescription",
+    section: "models",
+  }),
+  unboundAppChord("composer.decrease-effort", {
+    titleKey: "shell:appShortcuts.decreaseEffort",
+    descriptionKey: "shell:appShortcuts.decreaseEffortDescription",
+    section: "models",
+  }),
 
   // ── presets ─────────────────────────────────────────────────────────────
   {

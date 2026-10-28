@@ -44,8 +44,17 @@ export interface PromptInputProps {
    * queues for after it finishes. Which key does which is controlled by
    * `steerQueueEnterAction`. Neither is a fallback for the other — see
    * `submitCurrentMessage`'s `intent` param.
+   *
+   * "redirect-steer" / "redirect-queue": approvals are pending and sending
+   * declines them first, then steers the message into the turn or queues it
+   * for the next one. Enter and the send button submit; Tab is not a shortcut.
    */
-  submitMode?: "send" | "queue-next" | "steer-or-queue";
+  submitMode?:
+    | "send"
+    | "queue-next"
+    | "steer-or-queue"
+    | "redirect-steer"
+    | "redirect-queue";
   promptBatch?: readonly PromptDraftBatchItem[];
   promptCommentShortcut?: PromptCommentShortcut;
   /**
@@ -176,4 +185,10 @@ export interface PromptInputProps {
   onStagePromptBatch?: () => void;
   onRemovePromptBatchItem?: (args: { itemId: string }) => void;
   onAbort?: () => void;
+  /**
+   * Enter or Tab pressed in an empty editor with no palette open. Return
+   * `true` to consume the key. While approvals are pending the composer uses
+   * it so the approval card's Enter and Tab shortcuts work from here too.
+   */
+  onEmptyEditorKey?: (key: "Enter" | "Tab") => boolean;
 }

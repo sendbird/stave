@@ -2,13 +2,13 @@ import { i18n, useTranslation } from "@/i18n";
 import {
   useCallback,
   useEffect,
+  useId,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Clarification } from "@/components/ads/components/Clarification";
 import type { ClarificationOutcome } from "@/components/ads/components/Clarification";
 import { Plan } from "@/components/ads/components/Plan";
@@ -16,10 +16,14 @@ import type {
   PlanStepItem,
   PlanStepStatus,
 } from "@/components/ads/components/Plan.parts";
-import { RadioGroup } from "@/components/ads/components/RadioGroup";
 import { TextField } from "@/components/ads/components/TextField";
 import { sx } from "@/components/ads/utils/stylex";
 import { getTodoProgress, type TodoStatus } from "@/lib/todo-progress";
+import {
+  QuestionOptionRow,
+  questionOptionRowStyles,
+} from "@/components/ai-elements/question-option-row";
+import { buildQuestionOptionRows } from "@/components/ai-elements/question-option-rows";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import {
@@ -203,9 +207,9 @@ function toClarificationOutcome(
  *
  * ADS `Clarification` owns the frame and nothing inside it, which is the right
  * seam: the frame is the same for every question, and the control is not. A
- * single-select question is a `RadioGroup` because the options are mutually
- * exclusive and all visible; a multi-select is a column of `Checkbox`es for the
- * same reason in the plural; a link notice asks for nothing and shows its link;
+ * question with options draws the same option rows as the answering panel —
+ * radios when the options are mutually exclusive, checkboxes when several can
+ * be picked; a link notice asks for nothing and shows its link;
  * everything else is a `TextField`, including the numeric types — the
  * provider's `number`/`integer` distinction is a validation rule it enforces
  * itself, and a spinner control would imply a range nobody stated.
@@ -221,6 +225,7 @@ function ClarificationField(args: {
 }) {
   useTranslation();
   const { disabled, onChange, question, values } = args;
+  const name = useId();
 
   if (question.inputType === "url_notice") {
     return (
@@ -235,51 +240,43 @@ function ClarificationField(args: {
   }
 
   if (question.options.length > 0) {
-    if (question.multiSelect === true) {
-      const selected = new Set(values);
-      return (
-        <fieldset className={sx(styles.fieldset)}>
-          <legend className={sx(styles.legend)}>{question.question}</legend>
-          {question.options.map((option) => {
-            const optionValue = option.value ?? option.label;
-            return (
-              <Checkbox
-                checked={selected.has(optionValue)}
-                description={option.description || undefined}
-                disabled={disabled}
-                key={optionValue}
-                label={option.label}
-                onCheckedChange={(next) => {
-                  const updated = new Set(selected);
-                  if (next) updated.add(optionValue);
-                  else updated.delete(optionValue);
-                  onChange(
-                    question.options
-                      .map((row) => row.value ?? row.label)
-                      .filter((row) => updated.has(row)),
-                  );
-                }}
-              />
-            );
-          })}
-        </fieldset>
-      );
-    }
-
+    const multiSelect = question.multiSelect === true;
+    // The transcript has no number-key handling, so its rows carry no keys.
+    const rows = buildQuestionOptionRows({
+      question,
+      selectedValues: values,
+      showShortcuts: false,
+    });
     return (
-      <RadioGroup
-        disabled={disabled}
-        label={question.question}
-        onValueChange={(next) =>
-          onChange(next == null || next === "" ? [] : [String(next)])
-        }
-        options={question.options.map((option) => ({
-          description: option.description || undefined,
-          label: option.label,
-          value: option.value ?? option.label,
-        }))}
-        value={values[0] ?? null}
-      />
+      <fieldset className={sx(styles.fieldset)}>
+        <legend className={sx(styles.legend)}>{question.question}</legend>
+        <div className={sx(questionOptionRowStyles.list)}>
+          {rows.map((row, index) => (
+            <QuestionOptionRow
+              disabled={disabled}
+              divided={index > 0}
+              key={row.value}
+              kind={multiSelect ? "checkbox" : "radio"}
+              name={name}
+              onChange={() => {
+                if (!multiSelect) {
+                  onChange([row.value]);
+                  return;
+                }
+                const updated = new Set(values);
+                if (updated.has(row.value)) updated.delete(row.value);
+                else updated.add(row.value);
+                onChange(
+                  rows
+                    .map((option) => option.value)
+                    .filter((value) => updated.has(value)),
+                );
+              }}
+              row={row}
+            />
+          ))}
+        </div>
+      </fieldset>
     );
   }
 

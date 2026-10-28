@@ -19,6 +19,7 @@ import {
   resolveDefaultCodexEffortForModel,
   toHumanModelName,
   type ModelTier,
+  upgradePinnedCodexTerraModel,
   upgradePinnedHaikuModel,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -221,6 +222,7 @@ const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   "gpt-6-luna": "light",
   "gpt-5.6-sol": "flagship",
   "gpt-5.5": "flagship",
+  "gpt-6.1-terra": "balanced",
   "gpt-5.6-terra": "balanced",
   "gpt-5.6-luna": "light",
 };
@@ -862,10 +864,14 @@ function normalizeStringList(value: unknown): string[] {
     .filter((entry, index, entries) => entry.length > 0 && entries.indexOf(entry) === index);
 }
 
-/** A stored allow-list can predate Haiku 5.5; a pinned Haiku 4.5 moves onto it. */
+/**
+ * A stored allow-list can predate Haiku 5.5 or GPT-6.1 Terra; a pinned Haiku
+ * 4.5 or GPT-5.6 Terra moves onto its successor on the same rung.
+ */
 function normalizeEligibleModelList(value: unknown): string[] {
   return normalizeStringList(
-    normalizeStringList(value).map((model) => upgradePinnedHaikuModel(model)),
+    normalizeStringList(value).map((model) =>
+      upgradePinnedCodexTerraModel(upgradePinnedHaikuModel(model))),
   );
 }
 

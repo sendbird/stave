@@ -13,8 +13,8 @@ function normalizeWorkspaceIds(values: readonly string[]) {
  * Decides which workspaces referenced by notification rows no longer exist.
  *
  * This deliberately lives in the main process. The renderer only ever holds a
- * capped, per-project slice of the inventory (`MAX_RECENT_PROJECTS` remembered
- * projects plus the active project's workspaces), and a workspace the host
+ * per-project snapshot of the inventory (the remembered repositories plus the
+ * active repository's workspaces), and a workspace the host
  * creates over MCP stays invisible to it until the next pull-based refresh.
  * Judging orphans from that snapshot deletes rows for workspaces that are
  * merely absent from it, which is unrecoverable.

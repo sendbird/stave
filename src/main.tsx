@@ -1,13 +1,21 @@
+// Keep first: it shows the recovery screen if any module below fails to load.
+import "@/components/system/renderer-recovery/install-renderer-recovery";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import "@/i18n";
+import "@/lib/renderer-recovery/recovery-i18n";
 import App from "@/App";
 import "@/components/ads/styles.css";
 import "@/globals.css";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
+import { RendererRecoveryRoot } from "@/components/system/renderer-recovery/RendererRecovery";
 import { installDevApiBridge } from "@/lib/dev-bridge";
+import { markRendererStarted } from "@/lib/renderer-recovery/renderer-recovery";
 
 installDevApiBridge();
+// Start-up is over: every module above evaluated. Later failures reach the
+// error boundary around the app instead.
+markRendererStarted();
 
 /*
  * Dev-only preview routes. A preview is rendered *instead of* `<App />`, so none
@@ -114,6 +122,10 @@ if (preview === "question-reply") {
   void import("@/dev/states-preview").then(({ StatesPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><StatesPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "sidebar-run-states") {
+  void import("@/dev/sidebar-run-states-preview").then(({ SidebarRunStatesPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><SidebarRunStatesPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "task-panel") {
   void import("@/dev/task-panel-preview").then(({ TaskPanelPreview }) => {
     root.render(
@@ -198,10 +210,12 @@ if (preview === "question-reply") {
   );
 } else {
   root.render(
-    <StrictMode>
-      <StaveDesignProvider>
-        <App />
-      </StaveDesignProvider>
-    </StrictMode>,
+    <RendererRecoveryRoot>
+      <StrictMode>
+        <StaveDesignProvider>
+          <App />
+        </StaveDesignProvider>
+      </StrictMode>
+    </RendererRecoveryRoot>,
   );
 }

@@ -3,6 +3,7 @@ import {
   getSyntaxHighlighter,
   highlightLineSpans,
   isSyntaxHighlighterReady,
+  syntaxThemeFor,
   type SyntaxSpan,
 } from "@/lib/syntax-highlight";
 import { useAppStore } from "@/store/app.store";
@@ -29,7 +30,7 @@ export function useDiffLineHighlighter(language?: string) {
     };
   }, [ready]);
 
-  const theme = isDark ? "github-dark" : "github-light";
+  const theme = syntaxThemeFor(isDark);
   return useCallback(
     (line: string, lang?: string): readonly SyntaxSpan[] =>
       highlightLineSpans(line, lang ?? language, theme),

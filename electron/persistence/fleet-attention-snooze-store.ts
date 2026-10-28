@@ -99,6 +99,10 @@ export class FleetAttentionSnoozeStore {
       );
       values.push(...args.workspaceIds);
     }
+    if (args.expectedSnoozedUntil !== undefined) {
+      predicates.push("snoozed_until = ?");
+      values.push(args.expectedSnoozedUntil);
+    }
     const where = predicates.length ? `WHERE ${predicates.join(" AND ")}` : "";
     const result = this.db
       .prepare(`DELETE FROM fleet_attention_snoozes ${where}`)

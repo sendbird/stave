@@ -47,11 +47,12 @@
     "ofTurnsReportedUSDNotAn": "전체 턴 {{value2}}개 중 {{value1}}개가 USD 비용을 보고했습니다 · 청구서가 아닙니다.",
     "historyDescription": "최신순 · {{zone}} · 페이지당 {{pageSize}}개. 턴을 펼치면 계정과 토큰 세부 정보를 볼 수 있습니다. 실행 중인 턴은 완료된 뒤 표시됩니다.",
     "noCompletedTurns": "선택한 범위에 완료된 턴이 없습니다.",
-    "historyMeasurements": "토큰 수에는 캐시 읽기가 포함되지 않습니다. USD 비용은 프로바이더가 보고한 값이며, 누락된 측정값은 0이 아닙니다."
+    "historyMeasurements": "토큰 수에는 캐시 읽기가 포함되지 않습니다. USD 비용은 프로바이더가 보고한 값이며, 누락된 측정값은 0이 아닙니다.",
+    "tokenCountingTitle": "토큰 집계 방식"
   },
   "usageQuota": {
     "accountQuota": "계정 할당량",
-    "latestObservedAccountLimitsIncludesUsage": "최근 관측한 계정 한도 · Stave 외부 사용량 포함 · 위 토큰 기간과 독립적",
+    "latestObservedAccountLimitsIncludesUsage": "최근 관측한 계정 한도 · Stave 외부 사용량 포함 · 선택한 기간과 무관",
     "readingQuota": "할당량 읽는 중…",
     "refreshQuota": "할당량 새로고침",
     "savedObservationsBelowMayBeOlder": "아래의 저장된 관측값은 오래되었을 수 있습니다.",
@@ -63,8 +64,6 @@
     "used": "사용됨",
     "olderObservation": " · 오래된 관측값",
     "usedVariant517a335e": "{{value1}} 사용됨{{value2}}",
-    "olderObservationVariant27f01b69": "오래된 관측값 · ",
-    "observed": "관측됨 · ",
     "chooseAProviderAndOneRegistered": "프로바이더와 등록된 계정을 선택하면 할당량을 새로고침합니다. 이 필터는 새 턴에 사용할 계정을 바꾸지 않습니다.",
     "hideQuotaHistory": "할당량 기록 숨기기",
     "showQuotaHistory": "할당량 기록 표시",
@@ -78,7 +77,16 @@
     "usedVariant285fdd": "사용량",
     "resets": "초기화",
     "previousObservations": "이전 관측값",
-    "nextObservations": "다음 관측값"
+    "nextObservations": "다음 관측값",
+    "windowElapsed": "기간의 {{percent}} 경과",
+    "paceExhausted": "모두 사용했습니다. 초기화 후 다시 사용할 수 있습니다.",
+    "paceRunsOut": "지금 속도면 {{time}}쯤 소진되어 초기화 {{lead}} 전에 막힙니다.",
+    "paceLasts": "지금 속도면 초기화 때 약 {{percent}}를 사용합니다.",
+    "paceAssumption": "추정치: 이 기간이 시작된 뒤의 평균 사용 속도가 유지된다고 가정합니다.",
+    "observedAgo": "{{ago}} 읽음",
+    "observedOlder": "이전 관측값 · {{ago}}",
+    "tightestLimit": "가장 먼저 닿는 한도",
+    "aboutTitle": "계정 할당량 안내"
   },
   "usageView": {
     "usageCouldNotBeRead": "사용량을 읽지 못했습니다.",
@@ -116,7 +124,10 @@
     "clearModelFilter": "모델 필터 지우기",
     "accountLabelsCouldNotBeLoaded": "계정 이름을 불러오지 못했습니다.",
     "retryAccounts": "계정 다시 불러오기",
-    "quotaCouldNotBeReadTry": "사용 한도를 읽지 못했습니다. 다시 시도하세요."
+    "quotaCouldNotBeReadTry": "사용 한도를 읽지 못했습니다. 다시 시도하세요.",
+    "readAt": "{{readAt}}에 읽었습니다",
+    "scopeTitle": "보고서 집계 범위",
+    "scopeBody": "토큰은 에이전트 및 MCP 작업을 포함한 완료된 Stave 턴만 집계합니다. 터미널 CLI와 다른 앱은 포함하지 않습니다. 실행 계정 근거가 없는 기록은 계정 미확인으로 유지합니다."
   },
   "usageViewUtils": {
     "lastDays": "최근 7일",
@@ -149,17 +160,16 @@
     "timeZoneHeading": "시간 ({{zone}})",
     "quotaRemaining": "{{percent}} 남음",
     "observedZoneHeading": "관측 ({{zone}})",
-    "reportScope": "{{readAt}}에 읽었습니다 · 토큰은 에이전트 및 MCP 작업을 포함한 완료된 Stave 턴만 집계합니다. 터미널 CLI와 다른 앱은 포함하지 않습니다. 실행 계정 근거가 없는 기록은 계정 미확인으로 유지합니다.",
     "reportPeriod": "{{from}} – {{to}} · {{zone}} · 필터는 이 보고서에만 적용합니다.",
     "quotaUsed": "{{percent}} 사용",
-    "quotaUsedOlder": "{{percent}} 사용 · 이전 관측값",
     "selectedModel": "모델: {{model}} · 할당량은 계정 전체 기준",
     "chartPeak": "{{metric}} 최고 {{value}}",
     "barTitle_other": "{{date}} · {{metric}} {{value}} · {{count}}턴",
     "barLabel_other": "{{date}}: {{metric}} {{value}}, {{count}}턴",
     "barDayLabel_other": "{{date}}: {{metric}} {{value}}, {{count}}턴. 시간별 보기",
     "quotaUsedExpired": "{{percent}} 사용, 초기화 시점이 지났습니다.",
-    "quotaUsedStale": "{{percent}} 사용, 이전 관측값"
+    "quotaUsedStale": "{{percent}} 사용, 이전 관측값",
+    "quotaPeriod": "{{from}} – {{to}} · {{zone}} · 기간은 할당량 기록에만 적용되며, 현재 한도는 항상 최신 관측값입니다."
   },
   "countdown": {
     "days": "{{days}}일 후 초기화",

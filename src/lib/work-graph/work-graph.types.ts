@@ -140,6 +140,13 @@ export interface WorkItem {
   title: string;
   detail?: string;
   toolUseId?: string;
+  /**
+   * Existing agents this call addresses without spawning them, when the
+   * provider names them: a Codex collaboration `wait` lists the worker threads
+   * it waits on. Absent when the call names none or its input could not be
+   * read, which means "unknown", never "no one".
+   */
+  targetNodeKeys?: string[];
   startedAt: number;
   updatedAt: number;
   completedAt?: number;

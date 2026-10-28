@@ -44,7 +44,7 @@ describe("fleet attention snooze projection", () => {
   test("a snoozed row leaves the list, the counts, and the workspace index", () => {
     const before = buildFleetAttentionProjection(baseArgs);
     expect(before.count).toBe(2);
-    expect(before.reviewItems).toHaveLength(1);
+    expect(before.reviewItems).toHaveLength(2);
     expect(before.snoozedItems).toEqual([]);
 
     const after = buildFleetAttentionProjection({
@@ -52,7 +52,7 @@ describe("fleet attention snooze projection", () => {
       snoozedAttentionIds: new Set([RESULT_ATTENTION_ID]),
     });
     expect(after.count).toBe(1);
-    expect(after.reviewItems).toEqual([]);
+    expect(after.reviewItems).toHaveLength(1);
     expect(after.items.map((item) => item.id)).toEqual([
       "pr:pr-changes-requested:workspace",
     ]);
@@ -69,11 +69,12 @@ describe("fleet attention snooze projection", () => {
   test("snoozing a blocking row hides it too, and stays accountable", () => {
     const projection = buildFleetAttentionProjection({
       ...baseArgs,
-      snoozedAttentionIds: new Set(["pr:pr-changes-requested:workspace"]),
+      resultReviews: [{ ...result, outcome: "failed" }],
+      snoozedAttentionIds: new Set(["turn:run-failed:workspace:task:turn"]),
     });
     expect(projection.blockingItems).toEqual([]);
     expect(projection.snoozedItems.map((item) => item.kind)).toEqual([
-      "pr-changes-requested",
+      "run-failed",
     ]);
   });
 

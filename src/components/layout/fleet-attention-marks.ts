@@ -23,8 +23,8 @@ export const FLEET_TASK_WORK_STATE: Record<FleetDisplayStatus, WorkState> = {
   "waiting-input": "needs-you",
   "waiting-approval": "approval",
   error: "failed",
-  // Quiet, not failed: the stopped-short glyph, never the failure one.
-  stalled: "halted",
+  // A quiet active turn is still working; silence does not establish a stop.
+  stalled: "working",
   running: "working",
   idle: "idle",
   unknown: "unknown",

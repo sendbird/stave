@@ -303,10 +303,15 @@ export function updateApprovalPartsByRequestId(args: {
   approved: boolean;
   /** Who decided and when; recorded with the answer. */
   resolution?: ApprovalResolution;
+  /** The provider can no longer take an answer: the request ends unanswered. */
+  interrupted?: true;
 }): MessagePart[] {
   return args.parts.map((part) => {
     if (part.type !== "approval" || part.requestId !== args.requestId) {
       return part;
+    }
+    if (args.interrupted) {
+      return { ...part, state: "approval-interrupted" };
     }
 
     return {

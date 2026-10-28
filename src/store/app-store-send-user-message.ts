@@ -286,6 +286,7 @@ export function createSendUserMessageAction(args: {
     queuedTurnId,
     attachedFilePaths: payloadAttachedFilePaths,
     attachments: payloadAttachments,
+    declinePendingApprovals,
   }) => {
     const turnId = crypto.randomUUID();
     let state = get();
@@ -371,12 +372,8 @@ export function createSendUserMessageAction(args: {
       });
       task = seededTask;
     }
-    if (!task || !runtimeTarget) {
-      return { status: "blocked" } satisfies SendUserMessageResult;
-    }
-    if (isTaskManaged(findTaskById(state, resolvedTaskId))) {
-      return { status: "blocked" } satisfies SendUserMessageResult;
-    }
+    if (!task || !runtimeTarget) return { status: "blocked" } satisfies SendUserMessageResult;
+    if (isTaskManaged(findTaskById(state, resolvedTaskId))) return { status: "blocked" } satisfies SendUserMessageResult;
     let provider =
       providerOverride ??
       task?.provider ??
@@ -446,8 +443,10 @@ export function createSendUserMessageAction(args: {
 
     const existingHistory =
       taskWorkspaceSession.messagesByTask[resolvedTaskId] ?? [];
-    if (findLatestPendingApproval({ messages: existingHistory })) {
-      return { status: "blocked" } satisfies SendUserMessageResult;
+    // A steer that declines the pending approvals may pass: the steer branch
+    // declines them once nothing else can refuse the message.
+    if (findLatestPendingApproval({ messages: existingHistory }) && !(declinePendingApprovals && hasActiveTurn && submitIntent === "steer")) {
+      return { status: "blocked", reason: "approval-pending" } satisfies SendUserMessageResult;
     }
     if (findLatestPendingUserInput({ messages: existingHistory, blockingOnly: true })) {
       return { status: "blocked" } satisfies SendUserMessageResult;
@@ -636,6 +635,7 @@ export function createSendUserMessageAction(args: {
           message: steeringContext.unavailableMessage,
         } satisfies SendUserMessageResult;
       }
+      if (declinePendingApprovals && !(await declinePendingApprovals())) return { status: "blocked" } satisfies SendUserMessageResult;
       const activeTurnProvider = steeringContext.providerId;
       const clientMessageId = crypto.randomUUID();
       const steerResult = await steerQueueReservations.submitSteer({
@@ -645,7 +645,7 @@ export function createSendUserMessageAction(args: {
         request: {
           turnId: activeTurnId,
           text: promptContent,
-          enabled: get().settings.midTurnSteeringEnabled,
+          enabled: Boolean(declinePendingApprovals) || get().settings.midTurnSteeringEnabled,
           clientMessageId,
           questionReply: promptDraft.questionReply,
         },
@@ -881,12 +881,10 @@ export function createSendUserMessageAction(args: {
         submittedPromptDraft.restore();
         return { status: "blocked" } satisfies SendUserMessageResult;
       }
-      if (
-        findLatestPendingApproval({ messages: latestHistory }) ||
-        findLatestPendingUserInput({ messages: latestHistory, blockingOnly: true })
-      ) {
+      const approvalPending = Boolean(findLatestPendingApproval({ messages: latestHistory }));
+      if (approvalPending || findLatestPendingUserInput({ messages: latestHistory, blockingOnly: true })) {
         submittedPromptDraft.restore();
-        return { status: "blocked" } satisfies SendUserMessageResult;
+        return { status: "blocked", ...(approvalPending ? { reason: "approval-pending" as const } : {}) } satisfies SendUserMessageResult;
       }
 
       const autoRoutingDecision = await resolveAutoRoutingForSend({

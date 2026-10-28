@@ -246,6 +246,27 @@
   transform: scale(1.06);
 }
 
+/*
+ * Chat code blocks are Shiki HTML highlighted once with both syntax palettes
+ * (`src/lib/syntax-highlight-shared.ts`): every token carries its light and
+ * dark color as CSS variables. Pick the pair for the current mode here so a
+ * light/dark switch repaints without highlighting again. The `<pre>` itself is
+ * painted with `var(--editor)` by the highlighter transformer.
+ */
+.stave-code-block span {
+  color: var(--shiki-light);
+  font-style: var(--shiki-light-font-style);
+  font-weight: var(--shiki-light-font-weight);
+  text-decoration: var(--shiki-light-text-decoration);
+}
+
+.dark .stave-code-block span {
+  color: var(--shiki-dark);
+  font-style: var(--shiki-dark-font-style);
+  font-weight: var(--shiki-dark-font-weight);
+  text-decoration: var(--shiki-dark-text-decoration);
+}
+
 :root {
   --background: oklch(0.985 0.003 75);
   --foreground: oklch(0.225 0.003 75);
@@ -286,12 +307,12 @@
   --drop-zone: oklch(0.54 0.18 260 / 0.12);
   --drop-zone-border: oklch(0.54 0.18 260 / 0.55);
   --editor: oklch(0.992 0.003 75);
-  --editor-foreground: oklch(0.225 0.028 255);
-  --editor-muted: oklch(0.94 0.02 255);
-  --editor-tab: oklch(0.95 0.015 255);
+  --editor-foreground: oklch(0.225 0.003 75);
+  --editor-muted: oklch(0.94 0.003 75);
+  --editor-tab: oklch(0.95 0.003 75);
   --editor-tab-active: oklch(0.992 0.003 75);
-  --terminal: oklch(0.19 0.03 255);
-  --terminal-foreground: oklch(0.92 0.018 250);
+  --terminal: oklch(0.19 0.003 75);
+  --terminal-foreground: oklch(0.92 0.003 75);
   --diff-added: oklch(0.92 0.045 155);
   --diff-added-foreground: oklch(0.4 0.11 155);
   --diff-removed: oklch(0.93 0.03 25);
@@ -321,7 +342,7 @@
   --state-halted: var(--state-needs-answer);
   --state-completed: var(--success);
   --state-stopped: var(--state-paused);
-  --radius: 0.45rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.955 0.003 75);
   --sidebar-foreground: oklch(0.225 0.003 75);
   --sidebar-primary: oklch(0.54 0.18 260);
@@ -398,13 +419,13 @@
   --surface: oklch(0.19 0.003 75);
   --drop-zone: oklch(0.71 0.15 252 / 0.16);
   --drop-zone-border: oklch(0.71 0.15 252 / 0.6);
-  --editor: oklch(0.155 0.024 255);
-  --editor-foreground: oklch(0.92 0.018 250);
-  --editor-muted: oklch(0.215 0.03 255);
-  --editor-tab: oklch(0.14 0.023 255);
-  --editor-tab-active: oklch(0.185 0.027 255);
-  --terminal: oklch(0.13 0.025 255);
-  --terminal-foreground: oklch(0.9 0.018 250);
+  --editor: oklch(0.155 0.003 75);
+  --editor-foreground: oklch(0.92 0.003 75);
+  --editor-muted: oklch(0.215 0.003 75);
+  --editor-tab: oklch(0.14 0.003 75);
+  --editor-tab-active: oklch(0.185 0.003 75);
+  --terminal: oklch(0.13 0.003 75);
+  --terminal-foreground: oklch(0.9 0.003 75);
   --diff-added: oklch(0.29 0.06 155);
   --diff-added-foreground: oklch(0.82 0.08 155);
   --diff-removed: oklch(0.28 0.07 25);
@@ -773,6 +794,16 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-synthesis-weight: none;
+  }
+
+  /*
+   * Icon stroke default. Lucide writes `stroke-width="2"` on every icon that
+   * does not pass its own width; 1.75 sits closer to the interface type
+   * weight. Any explicit width other than 2 is a different attribute value and
+   * keeps it, and a StyleX `strokeWidth` still wins from its higher layer.
+   */
+  svg.lucide[stroke-width="2"] {
+    stroke-width: 1.75;
   }
 
   /* Keep monospace text at its native weight (variable base bump above must not

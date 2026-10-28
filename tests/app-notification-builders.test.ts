@@ -146,7 +146,7 @@ describe("showNotificationToast", () => {
           { type: "done" },
         ],
       }),
-    ).not.toBeNull();
+    ).toMatchObject({ body: "File change failed", payload: { message: "File change failed" } });
     expect(
       buildTaskTurnFailedNotificationInput({
         ...input,

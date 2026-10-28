@@ -1,4 +1,4 @@
-import type { ResultReviewScope } from "@/lib/reviews/result-review";
+import { resultReviewKey, type ResultReview, type ResultReviewScope, type SetResultMarkedReviewedArgs } from "@/lib/reviews/result-review";
 import {
   getFleetAttentionTier,
   type FleetAttentionItem,
@@ -20,6 +20,10 @@ export interface FleetBulkPlan {
   results: ResultReviewScope[];
   notificationIds: string[];
   snoozes: { attentionId: string; workspaceId: string }[];
+  /** Explicit bulk snooze uses the user's chosen duration instead of clear's day. */
+  snoozeDurationMs?: number;
+  /** Explicit review is separate from the read mark and cannot be batch-undone safely. */
+  markedReviewed?: boolean;
 }
 
 export const EMPTY_FLEET_BULK_PLAN: FleetBulkPlan = {
@@ -51,6 +55,48 @@ export function planFleetReviewClear(
   return plan;
 }
 
+/** Acknowledging an outcome never answers or dismisses a pending interaction. */
+export function planFleetOutcomeRead(items: readonly FleetAttentionItem[]): FleetBulkPlan {
+  const outcomes = items.filter((item) => item.kind === "run-failed" || item.kind === "result-ready");
+  const plan: FleetBulkPlan = { results: [], notificationIds: [], snoozes: [] };
+  const seenResults = new Set<string>();
+  const seenNotifications = new Set<string>();
+  for (const item of outcomes) {
+    if (item.resultReview) {
+      const { repositoryPath, workspaceId, taskId, turnId } = item.resultReview;
+      const key = JSON.stringify([repositoryPath, workspaceId, taskId, turnId]);
+      if (seenResults.has(key)) continue;
+      seenResults.add(key);
+      plan.results.push({ repositoryPath, workspaceId, taskId, turnId });
+    } else if (item.notificationId && !seenNotifications.has(item.notificationId)) {
+      seenNotifications.add(item.notificationId);
+      plan.notificationIds.push(item.notificationId);
+    }
+  }
+  return plan;
+}
+
+/** Explicit review applies only to saved outcomes, never notification-only rows. */
+export function planFleetOutcomeReview(items: readonly FleetAttentionItem[]): FleetBulkPlan {
+  const plan = planFleetOutcomeRead(items.filter((item) => item.resultReview && !item.resultReview.markedReviewedAt));
+  return { ...plan, notificationIds: [], markedReviewed: true };
+}
+
+/** Hide exactly these rows; their requests and underlying status stay untouched. */
+export function planFleetAttentionSnooze(
+  items: readonly FleetAttentionItem[],
+  durationMs: number,
+): FleetBulkPlan {
+  const seen = new Set<string>();
+  const snoozes: FleetBulkPlan["snoozes"] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    snoozes.push({ attentionId: item.id, workspaceId: item.workspaceId });
+  }
+  return { results: [], notificationIds: [], snoozes, snoozeDurationMs: durationMs };
+}
+
 /** Only these parts of a plan, for applying one effect from the menu. */
 export function pickFleetBulkEffect(
   plan: FleetBulkPlan,
@@ -60,6 +106,7 @@ export function pickFleetBulkEffect(
     results: effect === "review-results" ? plan.results : [],
     notificationIds: effect === "read-notifications" ? plan.notificationIds : [],
     snoozes: effect === "hide-for-a-day" ? plan.snoozes : [],
+    ...(effect === "review-results" && plan.markedReviewed ? { markedReviewed: true } : {}),
   };
 }
 
@@ -73,7 +120,7 @@ export interface FleetBulkEffectSummary {
 /** Each effect the plan applies, with its count, in a stable order. */
 export function summarizeFleetBulkPlan(plan: FleetBulkPlan): FleetBulkEffectSummary[] {
   return [
-    { effect: "review-results" as const, count: plan.results.length, undoable: true },
+    { effect: "review-results" as const, count: plan.results.length, undoable: false },
     { effect: "read-notifications" as const, count: plan.notificationIds.length, undoable: false },
     { effect: "hide-for-a-day" as const, count: plan.snoozes.length, undoable: true },
   ].filter((summary) => summary.count > 0);
@@ -84,27 +131,26 @@ export function countFleetBulkPlan(plan: FleetBulkPlan) {
 }
 
 /**
- * What actually changed; failures are counted, never reported as cleared, and
- * rows another surface had already cleared are neither.
+ * Read/snooze changes and confirmed explicit review saves. Failures are counted
+ * separately, and rows known to be handled elsewhere are skipped.
  */
 export interface FleetBulkOutcome {
-  /** Results this action marked reviewed, each unreviewed before it: Undo restores exactly these. */
-  reviewed: ResultReviewScope[];
-  /**
-   * Results marked reviewed in a batch another surface reviewed at the same
-   * moment: counted, but not undone, since which rows were ours is unknown.
-   */
-  reviewedUnconfirmed: number;
+  /** Confirmed saved read states; the writer cannot prove which caller owns them. */
+  readResults: number;
+  /** Saved explicit marks confirmed by the writer; not a claim of write ownership. */
+  markedReviewed?: number;
   read: string[];
   snoozed: string[];
+  /** Deadline written by this action, required for guarded snooze Undo. */
+  snoozedUntil?: string;
   failed: number;
 }
 
-/** How many items the action itself changed, for the toast. */
+/** Changed items plus confirmed explicit review saves, for the toast. */
 export function countFleetBulkOutcome(outcome: FleetBulkOutcome) {
   return (
-    outcome.reviewed.length +
-    outcome.reviewedUnconfirmed +
+    outcome.readResults +
+    (outcome.markedReviewed ?? 0) +
     outcome.read.length +
     outcome.snoozed.length
   );
@@ -123,22 +169,23 @@ export function chunkResultScopes(scopes: readonly ResultReviewScope[]) {
 
 /** The stores a plan writes to; injected so the effect logic stays testable. */
 export interface FleetBulkOperations {
-  /** Which of `scopes` still wait for review, read just before writing. */
-  listPendingResults: (scopes: ResultReviewScope[]) => Promise<ResultReviewScope[]>;
+  /** Current scopes still unread or explicitly unreviewed, checked before writing. */
+  listPendingResults: (scopes: ResultReviewScope[], markedReviewed?: boolean) => Promise<ResultReviewScope[]>;
   /** Resolves to how many rows changed. */
   setResultsReviewed: (args: { scopes: ResultReviewScope[]; reviewed: boolean }) => Promise<number>;
+  setResultMarkedReviewed?: (args: SetResultMarkedReviewedArgs) => Promise<ResultReview>;
   /** Resolves to whether the notification was still unread. */
   markNotificationRead: (args: { id: string; resolvedAt: string }) => Promise<boolean>;
   snoozeFleetAttention: (args: { attentionId: string; workspaceId: string; snoozedUntil: string }) => Promise<unknown>;
-  clearFleetAttentionSnoozes: (args: { attentionIds: string[] }) => Promise<unknown>;
+  clearFleetAttentionSnoozes: (args: { attentionIds: string[]; expectedSnoozedUntil?: string }) => Promise<unknown>;
 }
 
 /**
  * Applies every effect of a plan and reports what changed. Effects run side by
  * side and one failure never stops the others (a failed result batch counts
  * every scope it carried). Only results still waiting for review are written,
- * so a result reviewed elsewhere since Fleet last read it is neither counted
- * nor later marked unreviewed by Undo.
+ * so results already read when checked are skipped. Result reads are never
+ * undone: a concurrent writer may own the saved read or explicit review.
  */
 export async function applyFleetBulkPlan(args: {
   plan: FleetBulkPlan;
@@ -151,15 +198,16 @@ export async function applyFleetBulkPlan(args: {
   let unreadable = 0;
   if (plan.results.length > 0) {
     try {
-      pending = await operations.listPendingResults(plan.results);
+      pending = await operations.listPendingResults(plan.results, plan.markedReviewed);
     } catch {
       // Without the current state nothing can be claimed: write nothing.
       unreadable = plan.results.length;
     }
   }
-  const batches = chunkResultScopes(pending);
+  const batches = plan.markedReviewed ? [] : chunkResultScopes(pending);
   type Settled =
     | { kind: "reviewed"; scopes: ResultReviewScope[]; updated: number }
+    | { kind: "marked-reviewed" }
     | { kind: "read"; id: string; changed: boolean }
     | { kind: "snoozed"; id: string };
   const settled = await Promise.allSettled<Settled>([
@@ -168,6 +216,14 @@ export async function applyFleetBulkPlan(args: {
         .setResultsReviewed({ scopes, reviewed: true })
         .then((updated): Settled => ({ kind: "reviewed", scopes, updated })),
     ),
+    ...(plan.markedReviewed ? pending.map(async (scope): Promise<Settled> => {
+      if (!operations.setResultMarkedReviewed) throw new Error("Explicit result review is unavailable.");
+      const saved = await operations.setResultMarkedReviewed({ ...scope, markedReviewed: true });
+      if (resultReviewKey(saved) !== resultReviewKey(scope) || !saved.markedReviewedAt || !saved.reviewedAt) {
+        throw new Error("The explicit review mark was not confirmed.");
+      }
+      return { kind: "marked-reviewed" };
+    }) : []),
     ...plan.notificationIds.map((id) =>
       operations
         .markNotificationRead({ id, resolvedAt: args.resolvedAt })
@@ -180,8 +236,7 @@ export async function applyFleetBulkPlan(args: {
     ),
   ]);
   const outcome: FleetBulkOutcome = {
-    reviewed: [],
-    reviewedUnconfirmed: 0,
+    readResults: 0,
     read: [],
     snoozed: [],
     failed: unreadable,
@@ -193,32 +248,39 @@ export async function applyFleetBulkPlan(args: {
     }
     const value = result.value;
     if (value.kind === "reviewed") {
-      // Every row of the batch changed only when the count says so.
-      if (value.updated === value.scopes.length) outcome.reviewed.push(...value.scopes);
-      else outcome.reviewedUnconfirmed += Math.max(0, value.updated);
+      outcome.readResults += Math.max(0, Math.min(value.updated, value.scopes.length));
+    } else if (value.kind === "marked-reviewed") {
+      // The idempotent single-result writer confirms saved state, not which
+      // caller wrote it. Never erase a concurrent user's mark through Undo.
+      outcome.markedReviewed = (outcome.markedReviewed ?? 0) + 1;
     } else if (value.kind === "read") {
       if (value.changed) outcome.read.push(value.id);
-    } else outcome.snoozed.push(value.id);
+    } else {
+      outcome.snoozed.push(value.id);
+      outcome.snoozedUntil = args.snoozedUntil;
+    }
   });
   return outcome;
 }
 
 /**
- * Takes back what can be taken back — result reviews and snoozes. Notification
- * reads stay: there is no operation that marks a notification unread. Returns
+ * Takes back snoozes. Reads and explicit review marks stay: their writers
+ * cannot prove ownership across concurrent surfaces. Returns
  * whether everything that could be undone was.
  */
 export async function revertFleetBulkOutcome(
   outcome: FleetBulkOutcome,
   operations: FleetBulkOperations,
 ) {
+  const canUndoSnoozes = outcome.snoozed.length === 0 || Boolean(outcome.snoozedUntil);
   const undone = await Promise.allSettled([
-    ...chunkResultScopes(outcome.reviewed).map((scopes) =>
-      operations.setResultsReviewed({ scopes, reviewed: false }),
+    // The clear IPC contract caps one request at 1,000 attention ids.
+    ...Array.from({ length: canUndoSnoozes ? Math.ceil(outcome.snoozed.length / 1000) : 0 }, (_, index) =>
+      operations.clearFleetAttentionSnoozes({
+        attentionIds: outcome.snoozed.slice(index * 1000, (index + 1) * 1000),
+        expectedSnoozedUntil: outcome.snoozedUntil,
+      }),
     ),
-    ...(outcome.snoozed.length > 0
-      ? [operations.clearFleetAttentionSnoozes({ attentionIds: outcome.snoozed })]
-      : []),
   ]);
-  return undone.every((result) => result.status === "fulfilled");
+  return canUndoSnoozes && undone.every((result) => result.status === "fulfilled");
 }

@@ -18,9 +18,17 @@ test("thread model changes persist the notice and executed model through complet
 
 test("an unavailable Sol 6.1 substitution names GPT-6 Sol", () => {
   const track = createCodexModelResolutionTracker("gpt-6.1-sol");
-  const events = track.resolve("gpt-6-sol", "gpt-6.1-sol", "staveSolFallback");
-  expect(events[1]?.content).toContain("GPT-6 Sol");
+  const events = track.resolve("gpt-6-sol", "gpt-6.1-sol", "staveModelFallback");
+  expect(events[1]?.content).toContain("GPT-6.1 Sol is unavailable");
+  expect(events[1]?.content).toContain("continues on GPT-6 Sol");
   expect(events[1]?.content).not.toContain("version");
+});
+
+test("an unavailable Terra 6.1 substitution names GPT-5.6 Terra", () => {
+  const track = createCodexModelResolutionTracker("gpt-6.1-terra");
+  const events = track.resolve("gpt-5.6-terra", undefined, "staveModelFallback");
+  expect(events[0]).toMatchObject({ type: "model_resolved", resolvedModel: "gpt-5.6-terra" });
+  expect(events[1]?.content).toContain("GPT-6.1 Terra is unavailable on this Codex runtime, so this turn continues on GPT-5.6 Terra.");
 });
 
 test("policy rerouting reports its reason without claiming a version problem", () => {

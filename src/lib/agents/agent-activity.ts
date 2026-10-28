@@ -1,3 +1,4 @@
+import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { i18n } from "@/i18n/runtime";
 import type { AgentAssignment, AssignmentState } from "./assign";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
@@ -31,11 +32,6 @@ export interface AgentActivitySummary {
   lastUsedAt: string | null;
 }
 
-/** The shared Work queue rule's `action-required` lane, from live status alone. */
-function needsYou(status: FleetTaskStatus): boolean {
-  return classifyWorkQueueLane({ status }) === "action-required";
-}
-
 /**
  * The Work list's order: the shared Work queue rule (`work-attention-order.ts`)
  * over each row's live task status, newest assignment first among equals. A row
@@ -44,10 +40,12 @@ function needsYou(status: FleetTaskStatus): boolean {
 export function orderAgentActivityRows<T extends Pick<AgentAssignment, "taskId" | "createdAt">>(
   assignments: readonly T[],
   statusByTaskId: Readonly<Record<string, FleetTaskStatus | undefined>>,
+  attentionKindByTaskId?: Readonly<Record<string, FleetAttentionKind | undefined>>,
 ): T[] {
   return orderByWorkAttention(assignments, (row) =>
     rankWorkAttention({
       status: row.taskId ? statusByTaskId[row.taskId] : undefined,
+      attentionKind: row.taskId ? attentionKindByTaskId?.[row.taskId] : undefined,
       activityAt: row.createdAt,
     }),
   );
@@ -57,6 +55,7 @@ export function summarizeAgentActivity(args: {
   assignments: readonly AgentAssignment[];
   /** Live Fleet status by task id, for the tasks the assignments started. */
   statusByTaskId: Readonly<Record<string, FleetTaskStatus | undefined>>;
+  attentionKindByTaskId?: Readonly<Record<string, FleetAttentionKind | undefined>>;
 }): AgentActivitySummary {
   let running = 0;
   let waiting = 0;
@@ -72,8 +71,10 @@ export function summarizeAgentActivity(args: {
       continue;
     }
     const status = assignment.taskId ? args.statusByTaskId[assignment.taskId] : undefined;
-    if (status === "running") running += 1;
-    else if (status && needsYou(status)) waiting += 1;
+    const attentionKind = assignment.taskId ? args.attentionKindByTaskId?.[assignment.taskId] : undefined;
+    const lane = classifyWorkQueueLane({ status, attentionKind });
+    if (lane === "in-progress") running += 1;
+    else if (lane === "action-required") waiting += 1;
   }
 
   return {

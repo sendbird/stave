@@ -17,6 +17,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 import { UsageBreakdowns, UsageFigures, UsageTimeline, UsageTurnHistory } from "./UsageParts";
 import { UsageQuota } from "./UsageQuota";
+import { UsageInfo } from "./UsageInfo";
 import { dateInputValue, loadUsageStatistics, USAGE_PERIOD_OPTIONS, USAGE_TURN_PAGE_SIZE, usageAccountLabel, usageRange, type UsagePeriod, type UsageStatisticsLoader } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
 import { readQuota, type QuotaReader } from "./quota-read-feedback";
@@ -40,7 +41,8 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
   const [provider, setProvider] = useState<ProviderId | typeof ALL>(props.initialProvider ?? ALL);
   const [account, setAccount] = useState(props.initialAccount ?? ALL);
   const [modelId, setModelId] = useState<string | null | undefined>();
-  const [view, setView] = useState(props.initialProvider ? "quota" : "tokens");
+  // Quota answers "can I keep working?", so it opens first; tokens and history explain the past.
+  const [view, setView] = useState("quota");
   const [period, setPeriod] = useState<UsagePeriod>("30");
   const [zone, setZone] = useState(localTimeZone);
   const [granularity, setGranularity] = useState<"day" | "hour">("day");
@@ -142,7 +144,6 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       <Tabs.Panel value="tokens" xstyle={styles.section}>
       {report.totals.turns === 0 ? <EmptyState title={i18n.t("usage:usageView.noCompletedTurnsInThisSelection")} description={i18n.t("usage:usageView.chooseAnotherAccountModelOrPeriod")} /> : <>
         <UsageFigures totals={report.totals} />
-        <p className={sx(styles.note)}>{i18n.t("usage:usageView.tokenTotalsExcludeCacheReadsClaude")}</p>
         <UsageTimeline report={report} granularity={granularity} timeZone={zone} onDay={(day) => { setStart(day); setEnd(day); setPeriod("custom"); setGranularity("hour"); setOffset(0); }} />
         <UsageBreakdowns report={report} profiles={profiles} onAccount={selectAccount} onModel={selectModel} />
       </>}
@@ -150,7 +151,8 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       <Tabs.Panel value="history" xstyle={styles.section}>
         <UsageTurnHistory report={report} profiles={profiles} timeZone={zone} offset={offset} onPage={setOffset} />
       </Tabs.Panel>
-      <p className={sx(styles.note)}>{t("usage:messages.reportScope", { readAt: formatDateTime(report.generatedAt, { timeZone: zone, dateStyle: "medium", timeStyle: "short" }) })}</p>
+      <div className={sx(styles.titleRow)}><p className={sx(styles.note)}>{t("usage:usageView.readAt", { readAt: formatDateTime(report.generatedAt, { timeZone: zone, dateStyle: "medium", timeStyle: "short" }) })}</p>
+        <UsageInfo title={t("usage:usageView.scopeTitle")}><p className={sx(styles.infoBody)}>{t("usage:usageView.scopeBody")}</p></UsageInfo></div>
     </>;
   };
   return <div className={sx(styles.scroll)}><main className={sx(styles.page)} aria-label={t("usage:usageView.aiUsageStatistics")}><Tabs.Root value={view} onValueChange={(value) => { if (typeof value === "string") setView(value); }} xstyle={styles.section}>
@@ -159,19 +161,19 @@ export function UsageView(props: { load?: UsageStatisticsLoader; readQuota?: Quo
       <div className={sx(styles.row)}><Tooltip content={t("usage:usageView.refreshUsageHistory")}><Button variant="quiet" size="sm" aria-label={t("usage:usageView.refreshUsageHistory")} disabled={pending} onClick={() => setAttempt((value) => value + 1)}><RefreshCw /></Button></Tooltip>
         <Tooltip content={t("usage:usageView.closeUsage")}><Button variant="quiet" size="sm" aria-label={t("usage:usageView.closeUsage")} onClick={close}><X /></Button></Tooltip></div></header>
     <Tabs.List aria-label={t("usage:usageView.usageViews")} xstyle={styles.viewTabs}>
-      <Tabs.Tab value="tokens">{t("usage:usageView.tokensCost")}</Tabs.Tab><Tabs.Tab value="quota">{t("usage:usageView.quota")}</Tabs.Tab><Tabs.Tab value="history">{t("usage:usageView.history")}</Tabs.Tab><Tabs.Indicator />
+      <Tabs.Tab value="quota">{t("usage:usageView.quota")}</Tabs.Tab><Tabs.Tab value="tokens">{t("usage:usageView.tokensCost")}</Tabs.Tab><Tabs.Tab value="history">{t("usage:usageView.history")}</Tabs.Tab><Tabs.Indicator />
     </Tabs.List>
     <div className={sx(styles.filters)} aria-label={t("usage:usageView.usageFilters")}>
       <Select label={t("settingsProviders:mcpConfigEditor.editor.provider")} size="sm" value={provider} options={[{ value: ALL, label: t("usage:usageView.allProviders") }, ...Object.entries(USAGE_PROVIDER_NAMES).map(([value, label]) => ({ value, label }))]}
         onValueChange={(value) => { if (value) { setProvider(value as ProviderId | typeof ALL); setAccount(ALL); setModelId(undefined); setOffset(0); } }} />
       <Select label={t("settingsProviders:codexOverviewTab.runtime.account")} size="sm" value={account} options={options} disabled={provider === ALL} onValueChange={(value) => { if (typeof value === "string") { setAccount(value); setOffset(0); } }} />
       <Select label={t("compare:resultsView.period")} size="sm" value={period} options={USAGE_PERIOD_OPTIONS} onValueChange={(value) => { if (value) { setPeriod(value as UsagePeriod); setOffset(0); } }} />
-      <Select label={t("usage:usageView.groupBy")} size="sm" value={granularity} options={[{ value: "day", label: t("usage:usageView.day") }, { value: "hour", label: t("usage:usageView.hour") }]} onValueChange={(value) => { if (value) setGranularity(value as "day" | "hour"); }} />
+      {view === "tokens" ? <Select label={t("usage:usageView.groupBy")} size="sm" value={granularity} options={[{ value: "day", label: t("usage:usageView.day") }, { value: "hour", label: t("usage:usageView.hour") }]} onValueChange={(value) => { if (value) setGranularity(value as "day" | "hour"); }} /> : null}
       <Select label={t("usage:usageView.timezone")} size="sm" value={zone} options={localTimeZone() === "UTC" ? [{ value: "UTC", label: "UTC" }] : [{ value: localTimeZone(), label: localTimeZone() }, { value: "UTC", label: "UTC" }]} onValueChange={(value) => { if (typeof value === "string") { setZone(value); setOffset(0); } }} />
       {period === "custom" ? <><label className={sx(styles.field)}>{t("usage:usageView.from")}<Input type="date" value={start} onChange={(event) => { setStart(event.target.value); setOffset(0); }} /></label>
         <label className={sx(styles.field)}>{t("usage:usageView.through")}<Input type="date" value={end} onChange={(event) => { setEnd(event.target.value); setOffset(0); }} /></label></> : null}
     </div>
-    {range ? <p className={sx(styles.note)}>{t("usage:messages.reportPeriod", { from: dateInputValue(new Date(range.from), utc), to: dateInputValue(new Date(Date.parse(range.to) - 1), utc), zone: zone })}</p> : null}
+    {range ? <p className={sx(styles.note)}>{t(view === "quota" ? "usage:messages.quotaPeriod" : "usage:messages.reportPeriod", { from: dateInputValue(new Date(range.from), utc), to: dateInputValue(new Date(Date.parse(range.to) - 1), utc), zone: zone })}</p> : null}
     {modelId !== undefined ? <div className={sx(styles.row)}><span className={sx(styles.note)}>{t("usage:messages.selectedModel", { model: modelId ?? t("usage:usageParts.modelNotRecorded") })}</span>
       <Button variant="quiet" size="sm" onClick={() => { setModelId(undefined); setOffset(0); }}>{t("usage:usageView.clearModelFilter")}</Button></div> : null}
     {accountError && !props.profiles ? <p role="alert" className={sx(styles.note)}>{t("usage:usageView.accountLabelsCouldNotBeLoaded")}<Button variant="link" size="sm" onClick={() => void refreshAccounts()}>{t("usage:usageView.retryAccounts")}</Button></p> : null}

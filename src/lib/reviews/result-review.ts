@@ -18,6 +18,8 @@ export const ListResultReviewsArgsSchema = z
     taskId: Identity.optional(),
     /** Narrow to one finished run, for loading its evidence on demand. */
     turnId: Identity.optional(),
+    /** Select each task's latest outcome from all history before applying filters. */
+    latestPerTask: z.boolean().optional(),
     pendingOnly: z.boolean().optional(),
     includeEvidence: z.boolean().optional(),
     limit: z.number().int().min(1).max(200).optional(),

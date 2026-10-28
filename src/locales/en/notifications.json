@@ -52,6 +52,10 @@
     "steerDeliveryCouldNotBeConfirmedWaitForTheCurrentResponseBeforeRetryingOrQueueing": "Steer delivery could not be confirmed. Wait for the current response before retrying or queueing.",
     "theActiveTurnRejectedTheSteerRequestPressTabToQueueInstead": "The active turn rejected the steer request — press Tab to queue instead."
   },
+  "approvalAnswer": {
+    "alreadyAnswering": "This approval is already being answered.",
+    "stillPendingAfterDecline": "An approval request was still waiting after the decline."
+  },
   "asyncQuestionAnswer": {
     "managedTask": "Could not answer: this task is managed. Take over the task to answer its question.",
     "deliveryUnconfirmed": "Your answer was sent, but its delivery could not be confirmed. If the reply does not reflect it, send the answer again as a message."

@@ -1,3 +1,4 @@
+import { toHumanModelName } from "../../src/lib/providers/model-catalog";
 import type { BridgeEvent } from "./types";
 
 function modelId(value: unknown): string | undefined {
@@ -21,8 +22,8 @@ export function createCodexModelResolutionTracker(requestedModel?: string) {
     if (previous && previous !== actual) {
       const explanation = reason === "highRiskCyberActivity"
         ? "Codex rerouted this turn under its high-risk cyber activity policy."
-        : reason === "staveSolFallback"
-          ? "GPT-6.1 Sol is unavailable on this Codex runtime, so this turn continues on GPT-6 Sol."
+        : reason === "staveModelFallback"
+          ? `${toHumanModelName({ model: previous })} is unavailable on this Codex runtime, so this turn continues on ${toHumanModelName({ model: actual })}.`
           : "Codex selected a different model; the runtime did not provide a recognized reason.";
       const resolved = events[0];
       if (resolved?.type === "model_resolved") {

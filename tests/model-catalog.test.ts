@@ -48,7 +48,7 @@ describe("model catalog", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
       "gpt-6-astra",
       "gpt-6.1-sol",
-      "gpt-5.6-terra",
+      "gpt-6.1-terra",
       "gpt-6-luna",
     ]);
   });
@@ -106,6 +106,7 @@ describe("model catalog", () => {
     expect(toHumanModelName({ model: "gpt-6-astra" })).toBe("GPT-6 Astra");
     expect(toHumanModelName({ model: "gpt-6.1-sol" })).toBe("GPT-6.1 Sol");
     expect(toHumanModelName({ model: "gpt-6-sol" })).toBe("GPT-6 Sol");
+    expect(toHumanModelName({ model: "gpt-6.1-terra" })).toBe("GPT-6.1 Terra");
     expect(toHumanModelName({ model: "gpt-5.6-terra" })).toBe("GPT-5.6 Terra");
     expect(toHumanModelName({ model: "gpt-6-luna" })).toBe("GPT-6 Luna");
     expect(toHumanModelName({ model: "gpt-5.5" })).toBe("GPT-5.5");
@@ -193,8 +194,9 @@ describe("model catalog", () => {
   });
 
   test("returns the default Codex effort from model capabilities", () => {
-    // Astra medium, Sol 6.1 high, Sol 6 high, Terra xhigh, Luna xhigh.
-    // Both Sol generations, Terra, and Luna are Stave's. Astra follows the catalog.
+    // Astra medium, Sol 6.1 high, Sol 6 high, Terra 6.1 xhigh, Terra 5.6
+    // xhigh, Luna xhigh. Both Sol and Terra generations and Luna are Stave's.
+    // Astra follows the catalog.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-astra" })).toBe(
       "medium",
     );
@@ -203,6 +205,9 @@ describe("model catalog", () => {
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-sol" })).toBe(
       "high",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.1-terra" })).toBe(
+      "xhigh",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
       "xhigh",
@@ -237,7 +242,12 @@ describe("model catalog", () => {
         ["gpt-6-sol", "medium"],
         ["gpt-6-luna", "low"],
         ["gpt-5.6-terra", "medium"],
+        // Codex CLI 0.164.0 recommends low for GPT-6.1 Terra.
+        ["gpt-6.1-terra", "low"],
       ]),
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.1-terra" })).toBe(
+      "xhigh",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.1-sol" })).toBe(
       "high",
@@ -284,6 +294,9 @@ describe("model catalog", () => {
     expect(listCodexReasoningEffortsForModel({ model: "gpt-6-sol" })).toEqual(
       ["low", "medium", "high", "xhigh", "max", "ultra"],
     );
+    expect(
+      listCodexReasoningEffortsForModel({ model: "gpt-6.1-terra" }),
+    ).toEqual(["low", "medium", "high", "xhigh", "max", "ultra"]);
     expect(
       listCodexReasoningEffortsForModel({ model: "gpt-5.6-terra" }),
     ).toEqual(["low", "medium", "high", "xhigh", "max", "ultra"]);
@@ -339,7 +352,8 @@ describe("model catalog", () => {
       );
     }
     expect(listModelCapabilities({ providerId: "codex" }).length).toBe(
-      CODEX_MODEL_OPTIONS.length + 4,
+      // Resolvable legacy entries: GPT-6 Sol, GPT-5.6 Sol/Terra/Luna, GPT-5.5.
+      CODEX_MODEL_OPTIONS.length + 5,
     );
   });
 
@@ -450,6 +464,12 @@ describe("model catalog", () => {
     );
     expect(
       resolveDefaultCodexFallbackModel({ model: "gpt-6-sol" }),
+    ).toBeUndefined();
+    expect(resolveDefaultCodexFallbackModel({ model: "gpt-6.1-terra" })).toBe(
+      "gpt-5.6-terra",
+    );
+    expect(
+      resolveDefaultCodexFallbackModel({ model: "gpt-5.6-terra" }),
     ).toBeUndefined();
   });
 

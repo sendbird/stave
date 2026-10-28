@@ -27,6 +27,7 @@ import {
   Loader,
   toast,
 } from "@/components/ui";
+import { AgentRunMark } from "@/components/system/AgentRunMark";
 import {
   getProviderLabel,
   toHumanModelName,
@@ -111,8 +112,13 @@ function VariantStatusIcon(props: { status: CompareRunVariant["status"] }) {
   if (props.status === "kept" || props.status === "completed") {
     return <CheckCircle2 className={sx(styles.icon14)} />;
   }
-  if (props.status === "running" || props.status === "creating") {
-    return <Loader aria-hidden size="xs" variant="parallel" />;
+  // A variant's agent working wears the one working motion; preparing its
+  // worktree is Stave's own work and keeps the spinner.
+  if (props.status === "running") {
+    return <AgentRunMark kind="working" />;
+  }
+  if (props.status === "creating") {
+    return <AgentRunMark kind="busy" />;
   }
   return <GitBranch className={sx(styles.icon14)} />;
 }
@@ -559,7 +565,7 @@ export function CompareRunPanel(props: CompareRunPanelProps) {
             )}
           >
             {judge.status === "running" || judge.status === "pending" ? (
-              <Loader aria-hidden size="xs" variant="parallel" />
+              <AgentRunMark kind="working" />
             ) : judge.status === "failed" ? (
               <XCircle className={sx(styles.icon16)} />
             ) : (

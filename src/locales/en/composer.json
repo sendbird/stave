@@ -58,7 +58,14 @@
   },
   "conversation": {
     "ariaLabel": "Scroll to bottom",
-    "download": "Download conversation"
+    "download": "Download conversation",
+    "waitingApproval": "Needs approval",
+    "waitingQuestion": "Needs your answer",
+    "waitingNewResponse": "New response",
+    "waitingQueued_one": "{{count}} queued",
+    "waitingQueued_other": "{{count}} queued",
+    "waitingWithQueued": "{{reason}} · {{queued}}",
+    "waitingAriaLabel": "{{label}}, scroll to bottom"
   },
   "cursorModelConfigList": {
     "fIXEDPARAMETERTITLE": "Cursor advertises a single value for this parameter, so it cannot be changed from here.",
@@ -327,9 +334,14 @@
     "label": "Pasted image",
     "copy4": "Images could not be attached",
     "placeholder": "Type the next turn...",
-    "placeholder2": "Type a request...",
     "placeholder3": "Queue the next turn… (↵)",
     "placeholder4": "Use / for commands, $ for skills, ! for macros, @ for Information",
+    "approvalRedirectPlaceholderSteer": "Send to decline pending approvals and redirect the agent…",
+    "approvalRedirectPlaceholderQueue": "Send to decline pending approvals and queue this for the next turn…",
+    "approvalRedirectPlaceholderSteerShort": "Decline and redirect…",
+    "approvalRedirectPlaceholderQueueShort": "Decline and queue…",
+    "approvalRedirectSteer": "Decline and steer",
+    "approvalRedirectQueue": "Decline and queue next turn",
     "composerCard7": "No matching task or Information reference.",
     "composerCard8": "No matching Information reference.",
     "composerCard9": "No matching skill.",
@@ -451,8 +463,8 @@
     "stepAria": "Question {{index}} of {{total}}: {{label}}",
     "stepAriaAnswered": "Question {{index}} of {{total}}: {{label}} (answered)",
     "next": "Next",
-    "keyboardHint": "<key>1</key>–<key>{{last}}</key> to choose · <key>Enter</key> to continue",
-    "keyboardHintNext": "<key>1</key>–<key>{{last}}</key> to choose · <key>Enter</key> for the next question",
+    "keyboardHint": "<key>Enter</key> to continue",
+    "keyboardHintNext": "<key>Enter</key> for the next question",
     "numberPlaceholder": "Enter a number"
   },
   "composerShelf": {

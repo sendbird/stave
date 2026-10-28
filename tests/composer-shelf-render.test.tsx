@@ -8,7 +8,7 @@ import { TurnRunLine } from "@/components/session/composer-shelf/TurnRunLine";
 import type { TurnActivitySurfaceProps } from "@/components/session/TurnActivity";
 import { AgentRunBarView } from "@/components/agent-runs/AgentRunBar";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
-import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import { applyProviderTurnActivityEvents, type ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 import { buildAgentRunFixtures } from "../src/dev/agent-run-preview/agent-run-fixtures";
 
@@ -217,7 +217,37 @@ describe("turn run line", () => {
     expect(html).toContain("Stalled");
     expect(html).toContain("No updates for 2m 14s");
     expect(html).toContain("Esc stops it");
-    expect(html).toContain('data-loader-paused="true"');
+    // Nothing reported, so nothing moves: the still warning mark, no loader.
+    expect(html).toContain('data-run-mark="stalled"');
+    expect(html).not.toContain("data-loader-variant");
+  });
+
+  test("a main loop blocked on its subagent says what it waits on, with its own mark", () => {
+    const blocked = applyProviderTurnActivityEvents({
+      activityByTask: {},
+      taskId: "task-1",
+      turnId: "turn-1",
+      providerId: "claude-code",
+      events: [{
+        type: "tool",
+        toolUseId: "agent-1",
+        toolName: "Agent",
+        input: JSON.stringify({ description: "Review", prompt: "Look" }),
+        state: "input-available",
+      }],
+      now: NOW - 30_000,
+    })["task-1"]!;
+    const html = runLine({ surface: surface({ activity: blocked }) });
+    expect(html).toContain("Waiting on 1 helper");
+    expect(html).toContain('data-run-mark="waiting"');
+    expect(html).toContain('data-loader-variant="dots"');
+    expect(html).not.toContain('data-loader-variant="matrix"');
+  });
+
+  test("a working turn wears the matrix in the provider's ink", () => {
+    const html = runLine({});
+    expect(html).toContain('data-run-mark="working"');
+    expect(html).toContain('data-loader-variant="matrix"');
   });
 
   test("steering and waiting are tones too; a question its card asks is not asked again", () => {

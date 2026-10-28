@@ -24,8 +24,9 @@ import type { StatusDotTone } from "./StatusDot";
  * `StatusDot` and the tool-run states in `agent-state.ts` take its tone. The glyph is the redundant non-color cue: a
  * color-blind reader tells the states apart by shape alone.
  *
- * Only `working` moves. It is the one state with ongoing activity; every other
- * state is a settled shape, and reduced motion keeps the shape.
+ * Only `working` moves. It is the one state with ongoing activity, drawn with
+ * the matrix loader every agent-working surface shares; every other state is a
+ * settled shape, and reduced motion keeps the shape.
  */
 export type WorkState =
   | "waiting"
@@ -66,7 +67,7 @@ export interface WorkStateVisual {
   /** The ADS tone, for ADS components that take one (`StatusDot`, `Badge`). */
   tone: StatusDotTone;
   color: WorkStateColor;
-  /** Only the working state pulses. */
+  /** Only the working state moves (`StateMark` draws it as the matrix loader). */
   pulses: boolean;
 }
 

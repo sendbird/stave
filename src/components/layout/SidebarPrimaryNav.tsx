@@ -14,6 +14,7 @@ import {
   useAgentAssignmentsStore,
   useAgentAssignmentsSync,
 } from "@/store/agent-assignments-store";
+import { useFleetAttentionStore } from "@/store/fleet-attention-store";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
 import { useAgentsViewStore } from "@/store/agents-view-store";
@@ -29,6 +30,11 @@ function useAgentsWithWork() {
   useTranslation();
   useAgentAssignmentsSync();
   const byTaskId = useAgentAssignmentsStore((state) => state.byTaskId);
+  const attentionItems = useFleetAttentionStore((state) => state.snapshot.items);
+  const currentFailureTaskIds = useMemo(() => new Set(attentionItems.filter((item) => item.kind === "run-failed").map((item) => item.taskId!)), [attentionItems]);
+  const attentionKindByTaskId = useMemo(() => Object.fromEntries(
+    [...attentionItems].reverse().filter((item) => item.taskId).map((item) => [item.taskId!, item.kind]),
+  ), [attentionItems]);
   // The selector returns a string, so a streamed token that changes no task's
   // status leaves it equal and the sidebar does not re-render.
   const key = useAppStore(
@@ -37,6 +43,8 @@ function useAgentsWithWork() {
         JSON.stringify(
           collectAgentsWithWork({
             byTaskId,
+            attentionKindByTaskId,
+            currentFailureTaskIds,
             tasks: state.tasks,
             messagesByTask: state.messagesByTask,
             activeTurnIdsByTask: state.activeTurnIdsByTask,
@@ -44,7 +52,7 @@ function useAgentsWithWork() {
             limit: MAX_LISTED_AGENTS,
           }),
         ),
-      [byTaskId],
+      [byTaskId, attentionKindByTaskId, currentFailureTaskIds],
     ),
   );
   return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key]);

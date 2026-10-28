@@ -19,6 +19,7 @@ import {
   tooltipTriggerButtonClassName,
 } from "./prompt-input-toolbar-parts";
 import type { PromptInputProps } from "./prompt-input.types";
+import { resolvePromptInputSendLabels } from "./prompt-input-submit-labels";
 
 /**
  * The trailing end of the toolbar row: the context meter, the minimal
@@ -40,8 +41,7 @@ export function PromptInputActions(args: {
   hasDraftPayload: boolean;
   onAbort: PromptInputProps["onAbort"];
   primaryActionDisabled: boolean;
-  isSteerOrQueueMode: boolean;
-  isQueueNextMode: boolean;
+  submitMode: NonNullable<PromptInputProps["submitMode"]>;
   steerQueueEnterAction: SteerQueueEnterAction;
   assignOnSend?: boolean;
 }) {
@@ -62,11 +62,16 @@ export function PromptInputActions(args: {
     hasDraftPayload,
     onAbort,
     primaryActionDisabled,
-    isSteerOrQueueMode,
-    isQueueNextMode,
+    submitMode,
     steerQueueEnterAction,
     assignOnSend,
   } = args;
+  const isSteerOrQueueMode = submitMode === "steer-or-queue";
+  const sendLabels = resolvePromptInputSendLabels({
+    submitMode,
+    steerQueueEnterAction,
+    assignOnSend,
+  });
   // Minimal mode has no control lanes, so its side question sits here, beside compare.
   const sideQuestionControl = useSideQuestionComposerControl();
   return (
@@ -153,17 +158,7 @@ export function PromptInputActions(args: {
               ),
             })}
             disabled={primaryActionDisabled}
-            aria-label={
-              isSteerOrQueueMode
-                ? steerQueueEnterAction === "steer"
-                  ? i18n.t("composer:promptInput.ariaLabel22")
-                  : i18n.t("composer:promptInput.ariaLabel23")
-                : isQueueNextMode
-                  ? i18n.t("composer:promptInput.ariaLabel24")
-                  : assignOnSend
-                    ? i18n.t("composer:promptInput.ariaLabel25")
-                    : i18n.t("composer:promptInput.ariaLabel26")
-            }
+            aria-label={sendLabels.ariaLabel}
           >
             <Send className={sx(promptInputStyles.icon35)} />
           </TooltipTrigger>
@@ -176,15 +171,7 @@ export function PromptInputActions(args: {
             }
           >
             <span className={sx(promptInputStyles.inlineGap1)}>
-              {isSteerOrQueueMode
-                ? steerQueueEnterAction === "steer"
-                  ? i18n.t("composer:promptInput.composerCard28")
-                  : i18n.t("composer:promptInput.composerCard29")
-                : isQueueNextMode
-                  ? i18n.t("composer:promptInput.composerCard30")
-                  : assignOnSend
-                    ? i18n.t("composer:promptInput.composerCard31")
-                    : i18n.t("composer:promptInput.composerCard32")}
+              {sendLabels.tooltip}
               <KbdGroup>
                 <Kbd>↵</Kbd>
               </KbdGroup>

@@ -3,6 +3,7 @@ import { workspaceScriptDefinitionHash } from "../electron/host-service/supervis
 import { currentProviderAccountId, withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { AgentRunListArgsSchema } from "../electron/main/ipc/agent-run-schemas";
 import { rememberAdaptiveCatalog, rememberAdaptiveQuota } from "../electron/providers/adaptive-observations";
 import type { AgentRunReplyComposer } from "../src/lib/agent-runs/adaptive-route";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
@@ -1520,6 +1521,23 @@ test("active runs remain in bounded history responses", async () => {
     h.store.create(change, now);
   }
   expect((await h.runtime.list({ limit: 1, includeActive: true })).agentRuns.some((run) => run.id === id)).toBe(true);
+});
+
+test("Fleet loads pending expired runs outside the history limit and within the requested workspace", async () => {
+  expect(AgentRunListArgsSchema.safeParse({ includeAttention: true }).success).toBe(true);
+  expect(AgentRunListArgsSchema.safeParse({ includeAttention: "true" }).success).toBe(false);
+  const h = createHarness();
+  for (const [id, workspaceId, offset] of [["pending", "ws-1", 0], ["elsewhere", "ws-2", 1], ["recent", "ws-1", 2]] as const) {
+    const now = new Date(Date.parse(START) + offset * 60_000);
+    const change = createAgentRun({ id, input: startInput({ workspaceId, leadTaskId: id }), repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" }, now });
+    change.agentRun.state = id === "recent" ? "completed" : "stopped";
+    change.agentRun.stopReason = id === "recent" ? null : "expired";
+    h.store.create(change, now);
+  }
+  expect((await h.runtime.list({ limit: 1 })).agentRuns.map((run) => run.id)).toEqual(["recent"]);
+  expect((await h.runtime.list({ limit: 1, includeAttention: true })).agentRuns.map((run) => run.id)).toEqual(["recent", "elsewhere", "pending"]);
+  expect((await h.runtime.list({ limit: 1, includeAttention: true, workspaceId: "ws-1" })).agentRuns.map((run) => run.id)).toEqual(["recent", "pending"]);
 });
 
 test("Stop bypasses a slow router and discards its late result before any dispatch", async () => {

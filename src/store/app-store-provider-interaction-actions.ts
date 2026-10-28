@@ -17,7 +17,7 @@ import {
   approvalInteractionId,
   userInputInteractionId,
 } from "@/lib/work-graph/work-graph-reducer";
-import type { AppState } from "@/store/app-store.types";
+import type { AppState, ApprovalAnswerOutcome } from "@/store/app-store.types";
 import {
   buildMessageId,
   buildRecentTimestamp,
@@ -324,7 +324,7 @@ export function createProviderInteractionActions(args: {
         endedTurnId: activeTurnId,
       });
     },
-    resolveApproval: ({ taskId, messageId, requestId, approved, scope, decidedBy }) => {
+    resolveApproval: async ({ taskId, messageId, requestId, approved, scope, decidedBy, onUnanswerable = "report" }) => {
       const stateBefore = get();
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,
@@ -423,10 +423,12 @@ export function createProviderInteractionActions(args: {
         });
       };
 
-      const applyApprovalResponse = (requestId: string, grant?: "always") => {
+      // `interrupted`: the provider can no longer answer, so the request
+      // closes unanswered instead of recording a decision nobody received.
+      const applyApprovalResponse = (requestId: string, grant?: "always", interrupted?: true) => {
         const resolvedAt = Date.now();
         // Who decided, recorded with the answer: a person, unless a Stave rule answered.
-        const resolution = buildApprovalResolution({
+        const resolution = interrupted ? undefined : buildApprovalResolution({
           approved,
           source: decidedBy?.source ?? "user",
           decidedAt: resolvedAt,
@@ -457,6 +459,7 @@ export function createProviderInteractionActions(args: {
               requestId,
               approved,
               resolution,
+              ...(interrupted ? { interrupted } : {}),
             });
             return {
               workspaceRuntimeCacheById: {
@@ -478,6 +481,7 @@ export function createProviderInteractionActions(args: {
             requestId,
             approved,
             resolution,
+            ...(interrupted ? { interrupted } : {}),
           });
           return {
             ...nextMessagesState,
@@ -498,92 +502,88 @@ export function createProviderInteractionActions(args: {
         });
       };
 
-      if (activeTurnId && approvalPart && !respondThroughHost) {
+      if (!approvalPart) {
+        // Already answered, or never pending: nothing left to deliver.
+        return { status: "skipped" };
+      }
+      const fail = (message: string): ApprovalAnswerOutcome => {
+        appendApprovalFailure(`Approval delivery failed: ${message}`);
+        return { status: "failed", message };
+      };
+      const alreadyAnswering: ApprovalAnswerOutcome = {
+        status: "failed",
+        message: i18n.t("notifications:approvalAnswer.alreadyAnswering"),
+      };
+
+      if (activeTurnId && !respondThroughHost) {
         const respondApproval = window.api?.provider?.respondApproval;
         if (respondApproval) {
           const release = claimInteractionAnswer(taskId, approvalPart.requestId);
           if (!release) {
-            return;
+            return alreadyAnswering;
           }
           // Only forward `always` when this request advertised it. A stale
           // caller must not be able to widen an approval the runtime never
           // offered to persist.
           const grant = approved && scope === "always" && approvalPart.supportsAllowAlways ? ("always" as const) : undefined;
-          void respondApproval({
-            turnId: activeTurnId,
-            requestId: approvalPart.requestId,
-            approved,
-            ...(grant ? { scope: grant } : {}),
-          })
-            .then((result) => {
-              if (!result.ok) {
-                appendApprovalFailure(
-                  `Approval delivery failed: ${result.message ?? "unknown"}`,
-                );
-                return;
+          try {
+            const result = await respondApproval({
+              turnId: activeTurnId,
+              requestId: approvalPart.requestId,
+              approved,
+              ...(grant ? { scope: grant } : {}),
+            });
+            if (!result.ok) {
+              if (result.unanswerable && onUnanswerable === "close") {
+                applyApprovalResponse(approvalPart.requestId, undefined, true);
+                return { status: "skipped" };
               }
-              applyApprovalResponse(approvalPart.requestId, grant);
-            })
-            .catch((error) => {
-              appendApprovalFailure(
-                `Approval delivery failed: ${String(error)}`,
-              );
-            })
-            .finally(release);
-          return;
+              return fail(result.message ?? "unknown");
+            }
+            applyApprovalResponse(approvalPart.requestId, grant);
+            return { status: "delivered" };
+          } catch (error) {
+            return fail(String(error));
+          } finally {
+            release();
+          }
         }
       }
 
       if (
         (respondThroughHost || !activeTurnId) &&
-        approvalPart &&
         workspaceId &&
         window.api?.localMcp?.respondApproval
       ) {
         const release = claimInteractionAnswer(taskId, approvalPart.requestId);
         if (!release) {
-          return;
+          return alreadyAnswering;
         }
-        void window.api.localMcp
-          .respondApproval({
+        try {
+          const result = await window.api.localMcp.respondApproval({
             workspaceId,
             taskId,
             requestId: approvalPart.requestId,
             approved,
             ...(decidedBy ? { decidedBy } : {}),
-          })
-          .then((result) => {
-            if (!result.ok) {
-              appendApprovalFailure(
-                `Approval delivery failed: ${result.message ?? "unknown"}`,
-              );
-              return;
-            }
-            applyApprovalResponse(approvalPart.requestId);
-          })
-          .catch((error) => {
-            appendApprovalFailure(`Approval delivery failed: ${String(error)}`);
-          })
-          .finally(release);
-        return;
+          });
+          if (!result.ok) {
+            return fail(result.message ?? "unknown");
+          }
+          applyApprovalResponse(approvalPart.requestId);
+          return { status: "delivered" };
+        } catch (error) {
+          return fail(String(error));
+        } finally {
+          release();
+        }
       }
 
-      if (
-        !activeTurnId &&
-        approvalPart &&
-        window.api?.provider?.respondApproval
-      ) {
-        appendApprovalFailure(
-          "Approval delivery failed: no active turn found for this task.",
-        );
-        return;
+      if (!activeTurnId && onUnanswerable === "close") {
+        applyApprovalResponse(approvalPart.requestId, undefined, true);
+        return { status: "skipped" };
       }
-      if (approvalPart) {
-        appendApprovalFailure(
-          "Approval delivery failed: no active turn found for this task.",
-        );
-        return;
-      }
+      return fail("no active turn found for this task.");
     },
     resolveUserInput: ({
       taskId,

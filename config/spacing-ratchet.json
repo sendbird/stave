@@ -1,11 +1,10 @@
 {
   "version": 1,
   "description": "Off-grid spacing (6 or 10 on a padding, margin or gap) per file; see scripts/stylex-spacing-literals.mjs. Counts may fall, never rise; lower an entry when a file loses some and drop it at zero.",
-  "total": 339,
+  "total": 338,
   "files": {
     "src/components/agent-runs/agent-runs.styles.ts": 1,
     "src/components/agent-runs/dither-progress.styles.ts": 1,
-    "src/components/ai-elements/code-block.styles.ts": 1,
     "src/components/ai-elements/composer-option.styles.ts": 1,
     "src/components/ai-elements/message-markdown.styles.ts": 1,
     "src/components/ai-elements/prompt-input-context-meter.styles.ts": 2,

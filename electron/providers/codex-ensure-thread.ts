@@ -115,7 +115,7 @@ export async function ensureCodexThread(args: {
   /** Gates the Lens instruction block; see `buildCodexDeveloperInstructions`. */
   hasStaveLocalMcp?: boolean;
   turnGrants?: StreamTurnArgs["staveTurnGrants"];
-  /** Set on the one retry that substitutes GPT-6 Sol for an unavailable GPT-6.1 Sol. */
+  /** Set on the one retry that substitutes the previous same-rung model (GPT-6 Sol, GPT-5.6 Terra) for an unavailable current one. */
   modelFallbackAttempted?: boolean;
 }): Promise<CodexEnsuredThread> {
   const threadKey = buildCodexThreadKey({

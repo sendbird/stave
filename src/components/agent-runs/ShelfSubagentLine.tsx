@@ -76,13 +76,13 @@ export function ShelfSubagentLine(props: {
   );
 }
 
-/** A working delegate pulses; while the run's own line moves it holds still in the working color. */
+/** A working delegate moves; while the run's own line moves it holds still in the working color. */
 function SubagentMark(props: { state: SubagentLineState; moving: boolean }) {
   return (
     <StateMark
       state={SUBAGENT_WORK_STATE[props.state]}
       size="xs"
-      motion={props.state === "working" && props.moving ? "pulse" : "still"}
+      motion={props.state === "working" && props.moving ? "moving" : "still"}
       xstyle={styles.mark}
     />
   );

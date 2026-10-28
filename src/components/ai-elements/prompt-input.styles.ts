@@ -35,8 +35,9 @@ export const promptInputStyles = stylex.create({
     // app's. `vars["--ads-font-sans"]` resolves to `var(--font-sans)` through
     // `ads-theme.ts`, so both follow the one font setting.
     fontFamily: vars["--ads-font-sans"],
-    fontSize: "18px",
-    lineHeight: "2rem",
+    // 16px on a 26px line, the same reading size as the transcript default.
+    fontSize: vars["--ads-font-size-lead"],
+    lineHeight: vars["--ads-line-height-relaxed"],
   },
   enhancementEditorInset: {
     paddingInlineEnd: "2.25rem",
@@ -189,7 +190,7 @@ export const promptInputStyles = stylex.create({
     height: "0.875rem",
     color: `color-mix(in oklch, ${vars["--ads-color-text"]} 80%, transparent)`,
   },
-  cursorDisabled: { cursor: "not-allowed", opacity: 0.6 },
+  cursorDisabled: { cursor: "not-allowed", opacity: vars["--ads-opacity-disabled"] },
   toneMutedHalf: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
   },
@@ -401,8 +402,10 @@ export const promptInputStyles = stylex.create({
     maxBlockSize: 168,
     caretColor: vars["--ads-color-accent"],
   },
+  // Rests at two lines of its own text (`lh` follows the typography above)
+  // and grows with the draft up to the cap.
   editorSizeDefault: {
-    minBlockSize: 104,
+    minBlockSize: "2lh",
     maxBlockSize: 240,
   },
   editorProgress: {
@@ -619,10 +622,19 @@ export const promptInputStyles = stylex.create({
     gap: vars["--ads-space-2"],
     color: vars["--ads-color-text-muted"],
   },
+  // The painted box stays 16px so the chip keeps its height; the pseudo
+  // element bleeds past it to a 24px pointer target.
   chipRemove: {
+    position: "relative",
     borderRadius: vars["--ads-radius-mark"],
     padding: vars["--ads-space-2"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    "::after": {
+      content: '""',
+      insetBlock: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      insetInline: `min(0px, calc((100% - ${vars["--ads-space-24"]}) / 2))`,
+      position: "absolute",
+    },
   },
   lensChip: {
     display: "flex",

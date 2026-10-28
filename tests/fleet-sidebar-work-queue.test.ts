@@ -17,9 +17,9 @@ describe("Sidebar work queue lane classification", () => {
       "user-input",
       "approval",
       "run-failed",
-      "pr-changes-requested",
-      "pr-checks-failed",
-      "pr-merge-conflict",
+      "agent-run-sign-off",
+      "agent-run-blocked",
+      "agent-run-stuck",
     ] as const;
 
     for (const attentionKind of blockingKinds) {
@@ -29,16 +29,15 @@ describe("Sidebar work queue lane classification", () => {
     }
   });
 
-  test("a waiting or errored task requires action even with no attention item", () => {
-    // The user may have already read the notification; the agent is still
-    // stalled, so the live status has to stand on its own.
-    expect(classifySidebarWorkQueueLane({ status: "waiting-input" })).toBe(
+  test("unsnoozed decisions require action while acknowledged failure history does not", () => {
+    // An unsnoozed unanswered card remains actionable through its projection.
+    expect(classifySidebarWorkQueueLane({ status: "waiting-input", attentionKind: "user-input" })).toBe(
       "action-required",
     );
-    expect(classifySidebarWorkQueueLane({ status: "waiting-approval" })).toBe(
+    expect(classifySidebarWorkQueueLane({ status: "waiting-approval", attentionKind: "approval" })).toBe(
       "action-required",
     );
-    expect(classifySidebarWorkQueueLane({ status: "error" })).toBe("action-required");
+    expect(classifySidebarWorkQueueLane({ status: "error" })).toBe("idle");
   });
 
   test("a blocking attention item outranks a running turn", () => {
@@ -62,6 +61,9 @@ describe("Sidebar work queue lane classification", () => {
       "result-ready",
       "pr-ready-to-merge",
       "pr-behind-base",
+      "pr-changes-requested",
+      "pr-checks-failed",
+      "pr-merge-conflict",
     ] as const) {
       expect(classifySidebarWorkQueueLane({ attentionKind, status: "idle" })).toBe(
         "in-review",
@@ -181,7 +183,8 @@ describe("Sidebar work queue grouping", () => {
 
 describe("Sidebar work queue with runs", () => {
   test("a run lane competes with the task's signals by priority", () => {
-    expect(classifySidebarWorkQueueLane({ status: "idle", agentRunLane: "action-required" })).toBe("action-required");
+    expect(classifySidebarWorkQueueLane({ status: "idle", agentRunLane: "action-required" })).toBe("idle");
+    expect(classifySidebarWorkQueueLane({ status: "idle", agentRunLane: "action-required", attentionKind: "agent-run-blocked" })).toBe("action-required");
     expect(classifySidebarWorkQueueLane({ status: "running", agentRunLane: "idle" })).toBe("in-progress");
     expect(classifySidebarWorkQueueLane({ attentionKind: "approval", agentRunLane: "in-progress" })).toBe(
       "action-required",
@@ -193,7 +196,7 @@ describe("Sidebar work queue with runs", () => {
     const groups = buildSidebarWorkQueueLanes({
       entries: [{ workspaceId: "ws-1" }, { workspaceId: "ws-2" }, { workspaceId: "ws-1" }],
       signalsByWorkspaceId: {
-        "ws-1": { status: "running", agentRunLane: "action-required" },
+        "ws-1": { status: "running", agentRunLane: "action-required", attentionKind: "agent-run-sign-off" },
         "ws-2": { agentRunLane: "in-review" },
       },
     });

@@ -174,6 +174,7 @@
     "message35": "미뤄 둔 Fleet 항목을 불러오지 못했습니다."
   },
   "attention": {
+    "agentRunPausedNeedsAttention": "실행이 일시 중지되어 결정이 필요합니다. Task에서 사유를 확인하고 계속해 주세요.",
     "agentRunNeedsAttention": "{{stage}} · {{detail}}",
     "stoppedMoving": "진행이 멈춤",
     "needsYou": "확인이 필요함"
@@ -232,12 +233,22 @@
     "waiting": "{{duration}}째 대기 중",
     "quiet": "{{duration}}째 업데이트 없음"
   },
+  "runProgress": {
+    "working": "작업 중",
+    "workingStep": "{{step}} · {{duration}}",
+    "workingWithTodos": "{{step}} · {{done}}/{{total}} · {{duration}}",
+    "noOutput": "출력 없음 · {{duration}}",
+    "waitingOnHelpers_other": "보조 Agent {{count}}개 기다리는 중 · {{duration}}",
+    "waitingOnBackground": "백그라운드 작업 기다리는 중 · {{duration}}",
+    "waitingOnHelpersLabel_other": "보조 Agent {{count}}개 기다리는 중",
+    "waitingOnBackgroundLabel": "백그라운드 작업 기다리는 중"
+  },
   "inbox": {
     "unreadLabel": "{{label}}, 읽지 않음"
   },
   "bulk": {
     "menuLabel": "리뷰 대기 정리",
-    "readsCannotBeUndone": "알림 읽음 처리는 되돌릴 수 없습니다.",
+    "readsCannotBeUndone": "결과와 알림의 읽음 처리는 되돌릴 수 없습니다.",
     "undo": "실행 취소",
     "undoFailed": "정리한 항목 일부를 되돌리지 못했습니다.",
     "reviewResults_other": "결과 {{count}}개를 리뷰 완료로 표시",
@@ -265,5 +276,46 @@
     "incompleteNotice": "해당 작업은 여기에 빠져 있으며, 나머지 행은 최신입니다.",
     "readingTasks": "작업을 읽는 중…",
     "readingMore_other": "워크스페이스 {{count}}개의 작업을 더 읽는 중…"
+  },
+  "bulkAttention": {
+    "reviewResults_other": "결과 {{count}}개 검토 완료 처리",
+    "markedReviewed_other": "결과 {{count}}개의 검토 완료 표시를 저장했습니다.",
+    "reviewMarksUndoInTask": "검토 완료 표시를 해제하려면 검토에서 해당 작업을 여세요.",
+    "alreadyReviewed": "이미 검토했거나 최신 결과가 아닙니다. 변경한 항목이 없습니다.",
+    "reviewFailed_other": "검토 완료 표시 {{count}}개를 저장하지 못했습니다. 다시 시도하세요.",
+    "readResults_other": "결과 {{count}}개 읽음 처리",
+    "manage_other": "항목 {{count}}개 관리",
+    "readOutcomes_other": "결과 {{count}}개 읽음 처리",
+    "snoozeLabel_other": "항목 {{count}}개 모두 알림 미루기",
+    "snoozeFor_other": "항목 {{count}}개 {{duration}} 동안 미루기",
+    "requestsUnanswered": "대기 중인 요청에 응답하지 않습니다.",
+    "oneHour": "1시간",
+    "fourHours": "4시간",
+    "oneDay": "1일",
+    "oneWeek": "1주일",
+    "snoozed_other": "항목 {{count}}개 알림을 미뤘습니다",
+    "scope_other": "전체 워크스페이스·필터 대상 · 확인이 필요한 요청 {{count}}개 포함"
+  },
+  "taskAttention": {
+    "actionRequired_other": "확인이 필요합니다 ({{count}})",
+    "forReview_other": "검토할 항목 ({{count}})",
+    "hint": {
+      "pr": "PR을 검토하고 다음 작업을 결정해 주세요.",
+      "request": "이 답변이나 권한 승인을 기다리고 있습니다.",
+      "progress": "진행 탭에서 중단 사유와 가능한 복구 동작을 확인해 주세요.",
+      "reviewStage": "이 단계의 근거를 검토한 뒤 승인해 주세요.",
+      "reviewTurn": "턴이 중단되었습니다. 결과를 확인하고 Task에 재시도나 방향 변경을 지시해 주세요.",
+      "pendingRequest": "답변이나 권한 승인을 기다리고 있습니다."
+    },
+    "action": {
+      "pr": "PR 열기",
+      "request": "요청 보기",
+      "progress": "중단 사유 보기",
+      "reviewStage": "단계 검토",
+      "reviewTurn": "중단된 턴 보기",
+      "pendingRequest": "요청 보기"
+    },
+    "openFailed": "요청을 열지 못했습니다. 다시 시도해 주세요.",
+    "recentFailure_other": "최근 중단 원인 ({{count}})"
   }
 }

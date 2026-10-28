@@ -26,13 +26,16 @@ export type AppShortcutCommandId =
   | "view.show-lens"
   | "view.toggle-editor"
   | "view.toggle-terminal"
-  | "view.side-question";
+  | "view.side-question"
+  | "composer.increase-effort"
+  | "composer.decrease-effort";
 
 export interface AppShortcutDefinition {
   commandId: AppShortcutCommandId;
   title: string;
   description: string;
-  defaultKey: AppShortcutAllowedKey;
+  /** Empty when the command ships unbound and the user picks its letter. */
+  defaultKey: AppShortcutAllowedKey | "";
 }
 
 export type AppShortcutKeys = Record<AppShortcutCommandId, string>;
@@ -121,6 +124,18 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     get title() { return i18n.t("shell:appShortcuts.askSideQuestion"); },
     get description() { return i18n.t("shell:appShortcuts.askSideQuestionDescription"); },
     defaultKey: "q",
+  },
+  {
+    commandId: "composer.increase-effort",
+    get title() { return i18n.t("shell:appShortcuts.increaseEffort"); },
+    get description() { return i18n.t("shell:appShortcuts.increaseEffortDescription"); },
+    defaultKey: "",
+  },
+  {
+    commandId: "composer.decrease-effort",
+    get title() { return i18n.t("shell:appShortcuts.decreaseEffort"); },
+    get description() { return i18n.t("shell:appShortcuts.decreaseEffortDescription"); },
+    defaultKey: "",
   },
 ] as const;
 
@@ -215,7 +230,7 @@ export function normalizeAppShortcutKeys(
       continue;
     }
 
-    if (!usedKeys.has(definition.defaultKey)) {
+    if (definition.defaultKey && !usedKeys.has(definition.defaultKey)) {
       nextKeys[definition.commandId] = definition.defaultKey;
       usedKeys.add(definition.defaultKey);
       continue;

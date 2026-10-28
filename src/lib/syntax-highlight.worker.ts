@@ -2,11 +2,15 @@ import { createHighlighterCore } from "shiki/core";
 import { createOnigurumaEngine } from "shiki/engine/oniguruma";
 import {
   CODE_BLOCK_PRE_TRANSFORMER,
-  CODE_BLOCK_THEME,
+  CODE_BLOCK_THEMES,
   type CodeBlockHighlightRequest,
   type CodeBlockHighlightResponse,
   type SyntaxCommonLang,
 } from "./syntax-highlight-shared";
+import {
+  CODE_THEME_DARK_REGISTRATION,
+  CODE_THEME_LIGHT_REGISTRATION,
+} from "./syntax-themes";
 
 /*
  * Code-block highlighting runs here so grammar compilation (over 100ms the
@@ -34,7 +38,7 @@ const LANGUAGE_LOADERS: Record<SyntaxCommonLang, () => Promise<unknown>> = {
 };
 
 const highlighterPromise = createHighlighterCore({
-  themes: [import("shiki/themes/github-dark.mjs")],
+  themes: [CODE_THEME_LIGHT_REGISTRATION, CODE_THEME_DARK_REGISTRATION],
   langs: Object.values(LANGUAGE_LOADERS).map((load) => load()) as never,
   engine: createOnigurumaEngine(import("shiki/wasm")),
 });
@@ -56,7 +60,8 @@ scope.onmessage = (event) => {
           id,
           html: highlighter.codeToHtml(code, {
             lang,
-            theme: CODE_BLOCK_THEME,
+            themes: CODE_BLOCK_THEMES,
+            defaultColor: false,
             transformers: [CODE_BLOCK_PRE_TRANSFORMER],
           }),
         });

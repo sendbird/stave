@@ -39,7 +39,7 @@ turn; `codex-app-server-pending-request.ts` owns local RPC wait cancellation.
 For Codex settings snapshots or the model catalog, start at
 `electron/providers/codex-app-server-snapshot.ts` and follow its facade in
 `electron/providers/codex-app-server-runtime.ts`. Turn execution remains in the
-runtime adapter. Thread start and the GPT-6.1 Sol fallback live in
+runtime adapter. Thread start and the GPT-6.1 Sol and GPT-6.1 Terra fallbacks live in
 `electron/providers/codex-ensure-thread.ts`.
 
 ### Sending a conversation turn

@@ -45,7 +45,7 @@ function start(taskId: string, model: string, client: ReturnType<typeof fakeClie
   });
 }
 
-describe("Codex Sol fallback", () => {
+describe("Codex same-rung model fallback", () => {
   test("retries an unavailable GPT-6.1 Sol once on GPT-6 Sol", async () => {
     const { calls, client } = fakeClient({
       fail: (call) =>
@@ -56,6 +56,17 @@ describe("Codex Sol fallback", () => {
     expect(started.fallbackModel).toBe("gpt-6-sol");
     expect(started.resolvedModel).toBe("gpt-6-sol");
     expect(started.threadId).toBe("thread-2");
+  });
+
+  test("retries an unavailable GPT-6.1 Terra once on GPT-5.6 Terra", async () => {
+    const { calls, client } = fakeClient({
+      fail: (call) =>
+        call.model === "gpt-6.1-terra" ? "model gpt-6.1-terra is not available with this account" : undefined,
+    });
+    const started = await start("terra-61-fallback", "gpt-6.1-terra", client);
+    expect(calls.map((call) => call.model)).toEqual(["gpt-6.1-terra", "gpt-5.6-terra"]);
+    expect(started.fallbackModel).toBe("gpt-5.6-terra");
+    expect(started.resolvedModel).toBe("gpt-5.6-terra");
   });
 
   test("does not retry a second time or a different model", async () => {

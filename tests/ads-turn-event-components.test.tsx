@@ -373,7 +373,7 @@ describe("ADS turn-event components", () => {
     expect(lapsed).not.toBe(denied);
   });
 
-  test("a clarification asks with ADS controls and keeps its answer afterwards", () => {
+  test("a clarification asks with the shared option rows and keeps its answer afterwards", () => {
     const open = renderToStaticMarkup(
       <TraceClarification
         messageId="m1"
@@ -385,7 +385,9 @@ describe("ADS turn-event components", () => {
     expect(open).toContain("Which environment should this deploy to?");
     expect(open).toContain("Staging");
     expect(open).toContain("Production");
-    expect(open).toContain('role="radiogroup"');
+    expect(open).toContain('type="radio"');
+    // The transcript has no number-key handling, so it shows no keys.
+    expect(open).not.toContain("<kbd");
     expect(open).toContain("Submit");
 
     const answered = renderToStaticMarkup(

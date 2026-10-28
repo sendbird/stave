@@ -513,6 +513,18 @@ export class AgentRunStore {
     return parseEach(rows, parseAgentRunRow, "agent run");
   }
 
+  /** Expired runs need a new instruction until a later run owns the same task. */
+  listAttentionAgentRuns(): AgentRun[] {
+    const rows = this.db.prepare(`SELECT pending.* FROM agent_runs AS pending
+      WHERE pending.state = 'stopped' AND pending.stop_reason = 'expired'
+        AND NOT EXISTS (SELECT 1 FROM agent_runs AS newer
+          WHERE newer.repository_path = pending.repository_path
+            AND newer.workspace_id = pending.workspace_id AND newer.lead_task_id = pending.lead_task_id
+            AND (newer.created_at, newer.id) > (pending.created_at, pending.id))
+      ORDER BY pending.created_at DESC`).all() as AgentRunRow[];
+    return parseEach(rows, parseAgentRunRow, "agent run");
+  }
+
   listAgentRunsForWorkspace(workspaceId: string, limit = 50): AgentRun[] {
     const rows = this.db
       .prepare(

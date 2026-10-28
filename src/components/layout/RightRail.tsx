@@ -66,13 +66,15 @@ function RailToggle(props: {
         render={
           <Button
             size="sm"
-            variant={props.pressed ? "default" : "ghost"}
+            variant="ghost"
             focusableWhenDisabled
             xstyle={[
               rightRailStyles.railButton,
               props.indicator !== undefined &&
                 rightRailStyles.railButtonRelative,
-              !props.pressed && rightRailStyles.railButtonInactive,
+              props.pressed
+                ? rightRailStyles.railButtonPressed
+                : rightRailStyles.railButtonInactive,
             ]}
             onClick={props.onClick}
             aria-label={props.label}

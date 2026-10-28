@@ -1,7 +1,6 @@
 import type { FleetAttentionKind } from "./attention-projection";
 import { FLEET_ATTENTION_PRIORITY, getFleetAttentionTier } from "./attention-projection";
 import type { FleetTaskStatus } from "./task-status";
-import { hasFleetTaskAttentionStatus } from "./task-status";
 
 /**
  * The one ordering rule for "things to do". The sidebar Work queue, the Fleet
@@ -53,11 +52,9 @@ export interface WorkQueueSignals {
 /**
  * Lane priority, highest first:
  *
- * 1. `action-required` — something is blocked on the user: a blocking
- *    attention item (a question, an approval, a failed run, a turn that went
- *    quiet, a PR that cannot merge) or a live task sitting in a waiting, failed
- *    or quiet state. The live status matters on its own because a user who
- *    already read the notification still has a stuck agent in front of them.
+ * 1. `action-required` — a current blocking attention item or an unresolved
+ *    question/approval represented by that projection. Historical failures and quiet turns alone never ask
+ *    for another user decision after their alert was acknowledged or snoozed.
  * 2. `in-progress` — an agent is running. Checked before review because a
  *    running turn is the truthful present tense: a workspace with both a
  *    finished result and a new turn in flight is in progress, not waiting for
@@ -70,7 +67,10 @@ export interface WorkQueueSignals {
  */
 export function classifyWorkQueueLane(signals: WorkQueueSignals): WorkQueueLane {
   const taskLane = classifyTaskSignals(signals);
-  const agentRunLane = signals.agentRunLane;
+  // Blocking supervisor episodes are represented by the same snoozable
+  // projection as task failures. Raw run state must not recreate a hidden ask.
+  const agentRunLane = signals.agentRunLane === "action-required"
+    ? undefined : signals.agentRunLane;
   if (!agentRunLane) return taskLane;
   return WORK_QUEUE_LANE_ORDER.indexOf(agentRunLane) <
     WORK_QUEUE_LANE_ORDER.indexOf(taskLane)
@@ -85,14 +85,11 @@ function classifyTaskSignals(signals: WorkQueueSignals): WorkQueueLane {
     : undefined;
 
   if (
-    attentionTier === "blocking" ||
-    hasFleetTaskAttentionStatus(status) ||
-    status === "error" ||
-    status === "stalled"
+    attentionTier === "blocking"
   ) {
     return "action-required";
   }
-  if (status === "running") {
+  if (status === "running" || status === "stalled") {
     return "in-progress";
   }
   if (attentionTier === "review") {
@@ -122,7 +119,7 @@ export const WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
   "waiting-input": 0,
   "waiting-approval": 0,
   error: 1,
-  stalled: 1,
+  stalled: 2,
   running: 2,
   idle: 3,
 };
@@ -182,7 +179,9 @@ export function rankWorkAttention(
     lane: classifyWorkQueueLane(args),
     isActive: args.isActive,
     attentionPriority: workQueueAttentionPriority(args.attentionKind),
-    status: args.status,
+    status: (args.status === "error" && args.attentionKind !== "run-failed") ||
+      (args.status === "waiting-input" && args.attentionKind !== "user-input") ||
+      (args.status === "waiting-approval" && args.attentionKind !== "approval") ? "idle" : args.status,
     activityAt: args.activityAt,
   };
 }
