@@ -233,7 +233,7 @@ export function ChoiceButtons<T extends string>(args: {
               {option.icon ? <ChoiceMark>{option.icon}</ChoiceMark> : null}
               <div className={sx(styles.radioTextWrap)}>
                 <p className={sx(styles.radioLabel)}>{option.label}</p>
-                <p className={sx(styles.radioDescription)}>
+                <p className={sx(styles.radioDescription, option.value === args.value && styles.radioDescriptionSelected)}>
                   {option.description}
                 </p>
               </div>
