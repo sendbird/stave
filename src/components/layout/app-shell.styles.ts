@@ -95,7 +95,6 @@ export const appShellStyles = stylex.create({
 
   appSurface: {
     backgroundColor: vars["--ads-color-canvas"],
-    borderTopLeftRadius: { default: null, [LG]: vars["--ads-radius-panel"] },
     display: "flex",
     flex: 1,
     flexDirection: "column",
