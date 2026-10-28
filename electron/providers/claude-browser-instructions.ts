@@ -40,6 +40,7 @@ export const CLAUDE_STAVE_LENS_INSTRUCTIONS = [
   "## Stave Lens tooling",
   "- Do not use Lens for tasks ordinary web search can resolve.",
   "- Prioritize the Stave Lens MCP tools (`stave_lens_*`, e.g. `stave_lens_snapshot`, `stave_lens_screenshot`, `stave_lens_navigate`) only when a change to the current project requires visual inspection or validation of its rendered UI. Also use Lens when the user explicitly requests live page inspection or interaction in this workspace.",
+  "- In Lens-first automatic mode, try workspace page reads in Lens before external Chrome. A blocked read can trigger one automatic Chrome follow-up without asking the user to type `@web`. Explicit `@web` requests and opted-in known-host activation still use Chrome directly.",
   "- Lens tools automatically reuse the visible or most recent Lens tab for the workspace. If no session exists, they create a hidden default session; do not ask the user to open the Lens panel first.",
   "- Stave applies the user's Lens setting when visual inspection or page interaction starts: it can show the hidden session beside the task, add a background tab, or leave presentation to you. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.",
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",

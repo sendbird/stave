@@ -1433,6 +1433,10 @@
     "chromeAccessIsAttemptedForThat": ". 해당 턴에서 Chrome 접근을 시도하며 실패하면 대화에 알립니다. 사이트 승인은 프로바이더의 확장 프로그램에서 관리합니다. Stave는 대신 설치하거나 활성화하거나 접근 권한을 부여할 수 없습니다.",
     "alsoKeepsItOff": "접근이 꺼져 있습니다.",
     "connectClaudeCodeSNativeChrome": "공유할 프로필에 Claude Code 전용 Chrome 확장 프로그램을 연결하고 대상 사이트 접근을 허용한 다음 @web을 다시 시도하세요.",
+    "autoArm": {
+      "title": "지정 호스트에 Chrome 미리 연결",
+      "description": "기본·추가 호스트에서는 Lens나 일반 요청을 시도하기 전에 Chrome을 연결합니다. 기본값은 꺼짐이며, Lens를 먼저 쓰려면 꺼 두세요."
+    },
     "mode": {
       "title": "에이전트의 Chrome 사용 범위",
       "description": "어떤 모드를 고르더라도 무인 자동화와 보조 분석에서는 브라우저를 사용하지 않습니다.",
@@ -1441,8 +1445,8 @@
         "description": "@web이 포함된 프롬프트에만 Chrome을 연결합니다."
       },
       "auto": {
-        "label": "자동",
-        "description": "지정한 호스트에도 Chrome을 연결하고, 일반 요청이나 Lens가 로그인·봇 확인으로 막히면 Chrome으로 한 번 다시 시도합니다."
+        "label": "Lens 우선 (자동)",
+        "description": "워크스페이스 페이지는 Lens로 확인하고, 읽기가 막히면 @web 입력 없이 Chrome으로 한 번 다시 시도합니다."
       },
       "always": {
         "label": "항상",
@@ -1456,7 +1460,7 @@
     "alwaysAvailable": "항상 사용 가능",
     "webStatus": {
       "explicit": "@web 입력 시에만",
-      "auto": "자동",
+      "auto": "Lens 우선",
       "always": "항상 켜짐"
     },
     "web": {

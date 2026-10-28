@@ -19,6 +19,12 @@ function sortStrings(values: readonly string[]) {
 }
 
 describe("provider runtime contracts", () => {
+  test("only a boolean can opt into known-host browser activation", () => {
+    for (const providerBrowserAutoArm of [true, false]) {
+      expect(RuntimeOptionsObjectSchema.parse({ providerBrowserAutoArm }).providerBrowserAutoArm).toBe(providerBrowserAutoArm);
+    }
+    expect(RuntimeOptionsObjectSchema.safeParse({ providerBrowserAutoArm: "true" }).success).toBe(false);
+  });
   test("an advisor_activity event saved by an earlier build is dropped, not parsed", () => {
     expect(NormalizedProviderEventSchema.safeParse({ type: "advisor_activity", phase: "started", primaryProviderId: "codex", at: 1 }).success).toBe(false);
   });

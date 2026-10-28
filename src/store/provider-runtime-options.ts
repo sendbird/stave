@@ -57,6 +57,7 @@ type RuntimeSettings = Pick<
   | "claudeForkSession"
   | "claudeStrictMcpConfig"
   | "providerBrowserAutoFallback"
+  | "providerBrowserAutoArm"
   | "providerBrowserAlwaysOn"
   | "mcpAppViewsEnabled"
   | "providerBrowserAutoFallbackDomains"
@@ -310,6 +311,7 @@ export function buildProviderRuntimeOptions(args: {
     claudeForkSession: settings.claudeForkSession,
     claudeStrictMcpConfig: settings.claudeStrictMcpConfig,
     providerBrowserAutoFallback: settings.providerBrowserAutoFallback,
+    providerBrowserAutoArm: settings.providerBrowserAutoArm,
     providerBrowserAlwaysOn: settings.providerBrowserAlwaysOn,
     mcpAppViews: settings.mcpAppViewsEnabled !== false,
     providerBrowserAutoFallbackDomains:

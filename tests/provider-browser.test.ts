@@ -50,6 +50,20 @@ describe("provider browser activation", () => {
 });
 
 describe("provider browser automatic fallback", () => {
+  test("tries Lens first even for known hosts unless early connection is opted in", () => {
+    const base = {
+      prompt: "Inspect https://claude.ai/code/artifact/example and https://wiki.corp.example/private",
+      secondaryReadOnly: false,
+      unattendedAutomation: false,
+      autoFallbackEnabled: true,
+      autoFallbackDomains: ["corp.example"],
+    };
+    expect(shouldActivateProviderBrowser(base)).toBe(false);
+    expect(shouldActivateProviderBrowser({ ...base, autoArmEnabled: false })).toBe(false);
+    expect(shouldActivateProviderBrowser({ ...base, autoArmEnabled: true })).toBe(true);
+    expect(shouldActivateProviderBrowser({ ...base, autoArmEnabled: true, autoFallbackEnabled: false })).toBe(false);
+    expect(shouldActivateProviderBrowser({ ...base, prompt: "@web inspect the page" })).toBe(true);
+  });
   test("normalizes the shapes people paste into the auto-arm host list", () => {
     expect(
       parseProviderBrowserDomains(
@@ -114,7 +128,7 @@ describe("provider browser automatic fallback", () => {
     };
     expect(shouldActivateProviderBrowser(base)).toBe(false);
     expect(
-      shouldActivateProviderBrowser({ ...base, autoFallbackEnabled: true }),
+      shouldActivateProviderBrowser({ ...base, autoFallbackEnabled: true, autoArmEnabled: true }),
     ).toBe(true);
   });
 
@@ -123,7 +137,7 @@ describe("provider browser automatic fallback", () => {
       prompt: "Summarize https://claude.ai/code/artifact/abc",
       secondaryReadOnly: false,
       unattendedAutomation: false,
-      autoFallbackEnabled: true,
+      autoFallbackEnabled: true, autoArmEnabled: true,
       autoFallbackDomains: ["corp.example"],
     };
     for (const blocked of [
@@ -142,7 +156,7 @@ describe("provider browser automatic fallback", () => {
         prompt: "Read https://wiki.corp.example/x",
         secondaryReadOnly: false,
         unattendedAutomation: false,
-        autoFallbackEnabled: true,
+        autoFallbackEnabled: true, autoArmEnabled: true,
         autoFallbackDomains: ["corp.example"],
       }),
     ).toBe(true);
@@ -151,7 +165,7 @@ describe("provider browser automatic fallback", () => {
         prompt: "Read https://unrelated.example/x",
         secondaryReadOnly: false,
         unattendedAutomation: false,
-        autoFallbackEnabled: true,
+        autoFallbackEnabled: true, autoArmEnabled: true,
         autoFallbackDomains: ["corp.example"],
       }),
     ).toBe(false);
@@ -165,7 +179,7 @@ describe("provider browser automatic fallback", () => {
     };
     expect(shouldActivateProviderBrowser(base)).toBe(false);
     expect(
-      shouldActivateProviderBrowser({ ...base, autoFallbackEnabled: true }),
+      shouldActivateProviderBrowser({ ...base, autoFallbackEnabled: true, autoArmEnabled: true }),
     ).toBe(false);
     expect(shouldActivateProviderBrowser({ ...base, alwaysEnabled: true })).toBe(
       true,

@@ -53,8 +53,8 @@ describe("Mentions settings section", () => {
     expect(html).toContain("When the agent may use Chrome");
   });
 
-  test("defaults the @web status to Automatic", async () => {
-    expect(await renderMentions({})).toContain("Automatic</span>");
+  test("defaults the @web status to Lens first", async () => {
+    expect(await renderMentions({})).toContain("Lens first</span>");
   });
 
   test("reflects each browser mode in the @web status", async () => {
@@ -63,7 +63,7 @@ describe("Mentions settings section", () => {
     );
     const expected = {
       explicit: "Only with @web</span>",
-      auto: "Automatic</span>",
+      auto: "Lens first</span>",
       always: "Always on</span>",
     } as const;
     for (const [browserMode, label] of Object.entries(expected)) {

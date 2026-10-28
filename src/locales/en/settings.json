@@ -1447,6 +1447,10 @@
     "chromeAccessIsAttemptedForThat": ". Chrome access is attempted for that turn, and any failure is reported in the conversation. Site approval remains in the provider's extension; Stave cannot install, enable, or grant access on its behalf.",
     "alsoKeepsItOff": "also keeps it off.",
     "connectClaudeCodeSNativeChrome": "Connect Claude Code's native Chrome extension to the profile you want to share, allow access to the target site, then try @web again.",
+    "autoArm": {
+      "title": "Connect Chrome in advance for listed hosts",
+      "description": "Attach Chrome at turn start for built-in and additional hosts. Off by default; leave it off to try Lens first."
+    },
     "mode": {
       "title": "When the agent may use Chrome",
       "description": "Unattended automation and secondary analysis never get browser access, whichever mode you pick.",
@@ -1455,8 +1459,8 @@
         "description": "Chrome is attached only to a prompt that contains @web."
       },
       "auto": {
-        "label": "Automatic",
-        "description": "Also attaches Chrome for listed hosts, and retries once with it when a fetch or Lens read is blocked by a login or bot check."
+        "label": "Lens first (automatic)",
+        "description": "Try Lens for workspace pages. If a read is blocked, retry it once in Chrome automatically. No @web needed."
       },
       "always": {
         "label": "Always",
@@ -1470,7 +1474,7 @@
     "alwaysAvailable": "Always available",
     "webStatus": {
       "explicit": "Only with @web",
-      "auto": "Automatic",
+      "auto": "Lens first",
       "always": "Always on"
     },
     "web": {

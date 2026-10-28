@@ -98,8 +98,8 @@ export function promptRequestsProviderBrowser(prompt: string) {
  * How far Stave may go in attaching the provider-native browser on its own.
  *
  * - `explicit`: only a prompt containing `@web`.
- * - `auto`: `@web`, plus hosts known to need a signed-in session up front and
- *   one retry after a fetch or Lens read is blocked.
+ * - `auto`: Lens first, then one retry after a fetch or Lens read is blocked.
+ *   Attaching up front for known hosts is a separate opt-in.
  * - `always`: every interactive primary turn, so the agent decides when to use
  *   the user's Chrome without being asked.
  *
@@ -131,8 +131,8 @@ export function providerBrowserModeSettingsPatch(mode: ProviderBrowserMode) {
  * Decides whether this turn starts with the provider's native browser attached.
  *
  * `alwaysEnabled` attaches it to every interactive primary turn. Otherwise
- * explicit `@web` is the primary path, and `autoFallbackEnabled` is the
- * setting that additionally arms the browser when the prompt points at a
+ * explicit `@web` is the primary path. `autoFallbackEnabled` together with
+ * `autoArmEnabled` additionally arms the browser when the prompt points at a
  * host known to be unreadable without a signed-in session, so the turn does not
  * have to fail once before the user can get an answer. The two hard blocks
  * come first and are never overridden: unattended and secondary read-only
@@ -144,6 +144,7 @@ export function shouldActivateProviderBrowser(args: {
   unattendedAutomation: boolean;
   alwaysEnabled?: boolean;
   autoFallbackEnabled?: boolean;
+  autoArmEnabled?: boolean;
   autoFallbackDomains?: readonly string[];
 }) {
   if (args.secondaryReadOnly || args.unattendedAutomation) {
@@ -152,7 +153,7 @@ export function shouldActivateProviderBrowser(args: {
   if (args.alwaysEnabled || promptRequestsProviderBrowser(args.prompt)) {
     return true;
   }
-  if (!args.autoFallbackEnabled) {
+  if (!args.autoFallbackEnabled || !args.autoArmEnabled) {
     return false;
   }
   return promptTargetsProviderBrowserDomain({

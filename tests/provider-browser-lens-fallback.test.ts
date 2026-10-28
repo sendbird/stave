@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import type { NormalizedProviderEvent } from "../src/lib/providers/provider.types";
 import { shouldActivateProviderBrowser } from "../src/lib/provider-browser";
+import { defaultSettings } from "../src/store/app-settings";
+import { buildProviderRuntimeOptions } from "../src/store/provider-runtime-options";
+import { StreamTurnArgsSchema } from "../electron/main/ipc/schemas";
 import {
   createProviderBrowserFallbackTracker,
   maybeStartProviderBrowserFallbackTurn,
@@ -24,6 +27,33 @@ const result = (value: unknown, id = "read", isError = false): NormalizedProvide
 });
 
 describe("Lens browser fallback", () => {
+  test("default settings try Lens on a known host and enable Chrome only for the blocked-read retry", () => {
+    for (const providerId of ["codex", "claude-code"] as const) {
+      const runtimeOptions = buildProviderRuntimeOptions({ provider: providerId, model: "default", settings: defaultSettings });
+      const request = StreamTurnArgsSchema.parse({ providerId, prompt: "Inspect https://claude.ai/code/artifact/example", runtimeOptions });
+      const activation = {
+        secondaryReadOnly: false, unattendedAutomation: false,
+        autoFallbackEnabled: request.runtimeOptions?.providerBrowserAutoFallback,
+        autoArmEnabled: request.runtimeOptions?.providerBrowserAutoArm,
+      };
+      expect(shouldActivateProviderBrowser({ ...activation, prompt: request.prompt })).toBe(false);
+      const subject = createProviderBrowserFallbackTracker({
+        prompt: request.prompt, providerId, runtimeOptions, turnOrigin: "conversation",
+      });
+      subject.observe([call("stave_lens_snapshot"), result({ ok: true, url: "https://claude.ai/code/artifact/example", snapshot: 'heading "Artifact"' })]);
+      const sent: Array<{ content: string }> = [];
+      const finish = () => maybeStartProviderBrowserFallbackTurn(() => ({
+        settings: defaultSettings, sendUserMessage: async (args) => { sent.push(args); },
+      }), { taskId: "task-1", events: [{ type: "done", stop_reason: "end_turn" }], tracker: subject, session: null });
+      finish();
+      expect(sent).toHaveLength(0);
+      subject.observe([call("stave_lens_reload", "blocked", { url: "https://claude.ai/code/artifact/example" }), result("Navigation timed out after 30s", "blocked", true)]);
+      finish();
+      finish();
+      expect(sent).toHaveLength(1);
+      expect(shouldActivateProviderBrowser({ ...activation, prompt: sent[0]!.content })).toBe(true);
+    }
+  });
   test("retries a login screen without @web for either provider's MCP event shape", () => {
     for (const [name, providerId] of [["mcp__stave-local-mcp__stave_lens_snapshot", "claude-code"], ["stave-local:stave_lens_snapshot", "codex"]] as const) {
       const subject = tracker(providerId);
