@@ -35,8 +35,9 @@ export const promptInputStyles = stylex.create({
     // app's. `vars["--ads-font-sans"]` resolves to `var(--font-sans)` through
     // `ads-theme.ts`, so both follow the one font setting.
     fontFamily: vars["--ads-font-sans"],
-    fontSize: "18px",
-    lineHeight: "2rem",
+    // 16px on a 26px line, the same reading size as the transcript default.
+    fontSize: vars["--ads-font-size-lead"],
+    lineHeight: vars["--ads-line-height-relaxed"],
   },
   enhancementEditorInset: {
     paddingInlineEnd: "2.25rem",
@@ -401,8 +402,10 @@ export const promptInputStyles = stylex.create({
     maxBlockSize: 168,
     caretColor: vars["--ads-color-accent"],
   },
+  // Rests at two lines of its own text (`lh` follows the typography above)
+  // and grows with the draft up to the cap.
   editorSizeDefault: {
-    minBlockSize: 104,
+    minBlockSize: "2lh",
     maxBlockSize: 240,
   },
   editorProgress: {
