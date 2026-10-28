@@ -1,31 +1,39 @@
-## [0.28.2](https://github.com/sendbird/stave/compare/v0.28.1...v0.28.2) (2026-10-27)
+## [0.28.2](https://github.com/sendbird/stave/compare/v0.28.1...v0.28.2) (2026-10-28)
 
-This patch release fixes a task that kept showing Working after its turn finished, keeps an agent run's first prompt above its reply, and trims the Welcome back card. It also adds a Lens full view with a reworked toolbar, moves the side question to the composer next to a Conversation | Review switch, adds an opt-in Always browser mode with a Settings > Mentions section, and updates Vite to 8.3.3 for a command injection advisory. Its three `feat:` changes add no data format that needs migration, so it ships as a patch.
+This patch release includes all 21 merged changes since 0.28.1 (PRs #828–#834 and #836–#849). It improves task recovery, approvals, attention and progress, adds GPT-6.1 Terra, and refines the composer, usage and Lens surfaces. The existing patch version is retained on request; the automatic model-selection update is described below.
 
 ### Features
 
-- Lens has a Full view button that maximizes the Lens pane inside the dock and restores the split on exit; the maximized state is not saved with the layout. The toolbar fits navigation, address and tools on one row from about 622px, hides the `http(s)://` scheme until the address bar is focused, labels console and network counts with their units, and uses a square stop icon and a speech-bubble comment icon.
-- The pane header shows a Conversation | Review switch whose Review item carries the latest finished turn's line counts (`+12 −3`). The side question moves to a composer control (Claude and Codex tasks with a conversation) and to Review's scope bar, and the composer's AI review button reads **Request AI review**.
-- A new Always browser mode (off by default) lets Claude Code and Codex use the user's Chrome on every interactive turn without typing `@web`; unattended automation and secondary read-only runs stay blocked. A new Settings > Mentions section lists `@web`, `@lens` and `@info:<section>` with their status, and browser access moves there from Providers as a three-way choice: Only with @web, Automatic (default) or Always.
+- GPT-6.1 Terra replaces GPT-5.6 Terra on the balanced Codex rung, in the picker and Auto routing. If the installed runtime or account cannot use it, thread startup retries once with GPT-5.6 Terra.
+- Sending a message while a running turn waits for approvals declines the pending approvals, then steers the message into that turn or queues it for the next turn when steering is unavailable. A failed decline or a draft edited during the wait preserves the draft. Blocking questions keep their existing response flow.
+- The composer adds configurable effort shortcuts, clearer question options and a scroll button that names waiting approvals, questions or responses. Command palette search suggests theme, appearance and repository task options, and the open task announces status changes to screen readers.
+- Running work uses a shared indicator with the latest step, to-do count and elapsed time. Stalled work has a still warning mark; blocking helper waits have their own state. Fleet and notifications offer bulk outcome reads, explicit review, snooze and restoration; task attention links to the current request, turn, stage or recovery action.
+- Renderer startup or render failures show a recovery screen with reload and redacted error details. A failed lazy chunk gets at most one automatic reload per window session, preventing reload loops.
+- AI usage opens on Quota, shows time until reset and the limit reached first, and estimates pace only for supported Claude windows with recent readings. Transcript text defaults to 16px for new profiles, the composer rests at two lines, and question controls, selection states, hit areas and typography are more consistent.
+- Lens gains Full view and a responsive toolbar. The pane header has a Conversation | Review switch, with Side question in the composer and Review scope bar. Settings > Mentions groups prompt mentions and offers opt-in Always browser access for interactive Claude and Codex turns; unattended and secondary runs remain blocked.
 
 ### Fixes
 
-- A task no longer keeps showing Working after its turn finished. Switching, hydrating, creating or importing a workspace and opening a project now read and save the workspace session inside their final store update, so a turn's `done` that lands during the wait is kept.
-- An agent run's first prompt no longer appears below its reply. Writes shared by the main process and the host service take the write lock first (`BEGIN IMMEDIATE`), and a turn no longer starts when its prompt row could not be saved.
-- The Welcome back card no longer repeats the header's time in its status line, drops step counts from the changes line, and shows only the answer as the last decision for an answered question.
-- Vite is updated from 8.3.1 to 8.3.3 for [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm) (SECURE-5315), an editor command injection that affects Windows development servers.
+- Workspace transitions keep turn completions that arrive during an awaited operation. Shared persistence writes take the write lock before reading, and a host turn does not start unless its prompt is saved, keeping the prompt above its reply.
+- Reopened archived tasks and restored task panes load their saved conversation, including when resident message counts are stale. Adding a thirteenth repository no longer silently removes the oldest repository.
+- Code blocks follow light, dark and custom themes, with syntax contrast adjusted to at least 4.5:1 on built-in code surfaces. Theme changes repaint cached highlighting without highlighting again.
+- Fleet ignores streaming diagnostics and superseded outcomes, preserves unanswered waiting states and unresolved expiries across restart, and keeps acknowledged failures available without repeating urgent alerts. Review and snooze Undo preserve concurrent changes.
+- The Welcome back card repeats and truncates less. Vite is updated to 8.3.3 for [GHSA-587h-7wmj-h5pm](https://github.com/advisories/GHSA-587h-7wmj-h5pm) (SECURE-5315), an editor command injection affecting Windows development servers.
 
 ### Upgrade Notes
 
-- No data migration or setting reset. The browser mode is stored as two booleans (`providerBrowserAutoFallback`, `providerBrowserAlwaysOn`); a saved fallback opt-out reads as Only with @web. No registered temporary migration expires in this release; `agent-run-adaptive-draft-key` must be removed before 0.29.0.
+- Settings model migration v7 moves a saved GPT-5.6 Terra composer default, shortcut or task preset to GPT-6.1 Terra while preserving effort; default preset labels follow the model. Stored Auto allow lists also move to the successor. Explicit pins in Agents, macros, automations and run policies remain unchanged.
+- Existing saved text sizes remain unchanged, including the previous 18px default. Browser Always mode defaults off; an existing browser fallback opt-out still reads as Only with @web. No setting reset is required.
+- No registered temporary migration expires in 0.28.2; `agent-run-adaptive-draft-key` must be removed before 0.29.0.
 
 ### Known Limits
 
-- The Electron e2e suite and a packaged desktop upgrade from 0.28.1 were not run for this release. Lens Full view, Always browser mode with the Chrome extension connected, and the workspace-transition and prompt-ordering races were not exercised end to end in a packaged app. Transcripts already saved out of order are not repaired.
+- Release validation does not include the Electron e2e suite, a packaged upgrade from 0.28.1, or live provider/browser-extension sessions. Existing transcripts already saved out of order are not repaired.
 
 ### References
 
-- [PR #828](https://github.com/sendbird/stave/pull/828), [PR #829](https://github.com/sendbird/stave/pull/829), [PR #830](https://github.com/sendbird/stave/pull/830), [PR #831](https://github.com/sendbird/stave/pull/831), [PR #832](https://github.com/sendbird/stave/pull/832), [PR #833](https://github.com/sendbird/stave/pull/833), [PR #834](https://github.com/sendbird/stave/pull/834)
+- [PR #828](https://github.com/sendbird/stave/pull/828), [PR #829](https://github.com/sendbird/stave/pull/829), [PR #830](https://github.com/sendbird/stave/pull/830), [PR #831](https://github.com/sendbird/stave/pull/831), [PR #832](https://github.com/sendbird/stave/pull/832), [PR #833](https://github.com/sendbird/stave/pull/833), [PR #834](https://github.com/sendbird/stave/pull/834), [PR #836](https://github.com/sendbird/stave/pull/836), [PR #837](https://github.com/sendbird/stave/pull/837), [PR #838](https://github.com/sendbird/stave/pull/838), [PR #839](https://github.com/sendbird/stave/pull/839), [PR #840](https://github.com/sendbird/stave/pull/840), [PR #841](https://github.com/sendbird/stave/pull/841), [PR #842](https://github.com/sendbird/stave/pull/842), [PR #843](https://github.com/sendbird/stave/pull/843), [PR #844](https://github.com/sendbird/stave/pull/844), [PR #845](https://github.com/sendbird/stave/pull/845), [PR #846](https://github.com/sendbird/stave/pull/846), [PR #847](https://github.com/sendbird/stave/pull/847), [PR #848](https://github.com/sendbird/stave/pull/848), [PR #849](https://github.com/sendbird/stave/pull/849)
+
 ## [0.28.1](https://github.com/sendbird/stave/compare/v0.28.0...v0.28.1) (2026-10-25)
 
 This patch release refines surfaces that shipped in 0.28.0: side questions keep a thread, Review's code view is highlighted and usable at any pane width, the agent run notice becomes one composer line, the Welcome back card leads with one action, and helpers draw shared team turns as they work. It also raises small text to 12px and 4.5:1 contrast and fixes two agent run defects. Its five `feat:` changes refine existing surfaces with no new data format or setting that needs migration, so it ships as a patch.
