@@ -152,6 +152,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     hasSelectedTask,
     activeTaskId,
     activeTaskMessageCount,
+    loadedTaskMessageCount,
     activeTask,
     activeTurnId,
     isScopedTaskGloballyActive,
@@ -161,6 +162,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
     createRepository,
     createTask,
     updatePromptDraft,
+    loadTaskMessages,
   ] = useAppStore(
     useShallow((state) => {
       const scopedTaskId = explicitTaskId ?? state.activeTaskId;
@@ -175,8 +177,11 @@ function ChatAreaImpl(props: ChatAreaProps) {
           (task) => task.id === scopedTaskId && !isTaskArchived(task),
         ),
         scopedTaskId,
-        state.messageCountByTask[scopedTaskId] ??
+        Math.max(
+          state.messageCountByTask[scopedTaskId] ?? 0,
           (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
+        ),
+        (state.messagesByTask[scopedTaskId] ?? EMPTY_MESSAGES).length,
         state.tasks.find(
           (task) => task.id === scopedTaskId && !isTaskArchived(task),
         ) ?? null,
@@ -188,6 +193,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
         state.createRepository,
         state.createTask,
         state.updatePromptDraft,
+        state.loadTaskMessages,
       ] as const;
     }),
   );
@@ -219,6 +225,25 @@ function ChatAreaImpl(props: ChatAreaProps) {
     isScopedTaskGloballyActive &&
     isTaskManaged(activeTask) &&
     Boolean(activeTurnId);
+
+  // Restored and split panes can mount without a task-selection event. Load
+  // their own persisted window rather than waiting for another focus change.
+  useEffect(() => {
+    if (
+      hasSelectedTask &&
+      loadedTaskMessageCount === 0 &&
+      activeTaskMessageCount > 0
+    ) {
+      void loadTaskMessages({ taskId: activeTaskId });
+    }
+  }, [
+    activeTaskId,
+    activeTaskMessageCount,
+    hasSelectedTask,
+    loadedTaskMessageCount,
+    loadTaskMessages,
+    props.scrollActivationKey,
+  ]);
 
   const handleTaskStartOption = useCallback(
     (prompt: string) => {

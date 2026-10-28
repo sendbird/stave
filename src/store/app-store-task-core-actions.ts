@@ -701,12 +701,18 @@ export function createTaskCoreActions(args: {
     },
     restoreTask: ({ taskId }) => {
       const stateBefore = get();
+      const targetTask = stateBefore.tasks.find((task) => task.id === taskId);
+      if (!targetTask || !isTaskArchived(targetTask)) {
+        return;
+      }
       const workspaceId =
         stateBefore.taskWorkspaceIdById[taskId] ??
         stateBefore.activeWorkspaceId;
-      const shouldLoadMessages =
-        !(taskId in stateBefore.messagesByTask) &&
-        (stateBefore.messageCountByTask[taskId] ?? 0) > 0;
+      const shouldLoadMessages = shouldLoadLatestTaskMessages({
+        taskId,
+        messagesByTask: stateBefore.messagesByTask,
+        messageCountByTask: stateBefore.messageCountByTask,
+      });
       set((state) => {
         const targetTask = state.tasks.find((task) => task.id === taskId);
         if (!targetTask || !isTaskArchived(targetTask)) {
