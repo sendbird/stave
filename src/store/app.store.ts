@@ -1278,6 +1278,7 @@ export const useAppStore = create<AppState>()(
             applyActivityPatch: (updater) =>
               set((state) => updater(state.providerTurnActivityByTask)),
             scheduleStallTimer: scheduleProviderTurnStallTimer,
+            latestTurns: loadedWorkspaceSession.latestTurns,
           });
         }
         // A managed host can answer requests on its own (agent-driven MCP

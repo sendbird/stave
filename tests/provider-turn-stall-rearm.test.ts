@@ -1,8 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import type { ProviderTurnActivitySnapshot } from "../src/lib/providers/turn-status";
+import { buildRunProgress, formatRunProgressLabel } from "../src/lib/fleet/run-progress";
 import {
+  markProviderTurnStalled,
+  type ProviderTurnActivitySnapshot,
+} from "../src/lib/providers/turn-status";
+import {
+  adoptRestoredTurnsIntoStallNet,
   collectAdoptedTurnsWithoutStallNet,
   createProviderTurnLivenessReporter,
+  resolvePersistedTurnStartedAt,
 } from "../src/store/provider-turn-stall-rearm";
 import type { Task } from "../src/types/chat";
 
@@ -125,5 +131,63 @@ describe("collectAdoptedTurnsWithoutStallNet", () => {
         activityByTask: {},
       }),
     ).toEqual([]);
+  });
+});
+
+describe("adoptRestoredTurnsIntoStallNet", () => {
+  const TURN_CREATED_AT = "2026-10-28T10:00:00.000Z";
+  const RESTORED_AT = Date.parse(TURN_CREATED_AT) + 10 * 60_000;
+
+  function restore(provider: Task["provider"], latestTurns?: Array<{ id: string; createdAt: string }>) {
+    let activityByTask: Record<string, ProviderTurnActivitySnapshot | undefined> = {};
+    const scheduled: Array<{ taskId: string; turnId: string; lastEventAt: number }> = [];
+    adoptRestoredTurnsIntoStallNet({
+      tasks: [buildTask({ id: "task-a", provider })],
+      activeTurnIdsByTask: { "task-a": "turn-a" },
+      getActivityByTask: () => activityByTask,
+      applyActivityPatch: (updater) => {
+        activityByTask = updater(activityByTask).providerTurnActivityByTask;
+      },
+      scheduleStallTimer: (target) => scheduled.push(target),
+      latestTurns,
+      now: RESTORED_AT,
+    });
+    return { activityByTask, scheduled };
+  }
+
+  test.each(["claude-code", "codex"] as const)(
+    "%s: a reload keeps the turn's run time and measures quiet time from the restore",
+    (provider) => {
+      const { activityByTask, scheduled } = restore(provider, [{ id: "turn-a", createdAt: TURN_CREATED_AT }]);
+      const activity = activityByTask["task-a"]!;
+      expect(activity.providerId).toBe(provider);
+      const working = buildRunProgress({ activity, activeTurnId: "turn-a", now: RESTORED_AT })!;
+      expect(formatRunProgressLabel(working)).toBe("Working · 10m");
+
+      // The stall net still starts at the restore: nothing has been heard
+      // since then, not since the turn began.
+      expect(activity.lastEventAt).toBe(RESTORED_AT);
+      expect(scheduled).toEqual([{ taskId: "task-a", turnId: "turn-a", lastEventAt: RESTORED_AT }]);
+      const stalled = markProviderTurnStalled({
+        activityByTask,
+        taskId: "task-a",
+        turnId: "turn-a",
+        now: RESTORED_AT + 5 * 60_000,
+      })["task-a"]!;
+      const quiet = buildRunProgress({ activity: stalled, activeTurnId: "turn-a", now: RESTORED_AT + 6 * 60_000 })!;
+      expect(formatRunProgressLabel(quiet)).toBe("No output · 6m");
+    },
+  );
+
+  test("without a readable turn row the run time starts at the restore", () => {
+    for (const latestTurns of [undefined, [{ id: "turn-other", createdAt: TURN_CREATED_AT }], [{ id: "turn-a", createdAt: "not a date" }]]) {
+      expect(restore("claude-code", latestTurns).activityByTask["task-a"]?.startedAt).toBe(RESTORED_AT);
+    }
+  });
+
+  test("a turn row dated after the restore never makes the run time negative", () => {
+    const future = new Date(RESTORED_AT + 60_000).toISOString();
+    expect(resolvePersistedTurnStartedAt([{ id: "turn-a", createdAt: future }], "turn-a")).toBe(RESTORED_AT + 60_000);
+    expect(restore("codex", [{ id: "turn-a", createdAt: future }]).activityByTask["task-a"]?.startedAt).toBe(RESTORED_AT);
   });
 });
