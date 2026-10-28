@@ -144,7 +144,8 @@ export const agentRunStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-text"],
   },
-  checkMark: { alignSelf: "center", display: "flex", width: 16, justifyContent: "center" },
+  // The slot follows the first text line, even when the copy wraps or gains details.
+  checkMark: { alignSelf: "start", alignItems: "center", blockSize: "1lh", display: "flex", width: 16, justifyContent: "center" },
   checkText: { minWidth: 0, overflowWrap: "anywhere" },
   checkDetail: { display: "block", marginBlockStart: 2, fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   checkState: {

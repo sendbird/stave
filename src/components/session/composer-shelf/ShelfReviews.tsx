@@ -177,8 +177,10 @@ export function ReviewActivityDialog(props: {
     () => (
       <>
         {item.status !== "ready" ? null : props.attached ? (
-          <span className={sx(styles.meta)}>
-            <Check aria-hidden className={sx(styles.markIcon)} /> {i18n.t("composer:shelfReviews.copy5")}</span>
+          <span className={sx(styles.meta, styles.metaWithIcon)}>
+            <Check aria-hidden className={sx(styles.markIcon)} />
+            <span>{i18n.t("composer:shelfReviews.copy5")}</span>
+          </span>
         ) : (
           <Button
             variant="quiet"
@@ -280,8 +282,10 @@ function ReviewLine(props: {
       <span className={sx(styles.actions)}>
         {item.status === "ready" ? (
           props.attached ? (
-            <span className={sx(styles.meta)} title={i18n.t("composer:shelfReviews.title4")}>
-              <Check aria-hidden className={sx(styles.markIcon)} /> {i18n.t("composer:shelfReviews.reviewLine")}</span>
+            <span className={sx(styles.meta, styles.metaWithIcon)} title={i18n.t("composer:shelfReviews.title4")}>
+              <Check aria-hidden className={sx(styles.markIcon)} />
+              <span>{i18n.t("composer:shelfReviews.reviewLine")}</span>
+            </span>
           ) : (
             <Button
               variant="quiet"

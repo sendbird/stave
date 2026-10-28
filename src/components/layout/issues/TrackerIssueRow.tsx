@@ -143,7 +143,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
         </span>
 
         <span
-          {...stylex.props(styles.title, finished && styles.finished)}
+          {...stylex.props(styles.title)}
           title={task.title}
         >
           {task.parentKey ? (
@@ -152,7 +152,7 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
               aria-label={tI18n("issues:trackerIssueRow.subtaskOfValue", { value1: task.parentKey })}
             />
           ) : null}
-          {task.title}
+          <span {...stylex.props(styles.titleCopy, finished && styles.finished)}>{task.title}</span>
         </span>
 
         {task.labels.slice(0, VISIBLE_LABEL_COUNT).map((label) => {

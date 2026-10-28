@@ -79,14 +79,19 @@ export const returnSummaryStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
     rowGap: vars["--ads-space-8"],
   },
+  statusContent: {
+    alignItems: "flex-start",
+    display: "flex",
+    flex: "1 1 14rem",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
   statusMark: {
-    alignSelf: "flex-start",
-    // Centers the 16px mark on the 20px first line.
-    paddingBlockStart: 2,
+    blockSize: vars["--ads-line-height-control"],
   },
   statusText: {
     display: "flex",
-    flex: "1 1 14rem",
+    flex: 1,
     flexDirection: "column",
     gap: vars["--ads-space-2"],
     minWidth: 0,
@@ -95,7 +100,7 @@ export const returnSummaryStyles = stylex.create({
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-medium"],
-    lineHeight: "1.25rem",
+    lineHeight: vars["--ads-line-height-control"],
     margin: 0,
   },
   statusDetail: {

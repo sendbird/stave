@@ -45,12 +45,11 @@ export const commandPaletteStyles = stylex.create({
   },
   itemIconBox: {
     alignItems: "center",
-    blockSize: vars["--ads-space-20"],
+    blockSize: "1lh",
     display: "flex",
     flexShrink: 0,
     inlineSize: vars["--ads-space-20"],
     justifyContent: "center",
-    marginBlockStart: 2,
   },
   itemIconBoxMuted: { color: vars["--ads-color-text-muted"] },
   itemIcon: {
