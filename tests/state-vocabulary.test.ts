@@ -59,11 +59,29 @@ describe("work state vocabulary", () => {
 
   test("the state mark draws the vocabulary glyph, or a domain glyph in the state color", () => {
     expect(renderToStaticMarkup(createElement(StateMark, { state: "halted" }))).toContain("lucide-circle-alert");
-    // Working moves with the one agent-working motion; held still it keeps its glyph.
-    const working = renderToStaticMarkup(createElement(StateMark, { state: "working" }));
-    expect(working).toContain('data-ads-loader-variant="matrix"');
-    expect(working).toContain('data-motion="moving"');
-    expect(renderToStaticMarkup(createElement(StateMark, { state: "working", motion: "still" }))).toContain("lucide-circle-dot");
     expect(renderToStaticMarkup(createElement(StateMark, { state: "halted", icon: Square }))).toContain("lucide-square");
+  });
+
+  test("working moves as an arc round its ring, in the glyph's box; held still it is the glyph", () => {
+    const working = renderToStaticMarkup(createElement(StateMark, { state: "working", size: "xs" }));
+    expect(working).toContain('data-motion="moving"');
+    expect(working).toContain('data-working-mark="ring-arc"');
+    // The static glyph's box and ring, a short arc over it and the center dot.
+    expect(working).toContain('width="12" height="12" viewBox="0 0 24 24"');
+    expect(working.match(/r="10"/g)).toHaveLength(2);
+    expect(working).toContain('stroke-dasharray="16 47"');
+    expect(working).toContain('stroke-linecap="round"');
+    expect(working).toContain('r="2.5"');
+    expect(working).not.toContain("data-ads-loader-variant");
+    expect(working).not.toContain("lucide-circle-dot");
+
+    const still = renderToStaticMarkup(createElement(StateMark, { state: "working", motion: "still" }));
+    expect(still).toContain("lucide-circle-dot");
+    expect(still).not.toContain("data-motion");
+    expect(still).not.toContain("data-working-mark");
+
+    // Only working moves; a domain glyph keeps its own shape.
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "ready" }))).not.toContain("data-working-mark");
+    expect(renderToStaticMarkup(createElement(StateMark, { state: "working", icon: Square }))).toContain("lucide-square");
   });
 });

@@ -76,7 +76,7 @@ export function ShelfSubagentLine(props: {
   );
 }
 
-/** A working delegate moves; while the run's own line moves it holds still in the working color. */
+/** A working delegate turns its ring; while the run's own line moves it holds still in the working color. */
 function SubagentMark(props: { state: SubagentLineState; moving: boolean }) {
   return (
     <StateMark

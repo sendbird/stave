@@ -97,7 +97,8 @@ same thing the same way.
 - A state is drawn with `StateMark` (`src/components/ads/components/StateMark.tsx`).
   It takes a `WorkState` from the vocabulary in `state-vocabulary.ts` and draws
   its glyph in its state token, optionally with its word; only `working`
-  moves, and reduced motion keeps it still. Each domain keeps its own state
+  moves (a short arc turns round its ring in the glyph's box), and reduced
+  motion settles it on the still glyph. Each domain keeps its own state
   type and maps it to a `WorkState`, as Fleet rows, run badges, the task panel
   and the sidebar do. The path for a new state display is token, then
   `WorkState`, then `StateMark`: never paint a state with a role color, and
