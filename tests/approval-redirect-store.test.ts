@@ -30,13 +30,18 @@ const approval = (requestId: string): ApprovalPart => ({
 type RespondArgs = { turnId: string; requestId: string; approved: boolean };
 
 async function setup(options: {
-  respond?: (args: RespondArgs) => { ok: boolean; message?: string; unanswerable?: true };
+  respond?: (
+    args: RespondArgs,
+  ) =>
+    | { ok: boolean; message?: string; unanswerable?: true }
+    | Promise<{ ok: boolean; message?: string; unanswerable?: true }>;
   steer?: () => ProviderSteerTurnResponse;
   midTurnSteeringEnabled?: boolean;
 }) {
   const log: string[] = [];
   const steerRequests: Array<{ turnId: string; text: string; enabled?: boolean }> = [];
   let streamCounter = 0;
+  const streamListeners = new Set<(payload: Record<string, unknown>) => void>();
   (globalThis as { window?: unknown }).window = {
     localStorage: memoryStorage(),
     setTimeout: globalThis.setTimeout.bind(globalThis),
@@ -54,9 +59,12 @@ async function setup(options: {
         },
         respondApproval: async (args: RespondArgs) => {
           log.push(`decline ${args.requestId} approved=${args.approved}`);
-          return options.respond?.(args) ?? { ok: true, message: "ok" };
+          return (await options.respond?.(args)) ?? { ok: true, message: "ok" };
         },
-        subscribeStreamEvents: () => () => {},
+        subscribeStreamEvents: (listener: (payload: Record<string, unknown>) => void) => {
+          streamListeners.add(listener);
+          return () => void streamListeners.delete(listener);
+        },
         abortTurn: async () => ({ ok: true, message: "aborted" }),
         cleanupTask: async () => ({ ok: true, message: "cleaned" }),
       },
@@ -169,10 +177,28 @@ async function setup(options: {
       },
     }));
 
+  /** The running turn finishes on its own, as the provider reports it. */
+  const endTurnNaturally = () => {
+    for (const listener of [...streamListeners]) {
+      listener({
+        streamId: "stream-1",
+        event: { type: "done" },
+        sequence: 1,
+        done: true,
+        taskId: "task-a",
+        workspaceId: "ws-a",
+        providerId: "claude-code",
+        turnId,
+      });
+    }
+  };
+
   return {
     useAppStore,
     log,
     addApproval,
+    endTurnNaturally,
+    startedTurnCount: () => streamCounter,
     steerRequests,
     turnId: turnId!,
     approvalStates,
@@ -328,6 +354,57 @@ describe("redirecting a turn that waits on approvals", () => {
       expect(harness.approvalStates()).toContain("approval-c:approval-requested");
       expect(harness.queuedContents()).toEqual([]);
       expect(harness.clearedCount()).toBe(0);
+      harness.useAppStore.setState(harness.useAppStore.getInitialState(), true);
+    }
+  });
+
+  test("Stop while the decline is in flight cancels the redirect", async () => {
+    for (const mode of ["steer", "queue"] as const) {
+      let finishDecline: () => void = () => {};
+      const harness = await setup({
+        respond: () =>
+          new Promise((resolve) => {
+            finishDecline = () => resolve({ ok: true });
+          }),
+        // A stopped turn takes no steer.
+        steer: () => ({ ok: false, delivery: "rejected", message: "turn stopped" }),
+      });
+      const submitted = harness.submit(mode);
+      await Bun.sleep(5);
+      harness.useAppStore.getState().abortTaskTurn({ taskId: "task-a" });
+      finishDecline();
+      await submitted;
+
+      expect(harness.startedTurnCount()).toBe(1);
+      expect(harness.useAppStore.getState().activeTurnIdsByTask["task-a"]).toBeUndefined();
+      // The Stop closed the approval not yet declined; the decline already in
+      // flight still lands.
+      expect(harness.approvalStates()).toEqual([
+        "approval-a:approval-interrupted",
+        "approval-b:output-denied",
+      ]);
+      expect(harness.log.filter((line) => line.startsWith("steer"))).toEqual([]);
+      expect(harness.queuedContents()).toEqual([]);
+      expect(harness.clearedCount()).toBe(0);
+      harness.useAppStore.setState(harness.useAppStore.getInitialState(), true);
+    }
+  });
+
+  test("a turn that ends on its own during the decline still gets the message as the next turn", async () => {
+    for (const mode of ["steer", "queue"] as const) {
+      const harness = await setup({
+        respond: () => {
+          harness.endTurnNaturally();
+          return { ok: true };
+        },
+        steer: () => ({ ok: false, delivery: "rejected", message: "turn already finished" }),
+      });
+      await harness.submit(mode);
+      await Bun.sleep(5);
+
+      expect(harness.startedTurnCount()).toBe(2);
+      expect(harness.useAppStore.getState().activeTurnIdsByTask["task-a"]).not.toBe(harness.turnId);
+      expect(harness.clearedCount()).toBe(1);
       harness.useAppStore.setState(harness.useAppStore.getInitialState(), true);
     }
   });

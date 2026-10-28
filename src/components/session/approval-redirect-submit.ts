@@ -23,6 +23,8 @@ export async function submitApprovalRedirect(args: {
   clearDraft: () => void;
 }): Promise<void> {
   const store = useAppStore.getState;
+  // The turn being redirected; a Stop on it records it as a stopped turn.
+  const targetTurnId = store().activeTurnIdsByTask[args.taskId];
   const outcome = await sendWithApprovalRedirect({
     preferSteer: args.mode === "steer",
     readPendingApprovals: () =>
@@ -41,6 +43,10 @@ export async function submitApprovalRedirect(args: {
         onUnanswerable: "close",
       }),
     isDraftCurrent: args.isDraftCurrent,
+    isTargetTurnStopped: () => {
+      const retired = store().retainedTurnActivityByTask[args.taskId];
+      return Boolean(targetTurnId) && retired?.outcome === "stopped" && retired.snapshot.turnId === targetTurnId;
+    },
     queueRefusal: () =>
       isAutoRoutingUnavailableForSend({
         promptDraft: store().promptDraftByTask[args.taskId] ?? EMPTY_PROMPT_DRAFT,
@@ -78,6 +84,9 @@ export async function submitApprovalRedirect(args: {
           reason: outcome.message,
         }),
       });
+      return;
+    case "turn-stopped":
+      // The user stopped the turn on purpose; keep the draft and say nothing.
       return;
     case "draft-changed":
       toast.message(i18n.t("session:chatInputComposer.approvalRedirectDraftChanged"), {

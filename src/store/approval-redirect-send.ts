@@ -51,6 +51,8 @@ export function resolveApprovalRedirectMode(args: {
  *   outgoing bubble.
  * - `not-sent`: the send path refused the message. When it refused before
  *   declining, the approvals are untouched.
+ * - `turn-stopped`: the user stopped the turn this redirect targeted while it
+ *   was declining or steering. Nothing was sent; the draft stays.
  */
 export type ApprovalRedirectOutcome =
   | { kind: "delivered"; via: "steered" | "queued" | "started" | "run-started" }
@@ -58,7 +60,8 @@ export type ApprovalRedirectOutcome =
   | { kind: "draft-changed" }
   | { kind: "delivery-unknown"; message: string }
   | { kind: "parked"; message: string }
-  | { kind: "not-sent"; result: SendUserMessageResult };
+  | { kind: "not-sent"; result: SendUserMessageResult }
+  | { kind: "turn-stopped" };
 
 /**
  * The most approvals one redirect declines. Approvals that keep arriving past
@@ -120,6 +123,12 @@ export async function sendWithApprovalRedirect(args: {
   /** Whether the composer still holds the text being sent. */
   isDraftCurrent: () => boolean;
   /**
+   * Whether the user stopped the turn this redirect targets. A stop cancels
+   * the redirect; a turn that ended on its own still gets the message as the
+   * next turn.
+   */
+  isTargetTurnStopped: () => boolean;
+  /**
    * Why the send path would refuse to queue this message, checked before the
    * approvals are declined for a queued delivery; `null` when it would not.
    */
@@ -133,6 +142,10 @@ export async function sendWithApprovalRedirect(args: {
   const declineThenConfirmDraft = async () => {
     gate.stop = null;
     const declined = await declinePendingApprovals(args);
+    if (args.isTargetTurnStopped()) {
+      gate.stop = { kind: "turn-stopped" };
+      return false;
+    }
     if (!declined.ok) {
       gate.stop = { kind: "decline-failed", message: declined.message };
       return false;

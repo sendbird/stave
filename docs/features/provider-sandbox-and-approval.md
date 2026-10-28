@@ -184,6 +184,10 @@ waiting for you, so the message answers it instead of queueing behind it.
   declines, nothing is sent and the message stays in the composer.
 - If the message changes while the approvals are being declined, it is not
   sent; send it again when it is ready.
+- If you press **Stop** on the turn while the redirect is still declining or
+  steering, the redirect is cancelled: nothing is sent and the message stays
+  in the composer. A turn that ends on its own meanwhile still gets the
+  message as the next turn.
 - A request the provider can no longer answer (its turn ended, or the runtime
   no longer knows it) is closed as interrupted and skipped.
 - `/aside` side questions, queued messages and messages Stave would refuse to

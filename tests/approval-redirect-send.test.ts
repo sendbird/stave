@@ -32,13 +32,19 @@ function createHarness(options: {
   stuck?: string[];
   /** Runs inside the queue send before the store checks for pending approvals. */
   beforeQueueCheck?: (pending: Set<string>) => void;
+  /** The user presses Stop on the targeted turn: while declining this request, or during the steer. */
+  stopTurn?: { whileDeclining: string } | "during-steer";
 }) {
   const pending = new Set(options.approvals);
   const log: string[] = [];
   let draftCurrent = true;
+  let turnStopped = false;
   const decline = async ({ requestId }: PendingApprovalTarget) => {
     log.push(`decline ${requestId}`);
     options.whileDeclining?.(requestId, pending);
+    if (typeof options.stopTurn === "object" && options.stopTurn.whileDeclining === requestId) {
+      turnStopped = true;
+    }
     await Promise.resolve();
     const outcome = options.declineOutcome?.(requestId) ?? { status: "delivered" };
     if (outcome.status !== "failed" && !options.stuck?.includes(requestId)) {
@@ -63,6 +69,9 @@ function createHarness(options: {
       if (request.declinePendingApprovals && !(await request.declinePendingApprovals())) {
         log.push("steer stopped");
         return { status: "blocked" };
+      }
+      if (options.stopTurn === "during-steer") {
+        turnStopped = true;
       }
       if (steer === "reject-after-decline") {
         log.push("steer rejected");
@@ -97,6 +106,7 @@ function createHarness(options: {
           [...pending].map((requestId) => ({ messageId: "m-1", requestId })),
         decline,
         isDraftCurrent: () => draftCurrent,
+        isTargetTurnStopped: () => turnStopped,
         queueRefusal: () => options.queueRefusal ?? null,
         send,
       }),
@@ -276,6 +286,43 @@ describe("approvals that arrive while the redirect declines", () => {
       result: { status: "blocked", reason: "approval-pending" },
     });
     expect(harness.log).toEqual(["decline a", "queue blocked by pending approval"]);
+  });
+});
+
+describe("a Stop on the redirected turn", () => {
+  test("Stop while declining cancels a steer redirect: nothing is steered or queued", async () => {
+    const harness = createHarness({
+      approvals: ["a", "b"],
+      stopTurn: { whileDeclining: "a" },
+      steer: "reject-after-decline",
+    });
+    await expect(harness.run(true)).resolves.toEqual({ kind: "turn-stopped" });
+    expect(harness.log).toEqual(["decline a", "decline b", "steer stopped"]);
+  });
+
+  test("Stop while declining cancels a queue redirect", async () => {
+    const harness = createHarness({ approvals: ["a"], stopTurn: { whileDeclining: "a" } });
+    await expect(harness.run(false)).resolves.toEqual({ kind: "turn-stopped" });
+    expect(harness.log).toEqual(["decline a"]);
+  });
+
+  test("Stop during the steer does not fall back to queueing the message", async () => {
+    const harness = createHarness({
+      approvals: ["a"],
+      stopTurn: "during-steer",
+      steer: "reject-after-decline",
+    });
+    await expect(harness.run(true)).resolves.toEqual({ kind: "turn-stopped" });
+    expect(harness.log).toEqual(["decline a", "steer rejected"]);
+  });
+
+  test("a stop that makes a decline fail reads as the stop, not a decline failure", async () => {
+    const harness = createHarness({
+      approvals: ["a"],
+      stopTurn: { whileDeclining: "a" },
+      declineOutcome: () => ({ status: "failed", message: "turn ended" }),
+    });
+    await expect(harness.run(true)).resolves.toEqual({ kind: "turn-stopped" });
   });
 });
 
