@@ -212,6 +212,19 @@ describe("waiting on helpers", () => {
     expect(resolveTurnWaitTarget(oneReturned)?.helperCount).toBe(1);
   });
 
+  test("Claude: a blocking subagent call keeps waiting through its progress events", () => {
+    const call = tool("agent-1", "Agent", { input: JSON.stringify({ description: "Review", prompt: "Look" }) });
+    const progressed = snapshot({
+      batches: [
+        { at: START, events: [call] },
+        { at: START + 2_000, events: [{ type: "tool_progress", toolUseId: "agent-1", toolName: "Agent", elapsedSeconds: 2 }] },
+        { at: START + 4_000, events: [{ type: "subagent_progress", toolUseId: "agent-1", content: "Reading the diff" }] },
+      ],
+    });
+    expect(progressed.workItemsById["agent-1"]?.toolName).toBe("Agent");
+    expect(resolveTurnWaitTarget(progressed)?.helperCount).toBe(1);
+  });
+
   test("a call the model is still writing is work, not a wait", () => {
     const activity = snapshot({
       batches: [{ at: START, events: [tool("agent-1", "Agent", { state: "input-streaming" })] }],
