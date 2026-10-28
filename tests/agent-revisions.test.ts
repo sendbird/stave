@@ -97,6 +97,7 @@ describe("agent activity", () => {
         assignment({ id: "4", taskId: "cold" }),
       ],
       statusByTaskId: { t1: "running", t2: "waiting-approval" },
+      attentionKindByTaskId: { t2: "approval" },
     });
     expect(summary).toEqual({
       total: 4,

@@ -101,6 +101,19 @@ describe("FleetAttentionInbox", () => {
     expect(renderInbox([buildAttentionItem()])).not.toContain("Clear all");
   });
 
+  test("offers bulk management with the full attention count, including folded outcomes", () => {
+    const markup = renderInbox([buildAttentionItem(), REVIEW_ITEM]);
+    expect(markup).toContain("Manage 2 items");
+    expect(renderInbox([buildAttentionItem()])).toContain("Manage 1 item");
+    expect(renderInbox([])).not.toContain("Manage");
+    applyAppLocale("ko");
+    try {
+      expect(renderInbox([buildAttentionItem(), REVIEW_ITEM])).toContain("항목 2개 관리");
+    } finally {
+      applyAppLocale("en");
+    }
+  });
+
   test("names the tiers with Fleet's shared vocabulary", () => {
     const markup = renderInbox([buildAttentionItem(), REVIEW_ITEM]);
     expect(markup).toContain(">Action required</h2>");

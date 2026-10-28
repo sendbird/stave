@@ -3,7 +3,7 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import type { ChatMessage, Task } from "@/types/chat";
 import type { FleetAttentionItem, FleetAttentionKind } from "./attention-projection";
 import { sameData, shareList } from "./attention-sharing";
-import { classifyTaskStatus, type FleetDisplayStatus } from "./task-status";
+import { classifyTaskStatus, resolveFleetTaskSurfaceStatus, type FleetDisplayStatus } from "./task-status";
 import {
   compareWithinWorkQueueLane,
   rankWorkAttention,
@@ -145,7 +145,7 @@ export function buildFleetTaskRows(args: {
       const activeTurnId = activeTurnIdsByTask[task.id] ?? null;
       const snapshot = args.providerTurnActivityByTask[task.id] ?? null;
       const activity = activeTurnId && snapshot?.turnId === activeTurnId ? snapshot : null;
-      const status: FleetDisplayStatus = session
+      const rawStatus: FleetDisplayStatus = session
         ? classifyTaskStatusCached({
             task,
             messages: session.messagesByTask[task.id],
@@ -153,6 +153,8 @@ export function buildFleetTaskRows(args: {
             activity,
           })
         : "unknown";
+      const need = needs.get(JSON.stringify([workspace.workspaceId, task.id]));
+      const status = resolveFleetTaskSurfaceStatus({ status: rawStatus, hasCurrentFailure: need?.kind === "run-failed", hasCurrentInteraction: need?.kind === "user-input" || need?.kind === "approval", activeTurnId });
       return { task, activeTurnId, status };
     });
     const workspaceActivity = classifyFleetWorkspaceActivity({

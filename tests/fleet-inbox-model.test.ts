@@ -52,6 +52,26 @@ const inbox = buildFleetInbox({
 });
 
 describe("one inbox for Fleet and the bell", () => {
+  test("snoozing hides linked notifications in every bell filter without settling the request", () => {
+    const hidden = buildFleetInbox({ items: [], notifications: [approvalNotification], snoozedItems: [approval] });
+    for (const filter of ["all", "unread", "errors"] as const) expect(selectBellEntries(hidden, filter)).toEqual([]);
+    expect(approvalNotification.readAt).toBeNull();
+    expect(approvalNotification.resolvedAt).toBeNull();
+    const restored = buildFleetInbox({ items: [approval], notifications: [approvalNotification] });
+    expect(selectBellEntries(restored, "unread").map((entry) => entry.id)).toEqual([approval.id]);
+  });
+
+  test("superseded outcomes and known run episodes do not return as unlinked unread alerts", () => {
+    const current = buildFleetInbox({
+      items: [signOff], notifications: [signOffNotification, staleSignOffNotification, failedHistory, readHistory],
+      attentionAuthoritative: true, knownAgentRunIds: new Set(["run-1"]),
+    });
+    expect(selectBellEntries(current, "unread").map((entry) => entry.id)).toEqual([signOff.id]);
+    expect(selectBellHistory(current).map((entry) => entry.id)).toContain("notification:n-done");
+    // Until the authority has loaded, a real cold failure and run request stay discoverable.
+    expect(selectBellEntries(buildFleetInbox({ items: [], notifications: [failedHistory, signOffNotification] }), "unread")).toHaveLength(2);
+  });
+
   test("every item is one entry carrying the notifications that speak for it", () => {
     expect(inbox.itemEntries.map((entry) => [entry.id, entry.notifications.map((n) => n.id)])).toEqual([
       [approval.id, ["n-approval"]],

@@ -67,6 +67,7 @@ import {
 } from "@/components/ui";
 import {
   classifyTaskStatus,
+  resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
@@ -383,11 +384,16 @@ export function RepositoryWorkspaceSidebar(args: {
           if (isTaskArchived(task) || isDelegatedTask(task)) {
             continue;
           }
-          const status = classifyTaskStatus({
+          const status = resolveFleetTaskSurfaceStatus({
+            hasCurrentFailure: attentionItemsByWorkspaceId[workspace.id]?.some((item) => item.taskId === task.id && item.kind === "run-failed") ?? false,
+            hasCurrentInteraction: attentionItemsByWorkspaceId[workspace.id]?.some((item) => item.taskId === task.id && (item.kind === "user-input" || item.kind === "approval")) ?? false,
+            activeTurnId: runtimeState.activeTurnIdsByTask[task.id],
+            status: classifyTaskStatus({
             task,
             messages: runtimeState.messagesByTask[task.id],
             activeTurnId: runtimeState.activeTurnIdsByTask[task.id] ?? null,
             activity: providerTurnActivityByTask[task.id] ?? null,
+            }),
           });
           if (compareFleetTaskStatus(status, bestStatus) < 0) {
             bestStatus = status;
@@ -398,6 +404,7 @@ export function RepositoryWorkspaceSidebar(args: {
     }
     return statusById;
   }, [
+    attentionItemsByWorkspaceId,
     activeTasks,
     activeTurnIdsByTask,
     activeWorkspaceId,

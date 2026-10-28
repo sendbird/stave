@@ -1238,8 +1238,8 @@ async function persistTurnCompletedNotification(args: {
   if (args.session.activeTurnIdsByTask[args.taskId]) {
     return;
   }
-  const outcome = ensureHostServicePersistenceReady()
-    .getTurnReceipt(args.turnId)?.outcome ?? "unknown";
+  const receipt = ensureHostServicePersistenceReady().getTurnReceipt(args.turnId);
+  const outcome = receipt?.outcome ?? "unknown";
   if (outcome === "unknown") return;
   if (outcome === "cancelled") return;
 
@@ -1256,7 +1256,9 @@ async function persistTurnCompletedNotification(args: {
     id: randomUUID(),
     kind: outcome === "failed" ? "task.turn_failed" : "task.turn_completed",
     title: review?.title ?? taskTitle,
-    body: review?.body ?? `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`,
+    body: review?.body ?? (outcome === "failed" && receipt?.error
+      ? receipt.error.slice(0, 2000)
+      : `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`),
     repositoryPath: registration?.project.repositoryPath ?? null,
     repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
@@ -1268,6 +1270,10 @@ async function persistTurnCompletedNotification(args: {
     action: null,
     payload: {
       stopReason: args.event.stop_reason ?? null,
+      ...(outcome === "failed" ? {
+        message: receipt?.error ?? null,
+        messageId: args.session.messagesByTask[args.taskId]?.findLast((message) => message.role === "assistant" && message.turnId === args.turnId)?.id ?? null,
+      } : {}),
       resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
       ...review?.payload,
     },

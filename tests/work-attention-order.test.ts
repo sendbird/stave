@@ -30,10 +30,10 @@ const at = (day: number) => `2026-10-0${day}T00:00:00.000Z`;
 /** One row per status, with recency chosen so recency alone would give a different order. */
 const ROWS: Row[] = [
   { id: "idle-old", status: "idle", activityAt: at(4) },
-  { id: "approval", status: "waiting-approval", activityAt: at(1) },
+  { id: "approval", status: "waiting-approval", activityAt: at(1), attentionKind: "approval" },
   { id: "running", status: "running", activityAt: at(3) },
-  { id: "input", status: "waiting-input", activityAt: at(2) },
-  { id: "failed", status: "error", activityAt: at(5) },
+  { id: "input", status: "waiting-input", activityAt: at(2), attentionKind: "user-input" },
+  { id: "failed", status: "error", activityAt: at(5), attentionKind: "run-failed" },
   { id: "idle-new", status: "idle", activityAt: at(6) },
 ];
 
@@ -107,6 +107,7 @@ function agentActivityOrder(rows: readonly Row[]) {
   return orderAgentActivityRows(
     assignments,
     Object.fromEntries(rows.map((row) => [row.id, row.status])),
+    Object.fromEntries(rows.map((row) => [row.id, row.attentionKind])),
   ).map((row) => row.id);
 }
 
@@ -131,6 +132,7 @@ function agentsWithWorkOrder(rows: readonly Row[]) {
   );
   return collectAgentsWithWork({
     byTaskId,
+    attentionKindByTaskId: Object.fromEntries(rows.map((row) => [row.id, row.attentionKind])),
     tasks: rows.map((row) => ({ id: row.id, archivedAt: null, updatedAt: row.activityAt })),
     messagesByTask: Object.fromEntries(rows.map((row) => [row.id, messagesFor(row.status)])),
     activeTurnIdsByTask: Object.fromEntries(rows.flatMap((row) => (row.status === "running" ? [[row.id, "turn"]] : []))),
@@ -141,13 +143,14 @@ function agentsWithWorkOrder(rows: readonly Row[]) {
 
 describe("the shared work attention rule", () => {
   test("lanes come first: action required, in progress, in review, idle", () => {
-    expect(classifyWorkQueueLane({ status: "error" })).toBe("action-required");
-    // A quiet turn is not a failure, but it still asks for a look.
-    expect(classifyWorkQueueLane({ status: "stalled" })).toBe("action-required");
-    expect(classifyWorkQueueLane({ attentionKind: "turn-stalled" })).toBe("action-required");
+    expect(classifyWorkQueueLane({ status: "error" })).toBe("idle");
+    expect(classifyWorkQueueLane({ status: "error", attentionKind: "run-failed" })).toBe("action-required");
+    // Silence is review information while the turn remains in progress.
+    expect(classifyWorkQueueLane({ status: "stalled" })).toBe("in-progress");
+    expect(classifyWorkQueueLane({ attentionKind: "turn-stalled" })).toBe("in-review");
     expect(classifyWorkQueueLane({ status: "running", attentionKind: "result-ready" })).toBe("in-progress");
     expect(classifyWorkQueueLane({ status: "idle", attentionKind: "pr-ready-to-merge" })).toBe("in-review");
-    expect(classifyWorkQueueLane({ status: "idle", agentRunLane: "action-required" })).toBe("action-required");
+    expect(classifyWorkQueueLane({ status: "idle", agentRunLane: "action-required" })).toBe("idle");
     expect(orderByWorkAttention(ROWS, (row) => rankWorkAttention(row)).map((row) => row.id)).toEqual(EXPECTED);
   });
 
@@ -210,12 +213,14 @@ describe("Work queue, Fleet board and Agents order the same work the same way", 
       messagesByTask: { t1: messagesFor("error") },
       activeTurnIdsByTask: {},
       providerTurnActivityByTask: {},
+      attentionKindByTaskId: { t1: "run-failed" },
       limit: 5,
     });
     expect(work.agents[0]).toMatchObject({ agentConfigId: "a", needsYou: true, count: 1 });
     const summary = summarizeAgentActivity({
       assignments: [{ id: "x", taskId: "t1", state: "started", createdAt: at(1) } as unknown as AgentAssignment],
       statusByTaskId: { t1: "error" },
+      attentionKindByTaskId: { t1: "run-failed" },
     });
     expect(summary.needsYou).toBe(1);
   });

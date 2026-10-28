@@ -73,8 +73,11 @@ describe("task announcement state", () => {
     // A recoverable provider error lands as an error line while the turn keeps running.
     const erroring = [user(), assistant({}, [{ type: "system_event", content: "[error] Reconnecting… 1/5" }])];
     expect(resolveTaskAnnouncementState({ messages: erroring, activeTurnId: "t1" })).toBe("working");
+    expect(resolveTaskAnnouncementState({ messages: erroring })).toBe("idle");
     // The same turn ending on the error has failed.
-    expect(resolveTaskAnnouncementState({ messages: erroring })).toBe("failed");
+    const ended = erroring.map((message) => message.role === "assistant"
+      ? { ...message, completedAt: "2026-10-27T00:00:00.000Z" } : message);
+    expect(resolveTaskAnnouncementState({ messages: ended })).toBe("failed");
 
     // Spoken: Working, then (the retry says nothing), then Failed only at the end.
     let baseline: TaskAnnouncementBaseline | null = { taskId: "t", state: "working" };
@@ -82,7 +85,7 @@ describe("task announcement state", () => {
     for (const activeTurnId of ["t1", "t1", null]) {
       const result = advanceTaskAnnouncement(baseline, {
         taskId: "t",
-        state: resolveTaskAnnouncementState({ messages: erroring, activeTurnId }),
+        state: resolveTaskAnnouncementState({ messages: activeTurnId ? erroring : ended, activeTurnId }),
       });
       baseline = result.baseline;
       if (result.announce) spoken.push(result.announce);

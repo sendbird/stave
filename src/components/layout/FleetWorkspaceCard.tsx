@@ -44,6 +44,7 @@ import {
 import { orderByWorkAttention, rankWorkAttention } from "@/lib/fleet/work-attention-order";
 import {
   classifyTaskStatus,
+  resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
   type FleetDisplayStatus,
   type FleetTaskStatus,
@@ -300,18 +301,24 @@ export function FleetWorkspaceCard(args: {
     for (const item of args.attentionItems) {
       if (item.taskId && !attentionKindByTaskId.has(item.taskId)) attentionKindByTaskId.set(item.taskId, item.kind);
     }
-    const views = openTasks.map((task) => ({
-      task,
-      status: taskState.hasRuntimeState
+    const views = openTasks.map((task) => {
+      const activeTurnId = taskState.activeTurnIdsByTask[task.id] ?? null;
+      const rawStatus = taskState.hasRuntimeState
         ? classifyTaskStatus({
             task,
             messages: taskState.messagesByTask[task.id] ?? EMPTY_MESSAGES,
-            activeTurnId: taskState.activeTurnIdsByTask[task.id] ?? null,
+            activeTurnId,
             activity: providerTurnActivityByTask[task.id] ?? null,
           })
-        : ("unknown" as const),
-      updatedLabel: formatTimeAgo(task.updatedAt),
-    })) satisfies FleetCardTaskView[];
+        : ("unknown" as const);
+      return {
+        task,
+        status: resolveFleetTaskSurfaceStatus({ status: rawStatus,
+          hasCurrentFailure: attentionKindByTaskId.get(task.id) === "run-failed",
+          hasCurrentInteraction: attentionKindByTaskId.get(task.id) === "user-input" || attentionKindByTaskId.get(task.id) === "approval", activeTurnId }),
+        updatedLabel: formatTimeAgo(task.updatedAt),
+      };
+    }) satisfies FleetCardTaskView[];
     return orderByWorkAttention(views, (row) =>
       rankWorkAttention({
         attentionKind: attentionKindByTaskId.get(row.task.id),

@@ -207,6 +207,8 @@ export function buildTaskTurnFailedNotificationInput(args: {
     .find((message) => message.role === "assistant" && message.turnId === args.turnId)
     ?.terminalReceipt;
   if (receipt?.completedAt && receipt.outcome !== "failed") return null;
+  // An error event alone is a diagnostic, not the end of a turn.
+  if (!receipt?.completedAt && !args.events.some((event) => event.type === "done")) return null;
   if (!errorEvent && !failedDone && receipt?.outcome !== "failed") {
     return null;
   }
@@ -242,7 +244,7 @@ export function buildTaskTurnFailedNotificationInput(args: {
     id: crypto.randomUUID(),
     kind: "task.turn_failed",
     title: taskTitle,
-    body: i18n.t("notifications:appNotificationBuilders.runFailed", { workspaceName }),
+    body: (receipt?.error ?? errorEvent?.message ?? i18n.t("notifications:appNotificationBuilders.runFailed", { workspaceName })).slice(0, 2000),
     repositoryPath: repository?.repositoryPath ?? null,
     repositoryName: repository?.repositoryName ?? null,
     workspaceId: args.workspaceId,
@@ -253,7 +255,9 @@ export function buildTaskTurnFailedNotificationInput(args: {
     providerId: args.provider,
     action: null,
     payload: {
-      message: errorEvent?.message ?? i18n.t("notifications:appNotificationBuilders.theProviderStoppedBeforeCompleting"),
+      message: receipt?.error ?? errorEvent?.message ?? i18n.t("notifications:appNotificationBuilders.theProviderStoppedBeforeCompleting"),
+      messageId: [...(args.session.messagesByTask[args.taskId] ?? [])].reverse()
+        .find((message) => message.role === "assistant" && message.turnId === args.turnId)?.id ?? null,
       resultEvidence: captureResultEvidence(args.session.messagesByTask[args.taskId] ?? [], args.turnId),
     },
     dedupeKey: `task.turn_failed:${args.turnId}`,

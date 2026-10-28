@@ -1,13 +1,18 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { ResultReviewStore } from "../electron/persistence/result-review-store";
 import {
   ResultReviewSchema,
+  ListResultReviewsArgsSchema,
   SetResultReviewedArgsSchema,
   SetResultsReviewedArgsSchema,
 } from "../src/lib/reviews/result-review";
 
 let db: Database;
+let databaseDirectory: string | null = null;
 const scope = {
   repositoryPath: "/tmp/project",
   workspaceId: "workspace",
@@ -20,15 +25,104 @@ function insert(id = "result", turn = "turn", readAt: string | null = null) {
     '/tmp/project', 'Project', 'workspace', 'Workspace', 'task', 'Task', ?, '2026-09-05T00:00:00Z', ?, NULL)`,
   ).run(id, turn, readAt);
 }
-beforeEach(() => {
-  db = new Database(":memory:");
+function createNotificationsTable() {
   db.exec(`CREATE TABLE notifications (id TEXT PRIMARY KEY, kind TEXT, title TEXT, body TEXT,
     project_path TEXT, project_name TEXT, workspace_id TEXT, workspace_name TEXT,
     task_id TEXT, task_title TEXT, turn_id TEXT, created_at TEXT, read_at TEXT, payload_json TEXT)`);
+}
+function insertScoped(args: {
+  id: string;
+  turnId?: string;
+  repositoryPath?: string;
+  workspaceId?: string;
+  taskId?: string;
+  createdAt?: string;
+  failed?: boolean;
+}) {
+  db.prepare(`INSERT INTO notifications
+    (id, kind, title, body, project_path, project_name, workspace_id, workspace_name, task_id, task_title, turn_id, created_at)
+    VALUES (?, ?, 'Result', 'Summary', ?, 'Project', ?, 'Workspace', ?, 'Task', ?, ?)`)
+    .run(args.id, args.failed ? "task.turn_failed" : "task.turn_completed",
+      args.repositoryPath ?? scope.repositoryPath, args.workspaceId ?? scope.workspaceId,
+      args.taskId ?? scope.taskId, args.turnId ?? args.id, args.createdAt ?? "2026-09-05T00:00:00Z");
+}
+beforeEach(() => {
+  db = new Database(":memory:");
+  createNotificationsTable();
 });
-afterEach(() => db.close());
+afterEach(() => {
+  db.close();
+  if (databaseDirectory) rmSync(databaseDirectory, { recursive: true, force: true });
+  databaseDirectory = null;
+});
 
 describe("durable result review", () => {
+  test("latest-per-task survives database reopen and cleanup without resurrecting an old failure after reading its successor", () => {
+    db.close();
+    databaseDirectory = mkdtempSync(path.join(tmpdir(), "stave-result-review-"));
+    const filename = path.join(databaseDirectory, "results.sqlite");
+    db = new Database(filename);
+    createNotificationsTable();
+    const store = new ResultReviewStore(db);
+    insertScoped({ id: "failure", failed: true });
+    insertScoped({ id: "success", createdAt: "2026-09-06T00:00:00Z" });
+    const latestScope = { ...scope, turnId: "success" };
+    expect(store.list({ latestPerTask: true, pendingOnly: true }).results.map((row) => row.id)).toEqual(["success"]);
+    store.setReviewed({ ...latestScope, reviewed: true });
+    db.exec("DELETE FROM notifications");
+    db.close();
+    db = new Database(filename);
+    const reopened = new ResultReviewStore(db);
+    expect(reopened.list({ latestPerTask: true, pendingOnly: true })).toEqual({ results: [], total: 0, hasMore: false });
+    expect(reopened.list({ pendingOnly: true }).results.map((row) => row.id)).toEqual(["failure"]);
+    expect(reopened.list().total).toBe(2);
+    reopened.setReviewed({ ...latestScope, reviewed: false });
+    expect(reopened.list({ latestPerTask: true, pendingOnly: true }).results.map((row) => row.id)).toEqual(["success"]);
+    expect(reopened.list().total).toBe(2);
+  });
+
+  test("latest selection keeps repository, workspace and task ownership separate with a deterministic id tie-break", () => {
+    const store = new ResultReviewStore(db);
+    insertScoped({ id: "tie-Z" });
+    insertScoped({ id: "tie-a" });
+    insertScoped({ id: "other-project", repositoryPath: "/tmp/other-project" });
+    insertScoped({ id: "other-workspace", workspaceId: "other-workspace" });
+    insertScoped({ id: "other-task", taskId: "other-task" });
+    const page = store.list({ latestPerTask: true });
+    expect(page.total).toBe(4);
+    expect(page.results.map((row) => row.id)).toEqual(["tie-a", "other-workspace", "other-task", "other-project"]);
+    expect(store.list({ latestPerTask: true, workspaceId: "workspace", taskId: "task" }).results.map((row) => row.id)).toEqual(["tie-a", "other-project"]);
+    // A caller asking for an old turn cannot make it the task's latest turn.
+    expect(store.list({ latestPerTask: true, turnId: "tie-Z" }).total).toBe(0);
+    expect(store.list({ turnId: "tie-Z" }).total).toBe(1);
+  });
+
+  test("latest selection precedes pending filtering and pagination while preserving full result history", () => {
+    const store = new ResultReviewStore(db);
+    insertScoped({ id: "a-old", taskId: "a", failed: true });
+    insertScoped({ id: "a-new", taskId: "a", createdAt: "2026-09-06T00:00:00Z" });
+    insertScoped({ id: "b-old", taskId: "b", createdAt: "2026-09-07T00:00:00Z" });
+    insertScoped({ id: "b-new", taskId: "b", createdAt: "2026-09-08T00:00:00Z", failed: true });
+    insertScoped({ id: "c-new", taskId: "c", createdAt: "2026-09-09T00:00:00Z" });
+    store.setReviewed({ ...scope, taskId: "a", turnId: "a-new", reviewed: true });
+    const first = store.list({ latestPerTask: true, pendingOnly: true, limit: 1 });
+    expect(first.results.map((row) => row.id)).toEqual(["c-new"]);
+    expect(first.total).toBe(2);
+    expect(first.hasMore).toBe(true);
+    const second = store.list({ latestPerTask: true, pendingOnly: true, limit: 1, offset: 1 });
+    expect(second.results.map((row) => row.id)).toEqual(["b-new"]);
+    expect(second.total).toBe(2);
+    expect(second.hasMore).toBe(false);
+    expect(store.list({ latestPerTask: false }).total).toBe(5);
+  });
+
+  test("validates latest-per-task at the shared IPC boundary", () => {
+    expect(ListResultReviewsArgsSchema.parse({ latestPerTask: true, pendingOnly: true })).toEqual({ latestPerTask: true, pendingOnly: true });
+    expect(ListResultReviewsArgsSchema.parse({ latestPerTask: false })).toEqual({ latestPerTask: false });
+    expect(ListResultReviewsArgsSchema.safeParse({ latestPerTask: "true" }).success).toBe(false);
+    expect(ListResultReviewsArgsSchema.safeParse({ latestPerTask: 1 }).success).toBe(false);
+  });
+
   test("keeps captured evidence immutable through replay, cleanup and restart", () => {
     const store = new ResultReviewStore(db);
     const evidence = {

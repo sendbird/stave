@@ -8,6 +8,7 @@ import { repositorySidebarStyles } from "@/components/layout/repository-workspac
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
+  resolveFleetTaskSurfaceStatus,
   compareFleetTaskStatus,
   summarizeFleetRespondingTasks,
   type FleetTaskStatus,
@@ -606,6 +607,7 @@ export function buildWorkspaceProgressTaskItems(args: {
     ProviderTurnActivitySnapshot | undefined
   >;
   openTaskTabIds?: readonly string[] | null;
+  attentionItems?: readonly FleetAttentionItem[];
 }): WorkspaceProgressTaskItem[] {
   const messagesByTask = args.messagesByTask ?? {};
   const activeTurnIdsByTask = args.activeTurnIdsByTask ?? {};
@@ -629,11 +631,16 @@ export function buildWorkspaceProgressTaskItems(args: {
   return openTasks
     .map((task) => {
       const messages = messagesByTask[task.id] ?? [];
-      const status = classifyTaskStatus({
+      const status = resolveFleetTaskSurfaceStatus({
+        hasCurrentFailure: args.attentionItems?.some((item) => item.taskId === task.id && item.kind === "run-failed") ?? false,
+        hasCurrentInteraction: args.attentionItems?.some((item) => item.taskId === task.id && (item.kind === "user-input" || item.kind === "approval")) ?? false,
+        activeTurnId: activeTurnIdsByTask[task.id],
+        status: classifyTaskStatus({
         task,
         messages,
         activeTurnId: activeTurnIdsByTask[task.id] ?? null,
         activity: providerTurnActivityByTask[task.id] ?? null,
+        }),
       });
       return {
         taskId: task.id,

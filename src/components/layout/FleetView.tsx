@@ -218,7 +218,7 @@ export function FleetView() {
   );
   const attentionTargets = useFleetAttention((snapshot) => snapshot.items);
   const blockingItems = useFleetAttention((snapshot) => snapshot.blockingItems);
-  const snoozedItems = useFleetAttention((snapshot) => snapshot.snoozedItems);
+  const snoozedAttentionIds = useFleetAttention((snapshot) => snapshot.snoozedAttentionIds);
   const attentionItemsByWorkspaceId = useFleetAttention(
     (snapshot) => snapshot.attentionItemsByWorkspaceId,
   );
@@ -513,11 +513,12 @@ export function FleetView() {
   );
 
   const restoreSnoozedNeeds = useCallback(() => {
-    const attentionIds = snoozedItems.map((item) => item.id);
+    const attentionIds = snoozedAttentionIds;
     if (attentionIds.length === 0) {
       return;
     }
-    void clearFleetAttentionSnoozes({ attentionIds }).catch(
+    void Promise.all(Array.from({ length: Math.ceil(attentionIds.length / 1000) }, (_, index) =>
+      clearFleetAttentionSnoozes({ attentionIds: attentionIds.slice(index * 1000, (index + 1) * 1000) }))).catch(
       (error: unknown) => {
         toast.error(
           error instanceof Error
@@ -526,7 +527,7 @@ export function FleetView() {
         );
       },
     );
-  }, [snoozedItems, tI18n]);
+  }, [snoozedAttentionIds, tI18n]);
 
   // Bulk clear of `In review`: the menu already said what each effect does;
   // this applies the chosen plan and offers Undo where the data allows it.
@@ -775,7 +776,7 @@ export function FleetView() {
             items={attentionTargets}
             selectedAttentionId={selectedAttentionId}
             busyAttentionId={busyAttentionId}
-            snoozedCount={snoozedItems.length}
+            snoozedCount={snoozedAttentionIds.length}
             clearingReview={bulkActions.applying}
             onOpen={openAttentionItem}
             onOpenEntry={openAttentionEntry}

@@ -58,6 +58,32 @@ test("browser snoozes round-trip, drop on expiry, and restore by id", async () =
   expect(await listFleetAttentionSnoozes()).toEqual([]);
 });
 
+test("browser Undo preserves a replacement deadline and clears only the expected snooze", async () => {
+  const first = futureDeadline();
+  const replacement = futureDeadline(120_000);
+  await snoozeFleetAttention({ attentionId: "a", workspaceId: "workspace", snoozedUntil: first });
+  await snoozeFleetAttention({ attentionId: "b", workspaceId: "workspace", snoozedUntil: first });
+  await snoozeFleetAttention({ attentionId: "b", workspaceId: "workspace", snoozedUntil: replacement });
+  expect(await clearFleetAttentionSnoozes({ attentionIds: ["a", "b"], expectedSnoozedUntil: first })).toBe(1);
+  expect(await listFleetAttentionSnoozes()).toMatchObject([{ attentionId: "b", snoozedUntil: replacement }]);
+  expect(await clearFleetAttentionSnoozes({ attentionIds: ["b"], expectedSnoozedUntil: first })).toBe(0);
+  expect(await clearFleetAttentionSnoozes({ attentionIds: ["b"], expectedSnoozedUntil: replacement })).toBe(1);
+  expect(await listFleetAttentionSnoozes()).toEqual([]);
+});
+
+test("guarded clear forwards its deadline to desktop and rejects an invalid timestamp before writing", async () => {
+  const calls: unknown[] = [];
+  Object.assign(window, { api: { persistence: { clearFleetAttentionSnoozes: async (args: unknown) => {
+    calls.push(args);
+    return { ok: true, cleared: 0 };
+  } } } });
+  const args = { attentionIds: ["a"], expectedSnoozedUntil: futureDeadline() };
+  expect(await clearFleetAttentionSnoozes(args)).toBe(0);
+  expect(calls).toEqual([args]);
+  await expect(clearFleetAttentionSnoozes({ attentionIds: ["a"], expectedSnoozedUntil: "invalid" })).rejects.toThrow();
+  expect(calls).toHaveLength(1);
+});
+
 test("a failed desktop write never falls back to browser storage", async () => {
   await snoozeFleetAttention({
     attentionId: "a",

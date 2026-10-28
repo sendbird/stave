@@ -271,7 +271,7 @@ describe("Fleet attention projection", () => {
     ]);
   });
 
-  test("a turn that went quiet is its own blocking need, never a failed run", () => {
+  test("a quiet turn remains visible as review information, never as a blocking failure", () => {
     const lastEventAt = Date.parse("2026-07-26T00:50:00.000Z");
     const projection = buildFleetAttentionProjection({
       notifications: [],
@@ -295,7 +295,8 @@ describe("Fleet attention projection", () => {
       prWorkspaces: [],
     });
     expect(projection.items.map((item) => item.kind)).toEqual(["turn-stalled"]);
-    expect(projection.blockingItems).toHaveLength(1);
+    expect(projection.blockingItems).toHaveLength(0);
+    expect(projection.reviewItems).toHaveLength(1);
     // Quiet since the last event the turn reported.
     expect(projection.items[0]).toMatchObject({
       waitingSince: "2026-07-26T00:50:00.000Z",

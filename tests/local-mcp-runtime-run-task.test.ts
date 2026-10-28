@@ -1456,7 +1456,10 @@ describe("local MCP runtime runTask", () => {
     )
       await Bun.sleep(0);
     expect(persistedNotifications.slice(offset)).toMatchObject([
-      { kind: "task.turn_failed", turnId: result.turnId },
+      { kind: "task.turn_failed", turnId: result.turnId,
+        body: "Provider turn ended without a response.",
+        payload: { message: "Provider turn ended without a response.", messageId: expect.any(String) },
+      },
     ]);
     const status = await runtime.getTaskStatus({
       workspaceId: WORKSPACE_ID,

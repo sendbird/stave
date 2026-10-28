@@ -4,8 +4,10 @@
 
 Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` band
 combines pending questions and approvals, [agent runs](agent-runs.md) that wait for
-a sign-off or are blocked or stuck, unreviewed failed or completed runs, and
-actionable pull request states in one urgency-ordered list.
+a sign-off or need a decision, and current failed turns in one urgency-ordered
+list. Completed results, quiet turns, and pull request states stay in the folded
+`In review` group. Historical failures do not compete with a newer turn or with
+recovery managed by an agent run.
 
 Fleet is where waiting decisions are answered and running work is told apart.
 Approvals and short questions are answered right in their rows, without opening
@@ -84,10 +86,14 @@ Fleet item, and the task records the answer the same way.
   waited for you (`Waiting for 1m 5s`), or how long it has been quiet. A turn
   that reported no work shows only its duration. Nothing is estimated: there is
   no percent and no time left.
-- A turn that reports nothing for five minutes is `No updates`, not a failure:
-  the task reads `No updates for 7m` and its item stays in `Action required`
-  until the turn reports again, ends, or Stave stops it. `Run failed` is kept
-  for turns that actually failed.
+- A turn that reports nothing for five minutes is `No updates`, not a failure
+  or a request for an answer. It stays in progress, with an optional item in
+  `In review`. `Run failed` requires a terminal failure; diagnostics during
+  recovery never establish a failed turn by themselves.
+- Inside a task, the attention summary names the actual reason and offers a
+  link to the exact request, stopped turn, stage review, or Progress panel.
+  A stopped turn's reason remains discoverable there after reading its global
+  reminder. Starting a new turn replaces that failure.
 - A workspace running an agent run shows an agent run strip on its card: the stage
   track, where the agent run stands, its stage position and what it has spent.
   Clicking the strip opens the lead task.
@@ -136,18 +142,28 @@ Fleet item, and the task records the answer the same way.
   every item, including blocking ones. A snooze is time-bounded and never
   answers the request behind the item, so the item returns on its own when the
   deadline passes.
+- `Manage all` in Fleet and the notification center offers those durations for
+  all currently listed attention items, including failures and requests. It
+  also marks completed and failed outcomes read in one action, or explicitly
+  marks saved results reviewed. These are separate choices: reading never sets
+  the explicit review mark. Neither choice approves a request or marks work
+  complete. Bulk review marks can be removed individually in Review; its toast
+  does not offer Undo because another surface may have reviewed the same result
+  concurrently. Snoozing applies
+  across Fleet, workspace indicators, and the notification center; an unread
+  notification cannot reintroduce the same hidden item.
 - `Clear all` on `In review`: opens a menu that says what clearing does before
-  it does it, each effect with its count: `Mark 3 results reviewed`,
+  it does it, each effect with its count: `Mark 3 results read`,
   `Mark 2 notifications read (can't be undone)`, `Hide 1 pull request for a
   day`. Pick one effect alone or `Do all of these`. The toast counts only what
-  changed: a result or notification already cleared elsewhere is skipped, and
-  `Undo` never marks such a result unreviewed. `Undo` covers reviewed results
-  and hidden pull requests; notification reads cannot be undone, and the toast
-  says so when there were any. Anything that failed is reported separately,
+  saved: a result or notification already cleared when checked is skipped.
+  Reads cannot be undone because a concurrent surface may own the saved state.
+  `Undo` only restores snoozes and preserves a later replacement snooze.
+  Anything that failed is reported separately,
   never as cleared. `Clear all` is deliberately absent from `Action required`,
   where an agent is still waiting for a real answer.
-- `Restore`: brings every snoozed item back immediately. The rail always reports
-  how many items a snooze is hiding, so nothing disappears without a count.
+- `Restore`: brings every snoozed item back immediately. Fleet and the bell report
+  the persisted snooze count and offer Restore, including after a run leaves the cache.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
 
 ### Items That Clear Themselves
@@ -158,9 +174,8 @@ Fleet item, and the task records the answer the same way.
   through tasks or passing through one does not acknowledge anything. A result
   that arrives while you are already watching serves the same short wait before
   it clears, and a turn that is still running is never acknowledged. Only the
-  task's latest finished turn is acknowledged this way: results from earlier
-  turns stay listed until you mark them reviewed, because opening the task does
-  not show them.
+  task's latest finished turn is acknowledged this way. Earlier results stay
+  in history, rather than raising new reminders after the latest is read.
 - Opening a task also reads its notifications. `Outputs` in the task still shows
   the saved review and offers `Mark unread`.
 - Answering a question or resolving an approval in the task window clears the
@@ -204,12 +219,11 @@ Fleet item, and the task records the answer the same way.
   source, and expired rows are retired on read. A snooze hides an item; it never
   edits the request, result, or pull request behind it.
 - `Clear all` routes each item to whichever mechanism owns it: a durable result
-  is marked reviewed, a notification-backed item (only without the durable
+  is marked read, a notification-backed item (only without the durable
   result store) is read and resolved, and a pull-request item — whose state
   lives on GitHub and would be rebuilt on the next projection — is snoozed for a
-  day instead. Every effect is attempted even when another fails. `Undo` marks
-  the results unreviewed and lifts the snoozes; there is no way to mark a
-  notification unread, so the bell's `Mark all read` has no Undo either.
+  day instead. Every effect is attempted even when another fails. `Undo` lifts
+  only snoozes; result reads and notification reads stay saved.
 - Durable notifications keep pending interactions visible; a separate SQLite
   result history preserves review state after notification reads, expiry, and
   cleanup. Old retained outcomes migrate as unreviewed, even if their notifications
@@ -235,7 +249,8 @@ Fleet item, and the task records the answer the same way.
   full answer form inline.
 - Pull request actions open GitHub. Fleet does not merge, retry checks, or edit a
   pull request.
-- Result lists are paged. Fleet shows up to 200 pending results and reports when
+- Result lists are paged. Fleet selects the latest result per task before
+  filtering unread results, shows up to 200 such results, and reports when
   more exist; each task exposes its paged result history. A failed read is shown
   with a retry action, and a failed review write does not acknowledge the result.
 - An unloaded workspace without live state, a durable result or notification, or cached PR

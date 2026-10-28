@@ -1,4 +1,5 @@
 import { getDelegatedAttentionRoot } from "@/lib/notifications/delegated-attention";
+import { agentRunNotificationAttentionId } from "./agent-run-attention";
 import {
   isNotificationUnread,
   type AppNotification,
@@ -254,8 +255,21 @@ export interface FleetInbox {
 export function buildFleetInbox(args: {
   items: readonly FleetAttentionItem[];
   notifications: readonly AppNotification[];
+  /** Hidden rows still own their notifications; snoozing must cover the bell too. */
+  snoozedItems?: readonly FleetAttentionItem[];
+  /** The projection has already selected the current outcomes. */
+  attentionAuthoritative?: boolean;
+  /** Run episodes whose current state has actually loaded, rather than guessed. */
+  knownAgentRunIds?: ReadonlySet<string>;
+  /** Persisted active snoozes, including episodes no longer in the run cache. */
+  snoozedAttentionIds?: ReadonlySet<string>;
 }): FleetInbox {
   const claimed = new Set<string>();
+  for (const item of args.snoozedItems ?? []) {
+    for (const notification of args.notifications) {
+      if (notificationBelongsToItem(item, notification)) claimed.add(notification.id);
+    }
+  }
   const itemEntries = args.items.map((item) => {
     const linked = args.notifications
       .filter((notification) => notificationBelongsToItem(item, notification))
@@ -267,6 +281,12 @@ export function buildFleetInbox(args: {
   const unlinkedById = new Map(
     sorted
       .filter((notification) => !claimed.has(notification.id))
+      .filter((notification) => !args.snoozedAttentionIds?.has(agentRunNotificationAttentionId(notification) ?? ""))
+      .filter((notification) => !args.attentionAuthoritative ||
+        (notification.kind !== "task.turn_completed" && notification.kind !== "task.turn_failed"))
+      .filter((notification) => notification.kind === "agent_run.completed" || !notification.kind.startsWith("agent_run.") ||
+        typeof notification.payload.agentRunId !== "string" ||
+        !args.knownAgentRunIds?.has(notification.payload.agentRunId))
       .map((notification) => [notification.id, historyEntry(notification)]),
   );
   return {

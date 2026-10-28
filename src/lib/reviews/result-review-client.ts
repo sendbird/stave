@@ -106,18 +106,28 @@ export function listResultReviews(
         );
       return response;
     }
-    const rows = fallbackRows()
-      .filter(
+    // Sort the complete history first: filtering unread rows before choosing a
+    // task's latest result would resurrect a failure after its successor is read.
+    let rows = fallbackRows().sort((a, b) => {
+      if (a.createdAt !== b.createdAt) return a.createdAt > b.createdAt ? -1 : 1;
+      return a.id === b.id ? 0 : a.id > b.id ? -1 : 1;
+    });
+    if (args.latestPerTask) {
+      const seenTasks = new Set<string>();
+      rows = rows.filter((row) => {
+        const taskKey = JSON.stringify([row.repositoryPath, row.workspaceId, row.taskId]);
+        if (seenTasks.has(taskKey)) return false;
+        seenTasks.add(taskKey);
+        return true;
+      });
+    }
+    rows = rows.filter(
         (row) =>
           (!args.workspaceIds || args.workspaceIds.includes(row.workspaceId)) &&
           (!args.workspaceId || row.workspaceId === args.workspaceId) &&
           (!args.taskId || row.taskId === args.taskId) &&
           (!args.turnId || row.turnId === args.turnId) &&
           (!args.pendingOnly || !row.reviewedAt),
-      )
-      .sort(
-        (a, b) =>
-          b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id),
       );
     const offset = args.offset ?? 0;
     const results = rows.slice(offset, offset + (args.limit ?? 100)).map((row) => {

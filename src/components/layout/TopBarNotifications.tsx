@@ -16,6 +16,9 @@ import {
   toast,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { FleetAttentionBulkMenu } from "@/components/layout/FleetAttentionBulkMenu";
+import { useFleetBulkActions } from "@/components/layout/useFleetBulkActions";
+import { clearFleetAttentionSnoozes } from "@/lib/fleet/attention-snooze-client";
 import { CountBadge } from "@/components/system/CountBadge";
 import {
   getNextNotificationView,
@@ -100,6 +103,9 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   );
   const notificationCount = useAppStore((state) => state.notifications.length);
   const inbox = useFleetAttention((snapshot) => snapshot.inbox);
+  const attentionItems = useFleetAttention((snapshot) => snapshot.items);
+  const snoozedAttentionIds = useFleetAttention((snapshot) => snapshot.snoozedAttentionIds);
+  const bulk = useFleetBulkActions();
   const [open, setOpen] = useState(false);
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [view, setView] = useState<NotificationView>("unread");
@@ -110,6 +116,18 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
   const [clearHistoryPromptPending, setClearHistoryPromptPending] =
     useState(false);
   const notificationsTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  async function restoreSnoozed() {
+    setPendingActionId("restore-snoozed");
+    try {
+      await Promise.all(Array.from({ length: Math.ceil(snoozedAttentionIds.length / 1000) }, (_, index) =>
+        clearFleetAttentionSnoozes({ attentionIds: snoozedAttentionIds.slice(index * 1000, (index + 1) * 1000) })));
+    } catch {
+      toast.error(i18n.t("fleet:fleetView.snoozedItemsWereNotRestoredRetry"));
+    } finally {
+      setPendingActionId(null);
+    }
+  }
 
   function closeClearHistoryPrompt() {
     setClearHistoryPromptOpen(false);
@@ -505,6 +523,23 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   ? i18n.t("shell:topBarNotifications.allCaughtUpBrowseReadHistoryBelow")
                   : i18n.t("shell:topBarNotifications.noNotificationsYet")}
             </p>
+            <FleetAttentionBulkMenu
+              items={attentionItems}
+              busy={bulk.applying || pendingActionId !== null}
+              onApply={(plan) => { void bulk.apply(plan); }}
+            />
+            {snoozedAttentionIds.length > 0 ? (
+              <div className={sx(notificationsStyles.headerActions)}>
+                <span className={sx(notificationsStyles.headerSubtitle)}>
+                  {i18n.t("fleet:fleetAttentionInbox.snoozedCount", { count: snoozedAttentionIds.length })}
+                </span>
+                <Button size="sm" variant="ghost" disabled={bulk.applying || pendingActionId !== null}
+                  aria-label={i18n.t("fleet:fleetAttentionInbox.restoreValueSnoozedItems", { snoozedCount: snoozedAttentionIds.length })}
+                  onClick={() => { void restoreSnoozed(); }}>
+                  {i18n.t("fleet:fleetAttentionInbox.restore")}
+                </Button>
+              </div>
+            ) : null}
             <div className={sx(notificationsStyles.viewSwitch)}>
               {(["all", "unread", "errors", "history"] as const).map((option) => (
                 <AdsButton
