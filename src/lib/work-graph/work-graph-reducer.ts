@@ -471,6 +471,38 @@ function recordDependency(
   };
 }
 
+function sameKeys(a: string[] | undefined, b: string[] | undefined) {
+  if (a === b) {
+    return true;
+  }
+  return Boolean(a && b && a.length === b.length && a.every((key, index) => key === b[index]));
+}
+
+/**
+ * The workers a Codex collaboration call addresses, from the receiver thread
+ * ids its input names. A thread id is the agent id the spawn bound, so it keys
+ * the same node. A spawn's receivers are the workers it created, which the
+ * spawn path already records, so only calls on existing workers count here.
+ */
+function resolveCallTargetNodeKeys(
+  graph: WorkGraph,
+  event: Extract<NormalizedProviderEvent, { type: "tool" }>,
+) {
+  if (!event.toolName.toLowerCase().startsWith("collaboration:") || isSubagentToolName(event.toolName)) {
+    return undefined;
+  }
+  const input = parseToolInput(event.input);
+  const receivers = input?.receiverThreadIds;
+  const ids: unknown[] = Array.isArray(receivers) ? receivers : [input?.receiverThreadId];
+  const keys = new Set<string>();
+  for (const id of ids) {
+    if (typeof id === "string" && id.trim()) {
+      keys.add(providerAgentNodeKey(graph.providerId, id.trim()));
+    }
+  }
+  return keys.size > 0 ? [...keys] : undefined;
+}
+
 function upsertWorkItem(
   graph: WorkGraph,
   item: Omit<WorkItem, "updatedAt"> & { updatedAt?: number },
@@ -492,8 +524,10 @@ function upsertWorkItem(
     };
   }
   const status = advanceStatus(existing.status, item.status);
+  const targetNodeKeys = item.targetNodeKeys ?? existing.targetNodeKeys;
   const next: WorkItem = {
     ...existing,
+    ...(targetNodeKeys ? { targetNodeKeys } : {}),
     // The owning node can sharpen once identity arrives (a call first seen at
     // the root, then attributed to the agent that made it), but it never moves
     // between two named agents.
@@ -514,6 +548,7 @@ function upsertWorkItem(
     next.title === existing.title &&
     next.detail === existing.detail &&
     next.toolUseId === existing.toolUseId &&
+    sameKeys(next.targetNodeKeys, existing.targetNodeKeys) &&
     next.status === existing.status &&
     next.completedAt === existing.completedAt
   ) {
@@ -971,6 +1006,7 @@ export function reduceWorkGraphEvent(
       }
 
       const workId = workItemId(event.toolUseId, ownerKey, event.toolName);
+      const targetNodeKeys = resolveCallTargetNodeKeys(next, event);
       return upsertWorkItem(
         next,
         {
@@ -984,6 +1020,7 @@ export function reduceWorkGraphEvent(
             next.workItemsById[workId]?.title,
           ),
           toolUseId: event.toolUseId,
+          ...(targetNodeKeys ? { targetNodeKeys } : {}),
           startedAt: now,
         },
         now,

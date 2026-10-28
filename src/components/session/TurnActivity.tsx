@@ -76,7 +76,7 @@ import {
   resolveTurnActivityFeaturedItem,
   resolveTurnActivityHeadline,
   resolveTurnActivityHiddenSeverity,
-  resolveTurnActivityLoaderVariant,
+  resolveTurnActivityRunKind,
   resolveTurnActivityReplay,
   resolveTurnActivityRestMark,
   resolveTurnActivitySummary,
@@ -84,13 +84,13 @@ import {
   type TurnActivityItem,
   type TurnActivityTodo,
 } from "@/components/session/turn-activity.utils";
-import { Badge, Button, Loader } from "@/components/ui";
+import { Badge, Button } from "@/components/ui";
+import { AgentRunMark } from "@/components/system/AgentRunMark";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx } from "../ads/utils/stylex";
 import { focusRing } from "../ads/recipes/focus-ring";
 import { surfaceChrome } from "../ads/recipes/surface-chrome";
 import { transition } from "../ads/recipes/transition";
-import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { turnActivityStyles as styles } from "./turn-activity.styles";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import { useThrottledValue } from "@/hooks/use-throttled-value";
@@ -1150,10 +1150,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         ? "waiting"
         : "default"
     : resolveTurnActivityHiddenSeverity(hiddenItems);
-  const loaderVariant = resolveTurnActivityLoaderVariant({
+  const runKind = resolveTurnActivityRunKind({
     activity: props.activity,
     isStalled,
-    workItems: props.workItems,
   });
   // A turn that has ended rests on its outcome glyph instead of a frozen
   // cadence frame.
@@ -1280,19 +1279,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             {restMark ? (
               <TurnRestMark outcome={restMark} />
             ) : (
-              <Loader
-                aria-hidden
+              <AgentRunMark
+                kind={runKind}
+                providerId={props.activity?.providerId}
+                fallbackInkClassName={sx(styles.loaderInk)}
                 cadence="reduced"
-                className={
-                  props.activity
-                    ? toProviderWaveHueClass({
-                        providerId: props.activity.providerId,
-                      })
-                    : sx(styles.loaderInk)
-                }
-                paused={isStalled || props.activity?.pendingInteraction != null}
+                paused={props.activity?.pendingInteraction != null}
                 size="sm"
-                variant={loaderVariant}
               />
             )}
           </span>

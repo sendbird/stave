@@ -131,6 +131,7 @@ export function AgentRunLineView(props: {
           <StageStatusIcon
             tone={status.mark.tone}
             state={status.mark.state}
+            moving
             xstyle={shelfStyles.markIcon}
           />
         }

@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type { LucideIcon } from "lucide-react";
 import { cx, sx, type StyleXValue, type XstyleProp } from "../utils/stylex";
 import { vars } from "../tokens/tokens.stylex";
+import { Loader } from "./Loader";
 import { WORK_STATE, type WorkState } from "./state-vocabulary";
 
 /** Glyph size in px. */
@@ -18,8 +19,16 @@ export interface StateMarkProps extends XstyleProp {
    * either, the mark is decorative and the caller says the state in text.
    */
   label?: string;
-  /** `still` keeps `working` from pulsing where its surroundings already move. */
-  motion?: "pulse" | "still";
+  /**
+   * `moving` draws `working` with the one agent-working motion (the matrix
+   * loader); `still` keeps the static glyph where its surroundings already move.
+   */
+  motion?: "moving" | "still";
+  /**
+   * A class that colors the moving mark, such as the provider ink of the agent
+   * doing the work. Without one it takes the state color.
+   */
+  inkClassName?: string;
   /** A domain glyph in place of the state's, keeping the state color. */
   icon?: LucideIcon;
   /** Host layout for the word, such as hiding it on narrow rows. */
@@ -32,15 +41,16 @@ export interface StateMarkProps extends XstyleProp {
  * How every surface draws an agent work state: the vocabulary's glyph in the
  * state's theme color (`--state-*`), optionally with its word. Each domain
  * keeps its own state type and maps it to a `WorkState`; only the drawing is
- * shared. `working` is the one state that moves, and reduced motion keeps its
- * shape still.
+ * shared. `working` is the one state that moves: it draws the same matrix
+ * loader every agent-working surface uses, and reduced motion holds it still.
  */
 export function StateMark({
   state,
   size = "sm",
   showLabel = false,
   label,
-  motion = "pulse",
+  motion = "moving",
+  inkClassName,
   icon,
   labelXstyle,
   title,
@@ -50,7 +60,7 @@ export function StateMark({
   const visual = WORK_STATE[state];
   const Icon = icon ?? visual.icon;
   const px = SIZE_PX[size];
-  const pulsing = visual.pulses && motion === "pulse";
+  const moving = visual.pulses && motion === "moving";
   const a11y = showLabel
     ? {}
     : label
@@ -59,27 +69,32 @@ export function StateMark({
   return (
     <span
       data-state={state}
-      data-motion={pulsing ? "pulse" : undefined}
+      data-motion={moving ? "moving" : undefined}
       title={title}
       {...a11y}
       className={cx(sx(styles.root, xstyle), className)}
     >
-      <Icon
-        aria-hidden
-        width={px}
-        height={px}
-        className={sx(styles.glyph, glyphColor[visual.color], pulsing && styles.pulse)}
-      />
+      {moving ? (
+        <span aria-hidden className={sx(styles.loaderSlot, loaderSlotSize[size])}>
+          <Loader
+            aria-hidden
+            size="xs"
+            variant="matrix"
+            className={inkClassName ?? sx(glyphColor[visual.color])}
+          />
+        </span>
+      ) : (
+        <Icon
+          aria-hidden
+          width={px}
+          height={px}
+          className={sx(styles.glyph, glyphColor[visual.color])}
+        />
+      )}
       {showLabel ? <span className={sx(styles.label, labelColor[visual.color], labelXstyle)}>{label ?? visual.label}</span> : null}
     </span>
   );
 }
-
-const pulse = stylex.keyframes({
-  "0%": { opacity: 1 },
-  "50%": { opacity: 0.4 },
-  "100%": { opacity: 1 },
-});
 
 const styles = stylex.create({
   root: {
@@ -90,11 +105,14 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   glyph: { flexShrink: 0 },
-  pulse: {
-    animationDuration: vars["--ads-motion-duration-loop-slow"],
-    animationIterationCount: "infinite",
-    animationName: { default: pulse, "@media (prefers-reduced-motion: reduce)": "none" },
-    animationTimingFunction: vars["--ads-motion-ease-in-out"],
+  // The loader's footprint is 16px around an 11px matrix. The slot keeps the
+  // glyph's own box, so a row does not shift when its state starts moving.
+  loaderSlot: {
+    alignItems: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+    justifyContent: "center",
+    overflow: "visible",
   },
   label: {
     minInlineSize: 0,
@@ -102,6 +120,12 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+});
+
+const loaderSlotSize = stylex.create({
+  xs: { blockSize: SIZE_PX.xs, inlineSize: SIZE_PX.xs },
+  sm: { blockSize: SIZE_PX.sm, inlineSize: SIZE_PX.sm },
+  md: { blockSize: SIZE_PX.md, inlineSize: SIZE_PX.md },
 });
 
 // Literal custom properties: the theme writes `--state-*` (src/globals.css,

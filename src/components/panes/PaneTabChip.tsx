@@ -22,6 +22,7 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
+import { AgentRunMark } from "@/components/system/AgentRunMark";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { COMMIT_GRAPH_TITLE_KEY } from "@/lib/git-graph/presentation";
 import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
@@ -176,11 +177,9 @@ function TaskChipIcon(args: { taskChip: TaskChipState }) {
   return (
     <span className={sx(c.taskIconWrap)}>
       {taskChip.isResponding ? (
-        <Loader
-          aria-hidden
-          className={taskChip.toneClass}
-          size="xs"
-          variant="pulse"
+        <AgentRunMark
+          kind={taskChip.isStalled ? "stalled" : "working"}
+          fallbackInkClassName={taskChip.toneClass}
         />
       ) : taskChip.provider ? (
         <ModelIcon providerId={taskChip.provider} className={sx(c.icon)} />

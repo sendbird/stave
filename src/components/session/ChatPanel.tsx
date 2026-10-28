@@ -527,7 +527,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                         model: message.model,
                       })}
                       size="xs"
-                      variant="pulse"
+                      variant="matrix"
                     />
                   ) : null}
                   {elapsedLabel}

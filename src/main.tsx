@@ -114,6 +114,10 @@ if (preview === "question-reply") {
   void import("@/dev/states-preview").then(({ StatesPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><StatesPreview /></StaveDesignProvider></StrictMode>);
   });
+} else if (preview === "sidebar-run-states") {
+  void import("@/dev/sidebar-run-states-preview").then(({ SidebarRunStatesPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><SidebarRunStatesPreview /></StaveDesignProvider></StrictMode>);
+  });
 } else if (preview === "task-panel") {
   void import("@/dev/task-panel-preview").then(({ TaskPanelPreview }) => {
     root.render(

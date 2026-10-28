@@ -208,6 +208,12 @@ describe("what the delegates say about the wait", () => {
   });
 });
 
+/** The delegates' line alone, so the run's own mark does not answer for it. */
+function subagentLine(html: string) {
+  const start = html.indexOf('data-testid="shelf-subagents"');
+  return start < 0 ? "" : html.slice(start, html.indexOf("</p>", start));
+}
+
 describe("the delegates under the run line", () => {
   const child = (phase: DelegatedTaskSummary["phase"]): DelegatedTaskSummary => ({
     runId: "run-1", stepId: "step-1", parentTaskId: "parent", delegationKey: "review", delegatedTaskId: "child-1",
@@ -251,7 +257,7 @@ describe("the delegates under the run line", () => {
     ]);
     expect(html).toContain('data-testid="shelf-subagents"');
     expect(html).toContain('data-subagent-state="working"');
-    expect(html).toContain('data-motion="pulse"');
+    expect(subagentLine(html)).toContain('data-motion="moving"');
     expect(html).toContain('data-subagent-state="queued"');
     expect(html).not.toContain('data-subagent-state="done"');
     expect(html).toContain("1 done");
@@ -263,9 +269,11 @@ describe("the delegates under the run line", () => {
   test("while the run's own line moves, the delegates hold still", () => {
     const html = bar(runs.working, [delegate("Reviewer", { status: "running", progress: ["Reading the diff"] })], "Running the tests");
     expect(html).toContain('data-subagent-state="working"');
-    // The pulsing working mark gives way to a still one in the working color.
-    expect(html).not.toContain('data-motion="pulse"');
-    expect(html).toContain('data-state="working"');
+    // The run's own mark carries the working motion; the delegate's working
+    // mark gives way to a still one in the working color.
+    expect(html).toContain('data-motion="moving"');
+    expect(subagentLine(html)).not.toContain('data-motion="moving"');
+    expect(subagentLine(html)).toContain('data-state="working"');
   });
 
   test("a delegate that needs the user is lifted onto the run line in the warning ink", () => {
