@@ -1153,6 +1153,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const runKind = resolveTurnActivityRunKind({
     activity: props.activity,
     isStalled,
+    workItems: props.workItems,
   });
   // A turn that has ended rests on its outcome glyph instead of a frozen
   // cadence frame.
@@ -1284,7 +1285,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 providerId={props.activity?.providerId}
                 fallbackInkClassName={sx(styles.loaderInk)}
                 cadence="reduced"
-                paused={props.activity?.pendingInteraction != null}
                 size="sm"
               />
             )}

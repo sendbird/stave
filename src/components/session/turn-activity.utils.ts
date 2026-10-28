@@ -15,6 +15,7 @@ import type {
 } from "@/lib/providers/turn-status";
 import type { WorkGraphSummary } from "@/lib/work-graph/work-graph-tree";
 import { resolveTurnWaitTarget } from "@/lib/fleet/run-progress";
+import type { AgentRunMarkKind } from "@/components/system/AgentRunMark";
 
 export type TurnActivityRowStatus =
   "pending" | "running" | "waiting" | "completed" | "failed";
@@ -214,10 +215,18 @@ export function resolveTurnActivityRestMark(args: {
 }
 
 /**
- * Which run mark a live turn wears (`AgentRunMark`). Working is one motion
- * whatever the turn runs; a stall stands still; a main loop blocked on its
- * helpers gets its own mark. A turn waiting on a person keeps the working mark,
- * which its surface pauses, because the question or approval says the rest.
+ * Which run mark a live turn wears (`AgentRunMark`). Keep this separate from
+ * the surfaces so the mapping stays deterministic and testable as provider
+ * activity grows:
+ *
+ * - a stall stands still (`stalled`);
+ * - a turn waiting on a person shows the still glyph of what it waits for
+ *   (`approval`, or `needs-you` for a question), because a held loader reads
+ *   as a stuck turn;
+ * - a main loop blocked on its helpers gets its own mark (`waiting`);
+ * - otherwise the mark says what runs: `parallel` for more than one running
+ *   item, `subagent` while a subagent runs, `tool` for one tool and
+ *   `thinking` while nothing runs.
  */
 export function resolveTurnActivityRunKind(args: {
   activity: Pick<
@@ -225,14 +234,25 @@ export function resolveTurnActivityRunKind(args: {
     "pendingInteraction" | "workGraph" | "workItemsById"
   > | null;
   isStalled: boolean;
-}): "stalled" | "waiting" | "working" {
+  workItems: readonly Pick<ProviderTurnWorkItem, "kind" | "status">[];
+}): Exclude<AgentRunMarkKind, "busy" | "working"> {
   if (args.isStalled) {
     return "stalled";
   }
-  if (!args.activity || args.activity.pendingInteraction) {
-    return "working";
+  if (args.activity?.pendingInteraction) {
+    return args.activity.pendingInteraction === "approval" ? "approval" : "needs-you";
   }
-  return resolveTurnWaitTarget(args.activity) ? "waiting" : "working";
+  if (args.activity && resolveTurnWaitTarget(args.activity)) {
+    return "waiting";
+  }
+  const running = args.workItems.filter((item) => item.status === "running");
+  if (running.length > 1) {
+    return "parallel";
+  }
+  if (running.some((item) => item.kind === "subagent")) {
+    return "subagent";
+  }
+  return running.length > 0 ? "tool" : "thinking";
 }
 
 export function promoteFirstPendingTodoForActiveTurn(

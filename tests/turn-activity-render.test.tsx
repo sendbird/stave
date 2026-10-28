@@ -470,8 +470,9 @@ describe("TurnActivity", () => {
     expect(html).toContain('data-testid="turn-activity-stack"');
     expect(html).toContain('data-testid="turn-activity"');
     expect(html).toContain('data-testid="turn-activity-loader"');
-    // Agent work wears the one working motion, whatever the turn runs.
-    expect(html).toContain('data-loader-variant="matrix"');
+    // A running subagent hands the work off.
+    expect(html).toContain('data-run-mark="subagent"');
+    expect(html).toContain('data-loader-variant="handoff"');
     expect(html).toContain('data-loader-cadence="reduced"');
     expect(html).toContain('data-loader-paused="false"');
     expect(html).toContain("Turn activity");
@@ -503,6 +504,41 @@ describe("TurnActivity", () => {
 
     expect(html).toContain('data-run-mark="stalled"');
     expect(html).toContain('data-state="halted"');
+    expect(html).not.toContain("data-loader-variant");
+  });
+
+  test("a turn waiting for approval shows the still approval glyph, not a held loader", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-approval",
+        activity: {
+          turnId: "turn-approval",
+          providerId: "claude-code",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: "approval",
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [
+          {
+            id: "bash-1",
+            kind: "tool",
+            status: "running",
+            title: "Run tests",
+            progressMessages: [],
+            startedAt: 1_000,
+            updatedAt: 2_000,
+          },
+        ],
+        todos: [],
+      }),
+    );
+
+    expect(html).toContain('data-run-mark="approval"');
+    expect(html).toContain('data-state="approval"');
     expect(html).not.toContain("data-loader-variant");
   });
 

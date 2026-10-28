@@ -14,8 +14,9 @@ import { isTerminalWorkGraphStatus } from "@/lib/work-graph/work-graph.types";
  *   It must not look like work, so its mark stands still in the warning tone.
  * - `waiting`: the turn's own loop is blocked on helpers it started, so it
  *   has its own mark instead of the working motion.
- * - `working`: everything else a live turn does, drawn with the one working
- *   motion in the provider's tone.
+ * - `working`: everything else a live turn does. A row draws it as the matrix
+ *   in the provider's tone; the run line, which follows one turn, says what
+ *   the turn runs instead (`resolveTurnActivityRunKind`).
  * - `none`: nothing runs, or the turn waits on a person, which the attention
  *   mark already says.
  */

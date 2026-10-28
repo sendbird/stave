@@ -244,10 +244,47 @@ describe("turn run line", () => {
     expect(html).not.toContain('data-loader-variant="matrix"');
   });
 
-  test("a working turn wears the matrix in the provider's ink", () => {
-    const html = runLine({});
-    expect(html).toContain('data-run-mark="working"');
-    expect(html).toContain('data-loader-variant="matrix"');
+  test("the run line's loader says what the turn runs, in the provider's ink", () => {
+    const tool = runLine({});
+    expect(tool).toContain('data-run-mark="tool"');
+    expect(tool).toContain('data-loader-variant="steps"');
+    expect(tool).toContain('data-loader-size="sm"');
+    expect(tool).toContain('data-loader-cadence="reduced"');
+    expect(tool).toContain('data-loader-paused="false"');
+    expect(tool).not.toContain('data-loader-variant="matrix"');
+
+    const thinking = runLine({ surface: surface({ workItems: [] }) });
+    expect(thinking).toContain('data-run-mark="thinking"');
+    expect(thinking).toContain('data-loader-variant="pulse"');
+
+    const running = surface().workItems[0]!;
+    const parallel = runLine({
+      surface: surface({ workItems: [running, { ...running, id: "read", title: "Read file" }] }),
+    });
+    expect(parallel).toContain('data-run-mark="parallel"');
+    expect(parallel).toContain('data-loader-variant="parallel"');
+
+    const subagent = runLine({
+      surface: surface({ workItems: [{ ...running, id: "agent", kind: "subagent", title: "Reviewer" }] }),
+    });
+    expect(subagent).toContain('data-run-mark="subagent"');
+    expect(subagent).toContain('data-loader-variant="handoff"');
+  });
+
+  test("a turn waiting on a person shows the still glyph of what it waits for, no loader", () => {
+    const approval = runLine({
+      surface: surface({ activity: activity({ pendingInteraction: "approval" }), hasPendingInteractionCard: true }),
+    });
+    expect(approval).toContain('data-run-mark="approval"');
+    expect(approval).toContain('data-state="approval"');
+    expect(approval).not.toContain("data-loader-variant");
+
+    const question = runLine({
+      surface: surface({ activity: activity({ pendingInteraction: "user_input" }), hasPendingInteractionCard: true }),
+    });
+    expect(question).toContain('data-run-mark="needs-you"');
+    expect(question).toContain('data-state="needs-you"');
+    expect(question).not.toContain("data-loader-variant");
   });
 
   test("steering and waiting are tones too; a question its card asks is not asked again", () => {
