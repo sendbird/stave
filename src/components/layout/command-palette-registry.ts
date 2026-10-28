@@ -101,6 +101,11 @@ export interface CommandPalettePreferences {
 export interface CommandPaletteTaskSummary {
   id: string;
   isActive: boolean;
+  /**
+   * Created by another task's delegation. It stays known as the active task,
+   * but is reached through its parent, so it gets no "Switch task" entry.
+   */
+  isDelegated?: boolean;
   isResponding: boolean;
   provider: ProviderId;
   title: string;
@@ -1457,6 +1462,9 @@ function buildDynamicActions(
   const actions: CommandPaletteAction[] = [];
 
   for (const task of args.tasks) {
+    if (task.isDelegated) {
+      continue;
+    }
     actions.push({
       id: `task.select.${task.id}`,
       title: i18n.t("shell:commandPaletteRegistry.switchTask", { value1: formatTaskTitle(task.title) }),
@@ -1845,7 +1853,7 @@ export function recordRecentCommandPaletteAction(args: {
   ].slice(0, MAX_RECENT_COMMAND_IDS);
 }
 
-function normalizeCommandPaletteSearchValue(value: string) {
+export function normalizeCommandPaletteSearchValue(value: string) {
   return value
     .normalize("NFKD")
     .replace(/\p{Diacritic}/gu, "")

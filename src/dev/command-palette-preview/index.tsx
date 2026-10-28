@@ -6,6 +6,7 @@ import type {
   CommandPaletteRuntimeContext,
 } from "@/components/layout/command-palette-registry";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
+import { useAppStore } from "@/store/app.store";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { SearchTasksArgs, SearchTasksResponse, TaskSearchResult } from "@/lib/task-search/task-search-ipc";
@@ -14,9 +15,18 @@ import type { SearchTasksArgs, SearchTasksResponse, TaskSearchResult } from "@/l
  * The global command palette on the dev preview (`?stavePreview=command-palette`),
  * open, with a small workspace and a stubbed search across repositories.
  * Choose **All repositories** to see tasks from workspaces never opened.
- * `theme=` and `lang=` as in the other previews.
+ * `theme=` and `lang=` as in the other previews. `searchDelay=<ms>` holds each
+ * search response that long, so a test can type while an older result list
+ * is still on screen. What the palette runs is recorded on
+ * `window.__stavePalettePreview` for the end-to-end tests.
  */
 const params = new URLSearchParams(window.location.search);
+const SEARCH_DELAY_MS = Number(params.get("searchDelay")) || 0;
+
+interface PalettePreviewProbe {
+  openedTasks: string[];
+  settings: () => { customThemeId: string | null; themeMode: string };
+}
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
 
 const RESULTS: TaskSearchResult[] = [
@@ -41,6 +51,7 @@ function installSearchStub() {
   const api = ((window as unknown as { api?: Record<string, unknown> }).api ??= {});
   const persistence = ((api.persistence as Record<string, unknown> | undefined) ?? {}) as Record<string, unknown>;
   persistence.searchTasks = async (args: SearchTasksArgs): Promise<SearchTasksResponse> => {
+    if (SEARCH_DELAY_MS > 0) await new Promise((resolve) => setTimeout(resolve, SEARCH_DELAY_MS));
     const words = args.query.toLowerCase().split(/\s+/).filter(Boolean);
     return {
       ok: true,
@@ -86,6 +97,20 @@ export function CommandPalettePreview() {
     applyThemeClass({ enabled: theme === "dark" || builtinTheme?.baseMode === "dark" });
     applyCustomTheme({ theme: builtinTheme });
     installSearchStub();
+    const probe: PalettePreviewProbe = {
+      openedTasks: [],
+      settings: () => {
+        const { customThemeId, themeMode } = useAppStore.getState().settings;
+        return { customThemeId, themeMode };
+      },
+    };
+    (window as unknown as { __stavePalettePreview?: PalettePreviewProbe }).__stavePalettePreview = probe;
+    // Opening a result records it instead of switching repositories.
+    useAppStore.setState({
+      focusTaskAttention: async ({ taskId }) => {
+        probe.openedTasks.push(taskId);
+      },
+    } as Partial<ReturnType<typeof useAppStore.getState>>);
     setReady(true);
   }, [theme, builtinTheme]);
   return ready ? <GlobalCommandPalette open onOpenChange={() => {}} runtimeContext={context} /> : null;

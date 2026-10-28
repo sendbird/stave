@@ -91,7 +91,29 @@ describe("app shortcuts", () => {
     ).filter((key) => key !== "");
 
     expect(new Set(assigned).size).toBe(assigned.length);
-    expect(assigned).toHaveLength(APP_SHORTCUT_DEFINITIONS.length);
+    expect(assigned).toHaveLength(
+      APP_SHORTCUT_DEFINITIONS.filter((definition) => definition.defaultKey)
+        .length,
+    );
+  });
+
+  test("the effort commands ship unbound and take a letter from Settings", () => {
+    const normalized = normalizeAppShortcutKeys();
+    expect(normalized["composer.increase-effort"]).toBe("");
+    expect(normalized["composer.decrease-effort"]).toBe("");
+    expect(resolveAppShortcutAction({ key: "", shortcutKeys: normalized })).toBeNull();
+
+    const assigned = assignAppShortcutKey({
+      actionId: "composer.increase-effort",
+      shortcutKeys: normalized,
+      nextKey: "x",
+    });
+    expect(assigned["composer.increase-effort"]).toBe("x");
+    expect(resolveAppShortcutAction({ key: "x", shortcutKeys: assigned })).toBe(
+      "composer.increase-effort",
+    );
+    // A stored choice survives normalization; the other default chords keep theirs.
+    expect(normalizeAppShortcutKeys(assigned)["view.show-explorer"]).toBe("e");
   });
 
   test("can clear all chord bindings", () => {

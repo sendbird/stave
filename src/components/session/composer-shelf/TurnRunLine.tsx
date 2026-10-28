@@ -180,7 +180,8 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
         testId="composer-shelf-run"
         dataState={tone}
         ariaLabel={i18n.t("composer:turnRunLine.ariaLabel")}
-        announcement={label}
+        // The task's state changes are spoken once, by `TaskStatusAnnouncer`;
+        // a second live region here would repeat them.
         mark={
           <span
             data-testid="turn-activity-loader"
