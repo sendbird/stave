@@ -56,7 +56,7 @@ how far Stave attaches the provider browser without `@web`:
 | Mode | Chrome is attached to |
 |---|---|
 | Only with @web | Interactive prompts that contain `@web`. |
-| Automatic (default) | `@web` prompts, prompts naming a listed host, and one retry after a blocked fetch or Lens read. See below. |
+| Lens first (automatic, default) | `@web` prompts and one retry after a blocked fetch or Lens read. Known-host activation is a separate opt-in. See below. |
 | Always | Every interactive primary turn. The agent decides when to open the user's Chrome. |
 
 The mode is stored as two settings, `providerBrowserAutoFallback` and
@@ -64,6 +64,12 @@ The mode is stored as two settings, `providerBrowserAutoFallback` and
 existed still reads as Only with @web. Always mode never overrides the hard
 blocks: unattended automation and secondary read-only analysis stay without a
 browser in every mode.
+
+Automatic mode starts without Chrome so the agent can use Lens for workspace
+pages. **Connect Chrome in advance for listed hosts** separately enables
+known-host activation; it is off by default, including for existing settings
+that have not saved this option. Turning it off keeps the saved host list.
+An existing Always selection remains Always until the user changes the mode.
 
 In Always mode the browser is already attached, so the automatic retry never
 fires. On Claude Code, a `WebFetch` that hits a login wall or bot check on a
@@ -73,15 +79,16 @@ no equivalent tool-result hook; its injected policy carries the same guidance.
 
 ## Automatic fallback
 
-In Automatic mode, Stave can arm the provider browser for an interactive turn
+In Lens-first automatic mode, Stave can arm the provider browser for an interactive turn
 that did not say `@web`, in two places:
 
-- **Up front**, when the prompt contains a URL on a host that a token-less
+- **Up front, only with the separate host option enabled**, when the prompt contains a URL on a host that a token-less
   fetch cannot read. Stave ships with `claude.ai` and `claudeusercontent.com`;
   the settings field takes additional hosts, and subdomains of each entry
-  match. This is the only path that helps a page whose fetched HTML is a
+  match. This path helps a page whose fetched HTML is a
   client-rendered shell rather than an error, because nothing in a 200-with-no-
-  content response identifies it as blocked.
+  content response identifies it as blocked. Leave the option off to try Lens
+  before attaching Chrome, including on these hosts.
 - **After a failure**, when a `WebFetch` during the turn comes back as a login
   wall or a bot check (401/403, a Cloudflare interstitial, an explicit sign-in
   demand), or a Lens page read encounters a login screen, missing saved account,

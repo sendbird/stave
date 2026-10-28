@@ -3,7 +3,6 @@ import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provi
 import { MAX_BOUND_SECRETS } from "../../../src/lib/secrets/secrets";
 
 export const MAX_PROVIDER_TIMEOUT_MS = 86_400_000;
-
 export const ProviderIdSchema = z.enum(["claude-code", "codex", "cursor", "kiro", "opencode"]);
 
 export const ManagedExecutionProviderIdSchema = z.union([
@@ -79,6 +78,7 @@ export const RuntimeOptionsObjectSchema = z
     claudeForkSession: z.boolean().optional(),
     claudeStrictMcpConfig: z.boolean().optional(),
     providerBrowserAutoFallback: z.boolean().optional(),
+    providerBrowserAutoArm: z.boolean().optional(),
     providerBrowserAlwaysOn: z.boolean().optional(),
     mcpAppViews: z.boolean().optional(),
     providerBrowserAutoFallbackDomains: z.string().optional(),

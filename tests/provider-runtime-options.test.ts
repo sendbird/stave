@@ -18,6 +18,7 @@ const settings = {
   providerTimeoutMs: 3600000,
   claudeBinaryPath: "",
   providerBrowserAutoFallback: false,
+  providerBrowserAutoArm: false,
   providerBrowserAutoFallbackDomains: "",
   claudePermissionMode: "acceptEdits",
   claudeAllowDangerouslySkipPermissions: false,
@@ -68,6 +69,16 @@ describe("normalizeCodexApprovalPolicy", () => {
 });
 
 describe("buildProviderRuntimeOptions", () => {
+  test("defaults to Lens first and forwards the independent host opt-in for both browser providers", () => {
+    for (const provider of ["claude-code", "codex"] as const) {
+      expect(buildProviderRuntimeOptions({ provider, model: "default", settings: defaultSettings })).toMatchObject({
+        providerBrowserAutoFallback: true,
+        providerBrowserAlwaysOn: false,
+        providerBrowserAutoArm: false,
+      });
+      expect(buildProviderRuntimeOptions({ provider, model: "default", settings: { ...defaultSettings, providerBrowserAutoArm: true } })).toMatchObject({ providerBrowserAutoArm: true });
+    }
+  });
   test("supports 12 and 24 hour provider timeout windows with 12 hours as default", () => {
     expect(DEFAULT_PROVIDER_TIMEOUT_MS).toBe(43_200_000);
     expect(PROVIDER_TIMEOUT_OPTIONS).toContain(43_200_000);

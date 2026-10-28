@@ -198,6 +198,7 @@ export function maybeStartProviderBrowserFallbackTurn<
       unattendedAutomation: false,
       alwaysEnabled: context.runtimeOptions.providerBrowserAlwaysOn,
       autoFallbackEnabled: context.runtimeOptions.providerBrowserAutoFallback,
+      autoArmEnabled: context.runtimeOptions.providerBrowserAutoArm,
       autoFallbackDomains: parseProviderBrowserDomains(context.runtimeOptions.providerBrowserAutoFallbackDomains),
     }),
     conversationTurn: context.turnOrigin === "conversation" &&

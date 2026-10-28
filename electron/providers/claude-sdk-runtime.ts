@@ -3269,6 +3269,7 @@ export async function streamClaudeWithSdk(
       alwaysEnabled: args.runtimeOptions?.providerBrowserAlwaysOn === true,
       autoFallbackEnabled:
         args.runtimeOptions?.providerBrowserAutoFallback === true,
+      autoArmEnabled: args.runtimeOptions?.providerBrowserAutoArm === true,
       autoFallbackDomains: parseProviderBrowserDomains(
         args.runtimeOptions?.providerBrowserAutoFallbackDomains,
       ),

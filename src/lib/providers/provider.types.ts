@@ -1169,11 +1169,11 @@ export interface ProviderRuntimeOptions {
   claudeForkSession?: boolean;
   claudeStrictMcpConfig?: boolean;
   /**
-   * Provider-agnostic: mirrors the `providerBrowserAutoFallback` setting so the
-   * turn-start browser gate in both runtimes can arm `@web` for a host that a
-   * token-less fetch cannot read.
+   * Allows one browser retry after a blocked fetch or Lens page read.
    */
   providerBrowserAutoFallback?: boolean;
+  /** Opt in to known-host activation before trying Lens or plain fetching. */
+  providerBrowserAutoArm?: boolean;
   /**
    * Provider-agnostic: mirrors the `providerBrowserAlwaysOn` setting so both
    * runtimes attach the native browser to every interactive primary turn.

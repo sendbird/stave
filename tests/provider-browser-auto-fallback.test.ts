@@ -216,7 +216,7 @@ describe("maybeStartProviderBrowserFallbackTurn", () => {
     maybeStartProviderBrowserFallbackTurn(store.getState, {
       taskId: "task-1",
       events: [{ type: "done", stop_reason: "end_turn" }],
-      tracker: blockedTracker({ runtimeOptions: { providerBrowserAutoFallback: true } }),
+      tracker: blockedTracker({ runtimeOptions: { providerBrowserAutoFallback: true, providerBrowserAutoArm: true } }),
       session: null,
     });
     expect(store.sent).toHaveLength(0);

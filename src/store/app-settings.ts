@@ -422,11 +422,12 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   claudeFastMode: boolean;
   /**
    * Allow Stave to arm the provider-native browser without an explicit
-   * `@web`, both up front for hosts that are unreadable without a signed-in
-   * session and as a one-shot retry after a fetch or Lens page read is blocked.
+   * `@web` as a one-shot retry after a fetch or Lens page read is blocked.
    * Enabled by default; an explicitly saved opt-out is preserved.
    */
   providerBrowserAutoFallback: boolean;
+  /** Opt in to attaching Chrome up front for known hosts in automatic mode. */
+  providerBrowserAutoArm: boolean;
   /**
    * Attach the provider-native browser to every interactive primary turn, so
    * the agent can open the user's Chrome on its own judgment without `@web`.
@@ -436,7 +437,7 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   providerBrowserAlwaysOn: boolean;
   /**
    * Extra hosts, beyond Stave's built-in list, that arm the provider browser up
-   * front when `providerBrowserAutoFallback` is on. Whitespace- or
+   * front when `providerBrowserAutoFallback` and `providerBrowserAutoArm` are on. Whitespace- or
    * comma-separated; subdomains of each entry match.
    */
   providerBrowserAutoFallbackDomains: string;
@@ -825,6 +826,7 @@ export const defaultSettings: AppSettings = {
   claudeStrictMcpConfig: false,
   claudeFastMode: false,
   providerBrowserAutoFallback: true,
+  providerBrowserAutoArm: false,
   providerBrowserAlwaysOn: false,
   providerBrowserAutoFallbackDomains: "",
   claudeSkills: "",

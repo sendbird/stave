@@ -4,6 +4,8 @@ import { ProviderBrowserAccessSettingsCard } from "../src/components/layout/Prov
 
 const fallbackOff = {
   mode: "explicit",
+  autoArm: false,
+  onAutoArmChange: () => {},
   onModeChange: () => {},
   autoFallbackDomains: "",
   onAutoFallbackDomainsChange: () => {},
@@ -30,6 +32,15 @@ describe("ProviderBrowserAccessSettingsCard", () => {
 });
 
 describe("ProviderBrowserAccessSettingsCard browser mode", () => {
+  test("offers host activation separately and hides its list until opted in", () => {
+    const html = renderToStaticMarkup(
+      <ProviderBrowserAccessSettingsCard {...fallbackOff} mode="auto" />,
+    );
+    expect(html).toContain("Lens first (automatic)");
+    expect(html).toContain("Connect Chrome in advance for listed hosts");
+    expect(html).toContain('aria-checked="false"');
+    expect(html).not.toContain("Additional auto-arm hosts");
+  });
   test("offers all three modes and hides the host list outside Automatic", () => {
     for (const mode of ["explicit", "always"] as const) {
       const html = renderToStaticMarkup(
@@ -37,7 +48,7 @@ describe("ProviderBrowserAccessSettingsCard browser mode", () => {
       );
       expect(html).toContain("When the agent may use Chrome");
       expect(html).toContain("Only with @web");
-      expect(html).toContain("Automatic");
+      expect(html).toContain("Lens first (automatic)");
       expect(html).toContain("Attaches Chrome to every interactive turn");
       expect(html).not.toContain("Additional auto-arm hosts");
     }
@@ -48,6 +59,7 @@ describe("ProviderBrowserAccessSettingsCard browser mode", () => {
       <ProviderBrowserAccessSettingsCard
         {...fallbackOff}
         mode="auto"
+        autoArm={true}
         autoFallbackDomains="wiki.corp.example"
       />,
     );

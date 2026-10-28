@@ -129,12 +129,13 @@ export function PromptMentionsCard(args: {
 export function MentionsSection(args: {
   onNavigateSection?: (id: SectionId) => void;
 }) {
-  const [autoFallback, alwaysOn, autoFallbackDomains] = useAppStore(
+  const [autoFallback, alwaysOn, autoArm, autoFallbackDomains] = useAppStore(
     useShallow(
       (state) =>
         [
           state.settings.providerBrowserAutoFallback,
           state.settings.providerBrowserAlwaysOn,
+          state.settings.providerBrowserAutoArm,
           state.settings.providerBrowserAutoFallbackDomains,
         ] as const,
     ),
@@ -150,6 +151,10 @@ export function MentionsSection(args: {
       />
       <ProviderBrowserAccessSettingsCard
         mode={browserMode}
+        autoArm={autoArm}
+        onAutoArmChange={(value) =>
+          updateSettings({ patch: { providerBrowserAutoArm: value } })
+        }
         onModeChange={(mode) =>
           updateSettings({ patch: providerBrowserModeSettingsPatch(mode) })
         }

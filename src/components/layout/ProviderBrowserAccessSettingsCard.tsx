@@ -13,6 +13,7 @@ import {
   ChoiceButtons,
   LabeledField,
   SettingsCard,
+  SwitchField,
 } from "./settings-dialog.shared";
 import { providerBrowserAccessSettingsCardStyles as styles } from "./ProviderBrowserAccessSettingsCard.styles";
 
@@ -92,6 +93,8 @@ function AutoFallbackDomainsField(args: {
 
 export function ProviderBrowserAccessSettingsCard(args: {
   mode: ProviderBrowserMode;
+  autoArm: boolean;
+  onAutoArmChange: (value: boolean) => void;
   onModeChange: (mode: ProviderBrowserMode) => void;
   autoFallbackDomains: string;
   onAutoFallbackDomainsChange: (value: string) => void;
@@ -138,10 +141,20 @@ export function ProviderBrowserAccessSettingsCard(args: {
         />
       </LabeledField>
       {args.mode === "auto" ? (
-        <AutoFallbackDomainsField
-          value={args.autoFallbackDomains}
-          onCommit={args.onAutoFallbackDomainsChange}
-        />
+        <>
+          <SwitchField
+            title={t("settings:providerBrowserAccessSettingsCard.autoArm.title")}
+            description={t("settings:providerBrowserAccessSettingsCard.autoArm.description")}
+            checked={args.autoArm}
+            onCheckedChange={args.onAutoArmChange}
+          />
+          {args.autoArm ? (
+            <AutoFallbackDomainsField
+              value={args.autoFallbackDomains}
+              onCommit={args.onAutoFallbackDomainsChange}
+            />
+          ) : null}
+        </>
       ) : null}
       <div className={sx(styles.noteCard)}>
         <p>
