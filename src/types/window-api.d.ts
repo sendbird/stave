@@ -361,6 +361,8 @@ interface WindowProviderApi {
   }) => Promise<{
     ok: boolean;
     message?: string;
+    /** The provider can no longer answer this request (no live turn, or an unknown request id). */
+    unanswerable?: true;
   }>;
   respondUserInput?: (args: {
     turnId: string;

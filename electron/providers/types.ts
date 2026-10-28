@@ -355,7 +355,12 @@ export interface ProviderRuntime {
     approved: boolean;
     reason?: string;
     scope?: "once" | "always";
-  }) => Promise<{ ok: boolean; message: string }>;
+  }) => Promise<{
+    ok: boolean;
+    message: string;
+    /** The provider can no longer answer this request (no live turn, or an unknown request id). */
+    unanswerable?: true;
+  }>;
   respondUserInput: (args: {
     turnId: string;
     requestId: string;
