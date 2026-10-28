@@ -127,6 +127,7 @@ export const settingsSharedStyles = stylex.create({
   choiceMark: {
     alignItems: "center",
     backgroundColor: vars["--ads-color-canvas"],
+    color: vars["--ads-color-text"],
     blockSize: vars["--ads-space-20"],
     borderRadius: vars["--ads-radius-mark"],
     display: "flex",
@@ -262,6 +263,9 @@ export const settingsSharedStyles = stylex.create({
   radioDescription: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-body"],
+  },
+  radioDescriptionSelected: {
+    color: "inherit",
   },
   radioInline: {
     alignItems: "center",

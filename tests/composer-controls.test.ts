@@ -30,6 +30,14 @@ describe("normalizeComposerControlPlacements", () => {
     ).toEqual({ review: "overflow" });
   });
 
+  test("side questions cannot be hidden or moved into overflow", () => {
+    for (const sideQuestion of ["hidden", "overflow"]) {
+      expect(normalizeComposerControlPlacements({ sideQuestion, review: "overflow" })).toEqual({ review: "overflow" });
+      const layout = resolveComposerControlLayout({ placements: {} });
+      expect([...layout.toolbar, ...layout.overflow, ...layout.hidden]).not.toContain("sideQuestion");
+    }
+  });
+
   test("keeps the map sparse so a control added later defaults to visible", () => {
     expect(
       normalizeComposerControlPlacements({

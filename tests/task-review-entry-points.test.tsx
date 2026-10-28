@@ -207,30 +207,18 @@ describe("the pane header's mode switch", () => {
     expect(modeSwitch(markup)[1]!.label).toBe("Review+1−1");
   });
 
-  test("the side question no longer sits in the header", () => {
+  test("the side question stays in the composer rather than the task tab bar", () => {
     expect(renderHeader({ taskId: "header-codex", reviewShown: false })).not.toContain("side-question");
   });
 });
 
 describe("Review's scope bar", () => {
-  const render = (onSideQuestion?: () => void) =>
-    renderToStaticMarkup(createElement(ReviewScopeBar, {
-      scope: { kind: "uncommitted" },
-      available: ["uncommitted"],
-      data: null,
-      onScope: () => {},
-      onRefresh: () => {},
-      onConversation: () => {},
-      onSideQuestion,
+  test("keeps scope actions separate from task side questions", () => {
+    const markup = renderToStaticMarkup(createElement(ReviewScopeBar, {
+      scope: { kind: "uncommitted" }, available: ["uncommitted"], data: null,
+      onScope: () => {}, onRefresh: () => {}, onConversation: () => {},
     }));
-
-  test("offers the side question over Review, where the composer is hidden", () => {
-    const markup = render(() => {});
-    expect(markup).toContain('data-testid="review-side-question"');
-    expect(markup).toContain(">Side question<");
-  });
-
-  test("leaves it out for a provider without side questions", () => {
-    expect(render()).not.toContain('data-testid="review-side-question"');
+    expect(markup).toContain('data-testid="review-back-to-conversation"');
+    expect(markup).not.toContain("side-question");
   });
 });

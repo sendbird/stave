@@ -15,6 +15,6 @@ export function useSideQuestionComposerControl(): ReactNode {
   // Side questions go to the task's own provider, as the panel asks them.
   const supported = useAppStore((state) => isSideChatProvider(state.tasks.find((task) => task.id === taskId)?.provider));
   // Counted as ChatArea counts it to choose between the start screen and the conversation.
-  const hasConversation = useAppStore((state) => (state.messageCountByTask[taskId] ?? state.messagesByTask[taskId]?.length ?? 0) > 0);
+  const hasConversation = useAppStore((state) => Math.max(state.messageCountByTask[taskId] ?? 0, state.messagesByTask[taskId]?.length ?? 0) > 0);
   return supported && hasConversation && taskId ? <SideQuestionComposerControl taskId={taskId} /> : null;
 }

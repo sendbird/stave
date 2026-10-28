@@ -191,19 +191,30 @@ export function seedShelfCase(args: {
     ? caseId === "needs-input"
       ? [todoMessage(), approvalMessage()]
       : [todoMessage()]
-    : [];
+    : [{
+      id: "preview-completed-message",
+      role: "assistant" as const,
+      providerId: "claude-code" as const,
+      model: "claude-opus-5",
+      content: "The composer layout is ready for review.",
+      parts: [{ type: "text" as const, text: "The composer layout is ready for review." }],
+    }];
+  const taskMessages = caseId === "switch" || caseId === "switch-back"
+    ? switchMessages(caseId)
+    : caseId === "switch-command" ? switchMessages("switch") : messages;
   useAppStore.setState((state) => ({
+    tasks: [{ id: PREVIEW_TASK_ID, title: "Review the composer layout", provider: "claude-code", updatedAt: "2026-10-02T09:00:00.000Z", unread: false, controlMode: "interactive", controlOwner: "stave" }],
     activeTaskId: PREVIEW_TASK_ID,
+    activeSurface: { kind: "task", taskId: PREVIEW_TASK_ID },
     activeWorkspaceId: PREVIEW_WORKSPACE_ID,
     activeTurnIdsByTask: turnLive ? { [PREVIEW_TASK_ID]: PREVIEW_TURN_ID } : {},
     providerTurnActivityByTask: turnLive ? { [PREVIEW_TASK_ID]: activityFor(caseId) } : {},
     retainedTurnActivityByTask: {},
     messagesByTask: {
-      [PREVIEW_TASK_ID]: caseId === "switch" || caseId === "switch-back"
-        ? switchMessages(caseId)
-        : caseId === "switch-command" ? switchMessages("switch") : messages,
+      [PREVIEW_TASK_ID]: taskMessages,
       ...(caseId === "reviews" ? previewReviewMessages() : {}),
     },
+    messageCountByTask: { [PREVIEW_TASK_ID]: taskMessages.length },
     // Switch back: Codex worked here before, through the third request.
     providerSessionByTask: (caseId === "switch-back"
       ? { [PREVIEW_TASK_ID]: { codex: { nativeSessionId: "preview-codex-session", syncedThroughMessageId: "switch-a2" } } }

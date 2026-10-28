@@ -16,7 +16,7 @@ import { useTaskReviewModeStore, type TaskSurfaceMode } from "@/store/task-revie
  * the pane group's tab strip, so it stays in reach however the task is shown
  * and costs the task no row of its own. Review carries what the latest turn
  * changed, the scope it opens on. The side question lives with the composer
- * and in Review's scope bar, where a question is asked.
+ * where a question is asked.
  */
 export function TaskPaneHeaderActions(props: { taskId: string }) {
   useTranslation();
