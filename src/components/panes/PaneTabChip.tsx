@@ -177,10 +177,16 @@ function TaskChipIcon(args: { taskChip: TaskChipState }) {
   return (
     <span className={sx(c.taskIconWrap)}>
       {taskChip.isResponding ? (
-        <AgentRunMark
-          kind={taskChip.isStalled ? "stalled" : "working"}
-          fallbackInkClassName={taskChip.toneClass}
-        />
+        taskChip.isStalled ? (
+          <AgentRunMark kind="stalled" />
+        ) : (
+          <Loader
+            aria-hidden
+            className={taskChip.toneClass}
+            size="xs"
+            variant="pulse"
+          />
+        )
       ) : taskChip.provider ? (
         <ModelIcon providerId={taskChip.provider} className={sx(c.icon)} />
       ) : null}

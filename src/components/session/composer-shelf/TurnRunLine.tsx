@@ -139,7 +139,11 @@ export const TurnRunLine = memo(function TurnRunLine(props: {
     completed: completedAt != null,
     replayOutcome: surface.replayOutcome,
   });
-  const runKind = resolveTurnActivityRunKind({ activity, isStalled });
+  const runKind = resolveTurnActivityRunKind({
+    activity,
+    isStalled,
+    workItems: surface.workItems,
+  });
   // A main loop blocked on its helpers says so instead of "Working".
   const label =
     runKind === "waiting" && tone === "active" && activity

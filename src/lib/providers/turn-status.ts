@@ -889,6 +889,9 @@ function applyTurnWorkEvents(args: {
         updatedAt: args.now,
         elapsedSeconds: currentItem.elapsedSeconds,
         ...(currentItem.badge ? { badge: currentItem.badge } : {}),
+        // The row is replaced whole; keep the tool name, which tells a
+        // blocking wait (`Agent`, `Task`) from other work.
+        ...(currentItem.toolName ? { toolName: currentItem.toolName } : {}),
       });
       continue;
     }
@@ -942,6 +945,7 @@ function applyTurnWorkEvents(args: {
       if (!currentItem && isSubagent) {
         continue;
       }
+      const toolName = currentItem?.toolName ?? truncateWorkText(event.toolName);
       upsertItem({
         id: event.toolUseId,
         kind: isSubagent ? "subagent" : (currentItem?.kind ?? "tool"),
@@ -958,6 +962,7 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: event.elapsedSeconds,
+        ...(toolName ? { toolName } : {}),
       });
       continue;
     }

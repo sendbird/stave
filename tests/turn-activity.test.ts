@@ -67,18 +67,51 @@ describe("turn activity presentation", () => {
     expect(resolveTurnActivityRestMark({ activity: null })).toBeNull();
   });
 
-  test("one working mark whatever the turn runs; a stall stands still", () => {
+  test("the run mark says what the turn runs", () => {
     const graph = createWorkGraph({ turnId: "turn-1", providerId: "claude-code", startedAt: 1_000 });
     const idle = { pendingInteraction: null, workGraph: graph, workItemsById: {} };
-    expect(resolveTurnActivityRunKind({ activity: null, isStalled: false })).toBe("working");
-    expect(resolveTurnActivityRunKind({ activity: idle, isStalled: false })).toBe("working");
+    const kind = (workItems: Pick<ProviderTurnWorkItem, "kind" | "status">[]) =>
+      resolveTurnActivityRunKind({ activity: idle, isStalled: false, workItems });
+
+    // Nothing runs yet, with or without a snapshot: the model is thinking.
+    expect(resolveTurnActivityRunKind({ activity: null, isStalled: false, workItems: [] })).toBe("thinking");
+    expect(kind([])).toBe("thinking");
+    expect(kind([{ kind: "tool", status: "completed" }])).toBe("thinking");
+    expect(kind([{ kind: "tool", status: "running" }])).toBe("tool");
+    expect(kind([{ kind: "subagent", status: "running" }])).toBe("subagent");
+    expect(
+      kind([
+        { kind: "subagent", status: "running" },
+        { kind: "tool", status: "running" },
+      ]),
+    ).toBe("parallel");
+    expect(
+      kind([
+        { kind: "tool", status: "running" },
+        { kind: "tool", status: "running" },
+      ]),
+    ).toBe("parallel");
+  });
+
+  test("a turn waiting on a person shows what it waits for, and a stall stands still", () => {
+    const graph = createWorkGraph({ turnId: "turn-1", providerId: "claude-code", startedAt: 1_000 });
+    const idle = { pendingInteraction: null, workGraph: graph, workItemsById: {} };
+    const running = [{ kind: "tool" as const, status: "running" as const }];
     expect(
       resolveTurnActivityRunKind({
         activity: { ...idle, pendingInteraction: "approval" },
         isStalled: false,
+        workItems: running,
       }),
-    ).toBe("working");
-    expect(resolveTurnActivityRunKind({ activity: idle, isStalled: true })).toBe("stalled");
+    ).toBe("approval");
+    expect(
+      resolveTurnActivityRunKind({
+        activity: { ...idle, pendingInteraction: "user_input" },
+        isStalled: false,
+        workItems: running,
+      }),
+    ).toBe("needs-you");
+    expect(resolveTurnActivityRunKind({ activity: idle, isStalled: true, workItems: running })).toBe("stalled");
   });
 
   test("a main loop blocked on its subagent wears the waiting mark", () => {
@@ -98,9 +131,10 @@ describe("turn activity presentation", () => {
       ],
       now: 1_000,
     })["task-1"]!;
-    expect(resolveTurnActivityRunKind({ activity, isStalled: false })).toBe("waiting");
+    const workItems = Object.values(activity.workItemsById);
+    expect(resolveTurnActivityRunKind({ activity, isStalled: false, workItems })).toBe("waiting");
     // A stall still wins: nothing reported means nothing is shown moving.
-    expect(resolveTurnActivityRunKind({ activity, isStalled: true })).toBe("stalled");
+    expect(resolveTurnActivityRunKind({ activity, isStalled: true, workItems })).toBe("stalled");
   });
 
   test("shows the activity shelf only while a turn is active", () => {

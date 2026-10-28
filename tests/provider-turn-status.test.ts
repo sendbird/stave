@@ -842,6 +842,8 @@ describe("provider turn status helpers", () => {
       title: "Review renderer lifecycle",
       detail: "Reading session resolver",
       toolUseId: "agent-1",
+      // Progress keeps the tool name, so the call still reads as a blocking wait.
+      toolName: "Agent",
       progressMessages: ["Reading session resolver"],
       startedAt: 2000,
       updatedAt: 2000,

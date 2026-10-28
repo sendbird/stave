@@ -2,7 +2,6 @@ import * as stylex from "@stylexjs/stylex";
 import type { LucideIcon } from "lucide-react";
 import { cx, sx, type StyleXValue, type XstyleProp } from "../utils/stylex";
 import { vars } from "../tokens/tokens.stylex";
-import { Loader } from "./Loader";
 import { WORK_STATE, type WorkState } from "./state-vocabulary";
 
 /** Glyph size in px. */
@@ -20,16 +19,14 @@ export interface StateMarkProps extends XstyleProp {
    */
   label?: string;
   /**
-   * `moving` draws `working` with the one agent-working motion (the matrix
-   * loader); `still` keeps the static glyph where its surroundings already move.
+   * `moving` draws `working` as its ring with an arc travelling round it;
+   * `still` keeps the static glyph where its surroundings already move.
    */
   motion?: "moving" | "still";
   /**
-   * A class that colors the moving mark, such as the provider ink of the agent
-   * doing the work. Without one it takes the state color.
+   * A domain glyph in place of the state's, keeping the state color. A domain
+   * glyph holds still: the moving ring belongs to the working glyph.
    */
-  inkClassName?: string;
-  /** A domain glyph in place of the state's, keeping the state color. */
   icon?: LucideIcon;
   /** Host layout for the word, such as hiding it on narrow rows. */
   labelXstyle?: StyleXValue;
@@ -41,8 +38,9 @@ export interface StateMarkProps extends XstyleProp {
  * How every surface draws an agent work state: the vocabulary's glyph in the
  * state's theme color (`--state-*`), optionally with its word. Each domain
  * keeps its own state type and maps it to a `WorkState`; only the drawing is
- * shared. `working` is the one state that moves: it draws the same matrix
- * loader every agent-working surface uses, and reduced motion holds it still.
+ * shared. `working` is the one state that moves: a short arc travels round
+ * the glyph's ring in the same box, so a row does not shift when its state
+ * starts moving. Reduced motion settles it back on the static glyph's look.
  */
 export function StateMark({
   state,
@@ -50,7 +48,6 @@ export function StateMark({
   showLabel = false,
   label,
   motion = "moving",
-  inkClassName,
   icon,
   labelXstyle,
   title,
@@ -60,7 +57,7 @@ export function StateMark({
   const visual = WORK_STATE[state];
   const Icon = icon ?? visual.icon;
   const px = SIZE_PX[size];
-  const moving = visual.pulses && motion === "moving";
+  const moving = visual.pulses && motion === "moving" && icon == null;
   const a11y = showLabel
     ? {}
     : label
@@ -75,14 +72,29 @@ export function StateMark({
       className={cx(sx(styles.root, xstyle), className)}
     >
       {moving ? (
-        <span aria-hidden className={sx(styles.loaderSlot, loaderSlotSize[size])}>
-          <Loader
-            aria-hidden
-            size="xs"
-            variant="matrix"
-            className={inkClassName ?? sx(glyphColor[visual.color])}
+        <svg
+          aria-hidden
+          data-working-mark="ring-arc"
+          width={px}
+          height={px}
+          viewBox="0 0 24 24"
+          fill="none"
+          className={sx(styles.glyph, styles.ring, glyphColor[visual.color])}
+        >
+          <circle cx={12} cy={12} r={10} stroke="currentColor" strokeWidth={2} className={sx(styles.ringTrack)} />
+          <circle
+            cx={12}
+            cy={12}
+            r={10}
+            stroke="currentColor"
+            strokeWidth={2}
+            strokeLinecap="round"
+            // About a quarter of the ring (circumference 2π·10 ≈ 63).
+            strokeDasharray="16 47"
+            className={sx(styles.ringArc)}
           />
-        </span>
+          <circle cx={12} cy={12} r={2.5} fill="currentColor" />
+        </svg>
       ) : (
         <Icon
           aria-hidden
@@ -96,6 +108,11 @@ export function StateMark({
   );
 }
 
+const ringTurn = stylex.keyframes({
+  from: { transform: "rotate(0deg)" },
+  to: { transform: "rotate(360deg)" },
+});
+
 const styles = stylex.create({
   root: {
     alignItems: "center",
@@ -105,14 +122,29 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   glyph: { flexShrink: 0 },
-  // The loader's footprint is 16px around an 11px matrix. The slot keeps the
-  // glyph's own box, so a row does not shift when its state starts moving.
-  loaderSlot: {
-    alignItems: "center",
-    display: "inline-flex",
-    flexShrink: 0,
-    justifyContent: "center",
-    overflow: "visible",
+  ring: { overflow: "visible" },
+  // A faint track while the arc moves; under reduced motion the full ring,
+  // so the mark reads as the settled working glyph.
+  ringTrack: {
+    strokeOpacity: {
+      default: 0.25,
+      "@media (prefers-reduced-motion: reduce)": 1,
+    },
+  },
+  ringArc: {
+    animationDuration: vars["--ads-motion-duration-loop"],
+    animationIterationCount: "infinite",
+    animationName: {
+      default: ringTurn,
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
+    animationTimingFunction: "linear",
+    opacity: {
+      default: null,
+      "@media (prefers-reduced-motion: reduce)": 0,
+    },
+    transformBox: "view-box",
+    transformOrigin: "center",
   },
   label: {
     minInlineSize: 0,
@@ -120,12 +152,6 @@ const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-});
-
-const loaderSlotSize = stylex.create({
-  xs: { blockSize: SIZE_PX.xs, inlineSize: SIZE_PX.xs },
-  sm: { blockSize: SIZE_PX.sm, inlineSize: SIZE_PX.sm },
-  md: { blockSize: SIZE_PX.md, inlineSize: SIZE_PX.md },
 });
 
 // Literal custom properties: the theme writes `--state-*` (src/globals.css,
