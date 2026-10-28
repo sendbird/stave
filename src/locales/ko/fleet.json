@@ -232,6 +232,16 @@
     "waiting": "{{duration}}째 대기 중",
     "quiet": "{{duration}}째 업데이트 없음"
   },
+  "runProgress": {
+    "working": "작업 중",
+    "workingStep": "{{step}} · {{duration}}",
+    "workingWithTodos": "{{step}} · {{done}}/{{total}} · {{duration}}",
+    "noOutput": "출력 없음 · {{duration}}",
+    "waitingOnHelpers_other": "보조 Agent {{count}}개 기다리는 중 · {{duration}}",
+    "waitingOnBackground": "백그라운드 작업 기다리는 중 · {{duration}}",
+    "waitingOnHelpersLabel_other": "보조 Agent {{count}}개 기다리는 중",
+    "waitingOnBackgroundLabel": "백그라운드 작업 기다리는 중"
+  },
   "inbox": {
     "unreadLabel": "{{label}}, 읽지 않음"
   },
