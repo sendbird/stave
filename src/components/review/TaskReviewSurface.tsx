@@ -3,8 +3,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import type { AsyncState } from "@/components/ads/utils/async";
 import { WorkspaceLayout } from "@/components/ads/components/WorkspaceLayout";
 import { sx } from "@/components/ads/utils/stylex";
-import { openTaskSideQuestion, showTaskConversation } from "@/components/panes/task-surface-entry";
-import { isSideChatProvider } from "@/lib/side-chat/side-chat";
+import { showTaskConversation } from "@/components/panes/task-surface-entry";
 import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { AsyncBoundary } from "@/components/system/AsyncBoundary";
 import type { AgentRunDetail } from "@/lib/agent-runs/api";
@@ -101,9 +100,6 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   const selected = files.find((file) => file.path === selectedPath) ?? files[0] ?? null;
   const read = useTaskReviewModeStore((store) => store.readByTask[taskId]?.[reviewScopeKey(scope)]) ?? NOTHING_READ;
   const markRead = useTaskReviewModeStore((store) => store.markRead);
-  const sideQuestionSupported = useAppStore((store) =>
-    isSideChatProvider(store.tasks.find((task) => task.id === taskId)?.provider),
-  );
   // Load the diff highlighter while the scope's files are still being read, so the first diff paints in color.
   useEffect(() => {
     void getSyntaxHighlighter();
@@ -117,7 +113,7 @@ function ReviewBody(props: SharedProps & { scope: ReviewScope; state: AsyncState
   return (
     <>
       <ReviewTaskStatusLine taskId={taskId} />
-      <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} onSideQuestion={sideQuestionSupported ? () => openTaskSideQuestion(taskId) : undefined} />
+      <ReviewScopeBar scope={scope} available={props.available} data={data} onScope={props.onScope} onRefresh={props.refresh} onConversation={() => showTaskConversation(taskId)} />
       <ReviewScopeLimits limits={data?.limits ?? (scope.kind === "turn" ? ["reported-edits-only"] : [])} />
       <div className={sx(styles.layoutHost)}>
       <div className={sx(styles.layoutScroll)}>

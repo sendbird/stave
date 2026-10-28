@@ -1,5 +1,4 @@
 import { i18n, useTranslation } from "@/i18n";
-import { useSideQuestionComposerControl } from "@/components/session/side-chat/use-side-question-composer-control";
 import {
   type FormEvent,
   useMemo,
@@ -174,7 +173,6 @@ export function PromptInput(args: PromptInputProps) {
    * map — in charge of both axes.
    */
   const composerIconButtonSize = useComposerWings ? "icon-sm" : "icon";
-  const sideQuestionControl = useSideQuestionComposerControl();
   const promptEnhancementReveal = usePromptEnhancementReveal({
     active: promptEnhancementRevealing,
     revealVersion: promptEnhancementRevealVersion,
@@ -444,7 +442,6 @@ export function PromptInput(args: PromptInputProps) {
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
   if (!compareControl) unavailableComposerControls.push("compare");
-  if (!sideQuestionControl) unavailableComposerControls.push("sideQuestion");
   if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
 
   const composerControlLayout = resolveComposerControlLayout({
@@ -476,7 +473,6 @@ export function PromptInput(args: PromptInputProps) {
     secretsControl,
     macroControl,
     compareControl,
-    sideQuestionControl,
     hasRuntimeContent,
     isMobile,
     composerIconButtonSize,

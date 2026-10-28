@@ -2,8 +2,8 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 export const sideChatStyles = stylex.create({
-  // Docked to the conversation's top-end corner, over the transcript, never
-  // over the composer; the overlay around it passes clicks through.
+  // Conversation panels sit just above the composer, aligned to its measure.
+  // The overlay passes clicks through; the card keeps its own scroll region.
   card: {
     backgroundColor: vars["--ads-color-surface"],
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 80%, transparent)`,
@@ -19,8 +19,18 @@ export const sideChatStyles = stylex.create({
     overflow: "hidden",
     pointerEvents: "auto",
     position: "absolute",
-    top: vars["--ads-space-12"],
+    bottom: vars["--ads-space-12"],
     width: `min(28rem, calc(100% - 2 * ${vars["--ads-space-12"]}))`,
+  },
+  conversationCard: {
+    insetInlineEnd: {
+      default: vars["--ads-space-12"],
+      "@media (min-width: 40rem)": `max(${vars["--ads-space-16"]}, calc((100% - 72rem) / 2))`,
+    },
+  },
+  reviewCard: {
+    bottom: "auto",
+    top: vars["--ads-space-12"],
   },
   header: {
     alignItems: "center",

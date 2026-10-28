@@ -26,9 +26,9 @@
 1. Choose **Side question** in the composer toolbar, type your question and
    press `Enter`. Or type `/aside` followed by your question in
    the composer and press `Enter`.
-2. The side question panel opens over the conversation, or over Review, and
-   shows the answer. Ask a follow-up in the same field; earlier questions stay
-   above it.
+2. The side question panel opens above the composer's right edge, or at the
+   upper right of Review, and shows the answer. Ask a follow-up in the same
+   field; earlier questions stay above it.
 3. Close the panel with its close button or `Esc`.
 
 ## Interface Walkthrough
@@ -36,10 +36,9 @@
 ### Entry Points
 
 - **Side question** in the composer toolbar. It opens the panel and leaves
-  your draft alone, and it stays available while a turn runs. Like other
-  composer controls, it can move to the overflow tray or be hidden.
-- **Side question** at the right of Review's scope bar, where the composer is
-  hidden.
+  your draft alone, and it stays available while a turn runs. It is a fixed
+  toolbar action beside Attach and Send, so it cannot be hidden or moved into
+  the overflow tray.
 - The composer's slash command `/aside` (listed under **Stave commands** when
   you type `/`). `/aside` alone opens the panel with an empty question.
 - `Cmd/Ctrl+K` then `Q` opens the panel for the active task, bringing the task

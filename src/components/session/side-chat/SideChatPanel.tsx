@@ -37,10 +37,10 @@ const SUGGESTION_KEYS = ["suggestNow", "suggestWhy", "suggestLeft"] as const;
 export function SideChatPanel(props: { taskId: string; host: TaskSurfaceMode }) {
   const open = useSideChatStore((state) => Boolean(props.taskId) && state.openTaskId === props.taskId);
   const mode = useTaskReviewModeStore((state) => state.byTask[props.taskId]?.mode ?? "conversation");
-  return open && mode === props.host ? <SideChatCard taskId={props.taskId} /> : null;
+  return open && mode === props.host ? <SideChatCard taskId={props.taskId} host={props.host} /> : null;
 }
 
-function SideChatCard(props: { taskId: string }) {
+function SideChatCard(props: { taskId: string; host: TaskSurfaceMode }) {
   useTranslation();
   const { taskId } = props;
   const thread = useSideChatStore((state) => state.threadByTask[taskId]);
@@ -81,7 +81,7 @@ function SideChatCard(props: { taskId: string }) {
   return (
     <section
       aria-labelledby={titleId}
-      className={sx(styles.card)}
+      className={sx(styles.card, props.host === "conversation" ? styles.conversationCard : styles.reviewCard)}
       data-testid="side-chat"
       data-task-abort-exempt=""
       onKeyDown={onKeyDown}

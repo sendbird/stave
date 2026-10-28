@@ -173,32 +173,38 @@ describe("composer control placement in the toolbar", () => {
     expect(html).not.toContain('data-composer-tray-trigger="true"');
   });
 
-  test("offers the side question as a composer control the user can place, for Claude and Codex conversations", async () => {
+  test("always offers the side question in the toolbar for Claude and Codex conversations", async () => {
     const { useAppStore } = await import("@/store/app.store");
     // Server rendering reads the store's initial state, so the task is written there for these renders.
-    const initial = useAppStore.getInitialState() as unknown as { tasks: unknown[]; activeTaskId: string; messageCountByTask: Record<string, number> };
-    const saved = { tasks: initial.tasks, activeTaskId: initial.activeTaskId, messageCountByTask: initial.messageCountByTask };
-    const withTask = async (provider: string, placements?: ComposerControlPlacements, messages = 2) => {
+    const initial = useAppStore.getInitialState() as unknown as { tasks: unknown[]; activeTaskId: string; messageCountByTask: Record<string, number>; messagesByTask: Record<string, unknown[]> };
+    const saved = { tasks: initial.tasks, activeTaskId: initial.activeTaskId, messageCountByTask: initial.messageCountByTask, messagesByTask: initial.messagesByTask };
+    const withTask = async (provider: string, placements?: ComposerControlPlacements, messages = 2, loadedMessages = 0) => {
       initial.tasks = [{ id: "task-side", title: "task-side", provider, updatedAt: "2026-10-26T00:00:00.000Z", unread: false }];
       initial.activeTaskId = "task-side";
       initial.messageCountByTask = { "task-side": messages };
+      initial.messagesByTask = { "task-side": Array.from({ length: loadedMessages }, (_, index) => ({ id: `message-${index}`, role: "user", content: "Task context" })) };
       try {
         return await renderToolbar(placements ? { composerControlPlacements: placements } : {});
       } finally {
         initial.tasks = saved.tasks;
         initial.activeTaskId = saved.activeTaskId;
         initial.messageCountByTask = saved.messageCountByTask;
+        initial.messagesByTask = saved.messagesByTask;
       }
     };
     const shown = await withTask("codex");
     expect(shown).toContain('data-testid="composer-side-question"');
     expect(shown).toContain(">Side question<");
-    const demoted = await withTask("claude-code", { sideQuestion: "overflow" });
-    expect(demoted).not.toContain('data-testid="composer-side-question"');
-    expect(demoted).toContain('aria-label="More composer controls (1)"');
-    expect(await withTask("claude-code", { sideQuestion: "hidden" })).not.toContain('data-testid="composer-side-question"');
+    // Persisted placement data cannot hide the fixed question action.
+    for (const sideQuestion of ["overflow", "hidden"]) {
+      const placements = JSON.parse(JSON.stringify({ sideQuestion }));
+      const markup = await withTask("claude-code", placements);
+      expect(markup).toContain('data-testid="composer-side-question"');
+      expect(markup).not.toContain('data-composer-tray-trigger="true"');
+    }
     // A task still on its start screen has nothing to ask about, and no panel to open.
     expect(await withTask("claude-code", undefined, 0)).not.toContain('data-testid="composer-side-question"');
+    expect(await withTask("codex", undefined, 0, 1)).toContain('data-testid="composer-side-question"');
     // A provider without side questions gets no control, and no tray slot is spent on it.
     const none = await withTask("cursor");
     expect(none).not.toContain('data-testid="composer-side-question"');

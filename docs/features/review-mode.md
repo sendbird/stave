@@ -75,9 +75,9 @@ Review is not saved across restarts: every task opens on its conversation.
   itself, and the line takes no room while the task is idle.
 - **Conversation** at the start of the scope bar returns to the
   conversation. Review keeps its scope and read files for the next time.
-- **Side question** at the end of the scope bar opens the
-  [side question](side-questions.md) panel over Review (Claude and Codex
-  tasks).
+- The [side question](side-questions.md) shortcut or command palette action
+  opens its panel over Review (Claude and Codex tasks). The direct button
+  stays in the conversation's composer toolbar.
 - **Scope**: **This turn**, **This stage** (with an agent run), **Branch** or
   **Uncommitted**. Next to it, Review names the scope's base and the revision
   it reads now, for example

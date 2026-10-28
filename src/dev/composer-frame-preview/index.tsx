@@ -66,6 +66,7 @@ import { ComposerShelf } from "@/components/session/composer-shelf/ComposerShelf
 import { reorderQueuedTurns } from "@/components/session/composer-shelf/composer-shelf.utils";
 import { useComposerShelfQueue } from "@/components/session/composer-shelf/use-composer-shelf-queue";
 import { TaskScopeProvider } from "@/components/session/task-scope-context";
+import { SideChatPanel } from "@/components/session/side-chat/SideChatPanel";
 import { TurnActivity } from "@/components/session/TurnActivity";
 import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import {
@@ -464,6 +465,7 @@ export function ComposerFramePreviewApp() {
             </div>
             <div className={sx(f.overlay)}>
               <TurnActivity host="floating" />
+              <SideChatPanel taskId={PREVIEW_TASK_ID} host="conversation" />
             </div>
           </div>
 

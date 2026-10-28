@@ -17,6 +17,7 @@ export const composerFramePreviewStyles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomWidth: vars["--ads-border-width-hairline"],
     display: "flex",
+    flexWrap: "wrap",
     flexShrink: 0,
     gap: vars["--ads-space-12"],
     paddingBlock: vars["--ads-space-8"],
@@ -33,6 +34,7 @@ export const composerFramePreviewStyles = stylex.create({
   headerControls: {
     alignItems: "center",
     display: "flex",
+    flexWrap: "wrap",
     gap: vars["--ads-space-8"],
     marginInlineStart: "auto",
   },

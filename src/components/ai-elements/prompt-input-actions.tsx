@@ -72,7 +72,7 @@ export function PromptInputActions(args: {
     steerQueueEnterAction,
     assignOnSend,
   });
-  // Minimal mode has no control lanes, so its side question sits here, beside compare.
+  // Side questions are always a direct toolbar action, independent of control placement.
   const sideQuestionControl = useSideQuestionComposerControl();
   return (
     <div className={sx(promptInputStyles.actionsRow)}>
@@ -90,9 +90,9 @@ export function PromptInputActions(args: {
         <>
           {secretsControl}
           {compareControl}
-          {sideQuestionControl}
         </>
       ) : null}
+      {sideQuestionControl}
       <Tooltip>
         <TooltipTrigger
           type="button"

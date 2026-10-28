@@ -4,7 +4,7 @@ import { expect, test, type Page } from "@playwright/test";
  * The ways into a task's Review and side question that live outside the
  * Review surface itself, clicked in the real components: the turn's
  * changed-files card, Review's decisions that send work back to the agent, and
- * the pane header's side question. Each case mounts the component on the dev
+ * the pane header's Conversation/Review switch. Each case mounts the component on the dev
  * preview's own module instances, so the stores it changes are the app's.
  */
 const MODULES = {
@@ -147,16 +147,19 @@ test("asking for changes on a stage returns the task to its conversation", async
   expect(await page.evaluate(() => (window as unknown as { __runCalls: string[] }).__runCalls)).toEqual(["requestChanges"]);
 });
 
-test("the pane header shows the task's mode switch, and the side question lives elsewhere", async ({ page }) => {
+test("the pane header shows the task's mode switch and keeps side questions in the composer", async ({ page }) => {
   await page.evaluate(async (modules) => {
-    const { default: React } = await import(modules.react);
-    const { default: { createRoot } } = await import(modules.client);
+    const resources = performance.getEntriesByType("resource");
+    const moduleUrl = (name: string) => resources.find((entry) => new URL(entry.name).pathname.endsWith(`/deps/${name}.js`))!.name;
+    const { default: React } = await import(moduleUrl("react"));
+    const { default: { createRoot } } = await import(moduleUrl("react-dom_client"));
     const { useAppStore } = await import(modules.appStore);
     const { useTaskReviewModeStore } = await import(modules.reviewMode);
     const { PaneHeaderActions } = await import(modules.paneHeader);
     const task = (id: string, provider: string) => ({ id, title: id, provider, updatedAt: "2026-10-23T00:00:00.000Z", unread: false });
     useAppStore.setState((state: { tasks: unknown[] }) => ({
       tasks: [...state.tasks, task("entry-claude", "claude-code"), task("entry-cursor", "cursor")],
+      messageCountByTask: { "entry-claude": 1, "entry-cursor": 1 },
     }));
     useTaskReviewModeStore.getState().openReview("entry-claude");
     const header = (id: string, panelId: string) => {
@@ -179,8 +182,9 @@ test("the pane header shows the task's mode switch, and the side question lives 
   await expect(claude.getByRole("button", { name: "Conversation" })).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#entry-header-cursor").getByTestId("pane-header-mode-switch")).toBeVisible();
   await expect(page.locator("#entry-header-terminal").getByTestId("pane-header-mode-switch")).toHaveCount(0);
-  // The side question moved to the composer and Review's scope bar.
-  await expect(page.getByRole("button", { name: "Side question" })).toHaveCount(0);
+  await expect(page.locator("#entry-header-claude").getByTestId("pane-header-side-question")).toHaveCount(0);
+  await expect(page.locator("#entry-header-cursor").getByTestId("pane-header-side-question")).toHaveCount(0);
+  await expect(page.locator("#entry-header-terminal").getByTestId("pane-header-side-question")).toHaveCount(0);
 });
 
 test("the pane header switches Review, and Review's Conversation goes back to the composer", async ({ page }) => {
