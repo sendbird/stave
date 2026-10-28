@@ -32,7 +32,7 @@ export const explorerStyles = stylex.create({
   },
   headerActions: { alignItems: "center", display: "flex", gap: vars["--ads-space-4"] },
   toolButton: {
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     color: vars["--ads-color-text-muted"],
     height: 28,
     padding: 0,
@@ -61,7 +61,7 @@ export const explorerStyles = stylex.create({
   createForm: {
     backgroundColor: vars["--ads-color-surface-tint"],
     borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],
     paddingBlock: vars["--ads-space-8"],
@@ -72,14 +72,14 @@ export const explorerStyles = stylex.create({
   createInput: {
     backgroundColor: vars["--ads-color-canvas"],
     borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     fontSize: vars["--ads-font-size-body"],
     height: 32,
     paddingInline: vars["--ads-space-8"],
   },
-  createSubmit: { borderRadius: vars["--ads-radius-mark"], height: 32 },
+  createSubmit: { borderRadius: vars["--ads-radius-control"], height: 32 },
   createCancel: {
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     color: vars["--ads-color-text-muted"],
     height: 32,
     paddingInline: vars["--ads-space-8"],
@@ -158,7 +158,7 @@ export const explorerStyles = stylex.create({
     // to the canvas made the field vanish on themes where `--background` and
     // `--popover` are the same colour.
     borderColor: vars["--ads-color-border-subtle"],
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-control"],
     fontSize: vars["--ads-font-size-body"],
     lineHeight: "20px",
     minHeight: 0,

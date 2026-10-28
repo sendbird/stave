@@ -349,5 +349,15 @@
     "customPromptRequired": "Enter a custom review prompt before starting the review.",
     "skillRequired": "Choose an installed review skill before starting the review.",
     "skillInstructionsMissing": "The skill ${{skill}} has no review instructions."
+  },
+  "rendererRecovery": {
+    "errorTitle": "Stave ran into a problem",
+    "errorBody": "An unexpected error stopped this window. Reload to try again.",
+    "chunkTitle": "Stave needs to reload",
+    "chunkBody": "Part of the app didn't load, which can happen right after an update. Reload to continue.",
+    "reload": "Reload window",
+    "copyDetails": "Copy error details",
+    "copied": "Error details copied",
+    "copyFailed": "Couldn't copy the error details"
   }
 }

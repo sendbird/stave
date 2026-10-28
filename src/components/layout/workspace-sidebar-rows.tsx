@@ -43,6 +43,11 @@ import {
   WorkspaceUnansweredCount,
 } from "@/components/layout/WorkspaceUnansweredCount";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
+import {
+  useWorkspaceRunProgress,
+  WorkspaceRunMark,
+  WorkspaceRunProgressText,
+} from "@/components/layout/WorkspaceRunProgress";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import {
   SortableDropIndicator,
@@ -456,11 +461,9 @@ export const WorkspaceLeadingStatusIcon = memo(
 
     if (respondingTaskCount > 0) {
       return (
-        <Loader
-          aria-hidden
-          className={respondingToneClass}
-          size="xs"
-          variant="matrix"
+        <WorkspaceRunMark
+          workspaceId={args.workspaceId}
+          fallbackInkClassName={respondingToneClass}
         />
       );
     }
@@ -791,6 +794,8 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   const { respondingTaskCount } = useWorkspaceSidebarActivityState(
     args.workspaceId,
   );
+  // While a turn runs the line says what it is doing instead of the branch.
+  const { progress } = useWorkspaceRunProgress(args.workspaceId, true);
   const branchLabel = formatWorkspaceBranchLabel({
     branch: args.branch,
     isDefault: args.isDefault,
@@ -800,10 +805,14 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   return (
     <span className={sx(repositorySidebarStyles.metaGrid)}>
       <span className={sx(repositorySidebarStyles.metaIconSlot)}>
-        <GitBranch className={sx(repositorySidebarStyles.metaIcon)} />
+        {progress ? null : <GitBranch className={sx(repositorySidebarStyles.metaIcon)} />}
       </span>
       <span className={sx(repositorySidebarStyles.metaBody)}>
-        <span className={sx(repositorySidebarStyles.metaBranch)}>{branchLabel}</span>
+        {progress ? (
+          <WorkspaceRunProgressText progress={progress} />
+        ) : (
+          <span className={sx(repositorySidebarStyles.metaBranch)}>{branchLabel}</span>
+        )}
         {respondingTaskCount > 0 ? (
           <span
             className={sx(

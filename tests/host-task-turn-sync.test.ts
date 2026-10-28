@@ -257,6 +257,30 @@ describe("applyHostTaskTurnSync", () => {
     ).toBe(created.id);
   });
 
+  test.each(["claude-code", "codex"] as const)(
+    "%s: a host turn the renderer first hears about mid-run keeps its persisted start",
+    (providerId) => {
+      const task = buildTask({ id: "task-managed", provider: providerId });
+      const session = emptySession({ tasks: [task], activeTurnIdsByTask: { [task.id]: "turn-1" } });
+      const turnStartedAt = Date.now() - 10 * 60_000;
+      const result = applyHostTaskTurnSync({
+        state: buildState({ session }),
+        loaded: {
+          persistedSession: session,
+          persistedActiveTurnId: "turn-1",
+          persistedActiveTurnStartedAt: turnStartedAt,
+          messages: [],
+          messageCount: 0,
+        },
+        update: { ...buildUpdate({ taskId: task.id }), providerId },
+      });
+      const activity = result.statePatch.providerTurnActivityByTask[task.id];
+      expect(activity?.startedAt).toBe(turnStartedAt);
+      // Liveness is still dated from now, so the stall net does not fire at once.
+      expect(activity!.lastEventAt).toBeGreaterThan(turnStartedAt + 9 * 60_000);
+    },
+  );
+
   test("reopens the live assistant bubble after snapshot sealing", () => {
     const task = buildTask({ id: "task-managed" });
     const sealedAssistant = {

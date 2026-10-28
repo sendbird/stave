@@ -44,9 +44,12 @@ import { ModelGroupEditButton, ModelPickerAccountFooter } from "./model-picker-a
 import { isModelSelectorOpenRequestReady, type ModelSelectorOpenRequest } from "./model-selector-open-request";
 import { ModelIcon } from "./model-icon";
 import {
+  persistModelPickerPreferences,
+  resolveSelectedModelEffort,
+} from "./model-effort-step";
+import {
   readCursorComposerSettings,
   resolveCursorComposerControls,
-  shouldPersistCursorComposerSelection,
 } from "./cursor-model-runtime";
 import {
   collapseClaudeContextOptions,
@@ -62,7 +65,6 @@ import {
   pickerShowsAutoTab,
   planPickerRail,
   resolveClaudeContextOption,
-  resolveDefaultModelEffort,
   supportsClaudeContextToggle,
   usesCursorParameterizedPicker,
   type ModelEffortValue,
@@ -529,11 +531,10 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     args.value.providerId === providerId &&
     catalog?.status === "ready" &&
     !args.options.some((option) => option.key === args.value.key);
-  const selectedEffort =
-    args.value.isAuto || listModelEfforts(args.value).length === 0
-      ? undefined
-      : ((cursorComposerControls.effortValue as ModelEffortValue | undefined) ??
-        resolveDefaultModelEffort(args.value));
+  const selectedEffort = resolveSelectedModelEffort({
+    value: args.value,
+    effortValue: cursorComposerControls.effortValue,
+  });
   // Stave Auto picks the effort with the model on every turn, so it shows none
   // of its own; once a turn is routed, its label names the effort it used.
   const selectedEffortLabel =
@@ -574,27 +575,11 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     // Fast and 1M are last-used per provider+model. Never copy the currently
     // displayed toggle onto the model the user just picked — that is what
     // made a Cursor Instant Fast selection turn Codex Fast on.
-    if (
-      shouldPersistCursorComposerSelection({
-        providerId: option.providerId,
-        effort,
-      })
-    ) {
-      updateModelRuntimePreference({
-        providerId: "cursor",
-        model: option.model,
-        patch: {
-          ...(effort ? { effort } : {}),
-        },
-      });
-    }
-    if (option.providerId === "claude-code" && !option.isAuto) {
-      updateModelRuntimePreference({
-        providerId: "claude-code",
-        model: getClaudeContextBaseModel(option.model),
-        patch: { context1M: isClaudeContext1MModel(option.model) },
-      });
-    }
+    persistModelPickerPreferences({
+      option,
+      effort,
+      updateModelRuntimePreference,
+    });
     const picked = {
       selection: option,
       ...(effort ? { effort } : {}),

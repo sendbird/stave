@@ -68,7 +68,7 @@ export const questionOptionRowStyles = stylex.create({
   rowDisabled: {
     pointerEvents: "none",
     cursor: "not-allowed",
-    opacity: 0.45,
+    opacity: vars["--ads-opacity-disabled"],
   },
   rowReadOnly: { pointerEvents: "none", cursor: "default" },
   // A text row takes its whole line and is clicked to type, not to pick.

@@ -17,7 +17,7 @@ export const secretRequestCardStyles = stylex.create({
     boxShadow: vars["--ads-elevation-raised"],
     display: "flex",
     flexDirection: "column",
-    fontSize: "0.8125rem",
+    fontSize: vars["--ads-font-size-body"],
     gap: vars["--ads-space-8"],
     marginBottom: vars["--ads-space-12"],
     padding: "0.625rem",

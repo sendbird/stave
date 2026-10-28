@@ -101,6 +101,8 @@ choice.
 | Close the side question panel | `Esc` | Side question panel; the task's turn keeps running |
 | Open model selector | `Alt+P` | Active task |
 | Model shortcut slots | `Alt+1..0` | Active task; assign them in Settings → Command Palette |
+| Increase effort | Unassigned; pick a letter after `Cmd/Ctrl+K` in Settings → Command Palette → Shell chords | Active task; steps through the selected model's levels and stops at the highest; does nothing while a request or question waits |
+| Decrease effort | Unassigned; pick a letter after `Cmd/Ctrl+K` in Settings → Command Palette → Shell chords | Active task; stops at the lowest level; does nothing while a request or question waits |
 | Preset shortcut slots | `Ctrl+1..9` | Anywhere; the first nine presets in Settings → Presets |
 
 ## Editing

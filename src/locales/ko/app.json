@@ -346,5 +346,15 @@
     "customPromptRequired": "리뷰를 시작하기 전에 사용자 지정 리뷰 프롬프트를 입력하세요.",
     "skillRequired": "리뷰를 시작하기 전에 설치된 리뷰 스킬을 선택하세요.",
     "skillInstructionsMissing": "스킬 ${{skill}}에 리뷰 지침이 없습니다."
+  },
+  "rendererRecovery": {
+    "errorTitle": "Stave에 문제가 발생했습니다",
+    "errorBody": "예기치 않은 오류로 이 창이 멈췄습니다. 창을 다시 불러와 다시 시도하세요.",
+    "chunkTitle": "Stave를 다시 불러와야 합니다",
+    "chunkBody": "앱 일부를 불러오지 못했습니다. 업데이트 직후에 생길 수 있습니다. 창을 다시 불러와 계속하세요.",
+    "reload": "창 다시 불러오기",
+    "copyDetails": "오류 정보 복사",
+    "copied": "오류 정보를 복사했습니다",
+    "copyFailed": "오류 정보를 복사하지 못했습니다"
   }
 }

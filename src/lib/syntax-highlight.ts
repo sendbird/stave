@@ -1,6 +1,15 @@
 import { createHighlighter } from "shiki";
 import type { BundledLanguage } from "shiki";
-import { SYNTAX_COMMON_LANGS } from "./syntax-highlight-shared";
+import {
+  CODE_THEME_DARK,
+  CODE_THEME_LIGHT,
+  SYNTAX_COMMON_LANGS,
+  syntaxColorReference,
+} from "./syntax-highlight-shared";
+import {
+  CODE_THEME_DARK_REGISTRATION,
+  CODE_THEME_LIGHT_REGISTRATION,
+} from "./syntax-themes";
 
 /**
  * Shared Shiki singleton for host-owned highlighting. ADS CodeBlock /
@@ -9,7 +18,12 @@ import { SYNTAX_COMMON_LANGS } from "./syntax-highlight-shared";
 
 export { SYNTAX_COMMON_LANGS };
 
-export type SyntaxTheme = "github-dark" | "github-light";
+export type SyntaxTheme = typeof CODE_THEME_LIGHT | typeof CODE_THEME_DARK;
+
+/** The syntax palette for the app's current light or dark mode. */
+export function syntaxThemeFor(isDark: boolean): SyntaxTheme {
+  return isDark ? CODE_THEME_DARK : CODE_THEME_LIGHT;
+}
 
 export type SyntaxSpan = {
   text: string;
@@ -53,7 +67,7 @@ export function getSyntaxHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
       langs: [...SYNTAX_COMMON_LANGS],
-      themes: ["github-dark", "github-light"],
+      themes: [CODE_THEME_LIGHT_REGISTRATION, CODE_THEME_DARK_REGISTRATION],
     }).then((instance) => {
       highlighter = instance;
       return instance;
@@ -80,7 +94,7 @@ const MAX_LINE_CACHE = 2000;
 export function highlightLineSpans(
   line: string,
   language?: string,
-  theme: SyntaxTheme = "github-dark",
+  theme: SyntaxTheme = CODE_THEME_DARK,
 ): SyntaxSpan[] {
   if (!highlighter || !language) {
     return [{ text: line }];
@@ -98,7 +112,10 @@ export function highlightLineSpans(
       row.length === 0
         ? [{ text: line }]
         : row.map((token) => ({
-            color: token.color,
+            // Through the theme's replacement for this color, if it sets one.
+            color: token.color
+              ? syntaxColorReference(theme === CODE_THEME_DARK ? "dark" : "light", token.color)
+              : undefined,
             text: token.content,
           }));
     const joined = spans.reduce((acc, span) => acc + span.text, "");

@@ -14,6 +14,10 @@ import {
   useState,
 } from "react";
 import { type ModelSelectorOption } from "@/components/ai-elements/model-selector";
+import {
+  useComposerApprovalShortcuts,
+  useComposerEffortShortcut,
+} from "./use-composer-window-shortcuts";
 import type { LocalChangeReviewRequest } from "@/components/ai-elements/local-change-review-dialog";
 import type { PromptInputProviderModeStatus } from "@/components/ai-elements/prompt-input-provider-mode";
 import {
@@ -141,8 +145,6 @@ import {
   getLatestUserPromptMessage,
   getPromptHistoryEntries,
   isStaleActiveTurnDraft,
-  shouldHandleApprovalEnterShortcut,
-  shouldHandleApprovalTabShortcut,
 } from "./chat-input.utils";
 import {
   buildPromptEnhancementHistory,
@@ -1023,6 +1025,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
 
   const composerDisabled =
     isInputBlocked || isSteerSubmitting || managedTaskComposerAccess.disabled;
+
+  useComposerEffortShortcut({
+    ...args,
+    disabled: composerDisabled,
+    agentChoice,
+  });
   const queuePause = resolveQueuePause({
     queuedTurns,
     usageLimitPause,
@@ -1248,74 +1256,12 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     return () => window.removeEventListener("beforeunload", flushDraftText);
   }, []);
 
-  useEffect(() => {
-    // Off with the composer's other window keys: another task is active, or Review hides this one.
-    if (!pendingApproval || !args.windowShortcutsEnabled) {
-      return;
-    }
-
-    const handleApprovalShortcut = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-      // Window-level Enter/Tab approval shortcuts act on the GLOBAL active
-      // task; other visible split panels with their own pending approvals
-      // must not also resolve them.
-      if (useAppStore.getState().activeTaskId !== args.activeTaskId) {
-        return;
-      }
-      const target = event.target instanceof HTMLElement ? event.target : null;
-      if (
-        shouldHandleApprovalTabShortcut({
-          key: event.key,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          shiftKey: event.shiftKey,
-          isComposing: event.isComposing,
-          targetTagName: target?.tagName,
-          targetRole: target?.getAttribute("role"),
-          targetIsContentEditable: target?.isContentEditable,
-        })
-      ) {
-        event.preventDefault();
-        setGuidanceFocusNonce((current) => current + 1);
-        return;
-      }
-
-      if (
-        !shouldHandleApprovalEnterShortcut({
-          key: event.key,
-          altKey: event.altKey,
-          ctrlKey: event.ctrlKey,
-          metaKey: event.metaKey,
-          shiftKey: event.shiftKey,
-          isComposing: event.isComposing,
-          targetTagName: target?.tagName,
-          targetRole: target?.getAttribute("role"),
-          targetIsContentEditable: target?.isContentEditable,
-        })
-      ) {
-        return;
-      }
-
-      event.preventDefault();
-      resolveApproval({
-        taskId: args.activeTaskId,
-        messageId: pendingApproval.messageId,
-        requestId: pendingApproval.part.requestId,
-        approved: true,
-      });
-    };
-
-    window.addEventListener("keydown", handleApprovalShortcut);
-    return () => window.removeEventListener("keydown", handleApprovalShortcut);
-  }, [
-    args.activeTaskId,
-    args.windowShortcutsEnabled,
+  useComposerApprovalShortcuts({
+    ...args,
     pendingApproval,
     resolveApproval,
-  ]);
+    onFocusGuidance: () => setGuidanceFocusNonce((current) => current + 1),
+  });
 
   return (
     <div

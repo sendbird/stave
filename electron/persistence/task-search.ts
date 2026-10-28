@@ -1,3 +1,4 @@
+import { isDelegatedTask } from "../../src/lib/tasks";
 import { resolveCurrentRepositoryDefaultWorkspaceId } from "../../src/store/repository.utils";
 import {
   TASK_SEARCH_MAX_LIMIT,
@@ -35,7 +36,8 @@ function resolveState(task: PersistenceTaskRow, latest: PersistenceTurnSummary |
 }
 
 /**
- * Every task of every registered repository's workspaces whose title, or
+ * Every top-level task (delegated children are left out) of every
+ * registered repository's workspaces whose title, or
  * whose workspace, branch or repository name, holds each word of the query.
  * Titles that match come first, then the latest activity. Workspaces and
  * repositories that are no longer registered are left out.
@@ -56,6 +58,8 @@ export function searchTasks(source: TaskSearchSource, args: SearchTasksArgs): Ta
       const place = normalize([workspace.name, branch ?? "", repository.repositoryName].join(" "));
       for (const task of source.listWorkspaceTasks({ workspaceId: workspace.id })) {
         if (task.archivedAt && !args.includeArchived) continue;
+        // A delegated child is reached through its parent, not as a peer.
+        if (isDelegatedTask(task)) continue;
         const title = normalize(task.title);
         if (!words.every((word) => title.includes(word) || place.includes(word))) continue;
         const isDefaultWorkspace = workspace.id === defaultWorkspaceId;

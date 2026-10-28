@@ -332,7 +332,6 @@
     "label": "붙여넣은 이미지",
     "copy4": "이미지를 첨부하지 못했습니다",
     "placeholder": "다음 턴 입력…",
-    "placeholder2": "요청 입력…",
     "placeholder3": "다음 턴 대기열에 추가… (↵)",
     "placeholder4": "명령은 /, 스킬은 $, 매크로는 !, 정보는 @ 사용",
     "composerCard7": "일치하는 작업 또는 정보 참조가 없습니다.",

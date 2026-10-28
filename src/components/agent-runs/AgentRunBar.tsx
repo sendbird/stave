@@ -195,6 +195,7 @@ function LegacyWorkflowRunBarView(props: AgentRunBarViewProps) {
         <StageStatusIcon
           tone={held ? "done" : status.mark.tone}
           state={held ? undefined : status.mark.state}
+          moving={!held && !paused}
           xstyle={shelfStyles.markIcon}
         />
       }

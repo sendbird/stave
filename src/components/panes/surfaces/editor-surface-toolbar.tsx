@@ -147,7 +147,7 @@ export function EditorSurfaceToolbar(args: {
                 >
                   <Eye
                     size={16}
-                    strokeWidth={args.markdownPreviewMode ? 2.25 : 2}
+                    strokeWidth={args.markdownPreviewMode ? 2.25 : undefined}
                   />
                 </Button>
               </TooltipTrigger>

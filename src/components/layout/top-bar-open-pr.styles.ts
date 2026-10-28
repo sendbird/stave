@@ -116,8 +116,8 @@ export const openPrStyles = stylex.create({
   },
   noticeDescription: {
     fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
     lineHeight: vars["--ads-line-height-relaxed"],
-    opacity: 0.8,
     overflowWrap: "break-word",
   },
 

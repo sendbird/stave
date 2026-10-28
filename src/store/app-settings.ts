@@ -694,7 +694,7 @@ export const defaultSettings: AppSettings = {
     dark: {},
   },
   chatStreamingEnabled: true,
-  messageFontSize: 18,
+  messageFontSize: 16,
   messageCodeFontSize: 14,
   messageFontFamily: "Geist Variable",
   messageMonoFontFamily: "JetBrains Mono",

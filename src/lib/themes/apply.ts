@@ -3,6 +3,7 @@
 // ---------------------------------------------------------------------------
 
 import { withStateColors } from "./builtin-themes";
+import { deriveSyntaxColorTokens } from "./syntax-contrast";
 import type { CustomThemeDefinition, ThemeModeName, ThemeOverrideValues, ThemeTokenName } from "./types";
 
 /**
@@ -139,6 +140,13 @@ export function buildCustomThemeCss(args: {
   const declarations = Object.entries(tokens)
     .filter((entry): entry is [string, string] => Boolean(entry[1]?.trim()))
     .map(([token, value]) => `--${token}: ${value};`);
+  // Syntax colors the theme's code surface would leave under the contrast
+  // floor get a refitted value (same hue, adjusted lightness).
+  for (const [name, value] of Object.entries(
+    deriveSyntaxColorTokens({ mode: args.theme.baseMode, editor: tokens.editor }),
+  )) {
+    declarations.push(`${name}: ${value};`);
+  }
 
   const selector = args.theme.baseMode === "light" ? ":root" : ".dark";
   return `${selector}{${declarations.join("")}}`;

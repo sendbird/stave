@@ -14,6 +14,7 @@ import {
   NO_PROMPT_HISTORY_SELECTION,
   providerOffersConversationCompact,
   resolveLatestConversationContextUsage,
+  resolvePromptPlaceholder,
 } from "@/components/ai-elements/prompt-input.utils";
 import type { CommandPaletteItem } from "@/lib/commands";
 import type { ChatMessage } from "@/types/chat";
@@ -407,5 +408,39 @@ describe("conversation context usage", () => {
         commandPaletteItems: [{ command: "/compact" }],
       }),
     ).toBe(true);
+  });
+});
+
+describe("resolvePromptPlaceholder", () => {
+  const idle = { focused: false, steerOrQueue: false, queueNext: false };
+
+  test("both layouts show the same idle hint", () => {
+    const standard = resolvePromptPlaceholder({ ...idle, minimal: false });
+    const minimal = resolvePromptPlaceholder({ ...idle, minimal: true });
+    expect(standard).toEqual({ kind: "text", key: "composer:promptInput.placeholder4" });
+    expect(minimal).toEqual(standard);
+    // Focus does not change the standard layout's hint.
+    expect(resolvePromptPlaceholder({ ...idle, minimal: false, focused: true })).toEqual(standard);
+  });
+
+  test("the minimal layout hides its hint while focused", () => {
+    expect(resolvePromptPlaceholder({ ...idle, minimal: true, focused: true })).toEqual({ kind: "none" });
+    expect(
+      resolvePromptPlaceholder({ minimal: true, focused: true, steerOrQueue: true, queueNext: false }),
+    ).toEqual({ kind: "none" });
+  });
+
+  test("steer/queue and queue-next keep their own send-behavior hints", () => {
+    for (const minimal of [false, true]) {
+      expect(resolvePromptPlaceholder({ ...idle, minimal, steerOrQueue: true })).toEqual({ kind: "steer-queue" });
+    }
+    expect(resolvePromptPlaceholder({ ...idle, minimal: false, queueNext: true })).toEqual({
+      kind: "text",
+      key: "composer:promptInput.placeholder3",
+    });
+    expect(resolvePromptPlaceholder({ ...idle, minimal: true, queueNext: true })).toEqual({
+      kind: "text",
+      key: "composer:promptInput.placeholder",
+    });
   });
 });

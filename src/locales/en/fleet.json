@@ -240,6 +240,18 @@
     "waiting": "Waiting for {{duration}}",
     "quiet": "No updates for {{duration}}"
   },
+  "runProgress": {
+    "working": "Working",
+    "workingStep": "{{step}} · {{duration}}",
+    "workingWithTodos": "{{step}} · {{done}}/{{total}} · {{duration}}",
+    "noOutput": "No output · {{duration}}",
+    "waitingOnHelpers_one": "Waiting on {{count}} helper · {{duration}}",
+    "waitingOnHelpers_other": "Waiting on {{count}} helpers · {{duration}}",
+    "waitingOnBackground": "Waiting on background work · {{duration}}",
+    "waitingOnHelpersLabel_one": "Waiting on {{count}} helper",
+    "waitingOnHelpersLabel_other": "Waiting on {{count}} helpers",
+    "waitingOnBackgroundLabel": "Waiting on background work"
+  },
   "inbox": {
     "unreadLabel": "{{label}}, unread"
   },

@@ -747,7 +747,10 @@ export function RepositoryWorkspaceSidebar(args: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        xstyle={repositorySidebarStyles.chromeButton}
+                        xstyle={[
+                          repositorySidebarStyles.chromeButton,
+                          repositorySidebarStyles.chromeButtonPressed,
+                        ]}
                         onClick={() =>
                           setLayout({
                             patch: { workspaceSidebarCollapsed: true },
