@@ -173,7 +173,7 @@
       "description": "Control what happens when you send a follow-up while an assistant turn is still running.",
       "midTurnSteering": {
         "title": "Mid-Turn Steering",
-        "description": "When off, follow-ups are queued until the current turn finishes. When on, supported providers can receive live steering messages."
+        "description": "When off, follow-ups are queued until the current turn finishes. When on, supported providers can receive live steering messages. A message sent while an approval is pending always declines it and steers on supported providers."
       },
       "keys": {
         "title": "Active-Turn Keys",

@@ -160,6 +160,7 @@ export function PromptInput(args: PromptInputProps) {
     onStagePromptBatch,
     onRemovePromptBatchItem,
     onAbort,
+    onEmptyEditorKey,
   } = args;
   const isMobile = useIsMobile();
   const useComposerFrame = Boolean(framed && !minimal);
@@ -241,7 +242,6 @@ export function PromptInput(args: PromptInputProps) {
     referenceAttachments.length > 0 ||
     promptBatch.length > 0;
   const primaryActionDisabled = Boolean(disabled || !hasDraftPayload);
-  const isQueueNextMode = submitMode === "queue-next";
   const isSteerOrQueueMode = submitMode === "steer-or-queue";
   const hasRuntimeContent = Boolean((runtimeStatusItems?.length ?? 0) > 0);
   const runtimeProfile = useMemo(
@@ -279,7 +279,8 @@ export function PromptInput(args: PromptInputProps) {
     minimal,
     focused: isPromptInputFocused,
     steerOrQueue: isSteerOrQueueMode,
-    queueNext: isQueueNextMode,
+    queueNext: submitMode === "queue-next",
+    approvalRedirect: submitMode === "redirect-steer" ? "steer" : submitMode === "redirect-queue" ? "queue" : null,
   });
 
   const {
@@ -699,6 +700,7 @@ export function PromptInput(args: PromptInputProps) {
                           promptCommentShortcut,
                           onAbort,
                           onStagePromptBatch,
+                          onEmptyEditorKey: hasDraftPayload ? undefined : onEmptyEditorKey,
                         })
                       }
                       placeholder={
@@ -862,8 +864,7 @@ export function PromptInput(args: PromptInputProps) {
               hasDraftPayload={hasDraftPayload}
               onAbort={onAbort}
               primaryActionDisabled={primaryActionDisabled}
-              isSteerOrQueueMode={isSteerOrQueueMode}
-              isQueueNextMode={isQueueNextMode}
+              submitMode={submitMode}
               steerQueueEnterAction={steerQueueEnterAction}
               assignOnSend={assignOnSend}
             />

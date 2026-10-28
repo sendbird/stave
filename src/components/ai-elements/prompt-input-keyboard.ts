@@ -24,13 +24,15 @@ export interface PromptEditorKeyDownContext {
   promptCommentShortcut: PromptCommentShortcut;
   onAbort?: () => void;
   onStagePromptBatch?: () => void;
+  /** Set only while the editor holds nothing to send; see `PromptInputProps`. */
+  onEmptyEditorKey?: (key: "Enter" | "Tab") => boolean;
 }
 
 /**
  * The prompt editor's keydown handling, in priority order: model shortcuts,
  * palette navigation and acceptance, Escape (dismiss a palette or stop the
- * turn), prompt history, Tab to steer or queue, the comment shortcut, and
- * Enter to send.
+ * turn), prompt history, Enter or Tab in an empty editor when the host takes
+ * them, Tab to steer or queue, the comment shortcut, and Enter to send.
  */
 export function handlePromptEditorKeyDown(
   event: ReactKeyboardEvent<HTMLDivElement>,
@@ -332,6 +334,20 @@ export function handlePromptEditorKeyDown(
       event.preventDefault();
       return;
     }
+  }
+  if (
+    context.onEmptyEditorKey &&
+    activePalette === null &&
+    (event.key === "Enter" || event.key === "Tab") &&
+    !event.shiftKey &&
+    !event.altKey &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.nativeEvent.isComposing &&
+    context.onEmptyEditorKey(event.key)
+  ) {
+    event.preventDefault();
+    return;
   }
   if (
     isSteerOrQueueMode &&

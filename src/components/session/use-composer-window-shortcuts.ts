@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import {
   readCursorComposerSettings,
   resolveCursorComposerControls,
@@ -46,19 +46,42 @@ function approvalShortcutEvent(event: KeyboardEvent) {
   };
 }
 
-/** Enter allows the pending approval once; Tab moves to its guidance field. */
+/**
+ * Enter allows the pending approval once; Tab moves to its guidance field.
+ * The returned handler gives the composer's own editor the same keys while it
+ * is empty; it is `null` when no approval is pending.
+ */
 export function useComposerApprovalShortcuts(args: {
   activeTaskId: string;
   windowShortcutsEnabled: boolean;
   pendingApproval: { messageId: string; part: ApprovalPart } | null;
   resolveApproval: AppState["resolveApproval"];
   onFocusGuidance: () => void;
-}) {
+}): ((key: "Enter" | "Tab") => boolean) | null {
   const { activeTaskId, windowShortcutsEnabled, pendingApproval, resolveApproval } = args;
   const onFocusGuidanceRef = useRef(args.onFocusGuidance);
   useLayoutEffect(() => {
     onFocusGuidanceRef.current = args.onFocusGuidance;
   });
+  const handleApprovalKey = useCallback(
+    (key: "Enter" | "Tab") => {
+      if (!pendingApproval) {
+        return false;
+      }
+      if (key === "Tab") {
+        onFocusGuidanceRef.current();
+        return true;
+      }
+      void resolveApproval({
+        taskId: activeTaskId,
+        messageId: pendingApproval.messageId,
+        requestId: pendingApproval.part.requestId,
+        approved: true,
+      });
+      return true;
+    },
+    [activeTaskId, pendingApproval, resolveApproval],
+  );
   useEffect(() => {
     // Off with the composer's other window keys: another task is active, or Review hides this one.
     if (!pendingApproval || !windowShortcutsEnabled) {
@@ -76,26 +99,21 @@ export function useComposerApprovalShortcuts(args: {
         return;
       }
       const details = approvalShortcutEvent(event);
-      if (shouldHandleApprovalTabShortcut(details)) {
+      const key = shouldHandleApprovalTabShortcut(details)
+        ? "Tab"
+        : shouldHandleApprovalEnterShortcut(details)
+          ? "Enter"
+          : null;
+      if (key && handleApprovalKey(key)) {
         event.preventDefault();
-        onFocusGuidanceRef.current();
-        return;
       }
-      if (!shouldHandleApprovalEnterShortcut(details)) {
-        return;
-      }
-      event.preventDefault();
-      resolveApproval({
-        taskId: activeTaskId,
-        messageId: pendingApproval.messageId,
-        requestId: pendingApproval.part.requestId,
-        approved: true,
-      });
     };
 
     window.addEventListener("keydown", handleApprovalShortcut);
     return () => window.removeEventListener("keydown", handleApprovalShortcut);
-  }, [activeTaskId, windowShortcutsEnabled, pendingApproval, resolveApproval]);
+  }, [activeTaskId, windowShortcutsEnabled, pendingApproval, handleApprovalKey]);
+
+  return pendingApproval ? handleApprovalKey : null;
 }
 
 /**

@@ -55,6 +55,10 @@ async function seedApprovals(page: Page, approvals: SeededApproval[]) {
           sent.push(args);
           return { ok: true };
         },
+        steerTurn: async (args: { text: string }) => {
+          sent.push({ steer: args.text });
+          return { ok: true, delivery: "accepted", message: "ok" };
+        },
       },
       terminal: {
         runCommand: async () => ({ ok: true, code: 0, stdout: "", stderr: "" }),
@@ -208,5 +212,50 @@ test("guidance written for one request is never sent to another that arrives mea
   await expect.poll(() => answers(page)).toEqual([
     expect.objectContaining({ requestId: "approval-b", approved: true }),
     expect.objectContaining({ requestId: "approval-a", approved: false }),
+  ]);
+});
+
+const composerEditor = (page: Page) =>
+  page.locator('.prompt-input-shell [contenteditable="true"]').last();
+
+test("sending from the composer declines every pending approval, then steers the message", async ({ page }) => {
+  await seedTwoApprovals(page);
+  const editor = composerEditor(page);
+  await expect(page.locator('[data-prompt-lexical-placeholder="true"]').last()).toHaveText(
+    "Send to decline pending approvals and redirect the agent…",
+  );
+  await editor.click();
+  await page.keyboard.type("Run only the focused tests instead");
+  await expect(page.getByRole("button", { name: "Decline and steer" })).toBeVisible();
+  await page.keyboard.press("Enter");
+
+  await expect.poll(() => answers(page)).toEqual([
+    expect.objectContaining({ requestId: "approval-b", approved: false }),
+    expect.objectContaining({ requestId: "approval-a", approved: false }),
+    { steer: "Run only the focused tests instead" },
+  ]);
+  await expect(page.getByRole("region", { name: "Approval queue" })).toHaveCount(0);
+});
+
+test("a side question from the composer leaves the approvals waiting", async ({ page }) => {
+  await seedTwoApprovals(page);
+  const editor = composerEditor(page);
+  await editor.click();
+  await page.keyboard.type("/aside what does this command do?");
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(500);
+  expect(await answers(page)).toEqual([]);
+  await expect(
+    page.getByRole("region", { name: "Approval queue" }).locator('[data-approval-request-id="approval-b"]').first(),
+  ).toBeVisible();
+});
+
+test("Enter in the empty composer still allows the leading request", async ({ page }) => {
+  await seedTwoApprovals(page);
+  const editor = composerEditor(page);
+  await editor.click();
+  await page.keyboard.press("Enter");
+  await expect.poll(() => answers(page)).toEqual([
+    expect.objectContaining({ requestId: "approval-b", approved: true }),
   ]);
 });

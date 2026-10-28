@@ -465,9 +465,9 @@ export function providerOffersConversationCompact(args: {
 
 /**
  * What the empty composer shows. Idle uses one hint in both layouts; the
- * steer/queue label and the queue-next hint stay distinct because they
- * describe a different send behavior. The minimal layout hides its hint while
- * focused, where the terminal caret stands in for it.
+ * steer/queue label, the queue-next hint and the approval-redirect hints stay
+ * distinct because they describe a different send behavior. The minimal layout
+ * hides its hint while focused, where the terminal caret stands in for it.
  */
 export type PromptPlaceholder =
   | { kind: "none" }
@@ -477,7 +477,11 @@ export type PromptPlaceholder =
       key:
         | "composer:promptInput.placeholder"
         | "composer:promptInput.placeholder3"
-        | "composer:promptInput.placeholder4";
+        | "composer:promptInput.placeholder4"
+        | "composer:promptInput.approvalRedirectPlaceholderSteer"
+        | "composer:promptInput.approvalRedirectPlaceholderSteerShort"
+        | "composer:promptInput.approvalRedirectPlaceholderQueue"
+        | "composer:promptInput.approvalRedirectPlaceholderQueueShort";
     };
 
 export function resolvePromptPlaceholder(args: {
@@ -485,9 +489,30 @@ export function resolvePromptPlaceholder(args: {
   focused: boolean;
   steerOrQueue: boolean;
   queueNext: boolean;
+  /**
+   * Sending declines the pending approvals, then steers the message into the
+   * turn or queues it for the next one.
+   */
+  approvalRedirect?: "steer" | "queue" | null;
 }): PromptPlaceholder {
   if (args.minimal && args.focused) {
     return { kind: "none" };
+  }
+  if (args.approvalRedirect === "steer") {
+    return {
+      kind: "text",
+      key: args.minimal
+        ? "composer:promptInput.approvalRedirectPlaceholderSteerShort"
+        : "composer:promptInput.approvalRedirectPlaceholderSteer",
+    };
+  }
+  if (args.approvalRedirect === "queue") {
+    return {
+      kind: "text",
+      key: args.minimal
+        ? "composer:promptInput.approvalRedirectPlaceholderQueueShort"
+        : "composer:promptInput.approvalRedirectPlaceholderQueue",
+    };
   }
   if (args.steerOrQueue) {
     return { kind: "steer-queue" };

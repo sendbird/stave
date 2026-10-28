@@ -119,6 +119,8 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
       approved: true,
     });
     expect(result.ok).toBe(false);
+    // The turn is gone: the provider can no longer answer this request.
+    expect(result.unanswerable).toBe(true);
     expect(result.message).toContain("No active approval responder");
     expect(result.message).toContain("ghost-turn");
     expect(result.message).toContain("activeTurnIds=[");
@@ -162,6 +164,7 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
       approved: true,
     });
     expect(result.ok).toBe(false);
+    expect(result.unanswerable).toBe(true);
     expect(result.message).toContain("Approval responder rejected (unknown request)");
     expect(result.message).toContain("wrong-id");
     expect(result.message).toContain("pendingRequestIds=[real-approval-id]");

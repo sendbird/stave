@@ -312,7 +312,17 @@ async function deliverResponderResult<
     responder: NoInfer<Responder>,
   ) => ProviderResponderResult | Promise<ProviderResponderResult>;
   timeoutMs?: number;
-}): Promise<{ ok: boolean; message: string; timedOut?: boolean }> {
+}): Promise<{
+  ok: boolean;
+  message: string;
+  timedOut?: boolean;
+  /**
+   * The provider can no longer answer this request: the turn has no live
+   * session, or its runtime no longer knows the request id. Unset for a
+   * timeout, where the provider may still accept the answer.
+   */
+  unanswerable?: true;
+}> {
   const label = describeResponderKind(args.kind);
   const successLabel = describeResponderSuccessLabel(args.kind);
   const session = activeSessions.get(args.turnId);
@@ -328,7 +338,7 @@ async function deliverResponderResult<
     for (const entry of activeTurns) {
       emitBridgeWarningForTurn({ turnId: entry.turnId, message });
     }
-    return { ok: false, message };
+    return { ok: false, message, unanswerable: true };
   }
 
   const response = Promise.resolve().then(() => args.invoke(responder));
@@ -378,7 +388,11 @@ async function deliverResponderResult<
     `${successLabel} responder rejected (${rejectionDetail}) for turn ${args.turnId}. ` +
     `requestId=${args.requestId}. pendingRequestIds=[${pendingIds}]`;
   emitBridgeWarningForTurn({ turnId: args.turnId, message });
-  return { ok: false, message };
+  return {
+    ok: false,
+    message,
+    ...(result.reason === "unknown-request" ? { unanswerable: true as const } : {}),
+  };
 }
 
 function pruneExpiredStreams(now = Date.now()) {
@@ -1427,7 +1441,7 @@ export const providerRuntime: ProviderRuntime = {
       selectResponder: (session) => session.steer,
       timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     });
-    const { timedOut, ...response } = result;
+    const { timedOut, unanswerable: _unanswerable, ...response } = result;
     return {
       ...response,
       delivery: timedOut
