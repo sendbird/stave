@@ -5,10 +5,12 @@ export const codeBlockStyles = stylex.create({
   root: {
     marginBlock: vars["--ads-space-8"],
     overflow: "hidden",
-    borderRadius: vars["--ads-radius-mark"],
+    borderRadius: vars["--ads-radius-panel"],
     borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "solid",
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
+    // The header and the highlighted body share the theme's code surface.
+    backgroundColor: "var(--editor)",
   },
   content: {
     fontFamily: vars["--ads-font-mono"],
@@ -28,9 +30,9 @@ export const codeBlockStyles = stylex.create({
     borderBottomWidth: vars["--ads-border-width-hairline"],
     borderBottomStyle: "solid",
     borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    backgroundColor: "var(--editor-muted)",
+    backgroundColor: "var(--editor)",
     paddingInline: vars["--ads-space-12"],
-    paddingBlock: 6,
+    paddingBlock: vars["--ads-space-4"],
   },
   title: {
     display: "flex",
@@ -48,8 +50,14 @@ export const codeBlockStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-4"],
   },
+  // A 24x24 hit area around the 12px glyph.
   copyButton: {
-    borderRadius: vars["--ads-radius-mark"],
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: vars["--ads-space-24"],
+    minHeight: vars["--ads-space-24"],
+    borderRadius: vars["--ads-radius-control"],
     padding: vars["--ads-space-4"],
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },

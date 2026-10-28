@@ -1,6 +1,6 @@
 import {
   CODE_BLOCK_PRE_TRANSFORMER,
-  CODE_BLOCK_THEME,
+  CODE_BLOCK_THEMES,
   type CodeBlockHighlightRequest,
   type CodeBlockHighlightResponse,
 } from "./syntax-highlight-shared";
@@ -92,7 +92,8 @@ async function highlightOnMainThread(code: string, lang: string) {
   const highlighter = await getSyntaxHighlighter();
   return highlighter.codeToHtml(code, {
     lang: lang as Parameters<typeof highlighter.codeToHtml>[1]["lang"],
-    theme: CODE_BLOCK_THEME,
+    themes: CODE_BLOCK_THEMES,
+    defaultColor: false,
     transformers: [CODE_BLOCK_PRE_TRANSFORMER],
   });
 }
