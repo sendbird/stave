@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import { createCodexWorkerActivityMapper } from "../electron/providers/codex-worker-activity";
 import {
   buildRunProgress,
   formatRunProgressLabel,
@@ -135,6 +136,80 @@ describe("waiting on helpers", () => {
       ],
     });
     expect(resolveTurnWaitTarget(workingBeside)).toBeNull();
+  });
+
+  describe("Codex: counts only the workers a wait names", () => {
+    type CodexMapper = ReturnType<typeof createCodexWorkerActivityMapper>;
+    const spawnWorker = (codex: CodexMapper, id: string, threadId: string) => {
+      const item = { id, type: "collabAgentToolCall", tool: "spawnAgent", receiverThreadIds: [], prompt: `Worker ${threadId}` };
+      return [
+        ...codex.mapStarted(item).events,
+        ...codex.mapCompleted({ ...item, receiverThreadIds: [threadId], status: "completed" }).events,
+      ];
+    };
+    const waitOn = (codex: CodexMapper, id: string, receiverThreadIds: string[]) =>
+      codex.mapStarted({ id, type: "collabAgentToolCall", tool: "wait", receiverThreadIds, status: "inProgress" }).events;
+    const finish = (codex: CodexMapper, threadId: string) =>
+      codex.mapForeignNotification({
+        method: "item/completed",
+        threadId,
+        params: { item: { type: "agentMessage", phase: "final_answer", text: "Done." } },
+      }).events;
+    const run = (build: (codex: CodexMapper) => NormalizedProviderEvent[][]) => {
+      const codex = createCodexWorkerActivityMapper({ inputMaxBytes: 10_000, outputMaxBytes: 10_000 });
+      return resolveTurnWaitTarget(snapshot({
+        providerId: "codex",
+        batches: build(codex).map((events, index) => ({ at: START + index * 1_000, events })),
+      }));
+    };
+
+    test("waiting on one of two workers waits on one", () => {
+      expect(run((codex) => [
+        spawnWorker(codex, "spawn-a", "thread-a"),
+        spawnWorker(codex, "spawn-b", "thread-b"),
+        waitOn(codex, "wait-1", ["thread-a"]),
+      ])).toEqual({ helperCount: 1, since: START + 2_000 });
+    });
+
+    test("waiting on both workers waits on two", () => {
+      expect(run((codex) => [
+        spawnWorker(codex, "spawn-a", "thread-a"),
+        spawnWorker(codex, "spawn-b", "thread-b"),
+        waitOn(codex, "wait-1", ["thread-a", "thread-b"]),
+      ])?.helperCount).toBe(2);
+    });
+
+    test("a worker that finishes during the wait stops counting", () => {
+      expect(run((codex) => [
+        spawnWorker(codex, "spawn-a", "thread-a"),
+        spawnWorker(codex, "spawn-b", "thread-b"),
+        waitOn(codex, "wait-1", ["thread-a", "thread-b"]),
+        finish(codex, "thread-a"),
+      ])?.helperCount).toBe(1);
+    });
+
+    test("two waits on the same worker count it once", () => {
+      expect(run((codex) => [
+        spawnWorker(codex, "spawn-a", "thread-a"),
+        spawnWorker(codex, "spawn-b", "thread-b"),
+        [...waitOn(codex, "wait-1", ["thread-a"]), ...waitOn(codex, "wait-2", ["thread-a"])],
+      ])?.helperCount).toBe(1);
+    });
+  });
+
+  test("Claude: two parallel subagent calls wait on two, and a returned one stops counting", () => {
+    const calls = [
+      tool("agent-1", "Agent", { input: JSON.stringify({ description: "Review", prompt: "Look" }) }),
+      tool("agent-2", "Agent", { input: JSON.stringify({ description: "Test", prompt: "Run" }) }),
+    ];
+    expect(resolveTurnWaitTarget(snapshot({ batches: [{ at: START, events: calls }] }))?.helperCount).toBe(2);
+    const oneReturned = snapshot({
+      batches: [
+        { at: START, events: calls },
+        { at: START + 5_000, events: [{ type: "tool_result", tool_use_id: "agent-1", output: "Reviewed." }] },
+      ],
+    });
+    expect(resolveTurnWaitTarget(oneReturned)?.helperCount).toBe(1);
   });
 
   test("a call the model is still writing is work, not a wait", () => {

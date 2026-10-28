@@ -65,7 +65,11 @@ export function isBlockingWaitToolName(toolName: string | undefined) {
 }
 
 export interface TurnWaitTarget {
-  /** Helpers still live in the turn's work graph; 0 when none are tracked. */
+  /**
+   * Live helpers the open blocking calls wait on, each counted once. A call
+   * whose helpers cannot be named counts as one. 0 when every named helper
+   * has already ended.
+   */
   helperCount: number;
   /** When the oldest blocking call started. */
   since: number;
@@ -85,6 +89,10 @@ export function resolveTurnWaitTarget(
     return null;
   }
   let since: number | null = null;
+  // Helpers are counted from what each blocking call waits on, never from the
+  // whole graph: a Codex `wait` on one of two workers waits on one.
+  const liveTargetKeys = new Set<string>();
+  let unnamedWaits = 0;
   for (const id of graph.orderedWorkItemIds) {
     const item = graph.workItemsById[id];
     if (!item || item.nodeKey !== graph.rootKey || isTerminalWorkGraphStatus(item.status)) {
@@ -107,18 +115,27 @@ export function resolveTurnWaitTarget(
       return null;
     }
     since = since === null ? item.startedAt : Math.min(since, item.startedAt);
+    // A Codex `wait` names the workers it waits on; a Claude `Agent` / `Task`
+    // call waits on the one subagent it spawned.
+    const spawnedKey = item.toolUseId ? graph.nodeKeyBySpawnToolUseId[item.toolUseId] : undefined;
+    const targetKeys = item.targetNodeKeys ?? (spawnedKey ? [spawnedKey] : null);
+    if (!targetKeys) {
+      unnamedWaits += 1;
+      continue;
+    }
+    for (const key of targetKeys) {
+      const node = graph.nodesByKey[key];
+      // A worker the graph has not seen under that identity has not been seen
+      // ending either, so the call is still waiting on it.
+      if (!node || !isTerminalWorkGraphStatus(node.status)) {
+        liveTargetKeys.add(key);
+      }
+    }
   }
   if (since === null) {
     return null;
   }
-  let helperCount = 0;
-  for (const key of graph.orderedNodeKeys) {
-    const node = graph.nodesByKey[key];
-    if (node && key !== graph.rootKey && !isTerminalWorkGraphStatus(node.status)) {
-      helperCount += 1;
-    }
-  }
-  return { helperCount, since };
+  return { helperCount: liveTargetKeys.size + unnamedWaits, since };
 }
 
 type RunActivity = Pick<
