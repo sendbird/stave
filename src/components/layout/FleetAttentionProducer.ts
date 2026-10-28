@@ -93,6 +93,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
   );
 
   const agentRunDetails = useFleetAgentRunsStore((state) => state.details);
+  const agentRunsLoaded = useFleetAgentRunsStore((state) => state.loaded);
   const reviewWorkspaceIds = useMemo(() => Array.from(new Set([
     ...workspaces.map((workspace) => workspace.id),
     ...recentRepositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)),
@@ -277,6 +278,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
       ...projection,
       snoozedAttentionIds,
       snoozedCount: countHiddenFleetAttention({ snoozedItems: projection.snoozedItems, notifications,
+        agentRunsAuthoritative: agentRunsLoaded,
         activeIds: snoozes.activeIds, knownAgentRunIds: new Set(Object.keys(agentRunDetails)) }),
       inbox: buildFleetInbox({
         items: projection.items,
@@ -284,6 +286,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
         notifications,
         attentionAuthoritative: durableResultStore ? reviews.loaded && !reviews.error : notificationsLoadStatus === "ready",
         knownAgentRunIds: new Set(Object.keys(agentRunDetails)),
+        agentRunsAuthoritative: agentRunsLoaded,
         snoozedAttentionIds: snoozes.activeIds,
       }),
       queueStatus: resolveFleetQueueStatus({
@@ -332,6 +335,7 @@ function useFleetAttentionSnapshot(): FleetAttentionSnapshot {
     snoozes.error,
     snoozes.refresh,
     agentRunDetails,
+    agentRunsLoaded,
   ]);
 }
 

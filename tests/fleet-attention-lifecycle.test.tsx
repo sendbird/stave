@@ -145,6 +145,7 @@ test("resolved snoozes do not inflate the hidden count; cold expired episodes st
   const projected = buildFleetAttentionProjection({ notifications: [notification], liveWorkspaces: [], prWorkspaces: [], agentRuns: [{ ...identity, detail }] });
   const episodeIds = new Set([projected.items[0]!.id]);
   expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [notification], activeIds: episodeIds, knownAgentRunIds: new Set() })).toBe(1);
+  expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [notification], activeIds: episodeIds, knownAgentRunIds: new Set(), agentRunsAuthoritative: true })).toBe(0);
   expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [notification], activeIds: episodeIds, knownAgentRunIds: new Set([detail.agentRun.id]) })).toBe(0);
   expect(countHiddenFleetAttention({ snoozedItems: [], notifications: [{ ...notification, readAt: at }], activeIds: episodeIds, knownAgentRunIds: new Set() })).toBe(0);
 });

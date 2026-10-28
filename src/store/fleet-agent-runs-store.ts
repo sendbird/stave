@@ -22,10 +22,24 @@ const REMINDER_CHECK_MS = 60_000;
 
 /** How long an ended agent run stays in Fleet after it ends. */
 export const ENDED_AGENT_RUN_RETENTION_MS = 30 * 60_000;
+type RunHead = Pick<AgentRunDetail["agentRun"], "id" | "createdAt">;
+const runTaskKey = (run: AgentRunDetail["agentRun"]) => JSON.stringify([run.repositoryPath, run.workspaceId, run.leadTaskId]);
+const newerRun = (run: RunHead, previous?: RunHead) => !previous || run.createdAt > previous.createdAt ||
+  (run.createdAt === previous.createdAt && run.id > previous.id);
+
+function rememberRunHeads(previous: Record<string, RunHead>, details: readonly AgentRunDetail[]) {
+  const heads = { ...previous };
+  for (const { agentRun } of details) {
+    if (newerRun(agentRun, heads[runTaskKey(agentRun)])) heads[runTaskKey(agentRun)] = { id: agentRun.id, createdAt: agentRun.createdAt };
+  }
+  return heads;
+}
 
 interface FleetAgentRunsState {
   /** Active runs, unresolved expiries, and other runs ended in the last half hour. */
   details: Record<string, AgentRunDetail>;
+  /** Supersession survives detail eviction and late reads of an older run. */
+  latestRunByTask: Record<string, RunHead>;
   loaded: boolean;
   load: () => Promise<void>;
   refresh: (agentRunId: string) => Promise<void>;
@@ -46,18 +60,13 @@ export function dropEndedAgentRuns(
   details: Record<string, AgentRunDetail>,
   now: number,
   retentionMs = ENDED_AGENT_RUN_RETENTION_MS,
+  latestRunByTask: Record<string, RunHead> = {},
 ): Record<string, AgentRunDetail> {
-  const taskKey = (detail: AgentRunDetail) => JSON.stringify([detail.agentRun.repositoryPath, detail.agentRun.workspaceId, detail.agentRun.leadTaskId]);
-  const newest = new Map<string, AgentRunDetail>();
-  for (const detail of Object.values(details)) {
-    const previous = newest.get(taskKey(detail))?.agentRun;
-    const run = detail.agentRun;
-    if (!previous || run.createdAt > previous.createdAt || (run.createdAt === previous.createdAt && run.id > previous.id)) newest.set(taskKey(detail), detail);
-  }
+  const newest = rememberRunHeads(latestRunByTask, Object.values(details));
   let kept: Record<string, AgentRunDetail> | null = null;
   for (const [id, detail] of Object.entries(details)) {
     const supersededExpiry = detail.agentRun.state === "stopped" && detail.agentRun.stopReason === "expired" &&
-      newest.get(taskKey(detail)) !== detail;
+      newest[runTaskKey(detail.agentRun)]?.id !== id;
     if (supersededExpiry || endedLongAgo(detail, now, retentionMs)) {
       if (!kept) kept = { ...details };
       delete kept[id];
@@ -91,25 +100,18 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
   function store(detail: AgentRunDetail, announce: boolean) {
     // An answer that left the host before the stored one must not replace it.
     if (isOlderAgentRunDetail(detail, get().details[detail.agentRun.id])) return;
-    // A change to an agent run that ended long ago (a shared report) does not bring it back.
-    if (!endedLongAgo(detail, Date.now(), ENDED_AGENT_RUN_RETENTION_MS)) {
-      set((state) => ({ details: dropEndedAgentRuns({ ...state.details, [detail.agentRun.id]: detail }, Date.now()) }));
-    }
+    // Apply supersession before retention, even when the successor ended long ago.
+    const latestRunByTask = rememberRunHeads(get().latestRunByTask, [detail]);
+    set((state) => ({ latestRunByTask, details: dropEndedAgentRuns({ ...state.details, [detail.agentRun.id]: detail }, Date.now(), ENDED_AGENT_RUN_RETENTION_MS, latestRunByTask) }));
+    if (detail.agentRun.stopReason === "expired" && get().details[detail.agentRun.id] !== detail) return;
     if (!announce) return;
     const notification = describeAgentRunNotification(detail, notificationContext(detail));
-    // State advancement resolves old episodes durably, so cache eviction cannot
-    // revive a blocker that this run already recovered from.
-    for (const previous of useAppStore.getState().notifications) {
-      if (previous.payload.agentRunId === detail.agentRun.id && previous.id !== notification?.id &&
-          previous.kind.startsWith("agent_run.") && previous.kind !== "agent_run.completed" && !previous.readAt) {
-        void useAppStore.getState().markNotificationRead({ id: previous.id, resolvedAt: detail.agentRun.updatedAt }).catch(() => {});
-      }
-    }
     if (notification) void persistRendererNotifications([notification]);
   }
 
   return {
     details: {},
+    latestRunByTask: {},
     loaded: false,
 
     load: async () => {
@@ -117,15 +119,29 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
       if (!api) return;
       const listed = await api.list({ limit: LIST_LIMIT, includeActive: true, includeAttention: true }).catch(() => null);
       if (!listed?.ok) return;
-      await Promise.all(
+      const responses = await Promise.all(
         listed.agentRuns.map(async (agentRun) => {
-          const response = await api.get({ agentRunId: agentRun.id }).catch(() => null);
-          // A sign-off that was waiting before Stave opened still deserves a
-          // notification; the dedupe key keeps it to one.
-          if (response?.ok && response.agentRun) store(response.agentRun, true);
+          return api.get({ agentRunId: agentRun.id }).catch(() => null);
         }),
       );
-      set({ loaded: true });
+      // Compare the entire read before dropping ended history. Otherwise an old
+      // successor can be discarded before its expired predecessor arrives.
+      const details = { ...get().details };
+      for (const response of responses) {
+        if (response?.ok && response.agentRun && !isOlderAgentRunDetail(response.agentRun, details[response.agentRun.agentRun.id])) {
+          details[response.agentRun.agentRun.id] = response.agentRun;
+        }
+      }
+      const latestRunByTask = rememberRunHeads(get().latestRunByTask, Object.values(details));
+      const kept = dropEndedAgentRuns(details, Date.now(), ENDED_AGENT_RUN_RETENTION_MS, latestRunByTask);
+      set({ details: kept, latestRunByTask, loaded: responses.every((response) => response?.ok && response.agentRun) });
+      for (const response of responses) {
+        const detail = response?.ok ? response.agentRun : null;
+        if (!detail || kept[detail.agentRun.id] !== detail) continue;
+        // Restore pending decisions, without replaying completed history after
+        // its notification dedupe row has expired.
+        if (isActiveAgentRunState(detail.agentRun.state) || detail.agentRun.stopReason === "expired") store(detail, true);
+      }
     },
 
     refresh: async (agentRunId) => {
@@ -143,11 +159,41 @@ export const useFleetAgentRunsStore = create<FleetAgentRunsState>()((set, get) =
 
     pruneEnded: (now) => {
       const details = get().details;
-      const kept = dropEndedAgentRuns(details, now);
+      const kept = dropEndedAgentRuns(details, now, ENDED_AGENT_RUN_RETENTION_MS, get().latestRunByTask);
       if (kept !== details) set({ details: kept });
     },
   };
 });
+
+/** Reconcile both hydration orders and subsequent run/notification changes. */
+export function subscribeFleetRunNotificationReconciliation() {
+  const pending = new Set<string>();
+  const reconcile = () => {
+    const runs = useFleetAgentRunsStore.getState();
+    if (!runs.loaded) return;
+    const currentIds = new Set(Object.values(runs.details).flatMap((detail) => {
+      const notification = describeAgentRunNotification(detail, notificationContext(detail));
+      return notification ? [notification.id] : [];
+    }));
+    const state = useAppStore.getState();
+    for (const notification of state.notifications) {
+      if (notification.readAt || notification.kind === "agent_run.completed" || !notification.kind.startsWith("agent_run.") ||
+          typeof notification.payload.agentRunId !== "string" || currentIds.has(notification.id) || pending.has(notification.id)) continue;
+      pending.add(notification.id);
+      void state.markNotificationRead({ id: notification.id, resolvedAt: new Date().toISOString() })
+        .catch(() => {})
+        .finally(() => pending.delete(notification.id));
+    }
+  };
+  const offNotifications = useAppStore.subscribe((state, previous) => {
+    if (state.notifications !== previous.notifications) reconcile();
+  });
+  const offRuns = useFleetAgentRunsStore.subscribe((state, previous) => {
+    if (state.details !== previous.details || state.loaded !== previous.loaded) reconcile();
+  });
+  reconcile();
+  return () => { offNotifications(); offRuns(); };
+}
 
 /** Active agent runs whose current stage waits for the user, with since when. */
 export function listWaitingSignOffs(details: Record<string, AgentRunDetail>) {
@@ -168,6 +214,7 @@ export function useFleetAgentRunSync() {
     const api = agentRunsApi();
     if (!api) return;
     const { load, refresh } = useFleetAgentRunsStore.getState();
+    const unsubscribeNotifications = subscribeFleetRunNotificationReconciliation();
     void load();
     const unsubscribe = api.subscribeChanged((event) => void refresh(event.agentRunId));
     let lastRemindedAt: number | null = null;
@@ -186,6 +233,7 @@ export function useFleetAgentRunSync() {
     }, REMINDER_CHECK_MS);
     return () => {
       unsubscribe();
+      unsubscribeNotifications();
       window.clearInterval(timer);
     };
   }, []);

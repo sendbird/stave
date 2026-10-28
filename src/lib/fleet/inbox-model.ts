@@ -261,6 +261,8 @@ export function buildFleetInbox(args: {
   attentionAuthoritative?: boolean;
   /** Run episodes whose current state has actually loaded, rather than guessed. */
   knownAgentRunIds?: ReadonlySet<string>;
+  /** Active runs and unresolved expiries have all been restored from storage. */
+  agentRunsAuthoritative?: boolean;
   /** Persisted active snoozes, including episodes no longer in the run cache. */
   snoozedAttentionIds?: ReadonlySet<string>;
 }): FleetInbox {
@@ -286,7 +288,7 @@ export function buildFleetInbox(args: {
         (notification.kind !== "task.turn_completed" && notification.kind !== "task.turn_failed"))
       .filter((notification) => notification.kind === "agent_run.completed" || !notification.kind.startsWith("agent_run.") ||
         typeof notification.payload.agentRunId !== "string" ||
-        !args.knownAgentRunIds?.has(notification.payload.agentRunId))
+        (!args.agentRunsAuthoritative && !args.knownAgentRunIds?.has(notification.payload.agentRunId)))
       .map((notification) => [notification.id, historyEntry(notification)]),
   );
   return {
@@ -315,11 +317,12 @@ export function countHiddenFleetAttention(args: {
   notifications: readonly AppNotification[];
   activeIds: ReadonlySet<string>;
   knownAgentRunIds: ReadonlySet<string>;
+  agentRunsAuthoritative?: boolean;
 }) {
   const hidden = new Set(args.snoozedItems.map((item) => item.id));
   for (const notification of args.notifications) {
     const id = agentRunNotificationAttentionId(notification);
-    if (id && args.activeIds.has(id) && isNotificationUnread(notification) && !notification.resolvedAt &&
+    if (!args.agentRunsAuthoritative && id && args.activeIds.has(id) && isNotificationUnread(notification) && !notification.resolvedAt &&
         !args.knownAgentRunIds.has(String(notification.payload.agentRunId))) hidden.add(id);
   }
   return hidden.size;

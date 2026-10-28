@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { AgentRunChangedEvent, AgentRunCommandResponse, AgentRunDetail } from "../src/lib/agent-runs/api";
 import { isOlderAgentRunDetail } from "../src/lib/agent-runs/agent-run-view";
+import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
+import type { AppNotification } from "../src/lib/notifications/notification.types";
 import { useAppStore } from "../src/store/app.store";
 import { buildFleetAttentionProjection } from "../src/lib/fleet/attention-projection";
 import {
   dropEndedAgentRuns,
   ENDED_AGENT_RUN_RETENTION_MS,
+  subscribeFleetRunNotificationReconciliation,
   useFleetAgentRunsStore,
 } from "../src/store/fleet-agent-runs-store";
 import {
@@ -45,6 +48,20 @@ function installAgentRunsApi(api: Record<string, (...args: never[]) => Promise<u
   Object.assign(globalThis, { window: { api: { agentRuns: { subscribeChanged: () => () => {}, ...api } } } });
 }
 
+function captureNotificationCreates() {
+  const created: string[] = [];
+  Object.assign(window.api!, { persistence: {
+    listNotifications: async () => ({ ok: true, notifications: [] }),
+    createNotification: async ({ notification }: { notification: { kind: string } }) => {
+      created.push(notification.kind);
+      return { ok: true, inserted: true, notification: null };
+    },
+    markNotificationRead: async () => ({ ok: true, notification: null }),
+    markAllNotificationsRead: async () => ({ ok: true, count: 0 }),
+  } });
+  return created;
+}
+
 function resetStores() {
   useAgentRunsStore.setState({
     workspaceId: "ws-1",
@@ -56,7 +73,7 @@ function resetStores() {
     failureByAgentRun: {},
     pendingByAgentRun: {},
   });
-  useFleetAgentRunsStore.setState({ details: {}, loaded: false });
+  useFleetAgentRunsStore.setState({ details: {}, latestRunByTask: {}, loaded: false });
 }
 
 beforeEach(resetStores);
@@ -66,6 +83,67 @@ afterEach(() => {
 });
 
 describe("run details in the renderer", () => {
+  test.each(["completed", "stopped"] as const)("cold load does not replay %s history, while live changes still announce", async (state) => {
+    const ended = readAt(0, [], { state });
+    const recent = readAt(1, [], { id: "recent", state });
+    recent.agentRun.updatedAt = new Date().toISOString();
+    installAgentRunsApi({
+      list: async () => ({ ok: true, agentRuns: [ended.agentRun, recent.agentRun] }),
+      get: async ({ agentRunId }: { agentRunId: string }) => ({ ok: true, agentRun: agentRunId === "recent" ? recent : ended }),
+    });
+    const created = captureNotificationCreates();
+    await useFleetAgentRunsStore.getState().load();
+    expect(created).toEqual([]);
+    expect(Object.keys(useFleetAgentRunsStore.getState().details)).toEqual(["recent"]);
+    await useFleetAgentRunsStore.getState().refresh("recent");
+    expect(created).toEqual([state === "completed" ? "agent_run.completed" : "agent_run.blocked"]);
+  });
+
+  test.each([true, false])("cold load discards a superseded expiry before old successor retention (expiry first: %s)", async (expiryFirst) => {
+    const expired = readAt(0, [], { id: "old", state: "stopped" });
+    expired.agentRun.stopReason = "expired";
+    const successor = readAt(2, [], { id: "new", state: "completed", createdAt: at(1) });
+    const runs = expiryFirst ? [expired, successor] : [successor, expired];
+    installAgentRunsApi({ list: async () => ({ ok: true, agentRuns: runs.map((detail) => detail.agentRun) }),
+      get: async ({ agentRunId }: { agentRunId: string }) => ({ ok: true, agentRun: runs.find((detail) => detail.agentRun.id === agentRunId) }) });
+    const created = captureNotificationCreates();
+    await useFleetAgentRunsStore.getState().load();
+    expect(useFleetAgentRunsStore.getState().details).toEqual({});
+    expect(created).toEqual([]);
+    // A delayed read after the successor was pruned cannot resurrect the expiry.
+    await useFleetAgentRunsStore.getState().refresh("old");
+    expect(useFleetAgentRunsStore.getState().details).toEqual({});
+    expect(created).toEqual([]);
+  });
+
+  test.each([true, false])("obsolete episodes resolve across either hydration order (notifications first: %s)", async (notificationsFirst) => {
+    const before = useAppStore.getState();
+    const current = readAt(2, [], { id: "current", state: "stopped", createdAt: at(1) });
+    current.agentRun.stopReason = "expired";
+    const draft = describeAgentRunNotification(current, { repositoryPath: "/tmp/repo", repositoryName: "Repo", workspaceName: "Workspace", taskTitle: "Task" })!;
+    const currentNotification = { ...draft, createdAt: at(2), readAt: null } as AppNotification;
+    const obsolete = { ...currentNotification, id: "old-blocker", payload: { agentRunId: "old" } };
+    const completion = { ...obsolete, id: "completion", kind: "agent_run.completed" } as AppNotification;
+    const read: string[] = [];
+    useAppStore.setState({ notifications: [], markNotificationRead: async ({ id, resolvedAt }) => {
+      read.push(id);
+      useAppStore.setState((state) => ({ notifications: state.notifications.map((notification) => notification.id === id
+        ? { ...notification, readAt: at(3), resolvedAt } : notification) }));
+    } });
+    const off = subscribeFleetRunNotificationReconciliation();
+    try {
+      const hydrate = () => useAppStore.setState({ notifications: [obsolete, currentNotification, completion] });
+      if (notificationsFirst) hydrate();
+      expect(read).toEqual([]);
+      useFleetAgentRunsStore.setState({ details: { current }, loaded: true });
+      if (!notificationsFirst) hydrate();
+      expect(read).toEqual(["old-blocker"]);
+      expect(useAppStore.getState().notifications.find((notification) => notification.id === "old-blocker")?.resolvedAt).toBeDefined();
+      useFleetAgentRunsStore.getState().pruneEnded(Date.now());
+      expect(read).toEqual(["old-blocker"]);
+    } finally { off(); useAppStore.setState(before, true); }
+  });
+
   test("cold Fleet restores an old expired request regardless of notification reads or cache age", async () => {
     const pending = readAt(0, [], { id: "expired", state: "stopped" });
     pending.agentRun.stopReason = "expired";
@@ -74,7 +152,9 @@ describe("run details in the renderer", () => {
       list: async (args: unknown) => { requested = args; return { ok: true, agentRuns: [pending.agentRun] }; },
       get: async () => ({ ok: true, agentRun: pending }),
     });
+    const created = captureNotificationCreates();
     await useFleetAgentRunsStore.getState().load();
+    expect(created).toEqual(["agent_run.blocked"]);
     expect(requested).toMatchObject({ includeAttention: true });
     useFleetAgentRunsStore.getState().pruneEnded(AGENT_RUN_NOW.getTime() + 60 * 60_000);
     const detail = useFleetAgentRunsStore.getState().details.expired!;
@@ -88,19 +168,34 @@ describe("run details in the renderer", () => {
     expect(buildFleetAttentionProjection({ ...input, suppressedOutcomeTaskKeys: new Set([JSON.stringify(["ws-1", "task-1"])]) }).items).toEqual([]);
   });
 
+  test("an incomplete run read does not claim authority over missing requests", async () => {
+    installAgentRunsApi({ list: async () => ({ ok: true, agentRuns: [readAt(0).agentRun] }),
+      get: async () => ({ ok: false, agentRun: null }) });
+    await useFleetAgentRunsStore.getState().load();
+    expect(useFleetAgentRunsStore.getState().loaded).toBe(false);
+  });
+
   test("state advancement marks stale blocker episodes read before cache eviction", async () => {
     const before = useAppStore.getState();
+    const blocked = readAt(1, [], { state: "paused" });
+    blocked.agentRun.pauseReason = "limit-reached";
+    const draft = describeAgentRunNotification(blocked, { repositoryPath: "/tmp/repo", repositoryName: "Repo", workspaceName: "Workspace", taskTitle: "Task" })!;
     const completion = readAt(2, [], { state: "completed" });
     const read: string[] = [];
-    useAppStore.setState({ notifications: [{ id: "old-blocker", kind: "agent_run.blocked", title: "Blocked", body: "Need input",
+    useAppStore.setState({ notifications: [{ id: draft.id, kind: "agent_run.blocked", title: "Blocked", body: "Need input",
       repositoryPath: "/tmp/repo", repositoryName: "Repo", workspaceId: "ws-1", workspaceName: "Workspace", taskId: "task-1", taskTitle: "Task",
       turnId: null, providerId: "codex", action: null, payload: { agentRunId: completion.agentRun.id }, createdAt: at(0), readAt: null }],
-      markNotificationRead: async ({ id }) => { read.push(id); } });
+      markNotificationRead: async ({ id, resolvedAt }) => {
+        read.push(id);
+        useAppStore.setState((state) => ({ notifications: state.notifications.map((notification) => ({ ...notification, readAt: at(3), resolvedAt })) }));
+      } });
+    useFleetAgentRunsStore.setState({ loaded: true, details: { [blocked.agentRun.id]: blocked } });
+    const off = subscribeFleetRunNotificationReconciliation();
     try {
       installAgentRunsApi({ get: async () => ({ ok: true, agentRun: completion }) });
       await useFleetAgentRunsStore.getState().refresh(completion.agentRun.id);
-      expect(read).toEqual(["old-blocker"]);
-    } finally { useAppStore.setState(before, true); }
+      expect(read).toEqual([draft.id]);
+    } finally { off(); useAppStore.setState(before, true); }
   });
 
   test("an older read of a run is recognized, with equal times settled by the last event", () => {

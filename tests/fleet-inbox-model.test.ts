@@ -72,6 +72,16 @@ describe("one inbox for Fleet and the bell", () => {
     expect(selectBellEntries(buildFleetInbox({ items: [], notifications: [failedHistory, signOffNotification] }), "unread")).toHaveLength(2);
   });
 
+  test("restored run authority prevents late obsolete episodes from resurfacing after cache eviction", () => {
+    const completion = { ...readHistory, readAt: null };
+    const current = buildFleetInbox({ items: [], notifications: [staleSignOffNotification, completion],
+      agentRunsAuthoritative: true, knownAgentRunIds: new Set() });
+    for (const filter of ["all", "unread", "errors"] as const) {
+      expect(selectBellEntries(current, filter).some((entry) => entry.notifications.some((notification) => notification.id === staleSignOffNotification.id))).toBe(false);
+    }
+    expect(selectBellEntries(current, "unread").map((entry) => entry.id)).toEqual(["notification:n-done"]);
+  });
+
   test("every item is one entry carrying the notifications that speak for it", () => {
     expect(inbox.itemEntries.map((entry) => [entry.id, entry.notifications.map((n) => n.id)])).toEqual([
       [approval.id, ["n-approval"]],

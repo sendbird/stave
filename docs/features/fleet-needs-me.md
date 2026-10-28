@@ -167,6 +167,9 @@ Fleet item, and the task records the answer the same way.
   run episodes. Resolved items do not inflate that count. Expired runs that still
   need an instruction are loaded from storage and retained until superseded, so
   restoring them returns the request to Fleet even after restarting the app.
+  Startup restores current requests without replaying completed-run notifications.
+  A newer run retires the previous expiry even after its details leave the cache;
+  obsolete blocker notifications are reconciled regardless of hydration order.
 - `N`: opens the next known actionable item while Fleet has keyboard focus.
 
 ### Items That Clear Themselves
