@@ -10,6 +10,7 @@ import type {
   SDKResultMessage,
 } from "@anthropic-ai/claude-agent-sdk";
 import type { BridgeEvent } from "./types";
+import type { ClaudePermissionModeNotice } from "./claude-auto-mode";
 import { toText } from "./utils";
 function buildClaudeTaskProgressEvents(
   message: Extract<SDKMessage, { type: "system" }> & {
@@ -210,6 +211,7 @@ export function mapClaudeMessageToEvents(args: {
   claudeDebugStream: boolean;
   cwd?: string;
   ownerAgentIdResolver?: ClaudeOwnerAgentIdResolver;
+  permissionModeNotice?: ClaudePermissionModeNotice;
 }): BridgeEvent[] {
   const { message, claudeDebugStream } = args;
 
@@ -336,15 +338,16 @@ export function mapClaudeMessageToEvents(args: {
     }
     if (sysMsg.subtype === "status") {
       const status = (sysMsg as { status?: string | null }).status;
+      const events: BridgeEvent[] = [];
       if (status === "compacting") {
-        return [
-          { type: "system", content: "Compacting conversation context\u2026" },
-        ];
+        events.push({ type: "system", content: "Compacting conversation context\u2026" });
       }
       if (status === "requesting") {
-        return [{ type: "system", content: "Sending request to model\u2026" }];
+        events.push({ type: "system", content: "Sending request to model\u2026" });
       }
-      return [];
+      const notice = args.permissionModeNotice?.observeStatus(sysMsg);
+      if (notice) events.push({ type: "system", content: notice });
+      return events;
     }
     const taskProgressEvents = buildClaudeTaskProgressEvents(sysMsg);
     if (taskProgressEvents.length > 0) {

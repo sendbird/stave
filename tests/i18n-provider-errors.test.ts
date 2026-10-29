@@ -29,3 +29,14 @@ test("known Claude limits and system wrappers translate whole messages without r
   expect(formatSystemEventDisplay("Subagent progress: provider original summary")).toBe("하위 에이전트 진행 상황: provider original summary");
   expect(formatSystemEventDisplay("Plugin install failed: user-plugin — provider error")).toBe("플러그인 설치 실패: user-plugin — provider error");
 });
+
+test("Claude mode observation and fallback notices translate without changing native mode identifiers", () => {
+  const transition = "Claude permission mode changed from auto to default.";
+  applyRuntimeLocale("en");
+  expect(formatSystemEventDisplay(transition)).toBe(transition);
+  applyRuntimeLocale("ko");
+  expect(formatSystemEventDisplay(transition)).toBe("Claude 권한 모드가 auto에서 default 모드로 변경되었습니다.");
+  expect(formatSystemEventDisplay("Auto isn't available right now; Claude will ask before actions.")).toBe("현재 Auto를 사용할 수 없어 Claude가 작업 전에 승인을 요청합니다.");
+  expect(formatSystemEventDisplay("Auto isn't available for this model; Claude will ask before actions.")).toBe("이 모델에서는 Auto를 사용할 수 없어 Claude가 작업 전에 승인을 요청합니다.");
+  expect(formatSystemEventDisplay("provider original permission mode output")).toBe("provider original permission mode output");
+});

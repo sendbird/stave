@@ -13,6 +13,10 @@ const SYSTEM_EVENT_COPY = {
   "Generation stopped because the task was archived before this turn completed.": "session:systemEvent.archived",
   // i18n-ignore: canonical stored transcript marker; translate only its presentation
   "Managed run stopped from Stave before completion.": "session:systemEvent.managedStopped",
+  // i18n-ignore: canonical stored runtime marker; translate only its presentation
+  "Auto isn't available for this model; Claude will ask before actions.": "session:systemEvent.claudeAutoUnavailableModel",
+  // i18n-ignore: canonical stored runtime marker; translate only its presentation
+  "Auto isn't available right now; Claude will ask before actions.": "session:systemEvent.claudeAutoUnavailable",
 } as const;
 
 export function formatSystemEventDisplay(content: string): string {
@@ -22,6 +26,9 @@ export function formatSystemEventDisplay(content: string): string {
   if (normalized === "Sending request to model") return i18n.t("session:systemEvent.sending");
   // i18n-ignore: canonical runtime marker
   if (normalized === "Checkpoint captured before Codex turn.") return i18n.t("session:systemEvent.checkpoint");
+  // i18n-ignore: canonical runtime mode identifiers, not provider-generated prose
+  const permissionMode = normalized.match(/^Claude permission mode changed from (default|acceptEdits|bypassPermissions|plan|dontAsk|auto) to (default|acceptEdits|bypassPermissions|plan|dontAsk|auto)\.$/);
+  if (permissionMode) return i18n.t("session:systemEvent.claudePermissionModeChanged", { previous: permissionMode[1], mode: permissionMode[2] });
   // i18n-ignore: canonical runtime wrapper around provider-generated progress
   const progress = normalized.match(/^Subagent progress: (.+)$/s);
   if (progress) return i18n.t("session:systemEvent.subagentProgress", { summary: progress[1] });

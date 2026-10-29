@@ -1,8 +1,8 @@
-# 2026년 상반기 런타임 기능 채택 현황
+# 런타임 기능 채택 현황
 
-검토일: 2026년 7월 31일
+최근 검토일: 2026년 10월 29일
 
-Claude Code와 Codex의 2026년 상반기 기능을 Stave 관점에서 검토하고, 이번에
+Claude Code와 Codex의 런타임 기능을 Stave 관점에서 검토하고, 시점별로
 채택한 범위와 보류한 범위를 기록한다. 런타임 기능은 adapter·IPC·UI·테스트가
 모두 연결된 경우에만 “지원”으로 본다.
 
@@ -10,11 +10,12 @@ Claude Code와 Codex의 2026년 상반기 기능을 Stave 관점에서 검토하
 
 | Runtime          | 확인한 버전                                     | 적용 방식                                                                  |
 | ---------------- | ----------------------------------------------- | -------------------------------------------------------------------------- |
-| Claude Agent SDK | exact pin `0.3.197`, 내장 Claude Code `2.1.197` | Stave가 버전을 고정한다.                                                   |
-| Codex App Server | 사용자 설치 CLI `0.145.0`                       | Stave가 버전을 강제하지 않고, 선택된 실행 파일의 버전으로 기능을 제한한다. |
+| Claude Agent SDK | exact pin `0.3.312`, 내장 Claude Code `2.1.312` | Stave가 버전을 고정한다.                                                   |
+| Codex App Server | schema 검증 CLI `0.165.0`                       | Stave가 버전을 강제하지 않고, 선택된 실행 파일의 버전으로 기능을 제한한다. |
 
-Codex 요청 필드는 같은 `0.145.0` 실행 파일에서 생성한 experimental App Server
-schema와 대조했다.
+Codex 요청·알림 필드는 `0.165.0` 실행 파일에서 생성한 experimental App Server
+schema와 대조했다. 최초 2026-07-31 검토에서는 Claude SDK `0.3.197`과 Codex
+`0.145.0`을 사용했다.
 
 2026-09-29에 설치 pin을 `@anthropic-ai/claude-agent-sdk@0.3.284`, 내장 Claude
 Code `2.1.284`로 올렸다. `Options`에서 제거된 필드는 없다. 새로 추가된 optional
@@ -23,6 +24,37 @@ Code `2.1.284`로 올렸다. `Options`에서 제거된 필드는 없다. 새로 
 
 비용은 **S**(adapter 한 경로), **M**(계약과 작은 UI), **L**(영속 ID나 새 작업
 흐름)로 표시한다.
+
+## 2026-10-29 갱신
+
+현재 Claude exact pin은 `0.3.312`, 내장 Claude Code는 `2.1.312`다. Codex의
+요청·알림 계약은 `0.165.0`에서 생성한 experimental schema를 기준으로
+검토했다. 이 Codex 버전은 최소 지원 버전이나 사용자의 선택된 실행 파일을
+뜻하지 않는다. 기존 기능별 버전 제한과 구버전 요청 downgrade는 유지한다.
+
+| 기능 | 결정과 경계 |
+| --- | --- |
+| Claude effective permission mode | `system/status.permissionMode` 변화를 관측해 대화에 알린다. init을 기준으로 중복·다른 세션·Stop 이후 알림을 버린다. 요청한 권한이나 저장 설정을 바꾸지 않는다. |
+| Claude 미응답 질문 | init이 `ask_user_question_unanswered_v1`을 광고한 query에서만 승인된 응답의 빈 질문을 `skipped`로 표시한다. 사용자 거부는 기존 deny를 유지한다. host가 구별하지 못하는 `replied_in_chat`·`dismissed`는 추정하지 않는다. |
+| Claude context snapshot | category의 stable `id`·`kind`, MCP instructions, agent·skill provenance를 보존한다. 기존 명시적 context 조회를 재사용하며 매 turn 조회를 추가하지 않는다. Settings는 stable id를 row key로 사용한다. 상세 provenance의 새 화면은 추가하지 않는다. |
+| Codex safety reviewer | 현재 thread·turn의 `decisionSource: agent` 최종 `approved`·`denied`만 승인 기록에 표시한다. 사용자 승인과 별도 ID를 쓰며 중복·다른 turn·Stop 이후 알림을 버린다. 명령·stdin·판정 사유 원문은 기록하지 않는다. |
+| Codex trusted app metadata | `appContext`는 connector 대상 지정이 필요한 계약이므로 기존 MCP resource capture로 변환하지 않는다. 기존 `mcpAppUi`·legacy 경로와 실패·timeout 처리를 유지한다. |
+
+`item/autoApprovalReview/started`, risk·rationale와 guardian warning을 위한 새
+상태 계약은 보류한다. 완료되지 않은 검사를 허용이나 거부로 표시하지 않는다.
+안전성 reviewer와 native 코드 리뷰는 별도 기능이며, token·과금 절감은 검증한
+사실로 안내하지 않는다.
+
+Native 코드 리뷰는 기존 read-only prompt review를 유지한다. Codex의 단발
+`review/start` RPC는 Stave task의 stream·취소·종료 수명주기에 연결된 기능이
+아니다. 이를 기본 reviewer로 활성화하지 않는다. 별도 child의 inline review와
+early notification, 취소·늦은 완료·실패를 연결한 뒤 채택을 판단한다. Claude
+foreground review도 파일 수정·네트워크 게시 차단과 계정·비용 상한 검증이
+선행되어야 한다. 실제 inference·게시·hosted upload는 이번 갱신에 포함하지 않는다.
+
+cache 5m/1h 청구 counters는 context 점유율과 의미가 달라 합산하지 않는다.
+기존 mapper가 소비하지 않는 신규 optional SDK 설정과 message는 자동으로
+활성화하지 않으며, 필요한 UI·권한 계약을 정한 뒤 별도로 채택한다.
 
 ## 채택 결과
 
@@ -102,4 +134,4 @@ Codex에는 새 field를 보내지 않으며, 저장된 `indexed` 설정은 `cac
 - [Codex 0.116.0: UserPromptSubmit hooks](https://github.com/openai/codex/releases/tag/rust-v0.116.0)
 - [Codex 0.117.0: fork boundaries](https://github.com/openai/codex/releases/tag/rust-v0.117.0)
 - [Codex 0.142.0: writes approval와 indexed search](https://github.com/openai/codex/releases/tag/rust-v0.142.0)
-- [Codex 0.145.0: 검증 baseline](https://github.com/openai/codex/releases/tag/rust-v0.145.0)
+- [Codex 0.145.0: 2026-07-31 검증](https://github.com/openai/codex/releases/tag/rust-v0.145.0)

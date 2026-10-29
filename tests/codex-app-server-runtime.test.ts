@@ -131,7 +131,8 @@ describe("Codex MCP runtime status", () => {
 
 // Stave's allowed request subset, validated against
 // `codex app-server generate-json-schema --experimental --out <dir>` for
-// Codex CLI/App Server 0.145.0; reviewer enum and fields rechecked on 0.162.1.
+// Codex CLI/App Server 0.165.0, including experimental notification schemas.
+// Older-runtime capability fixtures below intentionally retain their versions.
 const GENERATED_CODEX_APP_SERVER_V2_TURN_START_PARAM_KEYS: Set<string> =
   new Set([
     "approvalPolicy",

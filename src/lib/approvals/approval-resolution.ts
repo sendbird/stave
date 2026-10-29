@@ -24,6 +24,8 @@ export const APPROVAL_DECISION_REASONS = [
   "autonomy",
   /** The provider's permission mode answered it. */
   "permission-mode",
+  /** The provider's native safety reviewer made the decision. */
+  "provider-reviewer",
   /** Nobody answered before the request timed out. */
   "timeout",
   /** Stave's own prompt-free tools, approved by a setting. */
@@ -77,7 +79,7 @@ export const ApprovalResolutionSchema = z.object({
  */
 export interface ApprovalResolvedEvent {
   type: "approval_resolved";
-  /** The request's id; for a tool call, the call's id. */
+  /** The request/call id when known; otherwise a stable, scoped decision id. */
   requestId: string;
   toolName: string;
   /** What the call does, in one bounded line (a command or a path), when known. */

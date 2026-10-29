@@ -36,6 +36,7 @@ export {
 import { spawn as spawnResourceProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
+import { toClaudeContextUsageSnapshot } from "./claude-context-usage-snapshot";
 import { recordClaudeRateLimitObservation } from "./rate-limits/claude-rate-limits-observation";
 import {
   buildClaudeUsageEvent,
@@ -85,6 +86,10 @@ import {
   parseClaudeQuestionList,
   shouldAutoAcceptClaudeElicitation,
 } from "./claude-user-input";
+import {
+  buildClaudeQuestionAnswerInput,
+  createClaudeQuestionCapabilityTracker,
+} from "./claude-question-response";
 export {
   parseClaudeQuestionList,
   shouldAutoAcceptClaudeElicitation,
@@ -110,7 +115,6 @@ import type {
   Query,
   SDKMessage,
   SDKAssistantMessage,
-  SDKControlGetContextUsageResponse,
   SDKControlReloadPluginsResponse,
   SDKSystemMessage,
   SDKResultMessage,
@@ -878,6 +882,7 @@ export function buildClaudeUserInputPermissionResult(args: {
   normalizedInput: Record<string, unknown>;
   answers?: Record<string, string>;
   denied?: boolean;
+  supportsUnanswered?: boolean;
 }): ClaudePermissionResult {
   if (args.denied) {
     return buildClaudeDenyPermissionResult({
@@ -889,10 +894,7 @@ export function buildClaudeUserInputPermissionResult(args: {
   return validateClaudePermissionResult({
     candidate: {
       behavior: "allow",
-      updatedInput: {
-        ...args.normalizedInput,
-        answers: args.answers ?? {},
-      },
+      updatedInput: buildClaudeQuestionAnswerInput(args),
     },
     fallbackMessage: "User declined to answer questions.",
     context: "user-input:allow",
@@ -1464,37 +1466,6 @@ function toClaudeMcpServerStatusSnapshot(
     ...(options?.checkedAt ? { statusUpdatedAt: options.checkedAt } : {}),
     ...(status.scope ? { scope: status.scope } : {}),
     ...(Array.isArray(status.tools) ? { toolCount: status.tools.length } : {}),
-  };
-}
-
-function toClaudeContextUsageSnapshot(
-  usage: SDKControlGetContextUsageResponse,
-) {
-  return {
-    categories: usage.categories.map((category) => ({
-      name: category.name,
-      tokens: category.tokens,
-      color: category.color,
-      ...(category.isDeferred !== undefined
-        ? { isDeferred: category.isDeferred }
-        : {}),
-    })),
-    totalTokens: usage.totalTokens,
-    maxTokens: usage.maxTokens,
-    rawMaxTokens: usage.rawMaxTokens,
-    percentage: usage.percentage,
-    model: usage.model,
-    memoryFiles: usage.memoryFiles.map((file) => ({
-      path: file.path,
-      type: file.type,
-      tokens: file.tokens,
-    })),
-    mcpTools: usage.mcpTools.map((tool) => ({
-      name: tool.name,
-      serverName: tool.serverName,
-      tokens: tool.tokens,
-      ...(tool.isLoaded !== undefined ? { isLoaded: tool.isLoaded } : {}),
-    })),
   };
 }
 
@@ -3274,8 +3245,9 @@ export async function streamClaudeWithSdk(
         args.runtimeOptions?.providerBrowserAutoFallbackDomains,
       ),
     });
-    // Auto mode only: says once when Claude's own classifier is unavailable.
+    // Observe effective modes without changing the requested permission policy.
     const claudeAutoModeNotice = createClaudeAutoModeNotice();
+    const claudeQuestionCapabilities = createClaudeQuestionCapabilityTracker();
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
@@ -3578,6 +3550,7 @@ export async function streamClaudeWithSdk(
           }
 
           if (handoff.action === "question") {
+            const questionSessionId = claudeQuestionCapabilities.captureSupportedSession();
             requestId = runQuestionRequestId(runQuestionScope, requestId, args.turnId);
             const questions = parseClaudeQuestionList({
               input: normalizedInput,
@@ -3621,6 +3594,8 @@ export async function streamClaudeWithSdk(
                 normalizedInput,
                 answers: response.answers,
                 denied: response.denied,
+                supportsUnanswered: !abortRequested
+                  && claudeQuestionCapabilities.supportsSession(questionSessionId),
               });
             } catch (error) {
               if (error instanceof ClaudeToolDecisionTimeoutError) {
@@ -3867,6 +3842,7 @@ export async function streamClaudeWithSdk(
         message.type === "system" &&
         (message as SDKSystemMessage).subtype === "init"
       ) {
+        claudeQuestionCapabilities.observeInit(message as SDKSystemMessage);
         if (!secondaryReadOnly) {
           rememberSessionId({
             taskId: args.taskId,
@@ -3874,7 +3850,7 @@ export async function streamClaudeWithSdk(
             mcpScopeKey: claudeMcpScopeKey,
           });
         }
-        if (claudePermissionMode === "auto" && !secondaryReadOnly) {
+        if (!secondaryReadOnly) {
           claudeAutoModeNotice.observeInit(message as SDKSystemMessage, stream);
         }
       }
@@ -3981,6 +3957,9 @@ export async function streamClaudeWithSdk(
           claudeDebugStream,
           cwd: runtimeCwd,
           ownerAgentIdResolver: subagentTracker,
+          ...(!abortRequested && !secondaryReadOnly
+            ? { permissionModeNotice: claudeAutoModeNotice }
+            : {}),
         }),
       ];
       const contextUsage = trackContextUsage(message);

@@ -6,6 +6,7 @@ import { currentProviderAccountId, providerAccountKey, withProviderAccountScope 
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
 import { buildCodexCommandResult } from "./codex-command-result";
 import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
+import { createCodexApprovalReviewTracker } from "./codex-approval-review";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import {
@@ -2135,6 +2136,7 @@ export async function streamCodexWithAppServer(
       const waitForTurnCompletion = new Promise<void>((resolve) => {
         resolveTurnCompletion = resolve;
       });
+      const approvalReviews = createCodexApprovalReviewTracker(threadId);
       const mcpAppViews = createCodexMcpAppViewCapture({
         enabled: runtimeOptions?.mcpAppViews === true && !secondaryReadOnly,
         client, threadId, workspaceId: args.workspaceId ?? null, taskId: args.taskId ?? null,
@@ -2618,6 +2620,8 @@ export async function streamCodexWithAppServer(
           return;
         }
         switch (message.method) {
+          case "item/autoApprovalReview/completed":
+            return approvalReviews.emitCompleted(params, appServerTurnId, emitBridgeEvent, abortRequested);
           case "model/rerouted":
             if (eventThreadId === threadId) {
               emitBridgeEvents(modelResolution.noteReroute(params, appServerTurnId));

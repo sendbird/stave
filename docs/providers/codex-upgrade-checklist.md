@@ -2,9 +2,10 @@
 
 Codex CLI/App Server의 기대 버전이나 protocol surface를 바꿀 때 사용한다.
 
-- 현재 schema 확인값: 사용자 설치 Codex CLI/App Server `0.145.0`
+- 현재 schema 확인값: Codex CLI/App Server `0.165.0` (2026-10-29, experimental 포함)
 - Stave는 Codex를 번들하거나 이 버전을 강제하지 않는다.
-- 관련 결정: [2026년 상반기 런타임 기능 채택 현황](./runtime-feature-adoption-plan.md)
+- schema 확인 버전은 최소 지원 버전이나 실제 선택된 executable의 live turn 검증을 뜻하지 않는다. 기능별 capability floor는 별도로 유지한다.
+- 관련 결정: [런타임 기능 채택 현황](./runtime-feature-adoption-plan.md)
 
 ## 1. 기준 확인
 

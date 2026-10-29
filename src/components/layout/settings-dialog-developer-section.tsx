@@ -388,7 +388,7 @@ export function ClaudeRuntimeToolsCard() {
           </div>
           <div className={sx(developerStyles.rowStack)}>
             {claudeContextUsage.categories.map((category) => (
-              <div key={category.name} className={sx(developerStyles.infoRow)}>
+              <div key={category.id ?? category.name} className={sx(developerStyles.infoRow)}>
                 <span className={sx(developerStyles.infoLabel)}>
                   {category.name}
                 </span>
