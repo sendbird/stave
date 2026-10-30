@@ -1416,7 +1416,6 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               <DelegationsBlock
                 exchanges={delegationExchanges}
                 nowMs={props.activity?.completedAt ?? now}
-                nested
                 expandCopy={variant === "panel"}
                 onAction={handleDelegationAction}
                 onInspect={exchange => setDetailSelection({ title: exchange.title, exchange })}

@@ -655,7 +655,7 @@ export const changesStyles = stylex.create({
       ":hover": vars["--ads-color-overlay-hover"],
     },
     borderColor: "transparent",
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],
     display: "flex",
@@ -772,7 +772,7 @@ export const changesStyles = stylex.create({
   historyList: { display: "flex", flexDirection: "column" },
   historyRow: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     gap: vars["--ads-space-12"],
     paddingBlock: vars["--ads-space-8"],

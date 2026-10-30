@@ -487,7 +487,7 @@ export const turnActivityStyles = stylex.create({
   // quiet-button chrome / focus ring at the call site.
   row: {
     alignItems: "flex-start",
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     gap: "0.625rem",
     minWidth: 0,
