@@ -52,6 +52,7 @@
   },
   "usageQuota": {
     "accountQuota": "Account quota",
+    "apiConnections": "API connections · billed by gateway, no subscription quota",
     "latestObservedAccountLimitsIncludesUsage": "Latest observed account limits · includes usage outside Stave · independent of the selected period",
     "readingQuota": "Reading quota…",
     "refreshQuota": "Refresh quota",
