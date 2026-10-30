@@ -49,8 +49,6 @@ export interface DelegationsBlockProps {
   title?: string;
   /** Hide the header (the panel draws its own). */
   showHeader?: boolean;
-  /** Draw the tree rail under a primary row. */
-  nested?: boolean;
   renderExtraActions?: (exchange: DelegationExchange) => ReactNode;
   renderRowFooter?: (exchange: DelegationExchange) => ReactNode;
   statusNoteFor?: (exchange: DelegationExchange) => string | undefined;
@@ -111,7 +109,6 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
           <Fragment key={exchange.id}><ExchangeRow
             exchange={exchange}
             nowMs={nowMs}
-            nested={props.nested}
             expandCopy={props.expandCopy}
             onAction={props.onAction}
             onInspect={props.onInspect}

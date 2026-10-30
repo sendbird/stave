@@ -35,12 +35,16 @@ export const workGraphTreeStyles = stylex.create({
     minWidth: 0,
     alignItems: "center",
     gap: vars["--ads-space-2"],
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     paddingInline: vars["--ads-space-8"],
     paddingBlock: "0.375rem",
+    // Hover is a pointer affordance: a touch tap must not leave a fill behind.
     backgroundColor: {
       default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
+      "@media (hover: hover)": {
+        default: "transparent",
+        ":hover": vars["--ads-color-overlay-hover"],
+      },
     },
     animationName: {
       default: rowFadeIn,

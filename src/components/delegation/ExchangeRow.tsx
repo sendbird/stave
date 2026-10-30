@@ -57,8 +57,6 @@ export interface ExchangeRowProps {
   expanded?: boolean;
   defaultExpanded?: boolean;
   onToggle?: (expanded: boolean) => void;
-  /** Draws the tree rail for a row nested under the primary. */
-  nested?: boolean;
   /** Wrap title and ask instead of clipping them to one line. */
   expandCopy?: boolean;
   /** Extra detail sections, forwarded to `ExchangeDetail`. */
@@ -97,11 +95,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
 
   return (
     <div
-      className={sx(
-        styles.row,
-        expanded && styles.rowExpanded,
-        props.nested && styles.rowNested,
-      )}
+      className={sx(styles.row, expanded && styles.rowExpanded)}
       data-testid={props["data-testid"] ?? "exchange-row"}
       data-copy={props.expandCopy ? "expanded" : undefined}
       data-exchange-id={exchange.id}

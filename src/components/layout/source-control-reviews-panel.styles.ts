@@ -16,7 +16,7 @@ export const reviewsStyles = stylex.create({
       ":hover": vars["--ads-color-overlay-hover"],
       ":focus-visible": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     // The lead glyph inherits this so it brightens with the row, replacing the
     // `group-hover:` pair StyleX has no cross-element selector for.
     color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
@@ -185,7 +185,7 @@ export const reviewsStyles = stylex.create({
       ":hover": vars["--ads-color-overlay-hover"],
       ":focus-visible": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     cursor: { default: null, ":disabled": "not-allowed" },
     display: "flex",
     gap: vars["--ads-space-8"],
@@ -301,7 +301,7 @@ export const reviewsStyles = stylex.create({
   },
   checkRow: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     gap: vars["--ads-space-8"],
     minBlockSize: vars["--ads-control-height-xl"],

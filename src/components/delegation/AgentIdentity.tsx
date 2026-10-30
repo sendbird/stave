@@ -81,7 +81,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
           {identity.effortLabel}
         </Badge>
       ) : null}
-      {props.modelEvidence ? <span className={sx(styles.identityModelMuted)}>({props.modelEvidence})</span> : null}
+      {props.modelEvidence ? <span className={sx(styles.identityEvidence)}>({props.modelEvidence})</span> : null}
       {props.showSource && props.source ? (
         <Badge
           variant="soft"

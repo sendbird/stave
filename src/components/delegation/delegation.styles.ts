@@ -49,6 +49,16 @@ export const delegationStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     fontWeight: vars["--ads-font-weight-regular"],
   },
+  // How the model was learned (`requested`, `reported`, …) qualifies the name,
+  // so it sits a step below it. Without its own size it inherited the row
+  // button's and printed larger than the model it annotates.
+  identityEvidence: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-regular"],
+    whiteSpace: "nowrap",
+  },
   // The routed model beside the requested one: quieter than the identity it
   // qualifies, and the first thing to truncate on a narrow row.
   identityRouted: {
@@ -163,8 +173,10 @@ export const delegationStyles = stylex.create({
   },
 
   /* ── ExchangeRow ───────────────────────────────────────────────────── */
+  // A row carries a control height, so it takes the control corner (ADS §7);
+  // the panel corner is for containers.
   row: {
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     flexDirection: "column",
     minWidth: 0,
@@ -174,7 +186,7 @@ export const delegationStyles = stylex.create({
   },
   rowHeader: {
     alignItems: "flex-start",
-    borderRadius: vars["--ads-radius-panel"],
+    borderRadius: vars["--ads-radius-control"],
     color: vars["--ads-color-text"],
     display: "flex",
     gap: vars["--ads-space-8"],
@@ -287,14 +299,6 @@ export const delegationStyles = stylex.create({
     borderTopWidth: vars["--ads-border-width-hairline"],
     paddingBlock: vars["--ads-space-8"],
     paddingInline: vars["--ads-space-8"],
-  },
-  /* Tree indentation for rows nested under a primary. */
-  rowNested: {
-    borderLeftColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
-    borderLeftStyle: "solid",
-    borderLeftWidth: vars["--ads-border-width-hairline"],
-    marginInlineStart: vars["--ads-space-8"],
-    paddingInlineStart: vars["--ads-space-4"],
   },
 
   /* ── ExchangeDetail ────────────────────────────────────────────────── */
