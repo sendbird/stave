@@ -22,7 +22,11 @@ export const usageStyles = stylex.create({
   figure: { display: "grid", alignContent: "start", gap: vars["--ads-space-8"], minInlineSize: 0 },
   value: { margin: 0, fontSize: vars["--ads-font-size-heading"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text"], fontVariantNumeric: "tabular-nums" },
   columns: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: vars["--ads-space-24"] },
-  quotas: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: vars["--ads-space-16"] },
+  /** One row per provider; each row's accounts share it side by side. */
+  quotas: { display: "grid", gap: vars["--ads-space-16"], minInlineSize: 0 },
+  quotaRow: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 260px), 1fr))", gap: vars["--ads-space-16"], minInlineSize: 0 },
+  quotaApi: { display: "grid", gap: vars["--ads-space-8"], minInlineSize: 0, paddingBlockStart: vars["--ads-space-12"],
+    borderBlockStartWidth: vars["--ads-border-width-hairline"], borderBlockStartStyle: "solid", borderBlockStartColor: vars["--ads-color-border"] },
   quota: { display: "grid", alignContent: "start", gap: vars["--ads-space-8"], minInlineSize: 0, padding: vars["--ads-space-12"], backgroundColor: vars["--ads-color-surface-tint"], borderRadius: vars["--ads-radius-panel"] },
   quotaWindow: { display: "grid", gap: vars["--ads-space-8"], minInlineSize: 0, paddingBlockStart: vars["--ads-space-8"] },
   quotaWindowHead: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: vars["--ads-space-12"], minInlineSize: 0 },

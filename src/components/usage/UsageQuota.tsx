@@ -10,7 +10,7 @@ import type { ProviderAccountProfile } from "@/lib/providers/provider-accounts";
 import type { QuotaObservation, UsageStatisticsReport } from "@/lib/providers/usage-statistics";
 import { usageScopeLabel, usageTimestamp } from "./usage-view.utils";
 import { usageStyles as styles } from "./usage.styles";
-import { groupQuotaAccounts, quotaResetCountdown, quotaWindowState, tightestQuotaWindow, type QuotaWindowState } from "./usage-quota.utils";
+import { groupQuotaAccounts, quotaResetCountdown, quotaWindowState, splitQuotaRows, tightestQuotaWindow, type QuotaWindowState } from "./usage-quota.utils";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { QuotaReadFeedback } from "@/lib/providers/quota-read-feedback";
 import { quotaReadFeedbackText } from "./quota-read-feedback";
@@ -49,6 +49,15 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
   const listed = accounts.flatMap((account) => account.windows);
   const windowCount = listed.length;
   const tightest = tightestQuotaWindow(listed, props.now);
+  const isGateway = (account: { providerId: ProviderId; accountProfileId: string }) =>
+    Boolean(props.profiles.find((profile) => profile.providerId === account.providerId && profile.id === account.accountProfileId)?.gateway);
+  const quotaRows = splitQuotaRows(accounts, isGateway);
+  // A gateway account has no subscription quota to be missing, so it gets no "no saved quota" note.
+  const renderAccount = (account: (typeof accounts)[number]) => <div className={sx(styles.quota)} key={`${account.providerId}:${account.accountProfileId}`}>
+    <Button variant="link" size="sm" flushInline onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
+    {account.windows.length === 0 ? (isGateway(account) ? null : <p className={sx(styles.note)}>{i18n.t("usage:usageQuota.noSavedQuotaSelectThisAccount")}</p>)
+      : account.windows.map((row) => <QuotaWindow key={identity(row)} row={row} profiles={props.profiles} timeZone={props.timeZone} now={props.now} />)}
+  </div>;
   return <section className={sx(styles.section)} aria-label={t("usage:usageQuota.accountQuota")}>
     <div className={sx(styles.header)}>
       <div className={sx(styles.titleRow, styles.headerCopy)}><h2 className={sx(styles.heading)}>{t("usage:usageQuota.accountQuota")}</h2>
@@ -63,11 +72,11 @@ export function UsageQuota(props: { report: UsageStatisticsReport; profiles: rea
     {props.apiBilling ? <p className={sx(styles.note)}>{t("usage:usageQuota.thisAPIConnectionIsBilledBy")}</p> : null}
     {tightest && windowCount > 1 ? <QuotaHeadline row={tightest.row} state={tightest.state} profiles={props.profiles} timeZone={props.timeZone} now={props.now} /> : null}
     {accounts.length === 0 ? <p className={sx(styles.note)}>{t("usage:usageQuota.noAccountsInThisSelectionUnsupported")}</p> : <div className={sx(styles.quotas)}>
-      {accounts.map((account) => <div className={sx(styles.quota)} key={`${account.providerId}:${account.accountProfileId}`}>
-        <Button variant="link" size="sm" flushInline onClick={() => props.onAccount(account.providerId, account.accountProfileId)}>{usageScopeLabel(account.providerId, account.accountProfileId, props.profiles)}</Button>
-        {account.windows.length === 0 ? <p className={sx(styles.note)}>{i18n.t("usage:usageQuota.noSavedQuotaSelectThisAccount")}</p>
-          : account.windows.map((row) => <QuotaWindow key={identity(row)} row={row} profiles={props.profiles} timeZone={props.timeZone} now={props.now} />)}
-      </div>)}
+      {quotaRows.providers.map((row) => <div className={sx(styles.quotaRow)} key={row.providerId}>{row.accounts.map(renderAccount)}</div>)}
+      {quotaRows.gateways.length > 0 ? <div className={sx(styles.quotaApi)}>
+        <p className={sx(styles.note)}>{t("usage:usageQuota.apiConnections")}</p>
+        <div className={sx(styles.quotaRow)}>{quotaRows.gateways.map(renderAccount)}</div>
+      </div> : null}
     </div>}
     {!props.canRefresh ? <p className={sx(styles.note)}>{t("usage:usageQuota.chooseAProviderAndOneRegistered")}</p> : null}
     <Button variant="quiet" size="sm" aria-expanded={showHistory} onClick={() => setShowHistory((value) => !value)}>{showHistory ? t("usage:usageQuota.hideQuotaHistory") : t("usage:usageQuota.showQuotaHistory")}</Button>

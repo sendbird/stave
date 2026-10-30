@@ -36,6 +36,23 @@ export function groupQuotaAccounts(args: {
 }
 
 /**
+ * One row per provider for subscription quota, in the order groupQuotaAccounts
+ * sorted them. API-billed gateway accounts carry no quota, so they are split
+ * out to a row of their own at the end instead of sitting among the providers.
+ */
+export function splitQuotaRows<T extends { providerId: ProviderId }>(accounts: readonly T[], isGateway: (account: T) => boolean) {
+  const rows = new Map<ProviderId, T[]>();
+  for (const account of accounts) {
+    if (isGateway(account)) continue;
+    rows.set(account.providerId, [...(rows.get(account.providerId) ?? []), account]);
+  }
+  return {
+    providers: [...rows].map(([providerId, providerAccounts]) => ({ providerId, accounts: providerAccounts })),
+    gateways: accounts.filter(isGateway),
+  };
+}
+
+/**
  * Window lengths Stave can name from the saved observation alone. Claude's
  * windows are fixed by id; other providers store their length only in a
  * localized label, so they read as unknown rather than guessed.

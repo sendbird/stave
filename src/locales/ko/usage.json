@@ -52,6 +52,7 @@
   },
   "usageQuota": {
     "accountQuota": "계정 할당량",
+    "apiConnections": "API 연결 · 게이트웨이에서 청구, 구독 할당량 없음",
     "latestObservedAccountLimitsIncludesUsage": "최근 관측한 계정 한도 · Stave 외부 사용량 포함 · 선택한 기간과 무관",
     "readingQuota": "할당량 읽는 중…",
     "refreshQuota": "할당량 새로고침",

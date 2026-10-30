@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { groupQuotaAccounts, quotaResetCountdown, quotaWindowState, tightestQuotaWindow } from "../src/components/usage/usage-quota.utils";
+import { groupQuotaAccounts, quotaResetCountdown, quotaWindowState, splitQuotaRows, tightestQuotaWindow } from "../src/components/usage/usage-quota.utils";
 import type { QuotaObservation } from "../src/lib/providers/usage-statistics";
 
 const NOW = Date.parse("2026-10-01T12:00:00Z");
@@ -71,4 +71,19 @@ test("the tightest window is the one that stops work first", () => {
   expect(tightestQuotaWindow([runsOut, roomy, used], NOW)?.row).toBe(used);
   expect(tightestQuotaWindow([claude("session", 10, 2 * HOUR), { ...claude("x", 40, HOUR), providerId: "codex" }], NOW)?.row.windowId).toBe("x");
   expect(tightestQuotaWindow([old], NOW)).toBeNull();
+});
+
+test("quota rows hold one provider each; API-billed gateway accounts move to their own row at the end", () => {
+  const accounts = [
+    { providerId: "claude-code" as const, accountProfileId: "vercel", gateway: true },
+    { providerId: "claude-code" as const, accountProfileId: "work", gateway: false },
+    { providerId: "codex" as const, accountProfileId: "main", gateway: false },
+    { providerId: "claude-code" as const, accountProfileId: "personal", gateway: false },
+  ];
+  const { providers, gateways } = splitQuotaRows(accounts, (account) => account.gateway);
+  expect(providers.map((row) => row.providerId)).toEqual(["claude-code", "codex"]);
+  expect(providers[0]?.accounts.map((account) => account.accountProfileId)).toEqual(["work", "personal"]);
+  expect(providers[1]?.accounts.map((account) => account.accountProfileId)).toEqual(["main"]);
+  expect(gateways.map((account) => account.accountProfileId)).toEqual(["vercel"]);
+  expect(splitQuotaRows([], () => false)).toEqual({ providers: [], gateways: [] });
 });
