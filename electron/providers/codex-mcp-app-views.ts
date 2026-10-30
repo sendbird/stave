@@ -1,6 +1,6 @@
 /**
  * Codex side of MCP App views (MCP Apps UI extension). Verified against the
- * codex-cli 0.159.3 generated App Server schema:
+ * codex-cli 0.165.0 generated App Server schema:
  *
  * - `initialize` `capabilities.extensions` is an open object of "MCP extension
  *   settings declared by the app-server client"; Stave declares
@@ -12,6 +12,9 @@
  * - `mcpServer/resource/read { threadId, server, uri }` reads the view, and
  *   `mcpServer/tool/call { threadId, server, tool, arguments }` runs a tool a
  *   view asks for.
+ * - `appContext` identifies a hosted app; its resource URI alone does not
+ *   establish server-local routing. Capturing those views requires app/account
+ *   targeting for reads and later view requests, so it is not used here.
  * - `mcpServerStatus/list { threadId, serverName, detail }` lists the
  *   server's tools with their `_meta` and `annotations`.
  */

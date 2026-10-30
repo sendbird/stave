@@ -199,26 +199,62 @@ type ClaudeInitializationSource = {
   } | null | undefined>;
 };
 
+const CLAUDE_OBSERVED_PERMISSION_MODES = new Set([
+  "default", "acceptEdits", "bypassPermissions", "plan", "dontAsk", "auto",
+]);
+
+function normalizeObservedPermissionMode(value: unknown): string | null {
+  return typeof value === "string" && CLAUDE_OBSERVED_PERMISSION_MODES.has(value)
+    ? value
+    : null;
+}
+
 /**
- * One Auto turn's view of Claude's own classifier: fed the session's init
- * message, it yields the fallback notice once, at the first prompt. The model
- * list rides the initialize response the SDK already holds, so it is read
- * without delaying the stream.
+ * Query-owned observation only: never changes the requested permission policy.
+ * Init establishes the baseline; status changes take precedence over a pending
+ * model-catalog lookup. The first fallback prompt and status share one notice
+ * so a provider-reported mode change is not followed by a duplicate fallback.
  */
 export function createClaudeAutoModeNotice() {
   let availability: ClaudeAutoModeAvailability = "unknown";
   let announced = false;
+  let effectiveMode: string | null = null;
+  let sessionId: string | null = null;
+  let observationRevision = 0;
   return {
-    observeInit(init: { permissionMode?: string | null; model?: string | null }, source?: ClaudeInitializationSource | null) {
-      const base = { initPermissionMode: init.permissionMode, initModel: init.model };
+    observeInit(init: { permissionMode?: string | null; model?: string | null; session_id?: string }, source?: ClaudeInitializationSource | null) {
+      if (init.session_id && sessionId !== init.session_id) {
+        sessionId = init.session_id;
+        effectiveMode = null;
+        announced = false;
+      }
+      const mode = normalizeObservedPermissionMode(init.permissionMode);
+      if (mode) effectiveMode = mode;
+      const revision = ++observationRevision;
+      const base = { initPermissionMode: mode, initModel: init.model };
       availability = resolveClaudeAutoModeAvailability(base);
       if (availability !== "unknown" || typeof source?.initializationResult !== "function") return;
       void source
         .initializationResult()
         .then((initialization) => {
+          if (revision !== observationRevision) return;
           availability = resolveClaudeAutoModeAvailability({ ...base, models: initialization?.models });
         })
         .catch(() => undefined);
+    },
+    observeStatus(status: { permissionMode?: unknown; session_id?: string }): string | null {
+      if (sessionId && status.session_id && sessionId !== status.session_id) return null;
+      const mode = normalizeObservedPermissionMode(status.permissionMode);
+      if (!mode) return null;
+      if (!sessionId && status.session_id) sessionId = status.session_id;
+      ++observationRevision;
+      const previous = effectiveMode;
+      effectiveMode = mode;
+      availability = mode === "auto" ? "available" : mode === "default" ? "unavailable" : "unknown";
+      if (!previous || previous === mode) return null;
+      announced = mode !== "auto";
+      // i18n-ignore: canonical stored runtime marker; translated at presentation
+      return `Claude permission mode changed from ${previous} to ${mode}.`;
     },
     /** The notice to show before the first prompt, or null after it or when Auto works. */
     take(): string | null {
@@ -229,3 +265,5 @@ export function createClaudeAutoModeNotice() {
     },
   };
 }
+
+export type ClaudePermissionModeNotice = ReturnType<typeof createClaudeAutoModeNotice>;

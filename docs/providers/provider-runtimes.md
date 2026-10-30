@@ -799,7 +799,7 @@ Guardrails (Agent mode only, provider-specific enforcement):
   bounds the rest when enabled.
 - **Codex**: G1 is the `workspace-write` sandbox root; G4
   (`request_user_input`) is native. The App Server protocol (schema checked
-  against Codex CLI 0.159.3; the recorded baseline is 0.145.0) exposes exec
+  for this guardrail assessment against Codex CLI 0.159.3) exposes exec
   policy only as approval-time amendments and rule files under the Codex home,
   not as per-thread config, so Stave does not enforce G2 reads or G3 for Codex.
   With network on, an autonomous Codex turn can push or publish. This is a
@@ -850,7 +850,7 @@ allows only read tools).
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
 
-Current baseline: exact pin `@anthropic-ai/claude-agent-sdk@0.3.284` with bundled Claude Code `2.1.284` support.
+Current baseline: exact pin `@anthropic-ai/claude-agent-sdk@0.3.312` with bundled Claude Code `2.1.312` support. The published native binary is used without modification; custom executable overrides remain independently versioned.
 
 High-level flow:
 
@@ -1277,8 +1277,8 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 ## Codex verification baseline
 
-- Codex App Server transport: local `codex app-server` from Codex CLI `0.145.0`
-- Current schema verification baseline: `0.145.0` (verified July 31, 2026)
+- Codex App Server transport: a user-installed local `codex app-server`; Stave does not bundle or require one global CLI version.
+- Latest schema verification: `0.165.0` (verified October 29, 2026, including experimental notifications). This is a schema check, not a minimum supported version or evidence of a live model turn. Individual features retain their verified capability floors.
 - Current Stave-supported Codex model IDs: `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna` (default: `gpt-6.1-sol`; `gpt-6-sol` is the fallback when Sol 6.1 is unavailable; `gpt-6.1-terra` is the balanced tier and `gpt-5.6-terra` its fallback; `gpt-6-astra` is the frontier tier)
 
 ### Default-effort ladder
@@ -1350,7 +1350,7 @@ One knock-on effect worth knowing:
 
 Stave requires a user-installed Codex CLI. Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery. Stave does not currently enforce a semantic-version floor, so controls for newly adopted features must be capability-gated for older executables.
 
-The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it, but thread and turn request payloads are kept within the generated `0.145.0` protocol surface.
+The Codex App Server adapter advertises the `experimentalApi` capability during initialization for App Server features that require it. Thread and turn request payloads are checked against the generated `0.165.0` protocol surface, with capability downgrades for older executables. Optional response fields do not require raising the minimum supported version.
 
 Claude follows the same pattern. Users can force a specific local `claude` install via `runtimeOptions.claudeBinaryPath` or the Settings dialog's Claude Binary override before Stave falls back to environment-based discovery.
 

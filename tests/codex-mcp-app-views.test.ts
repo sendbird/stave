@@ -11,6 +11,11 @@ type Message = { id?: number; method?: string; params?: Record<string, unknown> 
 
 const VIEW_HTML = "<!doctype html><p>forecast view</p>";
 
+type FakeAppServerOptions = {
+  item?: Record<string, unknown>;
+  resourceRead?: "error" | "unanswered";
+};
+
 class FakeStream extends EventEmitter {
   setEncoding(_encoding: string) {}
 }
@@ -22,6 +27,10 @@ class FakeAppServer extends EventEmitter {
   killed = false;
   pid = 4242;
   received: Message[] = [];
+
+  constructor(private readonly options: FakeAppServerOptions = {}) {
+    super();
+  }
 
   stdin = {
     write: (payload: string) => {
@@ -70,10 +79,14 @@ class FakeAppServer extends EventEmitter {
           ],
         });
       case "mcpServer/resource/read":
+        if (this.options.resourceRead === "unanswered") return;
+        if (this.options.resourceRead === "error") {
+          return this.emitJson({ jsonrpc: "2.0", id, error: { code: -32602, message: "Resource unavailable" } });
+        }
         return this.respond(id, {
           contents: [
             {
-              uri: "ui://weather/forecast",
+              uri: message.params?.uri,
               mimeType: MCP_APP_MIME_TYPE,
               text: VIEW_HTML,
               _meta: { ui: { csp: { connectDomains: ["https://api.weather.example"] } } },
@@ -93,27 +106,29 @@ class FakeAppServer extends EventEmitter {
 
   private runTurn() {
     const envelope = { threadId: "thread-1", turnId: "turn-1" };
-    const item = {
+    const completedItem = {
       id: "mcp-call-1",
       type: "mcpToolCall",
       server: "weather",
       tool: "forecast",
       arguments: { city: "Seoul" },
-      status: "inProgress",
+      status: "completed",
       mcpAppUi: { resourceUri: "ui://weather/forecast", preferredModelDisplayMode: "inline" },
       mcpAppResourceUri: "ui://weather/forecast",
+      result: { content: [{ type: "text", text: "Sunny" }], structuredContent: { temp: 21 } },
+      ...this.options.item,
     };
-    this.emitJson({ jsonrpc: "2.0", method: "item/started", params: { ...envelope, item } });
+    this.emitJson({
+      jsonrpc: "2.0",
+      method: "item/started",
+      params: { ...envelope, item: { ...completedItem, status: "inProgress" } },
+    });
     this.emitJson({
       jsonrpc: "2.0",
       method: "item/completed",
       params: {
         ...envelope,
-        item: {
-          ...item,
-          status: "completed",
-          result: { content: [{ type: "text", text: "Sunny" }], structuredContent: { temp: 21 } },
-        },
+        item: completedItem,
       },
     });
     this.emitJson({
@@ -133,6 +148,7 @@ class FakeAppServer extends EventEmitter {
 }
 
 const servers: FakeAppServer[] = [];
+let nextServerOptions: FakeAppServerOptions = {};
 let userData = "";
 const previousUserData = process.env.STAVE_USER_DATA_PATH;
 
@@ -142,7 +158,7 @@ mock.module("../electron/main/browser/secret-service", () => ({
 mock.module("node:child_process", () => ({
   ...actualChildProcess,
   spawn: () => {
-    const server = new FakeAppServer();
+    const server = new FakeAppServer(nextServerOptions);
     servers.push(server);
     return server;
   },
@@ -161,9 +177,11 @@ afterAll(async () => {
 
 afterEach(() => {
   servers.length = 0;
+  nextServerOptions = {};
 });
 
-async function runTurn(mcpAppViews: boolean, executable: string) {
+async function runTurn(mcpAppViews: boolean, executable: string, options: FakeAppServerOptions = {}) {
+  nextServerOptions = options;
   const runtime = await import(
     `../electron/providers/codex-app-server-runtime?mcp-app=${Date.now()}-${Math.random()}`
   );
@@ -264,4 +282,85 @@ describe("Codex MCP App views", () => {
       runtime.disposeAllCodexAppServerClients();
     }
   });
+
+  test.each([
+    {
+      name: "legacy only",
+      item: { mcpAppUi: null, appContext: null, mcpAppResourceUri: "ui://weather/legacy" },
+      resourceUri: "ui://weather/legacy",
+    },
+    {
+      name: "descriptor UI with hosted app context and legacy",
+      item: {
+        mcpAppUi: { resourceUri: "ui://weather/preferred" },
+        appContext: { connectorId: "weather", resourceUri: "ui://weather/context" },
+        mcpAppResourceUri: "ui://weather/legacy",
+      },
+      resourceUri: "ui://weather/preferred",
+    },
+    {
+      name: "legacy with hosted app context",
+      item: { mcpAppUi: null, appContext: { connectorId: "weather", resourceUri: "ui://weather/context" }, mcpAppResourceUri: "ui://weather/legacy" },
+      resourceUri: "ui://weather/legacy",
+    },
+    {
+      name: "legacy after malformed descriptor UI",
+      item: { mcpAppUi: { resourceUri: {} }, mcpAppResourceUri: "ui://weather/legacy" },
+      resourceUri: "ui://weather/legacy",
+    },
+  ])("captures $name from the call's own server before done", async ({ name, item, resourceUri }) => {
+    const { runtime, events } = await runTurn(true, `/tmp/fake-codex-mcp-app-${name}`, { item });
+    try {
+      const reads = servers.at(-1)!.received.filter((message) => message.method === "mcpServer/resource/read");
+      expect(reads.map((message) => message.params)).toEqual([{ threadId: "thread-1", server: "weather", uri: resourceUri }]);
+      const captured = events.find((event) => event.type === "tool_result" && event.mcpAppView);
+      expect(captured?.mcpAppView).toMatchObject({ provider: "codex", server: "weather", resourceUri });
+      expect(events.indexOf(captured!)).toBeLessThan(events.findIndex((event) => event.type === "done"));
+    } finally {
+      runtime.disposeAllCodexAppServerClients();
+    }
+  });
+
+  test.each([
+    { name: "disabled local view", enabled: false, item: {} },
+    { name: "hosted app resource with ui URI", enabled: true, item: { mcpAppUi: null, appContext: { connectorId: "weather", linkId: "account-1", resourceUri: "ui://weather/context" } } },
+    { name: "non-ui connector resource", enabled: true, item: { mcpAppUi: null, appContext: { connectorId: "weather", resourceUri: "https://weather.example/view" } } },
+    { name: "malformed app resource", enabled: true, item: { mcpAppUi: null, appContext: { resourceUri: 42 } } },
+    { name: "missing server", enabled: true, item: { server: null } },
+    { name: "failed call", enabled: true, item: { status: "failed" } },
+    { name: "completed call with error", enabled: true, item: { error: { message: "Forecast unavailable" } } },
+    { name: "unfinished call", enabled: true, item: { status: "inProgress" } },
+  ])("keeps $name as a plain tool result and completes the turn", async ({ name, enabled, item }) => {
+    const { runtime, events } = await runTurn(enabled, `/tmp/fake-codex-mcp-app-${name}`, {
+      item: {
+        mcpAppUi: { resourceUri: "ui://weather/forecast" },
+        mcpAppResourceUri: null,
+        appContext: null,
+        ...item,
+      },
+    });
+    try {
+      expect(servers.at(-1)!.received.some((message) => message.method === "mcpServer/resource/read")).toBe(false);
+      expect(events.filter((event) => event.type === "tool_result")).toHaveLength(1);
+      expect(events.some((event) => event.mcpAppView)).toBe(false);
+      expect(events.filter((event) => event.type === "done")).toHaveLength(1);
+    } finally {
+      runtime.disposeAllCodexAppServerClients();
+    }
+  });
+
+  test.each(["error", "unanswered"] as const)("finishes the turn when local view resource read is %s", async (resourceRead) => {
+    const { runtime, events } = await runTurn(true, `/tmp/fake-codex-mcp-app-${resourceRead}`, {
+      item: { mcpAppResourceUri: null },
+      resourceRead,
+    });
+    try {
+      expect(servers.at(-1)!.received.filter((message) => message.method === "mcpServer/resource/read")).toHaveLength(1);
+      expect(events.filter((event) => event.type === "tool_result")).toHaveLength(1);
+      expect(events.some((event) => event.mcpAppView)).toBe(false);
+      expect(events.filter((event) => event.type === "done")).toHaveLength(1);
+    } finally {
+      runtime.disposeAllCodexAppServerClients();
+    }
+  }, 30_000);
 });

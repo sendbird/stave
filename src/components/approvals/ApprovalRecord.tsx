@@ -20,6 +20,7 @@ export function describeApprovalDecider(resolution: Pick<ApprovalResolution, "so
     case "trusted-tool": return i18n.t("session:approvalRecord.decider.trustedTool");
     case "autonomy": return i18n.t("session:approvalRecord.decider.autonomy");
     case "permission-mode": return i18n.t("session:approvalRecord.decider.permissionMode");
+    case "provider-reviewer": return i18n.t("session:approvalRecord.decider.providerReviewer");
     case "timeout": return i18n.t("session:approvalRecord.decider.timeout");
     case "stave-tool": return i18n.t("session:approvalRecord.decider.staveTool");
     case "provider-browser": return i18n.t("session:approvalRecord.decider.providerBrowser");
@@ -53,7 +54,7 @@ export function describeApprovalOutcome(entry: Pick<ApprovalRecordEntry, "standi
 
 /**
  * The counts, who allowed kept apart: you, a Stave rule and the provider's
- * mode, always; denials, open, withdrawn and unrecorded requests when there
+ * decisions, always; denials, open, withdrawn and unrecorded requests when there
  * are any.
  */
 export function describeApprovalCounts(summary: ApprovalRecordSummary): string[] {
@@ -103,7 +104,7 @@ function spansDays(entries: readonly ApprovalRecordEntry[]): boolean {
 
 /**
  * The approval record of a run: how many requests were allowed by you, by a
- * Stave rule and by the provider's mode, then the latest requests one per line —
+ * Stave rule and by the provider, then the latest requests one per line —
  * what was asked, who decided and when.
  */
 export function ApprovalRecordView(props: {
@@ -115,11 +116,11 @@ export function ApprovalRecordView(props: {
 }) {
   useTranslation();
   const summary = useMemo(() => summarizeApprovalRecord(props.entries), [props.entries]);
-  const items = useMemo(() => {
-    const latest = props.entries.slice(-APPROVAL_RECORD_LIST_LIMIT);
-    const byDay = spansDays(latest);
-    return latest.map((entry) => toFeedItem(entry, byDay));
-  }, [props.entries]);
+  // Translate at render time so a locale change refreshes verbs and timestamps
+  // even when the persisted approval entries keep their identity.
+  const latest = props.entries.slice(-APPROVAL_RECORD_LIST_LIMIT);
+  const byDay = spansDays(latest);
+  const items = latest.map((entry) => toFeedItem(entry, byDay));
   return (
     <div className={sx(styles.record)} data-testid={props.testId}>
       {summary.total && props.showCounts !== false ? <p className={sx(styles.counts)} data-testid="approval-record-counts">{describeApprovalCounts(summary).join(" · ")}</p> : null}

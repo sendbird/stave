@@ -789,8 +789,8 @@
     "codexBinary": {
       "title": "Codex 바이너리",
       "description": "로컬 `codex` 바이너리 경로를 재정의합니다. 비워 두면 PATH와 홈 bin 위치에서 찾은 시스템 설치본을 사용합니다.",
-      "baselineTitle": "지원되는 Codex 기준 버전",
-      "baselineBody": "Stave는 로컬 `codex` CLI `{{version}}` 버전의 Codex App Server 경로를 기준으로 합니다. 이전 바이너리도 기존 기능은 동작할 수 있지만, 새로 도입한 제어 기능은 지원 여부를 확인한 뒤에만 켜집니다. Codex를 업데이트하거나 이 필드에 Stave가 사용할 버전을 지정하세요."
+      "baselineTitle": "검증한 Codex 스키마",
+      "baselineBody": "최근 App Server 스키마 확인에는 Codex CLI `{{version}}`을 사용했습니다. 최소 필수 버전을 뜻하지 않습니다. 이전 바이너리의 기존 기능은 유지하며, 새 제어 기능은 선택한 런타임이 지원할 때만 켜집니다. 이 필드에서 Stave가 사용할 실행 파일을 선택합니다."
     },
     "claudeBinary": {
       "title": "Claude 바이너리",
@@ -1349,7 +1349,7 @@
     "sourcedFromTheRepositoryCHANGELOGMd": "이 빌드에 포함된 저장소 CHANGELOG.md에서 가져왔습니다."
   },
   "settingsDialogDeveloperSection": {
-    "staveTargetsTheCodexAppServer": "Stave는 로컬 `codex` CLI `0.145.0`의 App Server 경로를 지원합니다. 이전 바이너리에서도 기존 기능은 작동할 수 있지만 새 제어 기능은 지원 여부를 확인해야 합니다. Codex를 업데이트하거나 사용할 버전의 경로를 입력하십시오.",
+    "staveTargetsTheCodexAppServer": "최근 App Server 스키마 확인에는 Codex CLI `0.165.0`을 사용했습니다. 최소 필수 버전을 뜻하지 않습니다. 이전 바이너리의 기존 기능은 유지하며, 새 제어 기능은 선택한 런타임이 지원할 때만 켜집니다. 이 필드에서 Stave가 사용할 실행 파일을 선택합니다.",
     "useThisWhenTheShellClaude": "셸의 `claude` 인증 상태가 Stave 도구 패널과 다르거나 한 기기에 Claude가 여러 개 설치되어 있을 때 사용합니다.",
     "copiedToClipboard": "{{value1}} 항목을 클립보드에 복사했습니다.",
     "failedToCopy": "{{value1}} 항목을 복사하지 못했습니다.",

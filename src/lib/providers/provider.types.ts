@@ -185,10 +185,25 @@ export interface ProviderCommandCatalogRequest {
 
 export interface ClaudeContextUsageSnapshot {
   categories: Array<{
+    id?:
+      | "system_prompt"
+      | "system_tools"
+      | "mcp_tools"
+      | "mcp_instructions"
+      | "mcp_tools_deferred"
+      | "system_tools_deferred"
+      | "custom_agents"
+      | "memory_files"
+      | "skills"
+      | "messages"
+      | "autocompact_buffer"
+      | "compact_buffer"
+      | "free_space";
     name: string;
     tokens: number;
     color: string;
     isDeferred?: boolean;
+    kind?: "used" | "free" | "buffer" | "deferred";
   }>;
   totalTokens: number;
   maxTokens: number;
@@ -206,6 +221,30 @@ export interface ClaudeContextUsageSnapshot {
     tokens: number;
     isLoaded?: boolean;
   }>;
+  mcpInstructions?: Array<{
+    serverName: string;
+    tokens: number;
+  }>;
+  agents?: Array<{
+    agentType: string;
+    source: string;
+    pluginId?: string;
+    path?: string;
+    tokens: number;
+  }>;
+  skills?: {
+    totalSkills: number;
+    includedSkills: number;
+    tokens: number;
+    skillFrontmatter: Array<{
+      name: string;
+      source: string;
+      pluginName?: string;
+      pluginId?: string;
+      path?: string;
+      tokens: number;
+    }>;
+  };
 }
 
 export interface ClaudeContextUsageResponse {

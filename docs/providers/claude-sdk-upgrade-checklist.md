@@ -2,9 +2,9 @@
 
 Claude SDK exact pin이나 내장 Claude Code 동작을 바꿀 때 사용한다.
 
-- 현재: `@anthropic-ai/claude-agent-sdk@0.3.284`
-- 내장 Claude Code: `2.1.284`
-- 관련 결정: [2026년 상반기 런타임 기능 채택 현황](./runtime-feature-adoption-plan.md)
+- 현재: `@anthropic-ai/claude-agent-sdk@0.3.312`
+- 내장 Claude Code: `2.1.312`
+- 관련 결정: [런타임 기능 채택 현황](./runtime-feature-adoption-plan.md)
 
 ## 1. 버전 확인
 
