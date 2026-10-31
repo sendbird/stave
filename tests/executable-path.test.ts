@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -495,5 +497,65 @@ test("a refresh that times out keeps the cached login-shell value", async () => 
     expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
       STAVE_FIXTURE_MCP_TOKEN: "atl_old",
     });
+  });
+});
+
+async function waitForFile(filePath: string) {
+  for (let attempt = 0; attempt < 500 && !existsSync(filePath); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test("a probe that started earlier never overwrites a newer refreshed value", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const directory = path.dirname(profilePath);
+    const valuePath = path.join(directory, "value");
+    const delayPath = path.join(directory, "delay");
+    const readPath = path.join(directory, "read");
+    // The shell reads the value and delay first and announces it, then waits, so an
+    // earlier probe can hold an old value while a later one finishes first.
+    writeFileSync(
+      profilePath,
+      `STAVE_VALUE="$(cat '${valuePath}')"\nSTAVE_DELAY="$(cat '${delayPath}')"\necho read >> '${readPath}'\nsleep "$STAVE_DELAY"\nexport STAVE_FIXTURE_MCP_TOKEN="$STAVE_VALUE"\n`,
+    );
+    writeFileSync(valuePath, "atl_old");
+    writeFileSync(delayPath, "1");
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    const earlier = resolveLoginShellEnvVarValuesAsync({ keys });
+    await waitForFile(readPath);
+
+    writeFileSync(valuePath, "atl_new");
+    writeFileSync(delayPath, "0");
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual(keys);
+    // The earlier probe finishes last with the old value; the cache keeps the
+    // newer one and the earlier caller gets it too.
+    expect(await earlier).toEqual({ STAVE_FIXTURE_MCP_TOKEN: "atl_new" });
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_new",
+    });
+  });
+});
+
+test("identical concurrent refreshes share one follow-up probe", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const probesPath = path.join(path.dirname(profilePath), "probes");
+    writeFileSync(
+      profilePath,
+      `echo probe >> '${probesPath}'\nexport STAVE_FIXTURE_MCP_TOKEN=atl_test\n`,
+    );
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    const results = await Promise.all([
+      refreshLoginShellEnvVarValues({ keys }),
+      refreshLoginShellEnvVarValues({ keys }),
+      refreshLoginShellEnvVarValues({ keys }),
+    ]);
+    // One probe runs; the two that arrived while it ran share the next one.
+    expect(readFileSync(probesPath, "utf8").trim().split("\n")).toHaveLength(2);
+    expect(results).toEqual([keys, [], []]);
+    // A refresh after they settle probes again.
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual([]);
+    expect(readFileSync(probesPath, "utf8").trim().split("\n")).toHaveLength(3);
   });
 });

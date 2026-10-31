@@ -25,6 +25,15 @@ const DEFAULT_LOGIN_SHELL_PROBE_TIMEOUT_MS = 10_000;
 let loginShellProbeTimeoutMs = DEFAULT_LOGIN_SHELL_PROBE_TIMEOUT_MS;
 let cachedLoginShellPath: string | null | undefined;
 const cachedLoginShellEnvVarValues = new Map<string, string | null>();
+/**
+ * Each login-shell probe attempt takes a number as it starts, and a cached env
+ * value remembers the attempt that stored it. An attempt that started before
+ * that one read an older profile, so it never overwrites the value: when
+ * probes and refreshes overlap, the last one started wins, not the last one to
+ * finish.
+ */
+let loginShellProbeSequence = 0;
+const cachedLoginShellEnvVarSequences = new Map<string, number>();
 const cachedLoginShellCommandPaths = new Map<string, string | null>();
 let cachedNodeVersionManagerBinDirs: string[] | null = null;
 let pendingExecutableLookup: Promise<void> | undefined;
@@ -252,6 +261,20 @@ export function resolveLoginShellEnvVarValue(args: {
   );
 }
 
+/** Stores what `sequence` read unless a later attempt already stored `key`; returns the cached value. */
+function storeLoginShellEnvVarValue(
+  key: string,
+  value: string | null,
+  sequence: number,
+) {
+  if ((cachedLoginShellEnvVarSequences.get(key) ?? 0) > sequence) {
+    return cachedLoginShellEnvVarValues.get(key) ?? null;
+  }
+  cachedLoginShellEnvVarValues.set(key, value);
+  cachedLoginShellEnvVarSequences.set(key, sequence);
+  return value;
+}
+
 type LoginShellEnvProbeArgs = {
   keys: readonly string[];
   cache?: boolean;
@@ -310,21 +333,24 @@ function* loginShellEnvProbes(
   }
 
   if (process.platform === "win32") {
+    const sequence = ++loginShellProbeSequence;
     for (const key of unresolvedKeys) {
-      values.set(key, null);
-      if (shouldCache) {
-        cachedLoginShellEnvVarValues.set(key, null);
-      }
+      values.set(
+        key,
+        shouldCache ? storeLoginShellEnvVarValue(key, null, sequence) : null,
+      );
     }
     return Object.fromEntries(values);
   }
 
   let pendingKeys = unresolvedKeys;
   let probeIncomplete = false;
+  let attemptSequence = ++loginShellProbeSequence;
   for (const shell of getLoginShellCandidates()) {
     if (pendingKeys.length === 0) {
       break;
     }
+    attemptSequence = ++loginShellProbeSequence;
 
     const markers = new Map(
       pendingKeys.map((key) => [
@@ -350,10 +376,12 @@ function* loginShellEnvProbes(
         marker: markers.get(key)!,
       });
       if (parsed) {
-        values.set(key, parsed);
-        if (shouldCache) {
-          cachedLoginShellEnvVarValues.set(key, parsed);
-        }
+        values.set(
+          key,
+          shouldCache
+            ? storeLoginShellEnvVarValue(key, parsed, attemptSequence)
+            : parsed,
+        );
       } else {
         nextPendingKeys.push(key);
       }
@@ -362,10 +390,12 @@ function* loginShellEnvProbes(
   }
 
   for (const key of pendingKeys) {
-    values.set(key, null);
-    if (shouldCache && !probeIncomplete) {
-      cachedLoginShellEnvVarValues.set(key, null);
-    }
+    values.set(
+      key,
+      shouldCache && !probeIncomplete
+        ? storeLoginShellEnvVarValue(key, null, attemptSequence)
+        : null,
+    );
   }
 
   return Object.fromEntries(values);
@@ -434,26 +464,64 @@ export async function resolveLoginShellEnvVarValuesAsync(
  * reach a provider until Stave restarts. Resolves to the keys whose cached
  * value changed (names only; values never leave this module's cache).
  */
-export async function refreshLoginShellEnvVarValues(args: {
+export function refreshLoginShellEnvVarValues(args: {
   keys: readonly string[];
-}) {
+}): Promise<string[]> {
   const keys = [
     ...new Set(
       args.keys
         .map((key) => sanitizeEnvVarName({ value: key }))
         .filter((key): key is string => Boolean(key)),
     ),
-  ];
-  const before = new Map(
-    keys.map((key) => [key, cachedLoginShellEnvVarValues.get(key)]),
-  );
-  await resolveLoginShellEnvVarValuesAsync({ keys, refresh: true });
-  // A key never probed before behaves like an unset one for running processes.
-  return keys.filter(
-    (key) =>
-      (cachedLoginShellEnvVarValues.get(key) ?? null) !==
-      (before.get(key) ?? null),
-  );
+  ].sort();
+  // Identical refreshes coalesce: while one runs, every new request for the
+  // same keys shares a single follow-up that starts once it finishes, so each
+  // caller still sees a probe that began after its request.
+  const signature = keys.join("\u0000");
+  const slot = loginShellRefreshes.get(signature);
+  if (!slot) {
+    const next: LoginShellRefreshSlot = { running: Promise.resolve([]), queued: null };
+    loginShellRefreshes.set(signature, next);
+    next.running = runLoginShellRefresh(signature, next, keys);
+    return next.running;
+  }
+  slot.queued ??= slot.running
+    .catch(() => [])
+    .then(() => {
+      slot.queued = null;
+      slot.running = runLoginShellRefresh(signature, slot, keys);
+      return slot.running;
+    });
+  return slot.queued;
+}
+
+type LoginShellRefreshSlot = {
+  running: Promise<string[]>;
+  queued: Promise<string[]> | null;
+};
+const loginShellRefreshes = new Map<string, LoginShellRefreshSlot>();
+
+async function runLoginShellRefresh(
+  signature: string,
+  slot: LoginShellRefreshSlot,
+  keys: readonly string[],
+) {
+  try {
+    const before = new Map(
+      keys.map((key) => [key, cachedLoginShellEnvVarValues.get(key)]),
+    );
+    await resolveLoginShellEnvVarValuesAsync({ keys, refresh: true });
+    // A key never probed before behaves like an unset one for running processes.
+    return keys.filter(
+      (key) =>
+        (cachedLoginShellEnvVarValues.get(key) ?? null) !==
+        (before.get(key) ?? null),
+    );
+  } finally {
+    if (!slot.queued && loginShellRefreshes.get(signature) === slot) {
+      loginShellRefreshes.delete(signature);
+    }
+  }
 }
 
 /**
@@ -603,6 +671,8 @@ export function resolveLoginShellCommandPath(args: { command: string }) {
 export function __resetExecutablePathCachesForTests() {
   cachedLoginShellPath = undefined;
   cachedLoginShellEnvVarValues.clear();
+  cachedLoginShellEnvVarSequences.clear();
+  loginShellRefreshes.clear();
   cachedLoginShellCommandPaths.clear();
   cachedNodeVersionManagerBinDirs = null;
   pendingExecutableLookup = undefined;
