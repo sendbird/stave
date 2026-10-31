@@ -561,7 +561,7 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
   ).toBeVisible();
   await expect(
     settingsHeader.getByText(
-      "Workspace defaults, notifications, and app behavior.",
+      "Set the language, notifications, and app behavior.",
     ),
   ).toBeVisible();
 
@@ -605,7 +605,7 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
     settings.getByRole("tab", { name: "Skills", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await expect(
-    settingsHeader.getByText("Skill discovery and prompt input suggestions."),
+    settingsHeader.getByText("Enable skills and choose whether the composer suggests them."),
   ).toBeVisible();
 
   await page.screenshot({
