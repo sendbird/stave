@@ -51,13 +51,14 @@ project:
 
 Nothing else can be overridden per project.
 
-1. Open `Settings`.
-2. At the top, change `Applying settings to` from `All projects` to the project.
+1. Open `Settings > Models` or `Settings > Providers`. Only these pages show
+   the scope bar; every other page always edits the values all projects share.
    Search for "project" or "scope" in the settings search to jump there.
-3. Go to `Models` or `Providers`. Each control you can set for the project shows
-   `Global value` or `Project value`; `Use global value` removes the project's
-   value. Other controls, and every other section, apply to all projects and
-   stay read-only while a project is selected.
+2. At the top, change `Applying settings to` from `All projects` to the project.
+3. Each control you can set for the project shows `Global value` or
+   `Project value`; `Use global value` removes the project's value. Other
+   controls on these pages apply to all projects and stay read-only while a
+   project is selected.
 
 New tasks and turns in that project start from its values. A model, effort or
 mode you pick in the composer for a task still wins over both. Removing the

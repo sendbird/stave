@@ -94,6 +94,16 @@ async function providersSection() {
 }
 
 describe("Settings scope rendering", () => {
+  test("only Models and Providers are project scoped", async () => {
+    const { isProjectScopedSettingsSection } = await import(
+      "../src/components/layout/settings-scope"
+    );
+    expect(isProjectScopedSettingsSection("models")).toBe(true);
+    expect(isProjectScopedSettingsSection("providers")).toBe(true);
+    expect(isProjectScopedSettingsSection("chat")).toBe(false);
+    expect(isProjectScopedSettingsSection("projects")).toBe(false);
+  });
+
   test("global scope shows no project badges or locks", async () => {
     const html = await renderInScope(null, modelsSection);
     expect(html).not.toContain("data-settings-scope-status");
@@ -116,7 +126,7 @@ describe("Settings scope rendering", () => {
     expect(html).toContain("data-settings-scope-locked");
   });
 
-  test("non-overridable sections say they apply to all projects", async () => {
+  test("sections without per-project values ignore the project scope", async () => {
     await seedStore();
     const { SettingsScopeProvider, SettingsScopeSectionFrame } = await import(
       "../src/components/layout/settings-scope"
@@ -137,8 +147,6 @@ describe("Settings scope rendering", () => {
         }),
       ),
     );
-    expect(html).toContain("These settings apply to all projects");
-    expect(html).toContain("Edit for all projects");
-    expect(html).toContain("data-settings-scope-locked");
+    expect(html).toBe("<p>chat body</p>");
   });
 });

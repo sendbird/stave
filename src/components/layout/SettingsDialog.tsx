@@ -39,7 +39,11 @@ import {
 import { resolveSettingsRepositorySelection } from "./settings-dialog.utils";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
-import { SettingsScopeProvider, SettingsScopeSectionFrame } from "./settings-scope";
+import {
+  isProjectScopedSettingsSection,
+  SettingsScopeProvider,
+  SettingsScopeSectionFrame,
+} from "./settings-scope";
 import { SETTINGS_SCOPE_PICKER_ID, SettingsScopeBar } from "./settings-scope-bar";
 import {
   resolveSettingsSearch,
@@ -278,7 +282,13 @@ export function SettingsDialog(args: SettingsDialogProps) {
   // Both layouts open a result the same way; the results stay listed until
   // the search is cleared, so the chosen row keeps focus or hands it to the
   // setting it opened.
-  const selectScopeResult = () => setPendingFieldId(SETTINGS_SCOPE_PICKER_ID);
+  // The scope bar shows only on sections with per-project values.
+  const selectScopeResult = () => {
+    if (!isProjectScopedSettingsSection(activeSection)) {
+      setActiveSection("models");
+    }
+    setPendingFieldId(SETTINGS_SCOPE_PICKER_ID);
+  };
   const selectFieldResult = (field: SettingsSearchField) => {
     setActiveSection(field.sectionId);
     setPendingFieldId(field.fieldId);
@@ -508,10 +518,12 @@ export function SettingsDialog(args: SettingsDialogProps) {
               ) : null}
 
               <SettingsScopeProvider value={scopeValue}>
-                <SettingsScopeBar
-                  repositories={repositories}
-                  currentRepositoryPath={repositoryPath}
-                />
+                {isProjectScopedSettingsSection(activeSection) ? (
+                  <SettingsScopeBar
+                    repositories={repositories}
+                    currentRepositoryPath={repositoryPath}
+                  />
+                ) : null}
                 <div
                   className={sx(styles.body)}
                   {...(hasPageTabs

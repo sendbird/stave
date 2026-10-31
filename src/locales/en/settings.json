@@ -1523,11 +1523,6 @@
       "scoped": {
         "title": "Editing defaults for {{project}}",
         "description": "Default models, effort and permission modes set here apply only to new tasks and turns in this project. Other settings in this section apply to all projects. A model, effort or mode chosen in the composer still wins."
-      },
-      "globalOnly": {
-        "title": "These settings apply to all projects",
-        "description": "{{project}} uses the same values as every other project here. Switch to All projects to change them.",
-        "action": "Edit for all projects"
       }
     },
     "field": {

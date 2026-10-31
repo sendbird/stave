@@ -176,73 +176,49 @@ const PROJECT_SCOPED_SECTION_IDS: ReadonlySet<SectionId> = new Set([
   "models",
   "providers",
 ]);
-/** Sections that already pick a repository themselves. */
-const PER_REPOSITORY_SECTION_IDS: ReadonlySet<SectionId> = new Set([
-  "projects",
-  "scripts",
-  "memory",
-]);
 
-function ScopeNotice(args: {
-  title: string;
-  description: string;
-  action?: ReactNode;
-}) {
+/**
+ * Only Models and Providers hold values a project can override, so only they
+ * show the scope bar. Every other section always edits the values shared by
+ * all projects (or, for Projects, picks its repository itself).
+ */
+export function isProjectScopedSettingsSection(sectionId: SectionId) {
+  return PROJECT_SCOPED_SECTION_IDS.has(sectionId);
+}
+
+function ScopeNotice(args: { title: string; description: string }) {
   return (
     <div className={sx(styles.notice)} role="note" data-settings-scope-notice="">
       <div className={sx(styles.noticeText)}>
         <p className={sx(styles.noticeTitle)}>{args.title}</p>
         <p className={sx(styles.noticeDescription)}>{args.description}</p>
       </div>
-      {args.action}
     </div>
   );
 }
 
 /**
  * Wraps the active section. In project scope, Models and Providers explain
- * what applies to the project; every other settings section says it applies
- * to all projects and stays read-only until the scope is All projects.
+ * what applies to the project; other sections ignore the scope because they
+ * have no per-project values.
  */
 export function SettingsScopeSectionFrame(args: {
   sectionId: SectionId;
   children: ReactNode;
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const { repositoryPath, repositoryName, setRepositoryPath } =
-    useSettingsScope();
-  if (!repositoryPath || PER_REPOSITORY_SECTION_IDS.has(args.sectionId)) {
+  const { repositoryPath, repositoryName } = useSettingsScope();
+  if (!repositoryPath || !isProjectScopedSettingsSection(args.sectionId)) {
     return <>{args.children}</>;
   }
   const project = repositoryName ?? repositoryPath;
-  if (PROJECT_SCOPED_SECTION_IDS.has(args.sectionId)) {
-    return (
-      <>
-        <ScopeNotice
-          title={t("settings:scope.notice.scoped.title", { project })}
-          description={t("settings:scope.notice.scoped.description")}
-        />
-        {args.children}
-      </>
-    );
-  }
   return (
     <>
       <ScopeNotice
-        title={t("settings:scope.notice.globalOnly.title")}
-        description={t("settings:scope.notice.globalOnly.description", { project })}
-        action={
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setRepositoryPath(null)}
-          >
-            {t("settings:scope.notice.globalOnly.action")}
-          </Button>
-        }
+        title={t("settings:scope.notice.scoped.title", { project })}
+        description={t("settings:scope.notice.scoped.description")}
       />
-      <ScopeLocked>{args.children}</ScopeLocked>
+      {args.children}
     </>
   );
 }
