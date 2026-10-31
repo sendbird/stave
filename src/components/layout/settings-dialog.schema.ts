@@ -86,7 +86,7 @@ export const settingsSections = [
     labelKey: "settings:sections.projects.label",
     icon: Folder,
     descriptionKey: "settings:sections.projects.description",
-    keywords: ["repo", "repository", "root", "workspaces"],
+    keywords: ["repo", "repository", "repositories", "root", "workspaces"],
   },
   {
     id: "scripts",
@@ -110,7 +110,7 @@ export const settingsSections = [
     labelKey: "settings:sections.theme.label",
     icon: Palette,
     descriptionKey: "settings:sections.theme.description",
-    keywords: ["appearance", "color", "dark", "light", "custom theme"],
+    keywords: ["design", "디자인", "appearance", "color", "dark", "light", "custom theme"],
   },
   {
     id: "chat",
@@ -161,6 +161,10 @@ export const settingsSections = [
       "billing",
       "getting started",
       "onboarding",
+      // CLI install status for these providers lives on the Accounts page.
+      "cursor",
+      "kiro",
+      "opencode",
       "계정",
       "로그인",
       "구독",
@@ -179,8 +183,6 @@ export const settingsSections = [
       "plugins",
       "marketplace",
       "플러그인",
-      "cursor",
-      "kiro",
       "opencode",
       "sandbox",
       "permission",
@@ -223,8 +225,6 @@ export const settingsSections = [
     keywords: [
       "claude",
       "codex",
-      "cursor",
-      "kiro",
       "opencode",
       "model",
       "default model",
@@ -405,6 +405,8 @@ export const settingsSections = [
     icon: KeyRound,
     descriptionKey: "settings:sections.commandPalette.description",
     keywords: [
+      "command palette",
+      "명령 팔레트",
       "shortcuts",
       "hotkeys",
       "keyboard",
@@ -484,6 +486,10 @@ export type SectionId = (typeof settingsSections)[number]["id"];
 
 export type SettingsSection = (typeof settingsSections)[number];
 
+export const settingsSectionsById = Object.fromEntries(
+  settingsSections.map((section) => [section.id, section]),
+) as Record<SectionId, SettingsSection>;
+
 /** Sections that only show while Settings > General > Developer mode is on. */
 const DEVELOPER_MODE_SECTION_IDS: ReadonlySet<SectionId> = new Set<SectionId>([
   "developer",
@@ -520,49 +526,6 @@ export function resolveVisibleSettingsSection(
 ): SectionId {
   return isSettingsSectionVisible(sectionId, visibility) ? sectionId : "general";
 }
-
-export const settingsSectionGroups: Array<{
-  labelKey: SettingsI18nKey;
-  ids: SectionId[];
-}> = [
-  { labelKey: "settings:sections.groups.workspace", ids: ["general"] },
-  {
-    labelKey: "settings:sections.groups.appearance",
-    ids: ["theme", "chat", "editor", "terminal"],
-  },
-  {
-    labelKey: "settings:sections.groups.repositories",
-    ids: ["projects", "scripts"],
-  },
-  {
-    labelKey: "settings:sections.groups.aiAgents",
-    ids: [
-      "accounts",
-      "providers",
-      "presets",
-      "macros",
-      "models",
-      "autoRouting",
-      "mcp",
-      "integrations",
-      "issues",
-      "kickoff",
-      "auxiliaryInference",
-      "prompts",
-      "memory",
-      "skills",
-      "mentions",
-    ],
-  },
-  {
-    labelKey: "settings:sections.groups.interface",
-    ids: ["commandPalette", "lens", "secrets"],
-  },
-  {
-    labelKey: "settings:sections.groups.systemAdvanced",
-    ids: ["tooling", "developer", "changelog"],
-  },
-];
 
 /**
  * Lowercased search haystack for catalog-backed copy plus keyword aliases.

@@ -596,10 +596,14 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
   await settings
     .getByRole("textbox", { name: "Search settings" })
     .fill("skills");
-  await settings.getByRole("button", { name: "Skills" }).click();
+  // The search points the page at the tab that matched.
+  await settings.getByRole("button", { name: "Prompts & Skills" }).click();
   await expect(
-    settingsHeader.getByRole("heading", { name: "Skills" }),
+    settingsHeader.getByRole("heading", { name: "Prompts & Skills" }),
   ).toBeVisible();
+  await expect(
+    settings.getByRole("tab", { name: "Skills", exact: true }),
+  ).toHaveAttribute("aria-selected", "true");
   await expect(
     settingsHeader.getByText("Skill discovery and prompt input suggestions."),
   ).toBeVisible();

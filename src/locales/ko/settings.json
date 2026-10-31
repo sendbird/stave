@@ -999,7 +999,7 @@
       "description": "개발하는 동안 켜 두는 장기 실행 프로세스와 일회성 명령, 라이프사이클 트리거, 환경을 관리합니다."
     },
     "theme": {
-      "label": "디자인",
+      "label": "모양",
       "description": "테마, 색상, 시각 스타일을 설정합니다."
     },
     "chat": {
@@ -1055,7 +1055,7 @@
       "description": "프롬프트의 @ 멘션별 동작과, 멘션 없이 Stave가 어디까지 처리할지 설정합니다."
     },
     "commandPalette": {
-      "label": "명령 팔레트",
+      "label": "키보드 및 명령",
       "description": "전역 명령 실행기, 셸 단축키 조합, 모델 단축키를 설정합니다."
     },
     "terminal": {
@@ -1088,11 +1088,10 @@
     },
     "groups": {
       "workspace": "워크스페이스",
-      "appearance": "모양",
-      "repositories": "저장소",
-      "aiAgents": "AI 및 에이전트",
-      "interface": "인터페이스",
-      "systemAdvanced": "시스템 및 고급"
+      "app": "앱",
+      "projects": "프로젝트",
+      "agents": "에이전트",
+      "system": "시스템"
     },
     "fields": {
       "autoRoutingEnabled": {
@@ -1175,6 +1174,21 @@
     "accounts": {
       "label": "계정",
       "description": "Claude와 Codex에 로그인하거나, 구독 계정을 추가하거나, 토큰 단위로 과금되는 게이트웨이 키를 연결합니다."
+    }
+  },
+  "pages": {
+    "editorTerminal": "편집기 및 터미널",
+    "browser": "브라우저",
+    "projects": "프로젝트",
+    "presetsMacros": "프리셋 및 매크로",
+    "promptsSkills": "프롬프트 및 스킬"
+  },
+  "projectsPage": {
+    "picker": {
+      "label": "프로젝트",
+      "placeholder": "프로젝트 선택",
+      "searchPlaceholder": "프로젝트 검색…",
+      "empty": "일치하는 프로젝트가 없습니다."
     }
   },
   "macroEditor": {
@@ -1281,10 +1295,7 @@
     "savePreset": "프리셋 저장"
   },
   "settingsDialogScriptsSection": {
-    "openARepositoryFromTheSidebar": "사이드바에서 저장소를 열면 프로세스와 명령을 설정할 수 있습니다.",
-    "configurationRepository": "설정할 저장소",
-    "selectARepository": "저장소 선택",
-    "current": " (현재)"
+    "openARepositoryFromTheSidebar": "사이드바에서 저장소를 열면 프로세스와 명령을 설정할 수 있습니다."
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "독립 CLI",

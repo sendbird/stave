@@ -475,8 +475,9 @@ test("settings modal and workspace modal open", async ({ page }) => {
   await expect(settingsDialog).toBeVisible();
   await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
   await settingsDialog
-    .getByRole("button", { name: "Lens", exact: true })
+    .getByRole("button", { name: "Browser", exact: true })
     .click();
+  await settingsDialog.getByRole("tab", { name: "Lens", exact: true }).click();
   await expect(
     settingsDialog.getByRole("heading", { name: "Agent Activity" }),
   ).toBeVisible();
@@ -1270,7 +1271,10 @@ test("scripts manager waits for default scope and keeps draft entries dirty", as
   await page.getByRole("button", { name: "open-settings" }).click();
   const settingsDialog = page.getByRole("dialog", { name: "Settings" });
   await settingsDialog
-    .getByRole("button", { name: "Workspace Tools", exact: true })
+    .getByRole("button", { name: "Projects", exact: true })
+    .click();
+  await settingsDialog
+    .getByRole("tab", { name: "Workspace Tools", exact: true })
     .click();
 
   await page.waitForTimeout(150);

@@ -1005,7 +1005,7 @@
       "description": "Reusable prompt snippets with optional model pins and instant run."
     },
     "projects": {
-      "label": "Repositories",
+      "label": "Repository",
       "description": "Repository-level paths, setup prompts, and workspace defaults."
     },
     "scripts": {
@@ -1013,7 +1013,7 @@
       "description": "Long-running processes you leave up while developing, plus one-shot commands, lifecycle triggers, and environments."
     },
     "theme": {
-      "label": "Design",
+      "label": "Appearance",
       "description": "Theme, color, and visual styling."
     },
     "chat": {
@@ -1069,7 +1069,7 @@
       "description": "What each @ mention does in a prompt, and how far Stave acts without one."
     },
     "commandPalette": {
-      "label": "Command Palette",
+      "label": "Keyboard & Commands",
       "description": "Global command launcher, shell shortcut chords, and model hotkeys."
     },
     "terminal": {
@@ -1102,11 +1102,10 @@
     },
     "groups": {
       "workspace": "Workspace",
-      "appearance": "Appearance",
-      "repositories": "Repositories",
-      "aiAgents": "AI & Agents",
-      "interface": "Interface",
-      "systemAdvanced": "System & Advanced"
+      "app": "App",
+      "projects": "Projects",
+      "agents": "Agents",
+      "system": "System"
     },
     "fields": {
       "autoRoutingEnabled": {
@@ -1189,6 +1188,21 @@
     "accounts": {
       "label": "Accounts",
       "description": "Sign in to Claude and Codex, add a second subscription, or connect a gateway key billed per token."
+    }
+  },
+  "pages": {
+    "editorTerminal": "Editor & Terminal",
+    "browser": "Browser",
+    "projects": "Projects",
+    "presetsMacros": "Presets & Macros",
+    "promptsSkills": "Prompts & Skills"
+  },
+  "projectsPage": {
+    "picker": {
+      "label": "Project",
+      "placeholder": "Select a project",
+      "searchPlaceholder": "Search projects…",
+      "empty": "No matching projects."
     }
   },
   "macroEditor": {
@@ -1295,10 +1309,7 @@
     "savePreset": "Save preset"
   },
   "settingsDialogScriptsSection": {
-    "openARepositoryFromTheSidebar": "Open a repository from the sidebar to configure its processes and commands.",
-    "configurationRepository": "Configuration repository",
-    "selectARepository": "Select a repository",
-    "current": " (current)"
+    "openARepositoryFromTheSidebar": "Open a repository from the sidebar to configure its processes and commands."
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "Standalone CLI",

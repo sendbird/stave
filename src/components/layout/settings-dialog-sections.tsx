@@ -97,10 +97,7 @@ export function SettingsDialogSectionContent(args: {
     case "memory":
       return (
         <RepositoryMemorySettingsSection
-          repositories={args.repositories}
-          initialRepositoryPath={
-            args.selectedRepositoryPath ?? args.currentRepositoryPath
-          }
+          repositoryPath={args.selectedRepositoryPath ?? null}
         />
       );
     case "developer":

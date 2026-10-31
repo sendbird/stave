@@ -8,10 +8,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * The left navigation is the ADS AppShell `Sidebar`, which owns its own
  * palette; the reverted revision re-skinned it with product `--sidebar-*`
  * utility classes. Those color overrides were cosmetic drift over the ADS
- * default and are dropped here. The few product-owned marks that have no ADS
- * token (the search field tint, the "current" pill) read the `--sidebar-*`
- * custom properties from `globals.css`, which is the AppShell sidebar theme
- * contract and an intentional engine-integration hook.
+ * default and are dropped here.
  */
 export const settingsDialogStyles = stylex.create({
   backdrop: {
@@ -93,28 +90,9 @@ export const settingsDialogStyles = stylex.create({
     fontSize: vars["--ads-font-size-body"],
     minBlockSize: vars["--ads-control-height-sm"],
   },
-  menuButtonGap: {
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
-    minBlockSize: vars["--ads-control-height-sm"],
-  },
   menuSectionLabel: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
-  },
-  currentPill: {
-    backgroundColor: vars["--ads-color-surface-tint"],
-    borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.14em",
-    paddingBlock: vars["--ads-space-2"],
-    paddingInline: vars["--ads-space-4"],
-    textTransform: "uppercase",
-  },
-  currentPillActive: {
-    color: "var(--sidebar-primary)",
   },
   emptyResults: {
     color: vars["--ads-color-text-muted"],
@@ -150,6 +128,10 @@ export const settingsDialogStyles = stylex.create({
       default: vars["--ads-space-16"],
       "@media (min-width: 640px)": vars["--ads-space-32"],
     },
+  },
+  // A page with tabs: the tab strip under the header draws the rule.
+  headerAboveTabs: {
+    borderBottomWidth: 0,
   },
   headerMacPad: {
     paddingBlockEnd: {

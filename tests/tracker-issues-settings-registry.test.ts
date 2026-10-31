@@ -4,9 +4,9 @@ import { i18n } from "@/i18n/runtime";
 import { settingDefinitions } from "../src/components/layout/settings-dialog.registry";
 import {
   matchesSettingsSection,
-  settingsSectionGroups,
   settingsSections,
 } from "../src/components/layout/settings-dialog.schema";
+import { getSettingsPageId } from "../src/components/layout/settings-dialog.pages";
 import {
   DEFAULT_JIRA_CONNECTOR_SETTINGS,
   DEFAULT_JIRA_JQL,
@@ -54,9 +54,7 @@ describe("tracker issues and Jira settings registry", () => {
     expect(section?.labelKey).toBe("settings:sections.issues.label");
     expect(i18n.getFixedT("en")(section!.labelKey)).toBe("Issues");
     expect(i18n.getFixedT("ko")(section!.labelKey)).toBe("이슈");
-    expect(
-      settingsSectionGroups.some((group) => group.ids.includes("issues")),
-    ).toBe(true);
+    expect(getSettingsPageId("issues")).toBe("integrations");
     // Search has to find the surface by the words people actually type.
     expect(matchesSettingsSection(section!, "tickets")).toBe(true);
     expect(matchesSettingsSection(section!, "tracker")).toBe(true);

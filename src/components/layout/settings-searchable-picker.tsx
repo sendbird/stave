@@ -1,5 +1,6 @@
 import { useId, useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
+import { Badge } from "@/components/ads/components/Badge";
 import { controlChrome } from "@/components/ads/recipes/control-chrome";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import {
@@ -31,7 +32,17 @@ export type SearchablePickerOption = {
   icon?: ReactNode;
   /** More words the search matches, such as a full identifier or a description. */
   keywords?: readonly string[];
+  /** Short marker after the label, such as "current". */
+  badge?: string;
 };
+
+function OptionBadge(props: { label?: string }) {
+  return props.label ? (
+    <Badge size="sm" tone="neutral" variant="outline" xstyle={styles.badge}>
+      {props.label}
+    </Badge>
+  ) : null;
+}
 
 /**
  * A field-shaped picker whose search box lives inside its own list. A filter
@@ -88,6 +99,7 @@ export function SearchablePicker(props: {
             <>
               {current?.icon ? <span aria-hidden className={sx(styles.icon)}>{current.icon}</span> : null}
               <span className={sx(styles.valueLabel)}>{label}</span>
+              <OptionBadge label={current?.badge} />
               {detail ? <span className={sx(styles.valueDetail)}>{detail}</span> : null}
             </>
           ) : (
@@ -128,7 +140,14 @@ export function SearchablePicker(props: {
                   >
                     {option.icon ? <span aria-hidden className={sx(styles.icon, styles.itemIcon)}>{option.icon}</span> : null}
                     <span className={sx(styles.itemText)}>
-                      <span className={sx(styles.itemLabel)}>{option.label}</span>
+                      {option.badge ? (
+                        <span className={sx(styles.itemLabelRow)}>
+                          <span className={sx(styles.itemLabel)}>{option.label}</span>
+                          <OptionBadge label={option.badge} />
+                        </span>
+                      ) : (
+                        <span className={sx(styles.itemLabel)}>{option.label}</span>
+                      )}
                       {option.detail && option.detail !== option.label ? (
                         <span className={sx(styles.itemDetail)}>{option.detail}</span>
                       ) : null}

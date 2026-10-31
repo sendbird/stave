@@ -292,7 +292,7 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(settings.locator("[data-cli-missing]")).toContainText("Not installed: Cursor Agent");
     await shot(page, testInfo, `settings-accounts-${themeMode}`);
 
-    await settings.getByRole("button", { name: "Tooling", exact: true }).click();
+    await settings.getByRole("tab", { name: "Tooling", exact: true }).click();
     await expect(settings.getByText("Accounts and API connections moved to Settings > Accounts.")).toBeVisible();
     await expect(settings.getByText("Company gateway")).toHaveCount(0);
     await shot(page, testInfo, `settings-tooling-${themeMode}`);

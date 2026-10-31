@@ -1,7 +1,7 @@
 import { I18N_NAMESPACES, useTranslation } from "@/i18n";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
-import { ArrowLeft, Folder, Search, X } from "lucide-react";
+import { ArrowLeft, Search, X } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ads/components/Button";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -18,20 +18,22 @@ import {
 import {
   Sidebar,
   SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
 import { captureCurrentRepositoryState } from "@/store/repository.utils";
 import {
-  listVisibleSettingsSections,
+  getSettingsPageId,
+  listVisibleSettingsPageSections,
+  listVisibleSettingsPages,
+  resolveSettingsPageSection,
+  settingsPagesById,
+  type SettingsPageId,
+} from "./settings-dialog.pages";
+import {
   resolveVisibleSettingsSection,
+  settingsSectionsById,
   type SectionId,
 } from "./settings-dialog.schema";
 import { resolveSettingsRepositorySelection } from "./settings-dialog.utils";
@@ -41,10 +43,17 @@ import { SettingsScopeProvider, SettingsScopeSectionFrame } from "./settings-sco
 import { SETTINGS_SCOPE_PICKER_ID, SettingsScopeBar } from "./settings-scope-bar";
 import {
   resolveSettingsSearch,
-  settingsSectionsById as sectionsById,
   type SettingsSearchField,
+  type SettingsSearchTarget,
 } from "./settings-search";
 import { SettingsSearchResults } from "./settings-search-results";
+import {
+  SETTINGS_PAGE_PANEL_ID,
+  SettingsPageTabs,
+  settingsPageTabId,
+} from "./settings-page-tabs";
+import { SettingsPageNav } from "./settings-page-nav";
+import { SettingsProjectPicker } from "./settings-project-picker";
 import { settingsDialogStyles as styles } from "./SettingsDialog.styles";
 
 interface SettingsDialogProps {
@@ -239,10 +248,33 @@ export function SettingsDialog(args: SettingsDialogProps) {
     return null;
   }
 
-  const activeSectionData = sectionsById[activeSection];
-  const availableSections = listVisibleSettingsSections(sectionVisibility);
+  const activeSectionData = settingsSectionsById[activeSection];
+  const activePageId = getSettingsPageId(activeSection);
+  const activePage = settingsPagesById[activePageId];
+  const activePageSections = listVisibleSettingsPageSections(
+    activePageId,
+    sectionVisibility,
+  );
+  const hasPageTabs = activePageSections.length > 1;
+  const availablePages = listVisibleSettingsPages(sectionVisibility);
   const search = resolveSettingsSearch(searchQuery, sectionVisibility);
-  const visibleGroups = search.groups;
+  // Choosing the page already open keeps its tab, unless a search points at
+  // a particular tab of it.
+  const openPage = (target: SettingsSearchTarget) => {
+    if (target.pageId === activePageId && !search.query) {
+      return;
+    }
+    setActiveSection(target.sectionId);
+  };
+  const openPageById = (pageId: SettingsPageId) =>
+    openPage({
+      pageId,
+      sectionId: resolveSettingsPageSection(pageId, sectionVisibility),
+    });
+  const selectProject = (nextRepositoryPath: string) => {
+    allowHighlightedOverrideRef.current = false;
+    setSelectedRepositoryPath(nextRepositoryPath);
+  };
   // Both layouts open a result the same way; the results stay listed until
   // the search is cleared, so the chosen row keeps focus or hands it to the
   // setting it opened.
@@ -334,98 +366,21 @@ export function SettingsDialog(args: SettingsDialogProps) {
                   onSelectScope={selectScopeResult}
                   onSelectField={selectFieldResult}
                 />
-                {visibleGroups.map((group) => (
-                  <SidebarGroup key={group.labelKey}>
-                    <SidebarGroupLabel className={sx(styles.groupLabel)}>
-                      {t(group.labelKey)}
-                    </SidebarGroupLabel>
-                    <SidebarGroupContent>
-                      <SidebarMenu>
-                        {group.ids.map((sectionId) => {
-                          if (sectionId === "projects") {
-                            return repositories.length === 0 ? (
-                              <SidebarMenuItem key="projects-empty">
-                                <SidebarMenuButton
-                                  size="sm"
-                                  current={activeSection === "projects"}
-                                  onClick={() => setActiveSection("projects")}
-                                  icon={<Folder />}
-                                >
-                                  {t("settings:dialog.noRepositories")}
-                                </SidebarMenuButton>
-                              </SidebarMenuItem>
-                            ) : (
-                              repositories.map((repository) => {
-                                const current =
-                                  repository.repositoryPath === repositoryPath;
-                                const active =
-                                  activeSection === "projects" &&
-                                  selectedRepositoryPath === repository.repositoryPath;
-
-                                return (
-                                  <SidebarMenuItem key={repository.repositoryPath}>
-                                    <SidebarMenuButton
-                                      size="sm"
-                                      current={active}
-                                      title={repository.repositoryPath}
-                                      onClick={() => {
-                                        allowHighlightedOverrideRef.current = false;
-                                        setSelectedRepositoryPath(
-                                          repository.repositoryPath,
-                                        );
-                                        setActiveSection("projects");
-                                      }}
-                                      className={sx(styles.menuButtonGap)}
-                                      icon={<Folder />}
-                                      badge={
-                                        current ? (
-                                          <span
-                                            className={sx(
-                                              styles.currentPill,
-                                              active &&
-                                                styles.currentPillActive,
-                                            )}
-                                          >
-                                            {t("settings:dialog.currentRepository")}
-                                          </span>
-                                        ) : undefined
-                                      }
-                                    >
-                                      {repository.repositoryName}
-                                    </SidebarMenuButton>
-                                  </SidebarMenuItem>
-                                );
-                              })
-                            );
-                          }
-
-                          const section = sectionsById[sectionId];
-                          const Icon = section.icon;
-                          const active = activeSection === section.id;
-
-                          return (
-                            <SidebarMenuItem key={section.id}>
-                              <SidebarMenuButton
-                                current={active}
-                                onClick={() => setActiveSection(section.id)}
-                                className={sx(styles.menuButton)}
-                                icon={<Icon />}
-                              >
-                                {t(section.labelKey)}
-                              </SidebarMenuButton>
-                            </SidebarMenuItem>
-                          );
-                        })}
-                      </SidebarMenu>
-                    </SidebarGroupContent>
-                  </SidebarGroup>
-                ))}
+                <SettingsPageNav
+                  groups={search.groups}
+                  activePageId={activePageId}
+                  onOpenPage={openPage}
+                />
               </SidebarContent>
             </Sidebar>
 
             <main className={sx(styles.main)}>
               <header
-                className={sx(styles.header, IS_MAC && styles.headerMacPad)}
+                className={sx(
+                  styles.header,
+                  IS_MAC && styles.headerMacPad,
+                  hasPageTabs && styles.headerAboveTabs,
+                )}
               >
                 <div className={sx(styles.headerDesktop)}>
                   <div className={sx(styles.breadcrumbRow)}>
@@ -439,7 +394,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       /
                     </span>
                     <h1 className={sx(styles.headerTitle)}>
-                      {t(activeSectionData.labelKey)}
+                      {t(activePage.labelKey)}
                     </h1>
                   </div>
                   <p className={sx(styles.headerDescription)}>
@@ -466,23 +421,26 @@ export function SettingsDialog(args: SettingsDialogProps) {
                       </span>
                     </Tooltip>
                     <Select
-                      value={activeSection}
-                      onValueChange={(value) =>
-                        setActiveSection(value as SectionId)
-                      }
+                      value={activePageId}
+                      onValueChange={(value) => {
+                        const page = availablePages.find(
+                          (candidate) => candidate.id === value,
+                        );
+                        if (page) {
+                          openPageById(page.id);
+                        }
+                      }}
                     >
                       <SelectTrigger
                         aria-label={t("settings:dialog.sectionSelect")}
                         className={sx(styles.mobileSelectTrigger)}
                       >
-                        <SelectValue>
-                          {t(activeSectionData.labelKey)}
-                        </SelectValue>
+                        <SelectValue>{t(activePage.labelKey)}</SelectValue>
                       </SelectTrigger>
                       <SelectContent>
-                        {availableSections.map((section) => (
-                          <SelectItem key={section.id} value={section.id}>
-                            {t(section.labelKey)}
+                        {availablePages.map((page) => (
+                          <SelectItem key={page.id} value={page.id}>
+                            {t(page.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -519,16 +477,16 @@ export function SettingsDialog(args: SettingsDialogProps) {
                   {/*
                     The sidebar, and the results it lists, is hidden on a
                     narrow window, so the matches appear under this input.
-                    The narrow layout has no section list for a matching
-                    section to show in, so those sections are results here.
+                    The narrow layout has no page list for a matching page to
+                    show in, so those pages are results here.
                   */}
                   {search.query ? (
                     <div className={sx(styles.mobileResults)}>
                       <SettingsSearchResults
                         id={NARROW_SEARCH_RESULTS_ID}
                         search={search}
-                        includeSections
-                        activeSection={activeSection}
+                        includePages
+                        activePageId={activePageId}
                         onSelectScope={selectScopeResult}
                         onSelectField={selectFieldResult}
                         onSelectSection={setActiveSection}
@@ -537,14 +495,42 @@ export function SettingsDialog(args: SettingsDialogProps) {
                   ) : null}
                 </div>
               </header>
+              {hasPageTabs ? (
+                // Keyed by page: the active bar slides between tabs of one
+                // page, never from another page's strip.
+                <SettingsPageTabs
+                  key={activePageId}
+                  label={t(activePage.labelKey)}
+                  sectionIds={activePageSections}
+                  activeSectionId={activeSection}
+                  onSelectSection={setActiveSection}
+                />
+              ) : null}
 
               <SettingsScopeProvider value={scopeValue}>
                 <SettingsScopeBar
                   repositories={repositories}
                   currentRepositoryPath={repositoryPath}
                 />
-                <div className={sx(styles.body)}>
+                <div
+                  className={sx(styles.body)}
+                  {...(hasPageTabs
+                    ? {
+                        id: SETTINGS_PAGE_PANEL_ID,
+                        role: "tabpanel",
+                        "aria-labelledby": settingsPageTabId(activeSection),
+                      }
+                    : {})}
+                >
                   <div className={sx(styles.bodyInner)}>
+                    {activePageId === "projects" ? (
+                      <SettingsProjectPicker
+                        repositories={repositories}
+                        currentRepositoryPath={repositoryPath}
+                        selectedRepositoryPath={selectedRepositoryPath}
+                        onSelect={selectProject}
+                      />
+                    ) : null}
                     <SettingsScopeSectionFrame sectionId={activeSection}>
                       <SettingsDialogSectionContent
                         sectionId={activeSection}
