@@ -729,7 +729,7 @@
       "inUse": "In use"
     },
     "cliManaged": {
-      "title": "Cursor, Kiro and OpenCode sign-in",
+      "title": "Other agent CLIs",
       "description": "These CLIs keep their own sign-in. Stave shows whether they are signed in and the command that signs in.",
       "checking": "Checking",
       "installHint": "Install {{value1}} to use it. Settings > Accounts > Tooling shows where Stave looks.",

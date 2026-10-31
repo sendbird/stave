@@ -82,7 +82,7 @@ describe("Settings > Accounts", () => {
       "Use a company gateway key",
       "Claude accounts",
       "Codex accounts",
-      "Cursor, Kiro and OpenCode sign-in",
+      "Other agent CLIs",
       "API connections",
       "Add a connection",
       "How accounts, subscriptions and gateway keys work",
