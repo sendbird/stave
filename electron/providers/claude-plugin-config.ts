@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { noteClaudePluginMcpDocumentPath } from "./mcp-env";
 
 /**
  * Claude plugin discovery and enablement.
@@ -346,6 +347,8 @@ function addClaudePluginMcpConfigPaths(target: Set<string>, installPath: string)
     const filePath = path.resolve(root, entry);
     // Claude Code refuses a component path that escapes the plugin root.
     if (filePath !== root && isPathInside({ parent: root, child: filePath })) {
+      // The manifest says what this file is; its name does not.
+      noteClaudePluginMcpDocumentPath(filePath);
       target.add(filePath);
     }
   }

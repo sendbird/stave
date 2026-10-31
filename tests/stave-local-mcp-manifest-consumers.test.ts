@@ -20,8 +20,6 @@ const MANIFEST_OWNERS = new Set([
   "electron/main/stave-local-mcp-manifest-store.ts",
   // userData compatibility mirror, written through the store.
   "electron/main/stave-mcp-server.ts",
-  // Basename classification for MCP config fingerprints; reads no file.
-  "electron/providers/mcp-config-refresh.ts",
 ]);
 
 function stripComments(code: string) {

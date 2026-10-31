@@ -10,7 +10,10 @@ import {
   McpConfigRefreshTracker,
   projectMcpConfigContent,
 } from "../electron/providers/mcp-config-refresh";
-import { readMcpEnvVarNames } from "../electron/providers/mcp-env";
+import {
+  noteClaudePluginMcpDocumentPath,
+  readMcpEnvVarNames,
+} from "../electron/providers/mcp-env";
 
 const tempDirectories: string[] = [];
 
@@ -351,6 +354,8 @@ describe("MCP config refresh tracking", () => {
 
   test("treats a JSON file a plugin manifest names as a whole MCP document", () => {
     const filePath = "/tmp/plugin/mcp/servers.json";
+    // Plugin discovery records the files a manifest names.
+    noteClaudePluginMcpDocumentPath(filePath);
     expect(
       projectMcpConfigContent({
         filePath,
@@ -482,6 +487,50 @@ describe("Claude plugin MCP config", () => {
         },
       }),
     );
+    expect((await check()).changed).toBe(true);
+  });
+
+  test("reads a file the manifest names by its declared role, not its name", async () => {
+    const { configDir, cwd, installPath, enable } =
+      await makeAtelierPluginFixture();
+    await enable(true);
+    const serverMap = (token: string, url: string) =>
+      JSON.stringify({
+        remote: {
+          type: "http",
+          url,
+          headers: { Authorization: `Bearer \${${token}}` },
+        },
+      });
+    const nestedPath = path.join(installPath, "mcp", "settings.json");
+    await mkdir(path.dirname(nestedPath), { recursive: true });
+    await writeFile(
+      path.join(installPath, ".claude-plugin", "plugin.json"),
+      JSON.stringify({
+        name: "atelier",
+        version: "1.0.0",
+        mcpServers: ["./mcp/settings.json", "./plugin.json"],
+      }),
+    );
+    // Both hold a bare server map under names Claude settings files also use.
+    await writeFile(nestedPath, serverMap("NESTED_MCP_TOKEN", "https://nested.example.test/mcp"));
+    await writeFile(
+      path.join(installPath, "plugin.json"),
+      serverMap("ROOT_MCP_TOKEN", "https://root.example.test/mcp"),
+    );
+    const paths = () => getClaudeMcpConfigPaths({ cwd, claudeConfigDir: configDir });
+
+    expect(readMcpEnvVarNames({ provider: "claude", paths: paths(), cwd })).toEqual([
+      "ATELIER_MCP_TOKEN",
+      "NESTED_MCP_TOKEN",
+      "ROOT_MCP_TOKEN",
+    ]);
+
+    const tracker = new McpConfigRefreshTracker();
+    const check = () =>
+      tracker.check({ scopeKey: `claude:${configDir}:${cwd}`, paths: paths() });
+    expect((await check()).changed).toBe(false);
+    await writeFile(nestedPath, serverMap("NESTED_MCP_TOKEN", "https://nested.example.test/v2/mcp"));
     expect((await check()).changed).toBe(true);
   });
 });

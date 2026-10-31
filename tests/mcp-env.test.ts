@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   collectClaudeMcpEnvVarNames,
   collectCodexMcpEnvVarNames,
+  noteClaudePluginMcpDocumentPath,
   readMcpEnvVarNames,
 } from "../electron/providers/mcp-env";
 
@@ -152,6 +153,10 @@ describe("MCP environment variable discovery", () => {
     const wrapped = writeJsonFixture(".mcp.json", { mcpServers: remote });
     const bare = writeJsonFixture(".mcp.json", remote);
     const named = writeJsonFixture("servers.json", remote);
+    // A file a plugin manifest names counts by that role, recorded by plugin
+    // discovery; unrecorded, a file of another name is read like settings.
+    expect(readMcpEnvVarNames({ provider: "claude", paths: [named] })).toEqual([]);
+    noteClaudePluginMcpDocumentPath(named);
     // Settings files keep servers under `mcpServers`; their other top-level
     // entries are never read as servers.
     const settings = writeJsonFixture("settings.json", {

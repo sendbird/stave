@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { STAVE_LOCAL_MCP_MANIFEST_FILE_NAME } from "../main/stave-local-mcp-manifest";
 
 export type McpEnvProvider = "claude" | "codex";
 
@@ -51,21 +52,38 @@ const CLAUDE_SUPPLIED_MCP_ENV_VAR_NAMES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * Claude files whose MCP servers share the document with unrelated settings
- * and sit under `mcpServers` (or `projects.<path>.mcpServers`). Every other
- * Claude MCP file Stave reads — a project or plugin `.mcp.json`, a JSON file a
- * plugin manifest names, the Stave manifest — is an MCP document, and Claude
- * Code reads a plugin's server map from its root when `mcpServers` is absent.
+ * Files that are MCP documents wherever they sit: a project or plugin
+ * `.mcp.json` and the Stave manifest. Every other Claude file Stave reads
+ * (settings, `.claude.json` state, a plugin manifest) shares the document with
+ * unrelated keys and keeps its servers under `mcpServers`.
  */
-const CLAUDE_SETTINGS_DOCUMENT_BASENAMES: ReadonlySet<string> = new Set([
-  "settings.json",
-  "settings.local.json",
-  ".claude.json",
-  "plugin.json",
+const CLAUDE_MCP_DOCUMENT_BASENAMES: ReadonlySet<string> = new Set([
+  ".mcp.json",
+  STAVE_LOCAL_MCP_MANIFEST_FILE_NAME,
 ]);
 
+/**
+ * JSON files a plugin manifest names as its MCP config. Their name says
+ * nothing about their shape (`./mcp/settings.json` or `./plugin.json` may hold
+ * a bare server map), so plugin discovery records them as it finds them. The
+ * set only grows, by one entry per declared file of an installed plugin.
+ */
+const claudePluginMcpDocumentPaths = new Set<string>();
+
+export function noteClaudePluginMcpDocumentPath(filePath: string) {
+  claudePluginMcpDocumentPaths.add(path.resolve(filePath));
+}
+
+/**
+ * Whether a Claude MCP config file is an MCP document: its whole content
+ * describes MCP wiring, and Claude Code reads a plugin's server map from its
+ * root when `mcpServers` is absent.
+ */
 export function isClaudeMcpDocumentPath(filePath: string) {
-  return !CLAUDE_SETTINGS_DOCUMENT_BASENAMES.has(path.basename(filePath));
+  return (
+    CLAUDE_MCP_DOCUMENT_BASENAMES.has(path.basename(filePath)) ||
+    claudePluginMcpDocumentPaths.has(path.resolve(filePath))
+  );
 }
 
 /** A plugin manifest may list inline server maps beside file paths. */
