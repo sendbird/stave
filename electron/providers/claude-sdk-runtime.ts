@@ -262,7 +262,12 @@ export function resolveClaudeExecutablePath(
   });
 }
 
-export function buildClaudeEnv(args: { executablePath: string; cwd?: string; accountProfileId?: string }) {
+export function buildClaudeEnv(args: {
+  executablePath: string;
+  cwd?: string;
+  accountProfileId?: string;
+  enabledPlugins?: Readonly<Record<string, boolean>>;
+}) {
   return buildClaudeCliEnv(args);
 }
 
@@ -1382,6 +1387,8 @@ export function buildClaudeQueryOptions(args: {
         executablePath: args.claudeExecutablePath,
         cwd: args.cwd,
         accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
+        // Forward the shell variables the plugins this query loads reference.
+        enabledPlugins: args.enabledPlugins,
       }),
       ...claudeNativePlanEnv(args.runtimeOptions, args.secondaryReadOnly),
     },

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -213,4 +213,105 @@ describe("buildClaudeCliEnv", () => {
       }
     }
   });
+});
+
+const PLUGIN_TOKEN_ENV_VAR = "STAVE_FIXTURE_PLUGIN_MCP_TOKEN";
+
+/** A Claude config dir with one user-scope plugin whose MCP header needs a token. */
+function makePluginEnvFixture(args: { enabled: boolean }) {
+  const directory = mkdtempSync(path.join(tmpdir(), "stave-plugin-env-"));
+  const configDir = path.join(directory, "claude-home");
+  const cwd = path.join(directory, "workspace");
+  const installPath = path.join(configDir, "plugins", "cache", "shop", "remote", "1.0.0");
+  mkdirSync(cwd, { recursive: true });
+  mkdirSync(installPath, { recursive: true });
+  writeFileSync(
+    path.join(configDir, "plugins", "installed_plugins.json"),
+    JSON.stringify({
+      version: 2,
+      plugins: { "remote@shop": [{ scope: "user", installPath }] },
+    }),
+  );
+  writeFileSync(
+    path.join(configDir, "settings.json"),
+    JSON.stringify({ enabledPlugins: { "remote@shop": args.enabled } }),
+  );
+  writeFileSync(
+    path.join(installPath, ".mcp.json"),
+    JSON.stringify({
+      mcpServers: {
+        remote: {
+          type: "http",
+          url: "https://remote.example.test/mcp",
+          headers: { Authorization: `Bearer \${${PLUGIN_TOKEN_ENV_VAR}}` },
+        },
+      },
+    }),
+  );
+  return { directory, configDir, cwd };
+}
+
+describe("Claude plugin MCP env forwarding", () => {
+  function shellResolver(configDir: string) {
+    return ({ key }: { key: string }) =>
+      key === "CLAUDE_CONFIG_DIR"
+        ? configDir
+        : key === PLUGIN_TOKEN_ENV_VAR
+          ? "atl_test"
+          : null;
+  }
+
+  test("forwards a login-shell token an enabled plugin's MCP header references", () => {
+    const fixture = makePluginEnvFixture({ enabled: true });
+    try {
+      const env = buildClaudeCliEnv({
+        executablePath: "/tmp/claude",
+        cwd: fixture.cwd,
+        resolver: shellResolver(fixture.configDir),
+      });
+
+      expect(env[PLUGIN_TOKEN_ENV_VAR]).toBe("atl_test");
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
+
+  test("forwards only for plugins the query actually loads", () => {
+    const fixture = makePluginEnvFixture({ enabled: true });
+    try {
+      expect(
+        buildClaudeCliEnv({
+          executablePath: "/tmp/claude",
+          cwd: fixture.cwd,
+          enabledPlugins: { "remote@shop": false },
+          resolver: shellResolver(fixture.configDir),
+        })[PLUGIN_TOKEN_ENV_VAR],
+      ).toBeUndefined();
+    } finally {
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+
+    const disabled = makePluginEnvFixture({ enabled: false });
+    try {
+      expect(
+        buildClaudeCliEnv({
+          executablePath: "/tmp/claude",
+          cwd: disabled.cwd,
+          resolver: shellResolver(disabled.configDir),
+        })[PLUGIN_TOKEN_ENV_VAR],
+      ).toBeUndefined();
+      // Stave's plugin policy can load a plugin Claude's settings disable.
+      expect(
+        buildClaudeCliEnv({
+          executablePath: "/tmp/claude",
+          cwd: disabled.cwd,
+          enabledPlugins: { "remote@shop": true },
+          resolver: shellResolver(disabled.configDir),
+        })[PLUGIN_TOKEN_ENV_VAR],
+      ).toBe("atl_test");
+    } finally {
+      rmSync(disabled.directory, { recursive: true, force: true });
+    }
+  });
+
 });

@@ -535,6 +535,8 @@ export function buildClaudeCliEnv(args: {
   accountProfileId?: string;
   cwd?: string;
   mcpConfigPaths?: readonly string[];
+  /** Stave's effective plugin decision, so only loading plugins' env counts. */
+  enabledPlugins?: Readonly<Record<string, boolean>>;
   resolver?: (args: { key: string }) => string | null;
 }) {
   let env = buildRuntimeProcessEnv({
@@ -564,6 +566,7 @@ export function buildClaudeCliEnv(args: {
     getClaudeMcpConfigPaths({
       cwd: args.cwd ?? process.cwd(),
       claudeConfigDir: env.CLAUDE_CONFIG_DIR,
+      enabledPlugins: args.enabledPlugins,
     });
   applyConfiguredMcpEnvOverrides({
     env,

@@ -31,6 +31,47 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
+/**
+ * Path variables Claude Code fills in itself when it loads a plugin's MCP
+ * servers. Probing the login shell for them would at best find nothing and at
+ * worst override the value Claude Code computes per plugin.
+ */
+const CLAUDE_SUPPLIED_MCP_ENV_VAR_NAMES: ReadonlySet<string> = new Set([
+  "CLAUDE_PLUGIN_ROOT",
+  "CLAUDE_PLUGIN_DATA",
+  "CLAUDE_PROJECT_DIR",
+]);
+
+/**
+ * Claude files whose MCP servers share the document with unrelated settings
+ * and sit under `mcpServers` (or `projects.<path>.mcpServers`). Every other
+ * Claude MCP file Stave reads — a project or plugin `.mcp.json`, a JSON file a
+ * plugin manifest names, the Stave manifest — is an MCP document, and Claude
+ * Code reads a plugin's server map from its root when `mcpServers` is absent.
+ */
+const CLAUDE_SETTINGS_DOCUMENT_BASENAMES: ReadonlySet<string> = new Set([
+  "settings.json",
+  "settings.local.json",
+  ".claude.json",
+  "plugin.json",
+]);
+
+export function isClaudeMcpDocumentPath(filePath: string) {
+  return !CLAUDE_SETTINGS_DOCUMENT_BASENAMES.has(path.basename(filePath));
+}
+
+/** A plugin manifest may list inline server maps beside file paths. */
+function toServerMaps(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      const record = asRecord(entry);
+      return record ? [record] : [];
+    });
+  }
+  const record = asRecord(value);
+  return record ? [record] : [];
+}
+
 function collectClaudeServerEnvVarNames(
   names: Set<string>,
   value: unknown,
@@ -54,14 +95,24 @@ function collectClaudeServerEnvVarNames(
 
 export function collectClaudeMcpEnvVarNames(
   document: unknown,
-  args: { cwd?: string } = {},
+  args: {
+    cwd?: string;
+    /** Read the root as the server map when `mcpServers` is absent. */
+    bareServerMap?: boolean;
+  } = {},
 ) {
   const names = new Set<string>();
   const root = asRecord(document);
-  const servers =
-    asRecord(root?.mcpServers) ?? asRecord(root?.mcp_servers) ?? {};
-  for (const server of Object.values(servers)) {
-    collectClaudeServerEnvVarNames(names, server);
+  const declared = root?.mcpServers || root?.mcp_servers;
+  const serverMaps = declared
+    ? toServerMaps(declared)
+    : args.bareServerMap && root
+      ? [root]
+      : [];
+  for (const servers of serverMaps) {
+    for (const server of Object.values(servers)) {
+      collectClaudeServerEnvVarNames(names, server);
+    }
   }
 
   const cwd = args.cwd?.trim();
@@ -84,7 +135,9 @@ export function collectClaudeMcpEnvVarNames(
     }
   }
 
-  return [...names].sort();
+  return [...names]
+    .filter((name) => !CLAUDE_SUPPLIED_MCP_ENV_VAR_NAMES.has(name))
+    .sort();
 }
 
 function extractTomlStringValues(value: string) {
@@ -162,6 +215,7 @@ export function readMcpEnvVarNames(args: {
       const document = JSON.parse(content) as unknown;
       for (const name of collectClaudeMcpEnvVarNames(document, {
         cwd: args.cwd,
+        bareServerMap: isClaudeMcpDocumentPath(filePath),
       })) {
         names.add(name);
       }

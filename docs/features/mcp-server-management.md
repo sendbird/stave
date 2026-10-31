@@ -221,6 +221,18 @@ Repository-scope Claude, Cursor, and Kiro writes are refused when the destinatio
 contains a literal credential-like value. Replace it with the provider's
 environment-reference syntax before editing the file in Stave.
 
+### Variables From Your Shell Profile
+
+A desktop app does not inherit the variables exported in a shell profile such
+as `~/.zshrc`. When a configured MCP server references a variable that Stave's
+own environment lacks, Stave reads it from your login shell and passes it to the
+provider process. For Claude this covers servers in Claude's settings and state
+files, the project `.mcp.json`, and the MCP servers of every Claude plugin that
+loads for the workspace: the plugin's `.mcp.json` and the servers its
+`plugin.json` declares inline or in the JSON files it names. Claude fills in
+`${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`
+itself, so Stave leaves them alone.
+
 ## Safe Writes And Conflicts
 
 Every create, update, and delete is a two-step operation:

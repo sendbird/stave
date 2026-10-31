@@ -1,3 +1,4 @@
+import { existsSync, readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -77,6 +78,15 @@ async function readJsonFile(filePath: string) {
   }
 }
 
+/** Same "no signal" contract as `readJsonFile`, for synchronous env builders. */
+function readJsonFileSync(filePath: string) {
+  try {
+    return JSON.parse(readFileSync(filePath, "utf8")) as unknown;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * `enabledPlugins` values are `true`/`false` or an extended object form that
  * carries a version constraint. Any object form counts as enabled.
@@ -143,13 +153,16 @@ function toInstalledEntries(args: {
     if (!record) {
       return [];
     }
+    // Project and local installs both record the repository they were made
+    // for and only apply inside it; otherwise a plugin installed for one repo
+    // would leak into every other workspace. User and managed installs (and a
+    // pre-scope record without a `scope`) apply everywhere.
     const scope: ClaudePluginInstallScope =
-      record.scope === "project" ? "project" : "user";
+      record.scope === "project" || record.scope === "local"
+        ? "project"
+        : "user";
     const projectPath =
       typeof record.projectPath === "string" ? record.projectPath : undefined;
-    // A project-scoped install only applies inside the project it was
-    // installed for; otherwise a plugin installed for one repo would leak into
-    // every other workspace.
     if (
       scope === "project" &&
       (!projectPath || !isPathInside({ parent: projectPath, child: args.cwd }))
@@ -183,6 +196,75 @@ async function readPluginDescription(installPath?: string) {
     : undefined;
 }
 
+type ClaudePluginRegistryDocuments = {
+  installed: unknown;
+  user: unknown;
+  project: unknown;
+  local: unknown;
+};
+
+function claudePluginRegistryPaths(args: { configDir: string; cwd: string }) {
+  return {
+    installed: path.join(args.configDir, "plugins", "installed_plugins.json"),
+    user: path.join(args.configDir, "settings.json"),
+    project: path.join(args.cwd, ".claude", "settings.json"),
+    local: path.join(args.cwd, ".claude", "settings.local.json"),
+  };
+}
+
+type ApplicableClaudePlugin = {
+  id: string;
+  entries: InstalledEntry[];
+  decision?: { enabled: boolean; source: ClaudePluginSettingsSource };
+};
+
+/**
+ * Every plugin that applies to `cwd`: installs recorded for this workspace,
+ * plus ids the settings cascade names, with the cascade's enable decision.
+ */
+function listApplicableClaudePlugins(args: {
+  documents: ClaudePluginRegistryDocuments;
+  cwd: string;
+}): ApplicableClaudePlugin[] {
+  // Precedence matches Claude Code: user < project < local.
+  const enabledById = new Map<
+    string,
+    { enabled: boolean; source: ClaudePluginSettingsSource }
+  >();
+  (
+    [
+      ["user", args.documents.user],
+      ["project", args.documents.project],
+      ["local", args.documents.local],
+    ] as Array<[ClaudePluginSettingsSource, unknown]>
+  ).forEach(([source, document]) => {
+    collectEnabledPluginEntries(document).forEach(([id, enabled]) => {
+      enabledById.set(id, { enabled, source });
+    });
+  });
+
+  const installedRecord = asRecord(asRecord(args.documents.installed)?.plugins);
+  const installedIds = installedRecord ? Object.keys(installedRecord) : [];
+  // Plugins the settings cascade names but the inventory does not (installed
+  // through another machine's sync, or a stale registry) are still reported so
+  // the id can be re-stated to the SDK and shown in Settings.
+  const ids = Array.from(
+    new Set([...installedIds, ...enabledById.keys()].map((id) => id.trim())),
+  ).filter(Boolean);
+
+  return ids.flatMap((id) => {
+    const entries = installedRecord
+      ? toInstalledEntries({ value: installedRecord[id], cwd: args.cwd })
+      : [];
+    // Recorded under a scope that does not apply here — treat as absent.
+    if (installedRecord?.[id] && entries.length === 0) {
+      return [];
+    }
+    const decision = enabledById.get(id);
+    return [{ id, entries, ...(decision ? { decision } : {}) }];
+  });
+}
+
 /**
  * Reads the Claude plugin inventory for a workspace: every plugin installed by
  * the CLI that applies to `cwd`, plus whether Claude's own settings cascade
@@ -194,57 +276,25 @@ export async function resolveClaudeInstalledPlugins(args: {
 }): Promise<ClaudePluginInventory> {
   const configDir = resolveClaudeConfigDir(args.claudeConfigDir);
   const cwd = path.resolve(args.cwd);
+  const paths = claudePluginRegistryPaths({ configDir, cwd });
 
-  const [installedDocument, userSettings, projectSettings, localSettings] =
-    await Promise.all([
-      readJsonFile(path.join(configDir, "plugins", "installed_plugins.json")),
-      readJsonFile(path.join(configDir, "settings.json")),
-      readJsonFile(path.join(cwd, ".claude", "settings.json")),
-      readJsonFile(path.join(cwd, ".claude", "settings.local.json")),
-    ]);
-
-  // Precedence matches Claude Code: user < project < local.
-  const enabledById = new Map<
-    string,
-    { enabled: boolean; source: ClaudePluginSettingsSource }
-  >();
-  (
-    [
-      ["user", userSettings],
-      ["project", projectSettings],
-      ["local", localSettings],
-    ] as Array<[ClaudePluginSettingsSource, unknown]>
-  ).forEach(([source, document]) => {
-    collectEnabledPluginEntries(document).forEach(([id, enabled]) => {
-      enabledById.set(id, { enabled, source });
-    });
-  });
-
-  const installedRecord = asRecord(asRecord(installedDocument)?.plugins);
-  const installedIds = installedRecord ? Object.keys(installedRecord) : [];
-  // Plugins the settings cascade names but the inventory does not (installed
-  // through another machine's sync, or a stale registry) are still reported so
-  // the id can be re-stated to the SDK and shown in Settings.
-  const ids = Array.from(
-    new Set([...installedIds, ...enabledById.keys()].map((id) => id.trim())),
-  ).filter(Boolean);
+  const [installed, user, project, local] = await Promise.all([
+    readJsonFile(paths.installed),
+    readJsonFile(paths.user),
+    readJsonFile(paths.project),
+    readJsonFile(paths.local),
+  ]);
 
   const plugins = await Promise.all(
-    ids.map(async (id): Promise<ClaudeInstalledPlugin | null> => {
-      const entries = installedRecord
-        ? toInstalledEntries({ value: installedRecord[id], cwd })
-        : [];
-      const isKnownInstall = Boolean(installedRecord?.[id]);
-      // Recorded under a scope that does not apply here — treat as absent.
-      if (isKnownInstall && entries.length === 0) {
-        return null;
-      }
+    listApplicableClaudePlugins({
+      documents: { installed, user, project, local },
+      cwd,
+    }).map(async ({ id, entries, decision }): Promise<ClaudeInstalledPlugin> => {
       const { name, marketplace } = splitPluginId(id);
       const installPath = entries.find(
         (entry) => entry.installPath,
       )?.installPath;
       const version = entries.find((entry) => entry.version)?.version;
-      const decision = enabledById.get(id);
       const scopes = Array.from(new Set(entries.map((entry) => entry.scope)));
       const description = await readPluginDescription(installPath);
       return {
@@ -263,10 +313,86 @@ export async function resolveClaudeInstalledPlugins(args: {
 
   return {
     configDir,
-    plugins: plugins
-      .filter((plugin): plugin is ClaudeInstalledPlugin => Boolean(plugin))
-      .sort((left, right) => left.id.localeCompare(right.id)),
+    plugins: plugins.sort((left, right) => left.id.localeCompare(right.id)),
   };
+}
+
+/**
+ * Adds the MCP config files of one installed plugin: `.mcp.json` at its root,
+ * then the manifest when it declares `mcpServers` inline or by path, and each
+ * `./*.json` file it names. Bundle (`.mcpb`/`.dxt`) entries carry their server
+ * config inside an archive and are not read.
+ */
+function addClaudePluginMcpConfigPaths(target: Set<string>, installPath: string) {
+  const root = path.resolve(installPath);
+  const defaultFile = path.join(root, ".mcp.json");
+  if (existsSync(defaultFile)) {
+    target.add(defaultFile);
+  }
+  const manifestPath = path.join(root, ".claude-plugin", "plugin.json");
+  const declared = asRecord(readJsonFileSync(manifestPath))?.mcpServers;
+  if (declared === undefined || declared === null) {
+    return;
+  }
+  target.add(manifestPath);
+  for (const entry of Array.isArray(declared) ? declared : [declared]) {
+    if (
+      typeof entry !== "string" ||
+      !entry.startsWith("./") ||
+      !entry.toLowerCase().endsWith(".json")
+    ) {
+      continue;
+    }
+    const filePath = path.resolve(root, entry);
+    // Claude Code refuses a component path that escapes the plugin root.
+    if (filePath !== root && isPathInside({ parent: root, child: filePath })) {
+      target.add(filePath);
+    }
+  }
+}
+
+/**
+ * MCP config files of every Claude plugin that loads for `cwd`, so the env
+ * variables their servers reference are forwarded and an install, update, or
+ * enable change counts as an MCP config change.
+ *
+ * `enabledPlugins` is Stave's effective decision (the SDK flag layer) when the
+ * caller has it; otherwise Claude's own settings cascade decides. Project and
+ * local installs count only inside the repository they were installed for,
+ * matching the inventory Stave re-states to the SDK. Synchronous because the
+ * provider env builders that consume it are.
+ */
+export function resolveClaudePluginMcpConfigPaths(args: {
+  cwd: string;
+  claudeConfigDir?: string;
+  enabledPlugins?: Readonly<Record<string, boolean>>;
+}): string[] {
+  const configDir = resolveClaudeConfigDir(args.claudeConfigDir);
+  const cwd = path.resolve(args.cwd);
+  const paths = claudePluginRegistryPaths({ configDir, cwd });
+  const documents: ClaudePluginRegistryDocuments = {
+    installed: readJsonFileSync(paths.installed),
+    user: readJsonFileSync(paths.user),
+    project: readJsonFileSync(paths.project),
+    local: readJsonFileSync(paths.local),
+  };
+
+  const configPaths = new Set<string>();
+  for (const plugin of listApplicableClaudePlugins({ documents, cwd })) {
+    const override = args.enabledPlugins?.[plugin.id];
+    const enabled =
+      typeof override === "boolean" ? override : plugin.decision?.enabled === true;
+    if (!enabled) {
+      continue;
+    }
+    for (const entry of plugin.entries) {
+      if (entry.installPath) {
+        addClaudePluginMcpConfigPaths(configPaths, entry.installPath);
+      }
+    }
+  }
+  // Sorted so the refresh fingerprint does not move with registry key order.
+  return [...configPaths].sort();
 }
 
 /**

@@ -1,8 +1,28 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import {
   collectClaudeMcpEnvVarNames,
   collectCodexMcpEnvVarNames,
+  readMcpEnvVarNames,
 } from "../electron/providers/mcp-env";
+
+const tempDirectories: string[] = [];
+
+afterEach(() => {
+  for (const directory of tempDirectories.splice(0)) {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+function writeJsonFixture(fileName: string, value: unknown) {
+  const directory = mkdtempSync(path.join(tmpdir(), "stave-mcp-env-"));
+  tempDirectories.push(directory);
+  const filePath = path.join(directory, fileName);
+  writeFileSync(filePath, JSON.stringify(value), "utf8");
+  return filePath;
+}
 
 describe("MCP environment variable discovery", () => {
   test("collects only enabled Codex MCP credential bindings", () => {
@@ -91,4 +111,61 @@ describe("MCP environment variable discovery", () => {
       collectClaudeMcpEnvVarNames(document, { cwd: "/workspace/current" }),
     ).toEqual(["CURRENT_TOKEN"]);
   });
+
+  test("leaves the path variables Claude Code fills in for plugins to Claude", () => {
+    expect(
+      collectClaudeMcpEnvVarNames({
+        mcpServers: {
+          bundled: {
+            command: "${CLAUDE_PLUGIN_ROOT}/server",
+            env: {
+              DATA_DIR: "${CLAUDE_PLUGIN_DATA}",
+              PROJECT: "${CLAUDE_PROJECT_DIR}",
+              API_TOKEN: "${PLUGIN_API_TOKEN}",
+            },
+          },
+        },
+      }),
+    ).toEqual(["PLUGIN_API_TOKEN"]);
+  });
+
+  test("reads inline server maps a plugin manifest lists beside file paths", () => {
+    expect(
+      collectClaudeMcpEnvVarNames({
+        name: "remote",
+        mcpServers: [
+          "./mcp/servers.json",
+          { remote: { headers: { Authorization: "Bearer ${INLINE_TOKEN}" } } },
+        ],
+      }),
+    ).toEqual(["INLINE_TOKEN"]);
+  });
+
+  test("reads a plugin MCP document whose root is the server map", () => {
+    const remote = {
+      remote: {
+        type: "http",
+        url: "https://example.test/mcp",
+        headers: { Authorization: "Bearer ${ATELIER_MCP_TOKEN}" },
+      },
+    };
+    const wrapped = writeJsonFixture(".mcp.json", { mcpServers: remote });
+    const bare = writeJsonFixture(".mcp.json", remote);
+    const named = writeJsonFixture("servers.json", remote);
+    // Settings files keep servers under `mcpServers`; their other top-level
+    // entries are never read as servers.
+    const settings = writeJsonFixture("settings.json", {
+      statusLine: { env: { STATUS_TOKEN: "${STATUS_TOKEN}" } },
+    });
+
+    for (const filePath of [wrapped, bare, named]) {
+      expect(
+        readMcpEnvVarNames({ provider: "claude", paths: [filePath] }),
+      ).toEqual(["ATELIER_MCP_TOKEN"]);
+    }
+    expect(
+      readMcpEnvVarNames({ provider: "claude", paths: [settings] }),
+    ).toEqual([]);
+  });
+
 });

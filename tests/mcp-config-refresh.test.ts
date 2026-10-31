@@ -10,6 +10,7 @@ import {
   McpConfigRefreshTracker,
   projectMcpConfigContent,
 } from "../electron/providers/mcp-config-refresh";
+import { readMcpEnvVarNames } from "../electron/providers/mcp-env";
 
 const tempDirectories: string[] = [];
 
@@ -346,5 +347,141 @@ describe("MCP config refresh tracking", () => {
         content: '{"other":1,"mcpServers":{"a":{"url":"x"}}}',
       }),
     );
+  });
+
+  test("treats a JSON file a plugin manifest names as a whole MCP document", () => {
+    const filePath = "/tmp/plugin/mcp/servers.json";
+    expect(
+      projectMcpConfigContent({
+        filePath,
+        content: '{"remote":{"url":"https://one.test/mcp"}}',
+      }),
+    ).not.toBe(
+      projectMcpConfigContent({
+        filePath,
+        content: '{"remote":{"url":"https://two.test/mcp"}}',
+      }),
+    );
+  });
+});
+
+describe("Claude plugin MCP config", () => {
+  async function makeAtelierPluginFixture() {
+    const directory = await makeTempDirectory();
+    const configDir = path.join(directory, "claude-home");
+    const cwd = path.join(directory, "workspace");
+    const installPath = path.join(
+      configDir,
+      "plugins",
+      "cache",
+      "atelier",
+      "atelier",
+      "1.0.0",
+    );
+    await mkdir(cwd, { recursive: true });
+    await mkdir(path.join(installPath, ".claude-plugin"), { recursive: true });
+    await writeFile(
+      path.join(configDir, "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        version: 2,
+        plugins: {
+          "atelier@atelier": [{ scope: "user", installPath, version: "1.0.0" }],
+        },
+      }),
+    );
+    await writeFile(
+      path.join(installPath, ".claude-plugin", "plugin.json"),
+      JSON.stringify({ name: "atelier", version: "1.0.0" }),
+    );
+    await writeFile(
+      path.join(installPath, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          atelier: {
+            type: "http",
+            url: "https://atelier.example.test/mcp",
+            headers: { Authorization: "Bearer ${ATELIER_MCP_TOKEN}" },
+          },
+        },
+      }),
+    );
+    const enable = (enabled: boolean) =>
+      writeFile(
+        path.join(configDir, "settings.json"),
+        JSON.stringify({ enabledPlugins: { "atelier@atelier": enabled } }),
+      );
+    return { configDir, cwd, installPath, enable };
+  }
+
+  test("forwards env names that an enabled plugin's MCP server references", async () => {
+    const { configDir, cwd, installPath, enable } =
+      await makeAtelierPluginFixture();
+    await enable(true);
+
+    const paths = getClaudeMcpConfigPaths({ cwd, claudeConfigDir: configDir });
+
+    expect(paths).toContain(path.join(installPath, ".mcp.json"));
+    expect(readMcpEnvVarNames({ provider: "claude", paths, cwd })).toEqual([
+      "ATELIER_MCP_TOKEN",
+    ]);
+  });
+
+  test("ignores a disabled plugin's MCP servers", async () => {
+    const { configDir, cwd, installPath, enable } =
+      await makeAtelierPluginFixture();
+    await enable(false);
+
+    const paths = getClaudeMcpConfigPaths({ cwd, claudeConfigDir: configDir });
+
+    expect(paths).not.toContain(path.join(installPath, ".mcp.json"));
+    expect(readMcpEnvVarNames({ provider: "claude", paths, cwd })).toEqual([]);
+  });
+
+  test("counts enabling, updating, or editing a plugin as an MCP config change", async () => {
+    const { configDir, cwd, installPath, enable } =
+      await makeAtelierPluginFixture();
+    await enable(false);
+    const tracker = new McpConfigRefreshTracker();
+    const check = () =>
+      tracker.check({
+        scopeKey: `claude:${configDir}:${cwd}`,
+        paths: getClaudeMcpConfigPaths({ cwd, claudeConfigDir: configDir }),
+      });
+
+    expect((await check()).changed).toBe(false);
+    await enable(true);
+    expect((await check()).changed).toBe(true);
+    expect((await check()).changed).toBe(false);
+
+    await writeFile(
+      path.join(installPath, ".mcp.json"),
+      JSON.stringify({
+        mcpServers: {
+          atelier: {
+            type: "http",
+            url: "https://atelier.example.test/v2/mcp",
+            headers: { Authorization: "Bearer ${ATELIER_MCP_TOKEN}" },
+          },
+        },
+      }),
+    );
+    expect((await check()).changed).toBe(true);
+
+    // An update installs the new version beside the old one.
+    const updatedPath = path.join(path.dirname(installPath), "1.1.0");
+    await mkdir(updatedPath, { recursive: true });
+    await writeFile(path.join(updatedPath, ".mcp.json"), "{}");
+    await writeFile(
+      path.join(configDir, "plugins", "installed_plugins.json"),
+      JSON.stringify({
+        version: 2,
+        plugins: {
+          "atelier@atelier": [
+            { scope: "user", installPath: updatedPath, version: "1.1.0" },
+          ],
+        },
+      }),
+    );
+    expect((await check()).changed).toBe(true);
   });
 });
