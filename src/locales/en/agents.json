@@ -553,6 +553,11 @@
       "description": "Splits a multi-part goal across agents and supervises it to a verified result. Use when the work has several parts or needs more than one kind of agent.",
       "avoidWhen": "The task is small enough for one agent, or it is only a question."
     },
+    "supervisor": {
+      "name": "Supervisor",
+      "description": "Owns a goal end to end, from plan to verified result, choosing each part's provider and model by capability and account usage. Use for features, fixes and frontend work that should run with little supervision.",
+      "avoidWhen": "The work is only a question, or a one-line change you can already state exactly."
+    },
     "debugger": {
       "name": "Debugger",
       "description": "Finds the cause of something broken and fixes it at the cause. Use for runtime errors, failing checks and wrong data when the cause is unknown.",

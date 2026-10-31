@@ -171,7 +171,7 @@ agents do not learn.
 
 An agent's **Workflow** is the ordered stages a run of it follows. Without
 stages, a run is one stage that plans its own steps — Implementer, Researcher,
-Reviewer and Lead work this way. Debugger (Reproduce → Cause → Fix), UI
+Reviewer, Lead and Supervisor work this way. Debugger (Reproduce → Cause → Fix), UI
 Polisher (Reproduce → Fix → Report) and Shipper (Validate → Open draft PR →
 Watch checks → Ready for review) come with a workflow.
 
@@ -197,7 +197,9 @@ Watch checks → Ready for review) come with a workflow.
   review reports no findings, the workspace is unchanged and no required checks
   or sign-off remain, Stave skips the final repair stage and records why.
   Under **When behavior changes**, wording, formatting and comments receive a
-  brief correctness check. Lead is **Off**: it asks for reviews of the parts it hands out. A
+  brief correctness check. Lead is **Off**: it asks for reviews of the parts it hands out.
+  Supervisor keeps the default, so the result it integrated gets the same final
+  review as Implementer's. A
   delegated helper's run is never reviewed this way; the run that called it
   decides. The workspace check, when there is one, gates the fix stage.
 - Each AI stage reports when it is done; the run card and the Task panel's
@@ -472,6 +474,17 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
   one holding the rest. One turn always stays free so the run can integrate
   their results; a helper that would need it ends at its limit, and the run
   reads what it finished.
+- **Provider usage.** Every turn also reads each provider's account usage
+  (Claude and Codex) for the accounts the run and its helpers use, from the
+  last reading Stave already holds; nothing is read for it. A provider is
+  **headroom** below 70% of its tightest window, **low** from 70%, **critical**
+  from 85%, **exhausted** when a window is full, or **unknown** without a
+  reading from the last five minutes. A model with a window of its own, such as
+  Claude Fable's weekly limit, is listed as exhausted on its own. When helpers
+  may run on another provider, the run is told to start no new helper work on
+  an exhausted provider, to send new parallel work away from a low one, and to
+  leave a critical one to your other tasks. This guides the run's choices; the
+  send guard and usage-limit pauses still decide what can actually run.
 - **Helper Agents.** A run can have 3 helper Agents working at once and call 8
   in total. Change both in **Settings → Providers → Delegated tasks**; a run keeps the
   numbers it started with. These count saved Agents that work to completion

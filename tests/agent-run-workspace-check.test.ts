@@ -91,12 +91,12 @@ test("unknown revision reasons identify each of the four snapshots and localize 
 });
 
 test("only primary write work gets a default check; built-in workflows check their last AI stage", () => {
-  for (const id of ["implementer", "debugger", "ui-polisher", "researcher", "reviewer", "lead"]) {
+  for (const id of ["implementer", "supervisor", "debugger", "ui-polisher", "researcher", "reviewer", "lead"]) {
     const agent = getBuiltinAgent(id)!;
     const workflow = buildAgentRunWorkflow({ agent, now: AGENT_RUN_NOW });
     const checked = withWorkspaceCheck(workflow, agent, [frozen("test")]);
     const checks = checked.stages.flatMap(stage => stage.acceptanceCriteria ?? []);
-    if (["implementer", "debugger", "ui-polisher"].includes(id)) {
+    if (["implementer", "supervisor", "debugger", "ui-polisher"].includes(id)) {
       expect(checks).toEqual([{ ...criterion, scriptIds: ["test"], scriptDefinitions: [frozen("test")] }]);
       expect(checked.stages.at(-1)!.acceptanceCriteria).toHaveLength(1);
     } else expect(checks).toEqual([]);

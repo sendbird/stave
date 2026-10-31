@@ -35,6 +35,7 @@ import { ProviderAccountSelectionSchema } from "../../../src/lib/providers/provi
 import type { ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import { AdaptiveRunPolicySchema, AgentResourceRequestSchema, AgentResourceRequestObjectSchema, constrainHelperResources, supportsAdaptiveEffort, type AdaptiveRunPolicy, type AdaptiveRoutingIntent, type ResourceLink } from "../../../src/lib/agent-runs/resources";
 import { teamLimitsContextPart } from "./team-limits-context";
+import { readTeamProviderUsage } from "./provider-usage-context";
 import { selectAdaptiveRoute, type AgentRunReplyComposer, type AgentRunReplyRouteNote } from "../../../src/lib/agent-runs/adaptive-route";
 import { randomUUID } from "node:crypto";
 import { prepareRunTurn } from "./turn-preparation";
@@ -1428,7 +1429,9 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           ? { ...agentRun.initialContext, questionReply: undefined } : agentRun.initialContext,
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
-        retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey)] : [])],
+        retrievedContextParts: [buildAgentRunTurnContextPart({ aggregate: started, reason }), ...(resources ? [teamLimitsContextPart(resources.policy, store.readResources?.(agentRun.id) ?? null, turnKey,
+          readTeamProviderUsage({ accounts: runAccountOptions(agentRun, resources), now: now().getTime(),
+            ...(observedAccount ? { runAccount: { providerId: resources.policy.providerId, accountProfileId: observedAccount } } : {}) }))] : [])],
         ...(actionPrompt === undefined || userReply || reason === "repair-checks" ? { agentRunStage: identity } : {}),
         ...(reason === "resume-after-account-switch" ? { freshSession: true } : {}),
         ...(hasAgentOrigin(agentRun)
