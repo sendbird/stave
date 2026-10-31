@@ -1,5 +1,8 @@
 import { describe, expect, test } from "bun:test";
-import { buildClaudeQueryOptions } from "../electron/providers/claude-sdk-runtime";
+import {
+  buildClaudeQueryOptions,
+  buildClaudeReadOnlyPromptOptions,
+} from "../electron/providers/claude-sdk-runtime";
 import {
   makeClaudePluginEnvFixture,
   PLUGIN_ID,
@@ -31,6 +34,25 @@ describe("Claude query env for plugin MCP variables", () => {
         // Plugin mode `off` loads no CLI-installed plugin.
         expect(tokenFor({ runtimeOptions: { claudePluginMode: "off" } })).toBeUndefined();
         expect(tokenFor({ runtimeOptions: { claudePluginMode: "off" }, enabledPlugins: { [PLUGIN_ID]: true } })).toBe("atl_test");
+      });
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  test("a server-less read-only prompt gets no plugin token", async () => {
+    if (process.platform === "win32") return;
+    const fixture = makeClaudePluginEnvFixture({ enabled: true });
+    try {
+      await withPluginTokenProfileShell(fixture, () => {
+        const options = buildClaudeReadOnlyPromptOptions({
+          cwd: fixture.cwd,
+          model: "claude-sonnet-4-5",
+          abortController: new AbortController(),
+          claudeExecutablePath: "/tmp/claude",
+        });
+        expect(options.mcpServers).toEqual({});
+        expect(options.env?.[PLUGIN_TOKEN_ENV_VAR]).toBeUndefined();
       });
     } finally {
       fixture.cleanup();

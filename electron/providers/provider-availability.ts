@@ -27,7 +27,7 @@ export function describeNativeProviderAvailability(args: {
         executablePath: tool.executablePath,
         commandArgs: ["--version"],
         env: args.providerId === "claude-code"
-          ? buildClaudeEnv({ executablePath: tool.executablePath })
+          ? buildClaudeEnv({ executablePath: tool.executablePath, mcpConfigPaths: [] })
           : buildCodexCliEnv({ executablePath: tool.executablePath }),
       });
       versionText = probe.text;

@@ -280,7 +280,8 @@ function buildClaudeDiagnostics(args: {
   taskId?: string;
   cwd: string;
 }) {
-  const env = buildClaudeEnv({ executablePath: args.executablePath });
+  // A version probe loads no MCP server, so it needs none of their variables.
+  const env = buildClaudeEnv({ executablePath: args.executablePath, mcpConfigPaths: [] });
   const versionProbe = args.executablePath
     ? probeExecutableVersion({
         executablePath: args.executablePath,
@@ -1855,10 +1856,8 @@ export function buildClaudeReadOnlyPromptOptions(args: {
       enabled: true,
       allowUnsandboxedCommands: false,
     },
-    env: buildClaudeEnv({
-      executablePath: args.claudeExecutablePath,
-      cwd: args.cwd,
-    }),
+    // Strict with no servers: forward no MCP-referenced (plugin) variables.
+    env: buildClaudeEnv({ executablePath: args.claudeExecutablePath, cwd: args.cwd, mcpConfigPaths: [] }),
     ...(args.claudeExecutablePath
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
