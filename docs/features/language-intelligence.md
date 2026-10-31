@@ -44,7 +44,7 @@ When enabled, Stave starts one language-server session per workspace root and fo
    # or
    npm install -g pyright
    ```
-2. Open `Settings > Editor`.
+2. Open `Settings > Editor & Terminal > Editor`.
 3. Toggle on `Repository Language Servers`.
 4. If Stave does not auto-detect the binary, paste the exact command in the per-language override field.
 5. Reopen the file to see the new diagnostics and completions.

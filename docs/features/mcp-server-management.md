@@ -7,7 +7,8 @@ their own user or workspace MCP files.
 Cursor and Kiro appear here (their status columns, `Add to` buttons and
 installation targets) only once that provider is set up: its CLI is installed
 and signed in. Until then Stave does not read their MCP files. Claude and Codex
-always appear.
+always appear. If the CLI is installed where Stave does not look, set its path in
+the **Not installed** row of `Settings > Accounts`.
 
 OpenCode is not an installation target here. OpenCode tasks receive Stave Local
 MCP only; every other server comes from OpenCode's own `mcp` configuration

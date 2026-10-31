@@ -3,7 +3,7 @@
 ## Summary
 
 - Stave makes a number of model calls you never asked for directly: it names your tasks, summarizes each finished turn, checks a diff against pinned intent, drafts PR descriptions, and completes code inline.
-- `Settings → Background AI` sets one shared utility model (provider and model) that every lane uses, shows every lane with its own switch, and, under `Advanced`, lets a single lane run on a different provider or model.
+- `Settings → Models → Background AI` sets one shared utility model (provider and model) that every lane uses, shows every lane with its own switch, and, under `Advanced`, lets a single lane run on a different provider or model.
 - Auto and Agent routing decisions have their own model setting in [Auto routing](auto-routing.md). They do not inherit the text utility model or its switch.
 
 ## When To Use It
@@ -14,12 +14,12 @@
 
 ## Before You Start
 
-- Open `Settings → Background AI`, under the `AI & Agents` group.
+- Open `Settings → Models → Background AI`; Models is under the `Agents` group.
 - Have at least one managed provider (Claude or Codex) configured, since every lane runs on one of them.
 
 ## Quick Start
 
-1. Open `Settings → Background AI`.
+1. Open `Settings → Models → Background AI`.
 2. Turn off any lane you do not want. It stops making model calls immediately; there is no separate apply step.
 3. In `Utility model`, pick the `Provider` and `Model` every lane should use, or leave both on their automatic defaults.
 4. Only if one lane needs something different, open `Per-lane overrides` and set that lane's provider or model.
@@ -28,7 +28,7 @@
 
 ### Entry Points
 
-- `Settings → Background AI`.
+- `Settings → Models → Background AI`.
 - Settings search finds the section by lane name (`intent guard`, `turn summary`), or by `cost`, `spend`, `credits`, and `tokens`.
 
 ### Key Controls
@@ -45,7 +45,7 @@ Lanes that keep a second attempt (currently `Turn summary`) also expose a `Fallb
 
 ### Reduce Recurring Per-Turn Spend
 
-1. Open `Settings → Background AI`.
+1. Open `Settings → Models → Background AI`.
 2. Turn off `Turn summary` if you do not read the Information panel's summary line.
 3. Turn off `Intent guard` if you do not pin intent anchors. (It is already inert when nothing is pinned.)
 4. Leave `Task naming` on: by default it makes exactly one call per task.
@@ -79,11 +79,11 @@ Settings saved by an earlier version keep their behavior on upgrade: a lane's sa
 ## Limitations And Advanced Options
 
 - The defaults are already the cheap ones. With the utility model on automatic and no override, a lane resolves to its provider's lightest catalog model, so no background call inherits the model your own turns use. Background lanes never request a provider's premium fast mode, even when your own turns do.
-- `Inline completion` is off until you switch it on in `Settings → Editor → Enable AI Completions`, which is its only on/off switch; this section sets its provider and model. It fires on every short typing pause with the surrounding code as its prompt and no reusable prompt prefix, so on a metered plan it can outspend the turns you type yourself.
+- `Inline completion` is off until you switch it on in `Settings → Editor & Terminal → Editor → Enable AI Completions`, which is its only on/off switch; this section sets its provider and model. It fires on every short typing pause with the surrounding code as its prompt and no reusable prompt prefix, so on a metered plan it can outspend the turns you type yourself.
 - Several lanes are additionally gated on there being real work to do: the intent guard skips a turn that changed no files and reuses its previous verdict when the diff is byte-identical; the turn summary skips a turn with no assistant reply; task naming stops after the first user turn unless you raise its window.
 - Delegated delegated tasks are not listed. Their runtime options are assembled in the main process, which has no view of these settings, so a switch here could not take effect.
 - The turn summary keeps a cross-provider fallback: if the lane's own provider cannot answer, Stave tries the other managed provider's light model once, so a workspace whose provider CLI is missing still gets a summary.
-- `Pre-PR review` is switched on and off only here, and is off until you turn it on. `Settings → Prompts` keeps the review-task prompts and links back here.
+- `Pre-PR review` is switched on and off only here, and is off until you turn it on. `Settings → Prompts & Skills → Prompts` keeps the review-task prompts and links back here.
 - Background calls that only write text (task names, commit messages, prompt rewrites, route classification, PR descriptions, the pre-PR review, the intent guard, turn summaries, agent drafts, instruction suggestions and inline completions) run with no tools: Claude gets no tools, MCP servers or settings, and Codex gets a read-only thread with its shell, exec, apps, plugins, subagents, image viewing and generation, plan tool, MCP servers, network and web search off. Everything they read is in the request, so an instruction inside a draft, a diff or a turn cannot run a command or open a file. The turn summary, agent drafts and instruction suggestions run on Claude or Codex; another provider refuses such a call rather than run it with tools. When neither Claude nor Codex can run, task names, commit messages and prompt rewrites fall back to Cursor or Kiro, whose runners decline every permission request instead.
 
 ## Troubleshooting
@@ -98,7 +98,7 @@ Settings saved by an earlier version keep their behavior on upgrade: a lane's sa
 
 - Symptom: the `Summary` section no longer refreshes after a turn.
 - Cause: the `Turn summary` lane is off, the summary prompt is blank, or the turn produced no assistant text.
-- Fix: re-enable the lane in `Settings → Background AI` and check `Settings → Prompts → Workspace Latest Turn Summary`.
+- Fix: re-enable the lane in `Settings → Models → Background AI` and check `Settings → Prompts & Skills → Prompts → Workspace Latest Turn Summary`.
 
 ## Related Docs
 

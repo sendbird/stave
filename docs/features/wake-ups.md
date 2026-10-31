@@ -208,7 +208,7 @@ that pull request by number.
 — including when only queuing auto-merge failed — Stave adds a watch with
 `checks_failed` and `merge_conflict` to the task it was created from. Review
 comments stay opt-in per task, from Schedules or `stave_update_wake_up`.
-**Settings → Prompts → PR Completion → Watch pull requests Stave creates** turns
+**Settings → Prompts & Skills → Prompts → PR Completion → Watch pull requests Stave creates** turns
 this off. A task has one wake-up, so an existing pull request watch is kept and
 an existing check-back schedule is never replaced; a toast says which happened.
 Pull requests created outside that flow are watched only when you add a watch.

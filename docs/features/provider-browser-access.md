@@ -50,7 +50,7 @@ inspection.
 
 ## Browser modes
 
-`Settings > Mentions > Browser access > When the agent may use Chrome` picks
+`Settings > Browser > Mentions > Browser access > When the agent may use Chrome` picks
 how far Stave attaches the provider browser without `@web`:
 
 | Mode | Chrome is attached to |
@@ -115,7 +115,7 @@ succeed.
 
 ## Settings
 
-Settings > Mentions lists every prompt mention (`@web`, `@lens`, and the
+Settings > Browser > Mentions lists every prompt mention (`@web`, `@lens`, and the
 `@info:<section>` references) with its current status, and its Browser access
 card shows the browser mode and the setup path for Claude Code and Codex. Stave does not persist or display a browser connection status: each
 `@web` turn attempts Chrome access directly, and any failure is reported in

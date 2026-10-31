@@ -22,8 +22,8 @@ calls you only when it needs a decision.
 
 1. Give the agent **Permission: Auto** (Agents → the agent → **How it runs**).
    With any other permission the run stops at each approval card.
-2. Add a workspace check: Settings → Repositories → **Scripts Manager** → an
-   **Action** that runs your checks, for example `bun run typecheck && bun test`
+2. Add a workspace check: Settings → Projects → **Workspace Tools** → a
+   **Command** (an action in `.stave/scripts.json`) that runs your checks, for example `bun run typecheck && bun test`
    ([Workspace Scripts](workspace-scripts.md)). With one configured, a write
    agent's run is done only when Stave runs that action itself and it passes.
 3. For work you want reviewed before it counts as done, add a review stage

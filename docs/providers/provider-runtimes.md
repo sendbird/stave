@@ -22,11 +22,16 @@ The renderer submits a selected provider and model with each turn. `electron/mai
 ### Optional provider discovery
 
 Cursor, Kiro and OpenCode model options and account usage meters follow the native status
-shown in Settings > Tooling. Discovery checks the executable, ACP support, and
+shown in Settings > Accounts > Tooling. Discovery checks the executable, ACP support, and
 native login together, sharing a bounded probe and a one-minute cache. Missing,
 unsupported, logged-out, and initially unverified providers have no new model
 options or account-usage reads. Tooling remains available to diagnose and repair
 them. Existing tasks retain their selected provider, model, and effort.
+
+Cursor, Kiro and OpenCode Settings areas (the Providers tab, Models rows, MCP
+columns and provider pickers) appear only once the CLI is installed and signed
+in; OpenCode needs no Stave sign-in. A CLI installed where Stave does not look
+takes its path in the **Not installed** row of Settings > Accounts.
 
 A failed status check after a successful one retains the last catalog and usage
 as unverified, pauses reads, and excludes the provider from new automatic
@@ -170,7 +175,7 @@ Custom Claude usage reads search only the selected configuration directory and
 its scoped keychain service, without falling back to default credentials.
 
 Settings > Accounts provides account registration, label editing, removal, and
-native sign-in terminals for Claude and Codex (Settings > Tooling keeps CLI
+native sign-in terminals for Claude and Codex (Settings > Accounts > Tooling keeps CLI
 paths, install status, and versions). **Add and sign in** creates a
 managed profile and immediately opens its sign-in terminal; registering an
 existing absolute configuration directory is under **Advanced: reuse a folder
@@ -471,7 +476,7 @@ executable is resolved from Settings, then `STAVE_OPENCODE_CLI_PATH` /
 `STAVE_OPENCODE_CLI_CMD`, the login shell, `~/.opencode/bin` and `~/.local/bin`.
 
 OpenCode owns authentication. Stave never reads, stores or moves OpenCode
-credentials, so Settings > Tooling reports OpenCode's auth as managed in the
+credentials, so Settings > Accounts > Tooling reports OpenCode's auth as managed in the
 CLI. A turn whose model needs a missing sign-in fails with OpenCode's
 `Authentication required` error plus the commands that fix it
 (`opencode auth login`, or `npx vercel ai-gateway setup --agent opencode`).
@@ -1701,7 +1706,7 @@ Opus 5.5 (including the 1M variant) requires Claude Code **2.1.280 or newer**.
 Sonnet 5.5 (including the 1M variant) requires Claude Code **2.1.284 or newer**.
 Run `claude update`, or update the Claude desktop app, then retry. A catalog
 entry does not establish compatibility with the installed runtime. Stave shows
-this requirement in the model selector and Tooling settings. When Claude reports
+this requirement in the model selector and Settings > Accounts > Tooling. When Claude reports
 a fallback, the conversation records the requested and actual models, with
 version requirements when the provider supplies them. Actual assistant model
 changes are also surfaced when the CLI omits a fallback event; in that case,
@@ -1722,7 +1727,7 @@ version is assigned to GPT-6.1 Sol, GPT-6 Sol, GPT-6.1 Terra, or Luna. See the [
 Model selection remains non-blocking when runtime support is unknown. Codex
 picker descriptions distinguish entries advertised by the current runtime from
 static entries whose support is unconfirmed; an advertised entry is not a
-promise of account access. Installation guidance remains in Tooling settings
+promise of account access. Installation guidance remains in Settings > Accounts > Tooling
 and compatibility errors rather than being repeated on every picker row.
 Provider model-change events also carry optional `modelExecution` evidence
 (requested model, reported model, and reason). Replay and saved messages preserve

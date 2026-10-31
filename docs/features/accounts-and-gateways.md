@@ -20,7 +20,7 @@
 
 ## Before You Start
 
-- Install the CLI for the provider: `claude` for Claude Code, `codex` for Codex. **Getting started** in Settings > Accounts says whether Stave found them and copies the install command; Settings > Tooling shows the path and version.
+- Install the CLI for the provider: `claude` for Claude Code, `codex` for Codex. **Getting started** in Settings > Accounts says whether Stave found them and copies the install command; Settings > Accounts > Tooling shows the path and version.
 - Open a workspace. The sign-in terminal runs inside the active workspace, so Stave asks you to open one first.
 - For an API connection, have the gateway's API key ready. You can paste it while adding the connection, or save it in **Settings > Secrets** first.
 
@@ -28,7 +28,7 @@
 
 New to Stave? Open **Settings > Accounts** and follow **Getting started** at the top. It lists what is left before your first turn, in order, with one button per step:
 
-1. **Install a provider CLI**: Claude Code, Codex, Cursor, Kiro or OpenCode. It copies the Claude Code or Codex install command, or opens Settings > Tooling.
+1. **Install a provider CLI**: Claude Code, Codex, Cursor, Kiro or OpenCode. It copies the Claude Code or Codex install command, or opens Settings > Accounts > Tooling.
 2. **Sign in**: for Claude Code or Codex, opens the sign-in terminal for System default; with no workspace open, it asks you to open a repository first. For Cursor, Kiro or OpenCode, **How to sign in** goes to that CLI's row, which copies its own login command. **Check again** asks every CLI again.
 3. **Add another account** (optional): goes to the **Add an account** form.
 4. **Connect a gateway** (optional): goes to the **Add a connection** form.
@@ -51,13 +51,13 @@ You sign in once per account, not once per CLI binary. The sign-in is saved in t
 
 ### Entry Points
 
-- **Settings > Accounts** (first item under AI & Agents), from top to bottom:
+- **Settings > Accounts** (first item under Agents), from top to bottom:
   - **Getting started**: the steps above.
   - **Choose how you pay**: your subscription, another subscription, or a company gateway key. Each button goes to its form; a way you already use reads **In use**.
   - **Claude accounts** and **Codex accounts**: add, rename, sign in, and remove accounts.
-  - **Cursor, Kiro and OpenCode sign-in**: each installed CLI gets a row that says whether it is signed in, with **Copy Login Command**. These CLIs keep their own sign-in, so Stave does not manage accounts for them. CLIs that are not installed share one folded **Not installed** row; opening it shows how to install each one, a field for its CLI path when it is installed where Stave does not look, and **Open Tooling**. While the first check runs, the card shows one **Checking** row.
+  - **Cursor, Kiro and OpenCode sign-in**: each installed CLI gets a row that says whether it is signed in, with **Copy Login Command**. These CLIs keep their own sign-in, so Stave does not manage accounts for them. CLIs that are not installed share one folded **Not installed** row; opening it shows how to install each one, a field for its CLI path when it is installed where Stave does not look, and **Open Tooling**. While the first check runs, the card shows one **Checking** row. A CLI's other Settings areas (its tab in Settings > Providers, its rows in Settings > Models, its columns in Settings > MCP and its entry in provider pickers) appear once it is installed and signed in; OpenCode only needs to be installed.
   - **API connections**: add, check, edit, and remove API connections.
-- **Settings > Tooling** keeps CLI paths, install status, and versions. Its top card points to Settings > Accounts.
+- **Settings > Accounts > Tooling** keeps CLI paths, install status, and versions. Its top card points to the Accounts tab.
 - **Composer model selector**: its foot names a provider you set up that stopped working, with the button that fixes it: a CLI that is installed but not signed in (for Cursor, Kiro and OpenCode the button goes to that CLI's row), or an API connection whose key Stave cannot read. A CLI that is not installed is not listed there; the composer line covers the task's own provider, and **Getting started** and **Manage accounts and connections…** cover installing. It offers **Add other models with Vercel AI Gateway…** when you have no API connection, and ends with **Manage accounts and connections…**. An API connection's group has **Edit models**, which opens that connection's edit form.
 - **Composer**: when the task's provider cannot send with its selected account, a line above the input says why, with one button: **Sign in**, **Connect key**, **Switch account**, **Add an account**, or **Set up**. For Cursor, Kiro and OpenCode the button goes to that CLI's row in Settings > Accounts. The usage-limit line follows the same rule as sending: it checks the selected model, so a limit only another model uses does not show it, and Stave Auto never shows it because it routes around an exhausted account. Nothing shows while sending works.
 - **A turn that ended on the account**: under a sign-in failure, **Open Accounts** (for Cursor, Kiro and OpenCode, at that CLI's row); under a Claude Code or Codex usage-limit failure, **Switch account** (or **Add an account** when there is no other account).
@@ -133,7 +133,7 @@ your allowed-model settings. The Agent editor's fixed-model picker and Auto
 settings use the same account catalogs as the composer.
 
 A Gateway decision model such as Jev can classify work while Claude or Codex
-executes it on a subscription account. Choose it under Settings → Auto →
+executes it on a subscription account. Choose it under Settings → Models → Auto (Model Router) →
 Routing decision model; the Agent editor can inherit or override that choice.
 The default remains available Luna first, then Haiku. See [Auto routing](auto-routing.md).
 
@@ -229,7 +229,7 @@ OpenCode needs its own CLI and its own provider sign-in. Stave does not pass an 
 
 1. Install OpenCode 1.19.0 or newer (`npm i -g opencode-ai`) or 2.0.29 or newer (`npm i -g @opencode/cli`). Both install the `opencode` command.
 2. Connect Vercel AI Gateway in OpenCode: run `npx vercel ai-gateway setup --agent opencode`, or open the OpenCode TUI and use `/connect`. For another provider, run `opencode auth login`.
-3. In Stave, open **Settings > Tooling** and check that the **OpenCode** row shows **Ready**; **Settings > Accounts** shows it as **Managed in CLI**. If Stave did not find it, open the **Not installed** row in **Settings > Accounts** and set its CLI path there; the **OpenCode** tab in **Settings > Providers** appears once it is ready.
+3. In Stave, open **Settings > Accounts > Tooling** and check that the **OpenCode** row shows **Ready**; **Settings > Accounts** shows it as **Managed in CLI**. If Stave did not find it, open the **Not installed** row in **Settings > Accounts** and set its CLI path there; the **OpenCode** tab in **Settings > Providers** appears once it is ready.
 4. In the composer, open the model selector, choose the **OpenCode** tab and search for the model, for example `vercel/zai/glm-5.3`. Model ids are `provider/model`, as OpenCode lists them.
 
 What to expect:
@@ -279,7 +279,7 @@ What to expect:
 ### The account says "Can't check sign-in"
 
 - Cause: the CLI did not answer in time, was not found, or answered in a form Stave does not recognise.
-- Fix: choose **Check again**. If it persists, confirm the CLI works in Settings > Tooling.
+- Fix: choose **Check again**. If it persists, confirm the CLI works in Settings > Accounts > Tooling.
 
 ### Signed in, but no email is shown
 
