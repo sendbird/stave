@@ -330,7 +330,13 @@ function resolveCanonicalPath(filePath: string): string | null {
     try {
       return path.join(realpathSync(current), ...missing.reverse());
     } catch {
-      if (lstatSync(current, { throwIfNoEntry: false })) {
+      // An entry that exists but did not resolve (a dangling or looping link),
+      // or one lstat cannot reach (ENOTDIR, EACCES), is not a usable component.
+      try {
+        if (lstatSync(current, { throwIfNoEntry: false })) {
+          return null;
+        }
+      } catch {
         return null;
       }
       const parent = path.dirname(current);

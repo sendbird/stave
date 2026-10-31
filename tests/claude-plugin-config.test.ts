@@ -589,6 +589,27 @@ describe("Claude plugin MCP config paths", () => {
     expect(paths()).toContain(linked);
   });
 
+  test("skips a declared path whose parent is a file instead of failing", async () => {
+    const { configDir, cwd, installPath } = await makePluginFixture({
+      enabled: true,
+      manifest: {
+        name: "remote",
+        mcpServers: ["./package.json/servers.json", "./servers.json"],
+      },
+      extraFiles: {
+        "package.json": { name: "remote" },
+        "servers.json": remoteServer,
+      },
+    });
+
+    expect(
+      resolveClaudePluginMcpConfigPaths({ cwd, claudeConfigDir: configDir }),
+    ).toEqual([
+      path.join(installPath, ".claude-plugin", "plugin.json"),
+      path.join(installPath, "servers.json"),
+    ]);
+  });
+
   test("skips a declared path with a backslash outside Windows", async () => {
     if (process.platform === "win32") return;
     const { configDir, cwd, installPath } = await makePluginFixture({
