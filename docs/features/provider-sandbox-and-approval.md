@@ -24,7 +24,10 @@ These controls are product-facing workflow settings. They are the fastest way to
 1. Open `Settings`.
 2. Go to `Providers`.
 3. Choose the `Claude` or `Codex` tab.
-4. Review the preset and the individual runtime controls before sending the next turn.
+4. Pick a preset. The individual permission and sandbox fields sit under
+   `Customize permissions` below it; that group opens by itself when the
+   current combination matches no preset (`Custom`) or a project overrides
+   one of its fields.
 
 You can also confirm the effective state from the runtime chips near the composer.
 

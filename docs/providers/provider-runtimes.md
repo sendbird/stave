@@ -997,7 +997,8 @@ If you want the user-facing setup workflow instead of the runtime internals, use
   - `Guided`: `acceptEdits` + sandbox off + unsandboxed on + dangerous skip off
   - `Auto`: `auto` + sandbox off + unsandboxed on + dangerous skip off
   - `bypassPermissions` and `dontAsk` are reachable only from the
-    Permission Mode field and always present as `Custom`.
+    Permission Mode field under `Customize permissions` and always present
+    as `Custom`.
 - Stave has no plan mode. Claude's own `EnterPlanMode` and `ExitPlanMode`
   tools are always disallowed, so a turn never switches itself into a
   read-only planning state that waits for an approval. Ask for a plan in the

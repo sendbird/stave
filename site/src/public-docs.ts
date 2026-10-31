@@ -238,7 +238,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/workspace-scripts.md",
         title: "Workspace Scripts",
         description:
-          "Run shared actions, long-running services, and lifecycle hooks from the workspace side panel.",
+          "Run dev servers and commands, and choose when they run, from the Workspace Tools panel.",
         previewImage: "screenshots/scripts-panel.png",
       },
       {
