@@ -603,7 +603,7 @@
       "utility": {
         "title": "유틸리티 추론",
         "switchTitle": "유틸리티 추론 실행",
-        "description": "커밋 메시지와 프롬프트 개선 같은 텍스트 보조 호출입니다. Auto와 Agent 분류는 설정 > Auto의 라우팅 판단 모델을 사용합니다.",
+        "description": "커밋 메시지와 프롬프트 개선 같은 텍스트 보조 호출입니다. Auto와 Agent 분류는 설정 > 모델 > Auto (모델 라우터)의 라우팅 판단 모델을 사용합니다.",
         "modelDescription": "기계적인 유틸리티 호출에 사용하는 모델입니다."
       },
       "prDescription": {
@@ -636,8 +636,8 @@
     "enablementOwner": {
       "editor": {
         "title": "켜고 끄기는 편집기에서",
-        "on": "켜짐. 설정 → 편집기에서 끌 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
-        "off": "꺼짐. 설정 → 편집기에서 켤 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
+        "on": "켜짐. 설정 → 편집기 및 터미널에서 끌 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
+        "off": "꺼짐. 설정 → 편집기 및 터미널에서 켤 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
         "action": "편집기 열기"
       }
     },
@@ -732,7 +732,7 @@
     "tabsAriaLabel": "모델 표시 프로바이더",
     "panel": {
       "empty": "아직 사용할 수 있는 {{provider}} 모델이 없습니다. 런타임에 로그인한 다음 이 섹션을 다시 여세요.",
-      "unverified": "상태가 확인되지 않았습니다. 이 모델들을 확인하려면 설정 > 도구에서 새로고침하세요.",
+      "unverified": "상태가 확인되지 않았습니다. 이 모델들을 확인하려면 설정 > 계정 > 툴링에서 새로고침하세요.",
       "shownCount": "기본 표시 {{visible}}/{{total}}개",
       "reset": "현재 모델로 초기화",
       "current": "현재",
@@ -1030,7 +1030,7 @@
   },
   "settingsDialogModelVisibility": {
     "noModelsAreAvailableYetSign": "사용 가능한 {{value1}} 모델이 없습니다. 런타임에 로그인한 뒤 이 섹션을 다시 여십시오.",
-    "statusUnverifiedRefreshSettingsGtTooling": "상태를 확인하지 못했습니다. 설정 > 도구에서 새로고침하여 모델을 확인하십시오.",
+    "statusUnverifiedRefreshSettingsGtTooling": "상태를 확인하지 못했습니다. 설정 > 계정 > 툴링에서 새로고침하여 모델을 확인하십시오.",
     "shownByDefault": "기본 표시됨",
     "showInTheModelSelector": "모델 선택 메뉴에 {{value1}} 표시"
   },
@@ -1098,9 +1098,9 @@
     "status": {
       "primary": "사용 중: 로그인된 계정의 {{first}}. 응답이 없으면 {{second}}, 그다음 로컬 키워드 규칙 순서로 시도합니다.",
       "gateway": "사용 중: {{connection}} API 연결을 통한 {{model}}. 실패하면 {{first}}, {{second}}, 로컬 키워드 규칙 순서로 시도합니다.",
-      "inherit": "사용 중: 설정 > Auto에서 정한 라우팅 판단 모델.",
+      "inherit": "사용 중: 설정 > 모델 > Auto (모델 라우터)에서 정한 라우팅 판단 모델.",
       "autoOff": "사용 안 함: Auto가 꺼져 있어 작업을 분류하지 않습니다. Auto를 켜면 이 선택이 적용됩니다.",
-      "classifierOff": "사용 안 함: 설정 > Auto에서 모델 분류가 꺼져 있어 로컬 키워드 규칙으로 판단합니다. 모델 분류를 켜면 이 선택이 적용됩니다."
+      "classifierOff": "사용 안 함: 설정 > 모델 > Auto (모델 라우터)에서 모델 분류가 꺼져 있어 로컬 키워드 규칙으로 판단합니다. 모델 분류를 켜면 이 선택이 적용됩니다."
     },
     "gatewayNotApplied": "아직 적용되지 않았습니다. 설정 > 계정에서 Vercel AI Gateway API 연결을 추가한 뒤 여기서 선택하세요.",
     "connectionRemoved": "저장된 API 연결을 더 이상 사용할 수 없습니다. 설정 > 계정에서 Vercel AI Gateway API 연결을 추가한 뒤 여기서 선택하세요.",

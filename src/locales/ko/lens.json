@@ -1,7 +1,7 @@
 {
   "lensCdpApprovalDialog": {
     "cDPApprovalExpired": "CDP 승인 만료됨",
-    "retryTheLensActionToShowA": "Lens 동작을 다시 시도해 새 승인 요청을 표시하거나 설정 > Lens > 개발자 모드 > 승인된 CDP 호스트에 호스트를 추가하세요.",
+    "retryTheLensActionToShowA": "Lens 동작을 다시 시도해 새 승인 요청을 표시하거나 설정 > 브라우저 > Lens > 개발자 모드 > 고급 옵션 > 승인된 CDP 호스트에 호스트를 추가하세요.",
     "lensApprovalControlsAreUnavailable": "Lens 승인 컨트롤을 사용할 수 없습니다.",
     "failedToAnswerTheCDPApproval": "CDP 승인에 응답하지 못했습니다",
     "allowLensCDPAccess": "Lens CDP 접근을 허용하시겠습니까?",
@@ -9,7 +9,7 @@
     "host": "호스트",
     "workspace": "워크스페이스",
     "action": "동작",
-    "allowOnceGrantsTemporaryAccessAlwaysAllow": "한 번 허용은 임시 접근을 부여합니다. 항상 허용은 설정 > Lens > 개발자 모드에 호스트 이름만 저장하며 포트와 경로는 무시합니다.",
+    "allowOnceGrantsTemporaryAccessAlwaysAllow": "한 번 허용은 임시 접근을 부여합니다. 항상 허용은 설정 > 브라우저 > Lens > 개발자 모드에 호스트 이름만 저장하며 포트와 경로는 무시합니다.",
     "submittingApprovalResponse": "승인 응답 제출 중.",
     "deny": "거부",
     "allowOnce": "한 번 허용",

@@ -127,7 +127,7 @@ export async function fillLensCredentialForWebContents(
       ok: false,
       message: options?.username
         ? "No saved Lens account matches that username on the current hostname."
-        : "No unambiguous saved Lens account matches the current hostname. Choose a username or mark one account for automatic fill in Settings > Lens.",
+        : "No unambiguous saved Lens account matches the current hostname. Choose a username or mark one account for automatic fill in Settings > Browser > Lens.",
     };
   }
 

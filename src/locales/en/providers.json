@@ -316,7 +316,7 @@
     "runtimeSupportUnconfirmedYouCanStill": "Runtime support unconfirmed. You can still select this model.",
     "usingTheBuiltInModelCatalog": "Using the built-in model catalog.",
     "statusUnverifiedShowingTheLastModel": "Status unverified. Showing the last model catalog; refresh Tooling to retry.",
-    "verifyInstallationAndLoginInSettings": "Verify installation and login in Settings > Tooling.",
+    "verifyInstallationAndLoginInSettings": "Verify installation and login in Settings > Accounts > Tooling.",
     "providerStatusChangedDuringModelDiscovery": "Provider status changed during model discovery.",
     "failedToLoadTheProviderModel": "Failed to load the provider model catalog.",
     "statusUnverifiedShowingTheLastModelVariantfd01a02b": "Status unverified. Showing the last model catalog."

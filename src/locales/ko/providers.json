@@ -316,7 +316,7 @@
     "runtimeSupportUnconfirmedYouCanStill": "런타임 지원 여부를 확인하지 못했습니다. 모델은 선택할 수 있습니다.",
     "usingTheBuiltInModelCatalog": "기본 모델 목록을 사용합니다.",
     "statusUnverifiedShowingTheLastModel": "상태를 확인하지 못했습니다. 마지막 모델 목록을 표시합니다. 도구에서 새로고침하여 다시 시도하십시오.",
-    "verifyInstallationAndLoginInSettings": "설정 > 도구에서 설치 및 로그인을 확인하십시오.",
+    "verifyInstallationAndLoginInSettings": "설정 > 계정 > 툴링에서 설치 및 로그인을 확인하십시오.",
     "providerStatusChangedDuringModelDiscovery": "모델 탐색 중 프로바이더 상태가 변경되었습니다.",
     "failedToLoadTheProviderModel": "프로바이더 모델 목록을 불러오지 못했습니다.",
     "statusUnverifiedShowingTheLastModelVariantfd01a02b": "상태를 확인하지 못했습니다. 마지막 모델 목록을 표시합니다."

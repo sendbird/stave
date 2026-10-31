@@ -194,7 +194,7 @@ If the workflow also needs live UI inspection:
 12. Use raw or high-volume reads only when needed: pass `selector` and `maxChars` to `stave_lens_get_html`, and keep `limit` small for `stave_lens_get_console`, `stave_lens_get_network`, and `stave_lens_list_downloads`
 13. Call `stave_lens_close_session` to close MCP-managed sessions when the workflow is done
 
-CDP-backed calls pause for up to 60 seconds while Stave waits for approval. Choose `Allow once` for temporary access, or `Always allow` to save the hostname. You can also pre-approve it under `Settings > Browser > Lens > Developer Mode > Approved CDP Hosts`. Host approval ignores ports and paths, so `localhost` covers every localhost development port.
+CDP-backed calls pause for up to 60 seconds while Stave waits for approval. Choose `Allow once` for temporary access, or `Always allow` to save the hostname. You can also pre-approve it under `Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts`. Host approval ignores ports and paths, so `localhost` covers every localhost development port.
 
 ## Example Manifest
 

@@ -603,7 +603,7 @@
       "utility": {
         "title": "Utility inference",
         "switchTitle": "Run utility inference",
-        "description": "Mechanical text helper calls: commit messages and prompt enhancement. Auto and Agent classification use the Routing decision model in Settings > Auto.",
+        "description": "Mechanical text helper calls: commit messages and prompt enhancement. Auto and Agent classification use the Routing decision model in Settings > Models > Auto (Model Router).",
         "modelDescription": "Model used for mechanical utility calls."
       },
       "prDescription": {
@@ -636,8 +636,8 @@
     "enablementOwner": {
       "editor": {
         "title": "On/off lives in Editor",
-        "on": "On. Turn it off in Settings → Editor; provider and model are set here.",
-        "off": "Off. Turn it on in Settings → Editor; provider and model are set here.",
+        "on": "On. Turn it off in Settings → Editor & Terminal; provider and model are set here.",
+        "off": "Off. Turn it on in Settings → Editor & Terminal; provider and model are set here.",
         "action": "Open Editor"
       }
     },
@@ -733,7 +733,7 @@
     "tabsAriaLabel": "Model visibility provider",
     "panel": {
       "empty": "No {{provider}} models are available yet. Sign in to the runtime, then reopen this section.",
-      "unverified": "Status unverified. Refresh Settings > Tooling to verify these models.",
+      "unverified": "Status unverified. Refresh Settings > Accounts > Tooling to verify these models.",
       "shownCount": "{{visible}} of {{total}} shown by default",
       "reset": "Reset to current models",
       "current": "Current",
@@ -1035,7 +1035,7 @@
   },
   "settingsDialogModelVisibility": {
     "noModelsAreAvailableYetSign": "No {{value1}} models are available yet. Sign in to the runtime, then reopen this section.",
-    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings > Tooling to verify these models.",
+    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings > Accounts > Tooling to verify these models.",
     "shownByDefault": "shown by default",
     "showInTheModelSelector": "Show {{value1}} in the model selector"
   },
@@ -1108,9 +1108,9 @@
     "status": {
       "primary": "In use: {{first}} from your signed-in account. If it does not respond, Stave tries {{second}}, then local keyword rules.",
       "gateway": "In use: {{model}} through the {{connection}} API connection. If it fails, Stave tries {{first}}, then {{second}}, then local keyword rules.",
-      "inherit": "In use: the Routing decision model set in Settings > Auto.",
+      "inherit": "In use: the Routing decision model set in Settings > Models > Auto (Model Router).",
       "autoOff": "Not in use: Auto is off, so no work is classified. This choice applies once Auto is on.",
-      "classifierOff": "Not in use: Model classification is off in Settings > Auto, so local keyword rules decide. This choice applies once it is on."
+      "classifierOff": "Not in use: Model classification is off in Settings > Models > Auto (Model Router), so local keyword rules decide. This choice applies once it is on."
     },
     "gatewayNotApplied": "Not applied yet. Add a Vercel AI Gateway API connection in Settings > Accounts, then choose it here.",
     "connectionRemoved": "The saved API connection is no longer available. Add a Vercel AI Gateway API connection in Settings > Accounts, then choose it here.",

@@ -349,13 +349,13 @@ export function assertNavigationAllowed(
 
   if (hostMatchesList(host, blockedHosts)) {
     throw new Error(
-      `Lens navigation blocked by Settings > Lens > Site Access: ${host}`,
+      `Lens navigation blocked by Settings > Browser > Lens > Site Access: ${host}`,
     );
   }
 
   if (allowedHosts.length > 0 && !hostMatchesList(host, allowedHosts)) {
     throw new Error(
-      `Lens navigation is limited by Settings > Lens > Site Access. Add ${host} to allowed hosts to continue.`,
+      `Lens navigation is limited by Settings > Browser > Lens > Site Access. Add ${host} to allowed hosts to continue.`,
     );
   }
 }
@@ -378,7 +378,7 @@ export async function assertCdpAllowed(args: {
 
   if (!config.developerModeCdp) {
     throw new Error(
-      "Lens Developer Mode CDP is disabled. Enable Settings > Lens > Developer Mode to allow CDP-backed Lens actions.",
+      "Lens Developer Mode CDP is disabled. Enable Settings > Browser > Lens > Developer Mode to allow CDP-backed Lens actions.",
     );
   }
 
@@ -408,7 +408,7 @@ export async function assertCdpAllowed(args: {
   // module is loading. Re-check before creating a prompt from stale defaults.
   if (!currentSecurityConfig.developerModeCdp) {
     throw new Error(
-      "Lens Developer Mode CDP is disabled. Enable Settings > Lens > Developer Mode to allow CDP-backed Lens actions.",
+      "Lens Developer Mode CDP is disabled. Enable Settings > Browser > Lens > Developer Mode to allow CDP-backed Lens actions.",
     );
   }
   if (
@@ -434,7 +434,7 @@ export async function assertCdpAllowed(args: {
   const renderer = getMainWindow()?.webContents;
   if (!renderer || renderer.isDestroyed()) {
     throw new Error(
-      `Lens CDP access for ${host} is not approved. Keep Stave open and retry this action to show the approval dialog, or add ${host} in Settings > Lens > Developer Mode > Approved CDP Hosts.`,
+      `Lens CDP access for ${host} is not approved. Keep Stave open and retry this action to show the approval dialog, or add ${host} in Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts.`,
     );
   }
 
@@ -488,12 +488,12 @@ export async function assertCdpAllowed(args: {
 
   if (outcome === "timed-out") {
     throw new Error(
-      `Lens CDP approval for ${host} timed out after 60 seconds. Retry this action to show a new approval dialog. If the dialog is not visible, add ${host} in Settings > Lens > Developer Mode > Approved CDP Hosts.`,
+      `Lens CDP approval for ${host} timed out after 60 seconds. Retry this action to show a new approval dialog. If the dialog is not visible, add ${host} in Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts.`,
     );
   }
   if (outcome === "denied") {
     throw new Error(
-      `Lens CDP access for ${host} was denied. Retry this action to request access again, or add ${host} in Settings > Lens > Developer Mode > Approved CDP Hosts.`,
+      `Lens CDP access for ${host} was denied. Retry this action to request access again, or add ${host} in Settings > Browser > Lens > Developer Mode > Advanced options > Approved CDP Hosts.`,
     );
   }
 }
