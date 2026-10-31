@@ -3,37 +3,13 @@ import { collectProviderAccountUsageWindows, resolveAccountUsageBlock } from "..
 import { DEFAULT_CLAUDE_OPUS_MODEL, DEFAULT_CODEX_MODEL, getSdkModelOptions } from "../../../src/lib/providers/model-catalog";
 import { selectedProviderAccount, type ProviderAccountSelection } from "../../../src/lib/providers/provider-account-selection";
 import type { RateLimitsSnapshotResponse } from "../../../src/lib/providers/provider.types";
-
-/** The providers a run's helpers can run on. */
-export const TEAM_PROVIDERS = ["claude-code", "codex"] as const;
-export type TeamProviderId = (typeof TEAM_PROVIDERS)[number];
-
-/**
- * - `headroom`: below `PROVIDER_USAGE_LOW_PERCENT`.
- * - `low`: new parallel work should go elsewhere when it can.
- * - `critical`: what is left is the user's other tasks' margin.
- * - `exhausted`: the account cannot run a turn until the window resets.
- * - `unknown`: Stave has no recent reading; not a sign of headroom.
- */
-export type ProviderUsageStatus = "headroom" | "low" | "critical" | "exhausted" | "unknown";
-
-/** One provider's account usage as a run's turn reads it. Model-facing, so not localized. */
-export interface ProviderUsageSummary {
-  status: ProviderUsageStatus;
-  /** Percent used of the tightest live account-wide window. */
-  usedPercent?: number;
-  /** When that window resets. */
-  resetsAt?: string;
-  /** When Stave last read this account's usage. */
-  observedAt?: string;
-  /** The reading carried only some windows, so a tighter one may be missing. */
-  partial?: true;
-  /** Models blocked by a window of their own while the account still has room. */
-  exhaustedModels?: string[];
-}
-
-export const PROVIDER_USAGE_LOW_PERCENT = 70;
-export const PROVIDER_USAGE_CRITICAL_PERCENT = 85;
+import {
+  PROVIDER_USAGE_CRITICAL_PERCENT,
+  PROVIDER_USAGE_LOW_PERCENT,
+  TEAM_PROVIDERS,
+  type ProviderUsageSummary,
+  type TeamProviderId,
+} from "../../../src/lib/agent-runs/provider-usage";
 
 /**
  * Account-wide windows only. A model with a window of its own (Claude's Fable

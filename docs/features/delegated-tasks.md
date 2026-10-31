@@ -157,6 +157,7 @@ is optional:
 | `wait` | `true` waits up to 120 seconds for the answer and returns it as `child.result`; a number waits that many seconds (max 180); `false` returns at once. Defaults to `true` for read-only and `false` otherwise. The subagent keeps running when the wait ends. |
 | `delegationKey` | Idempotency key, unique within the parent task. The same key always names the same child. Omitted, it is derived from the parent task, the resolved provider, model, prompt and agent, so sending the same call again returns the same child. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
+| `usageOverride` | `user-request`, only when you asked for this provider or model. It starts the subagent even where the account usage check below would refuse it. |
 
 `permissionProfile` is no longer offered to agents. A call from an older client
 that still sends it is accepted: `inherit` and `auto` mean `inherit`, and
@@ -357,6 +358,22 @@ may have running at once (default 3, maximum 16).
   other one to finish. Read-only subagents (a resolved Codex `read-only` file
   access, or the full Claude read-only posture) never count as writers.
   Permission profile names do not establish read-only tool access.
+
+### The delegation was refused with `usage-limited`
+
+- Symptom: `stave_delegate_task` returns `accepted: false`,
+  `reason: "usage-limited"`, and the message names both providers' usage.
+- Cause: before a model's new subagent (or a retry) starts, Stave checks the
+  account usage it already holds for the calling turn's accounts (see
+  [Team limits](agents.md#team-limits)). It refuses the start when the target
+  provider's account is exhausted, when the requested model's own window is
+  used up, or when the provider is critical (85% or more of its tightest
+  window) while the other provider is below that. Re-sending a running child's
+  key, follow-ups, the composer's Review and workflow stages are not checked,
+  and usage Stave has not read recently never refuses.
+- Fix: start the subagent on the other provider or another model, wait for the
+  reset the message names, or pass `usageOverride: "user-request"` when you
+  asked for that provider.
 
 ### The delegation was refused with `invalid-ownership`
 

@@ -2,6 +2,7 @@ import { setRunQuestionAnswerer } from "./host-service/run-question-answer";
 import { recordTurnCompletedChecks } from "./host-service/turn-check-digest";
 import { findAutomationWorkspace } from "./host-service/automation-workspace-location";
 import { rememberAdaptiveQuota } from "./providers/adaptive-observations";
+import { readTeamProviderUsage } from "./host-service/supervision/provider-usage-context";
 import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, resolveHostDelegationStrengths, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { applyRuntimeLocale } from "../src/i18n/runtime";
 import { readAgentHistory } from "./providers/agent-history";
@@ -20,6 +21,7 @@ import {
   resolvePullRequestTitle,
 } from "../src/lib/source-control-pr";
 import { DEFAULT_PROMPT_PR_DESCRIPTION } from "../src/lib/providers/prompt-defaults";
+import type { ProviderAccountSelection } from "../src/lib/providers/provider-account-selection";
 import { helperKeepsParentProvider } from "../src/lib/agent-runs/resources";
 import {
   cleanupAllScriptProcesses,
@@ -715,6 +717,9 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return resolveHostDelegationDefaults(args as Parameters<typeof resolveHostDelegationDefaults>[0]);
     case "resolve-delegation-strengths":
       return resolveHostDelegationStrengths();
+    case "read-provider-usage":
+      // The usage readings live in this process; a delegation's admission reads them here.
+      return readTeamProviderUsage({ accounts: (args as { accounts?: ProviderAccountSelection } | null)?.accounts ?? {}, now: Date.now() });
     case "resolve-caller-grant":
       return resolveHostCallerGrant(args as Parameters<typeof resolveHostCallerGrant>[0]);
     case "run-task":

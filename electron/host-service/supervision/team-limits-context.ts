@@ -1,5 +1,5 @@
 import { helperKeepsParentProvider, type AdaptiveRunPolicy, type AgentResourceSnapshot } from "../../../src/lib/agent-runs/resources";
-import type { ProviderUsageSummary, TeamProviderId } from "./provider-usage-context";
+import type { ProviderUsageSummary, TeamProviderId } from "../../../src/lib/agent-runs/provider-usage";
 
 /** What a run's turn reads about its team limits, beside the stage context. Model-facing, so not localized. */
 export function teamLimitsContextPart(policy: AdaptiveRunPolicy, budget: AgentResourceSnapshot | null, turnKey: string,
@@ -17,7 +17,7 @@ export function teamLimitsContextPart(policy: AdaptiveRunPolicy, budget: AgentRe
         + (providerUsage
           ? "providerUsage is each provider's account usage at Stave's last reading; the user's other tasks share these accounts. Unknown means no recent reading, not headroom. "
             + (helpersCrossProviders
-              ? "Start no new helper work on an exhausted provider or model. While a provider is low, send new parallel work to the other one; at critical, leave the rest to the user's other tasks and only finish work already running there unless no other provider can do it. "
+              ? "Start no new helper work on an exhausted provider or model. While a provider is low, send new parallel work to the other one; at critical, leave the rest to the user's other tasks and only finish work already running there unless no other provider can do it. Stave refuses a new subagent on an exhausted provider or model, and on a critical provider while the other has room, unless you pass usageOverride \"user-request\" because the user asked for it. "
               : "")
           : "")
         + "Read stave_get_agent_run for linked stage turn ids. If another same-provider model or effort is justified by these turns, propose it with stave_request_agent_resources for the next turn. When the user explicitly asks for a model or effort, propose it at once with reason user-request, citing the turn where they asked. Permissions and pinned settings do not change. Environment/permission failures are blockers, not capability escalation evidence." }) };
