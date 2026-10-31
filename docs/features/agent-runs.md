@@ -87,7 +87,13 @@ stage keeps the run waiting: open it from **Subagents** and answer or retry
 it there.
 
 For goals with separate parts, assign **Lead**, which splits the work across
-agents and checks each result before it reports.
+agents and checks each result before it reports. **Supervisor** goes one step
+further: it owns the goal from plan to verified result, picks each part's
+provider and model from what the work needs and how much account usage each
+provider has left, integrates the parts itself, and asks only about scope,
+undecided product or design choices, destructive actions and publishing. It
+runs on Auto with no preferred provider and a 60-turn shared budget; a fixed
+or pinned model would keep its helpers on its own provider.
 
 ## When To Use It
 

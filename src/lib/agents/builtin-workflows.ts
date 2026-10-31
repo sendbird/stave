@@ -3,8 +3,8 @@ import type { AgentWorkflow } from "./schema";
 /**
  * The workflows of the built-in agents that work in stages. A run of one of
  * these agents follows its stages, reporting each; every other built-in runs
- * as one "Work" stage. Implementer, Researcher, Reviewer and Lead stay single
- * stage on purpose: they plan their own steps inside the work.
+ * as one "Work" stage. Implementer, Researcher, Reviewer, Lead and Supervisor
+ * stay single stage on purpose: they plan their own steps inside the work.
  */
 export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<string, AgentWorkflow>> = {
   debugger: [
