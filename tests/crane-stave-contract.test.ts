@@ -167,14 +167,14 @@ describe("Crane Stave dispatch V1 contract", () => {
     expect(
       CraneConnectorConfigArgsSchema.safeParse({
         enabled: true,
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         pollIntervalSeconds: 15,
         connectorSecret: "stc_forbidden",
       }).success,
     ).toBe(false);
     expect(
       CraneConnectorPairArgsSchema.safeParse({
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         code: "stp_test-only-code",
         name: "Stave Desktop",
       }).success,

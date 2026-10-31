@@ -29,7 +29,7 @@ function buildJob(
       key: overrides.key ?? "TFE-94",
       title: overrides.title ?? "Hide region information",
       description: overrides.description ?? "",
-      href: "https://atelier.delight-tools.ai/apps/crane/w/FRONTEND/task/TFE-94",
+      href: "https://atelier.sdix.io/apps/crane/w/FRONTEND/task/TFE-94",
       updatedAt: "2026-08-12T05:32:16.923Z",
       ...(overrides.links === undefined ? {} : { links: overrides.links }),
     },
@@ -155,7 +155,7 @@ test("a bare Jira key in the instruction is used as a last resort", () => {
 test("the Crane issue URL is not mistaken for a Jira link", () => {
   const job = buildJob({
     description:
-      "Duplicate of https://atelier.delight-tools.ai/apps/crane/w/FRONTEND/task/TFE-71.",
+      "Duplicate of https://atelier.sdix.io/apps/crane/w/FRONTEND/task/TFE-71.",
   });
   expect(resolveCraneJiraReference(job)).toBeNull();
 });

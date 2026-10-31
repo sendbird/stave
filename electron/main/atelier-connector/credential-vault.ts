@@ -11,6 +11,9 @@ import {
   CraneConnectorMetadataSchema,
   type CraneConnectorMetadata,
 } from "../../../src/lib/crane-connector/types";
+// temporary-migration: atelier-retired-host
+import { migrateRetiredAtelierBaseUrl } from "../../../src/lib/atelier-connector/retired-host-migration";
+// end temporary-migration: atelier-retired-host
 import type {
   CraneConnectorLease,
   CraneCredentialVaultCrypto,
@@ -78,6 +81,23 @@ export function migrateCraneVaultDocument(
     leases: legacy.leases,
   };
 }
+
+// temporary-migration: atelier-retired-host
+/**
+ * A pairing saved for the retired Atelier host reads as the new UI host. Only
+ * the in-memory copy changes, so a read never races a queued mutation; the
+ * next write of the vault persists it.
+ */
+function withCurrentAtelierHost(
+  document: AtelierVaultDocument,
+): AtelierVaultDocument {
+  if (!document.connector) return document;
+  const baseUrl = migrateRetiredAtelierBaseUrl(document.connector.baseUrl);
+  return baseUrl === document.connector.baseUrl
+    ? document
+    : { ...document, connector: { ...document.connector, baseUrl } };
+}
+// end temporary-migration: atelier-retired-host
 
 export class AtelierConnectorCredentialVault {
   private mutationQueue: Promise<void> = Promise.resolve();
@@ -266,7 +286,8 @@ export class AtelierConnectorCredentialVault {
       if (!parsed.success) {
         throw new Error("The Atelier connector vault has an unsupported format.");
       }
-      return parsed.data;
+      // temporary-migration: atelier-retired-host (at expiry return parsed.data)
+      return withCurrentAtelierHost(parsed.data);
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
     }
@@ -285,7 +306,10 @@ export class AtelierConnectorCredentialVault {
     try {
       const raw = await fs.readFile(this.args.legacyCraneFilePath, "utf8");
       const parsed = LegacyCraneVaultDocumentSchema.safeParse(JSON.parse(raw));
-      return parsed.success ? migrateCraneVaultDocument(parsed.data) : null;
+      // temporary-migration: atelier-retired-host (at expiry drop withCurrentAtelierHost)
+      return parsed.success
+        ? withCurrentAtelierHost(migrateCraneVaultDocument(parsed.data))
+        : null;
     } catch {
       return null;
     }

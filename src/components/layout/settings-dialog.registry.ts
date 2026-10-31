@@ -2,7 +2,10 @@ import { i18n } from "@/i18n";
 import { z } from "zod";
 import { DEFAULT_REVIEW_TASK_SETTINGS, REVIEW_TASK_SETTING_FIELD_ID, normalizeReviewTaskSettings } from "@/lib/reviews/review-task";
 import type { AppSettings } from "@/store/app-settings";
-import { CraneConnectorSettingsSchema } from "@/lib/crane-connector/types";
+import {
+  CraneConnectorSettingsSchema,
+  DEFAULT_CRANE_CONNECTOR_BASE_URL,
+} from "@/lib/crane-connector/types";
 import {
   DEFAULT_JIRA_CONNECTOR_SETTINGS,
   JiraConnectorSettingsSchema,
@@ -291,7 +294,7 @@ export const settingDefinitions = [
     schema: CraneConnectorSettingsSchema,
     defaultValue: {
       enabled: false,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: DEFAULT_CRANE_CONNECTOR_BASE_URL,
       pollIntervalSeconds: 15,
       repositoryMappings: [],
     },

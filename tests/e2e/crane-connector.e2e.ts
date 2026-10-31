@@ -109,7 +109,7 @@ function seedCraneConnector(
             codexApprovalPolicy: "on-request",
             craneConnector: {
               enabled: false,
-              baseUrl: "https://atelier.delight-tools.ai",
+              baseUrl: "https://atelier.sdix.io",
               pollIntervalSeconds: 15,
               repositoryMappings: [],
             },
@@ -348,7 +348,7 @@ test("Crane settings pair explicitly and keep the connector off by default", asy
     .toMatchObject({
       lastConfigureCall: {
         enabled: false,
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         pollIntervalSeconds: 15,
       },
       disconnectCalls: 0,
@@ -366,7 +366,7 @@ test("Crane settings pair explicitly and keep the connector off by default", asy
     )
     .toEqual([
       {
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         code: "stp_test-only-pairing-code",
         name: "Stave E2E",
       },
@@ -409,7 +409,7 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
           key: "CRANE-42",
           title: "Verify local dispatch",
           description: "Remote issue text stays untrusted.",
-          href: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+          href: "https://atelier.sdix.io/apps/crane/task/CRANE-42",
           updatedAt: "2026-07-26T00:00:00.000Z",
         },
         instruction: "Run the focused connector checks.",
@@ -554,7 +554,7 @@ test("Crane approval can pick a different model and reasoning effort", async ({
           key: "CRANE-43",
           title: "Pick an effort",
           description: "Remote issue text stays untrusted.",
-          href: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-43",
+          href: "https://atelier.sdix.io/apps/crane/task/CRANE-43",
           updatedAt: "2026-07-26T00:00:00.000Z",
         },
         instruction: "Run the focused connector checks.",

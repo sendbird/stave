@@ -22,6 +22,7 @@ import {
   type CraneConnectorMetadata,
 } from "../../../src/lib/crane-connector/types";
 import { normalizeCraneConnectorBaseUrl } from "../crane-connector/http-client";
+import { atelierApiBaseUrl } from "../../../src/lib/atelier-connector/hosts";
 import { CraneStaveJobV1Schema } from "../../../src/lib/crane-connector/contract";
 import {
   CRANE_TASKS_LIMITS,
@@ -184,7 +185,10 @@ function toPublicMetadata(
 }
 
 export class AtelierConnectorHttpClient {
-  private readonly baseUrl: string;
+  /** The configured Atelier URL: pages and links people open. */
+  private readonly uiBaseUrl: string;
+  /** Where requests go: the API host derived from `uiBaseUrl`. */
+  private readonly apiBaseUrl: string;
   private readonly fetchImpl: typeof fetch;
   private readonly requestTimeoutMs: number;
 
@@ -194,9 +198,10 @@ export class AtelierConnectorHttpClient {
     allowInsecureLocalhost?: boolean;
     requestTimeoutMs?: number;
   }) {
-    this.baseUrl = normalizeAtelierBaseUrl(args.baseUrl, {
+    this.uiBaseUrl = normalizeAtelierBaseUrl(args.baseUrl, {
       allowInsecureLocalhost: args.allowInsecureLocalhost,
     });
+    this.apiBaseUrl = atelierApiBaseUrl(this.uiBaseUrl);
     this.fetchImpl = args.fetch ?? fetch;
     this.requestTimeoutMs = Math.max(
       1,
@@ -219,7 +224,7 @@ export class AtelierConnectorHttpClient {
       ? AbortSignal.any([args.signal, timeoutSignal])
       : timeoutSignal;
     try {
-      response = await this.fetchImpl(new URL(args.path, this.baseUrl), {
+      response = await this.fetchImpl(new URL(args.path, this.apiBaseUrl), {
         method: args.method ?? "GET",
         headers: {
           Accept: "application/json",
@@ -309,7 +314,7 @@ export class AtelierConnectorHttpClient {
       maxResponseBytes: SYNC_MAX_RESPONSE_BYTES,
     });
     return response.projects.map((project) =>
-      toMartinProjectSummary(project, this.baseUrl),
+      toMartinProjectSummary(project, this.uiBaseUrl),
     );
   }
 

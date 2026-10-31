@@ -12,6 +12,7 @@ import {
   CraneConnectorConfigInputSchema,
   CraneConnectorPairInputSchema,
   CraneDispatchApprovalResponseSchema,
+  DEFAULT_CRANE_CONNECTOR_BASE_URL,
   type CraneConnectorConfigInput,
   type CraneConnectorPairInput,
   type CraneConnectorPublicStatus,
@@ -180,7 +181,7 @@ export function computeCraneConnectorRetryDelay(args: {
 export class CraneConnectorRuntime {
   private config: CraneConnectorConfigInput = {
     enabled: false,
-    baseUrl: "https://atelier.delight-tools.ai",
+    baseUrl: DEFAULT_CRANE_CONNECTOR_BASE_URL,
     pollIntervalSeconds: 15,
   };
   private status: CraneConnectorPublicStatus;

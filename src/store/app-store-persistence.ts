@@ -48,6 +48,9 @@ import {
 // temporary-migration: jira-single-switch
 import { migrateJiraSingleSwitch } from "@/lib/tracker-issues/jira-single-switch-migration";
 // end temporary-migration: jira-single-switch
+// temporary-migration: atelier-retired-host
+import { migrateCraneConnectorRetiredHost } from "@/lib/atelier-connector/retired-host-migration";
+// end temporary-migration: atelier-retired-host
 import {
   isAutoModelId,
   upgradeSettingsScopedClaudeModel,
@@ -273,6 +276,13 @@ export function createAppStorePersistenceOptions() {
         migrateJiraSingleSwitch(persistedSettings as unknown as Record<string, unknown>);
       }
       // end temporary-migration: jira-single-switch
+      // temporary-migration: atelier-retired-host
+      // A connector saved for the retired Atelier host reads as the new UI host
+      // and is written back with the next save.
+      if (persistedSettings) {
+        migrateCraneConnectorRetiredHost(persistedSettings as unknown as Record<string, unknown>);
+      }
+      // end temporary-migration: atelier-retired-host
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
       );

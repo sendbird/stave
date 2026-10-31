@@ -39,6 +39,20 @@
       "tests": [
         "tests/jira-single-switch-migration.test.ts"
       ]
+    },
+    {
+      "id": "atelier-retired-host",
+      "description": "Atelier moved from https://atelier.delight-tools.ai to the UI host https://atelier.sdix.io on 2026-10-30; the old host only redirects, which drops the connector's bearer token. Settings rehydration rewrites a saved craneConnector.baseUrl on the old host to the new UI host, persisted with the next settings save. The Atelier connector vault reads a saved pairing on the old host (atelier-connector.v1.json, or the legacy crane-connector.v1.json it imports) as the new UI host and persists it with the next vault write (pairing, job lease or disconnect). Only the host changes; the pairing, secret and leases are kept. At expiry, delete the marked blocks; a profile that skipped these releases, or a vault never written since, keeps the old host and its connector requests fail until the user disconnects and pairs again with the new Atelier URL.",
+      "introducedAfter": "0.28.3",
+      "removeInVersion": "0.31.0",
+      "files": [
+        "electron/main/atelier-connector/credential-vault.ts",
+        "src/lib/atelier-connector/retired-host-migration.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/atelier-retired-host-migration.test.ts"
+      ]
     }
   ]
 }

@@ -49,7 +49,7 @@ describe("CraneConnectorCredentialVault", () => {
 
   test("stores connector and lease secrets only as ciphertext", async () => {
     await vault.saveCredential({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       connector: CONNECTOR,
       secret: "stc_test-only-connector-secret",
     });
@@ -65,7 +65,7 @@ describe("CraneConnectorCredentialVault", () => {
     expect(raw).not.toContain("stl_test-only-job-lease");
     expect(statSync(filePath).mode & 0o777).toBe(0o600);
     expect(await vault.getCredential()).toEqual({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       connector: CONNECTOR,
       secret: "stc_test-only-connector-secret",
     });
@@ -87,7 +87,7 @@ describe("CraneConnectorCredentialVault", () => {
     insecure = true;
     await expect(
       vault.saveCredential({
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         connector: CONNECTOR,
         secret: "stc_test-only-connector-secret",
       }),
@@ -96,7 +96,7 @@ describe("CraneConnectorCredentialVault", () => {
 
   test("removes connector and lease material together", async () => {
     await vault.saveCredential({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       connector: CONNECTOR,
       secret: "stc_test-only-connector-secret",
     });

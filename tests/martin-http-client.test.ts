@@ -111,6 +111,43 @@ describe("AtelierConnectorHttpClient", () => {
     ).rejects.toMatchObject({ code: "invalid_response" });
   });
 
+  test("requests go to the API host while project links stay on the UI host", async () => {
+    const requests: Request[] = [];
+    const fixture = await readFixture("valid-project-list.json");
+    const client = new AtelierConnectorHttpClient({
+      baseUrl: "https://atelier.sdix.io/",
+      fetch: (async (input, init) => {
+        const request = new Request(input, init);
+        requests.push(request);
+        return request.url.endsWith("/connectors/exchange")
+          ? jsonResponse({
+              connector: { ...SERVER_CONNECTOR, scopes: ["martin"] },
+              secret: "stc_test-only-secret",
+              pollRetryMs: 15_000,
+            })
+          : jsonResponse(fixture);
+      }) as typeof fetch,
+    });
+
+    await client.exchangePairingCode({
+      code: "stp_test-only-code",
+      name: "Personal Stave",
+      appVersion: "1.0.0",
+      requestedScopes: ["martin"],
+    });
+    const projects = await client.listMartinProjects({
+      secret: "stc_test-only-secret",
+    });
+
+    expect(requests.map((request) => request.url)).toEqual([
+      "https://api.atelier.sdix.io/api/crane/stave/connectors/exchange",
+      "https://api.atelier.sdix.io/api/martin/stave/projects",
+    ]);
+    expect(projects[0]?.url).toBe(
+      "https://atelier.sdix.io/apps/martin/p/sync-outbox",
+    );
+  });
+
   test("allows bounded context bundles but rejects declared oversize responses", async () => {
     const fixture = await readFixture("valid-context-bundle.json");
     let response = jsonResponse({ ...fixture, markdown: "x".repeat(100_000) });

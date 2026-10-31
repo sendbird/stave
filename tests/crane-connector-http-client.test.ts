@@ -16,8 +16,8 @@ function jsonResponse(value: unknown, init?: ResponseInit) {
 describe("CraneConnectorHttpClient", () => {
   test("requires HTTPS except localhost development", () => {
     expect(
-      normalizeCraneConnectorBaseUrl("https://atelier.delight-tools.ai/"),
-    ).toBe("https://atelier.delight-tools.ai");
+      normalizeCraneConnectorBaseUrl("https://atelier.sdix.io/"),
+    ).toBe("https://atelier.sdix.io");
     expect(() =>
       normalizeCraneConnectorBaseUrl("http://atelier.example"),
     ).toThrow("HTTPS");
@@ -28,7 +28,7 @@ describe("CraneConnectorHttpClient", () => {
     ).toBe("http://localhost:8181");
     expect(() =>
       normalizeCraneConnectorBaseUrl(
-        "https://atelier.delight-tools.ai/apps/crane",
+        "https://atelier.sdix.io/apps/crane",
       ),
     ).toThrow("without a path");
   });
@@ -36,7 +36,7 @@ describe("CraneConnectorHttpClient", () => {
   test("exchanges a pairing code without leaking it into errors", async () => {
     const requests: Request[] = [];
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       fetch: (async (input, init) => {
         requests.push(new Request(input, init));
         return jsonResponse({
@@ -65,12 +65,41 @@ describe("CraneConnectorHttpClient", () => {
 
     expect(result.connector.id).toBe("connector-1");
     expect(result.secret).toBe("stc_test-only-connector-secret");
+    expect(requests[0]?.url).toBe(
+      "https://api.atelier.sdix.io/api/crane/stave/connectors/exchange",
+    );
     expect(requests[0]?.headers.get("authorization")).toBeNull();
+  });
+
+  test("sends requests for the UI host to the API host and keeps other hosts", async () => {
+    const urls: string[] = [];
+    const recordingFetch = (async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return new Response(null, { status: 204 });
+    }) as typeof fetch;
+
+    for (const baseUrl of [
+      "https://atelier.sdix.io/",
+      "https://atelier.example.test",
+      "http://localhost:8181",
+    ]) {
+      await new CraneConnectorHttpClient({
+        baseUrl,
+        fetch: recordingFetch,
+        allowInsecureLocalhost: true,
+      }).getNextJob({ secret: "stc_test-only-connector-secret" });
+    }
+
+    expect(urls).toEqual([
+      "https://api.atelier.sdix.io/api/crane/stave/connectors/jobs/next",
+      "https://atelier.example.test/api/crane/stave/connectors/jobs/next",
+      "http://localhost:8181/api/crane/stave/connectors/jobs/next",
+    ]);
   });
 
   test("records the tasks-list capability from an idle poll header", async () => {
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       fetch: (async () =>
         new Response(null, {
           status: 204,
@@ -88,7 +117,7 @@ describe("CraneConnectorHttpClient", () => {
 
   test("accepts a heartbeat tasksEnabled field and ignores unknown extras", async () => {
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       fetch: (async () =>
         jsonResponse({
           ok: true,
@@ -107,7 +136,7 @@ describe("CraneConnectorHttpClient", () => {
   test("uses the narrow connector bearer token and parses no-content polls", async () => {
     const requests: Request[] = [];
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       fetch: (async (input, init) => {
         requests.push(new Request(input, init));
         return new Response(null, { status: 204 });
@@ -126,7 +155,7 @@ describe("CraneConnectorHttpClient", () => {
 
   test("returns only a stable error code for remote failures", async () => {
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       fetch: (async () =>
         jsonResponse(
           {
@@ -153,7 +182,7 @@ describe("CraneConnectorHttpClient", () => {
 
   test("rejects oversized response bodies before parsing", async () => {
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       fetch: (async () =>
         new Response("x".repeat(25_000), {
           status: 200,
@@ -170,7 +199,7 @@ describe("CraneConnectorHttpClient", () => {
 
   test("bounds stalled outbound requests", async () => {
     const client = new CraneConnectorHttpClient({
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       requestTimeoutMs: 5,
       fetch: ((_input, init) =>
         new Promise((_resolve, reject) => {

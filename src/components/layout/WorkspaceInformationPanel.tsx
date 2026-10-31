@@ -1460,7 +1460,7 @@ export function WorkspaceInformationPanel() {
                             key={issue.id}
                             value={issue.url}
                             icon={<Link className={sx(styles.glyphMd)} />}
-                            placeholder="https://atelier.delight-tools.ai/apps/crane/w/TEAM/task/CRN-42"
+                            placeholder="https://atelier.sdix.io/apps/crane/w/TEAM/task/CRN-42"
                             onChange={(url) =>
                               patchWorkspaceInformation((current) => ({
                                 ...current,

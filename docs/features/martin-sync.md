@@ -36,8 +36,9 @@ than factual.
 ## Quick Start
 
 1. In Stave, open `Settings > Integrations > Martin sync`.
-2. Enter the Atelier URL and pairing code, select the connector scopes you use,
-   then select `Pair securely`.
+2. Enter the Atelier URL (`https://atelier.sdix.io` by default; Stave sends its
+   requests to `https://api.atelier.sdix.io`) and pairing code, select the
+   connector scopes you use, then select `Pair securely`.
 3. Turn on `Enable Martin sync` and choose which event types to send.
 4. Open a workspace and select `Information` in the right rail.
 5. In the `Martin project` card, search for a project and select `Link`.
