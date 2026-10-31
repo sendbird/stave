@@ -1,94 +1,97 @@
-/**
- * Off-grid spacing in product StyleX.
- *
- * Stave spaces on a 4px grid: the `--ads-space-*` tokens (4, 8, 12, 16, …),
- * which the Compact density preset moves together, and `densityPad` for a
- * component's own density. A literal 6 or 10 on a padding, margin or gap sits
- * between two steps, so it reads as a near miss of the grid and never follows
- * the preset. Most of them predate the tokens; the count is a ratchet so the
- * number can only fall (`config/spacing-ratchet.json`, checked by
- * `scripts/check-design-system-migration.mjs`).
- *
- * What is counted: a padding, margin or gap property (`padding`, `paddingBlock`,
- * `marginInlineStart`, `rowGap`, …) whose value is the numeric literal 6 or 10
- * (or its negative), directly or inside a conditional map
- * (`gap: { default: 6, "@media …": 10 }`), and every standalone `6px` or `10px`
- * in a string value (`"6px 10px"` counts twice), in any `.ts`/`.tsx` under
- * `src/` except the installed ADS copy. Positioning (`top`, `inset*`) is not
- * spacing and is not counted.
+/** Literal spacing debt, keyed by declaration rather than a per-file quota.
+ * Product spacing uses ADS space tokens or densityPad. Zero, percentages and
+ * auto remain valid. ADS owns the underlying scale and is outside this scan.
+ * This checks declarations, not rendered alignment or arbitrary JS evaluation.
  */
 import { readFileSync, readdirSync } from "node:fs";
 import { sep } from "node:path";
 import ts from "typescript";
 
-const SPACING_PROPERTY =
-  /^(?:(?:padding|margin)(?:Top|Right|Bottom|Left|Block|BlockStart|BlockEnd|Inline|InlineStart|InlineEnd)?|gap|rowGap|columnGap)$/;
-const OFF_GRID = new Set([6, 10]);
-const OFF_GRID_PX = /(?<![\d.])-?(?:6|10)px\b/g;
+const SPACING_PROPERTY = /^(?:(?:padding|margin)(?:Top|Right|Bottom|Left|Block|BlockStart|BlockEnd|Inline|InlineStart|InlineEnd)?|gap|rowGap|columnGap)$/;
+const LENGTH = /(?<![\w.])-?(?:\d*\.)?\d+(?:px|rem|em|pt|pc|cm|mm|in)\b/gi;
+const printer = ts.createPrinter({ removeComments: true });
 
-function isScanned(path) {
-  return /\.tsx?$/.test(path) && !path.startsWith("components/ads/");
+function name(node) {
+  if (!node.name) return null;
+  return ts.isIdentifier(node.name) || ts.isStringLiteral(node.name)
+    ? node.name.text : node.name.getText();
 }
 
-function propertyName(node) {
-  const name = node.name;
-  if (ts.isIdentifier(name) || ts.isStringLiteral(name)) return name.text;
-  return null;
+function hasLiteral(node) {
+  if (ts.isNumericLiteral(node)) return Number(node.text) !== 0;
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node) ||
+      ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+    return [...node.text.matchAll(LENGTH)].some(([length]) => Number.parseFloat(length) !== 0);
+  }
+  if (ts.isConditionalExpression(node)) return hasLiteral(node.whenTrue) || hasLiteral(node.whenFalse);
+  if (ts.isArrowFunction(node) || ts.isFunctionExpression(node)) return hasLiteral(node.body);
+  // Named tokens and density steps are authoritative. Do not inspect arguments
+  // of calls (e.g. a token resolver), or property names in conditional maps.
+  if (ts.isCallExpression(node) || ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) return false;
+  if (ts.isObjectLiteralExpression(node))
+    return node.properties.some((branch) => ts.isPropertyAssignment(branch) && hasLiteral(branch.initializer));
+  let found = false;
+  ts.forEachChild(node, (child) => { if (hasLiteral(child)) found = true; });
+  return found;
 }
 
-function countValue(node) {
-  if (ts.isNumericLiteral(node)) return OFF_GRID.has(Number(node.text)) ? 1 : 0;
-  if (
-    ts.isPrefixUnaryExpression(node) &&
-    node.operator === ts.SyntaxKind.MinusToken &&
-    ts.isNumericLiteral(node.operand)
-  ) {
-    return OFF_GRID.has(Number(node.operand.text)) ? 1 : 0;
-  }
-  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-    return (node.text.match(OFF_GRID_PX) ?? []).length;
-  }
-  if (ts.isObjectLiteralExpression(node)) {
-    let count = 0;
-    for (const branch of node.properties) {
-      if (ts.isPropertyAssignment(branch)) count += countValue(branch.initializer);
+function owner(node) {
+  const parts = [];
+  for (let parent = node; parent; parent = parent.parent) {
+    if (ts.isPropertyAssignment(parent) || ts.isVariableDeclaration(parent)) {
+      const part = name(parent);
+      if (part) parts.unshift(part);
     }
-    return count;
   }
-  return 0;
+  return parts.join(".");
 }
 
-/**
- * Scan `srcRoot` (a `file:` URL for `src/`) and return the off-grid spacing
- * count of every file that has any, keyed `src/<path>`.
- */
+/** Return findings with stable semantic identities; moving a line is harmless. */
 export function spacingLiterals(srcRoot) {
-  const counts = new Map();
-  for (const relative of readdirSync(srcRoot, { recursive: true })) {
+  const findings = [];
+  for (const relative of readdirSync(srcRoot, { recursive: true }).sort()) {
     const path = relative.split(sep).join("/");
-    if (!isScanned(path)) continue;
+    if (!/\.tsx?$/.test(path) || path.startsWith("components/ads/")) continue;
     const source = readFileSync(new URL(relative, srcRoot), "utf8");
-    if (!/\b(?:6|10)(?:px)?\b/.test(source)) continue;
-    const tree = ts.createSourceFile(
-      path,
-      source,
-      ts.ScriptTarget.Latest,
-      true,
-      path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-    );
-    let count = 0;
-    const visit = (node) => {
-      if (ts.isPropertyAssignment(node)) {
-        const name = propertyName(node);
-        if (name && SPACING_PROPERTY.test(name)) {
-          count += countValue(node.initializer);
-          return;
+    const tree = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true,
+      path.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+    function visit(node) {
+      if (ts.isPropertyAssignment(node) && SPACING_PROPERTY.test(name(node) ?? "")) {
+        if (hasLiteral(node.initializer)) {
+          const value = printer.printNode(ts.EmitHint.Expression, node.initializer, tree);
+          findings.push({ path: `src/${path}`, line: tree.getLineAndCharacterOfPosition(node.getStart()).line + 1,
+            declaration: `${owner(node)} = ${value}` });
         }
+        return;
       }
       ts.forEachChild(node, visit);
-    };
+    }
     visit(tree);
-    if (count > 0) counts.set(`src/${path}`, count);
   }
-  return counts;
+  return findings;
+}
+
+export function spacingInventory(findings) {
+  const files = {};
+  for (const finding of findings) {
+    const entries = files[finding.path] ??= {};
+    entries[finding.declaration] = (entries[finding.declaration] ?? 0) + 1;
+  }
+  return files;
+}
+
+/** Exact declarations must match: removing debt cannot buy a new exception. */
+export function spacingFailures(findings, baseline) {
+  const current = spacingInventory(findings);
+  const failures = [];
+  for (const finding of findings) {
+    const count = current[finding.path][finding.declaration];
+    if (count > (baseline[finding.path]?.[finding.declaration] ?? 0))
+      failures.push(`${finding.path}:${finding.line}: literal spacing \`${finding.declaration}\`; use ADS space tokens or densityPad`);
+  }
+  for (const [path, declarations] of Object.entries(baseline))
+    for (const [declaration, count] of Object.entries(declarations))
+      if ((current[path]?.[declaration] ?? 0) < count)
+        failures.push(`${path}: remove or lower stale spacing debt \`${declaration}\` in config/spacing-ratchet.json`);
+  return [...new Set(failures)];
 }

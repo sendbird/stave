@@ -129,17 +129,19 @@ export function ReturnSummaryCard(props: { taskId: string }) {
         </AdsButton>
       </div>
       <div className={sx(styles.status)} data-return-line="status" data-state={status.state}>
-        <StateMark state={status.state} size="md" xstyle={styles.statusMark} />
-        <div className={sx(styles.statusText)}>
-          <p className={sx(styles.statusTitle)}>{status.text}</p>
-          {status.detail ? (
-            <p className={sx(styles.statusDetail)} title={status.detail}>{status.detail}</p>
-          ) : null}
-          {status.next ? (
-            <p className={sx(styles.statusDetail)} title={status.next}>
-              {i18n.t("session:returnSummary.nextRemaining", { text: status.next })}
-            </p>
-          ) : null}
+        <div className={sx(styles.statusContent)}>
+          <StateMark state={status.state} size="md" xstyle={styles.statusMark} />
+          <div className={sx(styles.statusText)}>
+            <p className={sx(styles.statusTitle)}>{status.text}</p>
+            {status.detail ? (
+              <p className={sx(styles.statusDetail)} title={status.detail}>{status.detail}</p>
+            ) : null}
+            {status.next ? (
+              <p className={sx(styles.statusDetail)} title={status.next}>
+                {i18n.t("session:returnSummary.nextRemaining", { text: status.next })}
+              </p>
+            ) : null}
+          </div>
         </div>
         <AdsButton
           variant={status.urgent ? "primary" : "secondary"}

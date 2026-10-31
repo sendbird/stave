@@ -4,7 +4,7 @@ import ts from "typescript";
 import { inventory } from "./style-utility-inventory.mjs";
 import { motionlessInteractive } from "./motionless-interactive.mjs";
 import { layerLiterals } from "./stylex-layer-literals.mjs";
-import { spacingLiterals } from "./stylex-spacing-literals.mjs";
+import { spacingLiterals, spacingFailures } from "./stylex-spacing-literals.mjs";
 
 const manifest = JSON.parse(
   readFileSync(
@@ -171,32 +171,17 @@ for (const path of motionlessBaseline)
       `${path}: stale \`motionlessInteractive\` entry — the surface has a transition now, so drop the exemption`,
     );
 
-/*
- * Off-grid spacing ratchet. `stylex-spacing-literals.mjs` counts the 6s and
- * 10s on paddings, margins and gaps per file; `config/spacing-ratchet.json`
- * records each file's count and their total. A count may fall, never rise,
- * and the record follows it down, so the total only shrinks.
- */
+// Literal spacing is a declaration-level ratchet, including on-grid literals.
 const spacingBaseline = JSON.parse(
   readFileSync(new URL("../config/spacing-ratchet.json", import.meta.url), "utf8"),
 );
 const spacing = spacingLiterals(srcRoot);
-for (const [path, count] of spacing) {
-  const allowance = spacingBaseline.files[path] ?? 0;
-  if (count > allowance)
-    failures.push(
-      `${path}: ${count} off-grid spacing values (6 or 10 on a padding, margin or gap) exceed ${allowance}; space on the 4px grid (the --ads-space-* tokens) or a densityPad step`,
-    );
-  else if (count < allowance)
-    failures.push(`${path}: off-grid spacing fell to ${count}; lower its config/spacing-ratchet.json entry from ${allowance}`);
-}
-for (const path of Object.keys(spacingBaseline.files))
-  if (!spacing.has(path))
-    failures.push(`${path}: stale config/spacing-ratchet.json entry — the file has no off-grid spacing left, so drop it`);
-const spacingTotal = [...spacing.values()].reduce((sum, count) => sum + count, 0);
-const recordedSpacingTotal = Object.values(spacingBaseline.files).reduce((sum, count) => sum + count, 0);
-if (spacingBaseline.total !== recordedSpacingTotal)
-  failures.push(`config/spacing-ratchet.json: total ${spacingBaseline.total} does not match its entries (${recordedSpacingTotal})`);
+failures.push(...spacingFailures(spacing, spacingBaseline.files));
+const spacingTotal = spacing.length;
+const recordedSpacingTotal = Object.values(spacingBaseline.files)
+  .flatMap((entries) => Object.values(entries)).reduce((sum, count) => sum + count, 0);
+if (spacingBaseline.version !== 2 || spacingBaseline.total !== recordedSpacingTotal)
+  failures.push("config/spacing-ratchet.json: expected version 2 and a total matching its declarations");
 
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
@@ -249,7 +234,7 @@ if (failures.length) {
 } else {
   const pending = Object.keys(remaining).filter((path) => !(path in dataLiterals));
   console.log(
-    `Design system ratchet passed (${Object.keys(manifest.files).length} adapters; ${pending.length} files still contain utility syntax; ${Object.keys(dataLiterals).length} documented non-authoring literals; ${layerAllowed.length} justified raw z-index values; ${spacingTotal} off-grid spacing values in ${spacing.size} files).`,
+    `Design system ratchet passed (${Object.keys(manifest.files).length} adapters; ${pending.length} files still contain utility syntax; ${Object.keys(dataLiterals).length} documented non-authoring literals; ${layerAllowed.length} justified raw z-index values; ${spacingTotal} literal spacing declarations in ${Object.keys(spacingBaseline.files).length} files).`,
   );
   for (const literal of layerAllowed)
     console.log(`  layer-ok  ${literal.path}:${literal.line} zIndex: ${literal.value} — ${literal.reason}`);

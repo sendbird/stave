@@ -1,100 +1,1101 @@
 {
-  "version": 1,
-  "description": "Off-grid spacing (6 or 10 on a padding, margin or gap) per file; see scripts/stylex-spacing-literals.mjs. Counts may fall, never rise; lower an entry when a file loses some and drop it at zero.",
-  "total": 338,
+  "version": 2,
+  "description": "Existing literal spacing declarations. New or changed declarations must use ADS space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
+  "total": 773,
   "files": {
-    "src/components/agent-runs/agent-runs.styles.ts": 1,
-    "src/components/agent-runs/dither-progress.styles.ts": 1,
-    "src/components/ai-elements/composer-option.styles.ts": 1,
-    "src/components/ai-elements/message-markdown.styles.ts": 1,
-    "src/components/ai-elements/prompt-input-context-meter.styles.ts": 2,
-    "src/components/ai-elements/prompt-input-control-menu.styles.ts": 3,
-    "src/components/ai-elements/prompt-input-goal-status.styles.ts": 4,
-    "src/components/ai-elements/prompt-input-runtime-bar.styles.ts": 1,
-    "src/components/ai-elements/prompt-input.styles.ts": 22,
-    "src/components/ai-elements/truncation-warning.styles.ts": 1,
-    "src/components/compare/compare-run-history-dialog.styles.ts": 3,
-    "src/components/compare/compare-run-panel.styles.ts": 3,
-    "src/components/compare/compare-run-prepare-dialog.styles.ts": 4,
-    "src/components/git-graph/commit-detail-panel.styles.ts": 4,
-    "src/components/git-graph/git-graph-canvas.styles.ts": 2,
-    "src/components/git-graph/git-graph-row.styles.ts": 5,
-    "src/components/git-graph/git-graph-toolbar.styles.ts": 6,
-    "src/components/git-graph/git-graph-view.styles.ts": 3,
-    "src/components/git-graph/ref-context-menu.styles.ts": 1,
-    "src/components/layout/ProviderBrowserAccessSettingsCard.styles.ts": 2,
-    "src/components/layout/automation-center/PullRequestWatchEvents.tsx": 2,
-    "src/components/layout/automation-center/automation-center-view.styles.ts": 5,
-    "src/components/layout/automation-center/automation-editor.styles.ts": 15,
-    "src/components/layout/automation-center/automation-latest-run.styles.ts": 4,
-    "src/components/layout/automation-center/automation-run-detail.styles.ts": 3,
-    "src/components/layout/automation-center/schedule-rows.styles.ts": 2,
-    "src/components/layout/automation-information-resource-creator.styles.ts": 1,
-    "src/components/layout/continue-workspace-dialog.styles.ts": 1,
-    "src/components/layout/create-workspace-branch-picker.styles.ts": 1,
-    "src/components/layout/create-workspace-dialog.styles.ts": 1,
-    "src/components/layout/editor-markdown-preview.styles.ts": 2,
-    "src/components/layout/editor-review-panel.styles.ts": 4,
-    "src/components/layout/fleet-attention-inbox.styles.ts": 6,
-    "src/components/layout/fleet-view.styles.ts": 3,
-    "src/components/layout/fleet-workspace-card.styles.ts": 5,
-    "src/components/layout/global-command-palette.styles.ts": 4,
-    "src/components/layout/inbox-row.styles.ts": 4,
-    "src/components/layout/information-row.styles.ts": 4,
-    "src/components/layout/issues/issues-row.styles.ts": 3,
-    "src/components/layout/keyboard-shortcuts-drawer.styles.ts": 1,
-    "src/components/layout/kickoff-dialog.styles.ts": 2,
-    "src/components/layout/markdown-frontmatter-card.styles.ts": 2,
-    "src/components/layout/open-path-dialog.styles.ts": 1,
-    "src/components/layout/pr-context-dialog.styles.ts": 3,
-    "src/components/layout/quit-confirmation-dialog.styles.ts": 2,
-    "src/components/layout/repository-workspace-sidebar.styles.ts": 9,
-    "src/components/layout/resource-dashboard.styles.ts": 6,
-    "src/components/layout/resource-manager.styles.ts": 13,
-    "src/components/layout/resources-popover.styles.ts": 4,
-    "src/components/layout/source-control-review-dialog.styles.ts": 1,
-    "src/components/layout/standalone-cli/standalone-cli.styles.ts": 1,
-    "src/components/layout/status-bar-usage.styles.ts": 3,
-    "src/components/layout/stave-app-menu.styles.ts": 1,
-    "src/components/layout/task-execution-summary.styles.ts": 4,
-    "src/components/layout/top-bar-branch-dropdown.styles.ts": 6,
-    "src/components/layout/top-bar-notifications.styles.ts": 2,
-    "src/components/layout/top-bar-open-pr.styles.ts": 6,
-    "src/components/layout/workspace-changes.styles.ts": 18,
-    "src/components/layout/workspace-explorer.styles.ts": 7,
-    "src/components/layout/workspace-information-martin-card.styles.ts": 6,
-    "src/components/layout/workspace-information-panel.styles.ts": 16,
-    "src/components/layout/workspace-progress-task-tree.styles.ts": 2,
-    "src/components/layout/workspace-skills.styles.ts": 11,
-    "src/components/layout/workspace-tools.styles.ts": 5,
-    "src/components/layout/workspace-turn-summary.styles.ts": 4,
-    "src/components/panes/PaneTabChip.styles.ts": 1,
-    "src/components/panes/TaskHistoryDrawer.tsx": 1,
-    "src/components/panes/WorkspacePaneHost.tsx": 1,
-    "src/components/panes/surfaces/lens/lens-detail.styles.ts": 6,
-    "src/components/panes/surfaces/lens/lens-workbench.styles.ts": 3,
-    "src/components/scripts/script-entries-tab.styles.ts": 1,
-    "src/components/scripts/script-entry-form-fields.styles.ts": 1,
-    "src/components/scripts/script-hooks-tab.styles.ts": 4,
-    "src/components/scripts/script-log.stylex.ts": 3,
-    "src/components/scripts/script-targets-tab.styles.ts": 2,
-    "src/components/scripts/scripts-manager.styles.ts": 1,
-    "src/components/session/composer-shelf/composer-shelf.styles.ts": 1,
-    "src/components/session/conversation-turn-actions.styles.ts": 3,
-    "src/components/session/failed-outgoing-messages.styles.ts": 1,
-    "src/components/session/macro-control.styles.ts": 1,
-    "src/components/session/message/assistant-trace.styles.ts": 2,
-    "src/components/session/provider-error-recovery.styles.ts": 1,
-    "src/components/session/result-review.styles.ts": 1,
-    "src/components/session/secret-binding-control.styles.ts": 1,
-    "src/components/session/turn-activity.styles.ts": 9,
-    "src/components/system/ShortcutKeys.tsx": 1,
-    "src/components/ui/drawer-layout.stylex.ts": 1,
-    "src/components/ui/input-group.stylex.ts": 6,
-    "src/components/ui/sheet-layout.styles.ts": 1,
-    "src/components/workflows/workflows.styles.ts": 2,
-    "src/dev/agent-preview/agent-preview.styles.ts": 2,
-    "src/dev/composer-frame-preview/composer-frame-preview.styles.ts": 2,
-    "src/hooks/use-sortable-list.tsx": 3
+    "src/components/agent-runs/AgentRunSummary.tsx": {
+      "styles.identityText.gap = 2": 1,
+      "styles.context.gap = 4": 1,
+      "styles.separator.paddingInline = 2": 1,
+      "styles.metric.gap = 4": 1,
+      "styles.metricBody.gap = 4": 1,
+      "styles.notes.gap = 4": 1,
+      "styles.noteIcon.marginTop = 3": 1
+    },
+    "src/components/agent-runs/RunContract.tsx": {
+      "styles.icon.marginTop = 2": 1,
+      "styles.details.paddingInlineStart = `calc(${vars[\"--ads-space-12\"]} + 20px + ${vars[\"--ads-space-8\"]})`": 1
+    },
+    "src/components/agent-runs/SignOffCard.tsx": {
+      "styles.card.padding = \"0.625rem\"": 1,
+      "styles.title.paddingTop = 2": 1,
+      "styles.actions.gap = \"0.375rem\"": 1,
+      "styles.formActions.gap = \"0.375rem\"": 1
+    },
+    "src/components/agent-runs/agent-runs.styles.ts": {
+      "agentRunStyles.visuallyHidden.margin = -1": 1,
+      "agentRunStyles.headText.gap = 2": 1,
+      "agentRunStyles.checkDetail.marginBlockStart = 2": 1,
+      "agentRunStyles.stageKind.paddingInline = 6": 1,
+      "agentRunStyles.decision.gap = 2": 1,
+      "agentRunStyles.statTile.gap = 4": 1
+    },
+    "src/components/agent-runs/dither-progress.styles.ts": {
+      "ditherProgressStyles.head.gap = 3": 1,
+      "ditherProgressStyles.head.paddingInline = 6": 1
+    },
+    "src/components/agents/FlowPanel.tsx": {
+      "styles.receivedList.gap = 2": 1,
+      "styles.rail.paddingTop = 5": 1,
+      "styles.line.marginBlock = 2": 1,
+      "styles.actions.marginTop = 2": 1,
+      "styles.timeline.gap = 2": 1
+    },
+    "src/components/agents/agents.styles.ts": {
+      "agentStyles.problem.gap = 2": 1,
+      "agentStyles.tag.gap = 3": 1,
+      "agentStyles.refItem.gap = 2": 1,
+      "agentStyles.workRow.gap = 2": 1
+    },
+    "src/components/ai-elements/auto-routing-profile-list.styles.ts": {
+      "autoRoutingProfileListStyles.headerIcon.marginBlockStart = \"0.125rem\"": 1,
+      "autoRoutingProfileListStyles.headerBody.gap = \"0.125rem\"": 1,
+      "autoRoutingProfileListStyles.row.paddingBlock = \"0.375rem\"": 1,
+      "autoRoutingProfileListStyles.swatch.marginBlockStart = \"0.0625rem\"": 1,
+      "autoRoutingProfileListStyles.body.gap = \"0.0625rem\"": 1,
+      "autoRoutingProfileListStyles.badge.paddingInline = \"0.375rem\"": 1,
+      "autoRoutingProfileListStyles.badge.paddingBlock = \"0.125rem\"": 1,
+      "autoRoutingProfileListStyles.check.marginBlockStart = \"0.3125rem\"": 1
+    },
+    "src/components/ai-elements/chain-of-thought.styles.ts": {
+      "chainOfThoughtStyles.streamingLabel.gap = \"0.5em\"": 1,
+      "chainOfThoughtStyles.summary.columnGap = \"0.6em\"": 1,
+      "chainOfThoughtStyles.summaryItem.gap = \"0.3em\"": 1,
+      "chainOfThoughtStyles.disclosure.gap = \"0.35em\"": 1,
+      "chainOfThoughtStyles.staticRow.gap = \"0.35em\"": 1,
+      "chainOfThoughtStyles.description.marginTop = \"0.25em\"": 1,
+      "chainOfThoughtStyles.reveal.marginTop = \"0.5em\"": 1
+    },
+    "src/components/ai-elements/checkpoint.styles.ts": {
+      "checkpointStyles.chip.gap = \"0.375rem\"": 1,
+      "checkpointStyles.chip.paddingInline = \"0.375rem\"": 1,
+      "checkpointStyles.chipLabel.gap = \"0.375rem\"": 1,
+      "checkpointStyles.action.paddingInline = \"0.375rem\"": 1
+    },
+    "src/components/ai-elements/composer-frame.styles.ts": {
+      "frameStyles.top.marginBottom = \"-0.75rem\"": 1,
+      "frameStyles.top.marginInline = \"0.75rem\"": 1,
+      "frameStyles.bottom.marginTop = \"-0.75rem\"": 1,
+      "frameStyles.bottom.marginInline = \"0.75rem\"": 1,
+      "frameStyles.leftWing.paddingRight = \"calc(0.75rem + 4px)\"": 1,
+      "frameStyles.rightWing.paddingLeft = \"calc(0.75rem + 4px)\"": 1,
+      "frameStyles.status.paddingTop = \"calc(0.75rem + 4px)\"": 1
+    },
+    "src/components/ai-elements/composer-option.styles.ts": {
+      "optionStyles.callout.paddingInline = 10": 1
+    },
+    "src/components/ai-elements/cursor-model-config-list.styles.ts": {
+      "cursorModelConfigStyles.fixedChip.paddingInline = \"0.375rem\"": 1,
+      "cursorModelConfigStyles.configButtonGap.gap = \"0.375rem\"": 1,
+      "cursorModelConfigStyles.effortInner.gap = \"0.125rem\"": 1
+    },
+    "src/components/ai-elements/local-change-review-dialog.styles.ts": {
+      "localChangeReviewStyles.header.paddingRight = \"3.5rem\"": 1,
+      "localChangeReviewStyles.headerText.gap = \"0.375rem\"": 1,
+      "localChangeReviewStyles.focusCard.gap = \"0.625rem\"": 1,
+      "localChangeReviewStyles.focusCard.paddingBlock = \"0.625rem\"": 1,
+      "localChangeReviewStyles.defaultTag.paddingInline = \"0.375rem\"": 1,
+      "localChangeReviewStyles.defaultTag.paddingBlock = \"0.125rem\"": 1,
+      "localChangeReviewStyles.focusBody.gap = \"0.125rem\"": 1
+    },
+    "src/components/ai-elements/message-markdown.styles.ts": {
+      "markdownStyles.externalChip.gap = \"0.35em\"": 1,
+      "markdownStyles.externalChip.paddingInline = \"0.5em\"": 1,
+      "markdownStyles.externalChip.paddingBlock = \"0.14em\"": 1,
+      "markdownStyles.fileLink.gap = \"0.3em\"": 1,
+      "markdownStyles.fileLink.paddingInline = \"0.45em\"": 1,
+      "markdownStyles.fileLink.paddingBlock = \"0.1em\"": 1,
+      "markdownStyles.fileLinkLocation.paddingInline = \"0.4em\"": 1,
+      "markdownStyles.inlineCode.paddingInline = 6": 1
+    },
+    "src/components/ai-elements/model-effort-grid.styles.ts": {
+      "modelEffortGridStyles.defaultBadge.paddingInline = \"0.375rem\"": 1,
+      "modelEffortGridStyles.defaultBadge.paddingBlock = \"0.125rem\"": 1
+    },
+    "src/components/ai-elements/model-effort-selector.styles.ts": {
+      "modelEffortSelectorStyles.group.gap = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.trigger.gap = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.trigger.paddingInline = \"0.625rem\"": 1,
+      "modelEffortSelectorStyles.segment.paddingInline = \"0.5rem\"": 1,
+      "modelEffortSelectorStyles.actionButton.gap = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.noticeIcon.marginBlockStart = \"0.125rem\"": 1,
+      "modelEffortSelectorStyles.modelRowDefaultBadge.paddingInline = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.modelRowDefaultBadge.paddingBlock = \"0.125rem\"": 1,
+      "modelEffortSelectorStyles.modelRowNoticeBadge.paddingInline = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.modelRowNoticeBadge.paddingBlock = \"0.125rem\"": 1,
+      "modelEffortSelectorStyles.capabilityChip.paddingInline = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.capabilityChip.paddingBlock = \"0.125rem\"": 1,
+      "modelEffortSelectorStyles.modelRowDescription.marginBlockStart = \"0.125rem\"": 1,
+      "modelEffortSelectorStyles.showAllFooter.padding = \"0.375rem\"": 1,
+      "modelEffortSelectorStyles.showAllButton.paddingInline = \"0.625rem\"": 1
+    },
+    "src/components/ai-elements/model-picker-account-actions.styles.ts": {
+      "modelPickerAccountStyles.footer.padding = \"0.375rem\"": 1,
+      "modelPickerAccountStyles.notice.paddingInline = \"0.625rem\"": 1
+    },
+    "src/components/ai-elements/model-selector.styles.ts": {
+      "modelSelectorStyles.trigger.gap = \"0.375rem\"": 1,
+      "modelSelectorStyles.trigger.paddingInline = \"0.625rem\"": 1,
+      "modelSelectorStyles.triggerLead.gap = \"0.375rem\"": 1,
+      "modelSelectorStyles.optionItem.gap = \"0.75rem\"": 1,
+      "modelSelectorStyles.optionItem.paddingBlock = \"0.625rem\"": 1,
+      "modelSelectorStyles.optionTitleRow.gap = \"0.375rem\"": 1,
+      "modelSelectorStyles.optionDefaultBadge.paddingBlock = \"1px\"": 1,
+      "modelSelectorStyles.optionNoticeBadge.paddingBlock = \"1px\"": 1,
+      "modelSelectorStyles.groupHeading.gap = \"0.375rem\"": 1,
+      "modelSelectorStyles.srOnly.margin = -1": 1
+    },
+    "src/components/ai-elements/prompt-input-context-meter.styles.ts": {
+      "contextMeterStyles.trigger.gap = 6": 1,
+      "contextMeterStyles.popoverTitle.gap = 6": 1
+    },
+    "src/components/ai-elements/prompt-input-control-menu.styles.ts": {
+      "controlMenuStyles.row.paddingBlock = 6": 1,
+      "controlMenuStyles.footerNote.paddingTop = 6": 1,
+      "controlMenuStyles.resetButton.gap = 6": 1
+    },
+    "src/components/ai-elements/prompt-input-goal-status.styles.ts": {
+      "goalStatusStyles.strip.paddingBlock = 10": 1,
+      "goalStatusStyles.stripCompact.paddingInline = 10": 1,
+      "goalStatusStyles.header.rowGap = 6": 1,
+      "goalStatusStyles.badge.paddingInline = 6": 1
+    },
+    "src/components/ai-elements/prompt-input-runtime-bar.styles.ts": {
+      "runtimeBarStyles.sectionHeading.marginBottom = 6": 1
+    },
+    "src/components/ai-elements/prompt-input.styles.ts": {
+      "promptInputStyles.enhancementEditorInset.paddingInlineEnd = \"2.25rem\"": 1,
+      "promptInputStyles.srOnly.margin = -1": 1,
+      "promptInputStyles.drawerHeader.gap = 6": 1,
+      "promptInputStyles.menuSeparator.marginBlock = 6": 1,
+      "promptInputStyles.customizeButton.gap = 6": 1,
+      "promptInputStyles.suggestions.marginLeft = -6": 1,
+      "promptInputStyles.suggestions.marginBottom = 2": 1,
+      "promptInputStyles.suggestionChip.paddingInline = \"0.875rem\"": 1,
+      "promptInputStyles.minimalBox.paddingBlock = 10": 1,
+      "promptInputStyles.enhanceBusyMinimal.gap = 6": 1,
+      "promptInputStyles.enhanceBusyDefault.gap = 6": 1,
+      "promptInputStyles.itemStandard.paddingBlock = 10": 1,
+      "promptInputStyles.itemTall.paddingBlock = 10": 1,
+      "promptInputStyles.badgeUpper.paddingInline = 6": 1,
+      "promptInputStyles.badgeUpperShrink.paddingInline = 6": 1,
+      "promptInputStyles.badgeMonoShrink.paddingInline = 6": 1,
+      "promptInputStyles.badgePlain.paddingInline = 6": 1,
+      "promptInputStyles.paletteFooter.paddingBlock = 10": 1,
+      "promptInputStyles.commentBox.gap = 6": 1,
+      "promptInputStyles.flexWrapGap.gap = 6": 1,
+      "promptInputStyles.commentChip.gap = 6": 1,
+      "promptInputStyles.lensChipTrigger.gap = 6": 1,
+      "promptInputStyles.lensChipRemove.paddingInline = 6": 1,
+      "promptInputStyles.annotationChip.paddingBlock = 6": 1,
+      "promptInputStyles.attachmentsRow.gap = 6": 1,
+      "promptInputStyles.fileOpenButton.paddingInline = 6": 1
+    },
+    "src/components/ai-elements/prompt-token-chip.styles.ts": {
+      "tokenChipStyles.compact.gap = \"0.3em\"": 1,
+      "tokenChipStyles.compact.paddingInline = \"0.35em\"": 1,
+      "tokenChipStyles.roomy.gap = \"0.375rem\"": 1
+    },
+    "src/components/ai-elements/question-option-row.styles.ts": {
+      "questionOptionRowStyles.row.paddingBlock = \"0.625rem\"": 1,
+      "questionOptionRowStyles.labelRow.gap = \"0.375rem\"": 1,
+      "questionOptionRowStyles.srOnly.margin = -1": 1
+    },
+    "src/components/ai-elements/reasoning-text.styles.ts": {
+      "reasoningTextStyles.root.gap = \"0.4em\"": 1
+    },
+    "src/components/ai-elements/truncation-warning.styles.ts": {
+      "truncationWarningStyles.bannerCompact.paddingBlock = 6": 1
+    },
+    "src/components/ai-elements/user-input-card.styles.ts": {
+      "userInputCardStyles.summaryRow.gap = \"0.625rem\"": 1,
+      "userInputCardStyles.step.gap = \"0.375rem\"": 1,
+      "userInputCardStyles.step.paddingInlineStart = \"0.375rem\"": 1,
+      "userInputCardStyles.step.paddingInlineEnd = \"0.625rem\"": 1,
+      "userInputCardStyles.eyebrow.gap = \"0.375rem\"": 1,
+      "userInputCardStyles.srOnly.margin = -1": 1
+    },
+    "src/components/auto-routing/route-flow.styles.ts": {
+      "routeFlowStyles.srOnly.margin = -1": 1
+    },
+    "src/components/auto-routing/route-trace.styles.ts": {
+      "routeTraceStyles.chain.columnGap = \"0.625rem\"": 1,
+      "routeTraceStyles.dot.marginTop = \"0.3125rem\"": 1,
+      "routeTraceStyles.srOnly.margin = -1": 1
+    },
+    "src/components/compare/compare-run-history-dialog.styles.ts": {
+      "compareRunHistoryDialogStyles.headerMark.marginTop = 2": 1,
+      "compareRunHistoryDialogStyles.headerText.gap = 6": 1,
+      "compareRunHistoryDialogStyles.filterGroup.paddingBottom = 2": 1,
+      "compareRunHistoryDialogStyles.filterButton.gap = 6": 1,
+      "compareRunHistoryDialogStyles.filterButton.paddingInline = 10": 1,
+      "compareRunHistoryDialogStyles.rowMark.marginTop = 2": 1
+    },
+    "src/components/compare/compare-run-panel.styles.ts": {
+      "compareRunPanelStyles.stepDescription.paddingLeft = \"1.75rem\"": 1,
+      "compareRunPanelStyles.noticeIcon.marginTop = 2": 1,
+      "compareRunPanelStyles.noticeDescription.marginTop = 2": 1,
+      "compareRunPanelStyles.judgeMark.marginTop = 1": 1,
+      "compareRunPanelStyles.reviewCriterion.gap = 6": 1,
+      "compareRunPanelStyles.statusChip.paddingBlock = 2": 1,
+      "compareRunPanelStyles.statusChip.paddingInline = 6": 1,
+      "compareRunPanelStyles.criteriaRationale.marginTop = 2": 1,
+      "compareRunPanelStyles.variantFooter.paddingBlock = 10": 1
+    },
+    "src/components/compare/compare-run-prepare-dialog.styles.ts": {
+      "compareRunPrepareDialogStyles.header.paddingInline = \"1.75rem\"": 1,
+      "compareRunPrepareDialogStyles.headerMark.marginTop = 2": 1,
+      "compareRunPrepareDialogStyles.headerText.gap = 6": 1,
+      "compareRunPrepareDialogStyles.scroller.paddingInline = \"1.75rem\"": 1,
+      "compareRunPrepareDialogStyles.branchTag.gap = 6": 1,
+      "compareRunPrepareDialogStyles.textarea.paddingBlock = 10": 1,
+      "compareRunPrepareDialogStyles.textareaShort.paddingBlock = 10": 1,
+      "compareRunPrepareDialogStyles.candidateSub.marginTop = 2": 1,
+      "compareRunPrepareDialogStyles.judgeMark.marginTop = 1": 1,
+      "compareRunPrepareDialogStyles.safetyIcon.marginTop = 2": 1,
+      "compareRunPrepareDialogStyles.footer.paddingInline = \"1.75rem\"": 1
+    },
+    "src/components/delegation/delegation.styles.ts": {
+      "delegationStyles.rowAside.paddingTop = \"0.125rem\"": 1,
+      "delegationStyles.rowChevron.marginTop = 3": 1
+    },
+    "src/components/git-graph/commit-detail-panel.styles.ts": {
+      "commitDetailPanelStyles.metaGroup.gap = 6": 1,
+      "commitDetailPanelStyles.metaLabel.gap = 6": 1,
+      "commitDetailPanelStyles.fileListEntries.gap = 2": 1,
+      "commitDetailPanelStyles.fileRow.paddingInline = 6": 1,
+      "commitDetailPanelStyles.fileRow.paddingBlock = 6": 1
+    },
+    "src/components/git-graph/git-graph-canvas.styles.ts": {
+      "gitGraphCanvasStyles.headerCell.paddingInline = 10": 1,
+      "gitGraphCanvasStyles.loadingMore.gap = 6": 1
+    },
+    "src/components/git-graph/git-graph-row.styles.ts": {
+      "gitGraphRowStyles.leadCell.gap = 6": 1,
+      "gitGraphRowStyles.workingTreeBadge.paddingInline = 6": 1,
+      "gitGraphRowStyles.workingTreeBadge.paddingBlock = 2": 1,
+      "gitGraphRowStyles.cell.paddingInline = 10": 1,
+      "gitGraphRowStyles.emptyCell.paddingInline = 10": 1,
+      "gitGraphRowStyles.highlightMark.paddingInline = 2": 1,
+      "gitGraphRowStyles.refLabel.paddingInline = 6": 1
+    },
+    "src/components/git-graph/git-graph-toolbar.styles.ts": {
+      "gitGraphToolbarStyles.root.rowGap = 6": 1,
+      "gitGraphToolbarStyles.root.paddingInline = 10": 1,
+      "gitGraphToolbarStyles.root.paddingBlock = 6": 1,
+      "gitGraphToolbarStyles.branchTrigger.gap = 6": 1,
+      "gitGraphToolbarStyles.branchTrigger.paddingInline = 10": 1,
+      "gitGraphToolbarStyles.statusEntries.gap = 6": 1,
+      "gitGraphToolbarStyles.searchInputWithMatches.paddingRight = \"9rem\"": 1,
+      "gitGraphToolbarStyles.searchControls.gap = 2": 1,
+      "gitGraphToolbarStyles.matchCount.marginRight = 2": 1,
+      "gitGraphToolbarStyles.rightGroup.gap = 2": 1
+    },
+    "src/components/git-graph/git-graph-view.styles.ts": {
+      "gitGraphViewStyles.errorIcon.marginTop = 2": 1,
+      "gitGraphViewStyles.pendingToast.gap = 6": 1,
+      "gitGraphViewStyles.pendingToast.paddingInline = 10": 1,
+      "gitGraphViewStyles.pendingToast.paddingBlock = 6": 1
+    },
+    "src/components/git-graph/ref-context-menu.styles.ts": {
+      "refContextMenuStyles.warningLabel.gap = 6": 1,
+      "refContextMenuStyles.warningIcon.marginTop = 2": 1
+    },
+    "src/components/layout/ProviderBrowserAccessSettingsCard.styles.ts": {
+      "providerBrowserAccessSettingsCardStyles.statusCard.padding = 14": 1,
+      "providerBrowserAccessSettingsCardStyles.statusHead.gap = 10": 1,
+      "providerBrowserAccessSettingsCardStyles.domainsField.gap = 6": 1,
+      "providerBrowserAccessSettingsCardStyles.noteCard.paddingInline = 14": 1
+    },
+    "src/components/layout/RepositoryWorkspaceSidebar.tsx": {
+      "paddingTop = 12": 1
+    },
+    "src/components/layout/SidebarPrimaryNav.tsx": {
+      "styles.count.paddingInline = 5": 1
+    },
+    "src/components/layout/WorkspaceExplorerPanel.tsx": {
+      "paddingLeft = \"24px\"": 1,
+      "paddingLeft = `${6 + args.depth * 14}px`": 1,
+      "paddingLeft = `${24 + args.depth * 14}px`": 2
+    },
+    "src/components/layout/api-connections.styles.ts": {
+      "apiConnectionStyles.experimental.paddingBlock = \"1px\"": 1
+    },
+    "src/components/layout/app-shell.styles.ts": {
+      "appShellStyles.resizer.marginInline = -4": 1
+    },
+    "src/components/layout/automation-center/PullRequestWatchEvents.tsx": {
+      "styles.row.paddingBlock = 6": 1,
+      "styles.row.paddingInline = 6": 1
+    },
+    "src/components/layout/automation-center/automation-center-view.styles.ts": {
+      "centerStyles.detailValue.marginBlockStart = 2": 1,
+      "centerStyles.headerActions.gap = 6": 1,
+      "centerStyles.headerButton.gap = 6": 1,
+      "centerStyles.filterGroup.gap = 2": 1,
+      "centerStyles.filterGroup.padding = 2": 1,
+      "centerStyles.errorIcon.marginBlockStart = 2": 1,
+      "centerStyles.automationCard.padding = 10": 1,
+      "centerStyles.detailActions.gap = 6": 1,
+      "centerStyles.deleteButton.gap = 6": 1
+    },
+    "src/components/layout/automation-center/automation-editor.styles.ts": {
+      "editorStyles.formLabel.gap = 6": 1,
+      "editorStyles.runtimeSwitch.paddingInline = 10": 1,
+      "editorStyles.runtimeSwitchDescription.marginBlockStart = 2": 1,
+      "editorStyles.chipRow.gap = 6": 1,
+      "editorStyles.cadenceChip.paddingInline = 10": 1,
+      "editorStyles.weekdayGroup.gap = 6": 1,
+      "editorStyles.summaryRow.paddingInline = 10": 1,
+      "editorStyles.summaryIcon.marginBlockStart = 2": 1,
+      "editorStyles.modeList.gap = 6": 1,
+      "editorStyles.modeOption.gap = 10": 1,
+      "editorStyles.modeOption.padding = 10": 1,
+      "editorStyles.modeIcon.marginBlockStart = 2": 1,
+      "editorStyles.manualPanel.padding = 10": 1,
+      "editorStyles.permissionSummary.paddingInline = 10": 1,
+      "editorStyles.headerActions.gap = 6": 1,
+      "editorStyles.effortGroup.gap = 6": 1,
+      "editorStyles.environmentPath.paddingInline = 10": 1,
+      "editorStyles.referenceCard.padding = 10": 1
+    },
+    "src/components/layout/automation-center/automation-latest-run.styles.ts": {
+      "latestRunStyles.emptyCopy.marginBlockStart = 6": 1,
+      "latestRunStyles.actions.gap = 6": 1,
+      "latestRunStyles.actionButton.gap = 6": 1,
+      "latestRunStyles.actionButtonQuiet.paddingInline = 10": 1
+    },
+    "src/components/layout/automation-center/automation-run-detail.styles.ts": {
+      "runDetailStyles.row.padding = 10": 1,
+      "runDetailStyles.detailValue.marginBlockStart = 2": 1,
+      "runDetailStyles.headerActions.gap = 6": 1,
+      "runDetailStyles.headerButton.gap = 6": 1
+    },
+    "src/components/layout/automation-center/schedule-rows.styles.ts": {
+      "scheduleRowStyles.resultDot.marginInlineEnd = 4": 1,
+      "scheduleRowStyles.select.padding = 10": 1,
+      "scheduleRowStyles.meta.rowGap = 2": 1,
+      "scheduleRowStyles.action.gap = 6": 1
+    },
+    "src/components/layout/automation-information-resource-creator.styles.ts": {
+      "resourceCreatorStyles.field.gap = 6": 1,
+      "resourceCreatorStyles.backButton.marginInlineStart = -8": 1
+    },
+    "src/components/layout/continue-workspace-dialog.styles.ts": {
+      "continueWorkspaceStyles.summaryCell.gap = 6": 1
+    },
+    "src/components/layout/crane-dispatch-approval-dialog.styles.ts": {
+      "craneApprovalStyles.privacyIcon.marginBlockStart = 2": 1
+    },
+    "src/components/layout/create-workspace-branch-picker.styles.ts": {
+      "branchPickerStyles.scopeBadge.paddingInline = 6": 1,
+      "branchPickerStyles.scopeBadge.paddingBlock = 1": 1,
+      "branchPickerStyles.searchInput.paddingInlineStart = 36": 1
+    },
+    "src/components/layout/create-workspace-dialog.styles.ts": {
+      "createWorkspaceStyles.symlinkTitle.gap = 6": 1,
+      "createWorkspaceStyles.statePill.paddingBlock = 2": 1
+    },
+    "src/components/layout/dispatch-runtime/dispatch-runtime.styles.ts": {
+      "dispatchFieldStyles.rowDescription.marginBlockStart = 2": 1
+    },
+    "src/components/layout/editor-markdown-preview.styles.ts": {
+      "editorMarkdownPreviewStyles.codeBlockLanguage.paddingBlock = 6": 1,
+      "editorMarkdownPreviewStyles.inlineCode.paddingInline = 6": 1
+    },
+    "src/components/layout/editor-review-panel.styles.ts": {
+      "editorReviewPanelStyles.header.paddingInline = 10": 1,
+      "editorReviewPanelStyles.headerActions.gap = 6": 1,
+      "editorReviewPanelStyles.sentBody.gap = 2": 1,
+      "editorReviewPanelStyles.commentRow.paddingInline = 10": 1,
+      "editorReviewPanelStyles.draft.paddingInline = 10": 1
+    },
+    "src/components/layout/fleet-attention-inbox.styles.ts": {
+      "attentionStyles.reviewHeader.paddingInlineEnd = 6": 1,
+      "attentionStyles.reviewToggle.gap = 6": 1,
+      "attentionStyles.reviewToggle.paddingBlock = 6": 1,
+      "attentionStyles.snoozedFooter.gap = 6": 1,
+      "attentionStyles.snoozedFooter.paddingBlock = 6": 1,
+      "attentionStyles.snoozedFooter.paddingInlineEnd = 6": 1
+    },
+    "src/components/layout/fleet-view.styles.ts": {
+      "fleetStyles.boardEmpty.paddingBlock = 48": 1,
+      "fleetStyles.repositoryHeader.gap = 6": 1,
+      "fleetStyles.repositoryHeader.paddingBlock = 6": 1,
+      "fleetStyles.cardGrid.gap = 10": 1
+    },
+    "src/components/layout/fleet-workspace-card.styles.ts": {
+      "cardStyles.header.paddingTop = 10": 1,
+      "cardStyles.titleRow.gap = 6": 1,
+      "cardStyles.taskRow.paddingBlock = 6": 1,
+      "cardStyles.footer.paddingBlock = 6": 1,
+      "cardStyles.todo.gap = 6": 1
+    },
+    "src/components/layout/global-command-palette.styles.ts": {
+      "commandPaletteStyles.item.paddingBlock = 10": 1,
+      "commandPaletteStyles.contextBadge.paddingInline = 6": 1,
+      "commandPaletteStyles.itemSubtitle.marginBlockStart = 2": 1,
+      "commandPaletteStyles.footerHint.gap = 6": 1,
+      "commandPaletteStyles.pinButton.gap = 6": 1,
+      "commandPaletteStyles.searchTime.marginBlockStart = 2": 1
+    },
+    "src/components/layout/inbox-row.styles.ts": {
+      "inboxRowStyles.archivedChip.paddingInline = 6": 1,
+      "inboxRowStyles.rowTop.gap = 6": 1,
+      "inboxRowStyles.rowActions.paddingBottom = 6": 1,
+      "inboxRowStyles.rowAction.paddingInline = 6": 1
+    },
+    "src/components/layout/information-row.styles.ts": {
+      "informationRow.list.marginInline = -8": 1,
+      "informationRow.root.gap = 10": 1,
+      "informationRow.root.paddingBlock = 10": 1,
+      "informationRow.root.paddingInline = 6": 1,
+      "informationRow.mark.marginBlockStart = 2": 1,
+      "informationRow.meta.gap = 6": 1,
+      "informationRow.trail.paddingBlockStart = 2": 1
+    },
+    "src/components/layout/issues/issues-layout.stylex.ts": {
+      "taskLayoutStyles.tabList.gap = 2": 1,
+      "taskLayoutStyles.tabList.padding = 2": 1,
+      "taskLayoutStyles.searchInput.paddingInlineStart = \"2rem\"": 1,
+      "taskLayoutStyles.segmented.padding = 2": 1,
+      "taskLayoutStyles.boardLabel.paddingBlock = 2": 1,
+      "taskLayoutStyles.peekActions.gap = 2": 1,
+      "taskLayoutStyles.metaGrid.rowGap = \"0.625rem\"": 1,
+      "taskLayoutStyles.metaValue.marginTop = 2": 1,
+      "taskLayoutStyles.metaLabelChip.paddingBlock = 1": 1,
+      "taskLayoutStyles.detailLink.padding = \"0.625rem\"": 1,
+      "taskLayoutStyles.detailComment.gap = 2": 1,
+      "taskLayoutStyles.kickoffHeader.paddingInlineEnd = \"3rem\"": 1,
+      "taskLayoutStyles.kickoffTicketMeta.marginTop = 2": 1,
+      "taskLayoutStyles.kickoffModeList.gap = 2": 1,
+      "taskLayoutStyles.kickoffModeList.padding = 2": 1
+    },
+    "src/components/layout/issues/issues-row.styles.ts": {
+      "taskRowStyles.row.paddingBlock = 10": 1,
+      "taskRowStyles.label.paddingBlock = 2": 1,
+      "taskRowStyles.link.paddingBlock = 2": 1,
+      "taskRowStyles.filterTrigger.gap = 6": 1,
+      "taskRowStyles.filterTrigger.paddingInline = 10": 1
+    },
+    "src/components/layout/keyboard-shortcuts-drawer.styles.ts": {
+      "shortcutsDrawerStyles.headerTitleGroup.gap = 10": 1,
+      "shortcutsDrawerStyles.description.marginBlockStart = 2": 1,
+      "shortcutsDrawerStyles.emptyState.paddingBlock = 80": 1
+    },
+    "src/components/layout/kickoff-dialog.styles.ts": {
+      "kickoffStyles.busyState.paddingBlock = 48": 1,
+      "kickoffStyles.header.paddingInlineEnd = 56": 1,
+      "kickoffStyles.mcpBadges.gap = 6": 1,
+      "kickoffStyles.degradedIcon.marginBlockStart = 2": 1,
+      "kickoffStyles.labeledFieldTight.gap = 6": 1
+    },
+    "src/components/layout/layout-shell.styles.ts": {
+      "layoutShellStyles.statusGroup.gap = 2": 1,
+      "layoutShellStyles.shortcut.gap = 2": 1
+    },
+    "src/components/layout/markdown-frontmatter-card.styles.ts": {
+      "frontmatterStyles.header.paddingBlock = 6": 1,
+      "frontmatterStyles.chip.paddingInline = 6": 1
+    },
+    "src/components/layout/open-path-dialog.styles.ts": {
+      "openPathDialogStyles.browseButton.gap = 6": 1
+    },
+    "src/components/layout/pr-context-dialog.styles.ts": {
+      "prContextStyles.sectionHeading.marginBottom = 6": 1,
+      "prContextStyles.row.paddingBlock = 6": 1,
+      "prContextStyles.row.paddingInline = 6": 1
+    },
+    "src/components/layout/provider-accounts.styles.ts": {
+      "accountStyles.stack.gap = 12": 1,
+      "accountStyles.row.gap = 8": 1,
+      "accountStyles.profile.paddingBlock = 8": 1,
+      "accountStyles.picker.gap = 8": 1,
+      "accountStyles.picker.paddingBlock = 4": 1
+    },
+    "src/components/layout/quit-confirmation-dialog.styles.ts": {
+      "quitDialogStyles.factRow.gap = 10": 1,
+      "quitDialogStyles.factIcon.marginBlockStart = 2": 1,
+      "quitDialogStyles.hint.gap = 6": 1
+    },
+    "src/components/layout/repository-workspace-sidebar.styles.ts": {
+      "repositorySidebarStyles.defaultBranchChip.paddingBlock = 1": 1,
+      "repositorySidebarStyles.previewHeadStack.gap = 2": 1,
+      "repositorySidebarStyles.previewBodyStack.gap = 6": 1,
+      "repositorySidebarStyles.previewMetaRow.gap = 6": 1,
+      "repositorySidebarStyles.previewRunningChip.paddingBlock = 2": 1,
+      "repositorySidebarStyles.previewShortcutChip.marginBlockStart = 2": 1,
+      "repositorySidebarStyles.laneStack.gap = 2": 1,
+      "repositorySidebarStyles.laneButton.gap = 6": 1,
+      "repositorySidebarStyles.attentionSlot.gap = 2": 1,
+      "repositorySidebarStyles.attentionSlot.paddingInline = 2": 1,
+      "repositorySidebarStyles.respondingBadge.paddingBlock = 2": 1,
+      "repositorySidebarStyles.respondingBadge.paddingInline = 6": 1,
+      "repositorySidebarStyles.metaBody.gap = 6": 1,
+      "repositorySidebarStyles.metaActions.gap = 6": 1,
+      "repositorySidebarStyles.scrollAreaExpanded.paddingBlockStart = 6": 1,
+      "repositorySidebarStyles.navStack.gap = 2": 1,
+      "repositorySidebarStyles.viewBar.marginBlockEnd = 6": 1,
+      "repositorySidebarStyles.viewToggle.gap = 2": 1,
+      "repositorySidebarStyles.viewToggle.padding = 2": 1,
+      "repositorySidebarStyles.searchInput.paddingInlineEnd = 28": 1,
+      "repositorySidebarStyles.searchInput.paddingInlineStart = 28": 1,
+      "repositorySidebarStyles.repositoryLeadPinned.paddingInlineEnd = `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 7.75rem)`": 1,
+      "repositorySidebarStyles.repositoryLeadDefault.paddingInlineEnd = `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 5.75rem)`": 1,
+      "repositorySidebarStyles.repositoryActions.gap = 2": 1,
+      "repositorySidebarStyles.workspaceList.paddingBlockStart = 2": 1,
+      "repositorySidebarStyles.workspaceOpenExpanded.paddingBlock = 10": 1,
+      "repositorySidebarStyles.workspaceLeadSlotExpanded.marginBlockStart = 2": 1
+    },
+    "src/components/layout/resource-dashboard.styles.ts": {
+      "dashboardStyles.root.gap = 10": 1,
+      "dashboardStyles.statusBand.gap = 8": 1,
+      "dashboardStyles.tiles.gap = 8": 1,
+      "dashboardStyles.tile.gap = 4": 1,
+      "dashboardStyles.tile.padding = 10": 1,
+      "dashboardStyles.tileHead.gap = 6": 1,
+      "dashboardStyles.tileCaptionRow.gap = 4": 1,
+      "dashboardStyles.legend.gap = 8": 1,
+      "dashboardStyles.legendItem.gap = 4": 1,
+      "dashboardStyles.meters.gap = 10": 1,
+      "dashboardStyles.meters.columnGap = 16": 1,
+      "dashboardStyles.meterRow.columnGap = 10": 1,
+      "dashboardStyles.meterRow.rowGap = 5": 1,
+      "dashboardStyles.meterLabel.gap = 5": 1,
+      "shareStyles.track.marginBlockStart = 6": 1
+    },
+    "src/components/layout/resource-manager.styles.ts": {
+      "managerStyles.columnHeading.paddingBlock = 8": 1,
+      "managerStyles.columnHeading.paddingInline = 10": 1,
+      "managerStyles.numericHeading.paddingBlock = 8": 1,
+      "managerStyles.numericHeading.paddingInline = 10": 1,
+      "managerStyles.identityCell.paddingBlock = 12": 1,
+      "managerStyles.identityCell.paddingInline = 10": 1,
+      "managerStyles.numericCell.paddingBlock = 12": 1,
+      "managerStyles.numericCell.paddingInline = 10": 1,
+      "managerStyles.processTitle.gap = 10": 1,
+      "managerStyles.pageRow.gap = 8": 1,
+      "managerStyles.pageRow.padding = 10": 1,
+      "managerStyles.groupHeading.gap = 12": 1,
+      "managerStyles.groupHeading.paddingBlock = 10": 1,
+      "managerStyles.resourceDialog.padding = 12": 1,
+      "managerStyles.resourceDialog.gap = 8": 1,
+      "managerStyles.heading.gap = 12": 1,
+      "managerStyles.heading.paddingBlock = 10": 1,
+      "managerStyles.processIdentity.gap = 4": 1,
+      "managerStyles.section.gap = 10": 1,
+      "managerStyles.toolbar.gap = 12": 1,
+      "managerStyles.segmented.gap = 2": 1,
+      "managerStyles.segmented.padding = 2": 1,
+      "managerStyles.row.gap = 10": 1,
+      "managerStyles.row.paddingBlock = 10": 1,
+      "managerStyles.row.paddingInline = 4": 1,
+      "managerStyles.identity.gap = 4": 1,
+      "managerStyles.actions.gap = 8": 1,
+      "managerStyles.dialog.gap = 12": 1,
+      "managerStyles.filters.gap = 12": 1,
+      "managerStyles.summary.paddingBlock = 10": 1,
+      "managerStyles.group.paddingBlock = 4": 1,
+      "managerStyles.detail.gap = 8": 1,
+      "managerStyles.detail.paddingBlock = 8": 1,
+      "managerStyles.process.gap = 10": 1
+    },
+    "src/components/layout/resources-popover.styles.ts": {
+      "resourceStyles.usageBar.gap = 6": 1,
+      "resourceStyles.triggerBar.gap = 6": 1,
+      "resourceStyles.header.paddingBlockEnd = 8": 1,
+      "resourceStyles.processHead.gap = 6": 1,
+      "resourceStyles.processRow.paddingBlock = 6": 1
+    },
+    "src/components/layout/settings-dialog-mcp-config-editor.styles.ts": {
+      "mcpConfigEditorStyles.headerBlock.paddingInlineEnd = 56": 1
+    },
+    "src/components/layout/settings-dialog-sections.styles.ts": {
+      "settingsSectionsStyles.radioVisuallyHidden.margin = -1": 1
+    },
+    "src/components/layout/source-control-review-dialog.styles.ts": {
+      "reviewDialogStyles.option.paddingBlock = 10": 1
+    },
+    "src/components/layout/standalone-cli/standalone-cli.styles.ts": {
+      "standaloneCliStyles.terminalHeader.paddingBlock = 6": 1
+    },
+    "src/components/layout/status-bar-usage-strip.styles.ts": {
+      "usageStripStyles.container.gap = 2": 1
+    },
+    "src/components/layout/status-bar-usage.styles.ts": {
+      "statusBarUsageStyles.stackTight.gap = 6": 1,
+      "statusBarUsageStyles.trigger.gap = 6": 1,
+      "statusBarUsageStyles.triggerWindow.gap = 3": 1,
+      "statusBarUsageStyles.popoverHeader.paddingBlock = 10": 1,
+      "statusBarUsageStyles.accountRow.paddingInlineEnd = 32": 1
+    },
+    "src/components/layout/stave-app-menu.styles.ts": {
+      "staveAppMenuStyles.trigger.gap = 6": 1,
+      "staveAppMenuStyles.trigger.paddingInline = \"0.625rem\"": 1
+    },
+    "src/components/layout/task-execution-summary.styles.ts": {
+      "summaryStyles.tile.paddingBlock = 10": 1,
+      "summaryStyles.tileCompact.paddingInline = 10": 1,
+      "summaryStyles.tileHead.gap = 6": 1,
+      "summaryStyles.readout.marginTop = 6": 1
+    },
+    "src/components/layout/top-bar-branch-dropdown.styles.ts": {
+      "branchDropdownStyles.driftNote.padding = \"0.625rem\"": 1,
+      "branchDropdownStyles.actionButton.gap = 6": 1,
+      "branchDropdownStyles.detachButton.gap = 6": 1,
+      "branchDropdownStyles.createButton.gap = 6": 1,
+      "branchDropdownStyles.createError.marginTop = 6": 1,
+      "branchDropdownStyles.branchError.paddingBlock = 6": 1,
+      "branchDropdownStyles.groupHeader.paddingInline = 6": 1
+    },
+    "src/components/layout/top-bar-file-search.styles.ts": {
+      "fileSearchStyles.panelHeader.paddingBlock = \"0.625rem\"": 1
+    },
+    "src/components/layout/top-bar-notifications.styles.ts": {
+      "notificationsStyles.viewTab.paddingInline = 10": 1,
+      "notificationsStyles.viewTabCount.paddingInline = 6": 1
+    },
+    "src/components/layout/top-bar-open-pr.styles.ts": {
+      "openPrStyles.statusMenuLabel.gap = 2": 1,
+      "openPrStyles.notice.paddingBlock = \"0.625rem\"": 1,
+      "openPrStyles.splashCopy.gap = 6": 1,
+      "openPrStyles.panelItemTags.gap = 6": 1,
+      "openPrStyles.tag.paddingInline = 6": 1,
+      "openPrStyles.panelItemMessage.marginTop = 6": 1,
+      "openPrStyles.branchField.gap = 6": 1,
+      "openPrStyles.branchArrow.marginBottom = { default: null, \"@media (min-width: 40rem)\": \"0.625rem\" }": 1,
+      "openPrStyles.changesToggle.gap = 6": 1
+    },
+    "src/components/layout/top-bar.styles.ts": {
+      "topBarStyles.header.paddingInline = \"0.875rem\"": 1
+    },
+    "src/components/layout/workspace-changes.styles.ts": {
+      "changesStyles.statusChip.paddingInline = 6": 1,
+      "changesStyles.autoRefreshButton.paddingInline = 6": 1,
+      "changesStyles.popoverItem.paddingBlock = 6": 1,
+      "changesStyles.fixOneButton.paddingInline = 6": 1,
+      "changesStyles.failureHead.gap = 6": 1,
+      "changesStyles.failureTag.paddingBlock = 1": 1,
+      "changesStyles.findingButton.paddingBlock = 6": 1,
+      "changesStyles.findingButtonInline.paddingInline = 6": 1,
+      "changesStyles.findingHead.gap = 6": 1,
+      "changesStyles.findingSeverity.paddingBlock = 1": 1,
+      "changesStyles.checks.gap = 10": 1,
+      "changesStyles.checksSection.paddingBlock = 10": 1,
+      "changesStyles.checksStack.gap = 6": 1,
+      "changesStyles.checksTodoRow.gap = 6": 1,
+      "changesStyles.checksTodoMore.paddingInlineStart = 10": 1,
+      "changesStyles.section.gap = 6": 1,
+      "changesStyles.sectionItems.gap = 6": 1,
+      "changesStyles.fileRow.paddingBlock = 6": 1,
+      "changesStyles.fileBadge.paddingInline = 6": 1,
+      "changesStyles.historyRail.paddingTop = 6": 1
+    },
+    "src/components/layout/workspace-explorer.styles.ts": {
+      "explorerStyles.treeRow.paddingInline = 6": 1,
+      "explorerStyles.searchInput.paddingInlineEnd = 36": 1,
+      "explorerStyles.searchInput.paddingInlineStart = 32": 1,
+      "explorerStyles.resultFileRow.gap = 6": 1,
+      "explorerStyles.resultFileRow.paddingInline = 6": 1,
+      "explorerStyles.resultCount.paddingInline = 6": 1,
+      "explorerStyles.resultMatchRow.paddingBlock = 6": 1,
+      "explorerStyles.resultMatchRow.paddingInline = 6": 1,
+      "explorerStyles.resultLineNumber.marginTop = 2": 1,
+      "explorerStyles.resultLineNumber.paddingInline = 6": 1
+    },
+    "src/components/layout/workspace-information-martin-card.styles.ts": {
+      "workspaceInformationMartinCardStyles.head.gap = 10": 1,
+      "workspaceInformationMartinCardStyles.openProject.gap = 6": 1,
+      "workspaceInformationMartinCardStyles.staleNotice.paddingInline = 10": 1,
+      "workspaceInformationMartinCardStyles.searchBody.gap = 10": 1,
+      "workspaceInformationMartinCardStyles.resultRow.paddingInline = 10": 1,
+      "workspaceInformationMartinCardStyles.resultTitleRow.gap = 6": 1
+    },
+    "src/components/layout/workspace-information-panel.styles.ts": {
+      "workspaceInformationPanelStyles.sectionTrigger.paddingBlock = 10": 1,
+      "workspaceInformationPanelStyles.linkRow.gap = 10": 1,
+      "workspaceInformationPanelStyles.linkRow.paddingInline = 6": 1,
+      "workspaceInformationPanelStyles.urlInputRow.paddingBlock = 6": 1,
+      "workspaceInformationPanelStyles.urlInputRow.paddingInline = 6": 1,
+      "workspaceInformationPanelStyles.chipTight.paddingInline = 6": 1,
+      "workspaceInformationPanelStyles.chipStatus.paddingInline = 6": 1,
+      "workspaceInformationPanelStyles.fieldStack.gap = 6": 1,
+      "workspaceInformationPanelStyles.urlFieldRow.gap = 6": 1,
+      "workspaceInformationPanelStyles.customField.gap = 6": 1,
+      "workspaceInformationPanelStyles.customField.paddingInline = 6": 1,
+      "workspaceInformationPanelStyles.customFieldHead.gap = 6": 1,
+      "workspaceInformationPanelStyles.emptyHint.paddingBlock = 6": 1,
+      "workspaceInformationPanelStyles.notesActions.gap = 6": 1,
+      "workspaceInformationPanelStyles.notesPreview.paddingBlock = 6": 1,
+      "workspaceInformationPanelStyles.todoProgressRow.marginBlockEnd = 6": 1,
+      "workspaceInformationPanelStyles.todoProgressRow.paddingInline = 2": 1,
+      "workspaceInformationPanelStyles.itemList.marginInline = -8": 1,
+      "workspaceInformationPanelStyles.itemListLoose.marginInline = -8": 1
+    },
+    "src/components/layout/workspace-progress-task-tree.styles.ts": {
+      "workspaceProgressTaskTreeStyles.loadingRow.paddingBlock = 6": 1,
+      "workspaceProgressTaskTreeStyles.row.paddingBlock = 6": 1
+    },
+    "src/components/layout/workspace-skills.styles.ts": {
+      "skillStyles.instructionsPreviewPane.paddingBlock = 10": 1,
+      "skillStyles.dialogHeader.paddingInlineEnd = 56": 1,
+      "skillStyles.dialogHeader.paddingInlineStart = 28": 1,
+      "skillStyles.dialogTabBar.paddingInline = 28": 1,
+      "skillStyles.dialogPanel.@media (min-width: 40rem).paddingInline = 28": 1,
+      "skillStyles.dialogEmpty.paddingInline = 28": 1,
+      "skillStyles.rowTitleLine.gap = 6": 1,
+      "skillStyles.rowBadge.paddingInline = 6": 1,
+      "skillStyles.summary.paddingInline = 10": 1,
+      "skillStyles.detailsList.gap = 6": 1,
+      "skillStyles.detailsList.paddingBottom = 10": 1,
+      "skillStyles.detailsList.paddingInline = 10": 1,
+      "skillStyles.badgeRow.gap = 6": 1,
+      "skillStyles.insertButton.gap = 6": 1,
+      "skillStyles.panelHeader.paddingBlock = 10": 1,
+      "skillStyles.panelActions.gap = 6": 1,
+      "skillStyles.searchInput.paddingInlineEnd = 28": 1,
+      "skillStyles.searchInput.paddingInlineStart = 28": 1
+    },
+    "src/components/layout/workspace-tools.styles.ts": {
+      "toolStyles.url.gap = 6": 1,
+      "toolStyles.sectionHeader.paddingBlock = 10": 1,
+      "toolStyles.runButton.paddingInline = 10": 1,
+      "toolStyles.stateRow.gap = 6": 1,
+      "toolStyles.actions.gap = 6": 1
+    },
+    "src/components/layout/workspace-turn-summary.styles.ts": {
+      "workspaceTurnSummaryStyles.head.gap = 6": 1,
+      "workspaceTurnSummaryStyles.summary.gap = 6": 1,
+      "workspaceTurnSummaryStyles.entry.gap = 6": 1,
+      "workspaceTurnSummaryStyles.entryLabel.gap = 6": 1,
+      "workspaceTurnSummaryStyles.entryBody.paddingInlineStart = 22": 1,
+      "workspaceTurnSummaryStyles.modelRow.paddingInlineStart = 22": 1
+    },
+    "src/components/panes/PaneHeaderActions.tsx": {
+      "styles.root.gap = 2": 1,
+      "styles.root.paddingInline = 4": 1,
+      "styles.choice.gap = 8": 1,
+      "styles.providerIcon.marginTop = 2": 1,
+      "styles.description.marginTop = 2": 1,
+      "styles.taskHint.marginTop = 2": 1
+    },
+    "src/components/panes/PaneTabChip.styles.ts": {
+      "paneTabChipStyles.root.gap = 6": 1
+    },
+    "src/components/panes/PaneWatermark.tsx": {
+      "styles.actions.gap = 8": 1
+    },
+    "src/components/panes/TaskHistoryDrawer.tsx": {
+      "styles.header.padding = 20": 1,
+      "styles.search.marginTop = 12": 1,
+      "styles.body.paddingInline = 20": 1,
+      "styles.body.paddingBlock = 16": 1,
+      "styles.empty.paddingInline = 12": 1,
+      "styles.empty.paddingBlock = 16": 1,
+      "styles.list.gap = 8": 1,
+      "styles.row.gap = 12": 1,
+      "styles.row.padding = 12": 1,
+      "styles.badge.paddingInline = 6": 1,
+      "styles.badge.paddingBlock = 2": 1,
+      "styles.footer.paddingInline = 20": 1,
+      "styles.footer.paddingBlock = 16": 1
+    },
+    "src/components/panes/WorkspacePaneHost.tsx": {
+      "STAVE_DOCKVIEW_THEME.gap = 1": 1,
+      "styles.picker.gap = 4": 1,
+      "styles.picker.paddingInline = 8": 1,
+      "styles.picker.paddingBlock = 6": 1,
+      "styles.label.marginRight = 4": 1
+    },
+    "src/components/panes/surfaces/EditorSurfacePanel.tsx": {
+      "styles.emptyHost.padding = 24": 1,
+      "styles.emptyHeader.gap = 12": 1,
+      "styles.imageHost.padding = 16": 1
+    },
+    "src/components/panes/surfaces/lens/LensConsoleWorkbench.tsx": {
+      "content.marginLeft = `${depth * 12}px`": 1
+    },
+    "src/components/panes/surfaces/lens/LensNetworkWorkbench.tsx": {
+      "content.marginLeft = `${depth * 12}px`": 1
+    },
+    "src/components/panes/surfaces/lens/lens-detail.styles.ts": {
+      "detailStyles.objectRow.gap = 6": 1,
+      "detailStyles.objectRow.paddingBlock = 6": 1,
+      "detailStyles.toggle.marginTop = -2": 1,
+      "detailStyles.valueRow.rowGap = 2": 1,
+      "detailStyles.properties.padding = 6": 1,
+      "detailStyles.error.paddingBlock = 6": 1,
+      "detailStyles.kind.paddingBlock = 2": 1,
+      "detailStyles.warning.paddingBlock = 2": 1,
+      "detailStyles.phaseRow.paddingBlock = 6": 1,
+      "detailStyles.captureStatus.gap = 6": 1,
+      "detailStyles.fieldValue.marginTop = 2": 1
+    },
+    "src/components/panes/surfaces/lens/lens-workbench.styles.ts": {
+      "workbenchStyles.searchInput.paddingLeft = 28": 1,
+      "workbenchStyles.compactStack.gap = 6": 1,
+      "workbenchStyles.stackFrame.paddingBlock = 6": 1,
+      "workbenchStyles.stackFrameLocation.marginTop = 2": 1,
+      "workbenchStyles.loadingContent.gap = 6": 1
+    },
+    "src/components/results/results.styles.ts": {
+      "resultsStyles.headline.rowGap = 2": 1,
+      "resultsStyles.bar.gap = 2": 1,
+      "resultsStyles.figure.gap = 2": 1,
+      "resultsStyles.facts.paddingInlineStart = 26": 1
+    },
+    "src/components/scripts/script-entries-tab.styles.ts": {
+      "entriesTabStyles.list.gap = 10": 1
+    },
+    "src/components/scripts/script-entry-card.styles.ts": {
+      "entryCardStyles.chevron.marginTop = 2": 1,
+      "entryCardStyles.triggerRow.paddingTop = 2": 1
+    },
+    "src/components/scripts/script-entry-form-fields.styles.ts": {
+      "entryFormStyles.toggleGroup.paddingBlock = 10": 1
+    },
+    "src/components/scripts/script-hooks-tab.styles.ts": {
+      "hooksTabStyles.card.gap = 10": 1,
+      "hooksTabStyles.cardHeaderText.gap = 2": 1,
+      "hooksTabStyles.emptyLinks.paddingBlock = 10": 1,
+      "hooksTabStyles.linkRow.paddingInline = 10": 1,
+      "hooksTabStyles.candidateDescription.marginTop = 2": 1,
+      "hooksTabStyles.unresolved.paddingBlock = 10": 1
+    },
+    "src/components/scripts/script-log.stylex.ts": {
+      "logStyles.root.marginTop = 10": 1,
+      "logStyles.jump.paddingInline = 10": 1,
+      "logStyles.error.paddingInline = 10": 1,
+      "logStyles.footer.paddingInline = 2": 1
+    },
+    "src/components/scripts/script-targets-tab.styles.ts": {
+      "targetsTabStyles.list.gap = 10": 1,
+      "targetsTabStyles.injectedBox.paddingBlock = 10": 1
+    },
+    "src/components/scripts/scripts-manager.styles.ts": {
+      "managerStyles.scopeInfo.paddingBlock = 10": 1,
+      "managerStyles.footerStatusDetail.marginTop = 2": 1
+    },
+    "src/components/session/TaskPanel.tsx": {
+      "styles.srOnly.margin = -1": 1
+    },
+    "src/components/session/TaskPanelEmpty.tsx": {
+      "styles.row.gap = 2": 1
+    },
+    "src/components/session/chat-input-approval-queue.styles.ts": {
+      "chatInputApprovalQueueStyles.sectionRegular.padding = \"0.625rem\"": 1,
+      "chatInputApprovalQueueStyles.status.gap = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.status.marginTop = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.linkAction.marginTop = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.guideAction.marginTop = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.guidancePanel.gap = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.guidanceActions.gap = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.compactButton.paddingInline = \"0.625rem\"": 1,
+      "chatInputApprovalQueueStyles.queuedList.gap = \"0.375rem\"": 1,
+      "chatInputApprovalQueueStyles.queuedList.marginTop = \"0.375rem\"": 1
+    },
+    "src/components/session/chat-input.styles.ts": {
+      "chatInputStyles.root.paddingBlock = \"0.625rem\"": 1
+    },
+    "src/components/session/chat-panel.styles.ts": {
+      "chatPanelStyles.shellAssistant.gap = \"0.375rem\"": 1,
+      "chatPanelStyles.elapsedAction.gap = \"0.375rem\"": 1
+    },
+    "src/components/session/child-request-slot.styles.ts": {
+      "childRequestSlotStyles.section.padding = \"0.625rem\"": 1
+    },
+    "src/components/session/composer-shelf/composer-shelf.styles.ts": {
+      "shelfStyles.thought.paddingInlineStart = `calc(${vars[\"--ads-space-12\"]} + 20px + ${vars[\"--ads-space-8\"]})`": 1,
+      "shelfStyles.progress.gap = 6": 1,
+      "shelfStyles.segments.gap = 2": 1,
+      "shelfStyles.visuallyHidden.margin = -1": 1
+    },
+    "src/components/session/composer-shelf/shelf-provider-switch.styles.ts": {
+      "providerSwitchStyles.details.gap = 2": 1,
+      "providerSwitchStyles.details.paddingInlineStart = `calc(${vars[\"--ads-space-12\"]} + 20px + ${vars[\"--ads-space-8\"]})`": 1
+    },
+    "src/components/session/conversation-turn-actions.styles.ts": {
+      "conversationTurnActionsStyles.groupPreview.gap = 6": 1,
+      "conversationTurnActionsStyles.actionPreview.gap = 6": 1,
+      "conversationTurnActionsStyles.actionInline.paddingInline = 6": 1
+    },
+    "src/components/session/delegated-task-rows.styles.ts": {
+      "delegatedTaskRowsStyles.row.paddingInline = \"0.625rem\"": 1,
+      "delegatedTaskRowsStyles.phaseBadge.paddingInline = \"0.375rem\"": 1,
+      "delegatedTaskRowsStyles.phaseBadge.paddingBlock = \"0.125rem\"": 1,
+      "delegatedTaskRowsStyles.actionsRow.marginTop = \"0.375rem\"": 1,
+      "delegatedTaskRowsStyles.composer.marginTop = \"0.375rem\"": 1,
+      "delegatedTaskRowsStyles.composerActions.marginTop = \"0.375rem\"": 1,
+      "delegatedTaskRowsStyles.sectionList.marginTop = \"0.375rem\"": 1,
+      "delegatedTaskRowsStyles.sectionList.gap = \"0.375rem\"": 1
+    },
+    "src/components/session/empty-splash.styles.ts": {
+      "emptySplashStyles.logoBox.padding = \"0.375rem\"": 1
+    },
+    "src/components/session/failed-outgoing-messages.styles.ts": {
+      "failedOutgoingMessagesStyles.statusRow.gap = 6": 1
+    },
+    "src/components/session/macro-control.styles.ts": {
+      "macroControlStyles.itemTitleRow.gap = 6": 1
+    },
+    "src/components/session/message-usage-summary.styles.ts": {
+      "messageUsageSummaryStyles.metricsGrid.rowGap = \"0.125rem\"": 1,
+      "messageUsageSummaryStyles.trigger.gap = \"0.375rem\"": 1,
+      "messageUsageSummaryStyles.triggerChip.gap = \"0.125rem\"": 1
+    },
+    "src/components/session/message/assistant-trace.styles.ts": {
+      "assistantTraceStyles.diffSummary.gap = 6": 1,
+      "assistantTraceStyles.assistantTextRow.gap = \"0.7em\"": 1,
+      "assistantTraceStyles.blockTight.gap = 6": 1
+    },
+    "src/components/session/provider-error-recovery.styles.ts": {
+      "providerErrorRecoveryStyles.resume.gap = 6": 1
+    },
+    "src/components/session/result-review.styles.ts": {
+      "resultStyles.rowChevron.marginTop = 2": 1,
+      "resultStyles.outcomeIcon.marginTop = 2": 1,
+      "resultStyles.modelFacts.rowGap = 6": 1
+    },
+    "src/components/session/secret-binding-control.styles.ts": {
+      "secretBindingControlStyles.itemTitleRow.gap = 6": 1
+    },
+    "src/components/session/secret-request-card.styles.ts": {
+      "secretRequestCardStyles.section.padding = \"0.625rem\"": 1,
+      "secretRequestCardStyles.actions.gap = \"0.375rem\"": 1,
+      "secretRequestCardStyles.action.paddingInline = \"0.625rem\"": 1
+    },
+    "src/components/session/task-source-context-notice.styles.ts": {
+      "taskSourceContextNoticeStyles.staleNotice.paddingInline = \"0.625rem\"": 1,
+      "taskSourceContextNoticeStyles.staleNotice.paddingBlock = \"0.375rem\"": 1,
+      "taskSourceContextNoticeStyles.staleIcon.marginTop = \"0.125rem\"": 1,
+      "taskSourceContextNoticeStyles.details.marginTop = \"0.375rem\"": 1,
+      "taskSourceContextNoticeStyles.attachedList.marginTop = \"0.375rem\"": 1,
+      "taskSourceContextNoticeStyles.staleTag.marginLeft = \"0.375rem\"": 1,
+      "taskSourceContextNoticeStyles.removeButton.padding = \"0.125rem\"": 1
+    },
+    "src/components/session/turn-activity.styles.ts": {
+      "turnActivityStyles.stackDockedStandalone.marginBottom = \"-0.75rem\"": 1,
+      "turnActivityStyles.surfaceDocked.paddingBottom = \"0.75rem\"": 1,
+      "turnActivityStyles.header.gap = \"0.625rem\"": 1,
+      "turnActivityStyles.srOnly.margin = -1": 1,
+      "turnActivityStyles.replayBadge.paddingBlock = \"0.125rem\"": 1,
+      "turnActivityStyles.listInner.paddingBlock = 6": 1,
+      "turnActivityStyles.listInner.paddingInline = 6": 1,
+      "turnActivityStyles.summaryPinned.paddingInline = 6": 1,
+      "turnActivityStyles.childBlock.paddingInline = 6": 1,
+      "turnActivityStyles.childBlockPadded.paddingInline = 6": 1,
+      "turnActivityStyles.childBlockLead.paddingInline = 6": 1,
+      "turnActivityStyles.rowTitleLine.gap = 6": 1,
+      "turnActivityStyles.rowDetailLine.gap = 6": 1,
+      "turnActivityStyles.rowStartOffset.paddingTop = \"0.125rem\"": 1,
+      "turnActivityStyles.rowElapsed.paddingTop = \"0.125rem\"": 1,
+      "turnActivityStyles.row.gap = \"0.625rem\"": 1,
+      "turnActivityStyles.row.paddingBlock = 6": 1
+    },
+    "src/components/session/turn-record.styles.ts": {
+      "turnRecordStyles.badge.paddingBlock = \"0.125rem\"": 1,
+      "turnRecordStyles.failures.gap = 2": 1
+    },
+    "src/components/session/work-graph-tree.styles.ts": {
+      "workGraphTreeStyles.row.paddingBlock = \"0.375rem\"": 1,
+      "workGraphTreeStyles.labelLine.gap = \"0.375rem\"": 1,
+      "workGraphTreeStyles.elapsed.paddingTop = \"0.125rem\"": 1,
+      "workGraphTreeStyles.content.marginBlock = `calc(-1 * ${vars[\"--ads-space-4\"]} - 0.125rem)`": 1,
+      "workGraphTreeStyles.content.gap = \"0.625rem\"": 1,
+      "workGraphTreeStyles.content.paddingBlock = \"0.375rem\"": 1
+    },
+    "src/components/system/ChoiceChips.tsx": {
+      "styles.choice.paddingInline = 8": 1
+    },
+    "src/components/system/SelectionRail.tsx": {
+      "styles.rail.padding = 4": 1,
+      "styles.rail.gap = 4": 1,
+      "styles.heading.paddingInline = 8": 1,
+      "styles.heading.paddingBlockStart = 4": 1,
+      "styles.divider.marginInline = 8": 1,
+      "styles.divider.marginBlock = 2": 1,
+      "styles.tab.gap = 8": 1,
+      "styles.tab.paddingInline = 8": 1
+    },
+    "src/components/system/ShortcutKeys.tsx": {
+      "styles.keys.rowGap = 6": 1
+    },
+    "src/components/system/WorkspaceSurface.tsx": {
+      "styles.description.marginTop = 4": 1,
+      "styles.badge.paddingBlock = 2": 1,
+      "styles.badge.paddingInline = 8": 1
+    },
+    "src/components/ui/command-layout.stylex.ts": {
+      "commandLayout.separator.marginInline = -4": 1
+    },
+    "src/components/ui/content-layout.styles.ts": {
+      "contentLayout.serviceBadge.gap = \"0.35em\"": 1,
+      "contentLayout.serviceBadge.paddingInline = \"0.45em\"": 1,
+      "contentLayout.serviceBadge.paddingBlock = \"0.1em\"": 1
+    },
+    "src/components/ui/drawer-layout.stylex.ts": {
+      "layout.header.gap = {\n    \"default\": `${vars[\"--ads-space-2\"]}`,\n    \"@media (width >= 48rem)\": \"6px\"\n}": 1
+    },
+    "src/components/ui/input-group.stylex.ts": {
+      "layout.addon.paddingBlock = 6": 1,
+      "layout.inlineStart.marginLeft = { default: null, \":has(>button)\": -4, \":has(>kbd)\": \"-0.15rem\" }": 1,
+      "layout.inlineEnd.marginRight = { default: null, \":has(>button)\": -4, \":has(>kbd)\": \"-0.15rem\" }": 1,
+      "layout.blockStart.paddingInline = 10": 1,
+      "layout.blockEnd.paddingInline = 10": 1,
+      "layout.buttonXs.paddingInline = 6": 1,
+      "layout.input.paddingRight = { default: null, [stylex.when.ancestor(':has(>[data-align=\"inline-end\"])', inputGroupMarker)]: 6 }": 1,
+      "layout.input.paddingLeft = { default: null, [stylex.when.ancestor(':has(>[data-align=\"inline-start\"])', inputGroupMarker)]: 6 }": 1
+    },
+    "src/components/ui/sheet-layout.styles.ts": {
+      "sheetLayout.header.gap = 6": 1
+    },
+    "src/components/usage/usage.styles.ts": {
+      "usageStyles.elapsedMarker.marginInlineStart = -1": 1,
+      "usageStyles.chart.gap = 4": 1
+    },
+    "src/components/workflows/Segmented.tsx": {
+      "styles.root.gap = 2": 1,
+      "styles.root.padding = 2": 1
+    },
+    "src/components/workflows/workflows.styles.ts": {
+      "workflowStyles.list.gap = 2": 1,
+      "workflowStyles.card.gap = 2": 1,
+      "workflowStyles.shortcut.paddingInline = 4": 1,
+      "workflowStyles.nameInput.paddingBlock = 2": 1,
+      "workflowStyles.purposeInput.paddingBlock = 2": 1,
+      "workflowStyles.bannerIcon.marginTop = 2": 1,
+      "workflowStyles.propertyLabel.paddingTop = 6": 1,
+      "workflowStyles.shortcutField.gap = 2": 1,
+      "workflowStyles.titleInput.paddingBlock = 2": 1,
+      "workflowStyles.stageActions.gap = 2": 1,
+      "workflowStyles.stageBody.paddingInlineStart = `calc(${vars[\"--ads-space-8\"]} + 20px + 18px + 18px + 3 * ${vars[\"--ads-space-8\"]})`": 1,
+      "workflowStyles.chips.gap = 4": 1,
+      "workflowStyles.chip.gap = 3": 1,
+      "workflowStyles.chip.paddingInline = 6": 1
+    },
+    "src/dev/agent-preview/agent-preview.styles.ts": {
+      "agentPreviewStyles.toggle.paddingInline = 10": 1,
+      "agentPreviewStyles.toggleGroup.gap = 6": 1
+    },
+    "src/dev/agent-run-preview/agent-run-cases.tsx": {
+      "styles.fleetHeader.gap = 2": 1
+    },
+    "src/dev/agent-run-preview/index.tsx": {
+      "styles.fleetHeader.gap = 2": 1
+    },
+    "src/dev/composer-frame-preview/composer-frame-preview.styles.ts": {
+      "composerFramePreviewStyles.toggle.paddingInline = 10": 1,
+      "composerFramePreviewStyles.composerPad.paddingBlock = 10": 1
+    },
+    "src/dev/resource-manager-preview/index.tsx": {
+      "styles.page.padding = 32": 1,
+      "styles.page.gap = 16": 1,
+      "styles.controls.gap = 8": 1
+    },
+    "src/hooks/use-sortable-list.tsx": {
+      "styles.preview.gap = 6": 1,
+      "styles.preview.paddingInline = 10": 1,
+      "styles.preview.paddingBlock = 6": 1
+    }
   }
 }

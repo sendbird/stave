@@ -211,6 +211,11 @@ export const shelfStyles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     whiteSpace: "nowrap",
   },
+  metaWithIcon: {
+    alignItems: "center",
+    display: "inline-flex",
+    gap: vars["--ads-space-4"],
+  },
   actions: {
     display: "inline-flex",
     flex: "0 0 auto",

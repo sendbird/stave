@@ -220,13 +220,40 @@ the requested change preserves captured evidence and never sends a task.
 
 Run `bun run check:design-system` after changing shared components. Its per-file
 ratchet rejects new utility syntax, reintroduced legacy recipes, and missing canonical dependencies.
-It also counts off-grid spacing: a 6 or 10 on a padding, margin or gap
-(`scripts/stylex-spacing-literals.mjs`). Each file's count is recorded in
-`config/spacing-ratchet.json` and may fall, never rise; space new work with the
-`--ads-space-*` tokens (4, 8, 12, …) or a `densityPad` step, and lower the entry
-when you move a file onto the grid.
-It is an architecture check, not a visual approval. Pair it with typecheck, theme
-tests, and the affected rendered workflow.
+Run `bun run check:ui-layout` for the full static authoring gate (including
+style-channel checks). Renderer and desktop builds run it before compiling.
+All new nonzero absolute padding, margin and gap literals fail, including
+on-grid values such as `8` or `"0.5rem"`; use ADS space tokens or `densityPad`
+so density changes stay coherent. Zero, percentages and `auto` remain valid.
+`scripts/stylex-spacing-literals.mjs` scans TypeScript property declarations,
+including strings, conditionals and logical spacing properties. It does not
+evaluate arbitrary JavaScript, resolve aliases or inspect global CSS. ADS token
+sources are excluded. This is an authoring guard, not a general CSS validator.
+
+`config/spacing-ratchet.json` inventories existing debt by file, semantic owner,
+property and value. A declaration's removal cannot fund another declaration in
+the same file. Remove or lower entries when fixing debt; do not regenerate or
+expand the inventory to silence failures. PR CI compares it with the base commit
+and rejects new entries, increased counts or a schema downgrade. Necessary fixed
+geometry should use an existing named token or be discussed as an explicit
+contract change.
+
+Run `bun run test:ui-layout` after changing geometry. Install the browser once
+with `bunx --bun playwright install chromium`. PR CI installs Chromium and runs
+the same focused suite, retaining failure screenshots/traces in its artifact.
+It measures actual product components: icon/text centers and first-line slots,
+wrapped actions and criteria, ellipsis, shared text columns, and token-derived
+padding/gap across locale, theme and density states. Add a regression for each
+new relationship; an unchanged test suite does not cover a new surface.
+
+Choose center alignment for single-line pairs and first-line alignment for
+wrapping copy. Keep icon size stable and allow the text to shrink/wrap. Correct
+the parent geometry before considering optical offsets. Prefer parent `gap`
+to margins on individual glyphs. Compare computed spacing with the relevant
+token, rather than a hardcoded pixel value that ignores compact density.
+
+These checks are not visual approval. Pair them with theme tests and the
+changed workflow in Lens; explicitly report any states that were not rendered.
 
 When integrating another active workspace, retain that workspace's new controls
 and state behavior, then map them through these adapters. Resolve shared component
