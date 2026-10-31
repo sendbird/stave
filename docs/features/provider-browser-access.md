@@ -115,9 +115,9 @@ succeed.
 
 ## Settings
 
-Settings > Browser > Mentions lists every prompt mention (`@web`, `@lens`, and the
-`@info:<section>` references) with its current status, and its Browser access
-card shows the browser mode and the setup path for Claude Code and Codex. Stave does not persist or display a browser connection status: each
+Settings > Browser > Mentions holds only the Browser access card. It sets the
+browser mode and the known-host option, and shows the setup path for Claude
+Code and Codex. Stave does not persist or display a browser connection status: each
 `@web` turn attempts Chrome access directly, and any failure is reported in
 that conversation. Because the extension is provider-owned, Stave cannot
 install it, enable it, or grant site access from Settings.

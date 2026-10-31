@@ -975,111 +975,111 @@
   "sections": {
     "general": {
       "label": "일반",
-      "description": "워크스페이스 기본값, 알림, 앱 동작을 설정합니다."
+      "description": "언어, 알림, 앱 동작을 설정합니다."
     },
     "presets": {
       "label": "프리셋",
-      "description": "재사용할 수 있는 프롬프트와 프로바이더 프리셋입니다."
+      "description": "작업과 CLI 세션을 빠르게 실행할 프리셋을 관리합니다."
     },
     "macros": {
       "label": "매크로",
-      "description": "모델 고정과 즉시 실행을 선택할 수 있는 재사용 프롬프트 스니펫입니다."
+      "description": "재사용할 프롬프트를 저장하고 입력창에서 삽입합니다."
     },
     "projects": {
       "label": "저장소",
-      "description": "저장소별 경로, 설정 프롬프트, 워크스페이스 기본값을 관리합니다."
+      "description": "저장소와 새 워크스페이스의 시작 방식을 설정합니다."
     },
     "scripts": {
       "label": "워크스페이스 도구",
-      "description": "개발하는 동안 켜 두는 장기 실행 프로세스와 일회성 명령, 라이프사이클 트리거, 환경을 관리합니다."
+      "description": "개발 서버와 명령을 설정하고 실행 시점을 정합니다."
     },
     "theme": {
       "label": "모양",
-      "description": "테마, 색상, 시각 스타일을 설정합니다."
+      "description": "테마를 고르고 Stave의 모양을 세부 조정합니다."
     },
     "chat": {
       "label": "채팅",
-      "description": "채팅 글꼴, 스트리밍, 추론, 입력창 컨트롤, 진행 중인 턴의 동작을 설정합니다."
+      "description": "채팅 메시지의 모양과 턴의 동작을 조정합니다."
     },
     "providers": {
       "label": "프로바이더",
-      "description": "프로바이더별 런타임 권한과 동작을 설정합니다."
+      "description": "프로바이더별 권한과 런타임 동작을 설정합니다."
     },
     "models": {
       "label": "모델",
-      "description": "기본 모델 선택과 모델 표시 여부를 설정합니다."
+      "description": "기본 모델과 선택기에 표시할 모델을 고릅니다."
     },
     "autoRouting": {
       "label": "Auto (모델 라우터)",
-      "description": "Auto가 턴마다 규모를 정하는 방식입니다. 레벨이 모델을 고르고, 선호도가 노력 수준을 정합니다."
+      "description": "Auto가 턴마다 모델과 추론 강도를 고르는 방식을 정합니다."
     },
     "mcp": {
       "label": "MCP",
-      "description": "Model Context Protocol 서버와 런타임 상태입니다."
+      "description": "MCP 서버를 추가하고 연결 상태를 확인합니다."
     },
     "integrations": {
       "label": "통합",
-      "description": "개인용 아웃바운드 커넥터와 외부 작업 소스입니다."
+      "description": "이슈 트래커와 기타 외부 서비스를 Stave에 연결합니다."
     },
     "issues": {
       "label": "이슈",
-      "description": "할당된 티켓 목록의 기본값입니다. 시작 보기, 새로 고침 주기, 킥오프 시작 방식을 설정합니다."
+      "description": "티켓 목록의 기본 보기, 새로 고침, 작업 시작 방식을 정합니다."
     },
     "kickoff": {
       "label": "킥오프",
-      "description": "외부 소스 매칭과 워크스페이스 제안 설정입니다."
+      "description": "붙여 넣은 링크와 키로 새 워크스페이스를 만드는 방식을 정합니다."
     },
     "auxiliaryInference": {
       "label": "백그라운드 AI",
-      "description": "Stave가 대신 수행하는 백그라운드 모델 호출과 각 호출의 비용입니다."
+      "description": "실행할 백그라운드 AI 작업과 사용할 모델을 고릅니다."
     },
     "prompts": {
       "label": "프롬프트",
-      "description": "기본 프롬프트 문구, 응답 지침, 리뷰 설정입니다."
+      "description": "기본 프롬프트를 편집하고 리뷰와 PR 기본값을 설정합니다."
     },
     "memory": {
       "label": "메모리",
-      "description": "저장소 메모리의 수집, 회상, 템플릿, 초기화 설정입니다."
+      "description": "이 저장소가 기억하고 불러올 내용을 정합니다."
     },
     "skills": {
       "label": "스킬",
-      "description": "스킬 탐색과 프롬프트 입력 제안을 설정합니다."
+      "description": "스킬을 켜고 입력창에서 스킬을 제안할지 정합니다."
     },
     "mentions": {
       "label": "멘션",
-      "description": "에이전트가 Chrome을 언제 쓸 수 있는지 정합니다. @web 없이 쓰게 할 수도 있습니다."
+      "description": "에이전트가 Chrome을 언제 사용할 수 있는지 정합니다."
     },
     "commandPalette": {
       "label": "키보드 및 명령",
-      "description": "전역 명령 실행기, 셸 단축키 조합, 모델 단축키를 설정합니다."
+      "description": "명령 팔레트와 단축키를 설정합니다."
     },
     "terminal": {
       "label": "터미널",
-      "description": "내장 터미널의 글꼴과 커서 동작을 설정합니다."
+      "description": "터미널의 글꼴과 커서를 조정합니다."
     },
     "editor": {
       "label": "편집기",
-      "description": "편집기 글꼴, 표시 방식, 언어 도구를 설정합니다."
+      "description": "편집기의 코드 표시 방식과 검사 도구를 조정합니다."
     },
     "tooling": {
       "label": "툴링",
-      "description": "로컬 도구의 CLI 경로, 설치 상태, 버전, 상태 점검입니다."
+      "description": "Stave가 사용하는 로컬 도구가 준비됐는지 확인합니다."
     },
     "lens": {
       "label": "Lens",
-      "description": "브라우저 Lens 세션과 시각적 코멘트 캡처를 설정합니다."
+      "description": "Lens가 페이지를 여는 방식과 시각적 코멘트 캡처를 설정합니다."
     },
     "secrets": {
       "label": "시크릿",
-      "description": "암호화된 API 토큰과 기타 시크릿 값입니다."
+      "description": "암호화된 API 토큰과 기타 시크릿 값을 저장합니다."
     },
     "developer": {
       "label": "개발자",
-      "description": "개발자용 진단 정보와 내부 런타임 토글입니다."
+      "description": "진단 정보를 확인하고 내부 런타임 옵션을 조정합니다."
     },
     "changelog": {
       "label": "변경 로그",
-      "description": "릴리스 노트와 제품 변경 사항입니다."
+      "description": "릴리스마다 바뀐 내용을 확인합니다."
     },
     "groups": {
       "workspace": "워크스페이스",
@@ -1168,7 +1168,7 @@
     },
     "accounts": {
       "label": "계정",
-      "description": "Claude와 Codex에 로그인하거나, 구독 계정을 추가하거나, 토큰 단위로 과금되는 게이트웨이 키를 연결합니다."
+      "description": "프로바이더에 로그인하고 과금 방식을 고릅니다."
     }
   },
   "pages": {

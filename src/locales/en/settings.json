@@ -985,111 +985,111 @@
   "sections": {
     "general": {
       "label": "General",
-      "description": "Workspace defaults, notifications, and app behavior."
+      "description": "Set the language, notifications, and app behavior."
     },
     "presets": {
       "label": "Presets",
-      "description": "Reusable prompt and provider presets."
+      "description": "Manage quick-launch presets for tasks and CLI sessions."
     },
     "macros": {
       "label": "Macros",
-      "description": "Reusable prompt snippets with optional model pins and instant run."
+      "description": "Save reusable prompts and insert them from the composer."
     },
     "projects": {
       "label": "Repository",
-      "description": "Repository-level paths, setup prompts, and workspace defaults."
+      "description": "Configure a repository and how its new workspaces start."
     },
     "scripts": {
       "label": "Workspace Tools",
-      "description": "Long-running processes you leave up while developing, plus one-shot commands, lifecycle triggers, and environments."
+      "description": "Set up dev servers and commands, and choose when they run."
     },
     "theme": {
       "label": "Appearance",
-      "description": "Theme, color, and visual styling."
+      "description": "Choose a theme and fine-tune how Stave looks."
     },
     "chat": {
       "label": "Chat",
-      "description": "Chat typography, streaming, reasoning, composer controls, and active-turn behavior."
+      "description": "Adjust how chat messages look and how turns behave."
     },
     "providers": {
       "label": "Providers",
-      "description": "Runtime permissions and behavior for each provider."
+      "description": "Set permissions and runtime behavior for each provider."
     },
     "models": {
       "label": "Models",
-      "description": "Default model selection and visibility."
+      "description": "Choose default models and which ones appear in selectors."
     },
     "autoRouting": {
       "label": "Auto (Model Router)",
-      "description": "How Auto sizes each turn: a level picks the model, your preference sets the effort."
+      "description": "Choose how Auto picks a model and effort for each turn."
     },
     "mcp": {
       "label": "MCP",
-      "description": "Model Context Protocol servers and runtime status."
+      "description": "Add MCP servers and check that they connect."
     },
     "integrations": {
       "label": "Integrations",
-      "description": "Personal outbound connectors and external task sources."
+      "description": "Connect issue trackers and other services to Stave."
     },
     "issues": {
       "label": "Issues",
-      "description": "Assigned ticket list defaults: starting view, refresh cadence, and how a kickoff begins."
+      "description": "Set the ticket list's view, refresh, and how work starts."
     },
     "kickoff": {
       "label": "Kickoff",
-      "description": "External source matching and workspace proposal settings."
+      "description": "Choose how pasted links and keys become new workspaces."
     },
     "auxiliaryInference": {
       "label": "Background AI",
-      "description": "Background model calls Stave makes on your behalf, and what each one costs."
+      "description": "Choose which background AI tasks run and on which model."
     },
     "prompts": {
       "label": "Prompts",
-      "description": "Default prompt text, response instructions, and review settings."
+      "description": "Edit built-in prompts and set review and PR defaults."
     },
     "memory": {
       "label": "Memory",
-      "description": "Repository memory collection, recall, templates, and reset controls."
+      "description": "Choose what this repository remembers and recalls."
     },
     "skills": {
       "label": "Skills",
-      "description": "Skill discovery and prompt input suggestions."
+      "description": "Enable skills and choose whether the composer suggests them."
     },
     "mentions": {
       "label": "Mentions",
-      "description": "Choose when the agent may use your Chrome, including prompts without @web."
+      "description": "Choose when the agent may use your Chrome browser."
     },
     "commandPalette": {
       "label": "Keyboard & Commands",
-      "description": "Global command launcher, shell shortcut chords, and model hotkeys."
+      "description": "Set up the command palette and keyboard shortcuts."
     },
     "terminal": {
       "label": "Terminal",
-      "description": "Integrated terminal typography and cursor behavior."
+      "description": "Adjust the terminal's font and cursor."
     },
     "editor": {
       "label": "Editor",
-      "description": "Editor typography, display, and language tooling."
+      "description": "Adjust how the editor displays and checks your code."
     },
     "tooling": {
       "label": "Tooling",
-      "description": "CLI paths, install status, versions, and health checks for local tools."
+      "description": "Check that the local tools Stave uses are ready."
     },
     "lens": {
       "label": "Lens",
-      "description": "Browser Lens sessions and visual comment capture."
+      "description": "Choose how Lens opens pages and captures visual comments."
     },
     "secrets": {
       "label": "Secrets",
-      "description": "Encrypted API tokens and other secret values."
+      "description": "Store encrypted API tokens and other secret values."
     },
     "developer": {
       "label": "Developer",
-      "description": "Developer diagnostics and internal runtime toggles."
+      "description": "Inspect diagnostics and adjust internal runtime options."
     },
     "changelog": {
       "label": "Changelog",
-      "description": "Release notes and product changes."
+      "description": "See what changed in each release."
     },
     "groups": {
       "workspace": "Workspace",
@@ -1178,7 +1178,7 @@
     },
     "accounts": {
       "label": "Accounts",
-      "description": "Sign in to Claude and Codex, add a second subscription, or connect a gateway key billed per token."
+      "description": "Sign in to providers and choose how you pay."
     }
   },
   "pages": {
