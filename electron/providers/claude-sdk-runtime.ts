@@ -138,6 +138,7 @@ import {
 } from "./executable-path";
 import {
   buildClaudeCliEnv,
+  refreshMcpLoginShellEnv,
   resolveClaudeCliExecutablePath,
 } from "./cli-path-env";
 import {
@@ -2779,6 +2780,8 @@ async function createClaudeMcpControlQuery(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   prompt: "" | AsyncIterable<SDKUserMessage>;
+  /** Re-read MCP-referenced shell variables before the CLI process starts. */
+  refreshLoginShellEnv?: boolean;
 }) {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
@@ -2804,6 +2807,15 @@ async function createClaudeMcpControlQuery(args: {
     claudeExecutablePath,
     runtimeOptions: args.runtimeOptions,
   });
+  if (args.refreshLoginShellEnv) {
+    await refreshMcpLoginShellEnv({
+      provider: "claude",
+      executablePath: claudeExecutablePath,
+      cwd: runtimeCwd,
+      accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
+      enabledPlugins,
+    });
+  }
   const stream = queryFn({
     prompt: args.prompt,
     options: buildClaudeQueryOptions({
@@ -2904,6 +2916,9 @@ export async function getClaudeMcpStatus(args: {
       cwd: args.cwd,
       runtimeOptions: args.runtimeOptions,
       prompt: "",
+      // Settings' MCP refresh is how a user re-reads a token just exported in
+      // the shell profile; later turns spawn with the same refreshed values.
+      refreshLoginShellEnv: true,
     });
     stream = control.stream;
     const statuses = await stream.mcpServerStatus();
@@ -3178,6 +3193,12 @@ export async function streamClaudeWithSdk(
         }
       }
       freshClaudeSessionScopes.add(claudeMcpScopeKey);
+      // The turn's CLI process reads the shell variables the new config names.
+      await refreshMcpLoginShellEnv({
+        provider: "claude",
+        executablePath: claudeExecutablePath,
+        cwd: runtimeCwd,
+      }).catch(() => []);
     }
 
     // A tool-less turn (`isToolsDisabledTurn`) is a secondary read-only turn too.

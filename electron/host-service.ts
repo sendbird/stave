@@ -135,6 +135,8 @@ import {
   getCodexMcpRuntimeStatus,
   getCodexModelCatalog,
   getCodexPluginDetail,
+  resolveCodexExecutablePath,
+  scheduleCodexAppServerRestartForMcpChange,
   importCodexExternalConfig,
   installCodexPlugin,
   readCodexThread,
@@ -185,7 +187,10 @@ import {
   syncWorkspaceWithOriginMain,
 } from "./main/utils/tooling-status";
 import { isDoneEvent } from "./main/utils/provider-events";
-import { prepareCliExecutableDiscovery } from "./providers/cli-path-env";
+import {
+  prepareCliExecutableDiscovery,
+  refreshMcpLoginShellEnv,
+} from "./providers/cli-path-env";
 import {
   resolveCommandCwd,
   runCommand,
@@ -1457,8 +1462,26 @@ async function shutdown() {
 }
 
 async function loadMergedCodexMcpStatus(args: {
+  cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
+  // Settings' MCP refresh is how a user re-reads a token just exported in the
+  // shell profile. The shared App Server keeps the env it started with, so a
+  // changed value restarts it.
+  const executablePath = resolveCodexExecutablePath({
+    explicitPath: args.runtimeOptions?.codexBinaryPath,
+  });
+  if (executablePath) {
+    const changedKeys = await refreshMcpLoginShellEnv({
+      provider: "codex",
+      executablePath,
+      cwd: args.cwd,
+      accountProfileId: args.runtimeOptions?.codexAccountProfileId,
+    }).catch(() => []);
+    if (changedKeys.length > 0) {
+      scheduleCodexAppServerRestartForMcpChange(executablePath);
+    }
+  }
   const checkedAt = Date.now();
   const [configured, runtime] = await Promise.all([
     getCodexMcpStatus({

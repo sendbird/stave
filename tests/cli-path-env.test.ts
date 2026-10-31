@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { __resetExecutablePathCachesForTests } from "../electron/providers/executable-path";
 import {
   CLAUDE_CLI_AUTO_MODE_MIN_VERSION,
   isClaudeCliAutoModeSupportedVersion,
@@ -10,6 +17,7 @@ import {
   applyConfiguredMcpEnvOverrides,
   applyLoginShellEnvOverrides,
   buildClaudeCliEnv,
+  refreshMcpLoginShellEnv,
 } from "../electron/providers/cli-path-env";
 
 describe("Claude CLI auto mode support", () => {
@@ -314,4 +322,51 @@ describe("Claude plugin MCP env forwarding", () => {
     }
   });
 
+  test("MCP refresh picks up a token exported after the first probe", async () => {
+    if (process.platform === "win32") return;
+    const fixture = makePluginEnvFixture({ enabled: true });
+    const profilePath = path.join(fixture.directory, "profile");
+    const shellPath = path.join(fixture.directory, "login-shell");
+    writeFileSync(profilePath, `export CLAUDE_CONFIG_DIR='${fixture.configDir}'\n`);
+    writeFileSync(shellPath, `#!/bin/sh\n. '${profilePath}'\nexec /bin/sh -c "$2"\n`);
+    chmodSync(shellPath, 0o755);
+    const original = {
+      SHELL: process.env.SHELL,
+      HOME: process.env.HOME,
+      ZDOTDIR: process.env.ZDOTDIR,
+    };
+    __resetExecutablePathCachesForTests();
+    // The fallback system shells read the fixture's empty dotfiles, not the
+    // developer's real profile.
+    process.env.SHELL = shellPath;
+    process.env.HOME = fixture.directory;
+    process.env.ZDOTDIR = fixture.directory;
+    try {
+      const build = () =>
+        buildClaudeCliEnv({ executablePath: "/tmp/claude", cwd: fixture.cwd });
+      expect(build()[PLUGIN_TOKEN_ENV_VAR]).toBeUndefined();
+
+      writeFileSync(
+        profilePath,
+        `export CLAUDE_CONFIG_DIR='${fixture.configDir}'\nexport ${PLUGIN_TOKEN_ENV_VAR}=atl_test\n`,
+      );
+      expect(build()[PLUGIN_TOKEN_ENV_VAR]).toBeUndefined();
+
+      expect(
+        await refreshMcpLoginShellEnv({
+          provider: "claude",
+          executablePath: "/tmp/claude",
+          cwd: fixture.cwd,
+        }),
+      ).toEqual([PLUGIN_TOKEN_ENV_VAR]);
+      expect(build()[PLUGIN_TOKEN_ENV_VAR]).toBe("atl_test");
+    } finally {
+      for (const [key, value] of Object.entries(original)) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      __resetExecutablePathCachesForTests();
+      rmSync(fixture.directory, { recursive: true, force: true });
+    }
+  });
 });

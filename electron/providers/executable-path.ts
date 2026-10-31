@@ -252,7 +252,16 @@ export function resolveLoginShellEnvVarValue(args: {
   );
 }
 
-type LoginShellEnvProbeArgs = { keys: readonly string[]; cache?: boolean };
+type LoginShellEnvProbeArgs = {
+  keys: readonly string[];
+  cache?: boolean;
+  /**
+   * Probe again even when a value is cached and store the answer, so a value
+   * added to or changed in the shell profile after the first probe is seen
+   * without restarting Stave. A probe that times out keeps the cached value.
+   */
+  refresh?: boolean;
+};
 type LoginShellProbeOutput = {
   stdout: string | null;
   stderr: string | null;
@@ -277,6 +286,7 @@ function* loginShellEnvProbes(
   LoginShellProbeOutput
 > {
   const shouldCache = args.cache !== false;
+  const readCache = shouldCache && args.refresh !== true;
   const safeKeys = [
     ...new Set(
       args.keys
@@ -288,7 +298,7 @@ function* loginShellEnvProbes(
   const unresolvedKeys: string[] = [];
 
   for (const key of safeKeys) {
-    if (shouldCache && cachedLoginShellEnvVarValues.has(key)) {
+    if (readCache && cachedLoginShellEnvVarValues.has(key)) {
       values.set(key, cachedLoginShellEnvVarValues.get(key) ?? null);
       continue;
     }
@@ -415,6 +425,35 @@ export async function resolveLoginShellEnvVarValuesAsync(
     step = probes.next(output);
   }
   return step.value;
+}
+
+/**
+ * Re-read `keys` from the login shell and replace their cached values. Login
+ * shell values are otherwise cached for the app's lifetime, so a variable
+ * exported after the first probe — a new or rotated MCP token — would never
+ * reach a provider until Stave restarts. Resolves to the keys whose cached
+ * value changed (names only; values never leave this module's cache).
+ */
+export async function refreshLoginShellEnvVarValues(args: {
+  keys: readonly string[];
+}) {
+  const keys = [
+    ...new Set(
+      args.keys
+        .map((key) => sanitizeEnvVarName({ value: key }))
+        .filter((key): key is string => Boolean(key)),
+    ),
+  ];
+  const before = new Map(
+    keys.map((key) => [key, cachedLoginShellEnvVarValues.get(key)]),
+  );
+  await resolveLoginShellEnvVarValuesAsync({ keys, refresh: true });
+  // A key never probed before behaves like an unset one for running processes.
+  return keys.filter(
+    (key) =>
+      (cachedLoginShellEnvVarValues.get(key) ?? null) !==
+      (before.get(key) ?? null),
+  );
 }
 
 function safeReadDir(args: { path: string }) {

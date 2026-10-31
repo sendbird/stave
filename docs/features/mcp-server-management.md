@@ -233,6 +233,14 @@ loads for the workspace: the plugin's `.mcp.json` and the servers its
 `${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`
 itself, so Stave leaves them alone.
 
+Stave keeps the values it read for the rest of the session. After you add or
+change one in your shell profile, select **Refresh** in `Settings > MCP`. Stave
+reads the referenced variables again; the Claude status check and every Claude
+turn after it use the new value, and a changed Codex value restarts the shared
+Codex App Server once its running turns finish. An MCP configuration change,
+such as installing, updating, or enabling a plugin, also rereads them before the
+next turn. Restarting Stave is not required.
+
 ## Safe Writes And Conflicts
 
 Every create, update, and delete is a two-step operation:

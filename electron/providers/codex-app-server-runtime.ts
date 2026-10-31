@@ -40,10 +40,7 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
 } from "../../src/lib/providers/provider.types";
-import {
-  buildCodexCliEnv,
-  resolveCodexCliExecutablePath,
-} from "./cli-path-env";
+import { buildCodexCliEnv, refreshMcpLoginShellEnv, resolveCodexCliExecutablePath } from "./cli-path-env";
 import {
   resolveCodexChatgptAuthTokensRefreshResponse,
   type CodexAccountReadResponse,
@@ -981,7 +978,12 @@ export function disposeAllCodexAppServerClients(
   clientByExecutablePath.clear();
 }
 
-function restartCodexAppServerForMcpConfigChange(executablePath: string) {
+/** Restart the shared App Server after an MCP change: now when idle, or once its running turns finish. */
+export function scheduleCodexAppServerRestartForMcpChange(executablePath: string) {
+  if ((activeCodexTurnsByExecutable.get(providerAccountKey("codex", executablePath)) ?? 0) > 0) {
+    pendingMcpRefreshExecutables.add(providerAccountKey("codex", executablePath));
+    return;
+  }
   clientByExecutablePath
     .get(providerAccountKey("codex", executablePath))
     ?.dispose("Restarting Codex App Server after MCP configuration change.");
@@ -1028,7 +1030,7 @@ function finishCodexTurn(
   }
   activeCodexTurnsByExecutable.delete(providerAccountKey("codex", executablePath));
   if (pendingMcpRefreshExecutables.delete(providerAccountKey("codex", executablePath))) {
-    restartCodexAppServerForMcpConfigChange(executablePath);
+    scheduleCodexAppServerRestartForMcpChange(executablePath);
   }
 }
 
@@ -1808,13 +1810,11 @@ export async function streamCodexWithAppServer(
   // Toggling MCP App views changes what `initialize` declares, so it restarts too.
   const mcpAppAdvertisementStale = noteCodexMcpAppViewsSetting({ enabled: requestedRuntimeOptions?.mcpAppViews, advertised: client.getProcessId() ? client.mcpAppExtensionAdvertised : null });
   if (globalMcpRefresh.changed || projectMcpRefresh.changed || mcpAppAdvertisementStale) {
+    // The restarted process also reads the shell variables the new config names.
+    await refreshMcpLoginShellEnv({ provider: "codex", executablePath: codexExecutablePath, cwd: runtimeCwd }).catch(() => []);
     // App Server reads config.toml at process start and resumed threads retain
     // their MCP catalog, so restart and force fresh native threads.
-    if ((activeCodexTurnsByExecutable.get(providerAccountKey("codex", codexExecutablePath)) ?? 0) > 0) {
-      pendingMcpRefreshExecutables.add(providerAccountKey("codex", codexExecutablePath));
-    } else {
-      restartCodexAppServerForMcpConfigChange(codexExecutablePath);
-    }
+    scheduleCodexAppServerRestartForMcpChange(codexExecutablePath);
   }
 
   const transientSecretClient =

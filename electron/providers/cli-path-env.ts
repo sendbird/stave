@@ -10,6 +10,7 @@ import {
   resolveLoginShellEnvVarValue,
   resolveLoginShellEnvVarValuesAsync,
   resolveLoginShellEnvVarValues,
+  refreshLoginShellEnvVarValues,
 } from "./executable-path";
 import {
   buildRuntimeProcessEnv,
@@ -635,6 +636,57 @@ export function buildCodexCliEnv(
       (entry): entry is [string, string] => typeof entry[1] === "string",
     ),
   );
+}
+
+/**
+ * Re-read from the login shell every variable the provider's MCP config
+ * references for `cwd` (Codex also re-reads its fallback MCP keys), so a token
+ * added to or rotated in the shell profile reaches provider processes started
+ * afterwards without restarting Stave. Variables Stave inherited in its own
+ * environment win over the shell and are not probed. Resolves to the names
+ * whose value changed.
+ */
+export async function refreshMcpLoginShellEnv(args: {
+  provider: McpEnvProvider;
+  executablePath: string;
+  cwd?: string;
+  accountProfileId?: string;
+  enabledPlugins?: Readonly<Record<string, boolean>>;
+}) {
+  const cwd = args.cwd ?? process.cwd();
+  // An empty path list skips MCP env discovery, so resolving the provider
+  // home here never runs a blocking shell probe for the keys refreshed below.
+  let configPaths: string[];
+  if (args.provider === "claude") {
+    configPaths = getClaudeMcpConfigPaths({
+      cwd,
+      claudeConfigDir: buildClaudeCliEnv({
+        executablePath: args.executablePath,
+        accountProfileId: args.accountProfileId,
+        mcpConfigPaths: [],
+      }).CLAUDE_CONFIG_DIR,
+      enabledPlugins: args.enabledPlugins,
+    });
+  } else {
+    const groups = getCodexMcpConfigPathGroups({
+      cwd,
+      codexHome: buildCodexCliEnv({
+        executablePath: args.executablePath,
+        accountProfileId: args.accountProfileId,
+        mcpConfigPaths: [],
+      }).CODEX_HOME,
+    });
+    configPaths = [...groups.globalPaths, ...groups.projectPaths];
+  }
+  const keys = [
+    ...readMcpEnvVarNames({
+      provider: args.provider,
+      paths: configPaths,
+      cwd,
+    }),
+    ...(args.provider === "codex" ? CODEX_LOGIN_SHELL_ENV_FALLBACK_KEYS : []),
+  ].filter((key) => !process.env[key]?.trim());
+  return keys.length > 0 ? refreshLoginShellEnvVarValues({ keys }) : [];
 }
 
 export function resolveCodexCliExecutablePath(
