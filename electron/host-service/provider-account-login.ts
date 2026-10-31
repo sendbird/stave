@@ -64,6 +64,8 @@ export function createProviderAccountLoginSession(
             executablePath,
             accountProfileId: args.profileId,
             cwd: args.workspacePath,
+            // Signing in needs no MCP server's variables.
+            mcpConfigPaths: [],
           })
         : buildCodexCliEnv({
             executablePath,

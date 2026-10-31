@@ -4,11 +4,24 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { resolveStaveLocalMcpManifestPath } from "../main/stave-local-mcp-manifest";
 import { resolveSharedClaudeMcpStateFile } from "../provider-accounts/shared-mcp";
+import {
+  resolveClaudePluginMcpConfigPaths,
+  type ClaudePluginLoadDecision,
+} from "./claude-plugin-config";
+import { isClaudeMcpDocumentPath } from "./mcp-env";
 
 type McpConfigPathOptions = {
   cwd: string;
   claudeConfigDir?: string;
   codexHome?: string;
+};
+
+type ClaudeMcpConfigPathOptions = McpConfigPathOptions & {
+  /**
+   * The query's plugin decision (`false`: it loads none), when the caller has
+   * it. Without it, Claude's own `enabledPlugins` settings cascade decides.
+   */
+  enabledPlugins?: ClaudePluginLoadDecision;
 };
 
 type CodexMcpConfigPathOptions = McpConfigPathOptions & {
@@ -78,7 +91,7 @@ export function getStaveLocalMcpManifestPath() {
   return resolveStaveLocalMcpManifestPath();
 }
 
-export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
+export function getClaudeMcpConfigPaths(args: ClaudeMcpConfigPathOptions) {
   const sharedStateFilePath = resolveSharedClaudeMcpStateFile({
     claudeConfigDir: args.claudeConfigDir,
   });
@@ -99,6 +112,13 @@ export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {
     // A managed account that shares System default's setup also runs System
     // default's MCP servers, so their edits and env references count too.
     ...(sharedStateFilePath ? [sharedStateFilePath] : []),
+    // Enabled plugins bring their own MCP servers, whose env references the
+    // CLI expands from its process env like any other server's.
+    ...resolveClaudePluginMcpConfigPaths({
+      cwd: args.cwd,
+      claudeConfigDir: args.claudeConfigDir,
+      enabledPlugins: args.enabledPlugins,
+    }),
   ];
 }
 
@@ -159,12 +179,6 @@ export function getCodexMcpConfigPaths(args: CodexMcpConfigPathOptions) {
 }
 
 const MCP_KEY_PATTERN = /mcp/i;
-
-/** Files whose every byte describes MCP wiring, so the whole document counts. */
-const WHOLE_DOCUMENT_MCP_BASENAMES: ReadonlySet<string> = new Set([
-  ".mcp.json",
-  "local-mcp.json",
-]);
 
 function stableStringify(value: unknown): string {
   if (Array.isArray(value)) {
@@ -260,7 +274,9 @@ export function projectMcpConfigContent(args: {
     } catch {
       return args.content;
     }
-    if (WHOLE_DOCUMENT_MCP_BASENAMES.has(basename)) {
+    // MCP documents (`.mcp.json`, the Stave manifest, files a plugin manifest
+    // names) describe nothing but MCP wiring, so the whole document counts.
+    if (isClaudeMcpDocumentPath(args.filePath)) {
       return stableStringify(parsed);
     }
     return stableStringify(projectMcpJson(parsed) ?? null);

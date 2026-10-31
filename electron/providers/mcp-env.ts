@@ -1,10 +1,15 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import { STAVE_LOCAL_MCP_MANIFEST_FILE_NAME } from "../main/stave-local-mcp-manifest";
 
 export type McpEnvProvider = "claude" | "codex";
 
 const ENV_VAR_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const ENV_REFERENCE_PATTERN = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
+/** `${VAR}` and `${VAR:-default}`, the forms Claude Code expands in MCP config. */
+const BRACED_ENV_REFERENCE_PATTERN =
+  /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}/g;
+const ENV_REFERENCE_PATTERN =
+  /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
 
 function addEnvVarName(names: Set<string>, value: unknown) {
   if (typeof value !== "string") {
@@ -16,11 +21,15 @@ function addEnvVarName(names: Set<string>, value: unknown) {
   }
 }
 
-function addEnvReferences(names: Set<string>, value: unknown) {
+function addEnvReferences(
+  names: Set<string>,
+  value: unknown,
+  pattern: RegExp = ENV_REFERENCE_PATTERN,
+) {
   if (typeof value !== "string") {
     return;
   }
-  for (const match of value.matchAll(ENV_REFERENCE_PATTERN)) {
+  for (const match of value.matchAll(pattern)) {
     addEnvVarName(names, match[1] ?? match[2]);
   }
 }
@@ -29,6 +38,64 @@ function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+/**
+ * Path variables Claude Code fills in itself when it loads a plugin's MCP
+ * servers. Probing the login shell for them would at best find nothing and at
+ * worst override the value Claude Code computes per plugin.
+ */
+const CLAUDE_SUPPLIED_MCP_ENV_VAR_NAMES: ReadonlySet<string> = new Set([
+  "CLAUDE_PLUGIN_ROOT",
+  "CLAUDE_PLUGIN_DATA",
+  "CLAUDE_PROJECT_DIR",
+]);
+
+/**
+ * Files that are MCP documents wherever they sit: a project or plugin
+ * `.mcp.json` and the Stave manifest. Every other Claude file Stave reads
+ * (settings, `.claude.json` state, a plugin manifest) shares the document with
+ * unrelated keys and keeps its servers under `mcpServers`.
+ */
+const CLAUDE_MCP_DOCUMENT_BASENAMES: ReadonlySet<string> = new Set([
+  ".mcp.json",
+  STAVE_LOCAL_MCP_MANIFEST_FILE_NAME,
+]);
+
+/**
+ * JSON files a plugin manifest names as its MCP config. Their name says
+ * nothing about their shape (`./mcp/settings.json` or `./plugin.json` may hold
+ * a bare server map), so plugin discovery records them as it finds them. The
+ * set only grows, by one entry per declared file of an installed plugin.
+ */
+const claudePluginMcpDocumentPaths = new Set<string>();
+
+export function noteClaudePluginMcpDocumentPath(filePath: string) {
+  claudePluginMcpDocumentPaths.add(path.resolve(filePath));
+}
+
+/**
+ * Whether a Claude MCP config file is an MCP document: its whole content
+ * describes MCP wiring, and Claude Code reads a plugin's server map from its
+ * root when `mcpServers` is absent.
+ */
+export function isClaudeMcpDocumentPath(filePath: string) {
+  return (
+    CLAUDE_MCP_DOCUMENT_BASENAMES.has(path.basename(filePath)) ||
+    claudePluginMcpDocumentPaths.has(path.resolve(filePath))
+  );
+}
+
+/** A plugin manifest may list inline server maps beside file paths. */
+function toServerMaps(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      const record = asRecord(entry);
+      return record ? [record] : [];
+    });
+  }
+  const record = asRecord(value);
+  return record ? [record] : [];
 }
 
 function collectClaudeServerEnvVarNames(
@@ -50,18 +117,36 @@ function collectClaudeServerEnvVarNames(
   for (const headerValue of Object.values(headers ?? {})) {
     addEnvReferences(names, headerValue);
   }
+
+  // Claude Code also expands references in these fields. Only the braced forms
+  // count here: a bare `$NAME` in an argument or URL is literal text.
+  addEnvReferences(names, config.url, BRACED_ENV_REFERENCE_PATTERN);
+  addEnvReferences(names, config.command, BRACED_ENV_REFERENCE_PATTERN);
+  for (const arg of Array.isArray(config.args) ? config.args : []) {
+    addEnvReferences(names, arg, BRACED_ENV_REFERENCE_PATTERN);
+  }
 }
 
 export function collectClaudeMcpEnvVarNames(
   document: unknown,
-  args: { cwd?: string } = {},
+  args: {
+    cwd?: string;
+    /** Read the root as the server map when `mcpServers` is absent. */
+    bareServerMap?: boolean;
+  } = {},
 ) {
   const names = new Set<string>();
   const root = asRecord(document);
-  const servers =
-    asRecord(root?.mcpServers) ?? asRecord(root?.mcp_servers) ?? {};
-  for (const server of Object.values(servers)) {
-    collectClaudeServerEnvVarNames(names, server);
+  const declared = root?.mcpServers || root?.mcp_servers;
+  const serverMaps = declared
+    ? toServerMaps(declared)
+    : args.bareServerMap && root
+      ? [root]
+      : [];
+  for (const servers of serverMaps) {
+    for (const server of Object.values(servers)) {
+      collectClaudeServerEnvVarNames(names, server);
+    }
   }
 
   const cwd = args.cwd?.trim();
@@ -84,7 +169,9 @@ export function collectClaudeMcpEnvVarNames(
     }
   }
 
-  return [...names].sort();
+  return [...names]
+    .filter((name) => !CLAUDE_SUPPLIED_MCP_ENV_VAR_NAMES.has(name))
+    .sort();
 }
 
 function extractTomlStringValues(value: string) {
@@ -162,6 +249,7 @@ export function readMcpEnvVarNames(args: {
       const document = JSON.parse(content) as unknown;
       for (const name of collectClaudeMcpEnvVarNames(document, {
         cwd: args.cwd,
+        bareServerMap: isClaudeMcpDocumentPath(filePath),
       })) {
         names.add(name);
       }

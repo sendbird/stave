@@ -344,7 +344,8 @@ export function captureClaudeUsageReportText(
     // Home rather than the Electron app's cwd, so a background poll never
     // adopts a project directory's settings or CLAUDE.md.
     cwd: homedir(),
-    env: toProcessEnv(buildClaudeCliEnv({ executablePath })),
+    // `--strict-mcp-config` with no servers: forward no MCP-referenced variable.
+    env: toProcessEnv(buildClaudeCliEnv({ executablePath, mcpConfigPaths: [] })),
     timeoutMs: CAPTURE_TIMEOUT_MS,
   });
 }

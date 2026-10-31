@@ -60,8 +60,11 @@ export const STAVE_LOCAL_MCP_OWNER_PID_ENV = "STAVE_LOCAL_MCP_OWNER_PID";
  * is last-writer-wins and may name an instance that has since exited — never
  * trust it without {@link isLiveStaveLocalMcpManifest}.
  */
+/** File name of every Local MCP manifest, the primary one and each instance's. */
+export const STAVE_LOCAL_MCP_MANIFEST_FILE_NAME = "local-mcp.json";
+
 export function getPrimaryStaveLocalMcpManifestPath() {
-  return path.join(homedir(), ".stave", "local-mcp.json");
+  return path.join(homedir(), ".stave", STAVE_LOCAL_MCP_MANIFEST_FILE_NAME);
 }
 
 export function getStaveLocalMcpInstanceManifestRoot() {
@@ -76,7 +79,7 @@ export function getStaveLocalMcpInstanceManifestPath(
   pid: number,
   instanceRoot = getStaveLocalMcpInstanceManifestRoot(),
 ) {
-  return path.join(instanceRoot, String(pid), "local-mcp.json");
+  return path.join(instanceRoot, String(pid), STAVE_LOCAL_MCP_MANIFEST_FILE_NAME);
 }
 
 export function resolveStaveLocalMcpOwnerPid(

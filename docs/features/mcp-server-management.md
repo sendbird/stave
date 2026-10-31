@@ -221,6 +221,30 @@ Repository-scope Claude, Cursor, and Kiro writes are refused when the destinatio
 contains a literal credential-like value. Replace it with the provider's
 environment-reference syntax before editing the file in Stave.
 
+### Variables From Your Shell Profile
+
+A desktop app does not inherit the variables exported in a shell profile such
+as `~/.zshrc`. When a configured MCP server references a variable that Stave's
+own environment lacks, Stave reads it from your login shell and passes it to the
+provider process. For Claude this covers servers in Claude's settings and state
+files, the project `.mcp.json`, and the MCP servers of every Claude plugin that
+loads for the workspace: the plugin's `.mcp.json` and the servers its
+`plugin.json` declares inline or in the JSON files it names. Like Claude, Stave
+skips a file that resolves outside the plugin's folder, including through a
+symbolic link, unless the link stays inside the marketplace folder the plugin
+loads from in place. Claude fills in `${CLAUDE_PLUGIN_ROOT}`,
+`${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}` itself, so Stave leaves
+them alone.
+
+Stave keeps the values it read for the rest of the session. After you add or
+change one in your shell profile, select **Refresh** in `Settings > MCP`. Stave
+reads the referenced variables again; the Claude status check and every Claude
+turn after it use the new value, and a shared Codex App Server started with an
+older value restarts once its running turns finish, whichever account's refresh
+read the new one. An MCP configuration change,
+such as installing, updating, or enabling a plugin, also rereads them before the
+next turn. Restarting Stave is not required.
+
 ## Safe Writes And Conflicts
 
 Every create, update, and delete is a two-step operation:

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   chmodSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -17,6 +19,7 @@ import {
   prepareExecutableLookup,
   resolveExecutablePath,
   resolveLoginShellCommandPath,
+  refreshLoginShellEnvVarValues,
   resolveLoginShellEnvVarValues,
   resolveLoginShellEnvVarValuesAsync,
   toAsarUnpackedPath,
@@ -418,3 +421,171 @@ test.each([
     }
   },
 );
+
+/**
+ * A login shell that sources a profile the test edits, standing in for a user
+ * exporting a variable in their shell profile while Stave keeps running. HOME
+ * and ZDOTDIR point at the fixture so the fallback system shells never read
+ * the developer's real dotfiles.
+ */
+function withProfileShell(run: (profilePath: string) => Promise<void>) {
+  const { executablePath, directory } = createExecutableFixture({
+    prefix: "stave-profile-shell-",
+  });
+  const profilePath = path.join(directory, "profile");
+  writeFileSync(profilePath, "", "utf8");
+  writeFileSync(
+    executablePath,
+    `#!/bin/sh\n. '${profilePath}'\nexec /bin/sh -c "$2"\n`,
+  );
+  const original = {
+    SHELL: process.env.SHELL,
+    HOME: process.env.HOME,
+    ZDOTDIR: process.env.ZDOTDIR,
+  };
+  __resetExecutablePathCachesForTests();
+  process.env.SHELL = executablePath;
+  process.env.HOME = directory;
+  process.env.ZDOTDIR = directory;
+  return run(profilePath).finally(() => {
+    for (const [key, value] of Object.entries(original)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+    __resetExecutablePathCachesForTests();
+  });
+}
+
+test("refreshing re-probes a login-shell value cached as unset", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: null,
+    });
+
+    writeFileSync(profilePath, "export STAVE_FIXTURE_MCP_TOKEN=atl_test\n");
+    // The miss stays cached for the app's lifetime until something refreshes it.
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: null,
+    });
+
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual(keys);
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_test",
+    });
+    // Nothing changed since the last refresh.
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual([]);
+  });
+});
+
+test("a refresh that times out keeps the cached login-shell value", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    writeFileSync(profilePath, "export STAVE_FIXTURE_MCP_TOKEN=atl_old\n");
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_old",
+    });
+
+    writeFileSync(
+      profilePath,
+      "sleep 1\nexport STAVE_FIXTURE_MCP_TOKEN=atl_new\n",
+    );
+    __setLoginShellProbeTimeoutMsForTests(50);
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual([]);
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_old",
+    });
+  });
+});
+
+async function waitForFile(filePath: string) {
+  for (let attempt = 0; attempt < 500 && !existsSync(filePath); attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test("a probe that started earlier never overwrites a newer refreshed value", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const directory = path.dirname(profilePath);
+    const valuePath = path.join(directory, "value");
+    const delayPath = path.join(directory, "delay");
+    const readPath = path.join(directory, "read");
+    // The shell reads the value and delay first and announces it, then waits, so an
+    // earlier probe can hold an old value while a later one finishes first.
+    writeFileSync(
+      profilePath,
+      `STAVE_VALUE="$(cat '${valuePath}')"\nSTAVE_DELAY="$(cat '${delayPath}')"\necho read >> '${readPath}'\nsleep "$STAVE_DELAY"\nexport STAVE_FIXTURE_MCP_TOKEN="$STAVE_VALUE"\n`,
+    );
+    writeFileSync(valuePath, "atl_old");
+    writeFileSync(delayPath, "1");
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    const earlier = resolveLoginShellEnvVarValuesAsync({ keys });
+    await waitForFile(readPath);
+
+    writeFileSync(valuePath, "atl_new");
+    writeFileSync(delayPath, "0");
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual(keys);
+    // The earlier probe finishes last with the old value; the cache keeps the
+    // newer one and the earlier caller gets it too.
+    expect(await earlier).toEqual({ STAVE_FIXTURE_MCP_TOKEN: "atl_new" });
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_new",
+    });
+  });
+});
+
+test("an earlier lookup's fallback shells never overwrite a newer refreshed value", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const directory = path.dirname(profilePath);
+    const valuePath = path.join(directory, "value");
+    const delayPath = path.join(directory, "delay");
+    const readPath = path.join(directory, "read");
+    // The first shell finds nothing and is slow, so the earlier lookup moves on
+    // to the fallback system shells after a later refresh stored the value.
+    writeFileSync(
+      profilePath,
+      `STAVE_VALUE="$(cat '${valuePath}')"\nSTAVE_DELAY="$(cat '${delayPath}')"\necho read >> '${readPath}'\nsleep "$STAVE_DELAY"\n[ -n "$STAVE_VALUE" ] && export STAVE_FIXTURE_MCP_TOKEN="$STAVE_VALUE"\n`,
+    );
+    writeFileSync(valuePath, "");
+    writeFileSync(delayPath, "1");
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    const earlier = resolveLoginShellEnvVarValuesAsync({ keys });
+    await waitForFile(readPath);
+
+    writeFileSync(valuePath, "atl_new");
+    writeFileSync(delayPath, "0");
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual(keys);
+    // The earlier lookup's fallbacks miss the variable; the newer value stays.
+    expect(await earlier).toEqual({ STAVE_FIXTURE_MCP_TOKEN: "atl_new" });
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_new",
+    });
+  });
+});
+
+test("identical concurrent refreshes share one follow-up probe", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const probesPath = path.join(path.dirname(profilePath), "probes");
+    writeFileSync(
+      profilePath,
+      `echo probe >> '${probesPath}'\nexport STAVE_FIXTURE_MCP_TOKEN=atl_test\n`,
+    );
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    const results = await Promise.all([
+      refreshLoginShellEnvVarValues({ keys }),
+      refreshLoginShellEnvVarValues({ keys }),
+      refreshLoginShellEnvVarValues({ keys }),
+    ]);
+    // One probe runs; the two that arrived while it ran share the next one.
+    expect(readFileSync(probesPath, "utf8").trim().split("\n")).toHaveLength(2);
+    expect(results).toEqual([keys, [], []]);
+    // A refresh after they settle probes again.
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual([]);
+    expect(readFileSync(probesPath, "utf8").trim().split("\n")).toHaveLength(3);
+  });
+});

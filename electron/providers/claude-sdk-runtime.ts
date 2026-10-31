@@ -138,6 +138,7 @@ import {
 } from "./executable-path";
 import {
   buildClaudeCliEnv,
+  refreshMcpLoginShellEnv,
   resolveClaudeCliExecutablePath,
 } from "./cli-path-env";
 import {
@@ -175,6 +176,8 @@ import { resolveSharedClaudeMcpStateFile } from "../provider-accounts/shared-mcp
 import {
   resolveClaudeInstalledPlugins,
   resolveClaudePluginEnablement,
+  resolveClaudePluginLoadDecision,
+  type ClaudePluginLoadDecision,
 } from "./claude-plugin-config";
 import { sanitizeMcpDiagnosticText } from "./mcp-config-management-shared";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
@@ -262,7 +265,13 @@ export function resolveClaudeExecutablePath(
   });
 }
 
-export function buildClaudeEnv(args: { executablePath: string; cwd?: string; accountProfileId?: string }) {
+export function buildClaudeEnv(args: {
+  executablePath: string;
+  cwd?: string;
+  accountProfileId?: string;
+  mcpConfigPaths?: readonly string[];
+  enabledPlugins?: ClaudePluginLoadDecision;
+}) {
   return buildClaudeCliEnv(args);
 }
 
@@ -271,7 +280,8 @@ function buildClaudeDiagnostics(args: {
   taskId?: string;
   cwd: string;
 }) {
-  const env = buildClaudeEnv({ executablePath: args.executablePath });
+  // A version probe loads no MCP server, so it needs none of their variables.
+  const env = buildClaudeEnv({ executablePath: args.executablePath, mcpConfigPaths: [] });
   const versionProbe = args.executablePath
     ? probeExecutableVersion({
         executablePath: args.executablePath,
@@ -1382,6 +1392,8 @@ export function buildClaudeQueryOptions(args: {
         executablePath: args.claudeExecutablePath,
         cwd: args.cwd,
         accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
+        // Forward the shell variables the plugins this query loads reference.
+        enabledPlugins: resolveClaudePluginLoadDecision({ enabledPlugins: args.enabledPlugins, mode: args.runtimeOptions?.claudePluginMode, secondaryReadOnly: args.secondaryReadOnly }),
       }),
       ...claudeNativePlanEnv(args.runtimeOptions, args.secondaryReadOnly),
     },
@@ -1844,10 +1856,8 @@ export function buildClaudeReadOnlyPromptOptions(args: {
       enabled: true,
       allowUnsandboxedCommands: false,
     },
-    env: buildClaudeEnv({
-      executablePath: args.claudeExecutablePath,
-      cwd: args.cwd,
-    }),
+    // Strict with no servers: forward no MCP-referenced (plugin) variables.
+    env: buildClaudeEnv({ executablePath: args.claudeExecutablePath, cwd: args.cwd, mcpConfigPaths: [] }),
     ...(args.claudeExecutablePath
       ? { pathToClaudeCodeExecutable: args.claudeExecutablePath }
       : {}),
@@ -2772,6 +2782,8 @@ async function createClaudeMcpControlQuery(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   prompt: "" | AsyncIterable<SDKUserMessage>;
+  /** Re-read MCP-referenced shell variables before the CLI process starts. */
+  refreshLoginShellEnv?: boolean;
 }) {
   const runtimeCwd =
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd();
@@ -2797,6 +2809,15 @@ async function createClaudeMcpControlQuery(args: {
     claudeExecutablePath,
     runtimeOptions: args.runtimeOptions,
   });
+  if (args.refreshLoginShellEnv) {
+    await refreshMcpLoginShellEnv({
+      provider: "claude",
+      executablePath: claudeExecutablePath,
+      cwd: runtimeCwd,
+      accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
+      enabledPlugins: resolveClaudePluginLoadDecision({ enabledPlugins, mode: args.runtimeOptions?.claudePluginMode }),
+    });
+  }
   const stream = queryFn({
     prompt: args.prompt,
     options: buildClaudeQueryOptions({
@@ -2897,6 +2918,9 @@ export async function getClaudeMcpStatus(args: {
       cwd: args.cwd,
       runtimeOptions: args.runtimeOptions,
       prompt: "",
+      // Settings' MCP refresh is how a user re-reads a token just exported in
+      // the shell profile; later turns spawn with the same refreshed values.
+      refreshLoginShellEnv: true,
     });
     stream = control.stream;
     const statuses = await stream.mcpServerStatus();
@@ -3148,15 +3172,31 @@ export async function streamClaudeWithSdk(
       return { ok: true };
     });
 
+    // Only the config dir is read here; MCP env discovery needs the plugin decision below.
     const claudeRuntimeEnv = buildClaudeEnv({
       executablePath: claudeExecutablePath,
       cwd: runtimeCwd,
+      mcpConfigPaths: [],
     });
+    // A tool-less turn (`isToolsDisabledTurn`) is a secondary read-only turn too.
+    const secondaryReadOnly = args.executionPolicy === "secondary-read-only" || isToolsDisabledTurn(args.runtimeOptions);
+    const turnEnabledPlugins = await resolveClaudeEnabledPluginsForQuery({
+      cwd: runtimeCwd,
+      claudeExecutablePath,
+      runtimeOptions: args.runtimeOptions,
+      claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
+      secondaryReadOnly,
+    });
+    // One decision for change tracking, the refresh, and the query env, which
+    // `buildClaudeQueryOptions` derives from the same inputs.
+    const turnPluginDecision = resolveClaudePluginLoadDecision({ enabledPlugins: turnEnabledPlugins, mode: args.runtimeOptions?.claudePluginMode, secondaryReadOnly });
     const claudeMcpConfigPaths = getClaudeMcpConfigPaths({
       cwd: runtimeCwd,
       claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
+      enabledPlugins: turnPluginDecision,
     });
-    const claudeMcpScopeKey = `claude:${claudeRuntimeEnv.CLAUDE_CONFIG_DIR ?? "default"}:${runtimeCwd}`;
+    // Secondary turns load no plugins; a scope of their own keeps that from reading as a config change.
+    const claudeMcpScopeKey = `claude:${claudeRuntimeEnv.CLAUDE_CONFIG_DIR ?? "default"}:${runtimeCwd}${secondaryReadOnly ? ":secondary" : ""}`;
     const claudeMcpRefresh = await claudeMcpConfigRefreshTracker.check({
       scopeKey: claudeMcpScopeKey,
       paths: claudeMcpConfigPaths,
@@ -3171,10 +3211,15 @@ export async function streamClaudeWithSdk(
         }
       }
       freshClaudeSessionScopes.add(claudeMcpScopeKey);
+      // The turn's CLI process reads the shell variables the new config names.
+      await refreshMcpLoginShellEnv({
+        provider: "claude",
+        executablePath: claudeExecutablePath,
+        cwd: runtimeCwd,
+        enabledPlugins: turnPluginDecision,
+      }).catch(() => []);
     }
 
-    // A tool-less turn (`isToolsDisabledTurn`) is a secondary read-only turn too.
-    const secondaryReadOnly = args.executionPolicy === "secondary-read-only" || isToolsDisabledTurn(args.runtimeOptions);
     // Resolve bound-secret env for the primary user turn only. Secondary
     // read-only analysis turns never receive injected secrets.
     const boundSecretEnv =
@@ -3220,13 +3265,6 @@ export async function streamClaudeWithSdk(
       // Gates the Lens block: its tools only exist when the Stave local MCP
       // is registered, so this must be resolved before the prompt is built.
       hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,
-    });
-    const turnEnabledPlugins = await resolveClaudeEnabledPluginsForQuery({
-      cwd: runtimeCwd,
-      claudeExecutablePath,
-      runtimeOptions: args.runtimeOptions,
-      claudeConfigDir: claudeRuntimeEnv.CLAUDE_CONFIG_DIR,
-      secondaryReadOnly,
     });
     const claudePermissionMode = resolveClaudePermissionMode({
       runtimeValue: args.runtimeOptions?.claudePermissionMode,

@@ -549,7 +549,8 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
     });
   }
 
-  const env = buildClaudeEnv({ executablePath });
+  // Version and auth probes load no MCP server.
+  const env = buildClaudeEnv({ executablePath, mcpConfigPaths: [] });
   if (currentClaudeGateway()) return apiConnectionToolEntry("claude", "Claude CLI", executablePath);
   const configDir = env.CLAUDE_CONFIG_DIR?.trim()
     ? env.CLAUDE_CONFIG_DIR.trim()

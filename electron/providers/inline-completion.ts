@@ -259,7 +259,11 @@ async function requestViaClaudeSdk(
   }
 
   const claudeExecutablePath = resolveClaudeSdkExecutablePath() ?? "";
-  const sdkEnv = buildClaudeEnv({ executablePath: claudeExecutablePath });
+  // Strict and server-less (below), so no MCP-referenced variable is needed.
+  const sdkEnv = buildClaudeEnv({
+    executablePath: claudeExecutablePath,
+    mcpConfigPaths: [],
+  });
   sdkEnv.CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "false";
   const model = args.model?.trim() || SDK_MODEL;
   const fallbackModel = resolveClaudeFallbackModel({ model });
