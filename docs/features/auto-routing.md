@@ -68,7 +68,7 @@ model keeps its older meaning, the provider's default model.
 
 ## Provider switching
 
-Settings → Auto → Advanced settings → **Provider switching** holds both
+Settings → Models → Auto (Model Router) → Advanced settings → **Provider switching** holds both
 provider switches. **Start on the stronger provider** turns on the strength
 table, which sets which provider each area of work (plan, UI & frontend, logic
 & backend, other implementation, quick edit, debug, review, CI fix, docs,
@@ -180,7 +180,7 @@ failing to produce a route at all.
 
 ## Model intent classification
 
-Settings → Auto → **Routing decision model** controls classification for both
+Settings → Models → Auto (Model Router) → **Routing decision model** controls classification for both
 Auto sends and Agent runs. The default is **Automatic**: try available,
 signed-in Luna first, then Haiku. This setting is independent of Background
 AI's text utility model. The **Model classification** switch in the same card
@@ -262,7 +262,7 @@ one keeps the agent. The composer button names the preference, such as
 as `Auto → Opus 5.5 · Medium`. It shows no effort setting of its own, because
 Auto chooses the effort on every turn.
 
-Settings → Auto shows, in order: the enable switch and preference, with a
+Settings → Models → Auto (Model Router) shows, in order: the enable switch and preference, with a
 notice while Auto is off; **Routing decision model**, with the **Model
 classification** switch and the model that classifies work; **Routing
 levels**, a live table of what each level runs on for Claude and Codex under

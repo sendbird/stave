@@ -90,6 +90,10 @@ import { SettingsAutoRoutingWizard } from "./settings-dialog-auto-routing-wizard
 import { SettingsProviderStrengths } from "./settings-dialog-provider-strengths";
 import { RoutingDecisionField } from "./RoutingDecisionField";
 import type { UsageSample } from "@/lib/providers/auto-routing-wizard";
+import {
+  keepSavedProviderVisible,
+  useSettingsVisibleProviderIds,
+} from "./settings-provider-visibility";
 
 export const AUTO_ROUTING_SETTING_FIELD_ID = "settings-field-auto-routing";
 export const ROUTING_DECISION_SETTING_FIELD_ID = "settings-field-routing-decision";
@@ -396,6 +400,8 @@ function RuleRow(args: {
   rule: RouteRule;
   index: number;
   count: number;
+  /** Providers that are set up; a hidden provider the rule already pins stays. */
+  providerIds: readonly ProviderId[];
   modelsByProvider: Partial<Record<ProviderId, readonly string[]>>;
   onChange: (rule: RouteRule) => void;
   onMove: (direction: -1 | 1) => void;
@@ -409,10 +415,20 @@ function RuleRow(args: {
     rule.then.providerId === "any-eligible" || rule.then.providerId === "alternate-provider"
       ? null
       : rule.then.providerId;
+  const providerIds = keepSavedProviderVisible(args.providerIds, rule.then.providerId);
+  const providerOptions = PROVIDER_SELECTORS.filter(
+    (entry) =>
+      entry.value === "any-eligible" ||
+      entry.value === "alternate-provider" ||
+      providerIds.includes(entry.value as ProviderId),
+  );
+  const models = providerForModels
+    ? (args.modelsByProvider[providerForModels] ?? [])
+    : args.providerIds.flatMap((providerId) => args.modelsByProvider[providerId] ?? []);
   const modelOptions = (
-    providerForModels
-      ? (args.modelsByProvider[providerForModels] ?? [])
-      : listProviderIds().flatMap((providerId) => args.modelsByProvider[providerId] ?? [])
+    rule.then.model && !models.includes(rule.then.model)
+      ? [...models, rule.then.model]
+      : models
   ).map((model) => ({ value: model, label: modelLabel(model) }));
   const patchWhen = (when: Partial<RouteRule["when"]>) =>
     args.onChange({ ...rule, when: { ...rule.when, ...when } });
@@ -584,7 +600,7 @@ function RuleRow(args: {
               ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.targetProvider")}
               value={rule.then.providerId}
               onChange={(value) => patchThen({ providerId: value, model: undefined })}
-              options={PROVIDER_SELECTORS}
+              options={providerOptions}
             />
           </RuleField>
           <RuleField label={t("settingsConnections:settingsDialogAutoRoutingSection.tier")}>
@@ -689,6 +705,7 @@ export function SettingsAutoRoutingSection(props: {
   const kiroBinaryPath = useAppStore((state) => state.settings.kiroBinaryPath);
   const opencodeBinaryPath = useAppStore((state) => state.settings.opencodeBinaryPath);
   const providerAvailability = useAppStore((state) => state.providerAvailability);
+  const visibleProviderIds = useSettingsVisibleProviderIds();
   const rateLimitsSnapshot = useAppStore((state) => state.rateLimitsSnapshot);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const catalogOptions = useMemo(() => ({ codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath }), [codexBinaryPath, cursorBinaryPath, kiroBinaryPath, opencodeBinaryPath]);
@@ -993,6 +1010,7 @@ export function SettingsAutoRoutingSection(props: {
                     rule={rule}
                     index={position}
                     count={rules.length}
+                    providerIds={visibleProviderIds}
                     modelsByProvider={modelsByProvider}
                     onChange={(next) =>
                       edit((draft) => ({
@@ -1050,7 +1068,7 @@ export function SettingsAutoRoutingSection(props: {
               ariaLabel={t("settingsConnections:settingsDialogAutoRoutingSection.dryRunCurrentProvider")}
               value={testProvider}
               onChange={setTestProvider}
-              options={listProviderIds().map((providerId) => ({
+              options={keepSavedProviderVisible(visibleProviderIds, testProvider).map((providerId) => ({
                 value: providerId,
                 label: getProviderLabel({ providerId }),
               }))}

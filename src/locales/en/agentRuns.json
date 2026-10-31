@@ -350,7 +350,7 @@
     "openDraftPr": "Stave commits what is left, pushes the branch and opens a draft pull request. An open pull request for the branch is reused.",
     "watchChecks": "Stave watches the pull request's checks. When one fails, the agent gets a repair turn and Stave pushes the fix.",
     "markPrReady": "Stave marks the draft pull request ready for review, which notifies reviewers.",
-    "runScript": "Stave runs an action from the workspace's scripts (Settings → Repositories → Scripts) and waits for it. It fails the stage when the script exits with an error; the last web address it prints, such as a preview URL, becomes evidence.",
+    "runScript": "Stave runs an action from the workspace's scripts (Settings → Projects → Workspace Tools) and waits for it. It fails the stage when the script exits with an error; the last web address it prints, such as a preview URL, becomes evidence.",
     "label": "Regular",
     "description": "An ordinary stage.",
     "label2": "Plans",

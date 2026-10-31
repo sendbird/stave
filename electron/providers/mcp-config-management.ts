@@ -246,11 +246,15 @@ export async function listMcpServerConfigs(
   args: McpServerConfigListRequest,
 ): Promise<McpServerConfigListResponse> {
   const loadedAt = Date.now();
+  // A provider left out of `providers` is not set up: its files stay unread.
+  const includes = (provider: McpConfigProvider) =>
+    !args.providers || args.providers.includes(provider);
+  const skipped = { servers: [], errors: [] };
   const [claude, codex, cursor, kiro] = await Promise.all([
-    listClaudeMcpServerConfigs(args),
-    listCodexMcpServerConfigs(args),
-    listCursorMcpServerConfigs(args),
-    listKiroMcpServerConfigs(args),
+    includes("claude-code") ? listClaudeMcpServerConfigs(args) : skipped,
+    includes("codex") ? listCodexMcpServerConfigs(args) : skipped,
+    includes("cursor") ? listCursorMcpServerConfigs(args) : skipped,
+    includes("kiro") ? listKiroMcpServerConfigs(args) : skipped,
   ]);
   const servers = [
     ...claude.servers,

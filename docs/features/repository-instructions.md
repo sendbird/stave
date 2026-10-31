@@ -2,12 +2,12 @@
 
 ## Summary
 
-- `Settings → Repositories` now includes a per-repository `Repository Instructions` field.
+- `Settings → Projects → Repository` includes a per-repository `Repository Instructions` field.
 - Stave prepends this text to every Claude and Codex turn for the selected repository so repository-specific rules do not need to be repeated in each task.
 
 ![Settings dialog showing the Repository Instructions field for the current repository](../screenshots/project-instructions.png)
 
-This rendered example shows the `Settings → Repositories` section with repository-level instructions, workspace bootstrap settings, and repository defaults in one place.
+This rendered example shows the `Settings → Projects → Repository` tab with repository-level instructions, workspace bootstrap settings, and repository defaults in one place.
 
 ## When To Use It
 
@@ -17,13 +17,13 @@ This rendered example shows the `Settings → Repositories` section with reposit
 
 ## Before You Start
 
-- Open a repository in Stave so it appears under `Settings → Repositories`.
+- Open a repository in Stave so it appears in the project picker of `Settings → Projects`.
 - Keep the text short and durable. This field is best for stable repository rules, not temporary task notes.
 
 ## Quick Start
 
-1. Open `Settings`.
-2. Go to `Repositories` and select the repository.
+1. Open `Settings → Projects → Repository`.
+2. Pick the repository in the project picker at the top of the page.
 3. Add text in `Repository Instructions`.
 4. Save the field and send a normal Claude or Codex turn in that repository.
 
@@ -31,7 +31,7 @@ This rendered example shows the `Settings → Repositories` section with reposit
 
 ### Entry Points
 
-- `Settings → Repositories`
+- `Settings → Projects → Repository`
 - The per-repository `Repository Settings` card
 
 ### Key Controls
@@ -44,7 +44,7 @@ This rendered example shows the `Settings → Repositories` section with reposit
 
 ### Create Or Configure Something
 
-1. Select the repository in `Settings → Repositories`.
+1. Pick the repository in the project picker of `Settings → Projects → Repository`.
 2. Enter rules such as package manager preference, test requirements, or documentation policy.
 3. Save the field. The value is persisted with that repository's local Stave registry entry.
 
@@ -77,7 +77,7 @@ This rendered example shows the `Settings → Repositories` section with reposit
 
 - Symptom: a new turn does not follow a rule saved in `Repository Instructions`.
 - Cause: the instruction was saved under another repository entry, or the current task is attached to a different repository.
-- Fix: open `Settings → Repositories`, confirm the selected repository path, and verify the text is saved on that exact repository.
+- Fix: open `Settings → Projects → Repository`, confirm the repository picked at the top of the page, and verify the text is saved on that exact repository.
 
 ### The instruction keeps changing model output too broadly
 

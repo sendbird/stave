@@ -45,7 +45,6 @@ export function SettingsDialogSectionContent(args: {
           currentRepositoryPath={args.currentRepositoryPath}
           repositories={args.repositories}
           selectedRepositoryPath={args.selectedRepositoryPath}
-          onNavigateSection={args.onNavigateSection}
         />
       );
     case "scripts":
@@ -69,7 +68,7 @@ export function SettingsDialogSectionContent(args: {
     case "accounts":
       return <AccountsSection />;
     case "tooling":
-      return <ToolingSection onNavigateSection={args.onNavigateSection} />;
+      return <ToolingSection />;
     case "skills":
       return <SkillsSection />;
     case "commandPalette":
@@ -77,9 +76,9 @@ export function SettingsDialogSectionContent(args: {
     case "editor":
       return <EditorSection onNavigateSection={args.onNavigateSection} />;
     case "providers":
-      return <ProvidersSection onNavigateSection={args.onNavigateSection} />;
+      return <ProvidersSection />;
     case "models":
-      return <ModelsSection onNavigateSection={args.onNavigateSection} />;
+      return <ModelsSection />;
     case "mcp":
       return <McpSection />;
     case "integrations":
@@ -93,14 +92,11 @@ export function SettingsDialogSectionContent(args: {
     case "autoRouting":
       return <SettingsAutoRoutingSection />;
     case "prompts":
-      return <PromptsSection onNavigateSection={args.onNavigateSection} />;
+      return <PromptsSection />;
     case "memory":
       return (
         <RepositoryMemorySettingsSection
-          repositories={args.repositories}
-          initialRepositoryPath={
-            args.selectedRepositoryPath ?? args.currentRepositoryPath
-          }
+          repositoryPath={args.selectedRepositoryPath ?? null}
         />
       );
     case "developer":
@@ -108,7 +104,7 @@ export function SettingsDialogSectionContent(args: {
     case "lens":
       return <LensSection />;
     case "mentions":
-      return <MentionsSection onNavigateSection={args.onNavigateSection} />;
+      return <MentionsSection />;
     case "secrets":
       return <SecretsSection />;
     case "changelog":

@@ -32,6 +32,7 @@ import {
   CLAUDE_EFFORT_HELP,
   CODEX_REASONING_EFFORT_HELP,
 } from "../settings-dialog-effort-help";
+import { useSettingsVisibleProviderIds } from "../settings-provider-visibility";
 
 /**
  * Default model + effort controls owned by Settings > Models. Each provider
@@ -163,6 +164,7 @@ export function CodexEffortSelect() {
 /**
  * Cursor, Kiro and OpenCode (ACP runtimes) report their model catalog only
  * from the connected CLI, so their default model is a free-form identifier.
+ * Each row shows only once that provider is set up.
  */
 const CURSOR_DEFAULT_KEYS = ["modelCursor", "cursorEffort"] as const;
 const KIRO_DEFAULT_KEYS = ["modelKiro", "kiroEffort"] as const;
@@ -177,93 +179,100 @@ export function AcpDefaultModelRows() {
   const modelOpenCode = useScopedSetting("modelOpenCode").value;
   const opencodeEffort = useScopedSetting("opencodeEffort").value;
   const { write } = useScopedSettingsWriter();
+  const visibleProviderIds = useSettingsVisibleProviderIds();
 
   return (
     <>
-      <LabeledField
-        title="Cursor"
-        description={t("settingsProviders:cursorSection.defaultModel.description")}
-        guide={<ScopedFieldStatus keys={CURSOR_DEFAULT_KEYS} label="Cursor" />}
-      >
-        <ModelEffortRow
-          model={
-            <DraftInput
-              xstyle={styles.modelIdInput}
-              value={modelCursor}
-              aria-label={t("settings:modelsSection.routing.cursorModel.ariaLabel")}
-              // i18n-ignore: literal runtime model identifier
-              placeholder="auto"
-              onCommit={(value) =>
-                write({ modelCursor: value.trim() || "auto" })
-              }
-            />
-          }
-          effort={
-            <EffortSelect
-              value={cursorEffort}
-              options={CURSOR_EFFORT_OPTIONS}
-              ariaLabel={t("settingsProviders:cursorSection.defaultEffort.ariaLabel")}
-              onChange={(value) => write({ cursorEffort: value })}
-            />
-          }
-        />
-      </LabeledField>
-      <LabeledField
-        title="Kiro"
-        description={t("settingsProviders:kiroSection.defaultModel.description")}
-        guide={<ScopedFieldStatus keys={KIRO_DEFAULT_KEYS} label="Kiro" />}
-      >
-        <ModelEffortRow
-          model={
-            <DraftInput
-              xstyle={styles.modelIdInput}
-              value={modelKiro}
-              aria-label={t("settings:modelsSection.routing.kiroModel.ariaLabel")}
-              // i18n-ignore: literal runtime model identifier
-              placeholder="auto"
-              onCommit={(value) =>
-                write({ modelKiro: value.trim() || "auto" })
-              }
-            />
-          }
-          effort={
-            <EffortSelect
-              value={kiroEffort}
-              options={KIRO_EFFORT_OPTIONS}
-              ariaLabel={t("settingsProviders:kiroSection.defaultEffort.ariaLabel")}
-              onChange={(value) => write({ kiroEffort: value })}
-            />
-          }
-        />
-      </LabeledField>
-      <LabeledField
-        title="OpenCode"
-        description={t("settingsProviders:opencodeSection.defaultModel.description")}
-        guide={<ScopedFieldStatus keys={OPENCODE_DEFAULT_KEYS} label="OpenCode" />}
-      >
-        <ModelEffortRow
-          model={
-            <DraftInput
-              xstyle={styles.modelIdInput}
-              value={modelOpenCode}
-              aria-label={t("settingsProviders:opencodeSection.defaultModel.ariaLabel")}
-              // i18n-ignore: literal runtime model identifier
-              placeholder="auto"
-              onCommit={(value) =>
-                write({ modelOpenCode: value.trim() || "auto" })
-              }
-            />
-          }
-          effort={
-            <EffortSelect
-              value={opencodeEffort}
-              options={OPENCODE_EFFORT_OPTIONS}
-              ariaLabel={t("settingsProviders:opencodeSection.defaultEffort.ariaLabel")}
-              onChange={(value) => write({ opencodeEffort: value })}
-            />
-          }
-        />
-      </LabeledField>
+      {visibleProviderIds.includes("cursor") ? (
+        <LabeledField
+          title="Cursor"
+          description={t("settingsProviders:cursorSection.defaultModel.description")}
+          guide={<ScopedFieldStatus keys={CURSOR_DEFAULT_KEYS} label="Cursor" />}
+        >
+          <ModelEffortRow
+            model={
+              <DraftInput
+                xstyle={styles.modelIdInput}
+                value={modelCursor}
+                aria-label={t("settings:modelsSection.routing.cursorModel.ariaLabel")}
+                // i18n-ignore: literal runtime model identifier
+                placeholder="auto"
+                onCommit={(value) =>
+                  write({ modelCursor: value.trim() || "auto" })
+                }
+              />
+            }
+            effort={
+              <EffortSelect
+                value={cursorEffort}
+                options={CURSOR_EFFORT_OPTIONS}
+                ariaLabel={t("settingsProviders:cursorSection.defaultEffort.ariaLabel")}
+                onChange={(value) => write({ cursorEffort: value })}
+              />
+            }
+          />
+        </LabeledField>
+      ) : null}
+      {visibleProviderIds.includes("kiro") ? (
+        <LabeledField
+          title="Kiro"
+          description={t("settingsProviders:kiroSection.defaultModel.description")}
+          guide={<ScopedFieldStatus keys={KIRO_DEFAULT_KEYS} label="Kiro" />}
+        >
+          <ModelEffortRow
+            model={
+              <DraftInput
+                xstyle={styles.modelIdInput}
+                value={modelKiro}
+                aria-label={t("settings:modelsSection.routing.kiroModel.ariaLabel")}
+                // i18n-ignore: literal runtime model identifier
+                placeholder="auto"
+                onCommit={(value) =>
+                  write({ modelKiro: value.trim() || "auto" })
+                }
+              />
+            }
+            effort={
+              <EffortSelect
+                value={kiroEffort}
+                options={KIRO_EFFORT_OPTIONS}
+                ariaLabel={t("settingsProviders:kiroSection.defaultEffort.ariaLabel")}
+                onChange={(value) => write({ kiroEffort: value })}
+              />
+            }
+          />
+        </LabeledField>
+      ) : null}
+      {visibleProviderIds.includes("opencode") ? (
+        <LabeledField
+          title="OpenCode"
+          description={t("settingsProviders:opencodeSection.defaultModel.description")}
+          guide={<ScopedFieldStatus keys={OPENCODE_DEFAULT_KEYS} label="OpenCode" />}
+        >
+          <ModelEffortRow
+            model={
+              <DraftInput
+                xstyle={styles.modelIdInput}
+                value={modelOpenCode}
+                aria-label={t("settingsProviders:opencodeSection.defaultModel.ariaLabel")}
+                // i18n-ignore: literal runtime model identifier
+                placeholder="auto"
+                onCommit={(value) =>
+                  write({ modelOpenCode: value.trim() || "auto" })
+                }
+              />
+            }
+            effort={
+              <EffortSelect
+                value={opencodeEffort}
+                options={OPENCODE_EFFORT_OPTIONS}
+                ariaLabel={t("settingsProviders:opencodeSection.defaultEffort.ariaLabel")}
+                onChange={(value) => write({ opencodeEffort: value })}
+              />
+            }
+          />
+        </LabeledField>
+      ) : null}
     </>
   );
 }

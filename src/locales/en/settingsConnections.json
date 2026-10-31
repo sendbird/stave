@@ -530,7 +530,7 @@
     "resourceLinkMirroring": "Resource link mirroring",
     "mirrorWorkspaceLinksAfterChangesSettle": "Mirror workspace links after changes settle.",
     "turnSummaries": "Turn summaries",
-    "sendModelWrittenWorkSummariesThis": "Send model-written work summaries. This interpretive data is off by default. Summaries are written only while Turn summary is on in Settings → Background AI.",
+    "sendModelWrittenWorkSummariesThis": "Send model-written work summaries. This interpretive data is off by default. Summaries are written only while Turn summary is on in Settings → Models → Background AI.",
     "outbox": "Outbox",
     "pendingFailed": " · {{value1}} pending · {{value2}} failed",
     "lastDelivered": " · last delivered {{value1}}",
@@ -729,12 +729,16 @@
       "inUse": "In use"
     },
     "cliManaged": {
-      "title": "Cursor, Kiro and OpenCode sign-in",
+      "title": "Other agent CLIs",
       "description": "These CLIs keep their own sign-in. Stave shows whether they are signed in and the command that signs in.",
       "checking": "Checking",
-      "notInstalled": "CLI not installed",
-      "installHint": "Install {{value1}} to use it. Settings > Tooling shows where Stave looks.",
-      "loginHint": "Sign in in a terminal with {{value1}}."
+      "installHint": "Install {{value1}} to use it. Settings > Accounts > Tooling shows where Stave looks.",
+      "loginHint": "Sign in in a terminal with {{value1}}.",
+      "notInstalledGroup": "Not installed: {{names}}",
+      "notInstalledDescription": "Install a CLI to use it here. If it is installed where Stave does not look, enter its path.",
+      "pathAriaLabel": "{{value1}} path",
+      "pathDisclosure": "CLI path",
+      "pathHint": "Leave blank to find it automatically. Enter a path if {{value1}} is installed where Stave does not look."
     },
     "help": "How accounts, subscriptions and gateway keys work:"
   },

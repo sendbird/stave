@@ -34,7 +34,7 @@ import {
   type AgentPreferredProvider,
 } from "@/lib/agents/schema";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
-import { listProviderIds } from "@/lib/providers/model-catalog";
+import { useSettingsProviderIdsWithSaved } from "@/components/layout/settings-provider-visibility";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { workflowStyles as styles } from "../workflows/workflows.styles";
@@ -145,7 +145,10 @@ export function AgentEditor(props: {
   // Key order is not a change: a saved agent comes back in schema order, while
   // a field the draft gained (a first colour or icon) sits at its end.
   const changed = stableStringify(draft) !== stableStringify(props.agent);
-  const providers = listProviderIds();
+  // Providers that are set up, plus the one this agent already pins.
+  const providers = useSettingsProviderIdsWithSaved(
+    props.agent.model.mode === "fixed" ? props.agent.model.providerId : null,
+  );
 
   const setModel = (model: AgentModel) => setDraft({ ...draft, model });
   // Colour and icon are independent: changing one keeps the other.

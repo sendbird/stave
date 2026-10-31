@@ -120,6 +120,12 @@ from persistence, the write queue, and update notifications.
    `tests/custom-theme.test.ts` for theme data; check the affected section in
    the rendered UI when its layout changes
 
+The sidebar lists pages, not sections: `src/components/layout/settings-dialog.pages.ts`
+says which page and tab hosts a section, and `SettingsDialog.tsx` renders the
+tab strip (`settings-page-tabs.tsx`) and, on Projects, the project picker
+(`settings-project-picker.tsx`) that the Repository, Workspace Tools and Memory
+tabs share.
+
 Codex plugin install and remove lives in
 `src/components/layout/settings-dialog-codex-plugins-card.tsx`, rendered in the
 Codex tab of `src/components/layout/settings-dialog-providers-section.tsx`.

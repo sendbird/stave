@@ -93,7 +93,7 @@ describe("RouteTrace", () => {
         },
       }),
       budgetStepDownAt: 80,
-      providerAvailability: { kiro: false },
+      providerAvailability: { codex: false },
     });
     const decisive = chips.filter((chip) => chip.decisive).map((chip) => chip.id);
     expect(decisive).toEqual(["skill", "sensitive", "budget", "providers"]);
@@ -101,7 +101,21 @@ describe("RouteTrace", () => {
 
     const html = render(buildDecision());
     expect(html).toContain('data-signal="budget" data-decisive="true"');
-    expect(html).toContain("Kiro unavailable");
+  });
+
+  test("names an unavailable provider only when the decision involved it", () => {
+    const notSetUp = { cursor: false, kiro: false, opencode: false } as const;
+    const providerChip = (decision: AutoRoutingDecision, availability: Record<string, boolean>) =>
+      buildRouteTraceSignals({ decision, providerAvailability: availability }).find((chip) => chip.id === "providers");
+
+    // CLIs the user never set up are not part of a Claude decision.
+    expect(providerChip(buildDecision(), notSetUp)).toBeUndefined();
+    expect(render(buildDecision())).not.toContain("Kiro unavailable");
+    // A managed provider's outage always matters.
+    expect(providerChip(buildDecision(), { ...notSetUp, codex: false })?.label).toBe("Codex unavailable");
+    // The task was running on Kiro, so its outage moved the route.
+    const offKiro = buildDecision({ signals: { ...buildDecision().signals, lastAssistantProvider: "kiro" } });
+    expect(providerChip(offKiro, notSetUp)?.label).toBe("Kiro unavailable");
   });
 
   test("keeps the header identity on one aligned row", () => {

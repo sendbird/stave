@@ -151,8 +151,6 @@ export const settingDefinitions = [
       "spend",
       "claude",
       "codex",
-      "cursor",
-      "kiro",
     ],
     schema: z.boolean(),
     defaultValue: true,

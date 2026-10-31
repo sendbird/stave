@@ -12,7 +12,6 @@ import {
 } from "@/lib/providers/trusted-tools";
 import type {
   ClaudeSettingSource,
-  ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import { sx } from "@/components/ads/utils/stylex";
@@ -48,9 +47,12 @@ import {
   type ExplainedSelectOption,
 } from "./settings-dialog-effort-help";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
-import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
-import type { SectionId } from "./settings-dialog.schema";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
+import { useSettingsProviderTab } from "./settings-provider-visibility";
+import {
+  ACCOUNT_USAGE_LIMIT_FIELD_ID,
+  useProvidersFocusTarget,
+} from "./settings-dialog-providers-focus";
 import { DescribedSelect } from "./settings-dialog-described-select";
 import {
   ClaudeModeBadge,
@@ -59,15 +61,6 @@ import {
   CodexPermissionPostureFields,
 } from "./settings-dialog-permission-posture-fields";
 import { ScopeLocked } from "./settings-scope";
-
-/** Tab order for the per-provider runtime settings below the shared cards. */
-const PROVIDER_SETTINGS_TAB_IDS = [
-  "claude-code",
-  "codex",
-  "cursor",
-  "kiro",
-  "opencode",
-] as const satisfies readonly ProviderId[];
 
 const CLAUDE_SETTING_SOURCE_HELP = [
   {
@@ -172,9 +165,7 @@ const CODEX_WEB_SEARCH_HELP = [
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
 >[];
 
-export function ProvidersSection(props: {
-  onNavigateSection?: (id: SectionId) => void;
-}) {
+export function ProvidersSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     claudeSandboxCredentialFiles,
@@ -233,6 +224,8 @@ export function ProvidersSection(props: {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const providerTab = useSettingsProviderTab();
+  useProvidersFocusTarget(providerTab);
   const developerModeEnabled = useAppStore(
     (state) => state.settings.developerModeEnabled,
   );
@@ -265,72 +258,13 @@ export function ProvidersSection(props: {
 
   return (
     <>
-      <ScopeLocked>
-      <SettingsCard
-        id="settings-field-account-usage-limit"
-        title={t("settingsProviders:providersSection.accountUsageLimit.title")}
-        description={t("settingsProviders:providersSection.accountUsageLimit.description")}
+      <Tabs
+        value={providerTab.value}
+        onValueChange={providerTab.onValueChange}
+        xstyle={providersStyles.tabs}
       >
-        <SwitchField
-          title={t("settingsProviders:providersSection.accountUsageLimit.stopTurns.title")}
-          description={t("settingsProviders:providersSection.accountUsageLimit.stopTurns.description")}
-          checked={blockTurnsWhenAccountLimitReached}
-          onCheckedChange={(checked) =>
-            updateSettings({
-              patch: { blockTurnsWhenAccountLimitReached: checked },
-            })
-          }
-        />
-      </SettingsCard>
-      <SettingsDelegationSection />
-      <SettingsCard
-        title={t("settingsProviders:providersSection.trustedApprovals.title")}
-        description={t("settingsProviders:providersSection.trustedApprovals.description")}
-        titleAccessory={
-          <Badge variant={trustedTools.length > 0 ? "secondary" : "outline"}>
-            {trustedTools.length}
-          </Badge>
-        }
-      >
-        {trustedTools.length > 0 ? (
-          <div className={sx(providersStyles.trustedList)}>
-            {trustedTools.map((entry) => (
-              <div
-                key={entry}
-                className={sx(providersStyles.trustedRow)}
-              >
-                <span className={sx(providersStyles.trustedRowLabel)}>
-                  {formatTrustedToolEntry(entry)}
-                </span>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  xstyle={providersStyles.trustedRemove}
-                  onClick={() =>
-                    updateSettings({
-                      patch: {
-                        trustedTools: removeTrustedToolEntry({
-                          entries: trustedTools,
-                          entry,
-                        }),
-                      },
-                    })
-                  }
-                >
-                  {i18n.t("common:actions.remove")}</Button>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className={sx(providersStyles.emptyCopy)}>
-            {t("settingsProviders:providersSection.trustedApprovals.empty")}</p>
-        )}
-      </SettingsCard>
-      </ScopeLocked>
-      <Tabs defaultValue="claude-code" xstyle={providersStyles.tabs}>
         <SettingsProviderTabsList
-          providerIds={PROVIDER_SETTINGS_TAB_IDS}
+          providerIds={providerTab.providerIds}
           aria-label={t("settingsProviders:providersSection.tabsAriaLabel")}
         />
 
@@ -341,43 +275,46 @@ export function ProvidersSection(props: {
               description={t("settingsProviders:providersSection.claudeRuntime.description")}
               titleAccessory={<ClaudeModeBadge />}
             >
-              <ClaudePermissionPostureFields />
+              <ClaudePermissionPostureFields>
+                <ScopeLocked>
+                  <ClaudeGuardrailFields />
+                  {claudeRuntimeCapabilities.sandbox.credentialGuards ? (
+                    <>
+                      <LabeledField
+                        title={t("settingsProviders:providersSection.claudeRuntime.credentialFiles.title")}
+                        description={t("settingsProviders:providersSection.claudeRuntime.credentialFiles.description")}
+                      >
+                        <DraftInput
+                          xstyle={providersStyles.fieldMono}
+                          value={claudeSandboxCredentialFiles}
+                          placeholder="~/.config/example/credentials.json"
+                          onCommit={(value) =>
+                            updateSettings({
+                              patch: { claudeSandboxCredentialFiles: value },
+                            })
+                          }
+                        />
+                      </LabeledField>
+                      <LabeledField
+                        title={t("settingsProviders:providersSection.claudeRuntime.credentialVariables.title")}
+                        description={t("settingsProviders:providersSection.claudeRuntime.credentialVariables.description")}
+                      >
+                        <DraftInput
+                          xstyle={providersStyles.fieldMono}
+                          value={claudeSandboxCredentialEnvVars}
+                          placeholder="EXAMPLE_TOKEN, SERVICE_PASSWORD"
+                          onCommit={(value) =>
+                            updateSettings({
+                              patch: { claudeSandboxCredentialEnvVars: value },
+                            })
+                          }
+                        />
+                      </LabeledField>
+                    </>
+                  ) : null}
+                </ScopeLocked>
+              </ClaudePermissionPostureFields>
               <ScopeLocked>
-              <ClaudeGuardrailFields />
-              {claudeRuntimeCapabilities.sandbox.credentialGuards ? (
-                <>
-                  <LabeledField
-                    title={t("settingsProviders:providersSection.claudeRuntime.credentialFiles.title")}
-                    description={t("settingsProviders:providersSection.claudeRuntime.credentialFiles.description")}
-                  >
-                    <DraftInput
-                      xstyle={providersStyles.fieldMono}
-                      value={claudeSandboxCredentialFiles}
-                      placeholder="~/.config/example/credentials.json"
-                      onCommit={(value) =>
-                        updateSettings({
-                          patch: { claudeSandboxCredentialFiles: value },
-                        })
-                      }
-                    />
-                  </LabeledField>
-                  <LabeledField
-                    title={t("settingsProviders:providersSection.claudeRuntime.credentialVariables.title")}
-                    description={t("settingsProviders:providersSection.claudeRuntime.credentialVariables.description")}
-                  >
-                    <DraftInput
-                      xstyle={providersStyles.fieldMono}
-                      value={claudeSandboxCredentialEnvVars}
-                      placeholder="EXAMPLE_TOKEN, SERVICE_PASSWORD"
-                      onCommit={(value) =>
-                        updateSettings({
-                          patch: { claudeSandboxCredentialEnvVars: value },
-                        })
-                      }
-                    />
-                  </LabeledField>
-                </>
-              ) : null}
               <LabeledField
                 title={t("settingsProviders:providersSection.claudeRuntime.thinkingMode.title")}
                 guide={
@@ -402,19 +339,6 @@ export function ProvidersSection(props: {
                   }
                 />
               </LabeledField>
-              </ScopeLocked>
-              <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
-              <ScopeLocked>
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.description")}
-                checked={claudeAgentProgressSummaries}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { claudeAgentProgressSummaries: checked },
-                  })
-                }
-              />
               <SwitchField
                 title={t("settingsProviders:providersSection.claudeRuntime.promptSuggestions.title")}
                 description={t("settingsProviders:providersSection.claudeRuntime.promptSuggestions.description")}
@@ -425,22 +349,32 @@ export function ProvidersSection(props: {
                   })
                 }
               />
-              <SwitchField
-                title={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.title")}
-                description={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.description")}
-                checked={claudeEnableFileCheckpointing}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { claudeEnableFileCheckpointing: checked },
-                  })
-                }
-              />
               <ClaudeInstalledPluginsField />
               <SettingsAdvancedDisclosure
                 compact
                 title={t("settingsProviders:providersSection.advanced.title")}
                 description={t("settingsProviders:providersSection.advanced.description")}
               >
+                <SwitchField
+                  title={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.description")}
+                  checked={claudeAgentProgressSummaries}
+                  onCheckedChange={(checked) =>
+                    updateSettings({
+                      patch: { claudeAgentProgressSummaries: checked },
+                    })
+                  }
+                />
+                <SwitchField
+                  title={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.title")}
+                  description={t("settingsProviders:providersSection.claudeRuntime.fileCheckpointing.description")}
+                  checked={claudeEnableFileCheckpointing}
+                  onCheckedChange={(checked) =>
+                    updateSettings({
+                      patch: { claudeEnableFileCheckpointing: checked },
+                    })
+                  }
+                />
                 <LabeledField
                   title={t("settingsProviders:providersSection.claudeRuntime.settingSources.title")}
                   description={t("settingsProviders:providersSection.claudeRuntime.settingSources.description")}
@@ -599,8 +533,40 @@ export function ProvidersSection(props: {
               description={t("settingsProviders:providersSection.codexRuntime.description")}
               titleAccessory={<CodexModeBadge />}
             >
-              <CodexPermissionPostureFields />
-              <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
+              <CodexPermissionPostureFields>
+                <ScopeLocked>
+                  <LabeledField
+                    title={t("settingsProviders:providersSection.codexRuntime.webSearch.title")}
+                    description={t("settingsProviders:providersSection.codexRuntime.webSearch.description")}
+                    guide={
+                      <SettingsFieldGuide
+                        title={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.title")}
+                        summary={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.summary")}
+                        items={buildGuideItems(CODEX_WEB_SEARCH_HELP)}
+                        examples={buildGuideExamples(CODEX_WEB_SEARCH_HELP)}
+                        tooltip={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.tooltip")}
+                      />
+                    }
+                  >
+                    <DescribedSelect
+                      value={effectiveCodexWebSearch}
+                      options={codexWebSearchOptions}
+                      onValueChange={(value) =>
+                        updateSettings({
+                          patch: {
+                            codexWebSearch: value,
+                          },
+                        })
+                      }
+                    />
+                    {codexWebSearch === "indexed" &&
+                    effectiveCodexWebSearch !== "indexed" ? (
+                      <p className={sx(providersStyles.webSearchHint)}>
+                        {t("settingsProviders:providersSection.codexRuntime.webSearch.indexedUnavailable")}</p>
+                    ) : null}
+                  </LabeledField>
+                </ScopeLocked>
+              </CodexPermissionPostureFields>
               <ScopeLocked>
               <LabeledField
                 title={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.title")}
@@ -626,36 +592,6 @@ export function ProvidersSection(props: {
                     })
                   }
                 />
-              </LabeledField>
-              <LabeledField
-                title={t("settingsProviders:providersSection.codexRuntime.webSearch.title")}
-                description={t("settingsProviders:providersSection.codexRuntime.webSearch.description")}
-                guide={
-                  <SettingsFieldGuide
-                    title={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.title")}
-                    summary={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.summary")}
-                    items={buildGuideItems(CODEX_WEB_SEARCH_HELP)}
-                    examples={buildGuideExamples(CODEX_WEB_SEARCH_HELP)}
-                    tooltip={t("settingsProviders:providersSection.codexRuntime.webSearch.guide.tooltip")}
-                  />
-                }
-              >
-                <DescribedSelect
-                  value={effectiveCodexWebSearch}
-                  options={codexWebSearchOptions}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: {
-                        codexWebSearch: value,
-                      },
-                    })
-                  }
-                />
-                {codexWebSearch === "indexed" &&
-                effectiveCodexWebSearch !== "indexed" ? (
-                  <p className={sx(providersStyles.webSearchHint)}>
-                    {t("settingsProviders:providersSection.codexRuntime.webSearch.indexedUnavailable")}</p>
-                ) : null}
               </LabeledField>
               <SwitchField
                 title={t("settingsProviders:cursorSection.fastMode.title")}
@@ -712,16 +648,86 @@ export function ProvidersSection(props: {
             </ScopeLocked>
           </SectionStack>
         </TabsContent>
-        <TabsContent value="cursor">
-          <SettingsCursorSection onNavigateSection={props.onNavigateSection} />
-        </TabsContent>
-        <TabsContent value="kiro">
-          <SettingsKiroSection onNavigateSection={props.onNavigateSection} />
-        </TabsContent>
-        <TabsContent value="opencode">
-          <SettingsOpenCodeSection onNavigateSection={props.onNavigateSection} />
-        </TabsContent>
+        {providerTab.providerIds.includes("cursor") ? (
+          <TabsContent value="cursor">
+            <SettingsCursorSection />
+          </TabsContent>
+        ) : null}
+        {providerTab.providerIds.includes("kiro") ? (
+          <TabsContent value="kiro">
+            <SettingsKiroSection />
+          </TabsContent>
+        ) : null}
+        {providerTab.providerIds.includes("opencode") ? (
+          <TabsContent value="opencode">
+            <SettingsOpenCodeSection />
+          </TabsContent>
+        ) : null}
       </Tabs>
+      <ScopeLocked>
+      <SettingsCard
+        id={ACCOUNT_USAGE_LIMIT_FIELD_ID}
+        tabIndex={-1}
+        title={t("settingsProviders:providersSection.accountUsageLimit.title")}
+        description={t("settingsProviders:providersSection.accountUsageLimit.description")}
+      >
+        <SwitchField
+          title={t("settingsProviders:providersSection.accountUsageLimit.stopTurns.title")}
+          description={t("settingsProviders:providersSection.accountUsageLimit.stopTurns.description")}
+          checked={blockTurnsWhenAccountLimitReached}
+          onCheckedChange={(checked) =>
+            updateSettings({
+              patch: { blockTurnsWhenAccountLimitReached: checked },
+            })
+          }
+        />
+      </SettingsCard>
+      <SettingsCard
+        title={t("settingsProviders:providersSection.trustedApprovals.title")}
+        description={t("settingsProviders:providersSection.trustedApprovals.description")}
+        titleAccessory={
+          <Badge variant={trustedTools.length > 0 ? "secondary" : "outline"}>
+            {trustedTools.length}
+          </Badge>
+        }
+      >
+        {trustedTools.length > 0 ? (
+          <div className={sx(providersStyles.trustedList)}>
+            {trustedTools.map((entry) => (
+              <div
+                key={entry}
+                className={sx(providersStyles.trustedRow)}
+              >
+                <span className={sx(providersStyles.trustedRowLabel)}>
+                  {formatTrustedToolEntry(entry)}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  xstyle={providersStyles.trustedRemove}
+                  onClick={() =>
+                    updateSettings({
+                      patch: {
+                        trustedTools: removeTrustedToolEntry({
+                          entries: trustedTools,
+                          entry,
+                        }),
+                      },
+                    })
+                  }
+                >
+                  {i18n.t("common:actions.remove")}</Button>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className={sx(providersStyles.emptyCopy)}>
+            {t("settingsProviders:providersSection.trustedApprovals.empty")}</p>
+        )}
+      </SettingsCard>
+      <SettingsDelegationSection />
+      </ScopeLocked>
     </>
   );
 }

@@ -17,7 +17,28 @@ function seedWorkspace(
     (window as unknown as { api?: Record<string, unknown> }).api = {
       provider: {
         streamTurn: async () => [],
-        checkAvailability: async () => ({ ok: true, available: true }),
+        // Cursor and Kiro count as set up only with a ready, signed-in CLI.
+        checkAvailability: async ({ providerId }: { providerId: string }) =>
+          providerId === "cursor" || providerId === "kiro"
+            ? {
+                ok: true,
+                available: true,
+                detail: "Ready",
+                toolingStatus: {
+                  id: providerId,
+                  label: providerId === "cursor" ? "Cursor Agent" : "Kiro CLI",
+                  state: "ready",
+                  available: true,
+                  version: "1.0.0",
+                  executablePath: `/tmp/fixture/${providerId}`,
+                  authState: "authenticated",
+                  authDetail: "Signed in.",
+                  summary: "Ready.",
+                  detail: "Ready.",
+                  checkedAt: new Date().toISOString(),
+                },
+              }
+            : { ok: true, available: true },
         getCodexModelCatalog: async () => ({
           ok: true,
           models: [],
@@ -626,7 +647,7 @@ test("keeps the Kiro provider settings usable at a narrow viewport", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   await settings.getByRole("button", { name: "Providers" }).click();
   await page.setViewportSize({ width: 390, height: 844 });
@@ -718,7 +739,7 @@ test("hides and pins models from Settings without losing them from the catalog",
   await page.keyboard.press("Escape");
   await expect(selector).toBeHidden();
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   await settings.getByRole("button", { name: "Models" }).click();
   const visibilityCard = settings.locator("#settings-field-model-visibility");
@@ -785,7 +806,7 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
   await modePopover.getByRole("button", { name: /^Manual/ }).click();
   await expect(cursorPill).toHaveAccessibleName(/^Cursor Manual:/);
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   await settings.getByRole("button", { name: "Providers" }).click();
   const providerTabs = settings.getByRole("tablist").last();

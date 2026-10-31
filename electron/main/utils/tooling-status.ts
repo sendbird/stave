@@ -610,7 +610,7 @@ function apiConnectionToolEntry(id: "claude" | "codex", label: string, executabl
   return makeToolEntry({
     id, label, state: "warning", available: true,
     summary: "API connection selected.",
-    detail: "API billing applies. Check the connection in Settings > Tooling > API connections; tool and streaming compatibility require a real turn.",
+    detail: "API billing applies. Check the connection in Settings > Accounts > API connections; tool and streaming compatibility require a real turn.",
     version: null, executablePath, authState: "unknown",
     authDetail: gatewayCredentialAvailable(undefined, runtime) ? "Saved API key available; gateway authentication is unverified." : "The API connection's key is unavailable. Check Settings > Secrets.",
   });

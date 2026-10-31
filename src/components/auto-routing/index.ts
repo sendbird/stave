@@ -18,3 +18,4 @@ export {
   toRoutePromptPreview,
   type RouteTraceEntry,
 } from "./route-trace-entry";
+export { listRouteUnavailableProviders } from "./route-unavailable-providers";

@@ -5,10 +5,10 @@
     },
     "accountUsageLimit": {
       "title": "계정 사용량 한도",
-      "description": "포함된 계정 사용량을 모두 소진하면 Claude, Codex, Cursor, Kiro에 공통으로 적용되는 중지 설정입니다.",
+      "description": "포함된 계정 사용량을 모두 소진하면 모든 프로바이더에 공통으로 적용되는 중지 설정입니다.",
       "stopTurns": {
         "title": "사용량 100%에서 턴 중지",
-        "description": "프로바이더가 포함 사용량 100%를 보고하면 추가 크레딧이 사용되지 않도록 해당 프로바이더의 새 턴과 백그라운드 AI를 차단합니다. 이미 실행 중인 턴은 끝까지 완료됩니다. 초과 사용량으로 계속 작업하려면 이 설정을 끄세요."
+        "description": "포함 사용량이 100%에 이르면 해당 프로바이더의 새 턴과 백그라운드 AI를 차단하며, 이미 실행 중인 턴은 끝까지 완료됩니다."
       }
     },
     "trustedApprovals": {
@@ -18,6 +18,11 @@
     },
     "tabsAriaLabel": "프로바이더 설정",
     "modePresetTitle": "모드 프리셋",
+    "customizePermissions": {
+      "title": "권한 세부 설정",
+      "claudeDescription": "권한 모드, 샌드박스, 에이전트 모드 가드레일입니다.",
+      "codexDescription": "네트워크, 파일 접근, 승인, 웹 검색입니다."
+    },
     "effortLevels": {
       "minimal": "최소",
       "low": "낮음",
@@ -31,9 +36,9 @@
       "title": "Claude 런타임 제어",
       "description": "각 Claude 턴에 전달되는 권한, 샌드박스, 사고, 하위 에이전트 진행 동작입니다.",
       "modePreset": {
-        "description": "권장 Claude 자율성 프리셋을 적용합니다. 아래 필드를 수정하면 사용자 지정으로 바뀔 수 있습니다.",
-        "active": "{{preset}} 프리셋이 적용되어 있습니다. 언제든 프리셋을 다시 적용하면 해당 권한과 샌드박스 조합 전체가 복원됩니다.",
-        "custom": "사용자 지정이 적용되어 있습니다. 현재 Claude 권한과 샌드박스 조합이 기본 제공 프리셋과 일치하지 않습니다."
+        "description": "Claude가 묻지 않고 할 수 있는 범위를 정합니다. 권한 세부 설정에서 필드를 바꾸면 사용자 지정으로 바뀝니다.",
+        "active": "적용 중인 프리셋: {{preset}} ({{detail}}).",
+        "custom": "사용자 지정 조합({{detail}})은 어떤 프리셋과도 일치하지 않습니다. 프리셋을 고르면 이 조합을 대체합니다."
       },
       "permissionMode": {
         "title": "권한 모드",
@@ -218,9 +223,9 @@
       "title": "Codex 런타임 제어",
       "description": "턴별 Codex 파일 접근, 승인, 네트워크, 추론, 검색 설정입니다.",
       "modePreset": {
-        "description": "권장 Codex 자율성 프리셋을 적용합니다. 아래 필드를 수정하면 사용자 지정으로 바뀔 수 있습니다.",
-        "active": "{{preset}} 프리셋이 적용되어 있습니다. 언제든 프리셋을 다시 적용하면 해당 파일 접근, 승인, 네트워크 조합 전체가 복원됩니다.",
-        "custom": "사용자 지정이 적용되어 있습니다. 현재 Codex 파일 접근과 승인 조합이 기본 제공 프리셋과 일치하지 않습니다."
+        "description": "Codex가 묻지 않고 할 수 있는 범위를 정합니다. 권한 세부 설정에서 필드를 바꾸면 사용자 지정으로 바뀝니다.",
+        "active": "적용 중인 프리셋: {{preset}} ({{detail}}).",
+        "custom": "사용자 지정 조합({{detail}})은 어떤 프리셋과도 일치하지 않습니다. 프리셋을 고르면 이 조합을 대체합니다."
       },
       "networkAccess": {
         "title": "네트워크 접근",
@@ -441,14 +446,9 @@
         "description": "추론 요약 지원 여부와 원본 추론 출력입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
       }
     },
-    "defaultsLink": {
-      "title": "기본 모델과 추론 강도",
-      "description": "모든 프로바이더의 기본값은 Models에서 설정합니다. 작업 입력창에서는 계속 작업별로 바꿀 수 있습니다.",
-      "action": "Models 열기"
-    },
     "advanced": {
       "title": "고급 옵션",
-      "description": "세션 재개, 설정 소스, 플러그인 경로 등 전문가용 제어입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
+      "description": "진행 요약, 파일 체크포인트, 세션 재개, 설정 소스 등 전문가용 제어입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
     }
   },
   "cursorSection": {
@@ -608,7 +608,7 @@
       "utility": {
         "title": "유틸리티 추론",
         "switchTitle": "유틸리티 추론 실행",
-        "description": "커밋 메시지와 프롬프트 개선 같은 텍스트 보조 호출입니다. Auto와 Agent 분류는 설정 > Auto의 라우팅 판단 모델을 사용합니다.",
+        "description": "커밋 메시지와 프롬프트 개선 같은 텍스트 보조 호출입니다. Auto와 Agent 분류는 설정 > 모델 > Auto (모델 라우터)의 라우팅 판단 모델을 사용합니다.",
         "modelDescription": "기계적인 유틸리티 호출에 사용하는 모델입니다."
       },
       "prDescription": {
@@ -641,8 +641,8 @@
     "enablementOwner": {
       "editor": {
         "title": "켜고 끄기는 편집기에서",
-        "on": "켜짐. 설정 → 편집기에서 끌 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
-        "off": "꺼짐. 설정 → 편집기에서 켤 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
+        "on": "켜짐. 설정 → 편집기 및 터미널에서 끌 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
+        "off": "꺼짐. 설정 → 편집기 및 터미널에서 켤 수 있으며, 프로바이더와 모델은 여기에서 정합니다.",
         "action": "편집기 열기"
       }
     },
@@ -704,7 +704,7 @@
   },
   "delegationSection": {
     "title": "위임된 작업",
-    "description": "에이전트는 자체 대화와 권한을 가진 새 Stave 작업에 일을 넘길 수 있으며, 이 작업은 실행 원장에 기록되고 재시작 후에도 유지됩니다. 켜야 할 스위치는 없습니다. 에이전트에게 위임을 요청하면 이 카드에서 위임 가능 여부를 확인할 수 있습니다.",
+    "description": "에이전트에게 위임을 요청하면 자체 대화와 권한을 가진 새 Stave 작업에 일을 넘기며, 따로 켜야 할 스위치는 없습니다.",
     "badge": {
       "checking": "확인 중",
       "unavailable": "사용 불가",
@@ -712,12 +712,15 @@
       "available": "사용 가능"
     },
     "availability": {
-      "heading": "사용 가능 여부",
       "providerTasks": "{{provider}} 작업:",
       "ready": "위임할 수 있습니다.",
       "checking": "Local MCP 서버를 확인하는 중…",
-      "note": "위임은 Local MCP 도구로 모델에 전달되므로, 해당 서버가 실행 중일 때만 작업에서 하위 에이전트를 시작할 수 있습니다.",
+      "blocked": "위임할 수 없습니다.",
       "openSettings": "설정 → MCP → 로컬 MCP 서버 열기"
+    },
+    "advanced": {
+      "title": "고급 옵션",
+      "description": "Agent 실행의 보조 Agent 한도입니다. 대부분의 작업에는 기본값이 적합합니다."
     },
     "teamLimits": {
       "concurrentHelpers": {
@@ -728,22 +731,6 @@
         "title": "실행당 보조 Agent",
         "description": "Agent 실행 하나가 호출할 수 있는 보조 Agent의 전체 수입니다({{min}}–{{max}}, 기본 {{value}})."
       }
-    },
-    "asking": {
-      "heading": "위임 요청 방법과 지정할 수 있는 항목",
-      "body": "별도의 버튼은 없습니다. 에이전트가 턴 중에<code>stave_delegate_task</code>도구를 호출하면 위임이 이루어지므로, 요청하는 말로 방향을 조정합니다. 예: <emphasis>“이 계획에 대해 Codex로 high 추론 강도의 읽기 전용 두 번째 의견을 받아 줘”</emphasis>. 필수 항목은 프롬프트뿐입니다. 위임에서 지정하지 않은 항목은 이 작업의 프로바이더, 추론 강도, 권한을 따르며, 하위 작업은 이 워크스페이스에서 한 턴만 실행합니다. 설정에는 이에 대한 전역 기본값이 없습니다.",
-      "required": "필수",
-      "optional": "선택",
-      "controls": "위임이 시작되면 하위 작업이 작업의 턴 활동에 열기, 후속 요청, 중지, 분리, 다시 시도 컨트롤과 함께 표시됩니다."
-    },
-    "parameters": {
-      "prompt": "하위 작업이 수행할 내용입니다.",
-      "access": "read-only는 두 번째 의견, 리뷰, 조사용입니다. 하위 작업은 파일을 변경할 수 없고 승인이 필요 없으며 같은 워크스페이스에서 다른 작업과 나란히 실행됩니다. 기본값은 inherit이며, 같은 프로바이더면 이 작업의 권한을, 아니면 해당 프로바이더의 사용자 설정을 따릅니다.",
-      "provider": "Claude 또는 Codex입니다. 기본값은 에이전트의 고정 또는 선호 프로바이더이고, 없으면 이 작업의 프로바이더입니다.",
-      "lifecycle": "저장된 Agent의 위임은 기본적으로 최대 30턴 안에서 완료까지 실행합니다. 모델만 지정한 작업은 one-turn이 기본값입니다. 명시한 one-turn은 첫 턴 뒤 끝나고, detached는 후속 지시를 위해 중지할 때까지 열어 둡니다.",
-      "workspace": "기본값은 같은 워크스페이스입니다. 자체 브랜치를 가진 새 워크트리를 쓰면 편집이 격리됩니다.",
-      "model": "기본값은 하위 작업 프로바이더의 기본 모델입니다.",
-      "effort": "low → max(Codex는 ultra도 지원)이며, 하위 작업 모델이 허용하는 범위로 제한됩니다. 기본값은 같은 프로바이더면 이 작업의 추론 강도, 아니면 medium입니다. 범위가 명확한 지시는 저렴한 모델을 high 강도로 쓸 때 더 나은 경우가 많습니다."
     }
   },
   "modelVisibility": {
@@ -753,7 +740,7 @@
     "tabsAriaLabel": "모델 표시 프로바이더",
     "panel": {
       "empty": "아직 사용할 수 있는 {{provider}} 모델이 없습니다. 런타임에 로그인한 다음 이 섹션을 다시 여세요.",
-      "unverified": "상태가 확인되지 않았습니다. 이 모델들을 확인하려면 설정 > 도구에서 새로고침하세요.",
+      "unverified": "상태가 확인되지 않았습니다. 이 모델들을 확인하려면 설정 > 계정 > 툴링에서 새로고침하세요.",
       "shownCount": "기본 표시 {{visible}}/{{total}}개",
       "reset": "현재 모델로 초기화",
       "current": "현재",
@@ -812,11 +799,6 @@
       "openedInTerminal": "터미널에서 워크스페이스를 열었습니다",
       "commandCopied": "{{tool}} 명령어를 복사했습니다",
       "copyCommandFailed": "명령어를 복사하지 못했습니다"
-    },
-    "accountsMoved": {
-      "title": "계정과 API 연결",
-      "body": "계정과 API 연결은 설정 > 계정으로 옮겼습니다.",
-      "action": "계정 열기"
     },
     "accountAccess": {
       "unavailable": "{{label}}에 로그인되어 있지만 사용할 수 있는 한도가 없습니다. 계정의 플랜이나 크레딧을 확인한 뒤 다시 시도하세요.",
@@ -932,7 +914,7 @@
     },
     "card": {
       "title": "MCP 연결",
-      "description": "Claude, Codex, Cursor, Kiro용 네이티브 MCP 서버를 설치합니다. 각 프로바이더는 자체 설정과 OAuth 세션을 유지하며, Stave는 대상에 네이티브 경로가 없을 때만 호환되는 항목을 전달합니다.",
+      "description": "프로바이더별 네이티브 MCP 서버를 설치합니다. 각 프로바이더는 자체 설정과 OAuth 세션을 유지하며, Stave는 대상에 네이티브 경로가 없을 때만 호환되는 항목을 전달합니다.",
       "addServer": "서버 추가",
       "refreshing": "새로고침 중..."
     },
@@ -946,7 +928,7 @@
       "description": "프로바이더 네이티브 설정과 사용 가능한 런타임 상태입니다. 계정 관리형 OAuth 세션은 해당 세션을 소유한 프로바이더에 남습니다."
     },
     "loading": "MCP 연결을 불러오는 중…",
-    "empty": "현재 Claude, Codex, Cursor, Kiro 설정에서 MCP 서버를 찾지 못했습니다.",
+    "empty": "현재 프로바이더 설정에서 MCP 서버를 찾지 못했습니다.",
     "serverListAriaLabel": "MCP 서버 상태",
     "runtimeDetected": "런타임에서 감지됨",
     "auth": {
@@ -1056,7 +1038,7 @@
   },
   "settingsDialogModelVisibility": {
     "noModelsAreAvailableYetSign": "사용 가능한 {{value1}} 모델이 없습니다. 런타임에 로그인한 뒤 이 섹션을 다시 여십시오.",
-    "statusUnverifiedRefreshSettingsGtTooling": "상태를 확인하지 못했습니다. 설정 > 도구에서 새로고침하여 모델을 확인하십시오.",
+    "statusUnverifiedRefreshSettingsGtTooling": "상태를 확인하지 못했습니다. 설정 > 계정 > 툴링에서 새로고침하여 모델을 확인하십시오.",
     "shownByDefault": "기본 표시됨",
     "showInTheModelSelector": "모델 선택 메뉴에 {{value1}} 표시"
   },
@@ -1096,11 +1078,9 @@
   },
   "settingsDialogProvidersSection": {
     "example": " 예: {{value1}}",
-    "isActiveReapplyAPresetAny": "{{value1}} 프리셋이 활성화되었습니다. 프리셋을 다시 적용하면 전체 권한과 샌드박스 조합을 복원합니다.",
     "active": "활성:",
     "none": "없음",
-    "all": "모두",
-    "isActiveReapplyAPresetAnyVariantcdc4723b": "{{value1}} 프리셋이 활성화되었습니다. 다시 적용하면 전체 파일 접근, 승인과 네트워크 조합을 복원합니다."
+    "all": "모두"
   },
   "whole": {
     "hiddenArguments_other": "기존 인수 {{count}}개를 숨겼습니다. 유지하려면 이 옵션을 끄십시오.",
@@ -1124,9 +1104,9 @@
     "status": {
       "primary": "사용 중: 로그인된 계정의 {{first}}. 응답이 없으면 {{second}}, 그다음 로컬 키워드 규칙 순서로 시도합니다.",
       "gateway": "사용 중: {{connection}} API 연결을 통한 {{model}}. 실패하면 {{first}}, {{second}}, 로컬 키워드 규칙 순서로 시도합니다.",
-      "inherit": "사용 중: 설정 > Auto에서 정한 라우팅 판단 모델.",
+      "inherit": "사용 중: 설정 > 모델 > Auto (모델 라우터)에서 정한 라우팅 판단 모델.",
       "autoOff": "사용 안 함: Auto가 꺼져 있어 작업을 분류하지 않습니다. Auto를 켜면 이 선택이 적용됩니다.",
-      "classifierOff": "사용 안 함: 설정 > Auto에서 모델 분류가 꺼져 있어 로컬 키워드 규칙으로 판단합니다. 모델 분류를 켜면 이 선택이 적용됩니다."
+      "classifierOff": "사용 안 함: 설정 > 모델 > Auto (모델 라우터)에서 모델 분류가 꺼져 있어 로컬 키워드 규칙으로 판단합니다. 모델 분류를 켜면 이 선택이 적용됩니다."
     },
     "gatewayNotApplied": "아직 적용되지 않았습니다. 설정 > 계정에서 Vercel AI Gateway API 연결을 추가한 뒤 여기서 선택하세요.",
     "connectionRemoved": "저장된 API 연결을 더 이상 사용할 수 없습니다. 설정 > 계정에서 Vercel AI Gateway API 연결을 추가한 뒤 여기서 선택하세요.",

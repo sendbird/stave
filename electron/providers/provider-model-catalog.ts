@@ -33,7 +33,7 @@ async function readProviderModelCatalog(args: {
   }
   if (isOptionalProvider(args.providerId)) {
     const key = optionalProviderReadKey(args.providerId, args.runtimeOptions);
-    const unavailable = { providerId: args.providerId, ok: false, detail: "Verify installation and login in Settings > Tooling before loading models.", models: [] };
+    const unavailable = { providerId: args.providerId, ok: false, detail: "Verify installation and login in Settings > Accounts > Tooling before loading models.", models: [] };
     if (!key) return unavailable;
     const result = await (args.providerId === "cursor"
       ? getCursorModelCatalog(args)

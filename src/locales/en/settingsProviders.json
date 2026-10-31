@@ -5,10 +5,10 @@
     },
     "accountUsageLimit": {
       "title": "Account usage limit",
-      "description": "Shared stop for Claude, Codex, Cursor, and Kiro when included account usage is exhausted.",
+      "description": "Shared stop for every provider when included account usage is exhausted.",
       "stopTurns": {
         "title": "Stop turns at 100% usage",
-        "description": "When a provider reports included usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish. Turn this off to keep working on overage."
+        "description": "At 100% included usage, block new turns and background AI for that provider; turns already running still finish."
       }
     },
     "trustedApprovals": {
@@ -18,6 +18,11 @@
     },
     "tabsAriaLabel": "Provider settings",
     "modePresetTitle": "Mode Preset",
+    "customizePermissions": {
+      "title": "Customize permissions",
+      "claudeDescription": "Permission mode, sandbox and the Agent mode guardrails.",
+      "codexDescription": "Network, file access, approvals and web search."
+    },
     "effortLevels": {
       "minimal": "Minimal",
       "low": "Low",
@@ -31,9 +36,9 @@
       "title": "Claude Runtime Controls",
       "description": "Permission, sandbox, thinking, and subagent progress behavior passed into each Claude turn.",
       "modePreset": {
-        "description": "Apply a recommended Claude autonomy preset. Editing the fields below can move the card into Custom.",
-        "active": "{{preset}} is active. Reapply a preset any time to restore its full permission and sandbox combination.",
-        "custom": "Custom is active. The current Claude permission and sandbox combination does not match a built-in preset."
+        "description": "How much Claude may do without asking. Changing a field under Customize permissions switches to Custom.",
+        "active": "Active preset: {{preset}} ({{detail}}).",
+        "custom": "Custom ({{detail}}) matches no preset. Choose one to replace it."
       },
       "permissionMode": {
         "title": "Permission Mode",
@@ -218,9 +223,9 @@
       "title": "Codex Runtime Controls",
       "description": "Per-turn Codex file access, approvals, network, reasoning, and search settings.",
       "modePreset": {
-        "description": "Apply a recommended Codex autonomy preset. Editing the fields below can move the card into Custom.",
-        "active": "{{preset}} is active. Reapply a preset any time to restore its full file access, approval, and network combination.",
-        "custom": "Custom is active. The current Codex file-access and approval combination does not match a built-in preset."
+        "description": "How much Codex may do without asking. Changing a field under Customize permissions switches to Custom.",
+        "active": "Active preset: {{preset}} ({{detail}}).",
+        "custom": "Custom ({{detail}}) matches no preset. Choose one to replace it."
       },
       "networkAccess": {
         "title": "Network Access",
@@ -441,14 +446,9 @@
         "description": "Reasoning summary support and raw reasoning output. Saved values apply even while this is collapsed."
       }
     },
-    "defaultsLink": {
-      "title": "Default Model and Effort",
-      "description": "Set for every provider in Models. A task can still change them from its composer.",
-      "action": "Open Models"
-    },
     "advanced": {
       "title": "Advanced options",
-      "description": "Session resume, setting sources, plugin paths, and other expert controls. Saved values apply even while this is collapsed."
+      "description": "Progress summaries, file checkpoints, session resume, setting sources and other expert controls. Saved values apply even while this is collapsed."
     }
   },
   "cursorSection": {
@@ -608,7 +608,7 @@
       "utility": {
         "title": "Utility inference",
         "switchTitle": "Run utility inference",
-        "description": "Mechanical text helper calls: commit messages and prompt enhancement. Auto and Agent classification use the Routing decision model in Settings > Auto.",
+        "description": "Mechanical text helper calls: commit messages and prompt enhancement. Auto and Agent classification use the Routing decision model in Settings > Models > Auto (Model Router).",
         "modelDescription": "Model used for mechanical utility calls."
       },
       "prDescription": {
@@ -641,8 +641,8 @@
     "enablementOwner": {
       "editor": {
         "title": "On/off lives in Editor",
-        "on": "On. Turn it off in Settings → Editor; provider and model are set here.",
-        "off": "Off. Turn it on in Settings → Editor; provider and model are set here.",
+        "on": "On. Turn it off in Settings → Editor & Terminal; provider and model are set here.",
+        "off": "Off. Turn it on in Settings → Editor & Terminal; provider and model are set here.",
         "action": "Open Editor"
       }
     },
@@ -705,7 +705,7 @@
   },
   "delegationSection": {
     "title": "Delegated tasks",
-    "description": "An agent can hand work to a new Stave task with its own conversation and permissions, recorded on the run ledger and kept across restarts. There is no switch to turn on: ask the agent to delegate, and this card shows whether it can.",
+    "description": "There is no switch to turn on: ask an agent to delegate, and it hands the work to a new Stave task with its own conversation and permissions.",
     "badge": {
       "checking": "Checking",
       "unavailable": "Unavailable",
@@ -713,12 +713,15 @@
       "available": "Available"
     },
     "availability": {
-      "heading": "Availability",
       "providerTasks": "{{provider}} tasks:",
       "ready": "can delegate.",
       "checking": "checking the Local MCP server…",
-      "note": "Delegation reaches the model as Local MCP tools, so a task can only start subagents while that server is running.",
+      "blocked": "cannot delegate.",
       "openSettings": "Open Settings → MCP → Local MCP Server."
+    },
+    "advanced": {
+      "title": "Advanced options",
+      "description": "Helper Agent limits for Agent runs. The defaults suit most work."
     },
     "teamLimits": {
       "concurrentHelpers": {
@@ -729,22 +732,6 @@
         "title": "Helper Agents per run",
         "description": "How many helper Agents one Agent run can call in total ({{min}}–{{max}}, default {{value}})."
       }
-    },
-    "asking": {
-      "heading": "Asking for one, and what you can specify",
-      "body": "There is no button: delegation happens when an agent calls<code>stave_delegate_task</code>during its turn, so you steer it by asking — for example <emphasis>“get a read-only second opinion on this plan from Codex at high effort”</emphasis>. Only the prompt is required: anything a delegation leaves out follows this task's provider, effort and permissions, and the child runs one turn in this workspace. Settings holds no global default for any of it.",
-      "required": "required",
-      "optional": "optional",
-      "controls": "Once a delegation starts, its child appears in the task's turn activity with Open, Follow-up, Stop, Detach and Retry controls."
-    },
-    "parameters": {
-      "prompt": "What the child should do.",
-      "access": "read-only for second opinions, reviews and research: the child cannot change files, needs no approvals, and runs beside other work in the same workspace. Defaults to inherit: this task's permissions on the same provider, otherwise that provider's user settings.",
-      "provider": "Claude or Codex. Defaults to the agent's fixed or preferred provider, else this task's provider.",
-      "lifecycle": "Saved Agent assignments default to supervised completion within 30 turns. Model-only work defaults to one-turn. Explicit one-turn ends after the first turn; detached stays open for follow-ups until stopped.",
-      "workspace": "Defaults to the same workspace. A new worktree on its own branch keeps edits isolated.",
-      "model": "Defaults to the child provider's default model.",
-      "effort": "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to this task's effort on the same provider, otherwise medium. A bounded brief often does better on a cheaper model at high effort."
     }
   },
   "modelVisibility": {
@@ -754,7 +741,7 @@
     "tabsAriaLabel": "Model visibility provider",
     "panel": {
       "empty": "No {{provider}} models are available yet. Sign in to the runtime, then reopen this section.",
-      "unverified": "Status unverified. Refresh Settings > Tooling to verify these models.",
+      "unverified": "Status unverified. Refresh Settings > Accounts > Tooling to verify these models.",
       "shownCount": "{{visible}} of {{total}} shown by default",
       "reset": "Reset to current models",
       "current": "Current",
@@ -813,11 +800,6 @@
       "openedInTerminal": "Opened workspace in terminal",
       "commandCopied": "{{tool}} command copied",
       "copyCommandFailed": "Failed to copy command"
-    },
-    "accountsMoved": {
-      "title": "Accounts and API connections",
-      "body": "Accounts and API connections moved to Settings > Accounts.",
-      "action": "Open Accounts"
     },
     "accountAccess": {
       "unavailable": "{{label}} is signed in, but no usable account allowance is available. Check the account plan or credits, then retry.",
@@ -935,7 +917,7 @@
     },
     "card": {
       "title": "MCP Connections",
-      "description": "Install native MCP servers for Claude, Codex, Cursor, and Kiro. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route.",
+      "description": "Install native MCP servers for each provider. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route.",
       "addServer": "Add server",
       "refreshing": "Refreshing..."
     },
@@ -949,7 +931,7 @@
       "description": "Provider-native configuration and available runtime status. Account-managed OAuth sessions stay with the provider that owns them."
     },
     "loading": "Loading MCP connections…",
-    "empty": "No MCP servers were found in the current Claude, Codex, Cursor, or Kiro configuration.",
+    "empty": "No MCP servers were found in the current provider configuration.",
     "serverListAriaLabel": "MCP server status",
     "runtimeDetected": "Runtime detected",
     "auth": {
@@ -1061,7 +1043,7 @@
   },
   "settingsDialogModelVisibility": {
     "noModelsAreAvailableYetSign": "No {{value1}} models are available yet. Sign in to the runtime, then reopen this section.",
-    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings > Tooling to verify these models.",
+    "statusUnverifiedRefreshSettingsGtTooling": "Status unverified. Refresh Settings > Accounts > Tooling to verify these models.",
     "shownByDefault": "shown by default",
     "showInTheModelSelector": "Show {{value1}} in the model selector"
   },
@@ -1101,11 +1083,9 @@
   },
   "settingsDialogProvidersSection": {
     "example": " Example: {{value1}}",
-    "isActiveReapplyAPresetAny": "{{value1}} is active. Reapply a preset any time to restore its full permission and sandbox combination.",
     "active": "Active:",
     "none": "none",
-    "all": "all",
-    "isActiveReapplyAPresetAnyVariantcdc4723b": "{{value1}} is active. Reapply a preset any time to restore its full file access, approval, and network combination."
+    "all": "all"
   },
   "whole": {
     "hiddenArguments_one": "{{count}} existing argument is hidden. Leave this off to preserve it.",
@@ -1134,9 +1114,9 @@
     "status": {
       "primary": "In use: {{first}} from your signed-in account. If it does not respond, Stave tries {{second}}, then local keyword rules.",
       "gateway": "In use: {{model}} through the {{connection}} API connection. If it fails, Stave tries {{first}}, then {{second}}, then local keyword rules.",
-      "inherit": "In use: the Routing decision model set in Settings > Auto.",
+      "inherit": "In use: the Routing decision model set in Settings > Models > Auto (Model Router).",
       "autoOff": "Not in use: Auto is off, so no work is classified. This choice applies once Auto is on.",
-      "classifierOff": "Not in use: Model classification is off in Settings > Auto, so local keyword rules decide. This choice applies once it is on."
+      "classifierOff": "Not in use: Model classification is off in Settings > Models > Auto (Model Router), so local keyword rules decide. This choice applies once it is on."
     },
     "gatewayNotApplied": "Not applied yet. Add a Vercel AI Gateway API connection in Settings > Accounts, then choose it here.",
     "connectionRemoved": "The saved API connection is no longer available. Add a Vercel AI Gateway API connection in Settings > Accounts, then choose it here.",

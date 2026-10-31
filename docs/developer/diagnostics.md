@@ -92,7 +92,7 @@ The Settings dialog includes desktop-only diagnostics for renderer and composito
 - The `Developer` section, the Local MCP request log card, the Claude runtime tools card and the status-bar `Memory` indicator show only while **Developer mode** in `Settings → General` is on
 
 The GPU status card is available only when the preload bridge exposes `window.api.window.getGpuStatus()`.
-The Tooling section is available only when the preload bridge exposes `window.api.tooling.getStatus()` and `window.api.tooling.syncOriginMain()`.
+The Tooling tab (`Settings → Accounts → Tooling`) is available only when the preload bridge exposes `window.api.tooling.getStatus()` and `window.api.tooling.syncOriginMain()`.
 Tooling status checks and `origin/main` sync now run through the dedicated `host-service` child process, so CLI health and git-sync failures should be debugged from `electron/main/ipc/tooling.ts`, `electron/main/host-service-client.ts`, and `electron/main/utils/tooling-status.ts` before changing renderer settings UI.
 
 ## Conversation window recovery

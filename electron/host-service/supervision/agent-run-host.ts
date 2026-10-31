@@ -66,7 +66,7 @@ async function runAgentRunScript(args: { workspaceId: string; scriptId: string; 
     if (!scriptEntry) {
       return {
         ok: false,
-        detail: `This workspace has no script action “${args.scriptId}”. Add it in Settings → Repositories → Scripts, or change the stage.`,
+        detail: `This workspace has no script action “${args.scriptId}”. Add it in Settings → Projects → Workspace Tools, or change the stage.`,
       };
     }
     const definitionHash = workspaceScriptDefinitionHash(scriptEntry, { repositoryPath: repository.repositoryPath, workspacePath: workspace.path, workspaceName: workspace.name, branch: workspace.branch ?? repository.defaultBranch ?? "" });

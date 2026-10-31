@@ -24,12 +24,12 @@ import {
 import {
   formatModelPrice,
   getProviderLabel,
-  listProviderIds,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { AutoRoutingSignalSummary } from "@/lib/routing/auto-routing";
 import { routeFlowStyles as styles } from "./route-flow.styles";
+import { listRouteUnavailableProviders } from "./route-unavailable-providers";
 
 /* -------------------------------------------------------------------------- */
 /* Explanations                                                               */
@@ -125,6 +125,8 @@ function buildSignalNodes(args: {
   signals: RouterSignals;
   summary: AutoRoutingSignalSummary;
   profile: AutoRoutingProfile;
+  /** Providers the decision involved; see `listRouteUnavailableProviders`. */
+  involvedProviders: ReadonlyArray<string | null | undefined>;
 }): SignalNode[] {
   const { signals, summary, profile } = args;
   const nodes: SignalNode[] = [
@@ -164,9 +166,10 @@ function buildSignalNodes(args: {
       decisive: summary.budgetUsedPercent >= profile.budgetGuard.stepDownAt,
     });
   }
-  const unavailable = listProviderIds().filter(
-    (providerId) => signals.providerAvailability?.[providerId] === false,
-  );
+  const unavailable = listRouteUnavailableProviders({
+    availability: signals.providerAvailability,
+    involved: args.involvedProviders,
+  });
   if (unavailable.length > 0) {
     nodes.push({
       id: "providers",
@@ -422,7 +425,18 @@ export function RouteFlow(props: RouteFlowProps) {
     ? roleRules.findIndex((rule) => rule.id === route.ruleId)
     : -1;
   const matchedRule = matchedIndex >= 0 ? roleRules[matchedIndex]! : null;
-  const signalNodes = buildSignalNodes({ signals, summary, profile });
+  const signalNodes = buildSignalNodes({
+    signals,
+    summary,
+    profile,
+    involvedProviders: [
+      route.providerId,
+      matchedRule?.then.providerId,
+      signals.preferredProvider,
+      signals.lastAssistantProvider,
+      signals.currentProviderId,
+    ],
+  });
   const ladder = buildLadder({
     profile,
     route,

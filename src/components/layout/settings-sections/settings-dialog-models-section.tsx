@@ -17,8 +17,6 @@ import {
 } from "@/lib/providers/model-catalog";
 import { useCodexModelCatalog } from "@/lib/providers/use-codex-model-catalog";
 import { useAppStore } from "@/store/app.store";
-import type { SectionId } from "../settings-dialog.schema";
-import { SettingsSectionLink } from "../settings-dialog-section-link";
 import {
   ScopedFieldStatus,
   ScopeLocked,
@@ -42,9 +40,7 @@ import {
 const CLAUDE_DEFAULT_KEYS = ["modelClaude", "claudeEffort"] as const;
 const CODEX_DEFAULT_KEYS = ["modelCodex", "codexReasoningEffort"] as const;
 
-export function ModelsSection(args: {
-  onNavigateSection?: (id: SectionId) => void;
-} = {}) {
+export function ModelsSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   // Settings scope: these rows edit the selected project's defaults when a
   // project is selected, and the global defaults otherwise.
@@ -205,14 +201,6 @@ export function ModelsSection(args: {
           />
         </LabeledField>
         <AcpDefaultModelRows />
-        {/* Background AI owns the utility model; this row only points there. */}
-        <SettingsSectionLink
-          title={t("settings:modelsSection.routing.utility.title")}
-          description={t("settings:modelsSection.routing.utility.description")}
-          actionLabel={t("settings:modelsSection.routing.utility.action")}
-          target="auxiliaryInference"
-          onNavigateSection={args.onNavigateSection}
-        />
       </SettingsCard>
     </SectionStack>
   );
