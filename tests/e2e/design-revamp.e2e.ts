@@ -531,7 +531,7 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  const settingsTrigger = page.locator('button[aria-label="open-settings"]');
+  const settingsTrigger = page.getByTestId("open-settings").first();
   await settingsTrigger.click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   const settingsHeader = settings.locator("main > header");
@@ -616,6 +616,11 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
   await settings.getByRole("textbox", { name: "Search settings" }).fill("");
   await settings
     .getByRole("button", { name: "Providers", exact: true })
+    .click();
+  // Setting sources is an expert control inside Claude's collapsed Advanced options.
+  await settings
+    .getByRole("button", { name: /^Advanced options/ })
+    .first()
     .click();
   const settingSources = settings.getByRole("group", {
     name: "Setting Sources",

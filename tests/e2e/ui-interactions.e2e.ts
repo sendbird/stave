@@ -470,7 +470,7 @@ test("settings modal and workspace modal open", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   const settingsDialog = page.getByLabel("Settings", { exact: true });
   await expect(settingsDialog).toBeVisible();
   await expect(page.getByRole("heading", { name: "General" })).toBeVisible();
@@ -1268,7 +1268,7 @@ test("scripts manager waits for default scope and keeps draft entries dirty", as
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   const settingsDialog = page.getByRole("dialog", { name: "Settings" });
   await settingsDialog
     .getByRole("button", { name: "Projects", exact: true })

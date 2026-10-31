@@ -412,7 +412,7 @@ test("conversation turn rail visibility is configurable in Chat settings", async
 
   await expect(page.getByTestId("conversation-turn-rail")).toBeVisible();
 
-  await page.locator('button[aria-label="open-settings"]').click();
+  await page.getByTestId("open-settings").first().click();
   const settings = page.getByRole("dialog", { name: "Settings" });
   await settings.getByRole("button", { name: "Chat", exact: true }).click();
 

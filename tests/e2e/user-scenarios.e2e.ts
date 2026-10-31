@@ -53,7 +53,7 @@ test("settings models persist after reload", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/");
 
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   await page.getByRole("button", { name: "Models" }).click();
 
   const settings = page.getByRole("dialog", { name: "Settings" });
@@ -72,7 +72,7 @@ test("settings models persist after reload", async ({ page }) => {
   await settings.getByRole("button", { name: "back-to-app" }).click();
 
   await page.reload();
-  await page.getByRole("button", { name: "open-settings" }).click();
+  await page.getByTestId("open-settings").first().click();
   await page.getByRole("button", { name: "Models" }).click();
   await expect(
     page.getByRole("button", { name: "Claude model: Claude Opus 4.8" }),
