@@ -42,7 +42,7 @@ export function runClaudeSessionOperation<T extends ProviderMutationResponse>(
   dependencies?: { sdkUrl: string },
 ): Promise<T> {
   const executablePath = resolveClaudeCliExecutablePath({ explicitPath: args.runtimeOptions?.claudeBinaryPath });
-  const env = buildClaudeCliEnv({ executablePath: executablePath ?? process.execPath, cwd: args.cwd, accountProfileId: args.runtimeOptions?.claudeAccountProfileId });
+  const env = buildClaudeCliEnv({ executablePath: executablePath ?? process.execPath, cwd: args.cwd, accountProfileId: args.runtimeOptions?.claudeAccountProfileId, mcpConfigPaths: [] });
   const sdkUrl = dependencies?.sdkUrl ?? pathToFileURL(createRequire(import.meta.url).resolve("@anthropic-ai/claude-agent-sdk")).href;
   return new Promise<T>((resolve) => {
     const worker = new Worker(operationSource, {

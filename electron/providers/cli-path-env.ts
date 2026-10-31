@@ -205,7 +205,7 @@ export function applyConfiguredMcpEnvOverrides(args: {
 function probeClaudeExecutable(args: { path: string }) {
   const result = probeExecutableVersion({
     executablePath: args.path,
-    env: buildClaudeCliEnv({ executablePath: args.path }),
+    env: buildClaudeCliEnv({ executablePath: args.path, mcpConfigPaths: [] }),
   });
   if (result.status !== 0) {
     return null;
@@ -344,7 +344,7 @@ async function resolveClaudeExecutablePathAsync() {
           const result = await runExecutableProbe({
             executablePath: candidate,
             commandArgs: ["--version"],
-            env: buildClaudeCliEnv({ executablePath: candidate }),
+            env: buildClaudeCliEnv({ executablePath: candidate, mcpConfigPaths: [] }),
             timeoutMs: 2_000,
             maxBytes: 64 * 1024,
           });
