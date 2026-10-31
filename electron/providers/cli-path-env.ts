@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { accessSync, constants } from "node:fs";
 import { homedir } from "node:os";
 import {
@@ -11,6 +12,7 @@ import {
   resolveLoginShellEnvVarValuesAsync,
   resolveLoginShellEnvVarValues,
   refreshLoginShellEnvVarValues,
+  peekLoginShellEnvVarValue,
 } from "./executable-path";
 import {
   buildRuntimeProcessEnv,
@@ -126,11 +128,20 @@ function resolveConfiguredCodexCliExecutablePath() {
   );
 }
 
+/**
+ * Collects the MCP variables an env builder filled from the login shell (name
+ * to the trimmed value, `null` when the shell did not set it), so a long-lived
+ * process can tell later that it was spawned with a value since re-read.
+ */
+export type LoginShellEnvValues = Map<string, string | null>;
+
 export function applyLoginShellEnvOverrides(args: {
   env: Record<string, string | undefined>;
   preferredKeys?: readonly string[];
   fallbackKeys?: readonly string[];
   resolver?: (args: { key: string }) => string | null;
+  /** Records the fallback keys read from the login shell. */
+  loginShellValues?: LoginShellEnvValues;
 }) {
   const resolveValue =
     args.resolver ??
@@ -148,6 +159,7 @@ export function applyLoginShellEnvOverrides(args: {
       continue;
     }
     const fallbackValue = resolveValue({ key })?.trim();
+    args.loginShellValues?.set(key, fallbackValue || null);
     if (fallbackValue) {
       args.env[key] = fallbackValue;
     }
@@ -160,6 +172,7 @@ export function applyConfiguredMcpEnvOverrides(args: {
   configPaths: readonly string[];
   cwd?: string;
   resolver?: (args: { key: string }) => string | null;
+  loginShellValues?: LoginShellEnvValues;
 }) {
   const envVarNames = readMcpEnvVarNames({
     provider: args.provider,
@@ -181,6 +194,7 @@ export function applyConfiguredMcpEnvOverrides(args: {
       ? args.resolver({ key })
       : resolvedValues?.[key]
     )?.trim();
+    args.loginShellValues?.set(key, value || null);
     if (value) {
       args.env[key] = value;
     }
@@ -590,6 +604,7 @@ export function buildCodexCliEnv(
     cwd?: string;
     mcpConfigPaths?: readonly string[];
     resolver?: (args: { key: string }) => string | null;
+    loginShellValues?: LoginShellEnvValues;
   } = {},
 ) {
   let env = buildRuntimeProcessEnv({
@@ -605,6 +620,7 @@ export function buildCodexCliEnv(
     preferredKeys: CODEX_LOGIN_SHELL_ENV_PREFERRED_KEYS,
     fallbackKeys: CODEX_LOGIN_SHELL_ENV_FALLBACK_KEYS,
     resolver: args.resolver,
+    loginShellValues: args.loginShellValues,
   });
 
   const applyAccount = resolveProviderAccountEnvironment({
@@ -626,6 +642,7 @@ export function buildCodexCliEnv(
         ...mcpConfigPathGroups.projectPaths,
       ],
     resolver: args.resolver,
+    loginShellValues: args.loginShellValues,
   });
   if (args.cwd) {
     env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
@@ -687,6 +704,51 @@ export async function refreshMcpLoginShellEnv(args: {
     ...(args.provider === "codex" ? CODEX_LOGIN_SHELL_ENV_FALLBACK_KEYS : []),
   ].filter((key) => !process.env[key]?.trim());
   return keys.length > 0 ? refreshLoginShellEnvVarValues({ keys }) : [];
+}
+
+const spawnedLoginShellEnv = new WeakMap<object, ReadonlyMap<string, string>>();
+const fingerprintLoginShellValue = (value: string | null) =>
+  createHash("sha256").update(value === null ? "\u0000unset" : value).digest("hex");
+
+/**
+ * Builds a long-lived process's env and records, as hashes, the MCP variables
+ * it took from the login shell, so `hasStaleLoginShellEnv` can tell when one
+ * was re-read with a different value after the process started.
+ */
+export function noteLoginShellEnvSpawn<T>(
+  owner: object,
+  build: (loginShellValues: LoginShellEnvValues) => T,
+): T {
+  const values: LoginShellEnvValues = new Map();
+  const env = build(values);
+  spawnedLoginShellEnv.set(
+    owner,
+    new Map(
+      [...values].map(([key, value]) => [key, fingerprintLoginShellValue(value)]),
+    ),
+  );
+  return env;
+}
+
+/**
+ * Whether a variable `owner` was spawned with has since been re-read from the
+ * login shell with another value. Decided per process rather than by "did this
+ * refresh change the cache", because a refresh for another account or provider
+ * may already have stored the new value this process never received.
+ */
+export function hasStaleLoginShellEnv(owner: object | undefined) {
+  const spawned = owner ? spawnedLoginShellEnv.get(owner) : undefined;
+  if (!spawned) return false;
+  for (const [key, fingerprint] of spawned) {
+    const current = peekLoginShellEnvVarValue(key);
+    if (
+      current !== undefined &&
+      fingerprintLoginShellValue(current?.trim() || null) !== fingerprint
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function resolveCodexCliExecutablePath(

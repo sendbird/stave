@@ -40,7 +40,7 @@ import type {
   CodexThreadForkResponse,
   CodexThreadReadResponse,
 } from "../../src/lib/providers/provider.types";
-import { buildCodexCliEnv, refreshMcpLoginShellEnv, resolveCodexCliExecutablePath } from "./cli-path-env";
+import { buildCodexCliEnv, hasStaleLoginShellEnv, noteLoginShellEnvSpawn, refreshMcpLoginShellEnv, resolveCodexCliExecutablePath } from "./cli-path-env";
 import {
   resolveCodexChatgptAuthTokensRefreshResponse,
   type CodexAccountReadResponse,
@@ -325,10 +325,6 @@ interface PendingUserInputRequest {
   responseKind: "tool" | "elicitation";
   elicitationMode?: "form" | "url";
   elicitationFields?: ElicitationFieldDescriptor[];
-}
-
-function buildCodexEnv(args: { executablePath?: string; accountProfileId?: string } = {}) {
-  return buildCodexCliEnv(args);
 }
 
 async function refreshCodexChatgptAuthTokens(args: {
@@ -629,7 +625,7 @@ class CodexAppServerClient {
         // Stave runtime variable. Mirrors `buildClaudeQueryOptions`.
         env: {
           ...stripReservedSecretEnvNames(this.secretEnv),
-          ...noteCodexApiConnectionSpawn(this, buildCodexEnv({ executablePath: this.executablePath, accountProfileId: this.accountProfileId })),
+          ...noteCodexApiConnectionSpawn(this, noteLoginShellEnvSpawn(this, (loginShellValues) => buildCodexCliEnv({ executablePath: this.executablePath, accountProfileId: this.accountProfileId, loginShellValues }))),
         },
         cwd: process.cwd(),
       },
@@ -957,6 +953,7 @@ class CodexAppServerClient {
 function getCodexAppServerClient(args: { executablePath: string }) {
   const executablePath = args.executablePath.trim();
   if (currentProviderAccountId("codex") !== "system-default") getProviderAccountRegistry().resolveDirectory({ providerId: "codex", profileId: currentProviderAccountId("codex") });
+  if (hasStaleLoginShellEnv(clientByExecutablePath.get(providerAccountKey("codex", executablePath)))) scheduleCodexAppServerRestartForMcpChange(executablePath);
   const existing = clientByExecutablePath.get(providerAccountKey("codex", executablePath));
   if (existing && !retireStaleCodexApiConnectionClient(existing, activeCodexTurnsByExecutable.get(providerAccountKey("codex", executablePath)) ?? 0)) return existing;
   const client = new CodexAppServerClient(executablePath);
@@ -979,7 +976,7 @@ export function disposeAllCodexAppServerClients(
 }
 
 /** Restart the shared App Server after an MCP change: now when idle, or once its running turns finish. */
-export function scheduleCodexAppServerRestartForMcpChange(executablePath: string) {
+function scheduleCodexAppServerRestartForMcpChange(executablePath: string) {
   if ((activeCodexTurnsByExecutable.get(providerAccountKey("codex", executablePath)) ?? 0) > 0) {
     pendingMcpRefreshExecutables.add(providerAccountKey("codex", executablePath));
     return;

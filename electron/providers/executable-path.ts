@@ -456,6 +456,14 @@ export async function refreshLoginShellEnvVarValues(args: {
   );
 }
 
+/**
+ * The cached login-shell value of `key` without probing: `undefined` when it
+ * was never read, `null` when the shell does not set it.
+ */
+export function peekLoginShellEnvVarValue(key: string) {
+  return cachedLoginShellEnvVarValues.get(key);
+}
+
 function safeReadDir(args: { path: string }) {
   try {
     return readdirSync(args.path);

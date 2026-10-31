@@ -522,6 +522,59 @@ test("native account clients isolate processes and reject removed registrations 
   }
 });
 
+test("an account's App Server restarts with a shell value another account's refresh already re-read", async () => {
+  if (process.platform === "win32") return;
+  const runtime = await import("../electron/providers/codex-app-server-runtime");
+  const { refreshMcpLoginShellEnv } = await import("../electron/providers/cli-path-env");
+  const { __resetExecutablePathCachesForTests } = await import("../electron/providers/executable-path");
+  const { ProviderAccountRegistry } = await import("../electron/provider-accounts/registry");
+  const directory = await mkdtemp(path.join(tmpdir(), "stave-account-shell-env-"));
+  tempDirectories.push(directory);
+  // A login shell that sources a profile the test edits; HOME and ZDOTDIR keep
+  // the fallback system shells away from the developer's real dotfiles.
+  const profilePath = path.join(directory, "profile");
+  const shellPath = path.join(directory, "login-shell");
+  await writeFile(profilePath, "export SLACK_OAUTH_TOKEN=old-value\n");
+  await writeFile(shellPath, `#!/bin/sh\n. '${profilePath}'\nexec /bin/sh -c "$2"\n`, { mode: 0o755 });
+  const keys = ["STAVE_USER_DATA_PATH", "SHELL", "HOME", "ZDOTDIR", "SLACK_OAUTH_TOKEN"] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+  Object.assign(process.env, { STAVE_USER_DATA_PATH: directory, SHELL: shellPath, HOME: directory, ZDOTDIR: directory });
+  delete process.env.SLACK_OAUTH_TOKEN;
+  __resetExecutablePathCachesForTests();
+  try {
+    const registry = new ProviderAccountRegistry(directory);
+    const a = registry.create({ providerId: "codex", label: "Account A" });
+    const b = registry.create({ providerId: "codex", label: "Account B" });
+    const runtimeOptions = (profileId: string) => ({ codexBinaryPath: process.execPath, codexAccountProfileId: profileId });
+    const clientFor = (profileId: string) => runtime.getCodexAppServerClientFromRuntimeOptions({ runtimeOptions: runtimeOptions(profileId) });
+    const refresh = (profileId: string) => refreshMcpLoginShellEnv({ provider: "codex", executablePath: process.execPath, accountProfileId: profileId });
+    const firstB = clientFor(b.id);
+    await Promise.all([clientFor(a.id).request("account/read", {}), firstB.request("account/read", {})]);
+    expect(fakeChildren.map((child) => child.spawnEnv.SLACK_OAUTH_TOKEN)).toEqual(["old-value", "old-value"]);
+    // Nothing re-read yet: the running process is reused, not restarted.
+    expect(clientFor(b.id)).toBe(firstB);
+
+    await writeFile(profilePath, "export SLACK_OAUTH_TOKEN=new-value\n");
+    expect(await refresh(a.id)).toEqual(["SLACK_OAUTH_TOKEN"]);
+    // The shared cache already holds the new value, so B's own refresh changes nothing.
+    expect(await refresh(b.id)).toEqual([]);
+
+    const nextB = clientFor(b.id);
+    expect(nextB).not.toBe(firstB);
+    await nextB.request("account/read", {});
+    expect(fakeChildren.find((child) => child.spawnEnv.CODEX_HOME === b.configDirectory)?.killed).toBe(true);
+    expect(fakeChildren.at(-1)?.spawnEnv.SLACK_OAUTH_TOKEN).toBe("new-value");
+    expect(clientFor(b.id)).toBe(nextB);
+  } finally {
+    runtime.disposeAllCodexAppServerClients();
+    for (const key of keys) {
+      if (previous[key] === undefined) delete process.env[key];
+      else process.env[key] = previous[key];
+    }
+    __resetExecutablePathCachesForTests();
+  }
+});
+
 async function awaitUnrefDeadline<T>(promise: Promise<T>): Promise<T> {
   // The runtime timer is unref'd; keep this fake process test alive until it fires.
   const keepAlive = setInterval(() => {}, 100);

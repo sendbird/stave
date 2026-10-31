@@ -236,8 +236,9 @@ itself, so Stave leaves them alone.
 Stave keeps the values it read for the rest of the session. After you add or
 change one in your shell profile, select **Refresh** in `Settings > MCP`. Stave
 reads the referenced variables again; the Claude status check and every Claude
-turn after it use the new value, and a changed Codex value restarts the shared
-Codex App Server once its running turns finish. An MCP configuration change,
+turn after it use the new value, and a shared Codex App Server started with an
+older value restarts once its running turns finish, whichever account's refresh
+read the new one. An MCP configuration change,
 such as installing, updating, or enabling a plugin, also rereads them before the
 next turn. Restarting Stave is not required.
 
