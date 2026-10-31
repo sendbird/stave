@@ -1,3 +1,32 @@
+## [0.28.4](https://github.com/sendbird/stave/compare/v0.28.3...v0.28.4) (2026-10-31)
+
+This patch release includes all six merged changes since 0.28.3 (PRs #855–#860). It moves the Atelier connectors to Atelier's new hosts, lets Claude plugin MCP servers read tokens from the shell profile, records provider safety reviews, groups usage accounts by provider, and fixes icon and row alignment. The requested patch version is retained although two changes add features.
+
+### Changes
+
+- Atelier: the Crane and Atelier connectors talk to `https://api.atelier.sdix.io`, while links and settings keep the UI host `https://atelier.sdix.io`. A saved connector setting or pairing on the retired `atelier.delight-tools.ai` host is read as the new host without re-pairing.
+- MCP: a variable that an enabled Claude plugin's MCP server references (for example `Authorization: Bearer ${ATELIER_MCP_TOKEN}`) is read from the login shell and passed to Claude, so plugin servers that authenticate with a token from `~/.zshrc` connect inside Stave. Settings > MCP refresh re-reads shell variables without restarting Stave, and a Codex App Server started with an old value restarts. Server-less runs (read-only prompts, inline completion, probes, usage capture, session workers, login) receive no MCP variables.
+- MCP: env references in Claude MCP `url`, `command` and `args` and the `${VAR:-default}` form are recognised. Plugin MCP files are read only when the plugin is enabled for the workspace, and a file whose canonical path leaves the plugin is skipped.
+- Providers: Codex native safety-review decisions are recorded with turn-scoped identities and existing approval tool names, without raw command or rationale content. Claude effective permission-mode changes and context category and provenance metadata are kept, and unanswered-question annotations are negotiated per Claude session.
+- Approvals: translated decision labels and timestamps refresh when the display language changes.
+- Usage: each provider's subscription accounts stay together, with a labelled API connections section in English and Korean.
+- UI: icon and text alignment is fixed in return summaries, agent-run criteria, attached-review labels, issue rows and command-palette rows, and a layout contract with a spacing ratchet and a Chromium layout check guards against regressions. Task activity, agent, source-control and PR review rows use control corners, delegated agent rows drop the nested rail, and the agent-tree hover no longer sticks after a touch tap.
+
+### Upgrade Notes
+
+- Saved Atelier connector settings and pairings on `atelier.delight-tools.ai` are converted when read by the temporary migration `atelier-retired-host`, which is removed in 0.31.0.
+- No registered temporary migration expires in 0.28.4; `agent-run-adaptive-draft-key` must be removed before 0.29.0. No data migration or settings reset is required.
+- Stave now forwards to Claude any shell variable that an enabled plugin's MCP config names, matching what Claude Code receives in a terminal. Disabled plugins and plugins installed for other projects are not read.
+
+### Known Limits
+
+- Release validation does not include Electron e2e, a packaged upgrade from 0.28.3, or live provider, Atelier connector or plugin MCP sessions.
+- Codex plugins, marketplace-inline `mcpServers` without a plugin manifest, `.mcpb`/`.dxt` bundles and plugins enabled only by `defaultEnabled` are not scanned for MCP variables.
+
+### References
+
+- [PR #855](https://github.com/sendbird/stave/pull/855), [PR #856](https://github.com/sendbird/stave/pull/856), [PR #857](https://github.com/sendbird/stave/pull/857), [PR #858](https://github.com/sendbird/stave/pull/858), [PR #859](https://github.com/sendbird/stave/pull/859), [PR #860](https://github.com/sendbird/stave/pull/860)
+
 ## [0.28.3](https://github.com/sendbird/stave/compare/v0.28.2...v0.28.3) (2026-10-28)
 
 This patch release includes all four merged changes since 0.28.2 (PRs #850–#853). It refines browser access, side questions, selection colors and progress indicators. The requested patch version is retained; the browser default change is described below.
