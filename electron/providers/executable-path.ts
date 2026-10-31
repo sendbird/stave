@@ -345,12 +345,13 @@ function* loginShellEnvProbes(
 
   let pendingKeys = unresolvedKeys;
   let probeIncomplete = false;
-  let attemptSequence = ++loginShellProbeSequence;
+  // One sequence for the whole lookup, fallback shells included: a lookup that
+  // started before a refresh must never overwrite what that refresh stored.
+  const attemptSequence = ++loginShellProbeSequence;
   for (const shell of getLoginShellCandidates()) {
     if (pendingKeys.length === 0) {
       break;
     }
-    attemptSequence = ++loginShellProbeSequence;
 
     const markers = new Map(
       pendingKeys.map((key) => [

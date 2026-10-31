@@ -537,6 +537,36 @@ test("a probe that started earlier never overwrites a newer refreshed value", as
   });
 });
 
+test("an earlier lookup's fallback shells never overwrite a newer refreshed value", async () => {
+  if (process.platform === "win32") return;
+  await withProfileShell(async (profilePath) => {
+    const directory = path.dirname(profilePath);
+    const valuePath = path.join(directory, "value");
+    const delayPath = path.join(directory, "delay");
+    const readPath = path.join(directory, "read");
+    // The first shell finds nothing and is slow, so the earlier lookup moves on
+    // to the fallback system shells after a later refresh stored the value.
+    writeFileSync(
+      profilePath,
+      `STAVE_VALUE="$(cat '${valuePath}')"\nSTAVE_DELAY="$(cat '${delayPath}')"\necho read >> '${readPath}'\nsleep "$STAVE_DELAY"\n[ -n "$STAVE_VALUE" ] && export STAVE_FIXTURE_MCP_TOKEN="$STAVE_VALUE"\n`,
+    );
+    writeFileSync(valuePath, "");
+    writeFileSync(delayPath, "1");
+    const keys = ["STAVE_FIXTURE_MCP_TOKEN"];
+    const earlier = resolveLoginShellEnvVarValuesAsync({ keys });
+    await waitForFile(readPath);
+
+    writeFileSync(valuePath, "atl_new");
+    writeFileSync(delayPath, "0");
+    expect(await refreshLoginShellEnvVarValues({ keys })).toEqual(keys);
+    // The earlier lookup's fallbacks miss the variable; the newer value stays.
+    expect(await earlier).toEqual({ STAVE_FIXTURE_MCP_TOKEN: "atl_new" });
+    expect(resolveLoginShellEnvVarValues({ keys })).toEqual({
+      STAVE_FIXTURE_MCP_TOKEN: "atl_new",
+    });
+  });
+});
+
 test("identical concurrent refreshes share one follow-up probe", async () => {
   if (process.platform === "win32") return;
   await withProfileShell(async (profilePath) => {
