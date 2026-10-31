@@ -166,6 +166,29 @@ describe("Settings > Accounts", () => {
     }
   });
 
+  test("CLI-managed sign-in: a signed-in CLI without a usable allowance says why it has no provider tab", () => {
+    const readinessInitial = useProviderReadinessStore.getInitialState();
+    const previous = readinessInitial.providers;
+    const entry = (value: ToolingStatusEntry) => ({ tool: value, configurationKey: "", checkedAt: 1, generation: 1, stale: false });
+    const reason = i18n.t("settingsProviders:toolingSection.accountAccess.unavailable", { label: "Kiro CLI" });
+    readinessInitial.providers = {
+      kiro: entry({ ...tool("kiro", "authenticated"), state: "warning", summary: reason }),
+      opencode: entry(tool("opencode", "not-required")),
+    };
+    try {
+      const raw = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(AccountsSection)));
+      const row = raw.slice(raw.indexOf('data-cli-provider="kiro"'), raw.indexOf("</li>", raw.indexOf('data-cli-provider="kiro"')));
+      expect(row).toContain("data-cli-access-issue");
+      expect(text(row)).toContain(reason);
+      expect(text(row)).toContain("Needs Attention");
+      expect(text(row)).not.toContain("Authenticated");
+      // A CLI that is ready keeps its plain sign-in row.
+      expect(raw.split("data-cli-access-issue").length - 1).toBe(1);
+    } finally {
+      readinessInitial.providers = previous;
+    }
+  });
+
   test("Tooling shows CLI status only, without a pointer back to Accounts", () => {
     const html = render(createElement(ToolingSection));
     expect(html).not.toContain("moved to Settings > Accounts");

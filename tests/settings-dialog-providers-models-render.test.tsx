@@ -71,6 +71,52 @@ async function setUpOptionalProviders(ids: readonly ("cursor" | "kiro" | "openco
   };
 }
 
+/**
+ * Seeds initial-snapshot state for one render: `settings` patches the app
+ * settings, `focus` is a pending Settings deep link.
+ */
+async function seedInitialState(args: {
+  settings?: Record<string, unknown>;
+  focus?: string;
+}) {
+  const { useAppStore } = await import("../src/store/app.store");
+  const { useSettingsFocusRequest } = await import(
+    "../src/lib/providers/accounts-navigation"
+  );
+  const appInitial = useAppStore.getInitialState();
+  const focusInitial = useSettingsFocusRequest.getInitialState();
+  const previousSettings = appInitial.settings;
+  const previousFocus = focusInitial.focus;
+  appInitial.settings = { ...previousSettings, ...args.settings };
+  focusInitial.focus = args.focus ?? null;
+  const restorePrevious = restoreInitialState;
+  restoreInitialState = () => {
+    appInitial.settings = previousSettings;
+    focusInitial.focus = previousFocus;
+    restorePrevious?.();
+  };
+}
+
+/**
+ * The Customize permissions group: its trigger and its panel. ADS mounts
+ * accordion panels eagerly, so a closed group's fields stay in the markup
+ * inside a `hidden` region.
+ */
+function customizePermissions(html: string, fieldId: string) {
+  const start = html.indexOf(`id="${fieldId}"`);
+  expect(start).toBeGreaterThan(-1);
+  const triggerEnd = html.indexOf("</button>", start);
+  const trigger = html.slice(html.indexOf("<button", start), triggerEnd);
+  const regionAt = html.indexOf('role="region"', triggerEnd);
+  const panelOpenTag = html.slice(html.lastIndexOf("<div", regionAt), regionAt);
+  return {
+    start,
+    trigger,
+    open: trigger.includes('aria-expanded="true"') && !panelOpenTag.includes('hidden=""'),
+    panel: html.slice(regionAt),
+  };
+}
+
 async function resetStore() {
   const { useAppStore } = await import("../src/store/app.store");
   useAppStore.setState(useAppStore.getInitialState());
@@ -83,6 +129,17 @@ async function renderProviders() {
   );
   return renderToStaticMarkup(createElement(ProvidersSection));
 }
+
+async function renderCodexPosture() {
+  await resetStore();
+  const { CodexPermissionPostureFields } = await import(
+    "../src/components/layout/settings-dialog-permission-posture-fields"
+  );
+  return renderToStaticMarkup(createElement(CodexPermissionPostureFields));
+}
+
+const CLAUDE_PERMISSIONS = "settings-field-claude-permissions";
+const CODEX_PERMISSIONS = "settings-field-codex-permissions";
 
 async function renderModels() {
   await resetStore();
@@ -116,16 +173,98 @@ describe("Providers settings after the Models consolidation", () => {
     expect(before.slice(before.lastIndexOf("<button"))).toContain(
       'aria-expanded="false"',
     );
-    for (const folded of ["Resume At Message", "Strict MCP Config", "Setting Sources"]) {
+    for (const folded of [
+      "Resume At Message",
+      "Strict MCP Config",
+      "Setting Sources",
+      "Agent Progress Summaries",
+      "File Checkpointing",
+    ]) {
       expect(before).not.toContain(folded);
       expect(panel.slice(panelStart)).toContain(folded);
     }
   });
 
-  test("keeps safety and permission controls directly visible", async () => {
+  test("keeps Thinking Mode and Prompt Suggestions in view", async () => {
     const html = await renderProviders();
-    expect(html).toContain("Permission Mode");
-    expect(html).toContain("Sandbox Enabled");
+    const advancedAt = html.indexOf("Advanced options");
+    for (const visible of ["Thinking Mode", "Prompt Suggestions"]) {
+      expect(html.indexOf(visible)).toBeGreaterThan(-1);
+      expect(html.indexOf(visible)).toBeLessThan(advancedAt);
+    }
+  });
+
+  test("leads with the provider tabs; the shared cards follow them", async () => {
+    const html = await renderProviders();
+    const tabsAt = html.indexOf('role="tablist"');
+    expect(tabsAt).toBeGreaterThan(-1);
+    const presetAt = html.indexOf("Mode Preset");
+    expect(presetAt).toBeGreaterThan(tabsAt);
+    for (const shared of ["Account usage limit", "Trusted Approvals", "Delegated tasks"]) {
+      expect(html.indexOf(shared)).toBeGreaterThan(presetAt);
+    }
+    // Search and deep links still land on the shared cards.
+    expect(html).toContain('id="settings-field-account-usage-limit"');
+    expect(html).toContain('id="settings-field-delegation"');
+  });
+
+  test("keeps the Claude preset and its summary in view and folds what it sets", async () => {
+    const html = await renderProviders();
+    const group = customizePermissions(html, CLAUDE_PERMISSIONS);
+    expect(group.trigger).toContain("Customize permissions");
+    expect(group.open).toBe(false);
+    const above = html.slice(0, group.start);
+    // The default settings match the Auto preset.
+    expect(above).toContain("Active preset: Auto (Permission auto / Sandbox Off");
+    for (const folded of [
+      "Permission Mode",
+      "Dangerous Skip Permissions",
+      "Sandbox Enabled",
+      "Allow Unsandboxed Commands",
+      "Ask Before Writes Outside the Repository",
+      "Ask Before Touching Credentials",
+      "Ask Before Irreversible Remote Actions",
+    ]) {
+      expect(above).not.toContain(folded);
+      expect(group.panel).toContain(folded);
+    }
+  });
+
+  test("opens Customize permissions when the combination matches no preset", async () => {
+    await seedInitialState({ settings: { claudeSandboxEnabled: true } });
+    const html = await renderProviders();
+    const group = customizePermissions(html, CLAUDE_PERMISSIONS);
+    expect(group.trigger).toContain('aria-expanded="true"');
+    expect(group.open).toBe(true);
+    expect(html.slice(0, group.start)).toContain("matches no preset");
+  });
+
+  test("opens Customize permissions for a deep link to it", async () => {
+    await seedInitialState({ focus: CLAUDE_PERMISSIONS });
+    const html = await renderProviders();
+    expect(customizePermissions(html, CLAUDE_PERMISSIONS).open).toBe(true);
+  });
+
+  test("folds the Codex fields a preset sets", async () => {
+    const closed = customizePermissions(await renderCodexPosture(), CODEX_PERMISSIONS);
+    expect(closed.open).toBe(false);
+    for (const folded of ["Network Access", "File Access", "Approvals"]) {
+      expect(closed.panel).toContain(folded);
+    }
+
+    await seedInitialState({ settings: { codexNetworkAccess: false } });
+    expect(customizePermissions(await renderCodexPosture(), CODEX_PERMISSIONS).open).toBe(true);
+  });
+
+  test("a deep link to the Codex permissions switches to the Codex tab and opens them", async () => {
+    await seedInitialState({ focus: CODEX_PERMISSIONS });
+    const html = await renderProviders();
+    expect(html).not.toContain(`id="${CLAUDE_PERMISSIONS}"`);
+    const group = customizePermissions(html, CODEX_PERMISSIONS);
+    expect(group.open).toBe(true);
+    // Web search is part of every Codex preset, so it is folded with them.
+    expect(html.slice(0, group.start)).not.toContain("Web Search");
+    expect(group.panel).toContain("Web Search");
   });
 
   test("shows a tab only for providers that are set up", async () => {

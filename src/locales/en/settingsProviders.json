@@ -8,7 +8,7 @@
       "description": "Shared stop for every provider when included account usage is exhausted.",
       "stopTurns": {
         "title": "Stop turns at 100% usage",
-        "description": "When a provider reports included usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish. Turn this off to keep working on overage."
+        "description": "At 100% included usage, block new turns and background AI for that provider; turns already running still finish."
       }
     },
     "trustedApprovals": {
@@ -18,6 +18,11 @@
     },
     "tabsAriaLabel": "Provider settings",
     "modePresetTitle": "Mode Preset",
+    "customizePermissions": {
+      "title": "Customize permissions",
+      "claudeDescription": "Permission mode, sandbox and the Agent mode guardrails.",
+      "codexDescription": "Network, file access, approvals and web search."
+    },
     "effortLevels": {
       "minimal": "Minimal",
       "low": "Low",
@@ -31,9 +36,9 @@
       "title": "Claude Runtime Controls",
       "description": "Permission, sandbox, thinking, and subagent progress behavior passed into each Claude turn.",
       "modePreset": {
-        "description": "Apply a recommended Claude autonomy preset. Editing the fields below can move the card into Custom.",
-        "active": "{{preset}} is active. Reapply a preset any time to restore its full permission and sandbox combination.",
-        "custom": "Custom is active. The current Claude permission and sandbox combination does not match a built-in preset."
+        "description": "How much Claude may do without asking. Changing a field under Customize permissions switches to Custom.",
+        "active": "Active preset: {{preset}} ({{detail}}).",
+        "custom": "Custom ({{detail}}) matches no preset. Choose one to replace it."
       },
       "permissionMode": {
         "title": "Permission Mode",
@@ -218,9 +223,9 @@
       "title": "Codex Runtime Controls",
       "description": "Per-turn Codex file access, approvals, network, reasoning, and search settings.",
       "modePreset": {
-        "description": "Apply a recommended Codex autonomy preset. Editing the fields below can move the card into Custom.",
-        "active": "{{preset}} is active. Reapply a preset any time to restore its full file access, approval, and network combination.",
-        "custom": "Custom is active. The current Codex file-access and approval combination does not match a built-in preset."
+        "description": "How much Codex may do without asking. Changing a field under Customize permissions switches to Custom.",
+        "active": "Active preset: {{preset}} ({{detail}}).",
+        "custom": "Custom ({{detail}}) matches no preset. Choose one to replace it."
       },
       "networkAccess": {
         "title": "Network Access",
@@ -443,7 +448,7 @@
     },
     "advanced": {
       "title": "Advanced options",
-      "description": "Session resume, setting sources, plugin paths, and other expert controls. Saved values apply even while this is collapsed."
+      "description": "Progress summaries, file checkpoints, session resume, setting sources and other expert controls. Saved values apply even while this is collapsed."
     }
   },
   "cursorSection": {
@@ -700,7 +705,7 @@
   },
   "delegationSection": {
     "title": "Delegated tasks",
-    "description": "An agent can hand work to a new Stave task with its own conversation and permissions, recorded on the run ledger and kept across restarts. There is no switch to turn on: ask the agent to delegate, and this card shows whether it can.",
+    "description": "There is no switch to turn on: ask an agent to delegate, and it hands the work to a new Stave task with its own conversation and permissions.",
     "badge": {
       "checking": "Checking",
       "unavailable": "Unavailable",
@@ -708,12 +713,15 @@
       "available": "Available"
     },
     "availability": {
-      "heading": "Availability",
       "providerTasks": "{{provider}} tasks:",
       "ready": "can delegate.",
       "checking": "checking the Local MCP server…",
-      "note": "Delegation reaches the model as Local MCP tools, so a task can only start subagents while that server is running.",
+      "blocked": "cannot delegate.",
       "openSettings": "Open Settings → MCP → Local MCP Server."
+    },
+    "advanced": {
+      "title": "Advanced options",
+      "description": "Helper Agent limits for Agent runs. The defaults suit most work."
     },
     "teamLimits": {
       "concurrentHelpers": {
@@ -1075,11 +1083,9 @@
   },
   "settingsDialogProvidersSection": {
     "example": " Example: {{value1}}",
-    "isActiveReapplyAPresetAny": "{{value1}} is active. Reapply a preset any time to restore its full permission and sandbox combination.",
     "active": "Active:",
     "none": "none",
-    "all": "all",
-    "isActiveReapplyAPresetAnyVariantcdc4723b": "{{value1}} is active. Reapply a preset any time to restore its full file access, approval, and network combination."
+    "all": "all"
   },
   "whole": {
     "hiddenArguments_one": "{{count}} existing argument is hidden. Leave this off to preserve it.",

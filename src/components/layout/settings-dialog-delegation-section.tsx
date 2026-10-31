@@ -4,6 +4,8 @@ import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { DraftInput, LabeledField, SettingsCard, readInt } from "@/components/layout/settings-dialog.shared";
 import { delegationStyles } from "./settings-dialog-delegation-section.styles";
+import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
+import { DELEGATION_FIELD_ID } from "./settings-dialog-providers-focus";
 import { settingsSectionsStyles } from "./settings-dialog-sections.styles";
 import { TEAM_LIMITS, clampTeamLimit } from "@/lib/agent-runs/resources";
 import {
@@ -52,9 +54,10 @@ function TeamLimitFields() {
 
 /**
  * Delegation has no arming control: the agent decides to delegate mid-turn
- * from the tools it was given. The card says whether that would work right
- * now per provider, so a broken Local MCP link is not mistaken for an agent
- * that chose not to delegate, and holds the helper limits for Agent runs.
+ * from the tools it was given. The card says in one line per provider whether
+ * that would work right now, so a broken Local MCP link is not mistaken for an
+ * agent that chose not to delegate. The helper limits for Agent runs sit
+ * folded below; their defaults suit most work.
  */
 export function SettingsDelegationSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
@@ -79,10 +82,12 @@ export function SettingsDelegationSection() {
   const unknown = readinessByProvider.some(
     (entry) => entry.readiness.state === "unknown",
   );
+  // Every provider is blocked by the same server, so its reason shows once.
+  const blockedDetail = blocked.find((entry) => entry.readiness.detail)?.readiness.detail;
 
   return (
     <SettingsCard
-      id="settings-field-delegation"
+      id={DELEGATION_FIELD_ID}
       tabIndex={-1}
       title={t("settingsProviders:delegationSection.title")}
       description={t("settingsProviders:delegationSection.description")}
@@ -108,14 +113,10 @@ export function SettingsDelegationSection() {
         </Badge>
       }
     >
-      <div
-        data-testid="delegation-readiness"
-        className={sx(delegationStyles.panel)}
-      >
-        <p className={sx(delegationStyles.panelHeading)}>{t("settingsProviders:delegationSection.availability.heading")}</p>
+      <div data-testid="delegation-readiness" className={sx(delegationStyles.status)}>
         <ul className={sx(delegationStyles.list)}>
           {readinessByProvider.map((entry) => (
-            <li key={entry.providerId}>
+            <li key={entry.providerId} data-delegation-provider={entry.providerId}>
               <span className={sx(delegationStyles.emphasis)}>
                 {t("settings:whole.providerTasks", { provider: getProviderLabel({ providerId: entry.providerId }) })}
               </span>{" "}
@@ -123,30 +124,39 @@ export function SettingsDelegationSection() {
                 ? i18n.t("settingsProviders:delegationSection.availability.ready")
                 : entry.readiness.state === "unknown"
                   ? i18n.t("settingsProviders:delegationSection.availability.checking")
-                  : entry.readiness.detail}
+                  : <span className={sx(delegationStyles.blocked)}>{i18n.t("settingsProviders:delegationSection.availability.blocked")}</span>}
             </li>
           ))}
         </ul>
-        <p className={sx(delegationStyles.paragraphSpaced)}>
-          {t("settingsProviders:delegationSection.availability.note")}</p>
-        <Button
-          type="button"
-          variant="link"
-          flushInline
-          data-testid="delegation-open-mcp-settings"
-          xstyle={delegationStyles.openSettingsLink}
-          onClick={() => {
-            window.dispatchEvent(
-              new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
-                detail: { section: "mcp" },
-              }),
-            );
-          }}
-        >
-          {t("settingsProviders:delegationSection.availability.openSettings")}</Button>
+        {blocked.length > 0 ? (
+          <p className={sx(delegationStyles.blockedDetail)}>
+            {blockedDetail}{" "}
+            <Button
+              type="button"
+              variant="link"
+              flushInline
+              data-testid="delegation-open-mcp-settings"
+              xstyle={delegationStyles.openSettingsLink}
+              onClick={() => {
+                window.dispatchEvent(
+                  new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {
+                    detail: { section: "mcp" },
+                  }),
+                );
+              }}
+            >
+              {t("settingsProviders:delegationSection.availability.openSettings")}
+            </Button>
+          </p>
+        ) : null}
       </div>
-
-      <TeamLimitFields />
+      <SettingsAdvancedDisclosure
+        compact
+        title={t("settingsProviders:delegationSection.advanced.title")}
+        description={t("settingsProviders:delegationSection.advanced.description")}
+      >
+        <TeamLimitFields />
+      </SettingsAdvancedDisclosure>
     </SettingsCard>
   );
 }

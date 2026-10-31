@@ -70,6 +70,10 @@ export const accountsSectionStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
+  /** A signed-in CLI's reason it has no provider tab (no usable allowance). */
+  rowDetailWarning: {
+    color: vars["--ads-color-warning-text"],
+  },
   /** An installed CLI's path disclosure, on its own line under the row. */
   rowPath: {
     flexBasis: "100%",

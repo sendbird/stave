@@ -1,6 +1,6 @@
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
 import { formatList } from "@/i18n/format";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Copy } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
@@ -8,9 +8,8 @@ import { toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, apiConnectionIdFromFocus, cliProviderFieldId, cliProviderFocus, providerSignInFocus } from "@/lib/providers/accounts-guide";
-import { focusSettingsElement } from "./settings-focus";
+import { useSettingsFocusTarget } from "./settings-focus";
 import {
-  clearSettingsFocus,
   openToolingSettings,
   requestSettingsFocus,
   useSettingsFocusRequest,
@@ -31,43 +30,15 @@ import { accountsSectionStyles as styles } from "./settings-dialog-accounts-sect
 import { optionalProviderSetup, useOptionalProviderPaths, useSettingsVisibleProviderIds } from "./settings-provider-visibility";
 import { useAppStore } from "@/store/app.store";
 
-/** About one second of frames, for targets that mount after the section. */
-const FOCUS_ATTEMPT_FRAMES = 60;
-
 /**
- * Lands a deep link inside the section. Targets that render a little late get
- * a few frames to appear; an unknown target leaves the section at its top.
- * An API connection's row is not handled here: it exists only once the
- * connection list answered, so `ApiConnectionsSettings` owns that request.
+ * Lands a deep link inside the section. An API connection's row is not
+ * handled here: it exists only once the connection list answered, so
+ * `ApiConnectionsSettings` owns that request.
  */
 function useAccountsFocusTarget() {
-  const focus = useSettingsFocusRequest((state) => state.focus);
-  const nonce = useSettingsFocusRequest((state) => state.nonce);
-  useEffect(() => {
-    if (!focus || apiConnectionIdFromFocus(focus)) return;
-    const elementId = accountsFocusElementId(focus);
-    if (!elementId) {
-      clearSettingsFocus(nonce);
-      return;
-    }
-    let attempts = 0;
-    let frame = 0;
-    const tryFocus = () => {
-      const element = document.getElementById(elementId);
-      if (element) {
-        focusSettingsElement(element);
-        clearSettingsFocus(nonce);
-        return;
-      }
-      if (++attempts >= FOCUS_ATTEMPT_FRAMES) {
-        clearSettingsFocus(nonce);
-        return;
-      }
-      frame = window.requestAnimationFrame(tryFocus);
-    };
-    frame = window.requestAnimationFrame(tryFocus);
-    return () => window.cancelAnimationFrame(frame);
-  }, [focus, nonce]);
+  useSettingsFocusTarget((focus) =>
+    apiConnectionIdFromFocus(focus) ? undefined : accountsFocusElementId(focus),
+  );
 }
 
 /** Area B: the three ways to pay, each one sentence and one button. */
@@ -134,7 +105,18 @@ const CLI_PATH_SETTING = {
   opencode: { key: "opencodeBinaryPath", executable: "opencode" },
 } as const satisfies Record<CliManagedProviderId, { key: string; executable: string }>;
 
+/**
+ * Why a signed-in CLI still has no provider tab: its account has no usable
+ * allowance, or that could not be verified. Settings hides such a provider
+ * everywhere else, so its row is where the reason shows. Null otherwise.
+ */
+function cliAccessIssue(tool: ToolingStatusEntry): string | null {
+  if (tool.authState !== "authenticated" || tool.state === "ready") return null;
+  return tool.summary.trim() || null;
+}
+
 function cliManagedStatus(tool: ToolingStatusEntry) {
+  if (cliAccessIssue(tool)) return { label: i18n.t("settingsProviders:toolingSection.state.warning"), tone: "warning" as const };
   switch (tool.authState) {
     case "authenticated": return { label: i18n.t("settingsProviders:toolingSection.auth.authenticated"), tone: "success" as const };
     case "unauthenticated": return { label: i18n.t("settingsProviders:toolingSection.auth.unauthenticated"), tone: "warning" as const };
@@ -145,8 +127,9 @@ function cliManagedStatus(tool: ToolingStatusEntry) {
 
 /**
  * An installed CLI: its sign-in state and the command that signs in. While its
- * provider tab is hidden (not signed in yet), the row also carries the CLI
- * path, which otherwise lives in that tab.
+ * provider tab is hidden (not signed in yet, or signed in without a usable
+ * allowance), the row also carries the CLI path, which otherwise lives in
+ * that tab, and a signed-in CLI says why its tab is hidden.
  */
 function CliManagedProviderRow({ providerId, tool, path }: {
   providerId: CliManagedProviderId;
@@ -155,6 +138,7 @@ function CliManagedProviderRow({ providerId, tool, path }: {
 }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const status = cliManagedStatus(tool);
+  const accessIssue = cliAccessIssue(tool);
   const name = getProviderLabel({ providerId, variant: "full" });
   const command = PROVIDER_LOGIN_COMMAND[providerId];
   const copy = () => void copyTextToClipboard(command)
@@ -166,6 +150,7 @@ function CliManagedProviderRow({ providerId, tool, path }: {
         <span className={sx(styles.rowTitle)}>{name}</span>
         <Badge tone={status.tone} size="sm">{status.label}</Badge>
       </span>
+      {accessIssue ? <span className={sx(styles.rowDetail, styles.rowDetailWarning)} data-cli-access-issue="">{accessIssue}</span> : null}
       <span className={sx(styles.rowDetail)}>
         {t("settingsConnections:accountsSection.cliManaged.loginHint", { value1: command })}
       </span>
