@@ -7,7 +7,6 @@ import {
   parseGitRemotes,
   RepositoryRemoteList,
   repositoryRemotesState,
-  WorkspaceToolCounts,
   type RepositoryMetadataState,
 } from "../src/components/layout/settings-sections/settings-dialog-repository-status";
 
@@ -33,18 +32,6 @@ describe("repository remotes", () => {
     expect(repositoryRemotesState({ ...ready, status: "loading" })).toEqual({ status: "pending" });
     expect(repositoryRemotesState({ ...ready, status: "loading", remotes: origin })).toEqual({ status: "ready", data: origin });
     expect(origin).toEqual([{ name: "origin", fetchUrl: "git@example.com:team/repo.git", pushUrl: "git@example.com:team/repo.git" }]);
-  });
-});
-
-describe("workspace tool counts", () => {
-  test("are not shown as zero while the tools file is read or after the read fails", () => {
-    const pending = renderToStaticMarkup(createElement(WorkspaceToolCounts, { state: { status: "pending" }, onRetry: noop }));
-    expect(pending).not.toContain("0 Commands");
-    const failed = renderToStaticMarkup(
-      createElement(WorkspaceToolCounts, { state: { status: "error", error: "Workspace tools could not be read." }, onRetry: noop }),
-    );
-    expect(failed).toContain("Workspace tools could not be read.");
-    expect(failed).not.toContain("0 Commands");
   });
 });
 

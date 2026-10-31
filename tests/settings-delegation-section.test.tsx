@@ -8,33 +8,17 @@ describe("Settings → Providers → Delegation", () => {
 
   test("names the capability that has no arming control", () => {
     // Delegation is the one agent-driven capability with no pill to discover,
-    // so the card has to say what it is and how it is triggered.
+    // so the card says what it is and how it is triggered.
     expect(html).toContain("Delegated tasks");
     expect(html).toContain("There is no switch to turn on");
-    expect(html).toContain("stave_delegate_task");
-    expect(html).toContain("There is no button");
   });
 
-  test("lists every parameter with whether it is required", () => {
-    for (const parameter of [
-      "prompt",
-      "access",
-      "provider",
-      "lifecycle",
-      "workspace",
-      "model",
-      "effort",
-    ]) {
-      expect(html).toContain(parameter);
-    }
-    expect(html).toContain("required");
-    expect(html).toContain("optional");
-    // The defaults matter more than the names: an omitted effort or provider
-    // is the case users hit without realising they made a choice.
-    expect(html).toContain("Defaults to this task&#x27;s effort on the same provider, otherwise medium");
-    expect(html).toContain("Defaults to the agent&#x27;s fixed or preferred provider, else this task&#x27;s provider");
-    expect(html).toContain("read-only for second opinions");
-    expect(html).not.toContain("permissionProfile");
+  test("keeps the helper limits and drops the parameter reference", () => {
+    expect(html).toContain('data-testid="team-limit-concurrentHelpers"');
+    expect(html).toContain('data-testid="team-limit-totalHelpers"');
+    expect(html).not.toContain("stave_delegate_task");
+    expect(html).not.toContain("Asking for one");
+    expect(html).not.toContain("read-only for second opinions");
   });
 
   test("reports availability per provider rather than claiming readiness", () => {

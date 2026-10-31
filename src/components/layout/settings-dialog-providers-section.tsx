@@ -47,8 +47,6 @@ import {
   type ExplainedSelectOption,
 } from "./settings-dialog-effort-help";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
-import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
-import type { SectionId } from "./settings-dialog.schema";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
 import { useSettingsProviderTab } from "./settings-provider-visibility";
 import { DescribedSelect } from "./settings-dialog-described-select";
@@ -163,9 +161,7 @@ const CODEX_WEB_SEARCH_HELP = [
   NonNullable<ProviderRuntimeOptions["codexWebSearch"]>
 >[];
 
-export function ProvidersSection(props: {
-  onNavigateSection?: (id: SectionId) => void;
-}) {
+export function ProvidersSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
     claudeSandboxCredentialFiles,
@@ -399,7 +395,6 @@ export function ProvidersSection(props: {
                 />
               </LabeledField>
               </ScopeLocked>
-              <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
               <ScopeLocked>
               <SwitchField
                 title={t("settingsProviders:providersSection.claudeRuntime.agentProgressSummaries.title")}
@@ -596,7 +591,6 @@ export function ProvidersSection(props: {
               titleAccessory={<CodexModeBadge />}
             >
               <CodexPermissionPostureFields />
-              <ProviderDefaultsLink onNavigateSection={props.onNavigateSection} />
               <ScopeLocked>
               <LabeledField
                 title={t("settingsProviders:providersSection.codexRuntime.reasoningSummary.title")}
@@ -710,17 +704,17 @@ export function ProvidersSection(props: {
         </TabsContent>
         {providerTab.providerIds.includes("cursor") ? (
           <TabsContent value="cursor">
-            <SettingsCursorSection onNavigateSection={props.onNavigateSection} />
+            <SettingsCursorSection />
           </TabsContent>
         ) : null}
         {providerTab.providerIds.includes("kiro") ? (
           <TabsContent value="kiro">
-            <SettingsKiroSection onNavigateSection={props.onNavigateSection} />
+            <SettingsKiroSection />
           </TabsContent>
         ) : null}
         {providerTab.providerIds.includes("opencode") ? (
           <TabsContent value="opencode">
-            <SettingsOpenCodeSection onNavigateSection={props.onNavigateSection} />
+            <SettingsOpenCodeSection />
           </TabsContent>
         ) : null}
       </Tabs>

@@ -293,10 +293,11 @@ for (const themeMode of ["light", "dark"] as const) {
     await shot(page, testInfo, `settings-accounts-${themeMode}`);
 
     await settings.getByRole("tab", { name: "Tooling", exact: true }).click();
-    await expect(settings.getByText("Accounts and API connections moved to Settings > Accounts.")).toBeVisible();
+    await expect(settings.getByRole("heading", { name: "Native Tooling Status" })).toBeVisible();
     await expect(settings.getByText("Company gateway")).toHaveCount(0);
     await shot(page, testInfo, `settings-tooling-${themeMode}`);
-    await settings.getByRole("button", { name: "Open Accounts" }).click();
+    // Accounts is the neighbouring tab, so Tooling carries no pointer back to it.
+    await settings.getByRole("tab", { name: "Accounts", exact: true }).click();
     await expect(settings.getByRole("heading", { name: "Getting started" })).toBeVisible();
   });
 
@@ -553,7 +554,7 @@ for (const failure of ["fail", "throw"] as const) {
   });
 }
 
-test("Go to sign-in lands on a CLI-managed provider's row when it is the one to sign in to", async ({ page }) => {
+test("Go to sign-in lands on a CLI-managed provider's row when it is the one to sign in to", async ({ page }, testInfo) => {
   await seedAccounts(page, {
     themeMode: "light", withRepository: true, claudeSignedIn: false, claudeInstalled: false, codexInstalled: false,
     withConnection: false, openCodeReady: false, kiroSignedOut: true,
@@ -564,7 +565,15 @@ test("Go to sign-in lands on a CLI-managed provider's row when it is the one to 
   const settings = await openSettingsSection(page, "Accounts");
   await expect(settings.getByRole("list", { name: "Getting started" }).getByRole("button", { name: "How to sign in to Kiro CLI" })).toBeVisible({ timeout: 20_000 });
   await settings.locator('[data-billing-choice="subscription"]').getByRole("button", { name: "Go to sign-in" }).click();
-  await expect(settings.locator("#settings-field-cli-provider-kiro").getByRole("button", { name: "Copy Login Command" })).toBeFocused();
+  const kiroRow = settings.locator("#settings-field-cli-provider-kiro");
+  await expect(kiroRow.getByRole("button", { name: "Copy Login Command" })).toBeFocused();
+  // Kiro's provider tab stays hidden until it signs in, so its row carries the CLI path, folded.
+  const pathToggle = kiroRow.getByRole("button", { name: "CLI path" });
+  await expect(pathToggle).toHaveAttribute("aria-expanded", "false");
+  await pathToggle.click();
+  await expect(kiroRow.getByRole("textbox", { name: "Kiro CLI path" })).toBeVisible();
+  await page.waitForTimeout(400);
+  await shot(page, testInfo, "settings-accounts-cli-path-light");
 });
 
 for (const themeMode of ["light", "dark"] as const) {

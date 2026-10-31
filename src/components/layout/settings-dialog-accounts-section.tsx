@@ -28,7 +28,7 @@ import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
 import { DraftInput, LabeledField, SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
 import { accountsSectionStyles as styles } from "./settings-dialog-accounts-section.styles";
-import { optionalProviderSetup, useOptionalProviderPaths } from "./settings-provider-visibility";
+import { optionalProviderSetup, useOptionalProviderPaths, useSettingsVisibleProviderIds } from "./settings-provider-visibility";
 import { useAppStore } from "@/store/app.store";
 
 /** About one second of frames, for targets that mount after the section. */
@@ -143,8 +143,16 @@ function cliManagedStatus(tool: ToolingStatusEntry) {
   }
 }
 
-/** An installed CLI: its sign-in state and the command that signs in. */
-function CliManagedProviderRow({ providerId, tool }: { providerId: CliManagedProviderId; tool: ToolingStatusEntry }) {
+/**
+ * An installed CLI: its sign-in state and the command that signs in. While its
+ * provider tab is hidden (not signed in yet), the row also carries the CLI
+ * path, which otherwise lives in that tab.
+ */
+function CliManagedProviderRow({ providerId, tool, path }: {
+  providerId: CliManagedProviderId;
+  tool: ToolingStatusEntry;
+  path?: { open: boolean; onOpenChange: (open: boolean) => void };
+}) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const status = cliManagedStatus(tool);
   const name = getProviderLabel({ providerId, variant: "full" });
@@ -165,6 +173,16 @@ function CliManagedProviderRow({ providerId, tool }: { providerId: CliManagedPro
     <span className={sx(styles.rowActions)}>
       <Button size="sm" variant="outline" onClick={copy}><Copy aria-hidden />{t("settingsProviders:toolingSection.actions.copyLoginCommand")}</Button>
     </span>
+    {path ? <div className={sx(styles.rowPath)} data-cli-path={providerId}>
+      <SettingsAdvancedDisclosure
+        compact
+        open={path.open}
+        onOpenChange={path.onOpenChange}
+        title={t("settingsConnections:accountsSection.cliManaged.pathDisclosure")}
+      >
+        <CliPathField providerId={providerId} installed />
+      </SettingsAdvancedDisclosure>
+    </div> : null}
   </li>;
 }
 
@@ -183,17 +201,24 @@ function CliCheckingRow({ providerIds }: { providerIds: readonly CliManagedProvi
   </li>;
 }
 
-/** Where Stave looks for a CLI that was not found, for an install outside the usual places. */
-function CliPathField({ providerId }: { providerId: CliManagedProviderId }) {
+/**
+ * Where Stave looks for a CLI, for an install outside the usual places. A CLI
+ * that was not found makes the field the deep-link target; an installed CLI's
+ * row already is one, so the field inside it carries no id.
+ */
+function CliPathField({ providerId, installed = false }: { providerId: CliManagedProviderId; installed?: boolean }) {
   const { t } = useTranslation(I18N_NAMESPACES);
   const setting = CLI_PATH_SETTING[providerId];
   const value = useAppStore((state) => state.settings[setting.key]);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const name = getProviderLabel({ providerId, variant: "full" });
-  return <div id={cliProviderFieldId(providerId)} tabIndex={-1} data-focus-first-control="" data-cli-provider={providerId}>
+  const target = installed ? {} : { id: cliProviderFieldId(providerId), tabIndex: -1, "data-focus-first-control": "", "data-cli-provider": providerId };
+  return <div {...target}>
     <LabeledField
       title={name}
-      description={t("settingsConnections:accountsSection.cliManaged.installHint", { value1: name })}
+      description={installed
+        ? t("settingsConnections:accountsSection.cliManaged.pathHint", { value1: name })
+        : t("settingsConnections:accountsSection.cliManaged.installHint", { value1: name })}
     >
       <DraftInput
         xstyle={styles.pathInput}
@@ -242,9 +267,12 @@ function CliManagedProviderAccounts() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const readiness = useProviderReadinessStore((state) => state.providers);
   const runtimeOptions = useOptionalProviderPaths();
+  const visible = useSettingsVisibleProviderIds();
   const focus = useSettingsFocusRequest((state) => state.focus);
-  // Owned here so the group keeps its state while a CLI is checked again.
+  // Owned here so the group and the path fields keep their state while a CLI
+  // is checked again (its row turns into the checking row meanwhile).
   const [missingOpen, setMissingOpen] = useState(false);
+  const [pathOpen, setPathOpen] = useState<Partial<Record<CliManagedProviderId, boolean>>>({});
   const installed: { providerId: CliManagedProviderId; tool: ToolingStatusEntry }[] = [];
   const checking: CliManagedProviderId[] = [];
   const missing: CliManagedProviderId[] = [];
@@ -264,7 +292,15 @@ function CliManagedProviderAccounts() {
     description={t("settingsConnections:accountsSection.cliManaged.description")}
   >
     <ul className={sx(styles.list)}>
-      {installed.map(({ providerId, tool }) => <CliManagedProviderRow key={providerId} providerId={providerId} tool={tool} />)}
+      {installed.map(({ providerId, tool }) => <CliManagedProviderRow
+        key={providerId}
+        providerId={providerId}
+        tool={tool}
+        path={visible.includes(providerId) ? undefined : {
+          open: pathOpen[providerId] ?? false,
+          onOpenChange: (open) => setPathOpen((current) => ({ ...current, [providerId]: open })),
+        }}
+      />)}
       {checking.length > 0 ? <CliCheckingRow providerIds={checking} /> : null}
       {missing.length > 0 ? <CliNotInstalledGroup providerIds={missing} open={missingOpen} onOpenChange={setMissingOpen} /> : null}
     </ul>

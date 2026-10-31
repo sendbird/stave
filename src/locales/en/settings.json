@@ -111,6 +111,10 @@
         "title": "Information Panel Scale",
         "description": "Zoom level for the workspace information panel. Affects text, icons, buttons, and spacing uniformly.",
         "ariaLabel": "Information panel scale"
+      },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "Mono and Korean font families and the Information panel scale. Saved values apply even while this is collapsed."
       }
     },
     "behavior": {
@@ -260,6 +264,10 @@
     "designTokens": {
       "title": "Design Tokens",
       "description": "These are Stave's base light and dark tokens. Custom presets layer on top, and manual overrides below still win.",
+      "editor": {
+        "title": "Edit token values",
+        "description": "Override single light or dark tokens. Saved overrides apply even while this is collapsed."
+      },
       "lightTokens": "Light Tokens",
       "darkTokens": "Dark Tokens",
       "resetLight": "Reset light",
@@ -302,6 +310,10 @@
       "enable": {
         "title": "Enable LSP Runtime",
         "description": "Uses Electron-managed stdio language-server sessions per active workspace. Keep this off if you only want Monaco's built-in syntax support."
+      },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "Language server commands. Leave them empty to find the servers on PATH. Saved values apply even while this is collapsed."
       },
       "typescript": {
         "title": "TypeScript LSP Command",
@@ -386,6 +398,10 @@
         "title": "Heuristic Search",
         "description": "AI uses class names, text content, and IDs to search for source files via grep. Recommended for most repositories."
       },
+      "advanced": {
+        "title": "Advanced options",
+        "description": "React debug source mapping for development builds. Saved values apply even while this is collapsed."
+      },
       "reactDebugSource": {
         "description": "Extract exact file and line number from React fiber internals. Only works with dev builds that include @babel/plugin-transform-react-jsx-source (enabled by default in Vite React plugin, CRA, and Next.js dev)."
       }
@@ -401,6 +417,10 @@
     "developerMode": {
       "title": "Developer Mode",
       "description": "Control CDP-backed Lens actions such as screenshots, JavaScript evaluation, and agent page control. Approval prompts appear app-wide, even when the Lens panel is closed.",
+      "advanced": {
+        "title": "Advanced options",
+        "description": "CDP tools and approved CDP hosts. Saved values apply even while this is collapsed."
+      },
       "cdpTools": {
         "title": "CDP Tools",
         "description": "Ask before the first CDP action for each host. Allow once is temporary; always allow saves the hostname below."
@@ -439,11 +459,6 @@
       "codexEffort": {
         "title": "Codex Effort",
         "description": "Default reasoning effort applied to new Codex turns."
-      },
-      "utility": {
-        "title": "Utility model",
-        "description": "Task names, commit messages and prompt enhancement use the utility model set in Background AI. Auto and Agents use the separate Routing decision model in Auto settings.",
-        "action": "Open Background AI"
       },
       "cursorModel": {
         "ariaLabel": "Cursor default model"
@@ -573,15 +588,6 @@
         "resetToDefault": "Reset to default"
       },
       "skillPreviewNote": "Skill precedence depends on the reviewer and workspace. Confirm the resolved instructions in the Review dialog."
-    },
-    "prePr": {
-      "title": "Pre-PR Review",
-      "description": "Run a best-effort one-shot AI review before Stave pushes a branch and opens a pull request.",
-      "link": {
-        "title": "Moved to Background AI",
-        "description": "Turn pre-PR review on or off and choose its provider and model in Settings → Background AI.",
-        "action": "Open Background AI"
-      }
     }
   },
   "repositoriesSection": {
@@ -656,21 +662,6 @@
         "description": "Removes this repository from Stave's registered repository list without deleting files on disk.",
         "button": "Remove repository"
       }
-    },
-    "workspaceTools": {
-      "title": "Workspace Tools",
-      "description": "One-shot commands, long-running processes, lifecycle triggers, and execution environments for this repository.",
-      "manage": "Manage workspace tools",
-      "commandCount_one": "{{count}} Command",
-      "commandCount_other": "{{count}} Commands",
-      "processCount_one": "{{count}} Process",
-      "processCount_other": "{{count}} Processes",
-      "triggerCount_one": "{{count}} Trigger",
-      "triggerCount_other": "{{count}} Triggers",
-      "environmentCount_one": "{{count}} Environment",
-      "environmentCount_other": "{{count}} Environments",
-      "footer": "Configure and run them from the dedicated Workspace Tools section.",
-      "readFailed": "Workspace tools could not be read."
     },
     "empty": {
       "title": "No Repositories Yet",
@@ -1018,11 +1009,11 @@
     },
     "chat": {
       "label": "Chat",
-      "description": "Task mode, chat typography, streaming, reasoning, and active-turn behavior."
+      "description": "Chat typography, streaming, reasoning, composer controls, and active-turn behavior."
     },
     "providers": {
       "label": "Providers",
-      "description": "Claude, Codex, Cursor, Kiro and OpenCode provider runtime settings."
+      "description": "Runtime permissions and behavior for each provider."
     },
     "models": {
       "label": "Models",
@@ -1066,7 +1057,7 @@
     },
     "mentions": {
       "label": "Mentions",
-      "description": "What each @ mention does in a prompt, and how far Stave acts without one."
+      "description": "Choose when the agent may use your Chrome, including prompts without @web."
     },
     "commandPalette": {
       "label": "Keyboard & Commands",
@@ -1340,10 +1331,7 @@
     "removesThisRepositoryFromStaveApos": "Removes this repository from Stave's registered repository list without deleting files on disk.",
     "configureAndRunThemFromThe": "Configure and run them from the dedicated",
     "section": "section.",
-    "removeFromStaveSRepositoryList": "Remove \"{{value1}}\" from Stave's repository list? This does not delete files on disk.",
-    "processes": "Processes",
-    "triggers": "Triggers",
-    "environments": "Environments"
+    "removeFromStaveSRepositoryList": "Remove \"{{value1}}\" from Stave's repository list? This does not delete files on disk."
   },
   "settingsDialogReviewCards": {
     "defaultModel": "Default model ({{value1}})",
@@ -1434,8 +1422,6 @@
     "theKeptCandidateIsNoLonger": "The kept candidate is no longer part of this run."
   },
   "whole": {
-    "delegationGuide": "There is no button: delegation happens when an agent calls <code>stave_delegate_task</code> during its turn. Ask for it, for example <em>“get a read-only second opinion on this plan from Codex at high effort”</em>. Only the prompt is required. Omitted parameters follow this task’s provider, effort and permissions. The child runs one turn in this workspace; Settings has no global delegation defaults.",
-    "delegationActivity": "Once a delegation starts, its child appears in the task’s turn activity with Open, Follow-up, Stop, Detach and Retry controls.",
     "themeImport": "Drop a <file>.theme.json</file> file to install a community theme. The JSON must include <id>id</id>, <name>name</name>, <mode>baseMode</mode>, and a <tokens>tokens</tokens> map.",
     "commandContributors": "Use <code>registerCommandPaletteContributor()</code> to inject additional commands. Core Stave commands are customizable here; dynamic workspace/task entries and future contributed commands inherit the same execution surface automatically.",
     "lensHostScope": "Enter a hostname or URL. Ports and paths are ignored, so <host>localhost</host> covers <portA>localhost:3000</portA>, <portB>localhost:8899</portB>, and other localhost ports.",
@@ -1479,29 +1465,6 @@
       }
     }
   },
-  "mentionsSection": {
-    "title": "Prompt mentions",
-    "description": "Type @ in the prompt input to add one. Each mention adds context or a capability to that turn only.",
-    "alwaysAvailable": "Always available",
-    "webStatus": {
-      "explicit": "Only with @web",
-      "auto": "Lens first",
-      "always": "Always on"
-    },
-    "web": {
-      "name": "Your Chrome",
-      "description": "Attaches the active provider's native Chrome connection so the agent can read existing tabs and signed-in pages. Choose below whether the agent may use it without @web."
-    },
-    "lens": {
-      "name": "Lens page",
-      "description": "Adds the current Lens page URL and title. The agent can use Lens tools to check this project's UI without @lens.",
-      "action": "Lens settings"
-    },
-    "info": {
-      "name": "Information panel",
-      "description": "Adds a section or item from the workspace Information panel. Use @info:<section> for a whole section or @info:<section>/<item> for one item."
-    }
-  },
   "duration": {
     "seconds_one": "{{count}} second",
     "seconds_other": "{{count}} seconds",
@@ -1514,7 +1477,6 @@
     "currentChord": "Current chord: {{shortcut}}.",
     "modelSlot": "Model Slot {{slot}}",
     "defaultBranch": "default: {{branch}}",
-    "workspaceToolsLink": "Configure and run them from the dedicated {{section}} section.",
     "skillsUpdated": "Last updated {{updatedAt}}",
     "resetMode": "Reset {{mode}}",
     "userThemesTotal": "{{count}} / {{max}} user themes",

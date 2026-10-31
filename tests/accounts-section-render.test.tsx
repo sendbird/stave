@@ -129,10 +129,47 @@ describe("Settings > Accounts", () => {
     }
   });
 
-  test("Tooling keeps CLI status and points accounts to their new place", () => {
-    const html = render(createElement(ToolingSection, { onNavigateSection: () => {} }));
-    expect(html).toContain("Accounts and API connections moved to Settings > Accounts.");
-    expect(html).toContain("Open Accounts");
+  test("CLI-managed sign-in: an installed CLI without a provider tab keeps its path in a closed disclosure", async () => {
+    const { useAppStore } = await import("@/store/app.store");
+    const appInitial = useAppStore.getInitialState();
+    const readinessInitial = useProviderReadinessStore.getInitialState();
+    const previousAvailability = appInitial.providerAvailability;
+    const previous = readinessInitial.providers;
+    const entry = (value: ToolingStatusEntry) => ({ tool: value, configurationKey: "", checkedAt: 1, generation: 1, stale: false });
+    appInitial.providerAvailability = { ...previousAvailability, kiro: true, opencode: true };
+    readinessInitial.providers = {
+      cursor: entry({ ...tool("cursor", "unknown"), state: "warning", available: false }),
+      kiro: entry({ ...tool("kiro", "unauthenticated"), state: "warning" }),
+      opencode: entry(tool("opencode", "not-required")),
+    };
+    try {
+      const raw = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(AccountsSection)));
+      // Kiro is installed but signed out, so its provider tab (and the path there) is hidden.
+      const kiroPath = raw.indexOf('data-cli-path="kiro"');
+      expect(kiroPath).toBeGreaterThan(-1);
+      const panel = raw.slice(kiroPath);
+      expect(panel).toContain('aria-label="Kiro CLI path"');
+      expect(panel).toContain('placeholder="kiro-cli"');
+      // The disclosure starts closed: its trigger is collapsed and its region hidden.
+      const trigger = panel.slice(panel.indexOf("<button"), panel.indexOf("</button>"));
+      expect(trigger).toContain('aria-expanded="false"');
+      expect(trigger).toContain("CLI path");
+      const regionAt = panel.indexOf('role="region"');
+      expect(panel.slice(panel.slice(0, regionAt).lastIndexOf("<div"), regionAt)).toContain('hidden=""');
+      // The path field is inside the row, so the row stays the only deep-link target.
+      expect(raw.split('id="settings-field-cli-provider-kiro"').length).toBe(2);
+      // OpenCode needs no Stave sign-in, so its tab shows and owns the path.
+      expect(raw).not.toContain('data-cli-path="opencode"');
+    } finally {
+      appInitial.providerAvailability = previousAvailability;
+      readinessInitial.providers = previous;
+    }
+  });
+
+  test("Tooling shows CLI status only, without a pointer back to Accounts", () => {
+    const html = render(createElement(ToolingSection));
+    expect(html).not.toContain("moved to Settings > Accounts");
+    expect(html).not.toContain("Open Accounts");
     expect(html).toContain("Native Tooling Status");
     expect(html).not.toContain("Claude accounts");
     expect(html).not.toContain("Add a connection");

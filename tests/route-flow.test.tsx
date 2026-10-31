@@ -189,6 +189,45 @@ describe("RouteFlow", () => {
   });
 });
 
+describe("RouteFlow unavailable providers", () => {
+  function renderWith(args: { availability: RouterSignals["providerAvailability"]; ruleProvider?: "cursor" }) {
+    const profile = buildRouteFlowProfile();
+    if (args.ruleProvider) {
+      profile.rules = profile.rules.map((rule) =>
+        rule.id === "plan" ? { ...rule, then: { providerId: args.ruleProvider! } } : rule,
+      );
+    }
+    const { signals: computed } = computeRouterSignals({
+      prompt: PLAN_PROMPT,
+      fileContextCount: 0,
+      history: [],
+      currentProviderId: "claude-code",
+      profile,
+      phase: "plan",
+    });
+    const signals = { ...computed, providerAvailability: args.availability };
+    const route = resolveRoute({ profile, role: "primary", signals });
+    return renderToStaticMarkup(
+      createElement(RouteFlow, { profile, signals, route, role: "primary", summary: summarizeRouterSignals(signals) }),
+    );
+  }
+
+  test("omits providers that are not set up when the decision did not involve them", () => {
+    const html = renderWith({ availability: { cursor: false, kiro: false, opencode: false } });
+    expect(html).not.toContain('data-signal="providers"');
+  });
+
+  test("names a provider the matched rule asked for, and a managed provider's outage", () => {
+    const pinned = renderWith({ availability: { cursor: false, kiro: false, opencode: false }, ruleProvider: "cursor" });
+    const node = nodeHtml(pinned, 'data-signal="providers"');
+    expect(node).toContain("Cursor");
+    expect(node).not.toContain("Kiro");
+    const outage = renderWith({ availability: { codex: false, kiro: false } });
+    expect(nodeHtml(outage, 'data-signal="providers"')).toContain("Codex");
+    expect(nodeHtml(outage, 'data-signal="providers"')).not.toContain("Kiro");
+  });
+});
+
 describe("explainRuleMiss", () => {
   const baseSignals: RouterSignals = {
     taskClass: "implement",

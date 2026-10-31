@@ -736,7 +736,9 @@
       "loginHint": "Sign in in a terminal with {{value1}}.",
       "notInstalledGroup": "Not installed: {{names}}",
       "notInstalledDescription": "Install a CLI to use it here. If it is installed where Stave does not look, enter its path.",
-      "pathAriaLabel": "{{value1}} path"
+      "pathAriaLabel": "{{value1}} path",
+      "pathDisclosure": "CLI path",
+      "pathHint": "Leave blank to find it automatically. Enter a path if {{value1}} is installed where Stave does not look."
     },
     "help": "How accounts, subscriptions and gateway keys work:"
   },

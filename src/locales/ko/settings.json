@@ -109,6 +109,10 @@
         "title": "정보 패널 배율",
         "description": "워크스페이스 정보 패널의 확대 수준입니다. 텍스트, 아이콘, 버튼, 간격에 똑같이 적용됩니다.",
         "ariaLabel": "정보 패널 배율"
+      },
+      "advanced": {
+        "title": "고급 옵션",
+        "description": "고정폭·한국어 글꼴 패밀리와 정보 패널 배율입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
       }
     },
     "behavior": {
@@ -257,6 +261,10 @@
     "designTokens": {
       "title": "디자인 토큰",
       "description": "Stave의 기본 라이트 및 다크 토큰입니다. 사용자 지정 프리셋이 그 위에 적용되고, 아래에서 직접 덮어쓴 값이 여전히 우선합니다.",
+      "editor": {
+        "title": "토큰 값 편집",
+        "description": "라이트·다크 토큰을 하나씩 덮어씁니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
+      },
       "lightTokens": "라이트 토큰",
       "darkTokens": "다크 토큰",
       "resetLight": "라이트 초기화",
@@ -299,6 +307,10 @@
       "enable": {
         "title": "LSP 런타임 사용",
         "description": "활성 워크스페이스마다 Electron이 관리하는 stdio 언어 서버 세션을 사용합니다. Monaco의 기본 구문 지원만 원하면 꺼 두세요."
+      },
+      "advanced": {
+        "title": "고급 옵션",
+        "description": "언어 서버 명령입니다. 비워 두면 PATH에서 서버를 찾습니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
       },
       "typescript": {
         "title": "TypeScript LSP 명령",
@@ -383,6 +395,10 @@
         "title": "휴리스틱 검색",
         "description": "AI가 클래스 이름, 텍스트 내용, ID를 사용해 grep으로 소스 파일을 찾습니다. 대부분의 저장소에 권장합니다."
       },
+      "advanced": {
+        "title": "고급 옵션",
+        "description": "개발 빌드용 React 디버그 소스 매핑입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
+      },
       "reactDebugSource": {
         "description": "React fiber 내부 정보에서 정확한 파일과 줄 번호를 추출합니다. @babel/plugin-transform-react-jsx-source가 포함된 개발 빌드에서만 동작합니다(Vite React 플러그인, CRA, Next.js 개발 모드에서는 기본으로 켜져 있음)."
       }
@@ -398,6 +414,10 @@
     "developerMode": {
       "title": "개발자 모드",
       "description": "스크린샷, JavaScript 실행, 에이전트 페이지 제어 같은 CDP 기반 Lens 동작을 설정합니다. 승인 요청은 Lens 패널이 닫혀 있어도 앱 전체에 표시됩니다.",
+      "advanced": {
+        "title": "고급 옵션",
+        "description": "CDP 도구와 승인된 CDP 호스트입니다. 접혀 있어도 저장된 값은 그대로 적용됩니다."
+      },
       "cdpTools": {
         "title": "CDP 도구",
         "description": "호스트마다 첫 CDP 동작 전에 확인합니다. 한 번 허용은 일시적이며, 항상 허용은 아래에 호스트 이름을 저장합니다."
@@ -436,11 +456,6 @@
       "codexEffort": {
         "title": "Codex 추론 강도",
         "description": "새 Codex 턴에 적용할 기본 추론 강도입니다."
-      },
-      "utility": {
-        "title": "유틸리티 모델",
-        "description": "작업 이름, 커밋 메시지와 프롬프트 개선은 백그라운드 AI에서 설정한 유틸리티 모델을 사용합니다. Auto와 Agent는 Auto 설정의 별도 라우팅 판단 모델을 사용합니다.",
-        "action": "백그라운드 AI 열기"
       },
       "cursorModel": {
         "ariaLabel": "Cursor 기본 모델"
@@ -570,15 +585,6 @@
         "resetToDefault": "기본값으로 재설정"
       },
       "skillPreviewNote": "스킬 우선순위는 리뷰어와 워크스페이스에 따라 달라집니다. 리뷰 대화상자에서 실제 적용될 지침을 확인하세요."
-    },
-    "prePr": {
-      "title": "PR 전 리뷰",
-      "description": "Stave가 브랜치를 푸시하고 풀 리퀘스트를 열기 전에 일회성 AI 리뷰를 최대한 실행합니다.",
-      "link": {
-        "title": "백그라운드 AI로 이동함",
-        "description": "PR 전 리뷰를 켜거나 끄고 프로바이더와 모델을 고르는 설정은 설정 → 백그라운드 AI에 있습니다.",
-        "action": "백그라운드 AI 열기"
-      }
     }
   },
   "repositoriesSection": {
@@ -651,17 +657,6 @@
         "description": "디스크의 파일은 삭제하지 않고 Stave에 등록된 저장소 목록에서 이 저장소를 제거합니다.",
         "button": "저장소 제거"
       }
-    },
-    "workspaceTools": {
-      "title": "워크스페이스 도구",
-      "description": "이 저장소의 일회성 명령, 장기 실행 프로세스, 수명 주기 트리거, 실행 환경입니다.",
-      "manage": "워크스페이스 도구 관리",
-      "commandCount_other": "명령 {{count}}개",
-      "processCount_other": "프로세스 {{count}}개",
-      "triggerCount_other": "트리거 {{count}}개",
-      "environmentCount_other": "환경 {{count}}개",
-      "footer": "전용 워크스페이스 도구 섹션에서 구성하고 실행합니다.",
-      "readFailed": "워크스페이스 도구를 읽지 못했습니다."
     },
     "empty": {
       "title": "등록된 저장소 없음",
@@ -1004,11 +999,11 @@
     },
     "chat": {
       "label": "채팅",
-      "description": "작업 모드, 채팅 글꼴, 스트리밍, 추론, 진행 중인 턴의 동작을 설정합니다."
+      "description": "채팅 글꼴, 스트리밍, 추론, 입력창 컨트롤, 진행 중인 턴의 동작을 설정합니다."
     },
     "providers": {
       "label": "프로바이더",
-      "description": "Claude, Codex, Cursor, Kiro, OpenCode 프로바이더의 런타임 설정입니다."
+      "description": "프로바이더별 런타임 권한과 동작을 설정합니다."
     },
     "models": {
       "label": "모델",
@@ -1052,7 +1047,7 @@
     },
     "mentions": {
       "label": "멘션",
-      "description": "프롬프트의 @ 멘션별 동작과, 멘션 없이 Stave가 어디까지 처리할지 설정합니다."
+      "description": "에이전트가 Chrome을 언제 쓸 수 있는지 정합니다. @web 없이 쓰게 할 수도 있습니다."
     },
     "commandPalette": {
       "label": "키보드 및 명령",
@@ -1326,10 +1321,7 @@
     "removesThisRepositoryFromStaveApos": "디스크의 파일을 삭제하지 않고 Stave의 등록된 저장소 목록에서 제거합니다.",
     "configureAndRunThemFromThe": "설정 및 실행은 전용 화면에서 할 수 있습니다.",
     "section": "섹션.",
-    "removeFromStaveSRepositoryList": "Stave의 저장소 목록에서 \"{{value1}}\" 항목을 제거하시겠습니까? 디스크의 파일은 삭제하지 않습니다.",
-    "processes": "프로세스",
-    "triggers": "트리거",
-    "environments": "환경"
+    "removeFromStaveSRepositoryList": "Stave의 저장소 목록에서 \"{{value1}}\" 항목을 제거하시겠습니까? 디스크의 파일은 삭제하지 않습니다."
   },
   "settingsDialogReviewCards": {
     "defaultModel": "기본 모델 ({{value1}})",
@@ -1420,8 +1412,6 @@
     "theKeptCandidateIsNoLonger": "유지한 후보가 더 이상 이 실행에 속하지 않습니다."
   },
   "whole": {
-    "delegationGuide": "별도의 버튼은 없습니다. 에이전트가 턴 중에 <code>stave_delegate_task</code> 도구를 호출하면 위임이 시작됩니다. 예를 들어 <em>“Codex가 높은 추론 수준으로 이 계획을 읽기 전용으로 검토하게 해줘”</em>라고 요청할 수 있습니다. 프롬프트만 필수이며 생략한 값은 이 작업의 프로바이더, 추론 수준과 권한을 따릅니다. 하위 에이전트는 이 워크스페이스에서 한 턴을 실행하며 설정에는 위임의 전역 기본값이 없습니다.",
-    "delegationActivity": "위임이 시작되면 작업의 턴 활동에 하위 에이전트가 표시되며 열기, 후속 요청, 중지, 분리 및 재시도 기능을 사용할 수 있습니다.",
     "themeImport": "<file>.theme.json</file> 파일을 놓으면 커뮤니티 테마를 설치합니다. JSON에는 <id>id</id>, <name>name</name>, <mode>baseMode</mode> 및 <tokens>tokens</tokens> 맵이 필요합니다.",
     "commandContributors": "<code>registerCommandPaletteContributor()</code> 함수로 명령을 추가할 수 있습니다. 여기서 Stave의 기본 명령을 설정하며 동적인 워크스페이스·작업 항목과 이후에 추가할 명령도 같은 실행 방식을 자동으로 사용합니다.",
     "lensHostScope": "호스트 이름 또는 URL을 입력합니다. 포트와 경로는 무시하므로 <host>localhost</host> 항목은 <portA>localhost:3000</portA>, <portB>localhost:8899</portB> 및 다른 localhost 포트에 적용합니다.",
@@ -1465,29 +1455,6 @@
       }
     }
   },
-  "mentionsSection": {
-    "title": "프롬프트 멘션",
-    "description": "프롬프트 입력창에 @를 입력해 추가합니다. 각 멘션은 해당 턴에만 컨텍스트나 기능을 더합니다.",
-    "alwaysAvailable": "항상 사용 가능",
-    "webStatus": {
-      "explicit": "@web 입력 시에만",
-      "auto": "Lens 우선",
-      "always": "항상 켜짐"
-    },
-    "web": {
-      "name": "내 Chrome",
-      "description": "활성 프로바이더의 Chrome 연결을 붙여 에이전트가 열려 있는 탭과 로그인된 페이지를 읽게 합니다. @web 없이도 사용할지는 아래에서 고릅니다."
-    },
-    "lens": {
-      "name": "Lens 페이지",
-      "description": "현재 Lens 페이지의 URL과 제목을 추가합니다. 이 프로젝트의 UI를 확인할 때는 @lens 없이도 에이전트가 Lens 도구를 사용합니다.",
-      "action": "Lens 설정"
-    },
-    "info": {
-      "name": "정보 패널",
-      "description": "워크스페이스 정보 패널의 섹션이나 항목을 추가합니다. 섹션 전체는 @info:<section>, 항목 하나는 @info:<section>/<item>으로 지정합니다."
-    }
-  },
   "duration": {
     "seconds_other": "{{count}}초",
     "minutes_other": "{{count}}분"
@@ -1498,7 +1465,6 @@
     "currentChord": "현재 키 조합: {{shortcut}}.",
     "modelSlot": "모델 슬롯 {{slot}}",
     "defaultBranch": "기본값: {{branch}}",
-    "workspaceToolsLink": "{{section}} 전용 섹션에서 설정하고 실행합니다.",
     "skillsUpdated": "마지막 업데이트: {{updatedAt}}",
     "resetMode": "{{mode}} 초기화",
     "userThemesTotal": "사용자 테마 {{count}} / {{max}}",

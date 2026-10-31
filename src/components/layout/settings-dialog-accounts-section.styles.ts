@@ -70,6 +70,11 @@ export const accountsSectionStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
+  /** An installed CLI's path disclosure, on its own line under the row. */
+  rowPath: {
+    flexBasis: "100%",
+    minInlineSize: 0,
+  },
   rowActions: {
     alignItems: "center",
     display: "flex",

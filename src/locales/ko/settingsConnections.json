@@ -727,7 +727,9 @@
       "loginHint": "터미널에서 {{value1}} 명령으로 로그인합니다.",
       "notInstalledGroup": "설치되지 않음: {{names}}",
       "notInstalledDescription": "CLI를 설치하면 여기서 쓸 수 있습니다. Stave가 찾지 않는 위치에 설치했다면 경로를 입력합니다.",
-      "pathAriaLabel": "{{value1}} 경로"
+      "pathAriaLabel": "{{value1}} 경로",
+      "pathDisclosure": "CLI 경로",
+      "pathHint": "비워 두면 자동으로 찾습니다. {{value1}} 설치 위치를 Stave가 찾지 못하면 경로를 입력합니다."
     },
     "help": "계정, 구독, 게이트웨이 키가 동작하는 방식:"
   },

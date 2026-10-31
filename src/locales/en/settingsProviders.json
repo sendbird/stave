@@ -441,11 +441,6 @@
         "description": "Reasoning summary support and raw reasoning output. Saved values apply even while this is collapsed."
       }
     },
-    "defaultsLink": {
-      "title": "Default Model and Effort",
-      "description": "Set for every provider in Models. A task can still change them from its composer.",
-      "action": "Open Models"
-    },
     "advanced": {
       "title": "Advanced options",
       "description": "Session resume, setting sources, plugin paths, and other expert controls. Saved values apply even while this is collapsed."
@@ -729,22 +724,6 @@
         "title": "Helper Agents per run",
         "description": "How many helper Agents one Agent run can call in total ({{min}}–{{max}}, default {{value}})."
       }
-    },
-    "asking": {
-      "heading": "Asking for one, and what you can specify",
-      "body": "There is no button: delegation happens when an agent calls<code>stave_delegate_task</code>during its turn, so you steer it by asking — for example <emphasis>“get a read-only second opinion on this plan from Codex at high effort”</emphasis>. Only the prompt is required: anything a delegation leaves out follows this task's provider, effort and permissions, and the child runs one turn in this workspace. Settings holds no global default for any of it.",
-      "required": "required",
-      "optional": "optional",
-      "controls": "Once a delegation starts, its child appears in the task's turn activity with Open, Follow-up, Stop, Detach and Retry controls."
-    },
-    "parameters": {
-      "prompt": "What the child should do.",
-      "access": "read-only for second opinions, reviews and research: the child cannot change files, needs no approvals, and runs beside other work in the same workspace. Defaults to inherit: this task's permissions on the same provider, otherwise that provider's user settings.",
-      "provider": "Claude or Codex. Defaults to the agent's fixed or preferred provider, else this task's provider.",
-      "lifecycle": "Saved Agent assignments default to supervised completion within 30 turns. Model-only work defaults to one-turn. Explicit one-turn ends after the first turn; detached stays open for follow-ups until stopped.",
-      "workspace": "Defaults to the same workspace. A new worktree on its own branch keeps edits isolated.",
-      "model": "Defaults to the child provider's default model.",
-      "effort": "low → max (Codex also has ultra), clamped to what the child's model accepts. Defaults to this task's effort on the same provider, otherwise medium. A bounded brief often does better on a cheaper model at high effort."
     }
   },
   "modelVisibility": {
@@ -813,11 +792,6 @@
       "openedInTerminal": "Opened workspace in terminal",
       "commandCopied": "{{tool}} command copied",
       "copyCommandFailed": "Failed to copy command"
-    },
-    "accountsMoved": {
-      "title": "Accounts and API connections",
-      "body": "Accounts and API connections moved to Settings > Accounts.",
-      "action": "Open Accounts"
     },
     "accountAccess": {
       "unavailable": "{{label}} is signed in, but no usable account allowance is available. Check the account plan or credits, then retry.",

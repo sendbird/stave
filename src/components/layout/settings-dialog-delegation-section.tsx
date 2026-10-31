@@ -1,4 +1,4 @@
-import { I18N_NAMESPACES, Trans, useTranslation, i18n } from "@/i18n";
+import { I18N_NAMESPACES, useTranslation, i18n } from "@/i18n";
 import { Badge } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -16,65 +16,6 @@ import {
 } from "@/lib/providers/model-catalog";
 import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 
-/**
- * Each knob a delegation carries, and what it does when the agent leaves it
- * out. This is a *reference*, not a form: delegation parameters are per call,
- * and what a call leaves out follows the delegating task — its provider,
- * effort and permissions, which the agent can see — never a global default
- * hidden from the agent when it decides what to ask for.
- */
-const DELEGATION_PARAMETERS: ReadonlyArray<{
-  name: string;
-  required: boolean;
-  detail: string;
-}> = [
-  {
-    name: "prompt",
-    required: true,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.prompt"); },
-  },
-  {
-    name: "access",
-    required: false,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.access"); },
-  },
-  {
-    name: "provider",
-    required: false,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.provider"); },
-  },
-  {
-    name: "lifecycle",
-    required: false,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.lifecycle"); },
-  },
-  {
-    name: "workspace",
-    required: false,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.workspace"); },
-  },
-  {
-    name: "model",
-    required: false,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.model"); },
-  },
-  {
-    name: "effort",
-    required: false,
-    get detail() { return i18n.t("settingsProviders:delegationSection.parameters.effort"); },
-  },
-];
-
-/**
- * Delegation is the one capability here with no arming control: the agent
- * decides to delegate, mid-turn, from the tools it was given. That makes it
- * invisible until it happens — a user who never hears the words "delegated task"
- * has no way to learn the feature exists, and no way to tell a broken Local MCP
- * link from an agent that simply chose not to delegate.
- *
- * So this card is deliberately read-only. It answers the two questions the
- * absent UI leaves open: what can be asked for, and would it work right now.
- */
 /**
  * How many helper Agents one Agent run can call. A run freezes these when it
  * starts, beside its shared turn budget (its max turns), so a change applies
@@ -109,6 +50,12 @@ function TeamLimitFields() {
   ));
 }
 
+/**
+ * Delegation has no arming control: the agent decides to delegate mid-turn
+ * from the tools it was given. The card says whether that would work right
+ * now per provider, so a broken Local MCP link is not mistaken for an agent
+ * that chose not to delegate, and holds the helper limits for Agent runs.
+ */
 export function SettingsDelegationSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const providerIds = listProviderIdsForCapability({
@@ -200,26 +147,6 @@ export function SettingsDelegationSection() {
       </div>
 
       <TeamLimitFields />
-
-      <div className={sx(delegationStyles.panel)}>
-        <p className={sx(delegationStyles.panelHeading)}>
-          {t("settingsProviders:delegationSection.asking.heading")}</p>
-        <p className={sx(delegationStyles.paragraphTight)}><Trans t={t} i18nKey="settings:whole.delegationGuide" components={{ code: <code className={sx(delegationStyles.code)} />, em: <span className={sx(delegationStyles.emphasis)} /> }} /></p>
-        <ul className={sx(delegationStyles.detailList)}>
-          {DELEGATION_PARAMETERS.map((parameter) => (
-            <li key={parameter.name}>
-              <code className={sx(delegationStyles.codeInline)}>
-                {parameter.name}
-              </code>{" "}
-              <span className={sx(delegationStyles.requiredTag)}>
-                {parameter.required ? i18n.t("settingsProviders:delegationSection.asking.required") : i18n.t("settingsProviders:delegationSection.asking.optional")}
-              </span>{" "}
-              — {parameter.detail}
-            </li>
-          ))}
-        </ul>
-        <p className={sx(delegationStyles.paragraphSpaced)}>{t("settings:whole.delegationActivity")}</p>
-      </div>
     </SettingsCard>
   );
 }

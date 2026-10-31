@@ -76,16 +76,12 @@ async function resetStore() {
   useAppStore.setState(useAppStore.getInitialState());
 }
 
-async function renderProviders(args: { navigable: boolean }) {
+async function renderProviders() {
   await resetStore();
   const { ProvidersSection } = await import(
     "../src/components/layout/settings-dialog-providers-section"
   );
-  return renderToStaticMarkup(
-    createElement(ProvidersSection, {
-      onNavigateSection: args.navigable ? () => {} : undefined,
-    }),
-  );
+  return renderToStaticMarkup(createElement(ProvidersSection));
 }
 
 async function renderModels() {
@@ -97,22 +93,17 @@ async function renderModels() {
 }
 
 describe("Providers settings after the Models consolidation", () => {
-  test("points to Models for default model and effort instead of repeating them", async () => {
-    const html = await renderProviders({ navigable: true });
-    expect(html).toContain("Default Model and Effort");
-    expect(html).toContain("Open Models");
+  test("neither repeats default model and effort nor links to Models for them", async () => {
+    const html = await renderProviders();
+    // Models is the next page in the sidebar; the provider tabs carry no pointer.
+    expect(html).not.toContain("Default Model and Effort");
+    expect(html).not.toContain("Open Models");
     // The Claude tab no longer carries its own default-effort select.
     expect(html).not.toContain(">Effort<");
   });
 
-  test("omits the navigation button when the host cannot switch sections", async () => {
-    const html = await renderProviders({ navigable: false });
-    expect(html).toContain("Default Model and Effort");
-    expect(html).not.toContain("Open Models");
-  });
-
   test("folds expert Claude controls into a collapsed Advanced options group", async () => {
-    const html = await renderProviders({ navigable: true });
+    const html = await renderProviders();
     const triggerAt = html.indexOf("Advanced options");
     expect(triggerAt).toBeGreaterThan(-1);
     // ADS mounts accordion panels eagerly, so folded fields stay in the DOM
@@ -132,24 +123,24 @@ describe("Providers settings after the Models consolidation", () => {
   });
 
   test("keeps safety and permission controls directly visible", async () => {
-    const html = await renderProviders({ navigable: true });
+    const html = await renderProviders();
     expect(html).toContain("Permission Mode");
     expect(html).toContain("Sandbox Enabled");
   });
 
   test("shows a tab only for providers that are set up", async () => {
-    const before = await renderProviders({ navigable: true });
+    const before = await renderProviders();
     for (const label of ["Claude", "Codex"]) expect(before).toContain(`>${label}</button>`);
     for (const label of ["Cursor", "Kiro", "OpenCode"]) expect(before).not.toContain(`>${label}</button>`);
 
     await setUpOptionalProviders(["kiro"]);
-    const after = await renderProviders({ navigable: true });
+    const after = await renderProviders();
     expect(after).toContain(">Kiro</button>");
     expect(after).not.toContain(">Cursor</button>");
   });
 
   test("names no provider in the shared usage-limit copy", async () => {
-    const html = await renderProviders({ navigable: true });
+    const html = await renderProviders();
     const start = html.indexOf("Account usage limit");
     const card = html.slice(start, html.indexOf("</section>", start));
     expect(card).not.toContain("Cursor");
@@ -158,6 +149,12 @@ describe("Providers settings after the Models consolidation", () => {
 });
 
 describe("Models settings own every provider default", () => {
+  test("has no utility model pointer, since Background AI is a tab of the same page", async () => {
+    const html = await renderModels();
+    expect(html).not.toContain("Open Background AI");
+    expect(html).not.toContain("Utility model");
+  });
+
   test("renders model + effort rows for Claude and Codex, and none for providers that are not set up", async () => {
     const html = await renderModels();
     expect(html).toContain("Default Models and Effort");
