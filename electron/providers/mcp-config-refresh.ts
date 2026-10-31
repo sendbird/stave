@@ -4,7 +4,10 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { resolveStaveLocalMcpManifestPath } from "../main/stave-local-mcp-manifest";
 import { resolveSharedClaudeMcpStateFile } from "../provider-accounts/shared-mcp";
-import { resolveClaudePluginMcpConfigPaths } from "./claude-plugin-config";
+import {
+  resolveClaudePluginMcpConfigPaths,
+  type ClaudePluginLoadDecision,
+} from "./claude-plugin-config";
 import { isClaudeMcpDocumentPath } from "./mcp-env";
 
 type McpConfigPathOptions = {
@@ -15,10 +18,10 @@ type McpConfigPathOptions = {
 
 type ClaudeMcpConfigPathOptions = McpConfigPathOptions & {
   /**
-   * Stave's effective plugin decision for the query, when the caller has it.
-   * Without it, Claude's own `enabledPlugins` settings cascade decides.
+   * The query's plugin decision (`false`: it loads none), when the caller has
+   * it. Without it, Claude's own `enabledPlugins` settings cascade decides.
    */
-  enabledPlugins?: Readonly<Record<string, boolean>>;
+  enabledPlugins?: ClaudePluginLoadDecision;
 };
 
 type CodexMcpConfigPathOptions = McpConfigPathOptions & {

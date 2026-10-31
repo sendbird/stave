@@ -30,6 +30,7 @@ import {
   getCodexMcpConfigPathGroups,
 } from "./mcp-config-refresh";
 import { readMcpEnvVarNames, type McpEnvProvider } from "./mcp-env";
+import type { ClaudePluginLoadDecision } from "./claude-plugin-config";
 import { resolveProviderAccountEnvironment } from "../provider-accounts/environment";
 import { applyClaudeGatewayEnvironment } from "../provider-accounts/gateway-runtime";
 import { applyCodexApiConnectionEnvironment } from "./codex-api-connection";
@@ -550,8 +551,8 @@ export function buildClaudeCliEnv(args: {
   accountProfileId?: string;
   cwd?: string;
   mcpConfigPaths?: readonly string[];
-  /** Stave's effective plugin decision, so only loading plugins' env counts. */
-  enabledPlugins?: Readonly<Record<string, boolean>>;
+  /** The query's plugin decision, so only loading plugins' env counts. */
+  enabledPlugins?: ClaudePluginLoadDecision;
   resolver?: (args: { key: string }) => string | null;
 }) {
   let env = buildRuntimeProcessEnv({
@@ -668,7 +669,7 @@ export async function refreshMcpLoginShellEnv(args: {
   executablePath: string;
   cwd?: string;
   accountProfileId?: string;
-  enabledPlugins?: Readonly<Record<string, boolean>>;
+  enabledPlugins?: ClaudePluginLoadDecision;
 }) {
   const cwd = args.cwd ?? process.cwd();
   // An empty path list skips MCP env discovery, so resolving the provider

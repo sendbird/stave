@@ -352,21 +352,55 @@ function addClaudePluginMcpConfigPaths(target: Set<string>, installPath: string)
 }
 
 /**
+ * Which CLI-installed plugins a Claude process loads, as MCP env discovery and
+ * change tracking need it: the `enabledPlugins` map Stave states in the SDK's
+ * flag layer, or `false` when the query loads none. Omitted, Claude's own
+ * settings cascade decides.
+ */
+export type ClaudePluginLoadDecision =
+  | Readonly<Record<string, boolean>>
+  | false;
+
+/**
+ * The plugin decision of one query, from the same inputs that decide its
+ * flag-layer `enabledPlugins`. A secondary read-only query and plugin mode
+ * `off` load no CLI-installed plugin, so their env carries no plugin's
+ * variables; with nothing to state otherwise, Claude's settings decide.
+ */
+export function resolveClaudePluginLoadDecision(args: {
+  enabledPlugins?: Readonly<Record<string, boolean>>;
+  mode?: ClaudePluginMode;
+  secondaryReadOnly?: boolean;
+}): ClaudePluginLoadDecision | undefined {
+  if (args.secondaryReadOnly) {
+    return false;
+  }
+  if (args.enabledPlugins && Object.keys(args.enabledPlugins).length > 0) {
+    return args.enabledPlugins;
+  }
+  return args.mode === "off" ? false : undefined;
+}
+
+/**
  * MCP config files of every Claude plugin that loads for `cwd`, so the env
  * variables their servers reference are forwarded and an install, update, or
  * enable change counts as an MCP config change.
  *
- * `enabledPlugins` is Stave's effective decision (the SDK flag layer) when the
- * caller has it; otherwise Claude's own settings cascade decides. Project and
- * local installs count only inside the repository they were installed for,
- * matching the inventory Stave re-states to the SDK. Synchronous because the
- * provider env builders that consume it are.
+ * `enabledPlugins` is the query's plugin decision when the caller has it;
+ * otherwise Claude's own settings cascade decides. Project and local installs
+ * count only inside the repository they were installed for, matching the
+ * inventory Stave re-states to the SDK. Synchronous because the provider env
+ * builders that consume it are.
  */
 export function resolveClaudePluginMcpConfigPaths(args: {
   cwd: string;
   claudeConfigDir?: string;
-  enabledPlugins?: Readonly<Record<string, boolean>>;
+  enabledPlugins?: ClaudePluginLoadDecision;
 }): string[] {
+  if (args.enabledPlugins === false) {
+    return [];
+  }
+  const enabledPlugins = args.enabledPlugins;
   const configDir = resolveClaudeConfigDir(args.claudeConfigDir);
   const cwd = path.resolve(args.cwd);
   const paths = claudePluginRegistryPaths({ configDir, cwd });
@@ -379,7 +413,7 @@ export function resolveClaudePluginMcpConfigPaths(args: {
 
   const configPaths = new Set<string>();
   for (const plugin of listApplicableClaudePlugins({ documents, cwd })) {
-    const override = args.enabledPlugins?.[plugin.id];
+    const override = enabledPlugins?.[plugin.id];
     const enabled =
       typeof override === "boolean" ? override : plugin.decision?.enabled === true;
     if (!enabled) {

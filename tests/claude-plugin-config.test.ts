@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   resolveClaudeInstalledPlugins,
   resolveClaudePluginEnablement,
+  resolveClaudePluginLoadDecision,
   resolveClaudePluginMcpConfigPaths,
   type ClaudeInstalledPlugin,
 } from "../electron/providers/claude-plugin-config";
@@ -569,5 +570,15 @@ describe("Claude plugin enablement", () => {
       "enabled@shop": true,
       "disabled@shop": false,
     });
+  });
+});
+
+describe("Claude plugin load decision", () => {
+  test("resolves the load decision from the inputs of the flag layer", () => {
+    expect(resolveClaudePluginLoadDecision({ secondaryReadOnly: true, enabledPlugins: { a: true } })).toBe(false);
+    expect(resolveClaudePluginLoadDecision({ mode: "off" })).toBe(false);
+    expect(resolveClaudePluginLoadDecision({ mode: "off", enabledPlugins: { a: true } })).toEqual({ a: true });
+    expect(resolveClaudePluginLoadDecision({ mode: "claude-config", enabledPlugins: {} })).toBeUndefined();
+    expect(resolveClaudePluginLoadDecision({ mode: "all" })).toBeUndefined();
   });
 });
