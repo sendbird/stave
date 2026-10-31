@@ -168,4 +168,27 @@ describe("MCP environment variable discovery", () => {
     ).toEqual([]);
   });
 
+  test("collects Claude references in every field Claude Code expands", () => {
+    expect(
+      collectClaudeMcpEnvVarNames({
+        mcpServers: {
+          remote: {
+            type: "http",
+            url: "https://${MCP_HOST}/mcp?key=${URL_KEY:-}",
+            headers: { Authorization: "Bearer ${HEADER_TOKEN:-anonymous}" },
+          },
+          stdio: {
+            command: "${TOOL_HOME}/bin/server",
+            args: ["--token", "${ARG_TOKEN}", "$LITERAL_ARG", "${user_config.api_key}"],
+          },
+        },
+      }),
+    ).toEqual([
+      "ARG_TOKEN",
+      "HEADER_TOKEN",
+      "MCP_HOST",
+      "TOOL_HOME",
+      "URL_KEY",
+    ]);
+  });
 });

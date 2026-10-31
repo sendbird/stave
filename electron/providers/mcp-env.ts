@@ -4,7 +4,11 @@ import path from "node:path";
 export type McpEnvProvider = "claude" | "codex";
 
 const ENV_VAR_NAME_PATTERN = /^[A-Za-z_][A-Za-z0-9_]*$/;
-const ENV_REFERENCE_PATTERN = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
+/** `${VAR}` and `${VAR:-default}`, the forms Claude Code expands in MCP config. */
+const BRACED_ENV_REFERENCE_PATTERN =
+  /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}/g;
+const ENV_REFERENCE_PATTERN =
+  /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
 
 function addEnvVarName(names: Set<string>, value: unknown) {
   if (typeof value !== "string") {
@@ -16,11 +20,15 @@ function addEnvVarName(names: Set<string>, value: unknown) {
   }
 }
 
-function addEnvReferences(names: Set<string>, value: unknown) {
+function addEnvReferences(
+  names: Set<string>,
+  value: unknown,
+  pattern: RegExp = ENV_REFERENCE_PATTERN,
+) {
   if (typeof value !== "string") {
     return;
   }
-  for (const match of value.matchAll(ENV_REFERENCE_PATTERN)) {
+  for (const match of value.matchAll(pattern)) {
     addEnvVarName(names, match[1] ?? match[2]);
   }
 }
@@ -90,6 +98,14 @@ function collectClaudeServerEnvVarNames(
   const headers = asRecord(config.headers);
   for (const headerValue of Object.values(headers ?? {})) {
     addEnvReferences(names, headerValue);
+  }
+
+  // Claude Code also expands references in these fields. Only the braced forms
+  // count here: a bare `$NAME` in an argument or URL is literal text.
+  addEnvReferences(names, config.url, BRACED_ENV_REFERENCE_PATTERN);
+  addEnvReferences(names, config.command, BRACED_ENV_REFERENCE_PATTERN);
+  for (const arg of Array.isArray(config.args) ? config.args : []) {
+    addEnvReferences(names, arg, BRACED_ENV_REFERENCE_PATTERN);
   }
 }
 
