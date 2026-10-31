@@ -1144,7 +1144,8 @@
     "theChildMovedOnToAnotherExecution": "The child moved on to another execution before this action was sent. Review the latest child state.",
     "theChildSIdentityChangedBeforeThis": "The child's identity changed before this action was sent. Review the latest child state.",
     "theChildSWorkspaceCouldNotBe": "The child's workspace could not be reached. Try again once it is available.",
-    "anotherSubagentIsWritingInThisWorkspace": "Another subagent is writing in this workspace. Run this one in a new worktree, or wait for it to finish."
+    "anotherSubagentIsWritingInThisWorkspace": "Another subagent is writing in this workspace. Run this one in a new worktree, or wait for it to finish.",
+    "thatProviderSAccountUsageIsExhausted": "That provider's account usage is exhausted or kept for your other tasks. Start it on the other provider, or retry after the usage resets."
   },
   "workGraphReducer": {
     "thisTurn": "This turn",

@@ -123,6 +123,11 @@ export function getDelegatedTaskCoordinator() {
         invokeHostService("local-mcp.invoke", { action: "resolve-delegation-strengths", args: {} }) as Promise<
           import("../../../src/lib/providers/provider-strength-presets").ProviderStrengthMap | null
         >,
+      readProviderUsage: (accounts) =>
+        invokeHostService("local-mcp.invoke", { action: "read-provider-usage", args: { accounts: accounts ?? {} } }) as Promise<
+          Record<import("../../../src/lib/agent-runs/provider-usage").TeamProviderId,
+            import("../../../src/lib/agent-runs/provider-usage").ProviderUsageSummary> | null
+        >,
       isProviderAvailable: async (providerId) => {
         const result = await invokeHostService("provider.check-availability", { providerId });
         return result.available;
