@@ -1128,7 +1128,8 @@
     "theChildMovedOnToAnotherExecution": "동작을 보내기 전에 하위 에이전트가 다른 실행으로 이동했습니다. 최신 상태를 검토합니다.",
     "theChildSIdentityChangedBeforeThis": "동작을 보내기 전에 하위 에이전트의 식별 정보가 변경됐습니다. 최신 상태를 검토합니다.",
     "theChildSWorkspaceCouldNotBe": "하위 에이전트의 워크스페이스에 접근하지 못했습니다. 사용할 수 있을 때 다시 시도합니다.",
-    "anotherSubagentIsWritingInThisWorkspace": "다른 하위 에이전트가 이 워크스페이스에서 파일을 변경하고 있습니다. 새 워크트리에서 실행하거나 완료될 때까지 기다립니다."
+    "anotherSubagentIsWritingInThisWorkspace": "다른 하위 에이전트가 이 워크스페이스에서 파일을 변경하고 있습니다. 새 워크트리에서 실행하거나 완료될 때까지 기다립니다.",
+    "thatProviderSAccountUsageIsExhausted": "이 프로바이더의 계정 사용량이 소진됐거나 다른 작업을 위해 남겨 둔 상태입니다. 다른 프로바이더에서 시작하거나 사용량이 초기화된 뒤 다시 시도합니다."
   },
   "workGraphReducer": {
     "thisTurn": "이번 턴",

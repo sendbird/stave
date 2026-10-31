@@ -1,10 +1,6 @@
 import { describe, expect, test } from "bun:test";
-import {
-  PROVIDER_USAGE_CRITICAL_PERCENT,
-  PROVIDER_USAGE_LOW_PERCENT,
-  readTeamProviderUsage,
-  summarizeProviderUsage,
-} from "../electron/host-service/supervision/provider-usage-context";
+import { readTeamProviderUsage, summarizeProviderUsage } from "../electron/host-service/supervision/provider-usage-context";
+import { PROVIDER_USAGE_CRITICAL_PERCENT, PROVIDER_USAGE_LOW_PERCENT } from "../src/lib/agent-runs/provider-usage";
 import { teamLimitsContextPart } from "../electron/host-service/supervision/team-limits-context";
 import { mapCodexRateLimitBuckets } from "../electron/providers/codex-snapshot-mappers";
 import { AdaptiveRunPolicySchema } from "../src/lib/agent-runs/resources";

@@ -254,6 +254,12 @@ export const DelegateTaskToolInputSchema = z.object({
     .describe(
       "Commit the child must find checked out (same-workspace only), for work that is about one commit such as a review. Not started when the workspace HEAD differs.",
     ),
+  usageOverride: z
+    .literal("user-request")
+    .optional()
+    .describe(
+      "Set only when the user explicitly asked for this provider or model. Without it, a new subagent is refused on a provider whose account usage is exhausted, on a model whose own usage window is used up, and on a critical provider while the other one has room.",
+    ),
   agentConfigId: z
     .string()
     .optional()
@@ -475,6 +481,7 @@ export const DelegatedTaskRejectionReasonSchema = z.enum([
   "step-conflict",
   "workspace-unavailable",
   "workspace-writer-busy",
+  "usage-limited",
 ]);
 export type DelegatedTaskRejectionReason = z.infer<
   typeof DelegatedTaskRejectionReasonSchema
@@ -741,6 +748,7 @@ const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, st
     get "step-conflict"() { return i18n.t("workspace:delegatedTask.theDelegationChangedWhileThisActionWas"); },
     get "workspace-unavailable"() { return i18n.t("workspace:delegatedTask.theChildSWorkspaceCouldNotBe"); },
     get "workspace-writer-busy"() { return i18n.t("workspace:delegatedTask.anotherSubagentIsWritingInThisWorkspace"); },
+    get "usage-limited"() { return i18n.t("workspace:delegatedTask.thatProviderSAccountUsageIsExhausted"); },
   };
 
 export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionReason) {

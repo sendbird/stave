@@ -483,8 +483,11 @@ nothing to turn on. The Run panel's **Team limits** section shows them.
   Claude Fable's weekly limit, is listed as exhausted on its own. When helpers
   may run on another provider, the run is told to start no new helper work on
   an exhausted provider, to send new parallel work away from a low one, and to
-  leave a critical one to your other tasks. This guides the run's choices; the
-  send guard and usage-limit pauses still decide what can actually run.
+  leave a critical one to your other tasks. Stave also enforces part of this:
+  a model's new subagent is refused (`usage-limited`) on an exhausted account
+  or model, and on a critical provider while the other one is below critical,
+  unless the call says you asked for that provider. The run's own turns keep
+  the existing send guard and usage-limit pauses.
 - **Helper Agents.** A run can have 3 helper Agents working at once and call 8
   in total. Change both in **Settings → Providers → Delegated tasks**; a run keeps the
   numbers it started with. These count saved Agents that work to completion

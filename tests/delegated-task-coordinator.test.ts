@@ -148,6 +148,7 @@ function createHarness(
     applyAgent?: Parameters<typeof createDelegatedTaskCoordinator>[0]["applyAgent"];
     resolveDelegationStrengths?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveDelegationStrengths"];
     isProviderAvailable?: Parameters<typeof createDelegatedTaskCoordinator>[0]["isProviderAvailable"];
+    readProviderUsage?: Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"];
     resolveTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["resolveTurnRoute"];
     cancelTurnRoute?: Parameters<typeof createDelegatedTaskCoordinator>[0]["cancelTurnRoute"];
   } = {},
@@ -170,6 +171,7 @@ function createHarness(
       ...(options.applyAgent ? { applyAgent: options.applyAgent } : {}),
       ...(options.resolveDelegationStrengths ? { resolveDelegationStrengths: options.resolveDelegationStrengths } : {}),
       ...(options.isProviderAvailable ? { isProviderAvailable: options.isProviderAvailable } : {}),
+      ...(options.readProviderUsage ? { readProviderUsage: options.readProviderUsage } : {}),
       resolvePermissionPolicy: options.realPolicy
         ? async (args) => {
             policyCalls.push({ ...args });
@@ -218,6 +220,63 @@ function delegateArgs(
     ...overrides,
   };
 }
+
+describe("account usage admission", () => {
+  const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+  type Usage = Awaited<ReturnType<NonNullable<Parameters<typeof createDelegatedTaskCoordinator>[0]["readProviderUsage"]>>>;
+  const RESET = "2026-11-01T05:00:00.000Z";
+  const usage = (claude: NonNullable<Usage>["claude-code"], codex: NonNullable<Usage>["codex"]): Usage => ({ "claude-code": claude, codex });
+  const start = async (read: () => Promise<Usage>, input: Record<string, unknown> = {}) => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}), readProviderUsage: read });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", wait: false, ...input }, caller);
+    return { harness, response };
+  };
+
+  test("a model's new subagent does not start where the account is exhausted, and the refusal names the other provider", async () => {
+    const { harness, response } = await start(async () => usage({ status: "headroom", usedPercent: 20 }, { status: "exhausted", usedPercent: 100, resetsAt: RESET }));
+    expect(response).toMatchObject({ accepted: false, reason: "usage-limited" });
+    expect(response.message).toContain(`Codex account usage is exhausted until ${RESET}`);
+    expect(response.message).toContain("Claude is headroom, 20% used");
+    expect(harness.runTaskCalls).toHaveLength(0);
+    expect(harness.createWorkspaceCalls).toHaveLength(0);
+  });
+
+  test("critical is refused only while the other provider has room", async () => {
+    const critical = { status: "critical", usedPercent: 88 } as const;
+    expect((await start(async () => usage({ status: "low", usedPercent: 74 }, critical))).response).toMatchObject({ accepted: false, reason: "usage-limited" });
+    expect((await start(async () => usage({ status: "critical", usedPercent: 90 }, critical))).response.accepted).toBe(true);
+    // Unknown is not room: with no reading of the other provider, the work stays where it was asked.
+    expect((await start(async () => usage({ status: "unknown" }, critical))).response.accepted).toBe(true);
+    expect((await start(async () => usage({ status: "headroom", usedPercent: 10 }, { status: "low", usedPercent: 80 }))).response.accepted).toBe(true);
+  });
+
+  test("a model whose own window is used up is refused; the provider's other models are not", async () => {
+    const read = async () => usage({ status: "headroom", usedPercent: 30 }, { status: "headroom", usedPercent: 30, exhaustedModels: ["gpt-6-astra"] });
+    const refused = await start(read, { model: "gpt-6-astra" });
+    expect(refused.response).toMatchObject({ accepted: false, reason: "usage-limited" });
+    expect(refused.response.message).toContain("gpt-6-astra has used up its own usage window on Codex");
+    expect((await start(read, { model: "gpt-6.1-sol" })).response.accepted).toBe(true);
+  });
+
+  test("the user's explicit request overrides, and usage that cannot be read admits", async () => {
+    const exhausted = async () => usage({ status: "headroom" }, { status: "exhausted", usedPercent: 100 });
+    expect((await start(exhausted, { usageOverride: "user-request" })).response.accepted).toBe(true);
+    expect((await start(async () => { throw new Error("host unavailable"); })).response.accepted).toBe(true);
+    expect((await start(async () => null)).response.accepted).toBe(true);
+  });
+
+  test("re-sending a running child's key returns it after its provider turns critical; a direct start is not checked", async () => {
+    let current: Usage = usage({ status: "headroom" }, { status: "headroom", usedPercent: 40 });
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}), readProviderUsage: async () => current });
+    const first = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", delegationKey: "parser", wait: false }, caller);
+    expect(first.accepted).toBe(true);
+    current = usage({ status: "headroom" }, { status: "critical", usedPercent: 90 });
+    const again = await harness.coordinator.delegateFromTool({ prompt: "Fix the parser.", delegationKey: "parser", wait: false }, caller);
+    expect(again).toMatchObject({ accepted: true, duplicate: true });
+    // Starts that are not a model's tool call (the composer's Review, workflow stages) keep their own rules.
+    expect((await harness.coordinator.delegate(delegateArgs({ delegationKey: "direct" }))).accepted).toBe(true);
+  });
+});
 
 describe("accounts a subagent runs on", () => {
   const accounts = { claudeAccountProfileId: "6f1d2c3b-4a5e-4f60-8a7b-9c0d1e2f3a4b", codexAccountProfileId: "system-default" as const };
