@@ -25,7 +25,7 @@ const JOB = {
     key: "CRANE-42",
     title: "Fix the connector",
     description: "Keep all output local.",
-    href: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+    href: "https://atelier.sdix.io/apps/crane/task/CRANE-42",
     updatedAt: "2026-07-26T00:00:00.000Z",
   },
   instruction: "Start with a regression test.",
@@ -55,7 +55,7 @@ const CODEX_RUNTIME: CraneDispatchRuntimeChoice = {
 };
 const ENABLED_CONFIG = {
   enabled: true,
-  baseUrl: "https://atelier.delight-tools.ai",
+  baseUrl: "https://atelier.sdix.io",
   pollIntervalSeconds: 15,
 } as const;
 
@@ -100,7 +100,7 @@ function createHarness(options?: {
     connector: typeof CONNECTOR;
     secret: string;
   } | null = {
-    baseUrl: "https://atelier.delight-tools.ai",
+    baseUrl: "https://atelier.sdix.io",
     connector: CONNECTOR,
     secret: "stc_test-only-connector-secret",
   };
@@ -378,7 +378,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness({ noJob: true, tasksEnabled: false });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -390,7 +390,7 @@ describe("CraneConnectorRuntime", () => {
 
     await harness.runtime.configure({
       enabled: false,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
 
@@ -403,7 +403,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -472,7 +472,7 @@ describe("CraneConnectorRuntime", () => {
       {
         workspaceId: "workspace-crane",
         crane: {
-          url: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+          url: "https://atelier.sdix.io/apps/crane/task/CRANE-42",
           issueKey: "CRANE-42",
           title: "Fix the connector",
         },
@@ -520,7 +520,7 @@ describe("CraneConnectorRuntime", () => {
     });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -552,7 +552,7 @@ describe("CraneConnectorRuntime", () => {
       {
         workspaceId: "workspace-crane",
         crane: {
-          url: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+          url: "https://atelier.sdix.io/apps/crane/task/CRANE-42",
           issueKey: "CRANE-42",
           title: "Fix the connector",
         },
@@ -569,7 +569,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -622,7 +622,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -662,7 +662,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -704,7 +704,7 @@ describe("CraneConnectorRuntime", () => {
     });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
 
@@ -718,7 +718,7 @@ describe("CraneConnectorRuntime", () => {
     harness.runtime.shutdown();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     expect(harness.approvals).toHaveLength(0);
@@ -741,7 +741,7 @@ describe("CraneConnectorRuntime", () => {
     });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -788,7 +788,7 @@ describe("CraneConnectorRuntime", () => {
     });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -837,7 +837,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -846,7 +846,7 @@ describe("CraneConnectorRuntime", () => {
     const approvalCount = harness.approvals.length;
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
 
@@ -862,7 +862,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness({ unauthorized: true });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -881,7 +881,7 @@ describe("CraneConnectorRuntime", () => {
     });
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -911,7 +911,7 @@ describe("CraneConnectorRuntime", () => {
 
     await expect(
       harness.runtime.pair({
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         code: "stp_test-only-pairing-code",
         name: "Stave Desktop",
       }),
@@ -930,7 +930,7 @@ describe("CraneConnectorRuntime", () => {
     const harness = createHarness();
     await harness.runtime.configure({
       enabled: true,
-      baseUrl: "https://atelier.delight-tools.ai",
+      baseUrl: "https://atelier.sdix.io",
       pollIntervalSeconds: 15,
     });
     await harness.runNextTimer();
@@ -968,7 +968,7 @@ describe("CraneConnectorRuntime", () => {
       const harness = createHarness(options);
       await harness.runtime.configure({
         enabled: true,
-        baseUrl: "https://atelier.delight-tools.ai",
+        baseUrl: "https://atelier.sdix.io",
         pollIntervalSeconds: 15,
       });
       await harness.runNextTimer();

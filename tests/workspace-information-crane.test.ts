@@ -19,11 +19,11 @@ import {
 } from "@/lib/workspace-information-sections";
 
 const CRANE_URL =
-  "https://atelier.delight-tools.ai/apps/crane/w/FRONTEND/task/TFE-94";
+  "https://atelier.sdix.io/apps/crane/w/FRONTEND/task/TFE-94";
 
 test("extractCraneIssueReference reads the key and team from a Crane task URL", () => {
   expect(extractCraneIssueReference(CRANE_URL)).toEqual({
-    host: "atelier.delight-tools.ai",
+    host: "atelier.sdix.io",
     issueKey: "TFE-94",
     teamKey: "FRONTEND",
   });
@@ -40,7 +40,7 @@ test("non-Crane URLs are not treated as Crane issues", () => {
 
 test("a Crane list URL without a task segment still resolves as Crane", () => {
   const reference = extractCraneIssueReference(
-    "https://atelier.delight-tools.ai/apps/crane",
+    "https://atelier.sdix.io/apps/crane",
   );
   expect(reference?.issueKey).toBe("");
 });
@@ -55,7 +55,7 @@ test("a Crane URL in free text is detected as a crane resource, not jira", () =>
 test("Crane and Jira issues sharing a key do not collide", () => {
   expect(
     buildWorkspaceResourceDedupeKey({ kind: "crane", url: CRANE_URL }),
-  ).toBe("crane:key:atelier.delight-tools.ai:TFE-94");
+  ).toBe("crane:key:atelier.sdix.io:TFE-94");
   expect(
     buildWorkspaceResourceDedupeKey({
       kind: "jira",

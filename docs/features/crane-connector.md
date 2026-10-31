@@ -47,8 +47,11 @@ local approval before it creates a workspace or starts Claude or Codex.
 
 - `Enable outbound polling`: starts or stops Stave's connector timer. Off means
   no Crane connector network traffic.
-- `Crane URL`: selects the paired Crane origin. Production connections require
-  HTTPS.
+- `Crane URL`: selects the paired Crane origin, `https://atelier.sdix.io` by
+  default. Production connections require HTTPS. Links open on this origin;
+  for `https://atelier.sdix.io` Stave sends connector requests to
+  `https://api.atelier.sdix.io`, and any other origin, such as localhost,
+  receives them directly.
 - `Poll interval`: controls how often an idle connector asks for work.
 - `Pair securely`: exchanges a short-lived pairing code for an OS-encrypted
   connector credential.

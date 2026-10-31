@@ -1818,7 +1818,7 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
   // Crane section instead, leaving the Jira section to the product's own issue.
   test("addWorkspaceJiraIssue reroutes a Crane task URL to the Crane section", async () => {
     const craneUrl =
-      "https://atelier.delight-tools.ai/apps/crane/w/FRONTEND/task/TFE-94";
+      "https://atelier.sdix.io/apps/crane/w/FRONTEND/task/TFE-94";
     const result = await runtime.addWorkspaceJiraIssue({
       workspaceId: WORKSPACE_ID,
       url: craneUrl,

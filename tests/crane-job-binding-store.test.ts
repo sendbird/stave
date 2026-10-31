@@ -18,7 +18,7 @@ const JOB = {
     key: "CRANE-42",
     title: "Fix the dispatch",
     description: "Keep results local.",
-    href: "https://atelier.delight-tools.ai/apps/crane/task/CRANE-42",
+    href: "https://atelier.sdix.io/apps/crane/task/CRANE-42",
     updatedAt: "2026-07-26T00:00:00.000Z",
   },
   instruction: "Implement the locally approved change.",

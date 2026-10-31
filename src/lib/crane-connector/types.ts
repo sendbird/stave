@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { ATELIER_UI_BASE_URL } from "../atelier-connector/hosts";
 import { CraneStaveJobV1Schema } from "./contract";
 
-export const DEFAULT_CRANE_CONNECTOR_BASE_URL =
-  "https://atelier.delight-tools.ai";
+/** The Atelier UI host; requests go to its API host (`atelierApiBaseUrl`). */
+export const DEFAULT_CRANE_CONNECTOR_BASE_URL = ATELIER_UI_BASE_URL;
 export const DEFAULT_CRANE_CONNECTOR_POLL_INTERVAL_SECONDS = 15;
 export const MIN_CRANE_CONNECTOR_POLL_INTERVAL_SECONDS = 15;
 export const MAX_CRANE_CONNECTOR_POLL_INTERVAL_SECONDS = 300;
