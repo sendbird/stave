@@ -42,6 +42,10 @@ import {
 } from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { macroEditorStyles as styles } from "./macro-editor.styles";
+import { useSettingsProviderIdsWithSaved } from "./settings-provider-visibility";
+
+/** Providers a macro can pin; each shows once it is set up. */
+const MACRO_PROVIDER_IDS: readonly ProviderId[] = ["claude-code", "codex", "cursor", "kiro"];
 
 const INSERT_MODE_OPTIONS: Array<{
   value: MacroInsertMode;
@@ -112,6 +116,8 @@ export function MacroEditor(props: MacroEditorProps) {
     initialMacro.runtime?.effort ?? "",
   );
   const [localError, setLocalError] = useState<string | undefined>();
+  // The macro's saved provider stays selectable even when it is not set up.
+  const providerIds = useSettingsProviderIdsWithSaved(initialMacro.runtime?.providerId);
 
   useEffect(() => {
     setLabel(initialMacro.label);
@@ -319,9 +325,7 @@ export function MacroEditor(props: MacroEditorProps) {
             description={t("settings:macroEditor.theExecutionProviderUsedForThis")}
             value={providerId}
             onChange={handleProviderChange}
-            options={(
-              ["claude-code", "codex", "cursor", "kiro"] as const
-            ).map((id) => ({
+            options={MACRO_PROVIDER_IDS.filter((id) => providerIds.includes(id)).map((id) => ({
               value: id,
               label: getProviderLabel({ providerId: id }),
             }))}

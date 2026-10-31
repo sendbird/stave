@@ -13,6 +13,7 @@ import { ModelPickerAccountFooterView } from "@/components/ai-elements/model-pic
 import { buildAccountsOnboardingChecklist, type AccountsOnboardingInput } from "@/lib/providers/accounts-onboarding";
 import { resolveProviderAccountBlocker } from "@/lib/providers/provider-account-blocker";
 import type { ToolingStatusEntry } from "@/lib/tooling-status";
+import { useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
 
 // A server render hands React each store's initial snapshot (zustand v5), so
 // state-dependent parts render through their views with built inputs; the
@@ -89,6 +90,43 @@ describe("Settings > Accounts", () => {
     // The account cards keep their own controls in the new place.
     expect(html).toContain("Add and sign in");
     expect(html).toContain("Advanced: reuse a folder you already use");
+  });
+
+  test("CLI-managed sign-in: one quiet checking row until the first check answers", () => {
+    const raw = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(AccountsSection)));
+    expect(raw).toContain("data-cli-checking");
+    expect(raw).not.toContain("data-cli-provider");
+    expect(raw).not.toContain("data-cli-missing");
+    expect(text(raw)).toContain("Cursor Agent, Kiro CLI, and OpenCode Checking");
+  });
+
+  test("CLI-managed sign-in: installed CLIs keep a row, missing ones fold into one row with a path field", () => {
+    const readinessInitial = useProviderReadinessStore.getInitialState();
+    const previous = readinessInitial.providers;
+    const entry = (value: ToolingStatusEntry) => ({ tool: value, configurationKey: "", checkedAt: 1, generation: 1, stale: false });
+    readinessInitial.providers = {
+      cursor: entry({ ...tool("cursor", "unknown"), state: "warning", available: false }),
+      kiro: entry({ ...tool("kiro", "unauthenticated"), state: "warning" }),
+      opencode: entry(tool("opencode", "not-required")),
+    };
+    try {
+      const raw = renderToStaticMarkup(createElement(TooltipProvider, null, createElement(AccountsSection)));
+      const html = text(raw);
+      // A signed-out CLI keeps its full row: that row is where sign-in starts.
+      expect(raw).toContain('data-cli-provider="kiro"');
+      expect(raw).toContain('data-cli-provider="opencode"');
+      expect(html).toContain("Kiro CLI Login Required");
+      expect(html).toContain("Copy Login Command");
+      // The CLI that was not found is one folded row whose panel can point Stave at it.
+      expect(raw).toContain("data-cli-missing");
+      expect(raw).not.toContain("data-cli-checking");
+      expect(html).toContain("Not installed: Cursor Agent");
+      expect(html).toContain("Install Cursor Agent to use it.");
+      expect(raw).toContain('aria-label="Cursor Agent path"');
+      expect(raw).toContain('placeholder="agent"');
+    } finally {
+      readinessInitial.providers = previous;
+    }
   });
 
   test("Tooling keeps CLI status and points accounts to their new place", () => {

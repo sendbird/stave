@@ -1,12 +1,13 @@
 import { I18N_NAMESPACES, i18n, useTranslation } from "@/i18n";
-import { useEffect } from "react";
+import { formatList } from "@/i18n/format";
+import { useEffect, useState } from "react";
 import { Copy } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, apiConnectionIdFromFocus, cliProviderFieldId, providerSignInFocus } from "@/lib/providers/accounts-guide";
+import { STAVE_ACCOUNTS_GUIDE_URL, accountsFocusElementId, apiConnectionIdFromFocus, cliProviderFieldId, cliProviderFocus, providerSignInFocus } from "@/lib/providers/accounts-guide";
 import { focusSettingsElement } from "./settings-focus";
 import {
   clearSettingsFocus,
@@ -24,8 +25,11 @@ import { AccountsGettingStartedCard } from "./AccountsGettingStarted";
 import { AccountsGuideButton } from "./AccountsGuideButton";
 import { ApiConnectionsSettings } from "./ApiConnectionsSettings";
 import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
-import { SectionStack, SettingsCard } from "./settings-dialog.shared";
+import { DraftInput, LabeledField, SectionStack, SettingsCard } from "./settings-dialog.shared";
+import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosure";
 import { accountsSectionStyles as styles } from "./settings-dialog-accounts-section.styles";
+import { optionalProviderSetup, useOptionalProviderPaths } from "./settings-provider-visibility";
+import { useAppStore } from "@/store/app.store";
 
 /** About one second of frames, for targets that mount after the section. */
 const FOCUS_ATTEMPT_FRAMES = 60;
@@ -123,9 +127,14 @@ function AccountsBillingChoices() {
 const CLI_MANAGED_PROVIDERS = ["cursor", "kiro", "opencode"] as const;
 type CliManagedProviderId = (typeof CLI_MANAGED_PROVIDERS)[number];
 
-function cliManagedStatus(tool: ToolingStatusEntry | undefined) {
-  if (!tool) return { label: i18n.t("settingsConnections:accountsSection.cliManaged.checking"), tone: "neutral" as const };
-  if (!tool.available) return { label: i18n.t("settingsConnections:accountsSection.cliManaged.notInstalled"), tone: "warning" as const };
+/** The setting that points Stave at each CLI, and the executable it looks for by default. */
+const CLI_PATH_SETTING = {
+  cursor: { key: "cursorBinaryPath", executable: "agent" },
+  kiro: { key: "kiroBinaryPath", executable: "kiro-cli" },
+  opencode: { key: "opencodeBinaryPath", executable: "opencode" },
+} as const satisfies Record<CliManagedProviderId, { key: string; executable: string }>;
+
+function cliManagedStatus(tool: ToolingStatusEntry) {
   switch (tool.authState) {
     case "authenticated": return { label: i18n.t("settingsProviders:toolingSection.auth.authenticated"), tone: "success" as const };
     case "unauthenticated": return { label: i18n.t("settingsProviders:toolingSection.auth.unauthenticated"), tone: "warning" as const };
@@ -134,9 +143,9 @@ function cliManagedStatus(tool: ToolingStatusEntry | undefined) {
   }
 }
 
-function CliManagedProviderRow({ providerId }: { providerId: CliManagedProviderId }) {
+/** An installed CLI: its sign-in state and the command that signs in. */
+function CliManagedProviderRow({ providerId, tool }: { providerId: CliManagedProviderId; tool: ToolingStatusEntry }) {
   const { t } = useTranslation(I18N_NAMESPACES);
-  const tool = useProviderReadinessStore((state) => state.providers[providerId]?.tool);
   const status = cliManagedStatus(tool);
   const name = getProviderLabel({ providerId, variant: "full" });
   const command = PROVIDER_LOGIN_COMMAND[providerId];
@@ -150,28 +159,114 @@ function CliManagedProviderRow({ providerId }: { providerId: CliManagedProviderI
         <Badge tone={status.tone} size="sm">{status.label}</Badge>
       </span>
       <span className={sx(styles.rowDetail)}>
-        {tool && !tool.available
-          ? t("settingsConnections:accountsSection.cliManaged.installHint", { value1: name })
-          : t("settingsConnections:accountsSection.cliManaged.loginHint", { value1: command })}
+        {t("settingsConnections:accountsSection.cliManaged.loginHint", { value1: command })}
       </span>
     </span>
     <span className={sx(styles.rowActions)}>
-      {tool && !tool.available
-        ? <Button size="sm" variant="outline" onClick={openToolingSettings}>{t("settingsConnections:accountsOnboarding.actions.openTooling")}</Button>
-        : <Button size="sm" variant="outline" onClick={copy}><Copy aria-hidden />{t("settingsProviders:toolingSection.actions.copyLoginCommand")}</Button>}
+      <Button size="sm" variant="outline" onClick={copy}><Copy aria-hidden />{t("settingsProviders:toolingSection.actions.copyLoginCommand")}</Button>
     </span>
   </li>;
 }
 
-/** Cursor, Kiro and OpenCode sign in through their own CLI; Stave only reports it. */
+/** One quiet row while the first check of these CLIs is still running. */
+function CliCheckingRow({ providerIds }: { providerIds: readonly CliManagedProviderId[] }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  return <li className={sx(styles.row)} data-cli-checking="">
+    <span className={sx(styles.rowText)}>
+      <span className={sx(styles.rowTitleLine)}>
+        <span className={sx(styles.rowTitle, styles.rowTitleSettled)}>
+          {formatList(providerIds.map((providerId) => getProviderLabel({ providerId, variant: "full" })))}
+        </span>
+        <Badge tone="neutral" size="sm">{t("settingsConnections:accountsSection.cliManaged.checking")}</Badge>
+      </span>
+    </span>
+  </li>;
+}
+
+/** Where Stave looks for a CLI that was not found, for an install outside the usual places. */
+function CliPathField({ providerId }: { providerId: CliManagedProviderId }) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const setting = CLI_PATH_SETTING[providerId];
+  const value = useAppStore((state) => state.settings[setting.key]);
+  const updateSettings = useAppStore((state) => state.updateSettings);
+  const name = getProviderLabel({ providerId, variant: "full" });
+  return <div id={cliProviderFieldId(providerId)} tabIndex={-1} data-focus-first-control="" data-cli-provider={providerId}>
+    <LabeledField
+      title={name}
+      description={t("settingsConnections:accountsSection.cliManaged.installHint", { value1: name })}
+    >
+      <DraftInput
+        xstyle={styles.pathInput}
+        value={value}
+        aria-label={t("settingsConnections:accountsSection.cliManaged.pathAriaLabel", { value1: name })}
+        placeholder={setting.executable}
+        onCommit={(next) => updateSettings({ patch: { [setting.key]: next.trim() } })}
+      />
+    </LabeledField>
+  </div>;
+}
+
+/**
+ * CLIs that were not found fold into one row. Opening it shows how to install
+ * each one and where to point Stave at a CLI installed somewhere else.
+ */
+function CliNotInstalledGroup(args: {
+  providerIds: readonly CliManagedProviderId[];
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { t } = useTranslation(I18N_NAMESPACES);
+  const names = formatList(args.providerIds.map((providerId) => getProviderLabel({ providerId, variant: "full" })));
+  return <li data-cli-missing="">
+    <SettingsAdvancedDisclosure
+      compact
+      open={args.open}
+      onOpenChange={args.onOpenChange}
+      title={t("settingsConnections:accountsSection.cliManaged.notInstalledGroup", { names })}
+      description={t("settingsConnections:accountsSection.cliManaged.notInstalledDescription")}
+    >
+      {args.providerIds.map((providerId) => <CliPathField key={providerId} providerId={providerId} />)}
+      <span className={sx(styles.rowActions)}>
+        <Button size="sm" variant="outline" onClick={openToolingSettings}>{t("settingsConnections:accountsOnboarding.actions.openTooling")}</Button>
+      </span>
+    </SettingsAdvancedDisclosure>
+  </li>;
+}
+
+/**
+ * Cursor, Kiro and OpenCode sign in through their own CLI; Stave only reports
+ * it. An installed CLI gets a full row, signed in or not, because that row is
+ * where its sign-in starts. CLIs that are not installed share one folded row.
+ */
 function CliManagedProviderAccounts() {
   const { t } = useTranslation(I18N_NAMESPACES);
+  const readiness = useProviderReadinessStore((state) => state.providers);
+  const runtimeOptions = useOptionalProviderPaths();
+  const focus = useSettingsFocusRequest((state) => state.focus);
+  // Owned here so the group keeps its state while a CLI is checked again.
+  const [missingOpen, setMissingOpen] = useState(false);
+  const installed: { providerId: CliManagedProviderId; tool: ToolingStatusEntry }[] = [];
+  const checking: CliManagedProviderId[] = [];
+  const missing: CliManagedProviderId[] = [];
+  for (const providerId of CLI_MANAGED_PROVIDERS) {
+    const setup = optionalProviderSetup({ readiness, providerId, runtimeOptions });
+    const tool = readiness[providerId]?.tool;
+    if (setup === "installed" && tool) installed.push({ providerId, tool });
+    else if (setup === "not-installed") missing.push(providerId);
+    else checking.push(providerId);
+  }
+  // A deep link to a CLI that is not installed opens the group to its field,
+  // in the same render, so the focus attempt finds the field visible.
+  const focusedMissing = missing.some((providerId) => focus === cliProviderFocus(providerId));
+  if (focusedMissing && !missingOpen) setMissingOpen(true);
   return <SettingsCard
     title={t("settingsConnections:accountsSection.cliManaged.title")}
     description={t("settingsConnections:accountsSection.cliManaged.description")}
   >
     <ul className={sx(styles.list)}>
-      {CLI_MANAGED_PROVIDERS.map((providerId) => <CliManagedProviderRow key={providerId} providerId={providerId} />)}
+      {installed.map(({ providerId, tool }) => <CliManagedProviderRow key={providerId} providerId={providerId} tool={tool} />)}
+      {checking.length > 0 ? <CliCheckingRow providerIds={checking} /> : null}
+      {missing.length > 0 ? <CliNotInstalledGroup providerIds={missing} open={missingOpen} onOpenChange={setMissingOpen} /> : null}
     </ul>
   </SettingsCard>;
 }

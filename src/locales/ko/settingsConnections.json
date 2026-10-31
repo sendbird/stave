@@ -723,9 +723,11 @@
       "title": "Cursor, Kiro, OpenCode 로그인",
       "description": "이 CLI들은 로그인을 직접 관리합니다. Stave는 로그인 상태와 로그인 명령만 보여 줍니다.",
       "checking": "확인 중",
-      "notInstalled": "CLI 설치 필요",
       "installHint": "{{value1}}부터 설치해야 쓸 수 있습니다. 설정 > 툴링에서 Stave가 찾는 위치를 볼 수 있습니다.",
-      "loginHint": "터미널에서 {{value1}} 명령으로 로그인합니다."
+      "loginHint": "터미널에서 {{value1}} 명령으로 로그인합니다.",
+      "notInstalledGroup": "설치되지 않음: {{names}}",
+      "notInstalledDescription": "CLI를 설치하면 여기서 쓸 수 있습니다. Stave가 찾지 않는 위치에 설치했다면 경로를 입력합니다.",
+      "pathAriaLabel": "{{value1}} 경로"
     },
     "help": "계정, 구독, 게이트웨이 키가 동작하는 방식:"
   },

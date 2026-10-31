@@ -25,6 +25,7 @@ import {
 } from "@/lib/task-presets";
 import { sx } from "@/components/ads/utils/stylex";
 import { taskPresetEditorStyles as styles } from "./task-preset-editor.styles";
+import { useSettingsProviderIdsWithSaved } from "./settings-provider-visibility";
 
 const DEFAULT_EFFORT_VALUE = "__default__";
 
@@ -70,6 +71,8 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
     () => listEffortsForPresetProvider(provider, model),
     [provider, model],
   );
+  // The preset's saved provider stays selectable even when it is not set up.
+  const visibleProviderIds = useSettingsProviderIdsWithSaved(initialPreset.provider);
   const providerOptions = useMemo<
     { value: ProviderId; label: string }[]
   >(() => {
@@ -79,13 +82,14 @@ export function TaskPresetEditor(props: TaskPresetEditorProps) {
         { value: "codex", label: "Codex" },
       ];
     }
-    return [
+    const options: { value: ProviderId; label: string }[] = [
       { value: "claude-code", label: "Claude Code" },
       { value: "codex", label: "Codex" },
       { value: "cursor", label: i18n.t("settings:taskPresetEditor.cursorAgent") },
       { value: "kiro", label: "Kiro CLI" },
     ];
-  }, [kind]);
+    return options.filter((option) => visibleProviderIds.includes(option.value));
+  }, [kind, visibleProviderIds]);
 
   function handleKindChange(nextKindValue: string) {
     const nextKind: TaskPresetKind =

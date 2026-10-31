@@ -40,6 +40,7 @@ import { activeStandards } from "@/lib/agents/standards";
 import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
 import { recordKickoffTaskAgent } from "@/store/kickoff-agent-assignment";
 import { KickoffWhoPicker } from "./KickoffWhoPicker";
+import { useSettingsProviderIdsWithSaved } from "./settings-provider-visibility";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { getConfiguredModelForProvider } from "@/store/prompt-draft-runtime";
 import { selectEffectiveSettings } from "@/store/project-settings-overrides";
@@ -72,7 +73,6 @@ import {
 } from "@/components/ui/select";
 import {
   getProviderLabel,
-  listProviderIds,
   listProviderIdsForCapability,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -301,6 +301,10 @@ export function KickoffDialog(props: {
   const [agentChoice, setAgentChoice] = useState<"auto" | ProviderId>("auto");
   const selectedAgent =
     who === "agent" ? (selectableAgents.find((agent) => agent.id === agentId) ?? null) : null;
+  // Runs-on lists providers that are set up, plus the one the agent pins.
+  const runsOnProviderIds = useSettingsProviderIdsWithSaved(
+    selectedAgent?.model.mode === "fixed" ? selectedAgent.model.providerId : agentChoice,
+  );
   const agentRoute = useMemo(
     () =>
       selectedAgent
@@ -1374,7 +1378,7 @@ export function KickoffDialog(props: {
                             {selectedAgent.model.mode === "fixed" ? null : (
                               <SelectItem value="auto">{tI18n("kickoff:kickoffDialog.autoRouting")}</SelectItem>
                             )}
-                            {listProviderIds().map((id) => (
+                            {runsOnProviderIds.map((id) => (
                               <SelectItem key={id} value={id}>
                                 {PROVIDER_LABELS[id] ?? id}
                               </SelectItem>

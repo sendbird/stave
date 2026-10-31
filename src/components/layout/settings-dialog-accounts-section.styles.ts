@@ -88,6 +88,10 @@ export const accountsSectionStyles = stylex.create({
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
   },
+  /** CLI path field for a CLI that was not found; same size as the provider tabs' path fields. */
+  pathInput: {
+    blockSize: vars["--ads-control-height-lg"],
+  },
   help: {
     alignItems: "center",
     borderTopColor: vars["--ads-color-border"],

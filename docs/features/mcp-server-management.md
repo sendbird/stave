@@ -4,6 +4,11 @@ Stave manages native MCP server configuration from `Settings > MCP` for Claude,
 Codex, Cursor, and Kiro. Cursor/Grok and Kiro tasks run through ACP and retain
 their own user or workspace MCP files.
 
+Cursor and Kiro appear here (their status columns, `Add to` buttons and
+installation targets) only once that provider is set up: its CLI is installed
+and signed in. Until then Stave does not read their MCP files. Claude and Codex
+always appear.
+
 OpenCode is not an installation target here. OpenCode tasks receive Stave Local
 MCP only; every other server comes from OpenCode's own `mcp` configuration
 (`opencode mcp`), and Stave does not copy Claude or Codex servers into an

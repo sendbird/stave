@@ -44,6 +44,13 @@ import { resolveMcpShareDestinationScope } from "@/lib/providers/mcp-config-shar
 import type { ProviderRuntimeOptions } from "@/lib/providers/provider.types";
 import { mcpConfigEditorStyles as styles } from "./settings-dialog-mcp-config-editor.styles";
 
+const MCP_PROVIDER_LABELS = [
+  ["claude-code", "Claude"],
+  ["codex", "Codex"],
+  ["cursor", "Cursor"],
+  ["kiro", "Kiro"],
+] as const satisfies ReadonlyArray<readonly [McpConfigProvider, string]>;
+
 type McpEditorRuntimeOptions = {
   claude: ProviderRuntimeOptions;
   codex: ProviderRuntimeOptions;
@@ -123,6 +130,8 @@ export function McpServerConfigEditorDialog(props: {
   snapshot?: McpServerConfigSnapshot;
   workspaceCwd?: string;
   runtimeOptions: McpEditorRuntimeOptions;
+  /** Providers that are set up; a new server installs only to these. */
+  providers: readonly McpConfigProvider[];
   onOpenChange: (open: boolean) => void;
   onApplied: (detail: string, outcome?: "success" | "partial") => void;
 }) {
@@ -130,7 +139,7 @@ export function McpServerConfigEditorDialog(props: {
   const editing = Boolean(props.snapshot);
   const baseId = useId();
   const [form, setForm] = useState(() =>
-    createInitialMcpConfigForm(props.snapshot),
+    createInitialMcpConfigForm(props.snapshot, props.providers),
   );
   const [preview, setPreview] = useState<McpServerConfigMutationPreview | null>(
     null,
@@ -140,11 +149,11 @@ export function McpServerConfigEditorDialog(props: {
 
   useEffect(() => {
     if (!props.open) return;
-    setForm(createInitialMcpConfigForm(props.snapshot));
+    setForm(createInitialMcpConfigForm(props.snapshot, props.providers));
     setPreview(null);
     setBusy(false);
     setError("");
-  }, [props.open, props.snapshot]);
+  }, [props.open, props.snapshot, props.providers]);
 
   const mutationRequest = useMemo(() => {
     try {
@@ -324,10 +333,15 @@ export function McpServerConfigEditorDialog(props: {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="claude-code">Claude</SelectItem>
-                        <SelectItem value="codex">Codex</SelectItem>
-                        <SelectItem value="cursor">Cursor</SelectItem>
-                        <SelectItem value="kiro">Kiro</SelectItem>
+                        {MCP_PROVIDER_LABELS.filter(
+                          ([provider]) =>
+                            provider === form.provider ||
+                            props.providers.includes(provider),
+                        ).map(([provider, label]) => (
+                          <SelectItem key={provider} value={provider}>
+                            {label}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   ) : (
@@ -335,13 +349,8 @@ export function McpServerConfigEditorDialog(props: {
                       id={`${baseId}-provider`}
                       className={sx(styles.providerToggles)}
                     >
-                      {(
-                        [
-                          ["claude-code", "Claude"],
-                          ["codex", "Codex"],
-                          ["cursor", "Cursor"],
-                          ["kiro", "Kiro"],
-                        ] as const
+                      {MCP_PROVIDER_LABELS.filter(([provider]) =>
+                        props.providers.includes(provider),
                       ).map(([provider, label]) => (
                         <div key={provider} className={sx(styles.providerRow)}>
                           <span className={sx(styles.providerLabel)}>

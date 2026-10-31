@@ -5,7 +5,7 @@
     },
     "accountUsageLimit": {
       "title": "Account usage limit",
-      "description": "Shared stop for Claude, Codex, Cursor, and Kiro when included account usage is exhausted.",
+      "description": "Shared stop for every provider when included account usage is exhausted.",
       "stopTurns": {
         "title": "Stop turns at 100% usage",
         "description": "When a provider reports included usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish. Turn this off to keep working on overage."
@@ -935,7 +935,7 @@
     },
     "card": {
       "title": "MCP Connections",
-      "description": "Install native MCP servers for Claude, Codex, Cursor, and Kiro. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route.",
+      "description": "Install native MCP servers for each provider. Each provider keeps its own configuration and OAuth session; Stave forwards compatible entries only when the target has no native route.",
       "addServer": "Add server",
       "refreshing": "Refreshing..."
     },
@@ -949,7 +949,7 @@
       "description": "Provider-native configuration and available runtime status. Account-managed OAuth sessions stay with the provider that owns them."
     },
     "loading": "Loading MCP connections…",
-    "empty": "No MCP servers were found in the current Claude, Codex, Cursor, or Kiro configuration.",
+    "empty": "No MCP servers were found in the current provider configuration.",
     "serverListAriaLabel": "MCP server status",
     "runtimeDetected": "Runtime detected",
     "auth": {

@@ -289,7 +289,7 @@ for (const themeMode of ["light", "dark"] as const) {
     await expect(settings.getByRole("heading", { name: "API connections" })).toBeVisible();
     await expect(settings.getByText("Company gateway").first()).toBeVisible({ timeout: 20_000 });
     await expect(settings.locator('[data-cli-provider="opencode"]')).toContainText("Managed in CLI");
-    await expect(settings.locator('[data-cli-provider="cursor"]')).toContainText("CLI not installed");
+    await expect(settings.locator("[data-cli-missing]")).toContainText("Not installed: Cursor Agent");
     await shot(page, testInfo, `settings-accounts-${themeMode}`);
 
     await settings.getByRole("button", { name: "Tooling", exact: true }).click();

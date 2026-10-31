@@ -12,7 +12,6 @@ import {
 } from "@/lib/providers/trusted-tools";
 import type {
   ClaudeSettingSource,
-  ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import { sx } from "@/components/ads/utils/stylex";
@@ -51,6 +50,7 @@ import { SettingsAdvancedDisclosure } from "./settings-dialog-advanced-disclosur
 import { ProviderDefaultsLink } from "./settings-dialog-provider-defaults-link";
 import type { SectionId } from "./settings-dialog.schema";
 import { SettingsProviderTabsList } from "./settings-provider-tabs";
+import { useSettingsProviderTab } from "./settings-provider-visibility";
 import { DescribedSelect } from "./settings-dialog-described-select";
 import {
   ClaudeModeBadge,
@@ -59,15 +59,6 @@ import {
   CodexPermissionPostureFields,
 } from "./settings-dialog-permission-posture-fields";
 import { ScopeLocked } from "./settings-scope";
-
-/** Tab order for the per-provider runtime settings below the shared cards. */
-const PROVIDER_SETTINGS_TAB_IDS = [
-  "claude-code",
-  "codex",
-  "cursor",
-  "kiro",
-  "opencode",
-] as const satisfies readonly ProviderId[];
 
 const CLAUDE_SETTING_SOURCE_HELP = [
   {
@@ -233,6 +224,7 @@ export function ProvidersSection(props: {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
+  const providerTab = useSettingsProviderTab();
   const developerModeEnabled = useAppStore(
     (state) => state.settings.developerModeEnabled,
   );
@@ -328,9 +320,13 @@ export function ProvidersSection(props: {
         )}
       </SettingsCard>
       </ScopeLocked>
-      <Tabs defaultValue="claude-code" xstyle={providersStyles.tabs}>
+      <Tabs
+        value={providerTab.value}
+        onValueChange={providerTab.onValueChange}
+        xstyle={providersStyles.tabs}
+      >
         <SettingsProviderTabsList
-          providerIds={PROVIDER_SETTINGS_TAB_IDS}
+          providerIds={providerTab.providerIds}
           aria-label={t("settingsProviders:providersSection.tabsAriaLabel")}
         />
 
@@ -712,15 +708,21 @@ export function ProvidersSection(props: {
             </ScopeLocked>
           </SectionStack>
         </TabsContent>
-        <TabsContent value="cursor">
-          <SettingsCursorSection onNavigateSection={props.onNavigateSection} />
-        </TabsContent>
-        <TabsContent value="kiro">
-          <SettingsKiroSection onNavigateSection={props.onNavigateSection} />
-        </TabsContent>
-        <TabsContent value="opencode">
-          <SettingsOpenCodeSection onNavigateSection={props.onNavigateSection} />
-        </TabsContent>
+        {providerTab.providerIds.includes("cursor") ? (
+          <TabsContent value="cursor">
+            <SettingsCursorSection onNavigateSection={props.onNavigateSection} />
+          </TabsContent>
+        ) : null}
+        {providerTab.providerIds.includes("kiro") ? (
+          <TabsContent value="kiro">
+            <SettingsKiroSection onNavigateSection={props.onNavigateSection} />
+          </TabsContent>
+        ) : null}
+        {providerTab.providerIds.includes("opencode") ? (
+          <TabsContent value="opencode">
+            <SettingsOpenCodeSection onNavigateSection={props.onNavigateSection} />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </>
   );

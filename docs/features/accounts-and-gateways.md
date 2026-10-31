@@ -55,7 +55,7 @@ You sign in once per account, not once per CLI binary. The sign-in is saved in t
   - **Getting started**: the steps above.
   - **Choose how you pay**: your subscription, another subscription, or a company gateway key. Each button goes to its form; a way you already use reads **In use**.
   - **Claude accounts** and **Codex accounts**: add, rename, sign in, and remove accounts.
-  - **Cursor, Kiro and OpenCode sign-in**: whether each CLI is signed in, and **Copy Login Command**. These CLIs keep their own sign-in, so Stave does not manage accounts for them. **CLI not installed** links to Settings > Tooling.
+  - **Cursor, Kiro and OpenCode sign-in**: each installed CLI gets a row that says whether it is signed in, with **Copy Login Command**. These CLIs keep their own sign-in, so Stave does not manage accounts for them. CLIs that are not installed share one folded **Not installed** row; opening it shows how to install each one, a field for its CLI path when it is installed where Stave does not look, and **Open Tooling**. While the first check runs, the card shows one **Checking** row.
   - **API connections**: add, check, edit, and remove API connections.
 - **Settings > Tooling** keeps CLI paths, install status, and versions. Its top card points to Settings > Accounts.
 - **Composer model selector**: its foot names a provider you set up that stopped working, with the button that fixes it: a CLI that is installed but not signed in (for Cursor, Kiro and OpenCode the button goes to that CLI's row), or an API connection whose key Stave cannot read. A CLI that is not installed is not listed there; the composer line covers the task's own provider, and **Getting started** and **Manage accounts and connections…** cover installing. It offers **Add other models with Vercel AI Gateway…** when you have no API connection, and ends with **Manage accounts and connections…**. An API connection's group has **Edit models**, which opens that connection's edit form.
@@ -229,7 +229,7 @@ OpenCode needs its own CLI and its own provider sign-in. Stave does not pass an 
 
 1. Install OpenCode 1.19.0 or newer (`npm i -g opencode-ai`) or 2.0.29 or newer (`npm i -g @opencode/cli`). Both install the `opencode` command.
 2. Connect Vercel AI Gateway in OpenCode: run `npx vercel ai-gateway setup --agent opencode`, or open the OpenCode TUI and use `/connect`. For another provider, run `opencode auth login`.
-3. In Stave, open **Settings > Tooling** and check that the **OpenCode** row shows **Ready**; **Settings > Accounts** shows it as **Managed in CLI**. Set **Settings > Providers > OpenCode > CLI Path** if Stave did not find it.
+3. In Stave, open **Settings > Tooling** and check that the **OpenCode** row shows **Ready**; **Settings > Accounts** shows it as **Managed in CLI**. If Stave did not find it, open the **Not installed** row in **Settings > Accounts** and set its CLI path there; the **OpenCode** tab in **Settings > Providers** appears once it is ready.
 4. In the composer, open the model selector, choose the **OpenCode** tab and search for the model, for example `vercel/zai/glm-5.3`. Model ids are `provider/model`, as OpenCode lists them.
 
 What to expect:

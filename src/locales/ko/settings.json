@@ -1105,7 +1105,7 @@
       },
       "accountUsageLimit": {
         "title": "사용량 100%에서 턴 중지",
-        "description": "Claude, Codex, Cursor, Kiro가 포함된 계정 사용량이 100%라고 보고하면 해당 프로바이더의 새 턴과 백그라운드 AI를 막아 추가 크레딧이 사용되지 않게 합니다. 이미 실행 중인 턴은 끝까지 진행됩니다."
+        "description": "프로바이더가 포함된 계정 사용량이 100%라고 보고하면 해당 프로바이더의 새 턴과 백그라운드 AI를 막아 추가 크레딧이 사용되지 않게 합니다. 이미 실행 중인 턴은 끝까지 진행됩니다."
       },
       "auxiliaryInference": {
         "title": "백그라운드 AI",
@@ -1288,7 +1288,7 @@
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "독립 CLI",
-    "runClaudeCodeCodexCursorAnd": "저장소로 등록하지 않은 폴더에서도 Claude Code, Codex, Cursor, Kiro, OpenCode를 실행합니다.",
+    "runClaudeCodeCodexCursorAnd": "저장소로 등록하지 않은 폴더에서도 프로바이더 CLI를 실행합니다.",
     "standaloneCLIFolder": "독립 CLI 폴더",
     "absolutePathChangingItRestartsEvery": "절대 경로를 입력합니다. 변경하면 모든 CLI 탭을 새 폴더에서 다시 시작하고 대화를 삭제합니다.",
     "enterAnAbsoluteFolderPath": "절대 폴더 경로를 입력하세요."

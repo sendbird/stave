@@ -45,7 +45,7 @@ import {
   isUsableAs,
   type AgentConfig,
 } from "@/lib/agents/schema";
-import { listProviderIds } from "@/lib/providers/model-catalog";
+import { useSettingsProviderIdsWithSaved } from "@/components/layout/settings-provider-visibility";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useAppStore } from "@/store/app.store";
@@ -64,7 +64,6 @@ import { NewAgentDialog } from "./NewAgentDialog";
 import { agentStyles } from "./agents.styles";
 import { useRepositoryAgents } from "./useRepositoryAgents";
 
-const PROVIDERS = listProviderIds();
 const NO_NOTES: readonly AgentImportNote[] = [];
 const NO_REVISIONS: readonly AgentRevision[] = [];
 const NO_SUGGESTIONS: readonly AgentSuggestion[] = [];
@@ -137,7 +136,11 @@ function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
 export function ProviderSupport(props: { agent: AgentConfig }) {
   useTranslation();
   const { agent } = props;
-  const support = useMemo(() => describeProviderSupport(agent, PROVIDERS), [agent]);
+  // Rows for providers that are set up, plus the one the agent pins.
+  const providers = useSettingsProviderIdsWithSaved(
+    agent.model.mode === "fixed" ? agent.model.providerId : null,
+  );
+  const support = useMemo(() => describeProviderSupport(agent, providers), [agent, providers]);
   // Every row would only say it can't be used as a main agent; "Usable as" already does.
   if (!isUsableAs(agent, "primary")) return null;
   return (

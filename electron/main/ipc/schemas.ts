@@ -966,8 +966,9 @@ const McpConfigShareMutationSchema = McpConfigMutationBaseSchema.extend({
   destination: McpServerConfigTargetSchema,
 }).strict();
 
-export const McpServerConfigListArgsSchema =
-  McpConfigMutationBaseSchema.strict();
+export const McpServerConfigListArgsSchema = McpConfigMutationBaseSchema.extend({
+  providers: z.array(McpConfigProviderSchema).max(4).optional(),
+}).strict();
 export const McpServerConfigMutationArgsSchema = z.discriminatedUnion(
   "operation",
   [

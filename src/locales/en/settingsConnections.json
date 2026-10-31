@@ -732,9 +732,11 @@
       "title": "Cursor, Kiro and OpenCode sign-in",
       "description": "These CLIs keep their own sign-in. Stave shows whether they are signed in and the command that signs in.",
       "checking": "Checking",
-      "notInstalled": "CLI not installed",
       "installHint": "Install {{value1}} to use it. Settings > Tooling shows where Stave looks.",
-      "loginHint": "Sign in in a terminal with {{value1}}."
+      "loginHint": "Sign in in a terminal with {{value1}}.",
+      "notInstalledGroup": "Not installed: {{names}}",
+      "notInstalledDescription": "Install a CLI to use it here. If it is installed where Stave does not look, enter its path.",
+      "pathAriaLabel": "{{value1}} path"
     },
     "help": "How accounts, subscriptions and gateway keys work:"
   },

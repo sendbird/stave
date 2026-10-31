@@ -1119,7 +1119,7 @@
       },
       "accountUsageLimit": {
         "title": "Stop turns at 100% usage",
-        "description": "When Claude, Codex, Cursor, or Kiro reports included account usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish."
+        "description": "When a provider reports included account usage at 100%, block new turns and background AI for that provider so extra credits are not spent. Turns that are already running can still finish."
       },
       "auxiliaryInference": {
         "title": "Background AI",
@@ -1302,7 +1302,7 @@
   },
   "settingsDialogStandaloneCliCard": {
     "standaloneCLI": "Standalone CLI",
-    "runClaudeCodeCodexCursorAnd": "Run Claude Code, Codex, Cursor, Kiro and OpenCode against one folder without registering it as a repository.",
+    "runClaudeCodeCodexCursorAnd": "Run provider CLIs against one folder without registering it as a repository.",
     "standaloneCLIFolder": "Standalone CLI Folder",
     "absolutePathChangingItRestartsEvery": "Absolute path. Changing it restarts every CLI tab in the new folder and discards their conversations.",
     "enterAnAbsoluteFolderPath": "Enter an absolute folder path."
