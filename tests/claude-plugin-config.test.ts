@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
@@ -501,6 +501,104 @@ describe("Claude plugin MCP config paths", () => {
         claudeConfigDir: corrupted.configDir,
       }),
     ).toEqual([]);
+  });
+
+  test("skips a symlink that leads outside the plugin, by its canonical target", async () => {
+    if (process.platform === "win32") return;
+    const { root, configDir, cwd, installPath } = await makePluginFixture({
+      enabled: true,
+      manifest: { name: "remote", mcpServers: ["./servers.json", "./inside.json"] },
+      extraFiles: { "real/inside.json": { mcpServers: remoteServer } },
+    });
+    const outside = path.join(root, "outside");
+    await writeJson(path.join(outside, "servers.json"), { mcpServers: remoteServer });
+    await writeJson(path.join(outside, ".mcp.json"), { mcpServers: remoteServer });
+    await symlink(path.join(outside, "servers.json"), path.join(installPath, "servers.json"));
+    await symlink(path.join(outside, ".mcp.json"), path.join(installPath, ".mcp.json"));
+    await symlink(path.join(installPath, "real", "inside.json"), path.join(installPath, "inside.json"));
+
+    // Only the link that stays inside the plugin, and the manifest, remain.
+    expect(
+      resolveClaudePluginMcpConfigPaths({ cwd, claudeConfigDir: configDir }),
+    ).toEqual([
+      path.join(installPath, ".claude-plugin", "plugin.json"),
+      path.join(installPath, "inside.json"),
+    ]);
+  });
+
+  test("keeps a plugin whose root or plugins folder is itself a symlink", async () => {
+    if (process.platform === "win32") return;
+    const { root, configDir, cwd, installPath } = await makePluginFixture({
+      enabled: true,
+      mcpJson: { mcpServers: remoteServer },
+      manifest: { name: "remote", mcpServers: "./servers.json" },
+      extraFiles: { "servers.json": { mcpServers: remoteServer } },
+    });
+    // The registry records the plugin through a link to its folder.
+    const linkedInstallPath = path.join(root, "linked-plugin");
+    await symlink(installPath, linkedInstallPath);
+    await writeJson(path.join(configDir, "plugins", "installed_plugins.json"), {
+      version: 2,
+      plugins: { "remote@shop": [{ scope: "user", installPath: linkedInstallPath }] },
+    });
+
+    expect(
+      resolveClaudePluginMcpConfigPaths({ cwd, claudeConfigDir: configDir }),
+    ).toEqual([
+      path.join(linkedInstallPath, ".claude-plugin", "plugin.json"),
+      path.join(linkedInstallPath, ".mcp.json"),
+      path.join(linkedInstallPath, "servers.json"),
+    ]);
+  });
+
+  test("allows a link to another plugin of the same marketplace when loaded in place", async () => {
+    if (process.platform === "win32") return;
+    const root = await makeTempDirectory();
+    const configDir = path.join(root, "config");
+    const cwd = path.join(root, "workspace");
+    const marketplace = path.join(root, "marketplace");
+    const installPath = path.join(marketplace, "plugins", "remote");
+    await mkdir(cwd, { recursive: true });
+    await writeJson(path.join(marketplace, "plugins", "shared", "servers.json"), {
+      mcpServers: remoteServer,
+    });
+    await writeJson(path.join(installPath, ".claude-plugin", "plugin.json"), {
+      name: "remote",
+      mcpServers: "./servers.json",
+    });
+    await symlink(
+      path.join(marketplace, "plugins", "shared", "servers.json"),
+      path.join(installPath, "servers.json"),
+    );
+    await writeJson(path.join(configDir, "settings.json"), {
+      enabledPlugins: { "remote@shop": true },
+    });
+    await writeJson(path.join(configDir, "plugins", "installed_plugins.json"), {
+      version: 2,
+      plugins: { "remote@shop": [{ scope: "user", installPath }] },
+    });
+    const paths = () =>
+      resolveClaudePluginMcpConfigPaths({ cwd, claudeConfigDir: configDir });
+    const linked = path.join(installPath, "servers.json");
+
+    // Without a known marketplace folder the link escapes the plugin.
+    expect(paths()).not.toContain(linked);
+    await writeJson(path.join(configDir, "plugins", "known_marketplaces.json"), {
+      shop: { source: { source: "directory", path: marketplace }, installLocation: marketplace },
+    });
+    expect(paths()).toContain(linked);
+  });
+
+  test("skips a declared path with a backslash outside Windows", async () => {
+    if (process.platform === "win32") return;
+    const { configDir, cwd, installPath } = await makePluginFixture({
+      enabled: true,
+      manifest: { name: "remote", mcpServers: "./mcp\\servers.json" },
+    });
+
+    expect(
+      resolveClaudePluginMcpConfigPaths({ cwd, claudeConfigDir: configDir }),
+    ).toEqual([path.join(installPath, ".claude-plugin", "plugin.json")]);
   });
 });
 

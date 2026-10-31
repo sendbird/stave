@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -319,15 +319,86 @@ export async function resolveClaudeInstalledPlugins(args: {
 }
 
 /**
+ * The canonical form of `filePath`, through every symlink. A missing tail is
+ * kept as written under its nearest existing ancestor, so a file that is not
+ * there yet still resolves; a dangling or looping link resolves to null.
+ */
+function resolveCanonicalPath(filePath: string): string | null {
+  const missing: string[] = [];
+  let current = filePath;
+  for (;;) {
+    try {
+      return path.join(realpathSync(current), ...missing.reverse());
+    } catch {
+      if (lstatSync(current, { throwIfNoEntry: false })) {
+        return null;
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        return null;
+      }
+      missing.push(path.basename(current));
+      current = parent;
+    }
+  }
+}
+
+/**
+ * Whether a plugin component file stays inside its plugin, as Claude Code
+ * requires before it loads one: written inside the root, and resolving through
+ * symlinks inside the canonical plugin root (so a symlinked plugin root or
+ * `plugins` folder still works). The one
+ * exception Claude Code documents is a link to another part of the same
+ * marketplace, which applies when the plugin loads in place from inside that
+ * marketplace's folder; a cached copy has such links already dereferenced.
+ */
+function isPluginComponentPath(args: {
+  root: string;
+  filePath: string;
+  marketplaceRoot?: string;
+}) {
+  if (
+    args.filePath === args.root ||
+    !isPathInside({ parent: args.root, child: args.filePath })
+  ) {
+    return false;
+  }
+  const target = resolveCanonicalPath(args.filePath);
+  const root = resolveCanonicalPath(args.root);
+  if (!target || !root) {
+    return false;
+  }
+  if (isPathInside({ parent: root, child: target })) {
+    return true;
+  }
+  const marketplace = args.marketplaceRoot
+    ? resolveCanonicalPath(args.marketplaceRoot)
+    : null;
+  return Boolean(
+    marketplace &&
+      isPathInside({ parent: marketplace, child: root }) &&
+      isPathInside({ parent: marketplace, child: target }),
+  );
+}
+
+/**
  * Adds the MCP config files of one installed plugin: `.mcp.json` at its root,
  * then the manifest when it declares `mcpServers` inline or by path, and each
  * `./*.json` file it names. Bundle (`.mcpb`/`.dxt`) entries carry their server
- * config inside an archive and are not read.
+ * config inside an archive and are not read. A file that escapes the plugin is
+ * skipped, as Claude Code skips it.
  */
-function addClaudePluginMcpConfigPaths(target: Set<string>, installPath: string) {
+function addClaudePluginMcpConfigPaths(
+  target: Set<string>,
+  installPath: string,
+  marketplaceRoot?: string,
+) {
   const root = path.resolve(installPath);
   const defaultFile = path.join(root, ".mcp.json");
-  if (existsSync(defaultFile)) {
+  if (
+    existsSync(defaultFile) &&
+    isPluginComponentPath({ root, filePath: defaultFile, marketplaceRoot })
+  ) {
     target.add(defaultFile);
   }
   const manifestPath = path.join(root, ".claude-plugin", "plugin.json");
@@ -340,18 +411,34 @@ function addClaudePluginMcpConfigPaths(target: Set<string>, installPath: string)
     if (
       typeof entry !== "string" ||
       !entry.startsWith("./") ||
-      !entry.toLowerCase().endsWith(".json")
+      !entry.toLowerCase().endsWith(".json") ||
+      // Outside Windows, Claude Code rejects a component path with a backslash.
+      (process.platform !== "win32" && entry.includes("\\"))
     ) {
       continue;
     }
     const filePath = path.resolve(root, entry);
-    // Claude Code refuses a component path that escapes the plugin root.
-    if (filePath !== root && isPathInside({ parent: root, child: filePath })) {
+    if (isPluginComponentPath({ root, filePath, marketplaceRoot })) {
       // The manifest says what this file is; its name does not.
       noteClaudePluginMcpDocumentPath(filePath);
       target.add(filePath);
     }
   }
+}
+
+/** Marketplace name to the folder Claude Code fetched or reads it from. */
+function readKnownMarketplaceRoots(configDir: string) {
+  const known = asRecord(
+    readJsonFileSync(path.join(configDir, "plugins", "known_marketplaces.json")),
+  );
+  const roots = new Map<string, string>();
+  for (const [name, value] of Object.entries(known ?? {})) {
+    const location = asRecord(value)?.installLocation;
+    if (typeof location === "string" && path.isAbsolute(location)) {
+      roots.set(name, location);
+    }
+  }
+  return roots;
 }
 
 /**
@@ -415,6 +502,7 @@ export function resolveClaudePluginMcpConfigPaths(args: {
   };
 
   const configPaths = new Set<string>();
+  const marketplaceRoots = readKnownMarketplaceRoots(configDir);
   for (const plugin of listApplicableClaudePlugins({ documents, cwd })) {
     const override = enabledPlugins?.[plugin.id];
     const enabled =
@@ -424,7 +512,11 @@ export function resolveClaudePluginMcpConfigPaths(args: {
     }
     for (const entry of plugin.entries) {
       if (entry.installPath) {
-        addClaudePluginMcpConfigPaths(configPaths, entry.installPath);
+        addClaudePluginMcpConfigPaths(
+          configPaths,
+          entry.installPath,
+          marketplaceRoots.get(splitPluginId(plugin.id).marketplace),
+        );
       }
     }
   }

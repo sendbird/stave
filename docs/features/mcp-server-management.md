@@ -229,9 +229,12 @@ own environment lacks, Stave reads it from your login shell and passes it to the
 provider process. For Claude this covers servers in Claude's settings and state
 files, the project `.mcp.json`, and the MCP servers of every Claude plugin that
 loads for the workspace: the plugin's `.mcp.json` and the servers its
-`plugin.json` declares inline or in the JSON files it names. Claude fills in
-`${CLAUDE_PLUGIN_ROOT}`, `${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}`
-itself, so Stave leaves them alone.
+`plugin.json` declares inline or in the JSON files it names. Like Claude, Stave
+skips a file that resolves outside the plugin's folder, including through a
+symbolic link, unless the link stays inside the marketplace folder the plugin
+loads from in place. Claude fills in `${CLAUDE_PLUGIN_ROOT}`,
+`${CLAUDE_PLUGIN_DATA}`, and `${CLAUDE_PROJECT_DIR}` itself, so Stave leaves
+them alone.
 
 Stave keeps the values it read for the rest of the session. After you add or
 change one in your shell profile, select **Refresh** in `Settings > MCP`. Stave
