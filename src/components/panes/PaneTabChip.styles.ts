@@ -112,9 +112,10 @@ export const paneTabChipStyles = stylex.create({
     },
     display: "flex",
     flexShrink: 0,
-    height: 20,
+    // A 24px hit area; shown on hover, focus and the active tab.
+    height: vars["--ads-space-24"],
     justifyContent: "center",
-    width: 20,
+    width: vars["--ads-space-24"],
   },
   closeVisible: {
     opacity: 1,
@@ -129,7 +130,7 @@ export const paneTabChipStyles = stylex.create({
   /**
    * The host-layout Button now emits the glyph contract, so `ads/styles.css`
    * keeps Lucide's 24px viewport out on its own. That rule is a default for
-   * host layout, so this 14px chip size still wins — it stays because a 20px
+   * host layout, so this 14px chip size still wins — it stays because a 24px
    * chip action wants a tighter glyph than the 16px control default.
    */
   closeIcon: {

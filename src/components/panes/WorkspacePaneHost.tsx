@@ -75,7 +75,8 @@ import {
   copyEditorTabRelativePath,
 } from "@/components/panes/editor-tab-actions";
 import { shouldShowEditorFileActions } from "@/components/panes/editor-tab-presentation";
-import { clearLensTabState } from "@/components/panes/lens-tab-state";
+import { clearLensTabState, getLensTabState } from "@/components/panes/lens-tab-state";
+import { describePaneAnnouncement } from "@/components/panes/pane-tab-accessibility";
 import {
   PANE_CUSTOM_ICON_OPTIONS,
   resolvePaneCustomIcon,
@@ -83,6 +84,10 @@ import {
 import { splitPanelInDirection } from "@/components/panes/pane-split";
 
 const LAYOUT_PERSIST_DEBOUNCE_MS = 300;
+
+/** Open and close are spoken with the tab's title, not its panel id. */
+const announcePaneChange = (event: { kind: string; panel: { id: string } }) =>
+  describePaneAnnouncement(event, useAppStore.getState(), getLensTabState);
 
 const STAVE_DOCKVIEW_THEME: DockviewTheme = {
   name: "stave",
@@ -1149,6 +1154,7 @@ export function WorkspacePaneHost() {
         rightHeaderActionsComponent={PaneHeaderActions}
         watermarkComponent={PaneWatermark}
         getTabContextMenuItems={buildTabContextMenuItems}
+        getAnnouncement={announcePaneChange}
         onReady={handleReady}
       />
       <ConfirmDialog

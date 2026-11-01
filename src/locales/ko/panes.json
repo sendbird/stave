@@ -30,7 +30,17 @@
     "cLISession": "CLI 세션",
     "terminal": "터미널",
     "editor": "편집기",
-    "compareRun": "비교 실행"
+    "compareRun": "비교 실행",
+    "accessibleNameFull": "{{title}}, {{provider}}, {{status}}",
+    "accessibleNamePart": "{{title}}, {{detail}}",
+    "status": {
+      "awaitingApproval": "승인 대기 중",
+      "awaitingInput": "답변 대기 중",
+      "stalled": "정체됨",
+      "working": "작업 중"
+    },
+    "opened": "{{title}} 열림",
+    "closed": "{{title}} 닫힘"
   },
   "paneWatermark": {
     "noOpenTabs": "열린 탭 없음",
