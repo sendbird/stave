@@ -463,7 +463,7 @@ describe("task-context workspace schemas", () => {
             { ...row, id: "run-prompt-2", agentRunPrompt: { agentRunId: "run-1", assignment: null } },
             { ...row, id: "run-prompt-3", agentRunPrompt: { agentRunId: "", assignment: 4 } },
             // A later stage's turn keeps its stage through a reload, so the row draws its stage card from the first frame.
-            { ...row, id: "run-prompt-4", agentRunPrompt: { agentRunId: "run-1", assignment: "Add CSV export.", stageIndex: 1, stageId: "review" } },
+            { ...row, id: "run-prompt-4", agentRunPrompt: { agentRunId: "run-1", assignment: "Add CSV export.", stageIndex: 1, stageId: "review", isContinuation: true } },
             { ...row, id: "run-prompt-5", agentRunPrompt: { agentRunId: "run-1", assignment: null, stageIndex: -1, stageId: "review" } },
             { ...row, id: "older-row" },
           ],
@@ -475,7 +475,7 @@ describe("task-context workspace schemas", () => {
       { agentRunId: "run-1", assignment: "Add CSV export." },
       { agentRunId: "run-1", assignment: null },
       undefined,
-      { agentRunId: "run-1", assignment: "Add CSV export.", stageIndex: 1, stageId: "review" },
+      { agentRunId: "run-1", assignment: "Add CSV export.", stageIndex: 1, stageId: "review", isContinuation: true },
       undefined,
       undefined,
     ]);

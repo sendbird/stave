@@ -46,3 +46,13 @@ test.describe("run surfaces", () => {
     await expect(report.getByRole("status")).toContainText("Added the report");
   });
 });
+
+for (const theme of ["light", "dark"]) test(`a first-stage retry shows a stage card in ${theme} theme`, async ({ page }) => {
+  await page.goto(`/?stavePreview=agent-run&only=agent-run&theme=${theme}`);
+  const retry = page.locator('[data-preview-case="First stage retry"]');
+  await expect(retry.getByRole("button", { name: /Stage 1 of 1/ })).toBeVisible();
+  await expect(retry).not.toContainText("Fix the billing table overflow on narrow screens.");
+  await retry.getByRole("button", { name: "Full prompt sent to the agent" }).click();
+  await expect(retry).toContainText("Fix the billing table overflow on narrow screens.");
+  await expect(page.locator('[data-preview-case="Agent run bubble"]')).toContainText("Fix the billing table overflow on narrow screens.");
+});

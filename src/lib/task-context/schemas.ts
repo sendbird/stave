@@ -542,6 +542,7 @@ export const ChatMessageSchema = z.object({
       assignment: z.string().nullable(),
       // The stage the turn ran; absent on rows written before stages were recorded.
       stageIndex: z.number().int().min(0).optional(),
+      isContinuation: z.boolean().optional(),
       stageId: z.string().min(1).max(200).optional(),
     })
     .strict()

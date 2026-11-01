@@ -1440,6 +1440,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               agentRunId: agentRun.id,
               assignment: extractRunAssignment(prompt, agentRun.assignment),
               stageIndex: started.agentRun.currentStageIndex,
+              isContinuation: started.agentRun.turnCount > 1,
               stageId: identity.stageId,
             } }
           : {}),

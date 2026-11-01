@@ -30,9 +30,12 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 /** A user message an agent run started: the user's own words and Stave's instructions. */
 export type AgentRunPrompt = AgentRunPromptView;
 
-/** Whether a row's mark names the stage its turn ran, so the run's events are not needed to find it. */
+/** Whether a row's mark identifies both its stage and continuation, without reading events. */
 export function agentRunPromptProvenanceNamesStage(provenance: AgentRunPromptProvenance | undefined | null): boolean {
-  return Boolean(provenance && (provenance.stageId || typeof provenance.stageIndex === "number"));
+  return Boolean(
+    provenance && typeof provenance.isContinuation === "boolean" &&
+    (provenance.stageId || typeof provenance.stageIndex === "number"),
+  );
 }
 
 /**
