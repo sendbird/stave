@@ -62,7 +62,12 @@ export function resolveTaskModel(args: {
   draft: PromptDraft | undefined;
   providerId: ProviderId;
 }): string {
-  const latest = [...args.messages].reverse().find((message) => Boolean(message.model))?.model?.trim();
+  const latest = [...args.messages].reverse().find((message) => {
+    if (!message.model?.trim()) return false;
+    const provider = message.providerId && message.providerId !== "user"
+      ? message.providerId : inferProviderIdFromModel({ model: message.model });
+    return provider === args.providerId;
+  })?.model?.trim();
   if (latest) return latest;
   const drafted = args.draft?.runtimeOverrides?.model?.trim();
   const draftedProvider =

@@ -33,3 +33,16 @@ test("a supervisor creates an idle managed child with its admitted id exactly on
   expect(() => addIdleTask(added.session, { ...args, provider: "claude-code" })).toThrow();
   expect(() => addIdleTask({ ...added.session, tasks: added.session.tasks.map(task => ({ ...task, controlMode: "interactive" })) }, args)).toThrow();
 });
+
+
+test("switching provider ignores the previous provider's message model", () => {
+  const messages = [
+    { model: "claude-sonnet-5-5", providerId: "claude-code" },
+    { model: "gpt-6.1-sol", providerId: "codex" },
+  ] as never;
+  expect(resolveTaskModel({ messages, draft: undefined, providerId: "claude-code" })).toBe("claude-sonnet-5-5");
+  expect(resolveTaskModel({ messages, draft: undefined, providerId: "codex" })).toBe("gpt-6.1-sol");
+  expect(resolveTaskModel({ messages: [{ model: "gpt-6.1-sol" }] as never, draft: undefined, providerId: "claude-code" })).not.toBe("gpt-6.1-sol");
+  // Gateway model names follow the message's explicit runtime, not name inference.
+  expect(resolveTaskModel({ messages: [{ model: "vendor/custom", providerId: "codex" }] as never, draft: undefined, providerId: "codex" })).toBe("vendor/custom");
+});

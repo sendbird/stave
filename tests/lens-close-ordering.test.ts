@@ -25,6 +25,11 @@ class FakeGuest extends EventEmitter {
   }
   setAudioMuted() {}
   setBackgroundThrottling() {}
+  visualZoomLimits: number[] = [];
+  zoom = 1;
+  async setVisualZoomLevelLimits(min: number, max: number) { this.visualZoomLimits = [min, max]; }
+  getZoomFactor() { return this.zoom; }
+  setZoomFactor(factor: number) { this.zoom = factor; }
   setWindowOpenHandler() {}
 }
 let finishDrain: (result: "drained" | "timed-out") => void;
@@ -161,4 +166,20 @@ test("closing a tab while its eviction is still closing forgets the automation p
   await closing;
 
   expect(automation.getLensAutomation(target).paused).toBe(false);
+});
+
+
+test("binding a guest enables pinch and handles zoom keys without relaying to the shell", () => {
+  const guest = new FakeGuest(99);
+  guests.set(99, guest);
+  expect(manager.bindBrowserSessionGuest({ workspaceId: "zoom-test", lensSessionId: "default", guestWebContentsId: 99 }).ok).toBe(true);
+  expect(guest.visualZoomLimits).toEqual([1, 3]);
+  let prevented = 0;
+  const press = (key: string, meta = true) => guest.emit("before-input-event", { preventDefault: () => prevented++ }, { type: "keyDown", key, meta });
+  press("="); expect(guest.zoom).toBe(1.1);
+  press("-"); expect(guest.zoom).toBe(1);
+  press("+"); press("0"); expect(guest.zoom).toBe(1);
+  expect(prevented).toBe(4);
+  press("=", false); expect(guest.zoom).toBe(1);
+  expect(prevented).toBe(4);
 });

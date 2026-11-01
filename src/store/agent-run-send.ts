@@ -42,7 +42,7 @@ export interface AgentRunBridge {
    * The task's active agent run (an agent run or a legacy run), null for
    * none, undefined while the workspace's agent runs are not loaded.
    */
-  activeAgentRun: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean } | null | undefined;
+  activeAgentRun: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean; providerId?: import("@/lib/providers/provider.types").ProviderId } | null | undefined;
   start: (input: AgentRunStartArgs) => Promise<AgentRunCommandResponse>;
   cancel: (agentRunId: string) => Promise<AgentRunCommandResponse>;
   /**
@@ -59,6 +59,11 @@ let bridge: AgentRunBridge | null = null;
 
 export function registerAgentRunBridge(next: AgentRunBridge | null) {
   bridge = next;
+}
+
+/** Auto replies keep the provider the active Run admitted; host admission remains authoritative. */
+export function agentRunProviderForSend(workspaceId: string, taskId: string) {
+  return bridge?.activeAgentRun(workspaceId, taskId)?.providerId;
 }
 
 type AgentRunSendArgs = {

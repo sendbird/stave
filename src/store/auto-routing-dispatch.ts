@@ -27,6 +27,8 @@ import { ensureRoutingAccountCatalog } from "@/lib/providers/routing-account-cat
 import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import type { ChatMessage, PromptDraft } from "@/types/chat";
 
+import { agentRunProviderForSend } from "@/store/agent-run-send";
+
 type RoutingState = Pick<
   AppState,
   "settings" | "rateLimitsSnapshot" | "providerAvailability"
@@ -109,6 +111,7 @@ export async function resolveAutoRoutingForSend(args: {
   fileContextCount: number;
   workspaceCwd: string | undefined;
   taskId?: string;
+  workspaceId?: string;
   /**
    * Draws this send's prompt as a pending transcript row while the classifier
    * runs (see `PendingAutoRoute`). A cancelled or failed route ends the row
@@ -142,6 +145,11 @@ export async function resolveAutoRoutingForSend(args: {
   ) {
     return null;
   }
+  const runProvider = args.taskId && args.workspaceId ? agentRunProviderForSend(args.workspaceId, args.taskId) : undefined;
+  const providerAvailability = runProvider ? {
+    "claude-code": false, codex: false, cursor: false, kiro: false, opencode: false,
+    [runProvider]: state.providerAvailability?.[runProvider] !== false,
+  } : state.providerAvailability;
   let routingDecision: import("@/lib/providers/routing-decision").RoutingDecisionObservation | undefined;
   const classifyRoute = shouldClassifyAutoRoute({ settings: state.settings, promptDraft })
     ? createUtilityRouteClassifier({
@@ -182,7 +190,7 @@ export async function resolveAutoRoutingForSend(args: {
     });
   const classifierStartedAt = Date.now();
   try {
-    await ensureRoutingAccountCatalog({ ...state.settings, ...promptDraft.runtimeOverrides }, controller.signal, (["codex", "claude-code"] as const).filter((providerId) => state.providerAvailability?.[providerId] !== false));
+    await ensureRoutingAccountCatalog({ ...state.settings, ...promptDraft.runtimeOverrides }, controller.signal, (["codex", "claude-code"] as const).filter((providerId) => providerAvailability?.[providerId] !== false));
     const decision = await resolveAutoRoutingDecision({
       signal: controller.signal,
       classifierSignal: classifierController.signal,
@@ -198,7 +206,7 @@ export async function resolveAutoRoutingForSend(args: {
       fileContextCount: args.fileContextCount,
       phase: "execute",
       rateLimitsSnapshot: state.rateLimitsSnapshot,
-      providerAvailability: state.providerAvailability,
+      providerAvailability,
       exclusiveModelsByProvider: exclusiveGatewayModels(useProviderAccounts.getState().profiles, { ...state.settings, ...promptDraft.runtimeOverrides }),
       classifyRoute,
       ...(taskClassHint ? { taskClassHint } : {}),
