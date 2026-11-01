@@ -237,8 +237,10 @@
   line-height: 1;
   opacity: 1;
   transition:
-    background-color 120ms ease,
-    transform 120ms ease;
+    background-color var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard),
+    transform var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard);
   width: 14px;
 }
 
@@ -363,12 +365,12 @@
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
   --modal-ease: var(--atelier-motion-ease-expressive);
-  --tt-in-dur: 150ms;
+  --tt-in-dur: var(--atelier-motion-duration-quick);
   --tt-out-dur: 50ms;
   --tt-scale: 0.98;
-  --tt-delay: 80ms;
-  --tt-in-ease: ease-out;
-  --tt-out-ease: ease-out;
+  --tt-delay: var(--atelier-motion-duration-micro);
+  --tt-in-ease: var(--atelier-motion-ease-out);
+  --tt-out-ease: var(--atelier-motion-ease-out);
   --pulse-dur: 1000ms;
   --pulse-min: 0.5;
   /*
@@ -611,7 +613,7 @@
   --dv-border-radius: var(--radius);
   --dv-tab-border-radius: 0px;
   --dv-dropdown-border-radius: var(--radius);
-  --dv-transition-duration: 200ms;
+  --dv-transition-duration: var(--atelier-motion-duration-normal);
 
   /* Tab-group chips: dockview stock palette, app-radius chips */
   --dv-tab-group-color-grey: #5f6368;
@@ -659,8 +661,9 @@
 
 .dockview-theme-stave .dv-tabs-container > .dv-tab.dv-inactive-tab {
   transition:
-    background-color 140ms ease-out,
-    color 140ms ease-out;
+    background-color var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-out),
+    color var(--atelier-motion-duration-quick) var(--atelier-motion-ease-out);
 }
 
 /*

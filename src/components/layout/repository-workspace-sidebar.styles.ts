@@ -14,14 +14,14 @@ const accent40 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 40%, transpar
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
- * chevron, the row actions sliding in, the count yielding to them, and the
- * lead's padding opening to make room. All five were authored as a bare
+ * chevron, the row actions sliding in and the count yielding to them (the
+ * lead's padding opens in one step; it is layout). They were authored as a bare
  * `transitionDuration` literal with NO timing function, which means they ran on
  * the UA's `ease` rather than the house curve — the sidebar was the one surface
  * in the app whose hovers accelerated differently from every button beside it —
  * and with no `prefers-reduced-motion` arm at all, so the transform halves kept
  * playing for a reader who had asked them not to. One tokenized object, spread
- * into each of the five, so they cannot drift again.
+ * into each, so they cannot drift again.
  *
  * `motionDurationNormal` (180ms) is the token nearest the hand-picked value;
  * the spatial arm collapses to `0ms` under Reduce Motion exactly as
@@ -805,8 +805,8 @@ export const repositorySidebarStyles = stylex.create({
     gap: vars["--ads-space-8"],
     minWidth: 0,
     position: "relative",
-    ...revealMotion,
-    transitionProperty: "padding",
+    // The room it opens for the hover actions arrives in one step: padding
+    // is layout, and animating it re-wrapped the project name every frame.
   },
   /* Hover reserves room for the absolutely positioned row actions; a pinned
      attention alert needs its own slot beyond them. */
