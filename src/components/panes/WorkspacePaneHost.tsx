@@ -26,6 +26,7 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { PaneHeaderActions } from "@/components/panes/PaneHeaderActions";
 import { PaneTabChip } from "@/components/panes/PaneTabChip";
 import { PaneWatermark } from "@/components/panes/PaneWatermark";
+import { useDockviewSyncLayout } from "@/components/panes/use-dockview-sync-layout";
 import { TaskHistoryDrawer } from "@/components/panes/TaskHistoryDrawer";
 import { recordClosedPaneTab } from "@/components/panes/closed-tab-history";
 import { shouldPreventPaneDropAboveTaskBar } from "@/components/panes/pane-drop-guard";
@@ -657,6 +658,8 @@ function buildTabContextMenuItems(
 export function WorkspacePaneHost() {
   useTranslation();
   const apiRef = useRef<DockviewApi | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useDockviewSyncLayout(rootRef, apiRef);
   /** True while this host mutates panels itself (reconcile / restore). */
   const reconcilingRef = useRef(false);
   const restoringRef = useRef(false);
@@ -1135,6 +1138,7 @@ export function WorkspacePaneHost() {
 
   return (
     <div
+      ref={rootRef}
       className={sx(styles.root)}
       data-testid="workspace-pane-host"
     >

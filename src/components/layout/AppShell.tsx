@@ -68,6 +68,7 @@ import {
 } from "@/store/workspace-sidebar-fold-store";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
+import { RightPanelSlot } from "@/components/layout/RightPanelSlot";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
@@ -75,6 +76,7 @@ import {
   MIN_CHAT_PANEL_WIDTH,
   MIN_EXPLORER_PANEL_WIDTH,
   PANEL_SEPARATOR_WIDTH,
+  clampRightPanelWidth,
 } from "@/components/layout/app-shell-layout";
 import { useAppKeybindings } from "@/components/layout/useAppKeybindings";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
@@ -749,17 +751,10 @@ export function AppShell() {
     }
   }
 
-  let desktopSidebarWidth = explorerPanelWidth;
-  if (hasMeasuredContentRowWidth) {
-    const maxSidebarWidth = Math.max(
-      MIN_EXPLORER_PANEL_WIDTH,
-      contentRowWidth - MIN_CHAT_PANEL_WIDTH - PANEL_SEPARATOR_WIDTH,
-    );
-    desktopSidebarWidth = Math.min(
-      Math.max(explorerPanelWidth, MIN_EXPLORER_PANEL_WIDTH),
-      maxSidebarWidth,
-    );
-  }
+  const desktopSidebarWidth = clampRightPanelWidth({
+    width: explorerPanelWidth,
+    containerWidth: hasMeasuredContentRowWidth ? contentRowWidth : null,
+  });
   const modifierLabel = useMemo<"Cmd" | "Ctrl">(
     () =>
       typeof navigator !== "undefined" &&
@@ -1201,23 +1196,21 @@ export function AppShell() {
                   )}
                 </div>
               </main>
-              {showDesktopSidebar ? (
-                <>
+              <RightPanelSlot
+                open={showDesktopSidebar}
+                slideOnClose={!sidebarOverlayVisible}
+                xstyle={appShellStyles.desktopPanel}
+                style={{ width: `${desktopSidebarWidth}px` }}
+                leading={
                   <PanelResizeHandle
                     width={desktopSidebarWidth}
                     grow="start"
-                    clamp={(next) => {
-                      const containerWidth =
-                        contentRowRef.current?.offsetWidth ?? 9999;
-                      const maxExplorer = Math.max(
-                        MIN_EXPLORER_PANEL_WIDTH,
-                        containerWidth - MIN_CHAT_PANEL_WIDTH - 1,
-                      );
-                      return Math.max(
-                        MIN_EXPLORER_PANEL_WIDTH,
-                        Math.min(maxExplorer, next),
-                      );
-                    }}
+                    clamp={(next) =>
+                      clampRightPanelWidth({
+                        width: next,
+                        containerWidth: contentRowRef.current?.offsetWidth ?? null,
+                      })
+                    }
                     onResize={(next) =>
                       scheduleLayoutResizePatch("explorerPanelWidth", next)
                     }
@@ -1226,42 +1219,37 @@ export function AppShell() {
                       setLayout({ patch: { explorerPanelWidth: DEFAULT_LAYOUT.explorerPanelWidth } })
                     }
                   />
-                  <Suspense
-                    fallback={
-                      <aside
-                        className={sx(appShellStyles.panelFallback)}
-                        style={{ width: `${desktopSidebarWidth}px` }}
-                      >
-                        {i18n.t("shell:appShell.loadingPanel")}
-                      </aside>
-                    }
-                  >
-                    <div
-                      className={sx(appShellStyles.desktopPanel)}
-                      style={{ width: `${desktopSidebarWidth}px` }}
-                    >
-                      <RenderProfiler id="EditorPanel" thresholdMs={8}>
-                        <EditorPanel onOpenSettings={handleOpenSettings} />
-                      </RenderProfiler>
-                    </div>
-                  </Suspense>
-                </>
-              ) : null}
-              {showOverlayRightPanel ? (
-                <div className={sx(appShellStyles.overlayPanel)}>
-                  <Suspense
-                    fallback={
-                      <aside className={sx(appShellStyles.panelFallbackFull)}>
-                        {i18n.t("shell:appShell.loadingPanel")}
-                      </aside>
-                    }
-                  >
-                    <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
-                      <EditorPanel onOpenSettings={handleOpenSettings} />
-                    </RenderProfiler>
-                  </Suspense>
-                </div>
-              ) : null}
+                }
+              >
+                <Suspense
+                  fallback={
+                    <aside className={sx(appShellStyles.panelFallbackFull)}>
+                      {i18n.t("shell:appShell.loadingPanel")}
+                    </aside>
+                  }
+                >
+                  <RenderProfiler id="EditorPanel" thresholdMs={8}>
+                    <EditorPanel onOpenSettings={handleOpenSettings} />
+                  </RenderProfiler>
+                </Suspense>
+              </RightPanelSlot>
+              <RightPanelSlot
+                open={showOverlayRightPanel}
+                slideOnClose={!sidebarOverlayVisible}
+                xstyle={appShellStyles.overlayPanel}
+              >
+                <Suspense
+                  fallback={
+                    <aside className={sx(appShellStyles.panelFallbackFull)}>
+                      {i18n.t("shell:appShell.loadingPanel")}
+                    </aside>
+                  }
+                >
+                  <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
+                    <EditorPanel onOpenSettings={handleOpenSettings} />
+                  </RenderProfiler>
+                </Suspense>
+              </RightPanelSlot>
             </div>
             <RightRail />
           </div>

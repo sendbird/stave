@@ -121,6 +121,24 @@ export function planWorkspaceSidebarCollapse(args: {
   };
 }
 
+/**
+ * The right-hand panel's drag range. 360px fits the Source Control commit row
+ * and the Information panel's cards without truncating their labels.
+ */
+export const RIGHT_PANEL_MIN_WIDTH = 320;
+export const RIGHT_PANEL_DEFAULT_WIDTH = 360;
+export const RIGHT_PANEL_MAX_WIDTH = 560;
+
+/** A saved or dragged right-panel width inside the drag range; anything unreadable is the default. */
+export function normalizeRightPanelWidth(value: unknown): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return RIGHT_PANEL_DEFAULT_WIDTH;
+  }
+  return Math.round(
+    Math.min(RIGHT_PANEL_MAX_WIDTH, Math.max(RIGHT_PANEL_MIN_WIDTH, value)),
+  );
+}
+
 /** The Agents list's drag range. The default is the width it had before it could be dragged. */
 export const AGENTS_LIST_MIN_WIDTH = 240;
 export const AGENTS_LIST_DEFAULT_WIDTH = 288;
@@ -168,7 +186,7 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
     workspaceSidebarItemDisplayMode: normalizeWorkspaceSidebarItemDisplayMode(
       layout.workspaceSidebarItemDisplayMode,
     ),
-    explorerPanelWidth: layout.explorerPanelWidth,
+    explorerPanelWidth: normalizeRightPanelWidth(layout.explorerPanelWidth),
     // A layout saved before the list could be dragged has no width yet.
     agentsListWidth: normalizeAgentsListWidth(layout.agentsListWidth),
     sidebarOverlayVisible: layout.sidebarOverlayVisible,
@@ -236,7 +254,7 @@ export function createDefaultLayoutState(): LayoutState {
     workspaceSidebarWidth: WORKSPACE_SIDEBAR_DEFAULT_WIDTH,
     workspaceSidebarCollapsed: false,
     workspaceSidebarItemDisplayMode: DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
-    explorerPanelWidth: 300,
+    explorerPanelWidth: RIGHT_PANEL_DEFAULT_WIDTH,
     agentsListWidth: AGENTS_LIST_DEFAULT_WIDTH,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",

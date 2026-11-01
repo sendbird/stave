@@ -4,6 +4,9 @@ import {
   AGENTS_LIST_MAX_WIDTH,
   AGENTS_LIST_MIN_WIDTH,
   DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
+  RIGHT_PANEL_DEFAULT_WIDTH,
+  RIGHT_PANEL_MAX_WIDTH,
+  RIGHT_PANEL_MIN_WIDTH,
   WORKSPACE_SIDEBAR_DEFAULT_WIDTH,
   WORKSPACE_SIDEBAR_MAX_WIDTH,
   WORKSPACE_SIDEBAR_MIN_WIDTH,
@@ -11,18 +14,20 @@ import {
   isNarrowWindowForWorkspaceSidebar,
   mergeLayoutPatch,
   normalizeLayoutState,
+  normalizeRightPanelWidth,
   normalizeWorkspaceSidebarWidth,
   planWorkspaceSidebarCollapse,
   resolveWorkspaceSidebarCollapsed,
   type LayoutState,
 } from "@/store/layout.utils";
+import { clampRightPanelWidth } from "@/components/layout/app-shell-layout";
 
 function baseLayout(): LayoutState {
   return {
     workspaceSidebarWidth: 300,
     workspaceSidebarCollapsed: false,
     workspaceSidebarItemDisplayMode: DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
-    explorerPanelWidth: 300,
+    explorerPanelWidth: 360,
     agentsListWidth: AGENTS_LIST_DEFAULT_WIDTH,
     sidebarOverlayVisible: false,
     sidebarOverlayTab: "explorer",
@@ -163,5 +168,25 @@ describe("repository sidebar width and narrow-window fold", () => {
       savedCollapsed: true,
       openedInNarrowWindow: false,
     });
+  });
+});
+
+describe("right panel width", () => {
+  test("opens at 360, drags between 320 and 560, and reads anything unreadable as the default", () => {
+    expect([RIGHT_PANEL_MIN_WIDTH, RIGHT_PANEL_DEFAULT_WIDTH, RIGHT_PANEL_MAX_WIDTH]).toEqual([320, 360, 560]);
+    expect(createDefaultLayoutState().explorerPanelWidth).toBe(360);
+    expect(normalizeRightPanelWidth(301)).toBe(320);
+    expect(normalizeRightPanelWidth(700)).toBe(560);
+    expect(normalizeRightPanelWidth(Number.NaN)).toBe(360);
+    expect(normalizeLayoutState({ ...baseLayout(), explorerPanelWidth: 300 }).explorerPanelWidth).toBe(320);
+  });
+
+  test("gives the conversation its minimum before widening the panel, but never goes below the panel's own minimum", () => {
+    expect(clampRightPanelWidth({ width: 360, containerWidth: null })).toBe(360);
+    expect(clampRightPanelWidth({ width: 560, containerWidth: 1328 })).toBe(560);
+    // 904px row (1024px window, folded sidebar): 904 - 420 - 1 = 483 of room.
+    expect(clampRightPanelWidth({ width: 560, containerWidth: 904 })).toBe(483);
+    expect(clampRightPanelWidth({ width: 360, containerWidth: 904 })).toBe(360);
+    expect(clampRightPanelWidth({ width: 360, containerWidth: 700 })).toBe(320);
   });
 });
