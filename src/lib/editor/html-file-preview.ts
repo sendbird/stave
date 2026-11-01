@@ -27,26 +27,33 @@ export const HTML_FILE_PREVIEW_CSP = buildInlineRenderCsp("open", {
 /**
  * A srcdoc document resolves links against the app's own URL, so following
  * any link (even `#section`) would load another page, or the app itself, in
- * the preview. The guard cancels every link: one that leaves the page does
- * nothing, and an in-page `#fragment` link scrolls to its target instead. It
- * runs on `window` in the bubble phase so the page's own handlers (an SPA
- * router that checks `defaultPrevented`) see the click first.
+ * the preview. Two listeners keep the preview on the file:
+ *
+ * - A link that leaves the page is cancelled in the capture phase on
+ *   `window`, ahead of every page handler, so a handler that stops
+ *   propagation cannot let it through. Script navigations (`location.href`,
+ *   a meta refresh) cannot be caught here; the main process refuses those.
+ * - An in-page `#fragment` link is handled after the page's own handlers,
+ *   unless one of them already cancelled the click (a tab widget on
+ *   `href="#"`). It moves within the srcdoc document through `location.hash`,
+ *   so the browser scrolls and `hashchange` fires as it would in a tab.
  */
 const LINK_GUARD_SCRIPT = [
+  "(function(){",
+  'function link(e){var t=e.target;return t&&t.closest?t.closest("a[href],area[href]"):null}',
+  'function fragment(a){var h=a.getAttribute("href")||"";return h.charAt(0)==="#"?h:null}',
+  'window.addEventListener("click",function(e){var a=link(e);if(a&&fragment(a)===null)e.preventDefault()},true);',
   'window.addEventListener("click",function(e){',
   "if(e.defaultPrevented)return;",
-  "var t=e.target;",
-  'var a=t&&t.closest?t.closest("a[href]"):null;',
-  "if(!a)return;",
+  "var a=link(e);var h=a?fragment(a):null;if(h===null)return;",
   "e.preventDefault();",
-  'var h=a.getAttribute("href")||"";',
-  'if(h.charAt(0)!=="#")return;',
-  "var id=h.slice(1);",
-  "try{id=decodeURIComponent(id)}catch(_){}",
+  'var i=location.href.indexOf("#");',
+  "if((i<0?null:location.href.slice(i))!==h){location.hash=h.slice(1);return}",
+  "var id=h.slice(1);try{id=decodeURIComponent(id)}catch(_){}",
   "var el=id?document.getElementById(id)||document.getElementsByName(id)[0]:null;",
-  "if(el)el.scrollIntoView();",
-  'else if(!id||id.toLowerCase()==="top")window.scrollTo(0,0);',
+  'if(el)el.scrollIntoView();else if(!id||id.toLowerCase()==="top")window.scrollTo(0,0);',
   "});",
+  "})();",
 ].join("");
 
 const LEADING_DOCTYPE_PATTERN = /^\uFEFF?\s*<!doctype[^>]*>/i;

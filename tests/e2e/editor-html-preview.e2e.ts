@@ -3,8 +3,11 @@ import { expect, test, type Page } from "@playwright/test";
 /**
  * The rendered view of an `.html` editor tab, in a real browser: the page
  * renders and runs its scripts, stays walled off from the app, and cannot
- * follow a link out of the preview. The toolbar toggle names the HTML mode.
- * Each case mounts the component on the dev preview's own module instances.
+ * follow a link out of the preview. The toolbar toggle names the HTML mode,
+ * and each HTML tab keeps its own mode in a split, whichever path activates
+ * it. Each case mounts the component on the dev preview's own module
+ * instances. Script navigations (`location.href`, a meta refresh) are refused
+ * by the desktop main process and are covered by the Electron suite.
  */
 const MODULES = {
   react: "/node_modules/.vite/deps/react.js",
@@ -24,11 +27,22 @@ const PAGE = `<!doctype html>
     <p id="parent-access">not checked</p>
     <a id="external" href="https://example.com/">Leave</a>
     <a id="relative" href="other.html">Relative</a>
+    <a id="stopped" href="https://example.com/stopped">Stopped</a>
     <a id="fragment" href="#bottom">Down</a>
+    <a id="widget" href="#" onclick="document.getElementById('widget-state').textContent = 'widget toggled'; return false;">Widget</a>
+    <p id="widget-state">widget idle</p>
+    <p id="hash-count">0</p>
     <div style="height: 3000px"></div>
     <p id="bottom">Bottom</p>
     <script>
       document.getElementById("script-ran").textContent = "script ran";
+      // A handler that stops propagation must not let its link leave the page.
+      document.getElementById("stopped").addEventListener("click", (event) => event.stopPropagation());
+      let hashChanges = 0;
+      window.addEventListener("hashchange", () => {
+        hashChanges += 1;
+        document.getElementById("hash-count").textContent = String(hashChanges);
+      });
       try {
         void window.parent.document.title;
         document.getElementById("parent-access").textContent = "parent reachable";
@@ -72,19 +86,36 @@ test("renders an HTML file in an isolated frame that cannot navigate away", asyn
   expect(box?.width).toBe(viewport?.width);
   expect(box?.height).toBe(viewport?.height);
 
-  // Links that leave the page are cancelled; the preview stays on the file.
+  const frameUrl = () => page.frames().find((item) => item !== page.mainFrame())?.url();
+
+  // Links that leave the page are cancelled, even when a page handler stops
+  // the click's propagation; the preview stays on the file.
   await frame.locator("#external").click();
   await frame.locator("#relative").click();
+  await frame.locator("#stopped").click();
   await page.waitForTimeout(300);
   await expect(frame.locator("#title")).toHaveText("Hello preview");
-  const frameUrl = page.frames().find((item) => item !== page.mainFrame())?.url();
-  expect(frameUrl).toBe("about:srcdoc");
+  expect(frameUrl()).toBe("about:srcdoc");
 
-  // In-page fragment links still scroll, without leaving the document: a
-  // srcdoc frame would otherwise resolve `#bottom` against the app's URL.
+  // In-page fragment links move within the srcdoc document (a srcdoc frame
+  // would otherwise resolve `#bottom` against the app's URL), so the page
+  // scrolls and gets its hashchange, as it would in a browser tab.
   await frame.locator("#fragment").click();
   await expect(frame.locator("#bottom")).toBeInViewport();
-  expect(page.frames().find((item) => item !== page.mainFrame())?.url()).toBe("about:srcdoc");
+  expect(frameUrl()).toBe("about:srcdoc#bottom");
+  await expect(frame.locator("#hash-count")).toHaveText("1");
+
+  // Following the same fragment again scrolls back to it.
+  await frame.locator("body").evaluate(() => window.scrollTo(0, 0));
+  await expect(frame.locator("#bottom")).not.toBeInViewport();
+  await frame.locator("#fragment").click();
+  await expect(frame.locator("#bottom")).toBeInViewport();
+
+  // A `#` link the page handles itself does not move the page.
+  await frame.locator("#widget").click();
+  await expect(frame.locator("#widget-state")).toHaveText("widget toggled");
+  expect(frameUrl()).toBe("about:srcdoc#bottom");
+  await expect(frame.locator("#hash-count")).toHaveText("1");
 });
 
 test("labels the toolbar toggle for HTML", async ({ page }) => {
@@ -120,7 +151,7 @@ test("labels the toolbar toggle for HTML", async ({ page }) => {
   await expect(inSource).toHaveAttribute("aria-pressed", "false");
 });
 
-test("opens HTML in preview, then in the last mode the user picked", async ({ page }) => {
+test("each HTML tab keeps its mode in a split, on every activation path, and new tabs open in the last pick", async ({ page }) => {
   await openPreview(page);
   await page.evaluate(async ({ modules, html }) => {
     const { default: React } = await import(modules.react);
@@ -129,36 +160,76 @@ test("opens HTML in preview, then in the last mode the user picked", async ({ pa
     const { EditorSurfacePanel } = await import(modules.editorPanel);
     useAppStore.getState().updateSettings({ patch: { editorHtmlViewMode: "preview" } });
     await useAppStore.getState().openFileFromTree({ filePath: "fixture-preview.html", fallbackContent: html });
-    const host = document.createElement("div");
-    host.id = "html-editor-host";
-    host.style.cssText = "position: fixed; inset: 0; z-index: 10000; display: flex; flex-direction: column;";
-    document.body.append(host);
-    const api = {
-      id: "editor:file:fixture-preview.html",
-      isVisible: true,
-      onDidVisibilityChange: () => ({ dispose: () => {} }),
+    await useAppStore.getState().openFileFromTree({ filePath: "NOTES.md", fallbackContent: "# Notes heading\n" });
+    const mount = (id: string, editorTabId: string, side: "left" | "right") => {
+      const host = document.createElement("div");
+      host.id = id;
+      host.style.cssText = `position: fixed; top: 0; bottom: 0; ${side}: 0; width: 50%; z-index: 10000; display: flex; flex-direction: column;`;
+      document.body.append(host);
+      const api = {
+        id: `editor:${editorTabId}`,
+        isVisible: true,
+        onDidVisibilityChange: () => ({ dispose: () => {} }),
+      };
+      createRoot(host).render(React.createElement(EditorSurfacePanel, { api } as never));
     };
-    createRoot(host).render(React.createElement(EditorSurfacePanel, { api } as never));
+    mount("html-editor-host", "file:fixture-preview.html", "left");
+    mount("markdown-editor-host", "file:NOTES.md", "right");
   }, { modules: MODULES, html: PAGE });
 
-  const editor = page.locator("#html-editor-host");
-  const toggle = editor.getByTestId("editor-html-preview-toggle");
-  const frame = editor.frameLocator('iframe[title="fixture-preview.html"]');
-  await expect(frame.locator("#title")).toHaveText("Hello preview");
-  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  const htmlPanel = page.locator("#html-editor-host");
+  const markdownPanel = page.locator("#markdown-editor-host");
+  const htmlToggle = htmlPanel.getByTestId("editor-html-preview-toggle");
+  const htmlFrame = htmlPanel.frameLocator('iframe[title="fixture-preview.html"]');
+  const clickPaneTab = (editorTabId: string) =>
+    page.evaluate(async ({ modules, editorTabId }) => {
+      const { useAppStore } = await import(modules.appStore);
+      // The path a Dockview tab click takes.
+      useAppStore.getState().setActiveSurfaceFromPane({ kind: "editor", editorTabId });
+    }, { modules: MODULES, editorTabId });
+  const expectHtmlSource = async () => {
+    await expect(htmlPanel.locator("iframe")).toHaveCount(0);
+    await expect(htmlToggle).toHaveAttribute("aria-pressed", "false");
+    await expect(htmlPanel.locator(".monaco-editor")).toBeVisible();
+  };
 
-  await toggle.click();
-  await expect(editor.locator("iframe")).toHaveCount(0);
-  await expect(toggle).toHaveAttribute("aria-pressed", "false");
-  await expect(editor.locator(".monaco-editor")).toBeVisible();
+  // The markdown tab is active; the HTML panel beside it still shows its page.
+  await expect(markdownPanel.getByTestId("editor-markdown-preview")).toBeVisible();
+  await expect(htmlFrame.locator("#title")).toHaveText("Hello preview");
+  await expect(htmlToggle).toHaveAttribute("aria-pressed", "true");
 
+  // Switching the HTML tab to source keeps it there across pane tab clicks,
+  // whether or not it is the active tab.
+  await htmlToggle.click();
+  await expectHtmlSource();
+  await clickPaneTab("file:NOTES.md");
+  await expect(markdownPanel.getByTestId("editor-markdown-preview")).toBeVisible();
+  await expectHtmlSource();
+  await clickPaneTab("file:fixture-preview.html");
+  await expectHtmlSource();
+
+  // Back to preview, which also stays while markdown is active and in source.
+  await htmlToggle.click();
+  await expect(htmlFrame.locator("#title")).toHaveText("Hello preview");
+  await clickPaneTab("file:NOTES.md");
+  await markdownPanel.getByTestId("editor-markdown-preview-toggle").click();
+  await expect(markdownPanel.getByTestId("editor-markdown-preview")).toHaveCount(0);
+  await expect(htmlFrame.locator("#title")).toHaveText("Hello preview");
+  await expect(htmlToggle).toHaveAttribute("aria-pressed", "true");
+
+  // The last pick is how the HTML file opens next time.
+  await htmlToggle.click();
+  await expectHtmlSource();
   const reopened = await page.evaluate(async (modules) => {
     const { useAppStore } = await import(modules.appStore);
-    const store = useAppStore.getState();
-    const mode = store.settings.editorHtmlViewMode;
-    store.closeEditorTab({ tabId: "file:fixture-preview.html" });
+    useAppStore.getState().closeEditorTab({ tabId: "file:fixture-preview.html" });
     await useAppStore.getState().openFileFromTree({ filePath: "fixture-preview.html", fallbackContent: "<p>again</p>" });
-    return { mode, preview: useAppStore.getState().layout.editorMarkdownPreviewMode };
+    const state = useAppStore.getState();
+    return {
+      remembered: state.settings.editorHtmlViewMode,
+      tabMode: state.editorTabs.find((tab: { id: string }) => tab.id === "file:fixture-preview.html")?.htmlViewMode,
+    };
   }, MODULES);
-  expect(reopened).toEqual({ mode: "source", preview: false });
+  expect(reopened).toEqual({ remembered: "source", tabMode: "source" });
+  await expectHtmlSource();
 });

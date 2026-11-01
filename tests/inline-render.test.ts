@@ -15,7 +15,7 @@ import {
   parseInlineRenderUrl,
   prepareInlineRenderDocument,
   sanitizeInlineRenderTheme,
-  shouldBlockInlineRenderFrameNavigation,
+  shouldBlockSandboxedFrameNavigation,
 } from "@/lib/inline-render/inline-render";
 
 const RENDER_ID = "0123456789abcdef-0f0e0d0c-0b0a-4908-8706-050403020100";
@@ -112,7 +112,7 @@ describe("frame navigation guard", () => {
 
   test("the app may load a render into a frame", () => {
     expect(
-      shouldBlockInlineRenderFrameNavigation({
+      shouldBlockSandboxedFrameNavigation({
         ...base,
         frameUrl: "about:blank",
         targetUrl: RENDER_URL,
@@ -124,7 +124,7 @@ describe("frame navigation guard", () => {
   test("a render may not navigate itself anywhere, even to a wider policy", () => {
     for (const targetUrl of ["https://example.com/", buildInlineRenderUrl({ renderId: RENDER_ID, networkPolicy: "open" })]) {
       expect(
-        shouldBlockInlineRenderFrameNavigation({
+        shouldBlockSandboxedFrameNavigation({
           ...base,
           frameUrl: RENDER_URL,
           targetUrl,
@@ -136,7 +136,7 @@ describe("frame navigation guard", () => {
 
   test("a nested frame may not load a render", () => {
     expect(
-      shouldBlockInlineRenderFrameNavigation({
+      shouldBlockSandboxedFrameNavigation({
         ...base,
         frameUrl: "about:blank",
         targetUrl: RENDER_URL,
@@ -147,7 +147,7 @@ describe("frame navigation guard", () => {
 
   test("in-page jumps and unrelated subframe navigations are left alone", () => {
     expect(
-      shouldBlockInlineRenderFrameNavigation({
+      shouldBlockSandboxedFrameNavigation({
         ...base,
         isSameDocument: true,
         frameUrl: RENDER_URL,
@@ -156,10 +156,59 @@ describe("frame navigation guard", () => {
       }),
     ).toBe(false);
     expect(
-      shouldBlockInlineRenderFrameNavigation({
+      shouldBlockSandboxedFrameNavigation({
         ...base,
         frameUrl: "https://example.com/",
         targetUrl: "https://example.com/next",
+        initiatedBySubframe: true,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("srcdoc frame navigation guard", () => {
+  const base = { isMainFrame: false, isSameDocument: false };
+
+  test("a srcdoc page may not replace itself by a link, location change, or refresh", () => {
+    for (const targetUrl of [
+      "https://example.com/",
+      "stave-app://app/index.html#bottom",
+      "stave-app://app/other.html",
+    ]) {
+      for (const frameUrl of ["about:srcdoc", "about:srcdoc#top"]) {
+        expect(
+          shouldBlockSandboxedFrameNavigation({ ...base, frameUrl, targetUrl, initiatedBySubframe: true }),
+        ).toBe(true);
+      }
+    }
+  });
+
+  test("the app may update a srcdoc page, and the page may jump within itself", () => {
+    expect(
+      shouldBlockSandboxedFrameNavigation({
+        ...base,
+        frameUrl: "about:srcdoc",
+        targetUrl: "about:srcdoc",
+        initiatedBySubframe: false,
+      }),
+    ).toBe(false);
+    expect(
+      shouldBlockSandboxedFrameNavigation({
+        ...base,
+        isSameDocument: true,
+        frameUrl: "about:srcdoc",
+        targetUrl: "about:srcdoc#section",
+        initiatedBySubframe: true,
+      }),
+    ).toBe(false);
+  });
+
+  test("a frame the page embeds keeps navigating on its own", () => {
+    expect(
+      shouldBlockSandboxedFrameNavigation({
+        ...base,
+        frameUrl: "about:blank",
+        targetUrl: "https://www.youtube.com/embed/x",
         initiatedBySubframe: true,
       }),
     ).toBe(false);

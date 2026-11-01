@@ -204,14 +204,27 @@ export function isInlineRenderUrl(url: string | null | undefined): boolean {
   return typeof url === "string" && url.startsWith(`${INLINE_RENDER_SCHEME}:`);
 }
 
+/** A frame showing a `srcdoc` document, such as an HTML file preview. */
+export function isSrcdocFrameUrl(url: string | null | undefined): boolean {
+  return typeof url === "string" && url.startsWith("about:srcdoc");
+}
+
 /**
- * Whether the main process must cancel a frame navigation. A render may only
- * be loaded by the Stave app itself: a page that navigates its own frame, a
- * nested frame that points at a render, or a form that submits are all
- * initiated by a subframe and are refused. In-page (same-document) changes,
- * such as an anchor jump, stay allowed.
+ * Whether the main process must cancel a frame navigation. A sandboxed page
+ * the app shows may only be loaded by the Stave app itself, never replaced
+ * from inside:
+ *
+ * - An inline render: a page that navigates its own frame, a nested frame that
+ *   points at a render, or a form that submits are all initiated by a subframe
+ *   and are refused.
+ * - A `srcdoc` page (an HTML file preview): it resolves links against the
+ *   app's URL, so its own navigations (a link, `location.href`, a meta
+ *   refresh) would load another site or the app inside the frame. Updating
+ *   `srcdoc` from the app is initiated by the main frame and stays allowed.
+ *
+ * In-page (same-document) changes, such as an anchor jump, stay allowed.
  */
-export function shouldBlockInlineRenderFrameNavigation(args: {
+export function shouldBlockSandboxedFrameNavigation(args: {
   isMainFrame: boolean;
   isSameDocument: boolean;
   frameUrl: string | null | undefined;
@@ -219,9 +232,11 @@ export function shouldBlockInlineRenderFrameNavigation(args: {
   initiatedBySubframe: boolean;
 }): boolean {
   if (args.isMainFrame || args.isSameDocument) return false;
-  const involvesRender =
-    isInlineRenderUrl(args.frameUrl) || isInlineRenderUrl(args.targetUrl);
-  return involvesRender && args.initiatedBySubframe;
+  const involvesSandboxedPage =
+    isInlineRenderUrl(args.frameUrl) ||
+    isInlineRenderUrl(args.targetUrl) ||
+    isSrcdocFrameUrl(args.frameUrl);
+  return involvesSandboxedPage && args.initiatedBySubframe;
 }
 
 export function clampInlineRenderHeight(
