@@ -75,6 +75,7 @@ export interface PersistenceWorkspaceSnapshot {
     fileSizeLimitBytes?: number;
     hasConflict: boolean;
     isDirty: boolean;
+    htmlViewMode?: "preview" | "source";
   }>;
   activeEditorTabId?: string | null;
   terminalTabs?: WorkspaceTerminalTab[];
@@ -115,6 +116,7 @@ export interface PersistenceWorkspaceShell {
     fileSizeLimitBytes?: number;
     hasConflict: boolean;
     isDirty: boolean;
+    htmlViewMode?: "preview" | "source";
   }>;
   activeEditorTabId?: string | null;
   terminalTabs?: WorkspaceTerminalTab[];

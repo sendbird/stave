@@ -642,6 +642,12 @@ const EditorTabSchema = z.object({
   fileSizeLimitBytes: z.number().optional(),
   hasConflict: z.boolean(),
   isDirty: z.boolean(),
+  // A bad value drops only the mode (the tab then uses the remembered one),
+  // never the whole snapshot.
+  htmlViewMode: z
+    .union([z.literal("preview"), z.literal("source")])
+    .optional()
+    .catch(undefined),
 });
 
 const WorkspaceTerminalTabSchema = z
