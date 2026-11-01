@@ -122,8 +122,13 @@ provider's own skills, hooks and MCP servers apply.
 Each candidate provider is judged on its own usage window, so a nearly spent
 Claude window does not lower the model Codex runs.
 
-Cost-saver, Balanced, and Quality-first keep the level's model and pick the
-low end, the recommended point, or the high end of its effort range. A rule
+Cost-saver, Balanced, and Quality-first pick the low end, the recommended
+point, or the high end of the effective level's effort range. Quality-first
+routes primary implementation and review as at least Standard, even when the
+classifier rates the work Simple. Its minimum model rung is Balanced, including
+under budget pressure and when custom levels or rules request a light model.
+Other task classes and worker, advisor, and delegate roles keep their existing
+level rules. Explicit composer model pins bypass Auto as before. A rule
 that names its own effort keeps it, moved one step by the preference. Usage
 thresholds can lower effort or the model, but never below the level's
 minimum rung: Simple may use a light model, Standard a balanced one (Sonnet
@@ -266,8 +271,8 @@ Settings → Models → Auto (Model Router) shows, in order: the enable switch a
 notice while Auto is off; **Routing decision model**, with the **Model
 classification** switch and the model that classifies work; **Routing
 levels**, a live table of what each level runs on for Claude and Codex under
-the current preference and allowed models (a level with no allowed model reads
-"No allowed model"); each level's edit button opens its model tier and the
+the current preference and allowed models for primary implementation (a level
+with no allowed model reads "No allowed model"); each level's edit button opens its model tier and the
 effort each preference runs, and a changed level is marked **Custom** until
 **Reset level**; and **Allowed models**, where **All (default)** allows every
 listed catalog model. Advanced settings holds the usage wizard, routing signal

@@ -29,11 +29,12 @@
   "autoRoutingProfile": {
     "balanced": "균형",
     "costSaver": "비용 절약",
+    "qualityFirstStandardFloor": "품질 우선 설정에서는 주 작업의 구현·리뷰를 최소 표준 수준으로 실행합니다.",
     "qualityFirst": "품질 우선",
     "safetyCritical": "안전 민감",
     "sameModelsEachLevelRunsAt": "같은 모델을 사용하며 각 수준에서 추론 범위의 낮은 값을 적용합니다.",
     "sameModelsEachLevelRunsAtVariant2ab0fa3e": "같은 모델을 사용하며 각 수준에서 권장 추론 수준을 적용합니다.",
-    "sameModelsEachLevelRunsAtVariantc38c22b1": "같은 모델을 사용하며 각 수준에서 추론 범위의 높은 값을 적용합니다.",
+    "sameModelsEachLevelRunsAtVariantc38c22b1": "각 수준에서 추론 범위의 높은 값을 적용하며, 주 작업의 구현·리뷰는 최소 표준 수준으로 실행합니다.",
     "implement": "구현",
     "quickEdit": "빠른 편집",
     "debug": "디버그",

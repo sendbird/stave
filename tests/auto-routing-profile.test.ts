@@ -206,6 +206,48 @@ describe("resolveRoute", () => {
     expect(route("starter-quality-first", "expert")).toMatchObject({ model: CLAUDE_FABLE_MODEL, effort: "medium" });
   });
 
+  test("quality-first primary implementation and review use at least Standard", () => {
+    const profile = buildStarterProfile("starter-quality-first");
+    for (const taskClass of ["implement", "review"] as const) {
+      for (const currentProviderId of ["claude-code", "codex", "cursor", "kiro"] as const) {
+        const route = resolveRoute({ profile, role: "primary", signals: signals({ taskClass, complexity: "low", currentProviderId }) });
+        expect(route).toMatchObject({ complexity: "medium", ruleId: "standard", effort: "high" });
+        expect(route.model).toBe(currentProviderId === "codex" ? "gpt-6.1-sol" : DEFAULT_CLAUDE_OPUS_MODEL);
+      }
+    }
+  });
+
+  test("quality-first's Standard floor survives budget pressure, custom levels and light rules", () => {
+    const profile = buildStarterProfile("starter-quality-first");
+    const custom = { ...profile, levels: { medium: { tier: "light" as const, effort: "medium" as const, effortRange: ["low", "medium"] as const } },
+      rules: [{ id: "custom-light", when: { taskClass: "implement" as const }, then: { providerId: "codex" as const, model: "gpt-6-luna" }, reason: "Explicit light rule", enabled: true }, ...profile.rules] };
+    for (const candidate of [profile, custom]) {
+      for (const budgetUsedPercent of [0, 95, 100]) {
+        const route = resolveRoute({ profile: candidate, role: "primary", signals: signals({ complexity: "low", currentProviderId: "codex", budgetUsedPercent }) });
+        expect(route.complexity).toBe("medium");
+        expect(["frontier", "flagship", "balanced"]).toContain(resolveRouteTierForModel(route.model));
+      }
+    }
+    expect(() => resolveRoute({ profile: { ...profile, eligibleModelsByProvider: {
+      "claude-code": [DEFAULT_CLAUDE_HAIKU_MODEL], codex: ["gpt-6-luna"], cursor: ["auto"], kiro: ["auto"],
+    } }, role: "primary", signals: signals({ complexity: "low" }) })).toThrow("Standard work needs a Balanced model or stronger");
+  });
+
+  test("quality-first keeps secondary roles and other task classes at their classified level", () => {
+    const profile = buildStarterProfile("starter-quality-first");
+    for (const role of ["worker", "delegate", "advisor"] as const) {
+      for (const taskClass of ["implement", "review"] as const) {
+        expect(resolveRoute({ profile, role, signals: signals({ complexity: "low", taskClass }) }).complexity).toBe("low");
+      }
+    }
+    for (const taskClass of ["plan", "research", "debug", "docs", "quick-edit", "ci-fix"] as const) {
+      expect(resolveRoute({ profile, role: "primary", signals: signals({ complexity: "low", taskClass }) }).complexity).toBe("low");
+    }
+    for (const stance of ["starter-balanced", "starter-cost-saver"] as const) {
+      expect(resolveRoute({ profile: buildStarterProfile(stance), role: "primary", signals: signals({ complexity: "low" }) }).complexity).toBe("low");
+    }
+  });
+
   test("an allow list with no capable model fails visibly", () => {
     const profile = {
       ...balanced,

@@ -152,6 +152,15 @@ describe("custom levels", () => {
     expect(validateProfile(validated)).toEqual(validated);
   });
 
+  test("the Settings preview applies the primary implementation quality floor", () => {
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const simple = previewRouteLevels({ profile: buildStarterProfile("starter-quality-first"), providerId })[0]!;
+      expect(simple.level.complexity).toBe("low");
+      expect(simple.route).toMatchObject({ complexity: "medium", ruleId: "standard", effort: "high" });
+      expect(simple.route?.model).toBe(providerId === "codex" ? "gpt-6.1-sol" : DEFAULT_CLAUDE_OPUS_MODEL);
+    }
+  });
+
   test("the profile preview shows the customized level", () => {
     const custom = withRouteLevel(cloneProfileAsCustom(balanced), "expert", {
       tier: "flagship",

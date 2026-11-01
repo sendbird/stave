@@ -29,11 +29,12 @@
   "autoRoutingProfile": {
     "balanced": "Balanced",
     "costSaver": "Cost-saver",
+    "qualityFirstStandardFloor": "Quality-first routes primary implementation and review as Standard or higher.",
     "qualityFirst": "Quality-first",
     "safetyCritical": "Safety-critical",
     "sameModelsEachLevelRunsAt": "Same models; each level runs at the low end of its effort range.",
     "sameModelsEachLevelRunsAtVariant2ab0fa3e": "Same models; each level runs at its recommended effort.",
-    "sameModelsEachLevelRunsAtVariantc38c22b1": "Same models; each level runs at the high end of its effort range.",
+    "sameModelsEachLevelRunsAtVariantc38c22b1": "Uses the high end of each level’s effort range; primary implementation and review use Standard or higher.",
     "implement": "Implement",
     "quickEdit": "Quick edit",
     "debug": "Debug",
