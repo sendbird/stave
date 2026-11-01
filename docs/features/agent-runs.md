@@ -58,8 +58,11 @@ own, such as Implementer, does this by itself: its **Review before done**
 setting (Agents → the agent → **Workflow**, on **When behavior changes** by
 default) adds Work → Review → Fix review findings. The independent review stays;
 the final repair is skipped only after a passing review of unchanged work with
-no required checks or sign-off left. Research conclusions and artifacts are
-reviewed even when there are no code commits. To shape the
+no required checks or sign-off left. Under **When behavior changes**, work that
+changes no files (a question answered, research reported in the run) ends
+after its report without Review or the repair: Stave checks that nothing was
+committed, edited or added since the stage began. **Always** reviews research
+conclusions and artifacts even when there are no code commits. To shape the
 stages yourself, give the agent three stages (Agents → the agent →
 **Workflow** → **Add stage**):
 

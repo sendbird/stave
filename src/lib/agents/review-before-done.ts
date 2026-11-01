@@ -4,7 +4,10 @@
  * is checked by an agent that did not write it before the run reports done.
  * It is one Agent setting, not a workflow the user has to assemble:
  * `buildAgentRunWorkflow` (`src/lib/agent-runs/agent-run.ts`) composes the
- * three stages when the run starts.
+ * three stages when the run starts. Under `behavior-changes`, work that
+ * changed no files (an answer, research reported in the run) finishes after
+ * its report without the review and repair stages
+ * (`canFinishUnchangedWork`, `src/lib/agent-runs/review-finalization.ts`).
  */
 import type { AgentConfig, ReviewBeforeDone } from "./schema";
 import type { WorkflowStage } from "@/lib/workflows/schema";
@@ -35,7 +38,10 @@ export function offersReviewBeforeDone(agent: Partial<Pick<AgentConfig, "permiss
 }
 
 // Model-facing stage text; the stage titles are localized for display by `stage-display.ts`.
-const COMMIT_FOR_REVIEW = "If this assignment changes repository files, verify and commit only its changes, then name the actual starting commit and the resulting commits in your report. For research or an answer, identify the conclusions, sources and artifacts to review; do not create an empty commit. A Reviewer checks the assignment's result next.";
+const COMMIT_FOR_REVIEW: Record<Exclude<ReviewBeforeDone, "off">, string> = {
+  "behavior-changes": "If this assignment changes repository files, verify and commit only its changes, then name the actual starting commit and the resulting commits in your report; a Reviewer checks them next. If it changes no files, such as a question you answer or research you report, do not create an empty commit: put the answer, its conclusions and sources in your report, and the run ends after it without a review.",
+  always: "If this assignment changes repository files, verify and commit only its changes, then name the actual starting commit and the resulting commits in your report. For research or an answer, identify the conclusions, sources and artifacts to review; do not create an empty commit. A Reviewer checks the assignment's result next.",
+};
 
 /** The two stages that follow the work stage. */
 export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowStage[] {
@@ -46,6 +52,8 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
       kind: "ai",
       agentConfigId: REVIEW_AGENT_ID,
       pinCommit: true,
+      // A run that changed nothing has nothing for the Reviewer to check; "always" reviews answers too.
+      ...(mode === "behavior-changes" ? { skipIfWorkUnchanged: true } : {}),
       instruction: [
         "Independently review the previous stage's result against the assignment without changing files. For code, review every commit the stage made from its actual starting commit to the pinned commit; exclude unrelated work. For research or answers, verify conclusions, sources and artifacts. An empty commit range is not evidence that a non-code result is correct.",
         mode === "behavior-changes"
@@ -67,6 +75,6 @@ export function reviewStages(mode: Exclude<ReviewBeforeDone, "off">): WorkflowSt
 }
 
 /** The work stage's instruction when a review follows it. */
-export function withCommitForReview(instruction: string): string {
-  return `${instruction} ${COMMIT_FOR_REVIEW}`;
+export function withCommitForReview(instruction: string, mode: Exclude<ReviewBeforeDone, "off">): string {
+  return `${instruction} ${COMMIT_FOR_REVIEW[mode]}`;
 }

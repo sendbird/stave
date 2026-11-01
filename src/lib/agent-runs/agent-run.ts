@@ -85,7 +85,7 @@ export function buildAgentRunWorkflow(args: {
         id: AGENT_RUN_STAGE_ID,
         title: "Work", // i18n-ignore: model-facing implicit stage name; localized by UI helper
         kind: "ai",
-        instruction: review === "off" ? AGENT_RUN_INSTRUCTION : withCommitForReview(AGENT_RUN_INSTRUCTION),
+        instruction: review === "off" ? AGENT_RUN_INSTRUCTION : withCommitForReview(AGENT_RUN_INSTRUCTION, review),
         doneWhen,
       },
       ...(review === "off" ? [] : reviewStages(review)),

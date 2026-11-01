@@ -191,8 +191,13 @@ Watch checks → Ready for review) come with a workflow.
 - **Review before done** (an agent that edits files and has no stages):
   **When behavior changes** (default), **Always** or **Off**. When it is on, a
   run commits its verified changes and the Reviewer checks the assignment's
-  result (on the other provider when it can). Research and answers are reviewed
-  through their conclusions, sources and artifacts without an empty commit.
+  result (on the other provider when it can). Under **When behavior changes**,
+  work that changes no files, such as an answer or research reported in the
+  run, ends after its report: Stave skips Review and Fix review findings when it
+  read the workspace after the report and found no commit, edit or new file
+  since the stage began, every required criterion is met and neither stage asks
+  first. Under **Always**, research and answers are reviewed through their
+  conclusions, sources and artifacts without an empty commit.
   Work → Review → Fix review findings remains the sequence. If the independent
   review reports no findings, the workspace is unchanged and no required checks
   or sign-off remain, Stave skips the final repair stage and records why.

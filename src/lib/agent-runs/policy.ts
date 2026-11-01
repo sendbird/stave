@@ -25,13 +25,14 @@ import { i18n } from "@/i18n/runtime";
  */
 import { resolveStageSignOff } from "@/lib/workflows/sign-off";
 import { unmetStageAcceptance } from "./acceptance";
-import { canFinishAfterReview } from "./review-finalization";
+import { canFinishAfterReview, canFinishUnchangedWork } from "./review-finalization";
 import type { SignOff } from "@/lib/workflows/schema";
 import {
   clampReason,
   currentStageRecord,
   enterStage,
   formatAgentRunFingerprint,
+  replaceStageRecord,
   isAutomaticAgentRunPause,
   AgentRunCommandError,
   agentRunFingerprintsMatch,
@@ -180,7 +181,7 @@ export type AgentRunDecision =
   | { action: "mark-stuck"; detail: string }
   | { action: "execute-action"; stageIndex: number }
   | { action: "start-action-turn"; stageIndex: number; attempt: number }
-  | { action: "complete-stage"; next: "sign-off" | "start" | "finish"; skipReviewFix?: true };
+  | { action: "complete-stage"; next: "sign-off" | "start" | "finish"; skipReviewFix?: true; skipUnchangedReview?: true };
 
 export type AgentRunDecisionAction = AgentRunDecision["action"];
 
@@ -272,7 +273,20 @@ function completeStage(aggregate: AgentRunAggregate, record: AgentRunStageRecord
   }
   if (canFinishAfterReview(aggregate) && resolveAgentRunStageSignOff(agentRun, nextIndex) !== "ask")
     return { action: "complete-stage", next: "finish", skipReviewFix: true };
+  if (canSkipUnchangedReview(aggregate)) return { action: "complete-stage", next: "finish", skipUnchangedReview: true };
   return { action: "complete-stage", next: nextAfterCompletion(agentRun) };
+}
+
+/**
+ * Work that changed nothing finishes without its review and repair
+ * (`canFinishUnchangedWork`), unless either of them asks the user first.
+ */
+function canSkipUnchangedReview(aggregate: AgentRunAggregate): boolean {
+  const { agentRun } = aggregate;
+  const reviewIndex = agentRun.currentStageIndex + 1;
+  return canFinishUnchangedWork(aggregate) &&
+    resolveAgentRunStageSignOff(agentRun, reviewIndex) !== "ask" &&
+    resolveAgentRunStageSignOff(agentRun, reviewIndex + 1) !== "ask";
 }
 
 /**
@@ -923,6 +937,25 @@ export function applyAgentRunDecision(args: {
           return { ...finished, upserts: [completed, ...finished.upserts], events: [
             { kind: "stage-completed", idempotencyKey: null, detail: { stageId: record.stageId, attempt: record.attempt } },
             { kind: "stage-skipped", idempotencyKey: null, detail: { stageId: skipped.stageId, attempt: skipped.attempt, reason: "review-passed" } },
+            ...finished.events,
+          ] };
+        }
+        if (decision.skipUnchangedReview && canSkipUnchangedReview(aggregate)) {
+          // Both later stages are recorded as skipped, with the reason, and the run finishes.
+          const detail = i18n.t("agentRuns:policy.workUnchanged");
+          const reviewIndex = agentRun.currentStageIndex + 1;
+          const atReview = { ...aggregate, agentRun: withAgentRun(withoutEventWait(agentRun, now), { currentStageIndex: reviewIndex }, now) };
+          const review = { ...enterStage({ aggregate: atReview, index: reviewIndex }), status: "skipped" as const, detail, endedAt: timestamp };
+          const atRepair = {
+            agentRun: withAgentRun(atReview.agentRun, { currentStageIndex: reviewIndex + 1 }, now),
+            stages: replaceStageRecord(replaceStageRecord(aggregate.stages, completed), review),
+          };
+          const repair = { ...enterStage({ aggregate: atRepair, index: reviewIndex + 1 }), status: "skipped" as const, detail, endedAt: timestamp };
+          const finished = advanceAgentRun({ aggregate: atRepair, completed: repair, now });
+          return { ...finished, upserts: [completed, review, ...finished.upserts], events: [
+            { kind: "stage-completed", idempotencyKey: null, detail: { stageId: record.stageId, attempt: record.attempt } },
+            { kind: "stage-skipped", idempotencyKey: null, detail: { stageId: review.stageId, attempt: review.attempt, reason: "work-unchanged" } },
+            { kind: "stage-skipped", idempotencyKey: null, detail: { stageId: repair.stageId, attempt: repair.attempt, reason: "work-unchanged" } },
             ...finished.events,
           ] };
         }
