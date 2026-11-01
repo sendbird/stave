@@ -1297,6 +1297,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         />
       ) : null}
       <div className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)}>
+        {/* Rows attached above the card keep the card's width: in the framed
+            composer they stay clear of the wing tracks beside it. */}
+        <div className={sx(useFramedComposer && chatInputStyles.attachedRowsFramed)}>
         <TaskSourceContextNotice
           sourceContexts={args.sourceContexts}
           currentPrUrl={args.currentPrUrl}
@@ -1343,6 +1346,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         <DelegatedAgentReplySlot />
         <ChildRequestSlot taskId={args.activeTaskId} />
         <SecretRequestSlot taskId={args.activeTaskId} />
+        </div>
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}

@@ -27,6 +27,12 @@ export const chatInputStyles = stylex.create({
   measureFramed: {
     maxWidth: `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * 3.125rem)`,
   },
+  // Approval, notices and request rows above a framed card: inset by the
+  // wing tracks so they line up with the card, not with the wings.
+  attachedRowsFramed: {
+    // 3.125rem: the wing track width in `composer-frame.styles.ts`.
+    paddingInline: `calc(${vars["--ads-space-48"]} + ${vars["--ads-space-2"]})`,
+  },
   menuLabelRow: {
     alignItems: "center",
     display: "flex",
