@@ -1,3 +1,4 @@
+import { ShelfPlan } from "./ShelfPlan";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Children,
@@ -46,7 +47,7 @@ import type { ShelfRunDetailToggle, ShelfRunPanelButton } from "./ShelfRunLine";
 import { TurnRunLine } from "./TurnRunLine";
 import { useShelfDetail } from "./use-shelf-detail";
 
-const NO_TODOS: readonly { status: "pending" | "in_progress" | "completed" }[] = [];
+const NO_TODOS: { content: string; status: "pending" | "in_progress" | "completed" }[] = [];
 
 /**
  * The composer shelf: one surface over the prompt input whose rows — the run
@@ -95,6 +96,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   const taskId = useScopedTaskId();
   const accountBlocker = useProviderAccountBlocker(props.providerId ?? "claude-code", { model: props.model, autoRouting: props.autoRouting });
   const blocker = props.providerId ? accountBlocker : null;
+  const liveTurnId = useAppStore((state) => state.activeTurnIdsByTask[taskId]);
   const placement = useAppStore((state) => state.settings.turnActivityPlacement);
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const setLayout = useAppStore((state) => state.setLayout);
@@ -270,6 +272,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
               onStop={onStop}
             />
           ) : null}
+          <ShelfPlan key={`${taskId}:${plan?.turnId ?? turn.surfaceKey}`} items={agentRun ? planItems : turnTodos} live={Boolean(liveTurnId) && !turnProps?.activity?.pendingInteraction} />
           {inlineOpen && canExpand && turnProps ? (
             <TurnActivitySurface
               key={turn.surfaceKey}

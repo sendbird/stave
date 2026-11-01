@@ -1,3 +1,4 @@
+import { TaskTurnPlan } from "./TaskTurnPlan";
 import { i18n, useTranslation } from "@/i18n";
 import * as stylex from "@stylexjs/stylex";
 import { useCallback, useMemo } from "react";
@@ -178,11 +179,14 @@ export function TaskPanelView(props: {
             {props.agentRun ? (
               <AgentRunPanel taskId={taskId} detail={props.agentRun} />
             ) : (
-              <FlowPanel
-                workspaceId={workspaceId}
-                taskId={taskId}
-                repositoryPath={repositoryPath}
-              />
+              <>
+                <TaskTurnPlan taskId={taskId} />
+                <FlowPanel
+                  workspaceId={workspaceId}
+                  taskId={taskId}
+                  repositoryPath={repositoryPath}
+                />
+              </>
             )}
             <WakeUpSection workspaceId={workspaceId} taskId={taskId} />
           </div>
