@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   cloneDefaultTaskPresets,
+  describeTaskPresetModelEffort,
   DEFAULT_TASK_PRESETS,
   getTaskPresetShortcutLabel,
   listEffortsForPresetProvider,
@@ -142,6 +143,35 @@ describe("normalizeTaskPreset", () => {
     expect(preset.id).toBe("default-claude-opus-5-task");
     expect(preset.model).toBe("claude-opus-5-5");
     expect(preset.label).toBe("Opus 5.5");
+  });
+});
+
+describe("describeTaskPresetModelEffort", () => {
+  test("includes the model and effective default effort for task presets", () => {
+    expect(describeTaskPresetModelEffort({
+      id: "default-model",
+      label: "Default model",
+      kind: "task",
+      provider: "codex",
+      model: "gpt-5.5",
+    })).toContain("X-High");
+  });
+
+  test("shows a saved effort and omits model details for CLI presets", () => {
+    expect(describeTaskPresetModelEffort({
+      id: "fixed-effort",
+      label: "Fast",
+      kind: "task",
+      provider: "codex",
+      model: "gpt-5.5",
+      effort: "high",
+    })).toContain("High");
+    expect(describeTaskPresetModelEffort({
+      id: "cli",
+      label: "CLI",
+      kind: "cli-session",
+      provider: "codex",
+    })).toBeNull();
   });
 });
 

@@ -22,6 +22,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import {
+  describeTaskPresetModelEffort,
   generatePresetId,
   getTaskPresetShortcutLabel,
   type TaskPreset,
@@ -47,7 +48,7 @@ function describePreset(preset: TaskPreset) {
     return i18n.t("settings:settingsDialogPresetsSection.cliSession", { value1: getProviderLabel({ providerId: preset.provider, variant: "full" }) });
   }
 
-  return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} · ${toHumanModelName({ model: preset.model ?? "" })}`;
+  return `${getProviderLabel({ providerId: preset.provider, variant: "full" })} · ${describeTaskPresetModelEffort(preset) ?? toHumanModelName({ model: preset.model ?? "" })}`;
 }
 
 export function PresetsSection() {

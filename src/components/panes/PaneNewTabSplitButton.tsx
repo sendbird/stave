@@ -25,7 +25,11 @@ import {
 } from "@/components/ui";
 import { openPaneTabInGroup } from "@/components/panes/pane-host-controller";
 import type { PaneSurfaceDescriptor } from "@/lib/panes/types";
-import { getTaskPresetShortcutLabel, type TaskPreset } from "@/lib/task-presets";
+import {
+  describeTaskPresetModelEffort,
+  getTaskPresetShortcutLabel,
+  type TaskPreset,
+} from "@/lib/task-presets";
 import { isTaskArchived } from "@/lib/tasks";
 import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
 import {
@@ -62,9 +66,11 @@ function openPresetSettings() {
 }
 
 function presetTitle(preset: TaskPreset) {
-  return preset.kind === "cli-session"
-    ? i18n.t("panes:paneNewTab.cliSessionPreset", { label: preset.label })
-    : preset.label;
+  if (preset.kind === "cli-session") {
+    return i18n.t("panes:paneNewTab.cliSessionPreset", { label: preset.label });
+  }
+  const modelEffort = describeTaskPresetModelEffort(preset);
+  return modelEffort ? `${preset.label} · ${modelEffort}` : preset.label;
 }
 
 /**
