@@ -6,7 +6,7 @@ export const commandItemMarker = stylex.defineMarker();
 export const commandLayout = stylex.create({
   frame: { display: "flex", width: "100%", height: "100%", flexDirection: "column", overflow: "hidden" },
   palette: {
-    top: "11vh", translate: "-50% 0", overflow: "hidden", borderRadius: vars["--ads-radius-panel"],
+    top: "14vh", translate: "-50% 0", overflow: "hidden", borderRadius: vars["--ads-radius-panel"],
     borderWidth: vars["--ads-border-width-hairline"], borderStyle: "solid", borderColor: vars["--ads-color-border"],
     backgroundColor: vars["--ads-color-surface-raised"], padding: 0,
     maxHeight: { default: null, "@media (min-width: 640px)": "78vh" },

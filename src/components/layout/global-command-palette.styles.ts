@@ -2,11 +2,19 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
 
+/**
+ * Rows publish whether they are the highlighted one, so the description can
+ * show on that row alone: StyleX conditions only see the element they are
+ * declared on, so the row's state reaches its subtitle through a variable.
+ */
+const ROW_HINT_DISPLAY = "--stavePaletteRowHintDisplay";
+
 export const commandPaletteStyles = stylex.create({
-  /** Wider than the default dialog: palette rows carry title + subtitle + keys. */
-  dialog: { maxWidth: "44rem" },
+  /** One-line rows fit a narrower dialog: title, the active row's hint, keys. */
+  dialog: { maxWidth: "37.5rem" },
+  /** 10-12 single-line rows on a laptop screen without crowding a short one. */
   frame: {
-    blockSize: "min(74vh, 36rem)",
+    blockSize: "min(76vh, 42rem)",
     display: "flex",
     flexDirection: "column",
     minBlockSize: 0,
@@ -37,10 +45,18 @@ export const commandPaletteStyles = stylex.create({
     marginBlockStart: vars["--ads-space-4"],
   },
   group: { paddingBlock: vars["--ads-space-4"] },
+  // One line at the 36px control step. The description is the highlighted
+  // row's trailing hint only, so scanning stays one line per command.
   item: {
-    alignItems: "flex-start",
-    gap: vars["--ads-space-12"],
-    paddingBlock: 10,
+    [ROW_HINT_DISPLAY]: {
+      default: "none",
+      ":is([data-highlighted])": "block",
+      ":is([data-selected=true])": "block",
+    },
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    minBlockSize: vars["--ads-control-height-md"],
+    paddingBlock: 0,
     paddingInline: vars["--ads-space-12"],
   },
   itemIconBox: {
@@ -56,10 +72,17 @@ export const commandPaletteStyles = stylex.create({
     blockSize: vars["--ads-control-icon-size-sm"],
     inlineSize: vars["--ads-control-icon-size-sm"],
   },
-  itemBody: { flexGrow: 1, minInlineSize: 0 },
+  itemBody: {
+    alignItems: "center",
+    display: "flex",
+    flexGrow: 1,
+    gap: vars["--ads-space-8"],
+    minInlineSize: 0,
+  },
   itemTitleRow: {
     alignItems: "center",
     display: "flex",
+    flexShrink: 1,
     gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
@@ -88,9 +111,11 @@ export const commandPaletteStyles = stylex.create({
     // The highlighted row's wash takes muted to 4.39:1 in light mode; a 20%
     // ink step keeps 12px subtitles above 4.5:1 on every row state.
     color: `color-mix(in oklab, ${vars["--ads-color-text"]} 20%, ${vars["--ads-color-text-muted"]})`,
+    display: `var(${ROW_HINT_DISPLAY}, none)`,
+    flexShrink: 1000,
     fontSize: vars["--ads-font-size-caption"],
-    marginBlockEnd: 0,
-    marginBlockStart: 2,
+    margin: 0,
+    minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -181,7 +206,6 @@ export const commandPaletteStyles = stylex.create({
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
-    marginBlockStart: 2,
     whiteSpace: "nowrap",
   },
 });

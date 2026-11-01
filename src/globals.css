@@ -122,8 +122,8 @@
 .composer-frame-wing {
   width: var(--composer-wing-collapsed-width);
   transition-property: width, box-shadow;
-  transition-duration: 200ms;
-  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-duration: var(--atelier-motion-duration-normal);
+  transition-timing-function: var(--atelier-motion-ease-expressive);
 }
 
 /* The inner edge is tucked under the raised card, so only the outer corners
@@ -353,16 +353,16 @@
   --sidebar-ring: oklch(0.62 0.17 260);
   --task-list-width: 290px;
   --editor-panel-width: 560px;
-  --dropdown-open-dur: 250ms;
-  --dropdown-close-dur: 150ms;
+  --dropdown-open-dur: var(--atelier-motion-duration-emphasis);
+  --dropdown-close-dur: var(--atelier-motion-duration-quick);
   --dropdown-pre-scale: 0.97;
   --dropdown-closing-scale: 0.99;
-  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
+  --dropdown-ease: var(--atelier-motion-ease-expressive);
+  --modal-open-dur: var(--atelier-motion-duration-emphasis);
+  --modal-close-dur: var(--atelier-motion-duration-quick);
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
-  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --modal-ease: var(--atelier-motion-ease-expressive);
   --tt-in-dur: 150ms;
   --tt-out-dur: 50ms;
   --tt-scale: 0.98;
@@ -900,6 +900,28 @@
     pointer-events: none;
     opacity: 0;
     scale: var(--modal-scale-close);
+  }
+
+  /*
+   * The command palette is opened from the keyboard, dozens of times a day:
+   * a short fade with a 4px drop, no scale and no overshoot, on the way in
+   * and out. The global reduced-motion rule shortens it to nothing.
+   */
+  .t-modal.t-palette {
+    scale: 1;
+    transform: translateY(0);
+    transition-property: opacity, transform;
+    transition-duration:
+      var(--atelier-motion-duration-fast), var(--atelier-motion-duration-quick);
+    transition-timing-function: var(--atelier-motion-ease-out);
+    will-change: opacity, transform;
+  }
+
+  .t-modal.t-palette[data-starting-style],
+  .t-modal.t-palette[data-ending-style] {
+    opacity: 0;
+    scale: 1;
+    transform: translateY(calc(-1 * var(--atelier-motion-distance-small)));
   }
 
   .t-overlay {
