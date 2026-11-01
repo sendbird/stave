@@ -43,6 +43,8 @@ export interface AgentRunBridge {
    * none, undefined while the workspace's agent runs are not loaded.
    */
   activeAgentRun: (workspaceId: string, taskId: string) => { id: string; agentOrigin: boolean; providerId?: import("@/lib/providers/provider.types").ProviderId } | null | undefined;
+  /** Resolve unknown workspace state before deciding whether to start a run. */
+  ensureWorkspaceLoaded?: (workspaceId: string) => Promise<void>;
   start: (input: AgentRunStartArgs) => Promise<AgentRunCommandResponse>;
   cancel: (agentRunId: string) => Promise<AgentRunCommandResponse>;
   /**
@@ -83,6 +85,8 @@ type AgentRunSendArgs = {
   accounts?: ProviderAccountSelection;
   now?: Date;
 };
+
+const resolvingRunTasks = new Set<string>();
 
 const UNSENT_RUN_REASON = "agentRuns:agentRunSend.unsentReason";
 
@@ -206,13 +210,14 @@ export function recoverUnsentAgentRunPrompt(
  * keeps its synchronous path (the submitted draft is cleared before any await,
  * and a workspace switch cannot revive it). Returns null for a plain turn —
  * Chat, a run already active or starting, a turn running — or the start to
- * await. The draft is cleared and the prompt drawn as a pending row before
- * the start is requested. A refused start restores the prompt and blocks the
+ * await (or a plain turn after hydration). The draft is cleared and drawn
+ * as a pending row before the start is requested. A refused start restores the prompt and blocks the
  * send, so work requested as a run never silently becomes a single turn.
  */
 export function prepareAgentRunForSend(
   args: AgentRunSendArgs,
-): (() => Promise<SendUserMessageResult>) | null {
+): (() => Promise<SendUserMessageResult | null>) | null {
+  if (!args.turnActive && resolvingRunTasks.has(args.taskId)) return async () => ({ status: "blocked" });
   const agent = useAgentAssignmentsStore.getState().byTaskId[args.taskId];
   const activeBridge = bridge;
   const active = activeBridge?.activeAgentRun(args.workspaceId, args.taskId);
@@ -248,8 +253,24 @@ export function prepareAgentRunForSend(
     startedAt: Date.now(),
     userMessage: buildOutgoingUserMessage({ id: `pending-${pendingId}`, content: args.prompt.trim(), questionReply: args.promptDraft.questionReply }),
   });
+  const needsLoad = active === undefined;
+  if (needsLoad) resolvingRunTasks.add(args.taskId);
   return async () => {
-    const response = await Promise.resolve().then(async () => activeBridge.start(
+    const response = await Promise.resolve().then(async () => {
+      if (needsLoad) {
+        try {
+          await activeBridge.ensureWorkspaceLoaded?.(args.workspaceId);
+          const loaded = activeBridge.activeAgentRun(args.workspaceId, args.taskId);
+          if (loaded === undefined) throw new Error(i18n.t(UNSENT_RUN_REASON));
+          if (loaded) {
+            if (ownsRow) endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
+            return null;
+          }
+        } finally {
+          resolvingRunTasks.delete(args.taskId);
+        }
+      }
+      return activeBridge.start(
         buildAgentRunStartInput({
           workspaceId: args.workspaceId,
           taskId: args.taskId,
@@ -269,8 +290,10 @@ export function prepareAgentRunForSend(
             : null,
           now: args.now ?? new Date(),
         }),
-      ))
+      );
+    })
       .catch((error): AgentRunCommandResponse => ({ ok: false, agentRun: null, ...(error instanceof Error ? { message: error.message } : {}) }));
+    if (response === null) return null;
     if (!response.ok || !response.agentRun) {
       if (ownsRow) endPendingAutoRoute({ taskId: args.taskId, id: pendingId });
       const message = response.message ?? i18n.t("agentRuns:agentRunSend.unsentReason");

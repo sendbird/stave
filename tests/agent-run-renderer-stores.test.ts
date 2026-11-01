@@ -19,6 +19,9 @@ import {
 } from "../src/store/agent-runs-store";
 import { AGENT_RUN_NOW, agentRunDetail, agentRunEvent, agentRunFixture } from "./fixtures/agent-run-fixtures";
 
+import { startAgentRunForSend } from "../src/store/agent-run-send";
+import { useAgentAssignmentsStore, type TaskAgent } from "../src/store/agent-assignments-store";
+
 const originalWindow = globalThis.window;
 const at = (minutes: number) => new Date(AGENT_RUN_NOW.getTime() + minutes * 60_000).toISOString();
 
@@ -83,6 +86,65 @@ afterEach(() => {
 });
 
 describe("run details in the renderer", () => {
+  test.each(["interstage", "blocked", "paused"] as const)("real send bridge hydrates a %s run without starting it", async (scenario) => {
+    const before = useAppStore.getState();
+    const detail = readAt(0, [], { state: scenario === "paused" ? "paused" : "running" });
+    if (scenario === "blocked") detail.stages[0]!.status = "blocked";
+    let lists = 0;
+    let starts = 0;
+    installAgentRunsApi({
+      list: async () => { lists++; return { ok: true, agentRuns: [detail.agentRun] }; },
+      get: async () => ({ ok: true, agentRun: detail }),
+      start: async () => { starts++; return { ok: false, agentRun: null }; },
+    });
+    useAppStore.setState({ activeWorkspaceId: "ws-1" });
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": { agentConfigId: "implementer", agentName: "Implementer" } as TaskAgent } });
+    useAgentRunsStore.setState({ loadedWorkspaceId: null });
+    try {
+      const loading = useAgentRunsStore.getState().loadWorkspace("ws-1");
+      const result = await startAgentRunForSend({ set: (update) => useAppStore.setState(update),
+        workspaceId: "ws-1", taskId: "task-1", providerId: "codex", prompt: "Continue this stage",
+        promptDraft: { attachedFilePaths: [], attachments: [] }, turnActive: false, queued: false,
+        turnOrigin: "conversation", preservePromptDraft: true });
+      await loading;
+      expect(result).toBeNull();
+      expect(starts).toBe(0);
+      expect(lists).toBe(1);
+      expect(useAgentRunsStore.getState().loadedWorkspaceId).toBe("ws-1");
+    } finally {
+      useAgentAssignmentsStore.setState({ byTaskId: {} });
+      useAppStore.setState(before, true);
+    }
+  });
+
+  test("failed detail reads remain unknown and a later load retries", async () => {
+    const detail = readAt(0);
+    let fail = true;
+    installAgentRunsApi({ list: async () => ({ ok: true, agentRuns: [detail.agentRun] }),
+      get: async () => fail ? { ok: false, agentRun: null } : { ok: true, agentRun: detail } });
+    await useAgentRunsStore.getState().loadWorkspace("ws-1");
+    expect(useAgentRunsStore.getState().loadedWorkspaceId).toBeNull();
+    fail = false;
+    await useAgentRunsStore.getState().loadWorkspace("ws-1");
+    expect(useAgentRunsStore.getState().loadedWorkspaceId).toBe("ws-1");
+  });
+
+  test("a late workspace load cannot replace a newer workspace", async () => {
+    const detail = readAt(0);
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { release = resolve; });
+    installAgentRunsApi({ list: async ({ workspaceId }: { workspaceId: string }) => {
+      if (workspaceId === "ws-1") await ready;
+      return { ok: true, agentRuns: workspaceId === "ws-1" ? [detail.agentRun] : [] };
+    }, get: async () => ({ ok: true, agentRun: detail }) });
+    const old = useAgentRunsStore.getState().loadWorkspace("ws-1");
+    await useAgentRunsStore.getState().loadWorkspace("ws-2");
+    release();
+    await old;
+    expect(useAgentRunsStore.getState().loadedWorkspaceId).toBe("ws-2");
+    expect(useAgentRunsStore.getState().details).toEqual({});
+  });
+
   test.each(["completed", "stopped"] as const)("cold load does not replay %s history, while live changes still announce", async (state) => {
     const ended = readAt(0, [], { state });
     const recent = readAt(1, [], { id: "recent", state });

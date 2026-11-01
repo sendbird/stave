@@ -230,3 +230,71 @@ for (const provider of ["codex", "claude-code"] as const) {
     expect(startedTurns).toBe(0);
   });
 }
+
+for (const provider of ["codex", "claude-code"] as const) {
+  test(`${provider} unloaded existing run continues through the native send consumer`, async () => {
+    const store = await seedStore();
+    store.setState((state) => ({ settings: { ...state.settings, autoRoutingEnabled: false },
+      tasks: state.tasks.map((task) => ({ ...task, provider })),
+      promptDraftByTask: { [TASK_ID]: { text: PROMPT, attachedFilePaths: [], attachments: [] } } }));
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { release = resolve; });
+    let loaded = false;
+    let starts = 0;
+    registerAgentRunBridge({
+      activeAgentRun: () => loaded ? { id: "existing", agentOrigin: true, providerId: provider } : undefined,
+      ensureWorkspaceLoaded: async () => { await ready; loaded = true; },
+      start: async () => { starts++; return { ok: false, agentRun: null }; },
+      cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+    });
+    const send = store.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" });
+    expect(store.getState().promptDraftByTask[TASK_ID]?.text).toBe("");
+    store.getState().updatePromptDraft({ taskId: TASK_ID, patch: { text: TYPED } });
+    release();
+    const result = await send;
+    expect(result.status).toBe("started");
+    expect(starts).toBe(0);
+    expect(startedTurns).toBe(1);
+    expect(store.getState().promptDraftByTask[TASK_ID]?.text).toBe(TYPED);
+  });
+}
+
+test("hydration failure preserves newer input and dispatches neither a run nor a native turn", async () => {
+    const store = await seedStore();
+    let fail!: () => void;
+    const ready = new Promise<void>((_, reject) => { fail = () => reject(new Error("load failed")); });
+    let starts = 0;
+    registerAgentRunBridge({
+      activeAgentRun: () => undefined, ensureWorkspaceLoaded: () => ready,
+      start: async () => { starts++; return { ok: false, agentRun: null }; },
+      cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+    });
+    const send = store.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" });
+    store.getState().updatePromptDraft({ taskId: TASK_ID, patch: { text: TYPED } });
+    fail();
+    expect((await send).status).toBe("blocked");
+    expect(starts).toBe(0);
+    expect(startedTurns).toBe(0);
+    expect(classifiersStarted).toBe(0);
+    expect(store.getState().promptDraftByTask[TASK_ID]?.text).toBe(TYPED);
+    expect(store.getState().failedSendsByTask[TASK_ID]?.[0]?.text).toBe(PROMPT);
+});
+
+test("leaving a workspace during hydration keeps its unsent prompt recoverable", async () => {
+  const store = await seedStore();
+  let release!: () => void;
+  const ready = new Promise<void>((resolve) => { release = resolve; });
+  let starts = 0;
+  registerAgentRunBridge({
+    activeAgentRun: () => undefined, ensureWorkspaceLoaded: () => ready,
+    start: async () => { starts++; return { ok: false, agentRun: null }; },
+    cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+  });
+  const send = store.getState().sendUserMessage({ taskId: TASK_ID, content: PROMPT, turnOrigin: "conversation" });
+  store.setState({ activeWorkspaceId: "other-workspace" });
+  release();
+  expect((await send).status).toBe("blocked");
+  expect(starts).toBe(0);
+  expect(startedTurns).toBe(0);
+  expect(store.getState().failedSendsByTask[TASK_ID]?.[0]?.text).toBe(PROMPT);
+});

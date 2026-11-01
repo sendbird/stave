@@ -79,6 +79,72 @@ afterEach(() => {
 });
 
 describe("agent run send path", () => {
+  test("an unloaded workspace waits for its existing run instead of starting another", async () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    let loaded = false;
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { release = resolve; });
+    const starts: unknown[] = [];
+    registerAgentRunBridge({
+      activeAgentRun: () => loaded ? { id: "existing", agentOrigin: true } : undefined,
+      ensureWorkspaceLoaded: async () => { await ready; loaded = true; },
+      start: async (input) => { starts.push(input); return { ok: false, agentRun: null }; },
+      cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+    } as AgentRunBridge);
+    const { args, state } = sendArgs();
+    const send = startAgentRunForSend(args);
+    expect(state().promptDraftByTask["task-1"]?.text).toBe("");
+    await Promise.resolve();
+    expect(starts).toEqual([]);
+    release();
+    expect(await send).toBeNull();
+    expect(starts).toEqual([]);
+    expect(pendingRow()).toBeUndefined();
+  });
+
+  test.each(["failed", "unknown", "absent"])("unloaded run resolution: %s", async (outcome) => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    let loaded = false;
+    const starts: AgentRunStartArgs[] = [];
+    registerAgentRunBridge({
+      activeAgentRun: () => loaded ? null : undefined,
+      ensureWorkspaceLoaded: async () => {
+        if (outcome === "failed") throw new Error("load failed");
+        loaded = outcome === "absent";
+      },
+      start: async (input) => { starts.push(input); return { ok: true, agentRun: { agentRun: { id: "new" } } as AgentRunDetail }; },
+      cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+    });
+    const { args, state } = sendArgs();
+    expect((await startAgentRunForSend(args))?.status).toBe(outcome === "absent" ? "run-started" : "blocked");
+    expect(starts).toHaveLength(outcome === "absent" ? 1 : 0);
+    if (outcome !== "absent") {
+      expect(state().promptDraftByTask["task-1"]?.text).toBe(args.prompt);
+      expect(pendingRow()).toBeUndefined();
+    }
+  });
+
+  test("pending hydration blocks duplicates but lets an active native turn bypass it", async () => {
+    useAgentAssignmentsStore.setState({ byTaskId: { "task-1": AGENT } });
+    let release!: () => void;
+    const ready = new Promise<void>((resolve) => { release = resolve; });
+    let loaded = false;
+    let starts = 0;
+    registerAgentRunBridge({
+      activeAgentRun: () => loaded ? { id: "existing", agentOrigin: true } : undefined,
+      ensureWorkspaceLoaded: async () => { await ready; loaded = true; },
+      start: async () => { starts++; return { ok: false, agentRun: null }; },
+      cancel: async () => ({ ok: true, agentRun: null }), watchFirstPrompt: () => {},
+    });
+    const { args } = sendArgs();
+    const first = startAgentRunForSend(args);
+    expect((await startAgentRunForSend(args))?.status).toBe("blocked");
+    expect(await startAgentRunForSend({ ...args, turnActive: true })).toBeNull();
+    release();
+    expect(await first).toBeNull();
+    expect(starts).toBe(0);
+  });
+
   test("a Chat task sends a plain turn", async () => {
     const bridge = fakeBridge();
     const { args } = sendArgs();
