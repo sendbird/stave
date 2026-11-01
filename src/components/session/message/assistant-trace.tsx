@@ -1,6 +1,6 @@
 import { formatSystemEventDisplay } from "../system-event-display";
 import { formatProviderErrorDisplay } from "@/lib/providers/error-display";
-import { i18n, useTranslation } from "@/i18n";
+import { i18n, useTranslation, type AppTFunction } from "@/i18n";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import {
@@ -49,7 +49,13 @@ import type {
   MessagePart,
   ThinkingPart,
 } from "@/types/chat";
-import { normalizeTraceToolName } from "./assistant-trace.utils";
+import {
+  buildCompletedTurnTitle,
+  countTraceCategories,
+  TRACE_CATEGORY_COUNT_KEYS,
+  type TraceCategory,
+  type TraceCategoryCount,
+} from "./trace-summary";
 import {
   buildAssistantTrace,
   joinReasoningText,
@@ -99,7 +105,7 @@ function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
   return (
     <span className={sx(styles.diffSummary)}>
       {parts.length > 1 ? (
-        <span className={sx(styles.diffFiles)}>{parts.length} {i18n.t("session:assistantTrace.getDiffSummary")}</span>
+        <span className={sx(styles.diffFiles)}>{i18n.t("session:assistantTrace.diffFiles", { count: parts.length })}</span>
       ) : null}
       {totals.added > 0 ? (
         <span className={sx(styles.diffAdded)}>+{totals.added}</span>
@@ -113,79 +119,25 @@ function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
 
 /* ─── Trace summary (collapsed trigger stats) ────────────────────── */
 
-const TOOL_CATEGORIES: Record<string, { label: string; iconKey: string }> = {
-  bash: { label: "commands", iconKey: "terminal" },
-  read: { label: "reads", iconKey: "file" },
-  write: { label: "edits", iconKey: "pencil" },
-  edit: { label: "edits", iconKey: "pencil" },
-  glob: { label: "searches", iconKey: "search" },
-  grep: { label: "searches", iconKey: "search" },
-  search: { label: "searches", iconKey: "search" },
-  websearch: { label: "web", iconKey: "globe" },
-  webfetch: { label: "web", iconKey: "globe" },
-};
-
-const CATEGORY_ICONS: Record<string, ReactNode> = {
-  terminal: <Terminal />,
-  file: <FileText />,
-  pencil: <Pencil />,
+const CATEGORY_ICONS: Record<TraceCategory, ReactNode> = {
+  edit: <Pencil />,
+  command: <Terminal />,
+  read: <FileText />,
   search: <Search />,
-  globe: <Globe />,
-  wrench: <Wrench />,
+  web: <Globe />,
+  agent: <Bot />,
+  change: <FileCode2 />,
+  tool: <Wrench />,
 };
 
-function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
-  const buckets = new Map<string, { icon: ReactNode; count: number }>();
-
-  for (const entry of entries) {
-    switch (entry.kind) {
-      case "tool": {
-        const normalized = normalizeTraceToolName(entry.part.toolName);
-        const cat = TOOL_CATEGORIES[normalized] ?? {
-          label: "tools",
-          iconKey: "wrench",
-        };
-        const existing = buckets.get(cat.label);
-        if (existing) {
-          existing.count++;
-        } else {
-          buckets.set(cat.label, {
-            icon: CATEGORY_ICONS[cat.iconKey] ?? <Wrench />,
-            count: 1,
-          });
-        }
-        break;
-      }
-      case "subagent": {
-        const existing = buckets.get("agents");
-        if (existing) {
-          existing.count++;
-        } else {
-          buckets.set("agents", { icon: <Bot />, count: 1 });
-        }
-        break;
-      }
-      case "diff": {
-        const existing = buckets.get("changes");
-        if (existing) {
-          existing.count += entry.parts.length;
-        } else {
-          buckets.set("changes", {
-            icon: <FileCode2 />,
-            count: entry.parts.length,
-          });
-        }
-        break;
-      }
-      default:
-        break;
-    }
-  }
-
-  return Array.from(buckets.entries()).map(([label, { icon, count }]) => ({
-    icon,
-    label,
-    count,
+function buildTraceSummary(
+  counts: readonly TraceCategoryCount[],
+  t: AppTFunction,
+): TraceSummaryItem[] {
+  return counts.map(({ category, count }) => ({
+    id: category,
+    icon: CATEGORY_ICONS[category],
+    label: t(TRACE_CATEGORY_COUNT_KEYS[category], { count }),
   }));
 }
 
@@ -556,7 +508,7 @@ export function AssistantMessageBody(args: {
   /** The approval or answer the transcript is jumping to, by request id: its trace opens too. */
   revealRequestId?: string;
 }) {
-  useTranslation();
+  const { language } = useTranslation().i18n;
   const {
     message,
     taskId,
@@ -595,9 +547,28 @@ export function AssistantMessageBody(args: {
     [revealRequestId, revealToolUseId, trace.entries],
   );
 
-  const summaryItems = useMemo(
-    () => buildTraceSummary(trace.entries),
+  const categoryCounts = useMemo(
+    () => countTraceCategories(trace.entries),
     [trace.entries],
+  );
+  // Fixed to the display language, so a language change rebuilds the labels.
+  const t = useMemo(() => i18n.getFixedT(language) as AppTFunction, [language]);
+  const summaryItems = useMemo(
+    () => buildTraceSummary(categoryCounts, t),
+    [categoryCounts, t],
+  );
+  /* What a finished turn did, without another model call: the reply's first
+     sentence, or else a summary of the counted work. */
+  const completedTitle = useMemo(
+    () =>
+      isStreaming
+        ? undefined
+        : buildCompletedTurnTitle({
+            responseText: trace.responseParts.map((part) => part.text).join("\n\n"),
+            counts: categoryCounts,
+            t,
+          }),
+    [categoryCounts, isStreaming, trace.responseParts, t],
   );
   /* Total reasoning time for the turn, shown next to the collapsed completion
      phrase ("Thought for 12s"). Only meaningful once the turn has finished. */
@@ -700,12 +671,13 @@ export function AssistantMessageBody(args: {
             !isStreaming
           }
           summaryItems={summaryItems}
-          seed={messageId}
           durationSeconds={traceDurationSeconds}
         >
           <ChainOfThoughtTrigger
             completionLabel={
-              hasActionableCapacityFailure ? i18n.t("session:assistantTrace.completionLabel") : undefined
+              hasActionableCapacityFailure
+                ? i18n.t("session:assistantTrace.completionLabel")
+                : completedTitle
             }
           />
           {trace.entries.length > 0 ? (

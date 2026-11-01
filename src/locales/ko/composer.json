@@ -25,8 +25,9 @@
     "copy": "현재"
   },
   "chainOfThought": {
-    "chainOfThoughtTrigger": "{{duration}} 동안",
-    "label": "추론 스트리밍 중"
+    "label": "추론 스트리밍 중",
+    "finished": "완료됨",
+    "reasoningTime": "추론 시간 {{duration}}"
   },
   "checkpoint": {
     "compactingIndicator": "대화 컨텍스트 압축 중…",

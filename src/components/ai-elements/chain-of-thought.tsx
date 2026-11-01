@@ -25,10 +25,6 @@ import {
 import { Brain, Check, ChevronDown, Circle } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { cx, sx } from "@/components/ads/utils/stylex";
-import {
-  getRandomCompletionPhraseKey,
-  getSeededCompletionPhraseKey,
-} from "@/lib/completion-phrases";
 import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
 import { TranscriptWideScope } from "./transcript-wide";
@@ -47,9 +43,11 @@ export interface ChainOfThoughtStep {
 /* ─── Summary item (shown in collapsed trigger) ──────────────────── */
 
 export interface TraceSummaryItem {
+  /** Stable key for the kind of work counted. */
+  id: string;
   icon: ReactNode;
+  /** The whole localized count, e.g. "2 reads" / "읽기 2". */
   label: string;
-  count: number;
 }
 
 /* ─── Props ──────────────────────────────────────────────────────── */
@@ -62,11 +60,7 @@ interface ChainOfThoughtProps extends HTMLAttributes<HTMLDivElement> {
   steps?: ChainOfThoughtStep[];
   /** Summary items shown in the trigger when collapsed and not streaming. */
   summaryItems?: TraceSummaryItem[];
-  /** Stable seed for deterministic completion phrase selection.
-   *  When provided, the trigger phrase stays consistent across
-   *  Virtuoso unmount/remount cycles (e.g. message ID). */
-  seed?: string;
-  /** Completed turn duration, appended to the collapsed completion phrase. */
+  /** Total reasoning time, shown beside the collapsed title. */
   durationSeconds?: number;
 }
 
@@ -104,7 +98,6 @@ interface ChainOfThoughtContextValue {
   open: boolean;
   setOpen: (next: boolean) => void;
   summaryItems: TraceSummaryItem[];
-  seed?: string;
   durationSeconds?: number;
 }
 
@@ -216,7 +209,6 @@ export function ChainOfThought({
   collapseWhen = false,
   steps,
   summaryItems = [],
-  seed,
   durationSeconds,
   children,
   ...props
@@ -247,8 +239,8 @@ export function ChainOfThought({
   }, [collapseWhen, openWhen]);
 
   const contextValue = useMemo(
-    () => ({ isStreaming, open, setOpen, summaryItems, seed, durationSeconds }),
-    [isStreaming, open, summaryItems, seed, durationSeconds],
+    () => ({ isStreaming, open, setOpen, summaryItems, durationSeconds }),
+    [isStreaming, open, summaryItems, durationSeconds],
   );
 
   const resolvedChildren = children ?? (
@@ -285,22 +277,18 @@ export function ChainOfThoughtTrigger(
     completionLabel,
     className,
     ...args
-  }: ButtonHTMLAttributes<HTMLButtonElement> & { completionLabel?: string },
+  }: ButtonHTMLAttributes<HTMLButtonElement> & {
+    /**
+     * The finished turn's title: what it did, or how it ended ("Run failed").
+     * While the turn runs, the header shows a rotating playful status instead.
+     */
+    completionLabel?: string;
+  },
 ) {
   useTranslation();
-  const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
+  const { isStreaming, open, setOpen, summaryItems, durationSeconds } =
     useChainOfThoughtContext();
   const showSummary = !open && !isStreaming && summaryItems.length > 0;
-
-  /* Pick a completion phrase that is stable across Virtuoso unmount/remount
-     cycles. When a seed is provided (typically the message ID), use the
-     deterministic seeded variant so the same message always shows the same
-     phrase. Fall back to the random variant for non-virtual contexts. */
-  const completionPhrase = useMemo(
-    () =>
-      seed ? getSeededCompletionPhraseKey(seed) : getRandomCompletionPhraseKey(),
-    [seed],
-  );
 
   const showDuration =
     !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
@@ -355,11 +343,16 @@ export function ChainOfThoughtTrigger(
       ) : (
         <>
           <span className={sx(s.completionLabel)}>
-            {completionLabel ?? i18n.t(completionPhrase)}
+            {completionLabel ?? i18n.t("composer:chainOfThought.finished")}
           </span>
           {showDuration ? (
-            <span className={sx(agentSurface.meta, s.durationLabel)}>
-              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger", { duration: formatDuration(durationSeconds * 1_000) })}
+            <span
+              className={sx(agentSurface.meta, s.durationLabel)}
+              title={i18n.t("composer:chainOfThought.reasoningTime", {
+                duration: formatDuration(durationSeconds * 1_000),
+              })}
+            >
+              {formatDuration(durationSeconds * 1_000)}
             </span>
           ) : null}
         </>
@@ -369,7 +362,7 @@ export function ChainOfThoughtTrigger(
       {showSummary ? (
         <span className={sx(s.summary)}>
           {summaryItems.map((item, index) => (
-            <span key={item.label} className={sx(s.summaryItem)}>
+            <span key={item.id} className={sx(s.summaryItem)}>
               {index > 0 ? (
                 <span className={sx(s.summaryDivider)} aria-hidden="true">
                   ·
@@ -378,9 +371,7 @@ export function ChainOfThoughtTrigger(
               <span className={sx(s.summaryItemIcon)}>
                 {withIconSize(item.icon)}
               </span>
-              <span>
-                {item.count} {item.label}
-              </span>
+              <span>{item.label}</span>
             </span>
           ))}
         </span>

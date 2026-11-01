@@ -57,14 +57,14 @@ describe("the same elapsed value reads the same everywhere", () => {
     }) as unknown as ProviderTurnActivitySnapshot;
     const thoughtFor = (durationSeconds: number) => renderToStaticMarkup(createElement(
       ChainOfThought,
-      { isStreaming: false, defaultOpen: false, durationSeconds, seed: "message-1", summaryItems: [] },
+      { isStreaming: false, defaultOpen: false, durationSeconds, summaryItems: [] },
       createElement(ChainOfThoughtTrigger),
     ));
     expect(renderToStaticMarkup(createElement(FleetTaskActivityLine, { activity: activity(59_900), status: "running" }))).toContain("Running for 59s");
     expect(formatTurnActivityElapsedSeconds(59.9)).toBe("59s");
-    expect(thoughtFor(59.9)).toContain("for 59s");
+    expect(thoughtFor(59.9)).toContain(">59s<");
     expect(formatTurnActivityElapsedSeconds(0.4)).toBe("<1s");
-    expect(thoughtFor(0.4)).toContain("for &lt;1s");
+    expect(thoughtFor(0.4)).toContain(">&lt;1s<");
   });
 
   test("the inbox Fleet and the bell share", () => {

@@ -103,8 +103,9 @@ export const chainOfThoughtStyles = stylex.create({
    * `controlHeightSm`, the radius, the hover/press wash and the focus ring.
    * What stays here is the three things the recipe cannot decide:
    *
-   * - **The wrap.** This header carries a phrase, a duration and a roll-up, so
-   *   it wraps in a narrow transcript column instead of ellipsizing.
+   * - **One line.** This header carries a title, a duration and a roll-up.
+   *   It never wraps: the title ellipsizes and gives up room first, while
+   *   the duration and the counts keep their full width.
    * - **The size.** `em`, not `fontSizeBody`: the trace scales with the user's
    *   message font size, and a fixed-token header inside an `em`-scaled rail
    *   would stop matching the rows under it at any non-default setting.
@@ -114,25 +115,32 @@ export const chainOfThoughtStyles = stylex.create({
    */
   trigger: {
     color: vars["--ads-color-text"],
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    minWidth: 0,
     fontSize: "0.875em",
-    rowGap: vars["--ads-space-4"],
   },
   streamingLabel: {
     display: "inline-flex",
     minWidth: 0,
+    flexShrink: 1,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
     alignItems: "center",
     gap: "0.5em",
     fontWeight: vars["--ads-font-weight-medium"],
   },
   completionLabel: {
-    flexShrink: 0,
+    minWidth: 0,
+    flexShrink: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     fontWeight: vars["--ads-font-weight-medium"],
   },
   /* The machine register, from `agentSurface.meta` at the call site. */
   durationLabel: {
     flexShrink: 0,
+    whiteSpace: "nowrap",
   },
   summary: {
     marginLeft: "auto",
