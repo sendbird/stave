@@ -1,7 +1,7 @@
 import { REVIEW_AGENT_ID } from "../agents/review-before-done";
 import { unmetInheritedWorkspaceChecks } from "./acceptance";
 import { collectAcceptanceCriteria } from "./briefing";
-import { currentStageRecord, type AgentRunAggregate } from "./domain";
+import { currentStageRecord, type AgentRun, type AgentRunAggregate } from "./domain";
 import { revisionsMatch } from "./verification-contract";
 
 /** A successful review can finish only when the final repair stage has no work or checks left. */
@@ -30,15 +30,7 @@ export function canFinishAfterReview(aggregate: AgentRunAggregate): boolean {
  * criterion is met. Sign-offs are the caller's.
  */
 export function canFinishUnchangedWork(aggregate: AgentRunAggregate): boolean {
-  const { agentRun } = aggregate;
-  const index = agentRun.currentStageIndex;
-  const current = agentRun.workflow.stages[index];
-  const review = agentRun.workflow.stages[index + 1];
-  const repair = agentRun.workflow.stages[index + 2];
-  if (index !== agentRun.workflow.stages.length - 3 || current?.kind !== "ai" ||
-      review?.kind !== "ai" || review.agentConfigId !== REVIEW_AGENT_ID || !review.skipIfWorkUnchanged ||
-      repair?.kind !== "ai" || !repair.skipIfReviewPassed || repair.agentConfigId ||
-      [review, repair].some((stage) => stage.acceptanceCriteria?.some((criterion) => criterion.required !== false))) return false;
+  if (!mayFinishUnchangedWork(aggregate.agentRun)) return false;
   const record = currentStageRecord(aggregate);
   const facts = record.facts;
   return record.report?.outcome === "complete" && Boolean(record.startHeadSha) &&
@@ -47,4 +39,21 @@ export function canFinishUnchangedWork(aggregate: AgentRunAggregate): boolean {
     revisionsMatch(record.report.workspaceRevision, facts.workspaceRevision) &&
     unmetInheritedWorkspaceChecks(aggregate, record) === null &&
     collectAcceptanceCriteria(aggregate, true).every((criterion) => criterion.required === false || criterion.status === "met");
+}
+
+/**
+ * Whether the current stage is one whose unchanged work may finish the run
+ * (`canFinishUnchangedWork`), from the workflow alone: an AI stage followed by
+ * an independent review that allows it and the final repair. The host reads
+ * the workspace revision at such a stage's report, which the check compares.
+ */
+export function mayFinishUnchangedWork(agentRun: Pick<AgentRun, "workflow" | "currentStageIndex">): boolean {
+  const index = agentRun.currentStageIndex;
+  const current = agentRun.workflow.stages[index];
+  const review = agentRun.workflow.stages[index + 1];
+  const repair = agentRun.workflow.stages[index + 2];
+  return index === agentRun.workflow.stages.length - 3 && current?.kind === "ai" &&
+    review?.kind === "ai" && review.agentConfigId === REVIEW_AGENT_ID && review.skipIfWorkUnchanged === true &&
+    repair?.kind === "ai" && repair.skipIfReviewPassed === true && !repair.agentConfigId &&
+    ![review, repair].some((stage) => stage.acceptanceCriteria?.some((criterion) => criterion.required !== false));
 }

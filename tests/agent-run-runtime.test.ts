@@ -294,6 +294,38 @@ test.each([false, true])("independent review completion captures revision and sk
   expect(h.runCalls).toHaveLength(edited ? 3 : 2);
 });
 
+test.each(["unchanged", "edited", "edited-after-report"])("work reported through the host that changed no files ends without its review (%s)", async (variant) => {
+  // The real report path: the host reads the revision at the report, the facts after the turn.
+  let revision = "answered";
+  const h = createHarness({ extra: { readWorkspaceRevision: async () => ({ status: "known", revision }) } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Supervisor", permission: "auto" }, now: new Date(START) });
+  expect(workflow.stages[1]).toMatchObject({ skipIfWorkUnchanged: true });
+  const id = await startedAgentRun(h, startInput({ workflow }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  expect(h.current(id).report).toMatchObject({ workspaceRevision: { status: "known", revision: "answered" } });
+  if (variant === "edited-after-report") revision = "edited-after-report";
+  h.setFacts({ ...EMPTY_STAGE_FACTS, changedPaths: variant === "edited" ? ["src/billing.ts"] : [], workspaceRevision: { status: "known", revision } });
+  h.endTurn("turn-1");
+  await h.tick();
+  const skipped = variant === "unchanged";
+  expect(h.aggregate(id).agentRun.state).toBe(skipped ? "completed" : "running");
+  // The store lists records in its own order; the set is what matters.
+  expect(h.aggregate(id).stages.map(({ stageId, status }) => `${stageId}:${status}`).sort()).toEqual(skipped
+    ? ["fix-review:skipped", "review:skipped", "work:completed"]
+    : ["review:running", "work:completed"]);
+  expect(h.runCalls).toHaveLength(skipped ? 1 : 2);
+});
+
+test("a work report with no review to skip reads no revision", async () => {
+  let reads = 0;
+  const h = createHarness({ extra: { readWorkspaceRevision: async () => { reads++; return { status: "known", revision: "tree" }; } } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: new Date(START) });
+  const id = await startedAgentRun(h, startInput({ workflow }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  expect(reads).toBe(0);
+  expect(h.current(id).report).not.toHaveProperty("workspaceRevision");
+});
+
 test("failed fact collection cannot reuse an earlier workspace snapshot to skip repair", async () => {
   let fail = false;
   const revision = { status: "known" as const, revision: "earlier-observation" };
