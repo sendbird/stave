@@ -1300,6 +1300,52 @@ describe("run runtime: agent runs", () => {
     };
   }
 
+  for (const restarted of [false, true]) test(`Retry keeps the original input after an unlinked first start (restart: ${restarted})`, async () => {
+    const first = agentRunHarness();
+    first.setRunError(new Error("provider unavailable before saving the prompt"));
+    const questionReply = { requestId: "question-start", questions: [{ header: "Scope", question: "Which scope?", answer: "This task" }] };
+    const id = await startedAgentRun(first, { ...runInput(), initialContext: { questionReply } });
+    expect(first.current(id).status).toBe("stuck");
+    expect(first.aggregate(id).agentRun.turnCount).toBe(1);
+    expect(first.store.listEventsByKind(id, ["turn-linked"])).toHaveLength(0);
+    const h = restarted ? agentRunHarness({ store: first.store, turns: first.turns }) : first;
+    h.setRunError(null);
+    if (restarted) { h.runtime.start(); await h.tick(); }
+    await h.runtime.retryStage({ agentRunId: id, stageId: "work", attempt: 1 });
+    await h.tick();
+    expect(h.aggregate(id).agentRun.turnCount).toBe(2);
+    expect(h.runCalls.at(-1)?.agentRunPrompt).toMatchObject({
+      assignment: "Add CSV export to the billing page.", stageIndex: 0, isContinuation: false,
+    });
+    expect(h.store.listEventsByKind(id, ["turn-linked"])).toHaveLength(1);
+    expect(h.runCalls.at(-1)?.initialContext?.questionReply).toEqual(questionReply);
+    // Once a turn has landed, another Retry is a continuation, including after restart.
+    await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "environment", missing: "Restore access" } });
+    h.endTurn("turn-1"); await h.tick();
+    await h.runtime.retryStage({ agentRunId: id, stageId: "work", attempt: 2 });
+    await h.tick();
+    expect(h.runCalls.at(-1)?.agentRunPrompt?.isContinuation).toBe(true);
+    expect(h.runCalls.at(-1)?.initialContext?.questionReply).toBeUndefined();
+  });
+
+  for (const status of ["blocked", "stuck"] as const) test(`Retry after ${status} marks the first-stage turn as a continuation`, async () => {
+    const h = agentRunHarness();
+    const id = await startedAgentRun(h, runInput());
+    if (status === "blocked") {
+      await h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "environment", missing: "Restore access" } });
+      h.endTurn("turn-1"); await h.tick();
+    } else {
+      h.endTurn("turn-1"); await h.tick();
+      h.endTurn("turn-2"); await h.tick();
+    }
+    expect(h.current(id).status).toBe(status);
+    await h.runtime.retryStage({ agentRunId: id, stageId: "work", attempt: 1 });
+    await h.tick();
+    expect(h.runCalls.at(-1)?.agentRunStage?.attempt).toBe(2);
+    expect(h.runCalls.at(-1)?.agentRunPrompt).toMatchObject({ stageIndex: 0, isContinuation: true });
+    expect(h.runCalls.at(-1)?.prompt).toContain("Add CSV export to the billing page.");
+  });
+
   test("the first turn starts on the routed model and resolves autonomous as the agent", async () => {
     const harness = agentRunHarness();
     const agentRunId = await startedAgentRun(harness, runInput());
@@ -1317,7 +1363,7 @@ describe("run runtime: agent runs", () => {
     expect(call.agentRunStage).toEqual({ agentRunId, stageId: "work", attempt: 1 });
     expect(call.prompt).toContain("Add CSV export to the billing page.");
     // The user row is marked as the run's prompt (and its stage), so it renders as the assignment from its first frame.
-    expect(call.agentRunPrompt).toEqual({ agentRunId, assignment: "Add CSV export to the billing page.", stageIndex: 0, stageId: "work" });
+    expect(call.agentRunPrompt).toEqual({ agentRunId, assignment: "Add CSV export to the billing page.", stageIndex: 0, stageId: "work", isContinuation: false });
     // The run passes the user's settings; the agent actor makes them prompt-free.
     const root = "/tmp/repo-ws";
     expect(resolveTurnPolicy({ providerId: expected.providerId, actor: { kind: "chat" }, options: call.runtimeOptions, root }).autonomy).toBe("ask");
@@ -1341,7 +1387,7 @@ describe("run runtime: agent runs", () => {
     await harness.tick();
     expect(harness.runCalls).toHaveLength(2);
     expect(harness.runCalls[1]!.prompt).toContain('without reporting the stage "Work"');
-    expect(harness.runCalls[1]!.agentRunPrompt).toEqual({ agentRunId, assignment: null, stageIndex: 0, stageId: "work" });
+    expect(harness.runCalls[1]!.agentRunPrompt).toEqual({ agentRunId, assignment: null, stageIndex: 0, stageId: "work", isContinuation: true });
     expect(harness.runCalls[1]!.fingerprint).toEqual({ providerId: "claude-code", model: "opus" });
     expect(harness.aggregate(agentRunId).agentRun.state).toBe("running");
 

@@ -118,7 +118,7 @@ test("a mark without its stage, as rows were written before stages were recorded
   expect(layoutOf({ turnId: "turn-1", text: stagePrompt, provenance: legacyMark })).toEqual({ bubble: true, row: "assignment", stage: null });
   expect(layoutOf({ turnId: "turn-1", text: stagePrompt })).toEqual({ bubble: true, row: "assignment", stage: null });
   // A mark that names its stage needs no events; an unmarked row reads them.
-  const markedStage = { ...legacyMark, stageIndex: 1, stageId: "review" };
+  const markedStage = { ...legacyMark, stageIndex: 1, stageId: "review", isContinuation: true };
   expect(agentRunPromptRowSources({ turnId: "turn-2", provenance: markedStage })).toEqual({ detailTurnId: undefined, markedRunId: agentRun.id });
   expect(layoutOf({ turnId: "turn-2", text: stagePrompt, provenance: markedStage })).toEqual({ bubble: false, row: "assignment", stage: 1 });
   expect(layoutOf({ turnId: "turn-2", text: stagePrompt })).toEqual({ bubble: false, row: "assignment", stage: 1 });
@@ -127,4 +127,24 @@ test("a mark without its stage, as rows were written before stages were recorded
   // A turn the run never linked falls back to the plain message; a pending send reads nothing.
   expect(layoutOf({ turnId: "turn-9", text: "Hello" })).toEqual({ bubble: true, row: null, stage: null });
   expect(agentRunPromptRowSources({ turnId: "turn-2", pending: true })).toEqual({ detailTurnId: undefined, markedRunId: undefined });
+});
+
+test("Retry and subsequent first-stage turns draw Stave's card, while the original input keeps its bubble", () => {
+  const detail = buildAgentRunFixtures(new Date("2026-11-02T00:00:00Z")).working;
+  const stage = detail.agentRun.workflow.stages[0]!;
+  const provenance = { agentRunId: detail.agentRun.id, assignment: AGENT_RUN_ASSIGNMENT, stageIndex: 0, stageId: stage.id, isContinuation: true };
+  const resolve = (mark: AgentRunPromptProvenance = provenance, events = detail.events) => agentRunPromptLayout(resolveAgentRunPromptRow({
+    text: "compiled prompt", turnId: "retry-turn", provenance: mark, markedRun: detail.agentRun, detail: { ...detail, events },
+  }));
+  expect(resolve()).toMatchObject({ bubble: false, stage: { index: 0 } });
+  expect(resolve({ ...provenance, isContinuation: false })).toMatchObject({ bubble: true, stage: null });
+  // Older persisted rows have no continuation mark: recover ownership from the linked turns.
+  const { isContinuation: _, ...legacy } = provenance;
+  const linked = (turnId: string, sequence: number) => ({ ...detail.events[0]!, sequence, kind: "turn-linked" as const, detail: { stageId: stage.id, attempt: 1, turnId } });
+  expect(resolve(legacy, [linked("retry-turn", 5), linked("original-turn", 2)])).toMatchObject({ bubble: false, stage: { index: 0 } });
+  expect(agentRunPromptLayout(resolveAgentRunPromptRow({
+    text: "compiled prompt", turnId: "original-turn", provenance: legacy, markedRun: detail.agentRun,
+    detail: { ...detail, events: [linked("retry-turn", 5), linked("original-turn", 2)] },
+  }))).toMatchObject({ bubble: true, stage: null });
+  expect(agentRunPromptRowSources({ turnId: "retry-turn", provenance: legacy })).toMatchObject({ detailTurnId: "retry-turn" });
 });

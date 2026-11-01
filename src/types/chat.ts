@@ -400,6 +400,8 @@ export interface AgentRunPromptProvenance {
    */
   stageIndex?: number;
   stageId?: string;
+  /** A later turn in this run, including a retry of its first stage. */
+  isContinuation?: boolean;
 }
 
 export interface ChatMessage {

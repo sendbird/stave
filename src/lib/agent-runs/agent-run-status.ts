@@ -486,7 +486,7 @@ export function selectAgentRunCard(args: {
 }
 
 /** A user bubble of an agent run: the user's words and the compiled prompt folded under them. */
-/** A stage after the first that a run turn ran, for Stave's stage card in the transcript. */
+/** A stage or continuation that a run turn ran, for Stave's stage card in the transcript. */
 export interface AgentRunPromptStage {
   /** Position in the workflow, 0-based. */
   index: number;
@@ -502,22 +502,22 @@ export interface AgentRunPromptView {
   /** The whole compiled prompt, for the disclosure; null while the run has not written it. */
   instructions: string | null;
   /**
-   * The stage this turn started when it is not the workflow's first: the host
+   * The stage this automatic continuation started: the host
    * draws Stave's stage card instead of repeating the assignment as the
-   * user's bubble. Null for the first stage, a follow-up, or an unlinked turn.
+   * user's bubble. Null for the original input, a follow-up, or an unlinked turn.
    */
   stage: AgentRunPromptStage | null;
 }
 
 /**
- * The stage a run turn ran, when it is not the first. A marked row names it;
+ * The stage a continuation ran. A marked row names it;
  * an older row is found through the run's `turn-linked` event for the turn.
- * Null for the first stage (the row shows the user's own words), an action
+ * Null for the original input (which shows the user's words), an action
  * stage, or a turn the run has not linked.
  */
 export function resolveAgentRunPromptStage(args: {
   run: Pick<AgentRun, "workflow"> | null | undefined;
-  provenance?: Pick<AgentRunPromptProvenance, "stageIndex" | "stageId"> | null;
+  provenance?: Pick<AgentRunPromptProvenance, "stageIndex" | "stageId" | "isContinuation"> | null;
   turnId?: string;
   events?: AgentRunDetail["events"];
 }): AgentRunPromptStage | null {
@@ -534,7 +534,18 @@ export function resolveAgentRunPromptStage(args: {
     }
   }
   if (stageId !== null) index = stages.findIndex((stage) => stage.id === stageId);
-  if (index <= 0) return null;
+  if (index < 0) return null;
+  if (index === 0) {
+    // New rows carry this at dispatch. Older rows use event order, never the
+    // current stage attempt (which would change historical messages on Retry).
+    let continuation = args.provenance?.isContinuation;
+    if (continuation === undefined && args.turnId) {
+      const linked = (args.events ?? []).filter((event) => event.kind === "turn-linked" && typeof event.detail.turnId === "string");
+      const own = linked.find((event) => event.detail.turnId === args.turnId);
+      continuation = Boolean(own && linked.some((event) => event.sequence < own.sequence));
+    }
+    if (!continuation) return null;
+  }
   const stage = stages[index];
   if (!stage || stage.kind !== "ai") return null;
   return { index, total: stages.length, title: getStageDisplayTitle(stage), doneWhen: stage.doneWhen, instruction: stage.instruction };

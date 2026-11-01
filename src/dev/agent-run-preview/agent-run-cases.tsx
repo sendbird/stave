@@ -3,7 +3,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { localStack } from "@/lib/ui-layers.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { Message, MessageContent } from "@/components/ai-elements/message";
-import { AgentRunBubbleFrame, AgentRunPromptRow } from "@/components/agent-runs/AgentRunPrompt";
+import { AgentRunBubbleFrame, AgentRunPromptRow, AgentRunStageCard, agentRunPromptLayout, resolveAgentRunPromptRow } from "@/components/agent-runs/AgentRunPrompt";
 import { AgentRunResultCardView } from "@/components/agent-runs/AgentRunResultCard";
 import { FleetAgentRunStrip } from "@/components/agent-runs/FleetAgentRunStrip";
 import { AgentRunBarView } from "@/components/agent-runs/AgentRunBar";
@@ -131,9 +131,19 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
       parentReserve: 1, maxChanges: 2, cooldownTurns: 2 },
     spent: 12, reserved: 9, remaining: 19, helpersLaunched: 2, activeHelpers: 1, reservations: [] } };
   const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
+  const retryLayout = agentRunPromptLayout(resolveAgentRunPromptRow({
+    text: prompt, turnId: "retry-preview", markedRun: runs.working.agentRun, detail: null,
+    provenance: { agentRunId: runs.working.agentRun.id, assignment: AGENT_RUN_ASSIGNMENT, stageIndex: 0, isContinuation: true },
+  }));
   const nudge = buildStageNudgePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
   return (
     <div className={sx(styles.cases)} style={width ? { maxWidth: width } : undefined}>
+      <section className={sx(styles.case)} data-preview-case="First stage retry">
+        <p className={sx(styles.caption)}>Conversation · Retry after a blocked or halted first stage</p>
+        {retryLayout.bubble && <AgentRunBubbleFrame framed>{AGENT_RUN_ASSIGNMENT}</AgentRunBubbleFrame>}
+        {retryLayout.stage && <AgentRunStageCard stage={retryLayout.stage} />}
+        <AgentRunPromptRow text={prompt} kind="assignment" align="start" />
+      </section>
       <section className={sx(styles.case)} data-preview-case="Agent run bubble">
         <p className={sx(styles.caption)}>Conversation · a run's first prompt: the bubble holds only the user's words; the full prompt Stave built folds in a row below</p>
         <Message from="user">
