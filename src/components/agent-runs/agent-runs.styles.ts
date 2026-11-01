@@ -315,6 +315,8 @@ export const agentRunStyles = stylex.create({
     gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
+  /** Under the stage card the row starts where the card does. */
+  promptAlignStart: { flexDirection: "row-reverse", justifyContent: "flex-end" },
   promptTrigger: { minInlineSize: 0 },
   promptLabel: {
     minInlineSize: 0,
@@ -338,6 +340,33 @@ export const agentRunStyles = stylex.create({
   promptBody: { padding: vars["--ads-space-12"] },
   /** Stave's words in muted ink, so they never read as the user's own. */
   promptMarkdown: { minInlineSize: 0, color: vars["--ads-color-text-muted"] },
+  /** Stave's stage card: the column's full width, on the agent's side. */
+  promptStageCard: { minInlineSize: 0, inlineSize: "100%" },
+  /** Two lines (title, done-when), so the trigger grows past one control height. */
+  promptStageTrigger: {
+    alignItems: "flex-start",
+    inlineSize: "100%",
+    paddingBlock: vars["--ads-space-8"],
+    textAlign: "start",
+  },
+  promptStageText: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-2"],
+    minInlineSize: 0,
+  },
+  promptStageTitle: {
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
+  },
+  promptStageDoneWhen: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    whiteSpace: "normal",
+  },
   disclosure: { minWidth: 0 },
   disclosureSummary: {
     alignSelf: "flex-start",

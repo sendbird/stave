@@ -393,6 +393,13 @@ export interface AgentRunPromptProvenance {
   agentRunId: string;
   /** The assignment as the user wrote it; null for a run prompt without one, such as the reminder to report. */
   assignment: string | null;
+  /**
+   * The workflow stage the turn ran, by index and id. A stage after the first
+   * draws as Stave's stage card instead of repeating the assignment as the
+   * user's bubble. Absent on rows written before stages were recorded.
+   */
+  stageIndex?: number;
+  stageId?: string;
 }
 
 export interface ChatMessage {

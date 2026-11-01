@@ -1,5 +1,6 @@
 import { i18n } from "../../../src/i18n/runtime";
 import { hasInheritedWorkspaceChecks, unmetInheritedWorkspaceChecks } from "../../../src/lib/agent-runs/acceptance";
+import { mayFinishUnchangedWork } from "../../../src/lib/agent-runs/review-finalization";
 import type { RunQuestionAnswer } from "../run-question-answer";
 import { admitWorkspaceCheck } from "./workspace-check-admission";
 import { createStageScriptRunner, type WorkspaceCheckDependencies, type WorkspaceScriptReceipt } from "./agent-run-workspace-script";
@@ -1432,7 +1433,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         ...(actionPrompt === undefined || userReply || reason === "repair-checks" ? { agentRunStage: identity } : {}),
         ...(reason === "resume-after-account-switch" ? { freshSession: true } : {}),
         ...(hasAgentOrigin(agentRun)
-          ? { agentRunPrompt: { agentRunId: agentRun.id, assignment: extractRunAssignment(prompt, agentRun.assignment) } }
+          ? { agentRunPrompt: {
+              agentRunId: agentRun.id,
+              assignment: extractRunAssignment(prompt, agentRun.assignment),
+              stageIndex: started.agentRun.currentStageIndex,
+              stageId: identity.stageId,
+            } }
           : {}),
       });
       turnIdsFor(agentRun.id).add(turn.turnId);
@@ -2390,7 +2396,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         const input = StageCompleteReportInputSchema.parse(report);
         const stage = workflowStageAt(aggregate.agentRun, aggregate.agentRun.currentStageIndex);
         if (stage.kind !== "ai") refuse("Stave action stages finish through their host action result, not a stage report.");
-        const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check");
+        // Also for work that may end the run unreviewed: the skip compares this revision with the facts read after the turn.
+        const needsRevision = input.reviewVerdict !== undefined || hasInheritedWorkspaceChecks(aggregate) || stage.acceptanceCriteria?.some((criterion) => criterion.verification === "stave-check") || mayFinishUnchangedWork(aggregate.agentRun);
         const cwd = needsRevision && deps.readWorkspaceRevision ? await deps.resolveWorkspacePath(aggregate.agentRun.workspaceId) : null;
         const workspaceRevision = needsRevision ? cwd ? await deps.readWorkspaceRevision!(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const } : undefined;
         const next = applyChange(

@@ -1,10 +1,17 @@
 import { i18n, useTranslation } from "@/i18n";
 import { useMemo, useState, type ReactNode } from "react";
-import { Check, Copy, FileText } from "lucide-react";
-import { resolveAgentRunPrompt, type AgentRunPromptView } from "@/lib/agent-runs/agent-run-status";
+import { Check, Copy, FileText, Target } from "lucide-react";
+import {
+  resolveAgentRunPrompt,
+  resolveAgentRunPromptStage,
+  type AgentRunPromptStage,
+  type AgentRunPromptView,
+} from "@/lib/agent-runs/agent-run-status";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import { useAppStore } from "@/store/app.store";
-import { useAgentRunForTurn } from "@/store/agent-runs-store";
+import { useAgentRunById, useAgentRunDetailForTurn } from "@/store/agent-runs-store";
+import type { AgentRunDetail } from "@/lib/agent-runs/api";
+import type { AgentRun } from "@/lib/agent-runs/domain";
 import type { AgentRunPromptProvenance } from "@/types/chat";
 import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
 import { Loader } from "@/components/ads/components/Loader";
@@ -23,11 +30,64 @@ import { agentRunStyles as styles } from "./agent-runs.styles";
 /** A user message an agent run started: the user's own words and Stave's instructions. */
 export type AgentRunPrompt = AgentRunPromptView;
 
+/** Whether a row's mark names the stage its turn ran, so the run's events are not needed to find it. */
+export function agentRunPromptProvenanceNamesStage(provenance: AgentRunPromptProvenance | undefined | null): boolean {
+  return Boolean(provenance && (provenance.stageId || typeof provenance.stageIndex === "number"));
+}
+
+/**
+ * Which store reads a row needs: the detail (events) of the run that started
+ * its turn, and the run its mark names. A row needs the events unless its
+ * mark already names the stage: an unmarked row for its assignment and
+ * stage, a mark written before stages were recorded ({ agentRunId,
+ * assignment } only) for its stage. A pending row needs neither. Pure, so
+ * the choice is checked without React.
+ */
+export function agentRunPromptRowSources(args: {
+  turnId: string | undefined;
+  provenance?: AgentRunPromptProvenance;
+  pending?: boolean;
+}): { detailTurnId: string | undefined; markedRunId: string | undefined } {
+  if (args.pending) return { detailTurnId: undefined, markedRunId: undefined };
+  return {
+    detailTurnId: agentRunPromptProvenanceNamesStage(args.provenance) ? undefined : args.turnId,
+    markedRunId: args.provenance?.agentRunId,
+  };
+}
+
+/**
+ * The row's prompt view from what the stores hold: the run its mark names
+ * (once loaded) and the detail of the run that started its turn. Pure; the
+ * hook feeds it from its subscriptions.
+ */
+export function resolveAgentRunPromptRow(args: {
+  text: string;
+  turnId: string | undefined;
+  provenance?: AgentRunPromptProvenance;
+  pending?: boolean;
+  markedRun: AgentRun | null;
+  detail: AgentRunDetail | null;
+}): AgentRunPrompt | null {
+  const run = args.markedRun ?? args.detail?.agentRun ?? null;
+  return resolveAgentRunPrompt({
+    text: args.text,
+    provenance: args.provenance,
+    runAssignment: args.detail?.agentRun.assignment,
+    pending: args.pending,
+    stage: args.pending
+      ? null
+      : resolveAgentRunPromptStage({ run, provenance: args.provenance, turnId: args.turnId, events: args.detail?.events }),
+  });
+}
+
 /**
  * Splits the user message that started a turn of an agent run, so the bubble
  * shows the assignment and the compiled prompt stays one click away. A row the
  * host marked splits on its own; an older one waits for the run that started
- * its turn. Null for every other message.
+ * its turn. A stage after the first names its stage (from the mark, else from
+ * the run's `turn-linked` event) so the host draws Stave's stage card instead
+ * of repeating the assignment as the user's words. Null for every other
+ * message.
  */
 export function useAgentRunPrompt(args: {
   taskId: string;
@@ -39,33 +99,85 @@ export function useAgentRunPrompt(args: {
   pending?: boolean;
 }): AgentRunPrompt | null {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
-  const marked = Boolean(args.provenance || args.pending);
-  const run = useAgentRunForTurn(workspaceId, args.taskId, marked ? undefined : args.turnId);
-  const runAssignment = run?.assignment;
+  const sources = agentRunPromptRowSources(args);
+  const detail = useAgentRunDetailForTurn(workspaceId, args.taskId, sources.detailTurnId);
+  const markedRun = useAgentRunById(sources.markedRunId);
   return useMemo(
     () =>
-      resolveAgentRunPrompt({
+      resolveAgentRunPromptRow({
         text: args.text,
+        turnId: args.turnId,
         provenance: args.provenance,
-        runAssignment,
         pending: args.pending,
+        markedRun,
+        detail,
       }),
-    [args.pending, args.provenance, args.text, runAssignment],
+    [args.pending, args.provenance, args.text, args.turnId, detail, markedRun],
   );
 }
 
 /**
- * How a host draws a message: whether the user's bubble shows, and which
- * prompt row follows it. The bubble holds only what the person wrote, so a run
- * prompt with no words of theirs draws no bubble, only its row. One answer for
- * every host (the conversation and the run's turn dialog).
+ * How a host draws a message: whether the user's bubble shows, which prompt
+ * row follows it, and whether Stave's stage card stands in for the bubble.
+ * The bubble holds only what the person wrote, so a run prompt with no words
+ * of theirs draws no bubble, only its row; a stage after the first draws the
+ * stage card (what this stage asks) over the prompt row, since the person
+ * wrote nothing at that point of the run. One answer for every host (the
+ * conversation and the run's turn dialog).
  */
 export function agentRunPromptLayout(prompt: AgentRunPrompt | null): {
   bubble: boolean;
   row: "assignment" | "followUp" | null;
+  stage: AgentRunPromptStage | null;
 } {
-  if (!prompt) return { bubble: true, row: null };
-  return prompt.assignment ? { bubble: true, row: "assignment" } : { bubble: false, row: "followUp" };
+  if (!prompt) return { bubble: true, row: null, stage: null };
+  if (prompt.stage) return { bubble: false, row: "assignment", stage: prompt.stage };
+  return prompt.assignment ? { bubble: true, row: "assignment", stage: null } : { bubble: false, row: "followUp", stage: null };
+}
+
+/**
+ * Stave's stage card: the turn a run started for a stage after the first.
+ * Where the first turn shows the user's words, this one shows what the stage
+ * asks (its position, title and done-when), with the stage instruction one
+ * click away; the full prompt row follows it as for any run turn. It takes the
+ * transcript's inline-disclosure grammar and sits on the agent's side, so it
+ * never reads as something the person typed.
+ */
+export function AgentRunStageCard({ stage }: { stage: AgentRunPromptStage }) {
+  useTranslation();
+  const [open, setOpen] = useState(false);
+  const title = i18n.t("agentRuns:agentRunPrompt.stageTitle", { index: stage.index + 1, total: stage.total, title: stage.title });
+  return (
+    <CollapsibleRoot className={sx(inlineDisclosure.root, styles.promptStageCard)} open={open} onOpenChange={setOpen} data-testid="agent-run-stage-card">
+      <CollapsibleTrigger
+        className={cx(
+          sx(
+            inlineDisclosure.trigger,
+            inlineDisclosure.triggerIntrinsic,
+            open && inlineDisclosure.triggerOpen,
+            transition.colors,
+            focusRing.ring,
+            focusRing.ringInset,
+            styles.promptStageTrigger,
+          ),
+          "atelier-inline-disclosure-trigger",
+        )}
+      >
+        <InlineDisclosureIcon open={open}>
+          <Target size={controlIconSizes.md} />
+        </InlineDisclosureIcon>
+        <span className={sx(styles.promptStageText)}>
+          <span className={sx(styles.promptStageTitle)}>{title}</span>
+          <span className={sx(styles.promptStageDoneWhen)}>{i18n.t("agentRuns:agentRunPrompt.stageDoneWhen", { value: stage.doneWhen })}</span>
+        </span>
+      </CollapsibleTrigger>
+      <CollapsiblePanel className={cx(sx(inlineDisclosure.panel), "atelier-motion-collapse")}>
+        <div className={cx(sx(inlineDisclosure.body, styles.promptBody), "atelier-motion-panel-inner")}>
+          <AgentRunPromptBody text={stage.instruction} />
+        </div>
+      </CollapsiblePanel>
+    </CollapsibleRoot>
+  );
 }
 
 /**
@@ -93,13 +205,22 @@ export function AgentRunBubbleFrame({ framed, children }: { framed: boolean; chi
  * Until the run writes the prompt the row says so instead of offering a
  * disclosure that opens nothing.
  */
-export function AgentRunPromptRow({ text, kind }: { text: string | null; kind: "assignment" | "followUp" }) {
+export function AgentRunPromptRow({
+  text,
+  kind,
+  align = "end",
+}: {
+  text: string | null;
+  kind: "assignment" | "followUp";
+  /** `end` under the user's bubble; `start` under Stave's stage card, on the agent's side. */
+  align?: "start" | "end";
+}) {
   useTranslation();
   const [open, setOpen] = useState(false);
   if (text === null) {
     return (
       // The static arm of the same row: one glyph column, one label style.
-      <div role="status" className={sx(agentSurface.row, styles.promptPending)}>
+      <div role="status" className={sx(agentSurface.row, styles.promptPending, align === "start" && styles.promptAlignStart)}>
         <InlineDisclosureIcon disclosure={false}>
           <Loader size="xs" tone="neutral" aria-hidden />
         </InlineDisclosureIcon>
@@ -110,7 +231,7 @@ export function AgentRunPromptRow({ text, kind }: { text: string | null; kind: "
   const label = i18n.t(kind === "followUp" ? "agentRuns:agentRunPrompt.followUp" : "agentRuns:agentRunPrompt.label");
   return (
     <CollapsibleRoot className={sx(inlineDisclosure.root, styles.promptRow)} open={open} onOpenChange={setOpen}>
-      <div className={sx(styles.promptHeader)}>
+      <div className={sx(styles.promptHeader, align === "start" && styles.promptAlignStart)}>
         {/* The verbatim text, for pasting elsewhere; only once the reader asked for it. */}
         {open ? <CopyPromptAction text={text} /> : null}
         <CollapsibleTrigger

@@ -294,6 +294,38 @@ test.each([false, true])("independent review completion captures revision and sk
   expect(h.runCalls).toHaveLength(edited ? 3 : 2);
 });
 
+test.each(["unchanged", "edited", "edited-after-report"])("work reported through the host that changed no files ends without its review (%s)", async (variant) => {
+  // The real report path: the host reads the revision at the report, the facts after the turn.
+  let revision = "answered";
+  const h = createHarness({ extra: { readWorkspaceRevision: async () => ({ status: "known", revision }) } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Supervisor", permission: "auto" }, now: new Date(START) });
+  expect(workflow.stages[1]).toMatchObject({ skipIfWorkUnchanged: true });
+  const id = await startedAgentRun(h, startInput({ workflow }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  expect(h.current(id).report).toMatchObject({ workspaceRevision: { status: "known", revision: "answered" } });
+  if (variant === "edited-after-report") revision = "edited-after-report";
+  h.setFacts({ ...EMPTY_STAGE_FACTS, changedPaths: variant === "edited" ? ["src/billing.ts"] : [], workspaceRevision: { status: "known", revision } });
+  h.endTurn("turn-1");
+  await h.tick();
+  const skipped = variant === "unchanged";
+  expect(h.aggregate(id).agentRun.state).toBe(skipped ? "completed" : "running");
+  // The store lists records in its own order; the set is what matters.
+  expect(h.aggregate(id).stages.map(({ stageId, status }) => `${stageId}:${status}`).sort()).toEqual(skipped
+    ? ["fix-review:skipped", "review:skipped", "work:completed"]
+    : ["review:running", "work:completed"]);
+  expect(h.runCalls).toHaveLength(skipped ? 1 : 2);
+});
+
+test("a work report with no review to skip reads no revision", async () => {
+  let reads = 0;
+  const h = createHarness({ extra: { readWorkspaceRevision: async () => { reads++; return { status: "known", revision: "tree" }; } } });
+  const workflow = buildAgentRunWorkflow({ agent: { name: "Writer", permission: "auto", reviewBeforeDone: "always" }, now: new Date(START) });
+  const id = await startedAgentRun(h, startInput({ workflow }));
+  await h.runtime.reportStage({ agentRunKey: "key-turn-1", report: COMPLETE });
+  expect(reads).toBe(0);
+  expect(h.current(id).report).not.toHaveProperty("workspaceRevision");
+});
+
 test("failed fact collection cannot reuse an earlier workspace snapshot to skip repair", async () => {
   let fail = false;
   const revision = { status: "known" as const, revision: "earlier-observation" };
@@ -1284,8 +1316,8 @@ describe("run runtime: agent runs", () => {
     expect(call.fingerprint).toEqual({ providerId: expected.providerId, model: expected.model });
     expect(call.agentRunStage).toEqual({ agentRunId, stageId: "work", attempt: 1 });
     expect(call.prompt).toContain("Add CSV export to the billing page.");
-    // The user row is marked as the run's prompt, so it renders as the assignment from its first frame.
-    expect(call.agentRunPrompt).toEqual({ agentRunId, assignment: "Add CSV export to the billing page." });
+    // The user row is marked as the run's prompt (and its stage), so it renders as the assignment from its first frame.
+    expect(call.agentRunPrompt).toEqual({ agentRunId, assignment: "Add CSV export to the billing page.", stageIndex: 0, stageId: "work" });
     // The run passes the user's settings; the agent actor makes them prompt-free.
     const root = "/tmp/repo-ws";
     expect(resolveTurnPolicy({ providerId: expected.providerId, actor: { kind: "chat" }, options: call.runtimeOptions, root }).autonomy).toBe("ask");
@@ -1309,7 +1341,7 @@ describe("run runtime: agent runs", () => {
     await harness.tick();
     expect(harness.runCalls).toHaveLength(2);
     expect(harness.runCalls[1]!.prompt).toContain('without reporting the stage "Work"');
-    expect(harness.runCalls[1]!.agentRunPrompt).toEqual({ agentRunId, assignment: null });
+    expect(harness.runCalls[1]!.agentRunPrompt).toEqual({ agentRunId, assignment: null, stageIndex: 0, stageId: "work" });
     expect(harness.runCalls[1]!.fingerprint).toEqual({ providerId: "claude-code", model: "opus" });
     expect(harness.aggregate(agentRunId).agentRun.state).toBe("running");
 

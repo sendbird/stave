@@ -14,6 +14,7 @@ import {
 import {
   AgentRunBubbleFrame,
   AgentRunPromptRow,
+  AgentRunStageCard,
   agentRunPromptLayout,
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
@@ -158,10 +159,12 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
   );
   const promptLayout = agentRunPromptLayout(agentRunPrompt);
   const assistant = message.role === "assistant";
+  // A stage card is Stave's, so its turn sits on the agent's side.
+  const staveSide = assistant || promptLayout.stage !== null;
   return (
     <li className={sx(styles.row)} data-message-id={message.id}>
-      <Message from={message.role}>
-        <div className={sx(assistant ? styles.assistant : styles.user)}>
+      <Message from={staveSide ? "assistant" : "user"}>
+        <div className={sx(staveSide ? styles.assistant : styles.user)}>
           {/* As in the conversation: the bubble holds only what the person wrote. */}
           {promptLayout.bubble && (!questionReply || Boolean(questionReplyAnswerText(questionReply))) ? (
             <AgentRunBubbleFrame framed={promptLayout.row !== null || Boolean(questionReply)}>
@@ -178,8 +181,9 @@ const RunTurnMessageRow = memo(function RunTurnMessageRow(props: {
               </MessageContent>
             </AgentRunBubbleFrame>
           ) : null}
+          {promptLayout.stage ? <AgentRunStageCard stage={promptLayout.stage} /> : null}
           {agentRunPrompt && promptLayout.row ? (
-            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} />
+            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} align={promptLayout.stage ? "start" : "end"} />
           ) : null}
           {questionReply ? <QuestionReplyRow reply={questionReply} /> : null}
           {assistant && message.providerId !== "user" && message.model ? (

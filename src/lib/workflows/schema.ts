@@ -175,6 +175,12 @@ const AiStageSchema = z
     pinCommit: z.boolean().optional(),
     /** A final repair stage may be omitted after an unchanged, successful independent review. */
     skipIfReviewPassed: z.boolean().optional(),
+    /**
+     * An independent review stage may be omitted, with the final repair stage
+     * after it, when the stage before it changed no files: an answer or
+     * research reported in the run leaves no change for the Reviewer to check.
+     */
+    skipIfWorkUnchanged: z.boolean().optional(),
   })
   .strict();
 

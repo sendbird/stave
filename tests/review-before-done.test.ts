@@ -41,6 +41,18 @@ describe("review before done", () => {
     expect(always.stages[1]?.kind === "ai" ? always.stages[1].instruction : "").not.toContain("only wording");
   });
 
+  test("on behavior changes, work that changes no files may end without its review; always reviews answers too", () => {
+    const [work, review] = buildAgentRunWorkflow({ agent: implementer(), now }).stages;
+    expect(review).toMatchObject({ skipIfWorkUnchanged: true });
+    // The work stage is told so: an answer goes in the report, without a commit, and the run ends after it.
+    expect(work?.kind === "ai" ? work.instruction : "").toContain("If it changes no files");
+    expect(work?.kind === "ai" ? work.instruction : "").toContain("the run ends after it without a review");
+    const [alwaysWork, alwaysReview] = buildAgentRunWorkflow({ agent: { ...implementer(), reviewBeforeDone: "always" }, now }).stages;
+    expect(alwaysReview).not.toHaveProperty("skipIfWorkUnchanged");
+    expect(alwaysWork?.kind === "ai" ? alwaysWork.instruction : "").toContain("A Reviewer checks the assignment's result next.");
+    expect(alwaysWork?.kind === "ai" ? alwaysWork.instruction : "").not.toContain("without a review");
+  });
+
   test("off, a workflow of the agent's own, or a helper run keeps the run as it was", () => {
     const off = buildAgentRunWorkflow({ agent: { ...implementer(), reviewBeforeDone: "off" }, now });
     expect(off.stages.map((stage) => stage.id)).toEqual(["work"]);
