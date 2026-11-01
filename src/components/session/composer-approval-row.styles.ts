@@ -20,8 +20,8 @@ export const composerApprovalRowStyles = stylex.create({
     boxShadow: vars["--ads-elevation-raised"],
     display: "flex",
     flexDirection: "column",
-    // Attached to the composer: the smallest step of air, not a section gap.
-    marginBottom: vars["--ads-space-4"],
+    // Its own object above the card: a clear step of air, not a seam.
+    marginBottom: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   // Wraps only when the decision set no longer fits beside the request: the
@@ -31,10 +31,10 @@ export const composerApprovalRowStyles = stylex.create({
     columnGap: vars["--ads-space-8"],
     display: "flex",
     flexWrap: "wrap",
-    // One `sm` decision button plus a hairline of air: a 36px row.
+    // A 32px decision button with an even 8px ring of air: a 48px row.
     minBlockSize: vars["--ads-control-height-md"],
-    paddingBlock: vars["--ads-space-2"],
-    paddingInlineEnd: vars["--ads-space-4"],
+    paddingBlock: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-8"],
     paddingInlineStart: vars["--ads-space-12"],
     rowGap: vars["--ads-space-4"],
   },
@@ -86,13 +86,13 @@ export const composerApprovalRowStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flex: "0 0 auto",
-    gap: vars["--ads-space-4"],
+    gap: vars["--ads-space-8"],
     marginInlineStart: "auto",
   },
   actions: {
     alignItems: "center",
     display: "flex",
-    gap: vars["--ads-space-4"],
+    gap: vars["--ads-space-8"],
   },
   allowKey: {
     marginInlineStart: vars["--ads-space-4"],
