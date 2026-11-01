@@ -1265,12 +1265,8 @@
   },
   "settingsDialogPresetsSection": {
     "cliSession": "{{value1}} CLI 세션",
-    "presetBar": "프리셋 바",
-    "showThePresetBarBetweenTask": "작업 탭과 채팅 영역 사이에 프리셋 바를 표시합니다.",
-    "showPresetBar": "프리셋 바 표시",
-    "hideTheRowWithoutDeletingIts": "프리셋을 삭제하지 않고 프리셋 바를 숨깁니다. 작업 탭의 더 보기 메뉴에서도 전환할 수 있습니다.",
     "managePresets": "프리셋 관리",
-    "addEditDeleteAndReorderThe": "프리셋 바와 단축키에서 사용할 빠른 실행 프리셋을 추가, 편집, 삭제하거나 순서를 바꿉니다.",
+    "addEditDeleteAndReorderThe": "탭 줄의 새 탭 버튼과 단축키에서 사용할 빠른 실행 프리셋을 추가, 편집, 삭제하거나 순서를 바꿉니다.",
     "addPreset": "프리셋 추가",
     "restoreDefaultPresets": "기본 프리셋 복원",
     "noPresetsYetAddOneTo": "프리셋이 없습니다. 프리셋을 추가하면 작업과 CLI 세션을 빠르게 실행할 수 있습니다.",

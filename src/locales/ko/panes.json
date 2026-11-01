@@ -11,8 +11,14 @@
     "newTerminal": "새 터미널",
     "newLens": "새 Lens",
     "paneOptions": "패널 옵션",
-    "taskHistory": "작업 기록",
-    "showPresetBar": "프리셋 바 표시"
+    "taskHistory": "작업 기록"
+  },
+  "paneNewTab": {
+    "launchPreset": "새 작업: {{label}}",
+    "presets": "프리셋",
+    "restoreDefaults": "기본 프리셋 복원",
+    "managePresets": "프리셋 관리…",
+    "cliSessionPreset": "{{label}} — CLI 세션"
   },
   "paneTabChip": {
     "unsavedChanges": "저장되지 않은 변경 사항",

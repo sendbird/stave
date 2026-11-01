@@ -22,7 +22,6 @@ import { UsageView } from "@/components/usage/UsageView";
 import {
   RepositoryWorkspaceSidebar,
 } from "@/components/layout/RepositoryWorkspaceSidebar";
-import { PresetBar } from "@/components/layout/PresetBar";
 import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
 import {
   focusOrCreateGitGraphSurface,
@@ -211,12 +210,10 @@ export function AppShell() {
         ] as const,
     ),
   );
-  const showPresetBar = useAppStore((state) => state.settings.showPresetBar);
   // Editor open actions only set activeEditorTabId; reveal the pane for them.
   useEditorPaneFocus();
   // Reading a finished turn in the task window acknowledges its Fleet row.
   useFleetResultAutoReview();
-  const hasRepository = Boolean(repositoryPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);
   const pendingLayoutPatchRef = useRef<Partial<LayoutState> | null>(null);
@@ -1012,9 +1009,6 @@ export function AppShell() {
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
   const showAgents = activeAppSurface.kind === "agents";
-  const showUsage = activeAppSurface.kind === "usage";
-  const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showUsage;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1166,9 +1160,6 @@ export function AppShell() {
               className={sx(appShellStyles.panelRow)}
             >
               <main className={sx(appShellStyles.mainColumn)}>
-                {hasRepository && showWorkspaceSurface && showPresetBar ? (
-                  <PresetBar />
-                ) : null}
                 <div className={sx(appShellStyles.mainSurface)}>
                   {showFleetView ? (
                     <FleetView />

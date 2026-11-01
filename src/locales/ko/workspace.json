@@ -253,14 +253,6 @@
       "reason": "사이드바에서 저장소의 새 워크스페이스 버튼으로 추가할 수 있습니다."
     }
   },
-  "presetBar": {
-    "restoreDefaults": "기본 프리셋 복원",
-    "manage": "프리셋 관리",
-    "cliSession": "CLI 세션",
-    "chipActions": "프리셋 작업",
-    "edit": "편집…",
-    "cliSessionTitle": "{{label}} — CLI 세션"
-  },
   "storeMessages": {
     "saveNotice": {
       "title": "일부 워크스페이스 변경 사항을 저장하지 못했습니다.",

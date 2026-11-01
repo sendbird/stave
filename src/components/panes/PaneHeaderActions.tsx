@@ -5,210 +5,35 @@ import { Tooltip } from "@/components/ads/components/Tooltip";
 import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IDockviewHeaderActionsProps } from "dockview-react";
-import { Ellipsis, Globe, Plus, SquareTerminal } from "lucide-react";
-import { useShallow } from "zustand/react/shallow";
-import { ModelIcon } from "@/components/ai-elements";
+import { Ellipsis } from "lucide-react";
 import {
   Button,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui";
-import { openPaneTabInGroup } from "@/components/panes/pane-host-controller";
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
+import { PaneNewTabSplitButton } from "@/components/panes/PaneNewTabSplitButton";
 import { TaskPaneHeaderActions } from "@/components/panes/TaskPaneHeaderActions";
-import { parsePanePanelId, type PaneSurfaceDescriptor } from "@/lib/panes/types";
-import { isTaskArchived } from "@/lib/tasks";
-import { getCliSessionContextLabel } from "@/lib/terminal/terminal-tab-labels";
-import {
-  getCliSessionProviderLabel,
-  type CliSessionContextMode,
-} from "@/lib/terminal/types";
-import { useAppStore } from "@/store/app.store";
-
-const CLI_SESSION_CHOICES = [
-  { provider: "claude-code", contextMode: "workspace" },
-  { provider: "claude-code", contextMode: "active-task" },
-  { provider: "codex", contextMode: "workspace" },
-  { provider: "codex", contextMode: "active-task" },
-] as const satisfies readonly {
-  provider: "claude-code" | "codex";
-  contextMode: CliSessionContextMode;
-}[];
+import { parsePanePanelId } from "@/lib/panes/types";
 
 /**
  * Group header actions: the task's own actions when the group shows a task,
- * then the "+" menu that creates any surface kind as a new pane tab.
+ * then the new-tab split button (presets first, then any surface kind as a
+ * new pane tab) and the pane options.
  */
 export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
   useTranslation();
   // The task this group shows, not the app's active task: with split panes
   // each group's actions act on its own tab.
   const shownSurface = props.activePanel ? parsePanePanelId(props.activePanel.id) : null;
-  const [
-    providerAvailability,
-    hasActiveTask,
-    activeTaskTitle,
-    showPresetBar,
-    createTask,
-    createCliSessionTab,
-    createTerminalTab,
-    createLensTab,
-    updateSettings,
-  ] = useAppStore(
-    useShallow((state) => {
-      const activeTask =
-        state.tasks.find(
-          (task) => task.id === state.activeTaskId && !isTaskArchived(task),
-        ) ?? null;
-      return [
-        state.providerAvailability,
-        Boolean(activeTask),
-        activeTask?.title ?? null,
-        state.settings.showPresetBar,
-        state.createTask,
-        state.createCliSessionTab,
-        state.createTerminalTab,
-        state.createLensTab,
-        state.updateSettings,
-      ] as const;
-    }),
-  );
-
-  const openCreatedSurfaceInGroup = (surface: PaneSurfaceDescriptor) =>
-    openPaneTabInGroup({ surface, groupId: props.group.id });
-
-  const createTaskInGroup = () => {
-    const previousFirstTaskId = useAppStore.getState().tasks[0]?.id;
-    createTask({ title: "" });
-    const createdTaskId = useAppStore.getState().tasks[0]?.id;
-    if (createdTaskId && createdTaskId !== previousFirstTaskId) {
-      openCreatedSurfaceInGroup({ kind: "task", taskId: createdTaskId });
-    }
-  };
-
-  const createLensInGroup = () => {
-    const lensSessionId = createLensTab();
-    if (lensSessionId) {
-      openCreatedSurfaceInGroup({ kind: "lens", lensSessionId });
-    }
-  };
-
   return (
     <div className={sx(styles.root)}>
       {shownSurface?.kind === "task" && shownSurface.taskId ? (
         <TaskPaneHeaderActions taskId={shownSurface.taskId} />
       ) : null}
-      <DropdownMenu>
-        <Tooltip content={i18n.t("panes:paneHeaderActions.createNewPaneTab")}>
-          <span className={sx(layoutShellStyles.inlineFlex)}>
-            <DropdownMenuTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className={sx(styles.trigger)}
-                  aria-label={i18n.t("panes:paneHeaderActions.createNewPaneTab")}
-                />
-              }
-            >
-              <Plus className={sx(styles.icon)} />
-            </DropdownMenuTrigger>
-          </span>
-        </Tooltip>
-        <DropdownMenuContent align="end" xstyle={styles.menu}>
-          <DropdownMenuItem onSelect={createTaskInGroup}>
-            <Plus className={sx(styles.icon)} />
-            {i18n.t("panes:paneHeaderActions.newTask")}
-          </DropdownMenuItem>
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <SquareTerminal className={sx(styles.icon)} />
-              {i18n.t("panes:paneHeaderActions.newCLISession")}
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className={sx(styles.submenu)}>
-              <DropdownMenuLabel>{i18n.t("panes:paneHeaderActions.startHere")}</DropdownMenuLabel>
-              {CLI_SESSION_CHOICES.map((choice) => {
-                const providerAvailable = providerAvailability[choice.provider];
-                const requiresTask = choice.contextMode === "active-task";
-                const disabled =
-                  !providerAvailable || (requiresTask && !hasActiveTask);
-                const providerLabel = getCliSessionProviderLabel(
-                  choice.provider,
-                );
-                const contextLabel = getCliSessionContextLabel(
-                  choice.contextMode,
-                );
-                const secondaryLabel = !providerAvailable
-                  ? i18n.t("panes:paneHeaderActions.isUnavailableInThisEnvironment", { value1: providerLabel })
-                  : requiresTask
-                    ? hasActiveTask
-                      ? i18n.t("panes:paneHeaderActions.continueFromTheActiveTaskContext")
-                      : i18n.t("panes:paneHeaderActions.selectAnActiveTaskFirst")
-                    : i18n.t("panes:paneHeaderActions.useTheCurrentWorkspaceContext");
-                const taskHint =
-                  requiresTask && hasActiveTask ? activeTaskTitle : null;
-
-                return (
-                  <DropdownMenuItem
-                    key={`${choice.provider}:${choice.contextMode}`}
-                    disabled={disabled}
-                    className={sx(styles.item)}
-                    onSelect={() => {
-                      const cliSessionTabId = createCliSessionTab({
-                        provider: choice.provider,
-                        contextMode: choice.contextMode,
-                      });
-                      if (cliSessionTabId) {
-                        openCreatedSurfaceInGroup({
-                          kind: "cli-session",
-                          cliSessionTabId,
-                        });
-                      }
-                    }}
-                  >
-                    <div className={sx(styles.choice)}>
-                      <ModelIcon
-                        providerId={choice.provider}
-                        className={sx(styles.providerIcon)}
-                      />
-                      <div className={sx(styles.content)}>
-                        <div className={sx(styles.label)}>
-                          {providerLabel} · {contextLabel}
-                        </div>
-                        <div className={sx(styles.description)}>
-                          {secondaryLabel}
-                        </div>
-                        {taskHint ? (
-                          <div className={sx(styles.taskHint)}>
-                            {taskHint}
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </DropdownMenuItem>
-                );
-              })}
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-          <DropdownMenuItem onSelect={() => createTerminalTab()}>
-            <SquareTerminal className={sx(styles.icon)} />
-            {i18n.t("panes:paneHeaderActions.newTerminal")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={createLensInGroup}>
-            <Globe className={sx(styles.icon)} />
-            {i18n.t("panes:paneHeaderActions.newLens")}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <PaneNewTabSplitButton groupId={props.group.id} />
       <DropdownMenu>
         <Tooltip content={i18n.t("panes:paneHeaderActions.paneOptions")}>
           <span className={sx(layoutShellStyles.inlineFlex)}>
@@ -231,15 +56,6 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>
             {i18n.t("panes:paneHeaderActions.taskHistory")}
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuCheckboxItem
-            checked={showPresetBar}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { showPresetBar: checked } })
-            }
-          >
-            {i18n.t("panes:paneHeaderActions.showPresetBar")}
-          </DropdownMenuCheckboxItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -247,17 +63,26 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",alignItems:"center",gap:2,paddingInline:4},
-trigger: {height:28,width:28,flexShrink:0,borderRadius:4,padding:0,color:vars["--ads-color-text-muted"]},
-icon: {width:16,height:16},
-menu: {width:240},
-submenu: {width:256},
-options: {width:176},
-item: {alignItems:"flex-start"},
-choice: {display:"flex",minWidth:0,alignItems:"flex-start",gap:8},
-providerIcon: {marginTop:2,width:16,height:16,flexShrink:0,color:vars["--ads-color-text-muted"]},
-content: {minWidth:0},
-label: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-body"],fontWeight:500},
-description: {marginTop:2,fontSize: vars["--ads-font-size-caption"],color:vars["--ads-color-text-muted"]},
-taskHint: {marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-caption"],color:vars["--ads-color-text-subtle"]}
+  root: {
+    alignItems: "center",
+    display: "flex",
+    // The actions keep their one-line width; the tabs beside them overflow
+    // into the strip's own overflow menu instead of squeezing these to wrap.
+    flexShrink: 0,
+    gap: vars["--ads-space-4"],
+    height: "100%",
+    minWidth: "max-content",
+    paddingInline: vars["--ads-space-4"],
+    whiteSpace: "nowrap",
+  },
+  trigger: {
+    borderRadius: vars["--ads-radius-mark"],
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    height: vars["--ads-control-height-xs"],
+    padding: 0,
+    width: vars["--ads-control-height-xs"],
+  },
+  icon: { height: 16, width: 16 },
+  options: { width: 176 },
 });

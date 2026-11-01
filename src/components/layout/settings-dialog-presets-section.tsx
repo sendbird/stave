@@ -33,7 +33,6 @@ import { useAppStore } from "@/store/app.store";
 import {
   SectionStack,
   SettingsCard,
-  SwitchField,
 } from "./settings-dialog.shared";
 import { TaskPresetEditor } from "./task-preset-editor";
 import { WorkspaceShortcutChip } from "./WorkspaceShortcutChip";
@@ -54,9 +53,7 @@ function describePreset(preset: TaskPreset) {
 export function PresetsSection() {
   const { t } = useTranslation(I18N_NAMESPACES);
   const [
-    showPresetBar,
     presets,
-    updateSettings,
     upsertTaskPreset,
     removeTaskPreset,
     reorderTaskPresets,
@@ -65,9 +62,7 @@ export function PresetsSection() {
     useShallow(
       (state) =>
         [
-          state.settings.showPresetBar,
           state.settings.taskPresets,
-          state.updateSettings,
           state.upsertTaskPreset,
           state.removeTaskPreset,
           state.reorderTaskPresets,
@@ -131,21 +126,6 @@ export function PresetsSection() {
     <>
       <SectionStack>
         <SettingsCard
-          title={t("settings:settingsDialogPresetsSection.presetBar")}
-          description={t("settings:settingsDialogPresetsSection.showThePresetBarBetweenTask")}
-        >
-          <SwitchField
-            title={t("settings:settingsDialogPresetsSection.showPresetBar")}
-            description={t("settings:settingsDialogPresetsSection.hideTheRowWithoutDeletingIts")}
-            checked={showPresetBar}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { showPresetBar: checked } })
-            }
-          />
-          <p className={sx(styles.shortcutNote)}><Trans t={t} i18nKey="settings:whole.presetShortcuts" components={{ keys: <span className={sx(styles.emphasis)} /> }} /></p>
-        </SettingsCard>
-
-        <SettingsCard
           title={t("settings:settingsDialogPresetsSection.managePresets")}
           description={t("settings:settingsDialogPresetsSection.addEditDeleteAndReorderThe")}
           titleAccessory={
@@ -171,6 +151,7 @@ export function PresetsSection() {
             </Popover>
           }
         >
+          <p className={sx(styles.shortcutNote)}><Trans t={t} i18nKey="settings:whole.presetShortcuts" components={{ keys: <span className={sx(styles.emphasis)} /> }} /></p>
           <div className={sx(styles.restoreRow)}>
             <Button
               variant="outline"

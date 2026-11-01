@@ -1279,12 +1279,8 @@
   },
   "settingsDialogPresetsSection": {
     "cliSession": "{{value1}} CLI session",
-    "presetBar": "Preset Bar",
-    "showThePresetBarBetweenTask": "Show the preset bar between task tabs and the main chat surface.",
-    "showPresetBar": "Show Preset Bar",
-    "hideTheRowWithoutDeletingIts": "Hide the row without deleting its presets. The task-tab overflow menu can toggle this too.",
     "managePresets": "Manage Presets",
-    "addEditDeleteAndReorderThe": "Add, edit, delete, and reorder the quick-launch presets used by the bar and keyboard shortcuts.",
+    "addEditDeleteAndReorderThe": "Add, edit, delete, and reorder the quick-launch presets used by the tab strip's new-tab button and keyboard shortcuts.",
     "addPreset": "Add preset",
     "restoreDefaultPresets": "Restore Default Presets",
     "noPresetsYetAddOneTo": "No presets yet. Add one to create task and CLI-session launch shortcuts.",

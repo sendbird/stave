@@ -257,14 +257,6 @@
       "reason": "Use New workspace on a repository in the sidebar to add one."
     }
   },
-  "presetBar": {
-    "restoreDefaults": "Restore default presets",
-    "manage": "Manage presets",
-    "cliSession": "CLI session",
-    "chipActions": "Preset actions",
-    "edit": "Edit…",
-    "cliSessionTitle": "{{label}} — CLI session"
-  },
   "storeMessages": {
     "saveNotice": {
       "title": "Some workspace changes could not be saved.",

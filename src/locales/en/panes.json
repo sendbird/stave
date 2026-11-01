@@ -11,8 +11,14 @@
     "newTerminal": "New Terminal",
     "newLens": "New Lens",
     "paneOptions": "Pane options",
-    "taskHistory": "Task History",
-    "showPresetBar": "Show preset bar"
+    "taskHistory": "Task History"
+  },
+  "paneNewTab": {
+    "launchPreset": "New task: {{label}}",
+    "presets": "Presets",
+    "restoreDefaults": "Restore default presets",
+    "managePresets": "Manage presets…",
+    "cliSessionPreset": "{{label}} — CLI session"
   },
   "paneTabChip": {
     "unsavedChanges": "Unsaved changes",

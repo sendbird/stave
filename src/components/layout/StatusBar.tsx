@@ -60,9 +60,9 @@ function useMinuteClock(): number {
 
 /**
  * Global bottom status bar. Spans the full window width below
- * the project sidebar, chat/editor column, and right rail — a persistent
- * home for provider usage plus other bottom-of-window info (memory today,
- * more segments later).
+ * the project sidebar, chat/editor column, and right rail — the home for
+ * provider usage plus other bottom-of-window info (memory today, more
+ * segments later). It renders only while one of those segments exists.
  */
 export function StatusBar() {
   const { t } = useTranslation(["shell"]);
@@ -228,6 +228,13 @@ export function StatusBar() {
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [refreshRateLimits, readiness, cursorBinaryPath, kiroBinaryPath]);
+
+  // The bar is a home for meters, not chrome of its own: with no usage
+  // provider connected and no developer segment it has nothing to say, so it
+  // takes no row. The polling above keeps running either way.
+  if (usageSegments.length === 0 && !developerModeEnabled) {
+    return null;
+  }
 
   return (
     <footer

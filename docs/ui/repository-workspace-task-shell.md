@@ -99,7 +99,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
   - supports drag-and-drop reordering and pane splitting across surface types
   - lets users middle-click task and CLI session tabs to close them through the existing archive / close flows, while leaving managed tasks protected
   - exposes archive confirmation, pane actions, and workspace-level `Task History`
-  - keeps the preset bar keyboard-aware, with the first nine presets responding to `Ctrl+1..9` in current list order and a dedicated settings section for managing that order
+  - launches presets from the split new-tab button at the end of the tab strip (its main half runs the first preset, the chevron lists every preset with its slot), with the first nine presets responding to `Ctrl+1..9` in current list order and a dedicated settings section for managing that order
   - keeps notification deep-links explicit for archived tasks by routing to the owning workspace first, then requiring an explicit restore before the task reopens
 - `RightRail`
   - moves the old workspace-bar utility toggles into a vertical strip on the far right
