@@ -147,11 +147,15 @@ export function resolveWorkspaceFileLink(args: {
     return null;
   }
 
-  if (args.knownFilePaths && args.knownFilePaths.size > 0 && !args.knownFilePaths.has(filePath)) {
+  const hasKnownFileIndex = Boolean(args.knownFilePaths && args.knownFilePaths.size > 0);
+  if (hasKnownFileIndex && !args.knownFilePaths?.has(filePath)) {
     if (!args.allowUnknownPaths || !isLikelyWorkspaceFilePath(filePath)) {
       return null;
     }
-  } else if ((!args.knownFilePaths || args.knownFilePaths.size === 0) && args.allowUnknownPaths && !isLikelyWorkspaceFilePath(filePath)) {
+  } else if (!hasKnownFileIndex && !isLikelyWorkspaceFilePath(filePath)) {
+    // Without a file index (not loaded yet, or no workspace) nothing proves the
+    // text names a file, so only path-shaped text qualifies: an identifier
+    // such as `useState` or `<main>` stays inline code.
     return null;
   }
 

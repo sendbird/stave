@@ -185,6 +185,31 @@ describe("MarkdownMessage", () => {
     expect(html).toContain("NewPanel.tsx");
   });
 
+  test("keeps identifiers as inline code before the file index loads", () => {
+    const html = renderToStaticMarkup(
+      createElement(MarkdownMessage, {
+        content:
+          "`AppShell` keeps `sidebarOpen` in `useState` and wraps it in `<main>`; see `src/store/app.store.ts`.",
+        messageFontSize: 18,
+        messageCodeFontSize: 14,
+        resolveFileLink: ({ href, allowUnknownPath }) =>
+          resolveWorkspaceFileLink({
+            href,
+            workspaceCwd: "/tmp/stave",
+            knownFilePaths: new Set(),
+            allowUnknownPaths: allowUnknownPath,
+          }),
+      }),
+    );
+
+    const chips = html.match(/data-message-file-link="true"/g) ?? [];
+    expect(chips).toHaveLength(1);
+    expect(html).toContain('aria-label="Open src/store/app.store.ts"');
+    for (const identifier of ["AppShell", "sidebarOpen", "useState", "&lt;main&gt;"]) {
+      expect(html).toContain(`>${identifier}</code>`);
+    }
+  });
+
   test("keeps slash-delimited non-file inline code as code", () => {
     const knownFilePaths = new Set(["src/components/session/ChatPanel.tsx"]);
     const html = renderToStaticMarkup(
@@ -541,6 +566,22 @@ describe("resolveWorkspaceFileLink", () => {
     });
 
     expect(resolved).toBeNull();
+  });
+
+  test("requires a path-shaped name when no file index is available", () => {
+    for (const knownFilePaths of [undefined, new Set<string>()]) {
+      for (const href of ["useState", "sidebarOpen", "<main>", "AppShell"]) {
+        expect(
+          resolveWorkspaceFileLink({ href, workspaceCwd: "/tmp/stave", knownFilePaths }),
+        ).toBeNull();
+      }
+      expect(
+        resolveWorkspaceFileLink({ href: "README", workspaceCwd: "/tmp/stave", knownFilePaths }),
+      ).toEqual({ filePath: "README", fileName: "README" });
+      expect(
+        resolveWorkspaceFileLink({ href: "src/App.tsx:4", workspaceCwd: "/tmp/stave", knownFilePaths }),
+      ).toEqual({ filePath: "src/App.tsx", fileName: "App.tsx", line: 4 });
+    }
   });
 
   test("keeps unknown-path mode strict for non-path strings", () => {
