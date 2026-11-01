@@ -3,9 +3,10 @@ import {
   canSendEditorContextToTask,
   canSendWorkspaceFileToTask,
   isHtmlEditorTab,
-  isPreviewableEditorTab,
-  resolveEditorPreviewModeForTab,
+  resolveEditorTabHtmlViewMode,
+  shouldShowEditorPreview,
 } from "@/store/editor.utils";
+import { resolveEditorLayoutForActivatedTab } from "@/store/layout.utils";
 import { normalizeEditorHtmlViewMode } from "@/store/app-settings";
 
 describe("canSendEditorContextToTask", () => {
@@ -71,26 +72,49 @@ describe("HTML editor preview", () => {
     expect(isHtmlEditorTab(html)).toBe(true);
     expect(isHtmlEditorTab(htm)).toBe(true);
     expect(isHtmlEditorTab(vue)).toBe(false);
+    expect(isHtmlEditorTab(markdown)).toBe(false);
+    expect(isHtmlEditorTab(code)).toBe(false);
     expect(isHtmlEditorTab({ ...html, kind: "image" })).toBe(false);
-    expect(isPreviewableEditorTab(markdown)).toBe(true);
-    expect(isPreviewableEditorTab(vue)).toBe(false);
-    expect(isPreviewableEditorTab(code)).toBe(false);
   });
 
-  test("opens and activates HTML in the remembered mode", () => {
-    for (const opening of [true, false]) {
-      for (const current of [true, false]) {
-        expect(resolveEditorPreviewModeForTab({ tab: html, opening, current, htmlViewMode: "preview" })).toBe(true);
-        expect(resolveEditorPreviewModeForTab({ tab: html, opening, current, htmlViewMode: "source" })).toBe(false);
+  test("an HTML tab keeps its own mode and falls back to the remembered one", () => {
+    expect(resolveEditorTabHtmlViewMode({ tab: { htmlViewMode: "source" }, remembered: "preview" })).toBe("source");
+    expect(resolveEditorTabHtmlViewMode({ tab: { htmlViewMode: "preview" }, remembered: "source" })).toBe("preview");
+    expect(resolveEditorTabHtmlViewMode({ tab: {}, remembered: "source" })).toBe("source");
+    expect(resolveEditorTabHtmlViewMode({ tab: null, remembered: "preview" })).toBe("preview");
+  });
+
+  test("HTML shows its own mode in every panel, active or not, unless a diff is shown", () => {
+    for (const isActiveEditorTab of [true, false]) {
+      for (const markdownPreviewFlag of [true, false]) {
+        const base = { previewKind: "html" as const, isActiveEditorTab, markdownPreviewFlag, diffMode: false };
+        expect(shouldShowEditorPreview({ ...base, htmlViewMode: "preview" })).toBe(true);
+        expect(shouldShowEditorPreview({ ...base, htmlViewMode: "source" })).toBe(false);
+        expect(shouldShowEditorPreview({ ...base, diffMode: true, htmlViewMode: "preview" })).toBe(false);
       }
     }
   });
 
-  test("keeps markdown opening in preview and leaves other tabs on the current flag", () => {
-    expect(resolveEditorPreviewModeForTab({ tab: markdown, opening: true, current: false, htmlViewMode: "source" })).toBe(true);
-    expect(resolveEditorPreviewModeForTab({ tab: markdown, opening: false, current: false, htmlViewMode: "preview" })).toBe(false);
-    expect(resolveEditorPreviewModeForTab({ tab: code, opening: true, current: true, htmlViewMode: "source" })).toBe(true);
-    expect(resolveEditorPreviewModeForTab({ tab: vue, opening: true, current: false, htmlViewMode: "preview" })).toBe(false);
+  test("markdown keeps following the layout flag on the active tab only", () => {
+    const base = { previewKind: "markdown" as const, diffMode: false, htmlViewMode: "preview" as const };
+    expect(shouldShowEditorPreview({ ...base, isActiveEditorTab: true, markdownPreviewFlag: true })).toBe(true);
+    expect(shouldShowEditorPreview({ ...base, isActiveEditorTab: false, markdownPreviewFlag: true })).toBe(false);
+    expect(shouldShowEditorPreview({ ...base, isActiveEditorTab: true, markdownPreviewFlag: false })).toBe(false);
+    expect(shouldShowEditorPreview({ ...base, previewKind: null, isActiveEditorTab: true, markdownPreviewFlag: true })).toBe(false);
+  });
+
+  test("a tab switch takes the new tab's diff mode instead of the previous tab's", () => {
+    const layout = { editorDiffMode: true, editorMarkdownPreviewMode: true };
+    const fileTab = { id: "file:index.html", kind: "text" as const, originalContent: "<p></p>" };
+    const diffTab = { id: "scm-diff:index.html", kind: "text" as const, originalContent: "<p></p>" };
+    expect(resolveEditorLayoutForActivatedTab({ tab: fileTab, layout })).toEqual({
+      editorDiffMode: false,
+      editorMarkdownPreviewMode: true,
+    });
+    expect(resolveEditorLayoutForActivatedTab({ tab: diffTab, layout: { editorDiffMode: false, editorMarkdownPreviewMode: true } })).toEqual({
+      editorDiffMode: true,
+      editorMarkdownPreviewMode: false,
+    });
   });
 
   test("normalizes a stored HTML view mode to preview unless it is source", () => {

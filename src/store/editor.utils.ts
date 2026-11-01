@@ -151,35 +151,39 @@ export function isHtmlEditorTab(
   );
 }
 
-/** A tab whose toolbar offers a rendered preview next to its source. */
-export function isPreviewableEditorTab(
-  tab: Pick<EditorTab, "kind" | "language" | "filePath"> | null | undefined,
-) {
-  return isMarkdownEditorTab(tab) || isHtmlEditorTab(tab);
+/**
+ * How an HTML tab shows. The tab's own choice wins; a tab without one (restored
+ * from an older snapshot, or opened by a path that does not set it) follows the
+ * remembered setting.
+ */
+export function resolveEditorTabHtmlViewMode(args: {
+  tab: Pick<EditorTab, "htmlViewMode"> | null | undefined;
+  remembered: "preview" | "source";
+}): "preview" | "source" {
+  return args.tab?.htmlViewMode ?? args.remembered;
 }
 
 /**
- * The editor preview flag once `tab` becomes the active tab.
+ * Whether an editor panel shows a rendered preview instead of Monaco.
  *
- * - HTML opens in the mode the user last picked (`htmlViewMode`), whether it
- *   is opened from the tree or reached by switching tabs.
- * - Markdown opens in preview when opened from the tree and otherwise keeps
- *   the current flag.
- * - Every other tab keeps the current flag.
+ * - HTML follows the tab's own mode, in every panel, so a background split
+ *   keeps its preview and no activation path can desync it.
+ * - Markdown follows the layout flag, which tracks the active tab only.
+ * - A diff always wins over a preview.
  */
-export function resolveEditorPreviewModeForTab(args: {
-  tab: Pick<EditorTab, "kind" | "language" | "filePath"> | null | undefined;
-  opening: boolean;
-  current: boolean;
+export function shouldShowEditorPreview(args: {
+  previewKind: "markdown" | "html" | null;
+  isActiveEditorTab: boolean;
+  diffMode: boolean;
+  markdownPreviewFlag: boolean;
   htmlViewMode: "preview" | "source";
-}) {
-  if (isHtmlEditorTab(args.tab)) {
-    return args.htmlViewMode === "preview";
+}): boolean {
+  if (args.diffMode) return false;
+  if (args.previewKind === "html") return args.htmlViewMode === "preview";
+  if (args.previewKind === "markdown") {
+    return args.isActiveEditorTab && args.markdownPreviewFlag;
   }
-  if (args.opening && isMarkdownEditorTab(args.tab)) {
-    return true;
-  }
-  return args.current;
+  return false;
 }
 
 export function canSendEditorContextToTask(args: {

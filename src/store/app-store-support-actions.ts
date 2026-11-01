@@ -30,7 +30,8 @@ import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { mergeLayoutPatch } from "@/store/layout.utils";
 import {
   isHtmlEditorTab,
-  isPreviewableEditorTab,
+  isMarkdownEditorTab,
+  resolveEditorTabHtmlViewMode,
 } from "@/store/editor.utils";
 import {
   buildManagedTaskTakeoverStatePatch,
@@ -434,37 +435,42 @@ export function createSupportActions(args: {
           },
         };
       }),
-    toggleEditorMarkdownPreviewMode: () =>
-      set((state) => {
-        const activeTab = state.editorTabs.find(
-          (tab) => tab.id === state.activeEditorTabId,
-        );
-        if (!isPreviewableEditorTab(activeTab)) {
-          return {};
-        }
-        const nextPreviewMode = !state.layout.editorMarkdownPreviewMode;
+    toggleEditorMarkdownPreviewMode: () => {
+      const state = get();
+      const activeTab = state.editorTabs.find(
+        (tab) => tab.id === state.activeEditorTabId,
+      );
+      // An HTML tab keeps its own mode; flip what it shows now.
+      if (activeTab && isHtmlEditorTab(activeTab)) {
+        const showsPreview =
+          !state.layout.editorDiffMode &&
+          resolveEditorTabHtmlViewMode({
+            tab: activeTab,
+            remembered: state.settings.editorHtmlViewMode,
+          }) === "preview";
+        state.setEditorTabHtmlViewMode({
+          tabId: activeTab.id,
+          mode: showsPreview ? "source" : "preview",
+        });
+        return;
+      }
+      if (!isMarkdownEditorTab(activeTab)) {
+        return;
+      }
+      set((current) => {
+        const nextPreviewMode = !current.layout.editorMarkdownPreviewMode;
         return {
           layout: {
-            ...state.layout,
+            ...current.layout,
             editorMarkdownPreviewMode: nextPreviewMode,
-            // Diff and preview are mutually exclusive views.
+            // Diff and markdown preview are mutually exclusive views.
             editorDiffMode: nextPreviewMode
               ? false
-              : state.layout.editorDiffMode,
+              : current.layout.editorDiffMode,
           },
-          // HTML remembers the last pick so the next HTML file opens in it.
-          ...(isHtmlEditorTab(activeTab)
-            ? {
-                settings: {
-                  ...state.settings,
-                  editorHtmlViewMode: nextPreviewMode
-                    ? ("preview" as const)
-                    : ("source" as const),
-                },
-              }
-            : {}),
         };
-      }),
+      });
+    },
     openWorkspacePicker: async () => {
       const root = await workspaceFsAdapter.pickRoot();
       if (!root) {

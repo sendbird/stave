@@ -11,11 +11,12 @@ import {
   canSendWorkspaceFileToTask,
   getTooLargeEditorTabMetadata,
   isImageFilePath,
-  resolveEditorPreviewModeForTab,
+  isHtmlEditorTab,
+  isMarkdownEditorTab,
   resolveLanguage,
   updateMessageById,
 } from "@/store/editor.utils";
-import { isDiffEditorTab } from "@/store/layout.utils";
+import { resolveEditorLayoutForActivatedTab } from "@/store/layout.utils";
 import type { EditorTab, PromptDraft } from "@/types/chat";
 
 const EMPTY_PROMPT_DRAFT: PromptDraft = {
@@ -54,6 +55,7 @@ type EditorActionName =
   | "openGitGraph"
   | "openFileFromTree"
   | "setActiveEditorTab"
+  | "setEditorTabHtmlViewMode"
   | "closeEditorTab"
   | "requestCloseActiveEditorTab"
   | "clearPendingCloseEditorTab"
@@ -361,6 +363,11 @@ export function createEditorActions(args: {
           hasConflict: false,
           isDirty: false,
         };
+        // Leaving the diff of an HTML file lands on its source, as a markdown
+        // diff does; the preview toggle still offers the rendered page.
+        if (isHtmlEditorTab(nextTab)) {
+          nextTab.htmlViewMode = "source";
+        }
 
         return {
           editorTabs: [...state.editorTabs, nextTab],
@@ -496,12 +503,9 @@ export function createEditorActions(args: {
             layout: {
               ...state.layout,
               editorDiffMode: false,
-              editorMarkdownPreviewMode: resolveEditorPreviewModeForTab({
-                tab: existing,
-                opening: true,
-                current: state.layout.editorMarkdownPreviewMode,
-                htmlViewMode: state.settings.editorHtmlViewMode,
-              }),
+              editorMarkdownPreviewMode: isMarkdownEditorTab(existing)
+                ? true
+                : state.layout.editorMarkdownPreviewMode,
             },
             pendingEditorSelection: pendingSelection,
             workspaceSnapshotVersion:
@@ -544,6 +548,10 @@ export function createEditorActions(args: {
           hasConflict: false,
           isDirty: false,
         };
+        // A new HTML tab opens the way the user last left one.
+        if (isHtmlEditorTab(nextTab)) {
+          nextTab.htmlViewMode = state.settings.editorHtmlViewMode;
+        }
 
         return {
           editorTabs: [...state.editorTabs, nextTab],
@@ -551,12 +559,9 @@ export function createEditorActions(args: {
           layout: {
             ...state.layout,
             editorDiffMode: false,
-            editorMarkdownPreviewMode: resolveEditorPreviewModeForTab({
-              tab: nextTab,
-              opening: true,
-              current: state.layout.editorMarkdownPreviewMode,
-              htmlViewMode: state.settings.editorHtmlViewMode,
-            }),
+            editorMarkdownPreviewMode: isMarkdownEditorTab(nextTab)
+              ? true
+              : state.layout.editorMarkdownPreviewMode,
           },
           pendingEditorSelection: pendingSelection,
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
@@ -582,20 +587,14 @@ export function createEditorActions(args: {
         }
         workspaceId = state.activeWorkspaceId;
         shouldHydrate = selectedTab.contentState === "deferred";
-        const isDiffTab = isDiffEditorTab(selectedTab);
         return {
           activeEditorTabId: tabId,
           layout: {
             ...state.layout,
-            editorDiffMode: isDiffTab,
-            editorMarkdownPreviewMode: isDiffTab
-              ? false
-              : resolveEditorPreviewModeForTab({
-                  tab: selectedTab,
-                  opening: false,
-                  current: state.layout.editorMarkdownPreviewMode,
-                  htmlViewMode: state.settings.editorHtmlViewMode,
-                }),
+            ...resolveEditorLayoutForActivatedTab({
+              tab: selectedTab,
+              layout: state.layout,
+            }),
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };
@@ -607,6 +606,26 @@ export function createEditorActions(args: {
         });
       }
     },
+    setEditorTabHtmlViewMode: ({ tabId, mode }) =>
+      set((state) => {
+        const tab = state.editorTabs.find((item) => item.id === tabId);
+        if (!tab || !isHtmlEditorTab(tab)) {
+          return {};
+        }
+        const isActive = state.activeEditorTabId === tabId;
+        return {
+          editorTabs: state.editorTabs.map((item) =>
+            item.id === tabId ? { ...item, htmlViewMode: mode } : item,
+          ),
+          // The last pick is how the next HTML tab opens.
+          settings: { ...state.settings, editorHtmlViewMode: mode },
+          // Diff and preview are mutually exclusive views of the active tab.
+          ...(isActive && mode === "preview" && state.layout.editorDiffMode
+            ? { layout: { ...state.layout, editorDiffMode: false } }
+            : {}),
+          workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
+        };
+      }),
     closeEditorTab: ({ tabId }) =>
       set((state) => {
         const closingIndex = state.editorTabs.findIndex(
@@ -644,7 +663,6 @@ export function createEditorActions(args: {
 
         const fallbackIndex = Math.max(0, closingIndex - 1);
         const fallbackTab = nextTabs[fallbackIndex] ?? nextTabs[0];
-        const isDiffTab = isDiffEditorTab(fallbackTab);
 
         return {
           editorTabs: nextTabs,
@@ -652,15 +670,10 @@ export function createEditorActions(args: {
           pendingEditorSelection: nextPendingEditorSelection,
           layout: {
             ...state.layout,
-            editorDiffMode: isDiffTab,
-            editorMarkdownPreviewMode: isDiffTab
-              ? false
-              : resolveEditorPreviewModeForTab({
-                  tab: fallbackTab,
-                  opening: false,
-                  current: state.layout.editorMarkdownPreviewMode,
-                  htmlViewMode: state.settings.editorHtmlViewMode,
-                }),
+            ...resolveEditorLayoutForActivatedTab({
+              tab: fallbackTab,
+              layout: state.layout,
+            }),
           },
           workspaceSnapshotVersion: incrementWorkspaceSnapshotVersion(state),
         };

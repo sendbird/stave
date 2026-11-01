@@ -539,4 +539,11 @@ export interface EditorTab {
   fileSizeLimitBytes?: number;
   hasConflict: boolean;
   isDirty: boolean;
+  /**
+   * How this `.html` tab shows: the rendered page or its source. Set when the
+   * tab opens (from `settings.editorHtmlViewMode`) and by the preview toggle;
+   * absent on other tabs and on HTML tabs restored without it, which then
+   * use the setting.
+   */
+  htmlViewMode?: "preview" | "source";
 }

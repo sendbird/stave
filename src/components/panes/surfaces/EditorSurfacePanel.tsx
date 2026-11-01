@@ -101,6 +101,8 @@ import { useAppStore } from "@/store/app.store";
 import {
   canSendEditorContextToTask,
   isHtmlEditorTab,
+  resolveEditorTabHtmlViewMode,
+  shouldShowEditorPreview,
 } from "@/store/editor.utils";
 import { isDiffEditorTab } from "@/store/layout.utils";
 import type { ReviewComment } from "@/types/review";
@@ -328,6 +330,7 @@ function EditorTabSurface({
     pythonLspCommand,
     typescriptLspCommand,
     pendingEditorSelection,
+    rememberedHtmlViewMode,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -349,6 +352,7 @@ function EditorTabSurface({
           state.settings.pythonLspCommand,
           state.settings.typescriptLspCommand,
           state.pendingEditorSelection,
+          state.settings.editorHtmlViewMode,
         ] as const,
     ),
   );
@@ -414,12 +418,16 @@ function EditorTabSurface({
   // flags). Non-active panels fall back to the tab's intrinsic mode so a
   // source-control diff keeps rendering as a diff in a background split.
   const diffMode = isActiveEditorTab ? editorDiffMode : isDiffEditorTab(tab);
-  const showPreview = Boolean(
-    previewKind &&
-    isActiveEditorTab &&
-    editorMarkdownPreviewMode &&
-    !diffMode,
-  );
+  const showPreview = shouldShowEditorPreview({
+    previewKind,
+    isActiveEditorTab,
+    diffMode,
+    markdownPreviewFlag: editorMarkdownPreviewMode,
+    htmlViewMode: resolveEditorTabHtmlViewMode({
+      tab,
+      remembered: rememberedHtmlViewMode,
+    }),
+  });
   const monacoTheme = isDarkMode ? "vs-dark" : "vs";
   const modelPath = tab ? toMonacoModelPath(tab.filePath) : undefined;
   const renderDiffEditor = shouldRenderDiffEditorSurface({
@@ -540,18 +548,19 @@ function EditorTabSurface({
     const nextPreviewMode = !showPreview;
     ensureTabActive();
     const store = useAppStore.getState();
+    if (previewKind === "html") {
+      store.setEditorTabHtmlViewMode({
+        tabId: editorTabId,
+        mode: nextPreviewMode ? "preview" : "source",
+      });
+      return;
+    }
     store.setLayout({
       patch: {
         editorMarkdownPreviewMode: nextPreviewMode,
         ...(nextPreviewMode ? { editorDiffMode: false } : {}),
       },
     });
-    // HTML remembers the last pick so the next HTML file opens in it.
-    if (previewKind === "html") {
-      store.updateSettings({
-        patch: { editorHtmlViewMode: nextPreviewMode ? "preview" : "source" },
-      });
-    }
   }
 
   function handleSendToAgent() {
@@ -870,9 +879,11 @@ function EditorTabSurface({
     showPreview,
   ]);
 
-  // A preview hides Monaco, so Cmd/Ctrl+S needs a window-level catch.
+  // A preview hides Monaco, so Cmd/Ctrl+S needs a window-level catch. Only
+  // the active tab's panel listens: an HTML preview in a background split
+  // would otherwise save and activate its own tab on the same keystroke.
   useEffect(() => {
-    if (!showPreview) {
+    if (!showPreview || !isActiveEditorTab) {
       return;
     }
     const onKeyDown = (event: KeyboardEvent) => {
@@ -889,7 +900,7 @@ function EditorTabSurface({
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [showPreview]);
+  }, [showPreview, isActiveEditorTab]);
 
   const disposeKeptCodeModel = useCallback(() => {
     const model = keptCodeModelRef.current;

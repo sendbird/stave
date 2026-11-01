@@ -161,6 +161,26 @@ export function isDiffEditorTab(
   );
 }
 
+/**
+ * The editor layout flags once `tab` becomes the active editor tab by a switch:
+ * a tab click in the pane, `setActiveEditorTab`, or the fallback after a close.
+ * Diff mode follows the tab, so a diff tab shows as a diff and a file tab as
+ * itself; the markdown preview flag is kept unless the tab is a diff. Every
+ * switch path uses this, so none of them carries the previous tab's view over.
+ */
+export function resolveEditorLayoutForActivatedTab(args: {
+  tab: Pick<EditorTab, "id" | "kind" | "originalContent"> | null | undefined;
+  layout: Pick<LayoutState, "editorDiffMode" | "editorMarkdownPreviewMode">;
+}): Pick<LayoutState, "editorDiffMode" | "editorMarkdownPreviewMode"> {
+  const isDiffTab = isDiffEditorTab(args.tab);
+  return {
+    editorDiffMode: isDiffTab,
+    editorMarkdownPreviewMode: isDiffTab
+      ? false
+      : args.layout.editorMarkdownPreviewMode,
+  };
+}
+
 export function resolveEditorDiffMode(args: {
   editorTabs: EditorTab[];
   activeEditorTabId: string | null;
