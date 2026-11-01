@@ -123,7 +123,8 @@
   },
   "relativeTime": {
     "justNow": "방금",
-    "inMoments": "곧"
+    "inMoments": "곧",
+    "now": "방금"
   },
   "errors": {
     "generic": "문제가 발생했습니다.",

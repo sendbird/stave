@@ -123,7 +123,8 @@
   },
   "relativeTime": {
     "justNow": "just now",
-    "inMoments": "in a moment"
+    "inMoments": "in a moment",
+    "now": "now"
   },
   "errors": {
     "generic": "Something went wrong.",

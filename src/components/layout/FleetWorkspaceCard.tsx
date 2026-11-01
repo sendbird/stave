@@ -636,7 +636,7 @@ export function FleetWorkspaceCard(args: {
                           status={row.status}
                         />
                       ) : (
-                        <ActivityTimestamp value={row.task.updatedAt} kind="updated" />
+                        <ActivityTimestamp value={row.task.updatedAt} kind="updated" compact />
                       )}
                     </span>
                     {taskAgent ? (

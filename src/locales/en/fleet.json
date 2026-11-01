@@ -232,7 +232,11 @@
     "open": "Open",
     "openLabel": "Open {{title}} in {{workspace}}",
     "approvalKeys": "<key>A</key> allow once · <key>D</key> deny",
-    "optionsLabel": "Answers to: {{question}}"
+    "optionsLabel": "Answers to: {{question}}",
+    "allow": "Allow",
+    "deny": "Deny",
+    "allowOnceLabel": "Allow {{tool}} once",
+    "denyLabel": "Deny {{tool}}"
   },
   "taskActivity": {
     "withDetail": "{{label}} · {{detail}}",

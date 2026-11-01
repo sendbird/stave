@@ -185,7 +185,7 @@ function FleetNeedRow(args: {
   return (
     <InboxRow
       entry={entry}
-      rowStyle={styles.gridRow}
+      compact
       triggerId={triggerId}
       triggerLabel={tI18n("fleet:fleetAttentionInbox.rowLabel", { action: describeFleetAttentionPrimaryAction(item.kind), title, workspace: item.workspaceName })}
       selected={selected}
@@ -202,8 +202,6 @@ function FleetNeedRow(args: {
             : undefined,
         "aria-keyshortcuts": selected ? undefined : describeFleetRowKeys(interaction),
       }}
-      // The inline approval card already names the tool and its request.
-      hideDetail={!selected && interaction.inline.kind === "approval"}
       supplement={
         item.kind === "turn-stalled" && item.waitingSince ? (
           <FleetQuietDuration since={item.waitingSince} />
@@ -289,11 +287,13 @@ function FleetNeedRow(args: {
                   xstyle={rowStyles.rowAction}
                   disabled={busy}
                   aria-label={tI18n("fleet:fleetAttentionInbox.snoozeValueForValueInValue", { value1: FLEET_ATTENTION_KIND_LABEL[item.kind].toLowerCase(), title: title, value2: item.workspaceName })}
+                  title={tI18n("fleet:fleetAttentionInbox.snooze")}
                 />
               }
             >
+              {/* Icon-only on the one-line row; the label names the action. */}
               <Clock className={sx(rowStyles.rowActionIcon)} aria-hidden="true" />
-              {tI18n("fleet:fleetAttentionInbox.snooze")}</DropdownMenuTrigger>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuLabel>{tI18n("fleet:fleetAttentionInbox.hideUntil")}</DropdownMenuLabel>
               {FLEET_ATTENTION_SNOOZE_DURATIONS.map((duration) => (
