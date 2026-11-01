@@ -1276,10 +1276,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
 
   return (
     <div
-      className={sx(
-        chatInputStyles.root,
-        args.isEmpty && chatInputStyles.rootEmpty,
-      )}
+      ref={composerMeasureRef /* uncapped: the column-capped measure can never show room for the frame */}
+      className={sx(chatInputStyles.root, args.isEmpty && chatInputStyles.rootEmpty)}
     >
       {comparePrepareOpen ? (
         <CompareRunPrepareDialog
@@ -1300,7 +1298,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
         />
       ) : null}
-      <div className={sx(chatInputStyles.measure)} ref={composerMeasureRef}>
+      <div className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)}>
         <TaskSourceContextNotice
           sourceContexts={args.sourceContexts}
           currentPrUrl={args.currentPrUrl}

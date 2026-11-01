@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { transcriptMeasure } from "@/components/ai-elements/transcript-measure.stylex";
 
 /**
  * The message shell publishes its hover / focus-within state as custom
@@ -11,6 +12,8 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  */
 const REVEAL_OPACITY = "--messageActionsOpacity";
 const REVEAL_POINTER = "--messageActionsPointerEvents";
+/** Copy, time details and rewind: three 28px actions with their gaps. */
+const USER_ACTIONS_ROOM = "6.5rem";
 
 export const chatPanelStyles = stylex.create({
   dateSeparator: {
@@ -19,6 +22,11 @@ export const chatPanelStyles = stylex.create({
     marginBottom: vars["--ads-space-12"],
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
+  },
+  // A user row opens a turn: its top padding plus the list's in-turn gap is
+  // the between-turn gap (8 + 20 = 28px against 8px inside a turn).
+  rowTurnStart: {
+    paddingTop: vars["--ads-space-20"],
   },
   rowFirst: {
     paddingTop: {
@@ -47,14 +55,19 @@ export const chatPanelStyles = stylex.create({
     [REVEAL_OPACITY]: 1,
     [REVEAL_POINTER]: "auto",
   },
+  // The row already sits in the shared transcript column, so the reply fills
+  // it; a narrower, left-aligned cap here is what pulled replies off the axis
+  // the composer and the user bubbles share.
   shellAssistant: {
     width: "100%",
-    maxWidth: "56rem",
     gap: "0.375rem",
   },
+  // The bubble ends on the column's right edge. Its hover actions sit beside
+  // it (see `actionsUser`), so the cap keeps room for them on the left.
   shellUser: {
+    position: "relative",
     minWidth: 0,
-    maxWidth: "88%",
+    maxWidth: `min(88%, calc(100% - ${USER_ACTIONS_ROOM}))`,
     width: "fit-content",
     gap: vars["--ads-space-4"],
   },
@@ -65,11 +78,16 @@ export const chatPanelStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
+  // Beside the bubble, bottom-aligned, rather than in a row under it: an
+  // always-reserved row of invisible buttons made the space inside a turn
+  // (prompt to reply) larger than the space between turns.
   actionsUser: {
     pointerEvents: `var(${REVEAL_POINTER})`,
-    alignSelf: "flex-end",
-    marginLeft: 0,
-    marginTop: vars["--ads-space-4"],
+    position: "absolute",
+    right: "100%",
+    bottom: 0,
+    width: "max-content",
+    paddingInlineEnd: vars["--ads-space-4"],
     opacity: `var(${REVEAL_OPACITY})`,
     transitionProperty: {
       default: "opacity",
@@ -169,7 +187,10 @@ export const chatPanelStyles = stylex.create({
     marginBottom: vars["--ads-space-12"],
     display: "flex",
     width: "100%",
-    maxWidth: "72rem",
+    maxWidth: {
+      default: `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * ${vars["--ads-space-12"]})`,
+      "@media (min-width: 40rem)": `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * ${vars["--ads-space-20"]})`,
+    },
     paddingInline: {
       default: vars["--ads-space-12"],
       "@media (min-width: 40rem)": vars["--ads-space-20"],

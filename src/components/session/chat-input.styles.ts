@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { transcriptMeasure } from "@/components/ai-elements/transcript-measure.stylex";
 
 export const chatInputStyles = stylex.create({
   root: {
@@ -14,9 +15,17 @@ export const chatInputStyles = stylex.create({
   rootEmpty: {
     paddingBottom: vars["--ads-space-24"],
   },
+  // The transcript's column: the composer's card shares its width and centre
+  // with the replies and user bubbles above it.
   measure: {
     marginInline: "auto",
-    maxWidth: 1152,
+    maxWidth: transcriptMeasure["--stave-transcript-column"],
+  },
+  // The framed composer adds its two wing tracks (3.125rem each,
+  // `composer-frame.styles.ts`) beside the card, so the card still spans the
+  // column and the wings sit in the gutters outside it.
+  measureFramed: {
+    maxWidth: `calc(${transcriptMeasure["--stave-transcript-column"]} + 2 * 3.125rem)`,
   },
   menuLabelRow: {
     alignItems: "center",

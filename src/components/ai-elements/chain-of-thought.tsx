@@ -30,6 +30,7 @@ import {
   getSeededCompletionPhraseKey,
 } from "@/lib/completion-phrases";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
+import { TranscriptWideScope } from "./transcript-wide";
 import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
 
 /* ─── Data type (used by the `steps` prop shorthand) ─────────────── */
@@ -418,13 +419,15 @@ export function ChainOfThoughtContent({
    * emission order.
    */
   return (
-    <StepRail
-      className={className}
-      rail={false}
-      density="compact"
-      xstyle={[s.content, s.contentTraceMotion]}
-      {...args}
-    />
+    <TranscriptWideScope enabled={false}>
+      <StepRail
+        className={className}
+        rail={false}
+        density="compact"
+        xstyle={[s.content, s.contentTraceMotion]}
+        {...args}
+      />
+    </TranscriptWideScope>
   );
 }
 

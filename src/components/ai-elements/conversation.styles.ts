@@ -1,5 +1,18 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
+import { transcriptMeasure } from "./transcript-measure.stylex";
+
+const COLUMN = transcriptMeasure["--stave-transcript-column"];
+
+/*
+ * Every transcript container is the shared column plus its own inline padding,
+ * so the rows inside it end exactly on the column's edges and stay centred on
+ * the same axis as the composer.
+ */
+const columnMaxWidth = {
+  default: `calc(${COLUMN} + 2 * ${vars["--ads-space-12"]})`,
+  "@media (min-width: 640px)": `calc(${COLUMN} + 2 * ${vars["--ads-space-20"]})`,
+};
 
 export const conversationStyles = stylex.create({
   root: {
@@ -13,12 +26,15 @@ export const conversationStyles = stylex.create({
     flex: 1,
     overflowX: "hidden",
     overflowY: "auto",
+    // The query container wide blocks measure against: they may grow past the
+    // column toward the panel's edges, never past them.
+    containerType: "inline-size",
   },
   innerLayout: {
     marginInline: "auto",
     display: "flex",
     width: "100%",
-    maxWidth: "72rem",
+    maxWidth: columnMaxWidth,
     flexDirection: "column",
     gap: vars["--ads-space-12"],
     paddingInline: {
@@ -30,7 +46,7 @@ export const conversationStyles = stylex.create({
   listContainer: {
     marginInline: "auto",
     width: "100%",
-    maxWidth: "72rem",
+    maxWidth: columnMaxWidth,
     paddingInline: {
       default: vars["--ads-space-12"],
       "@media (min-width: 640px)": vars["--ads-space-20"],
@@ -46,14 +62,16 @@ export const conversationStyles = stylex.create({
   column: {
     marginInline: "auto",
     width: "100%",
-    maxWidth: "72rem",
+    maxWidth: columnMaxWidth,
     paddingInline: {
       default: vars["--ads-space-12"],
       "@media (min-width: 640px)": vars["--ads-space-20"],
     },
   },
+  // The gap inside a turn. The gap between turns adds the user row's own top
+  // padding (`chatPanelStyles.rowTurnStart`), so a turn boundary reads as one.
   listItem: {
-    paddingBottom: vars["--ads-space-12"],
+    paddingBottom: vars["--ads-space-8"],
     ":last-child": {
       paddingBottom: vars["--ads-space-24"],
     },

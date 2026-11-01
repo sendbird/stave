@@ -101,6 +101,7 @@ import {
   findActiveConversationTurnMessageId,
 } from "./conversation-turn-rail.utils";
 import { AssistantMessageBody } from "./message/assistant-trace";
+import { TranscriptWideScope } from "@/components/ai-elements/transcript-wide";
 import { visibleSteerMessageSegments } from "@/lib/session/steer-message-segments";
 import { TaskStartGuide } from "./TaskStartGuide";
 import { SessionLoadingState } from "./SessionLoadingState";
@@ -151,6 +152,8 @@ interface MessageRowProps {
   activeTurnId?: string;
   chatStreamingEnabled: boolean;
   isFirst?: boolean;
+  /** A pending send drawn as the transcript's only row has no turn above it. */
+  opensTranscript?: boolean;
   dateSeparator?: string;
   liveStreamingMessageId?: string;
   showInterimMessages: boolean;
@@ -420,7 +423,13 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ? message.id
           : undefined
       }
-      className={sx(isFirst && styles.rowFirst)}
+      className={sx(
+        isFirst && styles.rowFirst,
+        !isFirst &&
+          !args.opensTranscript &&
+          message.role === "user" &&
+          styles.rowTurnStart,
+      )}
     >
       {args.dateSeparator ? (
         <div className={sx(styles.dateSeparator)} data-conversation-date>
@@ -460,16 +469,18 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 }
                 onCopy={handleUserMessageCopy}
               >
-                <MemoizedAssistantMessageBody
-                  message={bodyMessage}
-                  taskId={taskId}
-                  messageId={message.id}
-                  streamingEnabled={chatStreamingEnabled}
-                  traceExpansionMode={traceExpansionMode}
-                  showInterimMessages={showInterimMessages}
-                  revealToolUseId={args.revealToolUseId}
-                  revealRequestId={args.revealRequestId}
-                />
+                <TranscriptWideScope enabled={message.role === "assistant"}>
+                  <MemoizedAssistantMessageBody
+                    message={bodyMessage}
+                    taskId={taskId}
+                    messageId={message.id}
+                    streamingEnabled={chatStreamingEnabled}
+                    traceExpansionMode={traceExpansionMode}
+                    showInterimMessages={showInterimMessages}
+                    revealToolUseId={args.revealToolUseId}
+                    revealRequestId={args.revealRequestId}
+                  />
+                </TranscriptWideScope>
                 {message.role === "assistant" && args.documentTurnId ? (
                   <TurnDocumentRevisions turnId={args.documentTurnId} />
                 ) : null}
@@ -713,6 +724,7 @@ function PendingAutoRouteTurn(props: {
         showInterimMessages={props.showInterimMessages}
         traceExpansionMode={props.traceExpansionMode}
         message={pending.userMessage}
+        opensTranscript={props.first}
         pendingAgentRun={Boolean(pending.agentRun)}
       />
       {pending.agentRun ? null : (

@@ -47,6 +47,7 @@ import {
 } from "./message-text-scale";
 import { PromptTokenChip } from "./prompt-token-chip";
 import { parsePromptTokenSegments } from "@/lib/prompt-token-chips";
+import { TranscriptWideBlock } from "./transcript-wide";
 
 interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
@@ -327,10 +328,14 @@ export function MessageResponse({
             </CodeBlockHeader>
           </CodeBlock>
         );
-        return language?.toLowerCase() === "mermaid" ? (
-          <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
-        ) : (
-          block
+        return (
+          <TranscriptWideBlock>
+            {language?.toLowerCase() === "mermaid" ? (
+              <MermaidBlock code={code} isStreaming={Boolean(isStreaming)} source={block} />
+            ) : (
+              block
+            )}
+          </TranscriptWideBlock>
         );
       }}
       className={className}

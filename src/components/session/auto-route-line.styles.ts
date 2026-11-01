@@ -89,11 +89,12 @@ export const autoRouteLineStyles = stylex.create({
   pendingTurn: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-16"],
+    // The list's in-turn row gap, so the reply sits where the real one will.
+    gap: vars["--ads-space-8"],
     // After the list, the last row carries the list's 24px tail; a real row
-    // would sit only the 12px row gap below it, so pull up by the difference
+    // would sit only the 8px row gap below it, so pull up by the difference
     // and the real row lands where this one was.
-    marginTop: `calc(${vars["--ads-space-12"]} - ${vars["--ads-space-24"]})`,
+    marginTop: `calc(${vars["--ads-space-8"]} - ${vars["--ads-space-24"]})`,
     // The same room below as the list's last row, so the composer does not
     // crowd the pending line.
     paddingBottom: vars["--ads-space-24"],
