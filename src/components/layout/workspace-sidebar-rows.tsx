@@ -775,7 +775,7 @@ export function InlineWorkspaceLabel(args: {
 
 /**
  * The muted text that follows a workspace row's title: what a running turn is
- * doing, else the branch when it differs from the title. `stacked` sits under the
+ * doing, else the branch under the generic Default title. `stacked` sits under the
  * title inside the row's height; `trailing` follows the title on the same line
  * and shows the branch only. Renders nothing when there is nothing new to say.
  */

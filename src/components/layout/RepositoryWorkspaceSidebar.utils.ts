@@ -299,13 +299,7 @@ export function formatWorkspaceDisplayName(args: {
   return name;
 }
 
-/**
- * The branch a workspace row shows beside its title, or `null` when the row
- * would only repeat itself. Most worktrees are named after their branch, so
- * the branch is shown only when it says something the title does not: always
- * under the Default workspace (titled "Default"), and under a named workspace
- * only when the names differ.
- */
+/** The generic Default title keeps its branch; named rows use the title alone. */
 export function resolveWorkspaceRowBranch(args: {
   name: string;
   branch?: string;
@@ -318,11 +312,7 @@ export function resolveWorkspaceRowBranch(args: {
   if (args.isDefault || isDefaultWorkspaceName(args.name)) {
     return branch;
   }
-  const name = args.name.trim();
-  if (!name || name.toLowerCase() === branch.toLowerCase()) {
-    return null;
-  }
-  return branch;
+  return null;
 }
 
 /**

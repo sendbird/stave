@@ -630,10 +630,10 @@ describe("resolveWorkspaceRowBranch", () => {
     ).toBeNull();
   });
 
-  test("shows the branch when it says something the title does not", () => {
+  test("hides the branch when the workspace has a custom name", () => {
     expect(
       resolveWorkspaceRowBranch({ name: "Navigation pass", branch: "feat/navigation", isDefault: false }),
-    ).toBe("feat/navigation");
+    ).toBeNull();
   });
 
   test("always names the Default workspace's branch under its generic title", () => {

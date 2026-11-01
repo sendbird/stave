@@ -147,6 +147,7 @@ export const repositorySidebarStyles = stylex.create({
     lineHeight: vars["--ads-line-height-tight"],
   },
   previewShortcutChip: {
+    alignSelf: "flex-end",
     height: 16,
     fontSize: vars["--ads-font-size-micro"],
     marginBlockStart: 2,
