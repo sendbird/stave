@@ -3,7 +3,7 @@ import { ConstrainedRouteInputSchema, type ConstrainedRouteInput, type Constrain
 import { createAgentRouteClassifier, toRoutingHistory, type AgentRouteSettings } from "../../../src/lib/routing/agent-run-route";
 import { resolveAutoRoutingDecision, routeEffortOverrides, resolveAutoRoutingProfile } from "../../../src/lib/routing/auto-routing";
 import { getSdkModelOptions } from "../../../src/lib/providers/model-catalog";
-import { listEligibleRouteModels } from "../../../src/lib/providers/auto-routing-profile";
+import { listEligibleRouteModels, resolveAutoRoutingMinimumTier } from "../../../src/lib/providers/auto-routing-profile";
 import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
 import { DEFAULT_ROUTING_DECISION } from "../../../src/lib/providers/routing-decision";
 import type { RouteClassificationRequest, UtilityInferenceMetadata } from "../../../src/lib/providers/utility-inference";
@@ -69,7 +69,8 @@ export function createConstrainedHostRouter(deps: {
         exclusiveModelsByProvider: { [providerId]: allowedModels } });
       const options = effortLocked ? routeEffortOverrides({ providerId, model: decision.model, effort })
         : { ...(decision.claudeEffort ? { claudeEffort: decision.claudeEffort } : {}), ...(decision.codexReasoningEffort ? { codexReasoningEffort: decision.codexReasoningEffort } : {}) };
-      return { fingerprint: { providerId, model: decision.model }, runtimeOptions: options, allowedModels, decisionConfig,
+      const minimumTier = !input.parentTaskId && assignment?.role !== "delegate" ? resolveAutoRoutingMinimumTier(decision) : undefined;
+      return { fingerprint: { providerId, model: decision.model }, runtimeOptions: options, allowedModels, decisionConfig, ...(minimumTier ? { minimumTier } : {}),
         route: "auto", rationale: decision.rationale, selection: null, ...(utility ? { decision: utility } : {}) };
     });
   };

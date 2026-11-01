@@ -364,6 +364,7 @@ export interface AgentRunRuntimeDependencies extends WorkspaceCheckDependencies 
 
 /** The runtime one agent-run turn starts on, and why. */
 export interface AgentRunTurnRoute {
+  minimumTier?: import("../../../src/lib/providers/auto-routing-profile").RouteTier;
   decision?: import("../../../src/lib/providers/utility-inference").UtilityInferenceMetadata;
   fingerprint: AgentRunFingerprint;
   runtimeOptions: ProviderRuntimeOptions;
@@ -1301,7 +1302,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       }, controller.signal)) : null;
       if (adaptive && constrained?.route === "auto" && resources) adaptive = selectAdaptiveRoute(resources.policy, aggregate,
         store.listEventsByKind(agentRun.id, ["resource-request", "resource-decision", "turn-linked"]), catalogModels,
-        { model: constrained.fingerprint.model, effort: constrained.runtimeOptions.codexReasoningEffort ?? constrained.runtimeOptions.claudeEffort, rationale: constrained.rationale });
+        { model: constrained.fingerprint.model, effort: constrained.runtimeOptions.codexReasoningEffort ?? constrained.runtimeOptions.claudeEffort, rationale: constrained.rationale,
+          ...(!delegation && !resources.link && constrained.minimumTier ? { minimumTier: constrained.minimumTier } : {}) });
       routed = resetContinuation ? { fingerprint: resetContinuation.fingerprint, runtimeOptions: { ...resumeEffort }, route: "agent-model", rationale: "Resume on the usage-limited turn's account and model.", selection: null } : adaptive ? {
         fingerprint: { providerId: resources!.policy.providerId, model: adaptive.model }, runtimeOptions: adaptive.runtimeOptions,
         route: "adaptive", rationale: String(adaptive.decision?.reason ?? "Frozen Balanced route; no unsupported escalation."),
@@ -2027,7 +2029,8 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
       const adaptive = resources ? selectAdaptiveRoute(resources.policy, aggregate,
         store.listEventsByKind(run.id, ["resource-request", "resource-decision", "turn-linked"]), replyCatalog,
         selection?.model === "auto" && selection.requestedModel
-          ? { model: selection.requestedModel, ...(selection.requestedEffort ? { effort: selection.requestedEffort } : {}), rationale: selection.rationale ?? "Auto routed the reply." }
+          ? { model: selection.requestedModel, ...(selection.requestedEffort ? { effort: selection.requestedEffort } : {}), rationale: selection.rationale ?? "Auto routed the reply.",
+            ...(!resources.link && selection.minimumTier ? { minimumTier: selection.minimumTier } : {}) }
           : undefined,
         selection ? { modelPinned: selection.model === "pinned", effortPinned: selection.effortPinned === true,
           ...(pinned && selection.requestedModel ? { model: selection.requestedModel } : {}),

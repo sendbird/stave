@@ -51,6 +51,9 @@ import { buildAgentRunTurnDividers } from "../src/lib/agent-runs/agent-run-view"
 import type { WorkspaceRevision } from "../src/lib/agent-runs/verification-contract";
 import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
 import { describeDoneWhen } from "../src/lib/agent-runs/agent-run-status";
+import { createConstrainedHostRouter } from "../electron/host-service/supervision/constrained-route-host";
+import { getBuiltinAgent } from "../src/lib/agents/starters";
+import type { AgentAssignment } from "../src/lib/agents/assign";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -1699,6 +1702,38 @@ describe("Agent run team limits", () => {
     concurrentHelpers: 2 as const, totalHelpers: 4 as const, parentReserve: 1 as const,
     maxChanges: 2 as const, cooldownTurns: 2 as const, ...patch,
   });
+  for (const providerId of ["codex", "claude-code"] as const) for (const taskClass of ["implement", "review"] as const) {
+    test(`${providerId} ${taskClass}: primary host turns and stage replies enforce the Auto floor after a resource request`, async () => {
+      const [strong, light] = providerId === "codex" ? ["gpt-6.1-sol", "gpt-6-luna"] : ["claude-opus-5-5", "claude-haiku-5-5"];
+      const p = policy(providerId, { allowedModels: [strong, light] });
+      const router = createConstrainedHostRouter({ assignment: () => ({ workspaceId: "ws-1", role: "primary", agent: { ...getBuiltinAgent("implementer")!, model: { mode: "auto", taskClass } } }) as AgentAssignment,
+        settings: () => AgentRouteSettingsSchema.parse({ routing: { autoRoutingEnabled: true, autoRoutingProfile: buildStarterProfile("starter-quality-first") }, classifier: null }),
+        profiles: () => [], cwd: async () => "/tmp/workspace", history: () => [], classify: async () => ({ ok: false }) });
+      const setup = async () => {
+        const h = createHarness({ extra: { freezeResources: () => p, routeConstrainedTurn: router } });
+        h.setSnapshot({ providerId, model: strong! });
+        const id = await startedAgentRun(h, startInput({ origin: "agent" }));
+        await h.runtime.requestResources({ agentRunKey: "key-turn-1", request: { model: light!, effort: "medium", reason: "mechanical-step", rationale: "Small remaining step", evidenceRefs: ["turn-1"] } });
+        return { h, id };
+      };
+      const automatic = await setup();
+      automatic.h.endTurn("turn-1"); await automatic.h.tick();
+      expect(automatic.h.runCalls.at(-1)?.fingerprint.model).toBe(strong!);
+      expect(automatic.h.store.listEventsByKind(automatic.id, ["resource-decision"]).at(-1)?.detail).toMatchObject({ accepted: false, model: strong });
+      const reply = await setup();
+      await reply.h.runtime.blockStage({ agentRunKey: "key-turn-1", block: { kind: "input", missing: "Confirm scope" } });
+      reply.h.endTurn("turn-1"); await reply.h.tick(); reply.h.userTurn("reply-1");
+      const prepared = reply.h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", providerId, turnId: "reply-1",
+        composer: { model: "auto", effortPinned: false, requestedModel: strong!, requestedEffort: "medium", minimumTier: "balanced" } });
+      expect(prepared?.runtimeOptions?.model).toBe(strong!);
+      expect(prepared?.agentRunStage).toMatchObject({ agentRunId: reply.id, stageId: "draft", attempt: 1 });
+      expect(reply.h.store.listEventsByKind(reply.id, ["resource-decision"]).at(-1)?.detail).toMatchObject({ accepted: false, model: strong });
+      const hostReply = await setup();
+      hostReply.h.endTurn("turn-1"); hostReply.h.userTurn("host-reply");
+      expect(hostReply.h.runtime.prepareUserTurn({ taskId: "task-1", workspaceId: "ws-1", providerId, turnId: "host-reply" })?.runtimeOptions?.model).toBe(strong!);
+      await automatic.h.runtime.cancel({ agentRunId: automatic.id }); await reply.h.runtime.cancel({ agentRunId: reply.id }); await hostReply.h.runtime.cancel({ agentRunId: hostReply.id });
+    });
+  }
   test("Adaptive Decision recommendations use frozen limits and are cancelled before spending a turn", async () => {
     const p = policy("codex");
     let calls = 0;

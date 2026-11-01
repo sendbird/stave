@@ -1339,6 +1339,8 @@ export interface ProviderRuntimeOptions {
     /** The pinned effort itself: Auto may replace the turn's effort option with its own pick. */
     effort?: string;
     rationale?: string;
+    /** Auto's capability floor; stripped with this selection before provider dispatch. */
+    minimumTier?: import("./auto-routing-profile").RouteTier;
   };
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */

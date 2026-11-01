@@ -1513,6 +1513,11 @@ function requiresQualityFirstStandard(args: { stance: Stance; role: RouterRole; 
     && (args.taskClass === "implement" || args.taskClass === "review");
 }
 
+/** The preference's hard floor, also carried through subsequent adaptive selection. */
+export function resolveAutoRoutingMinimumTier(args: { stance: Stance; role: RouterRole; taskClass: TaskClass }): RouteTier | undefined {
+  return requiresQualityFirstStandard(args) ? getRouteLevel("medium").floor : undefined;
+}
+
 /** The level a turn routes at, after the quality, safety and uncertainty floors. */
 export function resolveEffectiveComplexity(args: {
   signals: Pick<RouterSignals, "complexity" | "sensitive" | "uncertain" | "taskClass">;

@@ -4,6 +4,7 @@ import { AgentResourceRequestSchema, supportsAdaptiveEffort, type AdaptiveModelC
 import { routeEffortOverrides } from "../routing/auto-routing";
 import { getModelCapability, MODEL_TIER_ORDER } from "../providers/model-catalog";
 import type { AgentRunRouteCause } from "../providers/provider.types";
+import { ROUTE_TIERS, resolveRouteTierForModel, type RouteTier } from "../providers/auto-routing-profile";
 
 /** Why a proposal did not become the route; the reply's route line names it. */
 export type AdaptiveRouteCause = Exclude<AgentRunRouteCause, "request" | "route">;
@@ -28,6 +29,7 @@ export interface AgentRunReplyComposer {
   requestedModel?: string;
   requestedEffort?: string;
   rationale?: string;
+  minimumTier?: RouteTier;
 }
 
 /** The model a reply ran on when it is not the one the composer sent, and why. */
@@ -63,10 +65,11 @@ function escalates(model: string, effort: string | null, nextModel: string, next
  * catalog or replace a frozen pin.
  */
 export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentRunAggregate, events: readonly AgentRunEvent[], catalog?: AdaptiveModelCatalog | null,
-  automatic?: { model: string; effort?: string; rationale: string }, composer?: ComposerRouteSelection) {
+  automatic?: { model: string; effort?: string; rationale: string; minimumTier?: RouteTier }, composer?: ComposerRouteSelection) {
   let model = policy.allowedModels[0]!, effort = policy.initialEffort;
   let changes = 0, lastChangeTurn = -policy.cooldownTurns, lastChangeLinked: number | null = null, appliedThrough = 0;
   let pin: { model: boolean; effort: boolean } | null = null;
+  let savedMinimumTier: RouteTier | undefined;
   const stage = currentStageRecord(aggregate);
   const linkedTurnCount = events.filter((row) => row.kind === "turn-linked").length;
   const markChange = (detail: Record<string, unknown>) => {
@@ -76,6 +79,8 @@ export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentR
   };
   for (const event of events) {
     if (event.kind !== "resource-decision") continue;
+    if (event.detail.minimumTier === null) savedMinimumTier = undefined;
+    else if (ROUTE_TIERS.includes(event.detail.minimumTier as RouteTier)) savedMinimumTier = event.detail.minimumTier as RouteTier;
     if (event.detail.source === "composer") {
       if (typeof event.detail.model !== "string") throw new Error("Invalid saved adaptive route.");
       model = event.detail.model;
@@ -127,6 +132,11 @@ export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentR
   // A pin decided on this reply starts the cooldown as a saved one would.
   if (composerDecision) { lastChangeTurn = base.turnCount; lastChangeLinked = linkedTurnCount; }
   const turnsOnRoute = lastChangeLinked === null ? aggregate.agentRun.turnCount - lastChangeTurn : linkedTurnCount - lastChangeLinked;
+  // Explicit model pins bypass Auto; an effort pin still lets Auto enforce its model floor.
+  // Host-admitted replies without a composer (for example a persistent answer)
+  // keep the last Auto floor. An explicit default/pin or a new Auto pick resets it.
+  const minimumTier = !policy.modelLocked && !pin?.model ? automatic ? automatic.minimumTier : composer ? undefined : savedMinimumTier : undefined;
+  const meetsFloor = (candidate: string) => !minimumTier || ROUTE_TIERS.indexOf(resolveRouteTierForModel(candidate)) <= ROUTE_TIERS.indexOf(minimumTier);
 
   const event = events.filter((row) => row.kind === "resource-request" && row.sequence > appliedThrough &&
     row.detail.stageId === stage.stageId && row.detail.attempt === stage.attempt).at(-1);
@@ -147,6 +157,7 @@ export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentR
       pin?.model && nextModel !== model ? ["composer-pin", "The model is pinned in the composer."] :
       pin?.effort && nextEffort !== effort ? ["composer-pin", "The effort is pinned in the composer."] :
       (!policy.allowedModels.includes(nextModel) || (catalog && !catalog.some((entry) => entry.model === nextModel))) ? ["catalog", "The model is outside this Run's same-provider eligible catalog."] :
+      !meetsFloor(nextModel) ? ["catalog", "The model is below this Auto route's minimum capability."] :
       policy.modelLocked && nextModel !== model ? ["pinned", "The model is pinned."] :
       policy.effortLocked && nextEffort !== effort ? ["pinned", "The effort is pinned."] :
       (request.effort && nextEffort !== request.effort) ||
@@ -163,6 +174,26 @@ export function selectAdaptiveRoute(policy: AdaptiveRunPolicy, aggregate: AgentR
     // An explicit request outranks the automatic proposal it replaced.
     cause = rejection?.[0] ?? (event && automatic ? "request" : null);
   }
+  // Old decisions and discretionary limits cannot keep a light model on a turn
+  // whose current Auto policy requires more. Use only the admitted Auto pick;
+  // never widen the frozen catalog or silently replace an effort pin.
+  if (!meetsFloor(model)) {
+    if (!automatic) throw new Error("Auto routing must provide an eligible model for this turn's minimum capability.");
+    const normalized = routeEffortOverrides({ providerId: policy.providerId, model: automatic.model, effort: (pin?.effort || policy.effortLocked ? effort : automatic.effort ?? effort) ?? undefined });
+    const nextEffort = normalized.claudeEffort ?? normalized.codexReasoningEffort ?? null;
+    if (!meetsFloor(automatic.model) || !policy.allowedModels.includes(automatic.model) ||
+        (catalog && !catalog.some((entry) => entry.model === automatic.model)) ||
+        ((pin?.effort || policy.effortLocked) && nextEffort !== effort) || !supportsAdaptiveEffort(policy.providerId, automatic.model, nextEffort, catalog))
+      throw new Error("No eligible model can preserve this Auto route's minimum capability and pinned effort.");
+    model = automatic.model; effort = nextEffort;
+    decision = { accepted: true, requestSequence: event?.sequence ?? null, ...(!event ? { automatic: true } : {}), model, effort, ...base,
+      reason: "capability-mismatch", rationale: automatic.rationale, minimumTier, ...(event ? { supersededRequest: event.detail.request } : {}) };
+    cause = "catalog";
+  }
+  if (!decision && composer && !automatic && savedMinimumTier)
+    decision = { accepted: false, automatic: true, requestSequence: null, model, effort, ...base, reason: "composer-released" };
+  if (decision) decision.minimumTier = minimumTier ?? null;
+  if (composerDecision) composerDecision.minimumTier = minimumTier ?? null;
   return { model, effort, decision, composerDecision, composerRefusal, composerPin: pin, cause, requestSequence: event?.sequence ?? null,
     runtimeOptions: routeEffortOverrides({ providerId: policy.providerId, model, effort: effort ?? undefined }) };
 }
