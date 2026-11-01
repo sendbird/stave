@@ -162,6 +162,13 @@ for (const theme of ["light", "dark"] as const) {
           }, displayMode);
           for (const width of [1024, 1440]) {
             await page.setViewportSize({ width, height: 900 });
+            // Wait for the media-query event before opening the narrow sidebar;
+            // crossing the breakpoint resets its temporary open choice.
+            await expect.poll(() => page.evaluate(async () => {
+              const { useWorkspaceSidebarFoldStore } = await import("/src/store/workspace-sidebar-fold-store.ts");
+              const { isNarrowWindowForWorkspaceSidebar } = await import("/src/store/layout.utils.ts");
+              return useWorkspaceSidebarFoldStore.getState().narrowWindow === isNarrowWindowForWorkspaceSidebar(window.innerWidth);
+            })).toBe(true);
             await page.evaluate(async () => {
               const { setWorkspaceSidebarCollapsed } = await import("/src/store/workspace-sidebar-fold-store.ts");
               setWorkspaceSidebarCollapsed(false);
