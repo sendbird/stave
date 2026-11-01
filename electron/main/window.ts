@@ -7,6 +7,7 @@ import { tMain } from "./i18n";
 import { abortPendingLensGuestRequests } from "./browser/browser-guest-broker";
 import { installLensWebviewAttachClamp } from "./browser/browser-webview-attach";
 import { isDevToolsShortcut } from "./keyboard-shortcuts";
+import { nextZoomFactor, zoomActionFromInput } from "./zoom-shortcut";
 import {
   recordRendererProcessGone,
   recordRendererResponsive,
@@ -20,9 +21,6 @@ import {
   resolveRendererEntryPath,
 } from "./window-paths";
 
-const MIN_ZOOM_FACTOR = 0.5;
-const MAX_ZOOM_FACTOR = 2;
-const ZOOM_STEP = 0.1;
 const runtimeDir = import.meta.dirname;
 let mainWindow: BrowserWindow | null = null;
 
@@ -36,10 +34,6 @@ export function toggleMainWindowDevTools() {
     return;
   }
   mainWindow.webContents.toggleDevTools();
-}
-
-function clampZoomFactor(value: number) {
-  return Math.min(MAX_ZOOM_FACTOR, Math.max(MIN_ZOOM_FACTOR, value));
 }
 
 /** Load the built renderer from the code-cached renderer scheme. */
@@ -234,36 +228,15 @@ export function createMainWindow() {
       return;
     }
     const isDevToolsToggle = isDevToolsShortcut(input);
-    const isZoomIn =
-      input.type === "keyDown" &&
-      hasMod &&
-      !input.alt &&
-      (input.key === "+" || input.key === "=" || input.code === "NumpadAdd");
-    const isZoomOut =
-      input.type === "keyDown" &&
-      hasMod &&
-      !input.alt &&
-      (input.key === "-" || input.code === "NumpadSubtract");
-    const isZoomReset =
-      input.type === "keyDown" &&
-      hasMod &&
-      !input.alt &&
-      (input.key === "0" || input.code === "Numpad0");
     if (!isDevToolsToggle) {
-      if (!isZoomIn && !isZoomOut && !isZoomReset) {
+      const zoomAction = zoomActionFromInput(input);
+      if (!zoomAction) {
         return;
       }
       event.preventDefault();
-      if (isZoomReset) {
-        window.webContents.setZoomFactor(1);
-        emitZoomChanged(window);
-        return;
-      }
-      const currentZoom = window.webContents.getZoomFactor();
-      const nextZoom = isZoomIn
-        ? clampZoomFactor(Number((currentZoom + ZOOM_STEP).toFixed(2)))
-        : clampZoomFactor(Number((currentZoom - ZOOM_STEP).toFixed(2)));
-      window.webContents.setZoomFactor(nextZoom);
+      window.webContents.setZoomFactor(
+        nextZoomFactor(window.webContents.getZoomFactor(), zoomAction),
+      );
       emitZoomChanged(window);
       return;
     }

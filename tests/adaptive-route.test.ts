@@ -254,3 +254,11 @@ test("advertised model efforts override the static scale without silently changi
   expect(supportsAdaptiveEffort("codex", "gpt-6.1-sol", "ultra", catalog)).toBe(false);
   expect(supportsAdaptiveEffort("codex", "gpt-6.1-sol", "ultra", [{ model: "gpt-6.1-sol", supportedEfforts: [] }])).toBe(true);
 });
+
+
+test("a foreign model from task history cannot seed a Run policy", () => {
+  expect(() => freezeAdaptivePolicy({ providerId: "claude-code", model: "gpt-6.1-sol", agent: null, settings: null, maxTurns: 30 }))
+    .toThrow("starting model belongs to another provider");
+  expect(() => freezeAdaptivePolicy({ providerId: "codex", model: "claude-sonnet-5-5", agent: null, settings: null, maxTurns: 30 }))
+    .toThrow("starting model belongs to another provider");
+});

@@ -888,6 +888,7 @@ export function createSendUserMessageAction(args: {
       }
 
       const autoRoutingDecision = await resolveAutoRoutingForSend({
+        workspaceId: taskWorkspaceId,
         taskId: resolvedTaskId,
         state,
         promptDraft,

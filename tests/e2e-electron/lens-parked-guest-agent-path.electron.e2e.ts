@@ -364,6 +364,27 @@ test.afterAll(async () => {
   }
 });
 
+test("Lens guest zoom shortcuts change only the guest page", async () => {
+  const readZoom = () => stave.app.evaluate(({ webContents }) => ({
+    guest: webContents.getAllWebContents().find((contents) => contents.getType() === "webview")!.getZoomFactor(),
+    host: webContents.getAllWebContents().find((contents) => contents.getType() === "window")!.getZoomFactor(),
+  }));
+  const before = await readZoom();
+  const press = (keyCode: string) => stave.app.evaluate(({ webContents }, key) => {
+    const guest = webContents.getAllWebContents().find((contents) => contents.getType() === "webview")!;
+    guest.sendInputEvent({ type: "keyDown", keyCode: key, modifiers: [process.platform === "darwin" ? "meta" : "control"] });
+    guest.sendInputEvent({ type: "keyUp", keyCode: key });
+  }, keyCode);
+  await press("=");
+  await expect.poll(async () => (await readZoom()).guest).toBeCloseTo(before.guest + 0.1);
+  expect((await readZoom()).host).toBe(before.host);
+  await press("-");
+  await expect.poll(async () => (await readZoom()).guest).toBeCloseTo(before.guest);
+  await press("=");
+  await press("0");
+  await expect.poll(async () => (await readZoom()).guest).toBeCloseTo(1);
+});
+
 test("the agent-opened session is parked by the product's own code path", async () => {
   const state = await hostState();
   console.log("[parked] host state", JSON.stringify(state));

@@ -232,3 +232,26 @@ test("a send tells an Agent run whether the composer pinned its model and effort
   expect(resolveComposerSelection({ provider: "codex", runtimeOverrides: { autoRouting: true },
     decision: { source: "disabled", rationale: "Auto is off" } as unknown as Parameters<typeof resolveComposerSelection>[0]["decision"] }).model).toBe("default");
 });
+
+test("Auto replies keep the active Run provider even when the profile prefers another", async () => {
+  const { registerAgentRunBridge } = await import("../src/store/agent-run-send");
+  const profile = buildStarterProfile("starter-balanced");
+  registerAgentRunBridge({
+    activeAgentRun: () => ({ id: "run", agentOrigin: true, providerId: "claude-code" }),
+    start: async () => ({ ok: false, agentRun: null }),
+    cancel: async () => ({ ok: false, agentRun: null }),
+    watchFirstPrompt: () => {},
+  });
+  try {
+    const decision = await resolveAutoRoutingForSend({
+      workspaceId: "ws", taskId: "run-reply", provider: "claude-code", activeModel: "claude-sonnet-5-5",
+      state: { settings: { ...defaultSettings, autoRoutingEnabled: true,
+        autoRoutingProfile: { ...profile, preferredProvider: "codex", signals: { ...profile.signals, classifier: false } } },
+        providerAvailability: { "claude-code": true, codex: true }, rateLimitsSnapshot: null },
+      promptDraft: { text: "Publish the PR", attachedFilePaths: [], attachments: [], runtimeOverrides: { autoRouting: true } },
+      prompt: "Publish the PR", history: [], fileContextCount: 0, workspaceCwd: "/tmp/run-reply",
+    });
+    expect(decision?.providerId).toBe("claude-code");
+    expect(decision?.model).not.toMatch(/^gpt-/);
+  } finally { registerAgentRunBridge(null); }
+});

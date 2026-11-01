@@ -32,6 +32,8 @@ export function freezeAdaptivePolicy(args: {
   const requestedModel = composerPin || fixedModel?.model || args.model;
   const model = args.exclusiveModels === undefined ? requestedModel : resolveApiConnectionModel({ runtime: providerId, models: args.exclusiveModels, model: requestedModel });
   if (!model) throw new Error("Choose a model pinned on this API connection before starting.");
+  if (args.exclusiveModels === undefined && getModelCapability({ model })?.providerId && getModelCapability({ model })?.providerId !== providerId)
+    throw new Error("The starting model belongs to another provider. Choose a model for this task's provider before starting.");
   const modelLocked = Boolean(fixedModel) || args.modelPinned === true || (!args.delegated && Boolean(draft?.model || draft?.autoRouting === false));
   const requestedEffort = args.effort ?? (providerId === "codex" ? draft?.codexReasoningEffort : draft?.claudeEffort) ??
     fixedModel?.effort ??

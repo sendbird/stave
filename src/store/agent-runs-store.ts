@@ -292,7 +292,11 @@ registerAgentRunBridge({
     if (state.loadedWorkspaceId !== workspaceId) return undefined;
     const id = state.agentRunIdByTask[agentRunTaskKey(workspaceId, taskId)];
     const agentRun = id ? state.details[id]?.agentRun : undefined;
-    return agentRun && isActiveAgentRunState(agentRun.state) ? { id: agentRun.id, agentOrigin: hasAgentOrigin(agentRun) } : null;
+    return agentRun && isActiveAgentRunState(agentRun.state) ? {
+      id: agentRun.id, agentOrigin: hasAgentOrigin(agentRun),
+      providerId: hasAgentOrigin(agentRun) && (agentRun.state === "running" || agentRun.pauseReason === "wait-expired")
+        ? agentRun.fingerprint.providerId : undefined,
+    } : null;
   },
   start: (input) => useAgentRunsStore.getState().startAgentRun(input),
   cancel: (agentRunId) => useAgentRunsStore.getState().runCommand("cancel", { agentRunId }),

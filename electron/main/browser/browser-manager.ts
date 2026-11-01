@@ -22,6 +22,7 @@ import {
 import { randomUUID } from "node:crypto";
 import { attachPartitionDownloadHandler } from "./browser-downloads";
 import { isDevToolsShortcut } from "../keyboard-shortcuts";
+import { nextZoomFactor, zoomActionFromInput } from "../zoom-shortcut";
 import { getMainWindow, toggleMainWindowDevTools } from "../window";
 import { openExternalWithFallback } from "../utils/external-url";
 import { assertNavigationAllowed } from "./browser-security";
@@ -85,6 +86,8 @@ import {
 } from "./browser-media-permissions";
 
 export { DEFAULT_LENS_SESSION_ID };
+
+const LENS_PINCH_MAX_VISUAL_ZOOM = 3;
 
 function isVisualCommentShortcutCandidate(input: Electron.Input) {
   if (input.type !== "keyDown" || input.isComposing) {
@@ -884,12 +887,29 @@ function wireBrowserSession(args: {
       }
       return;
     }
+    // Zoom keys pressed in the guest zoom the guest page, not the app shell.
+    // The app window's own handler never sees them while the guest has focus.
+    const zoomAction = zoomActionFromInput(input);
+    if (zoomAction) {
+      event.preventDefault();
+      if (!webContents.isDestroyed()) {
+        webContents.setZoomFactor(
+          nextZoomFactor(webContents.getZoomFactor(), zoomAction),
+        );
+      }
+      return;
+    }
     if (!isDevToolsShortcut(input)) {
       return;
     }
     event.preventDefault();
     toggleMainWindowDevTools();
   });
+
+  // Trackpad pinch on the guest page. Electron keeps pinch zoom disabled
+  // unless the visual zoom limits allow a range; 1..3 matches a typical
+  // mobile-web pinch range. Pages that set user-scalable=no still refuse it.
+  void webContents.setVisualZoomLevelLimits(1, LENS_PINCH_MAX_VISUAL_ZOOM).catch(() => undefined);
 
   /*
    * Silent until someone looks at it.
