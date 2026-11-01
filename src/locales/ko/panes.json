@@ -11,7 +11,9 @@
     "newTerminal": "새 터미널",
     "newLens": "새 Lens",
     "paneOptions": "패널 옵션",
-    "taskHistory": "작업 기록"
+    "taskHistory": "작업 기록",
+    "moreTasks_other": "작업 {{count}}개 더 보기",
+    "moreTabs_other": "탭 {{count}}개 더 보기"
   },
   "paneNewTab": {
     "launchPreset": "새 작업: {{label}}",

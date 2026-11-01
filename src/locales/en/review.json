@@ -11,7 +11,9 @@
     "switchLabel": "Conversation or Review",
     "switchHint": "Switch between the conversation and Review",
     "latestTurnChanges_one": "Latest turn: +{{added}} −{{removed}} in {{count}} file",
-    "latestTurnChanges_other": "Latest turn: +{{added}} −{{removed}} in {{count}} files"
+    "latestTurnChanges_other": "Latest turn: +{{added}} −{{removed}} in {{count}} files",
+    "reviewWithChanges_one": "Review · latest turn: +{{added}} −{{removed}} in {{count}} file",
+    "reviewWithChanges_other": "Review · latest turn: +{{added}} −{{removed}} in {{count}} files"
   },
   "taskStatus": {
     "working": "This task is still running.",

@@ -6,6 +6,7 @@ import { layoutShellStyles } from "@/components/layout/layout-shell.styles";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { IDockviewHeaderActionsProps } from "dockview-react";
 import { Ellipsis } from "lucide-react";
+import { useRef } from "react";
 import {
   Button,
   DropdownMenu,
@@ -16,6 +17,7 @@ import {
 import { dispatchOpenTaskHistory } from "@/components/panes/pane-surface-actions";
 import { PaneNewTabSplitButton } from "@/components/panes/PaneNewTabSplitButton";
 import { TaskPaneHeaderActions } from "@/components/panes/TaskPaneHeaderActions";
+import { useOverflowedTabsTrigger, usePaneHeaderCompact } from "@/components/panes/pane-header-layout";
 import { parsePanePanelId } from "@/lib/panes/types";
 
 /**
@@ -28,10 +30,15 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
   // The task this group shows, not the app's active task: with split panes
   // each group's actions act on its own tab.
   const shownSurface = props.activePanel ? parsePanePanelId(props.activePanel.id) : null;
+  const rootRef = useRef<HTMLDivElement>(null);
+  const compact = usePaneHeaderCompact(props.api);
+  useOverflowedTabsTrigger(rootRef, {
+    allTasks: props.panels.every((panel) => parsePanePanelId(panel.id)?.kind === "task"),
+  });
   return (
-    <div className={sx(styles.root)}>
+    <div className={sx(styles.root)} ref={rootRef}>
       {shownSurface?.kind === "task" && shownSurface.taskId ? (
-        <TaskPaneHeaderActions taskId={shownSurface.taskId} />
+        <TaskPaneHeaderActions taskId={shownSurface.taskId} compact={compact} />
       ) : null}
       <PaneNewTabSplitButton groupId={props.group.id} />
       <DropdownMenu>

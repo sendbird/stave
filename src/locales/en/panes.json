@@ -11,7 +11,11 @@
     "newTerminal": "New Terminal",
     "newLens": "New Lens",
     "paneOptions": "Pane options",
-    "taskHistory": "Task History"
+    "taskHistory": "Task History",
+    "moreTasks_one": "{{count}} more task",
+    "moreTasks_other": "{{count}} more tasks",
+    "moreTabs_one": "{{count}} more tab",
+    "moreTabs_other": "{{count}} more tabs"
   },
   "paneNewTab": {
     "launchPreset": "New task: {{label}}",

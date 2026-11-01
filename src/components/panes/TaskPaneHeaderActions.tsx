@@ -18,49 +18,72 @@ import { useTaskReviewModeStore, type TaskSurfaceMode } from "@/store/task-revie
  * changed, the scope it opens on. The side question lives with the composer
  * where a question is asked.
  */
-export function TaskPaneHeaderActions(props: { taskId: string }) {
+export function TaskPaneHeaderActions(props: {
+  taskId: string;
+  /**
+   * The group is narrow: the switch becomes two icon segments, each named in
+   * its tooltip and accessible name, so it never wraps over the tabs.
+   */
+  compact?: boolean;
+}) {
   useTranslation();
   const mode = useTaskReviewModeStore((state) => state.byTask[props.taskId]?.mode ?? "conversation");
   const changes = useLatestTurnChanges(props.taskId);
   // The shortcut as Settings has it now, shown as keycaps in the tooltip.
   const reviewShortcut = useShortcutHint("task.toggle-review");
   const reviewLabel = i18n.t("review:mode.review");
-  return (
-    <Tooltip
-      content={changes ? describeChanges(changes) : i18n.t("review:mode.switchHint")}
-      shortcut={reviewShortcut}
+  const toggle = (
+    <span
+      className={sx(layoutShellStyles.inlineFlex, styles.switch)}
+      data-compact={props.compact ? "true" : undefined}
+      data-testid="pane-header-mode-switch"
     >
-      <span className={sx(layoutShellStyles.inlineFlex)} data-testid="pane-header-mode-switch">
-        <ToggleGroup
-          aria-label={i18n.t("review:mode.switchLabel")}
-          density="compact"
-          value={[mode]}
-          items={[
-            {
-              value: "conversation",
-              icon: <MessageSquare aria-hidden />,
-              label: i18n.t("review:mode.conversation"),
-            },
-            {
-              value: "review",
-              icon: <GitCompareArrows aria-hidden />,
-              label: changes ? (
+      <ToggleGroup
+        aria-label={i18n.t("review:mode.switchLabel")}
+        density="compact"
+        iconOnly={props.compact}
+        value={[mode]}
+        items={[
+          {
+            value: "conversation",
+            icon: <MessageSquare aria-hidden />,
+            label: i18n.t("review:mode.conversation"),
+          },
+          {
+            value: "review",
+            icon: <GitCompareArrows aria-hidden />,
+            // Icon-only segments take their name from a string label, so the
+            // latest turn's counts move into that name.
+            label: props.compact
+              ? changes
+                ? i18n.t("review:mode.reviewWithChanges", { added: changes.added, removed: changes.removed, count: changes.files })
+                : reviewLabel
+              : changes ? (
                 <span className={sx(styles.reviewLabel)}>
                   {reviewLabel}
                   <ChangeCounts changes={changes} />
                 </span>
               ) : reviewLabel,
-            },
-          ]}
-          onValueChange={(next) => {
-            const target = next[0] as TaskSurfaceMode | undefined;
-            // Pressing the shown mode again keeps it: a switch is never empty.
-            if (!target || target === mode) return;
-            if (target === "review") openTaskReview(props.taskId);
-            else showTaskConversation(props.taskId);
-          }}
-        />
-      </span>
+          },
+        ]}
+        onValueChange={(next) => {
+          const target = next[0] as TaskSurfaceMode | undefined;
+          // Pressing the shown mode again keeps it: a switch is never empty.
+          if (!target || target === mode) return;
+          if (target === "review") openTaskReview(props.taskId);
+          else showTaskConversation(props.taskId);
+        }}
+      />
+    </span>
+  );
+  // Icon segments carry their own tooltips; a second one around the group
+  // would open two bubbles for one hover.
+  return props.compact ? toggle : (
+    <Tooltip
+      content={changes ? describeChanges(changes) : i18n.t("review:mode.switchHint")}
+      shortcut={reviewShortcut}
+    >
+      {toggle}
     </Tooltip>
   );
 }
@@ -79,6 +102,8 @@ function ChangeCounts(props: { changes: TurnChangeSummary }) {
 }
 
 const styles = stylex.create({
+  // The switch keeps its one line; the tab strip beside it is what yields.
+  switch: { flexShrink: 0, whiteSpace: "nowrap" },
   reviewLabel: {
     display: "inline-flex",
     alignItems: "baseline",
