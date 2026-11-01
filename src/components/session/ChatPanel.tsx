@@ -107,6 +107,7 @@ import { SessionLoadingState } from "./SessionLoadingState";
 import {
   AgentRunBubbleFrame,
   AgentRunPromptRow,
+  AgentRunStageCard,
   agentRunPromptLayout,
   useAgentRunPrompt,
 } from "@/components/agent-runs/AgentRunPrompt";
@@ -432,12 +433,13 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
       {message.role === "user" ? (
         <StageDivider taskId={taskId} turnId={startedTurnId} />
       ) : null}
-      <Message from={message.role}>
+      {/* A stage card is Stave's, so its turn sits on the agent's side. */}
+      <Message from={promptLayout.stage ? "assistant" : message.role}>
         <div
           className={sx(
             styles.shell,
             timeDetailsOpen && styles.shellDetailsOpen,
-            message.role === "assistant"
+            message.role === "assistant" || promptLayout.stage
               ? styles.shellAssistant
               : styles.shellUser,
           )}
@@ -476,8 +478,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               </MessageContent>
             </AgentRunBubbleFrame>
           ) : null}
+          {promptLayout.stage ? <AgentRunStageCard stage={promptLayout.stage} /> : null}
           {agentRunPrompt && promptLayout.row ? (
-            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} />
+            <AgentRunPromptRow text={agentRunPrompt.instructions} kind={promptLayout.row} align={promptLayout.stage ? "start" : "end"} />
           ) : null}
           {questionReply ? <QuestionReplyRow reply={questionReply} /> : null}
           {message.role === "user" && steerDeliveryLabel ? (
@@ -485,8 +488,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
           ) : null}
           <MessageActions
             className={sx(
-              message.role === "user" && styles.actionsUser,
-              message.role === "assistant" && styles.actionsAssistant,
+              message.role === "user" && !promptLayout.stage && styles.actionsUser,
+              (message.role === "assistant" || promptLayout.stage) && styles.actionsAssistant,
             )}
           >
             <div className={sx(styles.actionRow)}>

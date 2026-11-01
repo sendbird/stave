@@ -216,9 +216,12 @@ export function planAgentPromptSendForFit(args: {
 }
 
 /**
- * The user's own words from a run's first prompt. The prompt carries the
- * assignment under an "Assignment" heading among Stave's instructions; any
- * other prompt of the run (the reminder to report) has none, and null says so.
+ * The user's own words from a run's stage prompt. Every stage prompt carries
+ * the assignment under an "Assignment" heading among Stave's instructions, so
+ * this finds it for the first stage and the later ones alike (the transcript
+ * shows it as the user's bubble only for the first; `resolveAgentRunPromptStage`
+ * gives the later ones their stage card). A prompt of the run with no
+ * assignment (the reminder to report) returns null.
  */
 export function extractRunAssignment(prompt: string, assignment: string): string | null {
   const wanted = assignment.trim();

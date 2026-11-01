@@ -1432,7 +1432,12 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         ...(actionPrompt === undefined || userReply || reason === "repair-checks" ? { agentRunStage: identity } : {}),
         ...(reason === "resume-after-account-switch" ? { freshSession: true } : {}),
         ...(hasAgentOrigin(agentRun)
-          ? { agentRunPrompt: { agentRunId: agentRun.id, assignment: extractRunAssignment(prompt, agentRun.assignment) } }
+          ? { agentRunPrompt: {
+              agentRunId: agentRun.id,
+              assignment: extractRunAssignment(prompt, agentRun.assignment),
+              stageIndex: started.agentRun.currentStageIndex,
+              stageId: identity.stageId,
+            } }
           : {}),
       });
       turnIdsFor(agentRun.id).add(turn.turnId);

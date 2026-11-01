@@ -11,6 +11,7 @@ import { AgentRunReportView } from "@/components/agent-runs/AgentRunReportView";
 import { SignOffCard } from "@/components/agent-runs/SignOffCard";
 import { EvidenceList } from "@/components/agent-runs/EvidenceList";
 import { StageDividerView } from "@/components/agent-runs/StageDivider";
+import { AgentRunPromptRow, AgentRunStageCard } from "@/components/agent-runs/AgentRunPrompt";
 import { FleetAgentRunStrip } from "@/components/agent-runs/FleetAgentRunStrip";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { WakeUpSectionView } from "@/components/agent-runs/WakeUpSection";
@@ -361,6 +362,9 @@ export function AgentRunPreview() {
           <div className={sx(styles.chat)}>
             <p className={sx(styles.message)}>Build is done. The table now scrolls inside its own container below 768px.</p>
             <StageDividerView text="Stage 3 · Verify — started automatically after Build reported done" />
+            {/* The turn Stave started for the stage: its card and the full prompt, never the user's bubble. */}
+            <AgentRunStageCard stage={{ index: 2, total: 3, title: "Verify", doneWhen: "The project checks pass and the table reads correctly at 375, 768 and 1280px.", instruction: "Run the project checks, then look at the billing table at 375, 768 and 1280px and report what you saw." }} />
+            <AgentRunPromptRow text={"# Implementer — Stage 3 of 3: Verify\n\n## Assignment\n\nFix the billing table overflow on narrow screens."} kind="assignment" align="start" />
             <p className={sx(styles.message)}>Running the project checks, then a visual pass at 375, 768 and 1280px.</p>
             <div className={sx(styles.composerStack)}>
               <ComposerShelfSurface><AgentRunBarView detail={live} nowPhrase="Running the tests" now={now} reducedMotion={false} actions={actions} /></ComposerShelfSurface>

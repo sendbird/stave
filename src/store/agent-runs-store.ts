@@ -396,6 +396,38 @@ export function selectAgentRunForTurn(
   return null;
 }
 
+/**
+ * The detail (events included) of the agent run that started a turn of the
+ * task, or null; the stored object, so it is safe as a selector result. For a
+ * row without the host's mark, whose stage is read from `turn-linked`.
+ */
+export function selectAgentRunDetailForTurn(
+  state: Pick<AgentRunsState, "agentRunIdsByTask" | "dividersByAgentRun" | "details">,
+  workspaceId: string,
+  taskId: string,
+  turnId: string | undefined,
+): AgentRunDetail | null {
+  if (!turnId) return null;
+  for (const id of state.agentRunIdsByTask[agentRunTaskKey(workspaceId, taskId)] ?? []) {
+    if (!state.dividersByAgentRun[id]?.has(turnId)) continue;
+    const detail = state.details[id];
+    return detail && hasAgentOrigin(detail.agentRun) ? detail : null;
+  }
+  return null;
+}
+
+export function useAgentRunDetailForTurn(workspaceId: string, taskId: string, turnId: string | undefined) {
+  return useAgentRunsStore((state) => selectAgentRunDetailForTurn(state, workspaceId, taskId, turnId));
+}
+
+/** The agent run a marked row names, or null until its detail is loaded. */
+export function useAgentRunById(agentRunId: string | undefined): AgentRun | null {
+  return useAgentRunsStore((state) => {
+    const agentRun = agentRunId ? state.details[agentRunId]?.agentRun : undefined;
+    return agentRun && hasAgentOrigin(agentRun) ? agentRun : null;
+  });
+}
+
 export function useAgentRunForTurn(workspaceId: string, taskId: string, turnId: string | undefined) {
   return useAgentRunsStore((state) => selectAgentRunForTurn(state, workspaceId, taskId, turnId));
 }

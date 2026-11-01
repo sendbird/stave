@@ -125,7 +125,9 @@
     "label": "에이전트에 보낸 전체 프롬프트",
     "followUp": "Stave가 에이전트에 보낸 후속 지시",
     "pending": "에이전트에 보낼 프롬프트 준비 중…",
-    "copy": "프롬프트 복사"
+    "copy": "프롬프트 복사",
+    "stageTitle": "{{total}}단계 중 {{index}}단계 · {{title}}",
+    "stageDoneWhen": "완료 조건: {{value}}"
   },
   "agentRunReportView": {
     "title": "실행 완료됨",

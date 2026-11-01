@@ -125,7 +125,9 @@
     "label": "Full prompt sent to the agent",
     "followUp": "Stave's follow-up to the agent",
     "pending": "Preparing the prompt for the agent…",
-    "copy": "Copy prompt"
+    "copy": "Copy prompt",
+    "stageTitle": "Stage {{index}} of {{total}} · {{title}}",
+    "stageDoneWhen": "Done when: {{value}}"
   },
   "agentRunReportView": {
     "title": "Run complete",

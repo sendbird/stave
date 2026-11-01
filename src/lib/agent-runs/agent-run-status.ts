@@ -21,7 +21,7 @@ import type { AgentRunPromptProvenance, ChatMessage } from "@/types/chat";
 import { extractRunAssignment, hasAgentOrigin } from "./agent-run";
 import type { AgentRunDetail } from "./api";
 import { collectAcceptanceCriteria } from "./briefing";
-import { isActiveAgentRunState, latestStageRecord, type AgentRunStopReason, type StagePlan } from "./domain";
+import { isActiveAgentRunState, latestStageRecord, type AgentRun, type AgentRunStopReason, type StagePlan } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import { inheritedWorkspaceChecks, inheritedWorkspaceCheckProgress, inheritedWorkspaceCheckRevision, workspaceCheckMet, workspaceCheckMode, workspaceCheckProgress, workspaceCheckRevision, workspaceCheckRevisionMatches, type WorkspaceCheckProgress } from "./workspace-check";
 import { type AgentRunBadgeTone, type StageState } from "./agent-run-view";
@@ -486,11 +486,58 @@ export function selectAgentRunCard(args: {
 }
 
 /** A user bubble of an agent run: the user's words and the compiled prompt folded under them. */
+/** A stage after the first that a run turn ran, for Stave's stage card in the transcript. */
+export interface AgentRunPromptStage {
+  /** Position in the workflow, 0-based. */
+  index: number;
+  total: number;
+  title: string;
+  doneWhen: string;
+  instruction: string;
+}
+
 export interface AgentRunPromptView {
   /** The assignment as the user wrote it; null for a prompt that carries none. */
   assignment: string | null;
   /** The whole compiled prompt, for the disclosure; null while the run has not written it. */
   instructions: string | null;
+  /**
+   * The stage this turn started when it is not the workflow's first: the host
+   * draws Stave's stage card instead of repeating the assignment as the
+   * user's bubble. Null for the first stage, a follow-up, or an unlinked turn.
+   */
+  stage: AgentRunPromptStage | null;
+}
+
+/**
+ * The stage a run turn ran, when it is not the first. A marked row names it;
+ * an older row is found through the run's `turn-linked` event for the turn.
+ * Null for the first stage (the row shows the user's own words), an action
+ * stage, or a turn the run has not linked.
+ */
+export function resolveAgentRunPromptStage(args: {
+  run: Pick<AgentRun, "workflow"> | null | undefined;
+  provenance?: Pick<AgentRunPromptProvenance, "stageIndex" | "stageId"> | null;
+  turnId?: string;
+  events?: AgentRunDetail["events"];
+}): AgentRunPromptStage | null {
+  const stages = args.run?.workflow.stages;
+  if (!stages) return null;
+  let stageId = args.provenance?.stageId ?? null;
+  let index = typeof args.provenance?.stageIndex === "number" ? args.provenance.stageIndex : -1;
+  if (stageId === null && index < 0 && args.turnId) {
+    for (const event of args.events ?? []) {
+      if (event.kind === "turn-linked" && event.detail.turnId === args.turnId && typeof event.detail.stageId === "string") {
+        stageId = event.detail.stageId;
+        break;
+      }
+    }
+  }
+  if (stageId !== null) index = stages.findIndex((stage) => stage.id === stageId);
+  if (index <= 0) return null;
+  const stage = stages[index];
+  if (!stage || stage.kind !== "ai") return null;
+  return { index, total: stages.length, title: getStageDisplayTitle(stage), doneWhen: stage.doneWhen, instruction: stage.instruction };
 }
 
 /**
@@ -506,16 +553,24 @@ export function resolveAgentRunPrompt(args: {
   provenance?: AgentRunPromptProvenance | null;
   runAssignment?: string | null;
   pending?: boolean;
+  /** The stage the turn ran when it is not the first (`resolveAgentRunPromptStage`). */
+  stage?: AgentRunPromptStage | null;
 }): AgentRunPromptView | null {
   if (args.pending) {
     // A send with no words (attachments only) has nothing to split: it stays
     // the user's own message rather than read as a prompt from Stave.
     const assignment = args.text.trim();
-    return assignment ? { assignment, instructions: null } : null;
+    return assignment ? { assignment, instructions: null, stage: null } : null;
   }
-  if (args.provenance) return { assignment: args.provenance.assignment?.trim() || null, instructions: args.text };
+  // Only a stage prompt carries the assignment; a follow-up has no stage card.
+  const withStage = (assignment: string | null): AgentRunPromptView => ({
+    assignment,
+    instructions: args.text,
+    stage: assignment ? (args.stage ?? null) : null,
+  });
+  if (args.provenance) return withStage(args.provenance.assignment?.trim() || null);
   if (typeof args.runAssignment === "string") {
-    return { assignment: extractRunAssignment(args.text, args.runAssignment), instructions: args.text };
+    return withStage(extractRunAssignment(args.text, args.runAssignment));
   }
   return null;
 }

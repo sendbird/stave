@@ -14,6 +14,7 @@ import {
   extractRunAssignment,
   resolveAgentRunFirstPrompt,
   resolveAgentRunPrompt,
+  resolveAgentRunPromptStage,
 } from "../src/lib/agent-runs/agent-run-status";
 import { compileAgentRunStagePrompt, buildStageNudgePrompt } from "../src/lib/agent-runs/briefing";
 import { describeAgentRunNotification } from "../src/lib/agent-runs/notifications";
@@ -169,12 +170,44 @@ describe("agent run prompt", () => {
   test("a row the host marked splits from its first frame, without the run loaded", () => {
     const prompt = compileAgentRunStagePrompt({ agentRun: runs.working.agentRun, stages: runs.working.stages });
     const provenance = { agentRunId: runs.working.agentRun.id, assignment: AGENT_RUN_ASSIGNMENT };
-    expect(resolveAgentRunPrompt({ text: prompt, provenance })).toEqual({ assignment: AGENT_RUN_ASSIGNMENT, instructions: prompt });
-    // The reminder to report carries no assignment: only the folded instructions.
-    expect(resolveAgentRunPrompt({ text: "Report the stage.", provenance: { agentRunId: "run-1", assignment: null } })).toEqual({
+    expect(resolveAgentRunPrompt({ text: prompt, provenance })).toEqual({ assignment: AGENT_RUN_ASSIGNMENT, instructions: prompt, stage: null });
+    // The reminder to report carries no assignment: only the folded instructions, and never a stage card.
+    const stage = { index: 1, total: 3, title: "Review", doneWhen: "Done.", instruction: "Review it." };
+    expect(resolveAgentRunPrompt({ text: "Report the stage.", provenance: { agentRunId: "run-1", assignment: null }, stage })).toEqual({
       assignment: null,
       instructions: "Report the stage.",
+      stage: null,
     });
+    // A stage prompt after the first keeps the assignment for the full prompt row and names its stage for the card.
+    expect(resolveAgentRunPrompt({ text: prompt, provenance: { ...provenance, stageIndex: 1, stageId: "review" }, stage })).toEqual({
+      assignment: AGENT_RUN_ASSIGNMENT,
+      instructions: prompt,
+      stage,
+    });
+  });
+
+  test("the stage of a run turn: from the row's mark, else from the run's turn-linked event; never the first stage", () => {
+    const stages = [
+      { id: "work", title: "Work", kind: "ai" as const, instruction: "Do it.", doneWhen: "Done." },
+      { id: "review", title: "Review", kind: "ai" as const, instruction: "Review it.", doneWhen: "Reviewed." },
+      { id: "open-draft-pr", title: "Open draft PR", kind: "action" as const, action: { type: "open-draft-pr" as const } },
+    ];
+    const run = { workflow: { ...runs.working.agentRun.workflow, stages } } as unknown as Parameters<typeof resolveAgentRunPromptStage>[0]["run"];
+    const review = { index: 1, total: 3, title: i18n.t("agentRuns:builtinStages.review"), doneWhen: "Reviewed.", instruction: "Review it." };
+    // The mark names the stage; its id wins over the index when both are present.
+    expect(resolveAgentRunPromptStage({ run, provenance: { stageIndex: 1, stageId: "review" } })).toEqual(review);
+    expect(resolveAgentRunPromptStage({ run, provenance: { stageIndex: 1 } })).toEqual(review);
+    // The first stage shows the user's words, not a card; an action stage has no card either.
+    expect(resolveAgentRunPromptStage({ run, provenance: { stageIndex: 0, stageId: "work" } })).toBeNull();
+    expect(resolveAgentRunPromptStage({ run, provenance: { stageIndex: 2, stageId: "open-draft-pr" } })).toBeNull();
+    // An older row without the mark: the run's turn-linked event for its turn names the stage.
+    const linked = (stageId: string, turnId: string) => ({ ...runs.working.events[0]!, kind: "turn-linked" as const, detail: { stageId, attempt: 1, turnId } });
+    const events = [linked("work", "turn-1"), linked("review", "turn-2")];
+    expect(resolveAgentRunPromptStage({ run, turnId: "turn-2", events })).toEqual(review);
+    expect(resolveAgentRunPromptStage({ run, turnId: "turn-1", events })).toBeNull();
+    expect(resolveAgentRunPromptStage({ run, turnId: "turn-9", events })).toBeNull();
+    // No run loaded yet: no card, so the row falls back to the bubble until it is.
+    expect(resolveAgentRunPromptStage({ run: null, provenance: { stageIndex: 1, stageId: "review" } })).toBeNull();
   });
 
   test("an older row without the mark is found through its run; a plain message is not a run prompt", () => {
@@ -182,13 +215,14 @@ describe("agent run prompt", () => {
     expect(resolveAgentRunPrompt({ text: prompt, runAssignment: AGENT_RUN_ASSIGNMENT })).toEqual({
       assignment: AGENT_RUN_ASSIGNMENT,
       instructions: prompt,
+      stage: null,
     });
     expect(resolveAgentRunPrompt({ text: "Hello" })).toBeNull();
     expect(resolveAgentRunPrompt({ text: "Hello", runAssignment: null })).toBeNull();
   });
 
   test("a send still waiting on its run draws the assignment, its instructions to come", () => {
-    expect(resolveAgentRunPrompt({ text: " Add CSV export. ", pending: true })).toEqual({ assignment: "Add CSV export.", instructions: null });
+    expect(resolveAgentRunPrompt({ text: " Add CSV export. ", pending: true })).toEqual({ assignment: "Add CSV export.", instructions: null, stage: null });
     // A blank send keeps its own body instead of reading as Stave's follow-up.
     expect(resolveAgentRunPrompt({ text: "  ", pending: true })).toBeNull();
   });
