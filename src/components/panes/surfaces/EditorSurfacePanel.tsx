@@ -1182,6 +1182,7 @@ function EditorTabSurface({
               data-testid="editor-html-preview"
               content={tab.content}
               frameTitle={imageName}
+              onSaveShortcut={performSave}
             />
           ) : showPreview ? (
             <EditorMarkdownPreview

@@ -5,7 +5,9 @@ import { EditorHtmlPreview } from "@/components/layout/editor-html-preview";
 import {
   HTML_FILE_PREVIEW_CSP,
   HTML_FILE_PREVIEW_FRAME_SANDBOX,
+  HTML_FILE_PREVIEW_SAVE_MESSAGE,
   buildHtmlFilePreviewDocument,
+  isHtmlFilePreviewSaveMessage,
 } from "@/lib/editor/html-file-preview";
 
 describe("buildHtmlFilePreviewDocument", () => {
@@ -18,6 +20,19 @@ describe("buildHtmlFilePreviewDocument", () => {
       document.indexOf("window.x=1"),
     );
     expect(document).toContain("<body><p>Hi</p></body>");
+  });
+
+  test("runs the frame script, which posts the save shortcut, before the page's markup", () => {
+    const document = buildHtmlFilePreviewDocument("<!doctype html><p id=page>Hi</p>");
+    expect(document).toContain(`postMessage({type:${JSON.stringify(HTML_FILE_PREVIEW_SAVE_MESSAGE)}}`);
+    expect(document.indexOf("postMessage")).toBeLessThan(document.indexOf("<p id=page>"));
+  });
+
+  test("recognises only the save message", () => {
+    expect(isHtmlFilePreviewSaveMessage({ type: HTML_FILE_PREVIEW_SAVE_MESSAGE })).toBe(true);
+    expect(isHtmlFilePreviewSaveMessage({ type: "other" })).toBe(false);
+    expect(isHtmlFilePreviewSaveMessage(HTML_FILE_PREVIEW_SAVE_MESSAGE)).toBe(false);
+    expect(isHtmlFilePreviewSaveMessage(null)).toBe(false);
   });
 
   test("does not add a doctype a fragment did not have", () => {

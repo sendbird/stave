@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { expect, test, type Page } from "@playwright/test";
@@ -105,8 +105,82 @@ test("an HTML file renders as a page, keeps its mode per tab, and cannot replace
         { timeout: 15_000 },
       )
       .toBe("source");
+
+    // An edit made in source saves with Cmd/Ctrl+S while the preview holds
+    // focus: the key never reaches the app window, so the frame passes it up.
+    await page.locator('[data-testid="editor-surface"] .monaco-editor .view-lines').first().click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type('<p id="added">Added line</p>');
+    await page.getByTestId("editor-html-preview-toggle").first().click();
+    const nextFrame = page.frameLocator('iframe[title="next.html"]');
+    await expect(nextFrame.locator("#added")).toHaveText("Added line");
+    await nextFrame.locator("#title").click();
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect
+      .poll(() => readFile(path.join(repositoryPath, "next.html"), "utf8"), { timeout: 15_000 })
+      .toContain('<p id="added">Added line</p>');
   } finally {
     await stave.close();
     await rm(repositoryPath, { recursive: true, force: true });
+  }
+});
+
+test("each HTML tab's mode comes back after a restart", async () => {
+  test.setTimeout(240_000);
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-html-restart-"));
+  const profileDir = await mkdtemp(path.join(tmpdir(), "stave-html-restart-profile-"));
+  await writeFile(path.join(repositoryPath, "a.html"), "<!doctype html><h1 id=\"title\">Page A</h1>");
+  await writeFile(path.join(repositoryPath, "b.html"), "<!doctype html><h1 id=\"title\">Page B</h1>");
+  execFileSync("git", ["init", "-q", "-b", "main", repositoryPath]);
+  try {
+    const first = await launchStave({ userDataDir: profileDir });
+    try {
+      const { page } = first;
+      await seedRepository(page, { repositoryPath });
+      await page.getByRole("button", { name: "Explorer", exact: true }).click();
+      // a.html: opened in preview, switched to source.
+      await openFromExplorer(page, "a.html");
+      await expect(page.frameLocator('iframe[title="a.html"]').locator("#title")).toHaveText("Page A", { timeout: 30_000 });
+      await page.getByTestId("editor-html-preview-toggle").first().click();
+      await expect(page.locator('iframe[title="a.html"]')).toHaveCount(0);
+      // b.html: opened in source (the last pick), switched to preview.
+      await openFromExplorer(page, "b.html");
+      await expect(page.locator('.dv-tab.dv-active-tab [data-pane-tab-chip="editor:file:b.html"]')).toBeVisible();
+      await page.getByTestId("editor-html-preview-toggle").first().click();
+      await expect(page.frameLocator('iframe[title="b.html"]').locator("#title")).toHaveText("Page B");
+
+      // Wait until main has the workspace with both modes.
+      await expect
+        .poll(
+          () =>
+            page.evaluate(async () => {
+              const result = await window.api.persistence?.loadWorkspaceShell?.({ workspaceId: "ws-e2e" });
+              const tabs = (result?.shell?.editorTabs ?? []) as Array<{ id: string; htmlViewMode?: string }>;
+              return Object.fromEntries(tabs.map((tab) => [tab.id, tab.htmlViewMode ?? null]));
+            }),
+          { timeout: 30_000 },
+        )
+        .toMatchObject({ "file:a.html": "source", "file:b.html": "preview" });
+    } finally {
+      await first.close();
+    }
+
+    const second = await launchStave({ userDataDir: profileDir });
+    try {
+      const { page } = second;
+      const tabA = page.locator('.dv-tab [data-pane-tab-chip="editor:file:a.html"]');
+      await expect(tabA).toBeVisible({ timeout: 60_000 });
+      await tabA.click();
+      await expect(page.locator('.dv-tab.dv-active-tab [data-pane-tab-chip="editor:file:a.html"]')).toBeVisible();
+      await expect(page.getByTestId("editor-html-preview-toggle").first()).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator('iframe[title="a.html"]')).toHaveCount(0);
+      await page.locator('.dv-tab [data-pane-tab-chip="editor:file:b.html"]').click();
+      await expect(page.frameLocator('iframe[title="b.html"]').locator("#title")).toHaveText("Page B", { timeout: 30_000 });
+    } finally {
+      await second.close();
+    }
+  } finally {
+    await rm(repositoryPath, { recursive: true, force: true });
+    await rm(profileDir, { recursive: true, force: true });
   }
 });

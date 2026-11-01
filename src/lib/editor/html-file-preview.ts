@@ -8,8 +8,8 @@
  * the file in a browser (`open`), since the user chose to view this file.
  *
  * The page is shown as written: no padding, theme, or bootstrap of the
- * inline render frame. Only a `<meta>` CSP and a link guard go ahead of the
- * page's own markup.
+ * inline render frame. Only a `<meta>` CSP and a small frame script (link
+ * guard, save shortcut) go ahead of the page's own markup.
  */
 
 import {
@@ -24,10 +24,22 @@ export const HTML_FILE_PREVIEW_CSP = buildInlineRenderCsp("open", {
   delivery: "meta",
 });
 
+/** The message type the frame posts for Cmd/Ctrl+S. */
+export const HTML_FILE_PREVIEW_SAVE_MESSAGE = "stave:html-file-preview:save";
+
+/** Whether `data` is the frame's save request. */
+export function isHtmlFilePreviewSaveMessage(data: unknown): boolean {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    (data as { type?: unknown }).type === HTML_FILE_PREVIEW_SAVE_MESSAGE
+  );
+}
+
 /**
  * A srcdoc document resolves links against the app's own URL, so following
  * any link (even `#section`) would load another page, or the app itself, in
- * the preview. Two listeners keep the preview on the file:
+ * the preview. Two click listeners keep the preview on the file:
  *
  * - A link that leaves the page is cancelled in the capture phase on
  *   `window`, ahead of every page handler, so a handler that stops
@@ -37,9 +49,19 @@ export const HTML_FILE_PREVIEW_CSP = buildInlineRenderCsp("open", {
  *   unless one of them already cancelled the click (a tab widget on
  *   `href="#"`). It moves within the srcdoc document through `location.hash`,
  *   so the browser scrolls and `hashchange` fires as it would in a tab.
+ *
+ * Key events stay inside the frame, so the save shortcut is passed up as the
+ * one message the frame sends (`HTML_FILE_PREVIEW_SAVE_MESSAGE`). The host
+ * honours it only while the frame holds focus, so a page script cannot save
+ * the tab while the user is working elsewhere.
  */
-const LINK_GUARD_SCRIPT = [
+const FRAME_SCRIPT = [
   "(function(){",
+  'window.addEventListener("keydown",function(e){',
+  'if(!(e.metaKey||e.ctrlKey)||(e.key||"").toLowerCase()!=="s")return;',
+  "e.preventDefault();",
+  `parent.postMessage({type:${JSON.stringify(HTML_FILE_PREVIEW_SAVE_MESSAGE)}},"*");`,
+  "},true);",
   'function link(e){var t=e.target;return t&&t.closest?t.closest("a[href],area[href]"):null}',
   'function fragment(a){var h=a.getAttribute("href")||"";return h.charAt(0)==="#"?h:null}',
   'window.addEventListener("click",function(e){var a=link(e);if(a&&fragment(a)===null)e.preventDefault()},true);',
@@ -80,7 +102,7 @@ export function buildHtmlFilePreviewDocument(html: string): string {
     : html.replace(/^\uFEFF/, "");
   const head = [
     `<meta http-equiv="Content-Security-Policy" content="${escapeAttribute(HTML_FILE_PREVIEW_CSP)}">`,
-    `<script>${LINK_GUARD_SCRIPT}</script>`,
+    `<script>${FRAME_SCRIPT}</script>`,
   ].join("");
   return `${doctype}${head}${rest}`;
 }

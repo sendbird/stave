@@ -68,10 +68,14 @@ test("renders an HTML file in an isolated frame that cannot navigate away", asyn
     host.id = "html-preview-host";
     host.style.cssText = "position: fixed; inset: 0; z-index: 10000;";
     document.body.append(host);
+    (window as unknown as { saves: number }).saves = 0;
     createRoot(host).render(React.createElement(EditorHtmlPreview, {
       content: html,
       frameTitle: "index.html",
       "data-testid": "editor-html-preview",
+      onSaveShortcut: () => {
+        (window as unknown as { saves: number }).saves += 1;
+      },
     }));
   }, { modules: MODULES, html: PAGE });
 
@@ -116,6 +120,20 @@ test("renders an HTML file in an isolated frame that cannot navigate away", asyn
   await expect(frame.locator("#widget-state")).toHaveText("widget toggled");
   expect(frameUrl()).toBe("about:srcdoc#bottom");
   await expect(frame.locator("#hash-count")).toHaveText("1");
+
+  // Cmd/Ctrl+S inside the page reaches the editor's save.
+  const saves = () => page.evaluate(() => (window as unknown as { saves: number }).saves);
+  await frame.locator("#title").click();
+  await page.keyboard.press("ControlOrMeta+s");
+  await expect.poll(saves).toBe(1);
+
+  // A page script cannot save while the user's focus is elsewhere.
+  await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+  await frame.locator("body").evaluate((_body, type) => {
+    window.parent.postMessage({ type }, "*");
+  }, "stave:html-file-preview:save");
+  await page.waitForTimeout(200);
+  expect(await saves()).toBe(1);
 });
 
 test("labels the toolbar toggle for HTML", async ({ page }) => {

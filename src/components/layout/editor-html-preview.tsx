@@ -1,16 +1,19 @@
 import * as stylex from "@stylexjs/stylex";
 import type { HTMLAttributes } from "react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   HTML_FILE_PREVIEW_FRAME_SANDBOX,
   buildHtmlFilePreviewDocument,
+  isHtmlFilePreviewSaveMessage,
 } from "@/lib/editor/html-file-preview";
 
 interface EditorHtmlPreviewProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
   /** The frame's accessible name, usually the file name. */
   frameTitle: string;
+  /** Cmd/Ctrl+S pressed while the page holds focus. */
+  onSaveShortcut?: () => void;
 }
 
 /**
@@ -21,14 +24,39 @@ interface EditorHtmlPreviewProps extends HTMLAttributes<HTMLDivElement> {
 export function EditorHtmlPreview({
   content,
   frameTitle,
+  onSaveShortcut,
   className,
   ...props
 }: EditorHtmlPreviewProps) {
   const srcDoc = useMemo(() => buildHtmlFilePreviewDocument(content), [content]);
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const onSaveShortcutRef = useRef(onSaveShortcut);
+  onSaveShortcutRef.current = onSaveShortcut;
+
+  // Key events stay inside the frame, so it posts the save shortcut up. Only
+  // this frame's message counts, and only while it holds focus: a page script
+  // cannot trigger a save while the user is elsewhere.
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const frame = frameRef.current;
+      if (
+        !frame ||
+        event.source !== frame.contentWindow ||
+        document.activeElement !== frame ||
+        !isHtmlFilePreviewSaveMessage(event.data)
+      ) {
+        return;
+      }
+      onSaveShortcutRef.current?.();
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
 
   return (
     <div className={cx(sx(styles.root), className)} {...props}>
       <iframe
+        ref={frameRef}
         title={frameTitle}
         srcDoc={srcDoc}
         sandbox={HTML_FILE_PREVIEW_FRAME_SANDBOX}
