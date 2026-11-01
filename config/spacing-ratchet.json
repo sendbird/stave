@@ -1,7 +1,7 @@
 {
   "version": 2,
   "description": "Existing literal spacing declarations. New or changed declarations must use ADS space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
-  "total": 749,
+  "total": 748,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
       "styles.identityText.gap = 2": 1,
@@ -762,9 +762,6 @@
       "workspaceTurnSummaryStyles.entryLabel.gap = 6": 1,
       "workspaceTurnSummaryStyles.entryBody.paddingInlineStart = 22": 1,
       "workspaceTurnSummaryStyles.modelRow.paddingInlineStart = 22": 1
-    },
-    "src/components/panes/PaneTabChip.styles.ts": {
-      "paneTabChipStyles.root.gap = 6": 1
     },
     "src/components/panes/PaneWatermark.tsx": {
       "styles.actions.gap = 8": 1

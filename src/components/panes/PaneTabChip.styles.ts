@@ -66,7 +66,9 @@ export const paneTabChipStyles = stylex.create({
   root: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    // The 24px close target carries its own air around a 14px glyph, so the
+    // chip's gap is the 4px step: the tab keeps its width.
+    gap: vars["--ads-space-4"],
     height: "100%",
     minWidth: 0,
     paddingInline: vars["--ads-space-8"],
