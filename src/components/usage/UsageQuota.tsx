@@ -114,10 +114,19 @@ const resetTime = (resetsAt: number, timeZone: string) => formatDateTime(resetsA
 
 /** Countdown first, then the clock time it lands on, then how much of the window has passed. */
 function resetLine(row: QuotaObservation, state: QuotaWindowState, timeZone: string, now: number) {
-  const parts = [quotaResetCountdown(row.resetsAt, now)];
-  if (row.resetsAt !== null && !state.expired) parts.push(resetTime(row.resetsAt, timeZone));
-  if (state.elapsedRatio !== null) parts.push(i18n.t("usage:usageQuota.windowElapsed", { percent: formatPercent(state.elapsedRatio) }));
-  return parts.join(" · ");
+  return {
+    date: row.resetsAt !== null && !state.expired ? resetTime(row.resetsAt, timeZone) : null,
+    context: [quotaResetCountdown(row.resetsAt, now),
+      ...(state.elapsedRatio === null ? [] : [i18n.t("usage:usageQuota.windowElapsed", { percent: formatPercent(state.elapsedRatio) })])].join(" · "),
+  };
+}
+
+function ResetDetails(props: { row: QuotaObservation; state: QuotaWindowState; timeZone: string; now: number }) {
+  const reset = resetLine(props.row, props.state, props.timeZone, props.now);
+  return <div className={sx(styles.resetDetails)}>
+    {reset.date ? <strong className={sx(styles.resetDate)}>{reset.date}</strong> : null}
+    <p className={sx(styles.resetContext)}>{reset.context}</p>
+  </div>;
 }
 
 /** Pace in words; a projected run-out reads as a warning, a lasting pace as a note. */
@@ -152,7 +161,7 @@ function QuotaWindow(props: { row: QuotaObservation; profiles: readonly Provider
     <div className={sx(styles.quotaWindowHead)}><span>{row.label}</span>
       <strong className={sx(styles.number, TEXT_TONE[tone])}>{t("usage:messages.quotaRemaining", { percent: percent(state.remainingPercent) })}</strong></div>
     <QuotaMeter row={row} state={state} label={`${usageScopeLabel(row.providerId, row.accountProfileId, props.profiles)} · ${row.label}`} />
-    <p className={sx(styles.note)}>{resetLine(row, state, props.timeZone, props.now)}</p>
+    <ResetDetails row={row} state={state} timeZone={props.timeZone} now={props.now} />
     {pace ? <p className={sx(styles.note, TEXT_TONE[pace.tone])} title={t("usage:usageQuota.paceAssumption")}>{pace.text}</p> : null}
     <p className={sx(styles.note)} title={usageTimestamp(row.observedAt, props.timeZone)}>
       {t(state.stale || state.expired ? "usage:usageQuota.observedOlder" : "usage:usageQuota.observedAgo", { ago: formatTimeAgo(row.observedAt, props.now) })}</p>
@@ -171,7 +180,7 @@ function QuotaHeadline(props: { row: QuotaObservation; state: QuotaWindowState; 
     <div className={sx(styles.quotaWindowHead)}><span className={sx(styles.quotaHeadlineScope)}>{scope}</span>
       <strong className={sx(styles.value, styles.number, TEXT_TONE[tone])}>{t("usage:messages.quotaRemaining", { percent: percent(state.remainingPercent) })}</strong></div>
     <QuotaMeter row={row} state={state} label={scope} />
-    <p className={sx(styles.note)}>{resetLine(row, state, props.timeZone, props.now)}</p>
+    <ResetDetails row={row} state={state} timeZone={props.timeZone} now={props.now} />
     {pace ? <p className={sx(styles.headlinePace, TEXT_TONE[pace.tone])}>{pace.text}</p> : null}
     {state.pace && state.pace.kind !== "exhausted" ? <p className={sx(styles.note)}>{t("usage:usageQuota.paceAssumption")}</p> : null}
   </section>;
