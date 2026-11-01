@@ -574,9 +574,16 @@
     "chatInputApprovalQueue4": "Cancel",
     "chatInputApprovalQueue5": "guide instead",
     "sentence54": "always allow {{value1}}",
-    "sentence55": "+{{value1}} more queued",
-    "extraCopy143": "Another decision is being delivered.",
-    "enterToAllowOnce": "<key>↵</key> to allow once"
+    "extraCopy143": "Another decision is being delivered."
+  },
+  "composerApprovalRow": {
+    "groupLabel": "{{tool}} needs your approval: {{summary}}",
+    "groupLabelTool": "{{tool}} needs your approval",
+    "position": "{{index}} of {{count}}",
+    "previous": "Previous request",
+    "next": "Next request",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
   },
   "chatInputRuntime": {
     "formatGoalStatusValue": "usage limited",

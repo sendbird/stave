@@ -568,9 +568,16 @@
     "chatInputApprovalQueue4": "취소",
     "chatInputApprovalQueue5": "안내로 대체",
     "sentence54": "{{value1}} 항상 허용",
-    "sentence55": "추가 대기 항목 {{value1}}개",
-    "extraCopy143": "다른 결정을 전달하는 중입니다.",
-    "enterToAllowOnce": "<key>↵</key> 한 번 허용"
+    "extraCopy143": "다른 결정을 전달하는 중입니다."
+  },
+  "composerApprovalRow": {
+    "groupLabel": "{{tool}} 승인 필요: {{summary}}",
+    "groupLabelTool": "{{tool}} 승인 필요",
+    "position": "{{count}}개 중 {{index}}번째",
+    "previous": "이전 요청",
+    "next": "다음 요청",
+    "showDetails": "세부 정보 보기",
+    "hideDetails": "세부 정보 숨기기"
   },
   "chatInputRuntime": {
     "formatGoalStatusValue": "사용 한도 도달",

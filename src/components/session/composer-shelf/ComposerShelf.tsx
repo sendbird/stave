@@ -84,6 +84,12 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
   draftPromptFit?: AgentRunPromptFit;
   draftFilePaths?: number;
   draftContextAttachments?: number;
+  /**
+   * The composer's approval row is showing this turn's request. The turn is
+   * waiting on that row, which already says so with its decisions, so the
+   * turn's own line steps aside instead of repeating it above the composer.
+   */
+  approvalShown?: boolean;
 }) {
   useTranslation();
   const taskId = useScopedTaskId();
@@ -102,6 +108,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     agentRunActive: agentRun != null,
     turnVisible: turnProps != null,
   });
+  const runRowSource = props.approvalShown && runSource === "turn" ? null : runSource;
   const queueCount = props.queue?.items.length ?? 0;
   const usageLimitPause = useAppStore((state) => state.usageLimitPauseByTask[taskId]);
   const resumePausedTaskWork = useAppStore((state) => state.resumePausedTaskWork);
@@ -125,7 +132,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
     [props.draftFilePaths, props.draftContextAttachments],
   );
   const rows = selectComposerShelfRows({
-    run: runSource,
+    run: runRowSource,
     queueCount,
     limited,
     reviewCount,
@@ -240,7 +247,7 @@ export const ComposerShelf = memo(function ComposerShelf(props: {
           <RunStartNotice taskId={taskId} attachments={runStartAttachments} />
         </ShelfRow>
       ) : null}
-      {runSource ? (
+      {runRowSource ? (
         <ShelfRow joining={shownBefore.current} leaving={runSource === "turn" && turn.isLeaving && !surfaceLeaving}>
           {runSource === "agentRun" ? (
             <AgentRunBar

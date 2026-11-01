@@ -132,11 +132,16 @@ const answers = (page: Page) =>
 test("a queued approval answers its own request, not the message's latest", async ({ page }) => {
   await seedTwoApprovals(page);
   const queue = page.getByRole("region", { name: "Approval queue" });
-  // The latest request leads; the other one waits folded below it.
-  await expect(queue.locator('[data-approval-request-id="approval-b"]').first()).toBeVisible();
-  await queue.getByText("+1 more queued").click();
+  // The latest request leads; the other one is a step away, never a second card.
+  await expect(queue.locator('[data-approval-request-id="approval-b"]')).toBeVisible();
+  await expect(queue.locator("[data-approval-request-id]")).toHaveCount(1);
+  await expect(queue).toContainText("1 of 2");
+  await queue.getByRole("button", { name: "Next request" }).click();
   const queued = queue.locator('[data-approval-request-id="approval-a"]');
-  await expect(queued).toContainText("Read the environment file");
+  await expect(queued).toContainText("cat .env");
+  await expect(queue).toContainText("2 of 2");
+  await queue.getByRole("button", { name: "Show details" }).click();
+  await expect(queue).toContainText("Read the environment file");
   await queued.getByRole("button", { name: "Allow once" }).click();
 
   await expect.poll(() => answers(page)).toEqual([
@@ -144,6 +149,33 @@ test("a queued approval answers its own request, not the message's latest", asyn
   ]);
   // The request that was not chosen is still waiting.
   await expect(queue.locator('[data-approval-request-id="approval-b"]')).toBeVisible();
+});
+
+test("Enter allows the request the row was stepped to", async ({ page }) => {
+  await seedTwoApprovals(page);
+  const queue = page.getByRole("region", { name: "Approval queue" });
+  await queue.getByRole("button", { name: "Next request" }).click();
+  await expect(queue.locator('[data-approval-request-id="approval-a"]')).toBeVisible();
+  await page.locator("body").click({ position: { x: 900, y: 400 } });
+  await page.keyboard.press("Enter");
+  await expect.poll(() => answers(page)).toEqual([
+    expect.objectContaining({ requestId: "approval-a", approved: true }),
+  ]);
+});
+
+test("Tab opens guidance for the shown request", async ({ page }) => {
+  await seedApprovals(page, [APPROVAL_A]);
+  const queue = page.getByRole("region", { name: "Approval queue" });
+  await expect(queue.locator('[data-approval-request-id="approval-a"]')).toBeVisible();
+  await page.locator("body").click({ position: { x: 900, y: 400 } });
+  await page.keyboard.press("Tab");
+  const guidance = queue.getByPlaceholder("Instead of Bash, do this…");
+  await expect(guidance).toBeFocused();
+  await guidance.fill("Use the sample file");
+  await queue.getByRole("button", { name: "Deny & guide" }).click();
+  await expect.poll(() => answers(page)).toEqual([
+    expect.objectContaining({ requestId: "approval-a", approved: false }),
+  ]);
 });
 
 test("Enter allows the request on the leading card", async ({ page }) => {
@@ -161,6 +193,7 @@ test("guidance written for one request is never sent to another that arrives mea
   await seedApprovals(page, [APPROVAL_A]);
   const queue = page.getByRole("region", { name: "Approval queue" });
   await expect(queue.locator('[data-approval-request-id="approval-a"]')).toBeVisible();
+  await queue.getByRole("button", { name: "Show details" }).click();
   await queue.getByRole("button", { name: /guide instead/ }).click();
   const guidance = queue.getByPlaceholder("Instead of Bash, do this…");
   await guidance.fill("Read the example file instead");
@@ -193,7 +226,7 @@ test("guidance written for one request is never sent to another that arrives mea
       } as never;
     });
   }, APPROVAL_B);
-  await expect(queue.locator('[data-approval-request-id="approval-b"]').first()).toBeVisible();
+  await expect(queue.locator('[data-approval-request-id="approval-b"]')).toBeVisible();
 
   // The form was for the first request: it closes rather than deny the new one.
   await expect(guidance).toHaveCount(0);
@@ -204,7 +237,6 @@ test("guidance written for one request is never sent to another that arrives mea
   // and the guidance goes to the request it was written for.
   await queue
     .locator('[data-approval-request-id="approval-b"]')
-    .first()
     .getByRole("button", { name: "Allow once" })
     .click();
   await expect(guidance).toHaveValue("Read the example file instead");
