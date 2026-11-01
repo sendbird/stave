@@ -1411,6 +1411,10 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
           : reason === "resume-after-wait-expired" && priorWait
             ? buildWaitExpiredPrompt(started, priorWait)
             : compileAgentRunStagePrompt(started, deps.agentNames?.()));
+    // Starting attempts spend turns before dispatch, even when no user row
+    // lands. Only a linked prior turn makes this a continuation.
+    const isContinuation = store.listEventsByKind(agentRun.id, ["turn-linked"])
+      .some((event) => typeof event.detail.turnId === "string");
     try {
       const resumedDelegatedEffort = AgentResourceRequestObjectSchema.shape.effort.safeParse(resumeEffort?.claudeEffort ?? resumeEffort?.codexReasoningEffort).data;
       const runtimeOptions: ProviderRuntimeOptions = { ...(delegation ? buildDelegatedTaskRuntimeOptions({
@@ -1426,7 +1430,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
         taskId: agentRun.leadTaskId,
         ...(delegation ? { parentTaskId: delegation.parentTaskId } : {}),
         prompt,
-        initialContext: agentRun.initialContext?.questionReply && started.agentRun.turnCount > 1
+        initialContext: agentRun.initialContext?.questionReply && isContinuation
           ? { ...agentRun.initialContext, questionReply: undefined } : agentRun.initialContext,
         fingerprint: routed?.fingerprint ?? agentRun.fingerprint,
         runtimeOptions,
@@ -1440,7 +1444,7 @@ export function createAgentRunRuntime(deps: AgentRunRuntimeDependencies): AgentR
               agentRunId: agentRun.id,
               assignment: extractRunAssignment(prompt, agentRun.assignment),
               stageIndex: started.agentRun.currentStageIndex,
-              isContinuation: started.agentRun.turnCount > 1,
+              isContinuation,
               stageId: identity.stageId,
             } }
           : {}),
