@@ -262,6 +262,7 @@ properties.
 | hover / press            | `motionDurationFast`, `motionEaseStandard` (`transition.colors`) |
 | disclosure open          | `motionDurationEmphasis`, `motionEaseExpressive`         |
 | disclosure close         | `motionDurationQuick`, `motionEaseStandard`              |
+| turn trace open / close  | row track `motionDurationQuick`, `motionEaseExpressive`; content fade `motionDurationFast` |
 | chevron rotate + glyph swap | `motionDurationQuick`, `motionEaseExpressive`         |
 | step / trace entrance    | `motionDurationNormal`–`Emphasis`, `motionEaseStandard`/`Expressive` |
 | reasoning glyph pulse    | `motionDurationLoopSlow`, `motionEaseInOut`              |
