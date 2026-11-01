@@ -1,0 +1,140 @@
+import { expect, test, type Page } from "@playwright/test";
+
+/**
+ * The shell's chrome pairs line up: the tab strip starts right under the top
+ * bar (no preset row between them) and is as tall as the right panel's header
+ * beside it; the sidebar header matches the top bar. Workspace rows share one
+ * height in the repository tree and the Work queue, and a branch that only
+ * repeats the title is not shown.
+ */
+async function seed(page: Page) {
+  await page.addInitScript(() => {
+    const repositoryPath = "/tmp/stave-chrome";
+    const workspaces = [
+      { id: "ws-main", name: "main", updatedAt: "2026-10-31T00:00:00.000Z" },
+      { id: "ws-nav", name: "feat/navigation", updatedAt: "2026-10-31T00:00:00.000Z" },
+      { id: "ws-docs", name: "Docs pass", updatedAt: "2026-10-31T00:00:00.000Z" },
+    ];
+    const snapshot = {
+      activeTaskId: "task-a",
+      openTaskTabIds: ["task-a"],
+      activeSurface: { kind: "task", taskId: "task-a" },
+      tasks: [{ id: "task-a", title: "Chrome fixture", provider: "claude-code", updatedAt: "2026-10-31T00:00:00.000Z", unread: false, archivedAt: null }],
+      messagesByTask: { "task-a": [] },
+    };
+    window.localStorage.setItem(
+      "stave:workspace-fallback:v1",
+      JSON.stringify(workspaces.map((workspace, index) => ({ ...workspace, snapshot: index === 0 ? snapshot : { activeTaskId: "", tasks: [], messagesByTask: {} } }))),
+    );
+    window.localStorage.setItem(
+      "stave-store",
+      JSON.stringify({
+        state: {
+          repositoryPath,
+          repositoryName: "stave-chrome",
+          defaultBranch: "main",
+          workspaces,
+          activeWorkspaceId: "ws-main",
+          workspaceBranchById: { "ws-main": "main", "ws-nav": "feat/navigation", "ws-docs": "docs/settings-copy" },
+          workspacePathById: Object.fromEntries(workspaces.map((workspace) => [workspace.id, repositoryPath])),
+          workspaceDefaultById: { "ws-main": true },
+          settings: { autoRoutingEnabled: true },
+          ...snapshot,
+        },
+        version: 0,
+      }),
+    );
+  });
+}
+
+/** The browser build lists only the worktrees it finds, so restate the three after hydration. */
+async function restateWorkspaces(page: Page) {
+  await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    const workspaces = [
+      { id: "ws-main", name: "main", updatedAt: "2026-10-31T00:00:00.000Z" },
+      { id: "ws-nav", name: "feat/navigation", updatedAt: "2026-10-31T00:00:00.000Z" },
+      { id: "ws-docs", name: "Docs pass", updatedAt: "2026-10-31T00:00:00.000Z" },
+    ];
+    useAppStore.setState({
+      workspaces,
+      workspaceBranchById: { "ws-main": "main", "ws-nav": "feat/navigation", "ws-docs": "docs/settings-copy" },
+      workspacePathById: Object.fromEntries(workspaces.map((workspace) => [workspace.id, "/tmp/stave-chrome"])),
+      workspaceDefaultById: { "ws-main": true },
+    } as never);
+  });
+}
+
+async function rect(page: Page, selector: string) {
+  const box = await page.locator(selector).first().boundingBox();
+  expect(box, selector).not.toBeNull();
+  return box!;
+}
+
+test("the tab strip sits under the top bar and matches the right panel header", async ({ page }) => {
+  await seed(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByTestId("top-bar")).toBeVisible();
+  await expect(page.getByTestId("preset-launcher")).toBeVisible();
+  await expect(page.getByTestId("preset-bar")).toHaveCount(0);
+
+  const topBar = await rect(page, "[data-testid='top-bar']");
+  const sidebarChrome = await rect(page, "[data-testid='project-workspace-sidebar-chrome']");
+  const tabStrip = await rect(page, ".dv-tabs-and-actions-container");
+  expect(sidebarChrome.height).toBe(topBar.height);
+  expect(tabStrip.y).toBe(topBar.y + topBar.height);
+
+  await page.getByTestId("workspace-bar").getByRole("button", { name: "Source Control", exact: true }).click();
+  const panel = page.locator("[data-stave-right-panel][data-state='open']");
+  await expect(panel).toBeVisible();
+  const panelHeader = await rect(page, "[data-stave-right-panel] header");
+  expect(panelHeader.y).toBe(tabStrip.y);
+  expect(panelHeader.height).toBe(tabStrip.height);
+  // Opens at its default width without truncating its commit control.
+  expect(Math.round((await panel.boundingBox())!.width)).toBe(360);
+});
+
+test("workspace rows share one height in both views and hide a branch that repeats the title", async ({ page }) => {
+  await seed(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await expect(page.getByTestId("top-bar")).toBeVisible();
+  await restateWorkspaces(page);
+  const sidebar = page.getByTestId("project-workspace-sidebar");
+  await expect(sidebar.getByRole("button", { name: "Open workspace feat/navigation" })).toBeVisible();
+
+  const treeRows = await sidebar.locator("[aria-label^='Open workspace']").evaluateAll((elements) =>
+    elements.map((element) => ({
+      height: Math.round(element.parentElement!.getBoundingClientRect().height),
+      branch: element.querySelector("[data-workspace-row-branch]")?.textContent ?? null,
+    })),
+  );
+  expect(treeRows.map((row) => row.height)).toEqual([40, 40, 40]);
+  // Default names its branch; a branch-named worktree does not repeat it; a
+  // renamed one shows the branch it is on.
+  expect(treeRows.map((row) => row.branch)).toEqual(["main", null, "docs/settings-copy"]);
+
+  await page.getByTestId("sidebar-view-work-queue").click();
+  const queueRow = sidebar.locator("[data-testid^='active-workspace-']").first();
+  await expect(queueRow).toBeVisible();
+  expect(Math.round((await queueRow.boundingBox())!.height)).toBe(40);
+});
+
+test("a narrow window folds the sidebar to its rail; opening it there does not change the saved choice", async ({ page }) => {
+  await seed(page);
+  await page.setViewportSize({ width: 1100, height: 800 });
+  await page.goto("/");
+  const sidebar = page.getByTestId("project-workspace-sidebar");
+  await expect(sidebar).toBeVisible();
+  await expect.poll(async () => Math.round((await sidebar.boundingBox())!.width)).toBeLessThan(100);
+  await page.getByRole("button", { name: "Expand project list" }).click();
+  await expect.poll(async () => Math.round((await sidebar.boundingBox())!.width)).toBe(290);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect.poll(async () => Math.round((await sidebar.boundingBox())!.width)).toBe(290);
+  const saved = await page.evaluate(async () => {
+    const { useAppStore } = await import("/src/store/app.store.ts");
+    return useAppStore.getState().layout.workspaceSidebarCollapsed;
+  });
+  expect(saved).toBe(false);
+});
