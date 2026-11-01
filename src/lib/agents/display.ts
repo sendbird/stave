@@ -4,6 +4,7 @@ import { i18n } from "@/i18n/runtime";
 const BUILTIN_TEXT_KEYS = {
   "implementer": { name: "agents:builtins.implementer.name", description: "agents:builtins.implementer.description", avoidWhen: "agents:builtins.implementer.avoidWhen" },
   "lead": { name: "agents:builtins.lead.name", description: "agents:builtins.lead.description", avoidWhen: "agents:builtins.lead.avoidWhen" },
+  "supervisor": { name: "agents:builtins.supervisor.name", description: "agents:builtins.supervisor.description", avoidWhen: "agents:builtins.supervisor.avoidWhen" },
   "debugger": { name: "agents:builtins.debugger.name", description: "agents:builtins.debugger.description", avoidWhen: "agents:builtins.debugger.avoidWhen" },
   "ui-polisher": { name: "agents:builtins.uiPolisher.name", description: "agents:builtins.uiPolisher.description", avoidWhen: "agents:builtins.uiPolisher.avoidWhen" },
   "reviewer": { name: "agents:builtins.reviewer.name", description: "agents:builtins.reviewer.description", avoidWhen: "agents:builtins.reviewer.avoidWhen" },

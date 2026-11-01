@@ -18,6 +18,8 @@ describe("review before done", () => {
     expect(resolveReviewBeforeDone({ ...implementer(), reviewBeforeDone: "off" })).toBe("off");
     expect(resolveReviewBeforeDone(getBuiltinAgent(REVIEW_AGENT_ID)!)).toBe("off");
     expect(resolveReviewBeforeDone(getBuiltinAgent("lead")!)).toBe("off");
+    // Supervisor integrates its helpers' work itself, so its result gets the same final review as Implementer's.
+    expect(resolveReviewBeforeDone(getBuiltinAgent("supervisor")!)).toBe("behavior-changes");
     expect(resolveReviewBeforeDone(getBuiltinAgent("debugger")!)).toBe("off");
     expect(resolveReviewBeforeDone({ permission: undefined })).toBe("off");
   });

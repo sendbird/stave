@@ -7,9 +7,11 @@ import { getAgentDisplayName } from "@/lib/agents/display";
 import { importAgentFile } from "@/lib/agents/import";
 import { blankCustomAgent, duplicateAgent, listAgents, upsertCustomAgent } from "@/lib/agents/library";
 import { selectableMainAgents } from "@/lib/agents/selector-choice";
+import { getSdkModelOptions } from "@/lib/providers/model-catalog";
+import { isUsableAs } from "@/lib/agents/schema";
 import { BUILTIN_AGENTS, currentAgentId, getBuiltinAgent } from "@/lib/agents/starters";
 
-const ORDER = ["implementer", "lead", "debugger", "ui-polisher", "reviewer", "researcher", "shipper"];
+const ORDER = ["implementer", "lead", "supervisor", "debugger", "ui-polisher", "reviewer", "researcher", "shipper"];
 
 describe("built-in agents", () => {
   test("the selector lists them by expected use", () => {
@@ -28,7 +30,7 @@ describe("built-in agents", () => {
 
   test("reviewers and researchers cannot edit; the others can", () => {
     for (const id of ["reviewer", "researcher"]) expect(getBuiltinAgent(id)!.permission).toBe("read-only");
-    for (const id of ["implementer", "lead", "debugger", "ui-polisher", "shipper"]) {
+    for (const id of ["implementer", "lead", "supervisor", "debugger", "ui-polisher", "shipper"]) {
       expect(getBuiltinAgent(id)!.permission).not.toBe("read-only");
     }
   });
@@ -41,8 +43,11 @@ describe("built-in agents", () => {
     expect(getBuiltinAgent("lead")!.permission).toBe("auto");
   });
 
-  test("Lead may call every other general agent, and every call target exists", () => {
-    expect([...(getBuiltinAgent("lead")!.canCall ?? [])].sort()).toEqual(ORDER.filter((id) => id !== "lead").sort());
+  test("Lead and Supervisor may call every general agent that works as a delegated task, and every call target exists", () => {
+    const delegates = ORDER.filter((id) => isUsableAs(getBuiltinAgent(id)!, "delegate")).sort();
+    expect(delegates).not.toContain("lead");
+    expect(delegates).not.toContain("supervisor");
+    for (const id of ["lead", "supervisor"]) expect([...(getBuiltinAgent(id)!.canCall ?? [])].sort()).toEqual(delegates);
     for (const agent of BUILTIN_AGENTS) {
       for (const id of agent.canCall ?? []) expect(getBuiltinAgent(id)).toBeDefined();
     }
@@ -69,9 +74,41 @@ describe("built-in agents", () => {
   });
 });
 
+describe("Supervisor", () => {
+  const supervisor = () => getBuiltinAgent("supervisor")!;
+
+  test("is a main agent that routes through Auto with no fixed or preferred provider", () => {
+    // A fixed model would lock every helper to the run's provider and model
+    // (`helperKeepsParentProvider`), which is the opposite of its job.
+    expect(supervisor().model).toEqual({ mode: "auto", taskClass: "plan" });
+    expect(supervisor().usableAs).toEqual(["primary"]);
+    expect(supervisor().permission).toBe("auto");
+    expect(supervisor().workflow).toBeUndefined();
+  });
+
+  test("has a larger shared turn budget than Lead and ends with Stave's own review", () => {
+    expect(supervisor().tools.maxTurns).toBe(60);
+    expect(getBuiltinAgent("lead")!.tools.maxTurns).toBeUndefined();
+    expect(supervisor().reviewBeforeDone).toBeUndefined();
+  });
+
+  test("reads provider usage and names only models the catalog has", () => {
+    const instructions = supervisor().instructions;
+    expect(instructions).toContain("providerUsage");
+    const named = [...instructions.matchAll(/`((?:gpt|claude)-[a-z0-9.-]+)`/g)].map((match) => match[1]!);
+    expect(named.length).toBeGreaterThan(0);
+    const catalog = new Set([...getSdkModelOptions({ providerId: "claude-code" }), ...getSdkModelOptions({ providerId: "codex" })]);
+    for (const model of named) expect({ model, known: catalog.has(model) }).toEqual({ model, known: true });
+  });
+
+  test("fits the instruction limit with room for edits", () => {
+    expect(supervisor().instructions.length).toBeLessThan(7_000);
+  });
+});
+
 describe("built-in avatars", () => {
   test("every built-in, general agent and subagent preset alike, has a catalog icon and a colour", () => {
-    expect(BUILTIN_AGENTS).toHaveLength(13);
+    expect(BUILTIN_AGENTS).toHaveLength(14);
     for (const agent of BUILTIN_AGENTS) {
       expect(getAgentIcon(agent.appearance?.icon)).not.toBeNull();
       expect(agent.appearance?.color).toBeDefined();
@@ -80,7 +117,7 @@ describe("built-in avatars", () => {
     expect(new Set(icons).size).toBe(icons.length);
   });
 
-  test("the seven general agents never share a colour", () => {
+  test("the eight general agents never share a colour", () => {
     const colors = ORDER.map((id) => getBuiltinAgent(id)!.appearance?.color);
     expect(new Set(colors).size).toBe(ORDER.length);
   });
@@ -107,7 +144,7 @@ describe("built-in avatars", () => {
     }
     // The clashes the defaults were chosen against, so a renamed agent that
     // stops clashing (or starts) shows up here.
-    for (const pair of ["researcher|reviewer", "researcher|scout", "debugger|deep-packet", "lead|reviewer", "scout|shipper", "second-pair|sweep"]) {
+    for (const pair of ["researcher|reviewer", "researcher|scout", "debugger|deep-packet", "lead|reviewer", "scout|shipper", "second-pair|sweep", "supervisor|sweep", "shipper|supervisor", "scout|supervisor", "second-pair|supervisor"]) {
       expect(pairs).toContain(pair);
     }
     for (const pair of pairs) {
