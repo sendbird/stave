@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useSideQuestionComposerControl } from "@/components/session/side-chat/use-side-question-composer-control";
 import { i18n, useTranslation } from "@/i18n";
 import { Paperclip, Send, Square } from "lucide-react";
 import {
@@ -20,12 +19,19 @@ import {
 } from "./prompt-input-toolbar-parts";
 import type { PromptInputProps } from "./prompt-input.types";
 import { resolvePromptInputSendLabels } from "./prompt-input-submit-labels";
+import { ComposerToolbarSlot } from "./use-composer-toolbar-fit";
+import { COMPOSER_SIDE_QUESTION_SLOT } from "@/lib/composer-toolbar-fit";
 
 /**
  * The trailing end of the toolbar row: the context meter, the minimal
  * composer's review, secrets and compare controls, Attach, and Stop or Send.
  */
 export function PromptInputActions(args: {
+  /**
+   * Side questions are always a direct toolbar action, independent of control
+   * placement; `null` while a narrow row has moved it into the `⋯` menu.
+   */
+  sideQuestionControl: ReactNode;
   contextMeter: ReactNode;
   minimal: boolean;
   hasReviewControl: boolean;
@@ -72,10 +78,8 @@ export function PromptInputActions(args: {
     steerQueueEnterAction,
     assignOnSend,
   });
-  // Side questions are always a direct toolbar action, independent of control placement.
-  const sideQuestionControl = useSideQuestionComposerControl();
   return (
-    <div className={sx(promptInputStyles.actionsRow)}>
+    <div className={sx(promptInputStyles.actionsRow)} data-composer-toolbar-actions="">
       {contextMeter}
       {minimal && hasReviewControl && onLocalChangeReview ? (
         <LocalChangeReviewDialog
@@ -92,7 +96,9 @@ export function PromptInputActions(args: {
           {compareControl}
         </>
       ) : null}
-      {sideQuestionControl}
+      {args.sideQuestionControl ? (
+        <ComposerToolbarSlot id={COMPOSER_SIDE_QUESTION_SLOT}>{args.sideQuestionControl}</ComposerToolbarSlot>
+      ) : null}
       <Tooltip>
         <TooltipTrigger
           type="button"

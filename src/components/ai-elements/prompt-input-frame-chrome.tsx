@@ -21,6 +21,7 @@ import { promptInputStyles } from "./prompt-input.styles";
 import {
   COMPOSER_CONTROL_MENU_CONTENT,
   ComposerControlMenuList,
+  type ComposerControlMenuItem,
 } from "./composer-control-menu";
 import { ComposerStatusTray } from "@/components/ai-elements/composer-status-tray";
 import {
@@ -38,6 +39,8 @@ import type { PromptInputProps } from "./prompt-input.types";
  * the same places of the tree as before.
  */
 export function buildComposerFrameChrome(args: {
+  /** Controls a narrow classic row moved into the `⋯` menu, in row order. */
+  toolbarFit?: { collapsedIds: ReadonlySet<string>; overflowItems: readonly ComposerControlMenuItem[] };
   composerControlLayout: ComposerControlLayout;
   composerControlNodes: Partial<Record<ComposerControlId, ReactNode>>;
   onComposerControlPlacementsChange: PromptInputProps["onComposerControlPlacementsChange"];
@@ -123,7 +126,7 @@ export function buildComposerFrameChrome(args: {
   // last — so the `⋯` is in one place no matter which layout is in effect.
   const toolbarControlIds = useComposerWings
     ? []
-    : composerControlLayout.toolbar;
+    : composerControlLayout.toolbar.filter((id) => !args.toolbarFit?.collapsedIds.has(id));
   const toolbarRuntimeIndex = toolbarControlIds.indexOf("runtime");
   const toolbarTrayIndex =
     toolbarRuntimeIndex === -1 ? toolbarControlIds.length : toolbarRuntimeIndex;
@@ -131,14 +134,19 @@ export function buildComposerFrameChrome(args: {
   // the composer's controls this frame — the in-card toolbar when the composer
   // is classic, the bottom shelf beside Runtime when it is framed — so the
   // model row never becomes the place users hunt for a control.
-  const overflowMenuItems = composerControlLayout.overflow
-    .filter((id) => Boolean(composerControlNodes[id]))
-    .map((id) => ({
-      id,
-      label: COMPOSER_CONTROL_LABELS[id],
-      node: composerControlNodes[id],
-      iconOnly: composerControlIsIconOnly(id),
-    }));
+  // A control that only left because the row is narrow keeps its row order,
+  // ahead of the ones the user demoted.
+  const overflowMenuItems: ComposerControlMenuItem[] = [
+    ...(useComposerWings ? [] : args.toolbarFit?.overflowItems ?? []),
+    ...composerControlLayout.overflow
+      .filter((id) => Boolean(composerControlNodes[id]))
+      .map((id) => ({
+        id,
+        label: COMPOSER_CONTROL_LABELS[id],
+        node: composerControlNodes[id],
+        iconOnly: composerControlIsIconOnly(id),
+      })),
+  ];
   const composerCustomizeMenuFooter = canCustomizeComposerControls ? (
     <>
       <div className={sx(promptInputStyles.menuSeparator)} />
