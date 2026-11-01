@@ -27,6 +27,7 @@ import type { AppShortcutCommandId } from "@/lib/app-shortcuts";
 import { runPendingUndo } from "@/lib/notifications/pending-undo";
 import { buildPanePanelId } from "@/lib/panes/types";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
+import { toggleWorkspaceSidebarCollapsed } from "@/store/workspace-sidebar-fold-store";
 import { useAppStore } from "@/store/app.store";
 
 /** Settings (and anything else outside the shell) asks for the shortcut list. */
@@ -80,11 +81,7 @@ function runAppChordAction(
       store.toggleAgents();
       return;
     case "view.toggle-workspace-sidebar":
-      store.setLayout({
-        patch: {
-          workspaceSidebarCollapsed: !store.layout.workspaceSidebarCollapsed,
-        },
-      });
+      toggleWorkspaceSidebarCollapsed();
       return;
     case "view.toggle-changes-panel":
       toggleSidebarOverlay("changes");

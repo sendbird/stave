@@ -66,6 +66,31 @@ const thinkingShimmer = stylex.keyframes({
 
 const reduced = "@media (prefers-reduced-motion: reduce)";
 
+/*
+ * The trace panel's open/close: its row track grows from nothing to its
+ * content's height, so the transcript below follows without animating a
+ * measured `height`.
+ */
+const rowTrackOpen = stylex.keyframes({
+  from: { gridTemplateRows: "0fr" },
+  to: { gridTemplateRows: "1fr" },
+});
+
+const rowTrackClose = stylex.keyframes({
+  from: { gridTemplateRows: "1fr" },
+  to: { gridTemplateRows: "0fr" },
+});
+
+const contentFadeIn = stylex.keyframes({
+  from: { opacity: 0 },
+  to: { opacity: 1 },
+});
+
+const contentFadeOut = stylex.keyframes({
+  from: { opacity: 1 },
+  to: { opacity: 0 },
+});
+
 export const chainOfThoughtStyles = stylex.create({
   root: {
     width: "100%",
@@ -78,8 +103,9 @@ export const chainOfThoughtStyles = stylex.create({
    * `controlHeightSm`, the radius, the hover/press wash and the focus ring.
    * What stays here is the three things the recipe cannot decide:
    *
-   * - **The wrap.** This header carries a phrase, a duration and a roll-up, so
-   *   it wraps in a narrow transcript column instead of ellipsizing.
+   * - **One line.** This header carries a title, a duration and a roll-up.
+   *   It never wraps: the title ellipsizes and gives up room first, while
+   *   the duration and the counts keep their full width.
    * - **The size.** `em`, not `fontSizeBody`: the trace scales with the user's
    *   message font size, and a fixed-token header inside an `em`-scaled rail
    *   would stop matching the rows under it at any non-default setting.
@@ -89,25 +115,32 @@ export const chainOfThoughtStyles = stylex.create({
    */
   trigger: {
     color: vars["--ads-color-text"],
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    minWidth: 0,
     fontSize: "0.875em",
-    rowGap: vars["--ads-space-4"],
   },
   streamingLabel: {
     display: "inline-flex",
     minWidth: 0,
+    flexShrink: 1,
+    overflow: "hidden",
+    whiteSpace: "nowrap",
     alignItems: "center",
     gap: "0.5em",
     fontWeight: vars["--ads-font-weight-medium"],
   },
   completionLabel: {
-    flexShrink: 0,
+    minWidth: 0,
+    flexShrink: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
     whiteSpace: "nowrap",
     fontWeight: vars["--ads-font-weight-medium"],
   },
   /* The machine register, from `agentSurface.meta` at the call site. */
   durationLabel: {
     flexShrink: 0,
+    whiteSpace: "nowrap",
   },
   summary: {
     marginLeft: "auto",
@@ -139,6 +172,58 @@ export const chainOfThoughtStyles = stylex.create({
    * a gap between two unrelated blocks rather than a header and its panel.
    */
   content: { marginTop: vars["--ads-space-4"] },
+  // ── Open / close ─────────────────────────────────────────────
+  /*
+   * A one-track grid around the panel. At rest the track is `1fr` and nothing
+   * clips, so focus rings and overhanging rows draw as before; while it moves,
+   * the body clips to the track and fades. Rows: `motionDurationQuick` on the
+   * decelerating `motionEaseExpressive`; content opacity: `motionDurationFast`.
+   */
+  collapse: {
+    display: "grid",
+    gridTemplateRows: "1fr",
+  },
+  collapseEntering: {
+    animationName: { default: rowTrackOpen, [reduced]: "none" },
+    animationDuration: vars["--ads-motion-duration-quick"],
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationFillMode: "both",
+  },
+  collapseExiting: {
+    gridTemplateRows: "0fr",
+    animationName: { default: rowTrackClose, [reduced]: "none" },
+    animationDuration: vars["--ads-motion-duration-quick"],
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationFillMode: "both",
+  },
+  collapseBody: {
+    minHeight: 0,
+    minWidth: 0,
+  },
+  /*
+   * A panel the reader toggled opens as one piece, so the per-row entrance
+   * (meant for rows arriving while a turn streams) is zeroed for everything
+   * inside it. It stays zeroed while mounted: restoring the duration would
+   * restart a row's finished entrance part-way through.
+   */
+  collapseBodyToggled: {
+    "--stave-trace-row-entrance": "0s",
+  },
+  collapseBodyMoving: {
+    overflow: "hidden",
+  },
+  collapseBodyEntering: {
+    animationName: { default: contentFadeIn, [reduced]: "none" },
+    animationDuration: vars["--ads-motion-duration-fast"],
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationFillMode: "both",
+  },
+  collapseBodyExiting: {
+    animationName: { default: contentFadeOut, [reduced]: "none" },
+    animationDuration: vars["--ads-motion-duration-fast"],
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    animationFillMode: "both",
+  },
   contentTraceMotion: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {
@@ -177,7 +262,7 @@ export const chainOfThoughtStyles = stylex.create({
   stepMotionRowTrace: {
     animationName: { default: traceRowIn, [reduced]: "none" },
     animationDuration: {
-      default: vars["--ads-motion-duration-emphasis"],
+      default: `var(--stave-trace-row-entrance, ${vars["--ads-motion-duration-emphasis"]})`,
       [reduced]: "0ms",
     },
     animationTimingFunction: vars["--ads-motion-ease-expressive"],

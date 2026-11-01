@@ -38,7 +38,7 @@
 - **Side question** in the composer toolbar. It opens the panel and leaves
   your draft alone, and it stays available while a turn runs. It is a fixed
   toolbar action beside Attach and Send, so it cannot be hidden or moved into
-  the overflow tray.
+  the overflow tray. On a narrow composer it shows only its icon.
 - The composer's slash command `/aside` (listed under **Stave commands** when
   you type `/`). `/aside` alone opens the panel with an empty question.
 - `Cmd/Ctrl+K` then `Q` opens the panel for the active task, bringing the task

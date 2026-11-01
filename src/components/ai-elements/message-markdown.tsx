@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/table";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
 import { hardenSetextHeadings } from "./message-markdown.setext";
+import { TranscriptWideBlock, TranscriptWideScope } from "./transcript-wide";
 
 export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
@@ -365,10 +366,16 @@ export function MarkdownMessage({
           {children}
         </ol>
       ),
+      // Items and quotes are indented, so blocks inside them keep their width.
       li: ({ children }: { children?: ReactNode }) => (
         <li className={sx(styles.listItem)}>
-          {children}
+          <TranscriptWideScope enabled={false}>{children}</TranscriptWideScope>
         </li>
+      ),
+      blockquote: ({ children }: { children?: ReactNode }) => (
+        <blockquote>
+          <TranscriptWideScope enabled={false}>{children}</TranscriptWideScope>
+        </blockquote>
       ),
       code: (rawCodeProps: unknown) => {
         const {
@@ -543,9 +550,11 @@ export function MarkdownMessage({
         );
       },
       table: ({ children }: { children?: ReactNode }) => (
-        <Table className={sx(styles.table)}>
-          {children}
-        </Table>
+        <TranscriptWideBlock>
+          <Table className={sx(styles.table)}>
+            {children}
+          </Table>
+        </TranscriptWideBlock>
       ),
       thead: ({ children }: { children?: ReactNode }) => (
         <TableHeader className={sx(styles.tableHeader)}>{children}</TableHeader>

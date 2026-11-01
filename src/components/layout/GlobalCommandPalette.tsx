@@ -9,7 +9,7 @@ import {
 } from "react";
 import { ArrowUpDown, CornerDownLeft, Pin, PinOff } from "lucide-react";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { sx } from "@/components/ads/utils/stylex";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   Badge,
   Button,
@@ -299,7 +299,9 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
       onOpenChange={args.onOpenChange}
       title={i18n.t("shell:globalCommandPalette.commandPalette")}
       description={i18n.t("shell:globalCommandPalette.runWorkspaceCommandsSwitchContextAndOpen")}
-      className={sx(commandPaletteStyles.dialog)}
+      // `t-palette`: a keyboard surface opens with a short fade and a 4px
+      // drop instead of the modal's scale (globals.css).
+      className={cx(sx(commandPaletteStyles.dialog), "t-palette")}
     >
       <Command
         key={args.open ? "open" : "closed"}

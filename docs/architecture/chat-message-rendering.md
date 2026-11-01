@@ -97,14 +97,26 @@ mirror the Codex investigation:
 The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as possible:
 
 - **Root**: No outer border or background — just `not-prose w-full`.
-- **Trigger**: The ADS `inlineDisclosure` trigger, no card — `[glyph/chevron] label · duration · summary`.
+- **Trigger**: The ADS `inlineDisclosure` trigger, no card — `[glyph/chevron] title · duration · summary`, always on one line:
+  the title ellipsizes while the duration and the counts keep their width.
   The chevron is in the LEADING slot (`InlineDisclosureIcon`) and replaces the glyph on hover
   and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box
   brings its padding, `controlHeightSm`, radius, hover wash and focus ring with it. Its ink is
   body ink — one step darker than the `agentSurface.rowLabel` its rows use.
-  When streaming, the "Thinking" label uses a shimmer gradient animation.
+  While the turn runs, the label is a rotating playful status phrase with a shimmer gradient animation.
   The rotating phrase swap animation is user-selectable in Settings → Chat, with a soft fade as the default.
-  When collapsed and not streaming, a summary row shows tool/agent/file counts below the trigger.
+  Once the turn finishes, the title says what it did, from data the turn already has (no model call):
+  the first sentence of the reply that names the work (at least three words, markdown stripped),
+  otherwise a summary of the counted work such as "Edited 1 file, ran 1 command". A failed run that
+  offers recovery is titled "Run failed" instead.
+  When collapsed and not streaming, the counts sit at the end of the same row.
+- **Open and close**: The trace panel animates its row track (`grid-template-rows` 0fr ↔ 1fr,
+  `motionDurationQuick`, `motionEaseExpressive`) with a `motionDurationFast` content fade, and
+  unmounts after the close plays. Reduced motion switches at once. While it moves, the
+  conversation holds the clicked trigger at its pre-click position, and following the latest
+  message resumes only for a reader who was at the bottom and did not just open content that
+  runs below the view (`conversation-scroll-anchor.ts`). This applies to every in-place
+  disclosure in the transcript; menu, listbox and dialog triggers (`aria-haspopup`) are excluded.
 - **Steps**: Flat flex rows `flex gap-3 text-sm` — NOT cards with borders/backgrounds.
 - **Step icons**: Kind-specific icons for done/pending steps (Terminal for Bash, FileText for Read,
   Pencil for Edit, Search for Grep/Glob, Globe for web, Bot for subagent, Brain for reasoning,
@@ -123,11 +135,23 @@ The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as p
   instead of an icon.
 - **No status chips**: No `Done`, `Running`, `Pending`, `toolUseId`, or item-number chips.
 
+### Transcript column
+
+Replies, user bubbles and the composer share one centred column
+(`transcript-measure.stylex.ts`, 760px). Rows end on its edges: a reply fills it and a user
+bubble ends on its right edge, with the bubble's hover actions beside it rather than in a
+reserved row below. The composer's card spans the same column; the framed composer's wings
+sit outside it. Top-level code blocks, tables and the turn's diff may grow to 880px on the same
+axis, never past the transcript's gutters (`transcript-wide.tsx`); inside list items, quotes,
+the trace rail and user bubbles they keep the column width. Rows are 8px apart inside a turn
+and 28px apart between turns.
+
 ### Collapsed summary
 
 When the Chain of Thought collapses after a turn completes, the trigger displays a compact
 summary of the work performed. Categories include commands, reads, edits, searches, web,
-agents, and file changes. Each category shows an icon and count, separated by dot dividers.
+agents, and file changes. Each category shows an icon and a localized count with real
+plurals ("1 read", "3 reads"; Korean "읽기 1"), separated by dot dividers.
 
 ### Inline code & file links
 
@@ -135,6 +159,9 @@ agents, and file changes. Each category shows an icon and count, separated by do
 - File link chips (with line numbers) use full-opacity `border-border` for clear visibility against the white chat background.
 - Prefer markdown links for workspace file references so the renderer can promote them to file chips.
 - As a compatibility fallback, inline code spans that resolve to known workspace file paths are also promoted to file chips.
+  Before the workspace file index loads, only path-shaped text qualifies (a path separator, a file
+  extension, a dotfile or a well-known name such as `README`); identifiers such as `useState` or
+  `<main>` stay inline code.
 - Code fences that include file metadata (for example `path=src/App.tsx`) pass that file reference to the block renderer so headers can surface a file chip.
 - File chips with `L<line>` (and optional `C<column>`) open the editor tab and reveal that exact location.
 - Plain `http`, `https`, and `mailto` URLs in settled assistant message text, reasoning/tool/subagent/system step text, and other non-markdown plain-text surfaces render as external links.

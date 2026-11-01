@@ -568,9 +568,16 @@
     "chatInputApprovalQueue4": "취소",
     "chatInputApprovalQueue5": "안내로 대체",
     "sentence54": "{{value1}} 항상 허용",
-    "sentence55": "추가 대기 항목 {{value1}}개",
-    "extraCopy143": "다른 결정을 전달하는 중입니다.",
-    "enterToAllowOnce": "<key>↵</key> 한 번 허용"
+    "extraCopy143": "다른 결정을 전달하는 중입니다."
+  },
+  "composerApprovalRow": {
+    "groupLabel": "{{tool}} 승인 필요: {{summary}}",
+    "groupLabelTool": "{{tool}} 승인 필요",
+    "position": "{{count}}개 중 {{index}}번째",
+    "previous": "이전 요청",
+    "next": "다음 요청",
+    "showDetails": "세부 정보 보기",
+    "hideDetails": "세부 정보 숨기기"
   },
   "chatInputRuntime": {
     "formatGoalStatusValue": "사용 한도 도달",
@@ -704,7 +711,6 @@
     "extraCopy195": "하위 에이전트"
   },
   "assistantTrace": {
-    "getDiffSummary": "파일",
     "title": "시스템",
     "title2": "시스템",
     "baseTitle": "하위 에이전트",
@@ -712,7 +718,28 @@
     "title3": "변경된 파일",
     "title4": "변경된 파일 {{value1}}개",
     "assistantMessageBody": "응답이 없습니다.",
-    "completionLabel": "실행 실패함"
+    "completionLabel": "실행 실패함",
+    "diffFiles_other": "파일 {{count}}개",
+    "summaryCount": {
+      "edit_other": "수정 {{count}}",
+      "command_other": "명령 {{count}}",
+      "read_other": "읽기 {{count}}",
+      "search_other": "검색 {{count}}",
+      "web_other": "웹 {{count}}",
+      "agent_other": "에이전트 {{count}}",
+      "change_other": "변경 파일 {{count}}",
+      "tool_other": "도구 {{count}}"
+    },
+    "turnTitle": {
+      "edited_other": "파일 {{count}}개 수정",
+      "ranCommands_other": "명령 {{count}}개 실행",
+      "readFiles_other": "파일 {{count}}개 읽음",
+      "searched_other": "검색 {{count}}회",
+      "browsed_other": "웹 조회 {{count}}회",
+      "ranAgents_other": "에이전트 {{count}}개 실행",
+      "usedTools_other": "도구 호출 {{count}}회",
+      "clauseSeparator": ", "
+    }
   },
   "commandResult": {
     "commandResult": "복사됨",

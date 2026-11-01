@@ -1,7 +1,7 @@
 {
   "version": 2,
   "description": "Existing literal spacing declarations. New or changed declarations must use ADS space tokens or densityPad. Remove fixed entries; do not regenerate or expand this baseline to pass the gate.",
-  "total": 773,
+  "total": 748,
   "files": {
     "src/components/agent-runs/AgentRunSummary.tsx": {
       "styles.identityText.gap = 2": 1,
@@ -421,8 +421,7 @@
     "src/components/layout/fleet-view.styles.ts": {
       "fleetStyles.boardEmpty.paddingBlock = 48": 1,
       "fleetStyles.repositoryHeader.gap = 6": 1,
-      "fleetStyles.repositoryHeader.paddingBlock = 6": 1,
-      "fleetStyles.cardGrid.gap = 10": 1
+      "fleetStyles.repositoryHeader.paddingBlock = 6": 1
     },
     "src/components/layout/fleet-workspace-card.styles.ts": {
       "cardStyles.header.paddingTop = 10": 1,
@@ -432,12 +431,9 @@
       "cardStyles.todo.gap = 6": 1
     },
     "src/components/layout/global-command-palette.styles.ts": {
-      "commandPaletteStyles.item.paddingBlock = 10": 1,
       "commandPaletteStyles.contextBadge.paddingInline = 6": 1,
-      "commandPaletteStyles.itemSubtitle.marginBlockStart = 2": 1,
       "commandPaletteStyles.footerHint.gap = 6": 1,
-      "commandPaletteStyles.pinButton.gap = 6": 1,
-      "commandPaletteStyles.searchTime.marginBlockStart = 2": 1
+      "commandPaletteStyles.pinButton.gap = 6": 1
     },
     "src/components/layout/inbox-row.styles.ts": {
       "inboxRowStyles.archivedChip.paddingInline = 6": 1,
@@ -531,8 +527,6 @@
       "repositorySidebarStyles.attentionSlot.paddingInline = 2": 1,
       "repositorySidebarStyles.respondingBadge.paddingBlock = 2": 1,
       "repositorySidebarStyles.respondingBadge.paddingInline = 6": 1,
-      "repositorySidebarStyles.metaBody.gap = 6": 1,
-      "repositorySidebarStyles.metaActions.gap = 6": 1,
       "repositorySidebarStyles.scrollAreaExpanded.paddingBlockStart = 6": 1,
       "repositorySidebarStyles.navStack.gap = 2": 1,
       "repositorySidebarStyles.viewBar.marginBlockEnd = 6": 1,
@@ -543,9 +537,7 @@
       "repositorySidebarStyles.repositoryLeadPinned.paddingInlineEnd = `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 7.75rem)`": 1,
       "repositorySidebarStyles.repositoryLeadDefault.paddingInlineEnd = `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 5.75rem)`": 1,
       "repositorySidebarStyles.repositoryActions.gap = 2": 1,
-      "repositorySidebarStyles.workspaceList.paddingBlockStart = 2": 1,
-      "repositorySidebarStyles.workspaceOpenExpanded.paddingBlock = 10": 1,
-      "repositorySidebarStyles.workspaceLeadSlotExpanded.marginBlockStart = 2": 1
+      "repositorySidebarStyles.workspaceList.paddingBlockStart = 2": 1
     },
     "src/components/layout/resource-dashboard.styles.ts": {
       "dashboardStyles.root.gap = 10": 1,
@@ -771,17 +763,6 @@
       "workspaceTurnSummaryStyles.entryBody.paddingInlineStart = 22": 1,
       "workspaceTurnSummaryStyles.modelRow.paddingInlineStart = 22": 1
     },
-    "src/components/panes/PaneHeaderActions.tsx": {
-      "styles.root.gap = 2": 1,
-      "styles.root.paddingInline = 4": 1,
-      "styles.choice.gap = 8": 1,
-      "styles.providerIcon.marginTop = 2": 1,
-      "styles.description.marginTop = 2": 1,
-      "styles.taskHint.marginTop = 2": 1
-    },
-    "src/components/panes/PaneTabChip.styles.ts": {
-      "paneTabChipStyles.root.gap = 6": 1
-    },
     "src/components/panes/PaneWatermark.tsx": {
       "styles.actions.gap = 8": 1
     },
@@ -881,18 +862,6 @@
     },
     "src/components/session/TaskPanelEmpty.tsx": {
       "styles.row.gap = 2": 1
-    },
-    "src/components/session/chat-input-approval-queue.styles.ts": {
-      "chatInputApprovalQueueStyles.sectionRegular.padding = \"0.625rem\"": 1,
-      "chatInputApprovalQueueStyles.status.gap = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.status.marginTop = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.linkAction.marginTop = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.guideAction.marginTop = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.guidancePanel.gap = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.guidanceActions.gap = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.compactButton.paddingInline = \"0.625rem\"": 1,
-      "chatInputApprovalQueueStyles.queuedList.gap = \"0.375rem\"": 1,
-      "chatInputApprovalQueueStyles.queuedList.marginTop = \"0.375rem\"": 1
     },
     "src/components/session/chat-input.styles.ts": {
       "chatInputStyles.root.paddingBlock = \"0.625rem\"": 1

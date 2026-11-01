@@ -22,7 +22,6 @@ import { UsageView } from "@/components/usage/UsageView";
 import {
   RepositoryWorkspaceSidebar,
 } from "@/components/layout/RepositoryWorkspaceSidebar";
-import { PresetBar } from "@/components/layout/PresetBar";
 import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
 import {
   focusOrCreateGitGraphSurface,
@@ -52,15 +51,24 @@ import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
   STAVE_OPEN_SETTINGS_EVENT,
-  WORKSPACE_SIDEBAR_MIN_WIDTH,
   useAppStore,
   type LayoutState,
 } from "@/store/app.store";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
-import { createDefaultLayoutState } from "@/store/layout.utils";
+import {
+  WORKSPACE_SIDEBAR_AUTO_COLLAPSE_BELOW,
+  createDefaultLayoutState,
+  normalizeWorkspaceSidebarWidth,
+} from "@/store/layout.utils";
+import {
+  toggleWorkspaceSidebarCollapsed,
+  useWorkspaceSidebarCollapsed,
+  useWorkspaceSidebarFoldStore,
+} from "@/store/workspace-sidebar-fold-store";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { PanelResizeHandle } from "@/components/layout/PanelResizeHandle";
+import { RightPanelSlot } from "@/components/layout/RightPanelSlot";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
 import { dispatchExplorerSearchRequest } from "@/components/layout/explorer-search-events";
@@ -68,6 +76,7 @@ import {
   MIN_CHAT_PANEL_WIDTH,
   MIN_EXPLORER_PANEL_WIDTH,
   PANEL_SEPARATOR_WIDTH,
+  clampRightPanelWidth,
 } from "@/components/layout/app-shell-layout";
 import { useAppKeybindings } from "@/components/layout/useAppKeybindings";
 import type { SectionId } from "@/components/layout/settings-dialog.schema";
@@ -110,7 +119,6 @@ const IssuesView = lazy(() =>
 
 type ResizableLayoutKey = "workspaceSidebarWidth" | "explorerPanelWidth";
 
-const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 /** Panel widths a double-click on a resize handle returns to. */
 const DEFAULT_LAYOUT = createDefaultLayoutState();
 
@@ -132,7 +140,6 @@ export function AppShell() {
     workspacePrInfoById,
     recentRepositories,
     workspaceSidebarWidth,
-    workspaceSidebarCollapsed,
     sidebarOverlayVisible,
     sidebarOverlayTab,
     explorerPanelWidth,
@@ -179,7 +186,6 @@ export function AppShell() {
           state.workspacePrInfoById,
           state.recentRepositories,
           state.layout.workspaceSidebarWidth,
-          state.layout.workspaceSidebarCollapsed,
           state.layout.sidebarOverlayVisible,
           state.layout.sidebarOverlayTab,
           state.layout.explorerPanelWidth,
@@ -211,12 +217,10 @@ export function AppShell() {
         ] as const,
     ),
   );
-  const showPresetBar = useAppStore((state) => state.settings.showPresetBar);
   // Editor open actions only set activeEditorTabId; reveal the pane for them.
   useEditorPaneFocus();
   // Reading a finished turn in the task window acknowledges its Fleet row.
   useFleetResultAutoReview();
-  const hasRepository = Boolean(repositoryPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);
   const pendingLayoutPatchRef = useRef<Partial<LayoutState> | null>(null);
@@ -232,7 +236,7 @@ export function AppShell() {
   >(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [kickoffOpen, setKickoffOpen] = useState(false);
-  const [sidebarResizing, setSidebarResizing] = useState(false);
+  const workspaceSidebarCollapsed = useWorkspaceSidebarCollapsed();
   const [contentRowWidth, setContentRowWidth] = useState(0);
   const [isLargeViewport, setIsLargeViewport] = useState(() =>
     typeof window === "undefined"
@@ -680,6 +684,22 @@ export function AppShell() {
     return () => mediaQuery.removeEventListener("change", handleChange);
   }, []);
 
+  // A narrow window folds the repository sidebar to its rail; crossing the
+  // width either way drops the session's "open it anyway".
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined;
+    }
+    const narrowQuery = window.matchMedia(
+      `(max-width: ${WORKSPACE_SIDEBAR_AUTO_COLLAPSE_BELOW - 0.02}px)`,
+    );
+    const { setNarrowWindow } = useWorkspaceSidebarFoldStore.getState();
+    const handleChange = (event: MediaQueryListEvent) => setNarrowWindow(event.matches);
+    setNarrowWindow(narrowQuery.matches);
+    narrowQuery.addEventListener("change", handleChange);
+    return () => narrowQuery.removeEventListener("change", handleChange);
+  }, []);
+
   // Prewarm Monaco off-screen at idle time so the first real editor open does
   // not block the main thread.
   const [monacoWarmupActive, setMonacoWarmupActive] = useState(false);
@@ -731,17 +751,10 @@ export function AppShell() {
     }
   }
 
-  let desktopSidebarWidth = explorerPanelWidth;
-  if (hasMeasuredContentRowWidth) {
-    const maxSidebarWidth = Math.max(
-      MIN_EXPLORER_PANEL_WIDTH,
-      contentRowWidth - MIN_CHAT_PANEL_WIDTH - PANEL_SEPARATOR_WIDTH,
-    );
-    desktopSidebarWidth = Math.min(
-      Math.max(explorerPanelWidth, MIN_EXPLORER_PANEL_WIDTH),
-      maxSidebarWidth,
-    );
-  }
+  const desktopSidebarWidth = clampRightPanelWidth({
+    width: explorerPanelWidth,
+    containerWidth: hasMeasuredContentRowWidth ? contentRowWidth : null,
+  });
   const modifierLabel = useMemo<"Cmd" | "Ctrl">(
     () =>
       typeof navigator !== "undefined" &&
@@ -942,13 +955,7 @@ export function AppShell() {
           });
         },
         toggleTerminal: () => paneHost.toggleTerminalGroup(),
-        toggleWorkspaceSidebar: () =>
-          setLayout({
-            patch: {
-              workspaceSidebarCollapsed:
-                !useAppStore.getState().layout.workspaceSidebarCollapsed,
-            },
-          }),
+        toggleWorkspaceSidebar: toggleWorkspaceSidebarCollapsed,
       },
     }),
     [
@@ -1012,9 +1019,6 @@ export function AppShell() {
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
   const showAgents = activeAppSurface.kind === "agents";
-  const showUsage = activeAppSurface.kind === "usage";
-  const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showAgents && !showUsage;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1106,9 +1110,8 @@ export function AppShell() {
       <div className={sx(appShellStyles.shellRow)}>
         <RenderProfiler id="RepositoryWorkspaceSidebar">
           <RepositoryWorkspaceSidebar
-            width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
+            width={normalizeWorkspaceSidebarWidth(workspaceSidebarWidth)}
             collapsed={workspaceSidebarCollapsed}
-            animate={!sidebarResizing}
             onOpenCommandPalette={handleOpenCommandPalette}
             onOpenKeyboardShortcuts={handleOpenKeyboardShortcuts}
             onOpenSettings={handleOpenSettings}
@@ -1120,21 +1123,12 @@ export function AppShell() {
         </RenderProfiler>
         {!workspaceSidebarCollapsed ? (
           <PanelResizeHandle
-            width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
-            clamp={(next) =>
-              Math.max(
-                WORKSPACE_SIDEBAR_MIN_WIDTH,
-                Math.min(WORKSPACE_SIDEBAR_MAX_WIDTH, next),
-              )
-            }
-            onResizeStart={() => setSidebarResizing(true)}
+            width={normalizeWorkspaceSidebarWidth(workspaceSidebarWidth)}
+            clamp={normalizeWorkspaceSidebarWidth}
             onResize={(next) =>
               scheduleLayoutResizePatch("workspaceSidebarWidth", next)
             }
-            onResizeEnd={() => {
-              setSidebarResizing(false);
-              flushPendingLayoutPatch();
-            }}
+            onResizeEnd={flushPendingLayoutPatch}
             onReset={() =>
               setLayout({ patch: { workspaceSidebarWidth: DEFAULT_LAYOUT.workspaceSidebarWidth } })
             }
@@ -1166,9 +1160,6 @@ export function AppShell() {
               className={sx(appShellStyles.panelRow)}
             >
               <main className={sx(appShellStyles.mainColumn)}>
-                {hasRepository && showWorkspaceSurface && showPresetBar ? (
-                  <PresetBar />
-                ) : null}
                 <div className={sx(appShellStyles.mainSurface)}>
                   {showFleetView ? (
                     <FleetView />
@@ -1205,23 +1196,21 @@ export function AppShell() {
                   )}
                 </div>
               </main>
-              {showDesktopSidebar ? (
-                <>
+              <RightPanelSlot
+                open={showDesktopSidebar}
+                slideOnClose={!sidebarOverlayVisible}
+                xstyle={appShellStyles.desktopPanel}
+                style={{ width: `${desktopSidebarWidth}px` }}
+                leading={
                   <PanelResizeHandle
                     width={desktopSidebarWidth}
                     grow="start"
-                    clamp={(next) => {
-                      const containerWidth =
-                        contentRowRef.current?.offsetWidth ?? 9999;
-                      const maxExplorer = Math.max(
-                        MIN_EXPLORER_PANEL_WIDTH,
-                        containerWidth - MIN_CHAT_PANEL_WIDTH - 1,
-                      );
-                      return Math.max(
-                        MIN_EXPLORER_PANEL_WIDTH,
-                        Math.min(maxExplorer, next),
-                      );
-                    }}
+                    clamp={(next) =>
+                      clampRightPanelWidth({
+                        width: next,
+                        containerWidth: contentRowRef.current?.offsetWidth ?? null,
+                      })
+                    }
                     onResize={(next) =>
                       scheduleLayoutResizePatch("explorerPanelWidth", next)
                     }
@@ -1230,42 +1219,37 @@ export function AppShell() {
                       setLayout({ patch: { explorerPanelWidth: DEFAULT_LAYOUT.explorerPanelWidth } })
                     }
                   />
-                  <Suspense
-                    fallback={
-                      <aside
-                        className={sx(appShellStyles.panelFallback)}
-                        style={{ width: `${desktopSidebarWidth}px` }}
-                      >
-                        {i18n.t("shell:appShell.loadingPanel")}
-                      </aside>
-                    }
-                  >
-                    <div
-                      className={sx(appShellStyles.desktopPanel)}
-                      style={{ width: `${desktopSidebarWidth}px` }}
-                    >
-                      <RenderProfiler id="EditorPanel" thresholdMs={8}>
-                        <EditorPanel onOpenSettings={handleOpenSettings} />
-                      </RenderProfiler>
-                    </div>
-                  </Suspense>
-                </>
-              ) : null}
-              {showOverlayRightPanel ? (
-                <div className={sx(appShellStyles.overlayPanel)}>
-                  <Suspense
-                    fallback={
-                      <aside className={sx(appShellStyles.panelFallbackFull)}>
-                        {i18n.t("shell:appShell.loadingPanel")}
-                      </aside>
-                    }
-                  >
-                    <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
-                      <EditorPanel onOpenSettings={handleOpenSettings} />
-                    </RenderProfiler>
-                  </Suspense>
-                </div>
-              ) : null}
+                }
+              >
+                <Suspense
+                  fallback={
+                    <aside className={sx(appShellStyles.panelFallbackFull)}>
+                      {i18n.t("shell:appShell.loadingPanel")}
+                    </aside>
+                  }
+                >
+                  <RenderProfiler id="EditorPanel" thresholdMs={8}>
+                    <EditorPanel onOpenSettings={handleOpenSettings} />
+                  </RenderProfiler>
+                </Suspense>
+              </RightPanelSlot>
+              <RightPanelSlot
+                open={showOverlayRightPanel}
+                slideOnClose={!sidebarOverlayVisible}
+                xstyle={appShellStyles.overlayPanel}
+              >
+                <Suspense
+                  fallback={
+                    <aside className={sx(appShellStyles.panelFallbackFull)}>
+                      {i18n.t("shell:appShell.loadingPanel")}
+                    </aside>
+                  }
+                >
+                  <RenderProfiler id="EditorPanelMobile" thresholdMs={8}>
+                    <EditorPanel onOpenSettings={handleOpenSettings} />
+                  </RenderProfiler>
+                </Suspense>
+              </RightPanelSlot>
             </div>
             <RightRail />
           </div>

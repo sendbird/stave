@@ -70,6 +70,7 @@ import { PromptInputAttachmentsRow } from "./prompt-input-attachments";
 import { PromptInputActions } from "./prompt-input-actions";
 import { buildComposerFrameChrome } from "./prompt-input-frame-chrome";
 import { PromptInputControlLane } from "./prompt-input-control-lane";
+import { useComposerToolbarFit } from "./use-composer-toolbar-fit";
 
 export function PromptInput(args: PromptInputProps) {
   useTranslation();
@@ -392,6 +393,63 @@ export function PromptInput(args: PromptInputProps) {
     );
   }
 
+  // A review that runs as its own task can start while this one is busy.
+  const hasReviewControl = Boolean(
+    reviewModelOptions?.length &&
+      onLocalChangeReview &&
+      (!isTurnActive || isReviewTaskDelegationAvailable()),
+  );
+
+  // A control with nothing to render this frame is excluded from every bucket,
+  // so the tray never offers a row that would come up blank.
+  const unavailableComposerControls: ComposerControlId[] = [];
+  if (!providerModeStatus) unavailableComposerControls.push("providerMode");
+  if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
+  if (!runAccountPool) unavailableComposerControls.push("runAccountPool");
+  if (!hasReviewControl) unavailableComposerControls.push("review");
+  if (!secretsControl) unavailableComposerControls.push("secrets");
+  if (!macroControl) unavailableComposerControls.push("macro");
+  if (!compareControl) unavailableComposerControls.push("compare");
+  if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
+
+  const activeComposerControls = collectActiveComposerControls({
+    thinkingMode,
+    fastMode,
+    runAccountPoolEnabled: runAccountPool?.enabled,
+    runtimeTone: runtimeProfile.tone,
+    boundSecretCount: secretsActive ? 1 : 0,
+  });
+  const composerControlLayout = resolveComposerControlLayout({
+    placements: composerControlPlacements ?? {},
+    activeIds: activeComposerControls,
+    unavailableIds: unavailableComposerControls,
+  });
+
+  const composerControlNodes = renderComposerControlNodes({
+    runAccountPool,
+    providerModeStatus,
+    providerModePresets,
+    activeProviderModePresetId,
+    onProviderModeSelect,
+    interactionsDisabled,
+    thinkingMode,
+    onThinkingModeChange,
+    hasReviewControl,
+    workspaceCwd,
+    reviewModelOptions,
+    preferredReviewModelKey,
+    onLocalChangeReview,
+    secretsControl,
+    macroControl,
+    compareControl,
+    hasRuntimeContent,
+    isMobile,
+    composerIconButtonSize,
+    runtimeProfile,
+    runtimeStatusItems,
+  });
+  const toolbarFit = useComposerToolbarFit({ enabled: !minimal && !useComposerWings, toolbarIds: composerControlLayout.toolbar, nodes: composerControlNodes,
+    demotedCount: composerControlLayout.overflow.filter((id) => composerControlNodes[id]).length, activeIds: activeComposerControls });
   if (pendingUserInput && onUserInputSubmit && onUserInputDeny) {
     return (
       <div
@@ -424,62 +482,6 @@ export function PromptInput(args: PromptInputProps) {
       </div>
     );
   }
-
-  // A review that runs as its own task can start while this one is busy.
-  const hasReviewControl = Boolean(
-    reviewModelOptions?.length &&
-      onLocalChangeReview &&
-      (!isTurnActive || isReviewTaskDelegationAvailable()),
-  );
-
-  // A control with nothing to render this frame is excluded from every bucket,
-  // so the tray never offers a row that would come up blank.
-  const unavailableComposerControls: ComposerControlId[] = [];
-  if (!providerModeStatus) unavailableComposerControls.push("providerMode");
-  if (!onThinkingModeChange) unavailableComposerControls.push("thinking");
-  if (!runAccountPool) unavailableComposerControls.push("runAccountPool");
-  if (!hasReviewControl) unavailableComposerControls.push("review");
-  if (!secretsControl) unavailableComposerControls.push("secrets");
-  if (!macroControl) unavailableComposerControls.push("macro");
-  if (!compareControl) unavailableComposerControls.push("compare");
-  if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
-
-  const composerControlLayout = resolveComposerControlLayout({
-    placements: composerControlPlacements ?? {},
-    activeIds: collectActiveComposerControls({
-      thinkingMode,
-      fastMode,
-      runAccountPoolEnabled: runAccountPool?.enabled,
-      runtimeTone: runtimeProfile.tone,
-      boundSecretCount: secretsActive ? 1 : 0,
-    }),
-    unavailableIds: unavailableComposerControls,
-  });
-
-  const composerControlNodes = renderComposerControlNodes({
-    runAccountPool,
-    providerModeStatus,
-    providerModePresets,
-    activeProviderModePresetId,
-    onProviderModeSelect,
-    interactionsDisabled,
-    thinkingMode,
-    onThinkingModeChange,
-    hasReviewControl,
-    workspaceCwd,
-    reviewModelOptions,
-    preferredReviewModelKey,
-    onLocalChangeReview,
-    secretsControl,
-    macroControl,
-    compareControl,
-    hasRuntimeContent,
-    isMobile,
-    composerIconButtonSize,
-    runtimeProfile,
-    runtimeStatusItems,
-  });
-
   const {
     canCustomizeComposerControls,
     leftWing,
@@ -489,6 +491,7 @@ export function PromptInput(args: PromptInputProps) {
     composerOverflowTray,
     frameStatusBar,
   } = buildComposerFrameChrome({
+    toolbarFit,
     composerControlLayout,
     composerControlNodes,
     onComposerControlPlacementsChange,
@@ -809,6 +812,7 @@ export function PromptInput(args: PromptInputProps) {
             />
           ) : null}
           <div
+            ref={toolbarFit.rowRef}
             className={sx(
               promptInputStyles.toolbarRow,
               minimal && promptInputStyles.toolbarRowEnd,
@@ -845,6 +849,7 @@ export function PromptInput(args: PromptInputProps) {
               />
             ) : null}
             <PromptInputActions
+              sideQuestionControl={toolbarFit.sideQuestion}
               contextMeter={contextMeter}
               minimal={minimal}
               hasReviewControl={hasReviewControl}

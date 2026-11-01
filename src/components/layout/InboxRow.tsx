@@ -1,5 +1,5 @@
 import { useTranslation } from "@/i18n";
-import { formatTimeAgo } from "@/i18n/format";
+import { formatAgeCompact, formatTimeAgo } from "@/i18n/format";
 import { AlertTriangle, CheckCircle2, GitMerge } from "lucide-react";
 import type { FocusEvent, KeyboardEvent, ReactNode, Ref } from "react";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
@@ -138,6 +138,12 @@ export function InboxRow(props: {
   rowRef?: Ref<HTMLLIElement>;
   /** Placement the list adds (a grid cell's rule, for example). */
   rowStyle?: StyleXValue;
+  /**
+   * One line: mark, title, where and what, age, then the body and actions on
+   * the same line; anything that opens under the row takes the full width.
+   * Fleet's decision rail uses it so several requests fit above the board.
+   */
+  compact?: boolean;
   onFocus?: (event: FocusEvent<HTMLLIElement>) => void;
   onKeyDown?: (event: KeyboardEvent<HTMLLIElement>) => void;
 }) {
@@ -146,6 +152,56 @@ export function InboxRow(props: {
   const meta = [entry.workspaceName, entry.repositoryName].filter(
     (value): value is string => Boolean(value?.trim()),
   );
+  if (props.compact) {
+    const where = [entry.workspaceName, entry.detail].filter(
+      (value): value is string => Boolean(value?.trim()),
+    );
+    return (
+      <li
+        ref={props.rowRef}
+        className={sx(styles.row, styles.rowCompact, props.selected && styles.rowSelected, props.rowStyle)}
+        data-fleet-attention-row={entry.item ? entry.id : undefined}
+        data-inbox-entry={entry.id}
+        data-unread={entry.unread ? "true" : undefined}
+        onFocus={props.onFocus}
+        onKeyDown={props.onKeyDown}
+      >
+        <AdsButton
+          layout="host"
+          id={props.triggerId}
+          type="button"
+          data-inbox-trigger=""
+          xstyle={[styles.rowTrigger, styles.rowTriggerCompact, focusRing.ringInset]}
+          aria-label={
+            entry.unread
+              ? t("fleet:inbox.unreadLabel", { label: props.triggerLabel })
+              : props.triggerLabel
+          }
+          {...props.triggerProps}
+          disabled={props.busy}
+          onClick={props.onActivate}
+        >
+          {entry.unread ? <span aria-hidden="true" className={sx(styles.unreadDot)} /> : null}
+          <span className={sx(styles.compactMark)} title={FLEET_ATTENTION_KIND_LABEL[entry.kind]}>
+            <InboxEntryIcon kind={entry.kind} prStatus={entry.item?.prStatus} />
+          </span>
+          <span className={sx(styles.rowTitle, styles.compactTitle)}>{entry.title}</span>
+          {where.length > 0 ? (
+            <span className={sx(styles.compactWhere)}>{where.join(" · ")}</span>
+          ) : null}
+          {props.supplement ? (
+            <span className={sx(styles.rowSupplement, styles.compactSupplement)}>{props.supplement}</span>
+          ) : null}
+          <span className={sx(styles.rowTime, styles.compactTime)}>{formatAgeCompact(entry.at)}</span>
+        </AdsButton>
+        {props.body}
+        {props.actions ? (
+          <div className={sx(styles.rowActions, styles.rowActionsCompact)}>{props.actions}</div>
+        ) : null}
+        {props.children ? <div className={sx(styles.compactChildren)}>{props.children}</div> : null}
+      </li>
+    );
+  }
   return (
     <li
       ref={props.rowRef}

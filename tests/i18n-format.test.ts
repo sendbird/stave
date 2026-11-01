@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { applyAppLocale } from "@/i18n";
 import {
+  formatAgeCompact,
   formatCost,
   formatDuration,
   formatElapsed,
@@ -71,6 +72,29 @@ describe("formatElapsed", () => {
     // A clock that ran backwards does not read negative.
     expect(formatElapsed("2026-10-22T10:00:05.000Z", "2026-10-22T10:00:00.000Z")).toBe("0s");
     expect(formatElapsed("not a date", Date.now())).toBe("");
+  });
+});
+
+describe("formatAgeCompact", () => {
+  test("reads the age alone for dense rows, counting down to the unit shown", () => {
+    const now = new Date("2026-11-01T12:00:00.000Z");
+    expect(formatAgeCompact(now.getTime() - 10 * SECOND, now)).toBe("now");
+    // A time the clock puts ahead is not the future.
+    expect(formatAgeCompact(now.getTime() + 3 * HOUR, now)).toBe("now");
+    expect(formatAgeCompact(now.getTime() - 50 * SECOND, now)).toBe("1m");
+    expect(formatAgeCompact(now.getTime() - 14 * MINUTE - 59 * SECOND, now)).toBe("14m");
+    expect(formatAgeCompact(now.getTime() - 2 * HOUR, now)).toBe("2h");
+    expect(formatAgeCompact(now.getTime() - 5 * DAY, now)).toBe("5d");
+    expect(formatAgeCompact("2026-10-10T12:00:00.000Z", now)).toBe("Oct 10");
+    expect(formatAgeCompact("not a date", now)).toBe("");
+  });
+
+  test("speaks Korean", () => {
+    applyAppLocale("ko");
+    const now = new Date("2026-11-01T12:00:00.000Z");
+    expect(formatAgeCompact(now.getTime() - 10 * SECOND, now)).toBe("방금");
+    expect(formatAgeCompact(now.getTime() - 6 * MINUTE, now)).toBe("6분");
+    expect(formatAgeCompact(now.getTime() - 2 * HOUR, now)).toBe("2시간");
   });
 });
 

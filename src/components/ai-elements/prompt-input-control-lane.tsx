@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { i18n, useTranslation } from "@/i18n";
 import {
   Popover,
@@ -19,6 +19,7 @@ import { ModelEffortSelector } from "./model-effort-selector";
 import { COMPOSER_CONTROL_LANE } from "./composer-control-density";
 import type { ModelSelectorOpenRequest } from "./model-selector-open-request";
 import type { PromptInputProps } from "./prompt-input.types";
+import { ComposerToolbarSlot } from "./use-composer-toolbar-fit";
 
 /**
  * The classic composer's control lane: the Customize popover anchor, the model
@@ -131,43 +132,45 @@ export function PromptInputControlLane(args: {
           </PopoverContent>
         </Popover>
       ) : null}
-      <ModelEffortSelector
-        value={selectedModel}
-        options={modelOptions}
-        catalogs={modelCatalogs}
-        modelVisibility={modelVisibility}
-        onRefreshCatalogs={onRefreshModelCatalogs}
-        {...(modelPickerAgents ? { agents: modelPickerAgents } : {})}
-        effortValue={
-          effortValue as Exclude<ModelShortcutEffort, ""> | undefined
-        }
-        effortLabel={effortLabel}
-        fastMode={fastMode}
-        showFastMode={composerControlLayout.toolbar.includes("fast")}
-        disabled={interactionsDisabled}
-        openToken={
-          modelSelectorOpenNonce > 0
-            ? modelSelectorOpenNonce
-            : undefined
-        }
-        {...(modelSelectorOpenRequest ? { openRequest: modelSelectorOpenRequest } : {})}
-        accountActions
-        openAgentsToken={agentsOpenToken}
-        onFastModeChange={onFastModeChange}
-        onSelect={({ selection, effort, fastMode: nextFastMode }) => {
-          onModelSelect({
-            selection,
-            effort,
-            fastMode: nextFastMode,
-          });
-        }}
-      />
+      <ComposerToolbarSlot id="model">
+        <ModelEffortSelector
+          value={selectedModel}
+          options={modelOptions}
+          catalogs={modelCatalogs}
+          modelVisibility={modelVisibility}
+          onRefreshCatalogs={onRefreshModelCatalogs}
+          {...(modelPickerAgents ? { agents: modelPickerAgents } : {})}
+          effortValue={
+            effortValue as Exclude<ModelShortcutEffort, ""> | undefined
+          }
+          effortLabel={effortLabel}
+          fastMode={fastMode}
+          showFastMode={composerControlLayout.toolbar.includes("fast")}
+          disabled={interactionsDisabled}
+          openToken={
+            modelSelectorOpenNonce > 0
+              ? modelSelectorOpenNonce
+              : undefined
+          }
+          {...(modelSelectorOpenRequest ? { openRequest: modelSelectorOpenRequest } : {})}
+          accountActions
+          openAgentsToken={agentsOpenToken}
+          onFastModeChange={onFastModeChange}
+          onSelect={({ selection, effort, fastMode: nextFastMode }) => {
+            onModelSelect({
+              selection,
+              effort,
+              fastMode: nextFastMode,
+            });
+          }}
+        />
+      </ComposerToolbarSlot>
       {toolbarControlIds.slice(0, toolbarTrayIndex).map((id) => (
-        <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+        <ComposerToolbarSlot key={id} id={id}>{composerControlNodes[id]}</ComposerToolbarSlot>
       ))}
       {useComposerWings ? null : composerOverflowTray}
       {toolbarControlIds.slice(toolbarTrayIndex).map((id) => (
-        <Fragment key={id}>{composerControlNodes[id]}</Fragment>
+        <ComposerToolbarSlot key={id} id={id}>{composerControlNodes[id]}</ComposerToolbarSlot>
       ))}
     </div>
   );

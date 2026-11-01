@@ -31,6 +31,10 @@ import {
 import { focusOrCreateGitGraphSurface } from "@/components/panes/pane-host-controller";
 import { resolveOpenableGitGraphWorkspaceId } from "@/store/app-store-editor-actions";
 import { useAppStore } from "@/store/app.store";
+import {
+  setWorkspaceSidebarCollapsed,
+  useWorkspaceSidebarCollapsed,
+} from "@/store/workspace-sidebar-fold-store";
 import { TopBarBranchDropdown } from "@/components/layout/TopBarBranchDropdown";
 import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
 import { TopBarFleetAttention } from "@/components/layout/TopBarFleetAttention";
@@ -61,8 +65,6 @@ export function TopBar() {
     workspaces,
     workspacePathById,
     repositoryPath,
-    workspaceSidebarCollapsed,
-    setLayout,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -71,11 +73,10 @@ export function TopBar() {
           state.workspaces,
           state.workspacePathById,
           state.repositoryPath,
-          state.layout.workspaceSidebarCollapsed,
-          state.setLayout,
         ] as const,
     ),
   );
+  const workspaceSidebarCollapsed = useWorkspaceSidebarCollapsed();
   const sidebarShortcut = useShortcutHint("view.toggle-workspace-sidebar");
   const hasRepositoryContext = Boolean(repositoryPath?.trim());
   const activeWorkspacePath = hasRepositoryContext
@@ -118,11 +119,7 @@ export function TopBar() {
                 size="sm"
                 xstyle={topBarStyles.sidebarToggle}
                 style={TOP_BAR_NO_DRAG_STYLE}
-                onClick={() =>
-                  setLayout({
-                    patch: { workspaceSidebarCollapsed: false },
-                  })
-                }
+                onClick={() => setWorkspaceSidebarCollapsed(false)}
                 aria-label={i18n.t("shell:topBar.expandProjectList")}
               >
                 <PanelLeft />

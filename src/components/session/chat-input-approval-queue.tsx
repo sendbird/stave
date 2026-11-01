@@ -1,12 +1,10 @@
-import { i18n, Trans, useTranslation } from "@/i18n";
+import { i18n, useTranslation } from "@/i18n";
+import { useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ShieldAlert } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { transition } from "@/components/ads/recipes/transition";
-import { useEffect, useRef, useState } from "react";
-import {
-  APPROVAL_DELIVERY_GUARD_MS,
-  ToolApprovalCard,
-} from "@/components/session/ToolApprovalCard";
-import { Button } from "@/components/ui/button";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { APPROVAL_DELIVERY_GUARD_MS } from "@/components/session/ToolApprovalCard";
+import { getToolTitle } from "@/components/session/message/assistant-trace.utils";
 import { Loader } from "@/components/ui/loader";
 import { Kbd } from "@/components/ui/kbd";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,7 +13,12 @@ import {
   formatTrustedToolEntry,
 } from "@/lib/providers/trusted-tools";
 import { sx } from "@/components/ads/utils/stylex";
-import { chatInputApprovalQueueStyles as styles } from "@/components/session/chat-input-approval-queue.styles";
+import { composerApprovalRowStyles as styles } from "@/components/session/composer-approval-row.styles";
+import {
+  resolveShownApproval,
+  stepShownApproval,
+  summarizeApprovalRequest,
+} from "@/components/session/composer-approval.utils";
 import type { ApprovalPart } from "@/types/chat";
 
 export interface PendingApprovalQueueItem {
@@ -25,10 +28,16 @@ export interface PendingApprovalQueueItem {
 
 interface ChatInputApprovalQueueProps {
   approvals: readonly PendingApprovalQueueItem[];
-  compact?: boolean;
   disabled?: boolean;
   disabledReason?: string;
   guidanceFocusNonce?: number;
+  /**
+   * The request the row shows. Controlled by the composer so its Enter and Tab
+   * shortcuts answer the request the row names; omit it to let the row track
+   * its own step.
+   */
+  shownRequestId?: string | null;
+  onShownRequestChange?: (requestId: string | null) => void;
   /**
    * Every decision names its request: one message can hold several approvals,
    * and the store would otherwise answer the message's latest one.
@@ -54,11 +63,19 @@ interface ChatInputApprovalQueueProps {
   }) => void;
 }
 
+/**
+ * The current task's pending approvals, shown once, as a row attached to the
+ * composer: the tool and what it would run, then Allow once (Enter), Always
+ * allow when the provider persists the grant, and Deny. The description, the
+ * full input and the other ways to answer sit behind the disclosure, which
+ * scrolls inside a bounded height so the transcript keeps its room. Several
+ * requests read as "1 of N" and are stepped through one at a time; every
+ * decision names the request on the row.
+ */
 export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   useTranslation();
   const {
     approvals,
-    compact,
     disabled,
     disabledReason,
     guidanceFocusNonce = 0,
@@ -66,8 +83,19 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     onTrustAndApprove,
     onDraftGuidance,
   } = args;
+  const detailsId = useId();
+  const statusRef = useRef<HTMLParagraphElement>(null);
+  const reclaimFocusRef = useRef(false);
+  const [ownShownRequestId, setOwnShownRequestId] = useState<string | null>(null);
+  const shownRequestId =
+    args.shownRequestId !== undefined ? args.shownRequestId : ownShownRequestId;
+  const setShownRequestId = (requestId: string | null) => {
+    setOwnShownRequestId(requestId);
+    args.onShownRequestChange?.(requestId);
+  };
+  const [detailsOpen, setDetailsOpen] = useState(false);
   // Guidance is written for one request, not for its message: another
-  // request of the same message can arrive and lead while it is open.
+  // request of the same message can arrive and take the row while it is open.
   const [guidanceTarget, setGuidanceTarget] = useState<{
     messageId: string;
     requestId: string;
@@ -80,19 +108,20 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   const pendingGuidanceFocusRef = useRef(false);
   const handledGuidanceFocusNonceRef = useRef(0);
 
-  const latest = approvals[0];
+  const shown = resolveShownApproval(approvals, shownRequestId);
+  const latest = shown?.item;
   const latestMessageId = latest?.messageId ?? null;
   const latestRequestId = latest?.part.requestId ?? null;
-  // Open only while its request still leads: the form sends for the leading
-  // card, so a new request taking the lead closes it instead of being denied.
+  // Open only while its request is the one shown: the form sends for the
+  // shown request, so a new request taking the row closes it instead of being
+  // denied.
   const guidanceOpen =
     guidanceTarget !== null &&
     guidanceTarget.messageId === latestMessageId &&
     guidanceTarget.requestId === latestRequestId;
-  const queuedCount = approvals.length - 1;
   const decisionPending = pendingDecisionRequestId !== null;
 
-  function resolveApproval(args: {
+  function resolveApproval(decision: {
     messageId: string;
     requestId: string;
     approved: boolean;
@@ -101,35 +130,25 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     if (disabled || pendingDecisionRequestId) {
       return;
     }
-    setPendingDecisionRequestId(args.requestId);
+    // The pressed button is disabled next; hand focus to the status line so a
+    // keyboard user keeps a position and hears the decision being recorded.
+    reclaimFocusRef.current = Boolean(
+      document.activeElement?.closest?.("[data-composer-approval-actions]"),
+    );
+    setPendingDecisionRequestId(decision.requestId);
     onResolveApproval({
-      messageId: args.messageId,
-      requestId: args.requestId,
-      approved: args.approved,
-      ...(args.scope === "always" ? { scope: args.scope } : {}),
+      messageId: decision.messageId,
+      requestId: decision.requestId,
+      approved: decision.approved,
+      ...(decision.scope === "always" ? { scope: decision.scope } : {}),
     });
   }
 
-  /** Why a card's decisions are blocked, or nothing while they are live. */
-  function describeBlockedDecision(item: PendingApprovalQueueItem) {
-    if (pendingDecisionRequestId === item.part.requestId) {
-      return undefined;
-    }
-    const reason = pendingDecisionRequestId
-      ? i18n.t("session:chatInputApprovalQueue.extraCopy143")
-      : disabled
-        ? disabledReason
-        : undefined;
-    return reason ? (
-      <span className={sx(styles.blockedNote)}>{reason}</span>
-    ) : undefined;
-  }
-
-  function openGuidanceDraft(args: { focusComposer?: boolean }) {
+  function openGuidanceDraft(options: { focusComposer?: boolean }) {
     if (!latest || disabled || !onDraftGuidance) {
       return;
     }
-    if (args.focusComposer) {
+    if (options.focusComposer) {
       pendingGuidanceFocusRef.current = true;
     }
     setGuidanceTarget({ messageId: latest.messageId, requestId: latest.part.requestId });
@@ -147,7 +166,7 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     }
 
     // The request was answered or withdrawn: its draft goes with it. A draft
-    // whose request only stopped leading is kept for when it leads again.
+    // whose request only stopped showing is kept for when it shows again.
     if (
       guidanceTarget &&
       !approvals.some(
@@ -187,6 +206,14 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
   }, [approvals, pendingDecisionRequestId]);
 
   useEffect(() => {
+    if (!decisionPending || !reclaimFocusRef.current) {
+      return;
+    }
+    reclaimFocusRef.current = false;
+    statusRef.current?.focus({ preventScroll: true });
+  }, [decisionPending]);
+
+  useEffect(() => {
     if (!latest || disabled || guidanceFocusNonce <= 0 || !onDraftGuidance) {
       return;
     }
@@ -214,175 +241,273 @@ export function ChatInputApprovalQueue(args: ChatInputApprovalQueueProps) {
     return () => window.cancelAnimationFrame(frameId);
   }, [guidanceOpen]);
 
-  if (approvals.length === 0) {
+  if (!shown || !latest) {
     return null;
   }
 
-  // Safe after the length guard — TS can't narrow the earlier binding.
-  const current = latest as PendingApprovalQueueItem;
-  const trustedEntry = buildTrustedToolEntryForApproval({
-    toolName: current.part.toolName,
-    input: current.part.input,
-  });
+  const current = latest;
+  const { part } = current;
+  const count = approvals.length;
+  const live = !disabled && !decisionPending;
+  const busy = pendingDecisionRequestId === part.requestId;
+  const toolTitle = getToolTitle(part.toolName);
+  const summary = summarizeApprovalRequest(part);
+  const trustedEntry =
+    !part.supportsAllowAlways && onTrustAndApprove
+      ? buildTrustedToolEntryForApproval({ toolName: part.toolName, input: part.input })
+      : null;
+  // Why the decisions are blocked, or nothing while they are live.
+  const blockedReason = busy
+    ? undefined
+    : decisionPending
+      ? i18n.t("session:chatInputApprovalQueue.extraCopy143")
+      : disabled
+        ? disabledReason
+        : undefined;
+  const decide = (decision: { approved: boolean; scope?: "once" | "always" }) =>
+    resolveApproval({
+      messageId: current.messageId,
+      requestId: part.requestId,
+      approved: decision.approved,
+      scope: decision.scope,
+    });
+  const step = (direction: -1 | 1) =>
+    setShownRequestId(stepShownApproval(approvals, part.requestId, direction));
+  const detailsLabel = i18n.t(
+    detailsOpen
+      ? "session:composerApprovalRow.hideDetails"
+      : "session:composerApprovalRow.showDetails",
+  );
 
   return (
     <section
       aria-label={i18n.t("session:chatInputApprovalQueue.ariaLabel")}
-      className={sx(
-        styles.section,
-        compact ? styles.sectionCompact : styles.sectionRegular,
-      )}
+      className={sx(styles.section)}
+      data-testid="composer-approval-row"
     >
-      {/* Latest approval */}
-      <ToolApprovalCard
-        actions={
-          !disabled && !decisionPending ? (
-            <span className={sx(styles.shortcutHint)}>
-              <Trans
-                i18n={i18n}
-                ns="session"
-                i18nKey="chatInputApprovalQueue.enterToAllowOnce"
-                components={{ key: <Kbd className={sx(styles.shortcutKbd)} /> }}
-              />
+      <div
+        aria-busy={busy || undefined}
+        aria-label={
+          summary
+            ? i18n.t("session:composerApprovalRow.groupLabel", { tool: toolTitle, summary })
+            : i18n.t("session:composerApprovalRow.groupLabelTool", { tool: toolTitle })
+        }
+        className={sx(styles.row)}
+        data-approval-request-id={part.requestId}
+        role="group"
+      >
+        <div className={sx(styles.identity)}>
+          <ShieldAlert aria-hidden className={sx(styles.statusIcon)} />
+          <span className={sx(styles.tool)}>{toolTitle}</span>
+          {summary ? (
+            <code className={sx(styles.summary)} title={summary}>
+              {summary}
+            </code>
+          ) : null}
+          {count > 1 ? (
+            <span className={sx(styles.stepper)}>
+              <Tooltip content={i18n.t("session:composerApprovalRow.previous")}>
+                <AdsButton
+                  aria-label={i18n.t("session:composerApprovalRow.previous")}
+                  iconOnly
+                  onClick={() => step(-1)}
+                  size="xs"
+                  variant="quiet"
+                >
+                  <ChevronLeft aria-hidden />
+                </AdsButton>
+              </Tooltip>
+              <span aria-live="polite" className={sx(styles.position)}>
+                {i18n.t("session:composerApprovalRow.position", {
+                  index: shown.index + 1,
+                  count,
+                })}
+              </span>
+              <Tooltip content={i18n.t("session:composerApprovalRow.next")}>
+                <AdsButton
+                  aria-label={i18n.t("session:composerApprovalRow.next")}
+                  iconOnly
+                  onClick={() => step(1)}
+                  size="xs"
+                  variant="quiet"
+                >
+                  <ChevronRight aria-hidden />
+                </AdsButton>
+              </Tooltip>
             </span>
-          ) : undefined
-        }
-        busy={pendingDecisionRequestId === current.part.requestId}
-        density="compact"
-        disabled={disabled || decisionPending}
-        note={describeBlockedDecision(current)}
-        onDecide={(decision) =>
-          resolveApproval({
-            messageId: current.messageId,
-            requestId: current.part.requestId,
-            approved: decision.approved,
-            scope: decision.scope,
-          })
-        }
-        part={current.part}
-      />
-      {decisionPending ? (
-        <p
-          role="status"
-          aria-live="polite"
-          className={sx(styles.status)}
-        >
-          <Loader aria-hidden size="xs" variant="signal" />
-          {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue")}</p>
-      ) : null}
-      {/*
-        When the runtime persists the rule itself, Stave's client-side trusted
-        list would be a second, weaker copy of the same decision. It is also the
-        weaker one for ACP: the trusted entry is keyed on the serialized tool
-        input, so it re-matches only that exact payload, while the provider rule
-        generalizes to the command.
-      */}
-      {!disabled &&
-      !decisionPending &&
-      !current.part.supportsAllowAlways &&
-      onTrustAndApprove &&
-      trustedEntry ? (
-        <AdsButton layout="host"
-          type="button"
-          xstyle={styles.linkAction}
-          onClick={() =>
-            onTrustAndApprove({
-              messageId: current.messageId,
-              requestId: current.part.requestId,
-              toolName: current.part.toolName,
-              input: current.part.input,
-            })
-          }
-        >{i18n.t("session:chatInputApprovalQueue.sentence54", { value1: formatTrustedToolEntry(trustedEntry) })}</AdsButton>
-      ) : null}
-
-      {/* Guidance inline */}
-      {!disabled && !decisionPending && onDraftGuidance ? (
-        guidanceOpen ? (
-          <div className={sx(styles.guidancePanel)}>
-            <Textarea
-              ref={guidanceTextareaRef}
-              value={guidanceText}
-              rows={2}
-              xstyle={styles.guidanceField}
-              onChange={(event) => setGuidanceText(event.target.value)}
-              placeholder={i18n.t("session:chatInputApprovalQueue.placeholder", { value1: current.part.toolName })}
-            />
-            <div className={sx(styles.guidanceActions)}>
-              <Button
-                type="button"
-                size="sm"
-                xstyle={styles.compactButton}
-                disabled={!guidanceText.trim()}
-                onClick={() => {
-                  const guidance = guidanceText.trim();
-                  if (!guidance) {
-                    return;
-                  }
-                  onDraftGuidance({
-                    messageId: current.messageId,
-                    requestId: current.part.requestId,
-                    toolName: current.part.toolName,
-                    description: current.part.description,
-                    guidance,
-                  });
-                  setGuidanceTarget(null);
-                  setGuidanceText("");
-                }}
-              >
-                {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue3")}</Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                xstyle={styles.compactButtonQuiet}
-                onClick={() => {
-                  setGuidanceTarget(null);
-                  setGuidanceText("");
-                }}
-              >
-                {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue4")}</Button>
-            </div>
-          </div>
-        ) : (
-          <AdsButton layout="host"
-            type="button"
-            xstyle={styles.guideAction}
-            onClick={() => openGuidanceDraft({ focusComposer: true })}
+          ) : null}
+        </div>
+        <div className={sx(styles.trailing)}>
+          <div
+            aria-disabled={!live || undefined}
+            className={sx(styles.actions)}
+            data-composer-approval-actions=""
           >
-            <Kbd className={sx(styles.guideKbd)}>Tab</Kbd>
-            <span>{i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue5")}</span>
-          </AdsButton>
-        )
-      ) : null}
+            <AdsButton
+              aria-keyshortcuts={live ? "Enter" : undefined}
+              disabled={!live}
+              onClick={() => decide({ approved: true, scope: "once" })}
+              size="sm"
+              variant="primary"
+            >
+              {i18n.t("ui:approval.allowOnce")}
+              {live ? (
+                <Kbd aria-hidden className={sx(styles.allowKey)}>↵</Kbd>
+              ) : null}
+            </AdsButton>
+            {part.supportsAllowAlways === true ? (
+              <AdsButton
+                disabled={!live}
+                onClick={() => decide({ approved: true, scope: "always" })}
+                size="sm"
+                variant="secondary"
+              >
+                {i18n.t("ui:approval.alwaysAllow")}
+              </AdsButton>
+            ) : null}
+            <AdsButton
+              disabled={!live}
+              onClick={() => decide({ approved: false })}
+              size="sm"
+              tone="danger"
+              variant="outline"
+            >
+              {i18n.t("ui:approval.deny")}
+            </AdsButton>
+          </div>
+          <Tooltip content={detailsLabel}>
+            <AdsButton
+              aria-controls={detailsOpen ? detailsId : undefined}
+              aria-expanded={detailsOpen}
+              aria-label={detailsLabel}
+              data-testid="composer-approval-details-toggle"
+              iconOnly
+              onClick={() => setDetailsOpen((open) => !open)}
+              size="sm"
+              variant="quiet"
+            >
+              {detailsOpen ? <ChevronUp aria-hidden /> : <ChevronDown aria-hidden />}
+            </AdsButton>
+          </Tooltip>
+        </div>
+      </div>
 
-      {/* Queued count */}
-      {queuedCount > 0 ? (
-        <div className={sx(styles.queuedGroup)}>
-          <details className="group">
-            <summary className={sx(styles.queuedSummary, transition.colors)}>{i18n.t("session:chatInputApprovalQueue.sentence55", { value1: queuedCount })}</summary>
-            <div className={sx(styles.queuedList)}>
-              {approvals.slice(1).map((approval) => (
-                <ToolApprovalCard
-                  busy={pendingDecisionRequestId === approval.part.requestId}
-                  density="compact"
-                  disabled={disabled || decisionPending}
-                  key={`${approval.messageId}:${approval.part.requestId}`}
-                  note={describeBlockedDecision(approval)}
-                  onDecide={(decision) =>
-                    resolveApproval({
-                      messageId: approval.messageId,
-                      requestId: approval.part.requestId,
-                      approved: decision.approved,
-                      scope: decision.scope,
+      {detailsOpen ? (
+        <div className={sx(styles.details)} id={detailsId}>
+          {part.description ? (
+            <p className={sx(styles.description)}>{part.description}</p>
+          ) : null}
+          {part.input ? (
+            <div className={sx(styles.argument)}>
+              <p className={sx(styles.argumentLabel)}>
+                {i18n.t("session:turnEventDecisions.label")}
+              </p>
+              <pre className={sx(styles.argumentValue)}>{part.input}</pre>
+            </div>
+          ) : null}
+          {live && (onDraftGuidance || trustedEntry) ? (
+            <div className={sx(styles.detailActions)}>
+              {/*
+                When the runtime persists the rule itself, Stave's client-side
+                trusted list would be a second, weaker copy of the same
+                decision: the trusted entry re-matches only this exact input,
+                while the provider rule generalizes to the command.
+              */}
+              {trustedEntry && onTrustAndApprove ? (
+                <AdsButton
+                  onClick={() =>
+                    onTrustAndApprove({
+                      messageId: current.messageId,
+                      requestId: part.requestId,
+                      toolName: part.toolName,
+                      input: part.input,
                     })
                   }
-                  part={approval.part}
-                />
-              ))}
+                  size="xs"
+                  variant="quiet"
+                >
+                  {i18n.t("session:chatInputApprovalQueue.sentence54", {
+                    value1: formatTrustedToolEntry(trustedEntry),
+                  })}
+                </AdsButton>
+              ) : null}
+              {onDraftGuidance && !guidanceOpen ? (
+                <AdsButton
+                  aria-keyshortcuts="Tab"
+                  onClick={() => openGuidanceDraft({ focusComposer: true })}
+                  size="xs"
+                  variant="quiet"
+                >
+                  <Kbd aria-hidden>Tab</Kbd>
+                  {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue5")}
+                </AdsButton>
+              ) : null}
             </div>
-          </details>
+          ) : null}
         </div>
+      ) : null}
+
+      {live && onDraftGuidance && guidanceOpen ? (
+        <div className={sx(styles.details)}>
+          <Textarea
+            ref={guidanceTextareaRef}
+            value={guidanceText}
+            rows={2}
+            xstyle={styles.guidanceField}
+            onChange={(event) => setGuidanceText(event.target.value)}
+            placeholder={i18n.t("session:chatInputApprovalQueue.placeholder", { value1: part.toolName })}
+          />
+          <div className={sx(styles.detailActions)}>
+            <AdsButton
+              disabled={!guidanceText.trim()}
+              onClick={() => {
+                const guidance = guidanceText.trim();
+                if (!guidance) {
+                  return;
+                }
+                onDraftGuidance({
+                  messageId: current.messageId,
+                  requestId: part.requestId,
+                  toolName: part.toolName,
+                  description: part.description,
+                  guidance,
+                });
+                setGuidanceTarget(null);
+                setGuidanceText("");
+              }}
+              size="sm"
+              variant="primary"
+            >
+              {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue3")}
+            </AdsButton>
+            <AdsButton
+              onClick={() => {
+                setGuidanceTarget(null);
+                setGuidanceText("");
+              }}
+              size="sm"
+              variant="quiet"
+            >
+              {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue4")}
+            </AdsButton>
+          </div>
+        </div>
+      ) : null}
+
+      {decisionPending ? (
+        <p
+          aria-live="polite"
+          className={sx(styles.footer)}
+          ref={statusRef}
+          role="status"
+          tabIndex={-1}
+        >
+          <Loader aria-hidden size="xs" variant="signal" />
+          {i18n.t("session:chatInputApprovalQueue.chatInputApprovalQueue")}
+        </p>
+      ) : null}
+      {blockedReason ? (
+        <p className={sx(styles.footer)}>{blockedReason}</p>
       ) : null}
     </section>
   );

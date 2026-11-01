@@ -14,14 +14,14 @@ const accent40 = `color-mix(in srgb, ${vars["--ads-color-accent"]} 40%, transpar
 
 /**
  * The sidebar's hover-reveal beat: the project mark trading places with its
- * chevron, the row actions sliding in, the count yielding to them, and the
- * lead's padding opening to make room. All five were authored as a bare
+ * chevron, the row actions sliding in and the count yielding to them (the
+ * lead's padding opens in one step; it is layout). They were authored as a bare
  * `transitionDuration` literal with NO timing function, which means they ran on
  * the UA's `ease` rather than the house curve — the sidebar was the one surface
  * in the app whose hovers accelerated differently from every button beside it —
  * and with no `prefers-reduced-motion` arm at all, so the transform halves kept
  * playing for a reader who had asked them not to. One tokenized object, spread
- * into each of the five, so they cannot drift again.
+ * into each, so they cannot drift again.
  *
  * `motionDurationNormal` (180ms) is the token nearest the hand-picked value;
  * the spatial arm collapses to `0ms` under Reduce Motion exactly as
@@ -34,6 +34,13 @@ const revealMotion = {
   },
   transitionTimingFunction: vars["--ads-motion-ease-standard"],
 } as const;
+
+/**
+ * Muted measures 4.51:1 on the light sidebar ground and 4.15:1 under the
+ * selected-row wash, below the 4.5:1 small-text floor; a 30% ink step reads
+ * 6.01:1 there and only lightens further in dark mode.
+ */
+const rowSecondaryInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 30%, ${vars["--ads-color-text-muted"]})`;
 
 /** Tooltip surfaces paint on `colorText`, so their "background" tints mix toward it. */
 const invertedText70 = `color-mix(in oklab, ${vars["--ads-color-text-inverted"]} 70%, ${vars["--ads-color-text"]})`;
@@ -171,6 +178,64 @@ export const repositorySidebarStyles = stylex.create({
   toneAccent: { color: vars["--ads-color-accent"] },
   toneWarning: { color: vars["--ads-color-warning"] },
 
+  /* ------------------------------------------- shared workspace row (both views) */
+  /*
+   * One row for the repository tree and the Work queue, so both views read at
+   * the same comfortable height: `controlHeightLg` is 40px, and 36px under the
+   * compact UI density, which shifts that rung. The whole row is the hit area;
+   * the title holds one line and anything secondary is muted beside or under it.
+   */
+  row: {
+    alignItems: "center",
+    borderRadius: vars["--ads-radius-control"],
+    display: "flex",
+    height: vars["--ads-control-height-lg"],
+    minWidth: 0,
+    position: "relative",
+  },
+  rowHit: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    display: "flex",
+    flex: 1,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+    paddingInline: vars["--ads-space-12"],
+    textAlign: "left",
+    width: "100%",
+  },
+  rowTitle: {
+    flexBasis: "auto",
+    flexGrow: 0,
+    flexShrink: 1,
+    lineHeight: vars["--ads-line-height-control"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  /** Title over a muted second line, both inside the one row height. */
+  rowStack: {
+    display: "flex",
+    flex: 1,
+    flexDirection: "column",
+    justifyContent: "center",
+    minWidth: 0,
+  },
+  rowSecondary: {
+    color: rowSecondaryInk,
+    flexBasis: "auto",
+    flexGrow: 0,
+    flexShrink: 1000,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+
   /* -------------------------------------------------------- work-queue rows */
   queueRow: { minWidth: 0 },
   /** The row's button and its hover menu; reveals the menu like a tree row. */
@@ -193,38 +258,8 @@ export const repositorySidebarStyles = stylex.create({
     minWidth: 0,
     position: "relative",
   },
-  queueButton: {
-    alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    fontSize: vars["--ads-font-size-body"],
-    gap: vars["--ads-space-8"],
-    height: 32,
-    minWidth: 0,
-    paddingInline: vars["--ads-space-8"],
-    width: "100%",
-  },
-  queueButtonActive: { backgroundColor: accent16, color: vars["--ads-color-text"] },
-  queueButtonIdle: {
-    backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
-  },
-  queueLabel: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textAlign: "left",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  queueRepository: {
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-caption"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
+  /** Inline secondary text sits at the row's trailing edge, before its counts. */
+  rowSecondaryTrailing: { marginInlineStart: "auto" },
   laneStack: { display: "flex", flexDirection: "column", gap: 2 },
   // Both the lane's section header and its collapse target, so it is held to
   // the section-header step: Micro plus uppercase plus 0.18em tracking made a
@@ -355,8 +390,6 @@ export const repositorySidebarStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  labelCompact: { flex: 1 },
-  labelRoomy: { paddingInlineEnd: vars["--ads-space-32"] },
   labelActive: { color: vars["--ads-color-text"], fontWeight: vars["--ads-font-weight-medium"] },
   labelEditable: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
@@ -365,64 +398,6 @@ export const repositorySidebarStyles = stylex.create({
     outline: "none",
   },
 
-  /* ------------------------------------------------------ expanded row meta */
-  metaGrid: {
-    alignItems: "center",
-    // Muted measures 4.51:1 on the light sidebar ground and 4.15:1 under the
-    // selected-row wash, below the 4.5:1 small-text floor; a 30% ink step
-    // reads 6.01:1 there and only lightens further in dark mode.
-    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 30%, ${vars["--ads-color-text-muted"]})`,
-    columnGap: vars["--ads-space-8"],
-    display: "grid",
-    fontSize: vars["--ads-font-size-caption"],
-    gridColumn: "span 2",
-    gridTemplateColumns: "1rem minmax(0, 1fr)",
-    lineHeight: vars["--ads-line-height-tight"],
-    minWidth: 0,
-  },
-  metaIconSlot: {
-    alignItems: "center",
-    display: "flex",
-    height: 16,
-    justifyContent: "center",
-    width: 16,
-  },
-  // 12px beside the 12px branch line, the size of the identity glyph above it.
-  metaIcon: {
-    color: vars["--ads-color-text-subtle"],
-    flexShrink: 0,
-    height: 12,
-    width: 12,
-  },
-  metaBody: { alignItems: "center", display: "flex", gap: 6, minWidth: 0, position: "relative" },
-  metaBranch: {
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  metaActions: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: 6,
-    marginInlineStart: "auto",
-  },
-  // Laid over the end of the branch line; `rowActionsReveal` fades it in.
-  metaShortcutReveal: {
-    alignItems: "center",
-    display: "flex",
-    insetBlock: 0,
-    insetInlineEnd: 0,
-    position: "absolute",
-  },
-  metaShortcutChip: {
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
-    height: 16,
-    paddingInline: vars["--ads-space-4"],
-  },
 
   /* ------------------------------------------------------------ sortable row */
   sortableRow: { position: "relative" },
@@ -435,7 +410,6 @@ export const repositorySidebarStyles = stylex.create({
     gap: vars["--ads-space-4"],
     position: "absolute",
   },
-  rowActionsTop: { insetBlockStart: 6, insetInlineEnd: vars["--ads-space-4"] },
   rowActionsInline: {
     insetBlockEnd: 0,
     insetBlockStart: 0,
@@ -469,23 +443,6 @@ export const repositorySidebarStyles = stylex.create({
     position: "relative",
     color: vars["--ads-color-text"],
     zIndex: 0,
-  },
-  /*
-   * The collapse/expand glide. `width`/`min-width` stay in the inline `style`
-   * because they are a live pixel value the user drags; only the transition
-   * moves here, and it moves for two reasons the inline attribute cannot serve:
-   * the hard-coded `200ms ease` was the last un-tokenized curve in the sidebar,
-   * and an inline declaration cannot carry a `prefers-reduced-motion` arm — so
-   * the whole rail kept sliding for a reader who had opted out of exactly that.
-   * `motionDurationNormal` is the token nearest the hand-picked value.
-   */
-  asideAnimated: {
-    transitionDuration: {
-      default: vars["--ads-motion-duration-normal"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
-    },
-    transitionProperty: "width, min-width",
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   chrome: {
     borderBottomStyle: "solid",
@@ -848,8 +805,8 @@ export const repositorySidebarStyles = stylex.create({
     gap: vars["--ads-space-8"],
     minWidth: 0,
     position: "relative",
-    ...revealMotion,
-    transitionProperty: "padding",
+    // The room it opens for the hover actions arrives in one step: padding
+    // is layout, and animating it re-wrapped the project name every frame.
   },
   /* Hover reserves room for the absolutely positioned row actions; a pinned
      attention alert needs its own slot beyond them. */
@@ -956,8 +913,6 @@ export const repositorySidebarStyles = stylex.create({
     // every control inside it runs on the house curve.
     transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
-  workspaceRowExpanded: { alignItems: "stretch", gap: vars["--ads-space-4"] },
-  workspaceRowCompact: { alignItems: "center", gap: vars["--ads-space-4"] },
   // The fill alone marks the selected row: no outline, raised shadow or
   // corner mark, so selection reads calmly next to the idle rows.
   workspaceRowActive: {
@@ -986,22 +941,6 @@ export const repositorySidebarStyles = stylex.create({
     minWidth: 0,
     textAlign: "left",
   },
-  workspaceOpenExpanded: {
-    alignItems: "start",
-    columnGap: vars["--ads-space-8"],
-    display: "grid",
-    gridTemplateColumns: "1rem minmax(0, 1fr)",
-    paddingBlock: 10,
-    paddingInline: vars["--ads-space-12"],
-    rowGap: vars["--ads-space-4"],
-  },
-  workspaceOpenCompact: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
-  },
   workspaceOpenDraggable: {
     cursor: { default: "pointer", ":active": "grabbing" },
   },
@@ -1014,7 +953,6 @@ export const repositorySidebarStyles = stylex.create({
     justifyContent: "center",
     width: 16,
   },
-  workspaceLeadSlotExpanded: { marginBlockStart: 2 },
   workspaceCountHost: { flexShrink: 0, position: "relative" },
 
   footer: {

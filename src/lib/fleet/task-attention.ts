@@ -51,3 +51,30 @@ export function mergeTaskAttention(args: {
   }
   return items;
 }
+
+/**
+ * The composer shows this task's own pending approvals as its approval row, so
+ * the task's attention summary leaves them out instead of naming the same
+ * request a second time. An item without a request id stands for "this task
+ * has a pending approval" and is covered by any request the row shows. A
+ * delegated child's request is not on the row and stays.
+ */
+export function omitComposerShownApprovals<T extends FleetAttentionItem>(
+  items: readonly T[],
+  args: {
+    taskId: string;
+    pendingApprovalRequestIds: readonly string[];
+    /** A request raised by a delegated child, answered in its own slot. */
+    isDelegated?: (item: T) => boolean;
+  },
+): T[] {
+  if (args.pendingApprovalRequestIds.length === 0) {
+    return [...items];
+  }
+  return items.filter((item) => !(
+    item.kind === "approval" &&
+    item.taskId === args.taskId &&
+    !args.isDelegated?.(item) &&
+    (!item.requestId || args.pendingApprovalRequestIds.includes(item.requestId))
+  ));
+}

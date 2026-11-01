@@ -9,10 +9,13 @@ import { collectFleetLiveAttentionItems, type FleetAttentionItem } from "@/lib/f
 import { isSupervisedTaskTurn } from "@/lib/fleet/agent-run-attention";
 import { isExternallyManagedTask } from "@/lib/tasks";
 import { FLEET_ATTENTION_KIND_LABEL } from "@/lib/fleet/fleet-vocabulary";
-import { getTaskAttentionTier, mergeTaskAttention, selectTaskAttention, taskAttentionDestination } from "@/lib/fleet/task-attention";
+import {
+  getTaskAttentionTier, mergeTaskAttention, omitComposerShownApprovals, selectTaskAttention, taskAttentionDestination,
+} from "@/lib/fleet/task-attention";
 import { getDelegatedAttentionRoot } from "@/lib/notifications/delegated-attention";
 import { toast } from "@/lib/notifications/toast";
 import { useAppStore } from "@/store/app.store";
+import { findPendingApprovals } from "@/store/provider-message.utils";
 import { useFleetAttention } from "@/store/fleet-attention-store";
 import { useFleetAgentRunsStore } from "@/store/fleet-agent-runs-store";
 import { useTaskReviewModeStore } from "@/store/task-review-mode-store";
@@ -85,9 +88,21 @@ export function TaskAttentionSummary(props: { taskId: string }) {
     tasks: [task], messagesByTask: { [task.id]: messages ?? [] },
     activeTurnIdsByTask: { [task.id]: activeTurnId }, providerTurnActivityByTask: { [task.id]: activity },
   }]) : [], [task, activeTurnId, supervised, repositoryPath, workspaceId, messages, activity]);
-  const items = useMemo(() => mergeTaskAttention({
+  // While the conversation is shown, its composer row is where this task's own
+  // pending approvals are answered; Review hides the composer, so they stay here.
+  const conversationShown = useTaskReviewModeStore((state) => (state.byTask[props.taskId]?.mode ?? "conversation") === "conversation");
+  const pendingApprovalRequestIds = useMemo(() => conversationShown
+    ? findPendingApprovals({ messages: messages ?? [] }).map((approval) => approval.part.requestId) : [],
+  [conversationShown, messages]);
+  const items = useMemo(() => omitComposerShownApprovals(mergeTaskAttention({
     items: selectTaskAttention(allItems, workspaceId, props.taskId, notifications), localItems, snoozedItems, supervised,
-  }), [allItems, workspaceId, props.taskId, notifications, localItems, snoozedItems, supervised]);
+  }), {
+    taskId: props.taskId, pendingApprovalRequestIds,
+    isDelegated: (item) => {
+      const notification = notifications.find((entry) => entry.id === item.notificationId);
+      return Boolean(notification && getDelegatedAttentionRoot(notification));
+    },
+  }), [allItems, workspaceId, props.taskId, notifications, localItems, snoozedItems, supervised, pendingApprovalRequestIds]);
   if (items.length === 0) return null;
   const blocking = items.some((item) => getTaskAttentionTier(item) === "blocking");
   return (

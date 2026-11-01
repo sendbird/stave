@@ -24,8 +24,7 @@ function renderTrace(args: {
       isStreaming: args.isStreaming,
       defaultOpen: args.defaultOpen ?? args.isStreaming,
       durationSeconds: args.durationSeconds,
-      seed: "message-1",
-      summaryItems: [{ icon: null, label: "reads", count: 2 }],
+      summaryItems: [{ id: "read", icon: null, label: "2 reads" }],
     },
     createElement(ChainOfThoughtTrigger, {
       completionLabel: args.completionLabel,
@@ -93,25 +92,40 @@ describe("ChainOfThoughtTrigger", () => {
     );
   });
 
-  test("appends the duration to the collapsed completion phrase", () => {
+  test("puts the reasoning time beside the collapsed title", () => {
     const html = renderTrace({ isStreaming: false, durationSeconds: 12, defaultOpen: false });
-    expect(html).toContain("for 12s");
+    expect(html).toContain(">12s</span>");
+    expect(html).toContain('title="Reasoning time: 12s"');
 
     const long = renderTrace({ isStreaming: false, durationSeconds: 125, defaultOpen: false });
-    expect(long).toContain("for 2m 5s");
+    expect(long).toContain(">2m 5s</span>");
   });
 
   test("hides the duration while streaming and while expanded", () => {
-    expect(renderTrace({ isStreaming: true, durationSeconds: 12 })).not.toContain("for 12s");
+    expect(renderTrace({ isStreaming: true, durationSeconds: 12 })).not.toContain(">12s<");
     expect(
       renderTrace({ isStreaming: false, durationSeconds: 12, defaultOpen: true }),
-    ).not.toContain("for 12s");
+    ).not.toContain(">12s<");
   });
 
-  test("keeps the completion phrase stable for a given seed across remounts", () => {
-    const first = renderTrace({ isStreaming: false, defaultOpen: false });
-    const second = renderTrace({ isStreaming: false, defaultOpen: false });
-    expect(first).toBe(second);
+  test("titles a finished turn with the label it is given, never a random phrase", () => {
+    const titled = renderTrace({
+      isStreaming: false,
+      defaultOpen: false,
+      completionLabel: "Updated the sidebar width spec",
+    });
+    expect(titled).toContain("Updated the sidebar width spec");
+    expect(titled).toContain("2 reads");
+    // Without a title the header says the turn finished; it is the same every render.
+    const untitled = renderTrace({ isStreaming: false, defaultOpen: false });
+    expect(untitled).toContain(">Finished<");
+    expect(renderTrace({ isStreaming: false, defaultOpen: false })).toBe(untitled);
+  });
+
+  test("shows the playful rotating status only while the turn runs", () => {
+    const running = renderTrace({ isStreaming: true, completionLabel: "Updated the sidebar width spec" });
+    expect(running).not.toContain("Updated the sidebar width spec");
+    expect(running).not.toContain(">Finished<");
   });
 
   test("uses an explicit terminal label instead of a success phrase", () => {

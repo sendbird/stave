@@ -24,6 +24,8 @@ const dangerPanel = `color-mix(in oklch, ${vars["--ads-color-danger"]} 10%, tran
 const dangerEdge = `color-mix(in oklch, ${vars["--ads-color-danger"]} 40%, transparent)`;
 
 /** Verification / PR / working-tree signal colors, keyed by local check tone. */
+const COMMIT_ROW_WIDE = "@container scm-commit (min-width: 25rem)";
+
 export const checkToneStyles = stylex.create({
   success: { color: vars["--ads-color-success-text"] },
   warning: { color: vars["--ads-color-warning-text"] },
@@ -548,6 +550,8 @@ export const changesStyles = stylex.create({
   summaryHint: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
   composer: {
     borderTopColor: vars["--ads-color-border-subtle"],
+    containerName: "scm-commit",
+    containerType: "inline-size",
     borderTopStyle: "solid",
     borderTopWidth: vars["--ads-border-width-hairline"],
     display: "flex",
@@ -555,7 +559,14 @@ export const changesStyles = stylex.create({
     gap: vars["--ads-space-12"],
     paddingTop: vars["--ads-space-12"],
   },
-  composerRow: { alignItems: "flex-start", display: "flex", gap: vars["--ads-space-8"] },
+  // A narrow panel stacks the message above a full-width Commit button, so
+  // neither truncates; from 400px of room they share one line again.
+  composerRow: {
+    alignItems: { default: "stretch", [COMMIT_ROW_WIDE]: "flex-start" },
+    display: "flex",
+    flexDirection: { default: "column", [COMMIT_ROW_WIDE]: "row" },
+    gap: vars["--ads-space-8"],
+  },
   composerInput: {
     backgroundColor: vars["--ads-color-canvas"],
     borderColor: vars["--ads-color-border-subtle"],
@@ -565,8 +576,10 @@ export const changesStyles = stylex.create({
   },
   commitButton: {
     borderRadius: vars["--ads-radius-panel"],
+    flexShrink: 0,
     fontSize: vars["--ads-font-size-body"],
     height: 36,
+    width: { default: "100%", [COMMIT_ROW_WIDE]: "auto" },
     paddingInline: vars["--ads-space-12"],
   },
   bulkRow: {

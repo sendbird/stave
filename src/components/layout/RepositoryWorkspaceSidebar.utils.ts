@@ -300,6 +300,32 @@ export function formatWorkspaceDisplayName(args: {
 }
 
 /**
+ * The branch a workspace row shows beside its title, or `null` when the row
+ * would only repeat itself. Most worktrees are named after their branch, so
+ * the branch is shown only when it says something the title does not: always
+ * under the Default workspace (titled "Default"), and under a named workspace
+ * only when the names differ.
+ */
+export function resolveWorkspaceRowBranch(args: {
+  name: string;
+  branch?: string;
+  isDefault: boolean;
+}): string | null {
+  const branch = formatBranchLabel(args.branch);
+  if (!branch) {
+    return null;
+  }
+  if (args.isDefault || isDefaultWorkspaceName(args.name)) {
+    return branch;
+  }
+  const name = args.name.trim();
+  if (!name || name.toLowerCase() === branch.toLowerCase()) {
+    return null;
+  }
+  return branch;
+}
+
+/**
  * Row label for the Work queue view: the workspace's own label first, its branch
  * second.
  *

@@ -10,7 +10,6 @@ import { agentStateLabel } from "@/components/ads/components/agent-state";
 import { formatRelativeTimeShort } from "@/i18n/format";
 import { formatElapsed, formatSpokenElapsed } from "@/components/ads/components/Thinking.parts";
 import { describePlanDelta } from "@/components/ads/components/Plan.parts";
-import { getSeededCompletionPhrase, getSeededCompletionPhraseKey } from "@/lib/completion-phrases";
 import { buildProviderOutputTruncationDisplay, PROVIDER_MAX_TOKENS_TRUNCATION_NOTICE } from "@/lib/truncation-visibility";
 
 afterEach(() => applyAppLocale("en"));
@@ -44,14 +43,10 @@ test("translated audit attribution preserves the user-supplied React node", () =
   expect(markup).not.toContain("{{");
 });
 
-test("status phrases keep their identity and localize full time and plan announcements", () => {
-  const key = getSeededCompletionPhraseKey("message-1");
-  const english = getSeededCompletionPhrase("message-1");
+test("full time and plan announcements localize", () => {
   expect(formatSpokenElapsed(61_000)).toBe("1 minute 1 second");
   expect(formatElapsed(124_000)).toBe("2m 04s");
   applyAppLocale("ko");
-  expect(getSeededCompletionPhraseKey("message-1")).toBe(key);
-  expect(getSeededCompletionPhrase("message-1")).not.toBe(english);
   expect(formatSpokenElapsed(61_000)).toBe("1분 1초");
   expect(formatElapsed(124_000)).toBe("2분 04초");
   expect(describePlanDelta(new Map(), [{ id: "user-step", name: "user title", status: "pending" }], 0, 1)).toBe("1개 단계 추가. 1개 중 0개 완료.");

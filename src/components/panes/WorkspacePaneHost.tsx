@@ -26,6 +26,7 @@ import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { PaneHeaderActions } from "@/components/panes/PaneHeaderActions";
 import { PaneTabChip } from "@/components/panes/PaneTabChip";
 import { PaneWatermark } from "@/components/panes/PaneWatermark";
+import { useDockviewSyncLayout } from "@/components/panes/use-dockview-sync-layout";
 import { TaskHistoryDrawer } from "@/components/panes/TaskHistoryDrawer";
 import { recordClosedPaneTab } from "@/components/panes/closed-tab-history";
 import { shouldPreventPaneDropAboveTaskBar } from "@/components/panes/pane-drop-guard";
@@ -74,7 +75,8 @@ import {
   copyEditorTabRelativePath,
 } from "@/components/panes/editor-tab-actions";
 import { shouldShowEditorFileActions } from "@/components/panes/editor-tab-presentation";
-import { clearLensTabState } from "@/components/panes/lens-tab-state";
+import { clearLensTabState, getLensTabState } from "@/components/panes/lens-tab-state";
+import { describePaneAnnouncement } from "@/components/panes/pane-tab-accessibility";
 import {
   PANE_CUSTOM_ICON_OPTIONS,
   resolvePaneCustomIcon,
@@ -82,6 +84,10 @@ import {
 import { splitPanelInDirection } from "@/components/panes/pane-split";
 
 const LAYOUT_PERSIST_DEBOUNCE_MS = 300;
+
+/** Open and close are spoken with the tab's title, not its panel id. */
+const announcePaneChange = (event: { kind: string; panel: { id: string } }) =>
+  describePaneAnnouncement(event, useAppStore.getState(), getLensTabState);
 
 const STAVE_DOCKVIEW_THEME: DockviewTheme = {
   name: "stave",
@@ -657,6 +663,8 @@ function buildTabContextMenuItems(
 export function WorkspacePaneHost() {
   useTranslation();
   const apiRef = useRef<DockviewApi | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  useDockviewSyncLayout(rootRef, apiRef);
   /** True while this host mutates panels itself (reconcile / restore). */
   const reconcilingRef = useRef(false);
   const restoringRef = useRef(false);
@@ -1135,6 +1143,7 @@ export function WorkspacePaneHost() {
 
   return (
     <div
+      ref={rootRef}
       className={sx(styles.root)}
       data-testid="workspace-pane-host"
     >
@@ -1145,6 +1154,7 @@ export function WorkspacePaneHost() {
         rightHeaderActionsComponent={PaneHeaderActions}
         watermarkComponent={PaneWatermark}
         getTabContextMenuItems={buildTabContextMenuItems}
+        getAnnouncement={announcePaneChange}
         onReady={handleReady}
       />
       <ConfirmDialog

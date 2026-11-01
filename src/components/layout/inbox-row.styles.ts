@@ -15,6 +15,66 @@ export const inboxRowStyles = stylex.create({
       ":last-child": 0,
     },
   },
+  /** One line at the 36px control step; wraps only when the band is too narrow. */
+  rowCompact: {
+    alignItems: "center",
+    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    flexWrap: "wrap",
+    minHeight: vars["--ads-control-height-md"],
+    paddingInlineEnd: vars["--ads-space-8"],
+  },
+  rowTriggerCompact: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    flexBasis: "16rem",
+    flexDirection: "row",
+    flexGrow: 1,
+    flexShrink: 1,
+    gap: vars["--ads-space-8"],
+    paddingBlock: vars["--ads-space-4"],
+    width: "auto",
+  },
+  compactMark: {
+    alignItems: "center",
+    display: "inline-flex",
+    flexShrink: 0,
+  },
+  compactTitle: {
+    flexBasis: "auto",
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: "4rem",
+  },
+  compactWhere: {
+    color: vars["--ads-color-text-muted"],
+    flexBasis: 0,
+    flexGrow: 1,
+    flexShrink: 1000,
+    fontSize: vars["--ads-font-size-caption"],
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  compactSupplement: {
+    flexShrink: 0,
+    flexWrap: "nowrap",
+  },
+  compactTime: {
+    fontVariantNumeric: "tabular-nums",
+    marginInlineStart: 0,
+  },
+  rowActionsCompact: {
+    flexShrink: 0,
+    flexWrap: "nowrap",
+    paddingBottom: 0,
+    paddingInline: 0,
+  },
+  compactChildren: {
+    flexBasis: "100%",
+    minWidth: 0,
+  },
   rowSelected: {
     backgroundColor: vars["--ads-color-selection-fill"],
   },
@@ -179,48 +239,33 @@ export const inboxRowStyles = stylex.create({
     order: 1,
     overflowWrap: "anywhere",
   },
-  /** A request answered in the row, under the row's own summary. */
-  inlineAnswer: {
+  /** The same answers on the row's own line, before its actions. */
+  inlineAnswerCompact: {
+    alignItems: "center",
     display: "flex",
-    flexDirection: "column",
+    flexShrink: 0,
     gap: vars["--ads-space-4"],
-    // A decision reads at a measure, not across a wide band.
-    maxInlineSize: "44rem",
+    maxInlineSize: "100%",
     minWidth: 0,
-    paddingBottom: vars["--ads-space-4"],
-    paddingInline: vars["--ads-space-12"],
   },
-  inlineKeyHint: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    marginInlineStart: "auto",
-    whiteSpace: "nowrap",
-  },
-  inlineQuestion: {
+  inlineOptionsCompact: {
+    alignItems: "center",
     display: "flex",
-    flexDirection: "column",
     gap: vars["--ads-space-4"],
     minWidth: 0,
   },
-  inlineQuestionText: {
-    color: vars["--ads-color-text"],
-    display: "-webkit-box",
+  inlineOptionCompact: {
     fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-normal"],
-    margin: 0,
+    gap: vars["--ads-space-4"],
+    height: vars["--ads-control-height-xs"],
+    maxWidth: "12rem",
+    paddingInline: vars["--ads-space-8"],
+  },
+  inlineNoteCompact: {
+    maxWidth: "20rem",
     overflow: "hidden",
-    overflowWrap: "anywhere",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 3,
-  },
-  inlineOptions: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: vars["--ads-space-4"],
-  },
-  inlineOption: {
-    gap: vars["--ads-space-4"],
-    maxWidth: "100%",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   inlineNote: {
     color: vars["--ads-color-text-muted"],

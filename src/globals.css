@@ -122,8 +122,8 @@
 .composer-frame-wing {
   width: var(--composer-wing-collapsed-width);
   transition-property: width, box-shadow;
-  transition-duration: 200ms;
-  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+  transition-duration: var(--atelier-motion-duration-normal);
+  transition-timing-function: var(--atelier-motion-ease-expressive);
 }
 
 /* The inner edge is tucked under the raised card, so only the outer corners
@@ -237,8 +237,10 @@
   line-height: 1;
   opacity: 1;
   transition:
-    background-color 120ms ease,
-    transform 120ms ease;
+    background-color var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard),
+    transform var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard);
   width: 14px;
 }
 
@@ -353,22 +355,22 @@
   --sidebar-ring: oklch(0.62 0.17 260);
   --task-list-width: 290px;
   --editor-panel-width: 560px;
-  --dropdown-open-dur: 250ms;
-  --dropdown-close-dur: 150ms;
+  --dropdown-open-dur: var(--atelier-motion-duration-emphasis);
+  --dropdown-close-dur: var(--atelier-motion-duration-quick);
   --dropdown-pre-scale: 0.97;
   --dropdown-closing-scale: 0.99;
-  --dropdown-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
+  --dropdown-ease: var(--atelier-motion-ease-expressive);
+  --modal-open-dur: var(--atelier-motion-duration-emphasis);
+  --modal-close-dur: var(--atelier-motion-duration-quick);
   --modal-scale: 0.96;
   --modal-scale-close: 0.96;
-  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --tt-in-dur: 150ms;
+  --modal-ease: var(--atelier-motion-ease-expressive);
+  --tt-in-dur: var(--atelier-motion-duration-quick);
   --tt-out-dur: 50ms;
   --tt-scale: 0.98;
-  --tt-delay: 80ms;
-  --tt-in-ease: ease-out;
-  --tt-out-ease: ease-out;
+  --tt-delay: var(--atelier-motion-duration-micro);
+  --tt-in-ease: var(--atelier-motion-ease-out);
+  --tt-out-ease: var(--atelier-motion-ease-out);
   --pulse-dur: 1000ms;
   --pulse-min: 0.5;
   /*
@@ -611,7 +613,7 @@
   --dv-border-radius: var(--radius);
   --dv-tab-border-radius: 0px;
   --dv-dropdown-border-radius: var(--radius);
-  --dv-transition-duration: 200ms;
+  --dv-transition-duration: var(--atelier-motion-duration-normal);
 
   /* Tab-group chips: dockview stock palette, app-radius chips */
   --dv-tab-group-color-grey: #5f6368;
@@ -659,8 +661,9 @@
 
 .dockview-theme-stave .dv-tabs-container > .dv-tab.dv-inactive-tab {
   transition:
-    background-color 140ms ease-out,
-    color 140ms ease-out;
+    background-color var(--atelier-motion-duration-quick)
+      var(--atelier-motion-ease-out),
+    color var(--atelier-motion-duration-quick) var(--atelier-motion-ease-out);
 }
 
 /*
@@ -679,6 +682,56 @@
 .dockview-theme-stave .dv-tabs-container > .dv-tab:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: -2px;
+}
+
+/*
+ * The group's own actions (overflow count, Conversation/Review, new tab, pane
+ * options) keep their width; the tab strip beside them is what scrolls. Left
+ * to shrink, the actions wrapped onto a second line over the tabs.
+ */
+.dockview-theme-stave .dv-right-actions-container {
+  flex-shrink: 0;
+}
+
+/*
+ * Overflowed tabs: Dockview draws the trigger as a chevron beside a bare
+ * number. Read it as a count ("+2") instead; `useOverflowedTabsTrigger` names
+ * it ("2 more tasks") and puts it in the tab order.
+ */
+.dockview-theme-stave .dv-tabs-overflow-dropdown-default {
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  justify-content: center;
+  padding: 0 0.375rem;
+  border-radius: calc(var(--radius) - 2px);
+  color: var(--muted-foreground);
+  font-size: 0.75rem;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.dockview-theme-stave .dv-tabs-overflow-dropdown-default > svg {
+  display: none;
+}
+
+.dockview-theme-stave .dv-tabs-overflow-dropdown-default > span {
+  padding-left: 0;
+}
+
+.dockview-theme-stave .dv-tabs-overflow-dropdown-default > span::before {
+  content: "+";
+}
+
+.dockview-theme-stave .dv-tabs-overflow-dropdown-root:focus-visible {
+  outline: none;
+}
+
+.dockview-theme-stave
+  .dv-tabs-overflow-dropdown-root:focus-visible
+  > .dv-tabs-overflow-dropdown-default {
+  outline: 2px solid var(--ring);
+  outline-offset: -2px;
+  color: var(--foreground);
 }
 
 /*
@@ -900,6 +953,28 @@
     pointer-events: none;
     opacity: 0;
     scale: var(--modal-scale-close);
+  }
+
+  /*
+   * The command palette is opened from the keyboard, dozens of times a day:
+   * a short fade with a 4px drop, no scale and no overshoot, on the way in
+   * and out. The global reduced-motion rule shortens it to nothing.
+   */
+  .t-modal.t-palette {
+    scale: 1;
+    transform: translateY(0);
+    transition-property: opacity, transform;
+    transition-duration:
+      var(--atelier-motion-duration-fast), var(--atelier-motion-duration-quick);
+    transition-timing-function: var(--atelier-motion-ease-out);
+    will-change: opacity, transform;
+  }
+
+  .t-modal.t-palette[data-starting-style],
+  .t-modal.t-palette[data-ending-style] {
+    opacity: 0;
+    scale: 1;
+    transform: translateY(calc(-1 * var(--atelier-motion-distance-small)));
   }
 
   .t-overlay {

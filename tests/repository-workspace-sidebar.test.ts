@@ -18,6 +18,7 @@ import {
   getWorkspaceShortcutLabel,
   getWorkspaceRespondingCountVisibilityStyle,
   resolveWorkspaceProgressTaskLoaderVariant,
+  resolveWorkspaceRowBranch,
   summarizeWorkspaceTaskTitle,
   WORKSPACE_SHORTCUT_COUNT,
 } from "../src/components/layout/RepositoryWorkspaceSidebar.utils";
@@ -616,6 +617,33 @@ describe("formatWorkQueueWorkspaceLabel", () => {
     expect(formatWorkQueueWorkspaceLabel({ name: "", isDefault: false })).toBe(
       "worktree",
     );
+  });
+});
+
+describe("resolveWorkspaceRowBranch", () => {
+  test("hides a branch that only repeats the workspace title", () => {
+    expect(
+      resolveWorkspaceRowBranch({ name: "feat/navigation", branch: "feat/navigation", isDefault: false }),
+    ).toBeNull();
+    expect(
+      resolveWorkspaceRowBranch({ name: " Feat/Navigation ", branch: "feat/navigation", isDefault: false }),
+    ).toBeNull();
+  });
+
+  test("shows the branch when it says something the title does not", () => {
+    expect(
+      resolveWorkspaceRowBranch({ name: "Navigation pass", branch: "feat/navigation", isDefault: false }),
+    ).toBe("feat/navigation");
+  });
+
+  test("always names the Default workspace's branch under its generic title", () => {
+    expect(resolveWorkspaceRowBranch({ name: "Default Workspace", branch: "main", isDefault: true })).toBe("main");
+    expect(resolveWorkspaceRowBranch({ name: "Default Workspace", branch: "main", isDefault: false })).toBe("main");
+  });
+
+  test("shows nothing without a branch, or when the title already is the branch", () => {
+    expect(resolveWorkspaceRowBranch({ name: "feat/x", branch: undefined, isDefault: false })).toBeNull();
+    expect(resolveWorkspaceRowBranch({ name: "  ", branch: "feat/x", isDefault: false })).toBeNull();
   });
 });
 

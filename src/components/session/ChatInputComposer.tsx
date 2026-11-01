@@ -76,10 +76,6 @@ import {
   providerSupportsMidTurnSteering,
 } from "@/lib/providers/model-catalog";
 import { type ModelShortcutEffort } from "@/lib/providers/model-shortcuts";
-import {
-  addTrustedToolEntry,
-  buildTrustedToolEntryForApproval,
-} from "@/lib/providers/trusted-tools";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import type { SkillCatalogEntry } from "@/lib/skills/types";
 import {
@@ -119,6 +115,8 @@ import type {
 import { useShallow } from "zustand/react/shallow";
 import { buildChatInputGoalStatus } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
+import { trustToolAndApprove } from "./composer-approval-actions";
+import { resolveShownApproval } from "./composer-approval.utils";
 import { AgentRunSignOffSlot } from "@/components/agent-runs/SignOffCard";
 import { DelegatedAgentReplySlot } from "@/components/agent-runs/DelegatedAgentReplySlot";
 import { ChildRequestSlot } from "./ChildRequestSlot";
@@ -249,7 +247,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     resolveApproval,
     resolveUserInput,
     updateSettings,
-    trustedTools,
     lensVisualCommentScreenshotsAsImageContext,
     workspaceInformation,
     composerControlPlacements,
@@ -274,7 +271,6 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           state.resolveApproval,
           state.resolveUserInput,
           state.updateSettings,
-          state.settings.trustedTools,
           state.settings.lensVisualCommentScreenshotsAsImageContext,
           state.workspaceInformation,
           state.settings.composerControlPlacements,
@@ -394,7 +390,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     () => findPendingApprovals({ messages: activeTaskMessages }),
     [activeTaskMessages],
   );
-  const pendingApproval = pendingApprovals[0] ?? null;
+  // The row's step names a request, so Enter and Tab answer the one it shows.
+  const [shownApprovalRequestId, setShownApprovalRequestId] = useState<string | null>(null);
+  const pendingApproval = resolveShownApproval(pendingApprovals, shownApprovalRequestId)?.item ?? null;
   const queuedNextTurn = promptDraft.queuedNextTurn ?? null;
   const queuedTurns = promptDraft.queuedTurns ?? [];
   const usageLimitPause = useAppStore(
@@ -1081,7 +1079,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
   const runStartDraft = useRunStartDraft(draftText, promptDraft);
   const composerShelf = (
     <RenderProfiler id="ComposerShelf">
-      <ComposerShelf framed={useFramedComposer} steering={isSteerSubmitting} queue={shelfQueue} providerId={args.activeProvider} model={args.selectedModelOption.model} autoRouting={Boolean(args.selectedModelOption.isAuto)} {...runStartDraft} />
+      <ComposerShelf framed={useFramedComposer} approvalShown={pendingApprovals.length > 0} steering={isSteerSubmitting} queue={shelfQueue} providerId={args.activeProvider} model={args.selectedModelOption.model} autoRouting={Boolean(args.selectedModelOption.isAuto)} {...runStartDraft} />
     </RenderProfiler>
   );
 
@@ -1276,10 +1274,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
 
   return (
     <div
-      className={sx(
-        chatInputStyles.root,
-        args.isEmpty && chatInputStyles.rootEmpty,
-      )}
+      ref={composerMeasureRef /* uncapped: the column-capped measure can never show room for the frame */}
+      className={sx(chatInputStyles.root, args.isEmpty && chatInputStyles.rootEmpty)}
     >
       {comparePrepareOpen ? (
         <CompareRunPrepareDialog
@@ -1300,7 +1296,10 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           }
         />
       ) : null}
-      <div className={sx(chatInputStyles.measure)} ref={composerMeasureRef}>
+      <div className={sx(chatInputStyles.measure, useFramedComposer && chatInputStyles.measureFramed)}>
+        {/* Rows attached above the card keep the card's width: in the framed
+            composer they stay clear of the wing tracks beside it. */}
+        <div className={sx(useFramedComposer && chatInputStyles.attachedRowsFramed)}>
         <TaskSourceContextNotice
           sourceContexts={args.sourceContexts}
           currentPrUrl={args.currentPrUrl}
@@ -1321,6 +1320,8 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
           <ChatInputApprovalQueue
             approvals={pendingApprovals}
             guidanceFocusNonce={guidanceFocusNonce}
+            shownRequestId={pendingApproval?.part.requestId ?? null}
+            onShownRequestChange={setShownApprovalRequestId}
             onResolveApproval={({ messageId, requestId, approved, scope }) => {
               resolveApproval({
                 taskId: args.activeTaskId,
@@ -1330,28 +1331,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                 ...(scope ? { scope } : {}),
               });
             }}
-            onTrustAndApprove={({ messageId, requestId, toolName, input }) => {
-              const trustedEntry = buildTrustedToolEntryForApproval({
-                toolName,
-                input,
-              });
-              if (trustedEntry) {
-                updateSettings({
-                  patch: {
-                    trustedTools: addTrustedToolEntry({
-                      entries: trustedTools,
-                      entry: trustedEntry,
-                    }),
-                  },
-                });
-              }
-              resolveApproval({
-                taskId: args.activeTaskId,
-                messageId,
-                requestId,
-                approved: true,
-              });
-            }}
+            onTrustAndApprove={(request) => trustToolAndApprove({ taskId: args.activeTaskId, ...request })}
             onDraftGuidance={({ messageId, requestId, toolName, description, guidance }) => {
               stageApprovalGuidance({ toolName, description, guidance });
               resolveApproval({
@@ -1366,6 +1346,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
         <DelegatedAgentReplySlot />
         <ChildRequestSlot taskId={args.activeTaskId} />
         <SecretRequestSlot taskId={args.activeTaskId} />
+        </div>
         {/* Steering, a stalled turn and the queue are rows and tones of the one
             shelf; classic mode stacks it on the card, the frame tucks it in. */}
         {useFramedComposer ? null : composerShelf}

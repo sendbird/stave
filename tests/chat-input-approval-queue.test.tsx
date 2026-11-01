@@ -3,120 +3,106 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { ChatInputApprovalQueue } from "@/components/session/chat-input-approval-queue";
 
+const BASH = {
+  messageId: "message-2",
+  part: {
+    type: "approval" as const,
+    toolName: "Bash",
+    description: "Run npm test",
+    input: JSON.stringify({ command: "npm test -- --watch=false" }),
+    requestId: "req-2",
+    state: "approval-requested" as const,
+  },
+};
+const READ = {
+  messageId: "message-1",
+  part: {
+    type: "approval" as const,
+    toolName: "Read",
+    description: "Open .env",
+    requestId: "req-1",
+    state: "approval-requested" as const,
+  },
+};
+
 describe("ChatInputApprovalQueue", () => {
-  test("renders the latest approval with queued items collapsed", () => {
+  test("shows the shown request once, as one row with its position in the queue", () => {
     const html = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
-      approvals: [
-        {
-          messageId: "message-2",
-          part: {
-            type: "approval",
-            toolName: "Bash",
-            description: "Run npm test",
-            requestId: "req-2",
-            state: "approval-requested" as const,
-          },
-        },
-        {
-          messageId: "message-1",
-          part: {
-            type: "approval",
-            toolName: "Read",
-            description: "Open .env",
-            requestId: "req-1",
-            state: "approval-requested" as const,
-          },
-        },
-      ],
+      approvals: [BASH, READ],
       onResolveApproval: () => {},
       onDraftGuidance: () => {},
     }));
 
-    // Latest tool is shown
-    expect(html).toContain("Bash");
-    expect(html).toContain("Run npm test");
-    // Queued indicator
-    expect(html).toContain("+1 more queued");
-    // Guidance toggle present
-    expect(html).toContain("guide instead");
-    expect(html).toContain("Tab");
-    // The shared approval card, compact, in the approval card's words
-    expect(html).toContain('data-density="compact"');
+    // One request on screen, named by its tool and the command it would run.
+    expect(html.match(/data-approval-request-id=/g)).toHaveLength(1);
+    expect(html).toContain('data-approval-request-id="req-2"');
+    expect(html).toContain(">Bash<");
+    expect(html).toContain("npm test -- --watch=false");
+    expect(html).toContain('aria-label="Bash needs your approval: npm test -- --watch=false"');
+    // The queue reads as a position with steps, not a second card.
+    expect(html).toContain("1 of 2");
+    expect(html).toContain('aria-label="Previous request"');
+    expect(html).toContain('aria-label="Next request"');
+    expect(html).not.toContain("Open .env");
+    // Decisions in the approval words; Enter is the shortcut for Allow once.
     expect(html).toContain("Allow once");
+    expect(html).toContain('aria-keyshortcuts="Enter"');
     expect(html).toContain("Deny");
-    // Keyboard hint for Enter
-    expect(html).toContain("to allow once");
-    // Queued item visible inside details
-    expect(html).toContain("Read");
-    expect(html.indexOf("Run npm test")).toBeLessThan(html.indexOf("Open .env"));
+    // Details are folded: the description and full input wait behind the disclosure.
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('aria-label="Show details"');
+    expect(html).not.toContain("Run npm test<");
+    expect(html).not.toContain("guide instead");
+  });
+
+  test("a controlled step shows the stepped-to request", () => {
+    const html = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [BASH, READ],
+      shownRequestId: "req-1",
+      onResolveApproval: () => {},
+    }));
+    expect(html).toContain('data-approval-request-id="req-1"');
+    expect(html).toContain("2 of 2");
+    // Read names its file, and the description stands in when there is no input.
+    expect(html).toContain("Open .env");
   });
 
   test("offers Always allow only when the runtime advertised it", () => {
     const withSupport = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
-      approvals: [
-        {
-          messageId: "message-1",
-          part: {
-            type: "approval",
-            toolName: "`npm test`",
-            description: "Run npm test",
-            requestId: "req-1",
-            state: "approval-requested" as const,
-            supportsAllowAlways: true,
-          },
-        },
-      ],
+      approvals: [{ ...BASH, part: { ...BASH.part, supportsAllowAlways: true } }],
       onResolveApproval: () => {},
       onTrustAndApprove: () => {},
     }));
     const withoutSupport = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
-      approvals: [
-        {
-          messageId: "message-1",
-          part: {
-            type: "approval",
-            toolName: "`npm test`",
-            description: "Run npm test",
-            requestId: "req-1",
-            state: "approval-requested" as const,
-          },
-        },
-      ],
+      approvals: [BASH],
       onResolveApproval: () => {},
       onTrustAndApprove: () => {},
     }));
 
     expect(withSupport).toContain(">Always allow<");
     expect(withoutSupport).not.toContain(">Always allow<");
-    // The provider owns persistence here, so Stave must not also offer its own
-    // weaker client-side trusted-tools copy of the same decision.
-    expect(withSupport).not.toContain("always allow `npm test`");
-    expect(withoutSupport).toContain("always allow `npm test`");
+    // A single request has no position to step through.
+    expect(withSupport).not.toContain("1 of 1");
   });
 
-  test("omits guidance and keyboard hint when disabled", () => {
+  test("omits the keyboard hint when disabled and says why", () => {
     const html = renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
-      approvals: [
-        {
-          messageId: "message-1",
-          part: {
-            type: "approval",
-            toolName: "Write",
-            description: "Edit src/App.tsx",
-            requestId: "req-1",
-            state: "approval-requested" as const,
-          },
-        },
-      ],
+      approvals: [{ ...READ, part: { ...READ.part, toolName: "Write", description: "Edit src/App.tsx" } }],
       disabled: true,
       disabledReason: "Managed elsewhere.",
       onResolveApproval: () => {},
     }));
 
-    expect(html).toContain("Write");
+    expect(html).toContain(">Write<");
     expect(html).toContain("Managed elsewhere.");
-    // No keyboard shortcuts or guidance when disabled
-    expect(html).not.toContain("guide instead");
-    expect(html).not.toContain("Tab");
+    expect(html).not.toContain('aria-keyshortcuts="Enter"');
+    expect(html).not.toContain("↵");
+  });
+
+  test("renders nothing without a pending request", () => {
+    expect(renderToStaticMarkup(createElement(ChatInputApprovalQueue, {
+      approvals: [],
+      onResolveApproval: () => {},
+    }))).toBe("");
   });
 });

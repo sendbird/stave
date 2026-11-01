@@ -855,19 +855,24 @@ export const promptInputStyles = stylex.create({
     top: -4,
   },
 
+  // One line at any width: controls that do not fit move into the `⋯` menu
+  // (`useComposerToolbarFit`) instead of stacking the composer rows deep.
   toolbarRow: {
     display: "flex",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
     alignItems: "center",
     justifyContent: "space-between",
     gap: vars["--ads-space-8"],
   },
   toolbarRowEnd: { justifyContent: "flex-end" },
-  actionsRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
+  // Neither half shrinks: a squeezed control would report a width it does not
+  // have, and the fit that decides what leaves the row reads natural widths.
+  actionsRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], flexShrink: 0 },
   controlLane: {
     position: "relative",
     display: "flex",
-    flexWrap: "wrap",
+    flexWrap: "nowrap",
+    flexShrink: 0,
     alignItems: "center",
     // The row's own gap, on the space scale, matching `toolbarRow` and
     // `actionsRow` either side of it.

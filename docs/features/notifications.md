@@ -43,7 +43,7 @@ You do not have to scroll back through the task chat to approve or deny a tool c
 - Choose `Allow once` or `Deny` directly from the notification.
 - The change is reflected back in the task immediately.
 
-If you prefer, the task itself also shows a pending-approval card above the composer.
+If you prefer, the task itself also shows the pending approval as a row above the composer.
 
 ## Jump Back To A Task
 

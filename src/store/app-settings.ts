@@ -124,7 +124,6 @@ import type { ClaudePermissionMode } from "@/types/chat";
 export interface AppSettings extends WorkspaceKickoffSettings {
   claudeAccountProfileId?: string;
   codexAccountProfileId?: string;
-  showPresetBar: boolean;
   /**
    * Display language for Stave's own UI. User content, provider output and AI
    * responses are never translated by this setting.
@@ -677,7 +676,6 @@ export function normalizeUiDensity(value: unknown): UiDensity {
 }
 
 export const defaultSettings: AppSettings = {
-  showPresetBar: true,
   language: DEFAULT_APP_LOCALE,
   themeMode: "dark",
   customThemeId: null,

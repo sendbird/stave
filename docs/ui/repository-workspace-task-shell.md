@@ -44,6 +44,9 @@ Replace the legacy workspace/task shell with a three-part layout:
 - `Open Repository` should live as a compact icon action in the expanded `Repositories` header instead of an inverse-filled CTA.
 - The Stave app menu should live in the compact top-left sidebar header instead of the top bar.
 - The full repository list sidebar should be collapsible.
+- Drag the sidebar's edge to set its width between 220px and 340px; a double-click returns it to 290px, and the width is saved with the layout.
+- Below a 1180px window the sidebar folds to its icon rail on its own. Opening it there lasts until the window crosses that width again, and never changes the saved choice for wide windows.
+- Workspace rows in the repository tree and the Work queue share one 40px row (36px under compact density): one-line title, the branch only when it differs from the title, the status mark leading and the row actions on hover.
 - The top-left sidebar header should match the main top bar height.
 - Repository rows should show a dedicated repository icon on the far left.
 - Repository accordion chevrons should stay hidden until repository-row hover and appear over the repository icon to indicate expand/collapse state.
@@ -99,12 +102,14 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
   - supports drag-and-drop reordering and pane splitting across surface types
   - lets users middle-click task and CLI session tabs to close them through the existing archive / close flows, while leaving managed tasks protected
   - exposes archive confirmation, pane actions, and workspace-level `Task History`
-  - keeps the preset bar keyboard-aware, with the first nine presets responding to `Ctrl+1..9` in current list order and a dedicated settings section for managing that order
+  - launches presets from the split new-tab button at the end of the tab strip (its main half runs the first preset, the chevron lists every preset with its slot), with the first nine presets responding to `Ctrl+1..9` in current list order and a dedicated settings section for managing that order
   - keeps notification deep-links explicit for archived tasks by routing to the owning workspace first, then requiring an explicit restore before the task reopens
 - `RightRail`
   - moves the old workspace-bar utility toggles into a vertical strip on the far right
   - is one toolbar: a single stop in the Tab order, with the arrow keys moving between the panel toggles and the Lens and Terminal toggles; each toggle says whether it is pressed
   - labels the git panel as `Source Control`, with `Changes` and `History` kept as the internal tabs inside that panel
+  - opens its panel at 360px (drag 320-560px, double-click resets, width saved); the panel slides in and out over a slot that takes its width in one step, so the conversation re-lays out once per open or close
+  - stacks the Source Control commit message above a full-width Commit button while the panel is under 400px wide
   - exposes a dedicated Scripts panel for workspace actions, services, hook inspection, Orbit-enabled dev services, runtime path/status summary, and quick navigation back to repository settings
   - exposes a workspace information panel with an auto-updated top `Summary` accordion section that starts expanded, plus shared accordion sections, URL-first linked-resource sections for Jira, Confluence, Storybook, Slack, Figma, and GitHub, notes, todos, saved plans, and custom structured fields that local MCP workflows can register against
   - surfaces workspace-level plan history from markdown files under `.stave/context/plans`, while still showing legacy `.stave/plans` files

@@ -51,18 +51,14 @@ export const attentionStyles = stylex.create({
     minHeight: 0,
     overflowY: "auto",
   },
-  // Decisions sit side by side when the band is wide enough, so several are
-  // answerable without scrolling.
+  // One decision per line, each answerable in place, so several fit above
+  // the board without scrolling.
   list: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 24rem), 1fr))",
+    display: "flex",
+    flexDirection: "column",
+    margin: 0,
     minWidth: 0,
-  },
-  /** A cell of that grid draws its own trailing rule. */
-  gridRow: {
-    borderInlineEndColor: vars["--ads-color-border"],
-    borderInlineEndStyle: "solid",
-    borderInlineEndWidth: vars["--ads-border-width-hairline"],
+    padding: 0,
   },
   // A band with nothing waiting says so in one short block.
   empty: {

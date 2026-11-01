@@ -574,9 +574,16 @@
     "chatInputApprovalQueue4": "Cancel",
     "chatInputApprovalQueue5": "guide instead",
     "sentence54": "always allow {{value1}}",
-    "sentence55": "+{{value1}} more queued",
-    "extraCopy143": "Another decision is being delivered.",
-    "enterToAllowOnce": "<key>↵</key> to allow once"
+    "extraCopy143": "Another decision is being delivered."
+  },
+  "composerApprovalRow": {
+    "groupLabel": "{{tool}} needs your approval: {{summary}}",
+    "groupLabelTool": "{{tool}} needs your approval",
+    "position": "{{index}} of {{count}}",
+    "previous": "Previous request",
+    "next": "Next request",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details"
   },
   "chatInputRuntime": {
     "formatGoalStatusValue": "usage limited",
@@ -712,7 +719,6 @@
     "extraCopy195": "Subagent"
   },
   "assistantTrace": {
-    "getDiffSummary": "files",
     "title": "System",
     "title2": "System",
     "baseTitle": "Subagent",
@@ -720,7 +726,44 @@
     "title3": "Changed file",
     "title4": "{{value1}} changed files",
     "assistantMessageBody": "No response.",
-    "completionLabel": "Run failed"
+    "completionLabel": "Run failed",
+    "diffFiles_one": "{{count}} file",
+    "diffFiles_other": "{{count}} files",
+    "summaryCount": {
+      "edit_one": "{{count}} edit",
+      "edit_other": "{{count}} edits",
+      "command_one": "{{count}} command",
+      "command_other": "{{count}} commands",
+      "read_one": "{{count}} read",
+      "read_other": "{{count}} reads",
+      "search_one": "{{count}} search",
+      "search_other": "{{count}} searches",
+      "web_one": "{{count}} web lookup",
+      "web_other": "{{count}} web lookups",
+      "agent_one": "{{count}} agent",
+      "agent_other": "{{count}} agents",
+      "change_one": "{{count}} changed file",
+      "change_other": "{{count}} changed files",
+      "tool_one": "{{count}} tool call",
+      "tool_other": "{{count}} tool calls"
+    },
+    "turnTitle": {
+      "edited_one": "edited {{count}} file",
+      "edited_other": "edited {{count}} files",
+      "ranCommands_one": "ran {{count}} command",
+      "ranCommands_other": "ran {{count}} commands",
+      "readFiles_one": "read {{count}} file",
+      "readFiles_other": "read {{count}} files",
+      "searched_one": "ran {{count}} search",
+      "searched_other": "ran {{count}} searches",
+      "browsed_one": "made {{count}} web lookup",
+      "browsed_other": "made {{count}} web lookups",
+      "ranAgents_one": "ran {{count}} agent",
+      "ranAgents_other": "ran {{count}} agents",
+      "usedTools_one": "made {{count}} tool call",
+      "usedTools_other": "made {{count}} tool calls",
+      "clauseSeparator": ", "
+    }
   },
   "commandResult": {
     "commandResult": "Copied",

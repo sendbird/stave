@@ -15,16 +15,16 @@ import {
 import {
   memo,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
   type MouseEvent as ReactMouseEvent,
+  type RefObject,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
 import { AgentRunMark } from "@/components/system/AgentRunMark";
-import { resolvePathBaseName } from "@/lib/path-utils";
-import { COMMIT_GRAPH_TITLE_KEY } from "@/lib/git-graph/presentation";
 import { toProviderWaveHueClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -47,6 +47,13 @@ import {
 } from "@/components/panes/pane-surface-actions";
 import { isGitGraphEditorTab } from "@/components/panes/editor-tab-presentation";
 import {
+  describePaneTabAccessibleName,
+  findActiveTurnPendingInteraction,
+  resolvePaneSurfaceTitle,
+  resolvePaneTabTaskStatus,
+} from "@/components/panes/pane-tab-accessibility";
+import { PROVIDER_IDENTITIES } from "@/lib/providers/provider-identity";
+import {
   useLensTabState,
   type LensTabState,
 } from "@/components/panes/lens-tab-state";
@@ -68,12 +75,14 @@ interface TaskChipState {
   isManaged: boolean;
   toneClass: string;
   provider: ProviderId | null;
+  /** The running turn waits on a person (read only while a turn runs). */
+  waiting: "approval" | "user_input" | null;
 }
 
 /** Row-local subscription: each chip only tracks its own entity. */
 function useTaskChipState(taskId: string): TaskChipState {
   useTranslation();
-  const [title, isResponding, isStalled, isManaged, toneClass, provider] =
+  const [title, isResponding, isStalled, isManaged, toneClass, provider, waiting] =
     useAppStore(
       useShallow((state) => {
         const task = state.tasks.find((item) => item.id === taskId) ?? null;
@@ -82,9 +91,10 @@ function useTaskChipState(taskId: string): TaskChipState {
           activeTurnId,
           activity: state.providerTurnActivityByTask[taskId] ?? null,
         });
+        const messages = state.messagesByTask[taskId] ?? EMPTY_MESSAGES;
         const respondingProviderId = getRespondingProviderId({
           fallbackProviderId: task?.provider ?? "claude-code",
-          messages: state.messagesByTask[taskId] ?? EMPTY_MESSAGES,
+          messages,
         });
         return [
           task?.title ?? i18n.t("panes:paneTabChip.task"),
@@ -93,10 +103,14 @@ function useTaskChipState(taskId: string): TaskChipState {
           isTaskManaged(task),
           resolveProviderToneClass(respondingProviderId),
           task?.provider ?? null,
+          activeTurnId
+            ? (state.providerTurnActivityByTask[taskId]?.pendingInteraction ??
+              findActiveTurnPendingInteraction(messages, activeTurnId))
+            : null,
         ] as const;
       }),
     );
-  return { title, isResponding, isStalled, isManaged, toneClass, provider };
+  return { title, isResponding, isStalled, isManaged, toneClass, provider, waiting };
 }
 
 function PaneChipIcon(args: {
@@ -200,46 +214,9 @@ function usePaneChipTitle(
 ): string {
   useTranslation();
   const panelId = buildPanePanelId(surface);
-  return useAppStore((state) => {
-    const customTitle = state.paneTabMeta[panelId]?.customTitle;
-    if (customTitle?.trim()) {
-      return customTitle;
-    }
-    switch (surface.kind) {
-      case "task":
-        return (
-          state.tasks.find((task) => task.id === surface.taskId)?.title ??
-          i18n.t("panes:paneTabChip.task")
-        );
-      case "cli-session":
-        return (
-          state.cliSessionTabs.find((tab) => tab.id === surface.cliSessionTabId)
-            ?.title ?? i18n.t("panes:paneTabChip.cLISession")
-        );
-      case "terminal":
-        return (
-          state.terminalTabs.find((tab) => tab.id === surface.terminalTabId)
-            ?.title ?? i18n.t("panes:paneTabChip.terminal")
-        );
-      case "editor": {
-        const editorTab = state.editorTabs.find(
-          (tab) => tab.id === surface.editorTabId,
-        );
-        return editorTab
-          ? isGitGraphEditorTab(editorTab)
-            ? i18n.t(COMMIT_GRAPH_TITLE_KEY)
-            : resolvePathBaseName({
-                path: editorTab.filePath,
-                fallback: i18n.t("panes:paneTabChip.editor"),
-              })
-          : i18n.t("panes:paneTabChip.editor");
-      }
-      case "lens":
-        return lensState.title?.trim() || lensState.url?.trim() || "Lens";
-      case "compare-run":
-        return i18n.t("panes:paneTabChip.compareRun");
-    }
-  });
+  return useAppStore((state) =>
+    resolvePaneSurfaceTitle(state, surface, panelId, lensState),
+  );
 }
 
 function EditorDirtyIndicator(args: { editorTabId: string }) {
@@ -282,6 +259,7 @@ export const PaneTabChip = memo(function PaneTabChip(
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
   const renamePaneTab = useAppStore((state) => state.renamePaneTab);
   const pinned = useAppStore((state) =>
     Boolean(state.paneTabMeta[panelId]?.pinned),
@@ -364,6 +342,7 @@ export const PaneTabChip = memo(function PaneTabChip(
 
   return (
     <div
+      ref={rootRef}
       className={sx(c.root)}
       data-pane-tab-chip={panelId}
       onAuxClick={handleAuxClick}
@@ -408,6 +387,11 @@ export const PaneTabChip = memo(function PaneTabChip(
       )}
       {surface.kind === "task" && !isEditing ? (
         <TaskChipBadgesSlot taskId={surface.taskId} />
+      ) : null}
+      {/* In this order: Dockview rewrites the tab's label when the title changes. */}
+      <PanelTitleSync api={props.api} title={title} rootRef={rootRef} nameTab={surface.kind !== "task"} />
+      {surface.kind === "task" ? (
+        <TaskTabAccessibleName taskId={surface.taskId} title={title} rootRef={rootRef} />
       ) : null}
       {surface.kind === "editor" && !isEditing ? (
         <EditorDirtyIndicator editorTabId={surface.editorTabId} />
@@ -462,4 +446,65 @@ function TaskChipBadgesSlot(args: { taskId: string }) {
       <TaskChipBadges taskChip={taskChip} />
     </>
   );
+}
+
+/**
+ * Dockview names the tab, its group and its default announcements after the
+ * panel title, which starts as the internal panel id. Give it the title shown
+ * on the tab; a task tab's richer name is set by its status slot, after this.
+ */
+function PanelTitleSync(args: {
+  api: IDockviewPanelHeaderProps["api"];
+  title: string;
+  rootRef: RefObject<HTMLElement | null>;
+  nameTab: boolean;
+}) {
+  const { api, title, rootRef, nameTab } = args;
+  useLayoutEffect(() => {
+    if (api.title !== title) {
+      api.setTitle(title);
+    }
+    return nameTab ? setTabAccessibleName(rootRef, title) : undefined;
+  }, [api, title, rootRef, nameTab]);
+  return null;
+}
+
+/**
+ * Names the tab element Dockview wraps around this chip. A chip can mount
+ * before Dockview has moved it into its tab, so the name is retried on the
+ * next frame; the returned cleanup cancels that retry.
+ */
+function setTabAccessibleName(rootRef: RefObject<HTMLElement | null>, name: string) {
+  const apply = () => {
+    const tab = rootRef.current?.closest('[role="tab"]');
+    tab?.setAttribute("aria-label", name);
+    return Boolean(tab);
+  };
+  if (apply()) {
+    return undefined;
+  }
+  const frame = window.requestAnimationFrame(apply);
+  return () => window.cancelAnimationFrame(frame);
+}
+
+/**
+ * A task tab is announced by what it is, not by its id: its title, provider
+ * and what its turn is doing ("Persist sidebar state, Claude, awaiting
+ * approval"). Set after Dockview's own title-based label, which it rewrites
+ * whenever the title changes.
+ */
+function TaskTabAccessibleName(args: {
+  taskId: string;
+  title: string;
+  rootRef: RefObject<HTMLElement | null>;
+}) {
+  useTranslation();
+  const taskChip = useTaskChipState(args.taskId);
+  const status = resolvePaneTabTaskStatus(taskChip);
+  const provider = taskChip.provider
+    ? (PROVIDER_IDENTITIES[taskChip.provider]?.shortLabel ?? null)
+    : null;
+  const name = describePaneTabAccessibleName({ title: args.title, provider, status });
+  useLayoutEffect(() => setTabAccessibleName(args.rootRef, name), [args.rootRef, name]);
+  return null;
 }

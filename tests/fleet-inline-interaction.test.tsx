@@ -462,24 +462,21 @@ describe("the Fleet row", () => {
     return renderToStaticMarkup(createElement(FleetRowInlineAnswer, { interaction: value, onAnswer: () => {} }));
   }
 
-  test("an approval is answered with the compact approval card and A / D", async () => {
+  test("an approval is answered on the row's line with Allow and Deny and A / D", async () => {
     const { describeFleetRowKeys } = await import("@/components/layout/FleetRowInlineAnswer");
     const value = interaction({ inline: classifyFleetInlineInteraction(approval("approval-cached")), pending: true });
     const html = await renderAnswer(value);
     expect(html).toContain('data-fleet-inline-answer="approval"');
-    expect(html).toContain('data-density="compact"');
-    // The tool and the command it would run.
-    expect(html).toContain("Bash");
-    expect(html).toContain("bun test tests/fleet");
-    expect(html).toContain(">Allow once<");
+    expect(html).toMatch(/aria-keyshortcuts="A"[^>]*aria-label="Allow Bash once"|aria-label="Allow Bash once"[^>]*aria-keyshortcuts="A"/);
+    expect(html).toMatch(/aria-keyshortcuts="D"[^>]*aria-label="Deny Bash"|aria-label="Deny Bash"[^>]*aria-keyshortcuts="D"/);
+    expect(html).toContain(">Allow<");
     expect(html).toContain(">Deny<");
     expect(describeFleetRowKeys(value)).toBe("A D");
-    // A task its host manages keeps no standing grant, so it is not offered.
-    const managed = await renderAnswer({ ...value, managed: true,
-      inline: classifyFleetInlineInteraction({ ...approval("approval-cached"), supportsAllowAlways: true }) });
-    expect(managed).not.toContain(">Always allow<");
+    // A standing grant is decided in the task's controls, never from the row.
+    expect(html).not.toContain("Always allow");
     const busy = await renderAnswer({ ...value, busy: true });
-    expect(busy).toContain("Recording decision");
+    expect(busy).not.toContain(">Allow<");
+    expect(busy).toContain("Sending the answer…");
   });
 
   test("a short question offers its options with their number keys", async () => {

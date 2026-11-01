@@ -12,7 +12,17 @@
     "newLens": "New Lens",
     "paneOptions": "Pane options",
     "taskHistory": "Task History",
-    "showPresetBar": "Show preset bar"
+    "moreTasks_one": "{{count}} more task",
+    "moreTasks_other": "{{count}} more tasks",
+    "moreTabs_one": "{{count}} more tab",
+    "moreTabs_other": "{{count}} more tabs"
+  },
+  "paneNewTab": {
+    "launchPreset": "New task: {{label}}",
+    "presets": "Presets",
+    "restoreDefaults": "Restore default presets",
+    "managePresets": "Manage presets…",
+    "cliSessionPreset": "{{label}} — CLI session"
   },
   "paneTabChip": {
     "unsavedChanges": "Unsaved changes",
@@ -22,7 +32,17 @@
     "cLISession": "CLI Session",
     "terminal": "Terminal",
     "editor": "Editor",
-    "compareRun": "Compare Run"
+    "compareRun": "Compare Run",
+    "accessibleNameFull": "{{title}}, {{provider}}, {{status}}",
+    "accessibleNamePart": "{{title}}, {{detail}}",
+    "status": {
+      "awaitingApproval": "awaiting approval",
+      "awaitingInput": "waiting for your answer",
+      "stalled": "stalled",
+      "working": "working"
+    },
+    "opened": "Opened {{title}}",
+    "closed": "Closed {{title}}"
   },
   "paneWatermark": {
     "noOpenTabs": "No open tabs",

@@ -318,12 +318,14 @@ export const fleetStyles = stylex.create({
     flexShrink: 0,
     marginInlineStart: vars["--ads-space-4"],
   },
+  // Cards in a row share one height (their footers line up) and sit on the
+  // 12px spacing step.
   cardGrid: {
-    alignItems: "start",
+    alignItems: "stretch",
     display: "grid",
-    gap: 10,
+    gap: vars["--ads-space-12"],
     gridTemplateColumns:
-      "repeat(auto-fill, minmax(min(100%, max(17rem, calc((100% - 2 * 0.625rem) / 3))), 1fr))",
+      "repeat(auto-fill, minmax(min(100%, max(17rem, calc((100% - 2 * 0.75rem) / 3))), 1fr))",
     paddingBlock: vars["--ads-space-12"],
     paddingInline: vars["--ads-space-16"],
   },

@@ -121,6 +121,32 @@ export function formatTimeAgo(value: DateInput, now: DateInput = Date.now()): st
   return formatRelativeTimeShort(Math.min(at, reference), reference);
 }
 
+/**
+ * The tightest age for dense rows and cards: `now`, `6m`, `2h`, `5d`
+ * (`방금`, `6분`, `2시간`, `5일`), then the date past a week. It counts down to
+ * the unit shown, and a time the clock puts ahead reads `now`.
+ */
+export function formatAgeCompact(value: DateInput, now: DateInput = Date.now()): string {
+  const date = toDate(value);
+  const reference = toDate(now);
+  const span = reference.getTime() - date.getTime();
+  if (Number.isNaN(span)) return "";
+  if (span < 45 * SECOND_MS) {
+    return i18n.t("common:relativeTime.now");
+  }
+  if (span >= 7 * DAY_MS) {
+    const sameYear = date.getFullYear() === reference.getFullYear();
+    return formatDate(date, sameYear ? { month: "short", day: "numeric" } : { year: "numeric", month: "short", day: "numeric" });
+  }
+  if (span < HOUR_MS) {
+    return i18n.t("common:duration.minutes", { value: formatNumber(Math.max(1, Math.floor(span / MINUTE_MS))) });
+  }
+  if (span < DAY_MS) {
+    return i18n.t("common:duration.hours", { value: formatNumber(Math.floor(span / HOUR_MS)) });
+  }
+  return i18n.t("common:duration.days", { value: formatNumber(Math.floor(span / DAY_MS)) });
+}
+
 export interface DurationFormatOptions {
   /** The largest units shown: `2` (default) reads `1m 4s` and `1h 2m`; `1` reads `1m` and `1h`. */
   units?: 1 | 2;

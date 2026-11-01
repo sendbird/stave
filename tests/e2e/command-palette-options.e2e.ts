@@ -101,3 +101,43 @@ test("arrow keys move the drawn selection and the row Enter runs together", asyn
   // The second row is a theme; the first ("Appearance: Dark") would clear it.
   await expect.poll(async () => (await probe(page)).customThemeId).not.toBeNull();
 });
+
+test("rows are one 36px line, ten or more show at once, and only the highlighted row shows its description", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/?stavePreview=command-palette", { waitUntil: "domcontentloaded" });
+  await expect(page.getByPlaceholder("Find a command, task, workspace, or setting")).toBeVisible();
+  await page.evaluate(() => document.fonts.ready);
+  const layout = await page.evaluate(() => {
+    const dialog = document.querySelector<HTMLElement>("[role='dialog']")!;
+    const list = dialog.querySelector<HTMLElement>("[role='listbox']")!;
+    const listBox = list.getBoundingClientRect();
+    const options = Array.from(dialog.querySelectorAll<HTMLElement>("[role='option']"));
+    const visible = options.filter((option) => {
+      const box = option.getBoundingClientRect();
+      return box.top >= listBox.top - 1 && box.bottom <= listBox.bottom + 1;
+    });
+    const hints = options.map((option) => {
+      const hint = Array.from(option.querySelectorAll<HTMLElement>("p")).at(0);
+      return hint ? getComputedStyle(hint).display : null;
+    });
+    const highlighted = options.findIndex((option) => option.hasAttribute("data-highlighted") || option.dataset.selected === "true");
+    return {
+      width: Math.round(dialog.getBoundingClientRect().width),
+      topRatio: dialog.getBoundingClientRect().top / innerHeight,
+      heights: options.slice(0, 12).map((option) => Math.round(option.getBoundingClientRect().height)),
+      visible: visible.length,
+      highlighted,
+      hints,
+    };
+  });
+  expect(layout.width).toBe(600);
+  expect(layout.topRatio).toBeGreaterThan(0.12);
+  expect(layout.topRatio).toBeLessThan(0.16);
+  expect(new Set(layout.heights)).toEqual(new Set([36]));
+  expect(layout.visible).toBeGreaterThanOrEqual(10);
+  expect(layout.highlighted).toBeGreaterThanOrEqual(0);
+  layout.hints.forEach((display, index) => {
+    if (display === null) return;
+    expect(display).toBe(index === layout.highlighted ? "block" : "none");
+  });
+});

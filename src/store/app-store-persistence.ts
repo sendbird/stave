@@ -328,10 +328,6 @@ export function createAppStorePersistenceOptions() {
       state.settings.kickoffSourceConfigs = normalizeKickoffSourceConfigs(
         raw.kickoffSourceConfigs,
       );
-      state.settings.showPresetBar =
-        typeof raw.showPresetBar === "boolean"
-          ? raw.showPresetBar
-          : defaultSettings.showPresetBar;
       state.settings.showConversationTurnRail =
         typeof raw.showConversationTurnRail === "boolean"
           ? raw.showConversationTurnRail

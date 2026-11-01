@@ -1,7 +1,6 @@
-import { i18n, Trans, useTranslation } from "@/i18n";
+import { i18n, useTranslation } from "@/i18n";
 import type { KeyboardEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
-import { ToolApprovalCard } from "@/components/session/ToolApprovalCard";
 import { Button, Kbd } from "@/components/ui";
 import { buildShortQuestionAnswers } from "@/lib/fleet/inline-interaction";
 import type { FleetInteractionResponse } from "@/lib/fleet/interaction-respond";
@@ -86,11 +85,12 @@ export function describeFleetRowKeys(
 }
 
 /**
- * The request a Fleet row names, answered in the row: an approval as the same
- * compact approval card the composer uses, a short question as its options.
- * Long forms, other repositories and requests that are no longer pending say
- * so and leave the row's Open action to take over. There is no Undo: an
- * answer is delivered to the agent the moment it is given.
+ * The request a Fleet row names, answered on the row's own line: Allow and
+ * Deny for an approval (with their A / D keys), the numbered options for a
+ * short question. Always allow and the full request stay one Open away, in
+ * the task's controls. Long forms, other repositories and requests that are
+ * no longer pending say so and leave the row's Open action to take over.
+ * There is no Undo: an answer is delivered to the agent the moment it is given.
  */
 export function FleetRowInlineAnswer(props: {
   interaction: FleetRowInteraction;
@@ -121,75 +121,73 @@ export function FleetRowInlineAnswer(props: {
   }
 
   return (
-    <div className={sx(styles.inlineAnswer)} data-fleet-inline-answer={inline.kind}>
-      {inline.kind === "approval" ? (
-        <ToolApprovalCard
-          actions={
-            interaction.busy ? undefined : (
-              <span aria-hidden="true" className={sx(styles.inlineKeyHint)}>
-                <Trans
-                  i18n={i18n}
-                  ns="fleet"
-                  i18nKey="inlineAnswer.approvalKeys"
-                  components={{ key: <Kbd /> }}
-                />
-              </span>
-            )
-          }
-          allowAlways={!interaction.managed}
-          busy={interaction.busy}
-          density="compact"
-          onDecide={(decision) =>
-            onAnswer({
-              kind: "approval",
-              approved: decision.approved,
-              scope: decision.scope,
-            })
-          }
-          part={inline.part}
-        />
+    <div className={sx(styles.inlineAnswerCompact)} data-fleet-inline-answer={inline.kind}>
+      {inline.kind === "approval" && !interaction.busy ? (
+        <>
+          <Button
+            aria-keyshortcuts="A"
+            aria-label={i18n.t("fleet:inlineAnswer.allowOnceLabel", { tool: inline.part.toolName })}
+            onClick={() => onAnswer({ kind: "approval", approved: true, scope: "once" })}
+            size="sm"
+            type="button"
+            xstyle={styles.inlineOptionCompact}
+          >
+            <Kbd aria-hidden="true">A</Kbd>
+            {i18n.t("fleet:inlineAnswer.allow")}
+          </Button>
+          <Button
+            aria-keyshortcuts="D"
+            aria-label={i18n.t("fleet:inlineAnswer.denyLabel", { tool: inline.part.toolName })}
+            onClick={() => onAnswer({ kind: "approval", approved: false })}
+            size="sm"
+            type="button"
+            variant="outline"
+            xstyle={styles.inlineOptionCompact}
+          >
+            <Kbd aria-hidden="true">D</Kbd>
+            {i18n.t("fleet:inlineAnswer.deny")}
+          </Button>
+        </>
       ) : null}
       {inline.kind === "short-question" ? (
         <div
           aria-label={i18n.t("fleet:inlineAnswer.optionsLabel", {
             question: inline.question.question,
           })}
-          className={sx(styles.inlineQuestion)}
+          className={sx(styles.inlineOptionsCompact)}
           role="group"
+          title={inline.question.question}
         >
-          <p className={sx(styles.inlineQuestionText)}>{inline.question.question}</p>
-          <div className={sx(styles.inlineOptions)}>
-            {inline.options.map((option, index) => (
-              <Button
-                aria-keyshortcuts={index < 9 ? String(index + 1) : undefined}
-                disabled={interaction.busy}
-                key={option.value}
-                onClick={() =>
-                  onAnswer({
-                    kind: "user-input",
-                    answers: buildShortQuestionAnswers(inline.question, option),
-                  })
-                }
-                size="sm"
-                title={option.description}
-                type="button"
-                variant="outline"
-                xstyle={styles.inlineOption}
-              >
-                <Kbd aria-hidden="true">{index + 1}</Kbd>
-                {option.label}
-              </Button>
-            ))}
-          </div>
+          {inline.options.map((option, index) => (
+            <Button
+              aria-keyshortcuts={index < 9 ? String(index + 1) : undefined}
+              disabled={interaction.busy}
+              key={option.value}
+              onClick={() =>
+                onAnswer({
+                  kind: "user-input",
+                  answers: buildShortQuestionAnswers(inline.question, option),
+                })
+              }
+              size="sm"
+              title={option.description}
+              type="button"
+              variant="outline"
+              xstyle={styles.inlineOptionCompact}
+            >
+              <Kbd aria-hidden="true">{index + 1}</Kbd>
+              {option.label}
+            </Button>
+          ))}
         </div>
       ) : null}
       {interaction.error ? (
-        <p className={sx(styles.inlineNote, styles.inlineNoteError)} role="alert">
+        <p className={sx(styles.inlineNote, styles.inlineNoteCompact, styles.inlineNoteError)} role="alert" title={interaction.error}>
           {interaction.error}
         </p>
-      ) : note ? (
-        <p aria-live="polite" className={sx(styles.inlineNote)} role="status">
-          {note}
+      ) : note || (inline.kind === "approval" && interaction.busy) ? (
+        <p aria-live="polite" className={sx(styles.inlineNote, styles.inlineNoteCompact)} role="status">
+          {note ?? i18n.t("fleet:inlineAnswer.sending")}
         </p>
       ) : null}
     </div>

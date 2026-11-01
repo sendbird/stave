@@ -12,7 +12,15 @@
     "newLens": "새 Lens",
     "paneOptions": "패널 옵션",
     "taskHistory": "작업 기록",
-    "showPresetBar": "프리셋 바 표시"
+    "moreTasks_other": "작업 {{count}}개 더 보기",
+    "moreTabs_other": "탭 {{count}}개 더 보기"
+  },
+  "paneNewTab": {
+    "launchPreset": "새 작업: {{label}}",
+    "presets": "프리셋",
+    "restoreDefaults": "기본 프리셋 복원",
+    "managePresets": "프리셋 관리…",
+    "cliSessionPreset": "{{label}} — CLI 세션"
   },
   "paneTabChip": {
     "unsavedChanges": "저장되지 않은 변경 사항",
@@ -22,7 +30,17 @@
     "cLISession": "CLI 세션",
     "terminal": "터미널",
     "editor": "편집기",
-    "compareRun": "비교 실행"
+    "compareRun": "비교 실행",
+    "accessibleNameFull": "{{title}}, {{provider}}, {{status}}",
+    "accessibleNamePart": "{{title}}, {{detail}}",
+    "status": {
+      "awaitingApproval": "승인 대기 중",
+      "awaitingInput": "답변 대기 중",
+      "stalled": "정체됨",
+      "working": "작업 중"
+    },
+    "opened": "{{title}} 열림",
+    "closed": "{{title}} 닫힘"
   },
   "paneWatermark": {
     "noOpenTabs": "열린 탭 없음",

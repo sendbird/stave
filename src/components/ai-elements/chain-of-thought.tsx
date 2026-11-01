@@ -25,11 +25,9 @@ import {
 import { Brain, Check, ChevronDown, Circle } from "lucide-react";
 import { Loader } from "@/components/ui/loader";
 import { cx, sx } from "@/components/ads/utils/stylex";
-import {
-  getRandomCompletionPhraseKey,
-  getSeededCompletionPhraseKey,
-} from "@/lib/completion-phrases";
+import { usePrefersReducedMotion } from "@/hooks/use-prefers-reduced-motion";
 import { ThinkingPhraseLabel } from "./thinking-phrase";
+import { TranscriptWideScope } from "./transcript-wide";
 import { chainOfThoughtStyles as s } from "./chain-of-thought.styles";
 
 /* ─── Data type (used by the `steps` prop shorthand) ─────────────── */
@@ -45,9 +43,11 @@ export interface ChainOfThoughtStep {
 /* ─── Summary item (shown in collapsed trigger) ──────────────────── */
 
 export interface TraceSummaryItem {
+  /** Stable key for the kind of work counted. */
+  id: string;
   icon: ReactNode;
+  /** The whole localized count, e.g. "2 reads" / "읽기 2". */
   label: string;
-  count: number;
 }
 
 /* ─── Props ──────────────────────────────────────────────────────── */
@@ -60,11 +60,7 @@ interface ChainOfThoughtProps extends HTMLAttributes<HTMLDivElement> {
   steps?: ChainOfThoughtStep[];
   /** Summary items shown in the trigger when collapsed and not streaming. */
   summaryItems?: TraceSummaryItem[];
-  /** Stable seed for deterministic completion phrase selection.
-   *  When provided, the trigger phrase stays consistent across
-   *  Virtuoso unmount/remount cycles (e.g. message ID). */
-  seed?: string;
-  /** Completed turn duration, appended to the collapsed completion phrase. */
+  /** Total reasoning time, shown beside the collapsed title. */
   durationSeconds?: number;
 }
 
@@ -102,7 +98,6 @@ interface ChainOfThoughtContextValue {
   open: boolean;
   setOpen: (next: boolean) => void;
   summaryItems: TraceSummaryItem[];
-  seed?: string;
   durationSeconds?: number;
 }
 
@@ -214,7 +209,6 @@ export function ChainOfThought({
   collapseWhen = false,
   steps,
   summaryItems = [],
-  seed,
   durationSeconds,
   children,
   ...props
@@ -245,8 +239,8 @@ export function ChainOfThought({
   }, [collapseWhen, openWhen]);
 
   const contextValue = useMemo(
-    () => ({ isStreaming, open, setOpen, summaryItems, seed, durationSeconds }),
-    [isStreaming, open, summaryItems, seed, durationSeconds],
+    () => ({ isStreaming, open, setOpen, summaryItems, durationSeconds }),
+    [isStreaming, open, summaryItems, durationSeconds],
   );
 
   const resolvedChildren = children ?? (
@@ -283,22 +277,18 @@ export function ChainOfThoughtTrigger(
     completionLabel,
     className,
     ...args
-  }: ButtonHTMLAttributes<HTMLButtonElement> & { completionLabel?: string },
+  }: ButtonHTMLAttributes<HTMLButtonElement> & {
+    /**
+     * The finished turn's title: what it did, or how it ended ("Run failed").
+     * While the turn runs, the header shows a rotating playful status instead.
+     */
+    completionLabel?: string;
+  },
 ) {
   useTranslation();
-  const { isStreaming, open, setOpen, summaryItems, seed, durationSeconds } =
+  const { isStreaming, open, setOpen, summaryItems, durationSeconds } =
     useChainOfThoughtContext();
   const showSummary = !open && !isStreaming && summaryItems.length > 0;
-
-  /* Pick a completion phrase that is stable across Virtuoso unmount/remount
-     cycles. When a seed is provided (typically the message ID), use the
-     deterministic seeded variant so the same message always shows the same
-     phrase. Fall back to the random variant for non-virtual contexts. */
-  const completionPhrase = useMemo(
-    () =>
-      seed ? getSeededCompletionPhraseKey(seed) : getRandomCompletionPhraseKey(),
-    [seed],
-  );
 
   const showDuration =
     !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
@@ -353,11 +343,16 @@ export function ChainOfThoughtTrigger(
       ) : (
         <>
           <span className={sx(s.completionLabel)}>
-            {completionLabel ?? i18n.t(completionPhrase)}
+            {completionLabel ?? i18n.t("composer:chainOfThought.finished")}
           </span>
           {showDuration ? (
-            <span className={sx(agentSurface.meta, s.durationLabel)}>
-              {i18n.t("composer:chainOfThought.chainOfThoughtTrigger", { duration: formatDuration(durationSeconds * 1_000) })}
+            <span
+              className={sx(agentSurface.meta, s.durationLabel)}
+              title={i18n.t("composer:chainOfThought.reasoningTime", {
+                duration: formatDuration(durationSeconds * 1_000),
+              })}
+            >
+              {formatDuration(durationSeconds * 1_000)}
             </span>
           ) : null}
         </>
@@ -367,7 +362,7 @@ export function ChainOfThoughtTrigger(
       {showSummary ? (
         <span className={sx(s.summary)}>
           {summaryItems.map((item, index) => (
-            <span key={item.label} className={sx(s.summaryItem)}>
+            <span key={item.id} className={sx(s.summaryItem)}>
               {index > 0 ? (
                 <span className={sx(s.summaryDivider)} aria-hidden="true">
                   ·
@@ -376,9 +371,7 @@ export function ChainOfThoughtTrigger(
               <span className={sx(s.summaryItemIcon)}>
                 {withIconSize(item.icon)}
               </span>
-              <span>
-                {item.count} {item.label}
-              </span>
+              <span>{item.label}</span>
             </span>
           ))}
         </span>
@@ -389,10 +382,22 @@ export function ChainOfThoughtTrigger(
 
 /* ─── Content container ───────────────────────────────────────────── */
 
+type ContentPhase = "closed" | "entering" | "open" | "exiting";
+
+/** Upper bound for a phase whose `animationend` never arrives (hidden pane). */
+const CONTENT_PHASE_FALLBACK_MS = 400;
+
 /*
- * Unmounts when closed rather than animating a collapse. Keeping long trace
- * subtrees out of the render tree matters more than a close transition here —
- * see docs/architecture/chat-message-rendering.md.
+ * Unmounts once closed: keeping long trace subtrees out of the render tree
+ * matters more than keeping them warm — see
+ * docs/architecture/chat-message-rendering.md. A toggle still animates both
+ * ways: the panel opens and closes on its row track (`grid-template-rows`
+ * 0fr ↔ 1fr) with the content fading, and only unmounts after the close has
+ * played. Under reduced motion the panel switches at once.
+ *
+ * A trace that mounts already open (a streaming turn, a remount while
+ * scrolling) keeps the reveal wipe instead; the row-track motion answers the
+ * reader's own toggle.
  */
 export function ChainOfThoughtContent({
   className,
@@ -400,7 +405,32 @@ export function ChainOfThoughtContent({
 }: HTMLAttributes<HTMLDivElement>) {
   useTranslation();
   const { open } = useChainOfThoughtContext();
-  if (!open) return null;
+  const reduceMotion = usePrefersReducedMotion();
+  const [phase, setPhase] = useState<ContentPhase>(open ? "open" : "closed");
+  const [previousOpen, setPreviousOpen] = useState(open);
+  const [toggled, setToggled] = useState(false);
+  if (open !== previousOpen) {
+    setPreviousOpen(open);
+    setToggled(true);
+    setPhase(
+      open
+        ? reduceMotion ? "open" : "entering"
+        : reduceMotion ? "closed" : "exiting",
+    );
+  }
+
+  useEffect(() => {
+    if (phase !== "entering" && phase !== "exiting") return;
+    const settled = phase === "entering" ? "open" : "closed";
+    const timer = window.setTimeout(
+      () => setPhase((current) => (current === phase ? settled : current)),
+      CONTENT_PHASE_FALLBACK_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [phase]);
+
+  if (phase === "closed") return null;
+  const moving = phase === "entering" || phase === "exiting";
 
   /*
    * No height cap here. Capping the whole trace pushed the *step rows*
@@ -418,13 +448,39 @@ export function ChainOfThoughtContent({
    * emission order.
    */
   return (
-    <StepRail
-      className={className}
-      rail={false}
-      density="compact"
-      xstyle={[s.content, s.contentTraceMotion]}
-      {...args}
-    />
+    <div
+      className={sx(
+        s.collapse,
+        phase === "entering" && s.collapseEntering,
+        phase === "exiting" && s.collapseExiting,
+      )}
+      onAnimationEnd={(event) => {
+        if (event.target !== event.currentTarget) return;
+        setPhase((current) =>
+          current === "entering" ? "open" : current === "exiting" ? "closed" : current,
+        );
+      }}
+    >
+      <div
+        className={sx(
+          s.collapseBody,
+          toggled && s.collapseBodyToggled,
+          moving && s.collapseBodyMoving,
+          phase === "entering" && s.collapseBodyEntering,
+          phase === "exiting" && s.collapseBodyExiting,
+        )}
+      >
+        <TranscriptWideScope enabled={false}>
+          <StepRail
+            className={className}
+            rail={false}
+            density="compact"
+            xstyle={[s.content, !toggled && s.contentTraceMotion]}
+            {...args}
+          />
+        </TranscriptWideScope>
+      </div>
+    </div>
   );
 }
 
