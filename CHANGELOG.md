@@ -1,3 +1,31 @@
+## [0.29.0](https://github.com/sendbird/stave/compare/v0.28.4...v0.29.0) (2026-11-01)
+
+This minor release includes all seven merged changes since 0.28.4 (PRs #862–#868).
+
+### Changes
+
+- Agents: add Supervisor, an Auto main agent that plans, delegates and verifies work with a shared 60-turn team budget. Run context includes cached account usage for both providers, with unknown and model-specific limits kept separate.
+- Delegation: refuse a model's new helper or retry on an exhausted account or model window, and on a critical account when the other provider has room. Unknown usage does not refuse work; an explicit user request can override the check.
+- Editor: open HTML files in a sandboxed preview with a source toggle, remember each tab's mode, and support saving while the preview has focus. Tab activation restores the selected tab's own view.
+- Settings: group sections into searchable pages and tabs, show optional providers when set up, preserve saved choices and deep links, and fold expert controls into Advanced.
+- UI: tighten layout and density, align transcript and composer edges, stabilize tool-group expansion, and use shared motion tokens for touched controls.
+- Agent runs: show later stages as expandable stage cards. Under When behavior changes, verified unchanged work can finish without Review and Fix; Always and sign-off requirements still require review.
+- Runtime: restore Lens zoom shortcuts and pinch zoom, keep Auto replies on the active run's admitted provider, and resolve supervision models from matching-provider history.
+
+### Upgrade Notes
+
+- Remove the expired `agent-run-adaptive-draft-key` migration. A turn still queued from 0.27.0 with `agentRunAdaptive` is no longer converted and fails the strict queued-turn schema. Upgrade through 0.28.x and save queued work before moving an old profile directly to 0.29.0.
+- Existing workflows without `skipIfWorkUnchanged` retain their saved review sequence. Existing malformed run policies are not rewritten; restart an affected run if necessary.
+- The remaining temporary migrations expire in 0.30.0 and 0.31.0.
+
+### Known Limits
+
+- Release validation does not exercise packaged upgrades, live Supervisor/provider accounts, optional CLI availability or hardware pinch gestures.
+
+### References
+
+- [PR #862](https://github.com/sendbird/stave/pull/862), [PR #863](https://github.com/sendbird/stave/pull/863), [PR #864](https://github.com/sendbird/stave/pull/864), [PR #865](https://github.com/sendbird/stave/pull/865), [PR #866](https://github.com/sendbird/stave/pull/866), [PR #867](https://github.com/sendbird/stave/pull/867), [PR #868](https://github.com/sendbird/stave/pull/868)
+
 ## [0.28.4](https://github.com/sendbird/stave/compare/v0.28.3...v0.28.4) (2026-10-31)
 
 This patch release includes all six merged changes since 0.28.3 (PRs #855–#860). It moves the Atelier connectors to Atelier's new hosts, lets Claude plugin MCP servers read tokens from the shell profile, records provider safety reviews, groups usage accounts by provider, and fixes icon and row alignment. The requested patch version is retained although two changes add features.

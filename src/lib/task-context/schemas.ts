@@ -419,18 +419,6 @@ const PromptDraftQueuedTurnSchema = z
   })
   .strict();
 
-// temporary-migration: agent-run-adaptive-draft-key
-// A turn queued while the composer's Auto adjust toggle existed carries
-// `agentRunAdaptive`; the queued-turn schema is strict, so the key is dropped
-// before parsing and is not saved again.
-function withoutAgentRunAdaptive(value: unknown) {
-  if (!value || typeof value !== "object" || !("agentRunAdaptive" in value)) return value;
-  const { agentRunAdaptive: _retired, ...rest } = value as Record<string, unknown>;
-  return rest;
-}
-const SavedPromptDraftQueuedTurnSchema = z.preprocess(withoutAgentRunAdaptive, PromptDraftQueuedTurnSchema);
-// end temporary-migration: agent-run-adaptive-draft-key
-
 const PromptDraftBatchItemSchema = z
   .object({
     id: z.string(),
@@ -960,7 +948,7 @@ export const WorkspaceSnapshotSchema = z.object({
         attachments: z.array(AttachmentSchema).optional().default([]),
         runtimeOverrides: PromptDraftRuntimeOverridesSchema.optional(),
         promptBatch: z.array(PromptDraftBatchItemSchema).optional(),
-        queuedTurns: z.array(SavedPromptDraftQueuedTurnSchema).optional(),
+        queuedTurns: z.array(PromptDraftQueuedTurnSchema).optional(),
         queuedNextTurn: PromptDraftQueuedNextTurnSchema.optional(),
       }),
     )

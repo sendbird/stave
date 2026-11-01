@@ -3,18 +3,6 @@
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
   "migrations": [
     {
-      "id": "agent-run-adaptive-draft-key",
-      "description": "The composer's Auto adjust toggle was removed after 0.27.0: every Agent run now freezes team limits on its own. A turn queued before then carries agentRunAdaptive, and the queued-turn schema is strict, so workspace snapshot parsing drops the key before parsing. At expiry, delete the marked block and parse queued turns with the plan-mode-free schema; a turn still queued from 0.27.0 then fails the strict schema.",
-      "introducedAfter": "0.27.0",
-      "removeInVersion": "0.29.0",
-      "files": [
-        "src/lib/task-context/schemas.ts"
-      ],
-      "tests": [
-        "tests/agent-run-adaptive-draft-key-migration.test.ts"
-      ]
-    },
-    {
       "id": "aux-lane-single-switch",
       "description": "Through 0.27.3 pre-PR review ran only when prePrReviewEnabled and its Background AI lane's enabled were both on, and inline completion only when editorAiCompletions and its lane's enabled were both on. After 0.27.3 pre-PR review uses only its lane enabled and inline completion only editorAiCompletions. Settings rehydration writes the old AND into the switch that stays (a pre-PR review lane saved without enabled counts as on, the old lane default; for a profile that still has prePrReviewEnabled, an inline-completion lane missing or saved without enabled counts as off, the old lane default), drops prePrReviewEnabled and the inline-completion lane's enabled, and runs only while one of them is still saved. At expiry, delete the marked blocks and the wrapper call in app.store.ts; a profile that skipped these releases keeps its pre-PR review lane value (on unless it was turned off there) and its editorAiCompletions value, so a lane that was off through only its other switch turns on.",
       "introducedAfter": "0.27.3",
